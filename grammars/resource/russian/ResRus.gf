@@ -50,6 +50,7 @@ lincat
       -- = Adjective ** {p : IsPostfixAdj} ; 
   Fun    = Function ;  
       -- = CommNounPhrase ** Complement ;
+ Fun2   = Function ** {s3 : Preposition; c2: Case} ;
 
   V      = Verb ; 
       -- = {s : VF => Str ; t: Tense ; a : Aspect ; v: Voice} ;
@@ -58,6 +59,7 @@ lincat
       --            negBefore: Bool} ;
   TV     = TransVerb ; 
       -- = Verb ** {s2 : Preposition ; c: Case } ; 
+ V3     = TransVerb ** {s4 : Preposition; c2: Case} ;
   VS     = SentenceVerb ;
       -- = Verb ;
   AdV    = Adverb ;
@@ -81,6 +83,7 @@ lincat
       -- = { s: Gender => Number => Str } ;
   Phr    = Utterance ;
       -- = {s : Str} ;
+ Text   = {s : Str} ;
 
   Conj   = Conjunction ;
       -- = {s : Str ; n : Number} ;
@@ -134,6 +137,7 @@ lin
   AdvVP = adVerbPhrase ;
   LocNP = locativeNounPhrase ;
   AdvCN = advCommNounPhrase ;
+-- AdvAP = advAdjPhrase ;
 
   PosSlashTV = slashTransVerb True ;
   NegSlashTV = slashTransVerb False ;
@@ -164,6 +168,7 @@ lin
   QuestPhrase = interrogUtt ;
   ImperOne = imperUtterance Masc Sg ;
   ImperMany = imperUtterance Masc Pl ;
+ --AdvS = advSentence ;
 
   TwoS = twoSentence ;
   ConsS = consSentence ;
@@ -189,6 +194,8 @@ lin
   PhrManyCN = useCommonNounPhrase Pl ;
   PhrIP ip = postfixSS "?" ip ;
   PhrIAdv ia = postfixSS "?" ia ;
+ OnePhr p = p ;
+ ConsPhr = cc2 ;
 
 
   INP    = pron2NounPhrase pronYa Animate;
@@ -227,4 +234,8 @@ lin
   PhrYes = ss ["да ."] ;
   PhrNo = ss ["нет ."] ;
 
+  VeryAdv = ss "очень" ;
+  TooAdv = ss "слишком" ;
+  OtherwiseAdv = ss "иначе" ;
+  ThereforeAdv = ss "следовательно" ;
 } ;
