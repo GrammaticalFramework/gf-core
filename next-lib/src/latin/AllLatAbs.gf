@@ -1,1 +1,0 @@
-abstract AllLatAbs = Lang ;
