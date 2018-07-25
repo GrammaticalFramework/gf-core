@@ -43,3 +43,4 @@ src/ui/android/libs/
 src/ui/android/obj/
 .cabal-sandbox
 cabal.sandbox.config
+DATA_DIR

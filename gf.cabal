@@ -349,13 +349,6 @@ executable pgf-shell
   if impl(ghc>=7.0)
     ghc-options: -rtsopts
 
-test-suite rgl-tests
-  type:           exitcode-stdio-1.0
-  main-is:        run.hs
-  hs-source-dirs: lib/tests/
-  build-depends:  base, HTF, process, HUnit, filepath, directory
-  default-language:    Haskell2010
-
 test-suite gf-tests
   type:           exitcode-stdio-1.0
   main-is:        run.hs
