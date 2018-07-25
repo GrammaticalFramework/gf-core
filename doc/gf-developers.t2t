@@ -57,7 +57,7 @@ of the Haskell Platform	 was successful you should see a message like:
 The Glorious Glasgow Haskell Compilation System, version 8.0.2
 ```
 
-Other required tools included in the Haskell Platform are 
+Other required tools included in the Haskell Platform are
 [Cabal http://www.haskell.org/cabal/],
 [Alex http://www.haskell.org/alex/]
 and
@@ -105,24 +105,23 @@ GF then you should consider getting read-write access.
 
 ==== Getting a fresh copy for read-only access ====
 
-Anyone can get the latest development version of GF by running (all on one line):
+Anyone can get the latest development version of GF by running:
 
 ```
-$ git clone https://github.com/GrammaticalFramework/GF.git
+$ git clone https://github.com/GrammaticalFramework/gf-core.git
+$ git clone https://github.com/GrammaticalFramework/gf-rgl.git
 ```
 
-This will create a directory called ``GF`` in the current
-directory.
+This will create directories ``gf-core`` and ``gf-rgl`` in the current directory.
 
 
 ==== Updating your copy ====
 
-To get all new patches from the main repo:
+To get all new patches from each repo:
 ```
 $ git pull
 ```
-This can be done anywhere in your local repository, i.e. in the ``gf``
-directory, or any of its subdirectories.
+This can be done anywhere in your local repository.
 
 
 ==== Recording local changes ====[record]
@@ -130,7 +129,7 @@ directory, or any of its subdirectories.
 Since every copy is a repository, you can have local version control
 of your changes.
 
-If you have added files, you first need to tell your local repository to 
+If you have added files, you first need to tell your local repository to
 keep them under revision control:
 
 ```
@@ -151,30 +150,6 @@ all if you want to keep the changes only in your local repo.
 Instead of enumerating all modified files on the command line,
 you can use the flag ``-a`` to automatically record //all// modified
 files. You still need to use ``git add`` to add new files.
-
-
-%==== Submitting patches ====
-%
-%If you are using read-only access, send your patches by email to
-%someone with write-access. First record your changes in your local 
-%repository, as described above. You can send any number of recorded
-%patches as one patch bundle. You create the patch bundle with:
-%
-%```
-%$ darcs send -o mypatch.patch
-%$ gzip mypatch.patch
-%```
-%
-%(where ``mypatch`` is hopefully replaced by a slightly more
-%descriptive name). Since some e-mail setups change text attachments
-%(most likely by changing the newline characters) you need to send
-%the patch in some compressed format, such as GZIP, BZIP2 or ZIP.
-%
-%Send it as an e-mail attachment.
-%% If you have
-%%sendmail or something equivalent installed, it is possible to send the
-%%patch directly from darcs. If so, replace ``-o mypatch.patch`` with
-%%``--to=EMAIL`` where ``EMAIL`` is the address to send it to.
 
 
 === Read-write access ===
@@ -203,7 +178,7 @@ case, all you need to do to compile and install GF, after downloading the
 source code as described above, is
 
 ```
-$ cd gf
+$ cd GF
 $ cabal install
 ```
 
@@ -437,6 +412,27 @@ bindings are found in the ``src/runtime/python`` and ``src/runtime/java``
 directories, respecively. Compile them by following the instructions in
 the ``INSTALL`` files in those directories.
 
+== Compilation of RGL ==
+
+As of 2018-07-26, the RGL is distributed separately from the GF compiler and runtimes.
+
+=== Simple ===
+To install the RGL, you can use the following commands from within the ``gf-rgl`` repository:
+```
+make install
+```
+There is also ``make build``, ``make copy`` and ``make clean`` which do what you might expect.
+
+=== Advanced ===
+```
+runghc Make.hs ...
+```
+For more details see the [README https://github.com/GrammaticalFramework/gf-rgl/blob/master/README.md].
+
+=== Haskell-free ===
+```
+./Make.sh
+```
 
 == Creating binary distribution packages ==
 
@@ -519,7 +515,7 @@ $ cabal test
 ```
 The testsuite architecture for GF is very simple but still very flexible.
 GF by itself is an interpreter and could execute commands in batch mode.
-This is everything that we need to organize a testsuite. The root of the 
+This is everything that we need to organize a testsuite. The root of the
 testsuite is the testsuite/ directory. It contains subdirectories which
 themself contain GF batch files (with extension .gfs). The above command
 searches the subdirectories of the testsuite/ directory for files with extension

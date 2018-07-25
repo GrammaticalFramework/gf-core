@@ -9,7 +9,7 @@ category: Natural Language Processing, Compiler
 synopsis: Grammatical Framework
 description: GF, Grammatical Framework, is a programming language for multilingual grammar applications
 homepage: http://www.grammaticalframework.org/
-bug-reports: https://github.com/GrammaticalFramework/GF/issues
+bug-reports: https://github.com/GrammaticalFramework/gf-core/issues
 maintainer: Thomas Hallgren
 tested-with: GHC==7.6.3, GHC==7.8.3, GHC==7.10.3, GHC==8.0.2
 
@@ -49,7 +49,7 @@ custom-setup
 
 source-repository head
   type:     git
-  location: https://github.com/GrammaticalFramework/GF.git
+  location: https://github.com/GrammaticalFramework/gf-core.git
 
 flag interrupt
   Description: Enable Ctrl+Break in the shell

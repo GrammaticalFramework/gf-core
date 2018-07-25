@@ -55,7 +55,7 @@ Linux distributions.
 The packages for macOS (Mac OS X) should work on at
 least 10.11 and 10.12 (El Capitan and Sierra).
 
-%(*) **Note** that for compatibility with OS X 10.11 and newer, 
+%(*) **Note** that for compatibility with OS X 10.11 and newer,
 %``gf-3.9.pkg`` will install the ``gf`` executable in ``/usr/local/bin``
 %instead of ``/usr/bin``, so make sure ``/usr/local/bin`` is in your  ``$PATH``.
 %Also, if you still have an older version of GF installed in ``/usr/bin``,
@@ -143,22 +143,34 @@ The first time:
 %, assuming you already have the Haskell Platform and darcs
 
 ```
-  git clone https://github.com/GrammaticalFramework/GF.git
-  cd GF
+  git clone https://github.com/GrammaticalFramework/gf-core.git
+  cd gf-core
   cabal install
+```
+
+and
+
+```
+  git clone https://github.com/GrammaticalFramework/gf-rgl.git
+  cd gf-rgl
+  make
 ```
 
 Subsequently:
 
 ```
-  cd GF
+  cd gf-core
   git pull
   cabal install
 ```
 
-%Alternatively, you can get the code from the
-%[GF GitHub https://github.com/GrammaticalFramework/GF/] mirror, which is
-%updated nightly.
+and
+
+```
+  cd gf-rgl
+  git pull
+  make
+```
 
 The above notes for installing from source apply also in these cases.
 For more info on working with the GF source code, see the

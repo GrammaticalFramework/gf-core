@@ -2,7 +2,7 @@
 
 # Grammatical Framework (GF)
 
-[![Build Status](https://travis-ci.org/GrammaticalFramework/GF.svg?branch=master)](https://travis-ci.org/GrammaticalFramework/GF)
+[![Build Status](https://travis-ci.org/GrammaticalFramework/gf-core.svg?branch=master)](https://travis-ci.org/GrammaticalFramework/gf-core)
 
 The Grammatical Framework is a grammar formalism based on type theory.
 It consists of:
