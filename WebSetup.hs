@@ -1,6 +1,6 @@
 module WebSetup(buildWeb,installWeb,copyWeb,numJobs,execute) where
 
-import System.Directory(createDirectoryIfMissing,copyFile,doesDirectoryExist)
+import System.Directory(createDirectoryIfMissing,copyFile,doesDirectoryExist,doesFileExist)
 import System.FilePath((</>),dropExtension)
 import System.Process(rawSystem)
 import System.Exit(ExitCode(..))
@@ -45,21 +45,20 @@ example_grammars =
 contrib_dir :: FilePath
 contrib_dir = ".."</>"gf-contrib"
 
-buildWeb :: String -> (BuildFlags, PackageDescription, LocalBuildInfo) -> IO ()
-buildWeb gf (flags,pkg,lbi) = do
+buildWeb :: String -> BuildFlags -> (PackageDescription, LocalBuildInfo) -> IO ()
+buildWeb gf flags (pkg,lbi) = do
   contrib_exists <- doesDirectoryExist contrib_dir
   if contrib_exists
   then mapM_ build_pgf example_grammars
   else putStr $ unlines
-    [ "---"
-    , "Example grammars are no longer included in the main GF repository, but have moved to gf-contrib."
+    [ "Example grammars are no longer included in the main GF repository, but have moved to gf-contrib."
     , "If you want these example grammars to be built, clone this repository in the same top-level directory as GF:"
     , "https://github.com/GrammaticalFramework/gf-contrib.git"
-    , "---"
     ]
   where
     gfo_dir = buildDir lbi </> "examples"
 
+    build_pgf :: (String, String, [String]) -> IO Bool
     build_pgf (pgf,subdir,src) =
       do createDirectoryIfMissing True tmp_dir
          putStrLn $ "Building "++pgf
@@ -101,10 +100,13 @@ setupWeb dest (pkg,lbi) = do
     www_dir = datadir (absoluteInstallDirs pkg lbi dest) </> "www"
     gfo_dir = buildDir lbi </> "examples"
 
+    copy_pgf :: (String, String, [String]) -> IO ()
     copy_pgf (pgf,subdir,_) =
-      do let dst = grammars_dir</>pgf
+      do let src = gfo_dir </> pgf
+         let dst = grammars_dir </> pgf
          putStrLn $ "Installing "++dst
-         copyFile (gfo_dir</>pgf) dst
+         ex <- doesFileExist src
+         if ex then copyFile src dst else return ()
 
     gf_logo = "gf0.png"
 

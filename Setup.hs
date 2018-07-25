@@ -2,6 +2,8 @@ import Distribution.Simple(defaultMainWithHooks,UserHooks(..),simpleUserHooks)
 import Distribution.Simple.LocalBuildInfo(LocalBuildInfo(..),absoluteInstallDirs,datadir)
 import Distribution.Simple.Setup(BuildFlags(..),Flag(..),InstallFlags(..),CopyDest(..),CopyFlags(..),SDistFlags(..))
 import Distribution.PackageDescription(PackageDescription(..),emptyHookedBuildInfo)
+import Distribution.Simple.BuildPaths(exeExtension)
+import System.FilePath((</>),(<.>))
 
 import WebSetup
 
@@ -33,6 +35,8 @@ main = defaultMainWithHooks simpleUserHooks
 
     gfPostBuild args flags pkg lbi = do
       noRGLmsg
+      let gf = default_gf lbi
+      buildWeb gf flags (pkg,lbi)
 
     gfPostInst args flags pkg lbi = do
       noRGLmsg
@@ -65,3 +69,10 @@ saveCopyPath args flags bi = do
 -- can determine where to put the compiled RGL files
 dataDirFile :: String
 dataDirFile = "DATA_DIR"
+
+-- | Get path to locally-built gf
+default_gf :: LocalBuildInfo -> FilePath
+default_gf lbi = buildDir lbi </> exeName' </> exeNameReal
+  where
+    exeName' = "gf"
+    exeNameReal = exeName' <.> exeExtension
