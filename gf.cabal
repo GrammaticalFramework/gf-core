@@ -157,6 +157,7 @@ Library
     GF
     GF.Support
     GF.Text.Pretty
+    GF.Text.Lexing
 
   other-modules:
     GF.Main GF.Compiler GF.Interactive
@@ -267,7 +268,6 @@ Library
     GF.System.Signal
     GF.Text.Clitics
     GF.Text.Coding
-    GF.Text.Lexing
     GF.Text.Transliterations
     Paths_gf
 
