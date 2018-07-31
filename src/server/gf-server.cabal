@@ -16,17 +16,28 @@ flag http
   Description: Build pgf-http (deprecated, replaced by gf -server)
   Default: False
 
+flag fastcgi
+  Description: Build librar & pgf-service executable with fastcgi support
+  Default: True
+
 flag c-runtime
   Description: Include functionality from the C run-time library (which must be installed already)
   Default:     False
+
+flag network-uri
+   description: Get Network.URI from the network-uri package
+   default: True
 
 Library
   exposed-modules: PGFService FastCGIUtils CGIUtils ServeStaticFile RunHTTP Cache
   other-modules: URLEncoding CGI Fold
   hs-source-dirs: . transfer
 
-  build-depends: fastcgi >= 3001.0.2.2
+  if flag(fastcgi)
+    build-depends: fastcgi >= 3001.0.2.2
        -- Install it in Ubuntu with: apt-get install libghc-fastcgi-dev
+  else
+    Buildable: False
 
   build-depends:   base >=4.2 && <5,
                    time, time-compat, old-locale,
@@ -39,12 +50,16 @@ Library
                    httpd-shed>=0.4.0.2,
                    mtl,
                    exceptions,
-                   network>=2.3 && <2.6,
                    json >= 0.3.3,
                    utf8-string >= 0.3.1.1,
                    bytestring,
                    pretty,
                    random
+
+  if flag(network-uri)
+    build-depends: network-uri>=2.6, network>=2.6
+  else
+    build-depends: network>=2.3 && <2.6
 
   ghc-options: -fwarn-unused-imports
   if os(windows)
@@ -75,8 +90,11 @@ executable pgf-service
   if impl(ghc>=7.0)
     ghc-options: -rtsopts
 
-  build-depends: fastcgi >= 3001.0.2.2
+  if flag(fastcgi)
+    build-depends: fastcgi >= 3001.0.2.2
        -- Install it in Ubuntu with: apt-get install libghc-fastcgi-dev
+  else
+    Buildable: False
 
   build-depends: base >=4.2 && <5, gf-server
 
