@@ -32,6 +32,15 @@ GF particularly addresses four aspects of grammars:
 
 ## Compilation and installation
 
+### Dependencies
+
+You need the C library `fcgi`[^1].  You also need to build the C
+libraries in `src/runtime/c/`.
+
+[^1]: On ubuntu available in the package: `libfcgi-dev`
+
+### Building
+
 The simplest way of installing GF is with the command:
 ```
 cabal install

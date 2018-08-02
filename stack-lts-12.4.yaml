@@ -1,0 +1,27 @@
+resolver: lts-12.4
+
+packages:
+- ./
+- src/pgf-binary/
+- src/runtime/haskell-bind/
+- src/runtime/haskell/
+- src/tools/
+# Failed building:
+# - src/server/
+# - src/example-based/
+
+extra-deps:
+# Non-standard clone of `cgi` needed because of too strict version
+# bounds in upstream version.  Those version bounds do not play nice
+# with lts-12.4.
+- git: git@github.com:MUSTE-Project/haskell-cgi.git
+  commit: b45aabe6ccfd5aa81c5883b25fef019d60e9d9d0
+- fastcgi-3001.0.2.4
+- fst-0.10.0.1
+- network-2.6.3.6
+
+# This is where the c-libaries from `src/runtime/c/` end up.
+extra-include-dirs:
+- /usr/local/include/
+extra-lib-dirs:
+- /usr/local/lib/
