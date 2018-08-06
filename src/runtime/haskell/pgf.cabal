@@ -1,5 +1,5 @@
 name: pgf
-version: 3.9-git
+version: 3.9.1-git
 
 cabal-version: >= 1.20
 build-type: Simple

@@ -17,6 +17,7 @@ module PGF(
            -- * PGF
            PGF,
            readPGF,
+           parsePGF,
 
            -- * Identifiers
            CId, mkCId, wildCId,
@@ -165,7 +166,7 @@ import PGF.Macros
 import PGF.Expr (Tree)
 import PGF.Morphology
 import PGF.Data
-import PGF.Binary()
+import PGF.Binary ()
 import qualified PGF.Forest as Forest
 import qualified PGF.Parse as Parse
 import PGF.Utilities(replace)
@@ -175,6 +176,7 @@ import qualified Data.Map as Map
 --import qualified Data.IntMap as IntMap
 --import Data.Maybe
 import Data.Binary
+import Data.ByteString.Lazy (ByteString)
 import Data.List(mapAccumL)
 --import System.Random (newStdGen)
 --import Control.Monad
@@ -189,6 +191,11 @@ import Text.PrettyPrint
 --
 -- > $ gf -make <grammar file name>
 readPGF  :: FilePath -> IO PGF
+
+-- | Like @readPGF@ but you have the manage file-handling.
+--
+-- @since 3.9.1
+parsePGF :: ByteString -> PGF
 
 -- | Tries to parse the given string in the specified language
 -- and to produce abstract syntax expression.
@@ -254,7 +261,9 @@ functionType :: PGF -> CId -> Maybe Type
 -- Implementation
 ---------------------------------------------------
 
-readPGF f = decodeFile f
+readPGF = decodeFile
+
+parsePGF = decode
 
 parse pgf lang typ s =
   case parse_ pgf lang typ (Just 4) s of
