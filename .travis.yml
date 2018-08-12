@@ -11,4 +11,4 @@ before_install:
 script:
   - |
     docker run --mount src="$(pwd)",target=/home/gfer,type=bind odanoburu/gf-src:3.9 /bin/bash -c "cd /home/gfer/src/runtime/c &&
-    autoreconf -i && ./configure && make ; cd /home/gfer ; cabal install -fserver -fc-runtime --extra-lib-dirs='/usr/local/lib'"
+    autoreconf -i && ./configure && make && make install ; cd /home/gfer ; cabal install -fserver -fc-runtime --extra-lib-dirs='/usr/local/lib'"
