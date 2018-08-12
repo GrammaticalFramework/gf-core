@@ -178,7 +178,6 @@ case, all you need to do to compile and install GF, after downloading the
 source code as described above, is
 
 ```
-$ cd GF
 $ cabal install
 ```
 
@@ -419,20 +418,21 @@ As of 2018-07-26, the RGL is distributed separately from the GF compiler and run
 === Simple ===
 To install the RGL, you can use the following commands from within the ``gf-rgl`` repository:
 ```
-make install
+$ make install
 ```
 There is also ``make build``, ``make copy`` and ``make clean`` which do what you might expect.
 
 === Advanced ===
+For advanced build options, call the Haskell build script directly:
 ```
-runghc Make.hs ...
+$ runghc Make.hs ...
 ```
 For more details see the [README https://github.com/GrammaticalFramework/gf-rgl/blob/master/README.md].
 
 === Haskell-free ===
-```
-./Make.sh
-```
+If you do not have Haskell installed, you can use the simple build script ``Make.sh``
+(or ``Make.bat`` for Windows).
+
 
 == Creating binary distribution packages ==
 
