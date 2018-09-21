@@ -445,6 +445,7 @@ pgfCommands = Map.fromList [
        ],
      options = [
        ("lines","return the list of lines, instead of the singleton of all contents"),
+       ("paragraphs","return the list of paragraphs, as separated by empty lines"),
        ("tree","convert strings into trees")
        ],
      exec = getEnv $ \ opts _ (Env pgf mos) -> do
@@ -470,6 +471,7 @@ pgfCommands = Map.fromList [
          _ | isOpt "tree" opts ->
                returnFromLines [(1::Int,s)]
          _ | isOpt "lines" opts -> return (fromStrings $ lines s)
+         _ | isOpt "paragraphs" opts -> return (fromStrings $ toParagraphs $ lines s)
          _ -> return (fromString s),
      flags = [("file","the input file name")]
      }),
