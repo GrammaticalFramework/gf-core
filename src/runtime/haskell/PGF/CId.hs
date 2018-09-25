@@ -15,7 +15,7 @@ import qualified Text.PrettyPrint as PP
 
 -- | An abstract data type that represents
 -- identifiers for functions and categories in PGF.
-newtype CId = CId BS.ByteString deriving (Eq,Ord)
+newtype CId = CId { unCId :: BS.ByteString } deriving (Eq,Ord)
 
 wildCId :: CId
 wildCId = CId (BS.singleton '_')

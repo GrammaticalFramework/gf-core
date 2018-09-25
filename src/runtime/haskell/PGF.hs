@@ -20,7 +20,7 @@ module PGF(
            parsePGF,
 
            -- * Identifiers
-           CId, mkCId, wildCId,
+           CId, mkCId, wildCId, unCId,
            showCId, readCId,
            -- extra
            ppCId, pIdent, utf8CId,
