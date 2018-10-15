@@ -11,12 +11,6 @@ import WebSetup
 noRGLmsg :: IO ()
 noRGLmsg = putStrLn "Notice: the RGL is not built as part of GF anymore. See https://github.com/GrammaticalFramework/gf-rgl"
 
--- | Cabal doesn't know how to correctly create the source distribution, so
--- we print an error message with the correct instructions when someone tries
--- `cabal sdist`.
-sdistError :: PackageDescription -> Maybe LocalBuildInfo -> UserHooks -> SDistFlags -> IO ()
-sdistError _ _ _ _ = fail "Use `make sdist` to create the source distribution file"
-
 main :: IO ()
 main = defaultMainWithHooks simpleUserHooks
   { preBuild  = gfPreBuild
@@ -24,7 +18,7 @@ main = defaultMainWithHooks simpleUserHooks
   , preInst   = gfPreInst
   , postInst  = gfPostInst
   , postCopy  = gfPostCopy
-  , sDistHook = sdistError
+  , sDistHook = gfSDist
   }
   where
     gfPreBuild args  = gfPre args . buildDistPref
@@ -47,6 +41,11 @@ main = defaultMainWithHooks simpleUserHooks
       noRGLmsg
       saveCopyPath args flags (pkg,lbi)
       copyWeb flags (pkg,lbi)
+
+    -- `cabal sdist` will not make a proper dist archive, for that see `make sdist`
+    -- However this function should exit quietly to allow building gf in sandbox
+    gfSDist pkg lbi hooks flags = do
+      return ()
 
 saveInstallPath :: [String] -> InstallFlags -> (PackageDescription, LocalBuildInfo) -> IO ()
 saveInstallPath args flags bi = do
