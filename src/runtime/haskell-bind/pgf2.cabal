@@ -14,9 +14,9 @@ extra-source-files:  README
 cabal-version:       >=1.10
 
 library
-  exposed-modules:     PGF2, PGF2.Internal, SG,
+  exposed-modules:     PGF2, PGF2.Internal, SG
                        -- backwards compatibility API:
-                       PGF, PGF.Internal
+                       --, PGF, PGF.Internal
   other-modules:       PGF2.FFI, PGF2.Expr, PGF2.Type, SG.FFI
   build-depends:       base >=4.3,
                        containers, pretty
