@@ -27,6 +27,8 @@ gf:
 
 html::
 	bash bin/update_html
+	make -f lib/doc/Makefile all
+# expects a gf-rgl repository clone in lib/
 
 # Make a debian package. First add a suitable entry with the correct GF version
 # number to the top of debian/changelog.
