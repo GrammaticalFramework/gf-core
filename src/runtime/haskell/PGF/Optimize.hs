@@ -185,8 +185,8 @@ filterProductions prods0 prods
   | prods0 == prods1 = prods0
   | otherwise        = filterProductions prods1 prods
   where
-    prods1 = IntMap.foldWithKey foldProdSet IntMap.empty prods
-    hoc    = IntMap.fold (\set !hoc -> Set.fold accumHOC hoc set) IntSet.empty prods
+    prods1 = IntMap.foldrWithKey foldProdSet IntMap.empty prods
+    hoc    = IntMap.foldr (\set !hoc -> Set.fold accumHOC hoc set) IntSet.empty prods
 
     foldProdSet fid set !prods
       | Set.null set1 = prods
@@ -204,7 +204,7 @@ filterProductions prods0 prods
     accumHOC _                   hoc = hoc
 
 splitLexicalRules cnc p_prods =
-  IntMap.foldWithKey split (IntMap.empty,IntMap.empty) p_prods
+  IntMap.foldrWithKey split (IntMap.empty,IntMap.empty) p_prods
   where
     split fid set (lex,syn) =
       let (lex0,syn0) = Set.partition isLexical set
