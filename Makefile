@@ -1,4 +1,4 @@
-.PHONY: all build install doc clean gf sdist
+.PHONY: all build install doc clean gf html deb pkg bintar sdist
 
 # This gets the numeric part of the version from the cabal file
 VERSION=$(shell sed -ne "s/^version: *\([0-9.]*\).*/\1/p" gf.cabal)
