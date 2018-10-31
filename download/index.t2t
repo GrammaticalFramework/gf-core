@@ -1,12 +1,6 @@
 Grammatical Framework Download and Installation
 
 
-%!style:../css/notes.css
-%!postproc(html): <TITLE> <meta name = "viewport" content = "width = device-width"><TITLE>
-%!postproc(html): <H1> <H1><a href="../"><IMG src="../doc/Logos/gf0.png"></a>
-%!postproc(html): <TD><I> <TD><small>
-%!postproc(html): </I></TD> </small></TD>
-
 **GF 3.9** was released on 11 August 2017.
 
 What's new? See the [Release notes release-3.9.html].
@@ -190,8 +184,3 @@ For more info on working with the GF source code, see the
 - [GF 3.2 index-3.2.html] (December 2010).
 - [GF 3.1.6 index-3.1.6.html] (April 2010).
 - [GF 3.1 old-index.html] (December 2009).
-
-
---------------------
-
-[www.grammaticalframework.org http://www.grammaticalframework.org]

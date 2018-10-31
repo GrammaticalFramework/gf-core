@@ -20,6 +20,7 @@ doc:
 
 clean:
 	cabal clean
+	bash bin/clean_html
 
 gf:
 	cabal build rgl-none

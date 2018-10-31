@@ -1,0 +1,4 @@
+%!target: html
+%!options: --no-headers
+%!encoding: UTF-8
+%!postproc(html): '<TABLE CELLPADDING="4">' '<TABLE class="table">'
