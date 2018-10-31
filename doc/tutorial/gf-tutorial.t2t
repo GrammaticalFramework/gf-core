@@ -9,6 +9,7 @@ December 2010 for GF 3.2
 
 %!target:html
 %!encoding: iso-8859-1
+%!options: --toc
 
 %!postproc(tex) : "\\subsection\*" "\\newslide"
 %!preproc(tex): "#NEW" ""
