@@ -73,8 +73,8 @@ ppProduction (fid,PCoerce arg) =
 ppProduction (fid,PConst _ _ ss) =
   ppFId fid <+> text "->" <+> ppStrs ss
 
-ppCncFun (funid,CncFun fun arr) =
-  ppFunId funid <+> text ":=" <+> parens (hcat (punctuate comma (map ppSeqId (elems arr)))) <+> brackets (ppCId fun)
+ppCncFun (funid,CncFun funs arr) =
+  ppFunId funid <+> text ":=" <+> parens (hcat (punctuate comma (map ppSeqId (elems arr)))) <+> brackets (hsep (map ppCId funs))
 
 ppLinDefs (fid,funids) = 
   [ppFId fid <+> text "->" <+> ppFunId funid <> brackets (ppFId fidVar) | funid <- funids]

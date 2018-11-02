@@ -503,14 +503,14 @@ type Continuation = TrieMap.TrieMap Token ActiveSet
 -- | Return the Continuation of a Parsestate with exportable types
 --   Used by PGFService
 getContinuationInfo :: ParseState -> Map.Map [Token] [(FunId, CId, String)]
-getContinuationInfo pstate = Map.map (map f . Set.toList) contMap
+getContinuationInfo pstate = Map.map (concatMap f . Set.toList) contMap
   where
     PState _abstr concr _chart cont = pstate
     contMap = Map.fromList (TrieMap.toList cont) -- always get [([], _::ActiveSet)]
-    f :: Active -> (FunId,CId,String)
-    f (Active int dotpos funid seqid pargs ak) = (funid, cid, seq)
+    f :: Active -> [(FunId,CId,String)]
+    f (Active int dotpos funid seqid pargs ak) = [(funid, fn, seq) | fn <- fns]
       where
-        CncFun cid _ = cncfuns concr ! funid
+        CncFun fns _ = cncfuns concr ! funid
         seq = showSeq dotpos (sequences concr ! seqid)
         
     showSeq :: DotPos -> Sequence -> String

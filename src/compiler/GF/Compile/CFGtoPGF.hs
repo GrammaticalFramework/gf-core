@@ -56,7 +56,7 @@ cf2concr cfg = Concr Map.empty Map.empty
                                map mkSequence rules)
     sequences  = listArray (0,Set.size sequences0-1) (Set.toList sequences0)
 
-    idFun = CncFun wildCId (listArray (0,0) [seqid])
+    idFun = CncFun [wildCId] (listArray (0,0) [seqid])
       where
         seq   = listArray (0,0) [SymCat 0 0]
         seqid = binSearch seq sequences (bounds sequences)
@@ -77,7 +77,7 @@ cf2concr cfg = Concr Map.empty Map.empty
       let args   = [PArg [] (cat2arg c) | NonTerminal c <- ruleRhs rule]
           prod   = PApply funid args
           seqid  = binSearch (mkSequence rule) sequences (bounds sequences)
-          fun    = CncFun (mkRuleName rule) (listArray (0,0) [seqid])
+          fun    = CncFun [mkRuleName rule] (listArray (0,0) [seqid])
           funid' = funid+1
       in funid' `seq` ((funid',fun:funs),let (c,ps) = ruleLhs rule in [(cat2fid c p, prod) | p <- ps])
 

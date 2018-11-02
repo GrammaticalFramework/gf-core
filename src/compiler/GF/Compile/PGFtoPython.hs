@@ -62,7 +62,7 @@ pyConcrete cnc = pyDict 3 pyStr id [
                  ]
     where pyProds prods = pyList 5 pyProduction (Set.toList prods)
           pyCncCat (CncCat start end _) = pyList 0 pyCat [start..end]
-          pyCncFun (CncFun f lins) = pyTuple 0 id [pyList 0 pySeq (Array.elems lins), pyCId f]
+          pyCncFun (CncFun fns lins) = pyTuple 0 id [pyList 0 pySeq (Array.elems lins), pyList 0 pyCId fns]
           pySymbols syms = pyList 0 pySymbol (Array.elems syms)
 
 pyProduction :: Production -> String

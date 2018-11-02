@@ -31,7 +31,8 @@ collectWords pinfo = Map.fromListWith (++)
   [(t, [(fun,lbls ! l)]) | (CncCat s e lbls) <- Map.elems (cnccats pinfo)
                          , fid <- [s..e]
                          , PApply funid _ <- maybe [] Set.toList (IntMap.lookup fid (productions pinfo))
-                         , let CncFun fun lins = cncfuns pinfo ! funid
+                         , let CncFun funs lins = cncfuns pinfo ! funid
+                         , fun <- funs
                          , (l,seqid) <- assocs lins
                          , sym <- elems (sequences pinfo ! seqid)
                          , t <- sym2tokns sym]

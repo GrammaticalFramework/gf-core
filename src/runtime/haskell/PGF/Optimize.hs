@@ -253,7 +253,7 @@ updateConcrete abs cnc =
                                                                         , prod <- Set.toList prods
                                                                         , fun <- getFunctions prod]
       where
-        getFunctions (PApply funid args) = let CncFun fun _ = cncfuns cnc ! funid in [fun]
+        getFunctions (PApply funid args) = let CncFun funs _ = cncfuns cnc ! funid in funs
         getFunctions (PCoerce fid)       = case IntMap.lookup fid productions of
                                              Nothing    -> []
                                              Just prods -> [fun | prod <- Set.toList prods, fun <- getFunctions prod]

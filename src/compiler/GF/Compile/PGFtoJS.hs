@@ -78,7 +78,7 @@ frule2js (PCoerce arg)       = new "Coerce" [JS.EInt arg]
 
 farg2js (PArg hypos fid) = new "PArg" (map (JS.EInt . snd) hypos ++ [JS.EInt fid])
 
-ffun2js (CncFun f lins) = new "CncFun" [JS.EStr (showCId f), JS.EArray (map JS.EInt (Array.elems lins))]
+ffun2js (CncFun fns lins) = new "CncFun" [JS.EArray (map (JS.EStr . showCId) fns), JS.EArray (map JS.EInt (Array.elems lins))]
 
 seq2js :: Array.Array DotPos Symbol -> JS.Expr
 seq2js seq = JS.EArray [sym2js s | s <- Array.elems seq]

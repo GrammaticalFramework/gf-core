@@ -74,12 +74,15 @@ pgfToCFG pgf lang = mkCFG (showCId (lookStartCat pgf)) extCats (startRules ++ co
 
     ruleToCFRule :: (FId,Production) -> [CFRule]
     ruleToCFRule (c,PApply funid args) = 
-        [Rule (fcatToCat c l) (mkRhs row) (profilesToTerm [fixProfile row n | n <- [0..length args-1]])
+        [Rule (fcatToCat c l) (mkRhs row) term
            | (l,seqid) <- Array.assocs rhs
            , let row = sequences cnc ! seqid
-           , not (containsLiterals row)]
+           , not (containsLiterals row)
+           , f <- fns
+           , let term = profilesToTerm f [fixProfile row n | n <- [0..length args-1]]
+           ]
       where
-        CncFun f rhs = cncfuns cnc ! funid
+        CncFun fns rhs = cncfuns cnc ! funid
 
         mkRhs :: Array DotPos Symbol -> [CFSymbol]
         mkRhs = concatMap symbolToCFSymbol . Array.elems
@@ -111,8 +114,8 @@ pgfToCFG pgf lang = mkCFG (showCId (lookStartCat pgf)) extCats (startRules ++ co
               getPos (SymLit j _) = [j]
               getPos _            = []
 
-        profilesToTerm :: [Profile] -> CFTerm
-        profilesToTerm ps = CFObj f (zipWith profileToTerm argTypes ps)
+        profilesToTerm :: CId -> [Profile] -> CFTerm
+        profilesToTerm f ps = CFObj f (zipWith profileToTerm argTypes ps)
             where (argTypes,_) = catSkeleton $ lookType (abstract pgf) f
 
         profileToTerm :: CId -> Profile -> CFTerm

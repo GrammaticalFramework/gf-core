@@ -74,7 +74,7 @@ data Production
   deriving (Eq,Ord,Show)
 data PArg = PArg [(FId,FId)] {-# UNPACK #-} !FId deriving (Eq,Ord,Show)
 data CncCat = CncCat {-# UNPACK #-} !FId {-# UNPACK #-} !FId {-# UNPACK #-} !(Array LIndex String)
-data CncFun = CncFun CId {-# UNPACK #-} !(UArray LIndex SeqId) deriving (Eq,Ord,Show)
+data CncFun = CncFun [CId] {-# UNPACK #-} !(UArray LIndex SeqId) deriving (Eq,Ord,Show)
 type Sequence = Array DotPos Symbol
 type FunId = Int
 type SeqId = Int
