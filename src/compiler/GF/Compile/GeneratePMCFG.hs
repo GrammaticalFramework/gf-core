@@ -14,7 +14,7 @@ module GF.Compile.GeneratePMCFG
     ) where
 
 --import PGF.CId
-import PGF.Internal as PGF(CncCat(..),Symbol(..),fidVar)
+import PGF.Internal as PGF(CId,Symbol(..),fidVar)
 
 import GF.Infra.Option
 import GF.Grammar hiding (Env, mkRecord, mkTable)
@@ -157,12 +157,15 @@ convert opts gr cenv loc term ty@(_,val) pargs =
             args = map Vr vars
             vars = map (\(bt,x,t) -> x) context
 
-pgfCncCat :: SourceGrammar -> Type -> Int -> CncCat
-pgfCncCat gr lincat index =
+pgfCncCat :: SourceGrammar -> CId -> Type -> Int -> (CId,Int,Int,[String])
+pgfCncCat gr id lincat index =
   let ((_,size),schema) = computeCatRange gr lincat
-  in PGF.CncCat index (index+size-1)
-                      (mkArray (map (renderStyle style{mode=OneLineMode} . ppPath) 
-                                    (getStrPaths schema)))
+  in ( id
+     , index
+     , index+size-1
+     , map (renderStyle style{mode=OneLineMode} . ppPath)
+           (getStrPaths schema)
+     )
   where
     getStrPaths :: Schema Identity s c -> [Path]
     getStrPaths = collect CNil []
@@ -500,13 +503,11 @@ mapAccumL' f s (x:xs) = (s'',y:ys)
                               !(s'',ys) = mapAccumL' f s' xs
 
 addSequence :: SeqSet -> [Symbol] -> (SeqSet,SeqId)
-addSequence seqs lst =
+addSequence seqs seq =
   case Map.lookup seq seqs of
     Just id -> (seqs,id)
     Nothing -> let !last_seq = Map.size seqs
                in (Map.insert seq last_seq seqs, last_seq)
-  where
-    seq = mkArray lst
 
 
 ------------------------------------------------------------

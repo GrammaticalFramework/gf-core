@@ -71,10 +71,10 @@ bracketedTokn dp f@(Forest abs cnc forest root) =
                         in (ct,fid',fun,es,(map getVar hypos,lin))
         Nothing      -> error ("wrong forest id " ++ show fid)
       where
-        descend forest (PApply funid args) = let (CncFun pfuns _lins) = cncfuns cnc ! funid
-                                                 cat = case pfuns of
-                                                         []       -> wildCId
-                                                         (pfun:_) -> case Map.lookup pfun (funs abs) of
+        descend forest (PApply funid args) = let (CncFun fun _lins) = cncfuns cnc ! funid
+                                                 cat = case isLindefCId fun of
+                                                         Just cat -> cat
+                                                         Nothing  -> case Map.lookup fun (funs abs) of
                                                                        Just (DTyp _ cat _,_,_,_) -> cat
                                                  largs  = map (render forest) args
                                                  ltable = mkLinTable cnc isTrusted [] funid largs
@@ -103,6 +103,14 @@ bracketedTokn dp f@(Forest abs cnc forest root) =
         descend (PCoerce fid)       = trustedSpots parents' (PArg [] fid)
         descend (PConst c e _)      = IntSet.empty
 
+isLindefCId id 
+  | take l s == lindef = Just (mkCId (drop l s))
+  | otherwise          = Nothing
+  where
+    s      = showCId id
+    lindef = "lindef "
+    l      = length lindef
+
 -- | This function extracts the list of all completed parse trees
 -- that spans the whole input consumed so far. The trees are also
 -- limited by the category specified, which is usually
@@ -124,13 +132,13 @@ getAbsTrees (Forest abs cnc forest root) arg@(PArg _ fid) ty dp =
       | otherwise           = do fid0 <- get
                                  put fid
                                  x <- foldForest (\funid args trees ->
-                                                  do let CncFun fns _lins = cncfuns cnc ! funid
-                                                     case fns of
-                                                       []      -> do arg <- go (Set.insert fid rec_) scope mb_tty (head args)
+                                                  do let CncFun fn _lins = cncfuns cnc ! funid
+                                                     case isLindefCId fn of
+                                                       Just _  -> do arg <- go (Set.insert fid rec_) scope mb_tty (head args)
                                                                      return (mkAbs arg)
-                                                       fns     -> do ty_fn <- lookupFunType (head fns)
+                                                       Nothing -> do ty_fn <- lookupFunType fn
                                                                      (e,tty0) <- foldM (\(e1,tty) arg -> goArg (Set.insert fid rec_) scope fid e1 arg tty)
-                                                                                       (EFun (head fns),TTyp [] ty_fn) args
+                                                                                       (EFun fn,TTyp [] ty_fn) args
                                                                      case mb_tty of
                                                                        Just tty -> do i <- newGuardedMeta e
                                                                                       eqType scope (scopeSize scope) i tty tty0

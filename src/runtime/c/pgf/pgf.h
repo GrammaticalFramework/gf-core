@@ -19,14 +19,6 @@
 #define PGF_INTERNAL_DECL
 #define PGF_INTERNAL
 
-#elif defined(__MINGW32__)
-
-#define PGF_API_DECL
-#define PGF_API
-
-#define PGF_INTERNAL_DECL
-#define PGF_INTERNAL
-
 #else
 
 #define PGF_API_DECL
@@ -66,7 +58,10 @@ PGF_API_DECL void
 pgf_concrete_unload(PgfConcr* concr);
 
 PGF_API_DECL void
-pgf_write(PgfPGF* pgf, const char* fpath, GuExn* err);
+pgf_write(PgfPGF* pgf, size_t n_concrs, PgfConcr** concrs, const char* fpath, GuExn* err);
+
+PGF_API_DECL bool
+pgf_have_same_abstract(PgfPGF *one, PgfPGF *two);
 
 PGF_API_DECL GuString
 pgf_abstract_name(PgfPGF*);
@@ -249,7 +244,8 @@ pgf_callbacks_map_add_literal(PgfConcr* concr, PgfCallbacksMap* callbacks,
                               PgfCId cat, PgfLiteralCallback* callback);
 
 PGF_API_DECL void
-pgf_print(PgfPGF* pgf, GuOut* out, GuExn* err); 
+pgf_print(PgfPGF* pgf, size_t n_concrs, PgfConcr** concrs,
+          GuOut* out, GuExn* err);
 
 PGF_API_DECL void
 pgf_check_expr(PgfPGF* gr, PgfExpr* pe, PgfType* ty,

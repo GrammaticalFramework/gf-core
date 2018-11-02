@@ -17,10 +17,17 @@ import PGF2.FFI
 data Type = Type {typ :: PgfExpr, touchType :: Touch}
 
 -- | 'Hypo' represents a hypothesis in a type i.e. in the type A -> B, A is the hypothesis
-type Hypo = (BindType,CId,Type)
+type Hypo = (BindType,String,Type)
 
 instance Show Type where
   show = showType []
+
+instance Eq Type where
+  (Type ty1 ty1_touch) == (Type ty2 ty2_touch) =
+    unsafePerformIO $ do
+      res <- pgf_type_eq ty1 ty2
+      ty1_touch >> ty2_touch
+      return (res /= 0)
 
 -- | parses a 'String' as a type
 readType :: String -> Maybe Type
@@ -43,7 +50,7 @@ readType str =
 -- of identifiers is the list of all free variables
 -- in the type in order reverse to the order
 -- of binding.
-showType :: [CId] -> Type -> String
+showType :: [String] -> Type -> String
 showType scope (Type ty touch) = 
   unsafePerformIO $
     withGuPool $ \tmpPl ->
@@ -59,7 +66,7 @@ showType scope (Type ty touch) =
 -- a list of arguments for the category. The operation 
 -- @mkType [h_1,...,h_n] C [e_1,...,e_m]@ will create 
 -- @h_1 -> ... -> h_n -> C e_1 ... e_m@
-mkType :: [Hypo] -> CId -> [Expr] -> Type
+mkType :: [Hypo] -> String -> [Expr] -> Type
 mkType hypos cat exprs = unsafePerformIO $ do
   typPl  <- gu_new_pool
   let n_exprs = fromIntegral (length exprs) :: CSizeT
@@ -94,7 +101,7 @@ touchHypo (_,_,ty) = touchType ty
 
 -- | Decomposes a type into a list of hypothesises, a category and 
 -- a list of arguments for the category.
-unType :: Type -> ([Hypo],CId,[Expr])
+unType :: Type -> ([Hypo],String,[Expr])
 unType (Type c_type touch) = unsafePerformIO $ do
   cid <- (#peek PgfType, cid) c_type >>= peekUtf8CString
   c_hypos <- (#peek PgfType, hypos) c_type
@@ -127,7 +134,7 @@ unType (Type c_type touch) = unsafePerformIO $ do
 -- of identifiers is the list of all free variables
 -- in the type in order reverse to the order
 -- of binding.
-showContext :: [CId] -> [Hypo] -> String
+showContext :: [String] -> [Hypo] -> String
 showContext scope hypos =
   unsafePerformIO $
     withGuPool $ \tmpPl ->

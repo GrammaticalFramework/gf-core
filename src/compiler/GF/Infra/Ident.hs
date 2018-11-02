@@ -13,17 +13,17 @@
 -----------------------------------------------------------------------------
 
 module GF.Infra.Ident (-- ** Identifiers
-              ModuleName(..), moduleNameS,
-	      Ident, ident2utf8, showIdent, prefixIdent,
-              -- *** Normal identifiers (returned by the parser)
-	      identS, identC, identW,
-              -- *** Special identifiers for internal use
-              identV, identA, identAV,
-	      argIdent, isArgIdent, getArgIndex,
-              varStr, varX, isWildIdent, varIndex,
-              -- *** Raw identifiers
-              RawIdent, rawIdentS, rawIdentC, ident2raw, prefixRawIdent,
-              isPrefixOf, showRawIdent
+          ModuleName(..), moduleNameS,
+          Ident, ident2utf8, showIdent, prefixIdent,
+          -- *** Normal identifiers (returned by the parser)
+          identS, identC, identW,
+          -- *** Special identifiers for internal use
+          identV, identA, identAV,
+          argIdent, isArgIdent, getArgIndex,
+          varStr, varX, isWildIdent, varIndex,
+          -- *** Raw identifiers
+          RawIdent, rawIdentS, rawIdentC, ident2raw, prefixRawIdent,
+          isPrefixOf, showRawIdent
 	     ) where
 
 import qualified Data.ByteString.UTF8 as UTF8
@@ -31,7 +31,7 @@ import qualified Data.ByteString.Char8 as BS(append,isPrefixOf)
                  -- Limit use of BS functions to the ones that work correctly on
                  -- UTF-8-encoded bytestrings!
 import Data.Char(isDigit)
-import PGF.Internal(Binary(..))
+import Data.Binary(Binary(..))
 import GF.Text.Pretty
 
 

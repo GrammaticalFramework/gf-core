@@ -1,6 +1,5 @@
 {-# LANGUAGE FlexibleContexts #-}
 module PGF.Printer (ppPGF,ppCat,ppFId,ppFunId,ppSeqId,ppSeq,ppFun) where
-import Prelude hiding ((<>)) -- GHC 8.4.1 clash with Text.PrettyPrint
 
 import PGF.CId
 import PGF.Data
@@ -73,8 +72,8 @@ ppProduction (fid,PCoerce arg) =
 ppProduction (fid,PConst _ _ ss) =
   ppFId fid <+> text "->" <+> ppStrs ss
 
-ppCncFun (funid,CncFun funs arr) =
-  ppFunId funid <+> text ":=" <+> parens (hcat (punctuate comma (map ppSeqId (elems arr)))) <+> brackets (hsep (map ppCId funs))
+ppCncFun (funid,CncFun fun arr) =
+  ppFunId funid <+> text ":=" <+> parens (hcat (punctuate comma (map ppSeqId (elems arr)))) <+> brackets (ppCId fun)
 
 ppLinDefs (fid,funids) = 
   [ppFId fid <+> text "->" <+> ppFunId funid <> brackets (ppFId fidVar) | funid <- funids]
@@ -82,6 +81,7 @@ ppLinDefs (fid,funids) =
 ppLinRefs (fid,funids) = 
   [ppFId fidVar <+> text "->" <+> ppFunId funid <> brackets (ppFId fid) | funid <- funids]
 
+ppSeq :: (SeqId,Sequence) -> Doc
 ppSeq (seqid,seq) = 
   ppSeqId seqid <+> text ":=" <+> hsep (map ppSymbol (elems seq))
 

@@ -72,10 +72,15 @@ pgf_write_cid(PgfCId id, PgfWriter* wtr)
 PGF_INTERNAL void
 pgf_write_string(GuString val, PgfWriter* wtr)
 {	
-	size_t len = strlen(val);
+	size_t len = 0;
+	const uint8_t* buf = (const uint8_t*) val;
+	const uint8_t* p   = buf;
+	while (gu_utf8_decode(&p) != 0)
+		len++;
+
 	pgf_write_len(len, wtr);
 	gu_return_on_exn(wtr->err, );
-	gu_out_bytes(wtr->out, (uint8_t*) val, len, wtr->err);
+	gu_out_bytes(wtr->out, (uint8_t*) val, (p-buf)-1, wtr->err);
 }
 
 PGF_INTERNAL void
@@ -843,7 +848,7 @@ pgf_write_concrete_content(PgfConcr* concr, PgfWriter* wtr)
 	pgf_write_int(concr->total_cats, wtr);
 }
 
-static void
+PGF_INTERNAL void
 pgf_write_concrete(PgfConcr* concr, PgfWriter* wtr, bool with_content)
 {
 	if (with_content &&
@@ -865,34 +870,20 @@ pgf_write_concrete(PgfConcr* concr, PgfWriter* wtr, bool with_content)
 	gu_return_on_exn(wtr->err, );
 }
 
-PGF_API void
-pgf_concrete_save(PgfConcr* concr, GuOut* out, GuExn* err)
-{
-	GuPool* pool = gu_new_pool();
-
-	PgfWriter* wtr = pgf_new_writer(out, pool, err);
-
-	pgf_write_concrete(concr, wtr, true);
-
-	gu_pool_free(pool);
-}
-
 static void
-pgf_write_concretes(PgfConcrs* concretes, PgfWriter* wtr, bool with_content)
+pgf_write_concretes(size_t n_concrs, PgfConcr** concrs, PgfWriter* wtr, bool with_content)
 {
-	size_t n_concrs = gu_seq_length(concretes);
 	pgf_write_len(n_concrs, wtr);
 	gu_return_on_exn(wtr->err, );
 
 	for (size_t i = 0; i < n_concrs; i++) {
-		PgfConcr* concr = gu_seq_index(concretes, PgfConcr, i);
-		pgf_write_concrete(concr, wtr, with_content);
+		pgf_write_concrete(concrs[i], wtr, with_content);
 		gu_return_on_exn(wtr->err, );
 	}
 }
 
 PGF_INTERNAL void
-pgf_write_pgf(PgfPGF* pgf, PgfWriter* wtr) {
+pgf_write_pgf(PgfPGF* pgf, size_t n_concrs, PgfConcr** concrs, PgfWriter* wtr) {
 	gu_out_u16be(wtr->out, pgf->major_version, wtr->err);
 	gu_return_on_exn(wtr->err, );
 
@@ -907,7 +898,7 @@ pgf_write_pgf(PgfPGF* pgf, PgfWriter* wtr) {
 
 	bool with_content =
 		(gu_seq_binsearch(pgf->gflags, pgf_flag_order, PgfFlag, "split") == NULL);
-	pgf_write_concretes(pgf->concretes, wtr, with_content);
+	pgf_write_concretes(n_concrs, concrs, wtr, with_content);
 	gu_return_on_exn(wtr->err, );
 }
 

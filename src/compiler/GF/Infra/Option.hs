@@ -34,16 +34,13 @@ import Data.Maybe
 import GF.Infra.Ident
 import GF.Infra.GetOpt
 import GF.Grammar.Predef
---import System.Console.GetOpt
 import System.FilePath
---import System.IO
+import PGF.Internal(Literal(..))
 
 import GF.Data.Operations(Err,ErrorMonad(..),liftErr)
 
 import Data.Set (Set)
 import qualified Data.Set as Set
-
-import PGF.Internal(Literal(..))
 
 usageHeader :: String
 usageHeader = unlines 
@@ -75,7 +72,6 @@ errors = raise . unlines
 
 data Mode = ModeVersion | ModeHelp
           | ModeInteractive | ModeRun
-          | ModeInteractive2 | ModeRun2
           | ModeCompiler
           | ModeServer {-port::-}Int
   deriving (Show,Eq,Ord)
@@ -153,7 +149,7 @@ data Flags = Flags {
       optLiteralCats     :: Set Ident,
       optGFODir          :: Maybe FilePath,
       optOutputDir       :: Maybe FilePath,
-      optGFLibPath       :: Maybe [FilePath],
+      optGFLibPath       :: Maybe FilePath,
       optDocumentRoot    :: Maybe FilePath, -- For --server mode
       optRecomp          :: Recomp,
       optProbsFile       :: Maybe FilePath,
@@ -208,10 +204,9 @@ parseModuleOptions args = do
     then return opts
     else errors $ map ("Non-option among module options: " ++) nonopts
 
-fixRelativeLibPaths curr_dir lib_dirs (Options o) = Options (fixPathFlags . o)
+fixRelativeLibPaths curr_dir lib_dir (Options o) = Options (fixPathFlags . o)
   where
-    fixPathFlags f@(Flags{optLibraryPath=path}) = f{optLibraryPath=concatMap (\dir -> [parent </> dir
-                                                                                      | parent <- curr_dir : lib_dirs]) path}
+    fixPathFlags f@(Flags{optLibraryPath=path}) = f{optLibraryPath=concatMap (\dir -> [curr_dir </> dir, lib_dir </> dir]) path}
 
 -- Showing options
 
@@ -307,8 +302,6 @@ optDescr =
      Option ['j'] ["jobs"] (OptArg jobs "N") "Compile N modules in parallel with -batch (default 1).",
      Option [] ["interactive"] (NoArg (mode ModeInteractive)) "Run in interactive mode (default).",
      Option [] ["run"] (NoArg (mode ModeRun)) "Run in interactive mode, showing output only (no other messages).",
-     Option [] ["cshell"] (NoArg (mode ModeInteractive2)) "Start the C run-time shell.",
-     Option [] ["crun"] (NoArg (mode ModeRun2)) "Start the C run-time shell, showing output only (no other messages).",
      Option [] ["server"] (OptArg modeServer "port") $
        "Run in HTTP server mode on given port (default "++show defaultPort++").",
      Option [] ["document-root"] (ReqArg gfDocuRoot "DIR")
@@ -424,7 +417,7 @@ optDescr =
        literalCat  x = set $ \o -> o { optLiteralCats = foldr Set.insert (optLiteralCats o) ((map identS . splitBy (==',')) x) }
        lexicalCat  x = set $ \o -> o { optLexicalCats = foldr Set.insert (optLexicalCats o) (splitBy (==',') x) }
        outDir      x = set $ \o -> o { optOutputDir = Just x }
-       gfLibPath   x = set $ \o -> o { optGFLibPath = Just $ splitInModuleSearchPath x }
+       gfLibPath   x = set $ \o -> o { optGFLibPath = Just x }
        gfDocuRoot  x = set $ \o -> o { optDocumentRoot = Just x }
        recomp      x = set $ \o -> o { optRecomp = x }
        probsFile   x = set $ \o -> o { optProbsFile = Just x }

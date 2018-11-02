@@ -60,7 +60,7 @@ getConcr =
            cnccats     <- getMap getCId getCncCat
            totalCats   <- get
            let rseq    = listToArray [SymCat 0 0]
-               rfun    = CncFun [mkCId "linref"] (listToArray [scnt])
+               rfun    = CncFun (mkCId "linref") (listToArray [scnt])
                linrefs = IntMap.fromList [(i,[fcnt])|i<-[0..totalCats-1]]
            return (Concr{ cflags=cflags, printnames=printnames
                         , sequences=toArray (scnt+1,seqs++[rseq])
@@ -110,7 +110,7 @@ getBindType =
              1 -> return Implicit
              _ -> decodingError "getBindType"
 
-getCncFun = liftM2 CncFun (fmap (:[]) getCId) (getArray get)
+getCncFun = liftM2 CncFun getCId (getArray get)
 
 getCncCat = liftM3 CncCat get get (getArray get)
 

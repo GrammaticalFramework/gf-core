@@ -9,9 +9,6 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <math.h>
-#if defined(__MINGW32__) || defined(_MSC_VER)
-#include <malloc.h>
-#endif
 
 //#define PGF_LOOKUP_DEBUG
 //#define PGF_LINEARIZER_DEBUG
@@ -119,7 +116,7 @@ typedef struct {
 static PgfAbsProduction*
 pgf_lookup_new_production(PgfAbsFun* fun, GuPool *pool)
 {
-	size_t n_hypos = fun->type->hypos ? gu_seq_length(fun->type->hypos) : 0;
+	size_t n_hypos = gu_seq_length(fun->type->hypos);
 	PgfAbsProduction* prod = gu_new_flex(pool, PgfAbsProduction, args, n_hypos);
 	prod->fun = fun;
 	prod->count = 0;
@@ -699,12 +696,8 @@ pgf_lookup_tokenize(GuMap* lexicon_idx, GuString sentence, GuPool* pool)
 			break;
 
 		const uint8_t* start = p-1;
-		if (strchr(".!?,:",c) != NULL)
+		while (c != 0 && !gu_ucs_is_space(c)) {
 			c = gu_utf8_decode(&p);
-		else {
-			while (c != 0 && strchr(".!?,:",c) == NULL && !gu_ucs_is_space(c)) {
-				c = gu_utf8_decode(&p);
-			}
 		}
 		const uint8_t* end   = p-1;
 

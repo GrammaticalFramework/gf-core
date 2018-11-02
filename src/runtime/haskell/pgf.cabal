@@ -1,5 +1,5 @@
 name: pgf
-version: 3.9.1-git
+version: 3.9-git
 
 cabal-version: >= 1.20
 build-type: Simple
@@ -8,7 +8,7 @@ category: Natural Language Processing
 synopsis: Grammatical Framework
 description: A library for interpreting the Portable Grammar Format (PGF)
 homepage: http://www.grammaticalframework.org/
-bug-reports: https://github.com/GrammaticalFramework/gf-core/issues
+bug-reports: https://github.com/GrammaticalFramework/GF/issues
 maintainer: Thomas Hallgren
 tested-with: GHC==7.6.3, GHC==7.8.3, GHC==7.10.3, GHC==8.0.2
 
@@ -30,6 +30,7 @@ Library
                  exceptions
 
   if flag(custom-binary)
+    hs-source-dirs: ., binary
     other-modules:
       -- not really part of GF but I have changed the original binary library
       -- and we have to keep the copy for now.
@@ -45,9 +46,9 @@ Library
 --if impl(ghc>=7.8)
 --  ghc-options: +RTS -A20M -RTS
   ghc-prof-options: -fprof-auto
-  extensions:
+  extensions: 
 
-  exposed-modules:
+  exposed-modules: 
     PGF
     PGF.Internal
     PGF.Haskell

@@ -22,7 +22,6 @@ typedef enum {
 
 typedef struct {
 	PgfCCat* ccat;
-	PgfCId abs_id;
 	PgfCncFun* fun;
 	int fid;
 

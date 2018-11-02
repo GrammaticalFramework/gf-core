@@ -1,5 +1,4 @@
 module PGF.Macros where
-import Prelude hiding ((<>)) -- GHC 8.4.1 clash with Text.PrettyPrint
 
 import PGF.CId
 import PGF.Data

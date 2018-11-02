@@ -11,7 +11,7 @@ type Pipe = [Command]
 
 data Command
    = Command Ident [Option] Argument
-   deriving (Eq,Ord,Show)
+   deriving Show
 
 data Option
   = OOpt Ident
@@ -29,7 +29,7 @@ data Argument
   | ATerm Term
   | ANoArg
   | AMacro Ident
-  deriving (Eq,Ord,Show)
+  deriving Show
 
 valCIdOpts :: String -> CId -> [Option] -> CId
 valCIdOpts flag def opts =
@@ -47,6 +47,24 @@ valStrOpts :: String -> String -> [Option] -> String
 valStrOpts flag def opts =
   case listFlags flag opts of
     v:_ -> valueString v
+    _   -> def
+
+maybeCIdOpts :: String -> a -> (CId -> a) -> [Option] -> a
+maybeCIdOpts flag def fn opts =
+  case [v | OFlag f (VId v) <- opts, f == flag] of
+    (v:_) -> fn (mkCId v)
+    _     -> def
+
+maybeIntOpts :: String -> a -> (Int -> a) -> [Option] -> a
+maybeIntOpts flag def fn opts =
+  case [v | OFlag f (VInt v) <- opts, f == flag] of
+    (v:_) -> fn v
+    _     -> def
+
+maybeStrOpts :: String -> a -> (String -> a) -> [Option] -> a
+maybeStrOpts flag def fn opts =
+  case listFlags flag opts of
+    v:_ -> fn (valueString v)
     _   -> def
 
 listFlags flag opts = [v | OFlag f v <- opts, f == flag]

@@ -33,7 +33,10 @@ pgf_write_len(size_t len, PgfWriter* wtr);
 PGF_INTERNAL_DECL void
 pgf_write_cid(PgfCId id, PgfWriter* wtr);
 
+PGF_INTERNAL void
+pgf_write_concrete(PgfConcr* concr, PgfWriter* wtr, bool with_content);
+
 PGF_INTERNAL_DECL void
-pgf_write_pgf(PgfPGF* pgf, PgfWriter* wtr);
+pgf_write_pgf(PgfPGF* pgf, size_t n_concrs, PgfConcr** concrs, PgfWriter* wtr);
 
 #endif // WRITER_H_

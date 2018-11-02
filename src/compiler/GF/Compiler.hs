@@ -1,8 +1,7 @@
-module GF.Compiler (mainGFC, linkGrammars, writePGF, writeOutputs) where
+module GF.Compiler (mainGFC, linkGrammars, writeGrammar, writeOutputs) where
 
 import PGF
-import PGF.Internal(concretes,optimizePGF,unionPGF)
-import PGF.Internal(putSplitAbs,encodeFile,runPut)
+import PGF.Internal(unionPGF,writePGF,writeConcr)
 import GF.Compile as S(batchCompile,link,srcAbsName)
 import GF.CompileInParallel as P(parallelBatchCompile)
 import GF.Compile.Export
@@ -70,7 +69,7 @@ compileSourceFiles opts fs =
 -- in the 'Options') from the output of 'parallelBatchCompile'.
 -- If a @.pgf@ file by the same name already exists and it is newer than the
 -- source grammar files (as indicated by the 'UTCTime' argument), it is not
--- recreated. Calls 'writePGF' and 'writeOutputs'.
+-- recreated. Calls 'writeGrammar' and 'writeOutputs'.
 linkGrammars opts (t_src,~cnc_grs@(~(cnc,gr):_)) =
     do let abs = render (srcAbsName gr cnc)
            pgfFile = outputPath opts (grammarName' opts abs<.>"pgf")
@@ -80,8 +79,8 @@ linkGrammars opts (t_src,~cnc_grs@(~(cnc,gr):_)) =
        if t_pgf >= Just t_src
          then putIfVerb opts $ pgfFile ++ " is up-to-date."
          else do pgfs <- mapM (link opts) cnc_grs
-                 let pgf = foldl1 unionPGF pgfs
-                 writePGF opts pgf
+                 let pgf = foldl1 (\one two -> fromMaybe two (unionPGF one two)) pgfs
+                 writeGrammar opts pgf
                  writeOutputs opts pgf
 
 compileCFFiles :: Options -> [FilePath] -> IOE ()
@@ -91,12 +90,11 @@ compileCFFiles opts fs = do
   startCat <- case rules of
                 (Rule cat _ _ : _) -> return cat
                 _                  -> fail "empty CFG"
-  let pgf = cf2pgf (last fs) (mkCFG startCat Set.empty rules)
+  probs <- liftIO (maybe (return Map.empty) readProbabilitiesFromFile (flag optProbsFile opts))
+  let pgf = cf2pgf opts (last fs) (mkCFG startCat Set.empty rules) probs
   unless (flag optStopAfterPhase opts == Compile) $
-     do probs <- liftIO (maybe (return . defaultProbabilities) readProbabilitiesFromFile (flag optProbsFile opts) pgf)
-        let pgf' = setProbabilities probs $ if flag optOptimizePGF opts then optimizePGF pgf else pgf
-        writePGF opts pgf'
-        writeOutputs opts pgf'
+     do writeGrammar opts pgf
+        writeOutputs opts pgf
 
 unionPGFFiles :: Options -> [FilePath] -> IOE ()
 unionPGFFiles opts fs =
@@ -114,12 +112,11 @@ unionPGFFiles opts fs =
 
     doIt =
       do pgfs <- mapM readPGFVerbose fs
-         let pgf0 = foldl1 unionPGF pgfs
-             pgf  = if flag optOptimizePGF opts then optimizePGF pgf0 else pgf0
+         let pgf = foldl1 (\one two -> fromMaybe two (unionPGF one two)) pgfs
              pgfFile = outputPath opts (grammarName opts pgf <.> "pgf")
          if pgfFile `elem` fs
            then putStrLnE $ "Refusing to overwrite " ++ pgfFile
-           else writePGF opts pgf
+           else writeGrammar opts pgf
          writeOutputs opts pgf
 
     readPGFVerbose f =
@@ -136,21 +133,20 @@ writeOutputs opts pgf = do
 -- | Write the result of compiling a grammar (e.g. with 'compileToPGF' or
 -- 'link') to a @.pgf@ file.
 -- A split PGF file is output if the @-split-pgf@ option is used.
-writePGF :: Options -> PGF -> IOE ()
-writePGF opts pgf =
+writeGrammar :: Options -> PGF -> IOE ()
+writeGrammar opts pgf =
     if flag optSplitPGF opts then writeSplitPGF else writeNormalPGF
   where
     writeNormalPGF =
        do let outfile = outputPath opts (grammarName opts pgf <.> "pgf")
-          writing opts outfile $ encodeFile outfile pgf
+          writing opts outfile (writePGF outfile pgf)
 
     writeSplitPGF =
       do let outfile = outputPath opts (grammarName opts pgf <.> "pgf")
-         writing opts outfile $ BSL.writeFile outfile (runPut (putSplitAbs pgf))
-                                --encodeFile_ outfile (putSplitAbs pgf)
-         forM_ (Map.toList (concretes pgf)) $ \cnc -> do
-           let outfile = outputPath opts (showCId (fst cnc) <.> "pgf_c")
-           writing opts outfile $ encodeFile outfile cnc
+         writing opts outfile $ writePGF outfile pgf
+         forM_ (languages pgf) $ \lang -> do
+           let outfile = outputPath opts (showCId lang <.> "pgf_c")
+           writing opts outfile (writeConcr outfile pgf lang)
 
 
 writeOutput :: Options -> FilePath-> String -> IOE ()

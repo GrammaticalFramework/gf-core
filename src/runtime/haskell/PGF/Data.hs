@@ -74,7 +74,7 @@ data Production
   deriving (Eq,Ord,Show)
 data PArg = PArg [(FId,FId)] {-# UNPACK #-} !FId deriving (Eq,Ord,Show)
 data CncCat = CncCat {-# UNPACK #-} !FId {-# UNPACK #-} !FId {-# UNPACK #-} !(Array LIndex String)
-data CncFun = CncFun [CId] {-# UNPACK #-} !(UArray LIndex SeqId) deriving (Eq,Ord,Show)
+data CncFun = CncFun CId {-# UNPACK #-} !(UArray LIndex SeqId) deriving (Eq,Ord,Show)
 type Sequence = Array DotPos Symbol
 type FunId = Int
 type SeqId = Int
@@ -92,14 +92,6 @@ msgUnionPGF one two = case absname one of
     }, Nothing)
   _ -> (two, -- abstracts don't match, discard the old one  -- error msg in Importing.ioUnionPGF
         Just "Abstract changed, previous concretes discarded.")
-
-emptyPGF :: PGF
-emptyPGF = PGF {
-  gflags    = Map.empty,
-  absname   = wildCId,
-  abstract  = error "empty grammar, no abstract",
-  concretes = Map.empty
-  }
 
 -- sameness of function type signatures, checked when importing a new concrete in env
 haveSameFunsPGF :: PGF -> PGF -> Bool

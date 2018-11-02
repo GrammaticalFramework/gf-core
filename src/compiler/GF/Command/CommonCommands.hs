@@ -3,7 +3,6 @@
 -- elsewhere
 module GF.Command.CommonCommands where
 import Data.List(sort)
-import Data.Char (isSpace)
 import GF.Command.CommandInfo
 import qualified Data.Map as Map
 import GF.Infra.SIO
@@ -117,13 +116,11 @@ commonCommands = fmap (mapCommandExec liftSIO) $ Map.fromList [
                let (os,fs) = optsAndFlags opts
                trans <- optTranslit opts
 
-               case opts of
-                 _ | isOpt "lines" opts -> return $ fromStrings $ map (trans . stringOps (envFlag fs) (map prOpt os)) $ toStrings x
-                 _ | isOpt "paragraphs" opts -> return $ fromStrings $ map (trans . stringOps (envFlag fs) (map prOpt os)) $ toParagraphs $ toStrings x
-                 _ -> return ((fromString . trans . stringOps (envFlag fs) (map prOpt os) . toString) x),
+               if isOpt "lines" opts 
+                  then return $ fromStrings $ map (trans . stringOps (envFlag fs) (map prOpt os)) $ toStrings x
+                  else return ((fromString . trans . stringOps (envFlag fs) (map prOpt os) . toString) x),
      options = [
-       ("lines","apply the operation separately to each input line, returning a list of lines"),
-       ("paragraphs","apply separately to each input paragraph (as separated by empty lines), returning a list of lines")
+       ("lines","apply the operation separately to each input line, returning a list of lines")
        ] ++
        stringOpOptions,
      flags = [
@@ -272,11 +269,3 @@ trie = render . pptss . H.toTrie . map H.toATree
 -- ** Converting command input
 toString  = unwords . toStrings
 toLines = unlines . toStrings
-
-toParagraphs = map (unwords . words) . toParas
-  where
-    toParas ls = case break (all isSpace) ls of
-      ([],[])   -> []
-      ([],_:ll) -> toParas ll
-      (l, [])   -> [unwords l]
-      (l, _:ll) -> unwords l : toParas ll

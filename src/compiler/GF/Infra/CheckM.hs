@@ -18,7 +18,6 @@ module GF.Infra.CheckM
 	   checkIn, checkInModule, checkMap, checkMapRecover,
            parallelCheck, accumulateError, commitCheck,
 	  ) where
-import Prelude hiding ((<>)) -- GHC 8.4.1 clash with Text.PrettyPrint
 
 import GF.Data.Operations
 --import GF.Infra.Ident

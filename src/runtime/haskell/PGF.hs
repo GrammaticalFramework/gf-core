@@ -16,8 +16,7 @@
 module PGF(
            -- * PGF
            PGF,
-           readPGF,
-           parsePGF,
+           readPGF, showPGF,
 
            -- * Identifiers
            CId, mkCId, wildCId,
@@ -54,12 +53,14 @@ module PGF(
            mkDouble, unDouble,
            mkFloat,  unFloat,
            mkMeta,   unMeta,
+           exprSubstitute,
+
            -- extra
            pExpr, exprSize, exprFunctions,
 
            -- * Operations
            -- ** Linearization
-           linearize, linearizeAllLang, linearizeAll, bracketedLinearize, bracketedLinearizeAll, tabularLinearizes,
+           linearize, linearizeAllLang, linearizeAll, bracketedLinearize, tabularLinearizes,
            groupResults, -- lins of trees by language, removing duplicates
            showPrintName,
            
@@ -166,17 +167,18 @@ import PGF.Macros
 import PGF.Expr (Tree)
 import PGF.Morphology
 import PGF.Data
-import PGF.Binary ()
+import PGF.Binary()
 import qualified PGF.Forest as Forest
 import qualified PGF.Parse as Parse
 import PGF.Utilities(replace)
+import PGF.Printer
+import Text.PrettyPrint
 
 --import Data.Char
 import qualified Data.Map as Map
 --import qualified Data.IntMap as IntMap
 --import Data.Maybe
 import Data.Binary
-import Data.ByteString.Lazy (ByteString)
 import Data.List(mapAccumL)
 --import System.Random (newStdGen)
 --import Control.Monad
@@ -191,11 +193,6 @@ import Text.PrettyPrint
 --
 -- > $ gf -make <grammar file name>
 readPGF  :: FilePath -> IO PGF
-
--- | Like @readPGF@ but you have the manage file-handling.
---
--- @since 3.9.1
-parsePGF :: ByteString -> PGF
 
 -- | Tries to parse the given string in the specified language
 -- and to produce abstract syntax expression.
@@ -261,9 +258,9 @@ functionType :: PGF -> CId -> Maybe Type
 -- Implementation
 ---------------------------------------------------
 
-readPGF = decodeFile
+readPGF f = decodeFile f
 
-parsePGF = decode
+showPGF pgf = render (ppPGF pgf)
 
 parse pgf lang typ s =
   case parse_ pgf lang typ (Just 4) s of

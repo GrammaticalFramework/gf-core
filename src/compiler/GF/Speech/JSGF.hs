@@ -11,7 +11,6 @@
 -----------------------------------------------------------------------------
 
 module GF.Speech.JSGF (jsgfPrinter) where
-import Prelude hiding ((<>)) -- GHC 8.4.1 clash with Text.PrettyPrint
 
 --import GF.Data.Utilities
 import GF.Infra.Option
