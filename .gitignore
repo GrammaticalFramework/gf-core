@@ -43,4 +43,5 @@ src/ui/android/libs/
 src/ui/android/obj/
 .cabal-sandbox
 cabal.sandbox.config
+.stack-work
 DATA_DIR

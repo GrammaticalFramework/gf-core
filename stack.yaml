@@ -1,0 +1,25 @@
+resolver: lts-11.22 # ghc 8.2.2
+
+packages:
+- .
+- src/server
+# - src/tools
+- src/runtime/haskell
+# - src/pgf-binary
+- src/runtime/haskell-bind
+
+extra-deps:
+- cgi-3001.3.0.2 # gf, gf-server
+# - fastcgi-3001.0.2.4 # gf-server
+- httpd-shed-0.4.0.3 # gf, gf-server
+- time-1.6.0.1 # cgi-3001.3.0.2: time-1.8.0.2 from stack configuration does not match >=1.5 && <1.7
+
+# Override default flag values for local packages and extra-deps
+flags:
+  gf-server:
+    fastcgi: false
+#   gf:
+#     server: true
+
+# Allow a newer minor version of GHC than the snapshot specifies
+compiler-check: newer-minor
