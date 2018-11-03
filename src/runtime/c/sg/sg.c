@@ -1305,19 +1305,25 @@ sg_update_fts_index(SgSG* sg, PgfPGF* pgf, GuExn* err)
 		for (size_t funid = 0; funid < n_funs; funid++) {
 			PgfCncFun* cncfun = gu_seq_get(concr->cncfuns, PgfCncFun*, funid);
 
-			SgId key = 0;
-			rc = find_function_rowid(sg, &ctxt, cncfun->absfun->name, &key, 1);
-			if (rc != SQLITE_OK) {
-				sg_raise_sqlite(rc, err);
-				goto close;
-			}
+			size_t n_absfuns = gu_seq_length(cncfun->absfuns);
+			for (size_t i = 0; i < n_absfuns; i++) {
+				PgfAbsFun* absfun =
+					gu_seq_get(cncfun->absfuns, PgfAbsFun*, i);
 
-			for (size_t lin_idx = 0; lin_idx < cncfun->n_lins; lin_idx++) {
-				PgfSequence* seq = cncfun->lins[lin_idx];
-				rc = insert_syms(sg, crsTokens, seq->syms, key);
+				SgId key = 0;
+				rc = find_function_rowid(sg, &ctxt, absfun->name, &key, 1);
 				if (rc != SQLITE_OK) {
 					sg_raise_sqlite(rc, err);
 					goto close;
+				}
+
+				for (size_t lin_idx = 0; lin_idx < cncfun->n_lins; lin_idx++) {
+					PgfSequence* seq = cncfun->lins[lin_idx];
+					rc = insert_syms(sg, crsTokens, seq->syms, key);
+					if (rc != SQLITE_OK) {
+						sg_raise_sqlite(rc, err);
+						goto close;
+					}
 				}
 			}
 		}

@@ -119,7 +119,6 @@ typedef struct {
 	PgfFlags* aflags;
 	PgfAbsFuns* funs;
 	PgfAbsCats* cats;
-	PgfAbsFun* abs_lin_fun;
 	PgfEvalGates* eval_gates;
 } PgfAbstr;
 
@@ -262,8 +261,8 @@ typedef struct {
 typedef GuSeq PgfSequences;
 
 typedef struct {
-	PgfAbsFun* absfun;
-	PgfExprProb *ep;
+	GuSeq* absfuns;
+	prob_t prob;
     int funid;
 	size_t n_lins;
 	PgfSequence* lins[];

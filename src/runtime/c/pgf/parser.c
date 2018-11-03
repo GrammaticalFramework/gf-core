@@ -710,8 +710,8 @@ pgf_new_item(PgfParsing* ps, PgfItemConts* conts, PgfProduction prod)
 	case PGF_PRODUCTION_APPLY: {
 		PgfProductionApply* papp = pi.data;
 		item->args = papp->args;
-		item->inside_prob = papp->fun->ep->prob;
-		
+		item->inside_prob = papp->fun->prob;
+
 		int n_args = gu_seq_length(item->args);
 		for (int i = 0; i < n_args; i++) {
 			PgfPArg *arg = gu_seq_index(item->args, PgfPArg, i);
@@ -1265,8 +1265,12 @@ pgf_parsing_add_transition(PgfParsing* ps, PgfToken tok, PgfItem* item)
 			ps->tp = gu_new(PgfTokenProb, ps->out_pool);
 			ps->tp->tok  = tok;
 			ps->tp->cat  = item->conts->ccat->cnccat->abscat->name;
-			ps->tp->fun  = papp->fun->absfun->name;
 			ps->tp->prob = item->inside_prob + item->conts->outside_prob;
+			ps->tp->fun  = "_";
+			
+			if (gu_seq_length(papp->fun->absfuns) > 0)
+				ps->tp->fun = 
+					gu_seq_get(papp->fun->absfuns, PgfAbsFun*, 0)->name;
 		}
 	} else {
 		if (!ps->before->needs_bind && cmp_string(&current, tok, ps->case_sensitive) == 0) {
@@ -1794,19 +1798,25 @@ pgf_result_production(PgfParsing* ps,
 	case PGF_PRODUCTION_APPLY: {
 		PgfProductionApply* papp = pi.data;
 
-		PgfExprState *st = gu_new(PgfExprState, ps->pool);
-		st->answers = answers;
-		st->ep      = *papp->fun->ep;
-		st->args    = papp->args;
-		st->arg_idx = 0;
+		size_t n_absfuns = gu_seq_length(papp->fun->absfuns);
+		for (size_t i = 0; i < n_absfuns; i++) {
+			PgfAbsFun* absfun =
+				gu_seq_get(papp->fun->absfuns, PgfAbsFun*, i);
 
-		size_t n_args = gu_seq_length(st->args);
-		for (size_t k = 0; k < n_args; k++) {
-			PgfPArg* parg = gu_seq_index(st->args, PgfPArg, k);
-			st->ep.prob += parg->ccat->viterbi_prob;
+			PgfExprState *st = gu_new(PgfExprState, ps->pool);
+			st->answers = answers;
+			st->ep      = absfun->ep;
+			st->args    = papp->args;
+			st->arg_idx = 0;
+
+			size_t n_args = gu_seq_length(st->args);
+			for (size_t k = 0; k < n_args; k++) {
+				PgfPArg* parg = gu_seq_index(st->args, PgfPArg, k);
+				st->ep.prob += parg->ccat->viterbi_prob;
+			}
+
+			gu_buf_heap_push(ps->expr_queue, &pgf_expr_state_order, &st);
 		}
-
-		gu_buf_heap_push(ps->expr_queue, &pgf_expr_state_order, &st);
 		break;
 	}
 	case PGF_PRODUCTION_COERCE: {
@@ -2355,15 +2365,20 @@ pgf_morpho_iter(PgfProductionIdx* idx,
 		PgfProductionIdxEntry* entry =
 			gu_buf_index(idx, PgfProductionIdxEntry, i);
 
-		PgfCId lemma = entry->papp->fun->absfun->name;
-		GuString analysis = entry->ccat->cnccat->labels[entry->lin_idx];
-		
-		prob_t prob = entry->ccat->cnccat->abscat->prob +
-		              entry->papp->fun->absfun->ep.prob;
-		callback->callback(callback,
-						   lemma, analysis, prob, err);
-		if (!gu_ok(err))
-			return;
+		size_t n_absfuns = gu_seq_length(entry->papp->fun->absfuns);
+		for (size_t j = 0; j < n_absfuns; j++) {
+			PgfAbsFun* absfun =
+				gu_seq_get(entry->papp->fun->absfuns, PgfAbsFun*, j);
+			PgfCId lemma = absfun->name;
+			GuString analysis = entry->ccat->cnccat->labels[entry->lin_idx];
+			
+			prob_t prob = entry->ccat->cnccat->abscat->prob +
+						  absfun->ep.prob;
+			callback->callback(callback,
+							   lemma, analysis, prob, err);
+			if (!gu_ok(err))
+				return;
+		}
 	}
 }
 
@@ -2569,7 +2584,7 @@ pgf_ccat_set_viterbi_prob(PgfCCat* ccat) {
 			return INFINITY;
 
 		prob_t viterbi_prob = INFINITY;
-		
+
 		size_t n_prods = gu_seq_length(ccat->prods);
 		for (size_t i = 0; i < n_prods; i++) {
 			PgfProduction prod =
@@ -2581,7 +2596,7 @@ pgf_ccat_set_viterbi_prob(PgfCCat* ccat) {
 			switch (inf.tag) {
 			case PGF_PRODUCTION_APPLY: {
 				PgfProductionApply* papp = inf.data;
-				prob = papp->fun->ep->prob;
+				prob = papp->fun->prob;
 				
 				size_t n_args = gu_seq_length(papp->args);
 				for (size_t j = 0; j < n_args; j++) {

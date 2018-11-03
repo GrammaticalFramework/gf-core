@@ -579,8 +579,15 @@ pgf_write_sequences(PgfSequences* seqs, PgfWriter* wtr)
 static void
 pgf_write_cncfun(PgfCncFun* cncfun, PgfConcr* concr, PgfWriter* wtr)
 {
-	pgf_write_cid(cncfun->absfun->name, wtr);
-	gu_return_on_exn(wtr->err, );
+	size_t n_absfuns = gu_seq_length(cncfun->absfuns);
+	pgf_write_len(n_absfuns, wtr);
+	for (size_t i = 0; i < n_absfuns; i++) {
+		PgfAbsFun* absfun =
+			gu_seq_get(cncfun->absfuns, PgfAbsFun*, i);
+
+		pgf_write_cid(absfun->name, wtr);
+		gu_return_on_exn(wtr->err, );
+	}
 
 	pgf_write_len(cncfun->n_lins, wtr);
 	gu_return_on_exn(wtr->err, );

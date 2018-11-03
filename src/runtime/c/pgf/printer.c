@@ -206,15 +206,17 @@ pgf_print_cncfun(PgfCncFun *cncfun, PgfSequences* sequences,
 		gu_printf(out,err,"S%d", (seq - ((PgfSequence*) gu_seq_data(sequences))));
 	}
 
-	gu_puts(")", out, err);
-	
-	if (cncfun->absfun != NULL) {
-		gu_puts(" [", out, err);
-		pgf_print_cid(cncfun->absfun->name, out, err);
-		gu_puts("]", out, err);
+	gu_puts(") [", out, err);
+
+	size_t n_absfuns = gu_seq_length(cncfun->absfuns);
+	for (size_t i = 0; i < n_absfuns; i++) {
+		PgfAbsFun* absfun =
+			gu_seq_get(cncfun->absfuns, PgfAbsFun*, i);
+
+		pgf_print_cid(absfun->name, out, err);
 	}
-	
-	gu_puts("\n", out, err);
+
+	gu_puts("]\n", out, err);
 }
 
 static void

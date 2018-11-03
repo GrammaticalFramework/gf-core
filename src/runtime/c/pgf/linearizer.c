@@ -40,15 +40,23 @@ pgf_lzr_index(PgfConcr* concr,
 	switch (gu_variant_tag(prod)) {
 	case PGF_PRODUCTION_APPLY: {
 		PgfProductionApply* papply = data;
-		PgfCncOverloadMap* overl_table =
-			gu_map_get(concr->fun_indices, papply->fun->absfun->name,
-				PgfCncOverloadMap*);
-		if (!overl_table) {
-			overl_table = gu_new_addr_map(PgfCCat*, GuBuf*, &gu_null_struct, pool);
-			gu_map_put(concr->fun_indices,
-				papply->fun->absfun->name, PgfCncOverloadMap*, overl_table);
+
+		size_t n_absfuns = gu_seq_length(papply->fun->absfuns);
+		for (size_t i = 0; i < n_absfuns; i++) {
+			PgfAbsFun* absfun =
+				gu_seq_get(papply->fun->absfuns, PgfAbsFun*, i);
+
+			PgfCncOverloadMap* overl_table =
+				gu_map_get(concr->fun_indices, absfun->name,
+					       PgfCncOverloadMap*);
+			if (!overl_table) {
+				overl_table = gu_new_addr_map(PgfCCat*, GuBuf*, &gu_null_struct, pool);
+				gu_map_put(concr->fun_indices,
+					       absfun->name,
+					       PgfCncOverloadMap*, overl_table);
+			}
+			pgf_lzr_add_overl_entry(overl_table, ccat, papply, pool);
 		}
-		pgf_lzr_add_overl_entry(overl_table, ccat, papply, pool);
 		break;
 	}
 	case PGF_PRODUCTION_COERCE: {
@@ -148,7 +156,7 @@ pgf_cnc_resolve(PgfCnc* cnc,
 static PgfCncTree
 pgf_cnc_resolve_app(PgfCnc* cnc,
                     size_t n_vars, PgfPrintContext* context,
-                    PgfCCat* ccat, GuBuf* buf, GuBuf* args,
+                    PgfCCat* ccat, PgfCId abs_id, GuBuf* buf, GuBuf* args,
                     GuPool* pool)
 {
 	GuChoiceMark mark = gu_choice_mark(cnc->ch);
@@ -164,6 +172,7 @@ pgf_cnc_resolve_app(PgfCnc* cnc,
 	capp->ccat    = ccat;
 	capp->n_vars  = n_vars;
 	capp->context = context;
+	capp->abs_id  = abs_id;
 
 redo:;
 	int index = gu_choice_next(cnc->ch, gu_buf_length(buf));
@@ -175,7 +184,6 @@ redo:;
 		gu_buf_get(buf, PgfProductionApply*, index);
 	gu_assert(n_args == gu_seq_length(papply->args));
 
-	capp->abs_id = papply->fun->absfun->name;
 	capp->fun    = papply->fun;
 	capp->fid    = 0;
 	capp->n_args = n_args;
@@ -470,7 +478,7 @@ redo:;
 				gu_map_iter(overl_table, &clo.fn, NULL);
 				assert(clo.ccat != NULL && clo.buf != NULL);
 
-				ret = pgf_cnc_resolve_app(cnc, n_vars, context, clo.ccat, clo.buf, args, pool);
+				ret = pgf_cnc_resolve_app(cnc, n_vars, context, clo.ccat, efun->fun, clo.buf, args, pool);
 				if (gu_variant_is_null(ret)) {
 					gu_choice_reset(cnc->ch, mark);
 					if (gu_choice_advance(cnc->ch))
@@ -483,7 +491,7 @@ redo:;
 					goto done;
 				}
 
-				ret = pgf_cnc_resolve_app(cnc, n_vars, context, ccat, buf, args, pool);
+				ret = pgf_cnc_resolve_app(cnc, n_vars, context, ccat, efun->fun, buf, args, pool);
 			}
 			goto done;
 		}

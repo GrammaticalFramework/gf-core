@@ -803,7 +803,12 @@ pgf_lookup_ctree_to_expr(PgfCncTree ctree, PgfExprProb* ep,
 	switch (cti.tag) {
 	case PGF_CNC_TREE_APP: {
 		PgfCncTreeApp* fapp = cti.data;
-		*ep    = fapp->fun->absfun->ep;
+		if (gu_seq_length(fapp->fun->absfuns) > 0)
+			*ep = gu_seq_get(fapp->fun->absfuns, PgfAbsFun*, 0)->ep;
+		else {
+			ep->expr = gu_null_variant;
+			ep->prob = fapp->fun->prob;
+		}
 		n_args = fapp->n_args;
 		args   = fapp->args;
 		break;
@@ -923,8 +928,15 @@ pgf_lookup_sentence(PgfConcr* concr, PgfType* typ, GuString sentence, GuPool* po
 	size_t n_cncfuns = gu_seq_length(concr->cncfuns);
 	for (size_t i = 0; i < n_cncfuns; i++) {
 		PgfCncFun* cncfun = gu_seq_get(concr->cncfuns, PgfCncFun*, i);
-		for (size_t lin_idx = 0; lin_idx < cncfun->n_lins; lin_idx++) {
-			pgf_lookup_index_syms(lexicon_idx, cncfun->lins[lin_idx]->syms, cncfun->absfun, pool);
+
+		size_t n_absfuns = gu_seq_length(cncfun->absfuns);
+		for (size_t j = 0; j < n_absfuns; j++) {
+			PgfAbsFun* absfun =
+				gu_seq_get(cncfun->absfuns, PgfAbsFun*, j);
+
+			for (size_t lin_idx = 0; lin_idx < cncfun->n_lins; lin_idx++) {
+				pgf_lookup_index_syms(lexicon_idx, cncfun->lins[lin_idx]->syms, absfun, pool);
+			}
 		}
 	}
 
