@@ -1,12 +1,13 @@
 #!/bin/bash
 
-### This script finds all .t2t (txt2tags) files and updates the corresponding
-### .html file, if it is out-of-date.
-
-# Path to this directory (not CWD)
+# Path to directory where this script is
 # https://stackoverflow.com/a/246128/98600
 DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null && pwd )"
 
+# Render txt2tags into html file
+# Arguments:
+# 1. txt2tags source file, e.g. download/index.t2t
+# 2. html target filen, e.g. download/index.html
 function render_html {
   t2t=$1
   html=$2
@@ -30,13 +31,13 @@ function render_html {
 }
 
 if [ $# -gt 0 ] ; then
-  # Render spcific file(s) from args, ignoring dates
+  # Render specific file(s) from args, ignoring dates
   for t2t in "$@" ; do
     html="${t2t%.t2t}.html"
     render_html "$t2t" "$html"
   done
 else
-  # Render all files found from cwd, if source is newer
+  # Render all files found in cwd, and below, if source is newer
   find . -name '*.t2t' | while read t2t ; do
     html="${t2t%.t2t}.html"
     if [ "$t2t" -nt "$html" ] ; then
