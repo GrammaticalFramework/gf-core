@@ -7,25 +7,40 @@
 # https://stackoverflow.com/a/246128/98600
 DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null && pwd )"
 
-find . -name '*.t2t' | while read t2t ; do
-  html="${t2t%.t2t}.html"
-  if [ "$t2t" -nt "$html" ] ; then
-    echo "$t2t"
-    relroot="$( dirname $t2t | sed -E 's/^.\///' | sed -E 's/[^/]+/../g' )"
-    pandoc \
-      --from=t2t \
-      --to=html5 \
-      --standalone \
-      --template="$DIR/_template.html" \
-      --css="https://stackpath.bootstrapcdn.com/bootstrap/4.1.3/css/bootstrap.min.css" \
-      --variable="rel-root:$relroot" \
-      "$t2t" \
-      --output="$html"
-    if [ -f "$html" ]; then
-      sed -i.bak "s/<table>/<table class=\"table\">/" "$html" && rm "$html.bak"
-      sed -i.bak -E "s/\`\`(.+)\`\`/<code>\1<\/code>/g" "$html" && rm "$html.bak"
-    else
-      echo "Error creating $html"
-    fi
+function render_html {
+  t2t=$1
+  html=$2
+  relroot="$( dirname $t2t | sed -E 's/^.\///' | sed -E 's/[^/]+/../g' )"
+  pandoc \
+    --from=t2t \
+    --to=html5 \
+    --standalone \
+    --template="$DIR/_template.html" \
+    --css="https://stackpath.bootstrapcdn.com/bootstrap/4.1.3/css/bootstrap.min.css" \
+    --variable="rel-root:$relroot" \
+    "$t2t" \
+    --output="$html"
+  if [ -f "$html" ] ; then
+    sed -i.bak "s/<table>/<table class=\"table\">/" "$html" && rm "$html.bak"
+    sed -i.bak -E "s/\`\`(.+)\`\`/<code>\1<\/code>/g" "$html" && rm "$html.bak"
+    echo "$html"
+  else
+    echo "Error creating $html"
   fi
-done
+}
+
+if [ $# -gt 0 ] ; then
+  # Render spcific file(s) from args, ignoring dates
+  for t2t in "$@" ; do
+    html="${t2t%.t2t}.html"
+    render_html "$t2t" "$html"
+  done
+else
+  # Render all files found from cwd, if source is newer
+  find . -name '*.t2t' | while read t2t ; do
+    html="${t2t%.t2t}.html"
+    if [ "$t2t" -nt "$html" ] ; then
+      render_html "$t2t" "$html"
+    fi
+  done
+fi
