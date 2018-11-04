@@ -15,11 +15,11 @@ April 4, 2006
 This is a quick reference on GF grammars. It aims to
 cover all forms of expression available when writing
 grammars. It assumes basic knowledge of GF, which
-can be acquired from the 
+can be acquired from the
 [GF Tutorial http://www.grammaticalframework.org/doc/tutorial/gf-tutorial.html].
 Help on GF commands is obtained on line by the
-help command (``help``), and help on invoking
-GF with (``gf -help``).
+help command with ``help``, and help on invoking
+GF with ``gf -help``.
 
 
 ===A complete example===
@@ -31,10 +31,10 @@ phrases //one pizza// and //two pizzas//.
 File ``Order.gf``:
 ```
 abstract Order = {
-cat 
-  Order ; 
+cat
+  Order ;
   Item ;
-fun 
+fun
   One, Two : Item -> Order ;
   Pizza : Item ;
 }
@@ -42,13 +42,13 @@ fun
 File ``OrderEng.gf`` (the top file):
 ```
 --# -path=.:prelude
-concrete OrderEng of Order = 
+concrete OrderEng of Order =
  open Res, Prelude in {
 flags startcat=Order ;
-lincat 
-  Order = SS ; 
+lincat
+  Order = SS ;
   Item  = {s : Num => Str} ;
-lin 
+lin
   One it = ss ("one" ++ it.s ! Sg) ;
   Two it = ss ("two" ++ it.s ! Pl) ;
   Pizza  = regNoun "pizza" ;
@@ -84,10 +84,10 @@ File named ``Foo.gf`` contains module named
 
 Each module has the structure
 ```
-moduletypename =   
+moduletypename =
   Inherits **        -- optional
   open Opens in      -- optional
-  { Judgements }   
+  { Judgements }
 ```
 Inherits are names of modules of the same type.
 Inheritance can be restricted:
@@ -112,15 +112,15 @@ interface I         -- like resource, but can have
                        oper f : T without definition
 instance J of I     -- like resource, defines opers
                        that I leaves undefined
-incomplete          -- functor: concrete that opens 
+incomplete          -- functor: concrete that opens
  concrete CI of A =    one or more interfaces
   open I in ...
 concrete CJ of A =  -- completion: concrete that
   CI with              instantiates a functor by
     (I = J)            instances of open interfaces
-``` 
-The forms 
-``param``, ``oper`` 
+```
+The forms
+``param``, ``oper``
 may appear in ``concrete`` as well, but are then
 not inherited to extensions.
 
@@ -134,11 +134,11 @@ Comments have the forms
 A ``concrete`` can be opened like a ``resource``.
 It is translated as follows:
 ```
-cat C          --->  oper C : Type = 
+cat C          --->  oper C : Type =
 lincat C = T           T ** {lock_C : {}}
 
-fun f : G -> C --->  oper f : A* -> C* = \g -> 
-lin f = t              t g ** {lock_C = <>}          
+fun f : G -> C --->  oper f : A* -> C* = \g ->
+lin f = t              t g ** {lock_C = <>}
 ```
 An ``abstract`` can be opened like an ``interface``.
 Any ``concrete`` of it then works as an ``instance``.
@@ -155,7 +155,7 @@ fun f : T           -- declare function f of type T
 def f = t           -- define f as t
 def f p q = t       -- define f by pattern matching
 data C = f | g      -- set f,g as constructors of C
-data f : A -> C     -- same as 
+data f : A -> C     -- same as
                        fun f : A -> C; data C=f
 
 lincat C = T        -- define lin.type of cat C
@@ -166,7 +166,7 @@ printname fun f = s -- printname shown in menus
 printname cat C = s -- printname shown in menus
 printname f = s     -- same as printname fun f = s
 
-param P = C | D Q R -- define parameter type P 
+param P = C | D Q R -- define parameter type P
                        with constructors
                        C : P, D : Q -> R -> P
 oper h : T = t      -- define oper h of type T
@@ -207,14 +207,14 @@ P                -- parameter type, if param P
 P => B           -- table type, if P param. type
 {s : Str ; p : P}-- record type
 {s,t : Str}      -- same as {s : Str ; t : Str}
-{a : A} **{b : B}-- record type extension, same as  
+{a : A} **{b : B}-- record type extension, same as
                     {a : A ; b : B}
 A * B * C        -- tuple type, same as
                     {p1 : A ; p2 : B ; p3 : C}
 Ints n           -- type of n first integers
 ```
 Resource (in ``oper``): all those of concrete, plus
-``` 
+```
 Tok              -- tokens (subtype of Str)
 A -> B           -- functions from A to B
 Int              -- integers
@@ -239,7 +239,7 @@ f a b              -- : C if fun f : A -> B -> C
 ```
 Higher-Order Abstract syntax (HOAS): functions as arguments:
 ```
-F a (\x -> c)      -- : C if a : A, c : C (x : B), 
+F a (\x -> c)      -- : C if a : A, c : C (x : B),
                       fun F : A -> (B -> C) -> C
 ```
 Tokens and token lists
@@ -266,16 +266,16 @@ table {              -- by pattern matching
   Pl => "mice" ;
   _  => "mouse"      -- wildcard pattern
   }
-table {               
-  n => regn n "cat"  -- variable pattern 
+table {
+  n => regn n "cat"  -- variable pattern
   }
 table Num {...}      -- table given with arg. type
 table ["ox"; "oxen"] -- table as course of values
-\\_ => "fish"        -- same as table {_ => "fish"} 
+\\_ => "fish"        -- same as table {_ => "fish"}
 \\p,q => t           -- same as \\p => \\q => t
 
 t ! p                -- select p from table t
-case e of {...}      -- same as table {...} ! e 
+case e of {...}      -- same as table {...} ! e
 ```
 Records
 ```
@@ -296,7 +296,7 @@ Local definitions
 ```
 let x : A = d in t -- let definition
 let x = d in t     -- let defin, type inferred
-let x=d ; y=e in t -- same as 
+let x=d ; y=e in t -- same as
                       let x=d in let y=e in t
 let {...} in t     -- same as let ... in t
 
@@ -316,10 +316,10 @@ Typed expression
 ```
 <t:T>                -- same as t, to help type inference
 ```
-Accessing bound variables in ``lin``: use fields ``$1, $2, $3,...``. 
+Accessing bound variables in ``lin``: use fields ``$1, $2, $3,...``.
 Example:
 ```
-fun F : (A : Set) -> (El A -> Prop) -> Prop ; 
+fun F : (A : Set) -> (El A -> Prop) -> Prop ;
 lin F A B = {s = ["for all"] ++ A.s ++ B.$1 ++ B.s}
 ```
 
@@ -367,7 +367,7 @@ oper
   cc2 : (_,_ : SS) -> SS       -- concat SS's
   optStr : Str -> Str          -- string or empty
   strOpt : Str -> Str          -- empty or string
-  bothWays : Str -> Str -> Str -- X++Y or Y++X 
+  bothWays : Str -> Str -> Str -- X++Y or Y++X
   init : Tok -> Tok            -- all but last char
   last : Tok -> Tok            -- last char
   prefixSS : Str -> SS -> SS
@@ -388,7 +388,7 @@ Flags can appear, with growing priority,
 
 Some common flags used in grammars:
 ```
-startcat=cat    use this category as default 
+startcat=cat    use this category as default
 
 lexer=literals  int and string literals recognized
 lexer=code      like program code
@@ -407,7 +407,7 @@ optimize=values    good for lexicon concrete
 optimize=all       usually good for resource
 optimize=noexpand  for resource, if =all too big
 ```
-For the full set of values for ``FLAG``, 
+For the full set of values for ``FLAG``,
 use on-line ``h -FLAG``.
 
 
@@ -415,7 +415,7 @@ use on-line ``h -FLAG``.
 ===File import search paths===
 
 Colon-separated list of directories searched in the
-given order: 
+given order:
 ```
 --# -path=.:../abstract:../common:prelude
 ```
@@ -443,17 +443,17 @@ directories, colon-separated, in ``GF_LIB_PATH``.
 
 ===Alternative grammar formats===
 
-**Old GF** (before GF 2.0): 
+**Old GF** (before GF 2.0):
 all judgements in any kinds of modules,
 division into files uses ``include``s.
 A file ``Foo.gf`` is recognized as the old format
-if it lacks a module header. 
+if it lacks a module header.
 
 **Context-free** (file ``foo.cf``). The form of rules is e.g.
 ```
 Fun. S ::= NP "is" AP ;
 ```
-If ``Fun`` is omitted, it is generated automatically. 
+If ``Fun`` is omitted, it is generated automatically.
 Rules must be one per line. The RHS can be empty.
 
 **Extended BNF** (file ``foo.ebnf``). The form of rules is e.g.
@@ -477,7 +477,7 @@ on command line. This file can be the grammar file itself.
 ```
 in Cat "example string"
 ```
-are preprocessed by using a parser given by the flag 
+are preprocessed by using a parser given by the flag
 ```
 --# -resource=File
 ```
@@ -489,5 +489,4 @@ and the result is written to ``foo.gf``.
 [GF Homepage http://www.grammaticalframework.org/]
 
 A. Ranta, Grammatical Framework: A Type-Theoretical Grammar Formalism.
-//The Journal of Functional Programming//, vol. 14:2. 2004, pp. 145-189. 
-
+//The Journal of Functional Programming//, vol. 14:2. 2004, pp. 145-189.

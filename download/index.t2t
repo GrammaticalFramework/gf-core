@@ -16,6 +16,7 @@ What's new? See the [Release notes release-3.9.html].
 | Ubuntu (32-bit) | [gf_3.9-1_i386.deb gf_3.9-1_i386.deb] | //GF+S+C+J+P// | ``sudo dpkg -i gf_3.9-1_i386.deb``
 | Ubuntu (64-bit) | [gf_3.9-1_amd64.deb gf_3.9-1_amd64.deb] | //GF+S+C+J+P// | ``sudo dpkg -i gf_3.9-1_amd64.deb``
 | Windows | [gf-3.9-bin-windows.zip gf-3.9-bin-windows.zip] | //GF+S// | ``unzip gf-3.9-bin-windows.zip``
+
 %| MINGW | [gf-3.9-bin-i686-MINGW32_NT-6.1.tar.gz gf-3.9-bin-i686-MINGW32_NT-6.1.tar.gz] | //GF+S+C// | ``tar -C / gf-3.9-bin-i686-MINGW32_NT-6.1.tar.gz``
 %| ... | ... | ... | ...
 
