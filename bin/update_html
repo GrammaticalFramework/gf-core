@@ -9,23 +9,51 @@ DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null && pwd )"
 # 1. txt2tags source file, e.g. download/index.t2t
 # 2. html target filen, e.g. download/index.html
 function render_html {
-  t2t=$1
-  html=$2
+  t2t="$1"
+  html="$2"
+  tmp="$2.tmp"
   relroot="$( dirname $t2t | sed -E 's/^.\///' | sed -E 's/[^/]+/../g' )"
+
+  # First render with txt2tags to handle pre/post processing
+  txt2tags \
+    --target=html \
+    --no-headers \
+    --quiet \
+    --outfile="$tmp" \
+    --infile="$t2t"
+
+  # Capture first 3 lines of t2t file: title, author, date
+  # Documentation here: https://txt2tags.org/userguide/headerarea
+  l1=$(head -n 1 "$t2t")
+  l2=$(tail -n+2 "$t2t" | head -n 1)
+  l3=$(tail -n+3 "$t2t" | head -n 1)
+  title=
+  author=
+  date=
+  if [ -n "$l1" ] ; then
+    title="$l1"
+    if [ -n "$l2" ] ; then author="$l2" ; fi
+    if [ -n "$l3" ] ; then date="$l3" ; fi
+  fi
+
+  # Run txt2tag's HTML through Pandoc for cleanup
   pandoc \
-    --from=t2t \
+    --from=html \
     --to=html5 \
     --standalone \
     --template="$DIR/_template.html" \
     --variable="rel-root:$relroot" \
-    "$t2t" \
+    --metadata="title:$title" \
+    --metadata="author:$author" \
+    --metadata="date:$date" \
+    "$tmp" \
     --output="$html"
+  rm -f "$tmp"
+
+  # Final post-processing
   if [ -f "$html" ] ; then
     sed -i.bak "s/<table>/<table class=\"table\">/" "$html" && rm "$html.bak"
-    sed -i.bak -E "s/\`\`(.+)\`\`/<code>\1<\/code>/g" "$html" && rm "$html.bak"
     echo "$html"
-  else
-    echo "Error creating $html"
   fi
 }
 
