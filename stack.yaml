@@ -9,6 +9,8 @@ packages:
 - src/runtime/haskell-bind
 
 extra-deps:
+- happy-1.19.9
+- alex-3.2.4
 - cgi-3001.3.0.2 # gf, gf-server
 # - fastcgi-3001.0.2.4 # gf-server
 - httpd-shed-0.4.0.3 # gf, gf-server
