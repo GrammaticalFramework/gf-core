@@ -7,8 +7,8 @@ DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null && pwd )"
 # Render txt2tags into html file
 # Arguments:
 # 1. txt2tags source file, e.g. download/index.t2t
-# 2. html target filen, e.g. download/index.html
-function render_html {
+# 2. html target file, e.g. download/index.html
+function render_t2t_html {
   t2t="$1"
   html="$2"
   tmp="$2.tmp"
@@ -57,18 +57,58 @@ function render_html {
   fi
 }
 
+# Render markdown into html file
+# Arguments:
+# 1. markdown source file, e.g. download/index.md
+# 2. html target filen, e.g. download/index.html
+function render_md_html {
+  md="$1"
+  html="$2"
+  relroot="$( dirname $md | sed -E 's/^.\///' | sed -E 's/[^/]+/../g' )"
+
+  pandoc \
+    --from=markdown \
+    --to=html5 \
+    --standalone \
+    --template="$DIR/_template.html" \
+    --variable="rel-root:$relroot" \
+    "$md" \
+    --output="$html"
+
+  # Final post-processing
+  if [ -f "$html" ] ; then
+    sed -i.bak "s/<table>/<table class=\"table\">/" "$html" && rm "$html.bak"
+    echo "$html"
+  fi
+}
+
 if [ $# -gt 0 ] ; then
   # Render specific file(s) from args, ignoring dates
-  for t2t in "$@" ; do
-    html="${t2t%.t2t}.html"
-    render_html "$t2t" "$html"
+  for file in "$@" ; do
+    ext="${file##*.}"
+    html="${file%.$ext}.html"
+    case $ext in
+      "md")
+        render_md_html "$file" "$html"
+        ;;
+      "t2t")
+        render_t2t_html "$file" "$html"
+        ;;
+    esac
   done
 else
-  # Render all files found in cwd, and below, if source is newer
-  find . -name '*.t2t' | while read t2t ; do
-    html="${t2t%.t2t}.html"
-    if [ "$t2t" -nt "$html" ] ; then
-      render_html "$t2t" "$html"
+  # Render all files found in cwd and deeper if source is newer
+  find . -name '*.t2t' | while read file ; do
+    html="${file%.t2t}.html"
+    if [ "$file" -nt "$html" ] ; then
+      render_t2t_html "$file" "$html"
+    fi
+  done
+  find . -name '*.md' | while read file ; do
+    if [[ "$file" == *"README.md" ]] ; then continue ; fi
+    html="${file%.md}.html"
+    if [ "$file" -nt "$html" ] ; then
+      render_md_html "$file" "$html"
     fi
   done
 fi

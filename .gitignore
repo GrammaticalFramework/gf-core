@@ -44,3 +44,19 @@ src/ui/android/obj/
 .cabal-sandbox
 cabal.sandbox.config
 DATA_DIR
+
+# Generated documentation (not exhaustive)
+demos/index-numbers.html
+demos/resourcegrammars.html
+demos/translation.html
+doc/tutorial/gf-tutorial.html
+doc/gf-bibliography.html
+doc/gf-developers.html
+doc/gf-editor-modes.html
+doc/gf-faq.html
+doc/gf-reference.html
+doc/gf-shell-reference.html
+doc/icfp-2012.html
+download/*.html
+gf-book/index.html
+src/www/gf-web-api.html
