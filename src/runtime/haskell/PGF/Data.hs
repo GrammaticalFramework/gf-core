@@ -28,7 +28,7 @@ data PGF = PGF {
 
 data Abstr = Abstr {
   aflags  :: Map.Map CId Literal,                            -- ^ value of a flag
-  funs    :: Map.Map CId (Type,Int,Maybe ([Equation],[[Instr]]),Double),-- ^ type, arrity and definition of function + probability
+  funs    :: Map.Map CId (Type,[DepPragma],Int,Maybe ([Equation],[[Instr]]),Double), -- ^ type, pragmas, arrity and definition of function + probability
   cats    :: Map.Map CId ([Hypo],[(Double, CId)],Double)                -- ^ 1. context of a category
                                                                         --   2. functions of a category. The functions are stored
                                                                         --      in decreasing probability order.
@@ -105,8 +105,8 @@ emptyPGF = PGF {
 haveSameFunsPGF :: PGF -> PGF -> Bool
 haveSameFunsPGF one two = 
   let 
-    fsone = [(f,t) | (f,(t,_,_,_)) <- Map.toList (funs (abstract one))]
-    fstwo = [(f,t) | (f,(t,_,_,_)) <- Map.toList (funs (abstract two))]
+    fsone = [(f,t) | (f,(t,_,_,_,_)) <- Map.toList (funs (abstract one))]
+    fstwo = [(f,t) | (f,(t,_,_,_,_)) <- Map.toList (funs (abstract two))]
   in fsone == fstwo
 
 -- | This is just a 'CId' with the language name.

@@ -60,7 +60,44 @@ pgf_print_absfuns(PgfAbsFuns* absfuns, GuOut *out, GuExn* err)
 		pgf_print_cid(absfun->name, out, err);
 		gu_puts(" : ", out, err);
 		pgf_print_type(absfun->type, NULL, 0, out, err);
-		gu_printf(out, err, " ;   -- %f\n", absfun->ep.prob);
+		gu_printf(out, err, " ;   -- %f ", absfun->ep.prob);
+		
+		size_t n_pragmas = gu_seq_length(absfun->pragmas);
+		for (size_t i = 0; i < n_pragmas; i++) {
+			PgfDepPragma* pragma =
+				gu_seq_index(absfun->pragmas, PgfDepPragma, i);
+			switch (pragma->tag) {
+			case PGF_DEP_PRAGMA_HEAD:
+				gu_puts("head",out,err);
+				if (pragma->index > 0)
+					gu_printf(out,err,":%d", pragma->index);
+				if (pragma->label != NULL &&  *pragma->label != 0)
+					gu_printf(out,err,":%s", pragma->label);
+				break;
+			case PGF_DEP_PRAGMA_MOD:
+				gu_puts(pragma->label, out,err);
+				if (pragma->index > 0)
+					gu_printf(out,err,":%d", pragma->index);
+				break;
+			case PGF_DEP_PRAGMA_REL:
+				gu_puts("rel",out,err);
+				if (pragma->index > 0)
+					gu_printf(out,err,":%d", pragma->index);
+				break;
+			case PGF_DEP_PRAGMA_SKIP:
+				gu_puts("_",out,err);
+				break;
+			case PGF_DEP_PRAGMA_ANCH:
+				gu_puts("anchor",out,err);
+				break;
+			default:
+				gu_impossible();
+			}
+
+			gu_putc(' ', out, err);
+		}
+
+		gu_putc('\n', out, err);
 	}
 }
 static void

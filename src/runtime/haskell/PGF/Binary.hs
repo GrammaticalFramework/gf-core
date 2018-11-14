@@ -47,13 +47,13 @@ instance Binary CId where
 
 instance Binary Abstr where
   put abs = do put (aflags abs)
-               put (Map.map (\(ty,arity,mb_eq,prob) -> (ty,arity,fmap fst mb_eq,prob)) (funs abs))
+               put (Map.map (\(ty,ps,arity,mb_eq,prob) -> (ty,ps,arity,fmap fst mb_eq,prob)) (funs abs))
                put (cats abs)
   get = do aflags <- get
            funs <- get
            cats <- get
            return (Abstr{ aflags=aflags
-                        , funs=Map.map (\(ty,arity,mb_eq,prob) -> (ty,arity,fmap (\eq -> (eq,[])) mb_eq,prob)) funs
+                        , funs=Map.map (\(ty,ps,arity,mb_eq,prob) -> (ty,ps,arity,fmap (\eq -> (eq,[])) mb_eq,prob)) funs
                         , cats=cats
                         })
 
@@ -198,6 +198,26 @@ instance Binary BindType where
              0 -> return Explicit
              1 -> return Implicit
              _ -> decodingError
+
+instance Binary DepPragma where
+  put (Head index lbl) = putWord8 0 >> put index >> put lbl
+  put (Mod  index lbl) = putWord8 1 >> put index >> put lbl
+  put (Rel  index)     = putWord8 2 >> put index
+  put Skip             = putWord8 3
+  put Anch             = putWord8 4
+  get = do
+    tag <- getWord8
+    case tag of
+      0 -> do index <- get
+              lbl   <- get
+              return (Head index lbl)
+      1 -> do index <- get
+              lbl   <- get
+              return (Mod index lbl)
+      2 -> do index <- get
+              return (Rel index)
+      3 -> return Skip
+      4 -> return Anch
 
 instance Binary CncFun where
   put (CncFun fun lins) = put fun >> putArray lins

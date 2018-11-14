@@ -39,7 +39,7 @@ getAbstract =
            funs <- getMap getCId getFun
            cats <- getMap getCId getCat
            return (Abstr{ aflags=aflags
-                        , funs=fmap (\(w,x,y,z) -> (w,x,fmap (flip (,) []) y,z)) funs
+                        , funs=fmap (\(w,x,y,z) -> (w,[],x,fmap (flip (,) []) y,z)) funs
                         , cats=fmap (\(x,y) -> (x,y,0)) cats
                         })
 getFun :: Get (Type,Int,Maybe [Equation],Double)

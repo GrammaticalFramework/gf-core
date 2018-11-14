@@ -22,13 +22,13 @@ mapConcretes f pgf = pgf { concretes = Map.map f (concretes pgf) }
 lookType :: Abstr -> CId -> Type
 lookType abs f = 
   case lookMap (error $ "lookType " ++ show f) f (funs abs) of
-    (ty,_,_,_) -> ty
+    (ty,_,_,_,_) -> ty
 
 isData :: Abstr -> CId -> Bool
 isData abs f =
   case Map.lookup f (funs abs) of
-    Just (_,_,Nothing,_) -> True       -- the encoding of data constrs
-    _                    -> False
+    Just (_,_,_,Nothing,_) -> True       -- the encoding of data constrs
+    _                      -> False
 
 lookValCat :: Abstr -> CId -> CId
 lookValCat abs = valCat . lookType abs
@@ -61,7 +61,7 @@ lookConcrFlag pgf lang f = Map.lookup f $ cflags $ lookConcr pgf lang
 
 functionsToCat :: PGF -> CId -> [(CId,Type)]
 functionsToCat pgf cat =
-  [(f,ty) | (_,f) <- fs, Just (ty,_,_,_) <- [Map.lookup f $ funs $ abstract pgf]]
+  [(f,ty) | (_,f) <- fs, Just (ty,_,_,_,_) <- [Map.lookup f $ funs $ abstract pgf]]
  where 
    (_,fs,_) = lookMap ([],[],0) cat $ cats $ abstract pgf
 

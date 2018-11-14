@@ -76,9 +76,27 @@ typedef GuSeq PgfEquations;
 
 typedef void *PgfFunction;
 
+typedef enum {
+	PGF_DEP_PRAGMA_HEAD,
+	PGF_DEP_PRAGMA_MOD,
+	PGF_DEP_PRAGMA_REL,
+	PGF_DEP_PRAGMA_SKIP,
+	PGF_DEP_PRAGMA_ANCH,
+	PGF_DEP_PRAGMA_TAGS
+} PgfDepPragmaTag;
+
+typedef struct {
+	PgfDepPragmaTag tag;
+	size_t   index;
+	GuString label;
+} PgfDepPragma;
+
+typedef GuSeq PgfDepPragmas;
+
 typedef struct {
 	PgfCId name;
 	PgfType* type;
+	PgfDepPragmas* pragmas;
 	int arity;
 	PgfEquations* defns; // maybe null
 	PgfExprProb ep;

@@ -6,7 +6,7 @@ import GF.Compile.GeneratePMCFG
 import GF.Compile.GenerateBC
 
 import PGF(CId,mkCId,utf8CId)
-import PGF.Internal(fidInt,fidFloat,fidString,fidVar)
+import PGF.Internal(fidInt,fidFloat,fidString,fidVar,DepPragma(..))
 import PGF.Internal(updateProductionIndices)
 import qualified PGF.Internal as C
 import GF.Grammar.Predef
@@ -22,6 +22,7 @@ import GF.Infra.UseIO (IOE)
 import GF.Data.Operations
 
 import Data.List
+import Data.Maybe (fromMaybe)
 import qualified Data.Set as Set
 import qualified Data.Map as Map
 import qualified Data.IntMap as IntMap
@@ -29,13 +30,16 @@ import Data.Array.IArray
 
 mkCanon2pgf :: Options -> SourceGrammar -> ModuleName -> IOE C.PGF
 mkCanon2pgf opts gr am = do
-  (an,abs) <- mkAbstr am
+  depconf  <- case flag optLabelsFile opts of
+                Nothing    -> return Map.empty
+                Just fpath -> readDepConfig fpath
+  (an,abs) <- mkAbstr am depconf
   cncs     <- mapM mkConcr (allConcretes gr am)
   return $ updateProductionIndices (C.PGF Map.empty an abs (Map.fromList cncs))
   where
     cenv = resourceValues opts gr
 
-    mkAbstr am = return (mi2i am, C.Abstr flags funs cats)
+    mkAbstr am depconf = return (mi2i am, C.Abstr flags funs cats)
       where
         aflags = err (const noOptions) mflags (lookupModule gr am)
 
@@ -45,7 +49,7 @@ mkCanon2pgf opts gr am = do
 
         flags = Map.fromList [(mkCId f,x) | (f,x) <- optionsPGF aflags]
 
-        funs = Map.fromList [(i2i f, (mkType [] ty, arity, mkDef gr arity mdef, 0)) | 
+        funs = Map.fromList [(i2i f, (mkType [] ty, fromMaybe [] (Map.lookup (i2i f) depconf), arity, mkDef gr arity mdef, 0)) | 
                                    ((m,f),AbsFun (Just (L _ ty)) ma mdef _) <- adefs,
                                    let arity = mkArity ma mdef ty]
 
@@ -320,3 +324,29 @@ genPrintNames cdefs =
 --mkArray    lst = listArray (0,length lst-1) lst
 mkMapArray map = array (0,Map.size map-1) [(v,k) | (k,v) <- Map.toList map]
 mkSetArray set = listArray (0,Set.size set-1) [v | v <- Set.toList set]
+
+
+
+readDepConfig :: FilePath -> IO (Map.Map CId [DepPragma])
+readDepConfig fpath =
+  fmap (Map.fromList . concatMap toEntry . lines) $ readFile fpath
+  where
+    toEntry l =
+      case words l of
+        []       -> []
+        ("--":_) -> []
+        (fun:ws) -> [(mkCId fun,[toPragma w | w <- ws])]
+
+    toPragma "head"                   = Head 0         ""
+    toPragma ('h':'e':'a':'d':':':cs) =
+      case break (==':') cs of
+        (lbl,[]    ) ->                 Head 0         lbl
+        (lbl,':':cs) ->                 Head (read cs) lbl
+    toPragma "rel"                    = Rel  0
+    toPragma ('r':'e':'l':':':cs)     = Rel  (read cs)
+    toPragma "_"                      = Skip
+    toPragma "anchor"                 = Anch
+    toPragma s                        =
+      case break (==':') s of
+        (lbl,[]    ) ->                 Mod  0         lbl
+        (lbl,':':cs) ->                 Mod  (read cs) lbl

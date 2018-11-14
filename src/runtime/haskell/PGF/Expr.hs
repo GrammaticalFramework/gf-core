@@ -1,4 +1,4 @@
-module PGF.Expr(Tree, BindType(..), Expr(..), Literal(..), Patt(..), Equation(..),
+module PGF.Expr(Tree, BindType(..), Expr(..), Literal(..), Patt(..), Equation(..), DepPragma(..),
                 readExpr, showExpr, pExpr, pBinds, ppExpr, ppPatt, pattScope,
 
                 mkAbs,    unAbs,
@@ -76,6 +76,14 @@ data Patt =
 data Equation =
    Equ [Patt] Expr
   deriving Show
+
+data DepPragma
+  = Head Int String
+  | Mod  Int String
+  | Rel  Int
+  | Skip
+  | Anch
+
 
 -- | parses 'String' as an expression
 readExpr :: String -> Maybe Expr
@@ -319,15 +327,15 @@ data Value
   | VClosure Env Expr
   | VImplArg Value
 
-type Sig = ( Map.Map CId (Type,Int,Maybe ([Equation],[[Instr]]),Double) -- type and def of a fun
-           , Int -> Maybe Expr                                          -- lookup for metavariables
+type Sig = ( Map.Map CId (Type,[DepPragma],Int,Maybe ([Equation],[[Instr]]),Double) -- type and def of a fun
+           , Int -> Maybe Expr                                                      -- lookup for metavariables
            )
 type Env = [Value]
 
 eval :: Sig -> Env -> Expr -> Value
 eval sig env (EVar i)     = env !! i
 eval sig env (EFun f)     = case Map.lookup f (fst sig) of
-                              Just (_,a,meqs,_) -> case meqs of
+                              Just (_,_,a,meqs,_) -> case meqs of
                                                        Just (eqs,_)
                                                                -> if a == 0
                                                                     then case eqs of
@@ -349,12 +357,12 @@ apply :: Sig -> Env -> Expr -> [Value] -> Value
 apply sig env e            []     = eval sig env e
 apply sig env (EVar i)     vs     = applyValue sig (env !! i) vs
 apply sig env (EFun f)     vs     = case Map.lookup f (fst sig) of
-                                      Just (_,a,meqs,_) -> case meqs of
-                                                             Just (eqs,_) -> if a <= length vs
-                                                                               then match sig f eqs vs
-                                                                               else VApp f vs
-                                                             Nothing      -> VApp f vs
-                                      Nothing           -> error ("unknown function "++showCId f)
+                                      Just (_,_,a,meqs,_) -> case meqs of
+                                                               Just (eqs,_) -> if a <= length vs
+                                                                                 then match sig f eqs vs
+                                                                                 else VApp f vs
+                                                               Nothing      -> VApp f vs
+                                      Nothing             -> error ("unknown function "++showCId f)
 apply sig env (EApp e1 e2) vs     = apply sig env e1 (eval sig env e2 : vs)
 apply sig env (EAbs b x e) (v:vs) = case (b,v) of
                                       (Implicit,VImplArg v) -> apply sig (v:env) e vs

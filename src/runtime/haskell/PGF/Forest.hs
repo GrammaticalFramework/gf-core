@@ -75,7 +75,7 @@ bracketedTokn dp f@(Forest abs cnc forest root) =
                                                  cat = case pfuns of
                                                          []       -> wildCId
                                                          (pfun:_) -> case Map.lookup pfun (funs abs) of
-                                                                       Just (DTyp _ cat _,_,_,_) -> cat
+                                                                       Just (DTyp _ cat _,_,_,_,_) -> cat
                                                  largs  = map (render forest) args
                                                  ltable = mkLinTable cnc isTrusted [] funid largs
                                              in ((cat,fid),0,wildCId,either (const []) id $ getAbsTrees f arg Nothing dp,ltable)

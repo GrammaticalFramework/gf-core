@@ -135,8 +135,8 @@ lookupCatHyps cat = TcM (\abstr k h ms -> case Map.lookup cat (cats abstr) of
 
 lookupFunType :: CId -> TcM s Type
 lookupFunType fun = TcM (\abstr k h ms -> case Map.lookup fun (funs abstr) of
-                                            Just (ty,_,_,_) -> k ty ms
-                                            Nothing         -> h (UnknownFun fun))
+                                            Just (ty,_,_,_,_) -> k ty ms
+                                            Nothing           -> h (UnknownFun fun))
 
 typeGenerators :: Scope -> CId -> TcM s [(Double,Expr,TType)]
 typeGenerators scope cat = fmap normalize (liftM2 (++) x y)

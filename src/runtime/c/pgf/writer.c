@@ -311,6 +311,32 @@ pgf_write_absfun(PgfAbsFun* absfun, PgfWriter* wtr)
 
 	pgf_write_type_(absfun->type, wtr);
 	gu_return_on_exn(wtr->err, );
+	
+	size_t n_pragmas = gu_seq_length(absfun->pragmas);
+	for (size_t i = 0; i < n_pragmas; i++) {
+		PgfDepPragma* pragma =
+			gu_seq_index(absfun->pragmas, PgfDepPragma, i);
+			
+		pgf_write_tag(pragma->tag, wtr);
+		switch (pragma->tag) {
+		case PGF_DEP_PRAGMA_HEAD:
+			pgf_write_int(pragma->index, wtr);
+			pgf_write_string(pragma->label, wtr);
+			break;
+		case PGF_DEP_PRAGMA_MOD:
+			pgf_write_int(pragma->index, wtr);
+			pgf_write_string(pragma->label, wtr);
+			break;
+		case PGF_DEP_PRAGMA_REL:
+			pgf_write_int(pragma->index, wtr);
+			break;
+		case PGF_DEP_PRAGMA_SKIP:
+		case PGF_DEP_PRAGMA_ANCH:
+			break;
+		default:
+			gu_impossible();
+		}
+	}
 
 	pgf_write_int(absfun->arity, wtr);
 

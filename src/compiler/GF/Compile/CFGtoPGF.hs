@@ -35,7 +35,7 @@ cf2abstr cfg = Abstr aflags afuns acats
                             | (cat,rules) <- (Map.toList . Map.fromListWith (++))
                                                 [(cat2id cat, catRules cfg cat) | 
                                                      cat <- allCats' cfg]]
-    afuns  = Map.fromList [(mkRuleName rule, (cftype [cat2id c | NonTerminal c <- ruleRhs rule] (cat2id (ruleLhs rule)), 0, Nothing, 0))
+    afuns  = Map.fromList [(mkRuleName rule, (cftype [cat2id c | NonTerminal c <- ruleRhs rule] (cat2id (ruleLhs rule)), [], 0, Nothing, 0))
                             | rule <- allRules cfg]
 
     cat2id = mkCId . fst

@@ -54,11 +54,11 @@ plAbstract name abs
                         let args = reverse [EFun x | (_,x) <- subst]] ++++
        plFacts name "fun" 3 "(?Fun, ?Type, ?[X:Type,...])"
                    [[plp fun, plType cat args, plHypos hypos] |
-                    (fun, (typ, _, _, _)) <- Map.assocs (funs abs),
+                    (fun, (typ, _, _, _, _)) <- Map.assocs (funs abs),
                     let (_, DTyp hypos cat args) = alphaConvert emptyEnv typ] ++++
        plFacts name "def" 2 "(?Fun, ?Expr)" 
                    [[plp fun, plp expr] |
-                    (fun, (_, _, Just (eqs,_), _)) <- Map.assocs (funs abs),
+                    (fun, (_, _, _, Just (eqs,_), _)) <- Map.assocs (funs abs),
                     let (_, expr) = alphaConvert emptyEnv eqs]
       )
     where plType cat args = plTerm (plp cat) (map plp args)

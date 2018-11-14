@@ -407,6 +407,45 @@ pgf_read_patt(PgfReader* rdr)
 	return patt;
 }
 
+static PgfDepPragmas*
+pgf_read_deppragmas(PgfReader* rdr)
+{
+	size_t n_pragmas = pgf_read_len(rdr);
+	gu_return_on_exn(rdr->err, NULL);
+
+	GuSeq* pragmas = gu_new_seq(PgfDepPragma, n_pragmas, rdr->opool);
+	for (size_t i = 0; i < n_pragmas; i++) {
+		PgfDepPragma* pragma = gu_seq_index(pragmas, PgfDepPragma, i);
+		pragma->tag = pgf_read_tag(rdr);
+		gu_return_on_exn(rdr->err, NULL);
+		switch (pragma->tag) {
+		case PGF_DEP_PRAGMA_HEAD:
+			pragma->index = pgf_read_int(rdr);
+			pragma->label = pgf_read_string(rdr);
+			break;
+		case PGF_DEP_PRAGMA_MOD:
+			pragma->index = pgf_read_int(rdr);
+			pragma->label = pgf_read_string(rdr);
+			break;
+		case PGF_DEP_PRAGMA_REL:
+			pragma->index = pgf_read_int(rdr);
+			pragma->label = NULL;
+			break;
+		case PGF_DEP_PRAGMA_SKIP:
+			pragma->index = 0;
+			pragma->label = NULL;
+			break;
+		case PGF_DEP_PRAGMA_ANCH:
+			pragma->index = 0;
+			pragma->label = NULL;
+			break;
+		default:
+			pgf_read_tag_error(rdr);
+		}
+	}
+	return pragmas;
+}
+
 static PgfAbsFun*
 pgf_read_absfun(PgfReader* rdr, PgfAbstr* abstr, PgfAbsFun* absfun)
 {
@@ -424,6 +463,9 @@ pgf_read_absfun(PgfReader* rdr, PgfAbstr* abstr, PgfAbsFun* absfun)
 	gu_return_on_exn(rdr->err, NULL);
 
 	absfun->type = pgf_read_type_(rdr);
+	gu_return_on_exn(rdr->err, NULL);
+
+	absfun->pragmas = pgf_read_deppragmas(rdr);
 	gu_return_on_exn(rdr->err, NULL);
 
 	absfun->arity = pgf_read_int(rdr);

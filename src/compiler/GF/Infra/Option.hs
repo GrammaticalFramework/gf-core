@@ -157,6 +157,7 @@ data Flags = Flags {
       optDocumentRoot    :: Maybe FilePath, -- For --server mode
       optRecomp          :: Recomp,
       optProbsFile       :: Maybe FilePath,
+      optLabelsFile      :: Maybe FilePath,
       optRetainResource  :: Bool,
       optName            :: Maybe String,
       optPreprocessors   :: [String],
@@ -268,6 +269,7 @@ defaultFlags = Flags {
       optDocumentRoot    = Nothing,
       optRecomp          = RecompIfNewer,
       optProbsFile       = Nothing,
+      optLabelsFile      = Nothing,
       optRetainResource  = False,
 
       optName            = Nothing,
@@ -349,8 +351,9 @@ optDescr =
      Option [] ["gfo","no-recomp"] (NoArg (recomp NeverRecomp)) 
                  "Never recompile from source, if there is already .gfo file.",
      Option [] ["retain"] (NoArg (set $ \o -> o { optRetainResource = True })) "Retain opers.",
-     Option [] ["probs"] (ReqArg probsFile "file.probs") "Read probabilities from file.",
-     Option ['n'] ["name"] (ReqArg name "NAME") 
+     Option [] ["probs"] (ReqArg probsFile "file.probs") "Read probabilities from a file.",
+     Option [] ["depconf"] (ReqArg labelsFile "file.labels") "Read a configuration for generation of syntactic dependency graphs from a file.",
+     Option ['n'] ["name"] (ReqArg name "NAME")
            (unlines ["Use NAME as the name of the output. This is used in the output file names, ",
                      "with suffixes depending on the formats, and, when relevant, ",
                      "internally in the output."]),
@@ -428,6 +431,7 @@ optDescr =
        gfDocuRoot  x = set $ \o -> o { optDocumentRoot = Just x }
        recomp      x = set $ \o -> o { optRecomp = x }
        probsFile   x = set $ \o -> o { optProbsFile = Just x }
+       labelsFile  x = set $ \o -> o { optLabelsFile = Just x }
 
        name        x = set $ \o -> o { optName = Just x }
        addLibDir   x = set $ \o -> o { optLibraryPath = x:optLibraryPath o }

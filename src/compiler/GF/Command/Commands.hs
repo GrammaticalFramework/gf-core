@@ -723,7 +723,7 @@ pgfCommands = Map.fromList [
        case toExprs arg of
          [EFun id] -> case Map.lookup id (funs (abstract pgf)) of
                         Just fd -> do putStrLn $ render (ppFun id fd)
-                                      let (_,_,_,prob) = fd
+                                      let (_,_,_,_,prob) = fd
                                       putStrLn ("Probability: "++show prob)
                                       return void
                         Nothing -> case Map.lookup id (cats (abstract pgf)) of
@@ -732,7 +732,7 @@ pgfCommands = Map.fromList [
                                                                 if null (functionsToCat pgf id)
                                                                   then empty
                                                                   else ' ' $$
-                                                                       vcat [ppFun fid (ty,0,Just ([],[]),0) | (fid,ty) <- functionsToCat pgf id] $$
+                                                                       vcat [ppFun fid (ty,[],0,Just ([],[]),0) | (fid,ty) <- functionsToCat pgf id] $$
                                                                        ' ')
                                                      let (_,_,prob) = cd
                                                      putStrLn ("Probability: "++show prob)
@@ -909,7 +909,7 @@ pgfCommands = Map.fromList [
      | otherwise             = do fmt <- readOutputFormat (valStrOpts "printer" "pgf_pretty" opts)
                                   return $ fromString $ concatMap snd $ exportPGF noOptions fmt pgf
 
-   funsigs pgf = [(f,ty) | (f,(ty,_,_,_)) <- Map.assocs (funs (abstract pgf))]
+   funsigs pgf = [(f,ty) | (f,(ty,_,_,_,_)) <- Map.assocs (funs (abstract pgf))]
    showFun (f,ty) = showCId f ++ " : " ++ showType [] ty ++ " ;"
 
    morphos (Env pgf mos) opts s =

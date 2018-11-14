@@ -76,15 +76,15 @@ defaultProbabilities pgf = mkProbabilities pgf Map.empty
 
 getProbabilities :: PGF -> Probabilities
 getProbabilities pgf = Probs {
-  funProbs = Map.map (\(_,_,_,p) -> p      ) (funs (abstract pgf)),
-  catProbs = Map.map (\(_,fns,p) -> (p,fns)) (cats (abstract pgf))
+  funProbs = Map.map (\(_,_,_,_,p) -> p      ) (funs (abstract pgf)),
+  catProbs = Map.map (\(_,fns,p)   -> (p,fns)) (cats (abstract pgf))
   }
 
 setProbabilities :: Probabilities -> PGF -> PGF
 setProbabilities probs pgf = pgf {
   abstract = (abstract pgf) {
-    funs = mapUnionWith (\(ty,a,df,_) p       -> (ty,a,df,  p)) (funs (abstract pgf)) (funProbs probs),
-    cats = mapUnionWith (\(hypos,_,_) (p,fns) -> (hypos,fns,p)) (cats (abstract pgf)) (catProbs probs)
+    funs = mapUnionWith (\(ty,ps,a,df,_) p      -> (ty,ps,a,df,  p)) (funs (abstract pgf)) (funProbs probs),
+    cats = mapUnionWith (\(hypos,_,_)   (p,fns) -> (hypos,fns,p)) (cats (abstract pgf)) (catProbs probs)
   }}
   where
     mapUnionWith f map1 map2 = 
@@ -95,8 +95,8 @@ probTree :: PGF -> Expr -> Double
 probTree pgf t = case t of
   EApp f e -> probTree pgf f * probTree pgf e
   EFun f   -> case Map.lookup f (funs (abstract pgf)) of
-                Just (_,_,_,p) -> p
-                Nothing        -> 1
+                Just (_,_,_,_,p) -> p
+                Nothing          -> 1
   _ -> 1
 
 -- | rank from highest to lowest probability
@@ -113,7 +113,7 @@ mkProbDefs pgf =
                                               hyps0
                                               [1..]
                                fns  = [(f,ty) | (_,f) <- fs, 
-                                               let Just (ty,_,_,_) = Map.lookup f (funs (abstract pgf))]
+                                               let Just (ty,_,_,_,_) = Map.lookup f (funs (abstract pgf))]
            ]
       ((_,css),eqss) = mapAccumL (\(ngen,css) (c,hyps,fns) -> 
               let st0      = (1,Map.empty)
@@ -263,7 +263,7 @@ computeConstrs pgf st fns =
       where
         addArgs (cn,fns) = addArg (length args) cn [] fns
           where
-            Just (DTyp args _ _es,_,_,_) = Map.lookup cn (funs (abstract pgf))
+            Just (DTyp args _ _es,_,_,_,_) = Map.lookup cn (funs (abstract pgf))
 
         addArg 0 cn ps fns = [(PApp cn (reverse ps),fns)]
         addArg n cn ps fns = concat [addArg (n-1) cn (arg:ps) fns' | (arg,fns') <- computeConstr fns]
