@@ -140,13 +140,13 @@ readPGF fpath =
 
 showPGF :: PGF -> String
 showPGF p =
-  unsafePerformIO $
-    withGuPool $ \tmpPl ->
-      do (sb,out) <- newOut tmpPl
-         exn <- gu_new_exn tmpPl
-         pgf_print (pgf p) out exn
-         touchPGF p
-         peekUtf8CStringBuf sb
+  unsafePerformIO $ do
+    tmpPl <- gu_new_pool
+    (sb,out) <- newOut tmpPl
+    exn <- gu_new_exn tmpPl
+    pgf_print (pgf p) out exn
+    touchPGF p
+    peekUtf8CStringBufResult sb tmpPl
 
 -- | List of all languages available in the grammar.
 languages :: PGF -> Map.Map ConcName Concr
@@ -410,37 +410,37 @@ graphvizDefaults = GraphvizOptions False False False True "" "" "" "" "" ""
 -- | Renders an abstract syntax tree in a Graphviz format.
 graphvizAbstractTree :: PGF -> GraphvizOptions -> Expr -> String
 graphvizAbstractTree p opts e =
-  unsafePerformIO $
-    withGuPool $ \tmpPl ->
-      do (sb,out) <- newOut tmpPl
-         exn <- gu_new_exn tmpPl
-         c_opts <- newGraphvizOptions tmpPl opts
-         pgf_graphviz_abstract_tree (pgf p) (expr e) c_opts out exn
-         touchExpr e
-         peekUtf8CStringBuf sb
+  unsafePerformIO $ do
+    tmpPl <- gu_new_pool
+    (sb,out) <- newOut tmpPl
+    exn <- gu_new_exn tmpPl
+    c_opts <- newGraphvizOptions tmpPl opts
+    pgf_graphviz_abstract_tree (pgf p) (expr e) c_opts out exn
+    touchExpr e
+    peekUtf8CStringBufResult sb tmpPl
 
 graphvizParseTree :: Concr -> GraphvizOptions -> Expr -> String
 graphvizParseTree c opts e =
-  unsafePerformIO $
-    withGuPool $ \tmpPl ->
-      do (sb,out) <- newOut tmpPl
-         exn <- gu_new_exn tmpPl
-         c_opts <- newGraphvizOptions tmpPl opts
-         pgf_graphviz_parse_tree (concr c) (expr e) c_opts out exn
-         touchExpr e
-         peekUtf8CStringBuf sb
+  unsafePerformIO $ do
+    tmpPl <- gu_new_pool
+    (sb,out) <- newOut tmpPl
+    exn <- gu_new_exn tmpPl
+    c_opts <- newGraphvizOptions tmpPl opts
+    pgf_graphviz_parse_tree (concr c) (expr e) c_opts out exn
+    touchExpr e
+    peekUtf8CStringBufResult sb tmpPl
 
 graphvizWordAlignment :: [Concr] -> GraphvizOptions -> Expr -> String
 graphvizWordAlignment cs opts e =
   unsafePerformIO $
-    withGuPool $ \tmpPl ->
     withArrayLen (map concr cs) $ \n_concrs ptr ->
-      do (sb,out) <- newOut tmpPl
+      do tmpPl <- gu_new_pool
+         (sb,out) <- newOut tmpPl
          exn <- gu_new_exn tmpPl
          c_opts <- newGraphvizOptions tmpPl opts
          pgf_graphviz_word_alignment ptr (fromIntegral n_concrs) (expr e) c_opts out exn
          touchExpr e
-         peekUtf8CStringBuf sb
+         peekUtf8CStringBufResult sb tmpPl
 
 newGraphvizOptions :: Ptr GuPool -> GraphvizOptions -> IO (Ptr PgfGraphvizOptions)
 newGraphvizOptions pool opts = do

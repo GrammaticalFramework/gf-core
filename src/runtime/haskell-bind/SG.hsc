@@ -196,17 +196,17 @@ readTriple str =
 showTriple :: Expr -> Expr -> Expr -> String
 showTriple (Expr expr1 touch1) (Expr expr2 touch2) (Expr expr3 touch3) =
   unsafePerformIO $
-    withGuPool $ \tmpPl ->
-      withTriple $ \triple -> do
-         (sb,out) <- newOut tmpPl
-         let printCtxt = nullPtr
-         exn <- gu_new_exn tmpPl
-         pokeElemOff triple 0 expr1
-         pokeElemOff triple 1 expr2
-         pokeElemOff triple 2 expr3
-         pgf_print_expr_tuple 3 triple printCtxt out exn
-         touch1 >> touch2 >> touch3
-         peekUtf8CStringBuf sb
+    withTriple $ \triple -> do
+      tmpPl <- gu_new_pool
+      (sb,out) <- newOut tmpPl
+      let printCtxt = nullPtr
+      exn <- gu_new_exn tmpPl
+      pokeElemOff triple 0 expr1
+      pokeElemOff triple 1 expr2
+      pokeElemOff triple 2 expr3
+      pgf_print_expr_tuple 3 triple printCtxt out exn
+      touch1 >> touch2 >> touch3
+      peekUtf8CStringBufResult sb tmpPl
 
 insertTriple :: SG -> Expr -> Expr -> Expr -> IO SgId
 insertTriple (SG sg) (Expr expr1 touch1) (Expr expr2 touch2) (Expr expr3 touch3) =

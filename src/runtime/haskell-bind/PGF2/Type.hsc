@@ -45,14 +45,14 @@ readType str =
 -- of binding.
 showType :: [CId] -> Type -> String
 showType scope (Type ty touch) = 
-  unsafePerformIO $
-    withGuPool $ \tmpPl ->
-      do (sb,out) <- newOut tmpPl
-         printCtxt <- newPrintCtxt scope tmpPl
-         exn <- gu_new_exn tmpPl
-         pgf_print_type ty printCtxt 0 out exn
-         touch
-         peekUtf8CStringBuf sb
+  unsafePerformIO $ do
+    tmpPl <- gu_new_pool
+    (sb,out) <- newOut tmpPl
+    printCtxt <- newPrintCtxt scope tmpPl
+    exn <- gu_new_exn tmpPl
+    pgf_print_type ty printCtxt 0 out exn
+    touch
+    peekUtf8CStringBufResult sb tmpPl
 
 -- | creates a type from a list of hypothesises, a category and 
 -- a list of arguments for the category. The operation 
@@ -128,12 +128,12 @@ unType (Type c_type touch) = unsafePerformIO $ do
 -- of binding.
 showContext :: [CId] -> [Hypo] -> String
 showContext scope hypos =
-  unsafePerformIO $
-    withGuPool $ \tmpPl ->
-      do (sb,out) <- newOut tmpPl
-         c_hypos <- newSequence (#size PgfHypo) (pokeHypo tmpPl) hypos tmpPl
-         printCtxt <- newPrintCtxt scope tmpPl
-         exn <- gu_new_exn tmpPl
-         pgf_print_context c_hypos printCtxt out exn
-         mapM_ touchHypo hypos
-         peekUtf8CStringBuf sb
+  unsafePerformIO $ do
+    tmpPl <- gu_new_pool
+    (sb,out) <- newOut tmpPl
+    c_hypos <- newSequence (#size PgfHypo) (pokeHypo tmpPl) hypos tmpPl
+    printCtxt <- newPrintCtxt scope tmpPl
+    exn <- gu_new_exn tmpPl
+    pgf_print_context c_hypos printCtxt out exn
+    mapM_ touchHypo hypos
+    peekUtf8CStringBufResult sb tmpPl

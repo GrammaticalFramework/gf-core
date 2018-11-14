@@ -15,6 +15,7 @@ import Control.Exception
 import GHC.Ptr
 import Data.Int
 import Data.Word
+import System.IO.Unsafe
 
 type Touch = IO ()
 
@@ -197,6 +198,23 @@ peekUtf8CStringBuf sbuf = do
   ptr <- gu_string_buf_data sbuf
   len <- gu_string_buf_length sbuf
   peekUtf8CStringLen ptr (fromIntegral len)
+
+peekUtf8CStringBufResult :: Ptr GuStringBuf -> Ptr GuPool -> IO String
+peekUtf8CStringBufResult sbuf pool = do
+  fptr <- newForeignPtr gu_pool_finalizer pool
+  ptr <- gu_string_buf_data sbuf
+  len <- gu_string_buf_length sbuf
+  pptr <- gu_malloc pool (#size GuString*)
+  poke pptr ptr >> decode fptr pptr (ptr `plusPtr` fromIntegral len)
+  where
+    decode fptr pptr end = do
+      ptr <- peek pptr
+      if ptr >= end
+        then return []
+        else do x <- gu_utf8_decode pptr
+                cs <- unsafeInterleaveIO (decode fptr pptr end)
+                touchForeignPtr fptr
+                return (((toEnum . fromEnum) x) : cs)
 
 pokeUtf8CString :: String -> CString -> IO ()
 pokeUtf8CString s ptr =

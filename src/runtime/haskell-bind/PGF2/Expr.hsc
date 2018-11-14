@@ -252,14 +252,14 @@ foreign import ccall "wrapper"
 -- of binding.
 showExpr :: [CId] -> Expr -> String
 showExpr scope e = 
-  unsafePerformIO $
-    withGuPool $ \tmpPl ->
-      do (sb,out) <- newOut tmpPl
-         printCtxt <- newPrintCtxt scope tmpPl
-         exn <- gu_new_exn tmpPl
-         pgf_print_expr (expr e) printCtxt 1 out exn
-         touchExpr e
-         peekUtf8CStringBuf sb
+  unsafePerformIO $ do
+    tmpPl <- gu_new_pool
+    (sb,out) <- newOut tmpPl
+    printCtxt <- newPrintCtxt scope tmpPl
+    exn <- gu_new_exn tmpPl
+    pgf_print_expr (expr e) printCtxt 1 out exn
+    touchExpr e
+    peekUtf8CStringBufResult sb tmpPl
 
 newPrintCtxt :: [String] -> Ptr GuPool -> IO (Ptr PgfPrintContext)
 newPrintCtxt []     pool = return nullPtr
