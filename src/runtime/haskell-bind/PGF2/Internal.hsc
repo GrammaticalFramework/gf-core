@@ -194,21 +194,24 @@ concrTotalFuns c = unsafePerformIO $ do
   touchConcr c
   return (fromIntegral (c_len :: CSizeT))
 
-concrFunction :: Concr -> FunId -> (Fun,[SeqId])
+concrFunction :: Concr -> FunId -> ([Fun],[SeqId])
 concrFunction c funid = unsafePerformIO $ do
   c_cncfuns <- (#peek PgfConcr, cncfuns) (concr c)
   c_cncfun <- peek (c_cncfuns `plusPtr` ((#offset GuSeq, data)+funid*(#size PgfCncFun*)))
-  c_absfun <- (#peek PgfCncFun, absfun) c_cncfun
-  c_name <- (#peek PgfAbsFun, name) c_absfun
-  name <- peekUtf8CString c_name
+  c_absfuns <- (#peek PgfCncFun, absfuns) c_cncfun
+  names <- peekSequence peekAbsName (#size PgfAbsFun*) c_absfuns
   c_n_lins <- (#peek PgfCncFun, n_lins) c_cncfun
   arr <- peekArray (fromIntegral (c_n_lins :: CSizeT)) (c_cncfun `plusPtr` (#offset PgfCncFun, lins))
   seqs_seq <- (#peek PgfConcr, sequences) (concr c)
   touchConcr c
   let seqs = seqs_seq `plusPtr` (#offset GuSeq, data)
-  return (name, map (toSeqId seqs) arr)
+  return (names, map (toSeqId seqs) arr)
   where
     toSeqId seqs seq = minusPtr seq seqs `div` (#size PgfSequence)
+    
+    peekAbsName c_absfun = do
+      c_name <- (#peek PgfAbsFun, name) c_absfun
+      peekUtf8CString c_name
 
 concrTotalSeqs :: Concr -> SeqId
 concrTotalSeqs c = unsafePerformIO $ do
@@ -445,7 +448,7 @@ newHypos hypos pool = do
             Implicit -> (#const PGF_BIND_TYPE_IMPLICIT)
 
 
-data AbstrInfo = AbstrInfo (Ptr GuSeq) (Ptr GuSeq) (Map.Map String (Ptr PgfAbsCat)) (Ptr GuSeq) (Map.Map String (Ptr PgfAbsFun)) (Ptr PgfAbsFun) (Ptr GuBuf) Touch
+data AbstrInfo = AbstrInfo (Ptr GuSeq) (Ptr GuSeq) (Map.Map String (Ptr PgfAbsCat)) (Ptr GuSeq) (Map.Map String (Ptr PgfAbsFun)) (Ptr GuBuf) Touch
 
 newAbstr :: (?builder :: Builder s) => [(String,Literal)] ->
                                        [(Cat,[B s Hypo],Float)] ->
@@ -455,9 +458,8 @@ newAbstr aflags cats funs = unsafePerformIO $ do
   c_aflags <- newFlags aflags pool
   (c_cats,abscats) <- newAbsCats (sortByFst3 cats) pool
   (c_funs,absfuns) <- newAbsFuns (sortByFst4 funs) pool
-  c_abs_lin_fun <- newAbsLinFun
   c_non_lexical_buf <- gu_make_buf (#size PgfProductionIdxEntry) pool
-  return (AbstrInfo c_aflags c_cats abscats c_funs absfuns c_abs_lin_fun c_non_lexical_buf touch)
+  return (AbstrInfo c_aflags c_cats abscats c_funs absfuns c_non_lexical_buf touch)
   where
     (Builder pool touch) = ?builder
 
@@ -503,26 +505,6 @@ newAbstr aflags cats funs = unsafePerformIO $ do
       (#poke PgfAbsFun, ep.prob) ptr (realToFrac prob :: CFloat)
       return (Map.insert name ptr absfuns)
 
-    newAbsLinFun = do
-      ptr <- gu_malloc_aligned pool
-                               (#size PgfAbsFun)
-                               (#const gu_alignof(PgfAbsFun))
-      c_wild <- newUtf8CString "_" pool
-      c_ty   <- gu_malloc_aligned pool
-                                  (#size PgfType)
-                                  (#const gu_alignof(PgfType))
-      (#poke PgfType, hypos)   c_ty nullPtr
-      (#poke PgfType, cid)     c_ty c_wild
-      (#poke PgfType, n_exprs) c_ty (0 :: CSizeT)
-      (#poke PgfAbsFun, name)    ptr c_wild
-      (#poke PgfAbsFun, type)    ptr c_ty
-      (#poke PgfAbsFun, arity)   ptr (0 :: CSizeT)
-      (#poke PgfAbsFun, defns)   ptr nullPtr
-      (#poke PgfAbsFun, ep.prob) ptr (- log 0 :: CFloat)
-      (#poke PgfAbsFun, ep.expr) ptr nullPtr
-      return ptr
-
-
 data ConcrInfo = ConcrInfo (Ptr GuSeq) (Ptr GuMap) (Ptr GuMap) (Ptr GuSeq) (Ptr GuSeq) (Ptr GuMap) (Ptr PgfConcr -> Ptr GuPool -> IO ()) CInt
 
 newConcr :: (?builder :: Builder s) => AbstrInfo ->
@@ -531,12 +513,12 @@ newConcr :: (?builder :: Builder s) => AbstrInfo ->
                                        [(FId,[FunId])] ->          -- ^ Lindefs
                                        [(FId,[FunId])] ->          -- ^ Linrefs
                                        [(FId,[Production])] ->     -- ^ Productions
-                                       [(Fun,[SeqId])] ->          -- ^ Concrete functions   (must be sorted by Fun)
+                                       [([Fun],[SeqId])] ->        -- ^ Concrete functions   (must be sorted by Fun)
                                        [[Symbol]] ->               -- ^ Sequences            (must be sorted)
                                        [(Cat,FId,FId,[String])] -> -- ^ Concrete categories
                                        FId ->                      -- ^ The total count of the categories
                                        ConcrInfo
-newConcr (AbstrInfo _ _ abscats  _ absfuns c_abs_lin_fun c_non_lexical_buf _) cflags printnames lindefs linrefs prods cncfuns sequences cnccats total_cats = unsafePerformIO $ do
+newConcr (AbstrInfo _ _ abscats  _ absfuns c_non_lexical_buf _) cflags printnames lindefs linrefs prods cncfuns sequences cnccats total_cats = unsafePerformIO $ do
   c_cflags <- newFlags cflags pool
   c_printname <- newMap (#size GuString) gu_string_hasher newUtf8CString 
                         (#size GuString) (pokeString pool)
@@ -597,7 +579,6 @@ newConcr (AbstrInfo _ _ abscats  _ absfuns c_abs_lin_fun c_non_lexical_buf _) cf
 
     pokeRefDefFunId funs_ptr ptr funid = do
       let c_fun = funs_ptr `plusPtr` (funid * (#size PgfCncFun))
-      (#poke PgfCncFun, absfun) c_fun c_abs_lin_fun
       poke ptr c_fun
 
     pokeCncCat c_ccats ptr (name,start,end,labels) = do
@@ -629,7 +610,7 @@ newPGF :: (?builder :: Builder s) => [(String,Literal)] ->
                                      AbstrInfo ->
                                      [(ConcName,ConcrInfo)] ->
                                      B s PGF
-newPGF gflags absname (AbstrInfo c_aflags c_cats _ c_funs _ c_abs_lin_fun _ _) concrs =
+newPGF gflags absname (AbstrInfo c_aflags c_cats _ c_funs _ _ _) concrs =
   unsafePerformIO $ do
     ptr <- gu_malloc_aligned pool
                              (#size PgfPGF)
@@ -645,7 +626,6 @@ newPGF gflags absname (AbstrInfo c_aflags c_cats _ c_funs _ c_abs_lin_fun _ _) c
     (#poke PgfPGF, abstract.aflags) ptr c_aflags
     (#poke PgfPGF, abstract.funs)   ptr c_funs
     (#poke PgfPGF, abstract.cats)   ptr c_cats
-    (#poke PgfPGF, abstract.abs_lin_fun) ptr c_abs_lin_fun
     (#poke PgfPGF, concretes)       ptr c_concrs
     (#poke PgfPGF, pool)            ptr pool
     return (B (PGF ptr touch))
@@ -751,19 +731,18 @@ newProduction c_ccats funs_ptr c_non_lexical_buf (PCoerce fid) pool =
     return (0,c_prod)
 
 
-newCncFun absfuns seqs_ptr (funid,(fun,seqids)) pool =
-  do let c_absfun = fromMaybe nullPtr (Map.lookup fun absfuns)
-         c_ep     = if c_absfun == nullPtr
-                      then nullPtr
-                      else c_absfun `plusPtr` (#offset PgfAbsFun, ep)
-         n_lins   = fromIntegral (length seqids) :: CSizeT
+newCncFun absfuns seqs_ptr (funid,(funs,seqids)) pool =
+  do let absfun_ptrs = [ptr | fun <- funs, Just ptr <- [Map.lookup fun absfuns]]
+         n_lins      = fromIntegral (length seqids) :: CSizeT
      ptr <- gu_malloc_aligned pool
                               ((#size PgfCncFun)+n_lins*(#size PgfSequence*))
                               (#const gu_flex_alignof(PgfCncFun))
-     (#poke PgfCncFun, absfun) ptr c_absfun
-     (#poke PgfCncFun, ep)     ptr c_ep
-     (#poke PgfCncFun, funid)  ptr (funid :: CInt)
-     (#poke PgfCncFun, n_lins) ptr n_lins
+     c_absfuns <- newSequence (#size PgfAbsFun*) poke absfun_ptrs pool
+     c_prob    <- fmap (minimum . (0:)) $ mapM (#peek PgfAbsFun, ep.prob) absfun_ptrs
+     (#poke PgfCncFun, absfuns) ptr c_absfuns
+     (#poke PgfCncFun, prob)    ptr (c_prob :: CFloat)
+     (#poke PgfCncFun, funid)   ptr (funid :: CInt)
+     (#poke PgfCncFun, n_lins)  ptr n_lins
      pokeSequences seqs_ptr (ptr `plusPtr` (#offset PgfCncFun, lins)) seqids
      return ptr
   where
@@ -771,6 +750,7 @@ newCncFun absfuns seqs_ptr (funid,(fun,seqids)) pool =
     pokeSequences seqs_ptr ptr (seqid:seqids) = do
       poke ptr (seqs_ptr `plusPtr` (seqid * (#size PgfSequence)))
       pokeSequences seqs_ptr (ptr `plusPtr` (#size PgfSequence*)) seqids
+
 
 getCCat c_ccats fid pool =
   alloca $ \pfid -> do
