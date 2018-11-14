@@ -52,8 +52,7 @@ showType scope (Type ty touch) =
          exn <- gu_new_exn tmpPl
          pgf_print_type ty printCtxt 0 out exn
          touch
-         s <- gu_string_buf_freeze sb tmpPl
-         peekUtf8CString s
+         peekUtf8CStringBuf sb
 
 -- | creates a type from a list of hypothesises, a category and 
 -- a list of arguments for the category. The operation 
@@ -137,5 +136,4 @@ showContext scope hypos =
          exn <- gu_new_exn tmpPl
          pgf_print_context c_hypos printCtxt out exn
          mapM_ touchHypo hypos
-         s <- gu_string_buf_freeze sb tmpPl
-         peekUtf8CString s
+         peekUtf8CStringBuf sb

@@ -106,6 +106,12 @@ foreign import ccall unsafe "gu/enum.h gu_enum_next"
 foreign import ccall unsafe "gu/string.h gu_string_buf_freeze"
   gu_string_buf_freeze :: Ptr GuStringBuf -> Ptr GuPool -> IO CString
 
+foreign import ccall unsafe "gu/string.h gu_string_buf_data"
+  gu_string_buf_data :: Ptr GuStringBuf -> IO CString
+
+foreign import ccall unsafe "gu/string.h gu_string_buf_length"
+  gu_string_buf_length :: Ptr GuStringBuf -> IO CSizeT
+
 foreign import ccall unsafe "gu/utf8.h gu_utf8_decode"
   gu_utf8_decode :: Ptr CString -> IO GuUCS
 
@@ -185,6 +191,12 @@ peekUtf8CStringLen ptr len =
         else do x <- gu_utf8_decode pptr
                 cs <- decode pptr end
                 return (((toEnum . fromEnum) x) : cs)
+
+peekUtf8CStringBuf :: Ptr GuStringBuf -> IO String
+peekUtf8CStringBuf sbuf = do
+  ptr <- gu_string_buf_data sbuf
+  len <- gu_string_buf_length sbuf
+  peekUtf8CStringLen ptr (fromIntegral len)
 
 pokeUtf8CString :: String -> CString -> IO ()
 pokeUtf8CString s ptr =

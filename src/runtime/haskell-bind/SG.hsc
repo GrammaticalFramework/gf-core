@@ -206,8 +206,7 @@ showTriple (Expr expr1 touch1) (Expr expr2 touch2) (Expr expr3 touch3) =
          pokeElemOff triple 2 expr3
          pgf_print_expr_tuple 3 triple printCtxt out exn
          touch1 >> touch2 >> touch3
-         s <- gu_string_buf_freeze sb tmpPl
-         peekUtf8CString s
+         peekUtf8CStringBuf sb
 
 insertTriple :: SG -> Expr -> Expr -> Expr -> IO SgId
 insertTriple (SG sg) (Expr expr1 touch1) (Expr expr2 touch2) (Expr expr3 touch3) =

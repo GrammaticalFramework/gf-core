@@ -146,8 +146,7 @@ showPGF p =
          exn <- gu_new_exn tmpPl
          pgf_print (pgf p) out exn
          touchPGF p
-         s <- gu_string_buf_freeze sb tmpPl
-         peekUtf8CString s
+         peekUtf8CStringBuf sb
 
 -- | List of all languages available in the grammar.
 languages :: PGF -> Map.Map ConcName Concr
@@ -418,9 +417,7 @@ graphvizAbstractTree p opts e =
          c_opts <- newGraphvizOptions tmpPl opts
          pgf_graphviz_abstract_tree (pgf p) (expr e) c_opts out exn
          touchExpr e
-         s <- gu_string_buf_freeze sb tmpPl
-         peekUtf8CString s
-
+         peekUtf8CStringBuf sb
 
 graphvizParseTree :: Concr -> GraphvizOptions -> Expr -> String
 graphvizParseTree c opts e =
@@ -431,8 +428,7 @@ graphvizParseTree c opts e =
          c_opts <- newGraphvizOptions tmpPl opts
          pgf_graphviz_parse_tree (concr c) (expr e) c_opts out exn
          touchExpr e
-         s <- gu_string_buf_freeze sb tmpPl
-         peekUtf8CString s
+         peekUtf8CStringBuf sb
 
 graphvizWordAlignment :: [Concr] -> GraphvizOptions -> Expr -> String
 graphvizWordAlignment cs opts e =
@@ -444,8 +440,7 @@ graphvizWordAlignment cs opts e =
          c_opts <- newGraphvizOptions tmpPl opts
          pgf_graphviz_word_alignment ptr (fromIntegral n_concrs) (expr e) c_opts out exn
          touchExpr e
-         s <- gu_string_buf_freeze sb tmpPl
-         peekUtf8CString s
+         peekUtf8CStringBuf sb
 
 newGraphvizOptions :: Ptr GuPool -> GraphvizOptions -> IO (Ptr PgfGraphvizOptions)
 newGraphvizOptions pool opts = do
@@ -750,8 +745,7 @@ linearize lang e = unsafePerformIO $
                                      msg <- peekUtf8CString c_msg
                                      throwIO (PGFError msg)
                              else throwIO (PGFError "The abstract tree cannot be linearized")
-         else do lin <- gu_string_buf_freeze sb pl
-                 peekUtf8CString lin
+         else do peekUtf8CStringBuf sb
 
 -- | Generates all possible linearizations of an expression
 linearizeAll :: Concr -> Expr -> [String]
@@ -780,8 +774,7 @@ linearizeAll lang e = unsafePerformIO $
                           if is_nonexist
                             then collect cts exn pl
                             else throwExn exn pl
-                  else do lin <- gu_string_buf_freeze sb tmpPl
-                          s <- peekUtf8CString lin
+                  else do s  <- peekUtf8CStringBuf sb
                           ss <- collect cts exn pl
                           return (s:ss)
 
@@ -841,8 +834,7 @@ tabularLinearizeAll lang e = unsafePerformIO $
                 if is_nonexist
                   then collectTable lang ctree (lin_idx+1) labels exn tmpPl
                   else throwExn exn
-        else do lin <- gu_string_buf_freeze sb tmpPl
-                s  <- peekUtf8CString lin
+        else do s  <- peekUtf8CStringBuf sb
                 ss <- collectTable lang ctree (lin_idx+1) labels exn tmpPl
                 return ((label,s):ss)
 

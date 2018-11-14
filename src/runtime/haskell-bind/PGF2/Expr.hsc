@@ -259,8 +259,7 @@ showExpr scope e =
          exn <- gu_new_exn tmpPl
          pgf_print_expr (expr e) printCtxt 1 out exn
          touchExpr e
-         s <- gu_string_buf_freeze sb tmpPl
-         peekUtf8CString s
+         peekUtf8CStringBuf sb
 
 newPrintCtxt :: [String] -> Ptr GuPool -> IO (Ptr PgfPrintContext)
 newPrintCtxt []     pool = return nullPtr
