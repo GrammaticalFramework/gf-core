@@ -2,26 +2,27 @@
 title: Grammatical Framework Download and Installation
 ...
 
-**GF Bundle 18-12** was released on 28 November 2018.  
-It contains **GF v3.10** and **RGL snapshot 18-11-28**.
+**GF 4.0.0** was released on 28 November 2018.  
+It is the first version of GF which _does not include the RGL_.
 
-What's new? See the [release notes](release-18-12.html).
+What's new? See the [release notes](release-4.0.0.html).
 
-## Binary packages ("bundles")
+## Binary packages
+
+All binary releases are now hosted on [GitHub](https://github.com/GrammaticalFramework/gf-core/releases).
 
 | Platform        | Download                                                       | Features   | How to install                                              |
 |:----------------|:---------------------------------------------------------------|:-----------|:------------------------------------------------------------|
-| macOS           | [gf-18-12.pkg](gf-18-12.pkg)                                   | GF,S,C,J,P | Double-click on the package icon                            |
-| macOS           | [gf-18-12-bin-intel-mac.tar.gz](gf-18-12-bin-intel-mac.tar.gz) | GF,S,C,J,P | `sudo tar -C /usr/local -zxf gf-18-12-bin-intel-mac.tar.gz` |
-| Raspian 9.1     | [gf\_18-12-1\_armhf.deb](gf_18-12-1_armhf.deb)                 | GF,S,C,J,P | `sudo dpkg -i gf_18-12-1_armhf.deb`                         |
-| Ubuntu (32-bit) | [gf\_18-12-1\_i386.deb](gf_18-12-1_i386.deb)                   | GF,S,C,J,P | `sudo dpkg -i gf_18-12-1_i386.deb`                          |
-| Ubuntu (64-bit) | [gf\_18-12-1\_amd64.deb](gf_18-12-1_amd64.deb)                 | GF,S,C,J,P | `sudo dpkg -i gf_18-12-1_amd64.deb`                         |
-| Windows         | [gf-18-12-bin-windows.zip](gf-18-12-bin-windows.zip)           | GF,S       | `unzip gf-18-12-bin-windows.zip`                            |
+| macOS           | [gf-4.0.0.pkg](gf-4.0.0.pkg)                                   | GF,S,C,J,P | Double-click on the package icon                            |
+| macOS           | [gf-4.0.0-bin-intel-mac.tar.gz](gf-4.0.0-bin-intel-mac.tar.gz) | GF,S,C,J,P | `sudo tar -C /usr/local -zxf gf-4.0.0-bin-intel-mac.tar.gz` |
+| Raspian 9.1     | [gf\_4.0.0-1\_armhf.deb](gf_4.0.0-1_armhf.deb)                 | GF,S,C,J,P | `sudo dpkg -i gf_4.0.0-1_armhf.deb`                         |
+| Ubuntu (32-bit) | [gf\_4.0.0-1\_i386.deb](gf_4.0.0-1_i386.deb)                   | GF,S,C,J,P | `sudo dpkg -i gf_4.0.0-1_i386.deb`                          |
+| Ubuntu (64-bit) | [gf\_4.0.0-1\_amd64.deb](gf_4.0.0-1_amd64.deb)                 | GF,S,C,J,P | `sudo dpkg -i gf_4.0.0-1_amd64.deb`                         |
+| Windows         | [gf-4.0.0-bin-windows.zip](gf-4.0.0-bin-windows.zip)           | GF,S       | `unzip gf-4.0.0-bin-windows.zip`                            |
 
 **Features**
 
 - GF = GF shell and grammar compiler
-- RGL = Resource Grammar Library
 - S = `gf -server` mode
 - C = C run-time system
 - J/P = Java/Python binding to the C run-time system
@@ -113,41 +114,61 @@ work too.
 
 ## Installing from the latest developer source code
 
-The first time:
+If you haven't already, clone our repository with:
 
 ```
 git clone https://github.com/GrammaticalFramework/gf-core.git
-cd gf-core
+```
+
+If you've already cloned the repository previously, update with:
+
+```
+git pull
+```
+
+Then install with:
+
+```
 cabal install
 ```
 
-and
+or
 
 ```
-git clone https://github.com/GrammaticalFramework/gf-rgl.git
-cd gf-rgl
-make
-```
-
-Subsequently:
-
-```
-cd gf-core
-git pull
-cabal install
-```
-
-and
-
-```
-cd gf-rgl
-git pull
-make
+stack install
 ```
 
 The above notes for installing from source apply also in these cases.
-For more info on working with the GF source code, see the [GF Developers
-Guide](../doc/gf-developers.html).
+For more info on working with the GF source code, see the
+[GF Developers Guide](../doc/gf-developers.html).
+
+## Installing the RGL
+
+RGL releases are hosted on [GitHub](https://github.com/GrammaticalFramework/gf-rgl/releases).
+
+### Download pre-compiled
+
+TODO ...
+
+### Download release & compile
+
+TODO ...
+
+### Download latest developer version & compile
+
+Similar to the steps above, you need to
+
+```
+git clone https://github.com/GrammaticalFramework/gf-core.git
+```
+
+And then run
+
+```
+make
+```
+
+For more details about building the RGL, see [this page](https://github.com/GrammaticalFramework/gf-rgl/blob/master/README.md).
 
 ## Older releases
 

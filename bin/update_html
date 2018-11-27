@@ -52,7 +52,7 @@ function render_t2t_html {
 
   # Final post-processing
   if [ -f "$html" ] ; then
-    sed -i.bak "s/<table>/<table class=\"table\">/" "$html" && rm "$html.bak"
+    sed -i.bak "s/<table/<table class=\"table\"/" "$html" && rm "$html.bak"
     echo "$html"
   fi
 }
@@ -77,7 +77,7 @@ function render_md_html {
 
   # Final post-processing
   if [ -f "$html" ] ; then
-    sed -i.bak "s/<table>/<table class=\"table\">/" "$html" && rm "$html.bak"
+    sed -i.bak "s/<table/<table class=\"table\"/" "$html" && rm "$html.bak"
     echo "$html"
   fi
 }
