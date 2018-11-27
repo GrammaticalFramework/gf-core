@@ -1,16 +1,8 @@
 GF Developers Guide
-Authors: Björn Bringert, Krasimir Angelov and Thomas Hallgren
-Last update: %%mtime(%F, %H:%M)
 
-% NOTE: this is a txt2tags file.
-% Create an html file from this file using:
-% txt2tags -t html gf-developers.t2t
+2018-07-26
 
-%!style:../css/style.css
-%!target:html
 %!options(html): --toc
-%!encoding:utf-8
-%!postproc(html): <H1> <H1><a href="../"><IMG src="../doc/Logos/gf0.png"></a>
 
 == Before you start ==
 
@@ -62,18 +54,6 @@ Other required tools included in the Haskell Platform are
 [Alex http://www.haskell.org/alex/]
 and
 [Happy http://www.haskell.org/happy/].
-
-%=== Darcs ===
-%
-%To get the GF source code, you also need //Darcs//, version 2 or later.
-%Darcs 2.10 is recommended (July 2015).
-%
-%//Darcs//
-%is a distributed version control system, see http://darcs.net/ for
-%more information. There are precompiled packages for many platforms
-%available and source code if you want to compile it yourself. Darcs
-%is also written in Haskell and so you can use GHC to compile it.
-
 
 === Git ===
 
