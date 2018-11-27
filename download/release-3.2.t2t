@@ -1,9 +1,6 @@
 GF Version 3.2 Release Notes
 December 2010
 
-%!style:../css/style.css
-%!postproc(html): <H1> <H1><IMG src="../doc/Logos/gf0.png">
-
 ==Installation==
 
 See the [download page http://www.grammaticalframework.org/download/index.html].
@@ -34,8 +31,3 @@ See the [download page http://www.grammaticalframework.org/download/index.html].
 
 - GF compiler: GPL
 - Run-time libraries and Resource Grammar Library: LGPL + BSD
-
-
---------------------
-
-[www.grammaticalframework.org http://www.grammaticalframework.org]

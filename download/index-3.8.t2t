@@ -1,12 +1,6 @@
 Grammatical Framework Download and Installation
 
 
-%!style:../css/notes.css
-%!postproc(html): <TITLE> <meta name = "viewport" content = "width = device-width"><TITLE>
-%!postproc(html): <H1> <H1><a href="../"><IMG src="../doc/Logos/gf0.png"></a>
-%!postproc(html): <TD><I> <TD><small>
-%!postproc(html): </I></TD> </small></TD>
-
 **GF 3.8** was released on 22 June 2016.
 
 What's new? See the [Release notes release-3.8.html].
@@ -49,7 +43,7 @@ Linux distributions.
 
 The packages for Mac OS X should work on at least 10.9, 10.10 and 10.11 (Mavericks, Yosemite and El Capitan).
 
-(*) **Note** that for compatibility with OS X 10.11, 
+(*) **Note** that for compatibility with OS X 10.11,
 ``gf-3.8.pkg`` will install the ``gf`` executable in ``/usr/local/bin``
 instead of ``/usr/bin``, so make sure ``/usr/local/bin`` is in your  ``$PATH``.
 Also, if you still have an older version of GF installed in ``/usr/bin``,
@@ -171,8 +165,3 @@ For more info on working with the GF source code, see the
 - [GF 3.2 index-3.2.html] (December 2010).
 - [GF 3.1.6 index-3.1.6.html] (April 2010).
 - [GF 3.1 old-index.html] (December 2009).
-
-
---------------------
-
-[www.grammaticalframework.org http://www.grammaticalframework.org]

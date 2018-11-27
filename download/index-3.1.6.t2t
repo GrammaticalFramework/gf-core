@@ -16,7 +16,7 @@ GF 3.1.6 released 23 April 2010.
 - Windows (zipped executable):
   [``gf-3.1.6-bin-i486-windows.zip`` gf-3.1.6-bin-i486-windows.zip]
   (1.6 MB)
-- Ubuntu Linux (gzipped executable): 
+- Ubuntu Linux (gzipped executable):
   [``gf-3.1.6-bin-i486-linux.gz`` gf-3.1.6-bin-i486-linux.gz]
   (1.7 MB)
 - compiled library package:
@@ -25,7 +25,7 @@ GF 3.1.6 released 23 April 2010.
 - full source package (GF system, libraries, examples, documentation):
   [``gf-3.1.6-src.tar.gz`` gf-3.1.6-src.tar.gz]
   (11 MB)
-  
+
 GF is also on [Hackage http://hackage.haskell.org/package/gf]
 
 
@@ -40,7 +40,7 @@ What's new? See the [release notes release-3.1.6.html].
 ==Installation instructions==
 
 
-The Windows package is installed by just unpacking it anywhere. 
+The Windows package is installed by just unpacking it anywhere.
 It finds the libraries relative to the ``.exe`` file.
 
 To install a binary package for MacOS X or Linux: uncompress the executable and

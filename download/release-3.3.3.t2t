@@ -1,10 +1,6 @@
 GF Version 3.3.3 Release Notes
 March 2012
 
-%!style:../css/style.css
-%!postproc(html): <TITLE> <meta name = "viewport" content = "width = device-width"><TITLE>
-%!postproc(html): <H1> <H1><IMG src="../doc/Logos/gf0.png">
-
 ==Installation==
 
 See the [download page http://www.grammaticalframework.org/download/index.html].
@@ -25,8 +21,3 @@ See the [download page http://www.grammaticalframework.org/download/index.html].
 - Fix for a bug that prevented the shell commands ``abstract_info``,
   ``generate_random`` and ``generate_trees`` from working properly.
 - Various other small improvements and bug fixes.
-
-
---------------------
-
-[www.grammaticalframework.org http://www.grammaticalframework.org]

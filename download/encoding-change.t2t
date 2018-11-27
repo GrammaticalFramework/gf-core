@@ -1,10 +1,6 @@
 GF character encoding changes
 Thomas Hallgren
-%%mtime(%F)
-
-%!style:../css/style.css
-%!postproc(html): <TITLE> <meta charset="UTF-8"><meta name = "viewport" content = "width = device-width"> <TITLE>
-%!postproc(html): <H1> <H1><a href="../"><IMG src="../doc/Logos/gf0.png"></a>
+2013-12-18
 
 ==Changes to character encodings in GF grammar files ==
 
