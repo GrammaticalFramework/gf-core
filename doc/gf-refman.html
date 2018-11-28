@@ -3120,22 +3120,43 @@ a part of the GF grammar compiler.
 <TR>
 <TD><CODE>nonExist</CODE></TD>
 <TD><CODE>Str</CODE></TD>
-<TD>this is a special token marking<BR/>
+<TD>a special token marking<BR/>
 non-existing morphological forms</TD>
 </TR>
 <TR>
 <TD><CODE>BIND</CODE></TD>
 <TD><CODE>Str</CODE></TD>
-<TD>this is a special token marking<BR/>
+<TD>a special token marking<BR/>
 that the surrounding tokens should not<BR/>
 be separated by space</TD>
 </TR>
 <TR>
 <TD><CODE>SOFT_BIND</CODE></TD>
 <TD><CODE>Str</CODE></TD>
-<TD>this is a special token marking<BR/>
+<TD>a special token marking<BR/>
 that the surrounding tokens may not<BR/>
 be separated by space</TD>
+</TR>
+<TR>
+<TD><CODE>SOFT_SPACE</CODE></TD>
+<TD><CODE>Str</CODE></TD>
+<TD>a special token marking<BR/>
+that the space between the surrounding tokens<BR/>
+is optional</TD>
+</TR>
+<TR>
+<TD><CODE>CAPIT</CODE></TD>
+<TD><CODE>Str</CODE></TD>
+<TD>a special token marking<BR/>
+that the first character in the next token<BR/>
+should be capitalized</TD>
+</TR>
+<TR>
+<TD><CODE>ALL_CAPIT</CODE></TD>
+<TD><CODE>Str</CODE></TD>
+<TD>a special token marking<BR/>
+that the next word should be<BR/>
+in all capital letters</TD>
 </TR>
 </TABLE>
 
