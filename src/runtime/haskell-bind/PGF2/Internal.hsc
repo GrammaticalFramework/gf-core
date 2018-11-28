@@ -12,6 +12,9 @@ module PGF2.Internal(-- * Access the internal structures
                      build, eAbs, eApp, eMeta, eFun, eVar, eTyped, eImplArg, dTyp, hypo,
                      AbstrInfo, newAbstr, ConcrInfo, newConcr, newPGF,
                      
+                     -- * Expose PGF and Concr for FFI with C
+                     PGF(..), Concr(..),
+                     
                      -- * Write an in-memory PGF to a file
                      writePGF
                     ) where

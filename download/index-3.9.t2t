@@ -171,6 +171,11 @@ The above notes for installing from source apply also in these cases.
 For more info on working with the GF source code, see the
 [GF Developers Guide ../doc/gf-developers.html].
 
+==Using Stack==
+
+You can also use [Stack https://www.haskellstack.org] to compile GF, just replace ``cabal install`` above
+with ``stack install`` (assuming you already have Stack set up).
+
 ==Older releases==
 
 - [GF 3.8 index-3.8.html] (June 2016)

@@ -373,8 +373,6 @@ optDescr =
                 "Enable or disable global grammar optimization. This could significantly reduce the size of the final PGF file",
      Option [] ["split-pgf"] (NoArg (splitPGF True))
                 "Split the PGF into one file per language. This allows the runtime to load only individual languages",
-     Option [] ["stem"] (onOff (toggleOptimize OptStem) True) "Perform stem-suffix analysis (default on).",
-     Option [] ["cse"] (onOff (toggleOptimize OptCSE) True) "Perform common sub-expression elimination (default on).",
      Option [] ["cfg"] (ReqArg cfgTransform "TRANS") "Enable or disable specific CFG transformations. TRANS = merge, no-merge, bottomup, no-bottomup, ...",
      Option [] ["heuristic_search_factor"] (ReqArg (readDouble (\d o -> o { optHeuristicFactor = Just d })) "FACTOR") "Set the heuristic search factor for statistical parsing",
      Option [] ["case_sensitive"] (onOff (\v -> set $ \o -> o{optCaseSensitive=v}) True) "Set the parser in case-sensitive/insensitive mode [sensitive by default]",
@@ -447,8 +445,6 @@ optDescr =
                          
        optimize_pgf x = set $ \o -> o { optOptimizePGF = x }
        splitPGF x = set $ \o -> o { optSplitPGF = x }
-
-       toggleOptimize x b = set $ setOptimization' x b
 
        cfgTransform x = let (x', b) = case x of
                                         'n':'o':'-':rest -> (rest, False)

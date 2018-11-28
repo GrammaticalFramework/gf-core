@@ -39,10 +39,9 @@ src/runtime/c/sg/.dirstamp
 src/runtime/c/stamp-h1
 src/runtime/java/.libs/
 src/runtime/python/build/
-src/ui/android/libs/
-src/ui/android/obj/
 .cabal-sandbox
 cabal.sandbox.config
+.stack-work
 DATA_DIR
 
 # Generated documentation (not exhaustive)
