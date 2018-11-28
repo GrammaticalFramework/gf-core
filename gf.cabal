@@ -287,7 +287,9 @@ Library
       CGIUtils
       Cache
       Fold
-    hs-source-dirs: src/server src/server/transfer
+      ExampleDemo
+      ExampleService
+    hs-source-dirs: src/server src/server/transfer src/example-based
 
   if flag(interrupt)
     cpp-options: -DUSE_INTERRUPT
