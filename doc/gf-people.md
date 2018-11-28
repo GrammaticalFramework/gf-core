@@ -4,7 +4,7 @@ title: "Grammatical Framework: Authors and Acknowledgements"
 
 ## Current maintainers
 
-The current developers and maintainers are
+The current maintainers of GF are
 
 [Krasimir Angelov](http://www.chalmers.se/cse/EN/organization/divisions/computing-science/people/angelov-krasimir),
 [Thomas Hallgren](http://www.cse.chalmers.se/~hallgren/),
@@ -12,7 +12,8 @@ The current developers and maintainers are
 [John J. Camilleri](http://johnjcamilleri.com), and
 [Inari Listenmaa](https://inariksit.github.io/).
 
-For detailed data about contributors to the code repositories, see
+This page is otherwise not up to date.
+For detailed data about contributors to the code repositories since 2007, see
 [here (gf-core)](https://github.com/GrammaticalFramework/gf-core/graphs/contributors)
 and
 [here (gf-rgl)](https://github.com/GrammaticalFramework/gf-rgl/graphs/contributors).
@@ -43,7 +44,7 @@ reports, and other indirect contributions to the code.
 - [Robin Cooper](http://www.cling.gu.se/~cooper) (Gothenburg)
 - [Thierry Coquand](http://www.cse.chalmers.se/~coquand) (Chalmers)
 - [Marc Dymetman](http://www.xrce.xerox.com/people/dymetman/dymetman.html) (XRCE)
-- Bertrand Grégoire (Tudor Institure, Luxembourg)
+- Bertrand Grégoire (Tudor Institute, Luxembourg)
 - [Reiner Hähnle](http://www.cse.chalmers.se/~reiner) (Chalmers)
 - [Gérard Huet](http://pauillac.inria.fr/~huet/) (INRIA)
 - [Patrik Jansson](http://www.cse.chalmers.se/~patrikj) (Chalmers)

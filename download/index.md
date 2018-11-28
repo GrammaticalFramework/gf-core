@@ -2,23 +2,23 @@
 title: Grammatical Framework Download and Installation
 ...
 
-**GF 4.0.0** was released on 28 November 2018.  
+**GF 3.10** was released on 28 November 2018.  
 It is the first version of GF which _does not include the RGL_.
 
-What's new? See the [release notes](release-4.0.0.html).
+What's new? See the [release notes](release-3.10.html).
 
 ## Binary packages
 
 All binary releases are now hosted on [GitHub](https://github.com/GrammaticalFramework/gf-core/releases).
 
-| Platform        | Download                                                       | Features   | How to install                                              |
-|:----------------|:---------------------------------------------------------------|:-----------|:------------------------------------------------------------|
-| macOS           | [gf-4.0.0.pkg](gf-4.0.0.pkg)                                   | GF,S,C,J,P | Double-click on the package icon                            |
-| macOS           | [gf-4.0.0-bin-intel-mac.tar.gz](gf-4.0.0-bin-intel-mac.tar.gz) | GF,S,C,J,P | `sudo tar -C /usr/local -zxf gf-4.0.0-bin-intel-mac.tar.gz` |
-| Raspian 9.1     | [gf\_4.0.0-1\_armhf.deb](gf_4.0.0-1_armhf.deb)                 | GF,S,C,J,P | `sudo dpkg -i gf_4.0.0-1_armhf.deb`                         |
-| Ubuntu (32-bit) | [gf\_4.0.0-1\_i386.deb](gf_4.0.0-1_i386.deb)                   | GF,S,C,J,P | `sudo dpkg -i gf_4.0.0-1_i386.deb`                          |
-| Ubuntu (64-bit) | [gf\_4.0.0-1\_amd64.deb](gf_4.0.0-1_amd64.deb)                 | GF,S,C,J,P | `sudo dpkg -i gf_4.0.0-1_amd64.deb`                         |
-| Windows         | [gf-4.0.0-bin-windows.zip](gf-4.0.0-bin-windows.zip)           | GF,S       | `unzip gf-4.0.0-bin-windows.zip`                            |
+| Platform        | Download                                                     | Features   | How to install                                             |
+|:----------------|:-------------------------------------------------------------|:-----------|:-----------------------------------------------------------|
+| macOS           | [gf-3.10.pkg](gf-3.10.pkg)                                   | GF,S,C,J,P | Double-click on the package icon                           |
+| macOS           | [gf-3.10-bin-intel-mac.tar.gz](gf-3.10-bin-intel-mac.tar.gz) | GF,S,C,J,P | `sudo tar -C /usr/local -zxf gf-3.10-bin-intel-mac.tar.gz` |
+| Raspian 9.1     | [gf\_3.10-1\_armhf.deb](gf_3.10-1_armhf.deb)                 | GF,S,C,J,P | `sudo dpkg -i gf_3.10-1_armhf.deb`                         |
+| Ubuntu (32-bit) | [gf\_3.10-1\_i386.deb](gf_3.10-1_i386.deb)                   | GF,S,C,J,P | `sudo dpkg -i gf_3.10-1_i386.deb`                          |
+| Ubuntu (64-bit) | [gf\_3.10-1\_amd64.deb](gf_3.10-1_amd64.deb)                 | GF,S,C,J,P | `sudo dpkg -i gf_3.10-1_amd64.deb`                         |
+| Windows         | [gf-3.10-bin-windows.zip](gf-3.10-bin-windows.zip)           | GF,S       | `unzip gf-3.10-bin-windows.zip`                            |
 
 **Features**
 
