@@ -1,13 +1,6 @@
 Grammatical Framework Download and Installation
 
 
-%!style:../css/style.css
-%!postproc(html): </HEAD> <STYLE>body { color: #333; } li>code,p>code,pre { color: #730; }</STYLE></HEAD>
-%!postproc(html): <TITLE> <meta name = "viewport" content = "width = device-width"><TITLE>
-%!postproc(html): <TD><B> <TH>
-%!postproc(html): </B></TD> </TH>
-%!postproc(html): <H1> <H1><a href="../"><IMG src="../doc/Logos/gf0.png"></a>
-
 **GF 3.4** was released on 31 January 2013.
 
 What's new? See the [Release notes release-3.4.html].
@@ -20,14 +13,11 @@ What's new? See the [Release notes release-3.4.html].
 | Fedora (32-bit) | [Fedora RPMs /~hallgren/tmp/Fedora/] | ``sudo rpm -i ...``
 | Ubuntu (32-bit) | [gf_3.4-1_i386.deb gf_3.4-1_i386.deb] | ``sudo dpkg -i gf_3.4-1_i386.deb``
 | Ubuntu (64-bit) | [gf_3.4-1_amd64.deb gf_3.4-1_amd64.deb] | ``sudo dpkg -i gf_3.4-1_amd64.deb``
-| Windows | [gf-3.4-bin-windows.zip gf-3.4-bin-windows.zip] | 
-%| ... | ... | ...
-
-%More binary packages might be added later.
+| Windows | [gf-3.4-bin-windows.zip gf-3.4-bin-windows.zip] | -
 
 ===Notes===
 
-%The Windows package is installed by just unpacking it anywhere. 
+%The Windows package is installed by just unpacking it anywhere.
 %It finds the libraries relative to the ``.exe`` file.
 
 The ``.deb`` packages work on Ubuntu 12.04, 12.10 and 13.04.
@@ -153,8 +143,3 @@ For more info on working with the GF source code, see the
 - [GF 3.2 index-3.2.html] (December 2010).
 - [GF 3.1.6 index-3.1.6.html] (April 2010).
 - [GF 3.1 old-index.html] (December 2009).
-
-
---------------------
-
-[www.grammaticalframework.org http://www.grammaticalframework.org]

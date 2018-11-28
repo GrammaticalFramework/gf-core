@@ -5,13 +5,13 @@ GF Version 3.1.6 Release Notes
 =Installation=
 
 The binaries now work out of the box for each platform and support
-completions (file names and parsing), because readline has been 
+completions (file names and parsing), because readline has been
 changed to haskeline.
 
 To compile from source, GHC 6.12 is now required. But GHC is not needed
 if the binary executables are used.
 
-Binaries (``.gfo`` and ``.pgf`` files) compiled with GF 3.1 are incompatible 
+Binaries (``.gfo`` and ``.pgf`` files) compiled with GF 3.1 are incompatible
 with 3.1.6 and must either be removed; alternatively, the ``-src`` flag can be
 used when compiling.
 
@@ -24,8 +24,8 @@ Grammar language
 - improved support for dependent types (see ``SUMO``, ``nqueens`` in ``examples``)
 
 
-Shell commands and options (see ``help`` in GF for more information) 
-- ``eb``: example-based grammar file conversion 
+Shell commands and options (see ``help`` in GF for more information)
+- ``eb``: example-based grammar file conversion
   (see ``examples/animals/QuestionI.gf``)
 - ``vd = visualize_dependency``: show dependency tree
 - ``vp = visualize_parse``: show parse tree
@@ -57,8 +57,3 @@ Internal
 
 Javascript generation is not updated to the new PGF format.
 [GF 3.1 old-index.html] should still be used for building Javascript applications.
-
-
-
-
-

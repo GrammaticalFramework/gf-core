@@ -68,9 +68,9 @@ metavariables and the type of the expression.
 Prints a set of strings in the .dot format (the graphviz format).
 The graph can be saved in a file by the wf command as usual.
 If the -view flag is defined, the graph is saved in a temporary file
-which is processed by graphviz and displayed by the program indicated
-by the flag. The target format is postscript, unless overridden by the
-flag -format.
+which is processed by 'dot' (graphviz) and displayed by the program indicated
+by the view flag. The target format is png, unless overridden by the
+flag -format. Results from multiple trees are combined to pdf with convert (ImageMagick).
 
 
 - Options:
@@ -151,6 +151,7 @@ of a pipe.
  | ``-one`` | pick the first strings, if there is any, from records and tables
  | ``-table`` | show all strings labelled by parameters
  | ``-unqual`` | hide qualifying module names
+ | ``-trace`` | trace computations
 
 
 #NORMAL
@@ -242,7 +243,7 @@ and thus cannot be a part of a pipe.
 
 ====e = empty====
 #NOINDENT
-``e`` = ``empty``: //empty the environment.//
+``e`` = ``empty``: //empty the environment (except the command history).//
 
 #TINY
 
@@ -277,6 +278,19 @@ but the resulting .gf file must be imported separately.
  | ``-lang`` | the language in which to parse
  | ``-probs`` | file with probabilities to rank the parses
 
+
+#NORMAL
+
+
+#VSPACE
+
+====eh = execute_history====
+#NOINDENT
+``eh`` = ``execute_history``: //read commands from a file and execute them.//
+
+#TINY
+
+- Syntax: ``eh FILE``
 
 #NORMAL
 
@@ -434,12 +448,14 @@ sequences; see example.
  | ``-list`` | show all forms and variants, comma-separated on one line (cf. l -all)
  | ``-multi`` | linearize to all languages (default)
  | ``-table`` | show all forms labelled by parameters
+ | ``-tabtreebank`` | show the tree and its linearizations on a tab-separated line
  | ``-treebank`` | show the tree and tag linearizations with language names
  | ``-bind`` | bind tokens separated by Prelude.BIND, i.e. &+
  | ``-chars`` | lexer that makes every non-space character a token
  | ``-from_amharic`` | from unicode to GF Amharic transliteration
  | ``-from_ancientgreek`` | from unicode to GF ancient Greek transliteration
  | ``-from_arabic`` | from unicode to GF Arabic transliteration
+ | ``-from_arabic_unvocalized`` | from unicode to GF unvocalized Arabic transliteration
  | ``-from_cp1251`` | decode from cp1251 (Cyrillic used in Bulgarian resource)
  | ``-from_devanagari`` | from unicode to GF Devanagari transliteration
  | ``-from_greek`` | from unicode to GF modern Greek transliteration
@@ -453,11 +469,14 @@ sequences; see example.
  | ``-from_urdu`` | from unicode to GF Urdu transliteration
  | ``-from_utf8`` | decode from utf8 (default)
  | ``-lexcode`` | code-like lexer
+ | ``-lexgreek`` | lexer normalizing ancient Greek accentuation
+ | ``-lexgreek2`` | lexer normalizing ancient Greek accentuation for text with vowel length annotations
  | ``-lexmixed`` | mixture of text and code, as in LaTeX (code between $...$, \(...)\, \[...\])
  | ``-lextext`` | text-like lexer
  | ``-to_amharic`` | from GF Amharic transliteration to unicode
  | ``-to_ancientgreek`` | from GF ancient Greek transliteration to unicode
  | ``-to_arabic`` | from GF Arabic transliteration to unicode
+ | ``-to_arabic_unvocalized`` | from GF unvocalized Arabic transliteration to unicode
  | ``-to_cp1251`` | encode to cp1251 (Cyrillic used in Bulgarian resource)
  | ``-to_devanagari`` | from GF Devanagari transliteration to unicode
  | ``-to_greek`` | from GF modern Greek transliteration to unicode
@@ -473,6 +492,7 @@ sequences; see example.
  | ``-to_utf8`` | encode to utf8 (default)
  | ``-unchars`` | unlexer that puts no spaces between tokens
  | ``-unlexcode`` | code-like unlexer
+ | ``-unlexgreek`` | unlexer de-normalizing ancient Greek accentuation
  | ``-unlexmixed`` | mixture of text and code (code between $...$, \(...)\, \[...\])
  | ``-unlextext`` | text-like unlexer
  | ``-unwords`` | unlexer that puts a single space between tokens (default)
@@ -513,6 +533,7 @@ trees where a function node is a metavariable.
  | ``-from_amharic`` | from unicode to GF Amharic transliteration
  | ``-from_ancientgreek`` | from unicode to GF ancient Greek transliteration
  | ``-from_arabic`` | from unicode to GF Arabic transliteration
+ | ``-from_arabic_unvocalized`` | from unicode to GF unvocalized Arabic transliteration
  | ``-from_cp1251`` | decode from cp1251 (Cyrillic used in Bulgarian resource)
  | ``-from_devanagari`` | from unicode to GF Devanagari transliteration
  | ``-from_greek`` | from unicode to GF modern Greek transliteration
@@ -526,11 +547,14 @@ trees where a function node is a metavariable.
  | ``-from_urdu`` | from unicode to GF Urdu transliteration
  | ``-from_utf8`` | decode from utf8 (default)
  | ``-lexcode`` | code-like lexer
+ | ``-lexgreek`` | lexer normalizing ancient Greek accentuation
+ | ``-lexgreek2`` | lexer normalizing ancient Greek accentuation for text with vowel length annotations
  | ``-lexmixed`` | mixture of text and code, as in LaTeX (code between $...$, \(...)\, \[...\])
  | ``-lextext`` | text-like lexer
  | ``-to_amharic`` | from GF Amharic transliteration to unicode
  | ``-to_ancientgreek`` | from GF ancient Greek transliteration to unicode
  | ``-to_arabic`` | from GF Arabic transliteration to unicode
+ | ``-to_arabic_unvocalized`` | from GF unvocalized Arabic transliteration to unicode
  | ``-to_cp1251`` | encode to cp1251 (Cyrillic used in Bulgarian resource)
  | ``-to_devanagari`` | from GF Devanagari transliteration to unicode
  | ``-to_greek`` | from GF modern Greek transliteration to unicode
@@ -546,6 +570,7 @@ trees where a function node is a metavariable.
  | ``-to_utf8`` | encode to utf8 (default)
  | ``-unchars`` | unlexer that puts no spaces between tokens
  | ``-unlexcode`` | code-like unlexer
+ | ``-unlexgreek`` | unlexer de-normalizing ancient Greek accentuation
  | ``-unlexmixed`` | mixture of text and code (code between $...$, \(...)\, \[...\])
  | ``-unlextext`` | text-like unlexer
  | ``-unwords`` | unlexer that puts a single space between tokens (default)
@@ -666,10 +691,9 @@ command (flag -printer):
  fa		finite automaton in graphviz format
  gsl		Nuance speech recognition format
  haskell		Haskell (abstract syntax)
+ java		Java (abstract syntax)
  js		JavaScript (whole grammar)
  jsgf		JSGF speech recognition format
- lambda_prolog		LambdaProlog (abstract syntax)
- lp_byte_code		Bytecode for Teyjus (abstract syntax, experimental)
  pgf_pretty		human-readable pgf
  prolog		Prolog (whole grammar)
  python		Python (whole grammar)
@@ -753,6 +777,7 @@ To see transliteration tables, use command ut.
  | ``-from_amharic`` | from unicode to GF Amharic transliteration
  | ``-from_ancientgreek`` | from unicode to GF ancient Greek transliteration
  | ``-from_arabic`` | from unicode to GF Arabic transliteration
+ | ``-from_arabic_unvocalized`` | from unicode to GF unvocalized Arabic transliteration
  | ``-from_cp1251`` | decode from cp1251 (Cyrillic used in Bulgarian resource)
  | ``-from_devanagari`` | from unicode to GF Devanagari transliteration
  | ``-from_greek`` | from unicode to GF modern Greek transliteration
@@ -766,11 +791,14 @@ To see transliteration tables, use command ut.
  | ``-from_urdu`` | from unicode to GF Urdu transliteration
  | ``-from_utf8`` | decode from utf8 (default)
  | ``-lexcode`` | code-like lexer
+ | ``-lexgreek`` | lexer normalizing ancient Greek accentuation
+ | ``-lexgreek2`` | lexer normalizing ancient Greek accentuation for text with vowel length annotations
  | ``-lexmixed`` | mixture of text and code, as in LaTeX (code between $...$, \(...)\, \[...\])
  | ``-lextext`` | text-like lexer
  | ``-to_amharic`` | from GF Amharic transliteration to unicode
  | ``-to_ancientgreek`` | from GF ancient Greek transliteration to unicode
  | ``-to_arabic`` | from GF Arabic transliteration to unicode
+ | ``-to_arabic_unvocalized`` | from GF unvocalized Arabic transliteration to unicode
  | ``-to_cp1251`` | encode to cp1251 (Cyrillic used in Bulgarian resource)
  | ``-to_devanagari`` | from GF Devanagari transliteration to unicode
  | ``-to_greek`` | from GF modern Greek transliteration to unicode
@@ -786,6 +814,7 @@ To see transliteration tables, use command ut.
  | ``-to_utf8`` | encode to utf8 (default)
  | ``-unchars`` | unlexer that puts no spaces between tokens
  | ``-unlexcode`` | code-like unlexer
+ | ``-unlexgreek`` | unlexer de-normalizing ancient Greek accentuation
  | ``-unlexmixed`` | mixture of text and code (code between $...$, \(...)\, \[...\])
  | ``-unlextext`` | text-like unlexer
  | ``-unwords`` | unlexer that puts a single space between tokens (default)
@@ -799,13 +828,14 @@ To see transliteration tables, use command ut.
 
 - Examples:
 
- | ``l (EAdd 3 4) | ps -code`` | linearize code-like output
- | ``ps -lexer=code | p -cat=Exp`` | parse code-like input
+ | ``l (EAdd 3 4) | ps -unlexcode`` | linearize code-like output
+ | ``ps -lexcode | p -cat=Exp`` | parse code-like input
  | ``gr -cat=QCl | l | ps -bind`` | linearization output from LangFin
  | ``ps -to_devanagari "A-p"`` | show Devanagari in UTF8 terminal
  | ``rf -file=Hin.gf | ps -env=quotes -to_devanagari`` | convert translit to UTF8
  | ``rf -file=Ara.gf | ps -from_utf8 -env=quotes -from_arabic`` | convert UTF8 to transliteration
  | ``ps -to=chinese.trans "abc"`` | apply transliteration defined in file chinese.trans
+ | ``ps -lexgreek "a)gavoi` a)'nvrwpoi' tines*"`` | normalize ancient greek accentuation
 
 
 #NORMAL
@@ -828,7 +858,6 @@ are type checking and semantic computation.
 - Options:
 
  | ``-compute`` | compute by using semantic definitions (def)
- | ``-paraphrase`` | paraphrase by using semantic definitions (def)
  | ``-largest`` | sort trees from largest to smallest, in number of nodes
  | ``-nub`` | remove duplicate trees
  | ``-smallest`` | sort trees from smallest to largest, in number of nodes
@@ -838,12 +867,10 @@ are type checking and semantic computation.
 - Flags:
 
  | ``-number`` | take at most this many trees
- | ``-transfer`` | syntactic transfer by applying function, recursively in subtrees
 
 - Examples:
 
  | ``pt -compute (plus one two)`` | compute value
- | ``p "4 dogs love 5 cats" | pt -transfer=digits2numeral | l`` | four...five...
 
 
 #NORMAL
@@ -990,8 +1017,6 @@ This command requires a source grammar to be in scope, imported with 'import -re
 The operations include the parameter constructors that are in scope.
 The optional TYPE filters according to the value type.
 The grep STRINGs filter according to other substrings of the type signatures.
-This command must be a line of its own, and thus cannot be a part
-of a pipe.
 
 - Syntax: ``so (-grep=STRING)* TYPE?``
 - Options:
@@ -1001,6 +1026,12 @@ of a pipe.
 - Flags:
 
  | ``-grep`` | substring used for filtering (the command can have many of these)
+
+- Examples:
+
+ | ``so Det`` | show all opers that create a Det
+ | ``so -grep=Prep`` | find opers relating to Prep
+ | ``so | wf -file=/tmp/opers`` | write the list of opers to a file
 
 
 #NORMAL
@@ -1113,6 +1144,7 @@ This command must be a line of its own, and thus cannot be a part of a pipe.
  | ``-amharic`` | Amharic
  | ``-ancientgreek`` | ancient Greek
  | ``-arabic`` | Arabic
+ | ``-arabic_unvocalized`` | unvocalized Arabic
  | ``-devanagari`` | Devanagari
  | ``-greek`` | modern Greek
  | ``-hebrew`` | unvocalized Hebrew
@@ -1137,35 +1169,41 @@ This command must be a line of its own, and thus cannot be a part of a pipe.
 #TINY
 
 Prints a dependency tree in the .dot format (the graphviz format, default)
+or LaTeX (flag -output=latex)
 or the CoNLL/MaltParser format (flag -output=conll for training, malt_input
 for unanalysed input).
 By default, the last argument is the head of every abstract syntax
 function; moreover, the head depends on the head of the function above.
 The graph can be saved in a file by the wf command as usual.
 If the -view flag is defined, the graph is saved in a temporary file
-which is processed by graphviz and displayed by the program indicated
-by the flag. The target format is png, unless overridden by the
-flag -format.
+which is processed by dot (graphviz) and displayed by the program indicated
+by the view flag. The target format is png, unless overridden by the
+flag -format. Results from multiple trees are combined to pdf with convert (ImageMagick).
+See also 'vp -showdep' for another visualization of dependencies.
 
 
 - Options:
 
  | ``-v`` | show extra information
+ | ``-conll2latex`` | convert conll to latex
 
 - Flags:
 
- | ``-file`` | configuration file for labels per fun, format 'fun l1 ... label ... l2'
- | ``-format`` | format of the visualization file (default "png")
- | ``-output`` | output format of graph source (default "dot")
- | ``-view`` | program to open the resulting file (default "open")
+ | ``-abslabels`` | abstract configuration file for labels, format per line 'fun label*'
+ | ``-cnclabels`` | concrete configuration file for labels, format per line 'fun {words|*} pos label head'
+ | ``-file`` | same as abslabels (abstract configuration file)
+ | ``-format`` | format of the visualization file using dot (default "png")
+ | ``-output`` | output format of graph source (latex, conll, dot (default but deprecated))
+ | ``-view`` | program to open the resulting graph file (default "open")
  | ``-lang`` | the language of analysis
 
 - Examples:
 
  | ``gr | vd`` | generate a tree and show dependency tree in .dot
- | ``gr | vd -view=open`` | generate a tree and display dependency tree on a Mac
- | ``gr -number=1000 | vd -file=dep.labels -output=malt`` | generate training treebank
- | ``gr -number=100 | vd -file=dep.labels -output=malt_input`` | generate test sentences
+ | ``gr | vd -view=open`` | generate a tree and display dependency tree on with Mac's 'open'
+ | ``gr | vd -view=open -output=latex`` | generate a tree and display latex dependency tree with Mac's 'open'
+ | ``gr -number=1000 | vd -abslabels=Lang.labels -cnclabels=LangSwe.labels -output=conll`` | generate a random treebank
+ | ``rf -file=ex.conll | vd -conll2latex | wf -file=ex.tex`` | convert conll file to latex
 
 
 #NORMAL
@@ -1182,15 +1220,16 @@ flag -format.
 Prints a parse tree in the .dot format (the graphviz format).
 The graph can be saved in a file by the wf command as usual.
 If the -view flag is defined, the graph is saved in a temporary file
-which is processed by graphviz and displayed by the program indicated
-by the flag. The target format is png, unless overridden by the
-flag -format.
+which is processed by dot (graphviz) and displayed by the program indicated
+by the view flag. The target format is png, unless overridden by the
+flag -format. Results from multiple trees are combined to pdf with convert (ImageMagick).
 
 
 - Options:
 
  | ``-showcat`` | show categories in the tree nodes (default)
  | ``-nocat`` | don't show categories
+ | ``-showdep`` | show dependency labels
  | ``-showfun`` | show function names in the tree nodes
  | ``-nofun`` | don't show function names (default)
  | ``-showleaves`` | show the leaves of the tree (default)
@@ -1198,6 +1237,8 @@ flag -format.
 
 - Flags:
 
+ | ``-lang`` | the language to visualize
+ | ``-file`` | configuration file for dependency labels with -deps, format per line 'fun label*'
  | ``-format`` | format of the visualization file (default "png")
  | ``-view`` | program to open the resulting file (default "open")
  | ``-nodefont`` | font for tree nodes (default: Times -- graphviz standard font)
@@ -1210,7 +1251,8 @@ flag -format.
 - Examples:
 
  | ``p "John walks" | vp`` | generate a tree and show parse tree as .dot script
- | ``gr | vp -view="open"`` | generate a tree and display parse tree on a Mac
+ | ``gr | vp -view=open`` | generate a tree and display parse tree on a Mac
+ | ``p "she loves us" | vp -view=open -showdep -file=uddeps.labels -nocat`` | show a visual variant of a dependency tree
 
 
 #NORMAL
@@ -1227,9 +1269,9 @@ flag -format.
 Prints a set of trees in the .dot format (the graphviz format).
 The graph can be saved in a file by the wf command as usual.
 If the -view flag is defined, the graph is saved in a temporary file
-which is processed by graphviz and displayed by the program indicated
-by the flag. The target format is postscript, unless overridden by the
-flag -format.
+which is processed by dot (graphviz) and displayed by the command indicated
+by the view flag. The target format is postscript, unless overridden by the
+flag -format. Results from multiple trees are combined to pdf with convert (ImageMagick).
 With option -mk, use for showing library style function names of form 'mkC'.
 
 

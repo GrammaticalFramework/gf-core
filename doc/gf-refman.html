@@ -1,15 +1,32 @@
-<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.0 Transitional//EN">
-<HTML>
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml" lang="en" xml:lang="en">
 <HEAD>
-<TITLE>GF Language Reference Manual</TITLE>
-</HEAD><BODY BGCOLOR="white" TEXT="black">
-<P ALIGN="center"><CENTER><H1>GF Language Reference Manual</H1>
+    <TITLE>GF Language Reference Manual</TITLE>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.1.3/css/bootstrap.min.css" integrity="sha384-MCw98/SFnGE8fJT3GXwEOngsV7Zt27NXFoaoApmYm81iuXoPkFOJwJ8ERdknLPMO" crossorigin="anonymous">
+    <style>
+    code {
+        color: inherit;
+    }
+    center {
+        margin-bottom: 1rem;
+    }
+    </style>
+</HEAD>
+<BODY>
+<div class="container-fluid my-5" style="max-width:1200px">
+
+<P ALIGN="center">
+    <CENTER>
+        <a href="..">
+        <img src="Logos/gf1.svg" height="200px" class="mb-3" alt="GF Logo">
+    </a>
+        <H1>GF Language Reference Manual</H1>
 <FONT SIZE="4">
 <I>Aarne Ranta</I>, <I>Krasimir Angelov</I><BR>June 2014, GF 3.6
 </FONT></CENTER>
 
-<P></P>
-<HR NOSHADE SIZE=1>
 <P></P>
     <UL>
     <LI><A HREF="#toc1">Overview of GF</A>
@@ -92,7 +109,7 @@
     </UL>
 
 <P></P>
-<HR NOSHADE SIZE=1>
+<HR>
 <P></P>
 <P>
 
@@ -482,7 +499,7 @@ to reuse abstract and concrete modules as resources. The following table
 gives, for all module types, the possible module types of their <I>extends</I>
 and <I>opens</I>, as well as the forms of judgement legal in that module type.
 </P>
-<TABLE ALIGN="center" CELLPADDING="4" BORDER="1">
+<TABLE class="table">
 <TR>
 <TH>module type</TH>
 <TH>extends</TH>
@@ -553,7 +570,7 @@ system, replacing modules by types and functions. This model could actually
 be developed towards treating modules in GF as first-class objects; so far,
 however, this step has not been motivated by any practical needs.
 </P>
-<TABLE ALIGN="center" CELLPADDING="4" BORDER="1">
+<TABLE class="table">
 <TR>
 <TH>module</TH>
 <TH COLSPAN="2">object and type</TH>
@@ -918,7 +935,7 @@ The table moreover indicates whether the judgement has a default value, and
 whether it contributes to the <B>name base</B>, i.e. introduces a new
 name to the scope.
 </P>
-<TABLE ALIGN="center" CELLPADDING="4" BORDER="1">
+<TABLE class="table">
 <TR>
 <TH>judgement</TH>
 <TH>where</TH>
@@ -1658,7 +1675,7 @@ inherited modules.
 <P>
 Here are some flags commonly included in grammars.
 </P>
-<TABLE ALIGN="center" CELLPADDING="4" BORDER="1">
+<TABLE class="table">
 <TR>
 <TH>flag</TH>
 <TH>value</TH>
@@ -1721,7 +1738,7 @@ Type and other expressions have a system of <B>precedences</B>. The following ta
 summarizes all expression forms, from the highest to the lowest precedence.
 Some expressions are moreover left- or right-associative.
 </P>
-<TABLE ALIGN="center" CELLPADDING="4" BORDER="1">
+<TABLE class="table">
 <TR>
 <TH>prec</TH>
 <TH>expression example</TH>
@@ -2128,7 +2145,7 @@ where
 GF provides three predefined categories for abstract syntax, with predefined
 expressions:
 </P>
-<TABLE ALIGN="center" CELLPADDING="4" BORDER="1">
+<TABLE class="table">
 <TR>
 <TH>category</TH>
 <TH COLSPAN="2">expressions</TH>
@@ -2264,7 +2281,7 @@ Expressions of type <CODE>Str</CODE> have the following canonical forms:
 <LI><B>the empty token list</B>, <CODE>[]</CODE>
 <LI><B>concatenation</B>, <I>s</I> <CODE>++</CODE> <I>t</I>, where <I>s,t</I> : <CODE>Str</CODE>
 <LI><B>prefix-dependent choice</B>,
-  <CODE>pre {p<sub>1</sub> => s<sub>1</sub> ; ... ; p<sub>n</sub> => s<sub>n</sub> ; _ => s }, where
+  <CODE>pre {p<sub>1</sub> => s<sub>1</sub> ; ... ; p<sub>n</sub> => s<sub>n</sub> ; _ => s }</CODE>, where
   <UL>
   <LI><I>s</I>, <i>s</i><sub>1</sub>,...,<i>s</i><sub>n</sub>, <i>p</i><sub>1</sub>,...,<i>p</i><sub>n</sub> : <CODE>Str</CODE>
   </UL>
@@ -3016,7 +3033,7 @@ The following predefined operations are defined in the resource module
 <CODE>prelude/Predef.gf</CODE>. Their implementations are defined as
 a part of the GF grammar compiler.
 </P>
-<TABLE ALIGN="center" CELLPADDING="4" BORDER="1">
+<TABLE class="table">
 <TR>
 <TH>operation</TH>
 <TH>type</TH>
@@ -3202,7 +3219,7 @@ the abstract syntax.
 <B>Compiler pragmas</B> are a special form of comments prefixed with <CODE>--#</CODE>.
 Currently GF interprets the following pragmas.
 </P>
-<TABLE CELLPADDING="4" BORDER="1">
+<TABLE class="table">
 <TR>
 <TH>pragma</TH>
 <TH COLSPAN="2">explanation</TH>
@@ -3300,7 +3317,7 @@ The rules have the form
 where an <I>RHS</I> can be any regular expression
 built from quoted strings and category symbols, in the following ways:
 </P>
-<TABLE ALIGN="center" CELLPADDING="4" BORDER="1">
+<TABLE class="table">
 <TR>
 <TH>RHS item</TH>
 <TH COLSPAN="2">explanation</TH>
@@ -4600,6 +4617,6 @@ All other symbols are terminals.
 </TR>
 </TABLE>
 
-<P></P>
-
-</BODY></HTML>
+</div>
+</BODY>
+</HTML>

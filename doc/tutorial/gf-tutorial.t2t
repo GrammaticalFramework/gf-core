@@ -8,7 +8,7 @@ December 2010 for GF 3.2
 % txt2tags --toc -ttex gf-tutorial.txt
 
 %!target:html
-%!encoding: iso-8859-1
+%!encoding: utf-8
 %!options: --toc
 
 %!postproc(tex) : "\\subsection\*" "\\newslide"
@@ -836,8 +836,8 @@ Finnish and an Italian concrete syntaxes:
     lin
       Hello recip = {s = "terve" ++ recip.s} ;
       World = {s = "maailma"} ;
-      Mum = {s = "‰iti"} ;
-      Friends = {s = "yst‰v‰t"} ;
+      Mum = {s = "√§iti"} ;
+      Friends = {s = "yst√§v√§t"} ;
   }
 
   concrete HelloIta of Hello = {
@@ -925,7 +925,7 @@ Default of the language flag (``-lang``): the last-imported concrete syntax.
 **Multilingual generation**:
 ```
   > parse -lang=HelloEng "hello friends" | linearize
-  terve yst‰v‰t
+  terve yst√§v√§t
   ciao amici
   hello friends
 ```
@@ -1335,7 +1335,7 @@ Just (?) replace English words with their dictionary equivalents:
       Phrase, Item, Kind, Quality = {s : Str} ;
 
     lin
-      Is item quality = {s = item.s ++ "Ë" ++ quality.s} ;
+      Is item quality = {s = item.s ++ "√®" ++ quality.s} ;
       This kind = {s = "questo" ++ kind.s} ;
       That kind = {s = "quel" ++ kind.s} ;
       QKind quality kind = {s = kind.s ++ quality.s} ;
@@ -1446,11 +1446,11 @@ linearizations in different languages:
   > gr -number=2 | l -treebank
 
   Is (That Cheese) (Very Boring)
-  quel formaggio Ë molto noioso
+  quel formaggio √® molto noioso
   that cheese is very boring
 
   Is (That Cheese) Fresh
-  quel formaggio Ë fresco
+  quel formaggio √® fresco
   that cheese is fresh
 ```
 
@@ -1472,14 +1472,14 @@ answer given in another language.
   You can interrupt the quiz by entering a line consisting of a dot ('.').
 
   this fish is warm
-  questo pesce Ë caldo
+  questo pesce √® caldo
   > Yes.
   Score 1/1
 
   this cheese is Italian
-  questo formaggio Ë noioso
-  > No, not questo formaggio Ë noioso, but
-  questo formaggio Ë italiano
+  questo formaggio √® noioso
+  > No, not questo formaggio √® noioso, but
+  questo formaggio √® italiano
 
   Score 1/2
   this fish is expensive
@@ -1756,7 +1756,7 @@ Simultaneous extension and opening:
     lincat
       Question = SS ;
     lin
-      QIs item quality = ss (item.s ++ "Ë" ++ quality.s) ;
+      QIs item quality = ss (item.s ++ "√®" ++ quality.s) ;
       Pizza = ss "pizza" ;
   }
 ```
@@ -2364,10 +2364,10 @@ in English, with special care taken of variations with the suffix
 
 + Implement the German **Umlaut** operation on word stems.
 The operation changes the vowel of the stressed stem syllable as follows:
-//a// to //‰//, //au// to //‰u//, //o// to //ˆ//, and //u// to //¸//. You
+//a// to //√§//, //au// to //√§u//, //o// to //√∂//, and //u// to //√º//. You
 can assume that the operation only takes syllables as arguments. Test the
-operation to see whether it correctly changes //Arzt// to //ƒrzt//,
-//Baum// to //B‰um//, //Topf// to //Tˆpf//, and //Kuh// to //K¸h//.
+operation to see whether it correctly changes //Arzt// to //√Ñrzt//,
+//Baum// to //B√§um//, //Topf// to //T√∂pf//, and //Kuh// to //K√ºh//.
 
 
 
@@ -2480,10 +2480,10 @@ The command ``morpho_quiz = mq`` generates inflection exercises.
   Welcome to GF Morphology Quiz.
   ...
 
-  rÈapparaÓtre : VFin VCondit  Pl  P2
-  rÈapparaitriez
-  > No, not rÈapparaitriez, but
-  rÈapparaÓtriez
+  r√©appara√Ætre : VFin VCondit  Pl  P2
+  r√©apparaitriez
+  > No, not r√©apparaitriez, but
+  r√©appara√Ætriez
   Score 0/1
 ```
 To create a list for later use, use the command ``morpho_list = ml``
@@ -2563,7 +2563,7 @@ We need only number variation for the copula.
 ```
     copula : Number -> Str =
       \n -> case n of {
-        Sg => "Ë" ;
+        Sg => "√®" ;
         Pl => "sono"
         } ;
 ```
@@ -3305,13 +3305,13 @@ we can write a **functor instantiation**,
   oper
     wine_N = mkN "Wein" ;
     pizza_N = mkN "Pizza" "Pizzen" feminine ;
-    cheese_N = mkN "K‰se" "K‰sen" masculine ;
+    cheese_N = mkN "K√§se" "K√§sen" masculine ;
     fish_N = mkN "Fisch" ;
     fresh_A = mkA "frisch" ;
-    warm_A = mkA "warm" "w‰rmer" "w‰rmste" ;
+    warm_A = mkA "warm" "w√§rmer" "w√§rmste" ;
     italian_A = mkA "italienisch" ;
     expensive_A = mkA "teuer" ;
-    delicious_A = mkA "kˆstlich" ;
+    delicious_A = mkA "k√∂stlich" ;
     boring_A = mkA "langweilig" ;
   }
 ```
@@ -3362,11 +3362,11 @@ Lexicon instance
     cheese_N = mkN "juusto" ;
     fish_N = mkN "kala" ;
     fresh_A = mkA "tuore" ;
-    warm_A = mkA "l‰mmin" ;
+    warm_A = mkA "l√§mmin" ;
     italian_A = mkA "italialainen" ;
     expensive_A = mkA "kallis" ;
     delicious_A = mkA "herkullinen" ;
-    boring_A = mkA "tyls‰" ;
+    boring_A = mkA "tyls√§" ;
   }
 ```
 Functor instantiation
@@ -3626,7 +3626,7 @@ Goals:
   - semantic definitions
 
 These concepts are inherited from **type theory** (more precisely:
-constructive type theory, or Martin-Lˆf type theory).
+constructive type theory, or Martin-L√∂f type theory).
 
 Type theory is the basis **logical frameworks**.
 
@@ -4639,7 +4639,7 @@ output. Therefore it can be a part of a pipe and read and write files.
 The simplest way to translate is to ``echo`` input to the program:
 ```
   % echo "this wine is delicious" | ./trans Food.pgf
-  questo vino Ë delizioso
+  questo vino √® delizioso
 ```
 The result is given in all languages except the input language.
 
