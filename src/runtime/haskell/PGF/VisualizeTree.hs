@@ -35,7 +35,8 @@ import PGF.Macros (lookValCat, BracketedString(..))
 
 import qualified Data.Map as Map
 --import qualified Data.IntMap as IntMap
-import Data.List (intersperse,nub,mapAccumL,find,groupBy)
+import Data.List (intersperse,nub,mapAccumL,find,groupBy,sortBy)
+import Data.Ord (comparing)
 --import Data.Char (isDigit)
 import Data.Maybe (fromMaybe)
 import Text.PrettyPrint
@@ -777,15 +778,22 @@ fixCoNLL labels conll = map fixc conll where
   getDep j label = maybe j id $ lookup (label,j) [((label,j),i) | i:word:fun:pos:cat:x_:j:label:xs <- conll]
 
 getCncDepLabels :: String -> CncLabels
-getCncDepLabels = map merge .  groupBy (\ (x,_) (a,_) -> x == a) . concatMap analyse . filter choose . lines where
+getCncDepLabels =
+  map merge .
+  groupBy (\ (x,_) (a,_) -> x == a) .
+  sortBy (comparing fst) .
+  concatMap analyse .
+  filter choose .
+  lines
+ where
   --- choose is for compatibility with the general notation
   choose line = notElem '(' line && elem '{' line --- ignoring non-local (with "(") and abstract (without "{") rules
   
   analyse line = case break (=='{') line of
     (beg,_:ws) -> case break (=='}') ws of
-      (toks,_:target) -> case (words beg, words target) of
-        (fun:_,[    label,j]) -> [(fun, (tok, (id,       label,j))) | tok <- getToks toks]
-        (fun:_,[pos,label,j]) -> [(fun, (tok, (const pos,label,j))) | tok <- getToks toks]
+      (toks,_:target) -> case (getToks beg, words target) of
+        (funs,[    label,j]) -> [(fun, (tok, (id,       label,j))) | fun <- funs, tok <- getToks toks]
+        (funs,[pos,label,j]) -> [(fun, (tok, (const pos,label,j))) | fun <- funs, tok <- getToks toks]
         _ -> []
       _ -> []
     _ -> []
