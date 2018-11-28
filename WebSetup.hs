@@ -70,7 +70,7 @@ buildWeb gf flags (pkg,lbi) = do
         gf_lib_path = datadir (absoluteInstallDirs pkg lbi dest) </> "lib"
         args = numJobs flags++["-make","-s"] -- ,"-optimize-pgf"
                ++["--gfo-dir="++tmp_dir,
-                  "--gf-lib-path="++gf_lib_path,
+                --"--gf-lib-path="++gf_lib_path,
                   "--name="++dropExtension pgf,
                   "--output-dir="++gfo_dir]
                ++[dir</>file|file<-src]

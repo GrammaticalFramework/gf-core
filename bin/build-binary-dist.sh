@@ -67,10 +67,27 @@ fi
 cabal install --only-dependencies -fserver -fc-runtime $extra
 cabal configure --prefix="$prefix" -fserver -fc-runtime $extra
 DYLD_LIBRARY_PATH="$extralib" LD_LIBRARY_PATH="$extralib" cabal build
+  # Building the example grammars will fail, because the RGL is missing
+cabal copy --destdir="$destdir"  # create www directory
+
+## Build the RGL and copy it to $destdir
+PATH=$PWD/dist/build/gf:$PATH
+export GF_LIB_PATH="$(dirname $(find "$destdir" -name www))/lib"   # hmm
+mkdir -p "$GF_LIB_PATH"
+pushd ../gf-rgl
+make build
+make copy
+popd
+
+# Build GF again, including example grammars that need the RGL
+DYLD_LIBRARY_PATH="$extralib" LD_LIBRARY_PATH="$extralib" cabal build
+
+## Copy GF to $destdir
 cabal copy --destdir="$destdir"
 libdir=$(dirname $(find "$destdir" -name PGF.hi))
 cabal register --gen-pkg-config=$libdir/gf-$ver.conf
 
+## Create the binary distribution package
 case $fmt in
     tar.gz)
 	targz="$name-bin-$hw-$os.tar.gz"     # the final tar file
