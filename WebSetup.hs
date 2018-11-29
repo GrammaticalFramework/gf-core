@@ -104,9 +104,10 @@ setupWeb dest (pkg,lbi) = do
     copy_pgf (pgf,subdir,_) =
       do let src = gfo_dir </> pgf
          let dst = grammars_dir </> pgf
-         putStrLn $ "Installing "++dst
          ex <- doesFileExist src
-         if ex then copyFile src dst else return ()
+         if ex then do putStrLn $ "Installing "++dst
+                       copyFile src dst
+               else putStrLn $ "Not installing "++dst
 
     gf_logo = "gf0.png"
 
