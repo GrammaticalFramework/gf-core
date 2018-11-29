@@ -41,7 +41,7 @@ function render_t2t_html {
     --from=html \
     --to=html5 \
     --standalone \
-    --template="$DIR/_template.html" \
+    --template="$DIR/template.html" \
     --variable="rel-root:$relroot" \
     --metadata="title:$title" \
     --metadata="author:$author" \
@@ -70,7 +70,7 @@ function render_md_html {
     --from=markdown \
     --to=html5 \
     --standalone \
-    --template="$DIR/_template.html" \
+    --template="$DIR/template.html" \
     --variable="rel-root:$relroot" \
     "$md" \
     --output="$html"
