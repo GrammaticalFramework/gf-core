@@ -413,3 +413,304 @@ pgf_graphviz_word_alignment(PgfConcr** concrs, size_t n_concrs, PgfExpr expr, Pg
 
 	gu_pool_free(tmp_pool);
 }
+
+typedef struct {
+	PgfPGF* pgf;
+	int next_fid;
+	GuBuf* anchors;
+	GuBuf* heads;
+    GuPool* pool;
+} PgfDepGenState;
+
+typedef struct {
+	int fid;
+	int visit;
+	PgfExpr expr;
+	GuBuf* edges;
+} PgfDepNode;
+
+typedef struct {
+	GuString label;
+	PgfDepNode* node;
+} PgfDepEdge;
+
+typedef struct {
+	bool   solved;
+	size_t start;
+	size_t end;
+	GuString label;
+} PgfDepStackRange;
+
+static void
+pgf_graphviz_dependency_graph_(PgfDepGenState* state,
+                               size_t parents_start,size_t parents_end,
+                               GuString head_label, GuString mod_label,
+                               PgfExpr expr);
+
+static bool
+pgf_graphviz_dependency_graph_apply(PgfDepGenState* state,
+                                    size_t parents_start,size_t parents_end,
+                                    GuString head_label, GuString mod_label,
+                                    GuBuf* args, GuSeq* pragmas)
+{
+	size_t n_args    = gu_buf_length(args);
+	size_t n_pragmas = pragmas ? gu_seq_length(pragmas) : 0;
+
+	size_t n_count = (n_args <= n_pragmas) ? n_args : n_pragmas;
+	PgfDepStackRange ranges[n_count+1];
+	for (size_t i = 0; i <= n_count; i++) {
+		ranges[i].solved = false;
+		ranges[i].label =
+			(i > 0) ? gu_seq_index(pragmas, PgfDepPragma, i-1)->label
+					: NULL;
+	}
+
+	ranges[0].start = gu_buf_length(state->heads);
+	ranges[0].end   = gu_buf_length(state->heads);
+
+    bool rel_solved = false;
+	size_t n_solved = 0;
+	size_t count = 0;
+	while (n_solved < n_count) {
+		if (!ranges[0].solved) {
+			ranges[0].start = gu_buf_length(state->heads);
+		}
+
+		for (size_t i = 0; i < n_count; i++) {
+			if (ranges[i+1].solved)
+				continue;
+
+			PgfExpr       arg    = gu_buf_get(args, PgfExpr, n_args-i-1);
+			PgfDepPragma* pragma = gu_seq_index(pragmas, PgfDepPragma, i);
+
+			switch (pragma->tag) {
+			case PGF_DEP_PRAGMA_MOD:
+				assert(pragma->index <= n_count);
+				if (ranges[0].solved && ranges[pragma->index].solved) {
+					ranges[i+1].start = gu_buf_length(state->heads);
+					pgf_graphviz_dependency_graph_(state,
+												   ranges[pragma->index].start, ranges[pragma->index].end,
+												   NULL, ranges[i+1].label,
+												   arg);
+					ranges[i+1].end   = gu_buf_length(state->heads);
+					ranges[i+1].solved= true;
+					n_solved++;
+				}
+				break;
+			case PGF_DEP_PRAGMA_REL:
+				ranges[i+1].solved = true;
+				ranges[i+1].start  = 0;
+				ranges[i+1].end    = 0;
+				n_solved++;
+
+				GuPool *tmp_pool = gu_local_pool();
+
+				GuStringBuf* sbuf =
+					gu_new_string_buf(tmp_pool);
+				GuOut* out = gu_string_buf_out(sbuf);
+				GuExn* err = gu_new_exn(tmp_pool);
+
+				pgf_print_expr(arg, NULL, 0, out, err);
+
+				ranges[pragma->index].label =
+					gu_string_buf_freeze(sbuf, state->pool);
+
+				gu_pool_free(tmp_pool);
+				break;
+			case PGF_DEP_PRAGMA_SKIP:
+				ranges[i+1].solved = true;
+				n_solved++;
+				break;
+			case PGF_DEP_PRAGMA_ANCH:
+				if (ranges[0].solved) {
+					ranges[i+1].start = gu_buf_length(state->heads);
+					pgf_graphviz_dependency_graph_(state,0,0,"ROOT","ROOT",arg);
+					ranges[i+1].end   = gu_buf_length(state->heads);
+					ranges[i+1].solved= true;
+					n_solved++;
+					count++;
+				}
+				break;
+			case PGF_DEP_PRAGMA_HEAD:
+				if (!rel_solved)
+					break;
+
+				if (!ranges[0].solved) {
+					GuString new_head_label = head_label;
+					GuString new_mod_label = mod_label;
+					if (pragma->label != NULL && *pragma->label && pragma->index == 0) {
+						new_head_label = pragma->label;
+						new_mod_label = "ROOT";
+					}
+					if (ranges[0].label != NULL)
+						new_mod_label = ranges[0].label;
+					ranges[i+1].start = gu_buf_length(state->heads);
+					pgf_graphviz_dependency_graph_(state,
+												   parents_start,parents_end,
+												   new_head_label, new_mod_label,
+												   arg);
+					ranges[i+1].end   = gu_buf_length(state->heads);
+					if (pragma->index == 0) {
+						ranges[i+1].solved = true;
+						n_solved++;
+					}
+					count++;
+				}
+				if (pragma->index != 0 && ranges[pragma->index].solved) {
+					for (size_t j = ranges[pragma->index].start; j < ranges[pragma->index].end; j++) {
+						PgfDepNode* parent = gu_buf_get(state->heads, PgfDepNode*, j);
+						for (size_t k = ranges[i+1].start; k < ranges[i+1].end; k++) {
+							PgfDepNode* child = gu_buf_get(state->heads, PgfDepNode*, k);
+							PgfDepEdge* edge = gu_buf_extend(parent->edges);
+							edge->label = pragma->label;
+							edge->node  = child;
+						}
+					}
+					ranges[i+1].solved = true;
+					n_solved++;
+				}
+				break;
+			default:
+				gu_impossible();
+			}
+		}
+
+		if (rel_solved) {
+			if (!ranges[0].solved) {
+				ranges[0].end = gu_buf_length(state->heads);
+				ranges[0].solved = true;
+			}
+		} else {
+			rel_solved = true;
+		}
+	}
+
+	gu_buf_trim_n(state->heads, gu_buf_length(state->heads)-ranges[0].end);
+
+	return (count > 0);
+}
+
+static void
+pgf_graphviz_dependency_graph_(PgfDepGenState* state,
+                               size_t parents_start,size_t parents_end,
+                               GuString head_label, GuString mod_label,
+                               PgfExpr expr)
+{
+	PgfExpr e = expr;
+	GuBuf* args = gu_new_buf(PgfDepNode*, state->pool);
+
+	for (;;) {
+		GuVariantInfo ei = gu_variant_open(e);
+		switch (ei.tag) {
+		case PGF_EXPR_APP: {
+			PgfExprApp* app = ei.data;
+			gu_buf_push(args, PgfExpr, app->arg);
+			e = app->fun;
+			break;
+		}
+		case PGF_EXPR_TYPED: {
+			PgfExprTyped* typed = ei.data;
+			e = typed->expr;
+			break;
+		}
+		case PGF_EXPR_IMPL_ARG: {
+			PgfExprImplArg* implarg = ei.data;
+			e = implarg->expr;
+			break;
+		}
+		case PGF_EXPR_FUN: {
+			PgfExprFun* fun = ei.data;
+			PgfAbsFun* absfun =
+				gu_seq_binsearch(state->pgf->abstract.funs, pgf_absfun_order, PgfAbsFun, fun->fun);
+
+			if (pgf_graphviz_dependency_graph_apply(state,
+			                                        parents_start,parents_end,
+			                                        head_label,mod_label,
+			                                        args,absfun ? absfun->pragmas : NULL))
+				return;
+			// continue to default
+		}
+		default: {
+			PgfDepNode* node = gu_new(PgfDepNode, state->pool);
+			node->fid   = state->next_fid++;
+			node->visit = 0;
+			node->expr  = expr;
+			node->edges = gu_new_buf(PgfDepEdge, state->pool);
+
+			for (size_t i = parents_start; i < parents_end; i++) {
+				PgfDepNode* parent = gu_buf_get(state->heads, PgfDepNode*, i);
+				if (head_label == NULL) {
+					PgfDepEdge* edge = gu_buf_extend(parent->edges);
+					edge->label = mod_label;
+					edge->node  = node;
+				} else {
+					PgfDepEdge* edge = gu_buf_extend(node->edges);
+					edge->label = head_label;
+					edge->node  = parent;
+				}
+			}
+
+			gu_buf_push(state->heads, PgfDepNode*, node);
+			if (head_label != NULL)
+				gu_buf_push(state->anchors, PgfDepNode*, node);
+
+			return;
+		}
+		}
+	}
+}
+
+static void
+pgf_graphviz_print_graph(PgfGraphvizOptions* opts, PgfDepNode* node,
+                         GuOut* out, GuExn* err)
+{
+	if (node->visit++ > 0)
+		return;
+
+	gu_printf(out, err, "  n%d[label = \"", node->fid);
+	pgf_print_expr(node->expr, NULL, 0, out, err);
+	if (opts->nodeColor != NULL && *opts->nodeColor)
+		gu_printf(out, err, ", fontcolor = \"%s\"", opts->nodeColor);
+	if (opts->nodeFont != NULL && *opts->nodeFont)
+		gu_printf(out, err, ", fontname = \"%s\"", opts->nodeFont);
+	gu_puts("\"]\n", out, err);
+
+	size_t n_children = gu_buf_length(node->edges);
+	for (size_t i = 0; i < n_children; i++) {
+		PgfDepEdge* edge = gu_buf_index(node->edges, PgfDepEdge, n_children-i-1);
+		gu_printf(out, err, "  n%d -> n%d [label = \"%s\"",
+		          node->fid, edge->node->fid, edge->label);
+		if (opts->nodeEdgeStyle != NULL && *opts->nodeEdgeStyle)
+			gu_printf(out, err, ", style = \"%s\"", opts->nodeEdgeStyle);
+		if (opts->nodeColor != NULL && *opts->nodeColor)
+			gu_printf(out, err, ", color = \"%s\"", opts->nodeColor);
+		gu_puts("]\n", out, err);
+
+		if (edge->node->fid > node->fid)
+			pgf_graphviz_print_graph(opts, edge->node, out, err);
+	}
+}
+
+void
+pgf_graphviz_dependency_graph(PgfPGF* pgf, PgfExpr expr,
+                              PgfGraphvizOptions* opts,
+                              GuOut* out, GuExn* err,
+                              GuPool* pool)
+{
+	PgfDepGenState state;
+	state.pgf  = pgf;
+	state.next_fid = 1;
+	state.pool = pool;
+	state.anchors = gu_new_buf(PgfDepNode*, pool);
+	state.heads   = gu_new_buf(PgfDepNode*, pool);
+
+	pgf_graphviz_dependency_graph_(&state, 0, 0, "ROOT", "ROOT", expr);
+
+	gu_puts("digraph {\n", out, err);
+	size_t n_anchors = gu_buf_length(state.anchors);
+	for (size_t i = 0; i < n_anchors; i++) {
+		PgfDepNode* node = gu_buf_get(state.anchors, PgfDepNode*, i);
+		pgf_graphviz_print_graph(opts,node,out,err);
+	}
+	gu_puts("}", out, err);
+}
