@@ -18,6 +18,8 @@ override_dh_auto_build:
 	cd src/runtime/java && make CFLAGS="-I$(CURDIR)/src/runtime/c -L$(CURDIR)/src/runtime/c/.libs" INSTALL_PATH=/usr/lib
 	echo LD_LIBRARY_PATH=$$LD_LIBRARY_PATH:$(CURDIR)/src/runtime/c/.libs
 	LD_LIBRARY_PATH=$$LD_LIBRARY_PATH:$(CURDIR)/src/runtime/c/.libs cabal build
+	LD_LIBRARY_PATH=$$LD_LIBRARY_PATH:$(CURDIR)/src/runtime/c/.libs cabal copy --destdir=$(CURDIR)/debian/gf # create www directory
+	PATH=$(CURDIR)/dist/build/gf:$$PATH && export GF_LIB_PATH="$$(dirname $$(find "$(CURDIR)/debian/gf" -name www))/lib" && echo "GF_LIB_PATH=$$GF_LIB_PATH" && mkdir -p "$$GF_LIB_PATH" && ( cd ../gf-rgl && make build && make copy ) && LD_LIBRARY_PATH=$$LD_LIBRARY_PATH:$(CURDIR)/src/runtime/c/.libs cabal build
 	make html
 
 override_dh_auto_clean:
