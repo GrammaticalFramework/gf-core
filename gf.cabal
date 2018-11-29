@@ -141,7 +141,7 @@ Library
 
 ---- GF compiler as a library:
 
-  build-depends: filepath, directory, time, time-compat, old-locale,
+  build-depends: filepath, directory, time, time-compat,
                  process, haskeline, parallel>=3
 
   hs-source-dirs: src/compiler
