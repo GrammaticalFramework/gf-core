@@ -190,7 +190,7 @@ foldForest :: (FunId -> [PArg] -> b -> b) -> (Expr -> [String] -> b -> b) -> b -
 foldForest f g b fcat forest =
   case IntMap.lookup fcat forest of
     Nothing  -> b
-    Just set -> Set.fold foldProd b set
+    Just set -> Set.foldr foldProd b set
   where
     foldProd (PCoerce fcat)        b = foldForest f g b fcat forest
     foldProd (PApply funid args)   b = f funid args b

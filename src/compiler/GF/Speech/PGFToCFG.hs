@@ -57,7 +57,7 @@ pgfToCFG pgf lang = mkCFG (showCId (lookStartCat pgf)) extCats (startRules ++ co
 
     topdownRules cat = f cat []
       where
-        f cat rules = maybe rules (Set.fold g rules) (IntMap.lookup cat (productions cnc))
+        f cat rules = maybe rules (Set.foldr g rules) (IntMap.lookup cat (productions cnc))
 	 
         g (PApply funid args) rules = (cncfuns cnc ! funid,args) : rules
         g (PCoerce cat)       rules = f cat rules

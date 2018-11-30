@@ -79,12 +79,12 @@ unionsWith f = foldl (unionWith f) empty
 elems :: TrieMap k v -> [v]
 elems tr = collect tr []
   where
-    collect (Tr mb_v m) xs = maybe id (:) mb_v (Map.fold collect xs m)
+    collect (Tr mb_v m) xs = maybe id (:) mb_v (Map.foldr collect xs m)
 
 toList :: TrieMap k v -> [([k],v)]
 toList tr = collect [] tr []
   where
-    collect ks (Tr mb_v m) xs = maybe id (\v -> (:) (ks,v)) mb_v (Map.foldWithKey (\k -> collect (k:ks)) xs m)
+    collect ks (Tr mb_v m) xs = maybe id (\v -> (:) (ks,v)) mb_v (Map.foldrWithKey (\k -> collect (k:ks)) xs m)
 
 fromListWith :: Ord k => (v -> v -> v) -> [([k],v)] -> TrieMap k v
 fromListWith f xs = foldl' (\trie (ks,v) -> insertWith f ks v trie) empty xs
