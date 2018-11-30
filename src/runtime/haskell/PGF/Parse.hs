@@ -198,7 +198,7 @@ recoveryStates open_types (EState abs cnc chart) =
                                   Nothing                  -> []
 
     complete open_fcats items ac = 
-      foldl (Set.fold (\(Active j' ppos funid seqid args keyc) -> 
+      foldl (Set.foldr (\(Active j' ppos funid seqid args keyc) -> 
                            (:) (Active j' (ppos+1) funid seqid args keyc)))
             items
             [set | fcat <- open_fcats, (set,_) <- lookupACByFCat fcat ac]
@@ -363,7 +363,7 @@ process flit ftok cnc (item@(Active j ppos funid seqid args key0):items) acc cha
                        
                        items2 = case lookupAC key0 ((active chart:actives chart) !! (k-j)) of
                                   Nothing       -> items
-                                  Just (set,sc) -> Set.fold (\(Active j' ppos funid seqid args keyc) -> 
+                                  Just (set,sc) -> Set.foldr (\(Active j' ppos funid seqid args keyc) -> 
                                                                 let SymCat d _ = unsafeAt (unsafeAt (sequences cnc) seqid) ppos
                                                                     PArg hypos _ = args !! d
                                                                 in (:) (Active j' (ppos+1) funid seqid (updateAt d (PArg hypos fid) args) keyc)) items set
@@ -395,7 +395,7 @@ process flit ftok cnc (item@(Active j ppos funid seqid args key0):items) acc cha
     predict flit ftok cnc forest key0 key@(AK fid lbl) k acc items =
       let (acc1,items1) = case IntMap.lookup fid forest of
                             Nothing  -> (acc,items)
-                            Just set -> Set.fold foldProd (acc,items) set
+                            Just set -> Set.foldr foldProd (acc,items) set
 
           (acc2,items2) = case IntMap.lookup fid (lexicon cnc) >>= IntMap.lookup lbl of
                             Just tmap -> let (mb_v,toks) = TrieMap.decompose (TrieMap.map (toItems key0 k) tmap)
