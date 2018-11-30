@@ -37,13 +37,6 @@ The simplest way of installing GF is with the command:
 cabal install
 ```
 
-This can be broken down into the usual sub-steps:
-```
-cabal configure
-cabal build
-cabal copy
-```
-
 For more details, see the [download page](http://www.grammaticalframework.org/download/index.html)
 and [developers manual](http://www.grammaticalframework.org/doc/gf-developers.html).
 
