@@ -2,23 +2,24 @@
 title: Grammatical Framework Download and Installation
 ...
 
-**GF 3.10** was released on 28 November 2018.  
+**GF 3.10** was released on 1 December 2018.  
 It is the first version of GF which _does not include the RGL_.
 
 What's new? See the [release notes](release-3.10.html).
 
 ## Binary packages
 
-All binary releases are now hosted on [GitHub](https://github.com/GrammaticalFramework/gf-core/releases).
+| Platform        | Download                                           | Features       | How to install                     |
+|:----------------|:---------------------------------------------------|:---------------|:-----------------------------------|
+| macOS           | [gf-3.10.pkg](gf-3.10.pkg)                         | GF, S, C, J, P | Double-click on the package icon   |
+| Ubuntu (64-bit) | [gf\_3.10-1\_amd64.deb](gf_3.10-1_amd64.deb)       | GF, S, C, J, P | `sudo dpkg -i gf_3.10-1_amd64.deb` |
+| Windows         | [gf-3.10-bin-windows.zip](gf-3.10-bin-windows.zip) | GF, S          | `unzip gf-3.10-bin-windows.zip`    |
 
-| Platform        | Download                                                     | Features   | How to install                                             |
-|:----------------|:-------------------------------------------------------------|:-----------|:-----------------------------------------------------------|
-| macOS           | [gf-3.10.pkg](gf-3.10.pkg)                                   | GF,S,C,J,P | Double-click on the package icon                           |
+<!--
 | macOS           | [gf-3.10-bin-intel-mac.tar.gz](gf-3.10-bin-intel-mac.tar.gz) | GF,S,C,J,P | `sudo tar -C /usr/local -zxf gf-3.10-bin-intel-mac.tar.gz` |
 | Raspian 9.1     | [gf\_3.10-1\_armhf.deb](gf_3.10-1_armhf.deb)                 | GF,S,C,J,P | `sudo dpkg -i gf_3.10-1_armhf.deb`                         |
 | Ubuntu (32-bit) | [gf\_3.10-1\_i386.deb](gf_3.10-1_i386.deb)                   | GF,S,C,J,P | `sudo dpkg -i gf_3.10-1_i386.deb`                          |
-| Ubuntu (64-bit) | [gf\_3.10-1\_amd64.deb](gf_3.10-1_amd64.deb)                 | GF,S,C,J,P | `sudo dpkg -i gf_3.10-1_amd64.deb`                         |
-| Windows         | [gf-3.10-bin-windows.zip](gf-3.10-bin-windows.zip)           | GF,S       | `unzip gf-3.10-bin-windows.zip`                            |
+-->
 
 **Features**
 
@@ -36,38 +37,38 @@ see Inari's notes on [Installing GF on Windows](http://www.grammaticalframework.
 The Ubuntu `.deb` packages should work on Ubuntu 16.04 and 17.04 and
 similar Linux distributions.
 
-The Raspian `.deb` package was created on a Raspberry Pi 3 and will
+<!-- The Raspian `.deb` package was created on a Raspberry Pi 3 and will
 probably work on other ARM-based systems running Debian 9 (stretch) or
-similar Linux distributions.
+similar Linux distributions. -->
 
 The packages for macOS (Mac OS X) should work on at least 10.11 and
 10.12 (El Capitan and Sierra).
 
-The Mac OS and Linux `.tar.gz` packages are designed to be installed in
+<!-- The Mac OS and Linux `.tar.gz` packages are designed to be installed in
 `/usr/local`. You can install them in other locations, but then you need
 to set the `GF_LIB_PATH` environment variable:
 
 ```
-export GF_LIB_PATH=/usr/local/share/gf-3.9/lib
+export GF_LIB_PATH=/usr/local/share/gf-3.10/lib
 ```
 
 where `/usr/local` should be replaced with the path to the location
-where you unpacked the package.
+where you unpacked the package. -->
 
 ## Installing the latest release from source
 
 [GF is on Hackage](http://hackage.haskell.org/package/gf), so under
-normal circumstances the prodedure is fairly simple:
+normal circumstances the procedure is fairly simple:
 
 1.  Install a recent version of the [Haskell
-    Platform](http://hackage.haskell.org/platform), e.g. version 7.10.3
-    (see note 2 below)
+    Platform](http://hackage.haskell.org/platform) (see note below)
 2.  `cabal update`
-3.  On Linux: install some C libraries from your Linux distribution (see
-    note 1 below)
+3.  On Linux: install some C libraries from your Linux distribution (see note below)
 4.  `cabal install gf`
 
-You can also download full source packages from GitHub:
+Note that this installs GF _without_ the RGL.
+
+You can also download full source packages from GitHub at the following links:
 
 - [GF releases](https://github.com/GrammaticalFramework/gf-core/releases)
 - [RGL releases](https://github.com/GrammaticalFramework/gf-rgl/releases)
@@ -94,7 +95,14 @@ PATH=$HOME/Library/Haskell/bin:$PATH
 
 **Build tools**
 
-*TODO* Alex, Happy
+In order to compile GF you need the build tools **Alex** and **Happy**.
+These can be installed via Cabal, e.g.:
+
+```
+cabal install alex happy
+```
+
+or obtained by other means, depending on your OS.
 
 **Haskeline**
 
@@ -108,13 +116,12 @@ Here is one way to do this:
 
 **GHC version**
 
-The GF source code has been updated to compile with GHC
-8.2.1. Using older versions of GHC (e.g. 8.0.x and 7.10.3) should still
-work too.
+The GF source code has been updated to compile with GHC 8.4.
+Using older versions of GHC (e.g. 8.2, 8.0 and 7.10) should still work too.
 
 ## Installing from the latest developer source code
 
-If you haven't already, clone our repository with:
+If you haven't already, clone the repository with:
 
 ```
 git clone https://github.com/GrammaticalFramework/gf-core.git
@@ -132,7 +139,7 @@ Then install with:
 cabal install
 ```
 
-or
+or, if you're a Stack user:
 
 ```
 stack install
@@ -142,33 +149,24 @@ The above notes for installing from source apply also in these cases.
 For more info on working with the GF source code, see the
 [GF Developers Guide](../doc/gf-developers.html).
 
-## Installing the RGL
+## Installing the RGL from source
 
-RGL releases are hosted on [GitHub](https://github.com/GrammaticalFramework/gf-rgl/releases).
-
-### Download pre-compiled
-
-TODO ...
-
-### Download release & compile
-
-TODO ...
-
-### Download latest developer version & compile
-
-Similar to the steps above, you need to
+To install the RGL from source,
+you can download a release from [GitHub](https://github.com/GrammaticalFramework/gf-rgl/releases)
+or get the latest version by cloning the repository:
 
 ```
-git clone https://github.com/GrammaticalFramework/gf-core.git
+git clone https://github.com/GrammaticalFramework/gf-rgl.git
 ```
 
-And then run
+In both cases, once you have the RGL sources you can install them by running:
 
 ```
 make
 ```
 
-For more details about building the RGL, see [this page](https://github.com/GrammaticalFramework/gf-rgl/blob/master/README.md).
+in the RGL folder.
+For more details about building the RGL, see the [RGL README](https://github.com/GrammaticalFramework/gf-rgl/blob/master/README.md).
 
 ## Older releases
 

@@ -1,6 +1,6 @@
 ---
-title: GF 4.0.0 Release Notes
-date: 28 November 2018
+title: GF 3.10 Release Notes
+date: 1 December 2018
 ...
 
 ## Installation
