@@ -16,13 +16,14 @@ name="gf-$ver"
 destdir="$PWD/dist/$name"          # assemble binary dist here
 prefix=${PREFIX:-/usr/local}       # where to install
 fmt=${FMT:-tar.gz}                 # binary package format (tar.gz or pkg)
+ghc=${GHC:-ghc}                    # which Haskell compiler to use
 
 extralib="$destdir$prefix/lib"
 extrainclude="$destdir$prefix/include"
 extra="--extra-lib-dirs=$extralib --extra-include-dirs=$extrainclude"
 
 set -e                             # Stop if an error occurs
-set -x                             # print commands before exuting them
+set -x                             # print commands before executing them
 
 ## First configure & build the C run-time system
 pushd src/runtime/c
@@ -64,8 +65,8 @@ else
 fi
 
 ## Build GF, with C run-time support enabled
-cabal install --only-dependencies -fserver -fc-runtime $extra
-cabal configure --prefix="$prefix" -fserver -fc-runtime $extra
+cabal install -w "$ghc" --only-dependencies -fserver -fc-runtime $extra
+cabal configure -w "$ghc" --prefix="$prefix" -fserver -fc-runtime $extra
 DYLD_LIBRARY_PATH="$extralib" LD_LIBRARY_PATH="$extralib" cabal build
   # Building the example grammars will fail, because the RGL is missing
 cabal copy --destdir="$destdir"  # create www directory
