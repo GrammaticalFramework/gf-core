@@ -23,7 +23,7 @@ import GF.System.Console (setConsoleEncoding)
 -- Run @gf --help@ for usage info.
 main :: IO ()
 main = do
-  setConsoleEncoding
+  --setConsoleEncoding
   uncurry mainOpts =<< getOptions
 
 -- | Get and parse GF command line arguments. Fix relative paths.
