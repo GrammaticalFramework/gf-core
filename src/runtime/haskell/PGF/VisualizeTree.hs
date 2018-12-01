@@ -802,7 +802,9 @@ getCncDepLabels =
       Just new -> return new
       _ -> lookup "*"  (map snd rules)
     )
-  getToks = words . map (\c -> if elem c "\"," then ' ' else c)
+  getToks = map unquote . filter (/=",") . toks
+  toks s = case lex s of [(t,"")] -> [t] ; [(t,cc)] -> t:toks cc ; _ -> []
+  unquote s = case s of '"':cc@(_:_) | last cc == '"' -> init cc ; _ -> s 
 
 printCoNLL :: CoNLL -> String
 printCoNLL = unlines . map (concat . intersperse "\t")
