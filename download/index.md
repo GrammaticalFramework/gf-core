@@ -2,7 +2,7 @@
 title: Grammatical Framework Download and Installation
 ...
 
-**GF 3.10** was released on 1 December 2018.  
+**GF 3.10** was released on 2 December 2018.
 It is the first version of GF which _does not include the RGL_.
 
 What's new? See the [release notes](release-3.10.html).
