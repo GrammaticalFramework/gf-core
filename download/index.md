@@ -17,7 +17,7 @@ What's new? See the [release notes](release-3.10.html).
 
 <!--
 | macOS           | [gf-3.10-bin-intel-mac.tar.gz](gf-3.10-bin-intel-mac.tar.gz) | GF,S,C,J,P | `sudo tar -C /usr/local -zxf gf-3.10-bin-intel-mac.tar.gz` |
-| Raspian 9.1     | [gf\_3.10-1\_armhf.deb](gf_3.10-1_armhf.deb)                 | GF,S,C,J,P | `sudo dpkg -i gf_3.10-1_armhf.deb`                         |
+| Raspbian 9.1     | [gf\_3.10-1\_armhf.deb](gf_3.10-1_armhf.deb)                 | GF,S,C,J,P | `sudo dpkg -i gf_3.10-1_armhf.deb`                         |
 | Ubuntu (32-bit) | [gf\_3.10-1\_i386.deb](gf_3.10-1_i386.deb)                   | GF,S,C,J,P | `sudo dpkg -i gf_3.10-1_i386.deb`                          |
 -->
 
@@ -34,15 +34,15 @@ The Windows package is installed by just unpacking it anywhere. You will
 probably need to set the `PATH` and `GF_LIB_PATH` environment variables,
 see Inari's notes on [Installing GF on Windows](http://www.grammaticalframework.org/~inari/gf-windows.html#toc3).
 
-The Ubuntu `.deb` packages should work on Ubuntu 16.04 and 17.04 and
+The Ubuntu `.deb` packages should work on Ubuntu 16.04 and 18.04 and
 similar Linux distributions.
 
-<!-- The Raspian `.deb` package was created on a Raspberry Pi 3 and will
+<!-- The Raspbian `.deb` package was created on a Raspberry Pi 3 and will
 probably work on other ARM-based systems running Debian 9 (stretch) or
 similar Linux distributions. -->
 
-The packages for macOS (Mac OS X) should work on at least 10.11 and
-10.12 (El Capitan and Sierra).
+The packages for macOS (Mac OS X) should work on at least 10.13 and
+10.14 (High Sierra and Mojave)
 
 <!-- The Mac OS and Linux `.tar.gz` packages are designed to be installed in
 `/usr/local`. You can install them in other locations, but then you need
