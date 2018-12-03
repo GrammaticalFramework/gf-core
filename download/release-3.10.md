@@ -19,10 +19,12 @@ since the release of GF 3.9 in August 2017.
 
 ## General
 
-- Travis integration for both [GF](https://travis-ci.org/GrammaticalFramework/gf-gf) and [RGL](https://travis-ci.org/GrammaticalFramework/gf-rgl).
+- Travis integration:
+GF [![Build Status](https://travis-ci.org/GrammaticalFramework/gf-core.svg?branch=master)](https://travis-ci.org/GrammaticalFramework/gf-core) and
+RGL [![Build Status](https://travis-ci.org/GrammaticalFramework/gf-rgl.svg?branch=master)](https://travis-ci.org/GrammaticalFramework/gf-rgl)
 - A lot of bug fixes and repository cleanup, including things moved to new repositories:
     - [Phrasebook](https://github.com/GrammaticalFramework/gf-contrib/tree/master/phrasebook)
-    - [Wide coverge translator](https://github.com/GrammaticalFramework/wide-coverage)
+    - [Wide coverage translator](https://github.com/GrammaticalFramework/wide-coverage)
     - [Mobile apps](https://github.com/GrammaticalFramework/gf-offline-translator)
     - [gftest](https://github.com/GrammaticalFramework/gftest)
     - [gf-mode](https://github.com/GrammaticalFramework/gf-emacs-mode) for Emacs
