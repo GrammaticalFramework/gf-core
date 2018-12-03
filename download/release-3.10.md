@@ -26,6 +26,7 @@ since the release of GF 3.9 in August 2017.
   - [Mobile apps](https://github.com/GrammaticalFramework/gf-offline-translator)
   - [gftest](https://github.com/GrammaticalFramework/gftest)
   - [gf-mode](https://github.com/GrammaticalFramework/gf-emacs-mode) for Emacs
+  - [RGL browser](https://github.com/GrammaticalFramework/rgl-source-browser) (live [here](http://www.grammaticalframework.org/~john/rgl-browser/))
 - A fresh look for the GF website.
 
 ## GF compiler and run-time library
@@ -49,7 +50,9 @@ since the release of GF 3.9 in August 2017.
 - [Windows build script](https://github.com/GrammaticalFramework/gf-rgl/blob/master/Setup.bat), for building the RGL without Haskell on a regular Windows command shell
 - New languages:
   - Basque
-- Extend and Extra
+  - Portuguese
+- Big progress with Arabic, Turkish, Persian
+- Introduction of `Extend` module to combine the functions of `Extra` and `Extensions` in a more disciplined way
 - Various fixes for several languages.
 - Various fixes in the translation dictionaries.
 
