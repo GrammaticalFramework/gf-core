@@ -12,13 +12,13 @@ What's new? See the [release notes](release-3.10.html).
 | Platform        | Download                                           | Features       | How to install                     |
 |:----------------|:---------------------------------------------------|:---------------|:-----------------------------------|
 | macOS           | [gf-3.10.pkg](gf-3.10.pkg)                         | GF, S, C, J, P | Double-click on the package icon   |
+| Ubuntu (32-bit) | [gf\_3.10-1\_i386.deb](gf_3.10-1_i386.deb)                   | GF, S, C, J, P | `sudo dpkg -i gf_3.10-1_i386.deb`                          |
 | Ubuntu (64-bit) | [gf\_3.10-1\_amd64.deb](gf_3.10-1_amd64.deb)       | GF, S, C, J, P | `sudo dpkg -i gf_3.10-1_amd64.deb` |
 | Windows         | [gf-3.10-bin-windows.zip](gf-3.10-bin-windows.zip) | GF, S          | `unzip gf-3.10-bin-windows.zip`    |
 
 <!--
 | macOS           | [gf-3.10-bin-intel-mac.tar.gz](gf-3.10-bin-intel-mac.tar.gz) | GF,S,C,J,P | `sudo tar -C /usr/local -zxf gf-3.10-bin-intel-mac.tar.gz` |
 | Raspbian 9.1     | [gf\_3.10-1\_armhf.deb](gf_3.10-1_armhf.deb)                 | GF,S,C,J,P | `sudo dpkg -i gf_3.10-1_armhf.deb`                         |
-| Ubuntu (32-bit) | [gf\_3.10-1\_i386.deb](gf_3.10-1_i386.deb)                   | GF,S,C,J,P | `sudo dpkg -i gf_3.10-1_i386.deb`                          |
 -->
 
 **Features**
