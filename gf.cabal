@@ -98,6 +98,7 @@ Library
 --  ghc-options: +RTS -A20M -RTS
   ghc-prof-options: -fprof-auto
   extensions:
+    NoMonadFailDesugaring
 
   exposed-modules:
     PGF
