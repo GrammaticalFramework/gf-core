@@ -3,16 +3,17 @@ title: Grammatical Framework Download and Installation
 ...
 
 **GF 3.10** was released on 2 December 2018.
-It is the first version of GF which _does not include the RGL_.
 
 What's new? See the [release notes](release-3.10.html).
 
 ## Binary packages
 
+These binary packages include both the GF core (compiler and runtime) as well as the pre-compiled RGL.
+
 | Platform        | Download                                           | Features       | How to install                     |
 |:----------------|:---------------------------------------------------|:---------------|:-----------------------------------|
 | macOS           | [gf-3.10.pkg](gf-3.10.pkg)                         | GF, S, C, J, P | Double-click on the package icon   |
-| Ubuntu (32-bit) | [gf\_3.10-1\_i386.deb](gf_3.10-1_i386.deb)                   | GF, S, C, J, P | `sudo dpkg -i gf_3.10-1_i386.deb`                          |
+| Ubuntu (32-bit) | [gf\_3.10-1\_i386.deb](gf_3.10-1_i386.deb)         | GF, S, C, J, P | `sudo dpkg -i gf_3.10-1_i386.deb`  |
 | Ubuntu (64-bit) | [gf\_3.10-1\_amd64.deb](gf_3.10-1_amd64.deb)       | GF, S, C, J, P | `sudo dpkg -i gf_3.10-1_amd64.deb` |
 | Windows         | [gf-3.10-bin-windows.zip](gf-3.10-bin-windows.zip) | GF, S          | `unzip gf-3.10-bin-windows.zip`    |
 
@@ -66,12 +67,10 @@ normal circumstances the procedure is fairly simple:
 3.  On Linux: install some C libraries from your Linux distribution (see note below)
 4.  `cabal install gf`
 
-Note that this installs GF _without_ the RGL.
+This installs the GF executable and Haskell libraries, but **does not include the RGL**.
 
-You can also download full source packages from GitHub at the following links:
-
-- [GF releases](https://github.com/GrammaticalFramework/gf-core/releases)
-- [RGL releases](https://github.com/GrammaticalFramework/gf-rgl/releases)
+You can also download the source code release from [GitHub](https://github.com/GrammaticalFramework/gf-core/releases),
+and follow the instructions below under **Installing from the latest developer source code**.
 
 ### Notes
 
@@ -166,6 +165,7 @@ make
 ```
 
 in the RGL folder.
+This assumes that you already have GF installed.
 For more details about building the RGL, see the [RGL README](https://github.com/GrammaticalFramework/gf-rgl/blob/master/README.md).
 
 ## Older releases
