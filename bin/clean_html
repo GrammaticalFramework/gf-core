@@ -1,7 +1,7 @@
 #!/bin/bash
 
-# This script finds all .t2t (txt2tags) and .md (markdown) files
-# and deletes the corresponding html file
+# This script finds all .t2t (txt2tags) and .md (Markdown) files
+# and deletes the corresponding HTML file of the same name.
 
 find . -name '*.t2t' | while read t2t ; do
   html="${t2t%.t2t}.html"
