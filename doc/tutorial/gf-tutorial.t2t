@@ -618,31 +618,31 @@ and **semantic definitions**.
 
 
 
+% #NEW
+%
+% ==Slides==
+%
+% You can chop this tutorial into a set of slides by the command
+% ```
+%   htmls gf-tutorial.html
+% ```
+% where the program ``htmls`` is distributed with GF (see below), in
+%
+%   [``GF/src/tools/Htmls.hs`` http://grammaticalframework.org/src/tools/Htmls.hs]
+%
+% The slides will appear as a set of files beginning with ``01-gf-tutorial.htmls``.
+%
+% Internal links will not work in the slide format, except for those in the
+% upper left corner of each slide, and the links behind the "Contents" link.
+
+
+
 #NEW
 
-==Slides==
-
-You can chop this tutorial into a set of slides by the command
-```
-  htmls gf-tutorial.html
-```
-where the program ``htmls`` is distributed with GF (see below), in
-
-  [``GF/src/tools/Htmls.hs`` http://grammaticalframework.org/src/tools/Htmls.hs]
-
-The slides will appear as a set of files beginning with ``01-gf-tutorial.htmls``.
-
-Internal links will not work in the slide format, except for those in the
-upper left corner of each slide, and the links behind the "Contents" link.
-
-
-
-#NEW
+#Lchaptwo
 
 =Lesson 1: Getting Started with GF=
 
-
-#Lchaptwo
 
 Goals:
 - install and run GF
@@ -1037,9 +1037,10 @@ Application programs, using techniques from #Rchapeight:
 
 #NEW
 
+#Lchapthree
+
 =Lesson 2: Designing a grammar for complex phrases=
 
-#Lchapthree
 
 Goals:
 - build a larger grammar: phrases about food in English and Italian
@@ -1797,9 +1798,10 @@ where
 
 #NEW
 
+#Lchapfour
+
 =Lesson 3: Grammars with parameters=
 
-#Lchapfour
 
 Goals:
 - implement sophisticated linguistic structures:
@@ -2772,9 +2774,10 @@ Thus
 
 #NEW
 
+#Lchapfive
+
 =Lesson 4: Using the resource grammar library=
 
-#Lchapfive
 
 Goals:
 - navigate in the GF resource grammar library and use it in applications
@@ -3614,9 +3617,10 @@ tenses and moods, e.g. the Romance languages.
 
 #NEW
 
+#Lchapsix
+
 =Lesson 5: Refining semantics in abstract syntax=
 
-#Lchapsix
 
 Goals:
 - include semantic conditions in grammars, by using
@@ -4177,10 +4181,10 @@ Type checking can be invoked with ``put_term -transform=solve``.
 
 #NEW
 
+#Lchapseven
+
 ==Lesson 6: Grammars of formal languages==
 
-
-#Lchapseven
 
 Goals:
 - write grammars for formal languages (mathematical notation, programming languages)
@@ -4516,9 +4520,10 @@ point literals as arguments.
 
 #NEW
 
+#Lchapeight
+
 =Lesson 7: Embedded grammars=
 
-#Lchapeight
 
 Goals:
 - use grammars as parts of programs written in Haskell and JavaScript
