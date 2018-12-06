@@ -23,7 +23,10 @@ function render_t2t_html {
     --infile="$t2t"
 
   # Replace <A NAME="toc3"></A> with <div id="toc3"></div> so that Pandoc retains it
-  sed -i.bak "s/<(a|A) (name|NAME)=\"\(.*\)\"><\/(a|A)>/<div id=\"\1\"><\/div>/" "$tmp" && rm "$tmp.bak"
+  # Do this for both cases since BSD sed doesn't support /i
+  sed -i.bak "s/<a name=\"\(.*\)\"><\/a>/<div id=\"\1\"><\/div>/" "$tmp"
+  sed -i.bak "s/<A NAME=\"\(.*\)\"><\/A>/<div id=\"\1\"><\/div>/" "$tmp"
+  rm -f "$tmp.bak"
 
   # Capture first 3 lines of t2t file: title, author, date
   # Documentation here: https://txt2tags.org/userguide/headerarea
