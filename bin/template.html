@@ -28,11 +28,12 @@ $for(header-includes)$
   $header-includes$
 $endfor$
 </head>
-<body>
+<body class="bg-light">
+  <div class="bg-white pb-5">
 $for(include-before)$
 $include-before$
 $endfor$
-<div class="container-fluid my-5" style="max-width:1200px">
+<div class="container-fluid py-5" style="max-width:1200px">
 
 $if(title)$
 <header id="title-block-header">
@@ -58,8 +59,9 @@ $table-of-contents$
 $endif$
 $body$
 </div><!-- .container -->
+</div><!-- .bg-white -->
 
-<footer class="bg-light mt-5 py-5">
+<footer class="py-5">
   <div class="container">
     <div class="row">
 
