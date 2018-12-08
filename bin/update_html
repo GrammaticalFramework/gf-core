@@ -21,6 +21,9 @@
 # https://stackoverflow.com/a/246128/98600
 DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null && pwd )"
 
+# HTML template
+template="$DIR/template.html"
+
 # Render txt2tags into html file
 # Arguments:
 # 1. txt2tags source file, e.g. download/index.t2t
@@ -64,7 +67,8 @@ function render_t2t_html {
     --from=html \
     --to=html5 \
     --standalone \
-    --template="$DIR/template.html" \
+    --template="$template" \
+    --variable="lang:en" \
     --variable="rel-root:$relroot" \
     --metadata="title:$title" \
     --metadata="author:$author" \
@@ -93,7 +97,8 @@ function render_md_html {
     --from=markdown \
     --to=html5 \
     --standalone \
-    --template="$DIR/template.html" \
+    --template="$template" \
+    --variable="lang:en" \
     --variable="rel-root:$relroot" \
     "$md" \
     --output="$html"
@@ -123,14 +128,14 @@ else
   # Render all files found in cwd and deeper if source is newer
   find . -name '*.t2t' | while read file ; do
     html="${file%.t2t}.html"
-    if [ "$file" -nt "$html" ] ; then
+    if [ "$file" -nt "$html" ] || [ "$template" -nt "$html" ] ; then
       render_t2t_html "$file" "$html"
     fi
   done
   find . -name '*.md' | while read file ; do
     if [[ "$file" == *"README.md" ]] ; then continue ; fi
     html="${file%.md}.html"
-    if [ "$file" -nt "$html" ] ; then
+    if [ "$file" -nt "$html" ] || [ "$template" -nt "$html" ] ; then
       render_md_html "$file" "$html"
     fi
   done
