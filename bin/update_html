@@ -93,10 +93,18 @@ function render_md_html {
   html="$2"
   relroot="$( dirname $md | sed -E 's/^.\///' | sed -E 's/[^/]+/../g' )"
 
+  # Look for `toc: true` in metadata (first ten lines of file)
+  if head -n 10 "$md" | grep --quiet 'toc: true' ; then
+    toc='--table-of-contents'
+  else
+    toc=''
+  fi
+
   pandoc \
     --from=markdown \
     --to=html5 \
     --standalone \
+    $toc \
     --template="$template" \
     --variable="lang:en" \
     --variable="rel-root:$relroot" \
