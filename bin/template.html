@@ -54,7 +54,13 @@ $endif$
 $endif$
 $if(toc)$
 <nav id="$idprefix$TOC">
-$table-of-contents$
+$if(table-of-contents)$
+  <!-- pandoc >= 2.0 -->
+  $table-of-contents$
+$else$
+  <!-- pandoc < 2.0 -->
+  $toc$
+$endif$
 </nav>
 $endif$
 $body$

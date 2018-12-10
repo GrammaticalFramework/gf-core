@@ -2,7 +2,7 @@
 title: GF Language Reference Manual
 author: Aarne Ranta, Krasimir Angelov
 date: June 2014, GF 3.6
-toc: true
+show-toc: true
 ---
 
 This document is a reference manual to the GF programming language. GF,
