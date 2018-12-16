@@ -55,6 +55,11 @@ gu_local_pool_(uint8_t* init_buf, size_t sz);
  * should not be used in the bodies of recursive functions.
  */
 
+/// Create a pool where each chunk is corresponds to one or
+/// more pages.
+GU_API GuPool*
+gu_new_page_pool(void);
+
 /// Create a pool stored in a memory mapped file.
 GU_API_DECL GuPool* 
 gu_mmap_pool(char* fpath, void* addr, size_t size, void**pptr);
@@ -198,6 +203,9 @@ gu_mem_buf_realloc(
 	size_t min_size,
 	size_t* real_size_out);
 
+/// Allocate enough memory pages to contain min_size bytes.
+GU_API void*
+gu_mem_page_alloc(size_t min_size, size_t* real_size_out);
 
 /// Free a memory buffer.
 GU_API_DECL void
