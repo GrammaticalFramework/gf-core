@@ -775,11 +775,11 @@ fixCoNLL cncLabels conll = map fixc conll where
   flabels = [r | Right r <- cncLabels]
 
   fixc row = case row of
-    (i:word:fun:pos:cat:x_:"0":"dep":xs) -> (i:word:fun:pos:cat:(feat cat x_):"0":"root":xs) --- change the root label from dep to root 
+    (i:word:fun:pos:cat:x_:"0":"dep":xs) -> (i:word:fun:pos:cat:(feat cat word x_):"0":"root":xs) --- change the root label from dep to root 
     (i:word:fun:pos:cat:x_:j:label:xs) -> case look (fun,word) of
-      Just (pos',label',"head") -> (i:word:fun:pos' pos:cat:(feat cat x_):j :label':xs)
-      Just (pos',label',target) -> (i:word:fun:pos' pos:cat:(feat cat x_): getDep j target:label':xs)
-      _ -> (i:word:fun:pos:cat:(feat cat x_):j:label:xs)
+      Just (pos',label',"head") -> (i:word:fun:pos' pos:cat:(feat cat word x_):j :label':xs)
+      Just (pos',label',target) -> (i:word:fun:pos' pos:cat:(feat cat word x_): getDep j target:label':xs)
+      _ -> (i:word:fun:pos:cat:(feat cat word x_):j:label:xs)
     _ -> row
     
   look (fun,word) = case lookup fun labels of
@@ -794,9 +794,11 @@ fixCoNLL cncLabels conll = map fixc conll where
   
   getDep j label = maybe j id $ lookup (label,j) [((label,j),i) | i:word:fun:pos:cat:x_:j:label:xs <- conll]
 
-  feat cat x = case lookup cat flabels of
+  feat cat word x = case lookup cat flabels of
     Just tags | all isDigit x && length tags > read x -> tags !! read x
-    _ -> cat ++ "-" ++ x
+    _ -> case lookup (show word) flabels of
+      Just (t:_) -> t
+      _ -> cat ++ "-" ++ x
 
 getCncDepLabels :: String -> CncLabels
 getCncDepLabels s = wlabels ws ++ flabels fs
@@ -814,7 +816,7 @@ getCncDepLabels s = wlabels ws ++ flabels fs
     map collectTags .
     map words
 
-  (fs,ws) = partition chooseF $ lines s
+  (fs,ws) = partition chooseF $ map uncomment $ lines s
 
   --- choose is for compatibility with the general notation
   chooseW line = notElem '(' line &&
@@ -824,7 +826,10 @@ getCncDepLabels s = wlabels ws ++ flabels fs
 
   chooseF line = take 1 line == "@"  --- feature assignments have the form e.g. @N SgNom SgGen ; no spaces inside tags
 
-  isComment line = take 2 line == "--"
+  uncomment line = case line of
+    '-':'-':_ -> ""
+    c:cs -> c : uncomment cs
+    _ -> line
 
   analyse line = case break (=='{') line of
     (beg,_:ws) -> case break (=='}') ws of
