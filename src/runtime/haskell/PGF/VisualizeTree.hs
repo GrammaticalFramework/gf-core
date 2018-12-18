@@ -236,10 +236,18 @@ graphvizDependencyTree format debug mlab mclab pgf lang t =
     root_lbl = "ROOT"
     unspec   = text "_"
 
+-- auxiliaries for UD conversion  PK 15/12/2018 
+rmcomments :: String -> String
+rmcomments [] = []
+rmcomments ('-':'-':xs) = []
+rmcomments ('-':x  :xs) = '-':rmcomments (x:xs)
+rmcomments (x:xs)       = x:rmcomments xs
+
 -- | Prepare lines obtained from a configuration file for labels for
 -- use with 'graphvizDependencyTree'. Format per line /fun/ /label/@*@.
 getDepLabels :: String -> Labels
-getDepLabels s = Map.fromList [(mkCId f,ls) | f:ls <- map words (lines s)]
+-- getDepLabels s = Map.fromList [(mkCId f,ls) | f:ls <- map words (lines s)]
+getDepLabels s = Map.fromList [(mkCId f,ls) | f:ls <- map (words . rmcomments) (lines s)]
 
 -- the old function, without dependencies
 graphvizParseTree :: PGF -> Language -> GraphvizOptions -> Tree -> String
@@ -800,12 +808,14 @@ getCncDepLabels s = wlabels s ++ flabels s
     sortBy (comparing fst) .
     concatMap analyse .
     filter chooseW .
+--    map rmcomments .
     lines
   flabels =
     map Right .
     map collectTags .
     map words .
     filter chooseF .
+--    map rmcomments .
     lines
 
   --- choose is for compatibility with the general notation
@@ -836,6 +846,7 @@ getCncDepLabels s = wlabels s ++ flabels s
 
   collectTags (w:ws) = (tail w,ws)
 
+-- added init to remove the last \n. otherwise, two empty lines are in between each sentence PK 17/12/2018
 printCoNLL :: CoNLL -> String
-printCoNLL = unlines . map (concat . intersperse "\t")
+printCoNLL = init . unlines . map (concat . intersperse "\t")
 
