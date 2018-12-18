@@ -808,14 +808,14 @@ getCncDepLabels s = wlabels s ++ flabels s
     sortBy (comparing fst) .
     concatMap analyse .
     filter chooseW .
-    map rmcomments .
+--    map rmcomments .
     lines
   flabels =
     map Right .
     map collectTags .
     map words .
     filter chooseF .
-    map rmcomments .
+--    map rmcomments .
     lines
 
   --- choose is for compatibility with the general notation
