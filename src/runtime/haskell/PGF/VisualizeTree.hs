@@ -35,7 +35,7 @@ import PGF.Macros (lookValCat, BracketedString(..))
 
 import qualified Data.Map as Map
 --import qualified Data.IntMap as IntMap
-import Data.List (intersperse,nub,mapAccumL,find,groupBy,sortBy)
+import Data.List (intersperse,nub,mapAccumL,find,groupBy,sortBy,partition)
 import Data.Ord (comparing)
 import Data.Char (isDigit)
 import Data.Maybe (fromMaybe)
@@ -799,7 +799,7 @@ fixCoNLL cncLabels conll = map fixc conll where
     _ -> cat ++ "-" ++ x
 
 getCncDepLabels :: String -> CncLabels
-getCncDepLabels s = wlabels s ++ flabels s
+getCncDepLabels s = wlabels ws ++ flabels fs
  where
   wlabels =
     map Left .
@@ -807,26 +807,25 @@ getCncDepLabels s = wlabels s ++ flabels s
     groupBy (\ (x,_) (a,_) -> x == a) .
     sortBy (comparing fst) .
     concatMap analyse .
-    filter chooseW .
---    map rmcomments .
-    lines
+    filter chooseW
+    
   flabels =
     map Right .
     map collectTags .
-    map words .
-    filter chooseF .
---    map rmcomments .
-    lines
+    map words
+
+  (fs,ws) = partition chooseF $ lines s
 
   --- choose is for compatibility with the general notation
   chooseW line = notElem '(' line &&
-                 elem '{' line &&
+                 elem '{' line
                    --- ignoring non-local (with "(") and abstract (without "{") rules
                    ---- TODO: this means that "(" cannot be a token
-                 not (chooseF line)
 
   chooseF line = take 1 line == "@"  --- feature assignments have the form e.g. @N SgNom SgGen ; no spaces inside tags
-  
+
+  isComment line = take 2 line == "--"
+
   analyse line = case break (=='{') line of
     (beg,_:ws) -> case break (=='}') ws of
       (toks,_:target) -> case (getToks beg, words target) of
