@@ -550,15 +550,15 @@ pgfCommands = Map.fromList [
          let absname = abstractName pgf
          let es = toExprs arg
          let debug = isOpt "v" opts
-         let abslabels = valStrOpts "abslabels" (valStrOpts "file" "" opts) opts
-         let cnclabels = valStrOpts "cnclabels" "" opts
+         let abslabels = valStrsOpts "abslabels" (valStrOpts "file" [] opts) opts
+         let cnclabels = valStrsOpts "cnclabels" [] opts
          let outp = valStrOpts "output" "dot" opts
          mlab <- case abslabels of
-           "" -> return Nothing
-           _  -> (Just . getDepLabels) `fmap` restricted (readFile abslabels)
+           [] -> return Nothing
+           _  -> (Just . getDepLabels . concat) `fmap` restricted (sequence (fmap readFile abslabels))
          mclab <- case cnclabels of
-           "" -> return Nothing
-           _  -> (Just . getCncDepLabels) `fmap` restricted (readFile cnclabels)
+           [] -> return Nothing
+           _  -> (Just . getCncDepLabels . concat) `fmap` restricted (sequence (fmap readFile cnclabels))
          let lang = optLang pgf opts
          let grphs = map (graphvizDependencyTree outp debug mlab mclab pgf lang) es
          if isOpt "conll2latex" opts

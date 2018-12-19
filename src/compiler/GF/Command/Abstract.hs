@@ -44,10 +44,14 @@ valIntOpts flag def opts =
     _     -> def
 
 valStrOpts :: String -> String -> [Option] -> String
-valStrOpts flag def opts =
+valStrOpts flag def opts = head $ valStrsOpts flag def opts
+
+
+valStrsOpts :: String -> String -> [Option] -> [String]
+valStrsOpts flag def opts =
   case listFlags flag opts of
-    v:_ -> valueString v
-    _   -> def
+    [] -> [def]
+    vs -> fmap valueString vs
 
 listFlags flag opts = [v | OFlag f v <- opts, f == flag]
 

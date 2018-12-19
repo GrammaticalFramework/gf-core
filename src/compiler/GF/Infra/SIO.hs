@@ -92,7 +92,7 @@ captureSIO sio   = do ch <- newChan
                      takeJust (Just xs:ys) = xs++takeJust ys
                      takeJust _ = []
 
--- * Restricted accesss to arbitrary (potentially unsafe) IO operations
+-- * Restricted access to arbitrary (potentially unsafe) IO operations
 
 restricted io    = SIO (const (restrictedIO io))
 restrictedSystem = restricted . system
