@@ -132,7 +132,7 @@ graphvizDependencyTree format debug mlab mclab pgf lang t =
   case format of
     "latex"      -> render . ppLaTeX $ conll2latex' conll
     "svg"        -> render . ppSVG . toSVG $ conll2latex' conll
-    "conll"      -> printCoNLL conll
+    "conll"      -> printCoNLL ([["# text = " ++ linearize pgf lang t], ["# tree = " ++ showExpr [] t]] ++ conll)
     "malt_tab"   -> render $ vcat (map (hcat . intersperse (char '\t') . (\ws -> [ws !! 0,ws !! 1,ws !! 3,ws !! 6,ws !! 7])) wnodes)
     "malt_input" -> render $ vcat (map (hcat . intersperse (char '\t') . take 6) wnodes)
     _            -> render $ text "digraph {" $$
