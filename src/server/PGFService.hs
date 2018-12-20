@@ -974,7 +974,7 @@ instance JSON PGF.Expr where
 
 instance JSON PGF.BracketedString where
     readJSON x = return (PGF.Leaf "")
-    showJSON (PGF.Bracket cat fid index fun _ bs) =
+    showJSON (PGF.Bracket cat fid _ index fun _ bs) =
         makeObj ["cat".=cat, "fid".=fid, "index".=index, "fun".=fun, "children".=bs]
     showJSON (PGF.Leaf s) = makeObj ["token".=s]
 
