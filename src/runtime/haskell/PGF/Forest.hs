@@ -58,8 +58,8 @@ bracketedTokn :: Maybe Int -> Forest -> BracketedTokn
 bracketedTokn dp f@(Forest abs cnc forest root) =
   case [computeSeq isTrusted seq (map (render forest) args) | (seq,args) <- root] of
     ([bs@(Bracket_{})]:_) -> bs
-    (bss:_)               -> Bracket_ wildCId 0 0 wildCId [] bss
-    []                    -> Bracket_ wildCId 0 0 wildCId [] []
+    (bss:_)               -> Bracket_ wildCId 0 0 0 wildCId [] bss
+    []                    -> Bracket_ wildCId 0 0 0 wildCId [] []
   where
     isTrusted (_,fid) = IntSet.member fid trusted
 

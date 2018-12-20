@@ -182,8 +182,8 @@ graphvizDependencyTree format debug mlab mclab pgf lang t =
 
     getLeaves parent bs =
       case bs of
-        Leaf w                      -> [(parent,w)]
-        Bracket cat fid lind fun _ bss -> concatMap (getLeaves (cat,fid,fun,lind)) bss
+        Leaf w                           -> [(parent,w)]
+        Bracket cat fid _ lind fun _ bss -> concatMap (getLeaves (cat,fid,fun,lind)) bss
 
     mkNode ((_,p,_,_),i,w) =
       tag p <+> brackets (text "label = " <> doubleQuotes (int i <> char '.' <+> text w)) <+> semi
@@ -301,13 +301,13 @@ graphvizBracketedString opts mbl tree bss = render graphviz_code
       getInternals []    = []
       getInternals nodes
           = nub [(parent, fid, mkNode fun cat) |
-                 (parent, Bracket cat fid _ fun _ _) <- nodes]
+                 (parent, Bracket cat fid _ _ fun _ _) <- nodes]
             : getInternals [(fid, child) |
-                            (_, Bracket _ fid _ _ _ children) <- nodes,
+                            (_, Bracket _ fid _ _ _ _ children) <- nodes,
                             child <- children]
 
       getLeaves cat parent (Leaf word) = [(parent, (cat, word))] -- the lowest cat before the word
-      getLeaves _ parent (Bracket cat fid i _ _ children)
+      getLeaves _ parent (Bracket cat fid _ i _ _ children)
           = concatMap (getLeaves cat fid) children
 
       mkLevel nodes
@@ -411,8 +411,8 @@ genPreAlignment pgf langs = lin2align . linsBracketed
 
            getLeaves parent bs =
                   case bs of
-                    Leaf w                -> [(parent,w)]
-                    Bracket _ fid _ _ _ bss -> concatMap (getLeaves fid) bss
+                    Leaf w                    -> [(parent,w)]
+                    Bracket _ fid _ _ _ _ bss -> concatMap (getLeaves fid) bss
 
            mkLayers (cs:css:rest) = let (lrest, rrest) =  mkLayers (css:rest)
                                      in ((fields cs) : lrest, (map (mkLinks css) cs) : rrest)
