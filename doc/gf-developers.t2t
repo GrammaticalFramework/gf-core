@@ -405,13 +405,13 @@ There is also ``make build``, ``make copy`` and ``make clean`` which do what you
 === Advanced ===
 For advanced build options, call the Haskell build script directly:
 ```
-$ runghc Make.hs ...
+$ runghc Setup.hs ...
 ```
 For more details see the [README https://github.com/GrammaticalFramework/gf-rgl/blob/master/README.md].
 
 === Haskell-free ===
-If you do not have Haskell installed, you can use the simple build script ``Make.sh``
-(or ``Make.bat`` for Windows).
+If you do not have Haskell installed, you can use the simple build script ``Setup.sh``
+(or ``Setup.bat`` for Windows).
 
 
 == Creating binary distribution packages ==
