@@ -97,8 +97,8 @@ Library
 --if impl(ghc>=7.8)
 --  ghc-options: +RTS -A20M -RTS
   ghc-prof-options: -fprof-auto
-  extensions:
-    NoMonadFailDesugaring
+  if impl(ghc>=8.6)
+    Default-extensions: NoMonadFailDesugaring
 
   exposed-modules:
     PGF
