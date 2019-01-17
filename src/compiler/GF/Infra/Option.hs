@@ -87,6 +87,7 @@ data Phase = Preproc | Convert | Compile | Link
   deriving (Show,Eq,Ord)
 
 data OutputFormat = FmtPGFPretty
+                  | FmtCanonicalGF
                   | FmtJavaScript 
                   | FmtPython 
                   | FmtHaskell 
@@ -468,6 +469,7 @@ outputFormats = map fst outputFormatsExpl
 outputFormatsExpl :: [((String,OutputFormat),String)]
 outputFormatsExpl = 
     [(("pgf_pretty",   FmtPGFPretty),"human-readable pgf"),
+     (("canonical_gf", FmtCanonicalGF),"Canonical GF source files"),
      (("js",           FmtJavaScript),"JavaScript (whole grammar)"),
      (("python",       FmtPython),"Python (whole grammar)"),
      (("haskell",      FmtHaskell),"Haskell (abstract syntax)"),

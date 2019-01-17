@@ -7,6 +7,7 @@ import GF.Compile as S(batchCompile,link,srcAbsName)
 import GF.CompileInParallel as P(parallelBatchCompile)
 import GF.Compile.Export
 import GF.Compile.ConcreteToHaskell(concretes2haskell)
+import GF.Compile.ConcreteToCanonical(concretes2canonical)
 import GF.Compile.CFGtoPGF
 import GF.Compile.GetGrammar
 import GF.Grammar.BNFC
@@ -17,7 +18,7 @@ import GF.Infra.UseIO
 import GF.Infra.Option
 import GF.Data.ErrM
 import GF.System.Directory
-import GF.Text.Pretty(render)
+import GF.Text.Pretty(render,render80)
 
 import Data.Maybe
 import qualified Data.Map as Map
@@ -47,7 +48,7 @@ mainGFC opts fs = do
 compileSourceFiles :: Options -> [FilePath] -> IOE ()
 compileSourceFiles opts fs = 
     do output <- batchCompile opts fs
-       cncs2haskell output
+       exportCncs output
        unless (flag optStopAfterPhase opts == Compile) $
            linkGrammars opts output
   where
@@ -55,15 +56,23 @@ compileSourceFiles opts fs =
     batchCompile' opts fs = do (t,cnc_gr) <- S.batchCompile opts fs
                                return (t,[cnc_gr])
 
-    cncs2haskell output =
-      when (FmtHaskell `elem` flag optOutputFormats opts &&
-            haskellOption opts HaskellConcrete) $
-        mapM_ cnc2haskell (snd output)
+    exportCncs output =
+      do when (FmtHaskell `elem` ofmts && haskellOption opts HaskellConcrete) $
+           mapM_ cnc2haskell (snd output)
+         when (FmtCanonicalGF `elem` ofmts) $
+           mapM_ cnc2canonical (snd output)
+      where
+        ofmts = flag optOutputFormats opts
 
     cnc2haskell (cnc,gr) =
-        mapM_ writeHs $ concretes2haskell opts (srcAbsName gr cnc) gr
+      do mapM_ writeExport $ concretes2haskell opts (srcAbsName gr cnc) gr
 
-    writeHs (path,s) = writing opts path $ writeUTF8File path s
+    cnc2canonical (cnc,gr) =
+      do createDirectoryIfMissing False "canonical"
+         mapM_ (writeExport.fmap render80) $
+               concretes2canonical opts (srcAbsName gr cnc) gr
+
+    writeExport (path,s) = writing opts path $ writeUTF8File path s
 
 
 -- | Create a @.pgf@ file (and possibly files in other formats, if specified

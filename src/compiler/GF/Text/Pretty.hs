@@ -20,6 +20,7 @@ instance Pretty a => Pretty [a] where
   ppList = fsep . map pp -- hmm
 
 render x = PP.render (pp x)
+render80 x = renderStyle style{lineLength=80,ribbonsPerLine=1} x
 renderStyle s x = PP.renderStyle s (pp x)
 
 infixl 5 $$,$+$
