@@ -2,6 +2,7 @@
 -- high-level constructions such as functors and opers have been eliminated
 -- by partial evaluation.
 module GF.Grammar.Canonical where
+import Prelude hiding ((<>))
 import GF.Text.Pretty
 
 -- | A Complete grammar
@@ -169,7 +170,7 @@ instance Pretty LinType where
            ParamType pt -> pp pt
            RecordType rs -> block rs
            StrType -> pp "Str"
-           TableType pt lt -> pt <+> "=>" <+> lt
+           TableType pt lt -> sep [pt <+> "=>",pp lt]
            TupleType lts -> "<"<>punctuate "," lts<>">"
 
 instance RhsSeparator LinType  where rhsSep _ = pp ":"
