@@ -132,8 +132,10 @@ function initialize_sorting(tagList,classList) {
 	    elem.style.zIndex=0;
 	    move_element(elem,0,0);
 	    setDragHandlers(null,null)
+	    preventScroll=false;
 	    return false;
 	}
+	preventScroll=true;
 	setDragHandlers(dragMove,dragEnd)
 	return false;
     }
@@ -146,8 +148,13 @@ function initialize_sorting(tagList,classList) {
 
     //var jsdebug=debug;
 
+    //https://stackoverflow.com/questions/49500339/cant-prevent-touchmove-from-scrolling-window-on-ios
+    var preventScroll=false;
+    function pd(e) {if(preventScroll) e.preventDefault()}
+
     function init() {
 	setStartHandler(mousedown)
+	document.addEventListener("touchmove",pd,{passive:false})
 	//var d=element("javascriptdebug");
 	//if(d) jsdebug=function(msg) { d.innerHTML=msg; }
     }
