@@ -18,6 +18,8 @@ import GF.Infra.Ident(Ident,identS,prefixIdent) --,moduleNameS
 import GF.Infra.Option
 import GF.Compile.Compute.ConcreteNew(normalForm,resourceValues)
 import GF.Haskell
+--import GF.Grammar.Canonical
+--import GF.Compile.ConcreteToCanonical
 import Debug.Trace
 
 -- | Generate Haskell code for the all concrete syntaxes associated with
@@ -28,6 +30,9 @@ concretes2haskell opts absname gr =
        cnc<-allConcretes gr absname,
        let cncname = render cnc ++ ".hs" :: FilePath
            Ok cncmod = lookupModule gr cnc
+{-     (_,cnc)<-concretes2canonical opt absname gr,
+       let ModId name = concName cnc
+           cncname = name ++ ".hs" :: FilePath--}
   ]
 
 -- | Generate Haskell code for the given concrete module.

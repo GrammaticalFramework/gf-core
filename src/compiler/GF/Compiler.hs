@@ -7,7 +7,7 @@ import GF.Compile as S(batchCompile,link,srcAbsName)
 import GF.CompileInParallel as P(parallelBatchCompile)
 import GF.Compile.Export
 import GF.Compile.ConcreteToHaskell(concretes2haskell)
-import GF.Compile.ConcreteToCanonical(concretes2canonical)
+import GF.Compile.ConcreteToCanonical--(concretes2canonical)
 import GF.Compile.CFGtoPGF
 import GF.Compile.GetGrammar
 import GF.Grammar.BNFC
@@ -60,17 +60,24 @@ compileSourceFiles opts fs =
       do when (FmtHaskell `elem` ofmts && haskellOption opts HaskellConcrete) $
            mapM_ cnc2haskell (snd output)
          when (FmtCanonicalGF `elem` ofmts) $
-           mapM_ cnc2canonical (snd output)
+           do createDirectoryIfMissing False "canonical"
+              mapM_ abs2canonical (snd output)
+              mapM_ cnc2canonical (snd output)
       where
         ofmts = flag optOutputFormats opts
 
     cnc2haskell (cnc,gr) =
       do mapM_ writeExport $ concretes2haskell opts (srcAbsName gr cnc) gr
 
+    abs2canonical (cnc,gr) =
+        writeExport ("canonical/"++render absname++".gf",render80 canAbs)
+      where
+        absname = srcAbsName gr cnc
+        canAbs = abstract2canonical absname gr
+
     cnc2canonical (cnc,gr) =
-      do createDirectoryIfMissing False "canonical"
-         mapM_ (writeExport.fmap render80) $
-               concretes2canonical opts (srcAbsName gr cnc) gr
+      mapM_ (writeExport.fmap render80) $
+            concretes2canonical opts (srcAbsName gr cnc) gr
 
     writeExport (path,s) = writing opts path $ writeUTF8File path s
 

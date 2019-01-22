@@ -1,24 +1,56 @@
--- | Translate concrete syntax to canonical form
-module GF.Compile.ConcreteToCanonical(concretes2canonical) where
-import Data.List(nub,sort,sortBy,partition)
---import Data.Function(on)
+-- | Translate grammars to Canonical form
+-- (a common intermediate representation to simplify export to other formats)
+module GF.Compile.ConcreteToCanonical(grammar2canonical,abstract2canonical,concretes2canonical) where
+import Data.List(nub,partition)
 import qualified Data.Map as M
 import qualified Data.Set as S
 import GF.Data.ErrM
-import GF.Data.Utilities(mapSnd)
 import GF.Text.Pretty
 import GF.Grammar.Grammar
-import GF.Grammar.Lookup(lookupFunType,lookupOrigInfo,allOrigInfos,allParamValues)
+import GF.Grammar.Lookup(lookupOrigInfo,allOrigInfos,allParamValues)
 import GF.Grammar.Macros(typeForm,collectOp,collectPattOp,mkAbs,mkApp,term2patt)
 import GF.Grammar.Lockfield(isLockLabel)
 import GF.Grammar.Predef(cPredef,cInts)
 import GF.Compile.Compute.Predef(predef)
 import GF.Compile.Compute.Value(Predefined(..))
-import GF.Infra.Ident(ModuleName(..),Ident,identS,prefixIdent,showIdent,isWildIdent) --,moduleNameS
---import GF.Infra.Option
+import GF.Infra.Ident(ModuleName(..),Ident,identS,prefixIdent,showIdent,isWildIdent)
+import GF.Infra.Option(optionsPGF)
+import PGF.Internal(Literal(..))
 import GF.Compile.Compute.ConcreteNew(normalForm,resourceValues)
 import GF.Grammar.Canonical as C
 import Debug.Trace
+
+-- | Generate Canonical code for the named abstract syntax and all associated
+-- concrete syntaxes
+grammar2canonical opts absname gr =
+   Grammar (abstract2canonical absname gr)
+           (map snd (concretes2canonical opts absname gr))
+
+-- | Generate Canonical code for the named abstract syntax
+abstract2canonical absname gr =
+    Abstract (modId absname) (convFlags gr absname) cats funs
+  where
+    cats = [CatDef (gId c) (convCtx ctx) | ((_,c),AbsCat ctx) <- adefs]
+
+    funs = [FunDef (gId f) (convType ty) |
+            ((_,f),AbsFun (Just (L _ ty)) ma mdef _) <- adefs]
+
+    adefs = allOrigInfos gr absname
+
+    convCtx = maybe [] (map convHypo . unLoc)
+    convHypo (bt,name,t) =
+      case typeForm t of
+        ([],(_,cat),[]) -> gId cat -- !!
+
+    convType t =
+      case typeForm t of
+        (hyps,(_,cat),args) -> Type bs (TypeApp (gId cat) as)
+          where
+            bs = map convHypo' hyps
+            as = map convType args
+
+    convHypo' (bt,name,t) = TypeBinding (gId name) (convType t)
+
 
 -- | Generate Canonical code for the all concrete syntaxes associated with
 -- the named abstract syntax in given the grammar.
@@ -34,7 +66,7 @@ concretes2canonical opts absname gr =
 -- The only options that make a difference are
 -- @-haskell=noprefix@ and @-haskell=variants@.
 concrete2canonical opts gr cenv absname cnc modinfo =
-  Concrete (modId cnc) (modId absname)
+  Concrete (modId cnc) (modId absname) (convFlags gr cnc)
       (neededParamTypes S.empty (params defs))
       [lincat|(_,Left lincat)<-defs]
       [lin|(_,Right lin)<-defs]
@@ -402,3 +434,13 @@ instance FromIdent C.FunId where gId = C.FunId . showIdent
 instance FromIdent CatId where gId = CatId . showIdent
 instance FromIdent ParamId where gId = ParamId . showIdent
 instance FromIdent VarValueId where gId = VarValueId . showIdent
+
+convFlags gr mn =
+  Flags [(n,convLit v) |
+         (n,v)<-err (const []) (optionsPGF.mflags) (lookupModule gr mn)]
+  where
+    convLit l =
+      case l of
+        LStr s -> Str s
+        LInt i -> C.Int i
+        LFlt d -> Flt d

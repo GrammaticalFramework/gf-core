@@ -186,7 +186,7 @@ Library
     GF.Compile.Multi
     GF.Compile.Optimize
     GF.Compile.PGFtoHaskell
-    GF.Compile.PGFtoAbstract
+--  GF.Compile.PGFtoAbstract
     GF.Compile.PGFtoJava
     GF.Haskell
     GF.Compile.ConcreteToHaskell

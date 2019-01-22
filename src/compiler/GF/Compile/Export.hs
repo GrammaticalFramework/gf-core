@@ -3,7 +3,7 @@ module GF.Compile.Export where
 import PGF
 import PGF.Internal(ppPGF)
 import GF.Compile.PGFtoHaskell
-import GF.Compile.PGFtoAbstract
+--import GF.Compile.PGFtoAbstract
 import GF.Compile.PGFtoJava
 import GF.Compile.PGFtoProlog
 import GF.Compile.PGFtoJS
@@ -35,7 +35,7 @@ exportPGF :: Options
 exportPGF opts fmt pgf = 
     case fmt of
       FmtPGFPretty    -> multi "txt" (render . ppPGF)
-      FmtCanonicalGF  -> canon "gf" (render80 . abstract2canonical)
+      FmtCanonicalGF  -> [] -- canon "gf" (render80 . abstract2canonical)
       FmtJavaScript   -> multi "js"  pgf2js
       FmtPython       -> multi "py"  pgf2python
       FmtHaskell      -> multi "hs"  (grammar2haskell opts name)
@@ -58,7 +58,8 @@ exportPGF opts fmt pgf =
 
    multi :: String -> (PGF -> String) -> [(FilePath,String)]
    multi ext pr = [(name <.> ext, pr pgf)]
-   canon ext pr = [("canonical"</>name<.>ext,pr pgf)]
+
+-- canon ext pr = [("canonical"</>name<.>ext,pr pgf)]
 
    single :: String -> (PGF -> CId -> String) -> [(FilePath,String)]
    single ext pr = [(showCId cnc <.> ext, pr pgf cnc) | cnc <- languages pgf]
