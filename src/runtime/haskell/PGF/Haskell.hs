@@ -33,6 +33,7 @@ fromStr = from False id
     from space cap ts =
       case ts of
         [] -> []
+        TK "":ts -> from space cap ts
         TK s:ts -> put s++from True cap ts
         BIND:ts -> from False cap ts
         SOFT_BIND:ts -> from False cap ts
