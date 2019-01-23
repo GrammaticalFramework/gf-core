@@ -13,7 +13,7 @@ import GF.Grammar.Lockfield(isLockLabel)
 import GF.Grammar.Predef(cPredef,cInts)
 import GF.Compile.Compute.Predef(predef)
 import GF.Compile.Compute.Value(Predefined(..))
-import GF.Infra.Ident(ModuleName(..),Ident,identS,prefixIdent,showIdent,isWildIdent)
+import GF.Infra.Ident(ModuleName(..),Ident,prefixIdent,showIdent,isWildIdent)
 import GF.Infra.Option(optionsPGF)
 import PGF.Internal(Literal(..))
 import GF.Compile.Compute.ConcreteNew(normalForm,resourceValues)
@@ -95,15 +95,11 @@ toCanonical gr absname cenv (name,jment) =
         [(tts,Right (LinDef (gId name) (map gId args) (convert gr e')))]
       where
         tts = tableTypes gr [e']
---      Ok abstype = lookupFunType gr absname name
---      (absctx,_abscat,_absargs) = typeForm abstype
+
         e' = unAbs (length params) $
              nf loc (mkAbs params (mkApp def (map Vr args)))
         params = [(b,x)|(b,x,_)<-ctx]
         args = map snd params
---      abs_args = map (prefixIdent "abs_") args
---      lhs = [ConP (aId name) (map VarP abs_args)]
---      rhs = foldr letlin e' (zip args absctx)
 
     AnyInd _ m  -> case lookupOrigInfo gr (m,name) of
                      Ok (m,jment) -> toCanonical gr absname cenv (name,jment)
@@ -117,23 +113,6 @@ toCanonical gr absname cenv (name,jment) =
     unAbs n (Abs _ _ t) = unAbs (n-1) t
     unAbs _ t = t
 
-
-con = Cn . identS
-{-
-tableTypes gr ts = S.unions (map tabtys ts)
-  where
-    tabtys t =
-      case t of
-        ConcatValue v1 v2 -> S.union (tabtys v1) (tabtys v2)
-        TableValue t tvs -> S.unions (paramTypes gr t:[tabtys t|TableRowValue _ t<-tvs])
-        VTableValue t ts -> (S.unions (paramTypes gr t:map tabtys ts))
-        Projection lv l -> tabtys lv
-        Selection tv pv -> S.union (tabtys tv) (tabtys pv)
-        VariantValue vs -> S.unions (map tabtys vs)
-        RecordValue rvs -> S.unions [tabtys t|RecordRowValue _ t<-rvs]
-        TupleValue lvs -> S.unions (map tabtys lvs)
-        _ -> S.empty
--}
 tableTypes gr ts = S.unions (map tabtys ts)
   where
     tabtys t =
@@ -163,37 +142,6 @@ paramTypes gr t =
     ignore = trace ("Ignore: "++show t) S.empty
 
 
-{-
-records ts = S.unions (map recs ts)
-  where
-    recs t =
-      case t of
-        R r -> S.insert (labels r) (records (map (snd.snd) r))
-        RecType r -> S.insert (labels r) (records (map snd r))
-        _ -> collectOp recs t
-
-    labels = sort . filter (not . isLockLabel) . map fst
-
-
-coerce env ty t =
-  case (ty,t) of 
-    (_,Let d t) -> Let d (coerce (extend env d) ty t)
-    (_,FV ts) -> FV (map (coerce env ty) ts)
-    (Table ti tv,V _ ts) -> V ti (map (coerce env tv) ts)
-    (Table ti tv,T (TTyped _) cs) -> T (TTyped ti) (mapSnd (coerce env tv) cs)
-    (RecType rt,R r) ->
-      R [(l,(Just ft,coerce env ft f))|(l,(_,f))<-r,Just ft<-[lookup l rt]]
-    (RecType rt,Vr x)->
-      case lookup x env of
-        Just ty' | ty'/=ty -> -- better to compare to normal form of ty'
-          --trace ("coerce "++render ty'++" to "++render ty) $
-          App (to_rcon (map fst rt)) t
-        _ -> trace ("no coerce to "++render ty) t
-    _ -> t
-  where
-    extend env (x,(Just ty,rhs)) = (x,ty):env
-    extend env _ = env
--}
 convert gr = convert' gr []
 
 convert' gr vs = ppT
@@ -203,8 +151,6 @@ convert' gr vs = ppT
 
     ppT t =
       case t of
-         -- Only for 'let' inserted on the top-level by this converter:
---      Let (x,(_,xt)) t -> let1 x (ppT0 xt) (ppT t)
 --      Abs b x t -> ...
 --      V ty ts -> VTableValue (convType ty) (map ppT ts)
         V ty ts -> TableValue (convType ty) [TableRowValue (ppP p) (ppT t)|(p,t)<-zip ps ts]
@@ -234,13 +180,15 @@ convert' gr vs = ppT
 
     ppPredef n =
       case predef n of
-        Ok BIND       -> c "Predef.BIND"
-        Ok SOFT_BIND  -> c "Predef.SOFT_BIND"
-        Ok SOFT_SPACE -> c "Predef.SOFT_SPACE"
-        Ok CAPIT      -> c "Predef.CAPIT"
-        Ok ALL_CAPIT  -> c "Predef.ALL_CAPIT"
+        Ok BIND       -> p "BIND"
+        Ok SOFT_BIND  -> p "SOFT_BIND"
+        Ok SOFT_SPACE -> p "SOFT_SPACE"
+        Ok CAPIT      -> p "CAPIT"
+        Ok ALL_CAPIT  -> p "ALL_CAPIT"
         _ -> VarValue (gId n)
-
+      where
+       p = PredefValue . PredefId
+      
     ppP p =
       case p of
         PC c ps -> ParamPattern (Param (gId c) (map ppP ps))
@@ -277,37 +225,13 @@ convert' gr vs = ppT
     fields = map field . filter (not.isLockLabel.fst)
     field (l,(_,t)) = RecordRow (lblId l) (ppT t)
   --c = Const
-    c = VarValue . VarValueId
-    lit s = c (show s) -- hmm
+  --c = VarValue . VarValueId
+  --lit s = c (show s) -- hmm
 
     ap f a = case f of
                ParamConstant (Param p ps) ->
                  ParamConstant (Param p (ps++[a]))
                _ -> error $ "convert' ap: "++render (ppA f <+> ppA a)
-
-    join = id
-
---  empty = if va then List [] else c "error" `Ap` c (show "empty variant")
---  variants = if va then \ ts -> join' (List (map ppT ts))
---                   else \ (t:_) -> ppT t
-{-
-    aps f [] = f
-    aps f (a:as) = aps (ap f a) as
-
-    dedup ts =
-        if M.null dups
-        then List (map ppT ts)
-        else Lets [(ev i,ppT t)|(i,t)<-defs] (List (zipWith entry ts is))
-      where
-        entry t i = maybe (ppT t) (Var . ev) (M.lookup i dups)
-        ev i = identS ("e'"++show i)
-
-        defs = [(i1,t)|(t,i1:_:_)<-ms]
-        dups = M.fromList [(i2,i1)|(_,i1:is@(_:_))<-ms,i2<-i1:is]
-        ms = M.toList m
-        m = fmap sort (M.fromListWith (++) (zip ts [[i]|i<-is]))
-        is = [0..]::[Int]
--}
 
 concatValue v1 v2 =
   case (v1,v2) of

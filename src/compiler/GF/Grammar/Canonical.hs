@@ -14,6 +14,7 @@ data Grammar = Grammar Abstract [Concrete] deriving Show
 
 -- | Abstract Syntax
 data Abstract = Abstract ModId Flags [CatDef] [FunDef] deriving Show
+abstrName (Abstract mn _ _ _) = mn
 
 data CatDef   = CatDef CatId [CatId]        deriving Show
 data FunDef   = FunDef FunId Type           deriving Show
@@ -54,6 +55,7 @@ data LinValue = ConcatValue LinValue LinValue
               | FloatConstant Float 
               | IntConstant Int 
               | ParamConstant ParamValue 
+              | PredefValue PredefId
               | RecordValue [RecordRowValue]
               | StrConstant String 
               | TableValue LinType [TableRowValue]
@@ -64,29 +66,30 @@ data LinValue = ConcatValue LinValue LinValue
               | PreValue [([String], LinValue)] LinValue
               | Projection LinValue LabelId
               | Selection LinValue LinValue
-               deriving (Eq,Show)
+               deriving (Eq,Ord,Show)
 
 data LinPattern = ParamPattern ParamPattern
                 | RecordPattern [RecordRow LinPattern]
                 | WildPattern
-                deriving (Eq,Show)
+                deriving (Eq,Ord,Show)
 
 type ParamValue = Param LinValue
 type ParamPattern = Param LinPattern
 type ParamValueDef = Param ParamId
 
-data Param arg = Param ParamId [arg] deriving (Eq,Show)
+data Param arg = Param ParamId [arg] deriving (Eq,Ord,Show)
 
 type RecordRowType = RecordRow LinType
 type RecordRowValue = RecordRow LinValue
 
 data RecordRow rhs  = RecordRow LabelId rhs  deriving (Eq,Ord,Show)
-data TableRowValue  = TableRowValue LinPattern LinValue  deriving (Eq,Show)
+data TableRowValue  = TableRowValue LinPattern LinValue  deriving (Eq,Ord,Show)
 
 -- *** Identifiers in Concrete Syntax
 
-newtype LabelId = LabelId String  deriving (Eq,Ord,Show)
-data VarValueId = VarValueId String  deriving (Eq,Show)
+newtype PredefId = PredefId String    deriving (Eq,Ord,Show)
+newtype LabelId  = LabelId String     deriving (Eq,Ord,Show)
+data VarValueId  = VarValueId String  deriving (Eq,Ord,Show)
 
 -- | Name of param type or param value 
 newtype ParamId = ParamId String  deriving (Eq,Ord,Show)
@@ -96,7 +99,7 @@ newtype ParamId = ParamId String  deriving (Eq,Ord,Show)
 
 newtype ModId = ModId String  deriving (Eq,Show)
 
-newtype CatId = CatId String  deriving (Eq,Show)
+newtype CatId = CatId String  deriving (Eq,Ord,Show)
 newtype FunId = FunId String  deriving (Eq,Show)
 
 data VarId = Anonymous | VarId String  deriving Show
@@ -203,6 +206,7 @@ instance PPA LinValue where
              FloatConstant f -> pp f
              IntConstant n -> pp n
              ParamConstant pv -> ppA pv
+             PredefValue p -> ppA p
              RecordValue [] -> pp "<>"
              RecordValue rvs -> block rvs
              PreValue alts def ->
@@ -245,6 +249,8 @@ instance Pretty ModId where pp (ModId s) = pp s
 instance Pretty CatId where pp (CatId s) = pp s
 instance Pretty FunId where pp (FunId s) = pp s
 instance Pretty LabelId where pp (LabelId s) = pp s
+instance Pretty PredefId where pp = ppA
+instance PPA    PredefId where ppA (PredefId s) = pp s
 instance Pretty ParamId where pp = ppA
 instance PPA    ParamId where ppA (ParamId s) = pp s
 instance Pretty VarValueId where pp (VarValueId s) = pp s
