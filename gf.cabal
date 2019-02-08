@@ -80,6 +80,11 @@ Library
                  utf8-string,
                  random,
                  pretty,
+                 aeson,
+                 yaml,
+                 unordered-containers,
+                 scientific,
+                 text,
                  mtl,
                  exceptions
   hs-source-dirs: src/runtime/haskell
@@ -192,6 +197,7 @@ Library
     GF.Compile.ConcreteToHaskell
     GF.Compile.ConcreteToCanonical
     GF.Grammar.Canonical
+    GF.Grammar.CanonicalJSON
     GF.Compile.PGFtoJS
     GF.Compile.PGFtoProlog
     GF.Compile.PGFtoPython
