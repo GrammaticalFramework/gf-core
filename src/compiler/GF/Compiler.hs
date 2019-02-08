@@ -24,6 +24,7 @@ import Data.Maybe
 import qualified Data.Map as Map
 import qualified Data.Set as Set
 import qualified Data.ByteString.Lazy as BSL
+import GF.Grammar.CanonicalJSON (encodeJSON, encodeYAML)
 import System.FilePath
 import Control.Monad(when,unless,forM_)
 
@@ -48,7 +49,7 @@ mainGFC opts fs = do
 compileSourceFiles :: Options -> [FilePath] -> IOE ()
 compileSourceFiles opts fs = 
     do output <- batchCompile opts fs
-       exportCncs output
+       exportCanonical output
        unless (flag optStopAfterPhase opts == Compile) $
            linkGrammars opts output
   where
@@ -56,13 +57,15 @@ compileSourceFiles opts fs =
     batchCompile' opts fs = do (t,cnc_gr) <- S.batchCompile opts fs
                                return (t,[cnc_gr])
 
-    exportCncs output =
+    exportCanonical (_time, canonical) =
       do when (FmtHaskell `elem` ofmts && haskellOption opts HaskellConcrete) $
-           mapM_ cnc2haskell (snd output)
+           mapM_ cnc2haskell canonical
          when (FmtCanonicalGF `elem` ofmts) $
            do createDirectoryIfMissing False "canonical"
-              mapM_ abs2canonical (snd output)
-              mapM_ cnc2canonical (snd output)
+              mapM_ abs2canonical canonical
+              mapM_ cnc2canonical canonical
+         when (FmtCanonicalJson `elem` ofmts) $ mapM_ grammar2json canonical
+         when (FmtCanonicalYaml `elem` ofmts) $ mapM_ grammar2yaml canonical
       where
         ofmts = flag optOutputFormats opts
 
@@ -78,6 +81,14 @@ compileSourceFiles opts fs =
     cnc2canonical (cnc,gr) =
       mapM_ (writeExport.fmap render80) $
             concretes2canonical opts (srcAbsName gr cnc) gr
+
+    grammar2json (cnc,gr) = encodeJSON (render absname ++ ".json") gr_canon
+      where absname = srcAbsName gr cnc
+            gr_canon = grammar2canonical opts absname gr
+
+    grammar2yaml (cnc,gr) = encodeYAML (render absname ++ ".yaml") gr_canon
+      where absname = srcAbsName gr cnc
+            gr_canon = grammar2canonical opts absname gr
 
     writeExport (path,s) = writing opts path $ writeUTF8File path s
 

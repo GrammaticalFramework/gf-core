@@ -88,6 +88,8 @@ data Phase = Preproc | Convert | Compile | Link
 
 data OutputFormat = FmtPGFPretty
                   | FmtCanonicalGF
+                  | FmtCanonicalJson
+                  | FmtCanonicalYaml
                   | FmtJavaScript 
                   | FmtPython 
                   | FmtHaskell 
@@ -470,6 +472,8 @@ outputFormatsExpl :: [((String,OutputFormat),String)]
 outputFormatsExpl = 
     [(("pgf_pretty",   FmtPGFPretty),"human-readable pgf"),
      (("canonical_gf", FmtCanonicalGF),"Canonical GF source files"),
+     (("canonical_json", FmtCanonicalJson),"Canonical JSON source files"),
+     (("canonical_yaml", FmtCanonicalYaml),"Canonical YAML source files"),
      (("js",           FmtJavaScript),"JavaScript (whole grammar)"),
      (("python",       FmtPython),"Python (whole grammar)"),
      (("haskell",      FmtHaskell),"Haskell (abstract syntax)"),
