@@ -328,6 +328,7 @@ optDescr =
      Option [] ["gfo-dir"] (ReqArg gfoDir "DIR") "Directory to put .gfo files in (default = '.').",
      Option ['f'] ["output-format"] (ReqArg outFmt "FMT") 
         (unlines ["Output format. FMT can be one of:",
+                  "Canonical GF grammar: canonical_gf, canonical_json, canonical_yaml, (and haskell with option --haskell=concrete)",
                   "Multiple concrete: pgf (default), js, pgf_pretty, prolog, python, ...", -- gar,
                   "Single concrete only: bnf, ebnf, fa, gsl, jsgf, regexp, slf, srgs_xml, srgs_abnf, vxml, ....", -- cf, lbnf,
                   "Abstract only: haskell, ..."]), -- prolog_abs,
