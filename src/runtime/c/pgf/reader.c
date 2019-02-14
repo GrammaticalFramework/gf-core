@@ -328,16 +328,20 @@ pgf_read_patt(PgfReader* rdr)
 	uint8_t tag = pgf_read_tag(rdr);
 	switch (tag) {
 	case PGF_PATT_APP: {
+		PgfCId ctor = pgf_read_cid(rdr, rdr->opool);
+		gu_return_on_exn(rdr->err, gu_null_variant);
+
+		size_t n_args = pgf_read_len(rdr);
+		gu_return_on_exn(rdr->err, gu_null_variant);
+
 		PgfPattApp *papp =
-			gu_new_variant(PGF_PATT_APP,
-						   PgfPattApp,
-						   &patt, rdr->opool);
-		papp->ctor = pgf_read_cid(rdr, rdr->opool);
-		gu_return_on_exn(rdr->err, gu_null_variant);
-		
-		papp->n_args = pgf_read_len(rdr);
-		gu_return_on_exn(rdr->err, gu_null_variant);
-		
+			gu_new_flex_variant(PGF_PATT_APP,
+						        PgfPattApp,
+						        args, n_args,
+						        &patt, rdr->opool);
+		papp->ctor = ctor;
+		papp->n_args = n_args;
+
 		for (size_t i = 0; i < papp->n_args; i++) {
 			papp->args[i] = pgf_read_patt(rdr);
 			gu_return_on_exn(rdr->err, gu_null_variant);
