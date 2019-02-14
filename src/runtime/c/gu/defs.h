@@ -87,7 +87,7 @@
 
 #define GU_COMMA ,
 
-#define GU_ARRAY_LEN(t,a) (sizeof((const t[])a) / sizeof(t))
+#define GU_ARRAY_LEN(a) (sizeof(a) / sizeof(a[0]))
 
 #define GU_ID(...) __VA_ARGS__
 
