@@ -10,7 +10,7 @@
 #include <math.h>
 #include <stdlib.h>
 
-#define PGF_PARSER_DEBUG
+//#define PGF_PARSER_DEBUG
 //#define PGF_COUNTS_DEBUG
 //#define PGF_RESULT_DEBUG
 
