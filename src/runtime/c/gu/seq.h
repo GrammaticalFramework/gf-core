@@ -183,7 +183,7 @@ gu_buf_heapify(GuBuf *buf, GuOrder *order);
 GU_API_DECL GuSeq*
 gu_buf_freeze(GuBuf* buf, GuPool* pool);
 
-GU_API void
+GU_API_DECL void
 gu_buf_evacuate(GuBuf* buf, GuPool* pool);
 #endif // GU_SEQ_H_
 

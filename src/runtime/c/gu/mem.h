@@ -57,7 +57,7 @@ gu_local_pool_(uint8_t* init_buf, size_t sz);
 
 /// Create a pool where each chunk is corresponds to one or
 /// more pages.
-GU_API GuPool*
+GU_API_DECL GuPool*
 gu_new_page_pool(void);
 
 /// Create a pool stored in a memory mapped file.
@@ -204,7 +204,7 @@ gu_mem_buf_realloc(
 	size_t* real_size_out);
 
 /// Allocate enough memory pages to contain min_size bytes.
-GU_API void*
+GU_API_DECL void*
 gu_mem_page_alloc(size_t min_size, size_t* real_size_out);
 
 /// Free a memory buffer.
