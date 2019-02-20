@@ -6,7 +6,9 @@ import System.IO.Unsafe(unsafePerformIO)
 import Foreign hiding (unsafePerformIO)
 import Foreign.C
 import Data.IORef
+import Data.Data
 import PGF2.FFI
+import Data.Maybe(fromJust)
 
 -- | An data type that represents
 -- identifiers for functions and categories in PGF.
@@ -41,6 +43,20 @@ instance Eq Expr where
       res <- pgf_expr_eq e1 e2
       e1_touch >> e2_touch
       return (res /= 0)
+
+instance Data Expr where
+  gfoldl f z e   = z (fromJust . readExpr) `f` (showExpr [] e)
+  toConstr _     = readExprConstr
+  gunfold k z c  = case constrIndex c of
+    1 -> k (z (fromJust . readExpr))
+    _ -> error "gunfold"
+  dataTypeOf _   = exprDataType
+
+readExprConstr :: Constr
+readExprConstr = mkConstr exprDataType "(fromJust . readExpr)" [] Prefix
+
+exprDataType :: DataType
+exprDataType = mkDataType "PGF2.Expr" [readExprConstr]
 
 -- | Constructs an expression by lambda abstraction
 mkAbs :: BindType -> CId -> Expr -> Expr
