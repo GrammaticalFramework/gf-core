@@ -80,11 +80,6 @@ Library
                  utf8-string,
                  random,
                  pretty,
-                 aeson,
-                 yaml,
-                 unordered-containers,
-                 scientific,
-                 text,
                  mtl,
                  exceptions
   hs-source-dirs: src/runtime/haskell
@@ -148,7 +143,8 @@ Library
 ---- GF compiler as a library:
 
   build-depends: filepath, directory, time, time-compat,
-                 process, haskeline, parallel>=3
+                 process, haskeline, parallel>=3,
+                 aeson>=1.3, yaml, unordered-containers, scientific, text
 
   hs-source-dirs: src/compiler
   exposed-modules:
@@ -191,7 +187,6 @@ Library
     GF.Compile.Multi
     GF.Compile.Optimize
     GF.Compile.PGFtoHaskell
---  GF.Compile.PGFtoAbstract
     GF.Compile.PGFtoJava
     GF.Haskell
     GF.Compile.ConcreteToHaskell
