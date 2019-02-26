@@ -143,7 +143,7 @@ Library
 ---- GF compiler as a library:
 
   build-depends: filepath, directory, time, time-compat,
-                 process, haskeline, parallel>=3
+                 process, haskeline, parallel>=3, json
 
   hs-source-dirs: src/compiler
   exposed-modules:
@@ -271,7 +271,7 @@ Library
     cpp-options: -DC_RUNTIME
 
   if flag(server)
-    build-depends: httpd-shed>=0.4.0.3, network>=2.3 && <2.7, json,
+    build-depends: httpd-shed>=0.4.0.3, network>=2.3 && <2.7,
                    cgi>=3001.2.2.0
     if flag(network-uri)
       build-depends: network-uri>=2.6, network>=2.6
