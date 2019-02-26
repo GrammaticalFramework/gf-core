@@ -24,7 +24,7 @@ import Data.Maybe
 import qualified Data.Map as Map
 import qualified Data.Set as Set
 import qualified Data.ByteString.Lazy as BSL
-import GF.Grammar.CanonicalJSON (encodeJSON, encodeYAML)
+import GF.Grammar.CanonicalJSON (encodeJSON)
 import System.FilePath
 import Control.Monad(when,unless,forM_)
 
@@ -65,7 +65,6 @@ compileSourceFiles opts fs =
               mapM_ abs2canonical canonical
               mapM_ cnc2canonical canonical
          when (FmtCanonicalJson `elem` ofmts) $ mapM_ grammar2json canonical
-         when (FmtCanonicalYaml `elem` ofmts) $ mapM_ grammar2yaml canonical
       where
         ofmts = flag optOutputFormats opts
 
@@ -83,10 +82,6 @@ compileSourceFiles opts fs =
             concretes2canonical opts (srcAbsName gr cnc) gr
 
     grammar2json (cnc,gr) = encodeJSON (render absname ++ ".json") gr_canon
-      where absname = srcAbsName gr cnc
-            gr_canon = grammar2canonical opts absname gr
-
-    grammar2yaml (cnc,gr) = encodeYAML (render absname ++ ".yaml") gr_canon
       where absname = srcAbsName gr cnc
             gr_canon = grammar2canonical opts absname gr
 

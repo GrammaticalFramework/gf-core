@@ -37,7 +37,6 @@ exportPGF opts fmt pgf =
       FmtPGFPretty    -> multi "txt" (render . ppPGF)
       FmtCanonicalGF  -> [] -- canon "gf" (render80 . abstract2canonical)
       FmtCanonicalJson-> []
-      FmtCanonicalYaml-> []
       FmtJavaScript   -> multi "js"  pgf2js
       FmtPython       -> multi "py"  pgf2python
       FmtHaskell      -> multi "hs"  (grammar2haskell opts name)
