@@ -226,7 +226,7 @@ cpgfMain qsem command (t,(pgf,pc)) =
     lin' tree (tos,unlex) =
         [makeObj ["to".=to,"text".=unlex (C.linearize c tree)]|(to,c)<-tos]
 
-    bracketedLin tree to = showJSON (lin' tree to)
+    bracketedLin tree to = showJSON (bracketedLin' tree to)
     bracketedLin' tree (tos,unlex) =
         [makeObj ["to".=to,"brackets".=showJSON (C.bracketedLinearize c tree)]|(to,c)<-tos]
 
