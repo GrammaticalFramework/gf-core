@@ -990,11 +990,13 @@ withBracketLinFuncs ref exn f =
 
     end_phrase ref _ c_cat c_fid c_lindex c_fun = do
       (bs':stack,bs) <- readIORef ref
-      cat <- peekUtf8CString c_cat
-      let fid    = fromIntegral c_fid
-      let lindex = fromIntegral c_lindex
-      fun <- peekUtf8CString c_fun
-      writeIORef ref (stack, Bracket cat fid lindex fun (reverse bs) : bs')
+      if null bs
+        then writeIORef ref (stack, bs')
+        else do cat <- peekUtf8CString c_cat
+                let fid    = fromIntegral c_fid
+                let lindex = fromIntegral c_lindex
+                fun <- peekUtf8CString c_fun
+                writeIORef ref (stack, Bracket cat fid lindex fun (reverse bs) : bs')
 
     symbol_ne exn _ = do
       gu_exn_raise exn gu_exn_type_PgfLinNonExist
