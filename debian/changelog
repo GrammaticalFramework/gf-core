@@ -1,3 +1,9 @@
+gf (3.10-2) xenial bionic cosmic; urgency=low
+
+  * GF 3.10
+
+ -- Thomas Hallgren <hallgren@chalmers.se>  Fri,  5 Mar 2019 16:00:00 +0100
+
 gf (3.10-1) xenial bionic cosmic; urgency=low
 
   * GF 3.10

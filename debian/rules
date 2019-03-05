@@ -13,21 +13,6 @@
 override_dh_shlibdeps:
 	dh_shlibdeps --dpkg-shlibdeps-params=--ignore-missing-info
 
-override_dh_auto_build:
-	cd src/runtime/python && EXTRA_INCLUDE_DIRS=$(CURDIR)/src/runtime/c EXTRA_LIB_DIRS=$(CURDIR)/src/runtime/c/.libs python setup.py build
-	cd src/runtime/java && make CFLAGS="-I$(CURDIR)/src/runtime/c -L$(CURDIR)/src/runtime/c/.libs" INSTALL_PATH=/usr/lib
-	echo LD_LIBRARY_PATH=$$LD_LIBRARY_PATH:$(CURDIR)/src/runtime/c/.libs
-	LD_LIBRARY_PATH=$$LD_LIBRARY_PATH:$(CURDIR)/src/runtime/c/.libs cabal build
-	LD_LIBRARY_PATH=$$LD_LIBRARY_PATH:$(CURDIR)/src/runtime/c/.libs cabal copy --destdir=$(CURDIR)/debian/gf # create www directory
-	PATH=$(CURDIR)/dist/build/gf:$$PATH && export GF_LIB_PATH="$$(dirname $$(find "$(CURDIR)/debian/gf" -name www))/lib" && echo "GF_LIB_PATH=$$GF_LIB_PATH" && mkdir -p "$$GF_LIB_PATH" && ( cd ../gf-rgl && make build && make copy ) && LD_LIBRARY_PATH=$$LD_LIBRARY_PATH:$(CURDIR)/src/runtime/c/.libs cabal build
-	make html
-
-override_dh_auto_clean:
-	rm -fr dist/build
-	-cd src/runtime/python && rm -fr build
-	-cd src/runtime/java && make clean
-	-cd src/runtime/c && make clean
-
 override_dh_auto_configure:
 	cd src/runtime/c && bash setup.sh configure --prefix=/usr
 	cd src/runtime/c && bash setup.sh build
@@ -35,12 +20,30 @@ override_dh_auto_configure:
 	cabal install --only-dependencies
 	cabal configure --prefix=/usr -fserver -fc-runtime --extra-lib-dirs=$(CURDIR)/src/runtime/c/.libs --extra-include-dirs=$(CURDIR)/src/runtime/c
 
+SET_LDL=LD_LIBRARY_PATH=$$LD_LIBRARY_PATH:$(CURDIR)/src/runtime/c/.libs
+
+override_dh_auto_build:
+	cd src/runtime/python && EXTRA_INCLUDE_DIRS=$(CURDIR)/src/runtime/c EXTRA_LIB_DIRS=$(CURDIR)/src/runtime/c/.libs python setup.py build
+	cd src/runtime/java && make CFLAGS="-I$(CURDIR)/src/runtime/c -L$(CURDIR)/src/runtime/c/.libs" INSTALL_PATH=/usr/lib
+	echo $(SET_LDL)
+	$(SET_LDL) cabal build # builds gf, fails to build example grammars 
+	PATH=$(CURDIR)/dist/build/gf:$$PATH && make -C ../gf-rgl build
+	GF_LIB_PATH=$(CURDIR)/../gf-rgl/dist $(SET_LDL) cabal build # have RGL now, ok to build example grammars
+	make html
+
 override_dh_auto_install:
-	LD_LIBRARY_PATH=$$LD_LIBRARY_PATH:$(CURDIR)/src/runtime/c/.libs cabal copy --destdir=$(CURDIR)/debian/gf
+	$(SET_LDL) cabal copy --destdir=$(CURDIR)/debian/gf # creates www directory
+	export GF_LIB_PATH="$$(dirname $$(find "$(CURDIR)/debian/gf" -name www))/lib" && echo "GF_LIB_PATH=$$GF_LIB_PATH" && mkdir -p "$$GF_LIB_PATH" && make -C ../gf-rgl copy
 	cd src/runtime/c && bash setup.sh copy prefix=$(CURDIR)/debian/gf/usr
 	cd src/runtime/python && python setup.py install --prefix=$(CURDIR)/debian/gf/usr
 	cd src/runtime/java && make INSTALL_PATH=$(CURDIR)/debian/gf/usr/lib install
 	D="`find debian/gf -name site-packages`" && [ -n "$$D" ] && cd $$D && cd .. && mv site-packages dist-packages
+
+override_dh_auto_clean:
+	rm -fr dist/build
+	-cd src/runtime/python && rm -fr build
+	-cd src/runtime/java && make clean
+	-cd src/runtime/c && make clean
 
 override_dh_auto_test:
 ifneq (nocheck,$(filter nocheck,$(DEB_BUILD_OPTIONS)))
