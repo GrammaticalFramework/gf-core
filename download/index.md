@@ -13,8 +13,8 @@ These binary packages include both the GF core (compiler and runtime) as well as
 | Platform        | Download                                           | Features       | How to install                     |
 |:----------------|:---------------------------------------------------|:---------------|:-----------------------------------|
 | macOS           | [gf-3.10.pkg](gf-3.10.pkg)                         | GF, S, C, J, P | Double-click on the package icon   |
-| Ubuntu (32-bit) | [gf\_3.10-1\_i386.deb](gf_3.10-1_i386.deb)         | GF, S, C, J, P | `sudo dpkg -i gf_3.10-1_i386.deb`  |
-| Ubuntu (64-bit) | [gf\_3.10-1\_amd64.deb](gf_3.10-1_amd64.deb)       | GF, S, C, J, P | `sudo dpkg -i gf_3.10-1_amd64.deb` |
+| Ubuntu (32-bit) | [gf\_3.10-2\_i386.deb](gf_3.10-2_i386.deb)         | GF, S, C, J, P | `sudo dpkg -i gf_3.10-2_i386.deb`  |
+| Ubuntu (64-bit) | [gf\_3.10-2\_amd64.deb](gf_3.10-2_amd64.deb)       | GF, S, C, J, P | `sudo dpkg -i gf_3.10-2_amd64.deb` |
 | Windows         | [gf-3.10-bin-windows.zip](gf-3.10-bin-windows.zip) | GF, S          | `unzip gf-3.10-bin-windows.zip`    |
 
 <!--
@@ -36,7 +36,10 @@ probably need to set the `PATH` and `GF_LIB_PATH` environment variables,
 see Inari's notes on [Installing GF on Windows](http://www.grammaticalframework.org/~inari/gf-windows.html#toc3).
 
 The Ubuntu `.deb` packages should work on Ubuntu 16.04 and 18.04 and
-similar Linux distributions.
+similar Linux distributions. The `.deb` packages were updated
+to version 3.10-2 after the release of GF 3.10.
+(Because of a packaging bug the Resource Grammar Library was missing
+in the 3.10-1 packages.)
 
 <!-- The Raspbian `.deb` package was created on a Raspberry Pi 3 and will
 probably work on other ARM-based systems running Debian 9 (stretch) or
