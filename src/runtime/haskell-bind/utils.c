@@ -100,7 +100,7 @@ hspgf_predict_callback(PgfOracleCallback* self,
 	                   size_t offset)
 {
 	HSPgfOracleCallback* oracle = gu_container(self, HSPgfOracleCallback, oracle);
-	oracle->predict(cat,label,hspgf_offset2hs(oracle->sentence, offset));
+	return oracle->predict(cat,label,hspgf_offset2hs(oracle->sentence, offset));
 }
 
 static bool
@@ -110,7 +110,7 @@ hspgf_complete_callback(PgfOracleCallback* self,
 	                   size_t offset)
 {
 	HSPgfOracleCallback* oracle = gu_container(self, HSPgfOracleCallback, oracle);
-	oracle->complete(cat,label,hspgf_offset2hs(oracle->sentence, offset));
+	return oracle->complete(cat,label,hspgf_offset2hs(oracle->sentence, offset));
 }
 
 static PgfExprProb*
