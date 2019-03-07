@@ -165,11 +165,11 @@ convert' gr vs = ppT
         Cn x -> VarValue (gId x) -- hmm
         Con c -> ParamConstant (Param (gId c) [])
         Sort k -> VarValue (gId k)
-        EInt n -> IntConstant n
-        Q (m,n) -> if m==cPredef then ppPredef n else VarValue (gId (qual m n))
-        QC (m,n) -> ParamConstant (Param (gId (qual m n)) [])
-        K s -> StrConstant s
-        Empty -> StrConstant ""
+        EInt n -> LiteralValue (IntConstant n)
+        Q (m,n) -> if m==cPredef then ppPredef n else VarValue ((gQId m n))
+        QC (m,n) -> ParamConstant (Param ((gQId m n)) [])
+        K s -> LiteralValue (StrConstant s)
+        Empty -> LiteralValue (StrConstant "")
         FV ts -> VariantValue (map ppT ts)
         Alts t' vs -> alts vs (ppT t')
         _ -> error $ "convert' "++show t
@@ -183,14 +183,14 @@ convert' gr vs = ppT
         Ok SOFT_SPACE -> p "SOFT_SPACE"
         Ok CAPIT      -> p "CAPIT"
         Ok ALL_CAPIT  -> p "ALL_CAPIT"
-        _ -> VarValue (gId n)
+        _ -> VarValue (gQId cPredef n) -- hmm
       where
        p = PredefValue . PredefId
       
     ppP p =
       case p of
         PC c ps -> ParamPattern (Param (gId c) (map ppP ps))
-        PP (m,c) ps -> ParamPattern (Param (gId (qual m c)) (map ppP ps))
+        PP (m,c) ps -> ParamPattern (Param ((gQId m c)) (map ppP ps))
         PR r -> RecordPattern (fields r) {-
         PW -> WildPattern
         PV x -> VarP x
@@ -233,8 +233,8 @@ convert' gr vs = ppT
 
 concatValue v1 v2 =
   case (v1,v2) of
-    (StrConstant "",_) -> v2
-    (_,StrConstant "") -> v1
+    (LiteralValue (StrConstant ""),_) -> v2
+    (_,LiteralValue (StrConstant "")) -> v1
     _ -> ConcatValue v1 v2
 
 projection r l = maybe (Projection r l) id (proj r l)
@@ -298,8 +298,8 @@ convType = ppT
         Sort k -> convSort k
 --      EInt n -> tcon0 (identS ("({-"++show n++"-})")) -- type level numeric literal
         FV (t:ts) -> ppT t -- !!
-        QC (m,n) -> ParamType (ParamTypeId (gId (qual m n)))
-        Q (m,n) -> ParamType (ParamTypeId (gId (qual m n)))
+        QC (m,n) -> ParamType (ParamTypeId ((gQId m n)))
+        Q (m,n) -> ParamType (ParamTypeId ((gQId m n)))
         _ -> error $ "Missing case in convType for: "++show t
 
     convFields = map convField . filter (not.isLockLabel.fst)
@@ -325,24 +325,20 @@ paramType gr q@(_,n) =
          ((S.singleton (m,n),argTypes ps),
           [ParamDef name (map (param m) ps)]
          )
-       where name = gId (qual m n)
+       where name = (gQId m n)
       Ok (m,ResOper  _ (Just (L _ t)))
         | m==cPredef && n==cInts ->
            ((S.empty,S.empty),[]) {-
            ((S.singleton (m,n),S.empty),
-            [Type (ConAp (gId (qual m n)) [identS "n"]) (TId (identS "Int"))])-}
+            [Type (ConAp ((gQId m n)) [identS "n"]) (TId (identS "Int"))])-}
         | otherwise ->
            ((S.singleton (m,n),paramTypes gr t),
-            [ParamAliasDef (gId (qual m n)) (convType t)])
+            [ParamAliasDef ((gQId m n)) (convType t)])
       _ -> ((S.empty,S.empty),[])
   where
-    param m (n,ctx) = Param (gId (qual m n)) [toParamId t|(_,_,t)<-ctx]
+    param m (n,ctx) = Param ((gQId m n)) [toParamId t|(_,_,t)<-ctx]
     argTypes = S.unions . map argTypes1
     argTypes1 (n,ctx) = S.unions [paramTypes gr t|(_,_,t)<-ctx]
-
-qual :: ModuleName -> Ident -> Ident
-qual m = prefixIdent (render m++"_")
-
 
 lblId = LabelId . render -- hmm
 modId (MN m) = ModId (showIdent m)
@@ -354,8 +350,16 @@ instance FromIdent VarId where
 
 instance FromIdent C.FunId where gId = C.FunId . showIdent
 instance FromIdent CatId where gId = CatId . showIdent
-instance FromIdent ParamId where gId = ParamId . showIdent
-instance FromIdent VarValueId where gId = VarValueId . showIdent
+instance FromIdent ParamId where gId = ParamId . unqual
+instance FromIdent VarValueId where gId = VarValueId . unqual
+
+class FromIdent i => QualIdent i where gQId :: ModuleName -> Ident -> i
+
+instance QualIdent ParamId    where gQId m n = ParamId (qual m n)
+instance QualIdent VarValueId where gQId m n = VarValueId (qual m n)
+
+qual m n = Qual (modId m) (showIdent n)
+unqual n = Unqual (showIdent n)
 
 convFlags gr mn =
   Flags [(n,convLit v) |

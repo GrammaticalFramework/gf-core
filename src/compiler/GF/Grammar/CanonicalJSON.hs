@@ -95,10 +95,7 @@ instance JSON LinType where
 
 instance JSON LinValue where
   showJSON lv = case lv of
-    -- basic values (Str, Float, Int) are encoded as JSON strings/numbers:
-    StrConstant    s  -> showJSON s
-    FloatConstant  f  -> showJSON f
-    IntConstant    n  -> showJSON n
+    LiteralValue   l -> showJSON l
     -- concatenation is encoded as a JSON array:
     ConcatValue  v v' -> showJSON [showJSON v, showJSON v']
     -- most values are encoded as JSON objects:
@@ -114,6 +111,13 @@ instance JSON LinValue where
     PreValue alts def -> makeObj [("pre", showJSON alts), ("default", showJSON def)]
     -- records are encoded directly as JSON records:
     RecordValue  rows -> showJSON rows
+
+instance JSON LinLiteral where
+  showJSON l = case l of
+    -- basic values (Str, Float, Int) are encoded as JSON strings/numbers:
+    StrConstant    s  -> showJSON s
+    FloatConstant  f  -> showJSON f
+    IntConstant    n  -> showJSON n
 
 instance JSON LinPattern where
   showJSON linpat = case linpat of
@@ -160,6 +164,10 @@ instance JSON VarId where
   -- the anonymous variable is the underscore:
   showJSON Anonymous = showJSON "_"
   showJSON (VarId x) = showJSON x
+
+instance JSON QualId where
+  showJSON (Qual (ModId m) n) = showJSON (m++"_"++n)
+  showJSON (Unqual n) = showJSON n
 
 instance JSON Flags where
   -- flags are encoded directly as JSON records (i.e., objects):
