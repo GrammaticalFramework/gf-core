@@ -1,6 +1,6 @@
 -- | Translate grammars to Canonical form
 -- (a common intermediate representation to simplify export to other formats)
-module GF.Compile.ConcreteToCanonical(grammar2canonical,abstract2canonical,concretes2canonical) where
+module GF.Compile.GrammarToCanonical(grammar2canonical,abstract2canonical,concretes2canonical) where
 import Data.List(nub,partition)
 import qualified Data.Map as M
 import qualified Data.Set as S
@@ -55,7 +55,7 @@ abstract2canonical absname gr =
 -- | Generate Canonical code for the all concrete syntaxes associated with
 -- the named abstract syntax in given the grammar.
 concretes2canonical opts absname gr =
-  [(cncname,concrete2canonical opts gr cenv absname cnc cncmod)
+  [(cncname,concrete2canonical gr cenv absname cnc cncmod)
      | let cenv = resourceValues opts gr,
        cnc<-allConcretes gr absname,
        let cncname = "canonical/"++render cnc ++ ".gf" :: FilePath
@@ -63,9 +63,7 @@ concretes2canonical opts absname gr =
   ]
 
 -- | Generate Canonical GF for the given concrete module.
--- The only options that make a difference are
--- @-haskell=noprefix@ and @-haskell=variants@.
-concrete2canonical opts gr cenv absname cnc modinfo =
+concrete2canonical gr cenv absname cnc modinfo =
   Concrete (modId cnc) (modId absname) (convFlags gr cnc)
       (neededParamTypes S.empty (params defs))
       [lincat|(_,Left lincat)<-defs]

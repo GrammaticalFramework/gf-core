@@ -189,7 +189,7 @@ Library
     GF.Compile.PGFtoJava
     GF.Haskell
     GF.Compile.ConcreteToHaskell
-    GF.Compile.ConcreteToCanonical
+    GF.Compile.GrammarToCanonical
     GF.Grammar.Canonical
     GF.Grammar.CanonicalJSON
     GF.Compile.PGFtoJS

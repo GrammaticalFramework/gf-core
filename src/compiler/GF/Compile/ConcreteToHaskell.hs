@@ -11,7 +11,7 @@ import GF.Infra.Ident(Ident,identS,identW,prefixIdent)
 import GF.Infra.Option
 import GF.Haskell as H
 import GF.Grammar.Canonical as C
-import GF.Compile.ConcreteToCanonical
+import GF.Compile.GrammarToCanonical
 import Debug.Trace(trace)
 
 -- | Generate Haskell code for the all concrete syntaxes associated with
