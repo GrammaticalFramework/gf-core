@@ -3,7 +3,6 @@ module GF.Grammar.CanonicalJSON (
   ) where
 
 import Text.JSON
-import qualified Control.Monad       as CM    (mapM, msum)
 import GF.Grammar.Canonical
 
 
@@ -38,23 +37,19 @@ instance JSON CatDef where
 
 instance JSON FunDef where
   showJSON (FunDef f ty) = makeObj [("fun", showJSON f), ("type", showJSON ty)]
-{-
-instance FromJSON FunDef where
-  parseJSON = withObject "FunDef" $ \o -> FunDef <$> o .: "fun" <*> o .: "type"
--}
 
 instance JSON Type where
-  showJSON (Type bs ty) = makeObj [("args", showJSON bs), ("result", showJSON ty)]
+  showJSON (Type bs ty) = makeObj [(".args", showJSON bs), (".result", showJSON ty)]
 
 instance JSON TypeApp where
   -- non-dependent categories are encoded as simple strings:
   showJSON (TypeApp c [])   = showJSON c
-  showJSON (TypeApp c args) = makeObj [("cat", showJSON c), ("args", showJSON args)]
+  showJSON (TypeApp c args) = makeObj [(".cat", showJSON c), (".args", showJSON args)]
 
 instance JSON TypeBinding where
   -- non-dependent categories are encoded as simple strings:
   showJSON (TypeBinding Anonymous (Type [] (TypeApp c []))) = showJSON c
-  showJSON (TypeBinding x ty) = makeObj [("var", showJSON x), ("type", showJSON ty)]
+  showJSON (TypeBinding x ty) = makeObj [(".var", showJSON x), (".type", showJSON ty)]
 
 
 --------------------------------------------------------------------------------
@@ -88,29 +83,29 @@ instance JSON LinType where
     -- parameters are also encoded as strings:
     ParamType pt    -> showJSON pt
     -- tables/tuples are encoded as JSON objects:
-    TableType pt lt -> makeObj [("tblarg", showJSON pt), ("tblval", showJSON lt)]
-    TupleType lts   -> makeObj [("tuple",  showJSON lts)]
+    TableType pt lt -> makeObj [(".tblarg", showJSON pt), (".tblval", showJSON lt)]
+    TupleType lts   -> makeObj [(".tuple",  showJSON lts)]
     -- records are encoded as records:
     RecordType rows -> showJSON rows
 
 instance JSON LinValue where
   showJSON lv = case lv of
-    LiteralValue   l -> showJSON l
+    LiteralValue  l  -> showJSON l
     -- concatenation is encoded as a JSON array:
-    ConcatValue  v v' -> showJSON [showJSON v, showJSON v']
+    ConcatValue v v' -> showJSON [showJSON v, showJSON v']
     -- most values are encoded as JSON objects:
-    ParamConstant  pv -> makeObj [("param",    showJSON pv)]
-    PredefValue    p  -> makeObj [("predef",   showJSON p)]
-    TableValue  t tvs -> makeObj [("tblarg",   showJSON t), ("tblrows", showJSON tvs)]
-    TupleValue    lvs -> makeObj [("tuple",    showJSON lvs)]
-    VarValue       v  -> makeObj [("var",      showJSON v)]
-    ErrorValue     s  -> makeObj [("error",    showJSON s)]
-    Projection  lv l  -> makeObj [("project",  showJSON lv), ("label", showJSON l)]
-    Selection   tv pv -> makeObj [("select",   showJSON tv), ("key", showJSON pv)]
-    VariantValue   vs -> makeObj [("variants", showJSON vs)]
-    PreValue alts def -> makeObj [("pre", showJSON alts), ("default", showJSON def)]
+    ParamConstant pv -> makeObj [(".param",    showJSON pv)]
+    PredefValue   p  -> makeObj [(".predef",   showJSON p)]
+    TableValue t tvs -> makeObj [(".tblarg",   showJSON t), (".tblrows", showJSON tvs)]
+    TupleValue   lvs -> makeObj [(".tuple",    showJSON lvs)]
+    VarValue      v  -> makeObj [(".var",      showJSON v)]
+    ErrorValue    s  -> makeObj [(".error",    showJSON s)]
+    Projection lv l  -> makeObj [(".project",  showJSON lv), (".label", showJSON l)]
+    Selection  tv pv -> makeObj [(".select",   showJSON tv), (".key", showJSON pv)]
+    VariantValue  vs -> makeObj [(".variants", showJSON vs)]
+    PreValue pre def -> makeObj [(".pre",      showJSON pre),(".default", showJSON def)]
     -- records are encoded directly as JSON records:
-    RecordValue  rows -> showJSON rows
+    RecordValue rows -> showJSON rows
 
 instance JSON LinLiteral where
   showJSON l = case l of
@@ -132,17 +127,17 @@ instance JSON LinPattern where
 instance JSON arg => JSON (Param arg) where
   -- parameters without arguments are encoded as strings:
   showJSON (Param p [])   = showJSON p
-  showJSON (Param p args) = makeObj [("paramid", showJSON p), ("args", showJSON args)]
+  showJSON (Param p args) = makeObj [(".paramid", showJSON p), (".args", showJSON args)]
 
 instance JSON a => JSON (RecordRow a) where
   -- record rows and lists of record rows are both encoded as JSON records (i.e., objects)
-  showJSON row = makeObj [toJSONRecordRow row]
+  showJSON  row  = showJSONs [row]
+  showJSONs rows = makeObj (map toRow rows)
+    where toRow (RecordRow (LabelId lbl) val) = (lbl, showJSON val)
 
-toJSONRecordRow :: JSON a => RecordRow a -> (String,JSValue)
-toJSONRecordRow (RecordRow (LabelId lbl) val) = (lbl, showJSON val)
 
 instance JSON TableRowValue where
-  showJSON (TableRowValue l v) = makeObj [("pattern", showJSON l), ("value", showJSON l)]
+  showJSON (TableRowValue l v) = makeObj [(".pattern", showJSON l), (".value", showJSON v)]
 
 
 -- *** Identifiers in Concrete Syntax
@@ -166,12 +161,12 @@ instance JSON VarId where
   showJSON (VarId x) = showJSON x
 
 instance JSON QualId where
-  showJSON (Qual (ModId m) n) = showJSON (m++"_"++n)
+  showJSON (Qual (ModId m) n) = showJSON (m++"."++n)
   showJSON (Unqual n) = showJSON n
 
 instance JSON Flags where
   -- flags are encoded directly as JSON records (i.e., objects):
-  showJSON (Flags fs) = makeObj [(f,showJSON v) | (f, v) <- fs]
+  showJSON (Flags fs) = makeObj [(f, showJSON v) | (f, v) <- fs]
 
 instance JSON FlagValue where
   -- flag values are encoded as basic JSON types:
