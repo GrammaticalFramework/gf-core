@@ -136,8 +136,6 @@ instance JSON LinType where
 
 instance JSON LinValue where
   showJSON (LiteralValue  l ) = showJSON l
-  -- concatenation is encoded as a JSON array:
-  showJSON (ConcatValue v v') = showJSON [showJSON v, showJSON v']
   -- most values are encoded as JSON objects:
   showJSON (ParamConstant pv) = makeObj [(".param",    showJSON pv)]
   showJSON (PredefValue   p ) = makeObj [(".predef",   showJSON p)]
@@ -151,6 +149,10 @@ instance JSON LinValue where
   showJSON (PreValue pre def) = makeObj [(".pre",      showJSON pre),(".default", showJSON def)]
   -- records are encoded directly as JSON records:
   showJSON (RecordValue rows) = showJSON rows
+  -- concatenation is encoded as a JSON array:
+  showJSON v@(ConcatValue _ _) = showJSON (flatten v [])
+    where flatten (ConcatValue v v') = flatten v . flatten v'
+          flatten  v                 = (v :)
 
   readJSON o = LiteralValue  <$> readJSON o
     <|>        ParamConstant <$> o!".param"
@@ -164,6 +166,8 @@ instance JSON LinValue where
     <|>        VariantValue  <$> o!".variants"
     <|>        PreValue      <$> o!".pre"     <*> o!".default"
     <|>        RecordValue   <$> readJSON o
+    <|>        do vs <- readJSON o :: Result [LinValue]
+                  return (foldr1 ConcatValue vs)
 
 instance JSON LinLiteral where
   -- basic values (Str, Float, Int) are encoded as JSON strings/numbers:
