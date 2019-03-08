@@ -75,54 +75,50 @@ instance JSON LinDef where
   showJSON (LinDef f xs lv) = makeObj [("fun", showJSON f), ("args", showJSON xs), ("lin", showJSON lv)]
 
 instance JSON LinType where
-  showJSON lt = case lt of
-    -- the basic types (Str, Float, Int) are encoded as strings:
-    StrType         -> showJSON "Str"
-    FloatType       -> showJSON "Float"
-    IntType         -> showJSON "Int"
-    -- parameters are also encoded as strings:
-    ParamType pt    -> showJSON pt
-    -- tables/tuples are encoded as JSON objects:
-    TableType pt lt -> makeObj [(".tblarg", showJSON pt), (".tblval", showJSON lt)]
-    TupleType lts   -> makeObj [(".tuple",  showJSON lts)]
-    -- records are encoded as records:
-    RecordType rows -> showJSON rows
+  -- the basic types (Str, Float, Int) are encoded as strings:
+  showJSON (StrType)         = showJSON "Str"
+  showJSON (FloatType)       = showJSON "Float"
+  showJSON (IntType)         = showJSON "Int"
+  -- parameters are also encoded as strings:
+  showJSON (ParamType pt)    = showJSON pt
+  -- tables/tuples are encoded as JSON objects:
+  showJSON (TableType pt lt) = makeObj [(".tblarg", showJSON pt), (".tblval", showJSON lt)]
+  showJSON (TupleType lts)   = makeObj [(".tuple",  showJSON lts)]
+  -- records are encoded as records:
+  showJSON (RecordType rows) = showJSON rows
 
 instance JSON LinValue where
-  showJSON lv = case lv of
-    LiteralValue  l  -> showJSON l
-    -- concatenation is encoded as a JSON array:
-    ConcatValue v v' -> showJSON [showJSON v, showJSON v']
-    -- most values are encoded as JSON objects:
-    ParamConstant pv -> makeObj [(".param",    showJSON pv)]
-    PredefValue   p  -> makeObj [(".predef",   showJSON p)]
-    TableValue t tvs -> makeObj [(".tblarg",   showJSON t), (".tblrows", showJSON tvs)]
-    TupleValue   lvs -> makeObj [(".tuple",    showJSON lvs)]
-    VarValue      v  -> makeObj [(".var",      showJSON v)]
-    ErrorValue    s  -> makeObj [(".error",    showJSON s)]
-    Projection lv l  -> makeObj [(".project",  showJSON lv), (".label", showJSON l)]
-    Selection  tv pv -> makeObj [(".select",   showJSON tv), (".key", showJSON pv)]
-    VariantValue  vs -> makeObj [(".variants", showJSON vs)]
-    PreValue pre def -> makeObj [(".pre",      showJSON pre),(".default", showJSON def)]
-    -- records are encoded directly as JSON records:
-    RecordValue rows -> showJSON rows
+  showJSON (LiteralValue  l ) = showJSON l
+  -- concatenation is encoded as a JSON array:
+  showJSON (ConcatValue v v') = showJSON [showJSON v, showJSON v']
+  -- most values are encoded as JSON objects:
+  showJSON (ParamConstant pv) = makeObj [(".param",    showJSON pv)]
+  showJSON (PredefValue   p ) = makeObj [(".predef",   showJSON p)]
+  showJSON (TableValue t tvs) = makeObj [(".tblarg",   showJSON t), (".tblrows", showJSON tvs)]
+  showJSON (TupleValue   lvs) = makeObj [(".tuple",    showJSON lvs)]
+  showJSON (VarValue      v ) = makeObj [(".var",      showJSON v)]
+  showJSON (ErrorValue    s ) = makeObj [(".error",    showJSON s)]
+  showJSON (Projection lv l ) = makeObj [(".project",  showJSON lv), (".label", showJSON l)]
+  showJSON (Selection  tv pv) = makeObj [(".select",   showJSON tv), (".key", showJSON pv)]
+  showJSON (VariantValue  vs) = makeObj [(".variants", showJSON vs)]
+  showJSON (PreValue pre def) = makeObj [(".pre",      showJSON pre),(".default", showJSON def)]
+  -- records are encoded directly as JSON records:
+  showJSON (RecordValue rows) = showJSON rows
 
 instance JSON LinLiteral where
-  showJSON l = case l of
-    -- basic values (Str, Float, Int) are encoded as JSON strings/numbers:
-    StrConstant    s  -> showJSON s
-    FloatConstant  f  -> showJSON f
-    IntConstant    n  -> showJSON n
+  -- basic values (Str, Float, Int) are encoded as JSON strings/numbers:
+  showJSON (StrConstant   s) = showJSON s
+  showJSON (FloatConstant f) = showJSON f
+  showJSON (IntConstant   n) = showJSON n
 
 instance JSON LinPattern where
-  showJSON linpat = case linpat of
-    -- wildcards and patterns without arguments are encoded as strings:
-    WildPattern -> showJSON "_"
-    ParamPattern (Param p []) -> showJSON p
-    -- complex patterns are encoded as JSON objects:
-    ParamPattern pv -> showJSON pv
-    -- and records as records:
-    RecordPattern r -> showJSON r
+  -- wildcards and patterns without arguments are encoded as strings:
+  showJSON (WildPattern) = showJSON "_"
+  showJSON (ParamPattern (Param p [])) = showJSON p
+  -- complex patterns are encoded as JSON objects:
+  showJSON (ParamPattern pv) = showJSON pv
+  -- and records as records:
+  showJSON (RecordPattern r) = showJSON r
 
 instance JSON arg => JSON (Param arg) where
   -- parameters without arguments are encoded as strings:
