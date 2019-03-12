@@ -69,6 +69,7 @@ data LinValue = ConcatValue LinValue LinValue
               | PreValue [([String], LinValue)] LinValue
               | Projection LinValue LabelId
               | Selection LinValue LinValue
+              | CommentedValue String LinValue
               deriving (Eq,Ord,Show)
 
 data LinLiteral = FloatConstant Float 
@@ -78,6 +79,7 @@ data LinLiteral = FloatConstant Float
 
 data LinPattern = ParamPattern ParamPattern
                 | RecordPattern [RecordRow LinPattern]
+                | TuplePattern [LinPattern]
                 | WildPattern
                 deriving (Eq,Ord,Show)
 
@@ -213,6 +215,7 @@ instance Pretty LinValue where
             Projection lv l -> ppA lv<>"."<>l
             Selection tv pv -> ppA tv<>"!"<>ppA pv
             VariantValue vs -> "variants"<+>block vs
+            CommentedValue s v -> "{-" <+> s <+> "-}" $$ v
             _ -> ppA lv
 
 instance PPA LinValue where
@@ -253,6 +256,7 @@ instance PPA LinPattern where
   ppA p =
     case p of
       RecordPattern r -> block r
+      TuplePattern ps -> "<"<>punctuate "," ps<>">"
       WildPattern     -> pp "_"                
       _ -> parens p
 
