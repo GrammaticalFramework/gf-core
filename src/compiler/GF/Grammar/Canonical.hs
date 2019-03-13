@@ -7,6 +7,7 @@
 -- by partial evaluation. This is intended as a common intermediate
 -- representation to simplify export to other formats.
 
+{-# LANGUAGE DeriveTraversable #-}
 module GF.Grammar.Canonical where
 import Prelude hiding ((<>))
 import GF.Text.Pretty
@@ -87,13 +88,17 @@ type ParamValue = Param LinValue
 type ParamPattern = Param LinPattern
 type ParamValueDef = Param ParamId
 
-data Param arg = Param ParamId [arg] deriving (Eq,Ord,Show)
+data Param arg = Param ParamId [arg]
+                 deriving (Eq,Ord,Show,Functor,Foldable,Traversable)
 
-type RecordRowType = RecordRow LinType
+type RecordRowType  = RecordRow LinType
 type RecordRowValue = RecordRow LinValue
+type TableRowValue  = TableRow LinValue
 
-data RecordRow rhs  = RecordRow LabelId rhs  deriving (Eq,Ord,Show)
-data TableRowValue  = TableRowValue LinPattern LinValue  deriving (Eq,Ord,Show)
+data RecordRow rhs = RecordRow LabelId    rhs
+                     deriving (Eq,Ord,Show,Functor,Foldable,Traversable)
+data TableRow  rhs = TableRow  LinPattern rhs
+                     deriving (Eq,Ord,Show,Functor,Foldable,Traversable)
 
 -- *** Identifiers in Concrete Syntax
 
@@ -265,8 +270,8 @@ instance RhsSeparator LinPattern where rhsSep _ = pp "="
 instance RhsSeparator rhs => Pretty (RecordRow rhs) where
   pp (RecordRow l v) = hang (l<+>rhsSep v) 2 v
 
-instance Pretty TableRowValue where
-  pp (TableRowValue l v) = hang (l<+>"=>") 2 v
+instance Pretty rhs => Pretty (TableRow rhs) where
+  pp (TableRow l v) = hang (l<+>"=>") 2 v
 
 --------------------------------------------------------------------------------
 instance Pretty ModId where pp (ModId s) = pp s

@@ -210,10 +210,10 @@ instance JSON a => JSON (RecordRow a) where
     where fromRow (lbl, jsvalue) = do value <- readJSON jsvalue
                                       return (RecordRow (LabelId lbl) value)
 
-instance JSON TableRowValue where
-  showJSON (TableRowValue l v) = makeObj [(".pattern", showJSON l), (".value", showJSON v)]
+instance JSON rhs => JSON (TableRow rhs) where
+  showJSON (TableRow l v) = makeObj [(".pattern", showJSON l), (".value", showJSON v)]
 
-  readJSON o = TableRowValue <$> o!".pattern" <*> o!".value"
+  readJSON o = TableRow <$> o!".pattern" <*> o!".value"
 
 
 -- *** Identifiers in Concrete Syntax

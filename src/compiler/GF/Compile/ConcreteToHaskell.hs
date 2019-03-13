@@ -194,8 +194,8 @@ concrete2haskell opts
             else LambdaCase (map ppCase cs)
           where
             (ds,ts') = dedup ts
-            (ps,ts) = unzip [(p,t)|TableRowValue p t<-cs]
-        ppCase (TableRowValue p t) = (ppP p,ppTv (patVars p++vs) t)
+            (ps,ts) = unzip [(p,t)|TableRow p t<-cs]
+        ppCase (TableRow p t) = (ppP p,ppTv (patVars p++vs) t)
 {-
         ppPredef n =
           case predef n of
@@ -309,8 +309,8 @@ instance Records LinValue where
       Selection v1 v2 -> records (v1,v2)
       _ -> S.empty
 
-instance Records TableRowValue where
-  records (TableRowValue _ v) = records v
+instance Records rhs => Records (TableRow rhs) where
+  records (TableRow _ v) = records v
 
 
 -- | Record subtyping is converted into explicit coercions in Haskell
@@ -318,7 +318,7 @@ coerce env ty t =
   case (ty,t) of 
     (_,VariantValue ts) -> VariantValue (map (coerce env ty) ts)
     (TableType ti tv,TableValue _ cs) ->
-      TableValue ti [TableRowValue p (coerce env tv t)|TableRowValue p t<-cs]
+      TableValue ti [TableRow p (coerce env tv t)|TableRow p t<-cs]
     (RecordType rt,RecordValue r) ->
       RecordValue [RecordRow l (coerce env ft f) |
                      RecordRow l f<-r,ft<-[ft|RecordRow l' ft<-rt,l'==l]]

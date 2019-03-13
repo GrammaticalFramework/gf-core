@@ -151,7 +151,7 @@ convert' gr vs = ppT
       case t of
 --      Abs b x t -> ...
 --      V ty ts -> VTableValue (convType ty) (map ppT ts)
-        V ty ts -> TableValue (convType ty) [TableRowValue (ppP p) (ppT t)|(p,t)<-zip ps ts]
+        V ty ts -> TableValue (convType ty) [TableRow (ppP p) (ppT t)|(p,t)<-zip ps ts]
           where
             Ok pts = allParamValues gr ty
             Ok ps = mapM term2patt pts
@@ -174,7 +174,7 @@ convert' gr vs = ppT
         Alts t' vs -> alts vs (ppT t')
         _ -> error $ "convert' "++show t
 
-    ppCase (p,t) = TableRowValue (ppP p) (ppTv (patVars p++vs) t)
+    ppCase (p,t) = TableRow (ppP p) (ppTv (patVars p++vs) t)
 
     ppPredef n =
       case predef n of
@@ -249,19 +249,19 @@ proj r l =
 selection t v =
   case t of
     TableValue tt r ->
-        case nub [rv|TableRowValue _ rv<-keep] of
+        case nub [rv|TableRow _ rv<-keep] of
           [rv] -> rv
           _ -> Selection (TableValue tt r') v
       where
         r' = if null discard
              then r
-             else keep++[TableRowValue WildPattern impossible]
+             else keep++[TableRow WildPattern impossible]
         (keep,discard) = partition (mightMatchRow v) r
     _ -> Selection t v
 
 impossible = ErrorValue "impossible"
 
-mightMatchRow v (TableRowValue p _) =
+mightMatchRow v (TableRow p _) =
   case p of
     WildPattern -> True
     _ -> mightMatch v p
