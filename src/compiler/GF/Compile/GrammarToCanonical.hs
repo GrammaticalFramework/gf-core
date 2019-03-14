@@ -218,6 +218,7 @@ convert' gr vs = ppT
 
         pat (PString s) = [s]
         pat (PAlt p1 p2) = pat p1++pat p2
+        pat (PSeq p1 p2) = [s1++s2 | s1<-pat p1, s2<-pat p2]
         pat p = error $ "pat "++show p
 
     fields = map field . filter (not.isLockLabel.fst)
