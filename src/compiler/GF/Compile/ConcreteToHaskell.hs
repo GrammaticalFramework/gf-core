@@ -11,7 +11,7 @@ import GF.Infra.Ident(Ident,identS,identW,prefixIdent)
 import GF.Infra.Option
 import GF.Haskell as H
 import GF.Grammar.Canonical as C
-import GF.Compile.ConcreteToCanonical
+import GF.Compile.GrammarToCanonical
 import Debug.Trace(trace)
 
 -- | Generate Haskell code for the all concrete syntaxes associated with
@@ -142,8 +142,8 @@ concrete2haskell opts
         rhs = lets (zipWith letlin args absctx)
                    (convert vs (coerce env lincat rhs0))
           where
-            vs = [(VarValueId x,a)|(VarId x,a)<-zip xs args]
-            env= [(VarValueId x,lc)|(VarId x,lc)<-zip xs (map arglincat absctx)]
+            vs = [(VarValueId (Unqual x),a)|(VarId x,a)<-zip xs args]
+            env= [(VarValueId (Unqual x),lc)|(VarId x,lc)<-zip xs (map arglincat absctx)]
             
         letlin a (TypeBinding _ (C.Type _ (TypeApp acat _))) =
           (a,Ap (Var (linfunName acat)) (Var (abs_arg a)))
@@ -173,15 +173,20 @@ concrete2haskell opts
             VariantValue [] -> empty
             VariantValue ts@(_:_) -> variants ts
             VarValue x -> maybe (Var (gId x)) (pure . Var) $ lookup x vs
-            IntConstant n -> pure (lit n)
-            StrConstant s -> pure (token s)
             PreValue vs t' -> pure (alts t' vs)
             ParamConstant (Param c vs) -> aps (Var (pId c)) (map ppT vs)
             ErrorValue s -> ap (Const "error") (Const (show s)) -- !!
+            LiteralValue l -> ppL l
             _ -> error ("convert "++show t)
 
+        ppL l =
+          case l of
+            FloatConstant x -> pure (lit x)
+            IntConstant n -> pure (lit n)
+            StrConstant s -> pure (token s)
+
         pId p@(ParamId s) =
-          if "to_R_" `isPrefixOf` s then toIdent p else gId p -- !! a hack
+          if "to_R_" `isPrefixOf` unqual s then toIdent p else gId p -- !! a hack
           
         table cs =
             if all (null.patVars) ps
@@ -189,8 +194,8 @@ concrete2haskell opts
             else LambdaCase (map ppCase cs)
           where
             (ds,ts') = dedup ts
-            (ps,ts) = unzip [(p,t)|TableRowValue p t<-cs]
-        ppCase (TableRowValue p t) = (ppP p,ppTv (patVars p++vs) t)
+            (ps,ts) = unzip [(p,t)|TableRow p t<-cs]
+        ppCase (TableRow p t) = (ppP p,ppTv (patVars p++vs) t)
 {-
         ppPredef n =
           case predef n of
@@ -304,8 +309,8 @@ instance Records LinValue where
       Selection v1 v2 -> records (v1,v2)
       _ -> S.empty
 
-instance Records TableRowValue where
-  records (TableRowValue _ v) = records v
+instance Records rhs => Records (TableRow rhs) where
+  records (TableRow _ v) = records v
 
 
 -- | Record subtyping is converted into explicit coercions in Haskell
@@ -313,7 +318,7 @@ coerce env ty t =
   case (ty,t) of 
     (_,VariantValue ts) -> VariantValue (map (coerce env ty) ts)
     (TableType ti tv,TableValue _ cs) ->
-      TableValue ti [TableRowValue p (coerce env tv t)|TableRowValue p t<-cs]
+      TableValue ti [TableRow p (coerce env tv t)|TableRow p t<-cs]
     (RecordType rt,RecordValue r) ->
       RecordValue [RecordRow l (coerce env ft f) |
                      RecordRow l f<-r,ft<-[ft|RecordRow l' ft<-rt,l'==l]]
@@ -329,7 +334,7 @@ coerce env ty t =
     _ -> t
   where
     app f ts = ParamConstant (Param f ts) -- !! a hack
-    to_rcon = ParamId . to_rcon' . labels
+    to_rcon = ParamId . Unqual . to_rcon' . labels
 
 patVars p = []
 
@@ -395,11 +400,16 @@ linfunName c = prefixIdent "lin" (toIdent c)
 
 class ToIdent i where toIdent :: i -> Ident
 
-instance ToIdent ParamId where toIdent (ParamId s) = identS s
+instance ToIdent ParamId where toIdent (ParamId q) = qIdentS q
 instance ToIdent PredefId where toIdent (PredefId s) = identS s
 instance ToIdent CatId   where toIdent (CatId s) = identS s
 instance ToIdent C.FunId where toIdent (FunId s) = identS s
-instance ToIdent VarValueId where toIdent (VarValueId s) = identS s
+instance ToIdent VarValueId where toIdent (VarValueId q) = qIdentS q
+
+qIdentS = identS . unqual
+
+unqual (Qual (ModId m) n) = m++"_"++n
+unqual (Unqual n) = n
 
 instance ToIdent VarId where
   toIdent Anonymous = identW

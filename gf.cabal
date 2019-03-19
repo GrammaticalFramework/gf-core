@@ -1,5 +1,5 @@
 name: gf
-version: 3.10
+version: 3.10.3-git
 
 cabal-version: >= 1.22
 build-type: Custom
@@ -151,6 +151,7 @@ Library
     GF.Support
     GF.Text.Pretty
     GF.Text.Lexing
+    GF.Grammar.Canonical
 
   other-modules:
     GF.Main GF.Compiler GF.Interactive
@@ -189,8 +190,7 @@ Library
     GF.Compile.PGFtoJava
     GF.Haskell
     GF.Compile.ConcreteToHaskell
-    GF.Compile.ConcreteToCanonical
-    GF.Grammar.Canonical
+    GF.Compile.GrammarToCanonical
     GF.Grammar.CanonicalJSON
     GF.Compile.PGFtoJS
     GF.Compile.PGFtoProlog

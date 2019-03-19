@@ -1,6 +1,6 @@
 -- | Translate grammars to Canonical form
 -- (a common intermediate representation to simplify export to other formats)
-module GF.Compile.ConcreteToCanonical(grammar2canonical,abstract2canonical,concretes2canonical) where
+module GF.Compile.GrammarToCanonical(grammar2canonical,abstract2canonical,concretes2canonical) where
 import Data.List(nub,partition)
 import qualified Data.Map as M
 import qualified Data.Set as S
@@ -55,7 +55,7 @@ abstract2canonical absname gr =
 -- | Generate Canonical code for the all concrete syntaxes associated with
 -- the named abstract syntax in given the grammar.
 concretes2canonical opts absname gr =
-  [(cncname,concrete2canonical opts gr cenv absname cnc cncmod)
+  [(cncname,concrete2canonical gr cenv absname cnc cncmod)
      | let cenv = resourceValues opts gr,
        cnc<-allConcretes gr absname,
        let cncname = "canonical/"++render cnc ++ ".gf" :: FilePath
@@ -63,9 +63,7 @@ concretes2canonical opts absname gr =
   ]
 
 -- | Generate Canonical GF for the given concrete module.
--- The only options that make a difference are
--- @-haskell=noprefix@ and @-haskell=variants@.
-concrete2canonical opts gr cenv absname cnc modinfo =
+concrete2canonical gr cenv absname cnc modinfo =
   Concrete (modId cnc) (modId absname) (convFlags gr cnc)
       (neededParamTypes S.empty (params defs))
       [lincat|(_,Left lincat)<-defs]
@@ -153,7 +151,7 @@ convert' gr vs = ppT
       case t of
 --      Abs b x t -> ...
 --      V ty ts -> VTableValue (convType ty) (map ppT ts)
-        V ty ts -> TableValue (convType ty) [TableRowValue (ppP p) (ppT t)|(p,t)<-zip ps ts]
+        V ty ts -> TableValue (convType ty) [TableRow (ppP p) (ppT t)|(p,t)<-zip ps ts]
           where
             Ok pts = allParamValues gr ty
             Ok ps = mapM term2patt pts
@@ -167,16 +165,16 @@ convert' gr vs = ppT
         Cn x -> VarValue (gId x) -- hmm
         Con c -> ParamConstant (Param (gId c) [])
         Sort k -> VarValue (gId k)
-        EInt n -> IntConstant n
-        Q (m,n) -> if m==cPredef then ppPredef n else VarValue (gId (qual m n))
-        QC (m,n) -> ParamConstant (Param (gId (qual m n)) [])
-        K s -> StrConstant s
-        Empty -> StrConstant ""
+        EInt n -> LiteralValue (IntConstant n)
+        Q (m,n) -> if m==cPredef then ppPredef n else VarValue ((gQId m n))
+        QC (m,n) -> ParamConstant (Param ((gQId m n)) [])
+        K s -> LiteralValue (StrConstant s)
+        Empty -> LiteralValue (StrConstant "")
         FV ts -> VariantValue (map ppT ts)
         Alts t' vs -> alts vs (ppT t')
         _ -> error $ "convert' "++show t
 
-    ppCase (p,t) = TableRowValue (ppP p) (ppTv (patVars p++vs) t)
+    ppCase (p,t) = TableRow (ppP p) (ppTv (patVars p++vs) t)
 
     ppPredef n =
       case predef n of
@@ -185,14 +183,14 @@ convert' gr vs = ppT
         Ok SOFT_SPACE -> p "SOFT_SPACE"
         Ok CAPIT      -> p "CAPIT"
         Ok ALL_CAPIT  -> p "ALL_CAPIT"
-        _ -> VarValue (gId n)
+        _ -> VarValue (gQId cPredef n) -- hmm
       where
        p = PredefValue . PredefId
       
     ppP p =
       case p of
         PC c ps -> ParamPattern (Param (gId c) (map ppP ps))
-        PP (m,c) ps -> ParamPattern (Param (gId (qual m c)) (map ppP ps))
+        PP (m,c) ps -> ParamPattern (Param ((gQId m c)) (map ppP ps))
         PR r -> RecordPattern (fields r) {-
         PW -> WildPattern
         PV x -> VarP x
@@ -220,6 +218,7 @@ convert' gr vs = ppT
 
         pat (PString s) = [s]
         pat (PAlt p1 p2) = pat p1++pat p2
+        pat (PSeq p1 p2) = [s1++s2 | s1<-pat p1, s2<-pat p2]
         pat p = error $ "pat "++show p
 
     fields = map field . filter (not.isLockLabel.fst)
@@ -235,8 +234,8 @@ convert' gr vs = ppT
 
 concatValue v1 v2 =
   case (v1,v2) of
-    (StrConstant "",_) -> v2
-    (_,StrConstant "") -> v1
+    (LiteralValue (StrConstant ""),_) -> v2
+    (_,LiteralValue (StrConstant "")) -> v1
     _ -> ConcatValue v1 v2
 
 projection r l = maybe (Projection r l) id (proj r l)
@@ -251,19 +250,19 @@ proj r l =
 selection t v =
   case t of
     TableValue tt r ->
-        case nub [rv|TableRowValue _ rv<-keep] of
+        case nub [rv|TableRow _ rv<-keep] of
           [rv] -> rv
           _ -> Selection (TableValue tt r') v
       where
         r' = if null discard
              then r
-             else keep++[TableRowValue WildPattern impossible]
+             else keep++[TableRow WildPattern impossible]
         (keep,discard) = partition (mightMatchRow v) r
     _ -> Selection t v
 
 impossible = ErrorValue "impossible"
 
-mightMatchRow v (TableRowValue p _) =
+mightMatchRow v (TableRow p _) =
   case p of
     WildPattern -> True
     _ -> mightMatch v p
@@ -300,8 +299,8 @@ convType = ppT
         Sort k -> convSort k
 --      EInt n -> tcon0 (identS ("({-"++show n++"-})")) -- type level numeric literal
         FV (t:ts) -> ppT t -- !!
-        QC (m,n) -> ParamType (ParamTypeId (gId (qual m n)))
-        Q (m,n) -> ParamType (ParamTypeId (gId (qual m n)))
+        QC (m,n) -> ParamType (ParamTypeId ((gQId m n)))
+        Q (m,n) -> ParamType (ParamTypeId ((gQId m n)))
         _ -> error $ "Missing case in convType for: "++show t
 
     convFields = map convField . filter (not.isLockLabel.fst)
@@ -327,24 +326,20 @@ paramType gr q@(_,n) =
          ((S.singleton (m,n),argTypes ps),
           [ParamDef name (map (param m) ps)]
          )
-       where name = gId (qual m n)
+       where name = (gQId m n)
       Ok (m,ResOper  _ (Just (L _ t)))
         | m==cPredef && n==cInts ->
            ((S.empty,S.empty),[]) {-
            ((S.singleton (m,n),S.empty),
-            [Type (ConAp (gId (qual m n)) [identS "n"]) (TId (identS "Int"))])-}
+            [Type (ConAp ((gQId m n)) [identS "n"]) (TId (identS "Int"))])-}
         | otherwise ->
            ((S.singleton (m,n),paramTypes gr t),
-            [ParamAliasDef (gId (qual m n)) (convType t)])
+            [ParamAliasDef ((gQId m n)) (convType t)])
       _ -> ((S.empty,S.empty),[])
   where
-    param m (n,ctx) = Param (gId (qual m n)) [toParamId t|(_,_,t)<-ctx]
+    param m (n,ctx) = Param ((gQId m n)) [toParamId t|(_,_,t)<-ctx]
     argTypes = S.unions . map argTypes1
     argTypes1 (n,ctx) = S.unions [paramTypes gr t|(_,_,t)<-ctx]
-
-qual :: ModuleName -> Ident -> Ident
-qual m = prefixIdent (render m++"_")
-
 
 lblId = LabelId . render -- hmm
 modId (MN m) = ModId (showIdent m)
@@ -356,8 +351,16 @@ instance FromIdent VarId where
 
 instance FromIdent C.FunId where gId = C.FunId . showIdent
 instance FromIdent CatId where gId = CatId . showIdent
-instance FromIdent ParamId where gId = ParamId . showIdent
-instance FromIdent VarValueId where gId = VarValueId . showIdent
+instance FromIdent ParamId where gId = ParamId . unqual
+instance FromIdent VarValueId where gId = VarValueId . unqual
+
+class FromIdent i => QualIdent i where gQId :: ModuleName -> Ident -> i
+
+instance QualIdent ParamId    where gQId m n = ParamId (qual m n)
+instance QualIdent VarValueId where gQId m n = VarValueId (qual m n)
+
+qual m n = Qual (modId m) (showIdent n)
+unqual n = Unqual (showIdent n)
 
 convFlags gr mn =
   Flags [(n,convLit v) |

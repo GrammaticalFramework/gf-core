@@ -1,7 +1,13 @@
--- | Abstract syntax for canonical GF grammars, i.e. what's left after
+-- |
+-- Module    :  GF.Grammar.Canonical
+-- Stability :  provisional
+--
+-- Abstract syntax for canonical GF grammars, i.e. what's left after
 -- high-level constructions such as functors and opers have been eliminated
 -- by partial evaluation. This is intended as a common intermediate
 -- representation to simplify export to other formats.
+
+{-# LANGUAGE DeriveTraversable #-}
 module GF.Grammar.Canonical where
 import Prelude hiding ((<>))
 import GF.Text.Pretty
@@ -51,13 +57,11 @@ newtype ParamType = ParamTypeId ParamId deriving (Eq,Ord,Show)
 
 -- | Linearization value, RHS of @lin@
 data LinValue = ConcatValue LinValue LinValue
+              | LiteralValue LinLiteral
               | ErrorValue String
-              | FloatConstant Float 
-              | IntConstant Int 
               | ParamConstant ParamValue 
               | PredefValue PredefId
               | RecordValue [RecordRowValue]
-              | StrConstant String 
               | TableValue LinType [TableRowValue]
 ---           | VTableValue LinType [LinValue]
               | TupleValue [LinValue]
@@ -66,10 +70,17 @@ data LinValue = ConcatValue LinValue LinValue
               | PreValue [([String], LinValue)] LinValue
               | Projection LinValue LabelId
               | Selection LinValue LinValue
-               deriving (Eq,Ord,Show)
+              | CommentedValue String LinValue
+              deriving (Eq,Ord,Show)
+
+data LinLiteral = FloatConstant Float 
+                | IntConstant Int 
+                | StrConstant String 
+                deriving (Eq,Ord,Show)
 
 data LinPattern = ParamPattern ParamPattern
                 | RecordPattern [RecordRow LinPattern]
+                | TuplePattern [LinPattern]
                 | WildPattern
                 deriving (Eq,Ord,Show)
 
@@ -77,36 +88,46 @@ type ParamValue = Param LinValue
 type ParamPattern = Param LinPattern
 type ParamValueDef = Param ParamId
 
-data Param arg = Param ParamId [arg] deriving (Eq,Ord,Show)
+data Param arg = Param ParamId [arg]
+                 deriving (Eq,Ord,Show,Functor,Foldable,Traversable)
 
-type RecordRowType = RecordRow LinType
+type RecordRowType  = RecordRow LinType
 type RecordRowValue = RecordRow LinValue
+type TableRowValue  = TableRow LinValue
 
-data RecordRow rhs  = RecordRow LabelId rhs  deriving (Eq,Ord,Show)
-data TableRowValue  = TableRowValue LinPattern LinValue  deriving (Eq,Ord,Show)
+data RecordRow rhs = RecordRow LabelId    rhs
+                     deriving (Eq,Ord,Show,Functor,Foldable,Traversable)
+data TableRow  rhs = TableRow  LinPattern rhs
+                     deriving (Eq,Ord,Show,Functor,Foldable,Traversable)
 
 -- *** Identifiers in Concrete Syntax
 
-newtype PredefId = PredefId String    deriving (Eq,Ord,Show)
-newtype LabelId  = LabelId String     deriving (Eq,Ord,Show)
-data VarValueId  = VarValueId String  deriving (Eq,Ord,Show)
+newtype PredefId = PredefId Id        deriving (Eq,Ord,Show)
+newtype LabelId  = LabelId Id         deriving (Eq,Ord,Show)
+data VarValueId  = VarValueId QualId  deriving (Eq,Ord,Show)
 
 -- | Name of param type or param value 
-newtype ParamId = ParamId String  deriving (Eq,Ord,Show)
+newtype ParamId = ParamId QualId  deriving (Eq,Ord,Show)
 
 --------------------------------------------------------------------------------
 -- ** Used in both Abstract and Concrete Syntax
 
-newtype ModId = ModId String  deriving (Eq,Show)
+newtype ModId = ModId Id  deriving (Eq,Ord,Show)
 
-newtype CatId = CatId String  deriving (Eq,Ord,Show)
-newtype FunId = FunId String  deriving (Eq,Show)
+newtype CatId = CatId Id  deriving (Eq,Ord,Show)
+newtype FunId = FunId Id  deriving (Eq,Show)
 
-data VarId = Anonymous | VarId String  deriving Show
+data VarId = Anonymous | VarId Id  deriving Show
 
 newtype Flags = Flags [(FlagName,FlagValue)] deriving Show
-type FlagName = String
+type FlagName = Id
 data FlagValue = Str String | Int Int | Flt Double deriving Show
+
+
+-- *** Identifiers
+
+type Id = String
+data QualId = Qual ModId Id | Unqual Id  deriving (Eq,Ord,Show)
 
 --------------------------------------------------------------------------------
 -- ** Pretty printing
@@ -199,12 +220,12 @@ instance Pretty LinValue where
             Projection lv l -> ppA lv<>"."<>l
             Selection tv pv -> ppA tv<>"!"<>ppA pv
             VariantValue vs -> "variants"<+>block vs
+            CommentedValue s v -> "{-" <+> s <+> "-}" $$ v
             _ -> ppA lv
 
 instance PPA LinValue where
   ppA lv = case lv of
-             FloatConstant f -> pp f
-             IntConstant n -> pp n
+             LiteralValue l -> ppA l
              ParamConstant pv -> ppA pv
              PredefValue p -> ppA p
              RecordValue [] -> pp "<>"
@@ -214,13 +235,20 @@ instance PPA LinValue where
                where
                  alt (ss,lv) = hang (hcat (punctuate "|" (map doubleQuotes ss)))
                                     2 ("=>"<+>lv)
-             StrConstant s -> doubleQuotes s -- hmm
              TableValue _ tvs -> "table"<+>block tvs
 --           VTableValue t ts -> "table"<+>t<+>brackets (semiSep ts)
              TupleValue lvs -> "<"<>punctuate "," lvs<>">"
              VarValue v -> pp v
              _ -> parens lv
 
+instance Pretty LinLiteral where pp = ppA
+
+instance PPA LinLiteral where
+  ppA l = case l of
+            FloatConstant f -> pp f
+            IntConstant n -> pp n
+            StrConstant s -> doubleQuotes s -- hmm
+  
 instance RhsSeparator LinValue where rhsSep _ = pp "="
 
 instance Pretty LinPattern where
@@ -233,6 +261,7 @@ instance PPA LinPattern where
   ppA p =
     case p of
       RecordPattern r -> block r
+      TuplePattern ps -> "<"<>punctuate "," ps<>">"
       WildPattern     -> pp "_"                
       _ -> parens p
 
@@ -241,8 +270,8 @@ instance RhsSeparator LinPattern where rhsSep _ = pp "="
 instance RhsSeparator rhs => Pretty (RecordRow rhs) where
   pp (RecordRow l v) = hang (l<+>rhsSep v) 2 v
 
-instance Pretty TableRowValue where
-  pp (TableRowValue l v) = hang (l<+>"=>") 2 v
+instance Pretty rhs => Pretty (TableRow rhs) where
+  pp (TableRow l v) = hang (l<+>"=>") 2 v
 
 --------------------------------------------------------------------------------
 instance Pretty ModId where pp (ModId s) = pp s
@@ -250,10 +279,16 @@ instance Pretty CatId where pp (CatId s) = pp s
 instance Pretty FunId where pp (FunId s) = pp s
 instance Pretty LabelId where pp (LabelId s) = pp s
 instance Pretty PredefId where pp = ppA
-instance PPA    PredefId where ppA (PredefId s) = pp s
+instance PPA    PredefId where ppA (PredefId s) = "Predef."<>s
 instance Pretty ParamId where pp = ppA
 instance PPA    ParamId where ppA (ParamId s) = pp s
 instance Pretty VarValueId where pp (VarValueId s) = pp s
+
+instance Pretty QualId where pp = ppA
+
+instance PPA QualId where
+  ppA (Qual m n) = m<>"_"<>n -- hmm
+  ppA (Unqual n) = pp n
 
 instance Pretty Flags where
   pp (Flags []) = empty

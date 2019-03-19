@@ -7,7 +7,7 @@ import GF.Compile as S(batchCompile,link,srcAbsName)
 import GF.CompileInParallel as P(parallelBatchCompile)
 import GF.Compile.Export
 import GF.Compile.ConcreteToHaskell(concretes2haskell)
-import GF.Compile.ConcreteToCanonical--(concretes2canonical)
+import GF.Compile.GrammarToCanonical--(concretes2canonical)
 import GF.Compile.CFGtoPGF
 import GF.Compile.GetGrammar
 import GF.Grammar.BNFC

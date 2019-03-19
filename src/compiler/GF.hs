@@ -19,7 +19,9 @@ module GF(
            module GF.Grammar.Printer,
            module GF.Infra.Ident,
            -- ** Binary serialisation
-           module GF.Grammar.Binary
+           module GF.Grammar.Binary,
+           -- * Canonical GF
+           module GF.Compile.GrammarToCanonical
   ) where
 import GF.Main
 import GF.Compiler
@@ -36,3 +38,5 @@ import GF.Grammar.Macros
 import GF.Grammar.Printer
 import GF.Infra.Ident
 import GF.Grammar.Binary
+
+import GF.Compile.GrammarToCanonical
