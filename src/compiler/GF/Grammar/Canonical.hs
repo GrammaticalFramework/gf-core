@@ -217,6 +217,7 @@ instance Pretty LinValue where
   pp lv = case lv of
             ConcatValue v1 v2 -> sep [v1 <+> "++",pp v2]
             ErrorValue s -> "Predef.error"<+>doubleQuotes s
+            ParamConstant pv -> pp pv
             Projection lv l -> ppA lv<>"."<>l
             Selection tv pv -> ppA tv<>"!"<>ppA pv
             VariantValue vs -> "variants"<+>block vs
@@ -260,6 +261,7 @@ instance Pretty LinPattern where
 instance PPA LinPattern where
   ppA p =
     case p of
+      ParamPattern pv -> ppA pv
       RecordPattern r -> block r
       TuplePattern ps -> "<"<>punctuate "," ps<>">"
       WildPattern     -> pp "_"                
