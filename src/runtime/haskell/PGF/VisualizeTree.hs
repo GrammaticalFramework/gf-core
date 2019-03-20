@@ -564,7 +564,7 @@ dep2latex d =
    Picture defaultUnit (width,height) (
      [Put (wpos rwld i,0) (Text w) | (i,w) <- zip [0..] (map fst (tokens d))]   -- words
   ++ [Put (wpos rwld i,15) (TinyText w) | (i,(w,_)) <- zip [0..] (map snd (tokens d))]   -- pos tags 15u above bottom
-  ++ [Put (wpos rwld i,-15) (TinyText w) | (i,(_,w)) <- zip [0..] (map snd (tokens d))]   -- features 15u below bottom
+---  ++ [Put (wpos rwld i,-15) (TinyText w) | (i,(_,w)) <- zip [0..] (map snd (tokens d))]   -- features 15u below bottom -> DON'T SHOW
   ++ concat [putArc rwld (aheight x y) x y label | ((x,y),label) <- deps d]    -- arcs and labels
   ++ [Put (wpos rwld (root d) + 15,height) (ArrowDown (height-arcbase))]
   ++ [Put (wpos rwld (root d) + 20,height - 10) (TinyText "ROOT")]
@@ -595,7 +595,7 @@ conll2dep' ls = Dep {
   , root = head $ [read x-1 | x:_:_:_:_:_:"0":_ <- ls] ++ [1]
   }
  where
-   wld i = maximum (0:[charWidth * fromIntegral (length w) | w <- let (tok,(pos,feat)) = toks !! i in [tok,pos,feat]])
+   wld i = maximum (0:[charWidth * fromIntegral (length w) | w <- let (tok,(pos,feat)) = toks !! i in [tok,pos {-,feat-}]]) --- feat not shown
    toks = [(w,(c,m)) | _:w:_:c:_:m:_ <- ls]
    dps = [((read y-1, read x-1),lab) | x:_:_:_:_:_:y:lab:_ <- ls, y /="0"]
    --maxdist = maximum [abs (x-y) | ((x,y),_) <- dps]
