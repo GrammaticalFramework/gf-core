@@ -39,22 +39,22 @@ import qualified Data.Map as Map
 --import qualified Data.Set as Set
 import qualified Data.Array.IArray as Array
 
-data TermPrintQual 
+data TermPrintQual
   = Terse | Unqualified | Qualified | Internal
-  deriving Eq                 
+  deriving Eq
 
 instance Pretty Grammar where
   pp = vcat . map (ppModule Qualified) . modules
 
 ppModule :: TermPrintQual -> SourceModule -> Doc
 ppModule q (mn, ModInfo mtype mstat opts exts with opens _ _ mseqs jments) =
-    hdr $$ 
-    nest 2 (ppOptions opts $$ 
+    hdr $$
+    nest 2 (ppOptions opts $$
             vcat (map (ppJudgement q) (Map.toList jments)) $$
             maybe empty (ppSequences q) mseqs) $$
     ftr
     where
-      hdr = complModDoc <+> modTypeDoc <+> '=' <+> 
+      hdr = complModDoc <+> modTypeDoc <+> '=' <+>
             hsep (intersperse (pp "**") $
                   filter (not . isEmpty)  $ [ commaPunct ppExtends exts
                                             , maybe empty ppWith with
@@ -81,10 +81,10 @@ ppModule q (mn, ModInfo mtype mstat opts exts with opens _ _ mseqs jments) =
       ppExtends (id,MIAll        ) = pp id
       ppExtends (id,MIOnly   incs) = id         <+> brackets (commaPunct pp incs)
       ppExtends (id,MIExcept incs) = id <+> '-' <+> brackets (commaPunct pp incs)
-      
+
       ppWith (id,ext,opens) = ppExtends (id,ext) <+> "with" <+> commaPunct ppInstSpec opens
 
-ppOptions opts = 
+ppOptions opts =
   "flags" $$
   nest 2 (vcat [option <+> '=' <+> ppLit value <+> ';' | (option,value) <- optionsGFO opts])
 
@@ -105,13 +105,13 @@ ppJudgement q (id, AbsFun ptype _ pexp poper) =
      Just []  -> empty
      Just eqs -> "def" <+> vcat [id <+> hsep (map (ppPatt q 2) ps) <+> '=' <+> ppTerm q 0 e <+> ';' | L _ (ps,e) <- eqs]
      Nothing  -> empty)
-ppJudgement q (id, ResParam pparams _) = 
+ppJudgement q (id, ResParam pparams _) =
   "param" <+> id <+>
   (case pparams of
      Just (L _ ps) -> '=' <+> ppParams q ps
      _             -> empty) <+> ';'
-ppJudgement q (id, ResValue pvalue) = 
-  "-- param constructor" <+> id <+> ':' <+> 
+ppJudgement q (id, ResValue pvalue) =
+  "-- param constructor" <+> id <+> ':' <+>
   (case pvalue of
      (L _ ty) -> ppTerm q 0 ty) <+> ';'
 ppJudgement q (id, ResOper  ptype pexp) =
@@ -119,7 +119,7 @@ ppJudgement q (id, ResOper  ptype pexp) =
   (case ptype of {Just (L _ t) -> ':'  <+> ppTerm q 0 t; Nothing -> empty} $$
    case pexp  of {Just (L _ e) -> '=' <+> ppTerm q 0 e; Nothing -> empty}) <+> ';'
 ppJudgement q (id, ResOverload ids defs) =
-  "oper" <+> id <+> '=' <+> 
+  "oper" <+> id <+> '=' <+>
   ("overload" <+> '{' $$
    nest 2 (vcat [id <+> (':' <+> ppTerm q 0 ty $$ '=' <+> ppTerm q 0 e <+> ';') | (L _ ty,L _ e) <- defs]) $$
    '}') <+> ';'
@@ -141,7 +141,7 @@ ppJudgement q (id, CncCat pcat pdef pref pprn mpmcfg) =
                     -> "pmcfg" <+> id <+> '=' <+> '{' $$
                        nest 2 (vcat (map ppProduction prods) $$
                                ' ' $$
-                               vcat (map (\(funid,arr) -> ppFunId funid <+> ":=" <+> 
+                               vcat (map (\(funid,arr) -> ppFunId funid <+> ":=" <+>
                                                           parens (hcat (punctuate ',' (map ppSeqId (Array.elems arr)))))
                                          (Array.assocs funs))) $$
                        '}'
@@ -159,7 +159,7 @@ ppJudgement q (id, CncFun  ptype pdef pprn mpmcfg) =
                     -> "pmcfg" <+> id <+> '=' <+> '{' $$
                        nest 2 (vcat (map ppProduction prods) $$
                                ' ' $$
-                               vcat (map (\(funid,arr) -> ppFunId funid <+> ":=" <+> 
+                               vcat (map (\(funid,arr) -> ppFunId funid <+> ":=" <+>
                                                           parens (hcat (punctuate ',' (map ppSeqId (Array.elems arr)))))
                                          (Array.assocs funs))) $$
                        '}'
@@ -209,7 +209,7 @@ ppTerm q d (S x y)     = case x of
 ppTerm q d (ExtR x y)  = prec d 3 (ppTerm q 3 x <+> "**" <+> ppTerm q 4 y)
 ppTerm q d (App x y)   = prec d 4 (ppTerm q 4 x <+> ppTerm q 5 y)
 ppTerm q d (V e es)    = hang "table" 2 (sep [ppTerm q 6 e,brackets (fsep (punctuate ';' (map (ppTerm q 0) es)))])
-ppTerm q d (FV es)     = "variants" <+> braces (fsep (punctuate ';' (map (ppTerm q 0) es)))
+ppTerm q d (FV es)     = prec d 4 ("variants" <+> braces (fsep (punctuate ';' (map (ppTerm q 0) es))))
 ppTerm q d (AdHocOverload es)     = "overload" <+> braces (fsep (punctuate ';' (map (ppTerm q 0) es)))
 ppTerm q d (Alts e xs) = prec d 4 ("pre" <+> braces (ppTerm q 0 e <> ';' <+> fsep (punctuate ';' (map (ppAltern q) xs))))
 ppTerm q d (Strs es)   = "strs" <+> braces (fsep (punctuate ';' (map (ppTerm q 0) es)))
@@ -227,7 +227,7 @@ ppTerm q d (EFloat f)  = pp f
 ppTerm q d (Meta i)    = ppMeta i
 ppTerm q d (Empty)     = pp "[]"
 ppTerm q d (R [])      = pp "<>" -- to distinguish from {} empty RecType
-ppTerm q d (R xs)      = braces (fsep (punctuate ';' [l <+> 
+ppTerm q d (R xs)      = braces (fsep (punctuate ';' [l <+>
                                                        fsep [case mb_t of {Just t -> ':' <+> ppTerm q 0 t; Nothing -> empty},
                                                              '=' <+> ppTerm q 0 e] | (l,(mb_t,e)) <- xs]))
 ppTerm q d (RecType xs)
@@ -307,7 +307,7 @@ ppQIdent q (m,id) =
     Unqualified ->          pp id
     Qualified   -> m <> '.' <> id
     Internal    -> m <> '.' <> id
-    
+
 
 instance Pretty Label where pp = pp . label2ident
 
@@ -329,7 +329,7 @@ ppParams q ps = fsep (intersperse (pp '|') (map (ppParam q) ps))
 ppParam q (id,cxt) = id <+> hsep (map (ppDDecl q) cxt)
 
 ppProduction (Production fid funid args) =
-  ppFId fid <+> "->" <+> ppFunId funid <> 
+  ppFId fid <+> "->" <+> ppFunId funid <>
   brackets (hcat (punctuate "," (map (hsep . intersperse (pp '|') . map ppFId) args)))
 
 ppSequences q seqsArr
@@ -362,4 +362,3 @@ getLet :: Term -> ([LocalDef], Term)
 getLet (Let l e) = let (ls,e') = getLet e
                    in (l:ls,e')
 getLet e         = ([],e)
-
