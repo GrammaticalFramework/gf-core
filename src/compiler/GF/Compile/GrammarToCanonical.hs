@@ -1,6 +1,9 @@
 -- | Translate grammars to Canonical form
 -- (a common intermediate representation to simplify export to other formats)
-module GF.Compile.GrammarToCanonical(grammar2canonical,abstract2canonical,concretes2canonical) where
+module GF.Compile.GrammarToCanonical(
+       grammar2canonical,abstract2canonical,concretes2canonical,
+       projection,selection
+       ) where
 import Data.List(nub,partition)
 import qualified Data.Map as M
 import qualified Data.Set as S
@@ -238,6 +241,7 @@ concatValue v1 v2 =
     (_,LiteralValue (StrConstant "")) -> v1
     _ -> ConcatValue v1 v2
 
+-- | Smart constructor for projections
 projection r l = maybe (Projection r l) id (proj r l)
 
 proj r l =
@@ -247,20 +251,31 @@ proj r l =
                           _ -> Nothing
     _ -> Nothing
 
+-- | Smart constructor for selections
 selection t v =
+  -- Note: impossible cases can become possible after grammar transformation
   case t of
     TableValue tt r ->
         case nub [rv|TableRow _ rv<-keep] of
           [rv] -> rv
           _ -> Selection (TableValue tt r') v
       where
+        -- Don't introduce wildcard patterns, true to the canonical format,
+        -- annotate (or eliminate) rhs in impossible rows
+        r' = map trunc r
+        trunc r@(TableRow p e) = if mightMatchRow v r
+                                 then r
+                                 else TableRow p (impossible e)
+        {-
+        -- Creates smaller tables, but introduces wildcard patterns
         r' = if null discard
              then r
              else keep++[TableRow WildPattern impossible]
+        -}
         (keep,discard) = partition (mightMatchRow v) r
     _ -> Selection t v
 
-impossible = ErrorValue "impossible"
+impossible = CommentedValue "impossible"
 
 mightMatchRow v (TableRow p _) =
   case p of
