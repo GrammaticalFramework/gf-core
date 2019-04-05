@@ -2,7 +2,7 @@
 
 ### This script builds a binary distribution of GF from the source
 ### package that this script is a part of. It assumes that you have installed
-### the Haskell Platform, version 2013.2.0.0 or 2012.4.0.0.
+### a recent version of the Haskell Platform.
 ### Two binary package formats are supported: plain tar files (.tar.gz) and
 ### OS X Installer packages (.pkg).
 
