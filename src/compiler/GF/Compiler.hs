@@ -102,7 +102,9 @@ linkGrammars opts (t_src,~cnc_grs@(~(cnc,gr):_)) =
        if t_pgf >= Just t_src
          then putIfVerb opts $ pgfFile ++ " is up-to-date."
          else do pgfs <- mapM (link opts) cnc_grs
-                 let pgf = foldl1 unionPGF pgfs
+                 let pgf0 = foldl1 unionPGF pgfs
+                 probs <- maybe (return . defaultProbabilities) readProbabilitiesFromFile (flag optProbsFile opts) pgf0
+                 let pgf = setProbabilities probs pgf0
                  writePGF opts pgf
                  writeOutputs opts pgf
 
@@ -137,7 +139,9 @@ unionPGFFiles opts fs =
     doIt =
       do pgfs <- mapM readPGFVerbose fs
          let pgf0 = foldl1 unionPGF pgfs
-             pgf  = if flag optOptimizePGF opts then optimizePGF pgf0 else pgf0
+             pgf1 = if flag optOptimizePGF opts then optimizePGF pgf0 else pgf0
+         probs <- liftIO (maybe (return . defaultProbabilities) readProbabilitiesFromFile (flag optProbsFile opts) pgf1)
+         let pgf  = setProbabilities probs pgf1
              pgfFile = outputPath opts (grammarName opts pgf <.> "pgf")
          if pgfFile `elem` fs
            then putStrLnE $ "Refusing to overwrite " ++ pgfFile
