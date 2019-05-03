@@ -4968,7 +4968,7 @@ some other JavaScript and HTML files; these files can be used
 as templates for building applications.
 
 An example of usage is
-[``translator.html`` http://grammaticalframework.org:41296],
+[``translator.html`` ../../src/runtime/javascript/translator.html],
 which is in fact initialized with
 a pointer to the Food grammar, so that it provides translation between the English
 and Italian grammars:
