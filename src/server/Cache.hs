@@ -9,7 +9,7 @@ import Data.Maybe(mapMaybe)
 import System.Directory (getModificationTime)
 import System.Mem(performGC)
 import Data.Time (UTCTime,getCurrentTime,diffUTCTime)
-import Data.Time.Compat (toUTCTime)
+--import Data.Time.Compat (toUTCTime)
 
 data Cache a = Cache {
       cacheLoad :: FilePath -> IO a,
@@ -63,7 +63,7 @@ readCache' c file =
                        Nothing -> do v <- newMVar Nothing
                                      return (Map.insert file v objs, v)
     -- Check time stamp, and reload if different than the cache entry
-    readObject m = do t' <- toUTCTime `fmap` getModificationTime file
+    readObject m = do t' <- {-toUTCTime `fmap`-} getModificationTime file
                       now <- getCurrentTime
                       x' <- case m of
                               Just (t,_,x) | t' == t -> return x
