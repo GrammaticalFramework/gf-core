@@ -87,7 +87,7 @@ function render_t2t_html {
 # Render markdown into html file
 # Arguments:
 # 1. markdown source file, e.g. download/index.md
-# 2. html target filen, e.g. download/index.html
+# 2. html target file, e.g. download/index.html
 function render_md_html {
   md="$1"
   html="$2"
@@ -113,11 +113,17 @@ function render_md_html {
 
   # Final post-processing
   if [ -f "$html" ] ; then
-    sed -i.bak "s/<table/<table class=\"table\"/" "$html" && rm "$html.bak"
+    # add "table" class to tables
+    sed -i.bak "s/<table/<table class=\"table\"/" "$html"
+    # rewrite anchors that Pandoc 1.16 ignores: [content]{#anchor} -> <span id="anchor">content</span>
+    sed -i.bak -E "s/\[(.*)\]\{#(.+)\}/<span id=\"\2\">\1<\/span>/" "$html"
+    rm -f "$html.bak"
     echo "$html"
   fi
 }
 
+# Main entry point
+# Script can be run in one of two modes:
 if [ $# -gt 0 ] ; then
   # Render specific file(s) from args, ignoring dates
   for file in "$@" ; do

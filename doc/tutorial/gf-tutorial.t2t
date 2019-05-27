@@ -4963,12 +4963,12 @@ syntax name. This file contains the multilingual grammar as a JavaScript object.
 ===Using the JavaScript grammar===
 
 To perform parsing and linearization, the run-time library
-``gflib.js`` is used. It is included in ``GF/lib/javascript/``, together with
+``gflib.js`` is used. It is included in ``/src/runtime/javascript/``, together with
 some other JavaScript and HTML files; these files can be used
 as templates for building applications.
 
 An example of usage is
-[``translator.html`` http://grammaticalframework.org:41296],
+[``translator.html`` ../../src/runtime/javascript/translator.html],
 which is in fact initialized with
 a pointer to the Food grammar, so that it provides translation between the English
 and Italian grammars:

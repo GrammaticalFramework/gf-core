@@ -72,7 +72,7 @@ concrete syntax. Tree formation in abstract syntax, however, is fully
 recursive.
 
 Even though run-time GF grammars manipulate just nested tuples, at
-compile time these are represented by by the more fine-grained labelled
+compile time these are represented by the more fine-grained labelled
 records and finite functions over algebraic datatypes. This enables the
 programmer to write on a higher abstraction level, and also adds type
 distinctions and hence raises the level of checking of programs.
@@ -99,7 +99,7 @@ module looks as follows:
         }
 
 Here are two concrete syntax modules, one intended for mapping the trees
-to English, the other to Swedish. The mappling is defined by `lincat`
+to English, the other to Swedish. The mapping is defined by `lincat`
 definitions assigning a **linearization type** to each category, and
 `lin` definitions assigning a **linearization** to each function.
 
@@ -2515,7 +2515,7 @@ The reserved words used in GF are the following:
 - `transfer`
 - `variants`
 - `where`
-- `with`                       
+- `with`
 
 The symbols used in GF are the following:
 

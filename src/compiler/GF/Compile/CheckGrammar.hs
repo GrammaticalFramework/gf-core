@@ -147,11 +147,17 @@ checkCompleteGrammar opts cwd gr (am,abs) (cm,cnc) = checkInModule cwd cnc NoLoc
                                            return $ updateTree (c,CncFun (Just linty) d mn mf) js
                              _       -> do checkWarn ("function" <+> c <+> "is not in abstract")
                                            return js
-       CncCat _ _ _ _ _ -> case lookupOrigInfo gr (am,c) of
-                             Ok _ -> return $ updateTree i js
-                             _    -> do checkWarn ("category" <+> c <+> "is not in abstract")
-                                        return js
-       _                -> return $ updateTree i js
+       CncCat {} ->
+         case lookupOrigInfo gr (am,c) of
+           Ok (_,AbsCat _) -> return $ updateTree i js
+           {- -- This might be too pedantic:
+           Ok (_,AbsFun {}) ->
+                   checkError ("lincat:"<+>c<+>"is a fun, not a cat")
+           -}
+           _ -> do checkWarn ("category" <+> c <+> "is not in abstract")
+                   return js
+
+       _ -> return $ updateTree i js
 
 
 -- | General Principle: only Just-values are checked. 
