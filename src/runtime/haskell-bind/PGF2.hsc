@@ -70,7 +70,7 @@ module PGF2 (-- * PGF
              -- ** Generation
              generateAll,
              -- ** Morphological Analysis
-             MorphoAnalysis, lookupMorpho, fullFormLexicon,
+             MorphoAnalysis, lookupMorpho, lookupCohorts, fullFormLexicon,
              -- ** Visualizations
              GraphvizOptions(..), graphvizDefaults,
              graphvizAbstractTree, graphvizParseTree, graphvizWordAlignment,
@@ -480,6 +480,36 @@ lookupMorpho (Concr concr master) sent =
        pgf_lookup_morpho concr c_sent cback nullPtr
        freeHaskellFunPtr fptr
        readIORef ref
+
+lookupCohorts :: Concr -> String -> [(Int,[MorphoAnalysis],Int)]
+lookupCohorts lang@(Concr concr master) sent =
+  unsafePerformIO $
+    do pl <- gu_new_pool
+       ref <- newIORef []
+       cback <- gu_malloc pl (#size PgfMorphoCallback)
+       fptr <- wrapLookupMorphoCallback (getAnalysis ref)
+       (#poke PgfMorphoCallback, callback) cback fptr
+       c_sent <- newUtf8CString sent pl
+       enum <- pgf_lookup_cohorts concr c_sent cback pl nullPtr
+       fpl <- newForeignPtr gu_pool_finalizer pl
+       fromCohortRange enum fpl fptr ref
+  where
+    fromCohortRange enum fpl fptr ref =
+      allocaBytes (#size PgfCohortRange) $ \ptr ->
+      withForeignPtr fpl $ \pl ->
+        do gu_enum_next enum ptr pl
+           buf <- (#peek PgfCohortRange, buf) ptr
+           if buf == nullPtr
+             then do finalizeForeignPtr fpl
+                     freeHaskellFunPtr fptr
+                     touchConcr lang
+                     return []
+             else do start <- (#peek PgfCohortRange, start.pos) ptr
+                     end   <- (#peek PgfCohortRange, end.pos)   ptr
+                     ans   <- readIORef ref
+                     writeIORef ref []
+                     cohs  <- unsafeInterleaveIO (fromCohortRange enum fpl fptr ref)
+                     return ((start,ans,end):cohs)
 
 fullFormLexicon :: Concr -> [(String, [MorphoAnalysis])]
 fullFormLexicon lang =

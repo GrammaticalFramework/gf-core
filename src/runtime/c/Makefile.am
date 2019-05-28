@@ -68,6 +68,7 @@ libpgf_la_SOURCES = \
 	pgf/data.h \
 	pgf/expr.c \
 	pgf/expr.h \
+	pgf/scanner.c \
 	pgf/parser.c \
 	pgf/lookup.c \
 	pgf/jit.c \

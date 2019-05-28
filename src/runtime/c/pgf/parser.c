@@ -1,6 +1,5 @@
 #include <pgf/data.h>
 #include <pgf/expr.h>
-#include <pgf/linearizer.h>
 #include <gu/enum.h>
 #include <gu/seq.h>
 #include <gu/assert.h>
@@ -502,39 +501,12 @@ pgf_print_expr_state0(PgfExprState* st,
 #endif
 #endif
 
-static int
-cmp_string(GuString* psent, GuString tok, bool case_sensitive)
-{
-	for (;;) {
-		GuUCS c2 = gu_utf8_decode((const uint8_t**) &tok);
-		if (c2 == 0)
-			return 0;
+PGF_INTERNAL_DECL int
+cmp_string(GuString* psent, size_t* ppos, GuString tok,
+           bool case_sensitive);
 
-		const uint8_t* p = (uint8_t*) *psent;
-		GuUCS c1 = gu_utf8_decode(&p);
-		if (c1 == 0)
-			return -1;
-
-		if (!case_sensitive)
-			c1 = gu_ucs_to_lower(c1);
-
-		if (c1 != c2)
-			return (c1-c2);
-
-		*psent = (GuString) p;
-	}
-}
-
-static bool
-skip_space(GuString* psent)
-{
-	const uint8_t* p = (uint8_t*) *psent;
-	if (!gu_ucs_is_space(gu_utf8_decode(&p)))
-		return false;
-
-	*psent = (GuString) p;
-	return true;
-}
+PGF_INTERNAL_DECL bool
+skip_space(GuString* psent, size_t* ppos);
 
 static int
 cmp_item_prob(GuOrder* self, const void* a, const void* b)
@@ -1060,63 +1032,10 @@ pgf_parsing_complete(PgfParsing* ps, PgfItem* item, PgfExprProb *ep)
     }
 }
 
-static int
-pgf_symbols_cmp(GuString* psent, PgfSymbols* syms, size_t* sym_idx, bool case_sensitive)
-{
-	size_t n_syms = gu_seq_length(syms);
-	while (*sym_idx < n_syms) {
-		PgfSymbol sym = gu_seq_get(syms, PgfSymbol, *sym_idx);
-
-		if (*sym_idx > 0) {
-			if (!skip_space(psent)) {
-				if (**psent == 0)
-					return -1;
-				return 1;
-			}
-
-			while (**psent != 0) {
-				if (!skip_space(psent))
-					break;
-			}
-		}
-
-		GuVariantInfo inf = gu_variant_open(sym);
-		switch (inf.tag) {
-		case PGF_SYMBOL_CAT:
-		case PGF_SYMBOL_LIT:
-		case PGF_SYMBOL_VAR: {
-			if (**psent == 0)
-				return -1;
-			return 1;
-		}
-		case PGF_SYMBOL_KS: {
-			PgfSymbolKS* pks = inf.data;
-			if (**psent == 0)
-				return -1;
-
-			int cmp = cmp_string(psent, pks->token, case_sensitive);
-			if (cmp != 0)
-				return cmp;
-			break;
-		}
-		case PGF_SYMBOL_KP:
-		case PGF_SYMBOL_BIND:
-		case PGF_SYMBOL_NE:
-		case PGF_SYMBOL_SOFT_BIND:
-		case PGF_SYMBOL_SOFT_SPACE:
-		case PGF_SYMBOL_CAPIT:
-		case PGF_SYMBOL_ALL_CAPIT: {
-			return -1;
-		}
-		default:
-			gu_impossible();
-		}
-
-		(*sym_idx)++;
-	}
-
-	return 0;
-}
+PGF_INTERNAL_DECL int
+pgf_symbols_cmp(GuString* psent, size_t* ppos,
+                PgfSymbols* syms, size_t* sym_idx,
+                bool case_sensitive);
 
 static void
 pgf_parsing_lookahead(PgfParsing *ps, PgfParseState* state,
@@ -1133,8 +1052,9 @@ pgf_parsing_lookahead(PgfParsing *ps, PgfParseState* state,
 
 		GuString start   = ps->sentence + state->end_offset;
 		GuString current = start;
+		size_t pos = 0;
 		size_t sym_idx = 0;
-		int cmp = pgf_symbols_cmp(&current, seq->syms, &sym_idx, ps->case_sensitive);
+		int cmp = pgf_symbols_cmp(&current, &pos, seq->syms, &sym_idx, ps->case_sensitive);
 		if (cmp < 0) {
 			j = k-1;
 		} else if (cmp > 0) {
@@ -1206,7 +1126,8 @@ pgf_new_parse_state(PgfParsing* ps, size_t start_offset,
 
 	size_t end_offset = start_offset;
 	GuString current = ps->sentence + end_offset;
-	while (skip_space(&current)) {
+	size_t pos = 0;
+	while (skip_space(&current, &pos)) {
 		end_offset++;
 	}
 
@@ -1257,6 +1178,7 @@ static void
 pgf_parsing_add_transition(PgfParsing* ps, PgfToken tok, PgfItem* item)
 {	
 	GuString current = ps->sentence + ps->before->end_offset;
+	size_t pos = 0;
 
 	if (ps->prefix != NULL && *current == 0) {
 		if (gu_string_is_prefix(ps->prefix, tok)) {
@@ -1269,7 +1191,7 @@ pgf_parsing_add_transition(PgfParsing* ps, PgfToken tok, PgfItem* item)
 			ps->tp->prob = item->inside_prob + item->conts->outside_prob;
 		}
 	} else {
-		if (!ps->before->needs_bind && cmp_string(&current, tok, ps->case_sensitive) == 0) {
+		if (!ps->before->needs_bind && cmp_string(&current, &pos, tok, ps->case_sensitive) == 0) {
 			PgfParseState* state =
 				pgf_new_parse_state(ps, (current - ps->sentence),
 				                    BIND_NONE,
@@ -1454,7 +1376,6 @@ pgf_parsing_symbol(PgfParsing* ps, PgfItem* item, PgfSymbol sym)
 	case PGF_SYMBOL_KP: {
 		PgfSymbolKP* skp = gu_variant_data(sym);
 
-		PgfSymbol sym;
 		if (item->alt == 0) {
 			PgfItem* new_item;
 
@@ -2343,173 +2264,6 @@ pgf_complete(PgfConcr* concr, PgfType* type, GuString sentence,
 	ps->prefix  = prefix;
 	ps->tp      = NULL;
 	return &ps->en;
-}
-
-static void
-pgf_morpho_iter(PgfProductionIdx* idx,
-                PgfMorphoCallback* callback,
-                GuExn* err)
-{
-	size_t n_entries = gu_buf_length(idx);
-	for (size_t i = 0; i < n_entries; i++) {
-		PgfProductionIdxEntry* entry =
-			gu_buf_index(idx, PgfProductionIdxEntry, i);
-
-		PgfCId lemma = entry->papp->fun->absfun->name;
-		GuString analysis = entry->ccat->cnccat->labels[entry->lin_idx];
-		
-		prob_t prob = entry->ccat->cnccat->abscat->prob +
-		              entry->papp->fun->absfun->ep.prob;
-		callback->callback(callback,
-						   lemma, analysis, prob, err);
-		if (!gu_ok(err))
-			return;
-	}
-}
-
-typedef struct {
-	GuOrder order;
-	bool case_sensitive;
-} PgfSequenceOrder;
-
-static int
-pgf_sequence_cmp_fn(GuOrder* order, const void* p1, const void* p2)
-{
-	PgfSequenceOrder* self = gu_container(order, PgfSequenceOrder, order);
-	GuString sent = (GuString) p1;
-	const PgfSequence* sp2 = p2;
-
-	size_t sym_idx = 0;
-	int res = pgf_symbols_cmp(&sent, sp2->syms, &sym_idx, self->case_sensitive);
-	if (res == 0 && (*sent != 0 || sym_idx != gu_seq_length(sp2->syms))) {
-		res = 1;
-	}
-
-	return res;
-}
-
-PGF_API void
-pgf_lookup_morpho(PgfConcr *concr, GuString sentence,
-                  PgfMorphoCallback* callback, GuExn* err)
-{
-	if (concr->sequences == NULL) {
-		GuExnData* err_data = gu_raise(err, PgfExn);
-		if (err_data) {
-			err_data->data = "The concrete syntax is not loaded";
-			return;
-		}
-	}
-
-	bool case_sensitive =
-		(gu_seq_binsearch(concr->cflags, pgf_flag_order, PgfFlag, "case_sensitive") == NULL);
-
-	PgfSequenceOrder order = { { pgf_sequence_cmp_fn }, case_sensitive };
-	PgfSequence* seq = (PgfSequence*)
-		gu_seq_binsearch(concr->sequences, &order.order,
-		                 PgfSequence, (void*) sentence);
-
-	if (seq != NULL && seq->idx != NULL)
-		pgf_morpho_iter(seq->idx, callback, err);
-}
-
-typedef struct {
-	GuEnum en;
-	PgfSequences* sequences;
-	GuString prefix;
-	size_t seq_idx;
-} PgfFullFormState;
-
-struct PgfFullFormEntry {
-	GuString tokens;
-	PgfProductionIdx* idx;
-};
-
-static void
-gu_fullform_enum_next(GuEnum* self, void* to, GuPool* pool)
-{
-	PgfFullFormState* st = gu_container(self, PgfFullFormState, en);
-	PgfFullFormEntry* entry = NULL;
-
-	if (st->sequences != NULL) {
-		size_t n_seqs = gu_seq_length(st->sequences);
-		while (st->seq_idx < n_seqs) {
-			PgfSequence* seq = gu_seq_index(st->sequences, PgfSequence, st->seq_idx);
-			GuString tokens = pgf_get_tokens(seq->syms, 0, pool);
-
-			if (!gu_string_is_prefix(st->prefix, tokens)) {
-				st->seq_idx = n_seqs;
-				break;
-			}
-
-			if (*tokens != 0 && seq->idx != NULL) {
-				entry = gu_new(PgfFullFormEntry, pool);
-				entry->tokens = tokens;
-				entry->idx    = seq->idx;
-
-				st->seq_idx++;
-				break;
-			}
-
-			st->seq_idx++;
-		}
-	}
-
-	*((PgfFullFormEntry**) to) = entry;
-}
-
-PGF_API GuEnum*
-pgf_fullform_lexicon(PgfConcr *concr, GuPool* pool)
-{
-	PgfFullFormState* st = gu_new(PgfFullFormState, pool);
-	st->en.next   = gu_fullform_enum_next;
-	st->sequences = concr->sequences;
-	st->prefix    = "";
-	st->seq_idx   = 0;
-	return &st->en;
-}
-
-PGF_API GuString
-pgf_fullform_get_string(PgfFullFormEntry* entry)
-{
-	return entry->tokens;
-}
-
-PGF_API void
-pgf_fullform_get_analyses(PgfFullFormEntry* entry,
-                          PgfMorphoCallback* callback, GuExn* err)
-{
-	pgf_morpho_iter(entry->idx, callback, err);
-}
-
-PGF_API GuEnum*
-pgf_lookup_word_prefix(PgfConcr *concr, GuString prefix,
-                       GuPool* pool, GuExn* err)
-{
-	if (concr->sequences == NULL) {
-		GuExnData* err_data = gu_raise(err, PgfExn);
-		if (err_data) {
-			err_data->data = "The concrete syntax is not loaded";
-			return NULL;
-		}
-	}
-
-	PgfFullFormState* state = gu_new(PgfFullFormState, pool);
-	state->en.next   = gu_fullform_enum_next;
-	state->sequences = concr->sequences;
-	state->prefix    = prefix;
-	state->seq_idx   = 0;
-
-	bool case_sensitive =
-		(gu_seq_binsearch(concr->cflags, pgf_flag_order, PgfFlag, "case_sensitive") == NULL);
-
-	PgfSequenceOrder order = { { pgf_sequence_cmp_fn }, case_sensitive };
-	if (!gu_seq_binsearch_index(concr->sequences, &order.order,
-	                            PgfSequence, (void*) prefix, 
-	                            &state->seq_idx)) {
-		state->seq_idx++;
-	}
-
-	return &state->en;
 }
 
 PGF_API void

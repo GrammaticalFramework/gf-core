@@ -100,7 +100,7 @@ foreign import ccall unsafe "gu/string.h gu_string_buf_out"
 foreign import ccall unsafe "gu/file.h gu_file_in"
   gu_file_in :: Ptr () -> Ptr GuPool -> IO (Ptr GuIn)
 
-foreign import ccall unsafe "gu/enum.h gu_enum_next"
+foreign import ccall safe  "gu/enum.h gu_enum_next"
   gu_enum_next :: Ptr a -> Ptr (Ptr b) -> Ptr GuPool -> IO ()
  
 foreign import ccall unsafe "gu/string.h gu_string_buf_freeze"
@@ -400,6 +400,9 @@ foreign import ccall "pgf/pgf.h pgf_parse_with_oracle"
 
 foreign import ccall "pgf/pgf.h pgf_lookup_morpho"
   pgf_lookup_morpho :: Ptr PgfConcr -> CString -> Ptr PgfMorphoCallback -> Ptr GuExn -> IO ()
+
+foreign import ccall "pgf/pgf.h pgf_lookup_cohorts"
+  pgf_lookup_cohorts :: Ptr PgfConcr -> CString -> Ptr PgfMorphoCallback -> Ptr GuPool -> Ptr GuExn -> IO (Ptr GuEnum)
 
 type LookupMorphoCallback = Ptr PgfMorphoCallback -> CString -> CString -> Float -> Ptr GuExn -> IO ()
 
