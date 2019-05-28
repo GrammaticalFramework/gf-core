@@ -528,17 +528,17 @@ newAbstr aflags cats funs = unsafePerformIO $ do
 
 data ConcrInfo = ConcrInfo (Ptr GuSeq) (Ptr GuMap) (Ptr GuMap) (Ptr GuSeq) (Ptr GuSeq) (Ptr GuMap) (Ptr PgfConcr -> Ptr GuPool -> IO ()) CInt
 
-newConcr :: (?builder :: Builder s) => AbstrInfo ->
-                                       [(String,Literal)] ->       -- ^ Concrete syntax flags
-                                       [(String,String)] ->        -- ^ Printnames
-                                       [(FId,[FunId])] ->          -- ^ Lindefs
-                                       [(FId,[FunId])] ->          -- ^ Linrefs
-                                       [(FId,[Production])] ->     -- ^ Productions
-                                       [(Fun,[SeqId])] ->          -- ^ Concrete functions   (must be sorted by Fun)
-                                       [[Symbol]] ->               -- ^ Sequences            (must be sorted)
-                                       [(Cat,FId,FId,[String])] -> -- ^ Concrete categories
-                                       FId ->                      -- ^ The total count of the categories
-                                       ConcrInfo
+newConcr :: (?builder :: Builder s) => AbstrInfo
+                                    -> [(String,Literal)]        -- ^ Concrete syntax flags
+                                    -> [(String,String)]         -- ^ Printnames
+                                    -> [(FId,[FunId])]           -- ^ Lindefs
+                                    -> [(FId,[FunId])]           -- ^ Linrefs
+                                    -> [(FId,[Production])]      -- ^ Productions
+                                    -> [(Fun,[SeqId])]           -- ^ Concrete functions   (must be sorted by Fun)
+                                    -> [[Symbol]]                -- ^ Sequences            (must be sorted)
+                                    -> [(Cat,FId,FId,[String])]  -- ^ Concrete categories
+                                    -> FId                       -- ^ The total count of the categories
+                                    -> ConcrInfo
 newConcr (AbstrInfo _ _ abscats  _ absfuns c_abs_lin_fun c_non_lexical_buf _) cflags printnames lindefs linrefs prods cncfuns sequences cnccats total_cats = unsafePerformIO $ do
   c_cflags <- newFlags cflags pool
   c_printname <- newMap (#size GuString) gu_string_hasher newUtf8CString 

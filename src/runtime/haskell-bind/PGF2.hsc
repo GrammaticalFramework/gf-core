@@ -466,8 +466,23 @@ newGraphvizOptions pool opts = do
 -- Functions using Concr
 -- Morpho analyses, parsing & linearization
 
-type MorphoAnalysis = (Fun,Cat,Float)
+-- | This triple is returned by all functions that deal with 
+-- the grammar's lexicon. Its first element is the name of an abstract
+-- lexical function which can produce a given word or 
+-- a multiword expression (i.e. this is the lemma).
+-- After that follows a string which describes 
+-- the particular inflection form.
+--
+-- The last element is a logarithm from the
+-- the probability of the function. The probability is not 
+-- conditionalized on the category of the function. This makes it
+-- possible to compare the likelihood of two functions even if they
+-- have different types. 
+type MorphoAnalysis = (Fun,String,Float)
 
+-- | 'lookupMorpho' takes a string which must be a single word or 
+-- a multiword expression. It then computes the list of all possible
+-- morphological analyses.
 lookupMorpho :: Concr -> String -> [MorphoAnalysis]
 lookupMorpho (Concr concr master) sent =
   unsafePerformIO $
@@ -481,6 +496,15 @@ lookupMorpho (Concr concr master) sent =
        freeHaskellFunPtr fptr
        readIORef ref
 
+-- | 'lookupCohorts' takes an arbitrary string an produces
+-- a list of all places where lexical items from the grammar have been
+-- identified (i.e. cohorts). The list consists of triples of the format @(start,ans,end)@,
+-- where @start-end@ identifies the span in the text and @ans@ is
+-- the list of possible morphological analyses similar to 'lookupMorpho'.
+--
+-- The list is sorted first by the @start@ position and after than
+-- by the @end@ position. This can be used for instance if you want to
+-- filter only the longest matches.
 lookupCohorts :: Concr -> String -> [(Int,[MorphoAnalysis],Int)]
 lookupCohorts lang@(Concr concr master) sent =
   unsafePerformIO $
