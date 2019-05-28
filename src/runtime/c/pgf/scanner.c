@@ -229,19 +229,19 @@ pgf_lookup_cohorts_helper(PgfCohortsState *state, PgfCohortSpot* spot,
 			if (min <= len-1)
 				pgf_lookup_cohorts_helper(state, spot, i, k-1, min, len-1);
 
-			if (seq->idx != NULL) {
+			if (seq->idx != NULL && gu_buf_length(seq->idx) > 0) {
 				PgfCohortRange* range = gu_buf_insert(state->found, 0);
 				range->start = *spot;
 				range->end   = current;
 				range->buf   = seq->idx;
-
-				while (*current.ptr != 0) {
-					if (!skip_space(&current.ptr, &current.pos))
-						break;
-				}
-
-				gu_buf_heap_push(state->spots, pgf_cohort_spot_order, &current);
 			}
+
+			while (*current.ptr != 0) {
+				if (!skip_space(&current.ptr, &current.pos))
+					break;
+			}
+
+			gu_buf_heap_push(state->spots, pgf_cohort_spot_order, &current);
 
 			if (len+1 <= max)
 				pgf_lookup_cohorts_helper(state, spot, k+1, j, len+1, max);
