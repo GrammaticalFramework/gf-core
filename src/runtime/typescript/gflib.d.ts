@@ -1,9 +1,9 @@
 /**
- * gflib.dt.s
+ * gflib.d.ts
  *
  * by John J. Camilleri
  *
- * TypeScript type definitions for the "original" JS GF runtime (GF:src/runtime/javascript/gflib.js)
+ * TypeScript type definitions for the pure JavaScript runtime (/src/runtime/javascript/gflib.js)
  */
 
 // Note: the String prototype is extended with:
@@ -86,7 +86,7 @@ declare class GFConcrete {
   flags: {[key: string]: string}
   productions: {[key: number]: ApplyOrCoerce[]}
   functions: CncFun[]
-  sequences: Array<Array<Sym>>
+  sequences: Sym[][]
   startCats: {[key: string]: {s: number, e: number}}
   totalFIds: number
   pproductions: {[key: number]: ApplyOrCoerce[]}
@@ -96,12 +96,12 @@ declare class GFConcrete {
     flags: {[key: string]: string},
     productions: {[key: number]: ApplyOrCoerce[]},
     functions: CncFun[],
-    sequences: Array<Array<Sym>>,
+    sequences: Sym[][],
     startCats: {[key: string]: {s: number, e: number}},
     totalFIds: number
   )
 
-  linearizeSyms(tree: Fun, tag: string): Array<{fid: FId, table: any}>
+  linearizeSyms(tree: Fun, tag: string): {fid: FId, table: any}[]
   syms2toks(syms: Sym[]): string[]
   linearizeAll(tree: Fun): string[]
   linearize(tree: Fun): string
@@ -257,9 +257,9 @@ declare class Trie {
   value: any
   items: Trie[]
 
-  insertChain(keys, obj): void
-  insertChain1(keys, obj): void
-  lookup(key, obj): any
+  insertChain(keys: string[], obj: any): void
+  insertChain1(keys: string[], obj: any): void
+  lookup(key: string, obj: any): any
   isEmpty(): boolean
 }
 
@@ -278,7 +278,7 @@ declare class ParseState {
   complete(correntToken: string): Trie
   extractTrees(): any[]
   process(
-    agenda,
+    agenda: ActiveItem[],
     literalCallback: (fid: FId) => any,
     tokenCallback: (tokens: string[], item: any) => any
   ): void
@@ -288,25 +288,25 @@ declare class ParseState {
  * Chart
  */
 declare class Chart {
-  active: any
-  actives: {[key: number]: any}
-  passive: any
-  forest: {[key: number]: ApplyOrCoerce[]}
+  active: {[key: number]: ActiveItem} // key: FId
+  actives: {[key: number]: ActiveItem}[] // key: FId
+  passive: {[key: string]: FId}
+  forest: {[key: number]: ApplyOrCoerce[]} // key: FId
   nextId: number
   offset: number
 
   constructor(concrete: GFConcrete)
 
-  lookupAC(fid: FId,label)
-  lookupACo(offset, fid: FId, label)
+  lookupAC(fid: FId, label: number): ActiveItem[]
+  lookupACo(offset: number, fid: FId, label: number): ActiveItem[]
 
-  labelsAC(fid: FId)
-  insertAC(fid: FId, label, items): void
+  labelsAC(fid: FId): ActiveItem
+  insertAC(fid: FId, label: number, items: any[]): void
 
-  lookupPC(fid: FId, label, offset)
-  insertPC(fid1: FId, label, offset, fid2: FId): void
+  lookupPC(fid: FId, label: number, offset: number): FId
+  insertPC(fid1: FId, label: number, offset: number, fid2: FId): void
   shift(): void
-  expandForest(fid: FId): any[]
+  expandForest(fid: FId): Apply[]
 }
 
 /**
@@ -316,7 +316,7 @@ declare class ActiveItem {
   offset: number
   dot: number
   fun: CncFun
-  seq: Array<Sym>
+  seq: Sym[]
   args: PArg[]
   fid: FId
   lbl: number
@@ -325,7 +325,7 @@ declare class ActiveItem {
     offset: number,
     dot: number,
     fun: CncFun,
-    seq: Array<Sym>,
+    seq: Sym[],
     args: PArg[],
     fid: FId,
     lbl: number
