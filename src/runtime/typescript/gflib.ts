@@ -415,7 +415,8 @@ class GFConcrete {
 
   private syms2toks(syms: Sym[]): string[] {
     let ts: string[] = []
-    syms.forEach((sym0: Sym): void => {
+    for (let i = 0; i < syms.length; i++) {
+      let sym0 = syms[i]
       switch (sym0.id) {
         case 'KS': {
           let sym = sym0 as SymKS
@@ -426,18 +427,41 @@ class GFConcrete {
         }
         case 'KP': {
           let sym = sym0 as SymKP
-          for (let j in sym.tokens) {
-            ts.push(sym.tokens[j].tagWith(sym.tag))
+          let addedAlt = false
+          if (i < syms.length-1) {
+            let nextSym = syms[i+1]
+            if (nextSym.id == 'KS') {
+              let nextToken = (nextSym as SymKS).tokens[0]
+              sym.alts.forEach((alt: Alt): void => {
+                // consider alts here (for handling pre)
+                if (alt.prefixes.some((p: string): boolean => nextToken.startsWith(p))) {
+                  alt.tokens.forEach((symks: SymKS): void => {
+                    symks.tokens.forEach((t: string): void => {
+                      ts.push(t.tagWith(sym.tag))
+                    })
+                  })
+                  addedAlt = true
+                  return
+                }
+              })
+            }
           }
+          if (addedAlt) break
+          // Fall through here when no alts (or none apply)
+          sym.tokens.forEach((symks: SymKS): void => {
+            symks.tokens.forEach((t: string): void => {
+              ts.push(t.tagWith(sym.tag))
+            })
+          })
           break
         }
       }
-    })
+    }
     return ts
   }
 
   public linearizeAll(tree: Fun): string[] {
-    return this.linearizeSyms(tree,'0').map(function(r): string {
+    return this.linearizeSyms(tree,'0').map((r): string => {
       return this.unlex(this.syms2toks(r.table[0]))
     })
   }
@@ -462,12 +486,13 @@ class GFConcrete {
 
     let s = ''
     for (let i = 0; i < ts.length; i++) {
-      let t = ts[i]
-      let after = i < ts.length-1 ? ts[i+1] : null
+      let t: string = ts[i]
+      let after: string | null = i < ts.length-1 ? ts[i+1] : null
       s += t
-      // TODO handle pre construct
-      if (after != null && !t.match(noSpaceAfter)
-            && !after.match(noSpaceBefore)) {
+      if (after != null
+       && !t.match(noSpaceAfter)
+       && !after.match(noSpaceBefore)
+      ) {
         s += ' '
       }
     }
@@ -591,15 +616,27 @@ class GFConcrete {
     let acc = ps.complete(current)
 
     // Format into just a list of strings & return
-    // (I know the multiple nesting looks horrible)
     let suggs: string[] = []
     if (acc.value) {
       acc.value.forEach((a: ActiveItem): void =>{
         a.seq.forEach((s: SymKS | SymKP): void => {
           if (s.tokens == null) return
-          s.tokens.forEach((t: string): void => {
-            suggs.push(t)
-          })
+          switch (s.id) {
+            case 'KS': {
+              (s as SymKS).tokens.forEach((t: string): void => {
+                suggs.push(t)
+              })
+              break
+            }
+            case 'KP': {
+              (s as SymKP).tokens.forEach((symks: SymKS): void => {
+                symks.tokens.forEach((t: string): void => {
+                  suggs.push(t)
+                })
+              })
+              break
+            }
+          }
         })
       })
     }
@@ -796,6 +833,7 @@ class SymKS implements Taggable {
     return terminalStr.join('')
   }
 
+  // TODO magic numbering fails here
   public tagWith(tag: string): SymKS {
     this.tag = tag
     return this
@@ -807,11 +845,11 @@ class SymKS implements Taggable {
  */
 class SymKP implements Taggable {
   public id: string
-  public tokens: string[]
+  public tokens: SymKS[]
   public alts: Alt[]
   public tag?: string
 
-  public constructor(tokens: string[], alts: Alt[]) {
+  public constructor(tokens: SymKS[], alts: Alt[]) {
     this.id = 'KP'
     this.tokens = tokens
     this.alts = alts
@@ -823,7 +861,8 @@ class SymKP implements Taggable {
     return terminalStr.join('')
   }
 
-  public tagWith(tag: string): SymKS {
+  // TODO magic numbering fails here
+  public tagWith(tag: string): SymKP {
     this.tag = tag
     return this
   }
@@ -833,10 +872,10 @@ class SymKP implements Taggable {
  * Alt
  */
 class Alt {
-  public tokens: string[]
+  public tokens: SymKS[]
   public prefixes: string[]
 
-  public constructor(tokens: string[], prefixes: string[]) {
+  public constructor(tokens: SymKS[], prefixes: string[]) {
     this.tokens   = tokens
     this.prefixes = prefixes
   }
@@ -1211,9 +1250,14 @@ class ParseState {
             case 'KP': {
               let sym = sym0 as SymKP
               let pitem = item.shiftOverTokn()
-              tokenCallback(sym.tokens, pitem)
+              sym.tokens.forEach((symks: SymKS): void => { // TODO not sure if this is right
+                tokenCallback(symks.tokens, pitem)
+              })
               sym.alts.forEach((alt: Alt): void => {
-                tokenCallback(alt.tokens, pitem)
+                // tokenCallback(alt.tokens, pitem)
+                alt.tokens.forEach((symks: SymKS): void => { // TODO not sure if this is right
+                  tokenCallback(symks.tokens, pitem)
+                })
               })
               break
             }
@@ -1448,9 +1492,9 @@ class ActiveItem {
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
 /* from Remedial JavaScript by Douglas Crockford, http://javascript.crockford.com/remedial.html */
-// function isString(a: any): boolean {
-//   return typeof a == 'string'
-// }
+function isString(a: any): boolean {
+  return typeof a == 'string' || a instanceof String
+}
 // function isArray(a: any): boolean {
 //   return a && typeof a == 'object' && a.constructor == Array
 // }
@@ -1489,4 +1533,17 @@ function isUndefined(a: any): boolean {
 //     }
 //     return x + '}'
 //   }
+// }
+
+// https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/String/startsWith#Polyfill
+// if (!String.prototype.startsWith) {
+interface String {
+  startsWith: (search: string, pos?: number) => boolean;
+}
+Object.defineProperty(String.prototype, 'startsWith', {
+  value: function(search: string, pos?: number): boolean {
+    pos = !pos || pos < 0 ? 0 : +pos
+    return this.substring(pos, pos + search.length) === search
+  }
+})
 // }
