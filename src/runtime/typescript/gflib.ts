@@ -10,6 +10,10 @@
 // String.prototype.tag = "";
 // String.prototype.setTag = function (tag) { this.tag = tag; };
 
+interface Taggable {
+  tag?: string;
+}
+
 /**
  * A GF grammar is one abstract and multiple concretes
  */
@@ -191,7 +195,7 @@ class GFAbstract {
 
   public handleLiterals(tree: Fun, type: string): Fun {
     if (tree.name != '?') {
-      if (type === 'String' || type === 'Int' || type === 'Float') {
+      if (type == 'String' || type == 'Int' || type == 'Float') {
         tree.name = type + '_Literal_' + tree.name
       } else {
         let typ = this.types[tree.name]
@@ -232,7 +236,7 @@ class GFAbstract {
       tokens.shift()
       return tree
     } else if (t == '?') {
-      let tree = this.parseTree_(tokens, 0)
+      // let tree = this.parseTree_(tokens, 0)
       return new Fun('?')
     } else {
       let tree = new Fun(t)
@@ -261,24 +265,22 @@ class Type {
   }
 }
 
-type ApplyOrCoerce = Apply | Coerce
-
 /**
  * Concrete syntax
  */
 class GFConcrete {
-  private flags: {[key: string]: string}
-  // private productions: {[key: number]: ApplyOrCoerce[]}
+  public flags: {[key: string]: string}
+  // private productions: {[key: number]: Rule[]}
   private functions: CncFun[]
-  private sequences: Sym[][]
+  // private sequences: Sym[][]
   public startCats: {[key: string]: {s: number; e: number}}
   public totalFIds: number
-  public pproductions: {[key: number]: ApplyOrCoerce[]}
+  public pproductions: {[key: number]: Rule[]}
   private lproductions: {[key: string]: {fid: FId; fun: CncFun}[]}
 
   public constructor(
     flags: {[key: string]: string},
-    productions: {[key: number]: ApplyOrCoerce[]},
+    productions: {[key: number]: Rule[]},
     functions: CncFun[],
     sequences: Sym[][],
     startCats: {[key: string]: {s: number; e: number}},
@@ -287,7 +289,7 @@ class GFConcrete {
     this.flags       = flags
     // this.productions = productions
     this.functions   = functions
-    this.sequences   = sequences
+    // this.sequences   = sequences
     this.startCats   = startCats
     this.totalFIds   = totalFIds
 
@@ -299,7 +301,7 @@ class GFConcrete {
       for (let i in productions[fid]) {
         let rule = productions[fid][i]
 
-        if (rule.id === 'Apply') {
+        if (rule.id == 'Apply') {
           rule = rule as Apply
           let fun: CncFun = this.functions[rule.fun as FId]
           let lproductions = this.lproductions
@@ -313,7 +315,7 @@ class GFConcrete {
 
               for (let k in productions[arg]) {
                 let rule = productions[arg][k]
-                if (rule.id === 'Coerce') {
+                if (rule.id == 'Coerce') {
                   rule = rule as Coerce
                   register(args, key + '_' + rule.arg, i+1)
                   c++
@@ -345,7 +347,7 @@ class GFConcrete {
 
   }
 
-  private linearizeSyms(tree: Fun, tag: string): {fid: FId; table: any[][]}[] {
+  private linearizeSyms(tree: Fun, tag: string): {fid: FId; table: Sym[][]}[] {
     let res = []
 
     if (tree.isString()) {
@@ -388,26 +390,29 @@ class GFConcrete {
           table: []
         }
         for (let j in rule.fun.lins) {
-          let lin  = rule.fun.lins[j]
+          let lin = rule.fun.lins[j] as Sym[]
           let toks = []
           row.table[j] = toks
 
-          for (let k in lin) {
-            let sym = lin[k]
-            switch (sym.id) {
+          lin.forEach((sym0: Sym): void => {
+            switch (sym0.id) {
               case 'Arg':
-              case 'Lit':
+              case 'Lit': {
+                let sym = sym0 as SymCat | SymLit
                 let ts = cs[sym.i].table[sym.label]
                 for (let l in ts) {
                   toks.push(ts[l])
                 }
                 break
+              }
               case 'KS':
-              case 'KP':
+              case 'KP': {
+                let sym = sym0 as SymKS | SymKP
                 toks.push(this.tagIt(sym,tag))
                 break
+              }
             }
-          }
+          })
         }
         res.push(row)
       }
@@ -418,23 +423,24 @@ class GFConcrete {
 
   private syms2toks(syms: Sym[]): string[] {
     let ts = []
-    for (let i in syms) {
-      let sym = syms[i]
-      switch (sym.id) {
-        case 'KS':
-          sym = sym as SymKS
+    syms.forEach((sym0: Sym): void => {
+      switch (sym0.id) {
+        case 'KS': {
+          let sym = sym0 as SymKS
           for (let j in sym.tokens) {
             ts.push(this.tagIt(sym.tokens[j],sym.tag))
           }
           break
-        case 'KP':
-          sym = sym as SymKP
+        }
+        case 'KP': {
+          let sym = sym0 as SymKP
           for (let j in sym.tokens) {
             ts.push(this.tagIt(sym.tokens[j],sym.tag))
           }
           break
+        }
       }
-    }
+    })
     return ts
   }
 
@@ -476,7 +482,7 @@ class GFConcrete {
     return s
   }
 
-  private tagIt(obj: any, tag: string): any {
+  private tagIt(obj: Taggable, tag: string): Taggable {
     if (isString(obj)) {
       let o = new String(obj)
       o.setTag(tag)
@@ -506,7 +512,8 @@ class GFConcrete {
     let start: number, end: number
     let tokens = []
 
-    for (let i = 0; i < string.length; i++) {
+    let i: number
+    for (i = 0; i < string.length; i++) {
       if (string.charAt(i) == ' '       // space
        || string.charAt(i) == '\f'      // form feed
        || string.charAt(i) == '\n'      // newline
@@ -593,19 +600,16 @@ class GFConcrete {
 
     // Format into just a list of strings & return
     // (I know the multiple nesting looks horrible)
-    let suggs = []
+    let suggs: string[] = []
     if (acc.value) {
-      // Iterate over all acc.value[]
-      for (let v = 0; v < acc.value.length; v++) {
-        // Iterate over all acc.value[].seq[]
-        for (let s = 0; s < acc.value[v].seq.length; s++) {
-          if (acc.value[v].seq[s].tokens == null) continue
-          // Iterate over all acc.value[].seq[].tokens
-          for (let t = 0; t < acc.value[v].seq[s].tokens.length; t++) {
-            suggs.push( acc.value[v].seq[s].tokens[t] )
-          }
-        }
-      }
+      acc.value.forEach((a: ActiveItem): void =>{
+        a.seq.forEach((s: SymKS | SymKP): void => {
+          if (s.tokens == null) return
+          s.tokens.forEach((t: string): void => {
+            suggs.push(t)
+          })
+        })
+      })
     }
 
     // Note: return used tokens too
@@ -617,6 +621,11 @@ class GFConcrete {
  * Function ID
  */
 type FId = number
+
+/**
+ * Rule
+ */
+type Rule = Apply | Coerce | Const
 
 /**
  * Apply
@@ -688,8 +697,8 @@ class PArg {
  * Const
  */
 class Const {
-  private id: string
-  private lit: Fun
+  public id: string
+  public lit: Fun
   public toks: string[]
 
   public constructor(lit: Fun, toks: string[]) {
@@ -759,9 +768,10 @@ class SymCat {
 /**
  * SymKS: Object to represent terminals in grammar rules
  */
-class SymKS {
+class SymKS implements Taggable {
   public id: string
   public tokens: string[]
+  public tag?: string
 
   public constructor(...tokens: string[]) {
     this.id = 'KS'
@@ -778,10 +788,11 @@ class SymKS {
 /**
  * SymKP: Object to represent pre in grammar rules
  */
-class SymKP {
+class SymKP implements Taggable {
   public id: string
   public tokens: string[]
   public alts: Alt[]
+  public tag?: string
 
   public constructor(tokens: string[], alts: Alt[]) {
     this.id = 'KP'
@@ -859,7 +870,7 @@ class Trie<T> {
     node.value = obj
   }
 
-  private insertChain1(keys: string[], obj: T): void {
+  public insertChain1(keys: string[], obj: T): void {
     let node = this
     for (let i in keys) {
       let nnode = node.items[keys[i]]
@@ -875,7 +886,7 @@ class Trie<T> {
       node.value.push(obj)
   }
 
-  public lookup(key: string): T {
+  public lookup(key: string): Trie<T> {
     return this.items[key]
   }
 
@@ -897,7 +908,7 @@ class Trie<T> {
 class ParseState {
   private concrete: GFConcrete
   private startCat: string
-  private items: Trie<any>
+  private items: Trie<ActiveItem>
   private chart: Chart
 
   public constructor(concrete: GFConcrete, startCat: string) {
@@ -910,14 +921,22 @@ class ParseState {
 
     let fids = concrete.startCats[startCat]
     if (fids != null) {
-      let fid
+      let fid: FId
       for (fid = fids.s; fid <= fids.e; fid++) {
         let exProds = this.chart.expandForest(fid)
         for (let j in exProds) {
           let rule = exProds[j] as Apply
           let fun  = rule.fun as CncFun
           for (let lbl in fun.lins) {
-            items.push(new ActiveItem(0,0,rule.fun,fun.lins[lbl],rule.args,fid,lbl))
+            items.push(new ActiveItem(
+              0,
+              0,
+              rule.fun as CncFun,
+              fun.lins[lbl] as Sym[],
+              rule.args,
+              fid,
+              parseInt(lbl))
+            )
           }
         }
       }
@@ -926,7 +945,7 @@ class ParseState {
     this.items.insertChain([], items)
   }
 
-  private next(token: string): boolean {
+  public next(token: string): boolean {
     let acc = this.items.lookup(token)
     if (acc == null) {
       acc = new Trie()
@@ -958,7 +977,7 @@ class ParseState {
 
         return null
       },
-      function (tokens: string[], item): void {
+      function (tokens: string[], item: ActiveItem): void {
         if (tokens[0] == token) {
           let tokens1 = []
           for (let i = 1; i < tokens.length; i++) {
@@ -980,7 +999,7 @@ class ParseState {
    * Based closely on ParseState.next()
    * currentToken could be empty or a partial string
    */
-  private complete(currentToken: string): Trie {
+  public complete(currentToken: string): Trie<ActiveItem> {
 
     // Initialise accumulator for suggestions
     let acc = this.items.lookup(currentToken)
@@ -992,13 +1011,13 @@ class ParseState {
       this.items.value,
 
       // Deal with literal categories
-      function (fid: FId): null {
+      function (_fid: FId): null {
         // Always return null, as suggested by Krasimir
         return null
       },
 
       // Takes an array of tokens and populates the accumulator
-      function (tokens: string[], item): void {
+      function (tokens: string[], item: ActiveItem): void {
         if (currentToken == '' || tokens[0].indexOf(currentToken) == 0) { //if begins with...
           let tokens1 = []
           for (let i = 1; i < tokens.length; i++) {
@@ -1013,13 +1032,13 @@ class ParseState {
     return acc
   }
 
-  private extractTrees(): Fun[] {
+  public extractTrees(): Fun[] {
     this.process(
       this.items.value,
-      function (fid: FId): null {
+      function (_fid: FId): null {
         return null
       },
-      function (tokens: string[], item): void {
+      function (_tokens: string[], _item: ActiveItem): void {
       }
     )
 
@@ -1033,10 +1052,11 @@ class ParseState {
         let trees = []
 
         let rules = forest[fid]
-        rules.forEach((rule): void => {
+        rules.forEach((rule: Rule): void => {
           if (rule.id == 'Const') {
-            trees.push(rule.lit)
+            trees.push((rule as Const).lit)
           } else {
+            rule = rule as Apply
             let arg_ix = []
             let arg_ts = []
             for (let k in rule.args) {
@@ -1045,8 +1065,8 @@ class ParseState {
             }
 
             while (true) {
-              let t = new Fun(rule.fun.name)
-              for (let k in arg_ts) {
+              let t = new Fun((rule.fun as CncFun).name)
+              for (let k = 0; k < arg_ts.length; k++) {
                 t.setArg(k,arg_ts[k][arg_ix[k]])
               }
               trees.push(t)
@@ -1180,12 +1200,12 @@ class ParseState {
               let fid = item.args[sym.i].fid
               let rules = this.chart.forest[fid]
               if (rules != null) {
-                tokenCallback(rules[0].toks, item.shiftOverTokn()) // TODO investigate
+                tokenCallback((rules[0] as Const).toks, item.shiftOverTokn())
               } else {
                 let rule = literalCallback(fid)
                 if (rule != null) {
                   fid = this.chart.nextId++
-                  this.chart.forest[fid] = [rule]  // TODO investigate
+                  this.chart.forest[fid] = [rule]
                   tokenCallback(rule.toks, item.shiftOverArg(sym.i, fid))
                 }
               }
@@ -1215,7 +1235,7 @@ class ParseState {
                   this.chart.offset,
                   0,
                   item.fun,
-                  item.fun.lins[lbl],
+                  item.fun.lins[lbl] as Sym[],
                   item.args,
                   fid,
                   parseInt(lbl))
@@ -1242,13 +1262,19 @@ class ParseState {
 }
 
 /**
+ * Map of label to list of ActiveItems
+ */
+interface ActiveItemMap {[key: number]: ActiveItem[]}
+
+/**
  * Chart
  */
 class Chart {
-  private active: {[key: number]: ActiveItem} // key: FId
-  private actives: {[key: number]: ActiveItem}[] // key: FId
+  // private active: {[key: number]: ActiveItem} // key: FId
+  private active: {[key: number]: ActiveItemMap} // key: FId
+  private actives: {[key: number]: ActiveItemMap}[] // key: FId
   private passive: {[key: string]: FId}
-  public forest: {[key: number]: ApplyOrCoerce[]} // key: FId
+  public forest: {[key: number]: Rule[]} // key: FId
   public nextId: number
   public offset: number
 
@@ -1273,7 +1299,7 @@ class Chart {
   }
 
   public lookupACo(offset: number, fid: FId, label: number): ActiveItem[] | null {
-    let tmp: ActiveItem
+    let tmp: ActiveItemMap
 
     if (offset == this.offset)
       tmp = this.active[fid]
@@ -1286,14 +1312,14 @@ class Chart {
     return tmp[label]
   }
 
-  public labelsAC(fid: FId): ActiveItem {
+  public labelsAC(fid: FId): ActiveItemMap {
     return this.active[fid]
   }
 
-  public insertAC(fid: FId, label: number, items: any[]): void {
-    let tmp: ActiveItem = this.active[fid]
+  public insertAC(fid: FId, label: number, items: ActiveItem[]): void {
+    let tmp: ActiveItemMap = this.active[fid]
     if (tmp == null) {
-      tmp = new Object()
+      tmp = {}
       this.active[fid] = tmp
     }
     tmp[label] = items
@@ -1320,7 +1346,7 @@ class Chart {
     let rules = []
     let forest = this.forest
 
-    let go = function (rules0: ApplyOrCoerce[]): void {
+    let go = function (rules0: Rule[]): void {
       for (let i in rules0) {
         let rule = rules0[i]
         switch (rule.id) {
@@ -1397,24 +1423,30 @@ class ActiveItem {
  * Utilities
  */
 
+/*
+eslint-disable
+  @typescript-eslint/no-explicit-any,
+  @typescript-eslint/no-unused-vars
+*/
+
 /* from Remedial JavaScript by Douglas Crockford, http://javascript.crockford.com/remedial.html */
 function isString(a: any): boolean {
-  return typeof a === 'string'
+  return typeof a == 'string'
 }
 function isArray(a: any): boolean {
-  return a && typeof a === 'object' && a.constructor === Array
+  return a && typeof a == 'object' && a.constructor == Array
 }
 function isUndefined(a: any): boolean {
-  return typeof a === 'undefined'
+  return typeof a == 'undefined'
 }
 function isBoolean(a: any): boolean {
-  return typeof a === 'boolean'
+  return typeof a == 'boolean'
 }
 function isNumber(a: any): boolean {
-  return typeof a === 'number' && isFinite(a)
+  return typeof a == 'number' && isFinite(a)
 }
 function isFunction(a: any): boolean {
-  return typeof a === 'function'
+  return typeof a == 'function'
 }
 function dumpObject (obj: any): string {
   if (isUndefined(obj)) {
