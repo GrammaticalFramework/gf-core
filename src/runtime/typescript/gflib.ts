@@ -30,8 +30,8 @@ export class GFGrammar {
     input: string,
     fromLang: string,
     toLang: string
-  ): {[key: string]: {[key: string]: string}} {
-    let outputs = {}
+  ): {[key: string]: {[key: string]: string}[]} {
+    let outputs: {[key: string]: {[key: string]: string}[]} = {}
     let fromConcs = this.concretes
     if (fromLang) {
       fromConcs = {}
@@ -48,7 +48,7 @@ export class GFGrammar {
       if (trees.length > 0) {
         outputs[c1] = []
         for (let i in trees) {
-          outputs[c1][i] = new Object()
+          outputs[c1][i] = {}
           for (let c2 in toConcs) {
             outputs[c1][i][c2] = this.concretes[c2].linearize(trees[i])
           }
@@ -373,7 +373,7 @@ class GFConcrete {
         res.push({fid: fid, table: [[sym]]})
       }
     } else {
-      let cs = []
+      let cs: {fid: FId; table: Sym[][]}[] = []
       for (let i in tree.args) {
         // TODO: we should handle the case for nondeterministic linearization
         cs.push(this.linearizeSyms(tree.args[i],tag + '-' + i)[0])
@@ -385,13 +385,13 @@ class GFConcrete {
 
       for (let i in this.lproductions[key]) {
         let rule = this.lproductions[key][i]
-        let row  = {
+        let row: {fid: FId; table: Sym[][]} = {
           fid: rule.fid,
           table: []
         }
         for (let j in rule.fun.lins) {
           let lin = rule.fun.lins[j] as Sym[]
-          let toks = []
+          let toks: Sym[] = []
           row.table[j] = toks
 
           lin.forEach((sym0: Sym): void => {
@@ -422,7 +422,7 @@ class GFConcrete {
   }
 
   private syms2toks(syms: Sym[]): string[] {
-    let ts = []
+    let ts: string[] = []
     syms.forEach((sym0: Sym): void => {
       switch (sym0.id) {
         case 'KS': {
@@ -850,36 +850,36 @@ class SymLit {
  */
 class Trie<T> {
   public value: T[]
-  private items: Trie<T>[]
+  private items: {[key: string]: Trie<T>}
 
   public constructor() {
     this.value = null
-    this.items = []
+    this.items = {}
   }
 
   public insertChain(keys: string[], obj: T[]): void {
-    let node = this
-    for (let i in keys) {
-      let nnode = node.items[keys[i]]
+    let node: Trie<T> = this
+    keys.forEach((key: string): void => {
+      let nnode = node.items[key]
       if (nnode == null) {
         nnode = new Trie()
-        node.items[keys[i]] = nnode
+        node.items[key] = nnode
       }
       node = nnode
-    }
+    })
     node.value = obj
   }
 
   public insertChain1(keys: string[], obj: T): void {
-    let node = this
-    for (let i in keys) {
-      let nnode = node.items[keys[i]]
+    let node: Trie<T> = this
+    keys.forEach((key: string): void => {
+      let nnode = node.items[key]
       if (nnode == null) {
         nnode = new Trie()
-        node.items[keys[i]] = nnode
+        node.items[key] = nnode
       }
       node = nnode
-    }
+    })
     if (node.value == null)
       node.value = [obj]
     else
@@ -1049,7 +1049,7 @@ class ParseState {
       if (fid < totalFIds) {
         return [new Fun('?')]
       } else {
-        let trees = []
+        let trees: Fun[] = []
 
         let rules = forest[fid]
         rules.forEach((rule: Rule): void => {
@@ -1057,8 +1057,8 @@ class ParseState {
             trees.push((rule as Const).lit)
           } else {
             rule = rule as Apply
-            let arg_ix = []
-            let arg_ts = []
+            let arg_ix: number[] = []
+            let arg_ts: Fun[][] = []
             for (let k in rule.args) {
               arg_ix[k] = 0
               arg_ts[k] = go(rule.args[k].fid)
@@ -1343,7 +1343,7 @@ class Chart {
   }
 
   public expandForest(fid: FId): Apply[] {
-    let rules = []
+    let rules: Apply[] = []
     let forest = this.forest
 
     let go = function (rules0: Rule[]): void {
@@ -1351,7 +1351,7 @@ class Chart {
         let rule = rules0[i]
         switch (rule.id) {
           case 'Apply':
-            rules.push(rule)
+            rules.push(rule as Apply)
             break
           case 'Coerce':
             go(forest[(rule as Coerce).arg])
@@ -1406,7 +1406,7 @@ class ActiveItem {
   }
 
   public shiftOverArg(i: number, fid: FId): ActiveItem {
-    let nargs = []
+    let nargs: PArg[] = []
     for (let k in this.args) {
       nargs[k] = this.args[k]
     }
