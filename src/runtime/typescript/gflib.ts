@@ -6,18 +6,10 @@
  * A port of the pure JavaScript runtime (/src/runtime/javascript/gflib.js) into TypeScript
  */
 
-// Note: the String prototype is extended with:
-// String.prototype.tag = "";
-// String.prototype.setTag = function (tag) { this.tag = tag; };
-
-interface Taggable {
-  tag?: string;
-}
-
 /**
  * A GF grammar is one abstract and multiple concretes
  */
-export class GFGrammar {
+class GFGrammar { // eslint-disable-line @typescript-eslint/no-unused-vars
   public abstract: GFAbstract
   public concretes: {[key: string]: GFConcrete}
 
@@ -62,7 +54,7 @@ export class GFGrammar {
 /**
  * Abstract Syntax Tree
  */
-export class Fun {
+class Fun {
   public name: string
   public args: Fun[]
   public type?: string
@@ -408,7 +400,7 @@ class GFConcrete {
               case 'KS':
               case 'KP': {
                 let sym = sym0 as SymKS | SymKP
-                toks.push(this.tagIt(sym,tag))
+                toks.push(sym.tagWith(tag))
                 break
               }
             }
@@ -428,14 +420,14 @@ class GFConcrete {
         case 'KS': {
           let sym = sym0 as SymKS
           for (let j in sym.tokens) {
-            ts.push(this.tagIt(sym.tokens[j],sym.tag))
+            ts.push(sym.tokens[j].tagWith(sym.tag))
           }
           break
         }
         case 'KP': {
           let sym = sym0 as SymKP
           for (let j in sym.tokens) {
-            ts.push(this.tagIt(sym.tokens[j],sym.tag))
+            ts.push(sym.tokens[j].tagWith(sym.tag))
           }
           break
         }
@@ -482,21 +474,21 @@ class GFConcrete {
     return s
   }
 
-  private tagIt(obj: Taggable, tag: string): Taggable {
-    if (isString(obj)) {
-      let o = new String(obj)
-      o.setTag(tag)
-      return o
-    } else {
-      let me = arguments.callee
-      if (arguments.length == 2) {
-        me.prototype = obj
-        let o = new me()
-        o.tag = tag
-        return o
-      }
-    }
-  }
+  // private tagIt(obj: Taggable, tag: string): Taggable {
+  //   if (isString(obj)) {
+  //     let o = new String(obj)
+  //     o.setTag(tag)
+  //     return o
+  //   } else {
+  //     let me = arguments.callee
+  //     if (arguments.length == 2) {
+  //       me.prototype = obj
+  //       let o = new me()
+  //       o.tag = tag
+  //       return o
+  //     }
+  //   }
+  // }
 
   // public showRules(): string {
   //   let ruleStr = []
@@ -615,6 +607,26 @@ class GFConcrete {
     // Note: return used tokens too
     return { 'consumed' : tokens, 'suggestions' : suggs }
   }
+}
+
+/**
+ * A type which can be tagged
+ */
+interface Taggable {
+  tag?: string;
+  tagWith: (tag: string) => Taggable;
+}
+
+/**
+ * Strings can also be tagged in the same way
+ */
+interface String {
+  tag?: string;
+  tagWith: (tag: string) => string;
+}
+String.prototype.tagWith = function (tag: string): string {
+  this.tag = tag
+  return this
 }
 
 /**
@@ -783,6 +795,11 @@ class SymKS implements Taggable {
     terminalStr.push('"', this.tokens, '"')
     return terminalStr.join('')
   }
+
+  public tagWith(tag: string): SymKS {
+    this.tag = tag
+    return this
+  }
 }
 
 /**
@@ -804,6 +821,11 @@ class SymKP implements Taggable {
     let terminalStr = []
     terminalStr.push('"', this.tokens, '"')
     return terminalStr.join('')
+  }
+
+  public tagWith(tag: string): SymKS {
+    this.tag = tag
+    return this
   }
 }
 
@@ -1423,52 +1445,48 @@ class ActiveItem {
  * Utilities
  */
 
-/*
-eslint-disable
-  @typescript-eslint/no-explicit-any,
-  @typescript-eslint/no-unused-vars
-*/
+/* eslint-disable @typescript-eslint/no-explicit-any */
 
 /* from Remedial JavaScript by Douglas Crockford, http://javascript.crockford.com/remedial.html */
-function isString(a: any): boolean {
-  return typeof a == 'string'
-}
-function isArray(a: any): boolean {
-  return a && typeof a == 'object' && a.constructor == Array
-}
+// function isString(a: any): boolean {
+//   return typeof a == 'string'
+// }
+// function isArray(a: any): boolean {
+//   return a && typeof a == 'object' && a.constructor == Array
+// }
 function isUndefined(a: any): boolean {
   return typeof a == 'undefined'
 }
-function isBoolean(a: any): boolean {
-  return typeof a == 'boolean'
-}
-function isNumber(a: any): boolean {
-  return typeof a == 'number' && isFinite(a)
-}
-function isFunction(a: any): boolean {
-  return typeof a == 'function'
-}
-function dumpObject (obj: any): string {
-  if (isUndefined(obj)) {
-    return 'undefined'
-  } else if (isString(obj)) {
-    return '"' + obj.toString() + '"' // FIXME: escape
-  } else if (isBoolean(obj) || isNumber(obj)) {
-    return obj.toString()
-  } else if (isArray(obj)) {
-    let x = '['
-    for (let i = 0; i < obj.length; i++) {
-      x += dumpObject(obj[i])
-      if (i < obj.length-1) {
-        x += ','
-      }
-    }
-    return x + ']'
-  } else {
-    let x = '{'
-    for (let y in obj) {
-      x += y + '=' + dumpObject(obj[y]) + ';'
-    }
-    return x + '}'
-  }
-}
+// function isBoolean(a: any): boolean {
+//   return typeof a == 'boolean'
+// }
+// function isNumber(a: any): boolean {
+//   return typeof a == 'number' && isFinite(a)
+// }
+// function isFunction(a: any): boolean {
+//   return typeof a == 'function'
+// }
+// function dumpObject (obj: any): string {
+//   if (isUndefined(obj)) {
+//     return 'undefined'
+//   } else if (isString(obj)) {
+//     return '"' + obj.toString() + '"' // FIXME: escape
+//   } else if (isBoolean(obj) || isNumber(obj)) {
+//     return obj.toString()
+//   } else if (isArray(obj)) {
+//     let x = '['
+//     for (let i = 0; i < obj.length; i++) {
+//       x += dumpObject(obj[i])
+//       if (i < obj.length-1) {
+//         x += ','
+//       }
+//     }
+//     return x + ']'
+//   } else {
+//     let x = '{'
+//     for (let y in obj) {
+//       x += y + '=' + dumpObject(obj[y]) + ';'
+//     }
+//     return x + '}'
+//   }
+// }

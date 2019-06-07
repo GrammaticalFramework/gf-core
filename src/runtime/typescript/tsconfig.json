@@ -1,5 +1,8 @@
 {
   "compilerOptions": {
+    "module": "none",
+    "target": "es3",
     "noImplicitAny": true
-  }
+  },
+  "compileOnSave": true
 }
