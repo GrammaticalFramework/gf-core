@@ -1,3 +1,4 @@
+"use strict";
 var GFGrammar = (function () {
     function GFGrammar(abstract, concretes) {
         this.abstract = abstract;
@@ -171,13 +172,16 @@ var GFAbstract = (function () {
         return t;
     };
     GFAbstract.prototype.parseTree = function (str, type) {
-        return this.annotate(this.parseTree_(str.match(/[\w\'\.\"]+|\(|\)|\?|\:/g), 0), type);
+        var pt = this.parseTree_(str.match(/[\w\'\.\"]+|\(|\)|\?|\:/g) || [], 0);
+        return pt ? this.annotate(pt, type) : null;
     };
     GFAbstract.prototype.parseTree_ = function (tokens, prec) {
         if (tokens.length == 0 || tokens[0] == ')') {
             return null;
         }
         var t = tokens.shift();
+        if (!t)
+            return null;
         if (t == '(') {
             var tree = this.parseTree_(tokens, 0);
             tokens.shift();
@@ -422,7 +426,8 @@ var GFConcrete = (function () {
     };
     GFConcrete.prototype.tokenize = function (string) {
         var inToken = false;
-        var start, end;
+        var start = 0;
+        var end;
         var tokens = [];
         var i;
         for (i = 0; i < string.length; i++) {
@@ -492,8 +497,6 @@ var GFConcrete = (function () {
         if (acc.value) {
             acc.value.forEach(function (a) {
                 a.seq.forEach(function (s) {
-                    if (s.tokens == null)
-                        return;
                     switch (s.id) {
                         case 'KS': {
                             s.tokens.forEach(function (t) {
@@ -565,6 +568,8 @@ var PArg = (function () {
         this.fid = hypos[hypos.length - 1];
         if (hypos.length > 1)
             this.hypos = hypos.slice(0, hypos.length - 1);
+        else
+            this.hypos = [];
     }
     return PArg;
 }());

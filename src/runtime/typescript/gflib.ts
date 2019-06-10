@@ -6,6 +6,11 @@
  * A port of the pure JavaScript runtime (/src/runtime/javascript/gflib.js) into TypeScript
  */
 
+// We use wrapper type String (instead of primitive string) as we
+// extend its prototype with tagging information.
+// This linting rule doesn't allow use of String, thus must be disabled:
+/* eslint-disable @typescript-eslint/ban-types */
+
 /**
  * A GF grammar is one abstract and multiple concretes
  */
@@ -22,8 +27,8 @@ class GFGrammar { // eslint-disable-line @typescript-eslint/no-unused-vars
     input: string,
     fromLang: string,
     toLang: string
-  ): {[key: string]: {[key: string]: string}[]} {
-    let outputs: {[key: string]: {[key: string]: string}[]} = {}
+  ): {[key: string]: {[key: string]: String}[]} {
+    let outputs: {[key: string]: {[key: string]: String}[]} = {}
     let fromConcs = this.concretes
     if (fromLang) {
       fromConcs = {}
@@ -214,15 +219,17 @@ class GFAbstract {
     return t
   }
 
-  public parseTree(str: string, type: string): Fun {
-    return this.annotate(this.parseTree_(str.match(/[\w\'\.\"]+|\(|\)|\?|\:/g), 0), type)
+  public parseTree(str: string, type: string): Fun | null {
+    let pt = this.parseTree_(str.match(/[\w\'\.\"]+|\(|\)|\?|\:/g) || [], 0)
+    return pt ? this.annotate(pt, type) : null
   }
 
-  private parseTree_(tokens: string[], prec: number): Fun {
+  private parseTree_(tokens: string[], prec: number): Fun | null {
     if (tokens.length == 0 || tokens[0] == ')') {
       return null
     }
     let t = tokens.shift()
+    if (!t) return null
     if (t == '(') {
       let tree = this.parseTree_(tokens, 0)
       tokens.shift()
@@ -233,7 +240,7 @@ class GFAbstract {
     } else {
       let tree = new Fun(t)
       if (prec == 0) {
-        let c: Fun
+        let c: Fun | null
         let i: number
         for (i = 0; (c = this.parseTree_(tokens, 1)) !== null; i++) {
           tree.setArg(i,c)
@@ -356,7 +363,7 @@ class GFConcrete {
       res.push({fid: -3, table: [[sym]]})
     } else if (tree.isMeta()) {
       // TODO: Use lindef here
-      let cat = this.startCats[tree.type]
+      let cat = this.startCats[tree.type as string]
 
       let sym = new SymKS(tree.name)
       sym.tag = tag
@@ -413,15 +420,15 @@ class GFConcrete {
     return res
   }
 
-  private syms2toks(syms: Sym[]): string[] {
-    let ts: string[] = []
+  private syms2toks(syms: Sym[]): String[] {
+    let ts: String[] = []
     for (let i = 0; i < syms.length; i++) {
       let sym0 = syms[i]
       switch (sym0.id) {
         case 'KS': {
           let sym = sym0 as SymKS
           for (let j in sym.tokens) {
-            ts.push(sym.tokens[j].tagWith(sym.tag))
+            ts.push(sym.tokens[j].tagWith(sym.tag as string))
           }
           break
         }
@@ -437,7 +444,7 @@ class GFConcrete {
                 if (alt.prefixes.some((p: string): boolean => nextToken.startsWith(p))) {
                   alt.tokens.forEach((symks: SymKS): void => {
                     symks.tokens.forEach((t: string): void => {
-                      ts.push(t.tagWith(sym.tag))
+                      ts.push(t.tagWith(sym.tag as string))
                     })
                   })
                   addedAlt = true
@@ -450,7 +457,7 @@ class GFConcrete {
           // Fall through here when no alts (or none apply)
           sym.tokens.forEach((symks: SymKS): void => {
             symks.tokens.forEach((t: string): void => {
-              ts.push(t.tagWith(sym.tag))
+              ts.push(t.tagWith(sym.tag as string))
             })
           })
           break
@@ -460,23 +467,23 @@ class GFConcrete {
     return ts
   }
 
-  public linearizeAll(tree: Fun): string[] {
-    return this.linearizeSyms(tree,'0').map((r): string => {
+  public linearizeAll(tree: Fun): String[] {
+    return this.linearizeSyms(tree,'0').map((r): String => {
       return this.unlex(this.syms2toks(r.table[0]))
     })
   }
 
-  public linearize(tree: Fun): string {
+  public linearize(tree: Fun): String {
     let res = this.linearizeSyms(tree,'0')
     return this.unlex(this.syms2toks(res[0].table[0]))
   }
 
-  public tagAndLinearize(tree: Fun): string[] {
+  public tagAndLinearize(tree: Fun): String[] {
     let res = this.linearizeSyms(tree,'0')
     return this.syms2toks(res[0].table[0])
   }
 
-  private unlex(ts: string[]): string {
+  private unlex(ts: String[]): String {
     if (ts.length == 0) {
       return ''
     }
@@ -486,8 +493,8 @@ class GFConcrete {
 
     let s = ''
     for (let i = 0; i < ts.length; i++) {
-      let t: string = ts[i]
-      let after: string | null = i < ts.length-1 ? ts[i+1] : null
+      let t: String = ts[i]
+      let after: String | null = i < ts.length-1 ? ts[i+1] : null
       s += t
       if (after != null
        && !t.match(noSpaceAfter)
@@ -526,7 +533,8 @@ class GFConcrete {
 
   private tokenize(string: string): string[] {
     let inToken = false
-    let start: number, end: number
+    let start = 0
+    let end: number
     let tokens = []
 
     let i: number
@@ -619,8 +627,7 @@ class GFConcrete {
     let suggs: string[] = []
     if (acc.value) {
       acc.value.forEach((a: ActiveItem): void =>{
-        a.seq.forEach((s: SymKS | SymKP): void => {
-          if (s.tokens == null) return
+        a.seq.forEach((s: Sym): void => {
           switch (s.id) {
             case 'KS': {
               (s as SymKS).tokens.forEach((t: string): void => {
@@ -659,9 +666,9 @@ interface Taggable {
  */
 interface String {
   tag?: string;
-  tagWith: (tag: string) => string;
+  tagWith: (tag: string) => String;
 }
-String.prototype.tagWith = function (tag: string): string {
+String.prototype.tagWith = function (tag: string): String {
   // returns a copy
   let s2 = this
   s2.tag = tag
@@ -741,6 +748,8 @@ class PArg {
     this.fid = hypos[hypos.length-1]
     if (hypos.length > 1)
       this.hypos = hypos.slice(0, hypos.length-1)
+    else
+      this.hypos = []
   }
 }
 
@@ -913,7 +922,7 @@ class SymLit {
  * Trie
  */
 class Trie<T> {
-  public value: T[]
+  public value: T[] | null
   private items: {[key: string]: Trie<T>}
 
   public constructor() {
@@ -1193,13 +1202,13 @@ class ParseState {
   }
 
   private process(
-    agenda: ActiveItem[],
+    agenda: ActiveItem[] | null,
     literalCallback: (fid: FId) => Const | null, // this is right
     tokenCallback: (tokens: string[], item: ActiveItem) => void
   ): void {
     if (agenda != null) {
       while (agenda.length > 0) {
-        let item = agenda.pop()
+        let item = agenda.pop() as ActiveItem
         let lin = item.seq
 
         if (item.dot < lin.length) {
