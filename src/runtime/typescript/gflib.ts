@@ -662,8 +662,10 @@ interface String {
   tagWith: (tag: string) => string;
 }
 String.prototype.tagWith = function (tag: string): string {
-  this.tag = tag
-  return this
+  // returns a copy
+  let s2 = this
+  s2.tag = tag
+  return s2
 }
 
 /**
@@ -833,10 +835,11 @@ class SymKS implements Taggable {
     return terminalStr.join('')
   }
 
-  // TODO magic numbering fails here
   public tagWith(tag: string): SymKS {
-    this.tag = tag
-    return this
+    let s = new SymKS()
+    s.tokens = [...this.tokens] // copy array
+    s.tag = tag
+    return s
   }
 }
 
@@ -861,10 +864,10 @@ class SymKP implements Taggable {
     return terminalStr.join('')
   }
 
-  // TODO magic numbering fails here
   public tagWith(tag: string): SymKP {
-    this.tag = tag
-    return this
+    let s = new SymKP([...this.tokens], [...this.alts]) // copy arguments
+    s.tag = tag
+    return s
   }
 }
 
