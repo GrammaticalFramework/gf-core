@@ -351,7 +351,7 @@ var GFConcrete = (function () {
                 case 'KS': {
                     var sym = sym0;
                     for (var j in sym.tokens) {
-                        ts.push(sym.tokens[j].tagWith(sym.tag));
+                        ts.push(new TaggedString(sym.tokens[j], sym.tag));
                     }
                     break;
                 }
@@ -366,7 +366,7 @@ var GFConcrete = (function () {
                                 if (alt.prefixes.some(function (p) { return nextToken_1.startsWith(p); })) {
                                     alt.tokens.forEach(function (symks) {
                                         symks.tokens.forEach(function (t) {
-                                            ts.push(t.tagWith(sym_1.tag));
+                                            ts.push(new TaggedString(t, sym_1.tag));
                                         });
                                     });
                                     addedAlt_1 = true;
@@ -379,7 +379,7 @@ var GFConcrete = (function () {
                         break;
                     sym_1.tokens.forEach(function (symks) {
                         symks.tokens.forEach(function (t) {
-                            ts.push(t.tagWith(sym_1.tag));
+                            ts.push(new TaggedString(t, sym_1.tag));
                         });
                     });
                     break;
@@ -413,8 +413,8 @@ var GFConcrete = (function () {
         var noSpaceBefore = /^[\.\,\?\!\)\:\;\-\]]/;
         var s = '';
         for (var i = 0; i < ts.length; i++) {
-            var t = ts[i];
-            var after = i < ts.length - 1 ? ts[i + 1] : null;
+            var t = ts[i].s;
+            var after = i < ts.length - 1 ? ts[i + 1].s : null;
             s += t;
             if (after != null
                 && !t.match(noSpaceAfter)
@@ -520,11 +520,13 @@ var GFConcrete = (function () {
     };
     return GFConcrete;
 }());
-String.prototype.tagWith = function (tag) {
-    var s2 = this;
-    s2.tag = tag;
-    return s2;
-};
+var TaggedString = (function () {
+    function TaggedString(s, tag) {
+        this.s = s;
+        this.tag = tag;
+    }
+    return TaggedString;
+}());
 var Apply = (function () {
     function Apply(fun, args) {
         this.id = 'Apply';

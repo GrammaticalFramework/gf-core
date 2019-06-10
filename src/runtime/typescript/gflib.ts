@@ -6,11 +6,6 @@
  * A port of the pure JavaScript runtime (/src/runtime/javascript/gflib.js) into TypeScript
  */
 
-// We use wrapper type String (instead of primitive string) as we
-// extend its prototype with tagging information.
-// This linting rule doesn't allow use of String, thus must be disabled:
-/* eslint-disable @typescript-eslint/ban-types */
-
 /**
  * A GF grammar is one abstract and multiple concretes
  */
@@ -27,8 +22,8 @@ class GFGrammar { // eslint-disable-line @typescript-eslint/no-unused-vars
     input: string,
     fromLang: string,
     toLang: string
-  ): {[key: string]: {[key: string]: String}[]} {
-    let outputs: {[key: string]: {[key: string]: String}[]} = {}
+  ): {[key: string]: {[key: string]: string}[]} {
+    let outputs: {[key: string]: {[key: string]: string}[]} = {}
     let fromConcs = this.concretes
     if (fromLang) {
       fromConcs = {}
@@ -420,15 +415,15 @@ class GFConcrete {
     return res
   }
 
-  private syms2toks(syms: Sym[]): String[] {
-    let ts: String[] = []
+  private syms2toks(syms: Sym[]): TaggedString[] {
+    let ts: TaggedString[] = []
     for (let i = 0; i < syms.length; i++) {
       let sym0 = syms[i]
       switch (sym0.id) {
         case 'KS': {
           let sym = sym0 as SymKS
           for (let j in sym.tokens) {
-            ts.push(sym.tokens[j].tagWith(sym.tag as string))
+            ts.push(new TaggedString(sym.tokens[j], sym.tag as string))
           }
           break
         }
@@ -444,7 +439,7 @@ class GFConcrete {
                 if (alt.prefixes.some((p: string): boolean => nextToken.startsWith(p))) {
                   alt.tokens.forEach((symks: SymKS): void => {
                     symks.tokens.forEach((t: string): void => {
-                      ts.push(t.tagWith(sym.tag as string))
+                      ts.push(new TaggedString(t, sym.tag as string))
                     })
                   })
                   addedAlt = true
@@ -457,7 +452,7 @@ class GFConcrete {
           // Fall through here when no alts (or none apply)
           sym.tokens.forEach((symks: SymKS): void => {
             symks.tokens.forEach((t: string): void => {
-              ts.push(t.tagWith(sym.tag as string))
+              ts.push(new TaggedString(t, sym.tag as string))
             })
           })
           break
@@ -467,23 +462,23 @@ class GFConcrete {
     return ts
   }
 
-  public linearizeAll(tree: Fun): String[] {
-    return this.linearizeSyms(tree,'0').map((r): String => {
+  public linearizeAll(tree: Fun): string[] {
+    return this.linearizeSyms(tree,'0').map((r): string => {
       return this.unlex(this.syms2toks(r.table[0]))
     })
   }
 
-  public linearize(tree: Fun): String {
+  public linearize(tree: Fun): string {
     let res = this.linearizeSyms(tree,'0')
     return this.unlex(this.syms2toks(res[0].table[0]))
   }
 
-  public tagAndLinearize(tree: Fun): String[] {
+  public tagAndLinearize(tree: Fun): TaggedString[] {
     let res = this.linearizeSyms(tree,'0')
     return this.syms2toks(res[0].table[0])
   }
 
-  private unlex(ts: String[]): String {
+  private unlex(ts: TaggedString[]): string {
     if (ts.length == 0) {
       return ''
     }
@@ -493,8 +488,8 @@ class GFConcrete {
 
     let s = ''
     for (let i = 0; i < ts.length; i++) {
-      let t: String = ts[i]
-      let after: String | null = i < ts.length-1 ? ts[i+1] : null
+      let t: string = ts[i].s
+      let after: string | null = i < ts.length-1 ? ts[i+1].s : null
       s += t
       if (after != null
        && !t.match(noSpaceAfter)
@@ -654,25 +649,17 @@ class GFConcrete {
 }
 
 /**
- * A type which can be tagged
+ * A string with a tag
+ * This avoids modifying the String prototype, which was messy
  */
-interface Taggable {
-  tag?: string;
-  tagWith: (tag: string) => Taggable;
-}
+class TaggedString {
+  public s: string
+  public tag: string
 
-/**
- * Strings can also be tagged in the same way
- */
-interface String {
-  tag?: string;
-  tagWith: (tag: string) => String;
-}
-String.prototype.tagWith = function (tag: string): String {
-  // returns a copy
-  let s2 = this
-  s2.tag = tag
-  return s2
+  public constructor(s: string, tag: string) {
+    this.s = s
+    this.tag = tag
+  }
 }
 
 /**
@@ -828,7 +815,7 @@ class SymCat {
 /**
  * SymKS: Object to represent terminals in grammar rules
  */
-class SymKS implements Taggable {
+class SymKS {
   public id: string
   public tokens: string[]
   public tag?: string
@@ -855,7 +842,7 @@ class SymKS implements Taggable {
 /**
  * SymKP: Object to represent pre in grammar rules
  */
-class SymKP implements Taggable {
+class SymKP {
   public id: string
   public tokens: SymKS[]
   public alts: Alt[]
