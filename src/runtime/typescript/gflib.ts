@@ -1115,8 +1115,9 @@ class ParseState {
       } else {
         let trees: Fun[] = []
 
-        let rules = forest[fid]
-        rules.forEach((rule: Rule): void => {
+        let rules = forest[fid] // could be undefined
+        for (let j in rules) {
+          let rule: Rule = rules[j]
           if (rule.id == 'Const') {
             trees.push((rule as Const).lit)
           } else {
@@ -1149,7 +1150,7 @@ class ParseState {
                 break
             }
           }
-        })
+        }
 
         return trees
       }
@@ -1495,9 +1496,9 @@ class ActiveItem {
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
 /* from Remedial JavaScript by Douglas Crockford, http://javascript.crockford.com/remedial.html */
-function isString(a: any): boolean {
-  return typeof a == 'string' || a instanceof String
-}
+// function isString(a: any): boolean {
+//   return typeof a == 'string' || a instanceof String
+// }
 // function isArray(a: any): boolean {
 //   return a && typeof a == 'object' && a.constructor == Array
 // }
