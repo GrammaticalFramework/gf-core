@@ -2,7 +2,9 @@
   "compilerOptions": {
     "module": "none",
     "target": "es3",
-    "noImplicitAny": true
+    "noImplicitAny": true,
+    "removeComments": true,
+    "outDir": "js"
   },
   "compileOnSave": true
 }
