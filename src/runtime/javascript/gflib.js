@@ -391,11 +391,11 @@ GFConcrete.prototype.unlex = function (ts) {
 };
 GFConcrete.prototype.tagIt = function (obj, tag) {
   if (isString(obj)) {
-  var o = new String(obj);
-  o.setTag(tag);
-  return o;
+    var o = new String(obj);
+    o.setTag(tag);
+    return o;
   } else {
-  var me = arguments.callee;
+    var me = arguments.callee;
     if (arguments.length == 2) {
       me.prototype = obj;
       var o = new me();
