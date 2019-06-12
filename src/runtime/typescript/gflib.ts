@@ -1535,6 +1535,8 @@ function isUndefined(a: any): boolean {
 //   }
 // }
 
+// A polyfill with provides the String.startsWith function for older targets
+// If you are targeting ES6(2015) or later, you don't need this
 // https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/String/startsWith#Polyfill
 // if (!String.prototype.startsWith) {
 interface String {
@@ -1546,4 +1548,23 @@ Object.defineProperty(String.prototype, 'startsWith', {
     return this.substring(pos, pos + search.length) === search
   }
 })
+// }
+
+// If you want to make this into a proper module, uncomment this:
+// export {
+//   GFGrammar,
+//   GFAbstract,
+//   GFConcrete,
+//   Fun,
+//   Type,
+//   Apply,
+//   Coerce,
+//   PArg,
+//   Const,
+//   CncFun,
+//   SymCat,
+//   SymKS,
+//   SymKP,
+//   SymLit,
+//   Alt,
 // }
