@@ -172,7 +172,7 @@ var GFAbstract = (function () {
         return t;
     };
     GFAbstract.prototype.parseTree = function (str, type) {
-        var pt = this.parseTree_(str.match(/[\w\'\.\"]+|\(|\)|\?|\:/g) || [], 0);
+        var pt = this.parseTree_(str.match(/[\w\u00C0-\u00FF\'\.\"]+|\(|\)|\?|\:/g) || [], 0);
         return pt ? this.annotate(pt, type) : null;
     };
     GFAbstract.prototype.parseTree_ = function (tokens, prec) {

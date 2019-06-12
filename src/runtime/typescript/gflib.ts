@@ -215,7 +215,7 @@ class GFAbstract {
   }
 
   public parseTree(str: string, type: string): Fun | null {
-    let pt = this.parseTree_(str.match(/[\w\'\.\"]+|\(|\)|\?|\:/g) || [], 0)
+    let pt = this.parseTree_(str.match(/[\w\u00C0-\u00FF\'\.\"]+|\(|\)|\?|\:/g) || [], 0)
     return pt ? this.annotate(pt, type) : null
   }
 
