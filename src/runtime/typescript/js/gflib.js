@@ -304,6 +304,7 @@ var GFConcrete = (function () {
             var key = tree.name;
             for (var i in cs_1) {
                 if (isUndefined(cs_1[i])) {
+                    console.warn(tree.args[i].name + " is undefined");
                     return [{
                             fid: -5,
                             table: [[new SymKS("[" + tree.name + "]").tagWith(tag)]]

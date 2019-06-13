@@ -377,6 +377,7 @@ class GFConcrete {
       for (let i in cs) {
         if (isUndefined(cs[i])) {
           // Some arguments into this function are undefined
+          console.warn(`${tree.args[i].name} is undefined`)
           return [{
             fid: -5, // signal to parent that I cannot lin properly
             table: [[new SymKS(`[${tree.name}]`).tagWith(tag)]]
