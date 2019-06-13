@@ -133,11 +133,11 @@ var GFAbstract = (function () {
         return this.types[fun].cat;
     };
     GFAbstract.prototype.annotate = function (tree, type) {
-        if (tree.name == '?') {
+        var typ = this.types[tree.name];
+        if (tree.isMeta()) {
             tree.type = type;
         }
-        else {
-            var typ = this.types[tree.name];
+        else if (!isUndefined(typ)) {
             for (var i in tree.args) {
                 this.annotate(tree.args[i], typ.args[i]);
             }

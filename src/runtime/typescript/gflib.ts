@@ -57,7 +57,7 @@ class GFGrammar { // eslint-disable-line @typescript-eslint/no-unused-vars
 class Fun {
   public name: string
   public args: Fun[]
-  public type?: string
+  public type?: string // only used for meta variables
 
   public constructor(name: string, ...args: Fun[]) {
     this.name = name
@@ -173,11 +173,12 @@ class GFAbstract {
     return this.types[fun].cat
   }
 
-  private annotate(tree: Fun, type: string): Fun {
-    if (tree.name == '?') {
+  // Annotate (only) meta variables
+  private annotate(tree: Fun, type?: string): Fun {
+    let typ: Type | undefined = this.types[tree.name]
+    if (tree.isMeta()) {
       tree.type = type
-    } else {
-      let typ = this.types[tree.name]
+    } else if (!isUndefined(typ)) {
       for (let i in tree.args) {
         this.annotate(tree.args[i], typ.args[i])
       }
@@ -214,7 +215,7 @@ class GFAbstract {
     return t
   }
 
-  public parseTree(str: string, type: string): Fun | null {
+  public parseTree(str: string, type?: string): Fun | null {
     let pt = this.parseTree_(str.match(/[\w\u00C0-\u00FF\'\.\"]+|\(|\)|\?|\:/g) || [], 0)
     return pt ? this.annotate(pt, type) : null
   }
