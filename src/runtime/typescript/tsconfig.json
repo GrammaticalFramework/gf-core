@@ -5,7 +5,8 @@
     "strict": true,
     "noImplicitAny": true,
     "removeComments": true,
-    "outDir": "js"
+    "outDir": "js",
+    "sourceMap": true
   },
   "compileOnSave": true
 }
