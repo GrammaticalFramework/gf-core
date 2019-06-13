@@ -374,7 +374,25 @@ class GFConcrete {
       }
       let key = tree.name
       for (let i in cs) {
-        key = key + '_' + cs[i].fid
+        if (isUndefined(cs[i])) {
+          // Some arguments into this function are undefined
+          return [{
+            fid: -5, // signal to parent that I cannot lin properly
+            table: [[new SymKS(`[${tree.name}]`).tagWith(tag)]]
+          }]
+        } else if (cs[i].fid === -5) {
+          // My child cannot lin properly, just find first matching rule for me
+          // TODO probably not general enough
+          for (let k in this.lproductions) {
+            if (k.includes(tree.name)) {
+              key = k
+              break
+            }
+          }
+          break
+        } else {
+          key = key + '_' + cs[i].fid
+        }
       }
 
       for (let i in this.lproductions[key]) {
@@ -470,12 +488,18 @@ class GFConcrete {
 
   public linearize(tree: Fun): string {
     let res = this.linearizeSyms(tree,'0')
-    return this.unlex(this.syms2toks(res[0].table[0]))
+    if (res.length > 0)
+      return this.unlex(this.syms2toks(res[0].table[0]))
+    else
+      return ''
   }
 
   public tagAndLinearize(tree: Fun): TaggedString[] {
     let res = this.linearizeSyms(tree,'0')
-    return this.syms2toks(res[0].table[0])
+    if (res.length > 0)
+      return this.syms2toks(res[0].table[0])
+    else
+      return []
   }
 
   private unlex(ts: TaggedString[]): string {
@@ -1489,8 +1513,6 @@ class ActiveItem {
  * Utilities
  */
 
-/* eslint-disable @typescript-eslint/no-explicit-any */
-
 /* from Remedial JavaScript by Douglas Crockford, http://javascript.crockford.com/remedial.html */
 // function isString(a: any): boolean {
 //   return typeof a == 'string' || a instanceof String
@@ -1498,7 +1520,7 @@ class ActiveItem {
 // function isArray(a: any): boolean {
 //   return a && typeof a == 'object' && a.constructor == Array
 // }
-function isUndefined(a: any): boolean {
+function isUndefined(a: any): boolean { // eslint-disable-line @typescript-eslint/no-explicit-any
   return typeof a == 'undefined'
 }
 // function isBoolean(a: any): boolean {
@@ -1535,22 +1557,47 @@ function isUndefined(a: any): boolean {
 //   }
 // }
 
-// A polyfill with provides the String.startsWith function for older targets
-// If you are targeting ES6(2015) or later, you don't need this
-// https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/String/startsWith#Polyfill
-// if (!String.prototype.startsWith) {
+/**
+ * Polyfills for older targets
+ */
+
 interface String {
   startsWith: (search: string, pos?: number) => boolean;
+  includes: (search: string, start?: number) => boolean;
 }
-Object.defineProperty(String.prototype, 'startsWith', {
-  value: function(search: string, pos?: number): boolean {
-    pos = !pos || pos < 0 ? 0 : +pos
-    return this.substring(pos, pos + search.length) === search
-  }
-})
-// }
 
-// If you want to make this into a proper module, uncomment this:
+// https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/String/startsWith#Polyfill
+if (!String.prototype.startsWith) {
+  Object.defineProperty(String.prototype, 'startsWith', {
+    value: function(search: string, pos?: number): boolean {
+      pos = !pos || pos < 0 ? 0 : +pos
+      return this.substring(pos, pos + search.length) === search
+    }
+  })
+}
+// https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/String/includes#Polyfill
+if (!String.prototype.includes) {
+  Object.defineProperty(String.prototype, 'includes', {
+    value: function(search: string, start?: number): boolean {
+      'use strict'
+      if (typeof start !== 'number') {
+        start = 0
+      }
+
+      if (start + search.length > this.length) {
+        return false
+      } else {
+        return this.indexOf(search, start) !== -1
+      }
+    }
+  })
+}
+
+/**
+ * gflib.ts as a module
+ * If you want to make this into a proper module, uncomment this:
+ */
+
 // export {
 //   GFGrammar,
 //   GFAbstract,

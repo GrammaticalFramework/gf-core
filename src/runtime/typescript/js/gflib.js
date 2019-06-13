@@ -303,7 +303,24 @@ var GFConcrete = (function () {
             }
             var key = tree.name;
             for (var i in cs_1) {
-                key = key + '_' + cs_1[i].fid;
+                if (isUndefined(cs_1[i])) {
+                    return [{
+                            fid: -5,
+                            table: [[new SymKS("[" + tree.name + "]").tagWith(tag)]]
+                        }];
+                }
+                else if (cs_1[i].fid === -5) {
+                    for (var k in this.lproductions) {
+                        if (k.includes(tree.name)) {
+                            key = k;
+                            break;
+                        }
+                    }
+                    break;
+                }
+                else {
+                    key = key + '_' + cs_1[i].fid;
+                }
             }
             for (var i in this.lproductions[key]) {
                 var rule = this.lproductions[key][i];
@@ -399,11 +416,17 @@ var GFConcrete = (function () {
     };
     GFConcrete.prototype.linearize = function (tree) {
         var res = this.linearizeSyms(tree, '0');
-        return this.unlex(this.syms2toks(res[0].table[0]));
+        if (res.length > 0)
+            return this.unlex(this.syms2toks(res[0].table[0]));
+        else
+            return '';
     };
     GFConcrete.prototype.tagAndLinearize = function (tree) {
         var res = this.linearizeSyms(tree, '0');
-        return this.syms2toks(res[0].table[0]);
+        if (res.length > 0)
+            return this.syms2toks(res[0].table[0]);
+        else
+            return [];
     };
     GFConcrete.prototype.unlex = function (ts) {
         if (ts.length == 0) {
@@ -1113,9 +1136,27 @@ var ActiveItem = (function () {
 function isUndefined(a) {
     return typeof a == 'undefined';
 }
-Object.defineProperty(String.prototype, 'startsWith', {
-    value: function (search, pos) {
-        pos = !pos || pos < 0 ? 0 : +pos;
-        return this.substring(pos, pos + search.length) === search;
-    }
-});
+if (!String.prototype.startsWith) {
+    Object.defineProperty(String.prototype, 'startsWith', {
+        value: function (search, pos) {
+            pos = !pos || pos < 0 ? 0 : +pos;
+            return this.substring(pos, pos + search.length) === search;
+        }
+    });
+}
+if (!String.prototype.includes) {
+    Object.defineProperty(String.prototype, 'includes', {
+        value: function (search, start) {
+            'use strict';
+            if (typeof start !== 'number') {
+                start = 0;
+            }
+            if (start + search.length > this.length) {
+                return false;
+            }
+            else {
+                return this.indexOf(search, start) !== -1;
+            }
+        }
+    });
+}
