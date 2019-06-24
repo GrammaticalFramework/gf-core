@@ -1,0 +1,12 @@
+{
+  "compilerOptions": {
+    "module": "none",
+    "target": "es3",
+    "strict": true,
+    "noImplicitAny": true,
+    "removeComments": true,
+    "outDir": "js",
+    "sourceMap": true
+  },
+  "compileOnSave": true
+}
