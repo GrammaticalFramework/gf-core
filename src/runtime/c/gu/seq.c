@@ -360,13 +360,8 @@ GU_API void
 gu_buf_heap_pop(GuBuf *buf, GuOrder *order, void* data_out)
 {
 	const void* last = gu_buf_trim(buf); // raises an error if empty
-
-	if (gu_buf_length(buf) > 0) {
-		memcpy(data_out, buf->seq->data, buf->elem_size);
-		gu_heap_siftup(buf, order, last, 0);
-	} else {
-		memcpy(data_out, last, buf->elem_size);
-	}
+	memcpy(data_out, buf->seq->data, buf->elem_size);
+	gu_heap_siftup(buf, order, last, 0);
 }
 
 GU_API void
