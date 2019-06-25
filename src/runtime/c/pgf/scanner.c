@@ -3,7 +3,7 @@
 #include <gu/utf8.h>
 
 PGF_INTERNAL int
-cmp_string(GuString* psent, size_t* ppos, GuString tok,
+cmp_string(PgfCohortSpot* spot, GuString tok,
            bool case_sensitive)
 {
 	for (;;) {
@@ -11,7 +11,7 @@ cmp_string(GuString* psent, size_t* ppos, GuString tok,
 		if (c2 == 0)
 			return 0;
 
-		const uint8_t* p = (uint8_t*) *psent;
+		const uint8_t* p = (uint8_t*) spot->ptr;
 		GuUCS c1 = gu_utf8_decode(&p);
 		if (c1 == 0)
 			return -1;
@@ -22,8 +22,8 @@ cmp_string(GuString* psent, size_t* ppos, GuString tok,
 		if (c1 != c2)
 			return (c1-c2);
 
-		*psent = (GuString) p;
-		(*ppos)++;
+		spot->ptr = (GuString) p;
+		spot->pos++;
 	}
 }
 
@@ -40,7 +40,7 @@ skip_space(GuString* psent, size_t* ppos)
 }
 
 PGF_INTERNAL int
-pgf_symbols_cmp(GuString* psent, size_t* ppos,
+pgf_symbols_cmp(PgfCohortSpot* spot,
                 PgfSymbols* syms, size_t* sym_idx,
                 bool case_sensitive)
 {
@@ -49,14 +49,14 @@ pgf_symbols_cmp(GuString* psent, size_t* ppos,
 		PgfSymbol sym = gu_seq_get(syms, PgfSymbol, *sym_idx);
 
 		if (*sym_idx > 0) {
-			if (!skip_space(psent,ppos)) {
-				if (**psent == 0)
+			if (!skip_space(&spot->ptr,&spot->pos)) {
+				if (*spot->ptr == 0)
 					return -1;
 				return 1;
 			}
 
-			while (**psent != 0) {
-				if (!skip_space(psent,ppos))
+			while (*spot->ptr != 0) {
+				if (!skip_space(&spot->ptr,&spot->pos))
 					break;
 			}
 		}
@@ -66,16 +66,16 @@ pgf_symbols_cmp(GuString* psent, size_t* ppos,
 		case PGF_SYMBOL_CAT:
 		case PGF_SYMBOL_LIT:
 		case PGF_SYMBOL_VAR: {
-			if (**psent == 0)
+			if (*spot->ptr == 0)
 				return -1;
 			return 1;
 		}
 		case PGF_SYMBOL_KS: {
 			PgfSymbolKS* pks = inf.data;
-			if (**psent == 0)
+			if (*spot->ptr == 0)
 				return -1;
 
-			int cmp = cmp_string(psent,ppos,pks->token, case_sensitive);
+			int cmp = cmp_string(spot,pks->token, case_sensitive);
 			if (cmp != 0)
 				return cmp;
 			break;
@@ -131,14 +131,13 @@ pgf_sequence_cmp_fn(GuOrder* order, const void* p1, const void* p2)
 {
 	PgfSequenceOrder* self = gu_container(order, PgfSequenceOrder, order);
 
-	size_t pos = 0;
-	GuString sent = (GuString) p1;
+	PgfCohortSpot spot = {0, (GuString) p1};
 
 	const PgfSequence* sp2 = p2;
 
 	size_t sym_idx = 0;
-	int res = pgf_symbols_cmp(&sent, &pos, sp2->syms, &sym_idx, self->case_sensitive);
-	if (res == 0 && (*sent != 0 || sym_idx != gu_seq_length(sp2->syms))) {
+	int res = pgf_symbols_cmp(&spot, sp2->syms, &sym_idx, self->case_sensitive);
+	if (res == 0 && (*spot.ptr != 0 || sym_idx != gu_seq_length(sp2->syms))) {
 		res = 1;
 	}
 
@@ -210,7 +209,7 @@ pgf_lookup_cohorts_helper(PgfCohortsState *state, PgfCohortSpot* spot,
 		PgfCohortSpot current = *spot;
 
 		size_t sym_idx = 0;
-		int cmp = pgf_symbols_cmp(&current.ptr, &current.pos, seq->syms, &sym_idx, state->case_sensitive);
+		int cmp = pgf_symbols_cmp(&current, seq->syms, &sym_idx, state->case_sensitive);
 		if (cmp < 0) {
 			j = k-1;
 		} else if (cmp > 0) {
@@ -273,6 +272,7 @@ pgf_lookup_cohorts_enum_next(GuEnum* self, void* to, GuPool* pool)
 						1, (state->sentence+state->len)-spot.ptr);
 						
 		if (gu_buf_length(state->found) == 0) {
+			// skip one character and try again
 			gu_utf8_decode((const uint8_t**) &spot.ptr);
 			spot.pos++;
 			gu_buf_heap_push(state->spots, pgf_cohort_spot_order, &spot);
