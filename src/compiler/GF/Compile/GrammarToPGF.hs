@@ -1,4 +1,4 @@
-{-# LANGUAGE BangPatterns, FlexibleContexts #-}
+{-# LANGUAGE BangPatterns, FlexibleContexts, MagicHash #-}
 module GF.Compile.GrammarToPGF (mkCanon2pgf) where
 
 --import GF.Compile.Export
@@ -30,6 +30,10 @@ import qualified Data.Map as Map
 import qualified Data.IntMap as IntMap
 import Data.Array.IArray
 
+import Data.Char
+import GHC.Prim
+import GHC.Base(getTag)
+
 mkCanon2pgf :: Options -> SourceGrammar -> ModuleName -> IOE D.PGF
 mkCanon2pgf opts gr am = do
   (an,abs) <- mkAbstr am
@@ -59,7 +63,9 @@ mkCanon2pgf opts gr am = do
               [(0,i2i f) | ((m,f),AbsFun (Just (L _ ty)) _ _ (Just True)) <- adefs, snd (GM.valCat ty) == cat]
 
     mkConcr cm = do
-      let cflags  = err (const noOptions) mflags (lookupModule gr cm)
+      let cflags = err (const noOptions) mflags (lookupModule gr cm)
+          ciCmp | flag optCaseSensitive cflags = compare
+                | otherwise                    = compareCaseInsensitve
 
       (ex_seqs,cdefs) <- addMissingPMCFGs
                             Map.empty 
@@ -68,15 +74,15 @@ mkCanon2pgf opts gr am = do
 
       let flags = Map.fromList [(mkCId f,x) | (f,x) <- optionsPGF cflags]
 
-          seqs = (mkSetArray . Set.fromList . concat) $
+          seqs = (mkArray . sortNubBy ciCmp . concat) $
                      (Map.keys ex_seqs : [maybe [] elems (mseqs mi) | (m,mi) <- allExtends gr cm])
 
           ex_seqs_arr = mkMapArray ex_seqs :: Array SeqId Sequence
 
           !(!fid_cnt1,!cnccats) = genCncCats gr am cm cdefs
           !(!fid_cnt2,!productions,!lindefs,!linrefs,!cncfuns)
-                                = genCncFuns gr am cm ex_seqs_arr seqs cdefs fid_cnt1 cnccats
-        
+                                = genCncFuns gr am cm ex_seqs_arr ciCmp seqs cdefs fid_cnt1 cnccats
+
           printnames = genPrintNames cdefs
       return (mi2i cm, D.Concr flags
                               printnames
@@ -186,6 +192,7 @@ genCncFuns :: Grammar
            -> ModuleName
            -> ModuleName
            -> Array SeqId Sequence
+           -> (Sequence -> Sequence -> Ordering)
            -> Array SeqId Sequence
            -> [(QIdent, Info)]
            -> FId
@@ -195,7 +202,7 @@ genCncFuns :: Grammar
                IntMap.IntMap [FunId],
                IntMap.IntMap [FunId],
                Array FunId D.CncFun)
-genCncFuns gr am cm ex_seqs seqs cdefs fid_cnt cnccats =
+genCncFuns gr am cm ex_seqs ciCmp seqs cdefs fid_cnt cnccats =
   let (fid_cnt1,funs_cnt1,funs1,lindefs,linrefs) = mkCncCats cdefs fid_cnt  0 [] IntMap.empty IntMap.empty
       (fid_cnt2,funs_cnt2,funs2,prods)           = mkCncFuns cdefs fid_cnt1 funs_cnt1 funs1 lindefs Map.empty IntMap.empty
   in (fid_cnt2,prods,lindefs,linrefs,array (0,funs_cnt2-1) funs2)
@@ -282,9 +289,9 @@ genCncFuns gr am cm ex_seqs seqs cdefs fid_cnt cnccats =
       in (offs+funid0,C.CncFun (i2i id) (amap (newIndex mseqs) lins0)):funs                                          
       where
         newIndex mseqs i = binSearch (mseqs ! i) seqs (bounds seqs)
-           
+
         binSearch v arr (i,j)
-          | i <= j    = case compare v (arr ! k) of
+          | i <= j    = case ciCmp v (arr ! k) of
                           LT -> binSearch v arr (i,k-1)
                           EQ -> k
                           GT -> binSearch v arr (k+1,j)
@@ -303,6 +310,121 @@ genPrintNames cdefs =
     flatten (Alts x _) = flatten x
     flatten (C x y)    = flatten x +++ flatten y
 
---mkArray    lst = listArray (0,length lst-1) lst
+mkArray    lst = listArray (0,length lst-1) lst
 mkMapArray map = array (0,Map.size map-1) [(v,k) | (k,v) <- Map.toList map]
-mkSetArray set = listArray (0,Set.size set-1) [v | v <- Set.toList set]
+
+-- The following is a version of Data.List.sortBy which together
+-- with the sorting also eliminates duplicate values 
+sortNubBy cmp = mergeAll . sequences
+  where
+    sequences (a:b:xs) =
+      case cmp a b of
+        GT -> descending b [a]  xs
+        EQ -> sequences (b:xs)
+        LT -> ascending  b (a:) xs
+    sequences xs = [xs]
+
+    descending a as []     = [a:as]
+    descending a as (b:bs) =
+      case cmp a b of
+        GT -> descending b (a:as) bs
+        EQ -> descending a as bs
+        LT -> (a:as) : sequences (b:bs)
+
+    ascending a as []     = let !x = as [a]
+                            in [x]
+    ascending a as (b:bs) =
+      case cmp a b of
+        GT -> let !x = as [a]
+              in x : sequences (b:bs)
+        EQ -> ascending a as bs
+        LT -> ascending b (\ys -> as (a:ys)) bs
+
+    mergeAll [x] = x
+    mergeAll xs  = mergeAll (mergePairs xs)
+
+    mergePairs (a:b:xs) = let !x = merge a b
+                          in x : mergePairs xs
+    mergePairs xs       = xs
+
+    merge as@(a:as') bs@(b:bs') =
+      case cmp a b of
+        GT -> b:merge as  bs'
+        EQ -> a:merge as' bs'
+        LT -> a:merge as' bs
+    merge [] bs         = bs
+    merge as []         = as
+
+-- The following function does case-insensitive comparison of sequences.
+-- This is used to allow case-insensitive parsing, while
+-- the linearizer still has access to the original cases.
+compareCaseInsensitve s1 s2 =
+    compareSeq (elems s1) (elems s2)
+    where
+      compareSeq []     []     = EQ
+      compareSeq []     _      = LT
+      compareSeq _      []     = GT
+      compareSeq (x:xs) (y:ys) =
+        case compareSym x y of
+          EQ -> compareSeq xs ys
+          x  -> x
+
+      compareSym s1 s2 =
+        case s1 of
+          D.SymCat d1 r1
+            -> case s2 of
+                 D.SymCat d2 r2
+                   -> case compare d1 d2 of
+                        EQ -> r1 `compare` r2
+                        x  -> x
+                 _ -> LT
+          D.SymLit d1 r1
+            -> case s2 of
+                 D.SymCat {} -> GT
+                 D.SymLit d2 r2
+                   -> case compare d1 d2 of
+                        EQ -> r1 `compare` r2
+                        x  -> x
+                 _ -> LT
+          D.SymVar d1 r1
+            -> if tagToEnum# (getTag s2 ># 2#)
+                 then LT
+                 else case s2 of
+                        D.SymVar d2 r2
+                          -> case compare d1 d2 of
+                               EQ -> r1 `compare` r2
+                               x  -> x
+                        _ -> GT
+          D.SymKS t1
+            -> if tagToEnum# (getTag s2 ># 3#)
+                 then LT
+                 else case s2 of
+                        D.SymKS t2 -> t1 `compareToken` t2
+                        _          -> GT
+          D.SymKP a1 b1
+            -> if tagToEnum# (getTag s2 ># 4#)
+                 then LT
+                 else case s2 of
+                        D.SymKP a2 b2
+                          -> case compare a1 a2 of
+                               EQ -> b1 `compare` b2
+                               x  -> x
+                        _ -> GT
+          _ -> let t1 = getTag s1
+                   t2 = getTag s2
+               in if tagToEnum# (t1 <# t2) 
+                    then LT
+                    else if tagToEnum# (t1 ==# t2)
+                           then EQ
+                           else GT
+  
+      compareToken []     []     = EQ
+      compareToken []     _      = LT
+      compareToken _      []     = GT
+      compareToken (x:xs) (y:ys)
+        | x == y    = compareToken xs ys
+        | otherwise = case compare (toLower x) (toLower y) of
+                        EQ -> case compareToken xs ys of
+                                EQ -> compare x y
+                                x  -> x
+                        x  -> x

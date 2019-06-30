@@ -1078,8 +1078,8 @@ pgf_parsing_scan_helper(PgfParsing *ps, PgfParseState* state,
 			ptrdiff_t len = current.ptr - start.ptr;
 			found = true;
 
-			if (min <= len-1)
-				pgf_parsing_scan_helper(ps, state, i, k-1, min, len-1);
+			if (min <= len)
+				pgf_parsing_scan_helper(ps, state, i, k-1, min, len);
 
 			// Here we do bottom-up prediction for all lexical categories. 
 			// The epsilon productions will be predicted in top-down
@@ -1141,8 +1141,8 @@ pgf_parsing_scan_helper(PgfParsing *ps, PgfParseState* state,
 				}
 			}
 
-			if (len+1 <= max)
-				pgf_parsing_scan_helper(ps, state, k+1, j, len+1, max);
+			if (len <= max)
+				pgf_parsing_scan_helper(ps, state, k+1, j, len, max);
 
 			break;
 		}
@@ -1633,6 +1633,9 @@ pgf_parsing_set_default_factors(PgfParsing* ps, PgfAbstr* abstr)
 	}
 }
 
+PGF_INTERNAL_DECL bool
+pgf_is_case_sensitive(PgfConcr* concr);
+
 static PgfParsing*
 pgf_new_parsing(PgfConcr* concr, GuString sentence,
                 PgfCallbacksMap* callbacks, PgfOracleCallback* oracle,
@@ -1643,8 +1646,7 @@ pgf_new_parsing(PgfConcr* concr, GuString sentence,
 	ps->pool = pool;
 	ps->out_pool = out_pool;
 	ps->sentence = sentence;
-	ps->case_sensitive =
-		(gu_seq_binsearch(concr->cflags, pgf_flag_order, PgfFlag, "case_sensitive") == NULL);
+	ps->case_sensitive = pgf_is_case_sensitive(concr);
 	ps->expr_queue = gu_new_buf(PgfExprState*, pool);
 	ps->max_fid = concr->total_cats;
 	ps->before = NULL;

@@ -81,7 +81,8 @@ Library
                  random,
                  pretty,
                  mtl,
-                 exceptions
+                 exceptions,
+                 ghc-prim
   hs-source-dirs: src/runtime/haskell
 
   other-modules:

@@ -1,4 +1,5 @@
 #include <pgf/data.h>
+#include <pgf/expr.h>
 #include <pgf/linearizer.h>
 #include <gu/utf8.h>
 
@@ -16,8 +17,10 @@ cmp_string(PgfCohortSpot* spot, GuString tok,
 		if (c1 == 0)
 			return -1;
 
-		if (!case_sensitive)
+		if (!case_sensitive) {
 			c1 = gu_ucs_to_lower(c1);
+			c2 = gu_ucs_to_lower(c2);
+		}
 
 		if (c1 != c2)
 			return (c1-c2);
@@ -126,6 +129,22 @@ typedef struct {
 	bool case_sensitive;
 } PgfSequenceOrder;
 
+PGF_INTERNAL bool
+pgf_is_case_sensitive(PgfConcr* concr)
+{
+	PgfFlag* flag =
+		gu_seq_binsearch(concr->cflags, pgf_flag_order, PgfFlag, "case_sensitive");
+	if (flag != NULL) {
+		GuVariantInfo inf = gu_variant_open(flag->value);
+		if (inf.tag == PGF_LITERAL_STR) {
+			PgfLiteralStr* lstr = inf.data;
+			if (strcmp(lstr->val, "off") == 0)
+				return false;
+		}
+	}
+	return true;
+}
+
 static int
 pgf_sequence_cmp_fn(GuOrder* order, const void* p1, const void* p2)
 {
@@ -156,16 +175,59 @@ pgf_lookup_morpho(PgfConcr *concr, GuString sentence,
 		}
 	}
 
-	bool case_sensitive =
-		(gu_seq_binsearch(concr->cflags, pgf_flag_order, PgfFlag, "case_sensitive") == NULL);
+	size_t index = 0;
+	PgfSequenceOrder order = { { pgf_sequence_cmp_fn },
+		                       pgf_is_case_sensitive(concr) };
+	if (gu_seq_binsearch_index(concr->sequences, &order.order,
+	                           PgfSequence, (void*) sentence, 
+	                           &index)) {
+		PgfSequence* seq = NULL;
 
-	PgfSequenceOrder order = { { pgf_sequence_cmp_fn }, case_sensitive };
-	PgfSequence* seq = (PgfSequence*)
-		gu_seq_binsearch(concr->sequences, &order.order,
-		                 PgfSequence, (void*) sentence);
+		/* If the match is case-insensitive then there might be more
+		 * matches around the current index. We must check the neighbour
+		 * sequences for matching as well.
+		 */
 
-	if (seq != NULL && seq->idx != NULL)
-		pgf_morpho_iter(seq->idx, callback, err);
+		if (!order.case_sensitive) {
+			size_t i = index;
+			while (i > 0) {
+				seq = gu_seq_index(concr->sequences, PgfSequence, i-1);
+
+				size_t sym_idx = 0;
+				PgfCohortSpot spot = {0, sentence};
+				if (pgf_symbols_cmp(&spot, seq->syms, &sym_idx, order.case_sensitive) != 0) {
+					break;
+				}
+
+				if (seq->idx != NULL)
+					pgf_morpho_iter(seq->idx, callback, err);
+
+				i--;
+			}
+		}
+
+		seq = gu_seq_index(concr->sequences, PgfSequence, index);
+		if (seq->idx != NULL)
+			pgf_morpho_iter(seq->idx, callback, err);
+
+		if (!order.case_sensitive) {
+			size_t i = index+1;
+			while (i < gu_seq_length(concr->sequences)) {
+				seq = gu_seq_index(concr->sequences, PgfSequence, i);
+
+				size_t sym_idx = 0;
+				PgfCohortSpot spot = {0, sentence};
+				if (pgf_symbols_cmp(&spot, seq->syms, &sym_idx, order.case_sensitive) != 0) {
+					break;
+				}
+
+				if (seq->idx != NULL)
+					pgf_morpho_iter(seq->idx, callback, err);
+
+				i++;
+			}
+		}
+	}
 }
 
 typedef struct {
@@ -225,8 +287,8 @@ pgf_lookup_cohorts_helper(PgfCohortsState *state, PgfCohortSpot* spot,
 		} else {
 			ptrdiff_t len = current.ptr - spot->ptr;
 
-			if (min <= len-1)
-				pgf_lookup_cohorts_helper(state, spot, i, k-1, min, len-1);
+			if (min <= len)
+				pgf_lookup_cohorts_helper(state, spot, i, k-1, min, len);
 
 			if (seq->idx != NULL && gu_buf_length(seq->idx) > 0) {
 				PgfCohortRange* range = gu_buf_insert(state->found, 0);
@@ -242,8 +304,8 @@ pgf_lookup_cohorts_helper(PgfCohortsState *state, PgfCohortSpot* spot,
 
 			gu_buf_heap_push(state->spots, pgf_cohort_spot_order, &current);
 
-			if (len+1 <= max)
-				pgf_lookup_cohorts_helper(state, spot, k+1, j, len+1, max);
+			if (len <= max)
+				pgf_lookup_cohorts_helper(state, spot, k+1, j, len, max);
 
 			break;
 		}
@@ -289,11 +351,13 @@ pgf_lookup_cohorts_enum_next(GuEnum* self, void* to, GuPool* pool)
 		pRes->buf       = NULL;
 		state->current  = NULL;
 		return;
-	} else {
+	} else do {
 		*pRes = gu_buf_pop(state->found, PgfCohortRange);
 		state->current = pRes->start.ptr;
 		pgf_morpho_iter(pRes->buf, state->callback, state->err);
-	}
+	} while (gu_buf_length(state->found) > 0 &&
+	         gu_buf_index_last(state->found, PgfCohortRange)->end.ptr == pRes->end.ptr);
+	         
 }
 
 PGF_API GuEnum*
@@ -309,9 +373,6 @@ pgf_lookup_cohorts(PgfConcr *concr, GuString sentence,
 		}
 	}
 
-	bool case_sensitive =
-		(gu_seq_binsearch(concr->cflags, pgf_flag_order, PgfFlag, "case_sensitive") == NULL);
-
 	PgfCohortsState* state = gu_new(PgfCohortsState, pool);
 	state->en.next = pgf_lookup_cohorts_enum_next;
 	state->concr   = concr;
@@ -319,7 +380,7 @@ pgf_lookup_cohorts(PgfConcr *concr, GuString sentence,
 	state->len     = strlen(sentence);
 	state->callback= callback;
 	state->err     = err;
-	state->case_sensitive = case_sensitive;
+	state->case_sensitive = pgf_is_case_sensitive(concr);
 	state->spots   = gu_new_buf(PgfCohortSpot,  pool);
 	state->found   = gu_new_buf(PgfCohortRange, pool);
 
@@ -339,6 +400,7 @@ typedef struct {
 	PgfSequences* sequences;
 	GuString prefix;
 	size_t seq_idx;
+	bool case_sensitive;
 } PgfFullFormState;
 
 struct PgfFullFormEntry {
@@ -358,7 +420,8 @@ gu_fullform_enum_next(GuEnum* self, void* to, GuPool* pool)
 			PgfSequence* seq = gu_seq_index(st->sequences, PgfSequence, st->seq_idx);
 			GuString tokens = pgf_get_tokens(seq->syms, 0, pool);
 
-			if (!gu_string_is_prefix(st->prefix, tokens)) {
+			PgfCohortSpot spot = {0, st->prefix};
+			if (cmp_string(&spot, tokens, st->case_sensitive) > 0 || *spot.ptr != 0) {
 				st->seq_idx = n_seqs;
 				break;
 			}
@@ -387,6 +450,7 @@ pgf_fullform_lexicon(PgfConcr *concr, GuPool* pool)
 	st->sequences = concr->sequences;
 	st->prefix    = "";
 	st->seq_idx   = 0;
+	st->case_sensitive = true;
 	return &st->en;
 }
 
@@ -420,15 +484,32 @@ pgf_lookup_word_prefix(PgfConcr *concr, GuString prefix,
 	state->sequences = concr->sequences;
 	state->prefix    = prefix;
 	state->seq_idx   = 0;
+	state->case_sensitive = pgf_is_case_sensitive(concr);
 
-	bool case_sensitive =
-		(gu_seq_binsearch(concr->cflags, pgf_flag_order, PgfFlag, "case_sensitive") == NULL);
-
-	PgfSequenceOrder order = { { pgf_sequence_cmp_fn }, case_sensitive };
+	PgfSequenceOrder order = { { pgf_sequence_cmp_fn }, 
+		                       state->case_sensitive };
 	if (!gu_seq_binsearch_index(concr->sequences, &order.order,
 	                            PgfSequence, (void*) prefix, 
 	                            &state->seq_idx)) {
 		state->seq_idx++;
+	} else if (!state->case_sensitive) {
+		/* If the match is case-insensitive then there might be more
+		 * matches around the current index. Since we scroll down 
+		 * anyway, it is enough to search upwards now.
+		 */
+
+		while (state->seq_idx > 0) {
+			PgfSequence* seq =
+				gu_seq_index(concr->sequences, PgfSequence, state->seq_idx-1);
+
+			size_t sym_idx = 0;
+			PgfCohortSpot spot = {0, state->prefix};
+			if (pgf_symbols_cmp(&spot, seq->syms, &sym_idx, state->case_sensitive) > 0 || *spot.ptr != 0) {
+				break;
+			}
+
+			state->seq_idx--;
+		}
 	}
 
 	return &state->en;
