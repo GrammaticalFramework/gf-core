@@ -4,6 +4,10 @@ import PGF(showCId)
 import PGF.Internal as M
 
 import qualified Text.JSON as JSON
+import Text.JSON (JSValue(..))
+-- import Text.JSON.Pretty (pp_value)
+-- import Text.PrettyPrint (render)
+
 --import GF.Data.ErrM
 --import GF.Infra.Option
 
@@ -19,38 +23,47 @@ import qualified Data.IntMap as IntMap
 pgf2json :: PGF -> String
 pgf2json pgf =
   JSON.encode $ JSON.makeObj
+  -- render $ pp_value $ JSON.makeObj
     [ ("abstract", json_abstract)
     , ("concretes", json_concretes)
     ]
-  -- JS.printTree $ JS.Program [JS.ElStmt $ JS.SDeclOrExpr $ JS.Decl [JS.DInit (JS.Ident n) grammar]]
  where
-   -- n  = showCId $ absname pgf
+   n  = showCId $ absname pgf
    as = abstract pgf
    cs = Map.assocs (concretes pgf)
    start = showCId $ M.lookStartCat pgf
-   -- grammar = new "GFGrammar" [js_abstract, js_concrete]
-   -- js_abstract = abstract2js start as
-   -- js_concrete = JS.EObj $ map concrete2js cs
-   json_abstract = abstract2json start as
+   json_abstract = abstract2json n start as
    json_concretes = JSON.makeObj $ map concrete2json cs
 
-abstract2json :: String -> Abstr -> JSON.JSValue
-abstract2json start ds = JSON.JSNull
+abstract2json :: String -> String -> Abstr -> JSValue
+abstract2json name start ds =
+  JSON.makeObj
+    [ ("name", JSString $ JSON.toJSString name)
+    , ("startcat", JSString $ JSON.toJSString start)
+    , ("funs", JSON.makeObj $ map absdef2js (Map.assocs (funs ds)))
+    ]
 
 -- abstract2js :: String -> Abstr -> JS.Expr
 -- abstract2js start ds = new "GFAbstract" [JS.EStr start, JS.EObj $ map absdef2js (Map.assocs (funs ds))]
--- 
--- absdef2js :: (CId,(Type,Int,Maybe ([Equation],[[M.Instr]]),Double)) -> JS.Property
--- absdef2js (f,(typ,_,_,_)) =
---   let (args,cat) = M.catSkeleton typ in
---     JS.Prop (JS.IdentPropName (JS.Ident (showCId f))) (new "Type" [JS.EArray [JS.EStr (showCId x) | x <- args], JS.EStr (showCId cat)])
--- 
+
+absdef2js :: (CId,(Type,Int,Maybe ([Equation],[[M.Instr]]),Double)) -> (String,JSValue)
+absdef2js (f,(typ,_,_,_)) = (showCId f,sig)
+  where
+    (args,cat) = M.catSkeleton typ
+    sig = JSON.makeObj
+      [ ("args", JSArray $ map (mkJSString.showCId) args)
+      , ("cat", mkJSString $ showCId cat)
+      ]
+
+mkJSString :: String -> JSValue
+mkJSString = JSString . JSON.toJSString
+
 -- lit2js (LStr s) = JS.EStr s
 -- lit2js (LInt n) = JS.EInt n
 -- lit2js (LFlt d) = JS.EDbl d
 
-concrete2json :: (CId,Concr) -> (String,JSON.JSValue)
-concrete2json (c,cnc) = (showCId c,JSON.JSNull)
+concrete2json :: (CId,Concr) -> (String,JSValue)
+concrete2json (c,cnc) = (showCId c,JSNull)
 
 -- concrete2js :: (CId,Concr) -> JS.Property
 -- concrete2js (c,cnc) =
