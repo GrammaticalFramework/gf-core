@@ -97,7 +97,7 @@ ffun2json (CncFun f lins) =
   JSON.makeObj
     [ ("name", mkJSStr $ showCId f)
     , ("lins", JSArray (map mkJSInt (Array.elems lins)))
-    ] 
+    ]
 
 seq2json :: Array.Array DotPos Symbol -> JSValue
 seq2json seq = JSArray [sym2json s | s <- Array.elems seq]
@@ -119,7 +119,7 @@ alt2json :: ([Symbol],[String]) -> JSValue
 alt2json (ps,ts) = new "Alt" [JSArray (map sym2json ps), JSArray (map mkJSStr ts)]
 
 new :: String -> [JSValue] -> JSValue
-new f xs = 
+new f xs =
   JSON.makeObj
     [ ("type", mkJSStr f)
     , ("args", JSArray xs)
@@ -132,4 +132,3 @@ mkJSStr = JSString . JSON.toJSString
 -- | Make JSON value from integer
 mkJSInt :: Integral a => a -> JSValue
 mkJSInt = JSRational False . toRational
-
