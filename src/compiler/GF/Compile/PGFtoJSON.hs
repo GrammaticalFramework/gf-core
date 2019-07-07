@@ -4,17 +4,11 @@ import PGF(showCId)
 import PGF.Internal as M
 
 import qualified Text.JSON as JSON
-import Text.JSON (JSValue(..))
+import Text.JSON (JSValue(..), JSON)
 -- import Text.JSON.Pretty (pp_value)
 -- import Text.PrettyPrint (render)
 
---import GF.Data.ErrM
---import GF.Infra.Option
-
---import Control.Monad (mplus)
---import Data.Array.Unboxed (UArray)
 import qualified Data.Array.IArray as Array
---import Data.Maybe (fromMaybe)
 import Data.Map (Map)
 import qualified Data.Set as Set
 import qualified Data.Map as Map
@@ -38,92 +32,104 @@ pgf2json pgf =
 abstract2json :: String -> String -> Abstr -> JSValue
 abstract2json name start ds =
   JSON.makeObj
-    [ ("name", JSString $ JSON.toJSString name)
-    , ("startcat", JSString $ JSON.toJSString start)
-    , ("funs", JSON.makeObj $ map absdef2js (Map.assocs (funs ds)))
+    [ ("name", mkJSStr name)
+    , ("startcat", mkJSStr start)
+    , ("funs", JSON.makeObj $ map absdef2json (Map.assocs (funs ds)))
     ]
 
--- abstract2js :: String -> Abstr -> JS.Expr
--- abstract2js start ds = new "GFAbstract" [JS.EStr start, JS.EObj $ map absdef2js (Map.assocs (funs ds))]
-
-absdef2js :: (CId,(Type,Int,Maybe ([Equation],[[M.Instr]]),Double)) -> (String,JSValue)
-absdef2js (f,(typ,_,_,_)) = (showCId f,sig)
+absdef2json :: (CId,(Type,Int,Maybe ([Equation],[[M.Instr]]),Double)) -> (String,JSValue)
+absdef2json (f,(typ,_,_,_)) = (showCId f,sig)
   where
     (args,cat) = M.catSkeleton typ
     sig = JSON.makeObj
-      [ ("args", JSArray $ map (mkJSString.showCId) args)
-      , ("cat", mkJSString $ showCId cat)
+      [ ("args", JSArray $ map (mkJSStr.showCId) args)
+      , ("cat", mkJSStr $ showCId cat)
       ]
 
-mkJSString :: String -> JSValue
-mkJSString = JSString . JSON.toJSString
-
--- lit2js (LStr s) = JS.EStr s
--- lit2js (LInt n) = JS.EInt n
--- lit2js (LFlt d) = JS.EDbl d
+lit2json :: Literal -> JSValue
+lit2json (LStr s) = mkJSStr s
+lit2json (LInt n) = mkJSInt n
+lit2json (LFlt d) = JSRational True (toRational d)
 
 concrete2json :: (CId,Concr) -> (String,JSValue)
-concrete2json (c,cnc) = (showCId c,JSNull)
+concrete2json (c,cnc) = (showCId c,obj)
+  where
+    obj = JSON.makeObj
+      [ ("flags", JSON.makeObj [ (showCId k, lit2json v) | (k,v) <- Map.toList (cflags cnc) ])
+      , ("productions", JSON.makeObj [ (show cat, JSArray (map frule2json (Set.toList set))) | (cat,set) <- IntMap.toList (productions cnc)]) -- TODO
+      , ("functions", JSArray (map ffun2json (Array.elems (cncfuns cnc))))
+      , ("sequences", JSArray (map seq2json (Array.elems (sequences cnc))))
+      , ("startCats", JSON.makeObj $ map cats2json (Map.assocs (cnccats cnc)))
+      , ("totalFIds", mkJSInt (totalCats cnc))
+      ]
 
--- concrete2js :: (CId,Concr) -> JS.Property
--- concrete2js (c,cnc) =
---   JS.Prop l (new "GFConcrete" [mapToJSObj (lit2js) $ cflags cnc,
---                                JS.EObj $ [JS.Prop (JS.IntPropName cat) (JS.EArray (map frule2js (Set.toList set))) | (cat,set) <- IntMap.toList (productions cnc)],
---                                JS.EArray $ (map ffun2js (Array.elems (cncfuns cnc))),
---                                JS.EArray $ (map seq2js (Array.elems (sequences cnc))),
---                                JS.EObj $ map cats (Map.assocs (cnccats cnc)),
---                                JS.EInt (totalCats cnc)])
---   where
---    l  = JS.IdentPropName (JS.Ident (showCId c))
--- {-
---    litslins = [JS.Prop (JS.StringPropName    "Int") (JS.EFun [children] [JS.SReturn $ new "Arr" [JS.EIndex (JS.EVar children) (JS.EInt 0)]]),
---                JS.Prop (JS.StringPropName  "Float") (JS.EFun [children] [JS.SReturn $ new "Arr" [JS.EIndex (JS.EVar children) (JS.EInt 0)]]),
---                JS.Prop (JS.StringPropName "String") (JS.EFun [children] [JS.SReturn $ new "Arr" [JS.EIndex (JS.EVar children) (JS.EInt 0)]])]
--- -}
---    cats (c,CncCat start end _) = JS.Prop (JS.IdentPropName (JS.Ident (showCId c))) (JS.EObj [JS.Prop (JS.IdentPropName (JS.Ident "s")) (JS.EInt start)
---                                                                                             ,JS.Prop (JS.IdentPropName (JS.Ident "e")) (JS.EInt end)])
--- {-
--- mkStr :: String -> JS.Expr
--- mkStr s = new "Str" [JS.EStr s]
--- 
--- mkSeq :: [JS.Expr] -> JS.Expr
--- mkSeq [x] = x
--- mkSeq xs = new "Seq" xs
--- 
--- argIdent :: Integer -> JS.Ident
--- argIdent n = JS.Ident ("x" ++ show n)
--- -}
--- children :: JS.Ident
--- children = JS.Ident "cs"
--- 
--- frule2js :: Production -> JS.Expr
--- frule2js (PApply funid args) = new "Apply"  [JS.EInt funid, JS.EArray (map farg2js args)]
--- frule2js (PCoerce arg)       = new "Coerce" [JS.EInt arg]
--- 
--- farg2js (PArg hypos fid) = new "PArg" (map (JS.EInt . snd) hypos ++ [JS.EInt fid])
--- 
--- ffun2js (CncFun f lins) = new "CncFun" [JS.EStr (showCId f), JS.EArray (map JS.EInt (Array.elems lins))]
--- 
--- seq2js :: Array.Array DotPos Symbol -> JS.Expr
--- seq2js seq = JS.EArray [sym2js s | s <- Array.elems seq]
--- 
--- sym2js :: Symbol -> JS.Expr
--- sym2js (SymCat n l)    = new "SymCat" [JS.EInt n, JS.EInt l]
--- sym2js (SymLit n l)    = new "SymLit" [JS.EInt n, JS.EInt l]
--- sym2js (SymVar n l)    = new "SymVar" [JS.EInt n, JS.EInt l]
--- sym2js (SymKS t)       = new "SymKS"  [JS.EStr t]
--- sym2js (SymKP ts alts) = new "SymKP"  [JS.EArray (map sym2js ts), JS.EArray (map alt2js alts)]
--- sym2js SymBIND         = new "SymKS"  [JS.EStr "&+"]
--- sym2js SymSOFT_BIND    = new "SymKS"  [JS.EStr "&+"]
--- sym2js SymSOFT_SPACE   = new "SymKS"  [JS.EStr "&+"]
--- sym2js SymCAPIT        = new "SymKS"  [JS.EStr "&|"]
--- sym2js SymALL_CAPIT    = new "SymKS"  [JS.EStr "&|"]
--- sym2js SymNE           = new "SymNE"  []
--- 
--- alt2js (ps,ts) = new "Alt" [JS.EArray (map sym2js ps), JS.EArray (map JS.EStr ts)]
--- 
--- new :: String -> [JS.Expr] -> JS.Expr
--- new f xs = JS.ENew (JS.Ident f) xs
--- 
--- mapToJSObj :: (a -> JS.Expr) -> Map CId a -> JS.Expr
--- mapToJSObj f m = JS.EObj [ JS.Prop (JS.IdentPropName (JS.Ident (showCId k))) (f v) | (k,v) <- Map.toList m ]
+cats2json :: (CId, CncCat) -> (String,JSValue)
+cats2json (c,CncCat start end _) = (showCId c, ixs)
+  where
+    ixs = JSON.encJSDict
+      [ ("s", start)
+      , ("e", end)
+      ]
+
+frule2json :: Production -> JSValue
+frule2json (PApply fid args) =
+  JSON.makeObj
+    [ ("type", mkJSStr "Apply")
+    , ("fid", mkJSInt fid)
+    , ("args", JSArray (map farg2json args))
+    ]
+frule2json (PCoerce arg) =
+  JSON.makeObj
+    [ ("type", mkJSStr "Coerce")
+    , ("arg", mkJSInt arg)
+    ]
+
+farg2json :: PArg -> JSValue
+farg2json (PArg hypos fid) =
+  JSON.makeObj
+    [ ("type", mkJSStr "PArg")
+    , ("hypos", JSArray $ map (mkJSInt . snd) hypos)
+    , ("fid", mkJSInt fid)
+    ]
+
+ffun2json :: CncFun -> JSValue
+ffun2json (CncFun f lins) =
+  JSON.makeObj
+    [ ("name", mkJSStr $ showCId f)
+    , ("lins", JSArray (map mkJSInt (Array.elems lins)))
+    ] 
+
+seq2json :: Array.Array DotPos Symbol -> JSValue
+seq2json seq = JSArray [sym2json s | s <- Array.elems seq]
+
+sym2json :: Symbol -> JSValue
+sym2json (SymCat n l)    = new "SymCat" [mkJSInt n, mkJSInt l]
+sym2json (SymLit n l)    = new "SymLit" [mkJSInt n, mkJSInt l]
+sym2json (SymVar n l)    = new "SymVar" [mkJSInt n, mkJSInt l]
+sym2json (SymKS t)       = new "SymKS"  [mkJSStr t]
+sym2json (SymKP ts alts) = new "SymKP"  [JSArray (map sym2json ts), JSArray (map alt2json alts)]
+sym2json SymBIND         = new "SymKS"  [mkJSStr "&+"]
+sym2json SymSOFT_BIND    = new "SymKS"  [mkJSStr "&+"]
+sym2json SymSOFT_SPACE   = new "SymKS"  [mkJSStr "&+"]
+sym2json SymCAPIT        = new "SymKS"  [mkJSStr "&|"]
+sym2json SymALL_CAPIT    = new "SymKS"  [mkJSStr "&|"]
+sym2json SymNE           = new "SymNE"  []
+
+alt2json :: ([Symbol],[String]) -> JSValue
+alt2json (ps,ts) = new "Alt" [JSArray (map sym2json ps), JSArray (map mkJSStr ts)]
+
+new :: String -> [JSValue] -> JSValue
+new f xs = 
+  JSON.makeObj
+    [ ("type", mkJSStr f)
+    , ("args", JSArray xs)
+    ]
+
+-- | Make JSON value from string
+mkJSStr :: String -> JSValue
+mkJSStr = JSString . JSON.toJSString
+
+-- | Make JSON value from integer
+mkJSInt :: Integral a => a -> JSValue
+mkJSInt = JSRational False . toRational
+
