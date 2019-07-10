@@ -1,12 +1,35 @@
 module GF.Compile.PGFtoJSON (pgf2json) where
 
-import PGF(showCId)
-import PGF.Internal as M
+import PGF (showCId)
+import qualified PGF.Internal as M
+import PGF.Internal (
+  Abstr,
+  CId,
+  CncCat(..),
+  CncFun(..),
+  Concr,
+  DotPos,
+  Equation(..),
+  Literal(..),
+  PArg(..),
+  PGF,
+  Production(..),
+  Symbol(..),
+  Type,
+  absname,
+  abstract,
+  cflags,
+  cnccats,
+  cncfuns,
+  concretes,
+  funs,
+  productions,
+  sequences,
+  totalCats
+  )
 
 import qualified Text.JSON as JSON
-import Text.JSON (JSValue(..), JSON)
--- import Text.JSON.Pretty (pp_value)
--- import Text.PrettyPrint (render)
+import Text.JSON (JSValue(..))
 
 import qualified Data.Array.IArray as Array
 import Data.Map (Map)
@@ -17,7 +40,6 @@ import qualified Data.IntMap as IntMap
 pgf2json :: PGF -> String
 pgf2json pgf =
   JSON.encode $ JSON.makeObj
-  -- render $ pp_value $ JSON.makeObj
     [ ("abstract", json_abstract)
     , ("concretes", json_concretes)
     ]
@@ -56,7 +78,7 @@ concrete2json (c,cnc) = (showCId c,obj)
   where
     obj = JSON.makeObj
       [ ("flags", JSON.makeObj [ (showCId k, lit2json v) | (k,v) <- Map.toList (cflags cnc) ])
-      , ("productions", JSON.makeObj [ (show cat, JSArray (map frule2json (Set.toList set))) | (cat,set) <- IntMap.toList (productions cnc)]) -- TODO
+      , ("productions", JSON.makeObj [ (show cat, JSArray (map frule2json (Set.toList set))) | (cat,set) <- IntMap.toList (productions cnc)])
       , ("functions", JSArray (map ffun2json (Array.elems (cncfuns cnc))))
       , ("sequences", JSArray (map seq2json (Array.elems (sequences cnc))))
       , ("startCats", JSON.makeObj $ map cats2json (Map.assocs (cnccats cnc)))
@@ -66,9 +88,9 @@ concrete2json (c,cnc) = (showCId c,obj)
 cats2json :: (CId, CncCat) -> (String,JSValue)
 cats2json (c,CncCat start end _) = (showCId c, ixs)
   where
-    ixs = JSON.encJSDict
-      [ ("s", start)
-      , ("e", end)
+    ixs = JSON.makeObj
+      [ ("s", mkJSInt start)
+      , ("e", mkJSInt end)
       ]
 
 frule2json :: Production -> JSValue
