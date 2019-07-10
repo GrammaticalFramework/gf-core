@@ -53,8 +53,8 @@
           "productions",
           "functions",
           "sequences",
-          "startCats",
-          "totalFIds"
+          "categories",
+          "totalfids"
         ],
         "properties": {
           "flags": {
@@ -106,26 +106,26 @@
               }
             }
           },
-          "startCats": {
+          "categories": {
             "type": "object",
             "additionalProperties": {
               "title": "CncCat",
               "type": "object",
               "required": [
-                "s",
-                "e"
+                "start",
+                "end"
               ],
               "properties": {
-                "s": {
+                "start": {
                   "type": "integer"
                 },
-                "e": {
+                "end": {
                   "type": "integer"
                 }
               }
             }
           },
-          "totalFIds": {
+          "totalfids": {
             "type": "integer"
           }
         }

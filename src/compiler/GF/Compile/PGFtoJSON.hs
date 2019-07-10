@@ -81,16 +81,16 @@ concrete2json (c,cnc) = (showCId c,obj)
       , ("productions", JSON.makeObj [ (show cat, JSArray (map frule2json (Set.toList set))) | (cat,set) <- IntMap.toList (productions cnc)])
       , ("functions", JSArray (map ffun2json (Array.elems (cncfuns cnc))))
       , ("sequences", JSArray (map seq2json (Array.elems (sequences cnc))))
-      , ("startCats", JSON.makeObj $ map cats2json (Map.assocs (cnccats cnc)))
-      , ("totalFIds", mkJSInt (totalCats cnc))
+      , ("categories", JSON.makeObj $ map cats2json (Map.assocs (cnccats cnc)))
+      , ("totalfids", mkJSInt (totalCats cnc))
       ]
 
 cats2json :: (CId, CncCat) -> (String,JSValue)
 cats2json (c,CncCat start end _) = (showCId c, ixs)
   where
     ixs = JSON.makeObj
-      [ ("s", mkJSInt start)
-      , ("e", mkJSInt end)
+      [ ("start", mkJSInt start)
+      , ("end", mkJSInt end)
       ]
 
 frule2json :: Production -> JSValue
