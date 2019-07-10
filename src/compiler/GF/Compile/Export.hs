@@ -7,6 +7,7 @@ import GF.Compile.PGFtoHaskell
 import GF.Compile.PGFtoJava
 import GF.Compile.PGFtoProlog
 import GF.Compile.PGFtoJS
+import GF.Compile.PGFtoJSON
 import GF.Compile.PGFtoPython
 import GF.Infra.Option
 --import GF.Speech.CFG
@@ -38,6 +39,7 @@ exportPGF opts fmt pgf =
       FmtCanonicalGF  -> [] -- canon "gf" (render80 . abstract2canonical)
       FmtCanonicalJson-> []
       FmtJavaScript   -> multi "js"  pgf2js
+      FmtJSON         -> multi "json"  pgf2json
       FmtPython       -> multi "py"  pgf2python
       FmtHaskell      -> multi "hs"  (grammar2haskell opts name)
       FmtJava         -> multi "java" (grammar2java opts name)

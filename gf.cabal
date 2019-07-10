@@ -194,6 +194,7 @@ Library
     GF.Compile.GrammarToCanonical
     GF.Grammar.CanonicalJSON
     GF.Compile.PGFtoJS
+    GF.Compile.PGFtoJSON
     GF.Compile.PGFtoProlog
     GF.Compile.PGFtoPython
     GF.Compile.ReadFiles
