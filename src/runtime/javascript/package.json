@@ -1,0 +1,21 @@
+{
+  "name": "gf-js-bindings",
+  "version": "1.0.0",
+  "description": "JavaScript bindings to the GF C runtime",
+  "main": "index.js",
+  "scripts": {
+    "build": "node-gyp rebuild",
+    "clean": "node-gyp clean",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "John J. Camilleri",
+  "license": "LGPL-3.0-or-later",
+  "gypfile": true,
+  "dependencies": {
+    "bindings": "^1.5.0",
+    "node-addon-api": "^1.6.3"
+  },
+  "devDependencies": {
+    "node-gyp": "^5.0.2"
+  }
+}
