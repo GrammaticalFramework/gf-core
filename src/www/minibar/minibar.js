@@ -53,13 +53,14 @@ function Minibar(server,opts) {
     /* --- Creating user interface elements --------------------------------- */
 
     this.menubar=div_class("menubar");
+    this.infobar=div_class("infobar");
     this.extra=div_id("extra");
 
     this.minibar=element(this.options.target);
     this.minibar.innerHTML="";
     with(this) {
 	appendChildren(menubar,[input.menus,translations.menus,input.buttons])
-	appendChildren(minibar,[menubar,input.main,translations.main,extra]);
+	appendChildren(minibar,[menubar,infobar,input.main,translations.main,extra]);
 	if(options.help_url)
 	    menubar.appendChild(button("Help",bind(open_help,this)));
 	append_extra_buttons(extra,options);
@@ -205,6 +206,30 @@ Minibar.prototype.change_grammar=function(grammar_info) {
     t.grammar=grammar_info;
     t.input.change_grammar(grammar_info)
     t.translations.change_grammar(grammar_info)
+    t.get_pgf_info()
+}
+
+Minibar.prototype.get_pgf_info=function() {
+    var t=this;
+    var info_url=t.server.current_grammar_url+"_info";
+    clear(t.infobar)
+    t.pgf_info=null;
+    ajax_http_get(info_url,bind(t.show_pgf_info,t),function(){})
+}
+
+Minibar.prototype.show_pgf_info=function(info) {
+    var t=this;
+    var cnt=0;
+    console.log(info)
+    info=info.split("\n");
+    for(var i=0;i<info.length;i++) {
+	if(info[i]=="") info[i]="<p>"
+	else cnt++
+    }
+    t.pgf_info=info.join("\n")
+    t.infobar.innerHTML=info[0]+" "
+    if(cnt>1)
+	t.infobar.appendChild(button("More info",bind(t.show_grammarinfo,t)))
 }
 
 Minibar.prototype.show_grammarinfo=function() {
@@ -241,7 +266,10 @@ Minibar.prototype.show_grammarinfo=function() {
 
     var cats=wrap("div",text(g.categories.join(", ")))
     var funs=wrap("div",text(g.functions.join(", ")))
-    var btn=button("More info",more)
+    var btn=button("Show more details",more)
+    
+    var info=empty("div")
+    if(t.pgf_info) info.innerHTML=t.pgf_info
 
     clear(t.translations.main)
     var hdr=[text(g.name)]
@@ -249,8 +277,11 @@ Minibar.prototype.show_grammarinfo=function() {
 	hdr.push(text(" "))
 	hdr.push(wrap("small",text("("+g.lastmodified+")")))
     }
+    
     appendChildren(this.translations.main,
 		   [wrap("h3",hdr),
+		    info,
+		    text("The categories and functions in the grammar are listed below."),
 		    btn,
 		    wrap("h4",text("Start category")), text(g.startcat || ""),
 		    wrap("h4",text("Categories")), cats,
