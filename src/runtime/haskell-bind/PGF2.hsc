@@ -168,8 +168,6 @@ languages p =
       concr <- fmap (\ptr -> Concr ptr (touchPGF p)) $ peek (castPtr value)
       writeIORef ref $! Map.insert name concr langs
 
--- | The abstract language name is the name of the top-level
--- abstract module
 concreteName :: Concr -> ConcName
 concreteName c = unsafePerformIO (peekUtf8CString =<< pgf_concrete_name (concr c))
 
