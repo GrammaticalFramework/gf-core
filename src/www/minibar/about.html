@@ -10,8 +10,10 @@
 </head>
 
 <body class=minibar>
+<header>
 <h1>About Minibar</h1>
-
+</header>
+<main>
 <a href="minibar.html">Minibar</a> is an alternative implementation of the
 <a href="http://www.grammaticalframework.org/">GF</a> web app
 <a href="http://www.grammaticalframework.org:41296/fridge/">Fridge Poetry</a>.
@@ -233,14 +235,23 @@ Some implementation details:
       category names.
   <li>[Added 2013-04-02] Minibar now remembers from one visit to the next
       the selected set of target languages for each grammar.
+  <li>[Added 2019-08-05] Minibar can now display grammar documentation.
+      The documentation is taken from a file called
+      <var>Grammar</var><code>.pgf_info</code>, located
+      next to the <var>Grammar</var><code>.pgf</code> file on the server.
+      The first line of the documentation is displayed below the menu bar in
+      the minibar. The rest of the documentation is displayed when you press
+      the <b>More info</b> button (or the <b>i</b> button). The documentation
+      can contain HTML markup. Blank lines are treated as paragraph breaks.
 </ul>
-
+</main>
+<footer>
 <hr>
 <div class=modtime><small>
-<!-- hhmts start -->Last modified: Tue Apr  2 15:49:32 CEST 2013 <!-- hhmts end -->
+<!-- hhmts start -->Last modified: Mon Aug  5 15:22:46 CEST 2019 <!-- hhmts end -->
 </small></div>
 <address>
-<a href="http://www.cse.chalmers.se/~hallgren/">TH</a>
-<img src="http://www.altocumulus.org/~hallgren/online.cgi?icon" alt="">
+<a href="http://www.cse.chalmers.se/~hallgren/">Thomas Hallgren</a>
 </address>
+</footer>
 </body> </html>

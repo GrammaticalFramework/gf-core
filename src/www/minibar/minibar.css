@@ -10,6 +10,7 @@ h1:first-child, h2:first-child { margin-top: 0; margin-bottom: 1ex; }
 th, td { vertical-align: baseline; text-align: left; }
 
 div.menubar { font-family: sans-serif; font-size: small; }
+div.infobar { margin: 5px; }
 
 div#surface {
     min-height: 3ex;

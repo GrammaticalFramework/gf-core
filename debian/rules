@@ -26,8 +26,8 @@ override_dh_auto_build:
 	cd src/runtime/python && EXTRA_INCLUDE_DIRS=$(CURDIR)/src/runtime/c EXTRA_LIB_DIRS=$(CURDIR)/src/runtime/c/.libs python setup.py build
 	cd src/runtime/java && make CFLAGS="-I$(CURDIR)/src/runtime/c -L$(CURDIR)/src/runtime/c/.libs" INSTALL_PATH=/usr/lib
 	echo $(SET_LDL)
-	$(SET_LDL) cabal build # builds gf, fails to build example grammars 
-	PATH=$(CURDIR)/dist/build/gf:$$PATH && make -C ../gf-rgl build
+	-$(SET_LDL) cabal build # builds gf, fails to build example grammars
+	export $(SET_LDL); PATH=$(CURDIR)/dist/build/gf:$$PATH && make -C ../gf-rgl build
 	GF_LIB_PATH=$(CURDIR)/../gf-rgl/dist $(SET_LDL) cabal build # have RGL now, ok to build example grammars
 	make html
 
