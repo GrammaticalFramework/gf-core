@@ -62,6 +62,9 @@ gu_map_has(GuMap* ht, const void* key);
 GU_API_DECL void*
 gu_map_insert(GuMap* ht, const void* key);
 
+GU_API_DECL void
+gu_map_delete(GuMap* ht, const void* key);
+
 #define gu_map_put(MAP, KEYP, V, VAL)				\
 	GU_BEGIN						\
 	V* gu_map_put_p_ = gu_map_insert((MAP), (KEYP));	\

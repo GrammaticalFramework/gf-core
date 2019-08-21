@@ -1159,7 +1159,7 @@ pgf_parsing_scan(PgfParsing *ps)
 	PgfParseState* state =
 		pgf_new_parse_state(ps, 0, BIND_SOFT);
 
-	while (state != NULL) {
+	while (state->end_offset < len) {
 		if (state->needs_bind) {
 			// We have encountered two tokens without space in between.
 			// Those can be accepted only if there is a BIND token
@@ -1177,7 +1177,7 @@ pgf_parsing_scan(PgfParsing *ps)
 			// skip one character and try again
 			GuString s = ps->sentence+state->end_offset;
 			gu_utf8_decode((const uint8_t**) &s);
-			pgf_new_parse_state(ps, ps->sentence-s, BIND_NONE);
+			pgf_new_parse_state(ps, s-ps->sentence, BIND_NONE);
 		}
 
 		if (state == ps->before)

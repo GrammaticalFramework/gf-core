@@ -7,7 +7,7 @@ import System.FilePath(takeExtension,takeFileName,takeDirectory,(</>))
 import RunHTTP(runHTTP,Options(..))
 import ServeStaticFile(serveStaticFile)
 import PGFService(cgiMain',getPath,stderrToFile,logFile,newPGFCache)
-import FastCGIUtils(outputJSONP,handleCGIErrors)
+import CGIUtils(outputJSONP,handleCGIErrors)
 
 import Paths_gf_server(getDataDir)
 
