@@ -1,14 +1,9 @@
+# This default stack file is a copy of stack-ghc8.2.2.yaml
+# But committing a symlink is probably a bad idea, so it's a real copy
+
 resolver: lts-11.22 # ghc 8.2.2
 
-packages:
-- . # GF, PGF
-- src/runtime/haskell-bind # PGF2 (requires C runtime to be installed)
-
 extra-deps:
-- cgi-3001.3.0.2
+- cgi-3001.3.0.3
 - httpd-shed-0.4.0.3
-- time-1.6.0.1 # cgi-3001.3.0.2: time-1.8.0.2 from stack configuration does not match >=1.5 && <1.7
-
-flags:
-  gf:
-    server: true
+- exceptions-0.10.2
