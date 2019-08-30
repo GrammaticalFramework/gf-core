@@ -74,13 +74,8 @@ gu_map_delete(GuMap* ht, const void* key);
 GU_API_DECL void
 gu_map_iter(GuMap* ht, GuMapItor* itor, GuExn* err);
 
-typedef struct {
-	const void* key;
-	void* value;
-} GuMapKeyValue;
-
-GU_API_DECL GuEnum*
-gu_map_enum(GuMap* ht, GuPool* pool);
+GU_API bool
+gu_map_next(GuMap* ht, size_t i, const void** pkey, void** pvalue);
 
 typedef GuMap GuIntMap;
 
