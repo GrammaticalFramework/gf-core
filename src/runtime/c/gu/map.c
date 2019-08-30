@@ -322,21 +322,25 @@ gu_map_iter(GuMap* map, GuMapItor* itor, GuExn* err)
 }
 
 GU_API bool
-gu_map_next(GuMap* map, size_t i, const void** pkey, void** pvalue)
+gu_map_next(GuMap* map, size_t* pi, void** pkey, void* pvalue)
 {
-	while (i < map->data.n_entries) {
-		if (gu_map_entry_is_free(map, &map->data, i)) {
-			i++;
+	while (*pi < map->data.n_entries) {
+		if (gu_map_entry_is_free(map, &map->data, *pi)) {
+			(*pi)++;
 			continue;
 		}
 
-		*pkey   = &map->data.keys[i * map->key_size];
-		*pvalue = &map->data.values[i * map->cell_size];
+		*pkey = &map->data.keys[*pi * map->key_size];
 		if (map->hasher == gu_addr_hasher) {
-			*pkey = *(const void* const*) *pkey;
+			*pkey = *(void**) *pkey;
 		} else if (map->hasher == gu_string_hasher) {
-			*pkey = *(GuString*) *pkey;
+			*pkey = *(void**) *pkey;
 		}
+
+		memcpy(pvalue, &map->data.values[*pi * map->cell_size], 
+		       map->value_size);
+
+		(*pi)++;
 		return true;
 	}
 

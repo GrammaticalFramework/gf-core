@@ -75,7 +75,7 @@ GU_API_DECL void
 gu_map_iter(GuMap* ht, GuMapItor* itor, GuExn* err);
 
 GU_API bool
-gu_map_next(GuMap* ht, size_t i, const void** pkey, void** pvalue);
+gu_map_next(GuMap* map, size_t* pi, void** pkey, void* pvalue);
 
 typedef GuMap GuIntMap;
 
