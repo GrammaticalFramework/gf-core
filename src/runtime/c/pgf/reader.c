@@ -844,6 +844,7 @@ pgf_read_fid(PgfReader* rdr, PgfConcr* concr)
         ccat->prods = NULL;
         ccat->viterbi_prob = 0;
         ccat->fid = fid;
+        ccat->chunk_count = 1;
         ccat->conts = NULL;
         ccat->answers = NULL;
 
@@ -1081,6 +1082,7 @@ pgf_read_cnccat(PgfReader* rdr, PgfAbstr* abstr, PgfConcr* concr, PgfCId name)
             ccat->prods = NULL;
             ccat->viterbi_prob = 0;
             ccat->fid = fid;
+            ccat->chunk_count = 1;
             ccat->conts = NULL;
             ccat->answers = NULL;
 
