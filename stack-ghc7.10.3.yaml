@@ -1,11 +1,1 @@
 resolver: lts-6.35 # ghc 7.10.3
-
-packages:
-- . # GF, PGF
-- src/runtime/haskell-bind # PGF2 (requires C runtime to be installed)
-
-extra-deps:
-
-flags:
-  gf:
-    server: true

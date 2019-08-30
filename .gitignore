@@ -44,6 +44,8 @@ cabal.sandbox.config
 .stack-work
 DATA_DIR
 
+stack*.yaml.lock
+
 # Generated documentation (not exhaustive)
 demos/index-numbers.html
 demos/resourcegrammars.html

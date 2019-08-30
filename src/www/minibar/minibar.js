@@ -220,7 +220,7 @@ Minibar.prototype.get_pgf_info=function() {
 Minibar.prototype.show_pgf_info=function(info) {
     var t=this;
     var cnt=0;
-    console.log(info)
+    //console.log(info)
     info=info.split("\n");
     for(var i=0;i<info.length;i++) {
 	if(info[i]=="") info[i]="<p>"
@@ -270,6 +270,12 @@ Minibar.prototype.show_grammarinfo=function() {
     
     var info=empty("div")
     if(t.pgf_info) info.innerHTML=t.pgf_info
+    if(true || /^\/(tmp|grammars)\//.test(server.grammars_url)) {
+	var q="?"+server.grammars_url+" "+server.current_grammar_url
+	var link=node("a",{href:q})
+	link.appendChild(text(link.href));
+	info.appendChild(wrap("p",[text("Link directly to this grammar: "),link]))
+    }
 
     clear(t.translations.main)
     var hdr=[text(g.name)]
