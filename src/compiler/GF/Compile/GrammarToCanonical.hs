@@ -215,6 +215,7 @@ convert' gr vs = ppT
         alt (t,p) = (pre p,ppT0 t)
 
         pre (K s) = [s]
+        pre Empty = [""]  -- Empty == K ""
         pre (Strs ts) = concatMap pre ts
         pre (EPatt p) = pat p
         pre t = error $ "pre "++show t
