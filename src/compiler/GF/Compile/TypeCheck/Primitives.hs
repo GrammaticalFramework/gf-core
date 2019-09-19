@@ -8,7 +8,7 @@ typPredefined :: Ident -> Maybe Type
 typPredefined f = case Map.lookup f primitives of
                     Just (ResOper (Just (L _ ty)) _) -> Just ty
                     Just (ResParam _ _)              -> Just typePType
-                    Just (ResValue (L _ ty))         -> Just ty
+                    Just (ResValue _ (L _ ty))       -> Just ty
                     _                                -> Nothing
 
 primitives = Map.fromList
@@ -17,8 +17,8 @@ primitives = Map.fromList
   , (cFloat    , ResOper (Just (noLoc typePType)) Nothing)
   , (cInts     , fun [typeInt] typePType)
   , (cPBool    , ResParam (Just (noLoc [(cPTrue,[]),(cPFalse,[])])) (Just [QC (cPredef,cPTrue), QC (cPredef,cPFalse)]))
-  , (cPTrue    , ResValue (noLoc typePBool))
-  , (cPFalse   , ResValue (noLoc typePBool))
+  , (cPTrue    , ResValue 0 (noLoc typePBool))
+  , (cPFalse   , ResValue 1 (noLoc typePBool))
   , (cError    , fun [typeStr] typeError)  -- non-can. of empty set
   , (cLength   , fun [typeTok] typeInt)
   , (cDrop     , fun [typeInt,typeTok] typeTok)

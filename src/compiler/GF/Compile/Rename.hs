@@ -118,7 +118,7 @@ renameIdentTerm' env@(act,imps) t0 =
 info2status :: Maybe ModuleName -> (Ident,Info) -> StatusInfo
 info2status mq (c,i) = case i of
   AbsFun _ _ Nothing _ -> maybe Con (curry QC) mq
-  ResValue _  -> maybe Con (curry QC) mq
+  ResValue _ _  -> maybe Con (curry QC) mq
   ResParam _ _  -> maybe Con (curry QC) mq
   AnyInd True m -> maybe Con (const (curry QC m)) mq
   AnyInd False m -> maybe Cn (const (curry Q m)) mq
@@ -156,9 +156,9 @@ renameInfo cwd status (m,mi) i info =
     ResParam (Just pp) m -> do
       pp' <- renLoc (mapM (renParam status)) pp
       return (ResParam (Just pp') m)
-    ResValue t -> do
-      t <- renLoc (renameTerm status []) t
-      return (ResValue t)
+    ResValue offset ty -> do
+      t <- renLoc (renameTerm status []) ty
+      return (ResValue offset ty)
     CncCat mcat mdef mref mpr mpmcfg -> liftM5 CncCat (renTerm mcat) (renTerm mdef) (renTerm mref) (renTerm mpr) (return mpmcfg)
     CncFun mty mtr mpr mpmcfg -> liftM3 (CncFun mty)         (renTerm mtr) (renTerm mpr) (return mpmcfg)
     _ -> return info

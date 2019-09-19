@@ -119,7 +119,7 @@ convCncJment (name,jment) =
   case jment of
     ResParam ops _ ->
       return $ Pa $ Param i (maybe "" (render . ppParams q . unLoc) ops)
-    ResValue _ -> return Ignored
+    ResValue _ _ -> return Ignored
     CncCat (Just (L _ typ)) Nothing Nothing pprn _ -> -- ignores printname !!
       return $ LC $ Lincat i (render $ ppTerm q 0 typ)
     ResOper oltyp (Just lterm) -> return $ Op $ Oper lhs rhs

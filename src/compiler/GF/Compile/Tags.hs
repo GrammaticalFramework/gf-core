@@ -31,7 +31,7 @@ getLocalTags x (m,mi) =
     getLocations (AbsFun mb_type _ mb_eqs _)    = maybe (ltype "fun")        mb_type ++
                                                   maybe (list (loc "def"))   mb_eqs  
     getLocations (ResParam mb_params _)         = maybe (loc "param")        mb_params
-    getLocations (ResValue mb_type)             = ltype "param-value"          mb_type
+    getLocations (ResValue _ mb_type)           = ltype "param-value"          mb_type
     getLocations (ResOper  mb_type mb_def)      = maybe (ltype "oper-type")  mb_type ++
                                                   maybe (loc "oper-def")     mb_def
     getLocations (ResOverload _ defs)           = list (\(x,y) -> ltype "overload-type" x ++ 

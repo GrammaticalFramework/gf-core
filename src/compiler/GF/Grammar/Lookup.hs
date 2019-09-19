@@ -83,7 +83,7 @@ lookupResDefLoc gr (m,c)
 
         AnyInd _ n        -> look n c
         ResParam _ _      -> return (noLoc (QC (m,c)))
-        ResValue _        -> return (noLoc (QC (m,c)))
+        ResValue _ _      -> return (noLoc (QC (m,c)))
         _   -> raise $ render (c <+> "is not defined in resource" <+> m)
 
 lookupResType :: ErrorMonad m => Grammar -> QIdent -> m Type
@@ -99,7 +99,7 @@ lookupResType gr (m,c) = do
           return $ mkProd cont val' []
     AnyInd _ n        -> lookupResType gr (n,c)
     ResParam _ _      -> return typePType
-    ResValue (L _ t)  -> return t
+    ResValue _ (L _ t)-> return t
     _   -> raise $ render (c <+> "has no type defined in resource" <+> m)
 
 lookupOverloadTypes :: ErrorMonad m => Grammar -> QIdent -> m [(Term,Type)]
@@ -114,7 +114,7 @@ lookupOverloadTypes gr id@(m,c) = do
           val' <- lock cat val 
           ret $ mkProd cont val' []
     ResParam _ _      -> ret typePType
-    ResValue (L _ t)  -> ret t
+    ResValue _ (L _ t)  -> ret t
     ResOverload os tysts -> do
             tss <- mapM (\x -> lookupOverloadTypes gr (x,c)) os
             return $ [(tr,ty) | (L _ ty,L _ tr) <- tysts] ++
@@ -226,7 +226,7 @@ allOpers gr =
     typesIn info = case info of
       AbsFun  (Just ltyp) _ _ _ -> [ltyp]
       ResOper (Just ltyp) _     -> [ltyp]
-      ResValue ltyp             -> [ltyp]
+      ResValue _ ltyp           -> [ltyp]
       ResOverload _ tytrs       -> [ltyp | (ltyp,_) <- tytrs]
       CncFun  (Just (i,ctx,typ)) _ _ _ ->
                                    [L NoLoc (mkProdSimple ctx (lock' i typ))]

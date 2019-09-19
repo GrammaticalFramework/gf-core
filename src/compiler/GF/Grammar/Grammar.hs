@@ -330,7 +330,7 @@ data Info =
 
 -- judgements in resource
  | ResParam (Maybe (L [Param])) (Maybe [Term])   -- ^ (/RES/) the second parameter is list of all possible values
- | ResValue (L Type)                             -- ^ (/RES/) to mark parameter constructors for lookup
+ | ResValue Int (L Type)                         -- ^ (/RES/) to mark parameter constructors for lookup
  | ResOper  (Maybe (L Type)) (Maybe (L Term))    -- ^ (/RES/)
 
  | ResOverload [ModuleName] [(L Type,L Term)]         -- ^ (/RES/) idents: modules inherited

@@ -25,7 +25,7 @@ import GF.Grammar.Grammar
 import PGF2.Internal(Literal(..),Symbol(..))
 
 -- Please change this every time when the GFO format is changed
-gfoVersion = "GF04"
+gfoVersion = "GF05"
 
 instance Binary Ident where
   put id = put (ident2utf8 id)
@@ -119,7 +119,7 @@ instance Binary Info where
   put (AbsCat x)       = putWord8 0 >> put x
   put (AbsFun w x y z) = putWord8 1 >> put (w,x,y,z)
   put (ResParam x y)   = putWord8 2 >> put (x,y)
-  put (ResValue x)     = putWord8 3 >> put x
+  put (ResValue x y)   = putWord8 3 >> put (x,y)
   put (ResOper x y)    = putWord8 4 >> put (x,y)
   put (ResOverload x y)= putWord8 5 >> put (x,y)
   put (CncCat v w x y z)=putWord8 6 >> put (v,w,x,y,z)
@@ -130,7 +130,7 @@ instance Binary Info where
              0 -> get >>= \x         -> return (AbsCat x)
              1 -> get >>= \(w,x,y,z) -> return (AbsFun w x y z)
              2 -> get >>= \(x,y)     -> return (ResParam x y)
-             3 -> get >>= \x         -> return (ResValue x)
+             3 -> get >>= \(x,y)     -> return (ResValue x y)
              4 -> get >>= \(x,y)     -> return (ResOper x y)
              5 -> get >>= \(x,y)     -> return (ResOverload x y)
              6 -> get >>= \(v,w,x,y,z)->return (CncCat v w x y z)

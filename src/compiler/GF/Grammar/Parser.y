@@ -266,7 +266,7 @@ DataDef
 ParamDef :: { [(Ident,Info)] }
 ParamDef
   : Posn LhsIdent '=' ListParConstr Posn { ($2, ResParam (Just (mkL $1 $5 [param | L loc param <- $4])) Nothing) :
-                                        [(f, ResValue (L loc (mkProdSimple co (Cn $2)))) | L loc (f,co) <- $4] }
+                                        [(f, ResValue 0 (L loc (mkProdSimple co (Cn $2)))) | L loc (f,co) <- $4] }
   | Posn LhsIdent                   Posn { [($2, ResParam Nothing Nothing)] }
 
 OperDef :: { [(Ident,Info)] }
@@ -773,7 +773,7 @@ checkInfoType mt jment@(id,info) =
     CncCat pty pd pr ppn _->ifConcrete mt (locPerh pty ++ locPerh pd ++ locPerh pr ++ locPerh ppn)
     CncFun _   pd ppn _  -> ifConcrete mt (locPerh pd ++ locPerh ppn)
     ResParam pparam _    -> ifResource mt (locPerh pparam)
-    ResValue ty          -> ifResource mt (locL ty)
+    ResValue _ ty        -> ifResource mt (locL ty)
     ResOper  pty pt      -> ifOper mt pty pt
     ResOverload _ xs     -> ifResource mt (concat [[loc1,loc2] | (L loc1 _,L loc2 _) <- xs])
   where

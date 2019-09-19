@@ -106,7 +106,7 @@ ppJudgement q (id, ResParam pparams _) =
   (case pparams of
      Just (L _ ps) -> '=' <+> ppParams q ps
      _             -> empty) <+> ';'
-ppJudgement q (id, ResValue pvalue) = 
+ppJudgement q (id, ResValue _ pvalue) = 
   "-- param constructor" <+> id <+> ':' <+> 
   (case pvalue of
      (L _ ty) -> ppTerm q 0 ty) <+> ';'
