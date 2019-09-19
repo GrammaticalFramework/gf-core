@@ -4,6 +4,7 @@ module PGFService(cgiMain,cgiMain',getPath,
                   Caches,pgfCache,newPGFCache,flushPGFCache,listPGFCache) where
 
 import PGF (PGF,Labels,CncLabels)
+import PGF2
 import GF.Text.Lexing
 import qualified PGF
 import Cache
@@ -14,11 +15,6 @@ import CGI(CGI,readInput,getInput,getVarWithDefault,
            CGIResult,requestAcceptLanguage,handleErrors,setHeader,
            Accept(..),Language(..),negotiate,liftIO)
 import URLEncoding
-
-#if C_RUNTIME
-import qualified PGF2 as C
---import Data.Time.Clock(getCurrentTime,diffUTCTime)
-#endif
 
 import Data.Time.Clock(UTCTime)
 import Data.Time.Format(formatTime)
@@ -60,43 +56,18 @@ withQSem qsem = bracket_ (liftIO $ waitQSem qsem) (liftIO $ signalQSem qsem)
 logFile :: FilePath
 logFile = "pgf-error.log"
 
-#ifdef C_RUNTIME
-data Caches = Caches { pgfCache::Cache PGF,
-                       labelsCache::Cache Labels,
-                       cncLabelsCache::Cache CncLabels,
-                       cpgfCache::(Cache (C.PGF,({-MVar ParseCache-})),QSem) }
---type Caches = (Cache PGF,Cache (C.PGF,({-MVar ParseCache-})))
---type ParseCache = Map.Map (String,String) (ParseResult,UTCTime)
---type ParseResult = Either String [(C.Expr,Float)]
+data Caches = Caches { qsem :: QSem,
+                       pgfCache :: Cache PGF,
+                       labelsCache :: Cache Labels }
 
-newPGFCache jobs = do pgfCache <- newCache' PGF.readPGF
-                      lblCache <- newCache' (fmap PGF.getDepLabels . readFile)
-                      clblCache <- newCache'(fmap PGF.getCncDepLabels .readFile)
-                      let n = maybe 4 id jobs
+newPGFCache jobs = do let n = maybe 4 id jobs
                       qsem <- newQSem n
-                      cCache <- newCache' $ \ path -> do pgf <- C.readPGF path
-                                                       --pc <- newMVar Map.empty
-                                                         return (pgf,({-pc-}))
-                      return $ Caches pgfCache lblCache clblCache (cCache,qsem)
+                      pgfCache <- newCache' PGF.readPGF
+                      lblCache <- newCache' (fmap PGF.getDepLabels . readFile)
+                      return $ Caches qsem pgfCache lblCache
 flushPGFCache c = do flushCache (pgfCache c)
                      flushCache (labelsCache c)
-                     flushCache (fst (cpgfCache c))
-listPGFCache c = (,) # listCache (pgfCache c) % listCache (fst (cpgfCache c))
-#else
-data Caches = Caches { pgfCache::Cache PGF,
-                       labelsCache::Cache Labels,
-                       cncLabelsCache::Cache CncLabels }
-newPGFCache _ = do pgfCache <- newCache' PGF.readPGF
-                   lblCache <- newCache' (fmap PGF.getDepLabels . readFile)
-                   clblCache <- newCache'(fmap PGF.getCncDepLabels .readFile)
-                   return $ Caches pgfCache lblCache clblCache
-flushPGFCache c = flushCache (pgfCache c)
-
-listPGFCache :: Caches -> IO ([(FilePath,UTCTime)],[(FilePath,UTCTime)])
-listPGFCache c = (,) # listCache (pgfCache c) % return []
-#endif
-
-labelsCaches c = (labelsCache c,cncLabelsCache c)
+listPGFCache c = listCache (pgfCache c)
 
 newCache' rd = do c <- newCache rd
                   forkIO $ forever $ clean c
@@ -121,20 +92,8 @@ cgiMain' cache path =
                         (getInput "command")
        case command of
          "download" -> outputBinary =<< getFile BS.readFile path
-         'c':'-':_  -> optionalCpgfMain cache path command
          _ -> do tpgf <- getFile (readCache' (pgfCache cache)) path
-                 pgfMain (labelsCaches cache) path command tpgf
-
-optionalCpgfMain cache path command =
-#ifdef C_RUNTIME
-    cpgfMain (snd (cpgfCache cache)) command
-       =<< getFile (readCache' (fst (cpgfCache cache))) path
-#else
-    serverError "Server configured without C run-time support" ""
-
-serverError = throw 500
-
-#endif
+                 pgfMain (qsem cache) command tpgf
 
 getFile get path =
    either failed return =<< liftIO (E.try (get path))
@@ -143,38 +102,34 @@ getFile get path =
                then notFound path
                else liftIO $ ioError e
 
---------------------------------------------------------------------------------
--- * C run-time functionality
 
-#ifdef C_RUNTIME
---cpgfMain :: String -> (C.PGF,MVar ParseCache) -> CGI CGIResult
-cpgfMain qsem command (t,(pgf,pc)) =
+pgfMain qsem command (t,pgf) =
   case command of
-    "c-parse"       -> withQSem qsem $
+    "parse"       -> withQSem qsem $
                        out t=<< join (parse # input % start % limit % treeopts)
-    "c-linearize"   -> out t=<< lin # tree % to
-    "c-linearizeAll"-> out t=<< linAll # tree % to
-    "c-translate"   -> withQSem qsem $
+    "linearize"   -> out t=<< lin # tree % to
+    "linearizeAll"-> out t=<< linAll # tree % to
+    "translate"   -> withQSem qsem $
                        out t=<<join(trans # input % to % start % limit%treeopts)
-    "c-lookupmorpho"-> out t=<< morpho # from1 % textInput
-    "c-flush"       -> out t=<< flush
-    "c-grammar"     -> out t grammar
-    "c-abstrtree"   -> outputGraphviz=<< C.graphvizAbstractTree pgf C.graphvizDefaults # tree
-    "c-parsetree"   -> outputGraphviz=<< (\cnc -> C.graphvizParseTree cnc C.graphvizDefaults) . snd # from1 %tree
-    "c-wordforword" -> out t =<< wordforword # input % to
-    _               -> badRequest "Unknown command" command
+    "lookupmorpho"-> out t=<< morpho # from1 % textInput
+    "flush"       -> out t=<< flush
+    "grammar"     -> out t grammar
+    "abstrtree"   -> outputGraphviz=<< graphvizAbstractTree pgf graphvizDefaults # tree
+    "parsetree"   -> outputGraphviz=<< (\cnc -> graphvizParseTree cnc graphvizDefaults) . snd # from1 %tree
+    "wordforword" -> out t =<< wordforword # input % to
+    _             -> badRequest "Unknown command" command
   where
     flush = liftIO $ do --modifyMVar_ pc $ const $ return Map.empty
                         performGC
                         return $ showJSON ()
 
-    cat = C.startCat pgf
-    langs = C.languages pgf
+    cat = startCat pgf
+    langs = languages pgf
 
     grammar = showJSON $ makeObj
-                 ["name".=C.abstractName pgf,
+                 ["name".=abstractName pgf,
                   "lastmodified".=show t,
-                  "startcat".=C.showType [] (C.startCat pgf),
+                  "startcat".=showType [] (startCat pgf),
                   "languages".=languages]
       where
         languages = [makeObj ["name".= l] | (l,_)<-Map.toList langs]
@@ -189,40 +144,23 @@ cpgfMain qsem command (t,(pgf,pc)) =
         good trees = "trees".=map tp trees :[]  -- :addTrie trie trees
         tp (tree,prob) = makeObj (addTree json tree++["prob".=prob])
 
-    -- Without caching parse results:
     parse' start mlimit ((from,concr),input) =
-        case C.parseWithHeuristics concr cat input (-1) callbacks of
-          C.ParseOk ts        -> return (Right (maybe id take mlimit (drop start ts)))
-          C.ParseFailed _ tok -> return (Left tok)
-          C.ParseIncomplete   -> return (Left "")
+        case parseWithHeuristics concr cat input (-1) callbacks of
+          ParseOk ts        -> return (Right (maybe id take mlimit (drop start ts)))
+          ParseFailed _ tok -> return (Left tok)
+          ParseIncomplete   -> return (Left "")
       where
-        callbacks = maybe [] cb $ lookup (C.abstractName pgf) C.literalCallbacks
+        callbacks = maybe [] cb $ lookup (abstractName pgf) literalCallbacks
         cb fs = [(cat,f pgf (from,concr) input)|(cat,f)<-fs]
-{-
-    -- Caching parse results:
-    parse' start mlimit ((from,concr),input) = 
-        liftIO $ do t <- getCurrentTime
-                    fmap (maybe id take mlimit . drop start)
-                      # modifyMVar pc (parse'' t)
-      where
-        key = (from,input)
-        parse'' t pc = maybe new old $ Map.lookup key pc
-          where
-            new = return (update (res,t) pc,res)
-              where res = C.parse concr cat input
-            old (res,_) = return (update (res,t) pc,res)
-            update r = Map.mapMaybe purge . Map.insert key r
-            purge r@(_,t') = if diffUTCTime t t'<120 then Just r else Nothing
-                             -- remove unused parse results after 2 minutes
--}
+
     linAll tree to = showJSON (linAll' tree to)
     linAll' tree (tos,unlex) =
         [makeObj ["to".=to,
-                  "texts".=map unlex (C.linearizeAll c tree)]|(to,c)<-tos]
+                  "texts".=map unlex (linearizeAll c tree)]|(to,c)<-tos]
 
     lin tree to = showJSON (lin' tree to)
     lin' tree (tos,unlex) =
-        [makeObj ["to".=to,"text".=unlex (C.linearize c tree)]|(to,c)<-tos]
+        [makeObj ["to".=to,"text".=unlex (linearize c tree)]|(to,c)<-tos]
 
     trans input@((from,_),_) to start mlimit (trie,jsontree) =
       do parses <- parse' start mlimit input
@@ -240,7 +178,7 @@ cpgfMain qsem command (t,(pgf,pc)) =
 
     morpho (from,concr) input =
         showJSON [makeObj ["lemma".=l,"analysis".=a,"prob".=p]|(l,a,p)<-ms]
-      where ms = C.lookupMorpho concr input
+      where ms = lookupMorpho concr input
 
 
     wordforword input@((from,_),_) = jsonWFW from . wordforword' input
@@ -259,7 +197,7 @@ cpgfMain qsem command (t,(pgf,pc)) =
       where
         lin_word' c = either id (lin1 c)
 
-        lin1 c = dropq . C.linearize c
+        lin1 c = dropq . linearize c
           where
             dropq (q:' ':s) | q `elem` "+*" = s
             dropq s = s
@@ -278,12 +216,12 @@ cpgfMain qsem command (t,(pgf,pc)) =
                         | isUpper c -> toLower c : cs
                    s                -> s
 
-            parse1 s = case C.parse concr cat s of
-                         C.ParseOk ((t,_):ts) -> Just t
-                         _                    -> Nothing
+            parse1 s = case PGF2.parse concr cat s of
+                         ParseOk ((t,_):ts) -> Just t
+                         _                  -> Nothing
             morph w = listToMaybe
-                        [t | (f,a,p)<-C.lookupMorpho concr w,
-                             t<-maybeToList (C.readExpr f)]
+                        [t | (f,a,p)<-lookupMorpho concr w,
+                             t<-maybeToList (readExpr f)]
 
     ---
 
@@ -303,28 +241,17 @@ cpgfMain qsem command (t,(pgf,pc)) =
     getLangs = getLangs' readLang
     getLang = getLang' readLang
 
-    readLang :: String -> CGI (String,C.Concr)
+    readLang :: String -> CGI (String,Concr)
     readLang lang =
       case Map.lookup lang langs of
         Nothing -> badRequest "Bad language" lang
         Just c -> return (lang,c)
 
     tree = do s <- maybe (missing "tree") return =<< getInput1 "tree"
-              let t = C.readExpr s
-              maybe (badRequest "bad tree" s) return t
+              maybe (badRequest "bad tree" s) return (readExpr s)
 
-    c_lexer concr = lexer (not . null . C.lookupMorpho concr)
+    c_lexer concr = lexer (not . null . lookupMorpho concr)
 
---------------------------------------------------------------------------------
-
-
--- | Convert a 'Tree' to an 'ATree'
-cToATree :: C.Expr -> PGF.ATree C.Expr
-cToATree e = maybe (PGF.Other e) app (C.unApp e)
-  where
-    app (f,es) = PGF.App (read f) (map cToATree es)
-
-#endif
 
 --------------------------------------------------------------------------------
 -- * Lexing
@@ -355,7 +282,7 @@ unlexer good = maybe (return id) unlexerfun =<< getInput "unlexer"
 
 --------------------------------------------------------------------------------
 -- * Haskell run-time functionality
-
+{-
 --pgfMain :: Cache Labels -> FilePath -> String -> PGF -> CGI CGIResult
 pgfMain lcs@(alc,clc) path command tpgf@(t,pgf) =
     case command of
@@ -464,7 +391,7 @@ pgfMain lcs@(alc,clc) path command tpgf@(t,pgf) =
 
 -- * Request parameter access and related auxiliary functions
 
---out = outputJSONP
+-}
 out t r = do let fmt = formatTime defaultTimeLocale rfc822DateFormat t
              setHeader "Last-Modified" fmt
              outputJSONP r
@@ -508,7 +435,7 @@ throw code msg extra =
     throwCGIError code msg [msg ++(if null extra then "" else ": "++extra)]
 
 format def = maybe def id # getInput "format"
-
+{-
 -- * Request implementations
 
 -- Hook for simple extensions of the PGF service
@@ -537,11 +464,11 @@ doLookupMorpho pgf from input =
   where
     ms = PGF.lookupMorpho (PGF.buildMorpho pgf from) input
 
-
+-}
 type From = (Maybe PGF.Language,String)
 type To = ([PGF.Language],Unlexer)
 type TreeOpts = (Bool,Bool) -- (trie,jsontree)
-
+{-
 doTranslate :: PGF -> From -> Maybe PGF.Type -> To -> Maybe Int -> TreeOpts -> JSValue
 doTranslate pgf (mfrom,input) mcat tos mlimit (trie,jsontree) =
   showJSON
@@ -633,10 +560,10 @@ doParse pgf (mfrom,input) mcat mlimit (trie,jsontree) = showJSON $ map makeObj
 
 addTrie trie trees =
     ["trie".=map head (PGF.toTrie (map PGF.toATree trees))|trie]
-
+-}
 addTree json tree = "tree".=showTree tree:
                     ["jsontree".= jsonExpr tree | json]
-
+{-
 doComplete :: PGF -> From -> Maybe PGF.Type -> Maybe Int -> Bool -> JSValue
 doComplete pgf (mfrom,input) mcat mlimit full = showJSON
     [makeObj (
@@ -732,7 +659,7 @@ doGrammar (t1,pgf) elbls macc = out t $ showJSON $ makeObj
           | l <- PGF.languages pgf]
     categories = [PGF.showCId cat | cat <- PGF.categories pgf]
     functions  = [PGF.showCId fun | fun <- PGF.functions pgf]
-
+-}
 outputGraphviz code =
   do fmt <- format "png"
      case fmt of
@@ -748,7 +675,7 @@ outputGraphviz code =
         "svg" -> "image/svg+xml"
     -- ...
         _     -> "application/binary"
-
+{-
 abstrTree pgf      opts tree = PGF.graphvizAbstractTree pgf opts' tree
   where opts' = (not (PGF.noFun opts),not (PGF.noCat opts))
 
@@ -789,7 +716,7 @@ tryIO = E.try
 
 alignment pgf tree (tos,unlex) = PGF.graphvizAlignment pgf tos' tree
   where tos' = if null tos then PGF.languages pgf else tos
-
+-}
 pipeIt2graphviz :: String -> String -> IO BS.ByteString
 pipeIt2graphviz fmt code = do
     (Just inh, Just outh, _, pid) <-
@@ -821,7 +748,7 @@ pipeIt2graphviz fmt code = do
     case ex of
      ExitSuccess   -> return output
      ExitFailure r -> fail ("pipeIt2graphviz: (exit " ++ show r ++ ")")
-
+{-
 browse1json pgf id pn = makeObj . maybe [] obj $ PGF.browse pgf id
   where
     obj (def,ps,cs) = if pn then (baseobj ++ pnames) else baseobj
@@ -921,7 +848,7 @@ doBrowse pgf (Just id) cssClass href _ pn = -- default to "html" format
     
     annotatePrintNames = "<DL>"++(unwords pns)++"</DL>"
       where pns = ["<DT>"++(show lang)++"</DT><DD>"++(PGF.showPrintName pgf lang id)++"</DD>" | lang <- PGF.languages pgf ]
-
+-}
 class ToATree a where 
   showTree :: a -> String
   toATree :: a -> PGF.ATree a
@@ -961,11 +888,7 @@ instance JSON PGF.Expr where
 
 instance JSON PGF.BracketedString where
     readJSON x = return (PGF.Leaf "")
-#ifdef C_RUNTIME
     showJSON (PGF.Bracket cat fid index fun bs) =
-#else
-    showJSON (PGF.Bracket cat fid index fun _ bs) =
-#endif
         makeObj ["cat".=cat, "fid".=fid, "index".=index, "fun".=fun, "children".=bs]
     showJSON (PGF.Leaf s) = makeObj ["token".=s]
 
@@ -1038,3 +961,4 @@ f % x = ap f x
 
 --cleanFilePath :: FilePath -> FilePath
 --cleanFilePath = takeFileName
+

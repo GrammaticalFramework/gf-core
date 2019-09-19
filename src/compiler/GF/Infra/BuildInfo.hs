@@ -14,9 +14,3 @@ buildInfo =
 #ifdef SERVER_MODE
     ++" server"
 #endif
-#ifdef NEW_COMP
-    ++" new-comp"
-#endif
-#ifdef C_RUNTIME
-    ++" c-runtime"
-#endif

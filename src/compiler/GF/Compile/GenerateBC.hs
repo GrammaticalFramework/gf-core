@@ -9,7 +9,6 @@ import qualified Data.Map as Map
 import Data.List(nub,mapAccumL)
 import Data.Maybe(fromMaybe)
 
-#if C_RUNTIME
 generateByteCode :: SourceGrammar -> Int -> [L Equation] -> [[Instr]]
 generateByteCode gr arity eqs =
   let (bs,instrs) = compileEquations gr arity (arity+1) is 
@@ -302,7 +301,3 @@ freeVars xs e           = collectOp (freeVars xs) e
 push_is :: Int -> Int -> [IVal] -> [IVal]
 push_is i 0 is = is
 push_is i n is = ARG_VAR i : push_is (i-1) (n-1) is
-
-#else
-generateByteCode = error "generateByteCode is not implemented"
-#endif

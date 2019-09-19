@@ -67,28 +67,14 @@ flag network-uri
    description: Get Network.URI from the network-uri package
    default: True
 
---flag new-comp
---  Description: Make -new-comp the default
---  Default:     True
-
-flag c-runtime
-  Description: Include functionality from the C run-time library (which must be installed already)
-  Default:     False
-
-
 
 executable gf
-  hs-source-dirs: src/programs, src/runtime/haskell/binary
+  hs-source-dirs: src/programs
   main-is: gf-main.hs
   default-language:    Haskell2010
-  build-depends: base, filepath, directory, time, time-compat, old-locale, pretty, mtl, array, random,
+  build-depends: pgf2, base, filepath, directory, time, time-compat, old-locale, pretty, mtl, array, random,
                  process, haskeline, parallel>=3, exceptions, bytestring, utf8-string, containers
   ghc-options: -threaded
-
-  if flag(c-runtime)
-    build-depends: pgf2
-  else
-    build-depends: pgf
 
   if impl(ghc>=7.0)
     ghc-options: -rtsopts -with-rtsopts=-I5
@@ -222,9 +208,6 @@ executable gf
     Data.Binary.Get
     Data.Binary.Builder
     Data.Binary.IEEE754
-
-  if flag(c-runtime)
-    cpp-options: -DC_RUNTIME
 
   if flag(server)
     build-depends: httpd-shed>=0.4.0.3, network>=2.3 && <2.7, json,

@@ -179,7 +179,7 @@ handle logLn documentroot state0 cache execute1 stateVar
 
     translatePath rpath = root</>rpath -- hmm, check for ".."
 
-    versionInfo (c1,c2) =
+    versionInfo c =
         html200 . unlines $
            "<!DOCTYPE html>":
            "<meta name = \"viewport\" content = \"width = device-width\">":
@@ -187,8 +187,7 @@ handle logLn documentroot state0 cache execute1 stateVar
            "":
            ("<h2>"++hdr++"</h2>"):
            (zipWith (++) ("<p>":repeat "<br>") buildinfo)++
-           sh "Haskell run-time system" c1++
-           sh "C run-time system" c2
+           sh "Run-time system" c
       where
         hdr:buildinfo = lines gf_version
         rel = makeRelative documentroot
