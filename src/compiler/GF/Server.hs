@@ -42,7 +42,6 @@ import GF.Infra.UseIO(readBinaryFile,writeBinaryFile,ePutStrLn)
 import GF.Infra.SIO(captureSIO)
 import GF.Data.Utilities(apSnd,mapSnd)
 import qualified PGFService as PS
-import qualified ExampleService as ES
 import Data.Version(showVersion)
 import Paths_gf(getDataDir,version)
 import GF.Infra.BuildInfo (buildInfo)
@@ -170,7 +169,6 @@ handle logLn documentroot state0 cache execute1 stateVar
                (_  ,_             ,".pgf") -> do --debug $ "PGF service: "++path
                                                  wrapCGI $ PS.cgiMain' cache path
                (dir,"grammars.cgi",_     ) -> grammarList dir (decoded qs)
-               (dir  ,"exb.fcgi"  ,_    ) -> wrapCGI $ ES.cgiMain' root dir (PS.pgfCache cache)
                _ -> serveStaticFile rpath path
              where path = translatePath rpath
            _ -> return $ resp400 upath

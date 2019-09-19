@@ -1,8 +1,8 @@
 {-# LANGUAGE BangPatterns #-}
 module GF.Compile.OptimizePGF(optimizePGF) where
 
-import PGF(mkCId)
-import PGF.Internal
+import PGF2(Cat,Fun)
+import PGF2.Internal
 import Data.Array.ST
 import Data.Array.Unboxed
 import qualified Data.Map as Map
@@ -15,19 +15,19 @@ import Control.Monad.ST
 type ConcrData = ([(FId,[FunId])],          -- ^ Lindefs
                   [(FId,[FunId])],          -- ^ Linrefs
                   [(FId,[Production])],     -- ^ Productions
-                  [(CId,[SeqId])],          -- ^ Concrete functions   (must be sorted by Fun)
+                  [(Fun,[SeqId])],          -- ^ Concrete functions   (must be sorted by Fun)
                   [[Symbol]],               -- ^ Sequences            (must be sorted)
-                  [(CId,FId,FId,[String])]) -- ^ Concrete categories
+                  [(Cat,FId,FId,[String])]) -- ^ Concrete categories
 
-optimizePGF :: CId -> ConcrData -> ConcrData
+optimizePGF :: Cat -> ConcrData -> ConcrData
 optimizePGF startCat = topDownFilter startCat . bottomUpFilter
 
-cidString = mkCId "String"
-cidInt    = mkCId "Int"
-cidFloat  = mkCId "Float"
-cidVar    = mkCId "__gfVar"
-                         
-topDownFilter :: CId -> ConcrData -> ConcrData
+catString = "String"
+catInt    = "Int"
+catFloat  = "Float"
+catVar    = "__gfVar"
+
+topDownFilter :: Cat -> ConcrData -> ConcrData
 topDownFilter startCat (lindefs,linrefs,prods,cncfuns,sequences,cnccats) =
   let env0             = (Map.empty,Map.empty)
       (env1,lindefs')  = List.mapAccumL (\env (fid,funids) -> let (env',funids') = List.mapAccumL (optimizeFun fid [PArg [] fidVar]) env funids in (env',(fid,funids')))
@@ -43,10 +43,10 @@ topDownFilter startCat (lindefs,linrefs,prods,cncfuns,sequences,cnccats) =
       (sequences',cncfuns') = env3
   in (lindefs',linrefs',prods',mkSetArray cncfuns',mkSetArray  sequences',cnccats')
   where
-    cncfuns_array   = listArray (0,length cncfuns-1)   cncfuns   :: Array FunId (CId, [SeqId])
+    cncfuns_array   = listArray (0,length cncfuns-1)   cncfuns   :: Array FunId (Fun, [SeqId])
     sequences_array = listArray (0,length sequences-1) sequences :: Array SeqId [Symbol]
     prods_map  = IntMap.fromList prods
-    fid2catMap = IntMap.fromList ((fidVar,cidVar) :  [(fid,cat) | (cat,start,end,lbls) <- cnccats,
+    fid2catMap = IntMap.fromList ((fidVar,catVar) :  [(fid,cat) | (cat,start,end,lbls) <- cnccats,
                                                                   fid <- [start..end]])
 
     fid2cat fid =
@@ -76,17 +76,17 @@ topDownFilter startCat (lindefs,linrefs,prods,cncfuns,sequences,cnccats) =
     -- An element of the array is equal to -1 if the corresponding index
     -- is not going to be used in the optimized grammar, or the new index
     -- if it will be used
-    closure :: Map.Map CId [LIndex]
+    closure :: Map.Map Cat [Int]
     closure = runST $ do
       set <- initSet
-      addLitCat cidString set
-      addLitCat cidInt    set
-      addLitCat cidFloat  set
-      addLitCat cidVar    set
+      addLitCat catString set
+      addLitCat catInt    set
+      addLitCat catFloat  set
+      addLitCat catVar    set
       closureSet set starts
       doneSet set
       where
-        initSet :: ST s (Map.Map CId (STUArray s LIndex LIndex))
+        initSet :: ST s (Map.Map Cat (STUArray s Int Int))
         initSet =
           fmap Map.fromList $ sequence
                         [fmap ((,) cat) (newArray (0,length lbls-1) (-1))
@@ -109,7 +109,7 @@ topDownFilter startCat (lindefs,linrefs,prods,cncfuns,sequences,cnccats) =
                                  else closureSet set xs
             Nothing      -> error "unknown cat"
 
-        doneSet :: Map.Map CId (STUArray s LIndex LIndex) -> ST s (Map.Map CId [LIndex])
+        doneSet :: Map.Map Cat (STUArray s Int Int) -> ST s (Map.Map Cat [Int])
         doneSet set =
           fmap Map.fromAscList $ mapM done (Map.toAscList set)
           where

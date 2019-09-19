@@ -15,7 +15,6 @@
 module GF.Grammar.BNFC(BNFCRule(..), BNFCSymbol, Symbol(..), CFTerm(..), bnfc2cf) where
 
 import GF.Grammar.CFG
-import PGF (Token, mkCId)
 import Data.List (partition)
 
 type IsList = Bool
@@ -64,12 +63,12 @@ transformRules sepMap (BNFCCoercions c num) = rules ++ [lastRule]
                 lastRule = Rule (c',[0]) ss rn
                   where c' = c ++ show num
                         ss = [Terminal "(", NonTerminal (c,[0]), Terminal ")"]
-                        rn = CFObj (mkCId $ "coercion_" ++ c) []
+                        rn = CFObj ("coercion_" ++ c) []
 
 fRules c n = Rule (c',[0]) ss rn
    where c' = if n == 0 then c else c ++ show n
          ss = [NonTerminal (c ++ show (n+1),[0])]
-         rn = CFObj (mkCId $ "coercion_" ++ c') []
+         rn = CFObj ("coercion_" ++ c') []
 
 transformSymb :: SepMap -> BNFCSymbol -> (String, ParamCFSymbol)
 transformSymb sepMap s = case s of
@@ -94,7 +93,7 @@ createListRules' ne isSep symb c = ruleBase : ruleCons
                        then [NonTerminal (c,[0]) | ne]
                        else [NonTerminal (c,[0]) | ne] ++
                             [Terminal symb | symb /= "" && ne]
-                rn   = CFObj (mkCId $ "Base" ++ c) []
+                rn   = CFObj ("Base" ++ c) []
         ruleCons
           | isSep && symb /= "" && not ne = [Rule ("List" ++ c,[1]) smbs0 rn
                                             ,Rule ("List" ++ c,[1]) smbs1 rn]
@@ -107,4 +106,4 @@ createListRules' ne isSep symb c = ruleBase : ruleCons
                 smbs = [NonTerminal (c,[0])] ++
                        [Terminal symb | symb /= ""] ++
                        [NonTerminal ("List" ++ c,[0])]
-                rn   = CFObj (mkCId $ "Cons" ++ c) []
+                rn   = CFObj ("Cons" ++ c) []

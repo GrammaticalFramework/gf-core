@@ -35,7 +35,7 @@ import GF.Infra.Ident
 import GF.Infra.GetOpt
 import GF.Grammar.Predef
 import System.FilePath
-import PGF.Internal(Literal(..))
+import PGF2.Internal(Literal(..))
 
 import GF.Data.Operations(Err,ErrorMonad(..),liftErr)
 
@@ -85,12 +85,9 @@ data Phase = Preproc | Convert | Compile | Link
 data OutputFormat = FmtPGFPretty
                   | FmtCanonicalGF
                   | FmtCanonicalJson
-                  | FmtJavaScript 
                   | FmtJSON
-                  | FmtPython 
                   | FmtHaskell 
                   | FmtJava
-                  | FmtProlog
                   | FmtBNF
                   | FmtEBNF
                   | FmtRegular
@@ -467,12 +464,9 @@ outputFormatsExpl =
     [(("pgf_pretty",   FmtPGFPretty),"human-readable pgf"),
      (("canonical_gf", FmtCanonicalGF),"Canonical GF source files"),
      (("canonical_json", FmtCanonicalJson),"Canonical JSON source files"),
-     (("js",           FmtJavaScript),"JavaScript (whole grammar)"),
      (("json",         FmtJSON),"JSON (whole grammar)"),
-     (("python",       FmtPython),"Python (whole grammar)"),
      (("haskell",      FmtHaskell),"Haskell (abstract syntax)"),
      (("java",         FmtJava),"Java (abstract syntax)"),
-     (("prolog",       FmtProlog),"Prolog (whole grammar)"),
      (("bnf",          FmtBNF),"BNF (context-free grammar)"),
      (("ebnf",         FmtEBNF),"Extended BNF"),
      (("regular",      FmtRegular),"* regular grammar"),

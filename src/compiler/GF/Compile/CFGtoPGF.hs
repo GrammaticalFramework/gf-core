@@ -6,8 +6,8 @@ import GF.Infra.UseIO
 import GF.Infra.Option
 import GF.Compile.OptimizePGF
 
-import PGF
-import PGF.Internal
+import PGF2
+import PGF2.Internal
 
 import qualified Data.Set as Set
 import qualified Data.Map as Map
@@ -20,22 +20,22 @@ import Data.Maybe(fromMaybe)
 -- the compiler ----------
 --------------------------
 
-cf2pgf :: Options -> FilePath -> ParamCFG -> Map.Map CId Double -> PGF
+cf2pgf :: Options -> FilePath -> ParamCFG -> Map.Map Fun Double -> PGF
 cf2pgf opts fpath cf probs = 
  build (let abstr = cf2abstr cf probs
         in newPGF [] aname abstr [(cname, cf2concr opts abstr cf)])
  where
    name = justModuleName fpath
-   aname = mkCId (name ++ "Abs")
-   cname = mkCId name
+   aname = name ++ "Abs"
+   cname = name
 
-cf2abstr :: (?builder :: Builder s) => ParamCFG -> Map.Map CId Double -> B s AbstrInfo
+cf2abstr :: (?builder :: Builder s) => ParamCFG -> Map.Map Fun Double -> B s AbstrInfo
 cf2abstr cfg probs = newAbstr aflags acats afuns
   where
-    aflags = [(mkCId "startcat", LStr (fst (cfgStartCat cfg)))]
+    aflags = [("startcat", LStr (fst (cfgStartCat cfg)))]
 
     acats  = [(c', [], toLogProb (fromMaybe 0 (Map.lookup c' probs))) | cat <- allCats' cfg, let c' = cat2id cat]
-    afuns  = [(f', dTyp [hypo Explicit wildCId (dTyp [] (cat2id c) []) | NonTerminal c <- ruleRhs rule] (cat2id (ruleLhs rule)) [], 0, toLogProb (fromMaybe 0 (Map.lookup f' funs_probs)))
+    afuns  = [(f', dTyp [hypo Explicit "_" (dTyp [] (cat2id c) []) | NonTerminal c <- ruleRhs rule] (cat2id (ruleLhs rule)) [], 0, toLogProb (fromMaybe 0 (Map.lookup f' funs_probs)))
                             | rule <- allRules cfg
                             , let f' = mkRuleName rule]
 
@@ -53,12 +53,12 @@ cf2abstr cfg probs = newAbstr aflags acats afuns
 
     toLogProb = realToFrac . negate . log
 
-    cat2id = mkCId . fst
+    cat2id = fst
 
 cf2concr :: (?builder :: Builder s) => Options -> B s AbstrInfo -> ParamCFG -> B s ConcrInfo
 cf2concr opts abstr cfg = 
   let (lindefs',linrefs',productions',cncfuns',sequences',cnccats') =
-           (if flag optOptimizePGF opts then optimizePGF (mkCId (fst (cfgStartCat cfg))) else id)
+           (if flag optOptimizePGF opts then optimizePGF (fst (cfgStartCat cfg)) else id)
                 (lindefsrefs,lindefsrefs,IntMap.toList productions,cncfuns,sequences,cnccats)
   in newConcr abstr [] []
               lindefs' linrefs'
@@ -74,7 +74,7 @@ cf2concr opts abstr cfg =
                                map mkSequence rules)
     sequences  = Set.toList sequences0
 
-    idFun = (wildCId,[Set.findIndex idSeq sequences0])
+    idFun = ("_",[Set.findIndex idSeq sequences0])
     ((fun_cnt,cncfuns0),productions0) = mapAccumL (convertRule cs) (1,[idFun]) rules
     productions = foldl addProd IntMap.empty (concat (productions0++coercions))
     cncfuns = reverse cncfuns0
@@ -100,11 +100,11 @@ cf2concr opts abstr cfg =
         convertSymbol d (Terminal t)        = (d,  SymKS t)
 
     mkCncCat fid (cat,n)
-      | cat == "Int"    = (fid, (mkCId cat, fidInt,    fidInt,    lbls))
-      | cat == "Float"  = (fid, (mkCId cat, fidFloat,  fidFloat,  lbls))
-      | cat == "String" = (fid, (mkCId cat, fidString, fidString, lbls))
+      | cat == "Int"    = (fid, (cat, fidInt,    fidInt,    lbls))
+      | cat == "Float"  = (fid, (cat, fidFloat,  fidFloat,  lbls))
+      | cat == "String" = (fid, (cat, fidString, fidString, lbls))
       | otherwise       = let fid' = fid+n+1
-                          in fid' `seq` (fid', (mkCId cat, fid, fid+n, lbls))
+                          in fid' `seq` (fid', (cat, fid, fid+n, lbls))
 
     mkCoercions (fid,cs) c@(cat,[p]) = ((fid,cs),[])
     mkCoercions (fid,cs) c@(cat,ps ) =
@@ -120,7 +120,7 @@ cf2concr opts abstr cfg =
         Nothing  -> IntMap.insert fid [prod]     prods
 
     cat2fid cat p =
-      case [start | (cat',start,_,_) <- cnccats, mkCId cat == cat'] of
+      case [start | (cat',start,_,_) <- cnccats, cat == cat'] of
         (start:_) -> fid+p
         _         -> error "cat2fid"
 
@@ -133,5 +133,5 @@ cf2concr opts abstr cfg =
 mkRuleName rule =
   case ruleName rule of
 	CFObj n _ -> n
-	_         -> wildCId
+	_         -> "_"
 

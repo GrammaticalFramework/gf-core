@@ -22,7 +22,7 @@ import Data.List(nub)
 import Data.Time(UTCTime)
 import GF.Text.Pretty(render,($$),(<+>),nest)
 
-import PGF(PGF,readProbabilitiesFromFile)
+import PGF2(PGF,readProbabilitiesFromFile)
 
 -- | Compiles a number of source files and builds a 'PGF' structure for them.
 -- This is a composition of 'link' and 'batchCompile'.

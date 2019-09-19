@@ -64,7 +64,7 @@ module GF.Grammar.Grammar (
         Location(..), L(..), unLoc, noLoc, ppLocation, ppL,
 
         -- ** PMCFG        
-        PMCFG(..), Production(..), FId, FunId, SeqId, LIndex, Sequence
+        PMCFG(..), Production(..), FId, FunId, SeqId, LIndex
         ) where
 
 import GF.Infra.Ident
@@ -73,7 +73,8 @@ import GF.Infra.Location
 
 import GF.Data.Operations
 
-import PGF.Internal (FId, FunId, SeqId, LIndex, Sequence, BindType(..))
+import PGF2(LIndex, BindType(..))
+import PGF2.Internal(FId, FunId, SeqId, Symbol)
 
 import Data.Array.IArray(Array)
 import Data.Array.Unboxed(UArray)
@@ -99,7 +100,7 @@ data ModuleInfo = ModInfo {
     mopens  :: [OpenSpec],
     mexdeps :: [ModuleName],
     msrc    :: FilePath,
-    mseqs   :: Maybe (Array SeqId Sequence),
+    mseqs   :: Maybe (Array SeqId [Symbol]),
     jments  :: Map.Map Ident Info
   }
 

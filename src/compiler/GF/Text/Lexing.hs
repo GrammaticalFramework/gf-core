@@ -15,7 +15,6 @@ stringOp good name = case name of
   "lexgreek"   -> Just $ appLexer lexAGreek
   "lexgreek2"  -> Just $ appLexer lexAGreek2
   "words"      -> Just $ appLexer words
-  "bind"       -> Just $ appUnlexer (unwords . bindTok)
   "unchars"    -> Just $ appUnlexer concat
   "unlextext"  -> Just $ appUnlexer (unlexText . unquote . bindTok)
   "unlexcode"  -> Just $ appUnlexer unlexCode

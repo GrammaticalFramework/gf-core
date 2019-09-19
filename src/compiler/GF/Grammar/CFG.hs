@@ -4,10 +4,11 @@
 --
 -- Context-free grammar representation and manipulation.
 ----------------------------------------------------------------------
-module GF.Grammar.CFG where
+module GF.Grammar.CFG(Cat,Token, module GF.Grammar.CFG) where
 
 import GF.Data.Utilities
-import PGF
+import PGF2(Fun,Cat)
+import PGF2.Internal(Token)
 import GF.Data.Relation
 
 import Data.Map (Map)
@@ -19,8 +20,6 @@ import qualified Data.Set as Set
 --
 -- * Types
 --
-
-type Cat = String
 
 data Symbol c t = NonTerminal c | Terminal t
   deriving (Eq, Ord, Show)
@@ -39,12 +38,12 @@ data Grammar c t = Grammar {
   deriving (Eq, Ord, Show)
 
 data CFTerm
-    = CFObj CId [CFTerm] -- ^ an abstract syntax function with arguments
+    = CFObj Fun [CFTerm] -- ^ an abstract syntax function with arguments
     | CFAbs Int CFTerm -- ^ A lambda abstraction. The Int is the variable id.
     | CFApp CFTerm CFTerm -- ^ Application
     | CFRes Int -- ^ The result of the n:th (0-based) non-terminal
     | CFVar Int -- ^ A lambda-bound variable
-    | CFMeta CId -- ^ A metavariable
+    | CFMeta Fun -- ^ A metavariable
   deriving (Eq, Ord, Show)
 
 type CFSymbol = Symbol  Cat Token
@@ -232,7 +231,7 @@ uniqueFuns = snd . mapAccumL uniqueFun Set.empty
     uniqueFun funs (Rule cat items (CFObj fun args)) = (Set.insert fun' funs,Rule cat items (CFObj fun' args))
       where
         fun' = head [fun'|suffix<-"":map show ([2..]::[Int]),
-                          let fun'=mkCId (showCId fun++suffix),
+                          let fun'=fun++suffix,
                           not (fun' `Set.member` funs)]
 
 -- | Gets all rules in a CFG.
@@ -310,12 +309,12 @@ prProductions prods =
 prCFTerm :: CFTerm -> String
 prCFTerm = pr 0
   where
-    pr p (CFObj f args) = paren p (showCId f ++ " (" ++ concat (intersperse "," (map (pr 0) args)) ++ ")")
+    pr p (CFObj f args) = paren p (f ++ " (" ++ concat (intersperse "," (map (pr 0) args)) ++ ")")
     pr p (CFAbs i t) = paren p ("\\x" ++ show i ++ ". " ++ pr 0 t)
     pr p (CFApp t1 t2) = paren p (pr 1 t1 ++ "(" ++ pr 0 t2 ++ ")")
     pr _ (CFRes i) = "$" ++ show i
     pr _ (CFVar i) = "x" ++ show i
-    pr _ (CFMeta c) = "?" ++ showCId c
+    pr _ (CFMeta c) = "?" ++ c
     paren 0 x = x
     paren 1 x = "(" ++ x ++ ")"
 
@@ -323,12 +322,12 @@ prCFTerm = pr 0
 -- * CFRule Utilities
 --
 
-ruleFun :: Rule c t -> CId
+ruleFun :: Rule c t -> Fun
 ruleFun (Rule _ _ t) = f t
   where f (CFObj n _) = n
         f (CFApp _ x) = f x
         f (CFAbs _ x) = f x
-        f _ = mkCId ""
+        f _ = ""
 
 -- | Check if any of the categories used on the right-hand side
 --   are in the given list of categories.
@@ -336,7 +335,7 @@ anyUsedBy :: Eq c => [c] -> Rule c t -> Bool
 anyUsedBy cs (Rule _ ss _) = any (`elem` cs) (filterCats ss)
 
 mkCFTerm :: String -> CFTerm
-mkCFTerm n = CFObj (mkCId n) []
+mkCFTerm n = CFObj n []
 
 ruleIsNonRecursive :: Ord c => Set c -> Rule c t -> Bool
 ruleIsNonRecursive cs = noCatsInSet cs . ruleRhs

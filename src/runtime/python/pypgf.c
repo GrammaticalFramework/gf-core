@@ -2285,7 +2285,10 @@ Concr_getName(ConcrObject *self, void *closure)
 static PyObject*
 Concr_getLanguageCode(ConcrObject *self, void *closure)
 {
-    return PyString_FromString(pgf_language_code(self->concr));
+	GuString code = pgf_language_code(self->concr);
+	if (code == NULL)
+		Py_RETURN_NONE;
+    return PyString_FromString(code);
 }
 
 static PyObject*

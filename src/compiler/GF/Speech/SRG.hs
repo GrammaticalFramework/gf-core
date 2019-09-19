@@ -17,21 +17,15 @@ module GF.Speech.SRG (SRG(..), SRGRule(..), SRGAlt(..), SRGItem, SRGSymbol
                      , lookupFM_
                      ) where
 
---import GF.Data.Operations
+import PGF2
 import GF.Data.Utilities
---import GF.Infra.Ident
 import GF.Infra.Option
 import GF.Grammar.CFG
 import GF.Speech.PGFToCFG
---import GF.Data.Relation
---import GF.Speech.FiniteState
 import GF.Speech.RegExp
 import GF.Speech.CFGToFA
---import GF.Infra.Option
-import PGF
 
 import Data.List
---import Data.Maybe (fromMaybe, maybeToList)
 import Data.Map (Map)
 import qualified Data.Map as Map
 import Data.Set (Set)
@@ -62,16 +56,16 @@ type SRGSymbol = Symbol SRGNT Token
 -- | An SRG non-terminal. Category name and its number in the profile.
 type SRGNT = (Cat, Int)
 
-ebnfPrinter :: Options -> PGF -> CId -> String
+ebnfPrinter :: Options -> PGF -> Concr -> String
 ebnfPrinter opts pgf cnc = prSRG opts $ makeSRG opts pgf cnc
 
 -- | Create a compact filtered non-left-recursive SRG. 
-makeNonLeftRecursiveSRG :: Options -> PGF -> CId -> SRG
+makeNonLeftRecursiveSRG :: Options -> PGF -> Concr -> SRG
 makeNonLeftRecursiveSRG opts = makeSRG opts'
     where
       opts' = setDefaultCFGTransform opts CFGNoLR True
 
-makeSRG :: Options -> PGF -> CId -> SRG
+makeSRG :: Options -> PGF -> Concr -> SRG
 makeSRG opts = mkSRG cfgToSRG preprocess
     where
       cfgToSRG cfg = [cfRulesToSRGRule rs | (_,rs) <- allRulesGrouped cfg]
@@ -97,7 +91,7 @@ stats g = "Categories: " ++ show (countCats g)
 -}
 makeNonRecursiveSRG :: Options 
                     -> PGF
-                    -> CId -- ^ Concrete syntax name.
+                    -> Concr
                     -> SRG
 makeNonRecursiveSRG opts = mkSRG cfgToSRG id
     where
@@ -105,17 +99,17 @@ makeNonRecursiveSRG opts = mkSRG cfgToSRG id
           where
             MFA _ dfas = cfgToMFA cfg
             dfaToSRGItem = mapRE dummySRGNT . minimizeRE . dfa2re
-            dummyCFTerm = CFMeta (mkCId "dummy")
+            dummyCFTerm = CFMeta "dummy"
             dummySRGNT = mapSymbol (\c -> (c,0)) id
 
-mkSRG :: (CFG -> [SRGRule]) -> (CFG -> CFG) -> PGF -> CId -> SRG
+mkSRG :: (CFG -> [SRGRule]) -> (CFG -> CFG) -> PGF -> Concr -> SRG
 mkSRG mkRules preprocess pgf cnc =
-    SRG { srgName = showCId cnc,
-	  srgStartCat = cfgStartCat cfg,
+    SRG { srgName = concreteName cnc,
+	      srgStartCat = cfgStartCat cfg,
           srgExternalCats = cfgExternalCats cfg,
-          srgLanguage = languageCode pgf cnc,
+          srgLanguage = languageCode cnc,
 	  srgRules = mkRules cfg }
-    where cfg = renameCats (showCId cnc) $ preprocess $ pgfToCFG pgf cnc
+    where cfg = renameCats (concreteName cnc) $ preprocess $ pgfToCFG pgf cnc
 
 -- | Renames all external cats C to C_cat, and all internal cats C_X (where X is any string), 
 --   to C_N where N is an integer.

@@ -6,8 +6,8 @@ module GF.Command.Interpreter (
 import GF.Command.CommandInfo
 import GF.Command.Abstract
 import GF.Command.Parse
-import PGF
 import GF.Infra.UseIO(putStrLnE)
+import PGF2
 
 import Control.Monad(when)
 import qualified Data.Map as Map

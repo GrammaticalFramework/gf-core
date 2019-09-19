@@ -3,7 +3,7 @@ import GF.Command.Abstract(Option,Expr,Term)
 import GF.Text.Pretty(render)
 import GF.Grammar.Printer() -- instance Pretty Term
 import GF.Grammar.Macros(string2term)
-import PGF(mkStr,unStr,showExpr)
+import PGF2(mkStr,unStr,showExpr)
 
 data CommandInfo m = CommandInfo {
   exec     :: [Option] -> CommandArguments -> m CommandOutput,

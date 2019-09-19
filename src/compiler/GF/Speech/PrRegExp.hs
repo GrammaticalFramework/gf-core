@@ -11,12 +11,12 @@ import GF.Grammar.CFG
 import GF.Speech.CFGToFA
 import GF.Speech.PGFToCFG
 import GF.Speech.RegExp
-import PGF
+import PGF2
 
-regexpPrinter :: PGF -> CId -> String
+regexpPrinter :: PGF -> Concr -> String
 regexpPrinter pgf cnc = (++"\n") $ prRE id $ dfa2re $ cfgToFA $ pgfToCFG pgf cnc
 
-multiRegexpPrinter :: PGF -> CId -> String
+multiRegexpPrinter :: PGF -> Concr -> String
 multiRegexpPrinter pgf cnc = prREs $ mfa2res $ cfgToMFA $ pgfToCFG pgf cnc
 
 prREs :: [(String,RE CFSymbol)] -> String

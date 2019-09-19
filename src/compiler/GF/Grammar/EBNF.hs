@@ -16,7 +16,6 @@ module GF.Grammar.EBNF (EBNF, ERule, ERHS(..), ebnf2cf) where
 
 import GF.Data.Operations
 import GF.Grammar.CFG
-import PGF (mkCId)
 
 type EBNF = [ERule]
 type ERule = (ECat, ERHS)
@@ -40,7 +39,7 @@ ebnf2cf :: EBNF -> [ParamCFRule]
 ebnf2cf ebnf = 
   [Rule cat items (mkCFF i cat) | (i,(cat,items)) <- zip [0..] (normEBNF ebnf)]
   where
-    mkCFF i (c,_) = CFObj (mkCId ("Mk" ++ c ++ "_" ++ show i)) []
+    mkCFF i (c,_) = CFObj ("Mk" ++ c ++ "_" ++ show i) []
 
 normEBNF :: EBNF -> [CFJustRule]
 normEBNF erules = let

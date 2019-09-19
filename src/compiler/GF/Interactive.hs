@@ -5,7 +5,7 @@ module GF.Interactive (mainGFI,mainRunGFI,mainServerGFI) where
 import Prelude hiding (putStrLn,print)
 import qualified Prelude as P(putStrLn)
 import GF.Command.Interpreter(CommandEnv(..),mkCommandEnv,interpretCommandLine)
-import GF.Command.Commands(PGFEnv,HasPGFEnv(..),pgf,pgfEnv,pgfCommands)
+import GF.Command.Commands(HasPGF(..),pgfCommands)
 import GF.Command.CommonCommands(commonCommands,extend)
 import GF.Command.SourceCommands
 import GF.Command.CommandInfo
@@ -20,7 +20,7 @@ import GF.Infra.SIO
 import GF.Infra.Option
 import qualified System.Console.Haskeline as Haskeline
 
-import PGF
+import PGF2
 
 import Data.Char
 import Data.List(isPrefixOf)
@@ -274,17 +274,17 @@ importInEnv opts files =
      if flag optRetainResource opts
       then do src <- lift $ importSource opts files
               pgf <- lift . lazySIO $ importPGF pgf0 -- duplicates some work, better to link src
-              modify $ \ gfenv -> gfenv {retain=True, pgfenv = (src,pgfEnv pgf)}
+              modify $ \ gfenv -> gfenv {retain=True, pgfenv = (src,pgf)}
       else do pgf1 <- lift $ importPGF pgf0
               modify $ \ gfenv->gfenv { retain=False,
-                                        pgfenv = (emptyGrammar,pgfEnv pgf1) }
+                                        pgfenv = (emptyGrammar,pgf1) }
   where
     importPGF pgf0 =
       do let opts' = addOptions (setOptimization OptCSE False) opts
          pgf1 <- importGrammar pgf0 opts' files
          if (verbAtLeast opts Normal)
            then case pgf1 of
-                  Just pgf -> putStrLnFlush $ unwords $ "\nLanguages:" : map showCId (languages pgf)
+                  Just pgf -> putStrLnFlush $ unwords $ "\nLanguages:" : Map.keys (languages pgf)
                   Nothing  -> done
            else done
          return pgf1
@@ -298,10 +298,10 @@ tryGetLine = do
 prompt env
   | retain env = "> "
   | otherwise  = case multigrammar env of
-                   Just pgf -> showCId (abstractName pgf) ++ "> "
+                   Just pgf -> abstractName pgf ++ "> "
                    Nothing  -> "> "
 
-type CmdEnv = (Grammar,PGFEnv)
+type CmdEnv = (Grammar,Maybe PGF)
 
 data GFEnv = GFEnv {
     startOpts :: Options,
@@ -313,10 +313,10 @@ data GFEnv = GFEnv {
 
 emptyGFEnv opts = GFEnv opts False emptyCmdEnv emptyCommandEnv []
 
-emptyCmdEnv = (emptyGrammar,pgfEnv Nothing)
+emptyCmdEnv = (emptyGrammar,Nothing)
 
 emptyCommandEnv = mkCommandEnv allCommands
-multigrammar = pgf . snd . pgfenv
+multigrammar = snd . pgfenv
 
 allCommands =
   extend pgfCommands (helpCommand allCommands:moreCommands)
@@ -324,7 +324,7 @@ allCommands =
   `Map.union` commonCommands
 
 instance HasGrammar ShellM where getGrammar = gets (fst . pgfenv)
-instance HasPGFEnv ShellM where getPGFEnv = gets (snd . pgfenv)
+instance HasPGF ShellM where getPGF = gets (snd . pgfenv)
 
 wordCompletion gfenv (left,right) = do
   case wc_type (reverse left) of
@@ -332,17 +332,13 @@ wordCompletion gfenv (left,right) = do
       -> ret (length pref) [Haskeline.simpleCompletion name | name <- Map.keys (commands cmdEnv), isPrefixOf pref name]
     CmplStr (Just (Command _ opts _)) s0
       -> case multigrammar gfenv of
-           Just pgf -> let optLang opts = case valStrOpts "lang" "" opts of
-                                            ""   -> case languages pgf of
-                                                      []       -> Nothing
-                                                      (lang:_) -> Just lang
-                                            lang -> let cla = mkCId lang in
-                                                    if elem cla (languages pgf)
-                                                      then Just cla
-                                                      else let cla = mkCId (showCId (abstractName pgf) ++ lang)
-                                                           in if elem cla (languages pgf)
-                                                                then Just cla
-                                                                else Nothing
+           Just pgf -> let langs = languages pgf
+                           optLang opts = case valStrOpts "lang" "" opts of
+                                            ""   -> case Map.minView langs of
+                                                      Nothing        -> Nothing
+                                                      Just (concr,_) -> Just concr
+                                            lang -> mplus (Map.lookup lang                       langs)
+                                                          (Map.lookup (abstractName pgf ++ lang) langs)
                            optType opts = let readOpt str = case readType str of
                                                               Just ty -> case checkType pgf ty of
                                                                            Left _   -> Nothing
@@ -353,8 +349,8 @@ wordCompletion gfenv (left,right) = do
                            s            = reverse rs
                            prefix       = reverse rprefix
                        in case (optLang opts, optType opts) of
-                            (Just lang,Just cat) -> let (_,_,compls) = complete pgf lang cat s prefix
-                                                    in ret (length prefix) (map Haskeline.simpleCompletion (Map.keys compls))
+                            (Just lang,Just cat) -> let compls = [t | (t,_,_,_) <- complete lang cat s prefix]
+                                                    in ret (length prefix) (map Haskeline.simpleCompletion compls)
                             _                    -> ret 0 []
            Nothing  -> ret 0 []
     CmplOpt (Just (Command n _ _)) pref
@@ -368,7 +364,7 @@ wordCompletion gfenv (left,right) = do
       -> Haskeline.completeFilename (left,right)
     CmplIdent _ pref
       -> case multigrammar gfenv of
-           Just pgf -> ret (length pref) [Haskeline.simpleCompletion name | cid <- functions pgf, let name = showCId cid, isPrefixOf pref name]
+           Just pgf -> ret (length pref) [Haskeline.simpleCompletion name | name <- functions pgf, isPrefixOf pref name]
            Nothing  -> ret (length pref) []
     _ -> ret 0 []
   where

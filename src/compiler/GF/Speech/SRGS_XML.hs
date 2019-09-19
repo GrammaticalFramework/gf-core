@@ -13,7 +13,7 @@ import GF.Grammar.CFG
 import GF.Speech.RegExp
 import GF.Speech.SISR as SISR
 import GF.Speech.SRG
-import PGF (PGF, CId, Token)
+import PGF2 (PGF, Concr)
 
 --import Control.Monad
 --import Data.Char (toUpper,toLower)
@@ -22,11 +22,11 @@ import Data.Maybe
 --import qualified Data.Map as Map
 
 srgsXmlPrinter :: Options
-               -> PGF -> CId -> String
+               -> PGF -> Concr -> String
 srgsXmlPrinter opts pgf cnc = prSrgsXml sisr $ makeNonLeftRecursiveSRG opts pgf cnc
     where sisr = flag optSISR opts
 
-srgsXmlNonRecursivePrinter :: Options -> PGF -> CId -> String
+srgsXmlNonRecursivePrinter :: Options -> PGF -> Concr -> String
 srgsXmlNonRecursivePrinter opts pgf cnc = prSrgsXml Nothing $ makeNonRecursiveSRG opts pgf cnc
 
 

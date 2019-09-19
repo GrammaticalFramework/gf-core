@@ -18,13 +18,8 @@ module GF.Quiz (
   morphologyList
   ) where
 
-import PGF
---import PGF.Linearize
+import PGF2
 import GF.Data.Operations
---import GF.Infra.UseIO
---import GF.Infra.Option
---import PGF.Probabilistic
-
 import System.Random
 import Data.List (nub)
 
@@ -38,7 +33,7 @@ mkQuiz msg tts = do
   teachDialogue qas msg
 
 translationList :: 
-  Maybe Expr -> PGF -> Language -> Language -> Type -> Int -> IO [(String,[String])]
+  Maybe Expr -> PGF -> Concr -> Concr -> Type -> Int -> IO [(String,[String])]
 translationList mex pgf ig og typ number = do
   gen <- newStdGen
   let ts   = take number $ case mex of
@@ -46,19 +41,22 @@ translationList mex pgf ig og typ number = do
                              Nothing -> generateRandom     gen pgf typ
   return $ map mkOne $ ts
  where
-   mkOne t = (norml (linearize pgf ig t), 
+   mkOne t = (norml (linearize ig t), 
               map norml (concatMap lins (homonyms t)))
-   homonyms = parse pgf ig typ . linearize pgf ig
-   lins = nub . concatMap (map snd) . tabularLinearizes pgf og
+   homonyms t = 
+     case (parse ig typ . linearize ig) t of
+       ParseOk res -> map fst res
+       _           -> []
+   lins = nub . concatMap (map snd) . tabularLinearizeAll og
 
 morphologyList :: 
-  Maybe Expr -> PGF -> Language -> Type -> Int -> IO [(String,[String])]
+  Maybe Expr -> PGF -> Concr -> Type -> Int -> IO [(String,[String])]
 morphologyList mex pgf ig typ number = do
   gen <- newStdGen
   let ts   = take (max 1 number) $ case mex of
                                      Just ex -> generateRandomFrom gen pgf ex
                                      Nothing -> generateRandom     gen pgf typ
-  let ss    = map (tabularLinearizes pgf ig) ts
+  let ss    = map (tabularLinearizeAll ig) ts
   let size  = length (head (head ss))
   let forms = take number $ randomRs (0,size-1) gen
   return [(snd (head pws0) +++ fst (pws0 !! i), ws) | 

@@ -57,19 +57,24 @@ module PGF2 (-- * PGF
              linearize,linearizeAll,tabularLinearize,tabularLinearizeAll,bracketedLinearize,
              FId, LIndex, BracketedString(..), showBracketedString, flattenBracketedString,
              printName,
+             alignWords, gizaAlignment,
 
-             alignWords,
              -- ** Parsing
              ParseOutput(..), parse, parseWithHeuristics, complete,
+
              -- ** Sentence Lookup
              lookupSentence,
+
              -- ** Generation
-             generateAll,
+             generateAll, generateAllFrom, 
+             generateRandom, generateRandomFrom,
+
              -- ** Morphological Analysis
              MorphoAnalysis, lookupMorpho, lookupCohorts, fullFormLexicon,
              -- ** Visualizations
              GraphvizOptions(..), graphvizDefaults,
              graphvizAbstractTree, graphvizParseTree,
+             Labels, getDepLabels,
              graphvizDependencyTree, conlls2latexDoc, getCncDepLabels,
              graphvizWordAlignment,
 
@@ -77,13 +82,17 @@ module PGF2 (-- * PGF
              PGFError(..),
 
              -- * Grammar specific callbacks
-             LiteralCallback,literalCallbacks
+             LiteralCallback,literalCallbacks,
+
+             -- * Auxiliaries             
+             readProbabilitiesFromFile
             ) where
 
 import Prelude hiding (fromEnum)
 import Control.Exception(Exception,throwIO)
 import Control.Monad(forM_)
 import System.IO.Unsafe(unsafePerformIO,unsafeInterleaveIO)
+import System.Random
 import Text.PrettyPrint
 import PGF2.Expr
 import PGF2.Type
@@ -171,9 +180,12 @@ languages p = langs p
 concreteName :: Concr -> ConcName
 concreteName c = unsafePerformIO (peekUtf8CString =<< pgf_concrete_name (concr c))
 
-languageCode :: Concr -> String
-languageCode c = unsafePerformIO (peekUtf8CString =<< pgf_language_code (concr c))
-
+languageCode :: Concr -> Maybe String
+languageCode c = unsafePerformIO $ do
+  c_code <- pgf_language_code (concr c)
+  if c_code == nullPtr
+    then return Nothing
+    else fmap Just (peekUtf8CString c_code)
 
 -- | Generates an exhaustive possibly infinite list of
 -- all abstract syntax expressions of the given type. 
@@ -189,6 +201,15 @@ generateAll p (Type ctype _) =
        exprFPl <- newForeignPtr gu_pool_finalizer exprPl
        fromPgfExprEnum enum genFPl (touchPGF p >> touchForeignPtr exprFPl)
 
+generateAllFrom :: PGF -> Expr -> [(Expr,Float)]
+generateAllFrom = error "generateAllFrom is not implemented yet"
+
+generateRandom :: RandomGen gen => gen -> PGF -> Type -> [a]
+generateRandom = error "generateRandom is not implemented yet"
+
+generateRandomFrom :: RandomGen gen => gen -> PGF -> Expr -> [a]
+generateRandomFrom = error "generateRandomFrom is not implemented yet"
+      
 -- | The abstract language name is the name of the top-level
 -- abstract module
 abstractName :: PGF -> AbsName
@@ -447,6 +468,9 @@ graphvizWordAlignment cs opts e =
 
 
 type Labels = Map.Map Fun [String]
+
+getDepLabels :: String -> Labels
+getDepLabels s = Map.fromList [(f,ls) | f:ls <- map words (lines s)]
 
 -- | Visualize word dependency tree.
 graphvizDependencyTree
@@ -1499,6 +1523,8 @@ alignWords lang e = unsafePerformIO $
       (fids :: [CInt]) <- peekArray (fromIntegral (n_fids :: CInt)) (ptr `plusPtr` (#offset PgfAlignmentPhrase, fids))
       return (phrase, map fromIntegral fids)
 
+gizaAlignment = error "gizaAlignment is not implemented"
+
 printName :: Concr -> Fun -> Maybe String
 printName lang fun =
   unsafePerformIO $
@@ -1729,3 +1755,9 @@ capitalized' not s = Nothing
 tag i
   | i < 0     = char 'r' <> int (negate i)
   | otherwise = char 'n' <> int i
+
+
+readProbabilitiesFromFile :: FilePath -> IO (Map.Map String Double)
+readProbabilitiesFromFile fpath = do
+  s <- readFile fpath
+  return $ Map.fromList [(f,read p) | f:p:_ <- map words (lines s)]

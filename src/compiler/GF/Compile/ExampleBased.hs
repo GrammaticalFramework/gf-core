@@ -3,11 +3,7 @@ module GF.Compile.ExampleBased (
   configureExBased
   ) where
 
-import PGF
---import PGF.Probabilistic
---import PGF.Morphology
---import GF.Compile.ToAPI
-
+import PGF2
 import Data.List
 
 parseExamplesInGrammar :: ExConfiguration -> FilePath -> IO (FilePath,[String])
@@ -37,47 +33,38 @@ convertFile conf src file = do
       (ex,   end) = break (=='"') (tail exend)
     in ((unwords (words cat),ex), tail end)  -- quotes ignored
   pgf = resource_pgf conf
-  morpho = resource_morpho conf
   lang = language conf 
   convEx (cat,ex) = do
     appn "("
     let typ = maybe (error "no valid cat") id $ readType cat
-    ws <- case fst (parse_ pgf lang typ (Just 4) ex) of
-      ParseFailed _ -> do
-        let ws = morphoMissing morpho (words ex)
+    ws <- case parse lang typ ex of
+      ParseFailed _ _ -> do
         appv ("WARNING: cannot parse example " ++ ex) 
-        case ws of
-          [] -> return ()
-          _  -> appv ("  missing words: " ++ unwords ws)
-        return ws
-      TypeError _ ->
         return []
       ParseIncomplete ->
         return []
       ParseOk ts ->
-        case rank ts of
+        case ts of
           (t:tt) -> do
             if null tt 
               then return ()
               else appv ("WARNING: ambiguous example " ++ ex) 
-            appn t 
-            mapM_ (appn . ("  --- " ++)) tt
+            appn (printExp conf (fst t))
+            mapM_ (appn . ("  --- " ++) . printExp conf . fst) tt
             appn ")" 
             return [] 
     return ws
-  rank ts = [printExp conf t ++ "  -- " ++ show p | (t,p) <- rankTreesByProbs pgf ts]
   appf = appendFile file
   appn s = appf s >> appf "\n"
   appv s = appn ("--- " ++ s) >> putStrLn s
 
 data ExConfiguration = ExConf {
-  resource_pgf    :: PGF,
-  resource_morpho :: Morpho,
+  resource_pgf :: PGF,
   verbose  :: Bool,
-  language :: Language,
-  printExp :: Tree -> String
+  language :: Concr,
+  printExp :: Expr -> String
   }
 
-configureExBased :: PGF -> Morpho -> Language -> (Tree -> String) -> ExConfiguration
-configureExBased pgf morpho lang pr = ExConf pgf morpho False lang pr
+configureExBased :: PGF -> Concr -> (Expr -> String) -> ExConfiguration
+configureExBased pgf concr pr = ExConf pgf False concr pr
 

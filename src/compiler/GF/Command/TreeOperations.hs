@@ -4,15 +4,15 @@ module GF.Command.TreeOperations (
   treeChunks
   ) where
 
-import PGF(Expr,PGF,CId,compute,mkApp,unApp,unapply,unMeta,exprSize,exprFunctions)
+import PGF2(Expr,PGF,Fun,compute,mkApp,unApp,unapply,unMeta,exprSize,exprFunctions)
 import Data.List
 
 type TreeOp = [Expr] -> [Expr]
 
-treeOp :: PGF -> String -> Maybe (Either TreeOp (CId -> TreeOp))
+treeOp :: PGF -> String -> Maybe (Either TreeOp (Fun -> TreeOp))
 treeOp pgf f = fmap snd $ lookup f $ allTreeOps pgf
 
-allTreeOps :: PGF -> [(String,(String,Either TreeOp (CId -> TreeOp)))]
+allTreeOps :: PGF -> [(String,(String,Either TreeOp (Fun -> TreeOp)))]
 allTreeOps pgf = [
    ("compute",("compute by using semantic definitions (def)",
       Left  $ map (compute pgf))),

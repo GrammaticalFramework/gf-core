@@ -2,7 +2,7 @@ module GF.Compile.ToAPI
  (stringToAPI,exprToAPI)
   where
 
-import PGF
+import PGF2
 import Data.Maybe
 --import System.IO
 --import Control.Monad
@@ -46,12 +46,12 @@ exprToFunc :: Expr -> APIfunc
 exprToFunc expr = 
    case unApp expr of
       Just (cid,l) -> 
-         case Map.lookup (showCId cid) syntaxFuncs of 
+         case Map.lookup cid syntaxFuncs of 
             Just sig -> mkAPI True (fst sig,expr)
             _        -> case l of 
-                          [] -> BasicFunc (showCId cid) 
+                          [] -> BasicFunc cid 
                           _  -> let es = map exprToFunc l 
-                                   in  AppFunc (showCId cid) es
+                                   in  AppFunc cid es
       _ -> BasicFunc (showExpr [] expr)
 
         
@@ -68,8 +68,8 @@ mkAPI opt (ty,expr) =
   where
      rephraseSentence ty expr = 
        case unApp expr of 
-         Just (cid,es) -> if isPrefixOf "Use" (showCId cid) then 
-                                                             let newCat = drop 3 (showCId cid)
+         Just (cid,es) -> if isPrefixOf "Use" cid then 
+                                                             let newCat = drop 3 cid
                                                                  afClause = mkAPI True (newCat, es !! 2)
                                                                  afPol = mkAPI True ("Pol",es !! 1)                                         
                                                                  lTense = mkAPI True ("Temp", head es)                                        
@@ -97,9 +97,9 @@ mkAPI opt (ty,expr) =
 computeAPI :: (String,Expr) ->  APIfunc
 computeAPI (ty,expr) =
    case (unApp expr) of 
-     Just (cid,[]) ->  getSimpCat (showCId cid) ty
+     Just (cid,[]) ->  getSimpCat cid ty
      Just (cid,es) -> 
-        let p = specFunction (showCId cid) es  
+        let p = specFunction cid es  
           in if isJust p then fromJust p
               else case Map.lookup (show cid) syntaxFuncs of
                     Nothing -> exprToFunc expr    
@@ -146,23 +146,23 @@ optimize expr = optimizeNP expr
 optimizeNP expr = 
    case unApp expr of
      Just (cid,es) -> 
-         if showCId cid == "MassNP" then let afs = nounAsCN (head es)
-                                           in AppFunc "mkNP" [afs]
-           else if showCId cid == "DetCN" then let quants = quantAsDet (head es)
-                                                   ns     = nounAsCN (head $ tail es)
-                                                  in AppFunc "mkNP" (quants ++ [ns])
+         if cid == "MassNP" then let afs = nounAsCN (head es)
+                                 in AppFunc "mkNP" [afs]
+           else if cid == "DetCN" then let quants = quantAsDet (head es)
+                                           ns     = nounAsCN (head $ tail es)
+                                       in AppFunc "mkNP" (quants ++ [ns])
                  else mkAPI False ("NP",expr)
      _             -> error $ "incorrect expression " ++ (showExpr [] expr)
     where 
      nounAsCN expr = 
       case unApp expr of 
-       Just (cid,es) -> if showCId cid == "UseN" then (mkAPI False) ("N",head es)
+       Just (cid,es) -> if cid == "UseN" then (mkAPI False) ("N",head es)
            else (mkAPI False) ("CN",expr)
        _ -> error $ "incorrect expression "++ (showExpr [] expr)
 
      quantAsDet expr =
        case unApp expr of
-        Just (cid,es) -> if showCId cid == "DetQuant" then map (mkAPI False) [("Quant", head es),("Num",head $ tail es)]
+        Just (cid,es) -> if cid == "DetQuant" then map (mkAPI False) [("Quant", head es),("Num",head $ tail es)]
                            else [mkAPI False ("Det",expr)]
                                   
         _             -> error $ "incorrect expression "++ (showExpr [] expr)

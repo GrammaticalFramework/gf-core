@@ -15,7 +15,7 @@ import GF.Text.Pretty
 import GF.Text.Transliterations
 import GF.Text.Lexing(stringOp,opInEnv)
 
-import qualified PGF as H(showCId,showExpr,toATree,toTrie,Trie(..))
+import PGF2(showExpr)
 
 extend old new = Map.union (Map.fromList new) old -- Map.union is left-biased
 
@@ -101,9 +101,7 @@ commonCommands = fmap (mapCommandExec liftSIO) $ Map.fromList [
        "To see transliteration tables, use command ut."
        ],
      examples = [
---       mkEx "l (EAdd 3 4) | ps -code         -- linearize code-like output",
        mkEx "l (EAdd 3 4) | ps -unlexcode    -- linearize code-like output",
---       mkEx "ps -lexer=code | p -cat=Exp     -- parse code-like input",
        mkEx "ps -lexcode | p -cat=Exp        -- parse code-like input",
        mkEx "gr -cat=QCl | l | ps -bind      -- linearization output from LangFin",
        mkEx "ps -to_devanagari \"A-p\"         -- show Devanagari in UTF8 terminal",
@@ -175,12 +173,6 @@ commonCommands = fmap (mapCommandExec liftSIO) $ Map.fromList [
        mkEx "gt | l | ? wc  -- generate trees, linearize, and count words"
        ]
      }),
-  ("tt", emptyCommandInfo {
-     longname = "to_trie",
-     syntax = "to_trie",
-     synopsis = "combine a list of trees into a trie",
-     exec = \ _ -> return . fromString . trie . toExprs
-    }),
   ("ut", emptyCommandInfo {
      longname = "unicode_table",
      synopsis = "show a transliteration table for a unicode character set",
@@ -228,7 +220,6 @@ envFlag fs =
     _ -> Nothing
 
 stringOpOptions = sort $ [
-       ("bind","bind tokens separated by Prelude.BIND, i.e. &+"),
        ("chars","lexer that makes every non-space character a token"),
        ("from_cp1251","decode from cp1251 (Cyrillic used in Bulgarian resource)"),
        ("from_utf8","decode from utf8 (default)"),
@@ -252,19 +243,6 @@ stringOpOptions = sort $ [
        [("from_" ++ p, "from unicode to GF " ++ n ++ " transliteration"),
         ("to_"   ++ p, "from GF " ++ n ++ " transliteration to unicode")] |
                                     (p,n) <- transliterationPrintNames]
-
-trie = render . pptss . H.toTrie . map H.toATree
-  where
-    pptss [ts] = "*"<+>nest 2 (ppts ts)
-    pptss tss  = vcat [i<+>nest 2 (ppts ts)|(i,ts)<-zip [(1::Int)..] tss]
-
-    ppts = vcat . map ppt
-
-    ppt t =
-      case t of
-        H.Oth e     -> pp (H.showExpr [] e)
-        H.Ap f [[]] -> pp (H.showCId f)
-        H.Ap f tss  -> H.showCId f $$ nest 2 (pptss tss)
 
 -- ** Converting command input
 toString  = unwords . toStrings

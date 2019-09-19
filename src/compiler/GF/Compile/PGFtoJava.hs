@@ -1,6 +1,6 @@
 module GF.Compile.PGFtoJava (grammar2java) where
 
-import PGF
+import PGF2
 import Data.Maybe(maybe)
 import Data.List(intercalate)
 import GF.Infra.Option
@@ -24,9 +24,8 @@ javaPreamble name =
  ]
  
 javaMethod gr fun =
-  "  public static Expr "++name++"("++arg_decls++") { return new Expr("++show name++args++"); }"
+  "  public static Expr "++fun++"("++arg_decls++") { return new Expr("++show fun++args++"); }"
   where
-    name  = showCId fun
     arity = maybe 0 getArrity (functionType gr fun)
     vars  = ['e':show i | i <- [1..arity]]
     

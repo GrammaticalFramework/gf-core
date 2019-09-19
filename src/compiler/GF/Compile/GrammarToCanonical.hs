@@ -18,7 +18,7 @@ import GF.Compile.Compute.Predef(predef)
 import GF.Compile.Compute.Value(Predefined(..))
 import GF.Infra.Ident(ModuleName(..),Ident,prefixIdent,showIdent,isWildIdent)
 import GF.Infra.Option(optionsPGF)
-import PGF.Internal(Literal(..))
+import PGF2.Internal(Literal(..))
 import GF.Compile.Compute.ConcreteNew(normalForm,resourceValues)
 import GF.Grammar.Canonical as C
 import Debug.Trace

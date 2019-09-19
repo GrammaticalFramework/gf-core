@@ -25,23 +25,21 @@ import GF.Grammar.CFG
 import GF.Speech.SISR as SISR
 import GF.Speech.SRG
 import GF.Speech.RegExp
-import PGF (PGF, CId)
+import PGF2 (PGF,Concr)
 
---import Data.Char
 import Data.List
 import Data.Maybe
 import GF.Text.Pretty
---import Debug.Trace
 
 width :: Int
 width = 75
 
 srgsAbnfPrinter :: Options
-	        -> PGF -> CId -> String
+	        -> PGF -> Concr -> String
 srgsAbnfPrinter opts pgf cnc = showDoc $ prABNF sisr $ makeNonLeftRecursiveSRG opts pgf cnc
     where sisr = flag optSISR opts
 
-srgsAbnfNonRecursivePrinter :: Options -> PGF -> CId -> String
+srgsAbnfNonRecursivePrinter :: Options -> PGF -> Concr -> String
 srgsAbnfNonRecursivePrinter opts pgf cnc = showDoc $ prABNF Nothing $ makeNonRecursiveSRG opts pgf cnc
 
 showDoc = renderStyle (style { lineLength = width })

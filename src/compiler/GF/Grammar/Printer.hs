@@ -23,19 +23,16 @@ module GF.Grammar.Printer
            , getAbs
            ) where
 
+import PGF2 as PGF2
+import PGF2.Internal as PGF2
 import GF.Infra.Ident
 import GF.Infra.Option
 import GF.Grammar.Values
 import GF.Grammar.Grammar
-
-import PGF.Internal (ppMeta, ppLit, ppFId, ppFunId, ppSeqId, ppSeq)
-
 import GF.Text.Pretty
 import Data.Maybe (isNothing)
 import Data.List  (intersperse)
 import qualified Data.Map as Map
---import qualified Data.IntMap as IntMap
---import qualified Data.Set as Set
 import qualified Data.Array.IArray as Array
 
 data TermPrintQual 
@@ -362,3 +359,39 @@ getLet (Let l e) = let (ls,e') = getLet e
                    in (l:ls,e')
 getLet e         = ([],e)
 
+ppFunId funid = pp 'F' <> pp funid
+ppSeqId seqid = pp 'S' <> pp seqid
+
+ppFId fid
+  | fid == PGF2.fidString = pp "CString"
+  | fid == PGF2.fidInt    = pp "CInt"
+  | fid == PGF2.fidFloat  = pp "CFloat"
+  | fid == PGF2.fidVar    = pp "CVar"
+  | fid == PGF2.fidStart  = pp "CStart"
+  | otherwise             = pp 'C' <> pp fid
+
+ppMeta :: Int -> Doc
+ppMeta n
+  | n == 0    = pp '?'
+  | otherwise = pp '?' <> pp n
+
+ppLit (PGF2.LStr s) = pp (show s)
+ppLit (PGF2.LInt n) = pp n
+ppLit (PGF2.LFlt d) = pp d
+
+ppSeq (seqid,seq) = 
+  ppSeqId seqid <+> pp ":=" <+> hsep (map ppSymbol seq)
+
+ppSymbol (PGF2.SymCat d r) = pp '<' <> pp d <> pp ',' <> pp r <> pp '>'
+ppSymbol (PGF2.SymLit d r) = pp '{' <> pp d <> pp ',' <> pp r <> pp '}'
+ppSymbol (PGF2.SymVar d r) = pp '<' <> pp d <> pp ',' <> pp '$' <> pp r <> pp '>'
+ppSymbol (PGF2.SymKS t)    = doubleQuotes (pp t)
+ppSymbol PGF2.SymNE        = pp "nonExist"
+ppSymbol PGF2.SymBIND      = pp "BIND"
+ppSymbol PGF2.SymSOFT_BIND = pp "SOFT_BIND"
+ppSymbol PGF2.SymSOFT_SPACE= pp "SOFT_SPACE"
+ppSymbol PGF2.SymCAPIT     = pp "CAPIT"
+ppSymbol PGF2.SymALL_CAPIT = pp "ALL_CAPIT"
+ppSymbol (PGF2.SymKP syms alts) = pp "pre" <+> braces (hsep (punctuate (pp ';') (hsep (map ppSymbol syms) : map ppAlt alts)))
+
+ppAlt (syms,ps) = hsep (map ppSymbol syms) <+> pp '/' <+> hsep (map (doubleQuotes . pp) ps)

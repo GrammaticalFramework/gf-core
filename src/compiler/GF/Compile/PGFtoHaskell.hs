@@ -16,8 +16,8 @@
 
 module GF.Compile.PGFtoHaskell (grammar2haskell) where
 
-import PGF
-import PGF.Internal
+import PGF2
+import PGF2.Internal
 
 import GF.Data.Operations
 import GF.Infra.Option
@@ -242,7 +242,7 @@ fInstance gId lexical m (cat,rules) =
     then "    " ++ gId cat ++ " (fgs t) where\n     fgs t = case unApp t of"
     else "    case unApp t of") ++++
   unlines [mkInst f xx | (f,xx) <- nonLexicalRules (lexical cat) rules] ++++
-  (if lexical cat then "      Just (i,[]) -> " ++ lexicalConstructor cat +++ "(showCId i)" else "") ++++
+  (if lexical cat then "      Just (i,[]) -> " ++ lexicalConstructor cat +++ "i" else "") ++++
   "      _ -> error (\"no" +++ cat ++ " \" ++ show t)"
    where
     isList = isListCat (cat,rules)
@@ -263,11 +263,11 @@ fInstance gId lexical m (cat,rules) =
 --type HSkeleton = [(OIdent, [(OIdent, [OIdent])])]
 hSkeleton :: PGF -> (String,HSkeleton)
 hSkeleton gr = 
-  (showCId (abstractName gr),
+  (abstractName gr,
    let fs = 
-         [(showCId c, [(showCId f, map showCId cs) | (f, cs,_) <- fs]) | 
+         [(c, [(f, cs) | (f, cs,_) <- fs]) | 
                                         fs@((_, _,c):_) <- fns]
-   in fs ++ [(sc, []) | c <- cts, let sc = showCId c, notElem sc (["Int", "Float", "String"] ++ map fst fs)]
+   in fs ++ [(c, []) | c <- cts, notElem c (["Int", "Float", "String"] ++ map fst fs)]
   )
  where
    cts = categories gr

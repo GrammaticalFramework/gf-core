@@ -10,13 +10,9 @@ module GF.Speech.SISR (SISRFormat(..), SISRTag, prSISR,
 
 import Data.List
 
---import GF.Data.Utilities
---import GF.Infra.Ident
 import GF.Infra.Option (SISRFormat(..))
 import GF.Grammar.CFG
 import GF.Speech.SRG (SRGNT)
-import PGF(showCId)
-
 import qualified GF.JavaScript.AbsJS   as JS
 import qualified GF.JavaScript.PrintJS as JS
 
@@ -50,12 +46,12 @@ catSISR t (c,i) fmt
 profileFinalSISR :: CFTerm -> SISRFormat -> SISRTag
 profileFinalSISR term fmt = [JS.DExpr $ fmtOut fmt `ass` f term]
   where 
-        f (CFObj n ts) = tree (showCId n) (map f ts)
+        f (CFObj n ts) = tree n (map f ts)
         f (CFAbs v x) = JS.EFun [var v] [JS.SReturn (f x)]
         f (CFApp x y) = JS.ECall (f x) [f y]
         f (CFRes i) = JS.EIndex (JS.EVar args) (JS.EInt (fromIntegral i))
         f (CFVar v) = JS.EVar (var v)
-        f (CFMeta typ) = obj [("name",JS.EStr "?"), ("type",JS.EStr (showCId typ))]
+        f (CFMeta typ) = obj [("name",JS.EStr "?"), ("type",JS.EStr typ)]
 
 fmtOut SISR_WD20030401 = JS.EVar (JS.Ident "$")
 fmtOut SISR_1_0 = JS.EVar (JS.Ident "out")

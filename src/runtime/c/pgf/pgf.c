@@ -227,7 +227,7 @@ pgf_language_code(PgfConcr* concr)
 		gu_seq_binsearch(concr->cflags, pgf_flag_order, PgfFlag, "language");
 
 	if (flag == NULL)
-		return "";
+		return NULL;
 
 	GuVariantInfo i = gu_variant_open(flag->value);
 	switch (i.tag) {
@@ -237,7 +237,7 @@ pgf_language_code(PgfConcr* concr)
 	}
 	}
 
-	return "";
+	return NULL;
 }
 
 PGF_API void

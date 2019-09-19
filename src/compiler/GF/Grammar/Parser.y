@@ -24,7 +24,6 @@ import GF.Grammar.Lexer
 import GF.Compile.Update (buildAnyTree)
 import Data.List(intersperse)
 import Data.Char(isAlphaNum)
-import PGF(mkCId)
 
 }
 
@@ -624,7 +623,7 @@ ListCFRule
 
 CFRule :: { [BNFCRule] }
 CFRule
-  : Ident '.' Ident '::=' ListCFSymbol ';' { [BNFCRule (showIdent $3) $5 (CFObj (mkCId (showIdent $1)) [])]
+  : Ident '.' Ident '::=' ListCFSymbol ';' { [BNFCRule (showIdent $3) $5 (CFObj (showIdent $1) [])]
                                            }
   | Ident '::=' ListCFRHS ';'              { let { cat = showIdent $1;
                                                    mkFun cat its =
@@ -637,7 +636,7 @@ CFRule
                                                        Terminal    c     -> filter isAlphaNum c;
                                                        NonTerminal (t,_) -> t
                                                      }
-                                             } in map (\rhs -> BNFCRule cat rhs (CFObj (mkCId (mkFun cat rhs)) [])) $3
+                                             } in map (\rhs -> BNFCRule cat rhs (CFObj (mkFun cat rhs) [])) $3
                                            }
   | 'coercions' Ident Integer ';'          { [BNFCCoercions (showIdent $2) $3]}
   | 'terminator' NonEmpty Ident String ';' { [BNFCTerminator $2 (showIdent $3) $4] }

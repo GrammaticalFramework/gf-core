@@ -1,6 +1,6 @@
 module GF.Command.Abstract(module GF.Command.Abstract,Expr,showExpr,Term) where
 
-import PGF(CId,mkCId,Expr,showExpr)
+import PGF2(Expr,showExpr)
 import GF.Grammar.Grammar(Term)
 
 type Ident = String
@@ -31,12 +31,6 @@ data Argument
   | AMacro Ident
   deriving Show
 
-valCIdOpts :: String -> CId -> [Option] -> CId
-valCIdOpts flag def opts =
-  case [v | OFlag f (VId v) <- opts, f == flag] of
-    (v:_) -> mkCId v
-    _     -> def
-
 valIntOpts :: String -> Int -> [Option] -> Int
 valIntOpts flag def opts =
   case [v | OFlag f (VInt v) <- opts, f == flag] of
@@ -48,12 +42,6 @@ valStrOpts flag def opts =
   case listFlags flag opts of
     v:_ -> valueString v
     _   -> def
-
-maybeCIdOpts :: String -> a -> (CId -> a) -> [Option] -> a
-maybeCIdOpts flag def fn opts =
-  case [v | OFlag f (VId v) <- opts, f == flag] of
-    (v:_) -> fn (mkCId v)
-    _     -> def
 
 maybeIntOpts :: String -> a -> (Int -> a) -> [Option] -> a
 maybeIntOpts flag def fn opts =

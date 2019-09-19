@@ -16,17 +16,14 @@ module GF.Speech.SLF (slfPrinter,slfGraphvizPrinter,
 import GF.Data.Utilities
 import GF.Grammar.CFG
 import GF.Speech.FiniteState
---import GF.Speech.CFG
 import GF.Speech.CFGToFA
 import GF.Speech.PGFToCFG
 import qualified GF.Data.Graphviz as Dot
-import PGF
---import PGF.CId
+import PGF2
 
 import Control.Monad
 import qualified Control.Monad.State as STM
 import Data.Char (toUpper)
---import Data.List
 import Data.Maybe
 
 data SLFs = SLFs [(String,SLF)] SLF
@@ -43,7 +40,7 @@ data SLFEdge = SLFEdge { eId :: Int, eStart :: Int, eEnd :: Int }
 
 type SLF_FA = FA State (Maybe CFSymbol) ()
 
-mkFAs :: PGF -> CId -> (SLF_FA, [(String,SLF_FA)])
+mkFAs :: PGF -> Concr -> (SLF_FA, [(String,SLF_FA)])
 mkFAs pgf cnc = (slfStyleFA main, [(c,slfStyleFA n) | (c,n) <- subs])
   where MFA start subs = {- renameSubs $ -} cfgToMFA $ pgfToCFG pgf cnc
         main = let (fa,s,f) = newFA_ in newTransition s f (NonTerminal start) fa
@@ -64,7 +61,7 @@ renameSubs (MFA start subs) = MFA (newName start) subs'
 -- * SLF graphviz printing (without sub-networks)
 --
 
-slfGraphvizPrinter :: PGF -> CId -> String
+slfGraphvizPrinter :: PGF -> Concr -> String
 slfGraphvizPrinter pgf cnc
     = prFAGraphviz $ gvFA $ slfStyleFA $ cfgToFA' $ pgfToCFG pgf cnc
   where 
@@ -74,7 +71,7 @@ slfGraphvizPrinter pgf cnc
 -- * SLF graphviz printing (with sub-networks)
 --
 
-slfSubGraphvizPrinter :: PGF -> CId -> String
+slfSubGraphvizPrinter :: PGF -> Concr -> String
 slfSubGraphvizPrinter pgf cnc = Dot.prGraphviz g
   where (main, subs) = mkFAs pgf cnc
         g = STM.evalState (liftM2 Dot.addSubGraphs ss m) [0..] 
@@ -100,7 +97,7 @@ gvSLFFA n fa =
 -- * SLF printing (without sub-networks)
 --
 
-slfPrinter :: PGF -> CId -> String
+slfPrinter :: PGF -> Concr -> String
 slfPrinter pgf cnc
     = prSLF $ automatonToSLF mkSLFNode $ slfStyleFA $ cfgToFA' $ pgfToCFG pgf cnc
 
@@ -109,7 +106,7 @@ slfPrinter pgf cnc
 --
 
 -- | Make a network with subnetworks in SLF
-slfSubPrinter :: PGF -> CId -> String
+slfSubPrinter :: PGF -> Concr -> String
 slfSubPrinter pgf cnc = prSLFs slfs
   where 
   (main,subs) = mkFAs pgf cnc

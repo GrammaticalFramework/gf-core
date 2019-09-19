@@ -18,7 +18,7 @@ import GF.Grammar.CFG
 import GF.Speech.RegExp
 import GF.Speech.SISR
 import GF.Speech.SRG
-import PGF
+import PGF2
 
 import Data.Char
 import Data.List
@@ -30,8 +30,8 @@ width :: Int
 width = 75
 
 jsgfPrinter :: Options
-	    -> PGF 
-            -> CId -> String
+	        -> PGF 
+            -> Concr -> String
 jsgfPrinter opts pgf cnc = renderStyle st $ prJSGF sisr $ makeNonLeftRecursiveSRG opts pgf cnc
   where st = style { lineLength = width }
         sisr = flag optSISR opts

@@ -8,13 +8,11 @@
 
 module GF.Speech.GSL (gslPrinter) where
 
---import GF.Data.Utilities
 import GF.Grammar.CFG
 import GF.Speech.SRG
 import GF.Speech.RegExp
 import GF.Infra.Option
---import GF.Infra.Ident
-import PGF
+import PGF2
 
 import Data.Char (toUpper,toLower)
 import Data.List (partition)
@@ -23,7 +21,7 @@ import GF.Text.Pretty
 width :: Int
 width = 75
 
-gslPrinter :: Options -> PGF -> CId -> String
+gslPrinter :: Options -> PGF -> Concr -> String
 gslPrinter opts pgf cnc = renderStyle st $ prGSL $ makeNonLeftRecursiveSRG opts pgf cnc
   where st = style { lineLength = width } 
 

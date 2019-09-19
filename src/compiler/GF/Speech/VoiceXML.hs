@@ -6,14 +6,8 @@
 -----------------------------------------------------------------------------
 module GF.Speech.VoiceXML (grammar2vxml) where
 
---import GF.Data.Operations
---import GF.Data.Str (sstrV)
---import GF.Data.Utilities
 import GF.Data.XML
---import GF.Infra.Ident
-import PGF
-
---import Control.Monad (liftM)
+import PGF2
 import Data.List (intersperse) -- isPrefixOf, find
 import qualified Data.Map as Map
 import Data.Maybe (fromMaybe)
@@ -21,19 +15,19 @@ import Data.Maybe (fromMaybe)
 --import Debug.Trace
 
 -- | the main function
-grammar2vxml :: PGF -> CId -> String
-grammar2vxml pgf cnc = showsXMLDoc (skel2vxml name language start skel qs) ""
+grammar2vxml :: PGF -> Concr -> String
+grammar2vxml pgf cnc = showsXMLDoc (skel2vxml name mb_language start skel qs) ""
     where skel = pgfSkeleton pgf
-          name = showCId cnc
-          qs = catQuestions pgf cnc (map fst skel)
-          language = languageCode pgf cnc
+          name = concreteName cnc
+          qs = catQuestions cnc (map fst skel)
+          mb_language = languageCode cnc
           (_,start,_) = unType (startCat pgf)
 
 --
 -- * VSkeleton: a simple description of the abstract syntax.
 --
 
-type Skeleton = [(CId, [(CId, [CId])])]
+type Skeleton = [(Cat, [(Fun, [Cat])])]
 
 pgfSkeleton :: PGF -> Skeleton
 pgfSkeleton pgf = [(c,[(f,[cat | (_,_,ty) <- hypos, let (_,cat,_) = unType ty]) | f <- functionsByCat pgf c, Just (hypos,_,_) <- [fmap unType (functionType pgf f)]])
@@ -43,37 +37,23 @@ pgfSkeleton pgf = [(c,[(f,[cat | (_,_,ty) <- hypos, let (_,cat,_) = unType ty]) 
 -- * Questions to ask 
 --
 
-type CatQuestions = [(CId,String)]
+type CatQuestions = [(Cat,String)]
 
-catQuestions :: PGF -> CId -> [CId] -> CatQuestions
-catQuestions pgf cnc cats = [(c,catQuestion pgf cnc c) | c <- cats]
+catQuestions :: Concr -> [Cat] -> CatQuestions
+catQuestions cnc cats = [(c,catQuestion cnc c) | c <- cats]
 
-catQuestion :: PGF -> CId -> CId -> String
-catQuestion pgf cnc cat = showPrintName pgf cnc cat
+catQuestion :: Concr -> Cat -> String
+catQuestion cnc cat = fromMaybe cat (printName cnc cat)
 
-
-{-
-lin :: StateGrammar -> String -> Err String
-lin gr fun = do
-             tree <- string2treeErr gr fun
-             let ls = map unt $ linTree2strings noMark g c tree
-             case ls of
-                 [] -> fail $ "No linearization of " ++ fun
-                 l:_ -> return l
-  where c = cncId gr
-        g = stateGrammarST gr
-        unt = formatAsText 
--}
-
-getCatQuestion :: CId -> CatQuestions -> String
+getCatQuestion :: Cat -> CatQuestions -> String
 getCatQuestion c qs = 
-    fromMaybe (error "No question for category " ++ showCId c) (lookup c qs)
+    fromMaybe (error "No question for category " ++ c) (lookup c qs)
 
 --
 -- * Generate VoiceXML
 --
 
-skel2vxml :: String -> Maybe String -> CId -> Skeleton -> CatQuestions -> XML
+skel2vxml :: String -> Maybe String -> Cat -> Skeleton -> CatQuestions -> XML
 skel2vxml name language start skel qs = 
     vxml language ([startForm] ++ concatMap (uncurry (catForms gr qs)) skel)
   where 
@@ -85,12 +65,12 @@ grammarURI :: String -> String
 grammarURI name = name ++ ".grxml"
 
 
-catForms :: String -> CatQuestions -> CId -> [(CId, [CId])] -> [XML]
+catForms :: String -> CatQuestions -> Cat -> [(Fun, [Cat])] -> [XML]
 catForms gr qs cat fs = 
-    comments [showCId cat ++ " category."]
+    comments [cat ++ " category."]
     ++ [cat2form gr qs cat fs] 
 
-cat2form :: String -> CatQuestions -> CId -> [(CId, [CId])] -> XML
+cat2form :: String -> CatQuestions -> Cat -> [(Fun, [Cat])] -> XML
 cat2form gr qs cat fs = 
   form (catFormId cat) $ 
       [var "old" Nothing, 
@@ -103,22 +83,22 @@ cat2form gr qs cat fs =
      ++ concatMap (uncurry (fun2sub gr cat)) fs
      ++ [block [return_ ["term"]{-]-}]]
 
-fun2sub :: String -> CId -> CId -> [CId] -> [XML]
+fun2sub :: String -> Cat -> Fun -> [Cat] -> [XML]
 fun2sub gr cat fun args = 
-    comments [showCId fun ++ " : (" 
-              ++ concat (intersperse ", " (map showCId args))
-              ++ ") " ++ showCId cat] ++ ss
+    comments [fun ++ " : (" 
+              ++ concat (intersperse ", " args)
+              ++ ") " ++ cat] ++ ss
   where 
   ss = zipWith mkSub [0..] args
   mkSub n t = subdialog s [("src","#"++catFormId t),
-                           ("cond","term.name == "++string (showCId fun))] 
+                           ("cond","term.name == "++string  fun)] 
               [param "old" v,
                filled [] [assign v (s++".term")]]
-    where s = showCId fun ++ "_" ++ show n
+    where s = fun ++ "_" ++ show n
           v = "term.args["++show n++"]"
 
-catFormId :: CId -> String
-catFormId c = showCId c ++ "_cat"
+catFormId :: Cat -> String
+catFormId c = c ++ "_cat"
 
 
 --

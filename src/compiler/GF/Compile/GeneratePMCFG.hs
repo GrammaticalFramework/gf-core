@@ -13,8 +13,9 @@ module GF.Compile.GeneratePMCFG
     (generatePMCFG, pgfCncCat, addPMCFG, resourceValues
     ) where
 
---import PGF.CId
-import PGF.Internal as PGF(CId,Symbol(..),fidVar)
+import qualified PGF2 as PGF2
+import qualified PGF2.Internal as PGF2
+import PGF2.Internal(Symbol(..),fidVar)
 
 import GF.Infra.Option
 import GF.Grammar hiding (Env, mkRecord, mkTable)
@@ -68,7 +69,7 @@ mapAccumWithKeyM f a m = do let xs = Map.toAscList m
 
 
 --addPMCFG :: Options -> SourceGrammar -> GlobalEnv -> Maybe FilePath -> Ident -> Ident -> SeqSet -> Ident -> Info -> IOE (SeqSet, Info)
-addPMCFG opts gr cenv opath am cm seqs id (GF.Grammar.CncFun mty@(Just (cat,cont,val)) mlin@(Just (L loc term)) mprn Nothing) = do
+addPMCFG opts gr cenv opath am cm seqs id (CncFun mty@(Just (cat,cont,val)) mlin@(Just (L loc term)) mprn Nothing) = do
 --when (verbAtLeast opts Verbose) $ ePutStr ("\n+ "++showIdent id++" ...")
   let pres  = protoFCat gr res val
       pargs = [protoFCat gr (snd $ catSkeleton ty) lincat | ((_,_,ty),(_,_,lincat)) <- zip ctxt cont]
@@ -92,7 +93,7 @@ addPMCFG opts gr cenv opath am cm seqs id (GF.Grammar.CncFun mty@(Just (cat,cont
     ePutStr ("\n+ "++showIdent id++" "++show (product (map catFactor pargs)))
   seqs1 `seq` stats `seq` return ()
   when (verbAtLeast opts Verbose) $ ePutStr (" "++show stats)
-  return (seqs1,GF.Grammar.CncFun mty mlin mprn (Just pmcfg))
+  return (seqs1,CncFun mty mlin mprn (Just pmcfg))
   where
     (ctxt,res,_) = err bug typeForm (lookupFunType gr am id)
 
@@ -102,11 +103,11 @@ addPMCFG opts gr cenv opath am cm seqs id (GF.Grammar.CncFun mty@(Just (cat,cont
           newArgs  = map getFIds newArgs'
       in addFunction env0 newCat fun newArgs
 
-addPMCFG opts gr cenv opath am cm seqs id (GF.Grammar.CncCat mty@(Just (L _ lincat)) 
-                                                             mdef@(Just (L loc1 def))
-                                                             mref@(Just (L loc2 ref))
-                                                             mprn
-                                                             Nothing) = do
+addPMCFG opts gr cenv opath am cm seqs id (CncCat mty@(Just (L _ lincat)) 
+                                                  mdef@(Just (L loc1 def))
+                                                  mref@(Just (L loc2 ref))
+                                                  mprn
+                                                  Nothing) = do
   let pcat = protoFCat gr (am,id) lincat
       pvar = protoFCat gr (MN identW,cVar) typeStr
 
@@ -131,7 +132,7 @@ addPMCFG opts gr cenv opath am cm seqs id (GF.Grammar.CncCat mty@(Just (L _ linc
   let pmcfg     = getPMCFG pmcfgEnv2
 
   when (verbAtLeast opts Verbose) $ ePutStr ("\n+ "++showIdent id++" "++show (catFactor pcat))
-  seqs2 `seq` pmcfg `seq` return (seqs2,GF.Grammar.CncCat mty mdef mref mprn (Just pmcfg))
+  seqs2 `seq` pmcfg `seq` return (seqs2,CncCat mty mdef mref mprn (Just pmcfg))
   where
     addLindef lins (newCat', newArgs') env0 =
       let [newCat] = getFIds newCat'
@@ -157,7 +158,7 @@ convert opts gr cenv loc term ty@(_,val) pargs =
             args = map Vr vars
             vars = map (\(bt,x,t) -> x) context
 
-pgfCncCat :: SourceGrammar -> CId -> Type -> Int -> (CId,Int,Int,[String])
+pgfCncCat :: SourceGrammar -> PGF2.Cat -> Type -> Int -> (PGF2.Cat,Int,Int,[String])
 pgfCncCat gr id lincat index =
   let ((_,size),schema) = computeCatRange gr lincat
   in ( id
@@ -474,7 +475,7 @@ goV (CPar t)     rpath ss = restrictHead (reversePath rpath) t >> return ss
 ----------------------------------------------------------------------
 -- SeqSet
 
-type SeqSet   = Map.Map Sequence SeqId
+type SeqSet   = Map.Map [Symbol] SeqId
 
 addSequencesB :: SeqSet -> Branch (Value [Symbol]) -> (SeqSet, Branch (Value SeqId))
 addSequencesB seqs (Case nr path bs) = let !(seqs1,bs1) = mapAccumL' (\seqs (trm,b) -> let !(seqs',b') = addSequencesB seqs b

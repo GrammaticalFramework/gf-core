@@ -1,6 +1,6 @@
 module GF.Command.Parse(readCommandLine, pCommand) where
 
-import PGF(pExpr,pIdent)
+import PGF2(pExpr,pIdent)
 import GF.Grammar.Parser(runPartial,pTerm)
 import GF.Command.Abstract
 
@@ -22,7 +22,7 @@ pCommandLine =
 pPipe = sepBy1 (skipSpaces >> pCommand) (skipSpaces >> char '|')
 
 pCommand = (do
-  cmd  <- pIdent <++ (char '%' >> fmap ('%':) pIdent)
+  cmd  <- readS_to_P pIdent <++ (char '%' >> fmap ('%':) (readS_to_P pIdent))
   skipSpaces
   opts <- sepBy pOption skipSpaces
   arg  <- if getCommandOp cmd == "cc" then pArgTerm else pArgument
@@ -37,7 +37,7 @@ pCommand = (do
 
 pOption = do
   char '-'
-  flg <- pIdent
+  flg <- readS_to_P pIdent
   option (OOpt flg) (fmap (OFlag flg) (char '=' >> pValue))
 
 pValue = do
@@ -52,9 +52,9 @@ pFilename = liftM2 (:) (satisfy isFileFirst) (munch (not . isSpace)) where
 
 pArgument =
   option ANoArg
-    (fmap AExpr pExpr
+    (fmap AExpr (readS_to_P pExpr)
               <++
-    (skipSpaces >> char '%' >> fmap AMacro pIdent))
+    (skipSpaces >> char '%' >> fmap AMacro (readS_to_P pIdent)))
 
 pArgTerm = ATerm `fmap` readS_to_P sTerm
   where

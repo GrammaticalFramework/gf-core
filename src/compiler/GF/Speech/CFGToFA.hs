@@ -14,7 +14,6 @@ import qualified Data.Map as Map
 import Data.Set (Set)
 import qualified Data.Set as Set
 
-import PGF.Internal
 import GF.Data.Utilities
 import GF.Grammar.CFG
 --import GF.Speech.PGFToCFG
