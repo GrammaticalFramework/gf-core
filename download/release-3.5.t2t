@@ -1,10 +1,6 @@
 GF 3.5 Release Notes
 August 2013
 
-%!style:../css/style.css
-%!postproc(html): <TITLE> <meta charset="UTF-8"><meta name = "viewport" content = "width = device-width"> <TITLE>
-%!postproc(html): <H1> <H1><a href="../"><IMG src="../doc/Logos/gf0.png"></a>
-
 ==Installation==
 
 See the [download page http://www.grammaticalframework.org/download/index.html].
@@ -70,7 +66,3 @@ of GF 3.4.
   [``network-2.4.1.1`` https://github.com/haskell/network/commit/f2168b1f8978b4ad9c504e545755f0795ac869ce].
 - Various other small improvements and bug fixes.
 %- [...]
-
---------------------
-
-[www.grammaticalframework.org http://www.grammaticalframework.org]

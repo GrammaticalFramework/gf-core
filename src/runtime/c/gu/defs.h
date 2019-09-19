@@ -64,6 +64,8 @@
 
 #ifdef GU_ALIGNOF
 # define gu_alignof GU_ALIGNOF
+#elif defined(_MSC_VER)
+# define gu_alignof __alignof
 #else
 # define gu_alignof(t_) \
 	((size_t)(offsetof(struct { char c_; t_ e_; }, e_)))
@@ -77,7 +79,7 @@
 
 #define GU_COMMA ,
 
-#define GU_ARRAY_LEN(t,a) (sizeof((const t[])a) / sizeof(t))
+#define GU_ARRAY_LEN(a) (sizeof(a) / sizeof(a[0]))
 
 #define GU_ID(...) __VA_ARGS__
 
@@ -183,9 +185,13 @@ typedef union {
 	void (*fp)();
 } GuMaxAlign;
 
+#if defined(_MSC_VER)
+#include <malloc.h>
+#define gu_alloca(N) alloca(N)
+#else
 #define gu_alloca(N)				\
 	(((union { GuMaxAlign align_; uint8_t buf_[N]; }){{0}}).buf_)
-
+#endif
 
 // For Doxygen
 #define GU_PRIVATE /** @private */

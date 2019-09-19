@@ -8,24 +8,9 @@ other. For this reason the different components have different licenses.
 In summary:
 
   - the GF compiler in the folder src/compiler and the PGF Web service in src/server
-are under the GNU GENERAL PUBLIC LICENSE. 
+are under the GNU GENERAL PUBLIC LICENSE.
 
-  - the GF runtime in src/runtime is under dual GNU LESSER GENERAL PUBLIC LICENSE
-and BSD LICENSE
-
-  - the resource grammar library in lib/src is under GNU LESSER GENERAL PUBLIC LICENSE.
-However the user have the right to choose any license for any application grammar
-derived from the resource grammar by using the grammar API.
-
-  - the resource grammar library also includes large coverage lexicons for some languages.
-Since these lexicons are derived from external sources they might be under different licenses.
-Look at the source file for every lexicon for details. The lexicons that we currently have
-are:
-
-       lib/src/bulgarian/    DictBul.gf DictBulAbs.gf    for Bulgarian
-       lib/src/english/      DictEng.gf DictEngAbs.gf    for English
-       lib/src/turkish/      DictTur.gf DictTurAbs.gf    for Turkish
-       lib/src/swedish/      DictSwe.gf DictSweAbs.gf    for Swedish
+  - the GF runtime in src/runtime is under dual GNU LESSER GENERAL PUBLIC LICENSE and BSD LICENSE
 
 The rest of this document contains copies of the GPL, LGPL and BSD licenses
 which are applicable to the different components of Grammatical Framework

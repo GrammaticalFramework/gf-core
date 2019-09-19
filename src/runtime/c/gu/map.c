@@ -7,6 +7,9 @@
 
 typedef struct GuMapData GuMapData;
 
+#define SKIP_DELETED 1
+#define SKIP_NONE    2
+
 struct GuMapData {
 	uint8_t* keys;
 	uint8_t* values;
@@ -19,6 +22,7 @@ struct GuMap {
 	GuHasher* hasher;
 	size_t key_size;
 	size_t value_size;
+	size_t cell_size;   // cell_size = GU_MAX(value_size,sizeof(uint8_t))
 	const void* default_value;
 	GuMapData data;
 	
@@ -30,9 +34,7 @@ gu_map_finalize(GuFinalizer* fin)
 {
 	GuMap* map = gu_container(fin, GuMap, fin);
 	gu_mem_buf_free(map->data.keys);
-	if (map->value_size) {
-		gu_mem_buf_free(map->data.values);
-	}
+	gu_mem_buf_free(map->data.values);
 }
 
 static const GuWord gu_map_empty_key = 0;
@@ -68,7 +70,7 @@ gu_map_entry_is_free(GuMap* map, GuMapData* data, size_t idx)
 }
 
 static bool
-gu_map_lookup(GuMap* map, const void* key, size_t* idx_out)
+gu_map_lookup(GuMap* map, const void* key, uint8_t del, size_t* idx_out)
 {
 	size_t n = map->data.n_entries;
 	if (map->hasher == gu_addr_hasher) {
@@ -78,13 +80,17 @@ gu_map_lookup(GuMap* map, const void* key, size_t* idx_out)
 		while (true) {
 			const void* entry_key =
 				((const void**)map->data.keys)[idx];
+
 			if (entry_key == NULL && map->data.zero_idx != idx) {
-				*idx_out = idx;
-				return false;
+				if (map->data.values[idx * map->cell_size] != del) { //skip deleted
+					*idx_out = idx;
+					return false;
+				}
 			} else if (entry_key == key) {
 				*idx_out = idx;
 				return true;
 			}
+
 			idx = (idx + offset) % n;
 		}
 	} else if (map->hasher == gu_word_hasher) {
@@ -156,33 +162,18 @@ gu_map_resize(GuMap* map, size_t req_entries)
 	size_t key_size = map->key_size;
 	size_t key_alloc = 0;
 	data->keys = gu_mem_buf_alloc(req_entries * key_size, &key_alloc);
+	memset(data->keys, 0, key_alloc);
 
-	size_t value_size = map->value_size;
 	size_t value_alloc = 0;
-	if (value_size) {
-		data->values = gu_mem_buf_alloc(req_entries * value_size,
-						    &value_alloc);
-		memset(data->values, 0, value_alloc);
-	}
-	
-	data->n_entries = gu_twin_prime_inf(value_size ?
-					    GU_MIN(key_alloc / key_size,
-						   value_alloc / value_size)
-					    : key_alloc / key_size);
-	if (map->hasher == gu_addr_hasher) {
-		for (size_t i = 0; i < data->n_entries; i++) {
-			((const void**)data->keys)[i] = NULL;
-		}
-	} else if (map->hasher == gu_string_hasher) {
-		for (size_t i = 0; i < data->n_entries; i++) {
-			((GuString*)data->keys)[i] = NULL;
-		}
-	} else {
-		memset(data->keys, 0, key_alloc);
-	}
+	size_t cell_size = map->cell_size;
+	data->values = gu_mem_buf_alloc(req_entries * cell_size, &value_alloc);
+	memset(data->values, 0, value_alloc);
 
+	data->n_entries = gu_twin_prime_inf(
+	                    GU_MIN(key_alloc / key_size,
+	                           value_alloc / cell_size));
 	gu_assert(data->n_entries > data->n_occupied);
-	
+
 	data->n_occupied = 0;
 	data->zero_idx = SIZE_MAX;
 
@@ -196,16 +187,14 @@ gu_map_resize(GuMap* map, size_t req_entries)
 		} else if (map->hasher == gu_string_hasher) {
 			old_key = (void*) *(GuString*)old_key;
 		}
-		void* old_value = &old_data.values[i * value_size];
+		void* old_value = &old_data.values[i * cell_size];
 
 		memcpy(gu_map_insert(map, old_key),
 		       old_value, map->value_size);
 	}
 
 	gu_mem_buf_free(old_data.keys);
-	if (value_size) {
-		gu_mem_buf_free(old_data.values);
-	}
+	gu_mem_buf_free(old_data.values);
 }
 
 
@@ -226,9 +215,9 @@ GU_API void*
 gu_map_find(GuMap* map, const void* key)
 {
 	size_t idx;
-	bool found = gu_map_lookup(map, key, &idx);
+	bool found = gu_map_lookup(map, key, SKIP_DELETED, &idx);
 	if (found) {
-		return &map->data.values[idx * map->value_size];
+		return &map->data.values[idx * map->cell_size];
 	}
 	return NULL;
 }
@@ -244,7 +233,7 @@ GU_API const void*
 gu_map_find_key(GuMap* map, const void* key)
 {
 	size_t idx;
-	bool found = gu_map_lookup(map, key, &idx);
+	bool found = gu_map_lookup(map, key, SKIP_DELETED, &idx);
 	if (found) {
 		return &map->data.keys[idx * map->key_size];
 	}
@@ -255,17 +244,17 @@ GU_API bool
 gu_map_has(GuMap* ht, const void* key)
 {
 	size_t idx;
-	return gu_map_lookup(ht, key, &idx);
+	return gu_map_lookup(ht, key, SKIP_DELETED, &idx);
 }
 
 GU_API void*
 gu_map_insert(GuMap* map, const void* key)
 {
 	size_t idx;
-	bool found = gu_map_lookup(map, key, &idx);
+	bool found = gu_map_lookup(map, key, SKIP_NONE, &idx);
 	if (!found) {
 		if (gu_map_maybe_resize(map)) {
-			found = gu_map_lookup(map, key, &idx);
+			found = gu_map_lookup(map, key, SKIP_NONE, &idx);
 			gu_assert(!found);
 		}
 		if (map->hasher == gu_addr_hasher) {
@@ -277,7 +266,7 @@ gu_map_insert(GuMap* map, const void* key)
 			       key, map->key_size);
 		}
 		if (map->default_value) {
-			memcpy(&map->data.values[idx * map->value_size],
+			memcpy(&map->data.values[idx * map->cell_size],
 			       map->default_value, map->value_size);
 		}
 		if (gu_map_entry_is_free(map, &map->data, idx)) {
@@ -286,7 +275,32 @@ gu_map_insert(GuMap* map, const void* key)
 		}
 		map->data.n_occupied++;
 	}
-	return &map->data.values[idx * map->value_size];
+	return &map->data.values[idx * map->cell_size];
+}
+
+GU_API void
+gu_map_delete(GuMap* map, const void* key)
+{
+	size_t idx;
+	bool found = gu_map_lookup(map, key, SKIP_NONE, &idx);
+	if (found) {
+		if (map->hasher == gu_addr_hasher) {
+			((const void**)map->data.keys)[idx] = NULL;
+		} else if (map->hasher == gu_string_hasher) {
+			((GuString*)map->data.keys)[idx] = NULL;
+		} else {
+			memset(&map->data.keys[idx * map->key_size],
+			       0, map->key_size);
+		}
+		map->data.values[idx * map->cell_size] = SKIP_DELETED;
+
+		if (gu_map_buf_is_zero(&map->data.keys[idx * map->key_size],
+		                       map->key_size)) {
+			map->data.zero_idx = SIZE_MAX;
+		}
+
+		map->data.n_occupied--;
+	}
 }
 
 GU_API void
@@ -297,7 +311,7 @@ gu_map_iter(GuMap* map, GuMapItor* itor, GuExn* err)
 			continue;
 		}
 		const void* key = &map->data.keys[i * map->key_size];
-		void* value = &map->data.values[i * map->value_size];
+		void* value = &map->data.values[i * map->cell_size];
 		if (map->hasher == gu_addr_hasher) {
 			key = *(const void* const*) key;
 		} else if (map->hasher == gu_string_hasher) {
@@ -307,47 +321,30 @@ gu_map_iter(GuMap* map, GuMapItor* itor, GuExn* err)
 	}
 }
 
-typedef struct {
-	GuEnum en;
-	GuMap* ht;
-	size_t i;
-	GuMapKeyValue x;
-} GuMapEnum;
-
-static void
-gu_map_enum_next(GuEnum* self, void* to, GuPool* pool)
+GU_API bool
+gu_map_next(GuMap* map, size_t* pi, void** pkey, void* pvalue)
 {
-	*((GuMapKeyValue**) to) = NULL;
-
-	size_t i;
-	GuMapEnum* en = (GuMapEnum*) self;
-	for (i = en->i; i < en->ht->data.n_entries; i++) {
-		if (gu_map_entry_is_free(en->ht, &en->ht->data, i)) {
+	while (*pi < map->data.n_entries) {
+		if (gu_map_entry_is_free(map, &map->data, *pi)) {
+			(*pi)++;
 			continue;
 		}
-		en->x.key   = &en->ht->data.keys[i * en->ht->key_size];
-		en->x.value = &en->ht->data.values[i * en->ht->value_size];
-		if (en->ht->hasher == gu_addr_hasher) {
-			en->x.key = *(const void* const*) en->x.key;
-		} else if (en->ht->hasher == gu_string_hasher) {
-			en->x.key = *(GuString*) en->x.key;
+
+		*pkey = &map->data.keys[*pi * map->key_size];
+		if (map->hasher == gu_addr_hasher) {
+			*pkey = *(void**) *pkey;
+		} else if (map->hasher == gu_string_hasher) {
+			*pkey = *(void**) *pkey;
 		}
 
-		*((GuMapKeyValue**) to) = &en->x;
-		break;
-	}
-	
-	en->i = i+1;
-}
+		memcpy(pvalue, &map->data.values[*pi * map->cell_size], 
+		       map->value_size);
 
-GU_API GuEnum*
-gu_map_enum(GuMap* ht, GuPool* pool)
-{
-	GuMapEnum* en = gu_new(GuMapEnum, pool);
-	en->en.next = gu_map_enum_next;
-	en->ht = ht;
-	en->i  = 0;
-	return &en->en;
+		(*pi)++;
+		return true;
+	}
+
+	return false;
 }
 
 GU_API size_t
@@ -363,8 +360,6 @@ gu_map_count(GuMap* map)
 	return count;
 }
 
-static const uint8_t gu_map_no_values[1] = { 0 };
-
 GU_API GuMap*
 gu_make_map(size_t key_size, GuHasher* hasher,
 	    size_t value_size, const void* default_value,
@@ -375,7 +370,7 @@ gu_make_map(size_t key_size, GuHasher* hasher,
 		.n_occupied = 0,
 		.n_entries = 0,
 		.keys = NULL,
-		.values = value_size ? NULL : (uint8_t*) gu_map_no_values,
+		.values = NULL,
 		.zero_idx = SIZE_MAX
 	};
 	GuMap* map = gu_new(GuMap, pool);
@@ -384,6 +379,7 @@ gu_make_map(size_t key_size, GuHasher* hasher,
 	map->data = data;
 	map->key_size = key_size;
 	map->value_size = value_size;
+	map->cell_size = GU_MAX(value_size,sizeof(uint8_t));
 	map->fin.fn = gu_map_finalize;
 	gu_pool_finally(pool, &map->fin);
 

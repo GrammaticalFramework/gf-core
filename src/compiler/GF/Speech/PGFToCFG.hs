@@ -6,8 +6,8 @@
 ----------------------------------------------------------------------
 module GF.Speech.PGFToCFG (bnfPrinter, pgfToCFG) where
 
-import PGF
-import PGF.Internal
+import PGF2
+import PGF2.Internal
 import GF.Grammar.CFG hiding (Symbol)
 
 import Data.Map (Map)
@@ -16,28 +16,25 @@ import qualified Data.IntMap as IntMap
 import Data.Set (Set)
 import qualified Data.Set as Set
 
-bnfPrinter :: PGF -> CId -> String
+bnfPrinter :: PGF -> Concr -> String
 bnfPrinter = toBNF id
 
-toBNF :: (CFG -> CFG) -> PGF -> CId -> String
+toBNF :: (CFG -> CFG) -> PGF -> Concr -> String
 toBNF f pgf cnc = prCFG $ f $ pgfToCFG pgf cnc
 
 type Profile = [Int]
 
-pgfToCFG :: PGF 
-          -> CId   -- ^ Concrete syntax name
-          -> CFG
-pgfToCFG pgf lang = mkCFG (showCId start_cat) extCats (startRules ++ concatMap ruleToCFRule rules)
+pgfToCFG :: PGF -> Concr -> CFG
+pgfToCFG pgf cnc = mkCFG start_cat extCats (startRules ++ concatMap ruleToCFRule rules)
   where
     (_,start_cat,_) = unType (startCat pgf)
-    cnc = lookConcr pgf lang
 
     rules :: [(FId,Production)]
     rules = [(fcat,prod) | fcat <- [0..concrTotalCats cnc],
                            prod <- concrProductions cnc fcat]
 
     fcatCats :: Map FId Cat
-    fcatCats = Map.fromList [(fc, showCId c ++ "_" ++ show i) 
+    fcatCats = Map.fromList [(fc, c ++ "_" ++ show i) 
                                  | (c,s,e,lbls) <- concrCategories cnc,
                                    (fc,i) <- zip [s..e] [1..]]
 
@@ -64,7 +61,7 @@ pgfToCFG pgf lang = mkCFG (showCId start_cat) extCats (startRules ++ concatMap r
     extCats = Set.fromList $ map ruleLhs startRules
 
     startRules :: [CFRule]
-    startRules = [Rule (showCId c) [NonTerminal (fcatToCat fc r)] (CFRes 0) 
+    startRules = [Rule c [NonTerminal (fcatToCat fc r)] (CFRes 0) 
                       | (c,s,e,lbls) <- concrCategories cnc,
                         fc <- [s..e], not (isPredefFId fc),
                         r <- [0..catLinArity fc-1]]
@@ -113,7 +110,7 @@ pgfToCFG pgf lang = mkCFG (showCId start_cat) extCats (startRules ++ concatMap r
             where Just (hypos,_,_) = fmap unType (functionType pgf f)
                   argTypes = [cat | (_,_,ty) <- hypos, let (_,cat,_) = unType ty]
 
-        profileToTerm :: CId -> Profile -> CFTerm
+        profileToTerm :: Fun -> Profile -> CFTerm
         profileToTerm t [] = CFMeta t
         profileToTerm _ xs = CFRes (last xs) -- FIXME: unify
     ruleToCFRule (c,PCoerce c') =

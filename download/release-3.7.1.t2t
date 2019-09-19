@@ -1,10 +1,6 @@
 GF 3.7.1 Release Notes
 October 2015
 
-%!style:../css/notes.css
-%!postproc(html): <TITLE> <meta charset="UTF-8"><meta name = "viewport" content = "width = device-width"> <TITLE>
-%!postproc(html): <H1> <H1><a href="../"><IMG src="../doc/Logos/gf0.png"></a>
-
 ==Installation==
 
 See the [download page http://www.grammaticalframework.org/download/index.html].
@@ -18,10 +14,10 @@ Over 170 changes have been pushed to the source repository since
 
 ====New features and notable changes====
 
-- GF shell: ``cc -trace`` (preliminary): you can now do things like 
-  
+- GF shell: ``cc -trace`` (preliminary): you can now do things like
+
   	``cc -trace mkV "debug"``
-  
+
   to see a trace of all opers with their arguments and results during the
   computation of ``mkV "debug"``.
 
@@ -29,7 +25,7 @@ Over 170 changes have been pushed to the source repository since
   from the GF shell by starting GF with ``gf -cshell`` or ``gf -crun``.
   Only limited functionality is available when running the shell in these
   modes (use the ``help`` command in the shell for details):
-  
+
   - You can only import ``.pgf`` files, not source files.
   - The ``-retain`` flag can not be used and the commands that require it to
     work are not available.
@@ -77,8 +73,3 @@ Over 170 changes have been pushed to the source repository since
   you can leave ``&+`` uninterpreted instead of gluing the adjacent tokens.
   This means that the output is left in a format that can be parsed in
   a subsequent request.
-
-
---------------------
-
-[www.grammaticalframework.org http://www.grammaticalframework.org]

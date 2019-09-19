@@ -1,5 +1,5 @@
 name: gf
-version: 3.9-git
+version: 3.10.3-git
 
 cabal-version: >= 1.22
 build-type: Custom
@@ -11,7 +11,7 @@ description: GF, Grammatical Framework, is a programming language for multilingu
 homepage: http://www.grammaticalframework.org/
 bug-reports: https://github.com/GrammaticalFramework/gf-core/issues
 maintainer: Thomas Hallgren
-tested-with: GHC==7.6.3, GHC==7.8.3, GHC==7.10.3, GHC==8.0.2
+tested-with: GHC==7.10.3, GHC==8.0.2, GHC==8.2.2, GHC==8.4.3
 
 data-dir: src
 data-files:
@@ -42,7 +42,7 @@ data-files:
 custom-setup
   setup-depends:
     base,
-    Cabal >=1.4.0.0,
+    Cabal >=1.22.0.0,
     directory,
     filepath,
     process >=1.0.1.1
@@ -67,13 +67,23 @@ flag network-uri
    description: Get Network.URI from the network-uri package
    default: True
 
-
 executable gf
   hs-source-dirs: src/programs
   main-is: gf-main.hs
   default-language:    Haskell2010
-  build-depends: pgf2, base, filepath, directory, time, time-compat, old-locale, pretty, mtl, array, random,
-                 process, haskeline, parallel>=3, exceptions, bytestring, utf8-string, containers
+  build-depends: pgf2,
+                 base >= 4.6 && <5,
+                 array,
+                 containers,
+                 bytestring,
+                 utf8-string,
+                 random,
+                 pretty,
+                 mtl,
+                 exceptions,
+                 ghc-prim,
+                 filepath, directory>=1.2, time,
+                 process, haskeline, parallel>=3, json
   ghc-options: -threaded
 
   if impl(ghc>=7.0)
@@ -89,6 +99,9 @@ executable gf
     GF
     GF.Support
     GF.Text.Pretty
+    GF.Text.Lexing
+    GF.Grammar.Canonical
+
     GF.Main GF.Compiler GF.Interactive
 
     GF.Compile GF.CompileInParallel GF.CompileOne  GF.Compile.GetGrammar
@@ -125,9 +138,9 @@ executable gf
     GF.Compile.PGFtoJava
     GF.Haskell
     GF.Compile.ConcreteToHaskell
-    GF.Compile.PGFtoJS
-    GF.Compile.PGFtoProlog
-    GF.Compile.PGFtoPython
+    GF.Compile.GrammarToCanonical
+    GF.Grammar.CanonicalJSON
+    GF.Compile.PGFtoJSON
     GF.Compile.ReadFiles
     GF.Compile.Rename
     GF.Compile.SubExOpt
@@ -210,7 +223,7 @@ executable gf
     Data.Binary.IEEE754
 
   if flag(server)
-    build-depends: httpd-shed>=0.4.0.3, network>=2.3 && <2.7, json,
+    build-depends: httpd-shed>=0.4.0.3, network>=2.3 && <2.7,
                    cgi>=3001.2.2.0
     if flag(network-uri)
       build-depends: network-uri>=2.6, network>=2.6
@@ -230,8 +243,6 @@ executable gf
       CGIUtils
       Cache
       Fold
-      ExampleDemo
-      ExampleService
     hs-source-dirs: src/server src/server/transfer src/example-based
 
   if flag(interrupt)

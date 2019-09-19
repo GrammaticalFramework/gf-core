@@ -21,7 +21,7 @@ var minibar_options= {
     try_google: true
 }
 
-if(/^\?\/tmp\//.test(location.search)) {
+if(/^\?\/(tmp|grammars)\//.test(location.search)) {
     var args=decodeURIComponent(location.search.substr(1)).split(" ")
     if(args[0]) online_options.grammars_url=args[0];
     if(args[1]) minibar_options.initial_grammar=args[1];

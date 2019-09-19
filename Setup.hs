@@ -1,3 +1,4 @@
+import Distribution.System(Platform(..),OS(..))
 import Distribution.Simple(defaultMainWithHooks,UserHooks(..),simpleUserHooks)
 import Distribution.Simple.LocalBuildInfo(LocalBuildInfo(..),absoluteInstallDirs,datadir)
 import Distribution.Simple.Setup(BuildFlags(..),Flag(..),InstallFlags(..),CopyDest(..),CopyFlags(..),SDistFlags(..))
@@ -73,5 +74,9 @@ dataDirFile = "DATA_DIR"
 default_gf :: LocalBuildInfo -> FilePath
 default_gf lbi = buildDir lbi </> exeName' </> exeNameReal
   where
+    -- shadows Distribution.Simple.BuildPaths.exeExtension, which changed type signature in Cabal 2.4
+    exeExtension = case hostPlatform lbi of
+      Platform arch Windows -> "exe"
+      _ -> ""
     exeName' = "gf"
     exeNameReal = exeName' <.> exeExtension

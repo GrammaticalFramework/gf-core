@@ -1,365 +1,351 @@
 -- | Translate concrete syntax to Haskell
 module GF.Compile.ConcreteToHaskell(concretes2haskell,concrete2haskell) where
-import Data.List(sort,sortBy)
-import Data.Function(on)
+import Data.List(isPrefixOf,sort,sortOn)
 import qualified Data.Map as M
 import qualified Data.Set as S
-import GF.Data.ErrM
-import GF.Data.Utilities(mapSnd)
 import GF.Text.Pretty
-import GF.Grammar.Grammar
-import GF.Grammar.Lookup(lookupFunType,lookupOrigInfo,allOrigInfos)--,allParamValues
-import GF.Grammar.Macros(typeForm,collectOp,collectPattOp,mkAbs,mkApp)
-import GF.Grammar.Lockfield(isLockLabel)
-import GF.Grammar.Predef(cPredef,cInts)
-import GF.Compile.Compute.Predef(predef)
-import GF.Compile.Compute.Value(Predefined(..))
-import GF.Infra.Ident(Ident,identS,prefixIdent) --,moduleNameS
+--import GF.Grammar.Predef(cPredef,cInts)
+--import GF.Compile.Compute.Predef(predef)
+--import GF.Compile.Compute.Value(Predefined(..))
+import GF.Infra.Ident(Ident,identS,identW,prefixIdent)
 import GF.Infra.Option
-import GF.Compile.Compute.ConcreteNew(normalForm,resourceValues)
-import GF.Haskell
-import Debug.Trace
+import GF.Haskell as H
+import GF.Grammar.Canonical as C
+import GF.Compile.GrammarToCanonical
+import Debug.Trace(trace)
 
 -- | Generate Haskell code for the all concrete syntaxes associated with
 -- the named abstract syntax in given the grammar.
 concretes2haskell opts absname gr =
-  [(cncname,concrete2haskell opts gr cenv absname cnc cncmod)
-     | let cenv = resourceValues opts gr,
-       cnc<-allConcretes gr absname,
-       let cncname = render cnc ++ ".hs" :: FilePath
-           Ok cncmod = lookupModule gr cnc
+  [(filename,render80 $ concrete2haskell opts abstr cncmod)
+     | let Grammar abstr cncs = grammar2canonical opts absname gr,
+       cncmod<-cncs,
+       let ModId name = concName cncmod
+           filename = name ++ ".hs" :: FilePath
   ]
 
 -- | Generate Haskell code for the given concrete module.
 -- The only options that make a difference are
 -- @-haskell=noprefix@ and @-haskell=variants@.
-concrete2haskell opts gr cenv absname cnc modinfo =
-    renderStyle style{lineLength=80,ribbonsPerLine=1} $
-      haskPreamble va absname cnc $$ vcat (
-      nl:Comment "--- Parameter types ---":
-      neededParamTypes S.empty (params defs) ++
-      nl:Comment "--- Type signatures for linearization functions ---":
-      map signature (S.toList allcats)++
-      nl:Comment "--- Linearization functions for empty categories ---":
-      emptydefs ++
-      nl:Comment "--- Linearization types and linearization functions ---":
-      map ppDef defs ++
-      nl:Comment "--- Type classes for projection functions ---":
-      map labelClass (S.toList labels) ++
-      nl:Comment "--- Record types ---":
-      concatMap recordType recs)
+concrete2haskell opts
+                 abstr@(Abstract _ _ cats funs)
+                 modinfo@(Concrete cnc absname _ ps lcs lns) =
+  haskPreamble absname cnc $$
+  vcat (
+    nl:Comment "--- Parameter types ---":
+    map paramDef ps ++
+    nl:Comment "--- Type signatures for linearization functions ---":
+    map signature cats ++
+    nl:Comment "--- Linearization functions for empty categories ---":
+    emptydefs ++
+    nl:Comment "--- Linearization types ---":
+    map lincatDef lcs ++
+    nl:Comment "--- Linearization functions ---":
+    lindefs ++
+    nl:Comment "--- Type classes for projection functions ---":
+    map labelClass (S.toList labels) ++
+    nl:Comment "--- Record types ---":
+    concatMap recordType recs)
   where
     nl = Comment ""
+    recs = S.toList (S.difference (records (lcs,lns)) common_records)
+
     labels = S.difference (S.unions (map S.fromList recs)) common_labels
-    recs = S.toList (S.difference (records rhss) common_records)
     common_records = S.fromList [[label_s]]
     common_labels = S.fromList [label_s]
-    label_s = ident2label (identS "s")
+    label_s = LabelId "s"
 
-    rhss = map (either snd (snd.snd)) defs
-    defs = sortBy (compare `on` either (const Nothing) (Just . fst)) .
-           concatMap (toHaskell gId gr absname cenv) . 
-           M.toList $
-           jments modinfo
-
---  signature c = "lin"<>c<+>"::"<+>"A."<>gId c<+>"->"<+>"Lin"<>c
---  signature c = "--lin"<>c<+>":: (Applicative f,Monad f) =>"<+>"A."<>gId c<+>"->"<+>"f Lin"<>c
-    signature c = TypeSig lf (Fun abs (pure lin))
+    signature (CatDef c _) = TypeSig lf (Fun abs (pure lin))
       where
         abs = tcon0 (prefixIdent "A." (gId c))
         lin = tcon0 lc
-        lf = prefixIdent "lin" c
-        lc = prefixIdent "Lin" c
+        lf = linfunName c
+        lc = lincatName c
 
     emptydefs = map emptydef (S.toList emptyCats)
-    emptydef c = Eqn (prefixIdent "lin" c,[WildP]) (Const "undefined")
+    emptydef c = Eqn (linfunName c,[WildP]) (Const "undefined")
 
-    emptyCats = allcats `S.difference` cats
-    cats = S.fromList [c|Right (c,_)<-defs]
-    allcats = S.fromList [c|((_,c),AbsCat (Just _))<-allOrigInfos gr absname]
+    emptyCats = allcats `S.difference` linfuncats
+      where
+     --funcats = S.fromList [c | FunDef f (C.Type _ (TypeApp c _))<-funs]
+       allcats = S.fromList [c | CatDef c _<-cats]
+      
+    gId :: ToIdent i => i -> Ident
+    gId = (if haskellOption opts HaskellNoPrefix then id else prefixIdent "G")
+          . toIdent
 
-    params = S.toList . S.unions . map params1
-    params1 (Left (_,rhs)) = paramTypes gr rhs
-    params1 (Right (_,(_,rhs))) = tableTypes gr [rhs]
-
-    ppDef (Left (lhs,rhs)) = lhs (convType va gId rhs)
-    ppDef (Right (_,(lhs,rhs))) = lhs (convert va gId gr rhs)
-
-    gId :: Ident -> Ident
-    gId = if haskellOption opts HaskellNoPrefix then id else prefixIdent "G"
     va = haskellOption opts HaskellVariants
     pure = if va then ListT else id
 
-    neededParamTypes have [] = []
-    neededParamTypes have (q:qs) =
-        if q `S.member` have
-        then neededParamTypes have qs
-        else let ((got,need),def) = paramType va gId gr q
-             in def++neededParamTypes (S.union got have) (S.toList need++qs)
-
-haskPreamble :: Bool -> ModuleName -> ModuleName -> Doc
-haskPreamble va absname cncname =
-  "{-# LANGUAGE MultiParamTypeClasses, FunctionalDependencies, FlexibleInstances, LambdaCase #-}" $$
-  "module" <+> cncname <+> "where" $$
-  "import Prelude hiding (Ordering(..))" $$
-  "import Control.Applicative((<$>),(<*>))" $$
-  "import PGF.Haskell" $$
-  "import qualified" <+> absname <+> "as A" $$
-  "" $$
-  "--- Standard definitions ---" $$
-  "linString (A.GString s) ="<+>pure "R_s [TK s]" $$
-  "linInt (A.GInt i) ="<+>pure "R_s [TK (show i)]" $$
-  "linFloat (A.GFloat x) ="<+>pure "R_s [TK (show x)]" $$
-  "" $$
-  "----------------------------------------------------" $$
-  "-- Automatic translation from GF to Haskell follows" $$
-  "----------------------------------------------------"
-  where
-    pure = if va then brackets else pp
-
-toHaskell gId gr absname cenv (name,jment) =
-  case jment of
-    CncCat (Just (L loc typ)) _ _ pprn _ ->
-        [Left (tsyn0 (prefixIdent "Lin" name),nf loc typ)]
-    CncFun (Just r@(cat,ctx,lincat)) (Just (L loc def)) pprn _ ->
---      trace (render (name<+>hcat[parens (x<>"::"<>t)|(_,x,t)<-ctx]<+>"::"<+>cat)) $
-        [Right (cat,(Eqn (prefixIdent "lin" cat,lhs),coerce [] lincat rhs))]
+    haskPreamble :: ModId -> ModId -> Doc
+    haskPreamble absname cncname =
+      "{-# LANGUAGE MultiParamTypeClasses, FunctionalDependencies, FlexibleInstances, LambdaCase #-}" $$
+      "module" <+> cncname <+> "where" $$
+      "import Prelude hiding (Ordering(..))" $$
+      "import Control.Applicative((<$>),(<*>))" $$
+      "import PGF.Haskell" $$
+      "import qualified" <+> absname <+> "as A" $$
+      "" $$
+      "--- Standard definitions ---" $$
+      "linString (A.GString s) ="<+>pure "R_s [TK s]" $$
+      "linInt (A.GInt i) ="<+>pure "R_s [TK (show i)]" $$
+      "linFloat (A.GFloat x) ="<+>pure "R_s [TK (show x)]" $$
+      "" $$
+      "----------------------------------------------------" $$
+      "-- Automatic translation from GF to Haskell follows" $$
+      "----------------------------------------------------"
       where
-        Ok abstype = lookupFunType gr absname name
-        (absctx,_abscat,_absargs) = typeForm abstype
+        pure = if va then brackets else pp
 
-        e' = unAbs (length params) $
-             nf loc (mkAbs params (mkApp def (map Vr args)))
-        params = [(b,prefixIdent "g" x)|(b,x,_)<-ctx]
-        args = map snd params
-        abs_args = map (prefixIdent "abs_") args
-        lhs = [ConP (aId name) (map VarP abs_args)]
-        rhs = foldr letlin e' (zip args absctx)
-        letlin (a,(_,_,at)) =
-           Let (a,(Just (con ("Lin"++render at)),(App (con ("lin"++render at)) (con ("abs_"++render a)))))
-    AnyInd _ m  -> case lookupOrigInfo gr (m,name) of
-                     Ok (m,jment) -> toHaskell gId gr absname cenv (name,jment)
-                     _ -> []
-    _ -> []
-  where
-    nf loc = normalForm cenv (L loc name)
-    aId n = prefixIdent "A." (gId n)
+    paramDef pd =
+      case pd of
+        ParamAliasDef p t -> H.Type (conap0 (gId p)) (convLinType t)
+        ParamDef p pvs -> Data (conap0 (gId p)) (map paramCon pvs) derive
+          where
+            paramCon (Param c cs) = ConAp (gId c) (map (tcon0.gId) cs)
+            derive = ["Eq","Ord","Show"]
 
-    unAbs 0 t = t
-    unAbs n (Abs _ _ t) = unAbs (n-1) t
-    unAbs _ t = t
+    convLinType = ppT
+      where
+        ppT t =
+          case t of
+            FloatType -> tcon0 (identS "Float")
+            IntType -> tcon0 (identS "Int")
+            ParamType (ParamTypeId p) -> tcon0 (gId p)
+            RecordType rs -> tcon (rcon' ls) (map ppT ts)
+              where (ls,ts) = unzip $ sortOn fst [(l,t)|RecordRow l t<-rs]
+            StrType -> tcon0 (identS "Str")
+            TableType pt lt -> Fun (ppT pt) (ppT lt)
+--          TupleType lts -> 
+
+    lincatDef (LincatDef c t) = tsyn0 (lincatName c) (convLinType t)
+
+    linfuncats = S.fromList linfuncatl
+    (linfuncatl,lindefs) = unzip (linDefs lns)
+
+    linDefs = map eqn . sortOn fst . map linDef
+      where eqn (cat,(f,(ps,rhs))) = (cat,Eqn (f,ps) rhs)
+
+    linDef (LinDef f xs rhs0) = 
+        (cat,(linfunName cat,(lhs,rhs)))
+      where
+        lhs = [ConP (aId f) (map VarP abs_args)]
+        aId f = prefixIdent "A." (gId f)
+
+        [lincat] = [lincat | LincatDef c lincat<-lcs,c==cat]
+        [C.Type absctx (TypeApp cat _)] = [t | FunDef f' t<-funs, f'==f]
+
+        abs_args = map abs_arg args
+        abs_arg = prefixIdent "abs_"
+        args = map (prefixIdent "g" . toIdent) xs
+
+        rhs = lets (zipWith letlin args absctx)
+                   (convert vs (coerce env lincat rhs0))
+          where
+            vs = [(VarValueId (Unqual x),a)|(VarId x,a)<-zip xs args]
+            env= [(VarValueId (Unqual x),lc)|(VarId x,lc)<-zip xs (map arglincat absctx)]
+            
+        letlin a (TypeBinding _ (C.Type _ (TypeApp acat _))) =
+          (a,Ap (Var (linfunName acat)) (Var (abs_arg a)))
+
+        arglincat (TypeBinding _ (C.Type _ (TypeApp acat _))) = lincat
+          where
+            [lincat] = [lincat | LincatDef c lincat<-lcs,c==acat]
+
+    convert = convert' va
+
+    convert' va vs = ppT
+      where
+        ppT0 = convert' False vs
+        ppTv vs' = convert' va vs'
+
+        pure = if va then single else id
+
+        ppT t =
+          case t of
+            TableValue ty cs -> pure (table cs)
+            Selection t p -> select (ppT t) (ppT p)
+            ConcatValue t1 t2 -> concat (ppT t1) (ppT t2)
+            RecordValue r -> aps (rcon ls) (map ppT ts)
+              where (ls,ts) = unzip $ sortOn fst [(l,t)|RecordRow l t<-r]
+            PredefValue p -> single (Var (toIdent p)) -- hmm
+            Projection t l -> ap (proj l) (ppT t)
+            VariantValue [] -> empty
+            VariantValue ts@(_:_) -> variants ts
+            VarValue x -> maybe (Var (gId x)) (pure . Var) $ lookup x vs
+            PreValue vs t' -> pure (alts t' vs)
+            ParamConstant (Param c vs) -> aps (Var (pId c)) (map ppT vs)
+            ErrorValue s -> ap (Const "error") (Const (show s)) -- !!
+            LiteralValue l -> ppL l
+            _ -> error ("convert "++show t)
+
+        ppL l =
+          case l of
+            FloatConstant x -> pure (lit x)
+            IntConstant n -> pure (lit n)
+            StrConstant s -> pure (token s)
+
+        pId p@(ParamId s) =
+          if "to_R_" `isPrefixOf` unqual s then toIdent p else gId p -- !! a hack
+          
+        table cs =
+            if all (null.patVars) ps
+            then lets ds (LambdaCase [(ppP p,t')|(p,t')<-zip ps ts'])
+            else LambdaCase (map ppCase cs)
+          where
+            (ds,ts') = dedup ts
+            (ps,ts) = unzip [(p,t)|TableRow p t<-cs]
+        ppCase (TableRow p t) = (ppP p,ppTv (patVars p++vs) t)
+{-
+        ppPredef n =
+          case predef n of
+            Ok BIND       -> single (c "BIND")
+            Ok SOFT_BIND  -> single (c "SOFT_BIND")
+            Ok SOFT_SPACE -> single (c "SOFT_SPACE")
+            Ok CAPIT      -> single (c "CAPIT")
+            Ok ALL_CAPIT  -> single (c "ALL_CAPIT")
+            _ -> Var n
+-}
+        ppP p =
+          case p of
+            ParamPattern (Param c ps) -> ConP (gId c) (map ppP ps)
+            RecordPattern r -> ConP (rcon' ls) (map ppP ps)
+              where (ls,ps) = unzip $ sortOn fst [(l,p)|RecordRow l p<-r]
+            WildPattern -> WildP
+
+        token s = single (c "TK" `Ap` lit s)
+
+        alts t' vs = single (c "TP" `Ap` List (map alt vs) `Ap` ppT0 t')
+          where
+            alt (s,t) = Pair (List (pre s)) (ppT0 t)
+            pre s = map lit s
+
+        c = Const
+        lit s = c (show s) -- hmm
+        concat = if va then concat' else plusplus
+          where
+            concat' (List [List ts1]) (List [List ts2]) = List [List (ts1++ts2)]
+            concat' t1 t2 = Op t1 "+++" t2
+
+        pure' = single -- forcing the list monad
+
+        select = if va then select' else Ap
+        select' (List [t]) (List [p]) = Op t "!" p
+        select' (List [t]) p = Op t "!$" p
+        select' t p = Op t "!*" p
+
+        ap = if va then ap' else Ap
+          where
+            ap' (List [f]) x = fmap f x
+            ap' f x = Op f "<*>" x
+            fmap f (List [x]) = pure' (Ap f x)
+            fmap f x = Op f "<$>" x
+
+    --  join = if va then join' else id
+        join' (List [x]) = x
+        join' x = c "concat" `Ap` x
+
+        empty = if va then List [] else c "error" `Ap` c (show "empty variant")
+        variants = if va then \ ts -> join' (List (map ppT ts))
+                         else \ (t:_) -> ppT t
+
+        aps f [] = f
+        aps f (a:as) = aps (ap f a) as
+
+        dedup ts =
+            if M.null dups
+            then ([],map ppT ts)
+            else ([(ev i,ppT t)|(i,t)<-defs],zipWith entry ts is)
+          where
+            entry t i = maybe (ppT t) (Var . ev) (M.lookup i dups)
+            ev i = identS ("e'"++show i)
+
+            defs = [(i1,t)|(t,i1:_:_)<-ms]
+            dups = M.fromList [(i2,i1)|(_,i1:is@(_:_))<-ms,i2<-i1:is]
+            ms = M.toList m
+            m = fmap sort (M.fromListWith (++) (zip ts [[i]|i<-is]))
+            is = [0..]::[Int]
 
 
-con = Cn . identS
+--con = Cn . identS
 
-tableTypes gr ts = S.unions (map tabtys ts)
-  where
-    tabtys t =
-      case t of
-        V t cc -> S.union (paramTypes gr t) (tableTypes gr cc)
-        T (TTyped t) cs -> S.union (paramTypes gr t) (tableTypes gr (map snd cs))
-        _ -> collectOp tabtys t
+class Records t where
+  records :: t -> S.Set [LabelId]
 
-paramTypes gr t =
-  case t of
-    RecType fs -> S.unions (map (paramTypes gr.snd) fs)
-    Table t1 t2 -> S.union (paramTypes gr t1) (paramTypes gr t2)
-    App tf ta -> S.union (paramTypes gr tf) (paramTypes gr ta)
-    Sort _ -> S.empty
-    EInt _ -> S.empty
-    Q q -> lookup q
-    QC q -> lookup q
-    FV ts -> S.unions (map (paramTypes gr) ts)
-    _ -> ignore
-  where
-    lookup q = case lookupOrigInfo gr q of
-                 Ok (_,ResOper  _ (Just (L _ t))) ->
-                                       S.insert q (paramTypes gr t)
-                 Ok (_,ResParam {}) -> S.singleton q
-                 _ -> ignore
+instance Records t => Records [t] where
+  records = S.unions . map records
 
-    ignore = trace ("Ignore: "++show t) S.empty
+instance (Records t1,Records t2) => Records (t1,t2) where
+  records (t1,t2) = S.union (records t1) (records t2)
+
+instance Records LincatDef where
+  records (LincatDef _ lt) = records lt
+
+instance Records LinDef where
+  records (LinDef _ _ lv) = records lv
+
+instance Records LinType where
+  records t =
+    case t of
+      RecordType r -> rowRecords r
+      TableType pt lt -> records (pt,lt)
+      TupleType ts -> records ts
+      _ -> S.empty
+
+rowRecords r = S.insert (sort ls) (records ts)
+  where (ls,ts) = unzip [(l,t)|RecordRow l t<-r]
+
+instance Records LinValue where
+  records v =
+    case v of
+      ConcatValue v1 v2 -> records (v1,v2)
+      ParamConstant (Param c vs) -> records vs
+      RecordValue r -> rowRecords r
+      TableValue t r -> records (t,r)
+      TupleValue vs -> records vs
+      VariantValue vs -> records vs
+      PreValue alts d -> records (map snd alts,d)
+      Projection v l -> records v
+      Selection v1 v2 -> records (v1,v2)
+      _ -> S.empty
+
+instance Records rhs => Records (TableRow rhs) where
+  records (TableRow _ v) = records v
 
 
-
-records ts = S.unions (map recs ts)
-  where
-    recs t =
-      case t of
-        R r -> S.insert (labels r) (records (map (snd.snd) r))
-        RecType r -> S.insert (labels r) (records (map snd r))
-        _ -> collectOp recs t
-
-    labels = sort . filter (not . isLockLabel) . map fst
-
-
+-- | Record subtyping is converted into explicit coercions in Haskell
 coerce env ty t =
   case (ty,t) of 
-    (_,Let d t) -> Let d (coerce (extend env d) ty t)
-    (_,FV ts) -> FV (map (coerce env ty) ts)
-    (Table ti tv,V _ ts) -> V ti (map (coerce env tv) ts)
-    (Table ti tv,T (TTyped _) cs) -> T (TTyped ti) (mapSnd (coerce env tv) cs)
-    (RecType rt,R r) ->
-      R [(l,(Just ft,coerce env ft f))|(l,(_,f))<-r,Just ft<-[lookup l rt]]
-    (RecType rt,Vr x)->
+    (_,VariantValue ts) -> VariantValue (map (coerce env ty) ts)
+    (TableType ti tv,TableValue _ cs) ->
+      TableValue ti [TableRow p (coerce env tv t)|TableRow p t<-cs]
+    (RecordType rt,RecordValue r) ->
+      RecordValue [RecordRow l (coerce env ft f) |
+                     RecordRow l f<-r,ft<-[ft|RecordRow l' ft<-rt,l'==l]]
+    (RecordType rt,VarValue x)->
       case lookup x env of
         Just ty' | ty'/=ty -> -- better to compare to normal form of ty'
-          --trace ("coerce "++render ty'++" to "++render ty) $
-          App (to_rcon (map fst rt)) t
-        _ -> trace ("no coerce to "++render ty) t
+                            --trace ("coerce "++render ty'++" to "++render ty) $
+                            app (to_rcon rt) [t]
+                 | otherwise -> t -- types match, no coercion needed
+        _ -> trace (render ("missing type to coerce"<+>x<+>"to"<+>render ty
+                            $$ "in" <+> map fst env))
+                   t
     _ -> t
   where
-    extend env (x,(Just ty,rhs)) = (x,ty):env
-    extend env _ = env
+    app f ts = ParamConstant (Param f ts) -- !! a hack
+    to_rcon = ParamId . Unqual . to_rcon' . labels
 
-convert va gId gr = convert' va gId [] gr
+patVars p = []
 
-convert' va gId vs gr = ppT
-  where
-    ppT0 = convert' False gId vs gr
-    ppTv vs' = convert' va gId vs' gr
+labels r = [l|RecordRow l _<-r]
 
-    ppT t =
-      case t of
-         -- Only for 'let' inserted on the top-level by this converter:
-        Let (x,(_,xt)) t -> let1 x (ppT0 xt) (ppT t)
---      Abs b x t -> ...
-        V ty ts -> pure (c "table" `Ap` dedup ts)
-        T (TTyped ty) cs -> pure (LambdaCase (map ppCase cs))
-        S t p -> select (ppT t) (ppT p)
-        C t1 t2 -> concat (ppT t1) (ppT t2)
-        App f a -> ap (ppT f) (ppT a)
-        R r -> aps (ppT (rcon (map fst r))) (fields r)
-        P t l -> ap (ppT (proj l)) (ppT t)
-        FV [] -> empty
-        Vr x -> if x `elem` vs then pure (Var x) else Var x
-        Cn x -> pure (Var x)
-        Con c -> pure (Var (gId c))
-        Sort k -> pure (Var k)
-        EInt n -> pure (lit n)
-        Q (m,n) -> if m==cPredef then pure (ppPredef n) else Var (qual m n)
-        QC (m,n) -> pure (Var (gId (qual m n)))
-        K s -> pure (token s)
-        Empty -> pure (List [])
-        FV ts@(_:_) -> variants ts
-        Alts t' vs -> pure (alts t' vs)
-
-    ppCase (p,t) = (ppP p,ppTv (patVars p++vs) t)
-
-    ppPredef n =
-      case predef n of
-        Ok BIND       -> single (c "BIND")
-        Ok SOFT_BIND  -> single (c "SOFT_BIND")
-        Ok SOFT_SPACE -> single (c "SOFT_SPACE")
-        Ok CAPIT      -> single (c "CAPIT")
-        Ok ALL_CAPIT  -> single (c "ALL_CAPIT")
-        _ -> Var n
-
-    ppP p =
-      case p of
-        PC c ps -> ConP (gId c) (map ppP ps)
-        PP (_,c) ps -> ConP (gId c) (map ppP ps)
-        PR r -> ConP (rcon' (map fst r)) (map (ppP.snd) (filter (not.isLockLabel.fst) r))
-        PW -> WildP
-        PV x -> VarP x
-        PString s -> Lit (show s) -- !!
-        PInt i -> Lit (show i)
-        PFloat x -> Lit (show x)
-        PT _ p -> ppP p
-        PAs x p -> AsP x (ppP p)
-        
-    token s = single (c "TK" `Ap` lit s)
-
-    alts t' vs = single (c "TP" `Ap` List (map alt vs) `Ap` ppT0 t')
-      where
-        alt (t,p) = Pair (List (pre p)) (ppT0 t)
-
-        pre (K s) = [lit s]
-        pre (Strs ts) = concatMap pre ts
-        pre (EPatt p) = pat p
-        pre t = error $ "pre "++show t
-
-        pat (PString s) = [lit s]
-        pat (PAlt p1 p2) = pat p1++pat p2
-        pat p = error $ "pat "++show p
-
-    fields = map (ppT.snd.snd) . sort . filter (not.isLockLabel.fst)
-
-    c = Const
-    lit s = c (show s) -- hmm
-    concat = if va then concat' else plusplus
-      where
-        concat' (List [List ts1]) (List [List ts2]) = List [List (ts1++ts2)]
-        concat' t1 t2 = Op t1 "+++" t2
-    pure = if va then single else id
-    pure' = single -- forcing the list monad
-
-    select = if va then select' else Ap
-    select' (List [t]) (List [p]) = Op t "!" p
-    select' (List [t]) p = Op t "!$" p
-    select' t p = Op t "!*" p
-
-    ap = if va then ap' else Ap
-      where
-        ap' (List [f]) x = fmap f x
-        ap' f x = Op f "<*>" x
-        fmap f (List [x]) = pure' (Ap f x)
-        fmap f x = Op f "<$>" x
-
---  join = if va then join' else id
-    join' (List [x]) = x
-    join' x = c "concat" `Ap` x
-
-    empty = if va then List [] else c "error" `Ap` c (show "empty variant")
-    variants = if va then \ ts -> join' (List (map ppT ts))
-                     else \ (t:_) -> ppT t
-
-    aps f [] = f
-    aps f (a:as) = aps (ap f a) as
-
-    dedup ts =
-        if M.null dups
-        then List (map ppT ts)
-        else Lets [(ev i,ppT t)|(i,t)<-defs] (List (zipWith entry ts is))
-      where
-        entry t i = maybe (ppT t) (Var . ev) (M.lookup i dups)
-        ev i = identS ("e'"++show i)
-
-        defs = [(i1,t)|(t,i1:_:_)<-ms]
-        dups = M.fromList [(i2,i1)|(_,i1:is@(_:_))<-ms,i2<-i1:is]
-        ms = M.toList m
-        m = fmap sort (M.fromListWith (++) (zip ts [[i]|i<-is]))
-        is = [0..]::[Int]
-
-patVars p =
-  case p of
-    PV x -> [x]
-    PAs x p -> x:patVars p
-    _ -> collectPattOp patVars p
-
-convType va gId = ppT
-  where
-    ppT t =
-      case t of
-        Table ti tv -> Fun (ppT ti) (if va then ListT (ppT tv) else ppT tv)
-        RecType rt -> tcon (rcon' (map fst rt)) (fields rt)
-        App tf ta -> TAp (ppT tf) (ppT ta)
-        FV [] -> tcon0 (identS "({-empty variant-})")
-        Sort k -> tcon0 k
-        EInt n -> tcon0 (identS ("({-"++show n++"-})")) -- type level numeric literal
-        FV (t:ts) -> ppT t -- !!
-        QC (m,n) -> tcon0 (gId (qual m n))
-        Q (m,n) -> tcon0 (gId (qual m n))
-        _ -> error $ "Missing case in convType for: "++show t
-
-    fields = map (ppT.snd) . sort . filter (not.isLockLabel.fst)
-
-proj = con . proj'
-proj' l = "proj_"++render l
-rcon = con . rcon_name
+proj = Var . identS . proj'
+proj' (LabelId l) = "proj_"++l
+rcon = Var . rcon'
 rcon' = identS . rcon_name
-rcon_name ls = "R"++concat (sort ['_':render l|l<-ls,not (isLockLabel l)])
-to_rcon = con . to_rcon'
+rcon_name ls = "R"++concat (sort ['_':l|LabelId l<-ls])
+
 to_rcon' = ("to_"++) . rcon_name
 
 recordType ls =
@@ -400,31 +386,6 @@ labelClass l =
     r = identS "r"
     a = identS "a"
 
-paramType va gId gr q@(_,n) =
-    case lookupOrigInfo gr q of
-      Ok (m,ResParam (Just (L _ ps)) _)
-       {- - | m/=cPredef && m/=moduleNameS "Prelude"-} ->
-         ((S.singleton (m,n),argTypes ps),
-          [Data (conap0 name) (map (param m) ps)["Eq","Ord","Show"],
-           Instance [] (TId (identS "EnumAll") `TAp` TId name)
-              [(lhs0 "enumAll",foldr1 plusplus (map (enumParam m) ps))]]
-         )
-       where name = gId (qual m n)
-      Ok (m,ResOper  _ (Just (L _ t)))
-        | m==cPredef && n==cInts ->
-           ((S.singleton (m,n),S.empty),
-            [Type (ConAp (gId (qual m n)) [identS "n"]) (TId (identS "Int"))])
-        | otherwise ->
-           ((S.singleton (m,n),paramTypes gr t),
-            [Type (conap0 (gId (qual m n))) (convType va gId t)])
-      _ -> ((S.empty,S.empty),[])
-  where
-    param m (n,ctx) = ConAp (gId (qual m n)) [convType va gId t|(_,_,t)<-ctx]
-    argTypes = S.unions . map argTypes1
-    argTypes1 (n,ctx) = S.unions [paramTypes gr t|(_,_,t)<-ctx]
-
-    enumParam m (n,ctx) = enumCon (gId (qual m n)) (length ctx)
-
 enumCon name arity =
     if arity==0
     then single (Var name)
@@ -433,5 +394,23 @@ enumCon name arity =
     ap (List [f]) a = Op f "<$>" a
     ap f a = Op f "<*>" a
 
-qual :: ModuleName -> Ident -> Ident
-qual m = prefixIdent (render m++"_")
+lincatName,linfunName :: CatId -> Ident
+lincatName c = prefixIdent "Lin" (toIdent c)
+linfunName c = prefixIdent "lin" (toIdent c)
+
+class ToIdent i where toIdent :: i -> Ident
+
+instance ToIdent ParamId where toIdent (ParamId q) = qIdentS q
+instance ToIdent PredefId where toIdent (PredefId s) = identS s
+instance ToIdent CatId   where toIdent (CatId s) = identS s
+instance ToIdent C.FunId where toIdent (FunId s) = identS s
+instance ToIdent VarValueId where toIdent (VarValueId q) = qIdentS q
+
+qIdentS = identS . unqual
+
+unqual (Qual (ModId m) n) = m++"_"++n
+unqual (Unqual n) = n
+
+instance ToIdent VarId where
+  toIdent Anonymous = identW
+  toIdent (VarId s) = identS s

@@ -1,0 +1,551 @@
+Compiler.hs
+mainGFC :: Options -> [FilePath] -> IO ()
+                 _ | null fs -> fail $ "No input files."
+                 _ | all (extensionIs ".pgf") fs -> unionPGFFiles opts fs
+                 _ -> fail $ "Don't know what to do with these input files: " ++ unwords fs)
+
+
+----------------------------------------
+Compile.hs
+
+compileModule
+                       case length file1s of
+                         0 -> raise (render ("Unable to find: " $$ nest 2 candidates))
+                         1 -> do return $ head file1s
+                         _ -> do putIfVerb opts1 ("matched multiple candidates: " +++ show file1s)
+                                 return $ head file1s
+               else raise (render ("File" <+> file <+> "does not exist"))
+
+---------------------------------------
+Grammar.Lexer.x
+token :: P Token
+        AlexError (AI pos _ _) -> PFailed pos "lexical error"
+
+
+---------------------------------------
+Grammar.Parser.y
+
+happyError = fail "syntax error"
+
+tryLoc (c,mty,Just e) = return (c,(mty,e))
+tryLoc (c,_  ,_     ) = fail ("local definition of" +++ showIdent c +++ "without value")
+
+mkR []       = return $ RecType [] --- empty record always interpreted as record type
+mkR fs@(f:_) =
+  case f of
+    (lab,Just ty,Nothing) -> mapM tryRT fs >>= return . RecType
+    _                     -> mapM tryR  fs >>= return . R
+  where
+    tryRT (lab,Just ty,Nothing) = return (ident2label lab,ty)
+    tryRT (lab,_      ,_      ) = fail $ "illegal record type field" +++ showIdent lab --- manifest fields ?!
+
+    tryR (lab,mty,Just t) = return (ident2label lab,(mty,t))
+    tryR (lab,_  ,_     ) = fail $ "illegal record field" +++ showIdent lab
+
+
+---------------------------------------
+ModDeps.hs
+
+mkSourceGrammar :: [SourceModule] -> Err SourceGrammar
+  deplist <- either 
+               return 
+               (\ms -> Bad $ "circular modules" +++ unwords (map show ms)) $ 
+
+
+checkUniqueImportNames :: [Ident] -> SourceModInfo -> Err ()
+   test ms = testErr (all (`notElem` ns) ms)
+                     ("import names clashing with module names among" +++ unwords (map prt ms))
+
+
+moduleDeps :: [SourceModule] -> Err Dependencies
+  deps (c,m) = errIn ("checking dependencies of module" +++ prt c) $ case mtype m of
+      MTConcrete a -> do
+        am <- lookupModuleType gr a
+        testErr (mtype am == MTAbstract) "the of-module is not an abstract syntax" 
+
+    testErr (all (compatMType ety . mtype) ests) "inappropriate extension module type" 
+
+
+---------------------------------------
+Update.hs
+
+buildAnyTree
+        Just i  -> case unifyAnyInfo m i j of
+		     Ok k  -> go (Map.insert c k map) is
+		     Bad _ -> fail $ render ("conflicting information in module"<+>m $$
+		                             nest 4 (ppJudgement Qualified (c,i)) $$
+		                             "and" $+$
+		                             nest 4 (ppJudgement Qualified (c,j)))
+extendModule
+    unless (sameMType (mtype m) (mtype mo)) 
+            (checkError ("illegal extension type to module" <+> name))
+
+rebuildModule
+      unless (null is || mstatus mi == MSIncomplete) 
+             (checkError ("module" <+> i <+> 
+                          "has open interfaces and must therefore be declared incomplete"))
+
+         unless (isModRes m1)
+                 (checkError ("interface expected instead of" <+> i0))
+          js' <- extendMod gr False ((i0,m1), isInherited mincl) i (jments mi)
+
+     unless (stat' == MSComplete || stat == MSIncomplete) 
+             (checkError ("module" <+> i <+> "remains incomplete"))
+
+
+extendMod
+		                                 checkError ("cannot unify the information" $$ 
+		                                             nest 4 (ppJudgement Qualified (c,i)) $$
+		                                             "in module" <+> name <+> "with" $$
+		                                             nest 4 (ppJudgement Qualified (c,j)) $$
+		                                             "in module" <+> base)
+
+unifyAnyInfo
+  (ResValue (L l1 t1), ResValue (L l2 t2)) 
+      | t1==t2    -> return (ResValue (L l1 t1))
+      | otherwise -> fail ""
+
+  (AnyInd b1 m1, AnyInd b2 m2) -> do
+    testErr (b1 == b2) $ "indirection status"
+    testErr (m1 == m2) $ "different sources of indirection"
+
+unifAbsDefs _         _         = fail ""
+
+----------------------------------
+
+Rename.hs
+
+renameIdentTerm'
+        _    -> case lookupTreeManyAll showIdent opens c of
+                  [f]  -> return (f c)
+                  []   -> alt c ("constant not found:" <+> c $$
+                                 "given" <+> fsep (punctuate ',' (map fst qualifs)))
+
+                           ts@(t:_) -> do checkWarn ("atomic term" <+> ppTerm Qualified 0 t0 $$
+                                                      "conflict" <+> hsep (punctuate ',' (map (ppTerm Qualified 0) ts)) $$
+                                                      "given" <+> fsep (punctuate ',' (map fst qualifs)))
+                                           return t
+
+renameInfo
+    renLoc ren (L loc x) =
+      checkInModule cwd mi loc ("Happened in the renaming of" <+> i) $ do
+
+renameTerm
+      | otherwise -> checks [ renid' (Q (MN r,label2ident l))      -- .. and qualified expression second.
+                            , renid' t >>= \t -> return (P t l) -- try as a constant at the end
+                            , checkError ("unknown qualified constant" <+> trm)
+                            ]
+
+renamePattern env patt =
+    do r@(p',vs) <- renp patt
+       let dupl = vs \\ nub vs
+       unless (null dupl) $ checkError (hang ("[C.4.13] Pattern is not linear:") 4
+                                             patt)
+       return r
+
+       case c' of
+          Q d -> renp $ PM d
+          _ -> checkError ("unresolved pattern" <+> patt)
+
+          Q  _ -> checkError ("data constructor expected but" <+> ppTerm Qualified 0 c' <+> "is found instead")
+          _    -> checkError ("unresolved data constructor" <+> ppTerm Qualified 0 c')
+
+      PM c -> do
+        x <- renid (Q c)
+        c' <- case x of
+                (Q c') -> return c'
+                _      -> checkError ("not a pattern macro" <+> ppPatt Qualified 0 patt)
+
+     PV x -> checks [ renid' (Vr x) >>= \t' -> case t' of
+                                                 QC c -> return (PP c [],[])
+                                                 _    -> checkError (pp "not a constructor")
+                     , return (patt, [x])
+ 
+
+
+-----------------------------------
+CheckGrammar.hs
+
+checkRestrictedInheritance :: FilePath -> SourceGrammar -> SourceModule -> Check ()
+     let illegals = [(f,is) | 
+           (f,cs) <- allDeps, incld f, let is = filter illegal cs, not (null is)]
+     case illegals of 
+       [] -> return ()
+       cs -> checkWarn ("In inherited module" <+> i <> ", dependence of excluded constants:" $$
+                         nest 2 (vcat [f <+> "on" <+> fsep is | (f,is) <- cs]))
+
+checkCompleteGrammar :: Options -> FilePath -> Grammar -> Module -> Module -> Check Module
+                       case info of
+                         CncCat (Just (L loc (RecType []))) _ _ _ _ -> return (foldr (\_ -> Abs Explicit identW) (R []) cxt)
+                         _                                          -> Bad "no def lin"
+
+         where noLinOf c = checkWarn ("no linearization of" <+> c)
+
+         Ok (CncCat Nothing md mr mp mpmcfg) -> do
+           checkWarn ("no linearization type for" <+> c <> ", inserting default {s : Str}")
+           return $ updateTree (c,CncCat (Just (L NoLoc defLinType)) md mr mp mpmcfg) js
+         _ -> do
+           checkWarn ("no linearization type for" <+> c <> ", inserting default {s : Str}")
+
+                             _       -> do checkWarn ("function" <+> c <+> "is not in abstract")
+
+           Ok (_,AbsFun {}) ->
+                   checkError ("lincat:"<+>c<+>"is a fun, not a cat")
+           -}
+           _ -> do checkWarn ("category" <+> c <+> "is not in abstract")
+
+checkInfo :: Options -> FilePath -> SourceGrammar -> SourceModule -> Ident -> Info -> Check Info
+         (Just (L loct ty), Nothing) -> do
+           chIn loct "operation" $
+             checkError (pp "No definition given to the operation")
+
+    ResOverload os tysts -> chIn NoLoc "overloading" $ do
+    
+       checkUniq xss = case xss of
+     x:y:xs 
+      | x == y    -> checkError $ "ambiguous for type" <+>
+                                  ppType (mkFunType (tail x) (head x))
+
+   compAbsTyp g t = case t of
+     Vr x -> maybe (checkError ("no value given to variable" <+> x)) return $ lookup x g
+
+checkReservedId x =
+  when (isReservedWord x) $
+       checkWarn ("reserved word used as identifier:" <+> x)
+
+
+--------------------------------
+TypeCheck/Abstract.hs
+
+grammar2theory :: SourceGrammar -> Theory
+  Bad s -> case lookupCatContext gr m f of
+    Ok cont -> return $ cont2val cont
+    _ -> Bad s
+
+
+--------------------------------
+TypeCheck/ConcreteNew.hs
+-- Concrete.hs has all its code commented out
+
+
+--------------------------------
+TypeCheck/RConcrete.hs
+-- seems to be used more than ConcreteNew
+
+computeLType :: SourceGrammar -> Context -> Type -> Check Type
+   AdHocOverload ts -> do
+     over <- getOverload gr g (Just typeType) t
+     case over of
+       Just (tr,_) -> return tr
+       _ -> checkError ("unresolved overloading of constants" <+> ppTerm Qualified 0 t) 
+
+inferLType :: SourceGrammar -> Context -> Term -> Check (Term, Type)
+   Q (m,ident) | isPredef m -> termWith trm $ case typPredefined ident of
+                                                Nothing -> checkError ("unknown in Predef:" <+> ident)
+
+   Q ident -> checks [
+     checkError ("cannot infer type of constant" <+> ppTerm Unqualified 0 trm)
+     ]
+
+   QC ident -> checks [
+       checkError ("cannot infer type of canonical constant" <+> ppTerm Unqualified 0 trm)
+       ]
+
+   Vr ident -> termWith trm $ checkLookup ident g
+
+   AdHocOverload ts -> do
+       _ -> checkError ("unresolved overloading of constants" <+> ppTerm Qualified 0 trm) 
+
+   App f a -> do
+         case fty' of
+           Prod bt z arg val -> do 
+           _ -> checkError ("A function type is expected for" <+> ppTerm Unqualified 0 f <+> "instead of type" <+> ppType fty)
+
+   S f x -> do
+       _ -> checkError ("table lintype expected for the table in" $$ nest 2 (ppTerm Unqualified 0 trm))
+
+   P t i -> do
+                       Nothing -> checkError ("unknown label" <+> i <+> "in" $$ nest 2 (ppTerm Unqualified 0 ty'))
+       _          -> checkError ("record type expected for:" <+> ppTerm Unqualified 0 t $$
+                                 " instead of the inferred:" <+> ppTerm Unqualified 0 ty')
+
+   R r -> do
+     checkCond ("cannot infer type of record" $$ nest 2 (ppTerm Unqualified 0 trm)) (length ts == length fsts)
+
+   T ti pts -> do  -- tries to guess: good in oper type inference
+       [] -> checkError ("cannot infer table type of" <+> ppTerm Unqualified 0 trm)
+
+   ---- hack from Rename.identRenameTerm, to live with files with naming conflicts 18/6/2007
+   Strs (Cn c : ts) | c == cConflict -> do
+     checkWarn ("unresolved constant, could be any of" <+> hcat (map (ppTerm Unqualified 0) ts))
+
+   ExtR r s -> do
+     case (rT', sT') of
+       (RecType rs, RecType ss) -> do
+       _ -> checkError ("records or record types expected in" <+> ppTerm Unqualified 0 trm)
+
+   _ -> checkError ("cannot infer lintype of" <+> ppTerm Unqualified 0 trm)
+
+
+getOverload :: SourceGrammar -> Context -> Maybe Type -> Term -> Check (Maybe (Term,Type))
+   matchOverload f typs ttys = do
+         checkWarn $  "ignoring lock fields in resolving" <+> ppTerm Unqualified 0 ot $$
+                      "for" $$
+                      nest 2 (showTypes tys) $$
+                      "using" $$
+                      nest 2 (showTypes pre)
+       ([],[]) -> do
+         checkError $ "no overload instance of" <+> ppTerm Unqualified 0 f $$
+                      "for" $$
+                      nest 2 stysError $$
+                      "among" $$
+                      nest 2 (vcat stypsError) $$
+                      maybe empty (\x -> "with value type" <+> ppType x) mt
+        ([],[(val,fun)]) -> do
+           checkWarn ("ignoring lock fields in resolving" <+> ppTerm Unqualified 0 ot) 
+         (nps1,nps2) -> do 
+              checkWarn $  "ambiguous overloading of" <+> ppTerm Unqualified 0 f <+>
+                  ----     "with argument types" <+> hsep (map (ppTerm Qualified 0) tys) $$ 
+                           "resolved by selecting the first of the alternatives" $$
+                           nest 2 (vcat [ppTerm Qualified 0 fun | (_,ty,fun) <- vfs1 ++ if null vfs1 then vfs2 else []])
+              case [(mkApp fun tts,val) | (val,fun) <- nps1 ++ nps2] of
+                 [] -> checkError $ "no alternatives left when resolving" <+> ppTerm Unqualified 0 f
+ 
+checkLType :: SourceGrammar -> Context -> Term -> Type -> Check (Term, Type)
+    Abs bt x c -> do
+      case typ of
+        Prod bt' z a b -> do 
+        _ -> checkError $ "function type expected instead of" <+> ppType typ
+    AdHocOverload ts -> do
+        _ -> checkError ("unresolved overloading of constants" <+> ppTerm Qualified 0 trm) 
+    T _ [] ->
+      checkError ("found empty table in type" <+> ppTerm Unqualified 0 typ)
+    T _ cs -> case typ of 
+              else checkWarn ("patterns never reached:" $$
+                              nest 2 (vcat (map (ppPatt Unqualified 0) ps)))
+      _ -> checkError $ "table type expected for table instead of" $$ nest 2 (ppType typ)
+    V arg0 vs ->
+              if length vs1 == length vs
+                 then return ()
+                 else checkError $ "wrong number of values in table" <+> ppTerm Unqualified 0 trm
+
+    R r -> case typ of --- why needed? because inference may be too difficult
+       RecType rr -> do
+       _ -> checkError ("record type expected in type checking instead of" $$ nest 2 (ppTerm Unqualified 0 typ))
+
+    ExtR r s -> case typ of
+         case trm' of
+           RecType _ -> termWith trm' $ return typeType
+           ExtR (Vr _) (RecType _) -> termWith trm' $ return typeType 
+                                      -- ext t = t ** ...
+           _ -> checkError ("invalid record type extension" <+> nest 2 (ppTerm Unqualified 0 trm))
+
+             case typ2 of
+               RecType ss -> return $ map fst ss
+               _ ->  checkError ("cannot get labels from" $$ nest 2 (ppTerm Unqualified 0 typ2))
+       _ -> checkError ("record extension not meaningful for" <+> ppTerm Unqualified 0 typ)
+
+    S tab arg -> checks [ do
+        _ -> checkError ("table type expected for applied table instead of" <+> ppType ty')
+
+    _ -> do
+      (trm',ty') <- inferLType gr g trm
+      termWith trm' $ checkEqLType gr g typ ty' trm'
+
+   checkM rms (l,ty) = case lookup l rms of
+     _ -> checkError $ 
+            if isLockLabel l 
+              then let cat = drop 5 (showIdent (label2ident l))
+                   in ppTerm Unqualified 0 (R rms) <+> "is not in the lincat of" <+> cat <> 
+                      "; try wrapping it with lin" <+> cat
+              else "cannot find value for label" <+> l <+> "in" <+> ppTerm Unqualified 0 (R rms)
+
+checkEqLType :: SourceGrammar -> Context -> Type -> Type -> Term -> Check Type
+    False -> checkError $ s <+> "type of" <+> ppTerm Unqualified 0 trm $$
+                          "expected:" <+> ppTerm Qualified 0 t $$ -- ppqType t u $$
+                          "inferred:" <+> ppTerm Qualified 0 u -- ppqType u t
+
+checkIfEqLType :: SourceGrammar -> Context -> Type -> Type -> Term -> Check (Bool,Type,Type,String)
+      Ok lo -> do
+        checkWarn $ "missing lock field" <+> fsep lo
+
+   missingLock g t u = case (t,u) of  
+         _:_ -> Bad $ render ("missing record fields:" <+> fsep (punctuate ',' (others)))
+
+
+
+pattContext :: SourceGrammar -> Context -> Type -> Patt -> Check Context
+    checkCond ("wrong number of arguments for constructor in" <+> ppPatt Unqualified 0 p) 
+              (length cont == length ps)
+  PR r -> do
+      _ -> checkError ("record type expected for pattern instead of" <+> ppTerm Unqualified 0 typ')
+
+  PAlt p' q -> do
+    g1 <- pattContext env g typ p'
+    g2 <- pattContext env g typ q
+    let pts = nub ([x | pt@(_,x,_) <- g1, notElem pt g2] ++ [x | pt@(_,x,_) <- g2, notElem pt g1])
+    checkCond 
+      ("incompatible bindings of" <+>
+       fsep pts <+> 
+       "in pattern alterantives" <+> ppPatt Unqualified 0 p) (null pts) 
+    return g1 -- must be g1 == g2
+    
+   noBind typ p' = do
+    co <- pattContext env g typ p'
+    if not (null co)
+      then checkWarn ("no variable bound inside pattern" <+> ppPatt Unqualified 0 p) 
+           >> return []
+      else return []
+
+checkLookup :: Ident -> Context -> Check Type -- used for looking up Vr x type in context
+    []     -> checkError ("unknown variable" <+> x)
+ 
+
+
+-------------------------------
+Grammar/Lookup.hs
+
+lookupIdent :: ErrorMonad m => Ident -> BinTree Ident b -> m b
+    Bad _ -> raise ("unknown identifier" +++ showIdent c)
+
+lookupResDefLoc
+        _   -> raise $ render (c <+> "is not defined in resource" <+> m)
+
+lookupResType :: ErrorMonad m => Grammar -> QIdent -> m Type
+    _   -> raise $ render (c <+> "has no type defined in resource" <+> m)
+
+lookupOverloadTypes :: ErrorMonad m => Grammar -> QIdent -> m [(Term,Type)]
+    _            -> raise $ render (c <+> "has no types defined in resource" <+> m)
+
+lookupOverload :: ErrorMonad m => Grammar -> QIdent -> m [([Type],(Type,Term))]
+      _   -> raise $ render (c <+> "is not an overloaded operation")
+
+
+lookupParamValues :: ErrorMonad m => Grammar -> QIdent -> m [Term]
+  case info of
+    ResParam _ (Just pvs) -> return pvs
+    _                     -> raise $ render (ppQIdent Qualified c <+> "has no parameter values defined")
+
+
+allParamValues :: ErrorMonad m => Grammar -> Type -> m [Term]
+    _ -> raise (render ("cannot find parameter values for" <+> ptyp))
+
+
+lookupFunType :: ErrorMonad m => Grammar -> ModuleName -> Ident -> m Type
+    _                           -> raise (render ("cannot find type of" <+> c))
+
+lookupCatContext :: ErrorMonad m => Grammar -> ModuleName -> Ident -> m Context
+    _                      -> raise (render ("unknown category" <+> c))
+
+
+-------------------------
+PatternMatch.hs
+
+matchPattern :: ErrorMonad m => [(Patt,rhs)] -> Term -> m (rhs, Substitution)
+  if not (isInConstantForm term)
+    then raise (render ("variables occur in" <+> pp term))
+
+findMatch :: ErrorMonad m => [([Patt],rhs)] -> [Term] -> m (rhs, Substitution)
+   [] -> raise (render ("no applicable case for" <+> hsep (punctuate ',' terms)))
+   (patts,_):_ | length patts /= length terms -> 
+       raise (render ("wrong number of args for patterns :" <+> hsep patts <+> 
+                    "cannot take" <+> hsep terms))
+
+tryMatch :: (Patt, Term) -> Err [(Ident, Term)]
+      (PNeg p',_) -> case tryMatch (p',t) of
+        Bad _ -> return []
+        _ -> raise (render ("no match with negative pattern" <+> p))
+
+
+---------------------------------------------
+Compile.Optimize.hs
+
+mkLinDefault :: SourceGrammar -> Type -> Err Term
+                            _   -> Bad (render ("no parameter values given to type" <+> ppQIdent Qualified p))
+     _ -> Bad (render ("linearization type field cannot be" <+> typ))
+
+mkLinReference :: SourceGrammar -> Type -> Err Term
+                            []     -> Bad "no string"
+
+
+---------------------------------------------
+Compile.Compute.Concrete.hs
+
+nfx env@(GE _ _ _ loc) t = do
+    Left i  -> fail ("variable #"++show i++" is out of scope")
+
+var :: CompleteEnv -> Ident -> Err OpenValue
+var env x = maybe unbound pick' (elemIndex x (local env))
+  where
+    unbound = fail ("Unknown variable: "++showIdent x)
+    pick' i = return $ \ vs -> maybe (err i vs) ok (pick i vs)
+    err i vs = bug $ "Stack problem: "++showIdent x++": "
+                    ++unwords (map showIdent (local env))
+                    ++" => "++show (i,length vs)
+
+resource env (m,c) =
+  where e = fail $ "Not found: "++render m++"."++showIdent c
+
+extR t vv =
+      (VRecType rs1, VRecType rs2) ->
+          case intersect (map fst rs1) (map fst rs2) of
+            [] -> VRecType (rs1 ++ rs2)
+            ls -> error $ "clash"<+>show ls
+      (v1,v2) -> error $ "not records" $$ show v1 $$ show v2
+  where
+    error explain = ppbug $ "The term" <+> t
+                            <+> "is not reducible" $$ explain
+ 
+glue env (v1,v2) = glu v1 v2
+                                         ppL loc (hang "unsupported token gluing:" 4
+                                                        (Glue (vt v1) (vt v2)))
+
+strsFromValue :: Value -> Err [Str]
+  _ -> fail ("cannot get Str from value " ++ show t)
+
+match loc cs v = 
+  case value2term loc [] v of
+    Left i  -> bad ("variable #"++show i++" is out of scope")
+    Right t -> err bad return (matchPattern cs t)
+  where
+    bad = fail . ("In pattern matching: "++)
+
+    inlinePattMacro p =
+                        VPatt p' -> inlinePattMacro p'
+                        _ -> ppbug $ hang "Expected pattern macro:" 4
+
+linPattVars p =
+    if null dups
+    then return pvs
+    else fail.render $ hang "Pattern is not linear:" 4 (ppPatt Unqualified 0 p)
+
+---------------------------------------------
+Compile.Compute.Abstract.hs
+
+
+---------------------------------------------
+PGF.Linearize.hs
+
+bracketedLinearize :: PGF -> Language -> Tree -> [BracketedString]
+    cnc = lookMap (error "no lang") lang (concretes pgf)
+
+
+---------------------------------------------
+PGF.TypeCheck.hs
+
+ppTcError :: TcError -> Doc
+ppTcError (UnknownCat cat)             = text "Category" <+> ppCId cat <+> text "is not in scope"
+ppTcError (UnknownFun fun)             = text "Function" <+> ppCId fun <+> text "is not in scope"
+ppTcError (WrongCatArgs xs ty cat m n) = text "Category" <+> ppCId cat <+> text "should have" <+> int m <+> text "argument(s), but has been given" <+> int n $$
+                                         text "In the type:" <+> ppType 0 xs ty
+ppTcError (TypeMismatch xs e ty1 ty2)  = text "Couldn't match expected type" <+> ppType 0 xs ty1 $$
+                                         text "       against inferred type" <+> ppType 0 xs ty2 $$
+                                         text "In the expression:" <+> ppExpr 0 xs e
+ppTcError (NotFunType xs e ty)         = text "A function type is expected for the expression" <+> ppExpr 0 xs e <+> text "instead of type" <+> ppType 0 xs ty
+ppTcError (CannotInferType xs e)       = text "Cannot infer the type of expression" <+> ppExpr 0 xs e
+ppTcError (UnresolvedMetaVars xs e ms) = text "Meta variable(s)" <+> fsep (List.map ppMeta ms) <+> text "should be resolved" $$
+                                         text "in the expression:" <+> ppExpr 0 xs e
+ppTcError (UnexpectedImplArg xs e)     = braces (ppExpr 0 xs e) <+> text "is implicit argument but not implicit argument is expected here"
+ppTcError (UnsolvableGoal xs metaid ty)= text "The goal:" <+> ppMeta metaid <+> colon <+> ppType 0 xs ty $$
+                                         text "cannot be solved"
+

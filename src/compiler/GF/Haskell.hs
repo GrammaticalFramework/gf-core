@@ -40,6 +40,9 @@ tvar = TId
 tcon0 = TId
 tcon c = foldl TAp (TId c)
 
+lets [] e = e
+lets ds e = Lets ds e
+
 let1 x xe e = Lets [(x,xe)] e
 single x = List [x]
 
@@ -113,7 +116,8 @@ instance Pretty Exp where
           Op e1 op e2 -> hang (ppB e1<+>op) 2 (ppB e2)
           Lets bs e -> sep ["let"<+>vcat [hang (x<+>"=") 2 xe|(x,xe)<-bs],
                             "in" <+>e]
-          LambdaCase alts -> hang "\\case" 4 (vcat [p<+>"->"<+>e|(p,e)<-alts])
+          LambdaCase alts ->
+              hang "\\case" 2 (vcat [hang (p<+>"->") 2 e|(p,e)<-alts])
           _ -> ppB e
 
       ppB e = case flatAp e of f:as -> hang (ppA f) 2 (sep (map ppA as))

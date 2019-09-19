@@ -198,16 +198,16 @@ pgf_literal_hash(GuHash h, PgfLiteral lit);
 PGF_API_DECL GuHash
 pgf_expr_hash(GuHash h, PgfExpr e);
 
-PGF_API size_t
+PGF_API_DECL size_t
 pgf_expr_size(PgfExpr expr);
 
-PGF_API GuSeq*
+PGF_API_DECL GuSeq*
 pgf_expr_functions(PgfExpr expr, GuPool* pool);
 
-PGF_API PgfExpr
+PGF_API_DECL PgfExpr
 pgf_expr_substitute(PgfExpr expr, GuSeq* meta_values, GuPool* pool);
 
-PGF_API PgfType*
+PGF_API_DECL PgfType*
 pgf_type_substitute(PgfType* type, GuSeq* meta_values, GuPool* pool);
 
 typedef struct PgfPrintContext PgfPrintContext;

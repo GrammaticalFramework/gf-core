@@ -100,6 +100,11 @@ gu_seq_free(GuSeq* seq)
 	gu_mem_buf_free(seq);
 }
 
+static void
+gu_dummy_finalizer(GuFinalizer* self)
+{
+}
+
 GU_API void
 gu_buf_require(GuBuf* buf, size_t req_len)
 {
@@ -109,7 +114,9 @@ gu_buf_require(GuBuf* buf, size_t req_len)
 
 	size_t req_size = sizeof(GuSeq) + buf->elem_size * req_len;
 	size_t real_size;
-	
+
+	gu_require(buf->fin.fn != gu_dummy_finalizer);
+
 	if (buf->seq == NULL || buf->seq == gu_empty_seq())  {
 		buf->seq = gu_mem_buf_alloc(req_size, &real_size);
 		buf->seq->len = 0;
@@ -162,6 +169,24 @@ gu_buf_freeze(GuBuf* buf, GuPool* pool)
 	void* seqdata = gu_seq_data(seq);
 	memcpy(seqdata, bufdata, buf->elem_size * len);
 	return seq;
+}
+
+GU_API void
+gu_buf_evacuate(GuBuf* buf, GuPool* pool)
+{
+	if (buf->seq != gu_empty_seq()) {
+		size_t len = gu_buf_length(buf);
+
+		GuSeq* seq = gu_make_seq(buf->elem_size, len, pool);
+		void* bufdata = gu_buf_data(buf);
+		void* seqdata = gu_seq_data(seq);
+		memcpy(seqdata, bufdata, buf->elem_size * len);
+		gu_mem_buf_free(buf->seq);
+
+		buf->seq       = seq;
+		buf->fin.fn    = gu_dummy_finalizer;
+		buf->avail_len = len;
+	}
 }
 
 GU_API void*
@@ -335,13 +360,8 @@ GU_API void
 gu_buf_heap_pop(GuBuf *buf, GuOrder *order, void* data_out)
 {
 	const void* last = gu_buf_trim(buf); // raises an error if empty
-
-	if (gu_buf_length(buf) > 0) {
-		memcpy(data_out, buf->seq->data, buf->elem_size);
-		gu_heap_siftup(buf, order, last, 0);
-	} else {
-		memcpy(data_out, last, buf->elem_size);
-	}
+	memcpy(data_out, buf->seq->data, buf->elem_size);
+	gu_heap_siftup(buf, order, last, 0);
 }
 
 GU_API void

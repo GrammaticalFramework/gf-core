@@ -2,7 +2,7 @@
 
 ### This script builds a binary distribution of GF from the source
 ### package that this script is a part of. It assumes that you have installed
-### the Haskell Platform, version 2013.2.0.0 or 2012.4.0.0.
+### a recent version of the Haskell Platform.
 ### Two binary package formats are supported: plain tar files (.tar.gz) and
 ### OS X Installer packages (.pkg).
 
@@ -16,13 +16,14 @@ name="gf-$ver"
 destdir="$PWD/dist/$name"          # assemble binary dist here
 prefix=${PREFIX:-/usr/local}       # where to install
 fmt=${FMT:-tar.gz}                 # binary package format (tar.gz or pkg)
+ghc=${GHC:-ghc}                    # which Haskell compiler to use
 
 extralib="$destdir$prefix/lib"
 extrainclude="$destdir$prefix/include"
 extra="--extra-lib-dirs=$extralib --extra-include-dirs=$extrainclude"
 
 set -e                             # Stop if an error occurs
-set -x                             # print commands before exuting them
+set -x                             # print commands before executing them
 
 ## First configure & build the C run-time system
 pushd src/runtime/c
@@ -64,13 +65,30 @@ else
 fi
 
 ## Build GF, with C run-time support enabled
-cabal install --only-dependencies -fserver -fc-runtime $extra
-cabal configure --prefix="$prefix" -fserver -fc-runtime $extra
+cabal install -w "$ghc" --only-dependencies -fserver -fc-runtime $extra
+cabal configure -w "$ghc" --prefix="$prefix" -fserver -fc-runtime $extra
 DYLD_LIBRARY_PATH="$extralib" LD_LIBRARY_PATH="$extralib" cabal build
+  # Building the example grammars will fail, because the RGL is missing
+cabal copy --destdir="$destdir"  # create www directory
+
+## Build the RGL and copy it to $destdir
+PATH=$PWD/dist/build/gf:$PATH
+export GF_LIB_PATH="$(dirname $(find "$destdir" -name www))/lib"   # hmm
+mkdir -p "$GF_LIB_PATH"
+pushd ../gf-rgl
+make build
+make copy
+popd
+
+# Build GF again, including example grammars that need the RGL
+DYLD_LIBRARY_PATH="$extralib" LD_LIBRARY_PATH="$extralib" cabal build
+
+## Copy GF to $destdir
 cabal copy --destdir="$destdir"
 libdir=$(dirname $(find "$destdir" -name PGF.hi))
 cabal register --gen-pkg-config=$libdir/gf-$ver.conf
 
+## Create the binary distribution package
 case $fmt in
     tar.gz)
 	targz="$name-bin-$hw-$os.tar.gz"     # the final tar file

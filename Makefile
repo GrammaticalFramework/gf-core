@@ -20,6 +20,7 @@ doc:
 
 clean:
 	cabal clean
+	bash bin/clean_html
 
 gf:
 	cabal build rgl-none
@@ -32,7 +33,7 @@ html::
 # number to the top of debian/changelog.
 # (Tested on Ubuntu 15.04. You need to install dpkg-dev & debhelper.)
 deb:
-	dpkg-buildpackage -b
+	dpkg-buildpackage -b -uc
 
 # Make an OS X Installer package
 pkg:

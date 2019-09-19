@@ -83,7 +83,10 @@ data Phase = Preproc | Convert | Compile | Link
   deriving (Show,Eq,Ord)
 
 data OutputFormat = FmtPGFPretty
+                  | FmtCanonicalGF
+                  | FmtCanonicalJson
                   | FmtJavaScript 
+                  | FmtJSON
                   | FmtPython 
                   | FmtHaskell 
                   | FmtJava
@@ -318,7 +321,8 @@ optDescr =
      Option [] ["gfo-dir"] (ReqArg gfoDir "DIR") "Directory to put .gfo files in (default = '.').",
      Option ['f'] ["output-format"] (ReqArg outFmt "FMT") 
         (unlines ["Output format. FMT can be one of:",
-                  "Multiple concrete: pgf (default), js, pgf_pretty, prolog, python, ...", -- gar,
+                  "Canonical GF grammar: canonical_gf, canonical_json, (and haskell with option --haskell=concrete)",
+                  "Multiple concrete: pgf (default), json, js, pgf_pretty, prolog, python, ...", -- gar,
                   "Single concrete only: bnf, ebnf, fa, gsl, jsgf, regexp, slf, srgs_xml, srgs_abnf, vxml, ....", -- cf, lbnf,
                   "Abstract only: haskell, ..."]), -- prolog_abs,
      Option [] ["sisr"] (ReqArg sisrFmt "FMT") 
@@ -366,8 +370,6 @@ optDescr =
                 "Enable or disable global grammar optimization. This could significantly reduce the size of the final PGF file",
      Option [] ["split-pgf"] (NoArg (splitPGF True))
                 "Split the PGF into one file per language. This allows the runtime to load only individual languages",
-     Option [] ["stem"] (onOff (toggleOptimize OptStem) True) "Perform stem-suffix analysis (default on).",
-     Option [] ["cse"] (onOff (toggleOptimize OptCSE) True) "Perform common sub-expression elimination (default on).",
      Option [] ["cfg"] (ReqArg cfgTransform "TRANS") "Enable or disable specific CFG transformations. TRANS = merge, no-merge, bottomup, no-bottomup, ...",
      Option [] ["heuristic_search_factor"] (ReqArg (readDouble (\d o -> o { optHeuristicFactor = Just d })) "FACTOR") "Set the heuristic search factor for statistical parsing",
      Option [] ["case_sensitive"] (onOff (\v -> set $ \o -> o{optCaseSensitive=v}) True) "Set the parser in case-sensitive/insensitive mode [sensitive by default]",
@@ -441,8 +443,6 @@ optDescr =
        optimize_pgf x = set $ \o -> o { optOptimizePGF = x }
        splitPGF x = set $ \o -> o { optSplitPGF = x }
 
-       toggleOptimize x b = set $ setOptimization' x b
-
        cfgTransform x = let (x', b) = case x of
                                         'n':'o':'-':rest -> (rest, False)
                                         _                -> (x, True)
@@ -465,7 +465,10 @@ outputFormats = map fst outputFormatsExpl
 outputFormatsExpl :: [((String,OutputFormat),String)]
 outputFormatsExpl = 
     [(("pgf_pretty",   FmtPGFPretty),"human-readable pgf"),
+     (("canonical_gf", FmtCanonicalGF),"Canonical GF source files"),
+     (("canonical_json", FmtCanonicalJson),"Canonical JSON source files"),
      (("js",           FmtJavaScript),"JavaScript (whole grammar)"),
+     (("json",         FmtJSON),"JSON (whole grammar)"),
      (("python",       FmtPython),"Python (whole grammar)"),
      (("haskell",      FmtHaskell),"Haskell (abstract syntax)"),
      (("java",         FmtJava),"Java (abstract syntax)"),

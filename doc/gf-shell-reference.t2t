@@ -1,11 +1,8 @@
 The GF Software System
 
 
-%!style:../css/style.css
 %!options(html): --toc
 %!options(html): --toc-level=4
-%!postproc(html): <TITLE> <meta name = "viewport" content = "width = device-width"><TITLE>
-%!postproc(html): <H1> <H1><a href="../"><IMG src="../doc/Logos/gf0.png"></a>
 %!postproc(html): "#VSPACE" "<hr>"
 %!postproc(html): "#NORMAL" ""
 %!postproc(html): "#TINY" ""
@@ -13,7 +10,7 @@ The GF Software System
 
 The GF software system implements the GF programming language. Its
 components are
-- the //compiler//, 
+- the //compiler//,
 translating ``.gf`` source files to ``.gfo`` object files, to
 ``.pgf`` run-time grammars, and to various other formats
 - the //run-time system//,
@@ -43,7 +40,7 @@ The shell maintains a  //state//, to which belong
 
 
 Unless file arguments are provided to the ``gf`` command, the shell starts in an
-empty state, with no grammars and no history. 
+empty state, with no grammars and no history.
 
 In the shell, a set of commands
 is available. Some of these commands may change the grammars in the state. The general
@@ -59,7 +56,7 @@ syntax of commands is given by the following BNF grammar:
   ARGUMENT     ::= QUOTED_STRING | TREE
   VALUE        ::= IDENT | QUOTED_STRING
 ```
-A command pipe is a sequence of commands interpreted in such a way 
+A command pipe is a sequence of commands interpreted in such a way
 that the output of each command
 is send as input to the next. The option ``-tr`` causes GF to show a trace,
 i.e. the intermediate result of the command to which it is attached.
@@ -69,7 +66,7 @@ executed one by one, in the order of appearance.
 
 ===GF shell commands===
 
-The full set of GF shell commands is listed below with explanations. 
+The full set of GF shell commands is listed below with explanations.
 This list can also be obtained in the GF shell by the command ``help -full``.
 
 %!include: gf-help-full.txt
@@ -77,14 +74,14 @@ This list can also be obtained in the GF shell by the command ``help -full``.
 ==The GF batch compiler==
 
 With the option ``-batch``, GF can be invoked in batch mode, i.e.
-without opening the shell, to compile files from ``.gf`` to ``.gfo``. 
-The ``-s`` option ("silent") eliminates all messages except errors. 
+without opening the shell, to compile files from ``.gf`` to ``.gfo``.
+The ``-s`` option ("silent") eliminates all messages except errors.
 ```
   $ gf -batch -s LangIta.gf
 ```
 With the option ``-make``, and as a set of
 top-level grammar files (with the same abstract syntax) as arguments,
-GF produces a ``.pgf`` file. The flag ``-optimize-pgf`` minimizes 
+GF produces a ``.pgf`` file. The flag ``-optimize-pgf`` minimizes
 the size of the ``.pgf`` file, and is recommended for grammars to be shipped.
 ```
   $ gf -make -optimize-pgf LangIta.gf LangEng.gf LangGer.gf
@@ -107,5 +104,3 @@ To run GF from a //script//, redirection of standard input can be used:
 ```
 The file ``script.gfs`` should then contain a sequence of GF commands, one per line.
 Unrecognized command lines are skipped without terminating GF.
-
-

@@ -1,10 +1,6 @@
 GF Version 3.4 Release Notes
 January 2013
 
-%!style:../css/style.css
-%!postproc(html): <TITLE> <meta charset="UTF-8"><meta name = "viewport" content = "width = device-width"> <TITLE>
-%!postproc(html): <H1> <H1><a href="../"><IMG src="../doc/Logos/gf0.png"></a>
-
 ==Installation==
 
 See the [download page http://www.grammaticalframework.org/download/index.html].
@@ -46,8 +42,3 @@ See the [download page http://www.grammaticalframework.org/download/index.html].
 - Some new functionality in the web-based grammar editor, e.g. preliminary
   support for public grammars.
 - Various other small improvements and bug fixes.
-
-
---------------------
-
-[www.grammaticalframework.org http://www.grammaticalframework.org]

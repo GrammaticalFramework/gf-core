@@ -16,6 +16,9 @@ module PGF2.Internal(-- * Access the internal structures
                      eAbs, eApp, eMeta, eFun, eVar, eLit, eTyped, eImplArg, dTyp, hypo,
                      AbstrInfo, newAbstr, ConcrInfo, newConcr, newPGF,
                      
+                     -- * Expose PGF and Concr for FFI with C
+                     PGF(..), Concr(..),
+                     
                      -- * Write an in-memory PGF to a file
                      unionPGF, writePGF, writeConcr,
                      
@@ -592,17 +595,17 @@ newAbstr aflags cats funs = unsafePerformIO $ do
 
 data ConcrInfo = ConcrInfo (Ptr GuSeq) (Ptr GuMap) (Ptr GuMap) (Ptr GuSeq) (Ptr GuSeq) (Ptr GuMap) (Ptr PgfConcr -> Ptr GuPool -> IO ()) CInt
 
-newConcr :: (?builder :: Builder s) => B s AbstrInfo ->
-                                       [(String,Literal)] ->       -- ^ Concrete syntax flags
-                                       [(String,String)] ->        -- ^ Printnames
-                                       [(FId,[FunId])] ->          -- ^ Lindefs
-                                       [(FId,[FunId])] ->          -- ^ Linrefs
-                                       [(FId,[Production])] ->     -- ^ Productions
-                                       [(Fun,[SeqId])] ->          -- ^ Concrete functions   (must be sorted by Fun)
-                                       [[Symbol]] ->               -- ^ Sequences            (must be sorted)
-                                       [(Cat,FId,FId,[String])] -> -- ^ Concrete categories
-                                       FId ->                      -- ^ The total count of the categories
-                                       B s ConcrInfo
+newConcr :: (?builder :: Builder s) => B s AbstrInfo
+                                    -> [(String,Literal)]        -- ^ Concrete syntax flags
+                                    -> [(String,String)]         -- ^ Printnames
+                                    -> [(FId,[FunId])]           -- ^ Lindefs
+                                    -> [(FId,[FunId])]           -- ^ Linrefs
+                                    -> [(FId,[Production])]      -- ^ Productions
+                                    -> [(Fun,[SeqId])]           -- ^ Concrete functions   (must be sorted by Fun)
+                                    -> [[Symbol]]                -- ^ Sequences            (must be sorted)
+                                    -> [(Cat,FId,FId,[String])]  -- ^ Concrete categories
+                                    -> FId                       -- ^ The total count of the categories
+                                    -> B s ConcrInfo
 newConcr (B (AbstrInfo _ _ abscats  _ absfuns c_abs_lin_fun c_non_lexical_buf _)) cflags printnames lindefs linrefs prods cncfuns sequences cnccats total_cats = unsafePerformIO $ do
   c_cflags <- newFlags cflags pool
   c_printname <- newMap (#size GuString) gu_string_hasher newUtf8CString 

@@ -8,6 +8,10 @@
 #include <sys/mman.h>
 #include <sys/stat.h>
 #endif
+#if defined(__MINGW32__) || defined(_MSC_VER)
+#include <malloc.h>
+#endif
+
 #if !defined(_MSC_VER)
 #include <unistd.h>
 #endif
@@ -108,6 +112,39 @@ gu_mem_buf_alloc(size_t min_size, size_t* real_size_out)
 	return gu_mem_buf_realloc(NULL, min_size, real_size_out);
 }
 
+#if defined(__MINGW32__) || defined(_MSC_VER)
+#include <windows.h>
+
+static int
+getpagesize()
+{
+  SYSTEM_INFO system_info;
+  GetSystemInfo(&system_info);
+  return system_info.dwPageSize;
+}
+#endif
+
+GU_API void*
+gu_mem_page_alloc(size_t min_size, size_t* real_size_out)
+{
+	size_t page_size = getpagesize();
+	size_t size = ((min_size + page_size - 1) / page_size) * page_size;
+	void *page = NULL;
+
+#if defined(ANDROID)
+	if ((page = memalign(page_size, size)) == NULL) {	
+#elif defined(__MINGW32__) || defined(_MSC_VER)
+	if ((page = malloc(size)) == NULL) {
+#else
+	if (posix_memalign(&page, page_size, size) != 0) {
+#endif
+		gu_fatal("Memory allocation failed");
+	}
+
+	*real_size_out = size;
+	return page;
+}
+
 GU_API void
 gu_mem_buf_free(void* buf)
 {
@@ -132,6 +169,7 @@ struct GuFinalizerNode {
 enum GuPoolType {
 	GU_POOL_HEAP,
 	GU_POOL_LOCAL,
+	GU_POOL_PAGE,
 	GU_POOL_MMAP
 };
 
@@ -177,6 +215,16 @@ gu_new_pool(void)
 	size_t sz = GU_FLEX_SIZE(GuPool, init_buf, gu_mem_pool_initial_size);
 	uint8_t* buf = gu_mem_buf_alloc(sz, &sz);
 	GuPool* pool = gu_init_pool(buf, sz);
+	return pool;
+}
+
+GU_API GuPool*
+gu_new_page_pool(void)
+{
+	size_t sz = GU_FLEX_SIZE(GuPool, init_buf, gu_mem_pool_initial_size);
+	uint8_t* buf = gu_mem_page_alloc(sz, &sz);
+	GuPool* pool = gu_init_pool(buf, sz);
+	pool->type = GU_POOL_PAGE;
 	return pool;
 }
 
@@ -238,7 +286,10 @@ gu_pool_expand(GuPool* pool, size_t req)
 					     gu_mem_chunk_max_size));
 	gu_assert(real_req >= sizeof(GuMemChunk));
 	size_t size = 0;
-	GuMemChunk* chunk = gu_mem_buf_alloc(real_req, &size);
+	GuMemChunk* chunk = 
+		(pool->type == GU_POOL_PAGE)
+		   ? gu_mem_page_alloc(real_req,  &size)
+		   : gu_mem_buf_alloc(real_req, &size);
 	chunk->next = pool->chunks;
 	pool->chunks = chunk;
 	pool->curr_buf = (uint8_t*) chunk;
@@ -309,6 +360,7 @@ gu_malloc_prefixed(GuPool* pool, size_t pre_align, size_t pre_size,
 	size_t full_size = gu_mem_advance(offsetof(GuMemChunk, data),
 					  pre_align, pre_size, align, size);
 	if (full_size > gu_mem_max_shared_alloc &&
+	    pool->type != GU_POOL_PAGE &&
 	    pool->type != GU_POOL_MMAP) {
 		GuMemChunk* chunk = gu_mem_alloc(full_size);
 		chunk->next = pool->chunks;

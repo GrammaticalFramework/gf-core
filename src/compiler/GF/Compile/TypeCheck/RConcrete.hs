@@ -359,12 +359,13 @@ getOverload gr g mt ot = case appForm ot of
                       nest 2 (showTypes pre)
          return (mkApp fun tts, val)
        ([],[]) -> do
-         checkError $ "no overload instance of" <+> ppTerm Unqualified 0 f $$
-                      "for" $$
+         checkError $ "no overload instance of" <+> ppTerm Qualified 0 f $$
+                      maybe empty (\x -> "with value type" <+> ppType x) mt $$
+                      "for argument list" $$
                       nest 2 stysError $$
-                      "among" $$
-                      nest 2 (vcat stypsError) $$
-                      maybe empty (\x -> "with value type" <+> ppType x) mt
+                      "among alternatives" $$
+                      nest 2 (vcat stypsError) 
+
 
        (vfs1,vfs2) -> case (noProds vfs1,noProds vfs2) of
          ([(val,fun)],_) -> do

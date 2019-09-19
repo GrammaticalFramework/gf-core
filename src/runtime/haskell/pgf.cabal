@@ -1,5 +1,5 @@
 name: pgf
-version: 3.9-git
+version: 3.10
 
 cabal-version: >= 1.20
 build-type: Simple
@@ -11,11 +11,6 @@ homepage: http://www.grammaticalframework.org/
 bug-reports: https://github.com/GrammaticalFramework/GF/issues
 maintainer: Thomas Hallgren
 tested-with: GHC==7.6.3, GHC==7.8.3, GHC==7.10.3, GHC==8.0.2
-
-flag custom-binary
-  Description: Use a customised version of the binary package
-  Default:     True
-  Manual:      True
 
 Library
   default-language:    Haskell2010
@@ -29,18 +24,14 @@ Library
                  mtl,
                  exceptions
 
-  if flag(custom-binary)
-    hs-source-dirs: ., binary
-    other-modules:
-      -- not really part of GF but I have changed the original binary library
-      -- and we have to keep the copy for now.
-      Data.Binary
-      Data.Binary.Put
-      Data.Binary.Get
-      Data.Binary.Builder
-      Data.Binary.IEEE754
-  else
-    build-depends: binary, data-binary-ieee754
+  other-modules:
+    -- not really part of GF but I have changed the original binary library
+    -- and we have to keep the copy for now.
+    Data.Binary
+    Data.Binary.Put
+    Data.Binary.Get
+    Data.Binary.Builder
+    Data.Binary.IEEE754
 
 --ghc-options: -fwarn-unused-imports
 --if impl(ghc>=7.8)

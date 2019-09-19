@@ -1,12 +1,12 @@
-{-# LANGUAGE ImplicitParams, BangPatterns, FlexibleContexts #-}
+{-# LANGUAGE ImplicitParams, BangPatterns, FlexibleContexts, MagicHash #-}
 module GF.Compile.GrammarToPGF (grammar2PGF) where
 
 import GF.Compile.GeneratePMCFG
 import GF.Compile.GenerateBC
 import GF.Compile.OptimizePGF
 
-import PGF(CId,mkCId,Type,Hypo,Expr)
-import PGF.Internal
+import PGF2 hiding (mkType)
+import PGF2.Internal
 import GF.Grammar.Predef
 import GF.Grammar.Grammar hiding (Production)
 import qualified GF.Grammar.Lookup as Look
@@ -19,18 +19,22 @@ import GF.Infra.UseIO (IOE)
 import GF.Data.Operations
 
 import Data.List
+import Data.Char
 import qualified Data.Set as Set
 import qualified Data.Map as Map
 import qualified Data.IntMap as IntMap
 import Data.Array.IArray
 import Data.Maybe(fromMaybe)
 
-grammar2PGF :: Options -> SourceGrammar -> ModuleName -> Map.Map CId Double -> IO PGF
+import GHC.Prim
+import GHC.Base(getTag)
+
+grammar2PGF :: Options -> SourceGrammar -> ModuleName -> Map.Map PGF2.Fun Double -> IO PGF
 grammar2PGF opts gr am probs = do
   cnc_infos <- getConcreteInfos gr am
   return $
     build (let gflags   = if flag optSplitPGF opts 
-                            then [(mkCId "split", LStr "true")]
+                            then [("split", LStr "true")]
                             else []
                (an,abs) = mkAbstr am probs
                cncs     = map (mkConcr opts abs) cnc_infos
@@ -39,21 +43,21 @@ grammar2PGF opts gr am probs = do
     cenv = resourceValues opts gr
     aflags = err (const noOptions) mflags (lookupModule gr am)
 
-    mkAbstr :: (?builder :: Builder s) => ModuleName -> Map.Map CId Double -> (CId, B s AbstrInfo)
+    mkAbstr :: (?builder :: Builder s) => ModuleName -> Map.Map PGF2.Fun Double -> (AbsName, B s AbstrInfo)
     mkAbstr am probs = (mi2i am, newAbstr flags cats funs)
       where
         adefs =
             [((cPredefAbs,c), AbsCat (Just (L NoLoc []))) | c <- [cFloat,cInt,cString]] ++ 
             Look.allOrigInfos gr am
 
-        flags = [(mkCId f,x) | (f,x) <- optionsPGF aflags]
+        flags = optionsPGF aflags
 
         toLogProb = realToFrac . negate . log
 
         cats = [(c', snd (mkContext [] cont), toLogProb (fromMaybe 0 (Map.lookup c' probs))) |
                                    ((m,c),AbsCat (Just (L _ cont))) <- adefs, let c' = i2i c]
 
-        funs = [(f', mkType [] ty, arity, {-mkDef gr arity mdef,-} toLogProb (fromMaybe 0 (Map.lookup f' funs_probs))) |
+        funs = [(f', mkType [] ty, arity, toLogProb (fromMaybe 0 (Map.lookup f' funs_probs))) |
                                    ((m,f),AbsFun (Just (L _ ty)) ma mdef _) <- adefs,
                                    let arity = mkArity ma mdef ty,
                                    let f' = i2i f]
@@ -72,7 +76,10 @@ grammar2PGF opts gr am probs = do
 
     mkConcr opts abs (cm,ex_seqs,cdefs) =
       let cflags = err (const noOptions) mflags (lookupModule gr cm)
-          flags  = [(mkCId f,x) | (f,x) <- optionsPGF cflags]
+          ciCmp | flag optCaseSensitive cflags = compare
+                | otherwise                    = compareCaseInsensitive
+
+          flags = optionsPGF aflags
 
           seqs = (mkSetArray . Set.fromList . concat) $
                        (elems (ex_seqs :: Array SeqId [Symbol]) : [maybe [] elems (mseqs mi) | (m,mi) <- allExtends gr cm])
@@ -80,11 +87,11 @@ grammar2PGF opts gr am probs = do
           !(!fid_cnt1,!cnccats) = genCncCats gr am cm cdefs
           cnccat_ranges = Map.fromList (map (\(cid,s,e,_) -> (cid,(s,e))) cnccats)
           !(!fid_cnt2,!productions,!lindefs,!linrefs,!cncfuns)
-                                = genCncFuns gr am cm ex_seqs seqs cdefs fid_cnt1 cnccat_ranges
+                                = genCncFuns gr am cm ex_seqs ciCmp seqs cdefs fid_cnt1 cnccat_ranges
 
           printnames = genPrintNames cdefs
 
-          startCat = mkCId (fromMaybe "S" (flag optStartCat aflags))
+          startCat = (fromMaybe "S" (flag optStartCat aflags))
 
           (lindefs',linrefs',productions',cncfuns',sequences',cnccats') =
                (if flag optOptimizePGF opts then optimizePGF startCat else id)
@@ -118,16 +125,13 @@ grammar2PGF opts gr am probs = do
           (seqs,infos) <- addMissingPMCFGs cm seqs is
           return (seqs, ((m,id), info) : infos)
 
-mkSetArray set = listArray (0,Set.size set-1) (Set.toList set)
-mkMapArray map = array (0,Map.size map-1) [(k,v) | (v,k) <- Map.toList map]
+i2i :: Ident -> String
+i2i = showIdent
 
-i2i :: Ident -> CId
-i2i = mkCId . showIdent
-
-mi2i :: ModuleName -> CId
+mi2i :: ModuleName -> String
 mi2i (MN i) = i2i i
 
-mkType :: (?builder :: Builder s) => [Ident] -> A.Type -> B s PGF.Type
+mkType :: (?builder :: Builder s) => [Ident] -> A.Type -> B s PGF2.Type
 mkType scope t =
   case GM.typeForm t of
     (hyps,(_,cat),args) -> let (scope',hyps') = mkContext scope hyps
@@ -164,7 +168,7 @@ mkPatt scope p =
                    in (scope',C.PImplArg p')
     A.PTilde t  -> (  scope,C.PTilde (mkExp scope t))
 -}
-mkContext :: (?builder :: Builder s) => [Ident] -> A.Context -> ([Ident],[B s PGF.Hypo])
+mkContext :: (?builder :: Builder s) => [Ident] -> A.Context -> ([Ident],[B s PGF2.Hypo])
 mkContext scope hyps = mapAccumL (\scope (bt,x,ty) -> let ty' = mkType scope ty
                                                       in if x == identW
                                                            then (  scope,hypo bt (i2i x) ty')
@@ -206,16 +210,17 @@ genCncFuns :: Grammar
            -> ModuleName
            -> ModuleName
            -> Array SeqId [Symbol]
+           -> ([Symbol] -> [Symbol] -> Ordering)
            -> Array SeqId [Symbol]
            -> [(QIdent, Info)]
            -> FId
-           -> Map.Map CId (Int,Int)
+           -> Map.Map PGF2.Cat (Int,Int)
            -> (FId,
                [(FId, [Production])],
                [(FId, [FunId])],
                [(FId, [FunId])],
-               [(CId,[SeqId])])
-genCncFuns gr am cm ex_seqs seqs cdefs fid_cnt cnccat_ranges =
+               [(PGF2.Fun,[SeqId])])
+genCncFuns gr am cm ex_seqs ciCmp seqs cdefs fid_cnt cnccat_ranges =
   let (fid_cnt1,funs_cnt1,funs1,lindefs,linrefs) = mkCncCats cdefs fid_cnt  0 [] IntMap.empty IntMap.empty
       (fid_cnt2,funs_cnt2,funs2,prods0)          = mkCncFuns cdefs fid_cnt1 funs_cnt1 funs1 lindefs Map.empty IntMap.empty
       prods                                      = [(fid,Set.toList prodSet) | (fid,prodSet) <- IntMap.toList prods0]
@@ -304,7 +309,7 @@ genCncFuns gr am cm ex_seqs seqs cdefs fid_cnt cnccat_ranges =
         newIndex mseqs i = binSearch (mseqs ! i) seqs (bounds seqs)
 
         binSearch v arr (i,j)
-          | i <= j    = case compare v (arr ! k) of
+          | i <= j    = case ciCmp v (arr ! k) of
                           LT -> binSearch v arr (i,k-1)
                           EQ -> k
                           GT -> binSearch v arr (k+1,j)
@@ -323,3 +328,121 @@ genPrintNames cdefs =
     flatten (K s)      = s
     flatten (Alts x _) = flatten x
     flatten (C x y)    = flatten x +++ flatten y
+
+mkArray    lst = listArray (0,length lst-1) lst
+mkMapArray map = array (0,Map.size map-1) [(v,k) | (k,v) <- Map.toList map]
+mkSetArray set = listArray (0,Set.size set-1) (Set.toList set)
+
+-- The following is a version of Data.List.sortBy which together
+-- with the sorting also eliminates duplicate values 
+sortNubBy cmp = mergeAll . sequences
+  where
+    sequences (a:b:xs) =
+      case cmp a b of
+        GT -> descending b [a]  xs
+        EQ -> sequences (b:xs)
+        LT -> ascending  b (a:) xs
+    sequences xs = [xs]
+
+    descending a as []     = [a:as]
+    descending a as (b:bs) =
+      case cmp a b of
+        GT -> descending b (a:as) bs
+        EQ -> descending a as bs
+        LT -> (a:as) : sequences (b:bs)
+
+    ascending a as []     = let !x = as [a]
+                            in [x]
+    ascending a as (b:bs) =
+      case cmp a b of
+        GT -> let !x = as [a]
+              in x : sequences (b:bs)
+        EQ -> ascending a as bs
+        LT -> ascending b (\ys -> as (a:ys)) bs
+
+    mergeAll [x] = x
+    mergeAll xs  = mergeAll (mergePairs xs)
+
+    mergePairs (a:b:xs) = let !x = merge a b
+                          in x : mergePairs xs
+    mergePairs xs       = xs
+
+    merge as@(a:as') bs@(b:bs') =
+      case cmp a b of
+        GT -> b:merge as  bs'
+        EQ -> a:merge as' bs'
+        LT -> a:merge as' bs
+    merge [] bs         = bs
+    merge as []         = as
+
+-- The following function does case-insensitive comparison of sequences.
+-- This is used to allow case-insensitive parsing, while
+-- the linearizer still has access to the original cases.
+
+compareCaseInsensitive []     []     = EQ
+compareCaseInsensitive []     _      = LT
+compareCaseInsensitive _      []     = GT
+compareCaseInsensitive (x:xs) (y:ys) =
+  case compareSym x y of
+    EQ -> compareCaseInsensitive xs ys
+    x  -> x
+  where
+    compareSym s1 s2 =
+      case s1 of
+        SymCat d1 r1
+          -> case s2 of
+               SymCat d2 r2
+                 -> case compare d1 d2 of
+                      EQ -> r1 `compare` r2
+                      x  -> x
+               _ -> LT
+        SymLit d1 r1
+          -> case s2 of
+               SymCat {} -> GT
+               SymLit d2 r2
+                 -> case compare d1 d2 of
+                      EQ -> r1 `compare` r2
+                      x  -> x
+               _ -> LT
+        SymVar d1 r1
+          -> if tagToEnum# (getTag s2 ># 2#)
+               then LT
+               else case s2 of
+                      SymVar d2 r2
+                        -> case compare d1 d2 of
+                             EQ -> r1 `compare` r2
+                             x  -> x
+                      _ -> GT
+        SymKS t1
+          -> if tagToEnum# (getTag s2 ># 3#)
+               then LT
+               else case s2 of
+                      SymKS t2 -> t1 `compareToken` t2
+                      _          -> GT
+        SymKP a1 b1
+          -> if tagToEnum# (getTag s2 ># 4#)
+               then LT
+               else case s2 of
+                      SymKP a2 b2
+                        -> case compare a1 a2 of
+                             EQ -> b1 `compare` b2
+                             x  -> x
+                      _ -> GT
+        _ -> let t1 = getTag s1
+                 t2 = getTag s2
+             in if tagToEnum# (t1 <# t2) 
+                  then LT
+                  else if tagToEnum# (t1 ==# t2)
+                         then EQ
+                         else GT
+  
+    compareToken []     []     = EQ
+    compareToken []     _      = LT
+    compareToken _      []     = GT
+    compareToken (x:xs) (y:ys)
+      | x == y    = compareToken xs ys
+      | otherwise = case compare (toLower x) (toLower y) of
+                      EQ -> case compareToken xs ys of
+                              EQ -> compare x y
+                              x  -> x
+                      x  -> x

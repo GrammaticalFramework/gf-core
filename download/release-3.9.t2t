@@ -1,10 +1,6 @@
 GF 3.9 Release Notes
 August 2017
 
-%!style:../css/notes.css
-%!postproc(html): <TITLE> <meta charset="UTF-8"><meta name = "viewport" content = "width = device-width"> <TITLE>
-%!postproc(html): <H1> <H1><a href="../"><IMG src="../doc/Logos/gf0.png"></a>
-
 ==Installation==
 
 See the [download page http://www.grammaticalframework.org/download/index.html].
@@ -36,7 +32,7 @@ very innefficient for some grammars.
 
 - A new .NET binding for the GF runtime is available.
 
-- The API in the Java binding is extended and it covers more from 
+- The API in the Java binding is extended and it covers more from
 the full functionality of the C runtime.
 
 
@@ -66,8 +62,3 @@ the full functionality of the C runtime.
 
 - PGF service: support for language-specific depencency configurations in
   ``command=deptree``.
-
-
---------------------
-
-[www.grammaticalframework.org http://www.grammaticalframework.org]

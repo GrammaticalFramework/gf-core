@@ -1,0 +1,232 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "http://grammaticalframework.org/pgf.schema.json",
+  "type": "object",
+  "title": "PGF JSON Schema",
+  "required": [
+    "abstract",
+    "concretes"
+  ],
+  "properties": {
+    "abstract": {
+      "type": "object",
+      "required": [
+        "name",
+        "startcat",
+        "funs"
+      ],
+      "properties": {
+        "name": {
+          "type": "string"
+        },
+        "startcat": {
+          "type": "string"
+        },
+        "funs": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "object",
+            "required": [
+              "args",
+              "cat"
+            ],
+            "properties": {
+              "args": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "cat": {
+                "type": "string"
+              }
+            }
+          }
+        }
+      }
+    },
+    "concretes": {
+      "type": "object",
+      "additionalProperties": {
+        "required": [
+          "flags",
+          "productions",
+          "functions",
+          "sequences",
+          "categories",
+          "totalfids"
+        ],
+        "properties": {
+          "flags": {
+            "type": "object",
+            "additionalProperties": {
+              "type": ["string", "number"]
+            }
+          },
+          "productions": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "array",
+              "items": {
+                "oneOf": [
+                  {
+                    "$ref": "#/definitions/apply"
+                  },
+                  {
+                    "$ref": "#/definitions/coerce"
+                  }
+                ]
+              }
+            }
+          },
+          "functions": {
+            "type": "array",
+            "items": {
+              "title": "CncFun",
+              "type": "object",
+              "properties": {
+                "name": {
+                  "type": "string"
+                },
+                "lins": {
+                  "type": "array",
+                  "items": {
+                    "type": "integer"
+                  }
+                }
+              }
+            }
+          },
+          "sequences": {
+            "type": "array",
+            "items": {
+              "type": "array",
+              "items": {
+                "$ref": "#/definitions/sym"
+              }
+            }
+          },
+          "categories": {
+            "type": "object",
+            "additionalProperties": {
+              "title": "CncCat",
+              "type": "object",
+              "required": [
+                "start",
+                "end"
+              ],
+              "properties": {
+                "start": {
+                  "type": "integer"
+                },
+                "end": {
+                  "type": "integer"
+                }
+              }
+            }
+          },
+          "totalfids": {
+            "type": "integer"
+          }
+        }
+      }
+    }
+  },
+  "definitions": {
+    "apply": {
+      "required": [
+        "type",
+        "fid",
+        "args"
+      ],
+      "properties": {
+        "type": {
+          "type": "string",
+          "enum": ["Apply"]
+        },
+        "fid": {
+          "type": "integer"
+        },
+        "args": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/parg"
+          }
+        }
+      }
+    },
+    "coerce": {
+      "required": [
+        "type",
+        "arg"
+      ],
+      "properties": {
+        "type": {
+          "type": "string",
+          "enum": ["Coerce"]
+        },
+        "arg": {
+          "type": "integer"
+        }
+      }
+    },
+    "parg": {
+      "required": [
+        "type",
+        "hypos",
+        "fid"
+      ],
+      "properties": {
+        "type": {
+          "type": "string",
+          "enum": ["PArg"]
+        },
+        "hypos": {
+          "type": "array",
+          "items": {
+            "type": "integer"
+          }
+        },
+        "fid": {
+          "type": "integer"
+        }
+      }
+    },
+    "sym": {
+      "title": "Sym",
+      "required": [
+        "type",
+        "args"
+      ],
+      "properties": {
+        "type": {
+          "type": "string",
+          "enum": [
+            "SymCat",
+            "SymLit",
+            "SymVar",
+            "SymKS",
+            "SymKP",
+            "SymNE"
+          ]
+        },
+        "args": {
+          "type": "array",
+          "items": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "integer"
+              },
+              {
+                "$ref": "#/definitions/sym"
+              }
+            ]
+          }
+        }
+      }
+    }
+  }
+}

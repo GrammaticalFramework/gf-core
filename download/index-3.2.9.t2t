@@ -1,11 +1,6 @@
 Grammatical Framework Download and Installation
 
 
-%!style:../css/style.css
-%!postproc(html): <TD><B> <TH>
-%!postproc(html): </B></TD> </TH>
-%!postproc(html): <H1> <H1><a href="../"><IMG src="../doc/Logos/gf0.png"></a>
-
 **GF 3.2.9** source-only snapshot was released on 12 September 2011.
 
 What's new? Faster grammar compilation!
@@ -77,9 +72,3 @@ The above notes for installing from source apply also in this case.
 - [GF 3.2 index-3.2.html] (December 2011).
 - [GF 3.1.6 index-3.1.6.html] (April 2010).
 - [GF 3.1 old-index.html] (December 2009).
-
-
---------------------
-
-[www.grammaticalframework.org http://www.grammaticalframework.org]
- 

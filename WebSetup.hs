@@ -70,7 +70,7 @@ buildWeb gf flags (pkg,lbi) = do
         gf_lib_path = datadir (absoluteInstallDirs pkg lbi dest) </> "lib"
         args = numJobs flags++["-make","-s"] -- ,"-optimize-pgf"
                ++["--gfo-dir="++tmp_dir,
-                  "--gf-lib-path="++gf_lib_path,
+                --"--gf-lib-path="++gf_lib_path,
                   "--name="++dropExtension pgf,
                   "--output-dir="++gfo_dir]
                ++[dir</>file|file<-src]
@@ -104,9 +104,10 @@ setupWeb dest (pkg,lbi) = do
     copy_pgf (pgf,subdir,_) =
       do let src = gfo_dir </> pgf
          let dst = grammars_dir </> pgf
-         putStrLn $ "Installing "++dst
          ex <- doesFileExist src
-         if ex then copyFile src dst else return ()
+         if ex then do putStrLn $ "Installing "++dst
+                       copyFile src dst
+               else putStrLn $ "Not installing "++dst
 
     gf_logo = "gf0.png"
 

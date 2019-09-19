@@ -1,17 +1,13 @@
 GF Version 3.3 Release Notes
 October 2011
 
-%!style:../css/style.css
-%!postproc(html): <TITLE> <meta name = "viewport" content = "width = device-width"><TITLE>
-%!postproc(html): <H1> <H1><IMG src="../doc/Logos/gf0.png">
-
 ==Installation==
 
 See the [download page http://www.grammaticalframework.org/download/index.html].
 
 ==New features==
 
-- Source language extension: it is now possible to override the oper definitions in an interface, by using the 
+- Source language extension: it is now possible to override the oper definitions in an interface, by using the
   header syntax ``instance Foo of Bar - [f,g,h]``.
 - New functionalities in GF shell commands (more information with ``help`` command-name).
   - ``aw`` = ``align_words`` option ``-giza`` prints word alignments in Giza++ format.
@@ -29,8 +25,3 @@ See the [download page http://www.grammaticalframework.org/download/index.html].
   and the web-based grammar editor.
 - Faster grammar compilation (also included in the GF 3.2.9 source-only
   snapshot).
-
-
---------------------
-
-[www.grammaticalframework.org http://www.grammaticalframework.org]

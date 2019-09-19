@@ -1,10 +1,6 @@
 GF 3.6 Release Notes
 June 2014
 
-%!style:../css/style.css
-%!postproc(html): <TITLE> <meta charset="UTF-8"><meta name = "viewport" content = "width = device-width"> <TITLE>
-%!postproc(html): <H1> <H1><a href="../"><IMG src="../doc/Logos/gf0.png"></a>
-
 ==Installation==
 
 See the [download page http://www.grammaticalframework.org/download/index.html].
@@ -26,7 +22,7 @@ Closed [issues http://code.google.com/p/grammatical-framework/issues/list]:
   as ``--# -coding=``//enc//, instead of ``flags coding=``//enc//.
   See the separate document
   [GF character encoding changes encoding-change.html] for more details.
-- Record update: in record objects (but not types) of form ``r ** s``, the values assigned 
+- Record update: in record objects (but not types) of form ``r ** s``, the values assigned
   in ``s`` now overwrite those in ``r``. In previous versions, record extensions with
   overlapping assignments in ``r`` and ``s`` were not supported, and their behaviour was
   unpredictable.
@@ -107,8 +103,3 @@ Closed [issues http://code.google.com/p/grammatical-framework/issues/list]:
     - ``c-wordforword``: this works as ``c-translate`` but does a
       word-for-word lookup to create a (potentially very low quality)
       translation that can be used if all else fails.
-
-
---------------------
-
-[www.grammaticalframework.org http://www.grammaticalframework.org]

@@ -62,6 +62,9 @@ gu_map_has(GuMap* ht, const void* key);
 GU_API_DECL void*
 gu_map_insert(GuMap* ht, const void* key);
 
+GU_API_DECL void
+gu_map_delete(GuMap* ht, const void* key);
+
 #define gu_map_put(MAP, KEYP, V, VAL)				\
 	GU_BEGIN						\
 	V* gu_map_put_p_ = gu_map_insert((MAP), (KEYP));	\
@@ -71,13 +74,8 @@ gu_map_insert(GuMap* ht, const void* key);
 GU_API_DECL void
 gu_map_iter(GuMap* ht, GuMapItor* itor, GuExn* err);
 
-typedef struct {
-	const void* key;
-	void* value;
-} GuMapKeyValue;
-
-GU_API_DECL GuEnum*
-gu_map_enum(GuMap* ht, GuPool* pool);
+GU_API bool
+gu_map_next(GuMap* map, size_t* pi, void** pkey, void* pvalue);
 
 typedef GuMap GuIntMap;
 

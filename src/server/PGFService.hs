@@ -3,10 +3,8 @@ module PGFService(cgiMain,cgiMain',getPath,
                   logFile,stderrToFile,
                   Caches,pgfCache,newPGFCache,flushPGFCache,listPGFCache) where
 
-import PGF (PGF,Labels,CncLabels)
 import PGF2
 import GF.Text.Lexing
-import qualified PGF
 import Cache
 import CGIUtils(outputJSONP,outputPlain,outputHTML,outputText,
                 outputBinary,outputBinary',
@@ -62,8 +60,8 @@ data Caches = Caches { qsem :: QSem,
 
 newPGFCache jobs = do let n = maybe 4 id jobs
                       qsem <- newQSem n
-                      pgfCache <- newCache' PGF.readPGF
-                      lblCache <- newCache' (fmap PGF.getDepLabels . readFile)
+                      pgfCache <- newCache' readPGF
+                      lblCache <- newCache' (fmap getDepLabels . readFile)
                       return $ Caches qsem pgfCache lblCache
 flushPGFCache c = do flushCache (pgfCache c)
                      flushCache (labelsCache c)
@@ -108,6 +106,8 @@ pgfMain qsem command (t,pgf) =
     "parse"       -> withQSem qsem $
                        out t=<< join (parse # input % start % limit % treeopts)
     "linearize"   -> out t=<< lin # tree % to
+    "bracketedLinearize"
+                  -> out t=<< bracketedLin # tree % to
     "linearizeAll"-> out t=<< linAll # tree % to
     "translate"   -> withQSem qsem $
                        out t=<<join(trans # input % to % start % limit%treeopts)
@@ -142,7 +142,9 @@ pgfMain qsem command (t,pgf) =
       where
         bad err = ["parseFailed".=err]
         good trees = "trees".=map tp trees :[]  -- :addTrie trie trees
-        tp (tree,prob) = makeObj (addTree json tree++["prob".=prob])
+        tp (tree,prob) = makeObj ["tree".=tree
+                                 ,"prob".=prob
+                                 ]
 
     parse' start mlimit ((from,concr),input) =
         case parseWithHeuristics concr cat input (-1) callbacks of
@@ -162,6 +164,10 @@ pgfMain qsem command (t,pgf) =
     lin' tree (tos,unlex) =
         [makeObj ["to".=to,"text".=unlex (linearize c tree)]|(to,c)<-tos]
 
+    bracketedLin tree to = showJSON (bracketedLin' tree to)
+    bracketedLin' tree (tos,unlex) =
+        [makeObj ["to".=to,"brackets".=showJSON (bracketedLinearize c tree)]|(to,c)<-tos]
+
     trans input@((from,_),_) to start mlimit (trie,jsontree) =
       do parses <- parse' start mlimit input
          return $
@@ -171,9 +177,9 @@ pgfMain qsem command (t,pgf) =
         jsonParses = either bad good
           where
             bad err = [makeObj ["error".=err]]
-            good parses = [makeObj (addTree jsontree tree++
-                                    ["prob".=prob,
-                                     "linearizations".=lin' tree to])
+            good parses = [makeObj ["tree".=tree
+                                   ,"prob".=prob
+                                   ,"linearizations".=lin' tree to]
                                     | (tree,prob) <- parses]
 
     morpho (from,concr) input =
@@ -465,8 +471,8 @@ doLookupMorpho pgf from input =
     ms = PGF.lookupMorpho (PGF.buildMorpho pgf from) input
 
 -}
-type From = (Maybe PGF.Language,String)
-type To = ([PGF.Language],Unlexer)
+type From = (Maybe Concr,String)
+type To = ([Concr],Unlexer)
 type TreeOpts = (Bool,Bool) -- (trie,jsontree)
 {-
 doTranslate :: PGF -> From -> Maybe PGF.Type -> To -> Maybe Int -> TreeOpts -> JSValue
@@ -560,10 +566,7 @@ doParse pgf (mfrom,input) mcat mlimit (trie,jsontree) = showJSON $ map makeObj
 
 addTrie trie trees =
     ["trie".=map head (PGF.toTrie (map PGF.toATree trees))|trie]
--}
-addTree json tree = "tree".=showTree tree:
-                    ["jsontree".= jsonExpr tree | json]
-{-
+
 doComplete :: PGF -> From -> Maybe PGF.Type -> Maybe Int -> Bool -> JSValue
 doComplete pgf (mfrom,input) mcat mlimit full = showJSON
     [makeObj (
@@ -849,107 +852,34 @@ doBrowse pgf (Just id) cssClass href _ pn = -- default to "html" format
     annotatePrintNames = "<DL>"++(unwords pns)++"</DL>"
       where pns = ["<DT>"++(show lang)++"</DT><DD>"++(PGF.showPrintName pgf lang id)++"</DD>" | lang <- PGF.languages pgf ]
 -}
-class ToATree a where 
-  showTree :: a -> String
-  toATree :: a -> PGF.ATree a
 
-instance ToATree PGF.Expr where
-  showTree = PGF.showExpr []
-  toATree = PGF.toATree
+instance JSON Expr where
+    readJSON x = readJSON x >>= maybe (fail "Bad expression.") return . readExpr
+    showJSON = showJSON . showExpr []
 
--- | Render trees as JSON with numbered functions
-jsonExpr e = evalState (expr (toATree e)) 0
-  where
-    expr e =
-      case e of
-        PGF.Other e -> return (makeObj ["other".=e])
-        PGF.App f es ->
-                do js <- mapM expr es
-                   let children=["children".=js | not (null js)]
-                   i<-inc
-                   return $ makeObj (["fun".=f,"fid".=i]++children)
-
-    inc :: State Int Int
-    inc = do i <- get; put (i+1); return i
-
-instance JSON PGF.Trie where
-    showJSON (PGF.Oth e) = makeObj ["other".=e]
-    showJSON (PGF.Ap f [[]]) = makeObj ["fun".=f] -- leaf
---  showJSON (PGF.Ap f [es]) = makeObj ["fun".=f,"children".=es] -- one alternative
-    showJSON (PGF.Ap f alts) = makeObj ["fun".=f,"alts".=alts]
-
-instance JSON PGF.CId where
-    readJSON x = readJSON x >>= maybe (fail "Bad language.") return . PGF.readLanguage
-    showJSON = showJSON . PGF.showLanguage
-
-instance JSON PGF.Expr where
-    readJSON x = readJSON x >>= maybe (fail "Bad expression.") return . PGF.readExpr
-    showJSON = showJSON . PGF.showExpr []
-
-instance JSON PGF.BracketedString where
-    readJSON x = return (PGF.Leaf "")
-    showJSON (PGF.Bracket cat fid index fun bs) =
+instance JSON BracketedString where
+    readJSON x = return (Leaf "")
+    showJSON (Bracket cat fid index fun bs) =
         makeObj ["cat".=cat, "fid".=fid, "index".=index, "fun".=fun, "children".=bs]
-    showJSON (PGF.Leaf s) = makeObj ["token".=s]
+    showJSON (Leaf s) = makeObj ["token".=s]
 
 -- * PGF utilities
-{-
-cat :: PGF -> Maybe PGF.Type -> PGF.Type
-cat pgf mcat = fromMaybe (PGF.startCat pgf) mcat
--}
-parse' :: PGF -> String -> Maybe PGF.Type -> Maybe PGF.Language -> [(PGF.Language,PGF.ParseOutput,PGF.BracketedString)]
-parse' pgf input mcat mfrom = 
-   [(from,po,bs) | from <- froms, (po,bs) <- [PGF.parse_ pgf from cat Nothing input]]
-  where froms = maybe (PGF.languages pgf) (:[]) mfrom
-        cat = fromMaybe (PGF.startCat pgf) mcat
-
-complete' :: PGF -> PGF.Language -> PGF.Type -> Maybe Int -> String
-         -> (PGF.BracketedString, String, Map.Map PGF.Token [PGF.CId])
-complete' pgf from typ mlimit input =
-  let (ws,prefix) = tokensAndPrefix input
-  in PGF.complete pgf from typ (unwords ws) prefix
-  where
-    tokensAndPrefix :: String -> ([String],String)
-    tokensAndPrefix s | not (null s) && isSpace (last s) = (ws, "")
-                      | null ws = ([],"")
-                      | otherwise = (init ws, last ws)
-        where ws = words s
-
 
 transfer lang = if "LaTeX" `isSuffixOf` show lang
                 then fold -- OpenMath LaTeX transfer
                 else id
 
--- | tabulate all variants and their forms
-linearizeTabular
-  :: PGF -> To -> PGF.Tree -> [(PGF.Language,[(String,[String])])]
-linearizeTabular pgf (tos,unlex) tree =
-    [(to,lintab to (transfer to tree)) | to <- langs]
-  where
-    langs = if null tos then PGF.languages pgf else tos
-    lintab to t = [(p,map unlex (nub [t|(p',t)<-vs,p'==p]))|p<-ps]
-      where
-        ps = nub (map fst vs)
-        vs = concat (PGF.tabularLinearizes pgf to t)
-
-linearizeAndUnlex pgf (mto,unlex) tree =
-    [(to,s,bss) | to<-langs,
-                 let bss = PGF.bracketedLinearize pgf to (transfer to tree)
-                     s   = unlex . unwords $ concatMap PGF.flattenBracketedString bss]
-  where
-    langs = if null mto then PGF.languages pgf else mto
-
-selectLanguage :: PGF -> Maybe (Accept Language) -> PGF.Language
+selectLanguage :: PGF -> Maybe (Accept Language) -> Concr
 selectLanguage pgf macc = case acceptable of
-                            []  -> case PGF.languages pgf of
+                            []  -> case Map.elems (languages pgf) of
                                      []  -> error "No concrete syntaxes in PGF grammar."
                                      l:_ -> l
                             Language c:_ -> fromJust (langCodeLanguage pgf c)
-  where langCodes = mapMaybe (PGF.languageCode pgf) (PGF.languages pgf)
+  where langCodes = mapMaybe languageCode (Map.elems (languages pgf))
         acceptable = negotiate (map Language langCodes) macc
 
-langCodeLanguage :: PGF -> String -> Maybe PGF.Language
-langCodeLanguage pgf code = listToMaybe [l | l <- PGF.languages pgf, PGF.languageCode pgf l == Just code]
+langCodeLanguage :: PGF -> String -> Maybe Concr
+langCodeLanguage pgf code = listToMaybe [concr | concr <- Map.elems (languages pgf), languageCode concr == Just code]
 
 -- * General utilities
 

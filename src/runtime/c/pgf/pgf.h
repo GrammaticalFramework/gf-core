@@ -162,6 +162,22 @@ PGF_API_DECL void
 pgf_lookup_morpho(PgfConcr *concr, GuString sentence,
                   PgfMorphoCallback* callback, GuExn* err);
 
+typedef struct {
+	size_t pos;
+	GuString ptr;
+} PgfCohortSpot;
+
+typedef struct {
+	PgfCohortSpot start;
+	PgfCohortSpot end;
+	GuBuf* buf;
+} PgfCohortRange;
+
+PGF_API_DECL GuEnum*
+pgf_lookup_cohorts(PgfConcr *concr, GuString sentence,
+                   PgfMorphoCallback* callback,
+                   GuPool* pool, GuExn* err);
+
 typedef struct PgfFullFormEntry PgfFullFormEntry;
 
 PGF_API_DECL GuEnum*

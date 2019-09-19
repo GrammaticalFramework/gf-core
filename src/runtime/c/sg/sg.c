@@ -499,14 +499,17 @@ store_expr(SgSG* sg,
 		PgfExprLit* elit = ei.data;
 
 		Mem mem[2];
+		size_t len = 0;
 
 		GuVariantInfo li = gu_variant_open(elit->lit);
 		switch (li.tag) {
 		case PGF_LITERAL_STR: {
 			PgfLiteralStr* lstr = li.data;
 
+			len = strlen(lstr->val);
+
 			mem[0].flags = MEM_Str;
-			mem[0].n = strlen(lstr->val);
+			mem[0].n = len;
 			mem[0].z = lstr->val;
 			break;
 		}
@@ -515,6 +518,7 @@ store_expr(SgSG* sg,
 
 			mem[0].flags = MEM_Int;
 			mem[0].u.i = lint->val;
+			len = sizeof(mem[0].u.i);
 			break;
 		}
 		case PGF_LITERAL_FLT: {
@@ -522,6 +526,7 @@ store_expr(SgSG* sg,
 
 			mem[0].flags = MEM_Real;
 			mem[0].u.r = lflt->val;
+			len = sizeof(mem[0].u.r);
 			break;
 		}
 		default:
@@ -556,7 +561,7 @@ store_expr(SgSG* sg,
 			int serial_type_arg = sqlite3BtreeSerialType(&mem[1], file_format);
 			int serial_type_arg_hdr_len = sqlite3BtreeVarintLen(serial_type_arg);
 
-			unsigned char* buf = malloc(1+serial_type_lit_hdr_len+(serial_type_arg_hdr_len > 1 ? serial_type_arg_hdr_len : 1)+mem[0].n+8);
+			unsigned char* buf = malloc(1+serial_type_lit_hdr_len+(serial_type_arg_hdr_len > 1 ? serial_type_arg_hdr_len : 1)+len+8);
 			unsigned char* p = buf;
 			*p++ = 1+serial_type_lit_hdr_len+serial_type_arg_hdr_len;
 			p += putVarint32(p, serial_type_lit);

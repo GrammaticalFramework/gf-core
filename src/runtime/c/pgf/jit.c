@@ -5,9 +5,6 @@
 #include <pgf/reasoner.h>
 #include <pgf/reader.h>
 #include "lightning.h"
-#if defined(__MINGW32__) || defined(_MSC_VER)
-#include <malloc.h>
-#endif
 
 //#define PGF_JIT_DEBUG
 
@@ -43,18 +40,6 @@ typedef struct {
 #define JIT_VSTATE JIT_V1
 #define JIT_VCLOS  JIT_V2
 
-#if defined(__MINGW32__) || defined(_MSC_VER)
-#include <windows.h>
-
-static int
-getpagesize()
-{
-  SYSTEM_INFO system_info;
-  GetSystemInfo(&system_info);
-  return system_info.dwPageSize;
-}
-#endif
-
 
 static void
 pgf_jit_finalize_page(GuFinalizer* self)
@@ -65,19 +50,8 @@ pgf_jit_finalize_page(GuFinalizer* self)
 static void
 pgf_jit_alloc_page(PgfReader* rdr)
 {
-	void *page;
-
-	size_t page_size = getpagesize();
-
-#if defined(ANDROID)
-	if ((page = memalign(page_size, page_size)) == NULL) {	
-#elif defined(__MINGW32__) || defined(_MSC_VER)
-	if ((page = malloc(page_size)) == NULL) {
-#else
-	if (posix_memalign(&page, page_size, page_size) != 0) {
-#endif
-		gu_fatal("Memory allocation failed");
-	}
+	size_t page_size;
+	void *page = gu_mem_page_alloc(sizeof(GuFinalizer), &page_size);
 
 	GuFinalizer* fin = page;
 	fin->fn = pgf_jit_finalize_page;

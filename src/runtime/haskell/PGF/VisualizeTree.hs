@@ -34,8 +34,9 @@ import PGF.Macros (lookValCat, BracketedString(..))
 
 import qualified Data.Map as Map
 --import qualified Data.IntMap as IntMap
-import Data.List (intersperse,nub,mapAccumL,find,groupBy)
---import Data.Char (isDigit)
+import Data.List (intersperse,nub,mapAccumL,find,groupBy,sortBy,partition)
+import Data.Ord (comparing)
+import Data.Char (isDigit)
 import Data.Maybe (fromMaybe)
 import Text.PrettyPrint
 
@@ -131,6 +132,7 @@ graphvizDependencyTree format debug mlab mclab pgf lang t =
     "latex"      -> render . ppLaTeX $ conll2latex' conll
     "svg"        -> render . ppSVG . toSVG $ conll2latex' conll
     "conll"      -> printCoNLL conll
+    "conllu"     -> printCoNLL ([["# text = " ++ linearize pgf lang t], ["# tree = " ++ showExpr [] t]] ++ conll)
     "malt_tab"   -> render $ vcat (map (hcat . intersperse (char '\t') . (\ws -> [ws !! 0,ws !! 1,ws !! 3,ws !! 6,ws !! 7])) wnodes)
     "malt_input" -> render $ vcat (map (hcat . intersperse (char '\t') . take 6) wnodes)
     _            -> render $ text "digraph {" $$
@@ -144,16 +146,16 @@ graphvizDependencyTree format debug mlab mclab pgf lang t =
     conll  = maybe conll0 (\ls -> fixCoNLL ls conll0) mclab
     conll0 = (map.map) render wnodes
     nodes  = map mkNode leaves
-    links  = map mkLink [(fid, fromMaybe (dep_lbl,nil) (lookup fid deps)) | ((cat,fid,fun),_,w) <- tail leaves]
+    links  = map mkLink [(fid, fromMaybe (dep_lbl,nil) (lookup fid deps)) | ((cat,fid,fun,_),_,w) <- tail leaves]
 
 -- CoNLL format: ID FORM LEMMA PLEMMA POS PPOS FEAT PFEAT HEAD PHEAD DEPREL PDEPREL
 -- P variants are automatically predicted rather than gold standard
 
-    wnodes = [[int i, maltws ws, ppCId fun, ppCId (posCat cat), ppCId cat, unspec, int parent, text lab, unspec, unspec] |
-              ((cat,fid,fun),i,ws) <- tail leaves,
+    wnodes = [[int i, maltws ws, ppCId fun, ppCId (posCat cat), ppCId cat, int lind, int parent, text lab, unspec, unspec] |
+              ((cat,fid,fun,lind),i,ws) <- tail leaves,
               let (lab,parent) = fromMaybe (dep_lbl,0)
                                            (do (lbl,fid) <- lookup fid deps
-                                               (_,i,_) <- find (\((_,fid1,_),i,_) -> fid == fid1) leaves
+                                               (_,i,_) <- find (\((_,fid1,_,_),i,_) -> fid == fid1) leaves
                                                return (lbl,i))
              ]
     maltws = text . concat . intersperse "+" . words  -- no spaces in column 2
@@ -162,7 +164,7 @@ graphvizDependencyTree format debug mlab mclab pgf lang t =
 
     bss = bracketedLinearize pgf lang t
 
-    root = (wildCId,nil,wildCId)
+    root = (wildCId,nil,wildCId,0)
 
     leaves = (root,0,root_lbl) : (groupAndIndexIt 1 . concatMap (getLeaves root)) bss
     deps   = let (_,(h,deps)) = getDeps 0 [] t []
@@ -180,10 +182,10 @@ graphvizDependencyTree format debug mlab mclab pgf lang t =
 
     getLeaves parent bs =
       case bs of
-        Leaf w                      -> [(parent,w)]
-        Bracket cat fid _ fun _ bss -> concatMap (getLeaves (cat,fid,fun)) bss
+        Leaf w                           -> [(parent,w)]
+        Bracket cat fid _ lind fun _ bss -> concatMap (getLeaves (cat,fid,fun,lind)) bss
 
-    mkNode ((_,p,_),i,w) =
+    mkNode ((_,p,_,_),i,w) =
       tag p <+> brackets (text "label = " <> doubleQuotes (int i <> char '.' <+> text w)) <+> semi
 
     mkLink (x,(lbl,y)) = tag y <+> text "->" <+> tag x  <+> text "[label = " <> doubleQuotes (text lbl) <> text "] ;"
@@ -234,10 +236,18 @@ graphvizDependencyTree format debug mlab mclab pgf lang t =
     root_lbl = "ROOT"
     unspec   = text "_"
 
+-- auxiliaries for UD conversion  PK 15/12/2018 
+rmcomments :: String -> String
+rmcomments [] = []
+rmcomments ('-':'-':xs) = []
+rmcomments ('-':x  :xs) = '-':rmcomments (x:xs)
+rmcomments (x:xs)       = x:rmcomments xs
+
 -- | Prepare lines obtained from a configuration file for labels for
 -- use with 'graphvizDependencyTree'. Format per line /fun/ /label/@*@.
 getDepLabels :: String -> Labels
-getDepLabels s = Map.fromList [(mkCId f,ls) | f:ls <- map words (lines s)]
+-- getDepLabels s = Map.fromList [(mkCId f,ls) | f:ls <- map words (lines s)]
+getDepLabels s = Map.fromList [(mkCId f,ls) | f:ls <- map (words . rmcomments) (lines s)]
 
 -- the old function, without dependencies
 graphvizParseTree :: PGF -> Language -> GraphvizOptions -> Tree -> String
@@ -291,13 +301,13 @@ graphvizBracketedString opts mbl tree bss = render graphviz_code
       getInternals []    = []
       getInternals nodes
           = nub [(parent, fid, mkNode fun cat) |
-                 (parent, Bracket cat fid _ fun _ _) <- nodes]
+                 (parent, Bracket cat fid _ _ fun _ _) <- nodes]
             : getInternals [(fid, child) |
-                            (_, Bracket _ fid _ _ _ children) <- nodes,
+                            (_, Bracket _ fid _ _ _ _ children) <- nodes,
                             child <- children]
 
       getLeaves cat parent (Leaf word) = [(parent, (cat, word))] -- the lowest cat before the word
-      getLeaves _ parent (Bracket cat fid i _ _ children)
+      getLeaves _ parent (Bracket cat fid _ i _ _ children)
           = concatMap (getLeaves cat fid) children
 
       mkLevel nodes
@@ -401,8 +411,8 @@ genPreAlignment pgf langs = lin2align . linsBracketed
 
            getLeaves parent bs =
                   case bs of
-                    Leaf w                -> [(parent,w)]
-                    Bracket _ fid _ _ _ bss -> concatMap (getLeaves fid) bss
+                    Leaf w                    -> [(parent,w)]
+                    Bracket _ fid _ _ _ _ bss -> concatMap (getLeaves fid) bss
 
            mkLayers (cs:css:rest) = let (lrest, rrest) =  mkLayers (css:rest)
                                      in ((fields cs) : lrest, (map (mkLinks css) cs) : rrest)
@@ -512,7 +522,7 @@ conll2latex' = dep2latex . conll2dep'
 
 data Dep = Dep {
     wordLength  :: Int -> Double        -- length of word at position int       -- was: fixed width, millimetres (>= 20.0)
-  , tokens      :: [(String,String)]    -- word, pos (0..)
+  , tokens      :: [(String,(String,String))]    -- word, (pos,features) (0..)
   , deps        :: [((Int,Int),String)] -- from, to, label
   , root        :: Int                  -- root word position
   }
@@ -552,7 +562,8 @@ dep2latex d =
   [Comment (unwords (map fst (tokens d))),
    Picture defaultUnit (width,height) (
      [Put (wpos rwld i,0) (Text w) | (i,w) <- zip [0..] (map fst (tokens d))]   -- words
-  ++ [Put (wpos rwld i,15) (TinyText w) | (i,w) <- zip [0..] (map snd (tokens d))]   -- pos tags 15u above bottom
+  ++ [Put (wpos rwld i,15) (TinyText w) | (i,(w,_)) <- zip [0..] (map snd (tokens d))]   -- pos tags 15u above bottom
+---  ++ [Put (wpos rwld i,-15) (TinyText w) | (i,(_,w)) <- zip [0..] (map snd (tokens d))]   -- features 15u below bottom -> DON'T SHOW
   ++ concat [putArc rwld (aheight x y) x y label | ((x,y),label) <- deps d]    -- arcs and labels
   ++ [Put (wpos rwld (root d) + 15,height) (ArrowDown (height-arcbase))]
   ++ [Put (wpos rwld (root d) + 20,height - 10) (TinyText "ROOT")]
@@ -583,8 +594,8 @@ conll2dep' ls = Dep {
   , root = head $ [read x-1 | x:_:_:_:_:_:"0":_ <- ls] ++ [1]
   }
  where
-   wld i = maximum (0:[charWidth * fromIntegral (length w) | w <- let (tok,pos) = toks !! i in [tok,pos]])
-   toks = [(w,c) | _:w:_:c:_ <- ls]
+   wld i = maximum (0:[charWidth * fromIntegral (length w) | w <- let (tok,(pos,feat)) = toks !! i in [tok,pos {-,feat-}]]) --- feat not shown
+   toks = [(w,(c,m)) | _:w:_:c:_:m:_ <- ls]
    dps = [((read y-1, read x-1),lab) | x:_:_:_:_:_:y:lab:_ <- ls, y /="0"]
    --maxdist = maximum [abs (x-y) | ((x,y),_) <- dps]
 
@@ -749,18 +760,26 @@ ppSVG svg =
 -- UseComp {"not"} PART neg head 
 -- UseComp {*} AUX cop head
 
-type CncLabels = [(String, String -> Maybe (String -> String,String,String))]
--- (fun, word -> (pos,label,target))
--- the pos can remain unchanged, as in the current notation in the article
+type CncLabels = [
+  Either
+    (String, String -> Maybe (String -> String,String,String))
+    -- (fun, word -> (pos,label,target))
+    -- the pos can remain unchanged, as in the current notation in the article
+    (String,[String])
+    -- (category, morphological forms)
+  ]
 
 fixCoNLL :: CncLabels -> CoNLL -> CoNLL
-fixCoNLL labels conll = map fixc conll where
+fixCoNLL cncLabels conll = map fixc conll where
+  labels  = [l | Left l <- cncLabels]
+  flabels = [r | Right r <- cncLabels]
+
   fixc row = case row of
-    (i:word:fun:pos:cat:x_:"0":"dep":xs) -> (i:word:fun:pos:cat:x_:"0":"root":xs) --- change the root label from dep to root 
+    (i:word:fun:pos:cat:x_:"0":"dep":xs) -> (i:word:fun:pos:cat:(feat cat word x_):"0":"root":xs) --- change the root label from dep to root 
     (i:word:fun:pos:cat:x_:j:label:xs) -> case look (fun,word) of
-      Just (pos',label',"head") -> (i:word:fun:pos' pos:cat:x_:j :label':xs)
-      Just (pos',label',target) -> (i:word:fun:pos' pos:cat:x_: getDep j target:label':xs)
-      _ -> row
+      Just (pos',label',"head") -> (i:word:fun:pos' pos:cat:(feat cat word x_):j :label':xs)
+      Just (pos',label',target) -> (i:word:fun:pos' pos:cat:(feat cat word x_): getDep j target:label':xs)
+      _ -> (i:word:fun:pos:cat:(feat cat word x_):j:label:xs)
     _ -> row
     
   look (fun,word) = case lookup fun labels of
@@ -775,16 +794,48 @@ fixCoNLL labels conll = map fixc conll where
   
   getDep j label = maybe j id $ lookup (label,j) [((label,j),i) | i:word:fun:pos:cat:x_:j:label:xs <- conll]
 
+  feat cat word x = case lookup cat flabels of
+    Just tags | all isDigit x && length tags > read x -> tags !! read x
+    _ -> case lookup (show word) flabels of
+      Just (t:_) -> t
+      _ -> cat ++ "-" ++ x
+
 getCncDepLabels :: String -> CncLabels
-getCncDepLabels = map merge .  groupBy (\ (x,_) (a,_) -> x == a) . concatMap analyse . filter choose . lines where
+getCncDepLabels s = wlabels ws ++ flabels fs
+ where
+  wlabels =
+    map Left .
+    map merge .
+    groupBy (\ (x,_) (a,_) -> x == a) .
+    sortBy (comparing fst) .
+    concatMap analyse .
+    filter chooseW
+    
+  flabels =
+    map Right .
+    map collectTags .
+    map words
+
+  (fs,ws) = partition chooseF $ map uncomment $ lines s
+
   --- choose is for compatibility with the general notation
-  choose line = notElem '(' line && elem '{' line --- ignoring non-local (with "(") and abstract (without "{") rules
-  
+  chooseW line = notElem '(' line &&
+                 elem '{' line
+                   --- ignoring non-local (with "(") and abstract (without "{") rules
+                   ---- TODO: this means that "(" cannot be a token
+
+  chooseF line = take 1 line == "@"  --- feature assignments have the form e.g. @N SgNom SgGen ; no spaces inside tags
+
+  uncomment line = case line of
+    '-':'-':_ -> ""
+    c:cs -> c : uncomment cs
+    _ -> line
+
   analyse line = case break (=='{') line of
     (beg,_:ws) -> case break (=='}') ws of
-      (toks,_:target) -> case (words beg, words target) of
-        (fun:_,[    label,j]) -> [(fun, (tok, (id,       label,j))) | tok <- getToks toks]
-        (fun:_,[pos,label,j]) -> [(fun, (tok, (const pos,label,j))) | tok <- getToks toks]
+      (toks,_:target) -> case (getToks beg, words target) of
+        (funs,[    label,j]) -> [(fun, (tok, (id,       label,j))) | fun <- funs, tok <- getToks toks]
+        (funs,[pos,label,j]) -> [(fun, (tok, (const pos,label,j))) | fun <- funs, tok <- getToks toks]
         _ -> []
       _ -> []
     _ -> []
@@ -793,8 +844,13 @@ getCncDepLabels = map merge .  groupBy (\ (x,_) (a,_) -> x == a) . concatMap ana
       Just new -> return new
       _ -> lookup "*"  (map snd rules)
     )
-  getToks = words . map (\c -> if elem c "\"," then ' ' else c)
+  getToks = map unquote . filter (/=",") . toks
+  toks s = case lex s of [(t,"")] -> [t] ; [(t,cc)] -> t:toks cc ; _ -> []
+  unquote s = case s of '"':cc@(_:_) | last cc == '"' -> init cc ; _ -> s
 
+  collectTags (w:ws) = (tail w,ws)
+
+-- added init to remove the last \n. otherwise, two empty lines are in between each sentence PK 17/12/2018
 printCoNLL :: CoNLL -> String
-printCoNLL = unlines . map (concat . intersperse "\t")
+printCoNLL = init . unlines . map (concat . intersperse "\t")
 

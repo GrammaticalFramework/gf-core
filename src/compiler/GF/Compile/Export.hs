@@ -1,11 +1,10 @@
 module GF.Compile.Export where
 
-import PGF
+import PGF2
 import GF.Compile.PGFtoHaskell
+--import GF.Compile.PGFtoAbstract
 import GF.Compile.PGFtoJava
-import GF.Compile.PGFtoProlog
-import GF.Compile.PGFtoJS
-import GF.Compile.PGFtoPython
+import GF.Compile.PGFtoJSON
 import GF.Infra.Option
 --import GF.Speech.CFG
 import GF.Speech.PGFToCFG
@@ -19,6 +18,7 @@ import GF.Speech.SLF
 import GF.Speech.PrRegExp
 
 import Data.Maybe
+import qualified Data.Map as Map
 import System.FilePath
 import GF.Text.Pretty
 
@@ -33,11 +33,11 @@ exportPGF :: Options
 exportPGF opts fmt pgf = 
     case fmt of
       FmtPGFPretty    -> multi "txt" (showPGF)
-      FmtJavaScript   -> multi "js"  pgf2js
-      FmtPython       -> multi "py"  pgf2python
+      FmtCanonicalGF  -> [] -- canon "gf" (render80 . abstract2canonical)
+      FmtCanonicalJson-> []
+      FmtJSON         -> multi "json"  pgf2json
       FmtHaskell      -> multi "hs"  (grammar2haskell opts name)
       FmtJava         -> multi "java" (grammar2java opts name)
-      FmtProlog       -> multi "pl"  grammar2prolog
       FmtBNF          -> single "bnf"   bnfPrinter
       FmtEBNF         -> single "ebnf"  (ebnfPrinter opts)
       FmtSRGS_XML     -> single "grxml" (srgsXmlPrinter opts)
@@ -51,17 +51,13 @@ exportPGF opts fmt pgf =
       FmtRegExp       -> single "rexp" regexpPrinter
       FmtFA           -> single "dot"  slfGraphvizPrinter
  where
-   name = fromMaybe (showCId (abstractName pgf)) (flag optName opts)
+   name = fromMaybe (abstractName pgf) (flag optName opts)
 
    multi :: String -> (PGF -> String) -> [(FilePath,String)]
    multi ext pr = [(name <.> ext, pr pgf)]
 
-   single :: String -> (PGF -> CId -> String) -> [(FilePath,String)]
-   single ext pr = [(showCId cnc <.> ext, pr pgf cnc) | cnc <- languages pgf]
+-- canon ext pr = [("canonical"</>name<.>ext,pr pgf)]
 
--- | Get the name of the concrete syntax to generate output from.
--- FIXME: there should be an option to change this.
-outputConcr :: PGF -> CId
-outputConcr pgf = case languages pgf of
-                    []     -> error "No concrete syntax."
-                    cnc:_  -> cnc
+   single :: String -> (PGF -> Concr -> String) -> [(FilePath,String)]
+   single ext pr = [(concreteName cnc <.> ext, pr pgf cnc) | cnc <- Map.elems (languages pgf)]
+

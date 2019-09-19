@@ -17,10 +17,7 @@ h1 img.nofloat { float: none; }
 img.right { float: right; }
 
 ol.languages {
-    display: flex;
-    flex-direction: column;
-    flex-wrap: wrap;
-    height: 12em;
+    column-width: 12em;
 }
 
 .grow {

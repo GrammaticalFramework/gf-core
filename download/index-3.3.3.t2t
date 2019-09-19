@@ -1,12 +1,6 @@
 Grammatical Framework Download and Installation
 
 
-%!style:../css/style.css
-%!postproc(html): <TITLE> <meta name = "viewport" content = "width = device-width"><TITLE>
-%!postproc(html): <TD><B> <TH>
-%!postproc(html): </B></TD> </TH>
-%!postproc(html): <H1> <H1><a href="../"><IMG src="../doc/Logos/gf0.png"></a>
-
 **GF 3.3.3** was released on 3 March 2012.
 
 What's new? See the [Release notes release-3.3.3.html].
@@ -24,7 +18,7 @@ What's new? See the [Release notes release-3.3.3.html].
 
 ===Notes===
 
-The Windows package is installed by just unpacking it anywhere. 
+The Windows package is installed by just unpacking it anywhere.
 It finds the libraries relative to the ``.exe`` file.
 
 %The ``.deb`` packages work on Ubuntu 10.04 and 10.10.
@@ -127,9 +121,3 @@ For more info, see the [GF Developers Guide ../doc/gf-developers.html].
 - [GF 3.2 index-3.2.html] (December 2010).
 - [GF 3.1.6 index-3.1.6.html] (April 2010).
 - [GF 3.1 old-index.html] (December 2009).
-
-
---------------------
-
-[www.grammaticalframework.org http://www.grammaticalframework.org]
- 

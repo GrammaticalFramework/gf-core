@@ -1,10 +1,6 @@
 GF 3.8 Release Notes
 June 2016
 
-%!style:../css/notes.css
-%!postproc(html): <TITLE> <meta charset="UTF-8"><meta name = "viewport" content = "width = device-width"> <TITLE>
-%!postproc(html): <H1> <H1><a href="../"><IMG src="../doc/Logos/gf0.png"></a>
-
 ==Installation==
 
 See the [download page http://www.grammaticalframework.org/download/index.html].
@@ -25,7 +21,7 @@ Roughly 400 changes have been pushed to the source repository since
   [universal dependency http://universaldependencies.org/] diagrams
   in various formats, see ``help vd``.
 - The C runtime now includes an experimental library for managing
-  and querying ontologies built on top of the abstract syntax of 
+  and querying ontologies built on top of the abstract syntax of
   a grammar. Since the ontology is based on an abstract syntax,
   it is language independent by design. For now the library is
   only used in the GF Offline Translator. The library uses
@@ -100,7 +96,3 @@ Roughly 400 changes have been pushed to the source repository since
   translations in the domain they cover.
   You can change the order in which the selected grammars are tried
   by dragging them up and down in the list.
-
---------------------
-
-[www.grammaticalframework.org http://www.grammaticalframework.org]

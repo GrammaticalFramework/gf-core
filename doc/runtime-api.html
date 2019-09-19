@@ -1,28 +1,25 @@
-<html>
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml" lang="en" xml:lang="en">
 	<head>
+		<title>C Runtime API</title>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.1.3/css/bootstrap.min.css" integrity="sha384-MCw98/SFnGE8fJT3GXwEOngsV7Zt27NXFoaoApmYm81iuXoPkFOJwJ8ERdknLPMO" crossorigin="anonymous">
 		<style>
-			body { background: #eee; padding-top: 200px; }
-
-			pre.python   {background-color:#ffc; display: none}
-			pre.haskell  {background-color:#ffc; display: block}
-			pre.java     {background-color:#ffc; display: none}
-			pre.csharp   {background-color:#ffc; display: none}
+			pre {
+				background-color:#eee;
+				margin-top: 1em;
+				padding: 0.5em 1em;
+			}
+			pre.python   {display: none}
+			pre.haskell  {display: block}
+			pre.java     {display: none}
+			pre.csharp   {display: none}
 			span.python  {display: none}
 			span.haskell {display: inline}
 			span.java    {display: none}
 			span.csharp  {display: none}
-			
-			.header {
-               position: fixed;
-               top: 0;
-               left: 0;
-               background: #ddd;
-               width: 100%;
-               padding: 5pt;
-               border-bottom: solid #bbb 2pt;
-            }
 		</style>
-
 
 <script lang="javascript">
 	function change_language(href) {
@@ -50,14 +47,28 @@
 </script>
 	</head>
 	<body onload="change_language(window.location.href); window.addEventListener('hashchange', function(e){change_language(window.location.href);});">
-		<span class="header">
-		<h1>Using the <span class="python">Python</span> <span class="haskell">Haskell</span> <span class="java">Java</span> <span class="csharp">C#</span> binding to the C runtime</h1>
-		
-		Choose a language: <a href="#haskell">Haskell</a> <a href="#python">Python</a> <a href="#java">Java</a> <a href="#csharp">C#</a>
-		</span>
+		<div class="container-fluid" style="max-width: 1200px">
+		<div class="header sticky-top border-bottom py-3 bg-white">
+			<a href=".." title="Home">
+			  <img src="../doc/Logos/gf1.svg" height="120px" class="float-md-right ml-3 mb-3 bg-white" alt="GF Logo">
+			</a>
+			<h1>
+				Using the
+				<span class="python">Python</span>
+				<span class="haskell">Haskell</span>
+				<span class="java">Java</span>
+				<span class="csharp">C#</span>
+				binding to the C runtime
+			</h1>
+			<h4 class="text-muted">Krasimir Angelov, July 2015 - August 2017</h4>
+			Choose a language:
+			<a href="#haskell" class="mx-1">Haskell</a>
+			<a href="#python" class="mx-1">Python</a>
+			<a href="#java" class="mx-1">Java</a>
+			<a href="#csharp" class="mx-1">C#</a>
+		</div>
+		<main class="py-4">
 
-		<h4>Krasimir Angelov, July 2015 - August 2017</h4>
-		
 <h2>Loading the Grammar</h2>
 
 Before you use the <span class="python">Python</span> binding you need to import the <span class="haskell">PGF2 module</span><span class="python">pgf module</span><span class="java">pgf package</span><span class="csharp">PGFSharp package</span>:
@@ -127,7 +138,7 @@ Concr eng = gr.Languages["AppEng"];
 
 <h2>Parsing</h2>
 
-All language specific services are available as 
+All language specific services are available as
 <span class="python">methods of the class <tt>pgf.Concr</tt></span><span class="haskell">functions that take as an argument an object of type <tt>Concr</tt></span><span class="java">methods of the class <tt>Concr</tt></span><span class="csharp">methods of the class <tt>Concr</tt></span>.
 For example to invoke the parser, you can call:
 <pre class="python">
@@ -220,10 +231,10 @@ Console.WriteLine(ep.Item1);
 PhrUtt NoPConj (UttS (UseCl (TTAnt TPres ASimul) PPos (PredVP (DetNP (DetQuant this_Quant NumSg)) (UseComp (CompNP (DetCN (DetQuant IndefArt NumSg) (AdjCN (PositA small_A) (UseN theatre_N)))))))) NoVoc
 </pre>
 
-<p>Note that depending on the grammar it is absolutely possible that for 
-a single sentence you might get infinitely many trees. 
+<p>Note that depending on the grammar it is absolutely possible that for
+a single sentence you might get infinitely many trees.
 In other cases the number of trees might be finite but still enormous.
-The parser is specifically designed to be lazy, which means that 
+The parser is specifically designed to be lazy, which means that
 each tree is returned as soon as it is found before exhausting
 the full search space. For grammars with a patological number of
 trees it is advisable to pick only the top <tt>N</tt> trees
@@ -246,16 +257,16 @@ parsing with a different start category can be done as follows:</p>
 </pre>
 </span>
 <span class="haskell">
-There is also the function <tt>parseWithHeuristics</tt> which 
-takes two more paramaters which let you to have a better control 
+There is also the function <tt>parseWithHeuristics</tt> which
+takes two more paramaters which let you to have a better control
 over the parser's behaviour:
 <pre class="haskell">
 Prelude PGF2> let res = parseWithHeuristics eng (startCat gr) heuristic_factor callbacks
 </pre>
 </span>
 <span class="java">
-There is also the method <tt>parseWithHeuristics</tt> which 
-takes two more paramaters which let you to have a better control 
+There is also the method <tt>parseWithHeuristics</tt> which
+takes two more paramaters which let you to have a better control
 over the parser's behaviour:
 <pre class="java">
 Iterable&lt;ExprProb&gt; iterable = eng.parseWithHeuristics(gr.startCat(), heuristic_factor, callbacks);
@@ -281,7 +292,7 @@ to factor 0.0. When we increase the factor then parsing becomes faster
 but at the same time the sorting becomes imprecise. The worst
 factor is 1.0. In any case the parser always returns the same set of
 trees but in different order. Our experience is that even a factor
-of about 0.6-0.8 with the translation grammar still orders 
+of about 0.6-0.8 with the translation grammar still orders
 the most probable tree on top of the list but further down the list,
 the trees become shuffled.
 </p>
@@ -457,7 +468,7 @@ the object has the following public final variables:
 </span>
 </p>
 
-The linearization works even if there are functions in the tree 
+The linearization works even if there are functions in the tree
 that doesn't have linearization definitions. In that case you
 will just see the name of the function in the generated string.
 It is sometimes helpful to be able to see whether a function
@@ -483,7 +494,7 @@ true
 
 <p>
 An already constructed tree can be analyzed and transformed
-in the host application. For example you can deconstruct 
+in the host application. For example you can deconstruct
 a tree into a function name and a list of arguments:
 <pre class="python">
 >>> e.unpack()
@@ -523,8 +534,8 @@ literal. For example the result from:
 <span class="haskell">
 The result from <tt>unApp</tt> is <tt>Just</tt> if the expression
 is an application and <tt>Nothing</tt> in all other cases.
-Similarly, if the tree is a literal string then the return value 
-from <tt>unStr</tt> will be <tt>Just</tt> with the actual literal. 
+Similarly, if the tree is a literal string then the return value
+from <tt>unStr</tt> will be <tt>Just</tt> with the actual literal.
 For example the result from:
 </span>
 <pre class="haskell">
@@ -534,8 +545,8 @@ Prelude PGF2> readExpr "\"literal\"" >>= unStr
 <span class="java">
 The result from <tt>unApp</tt> is not <tt>null</tt> if the expression
 is an application, and <tt>null</tt> in all other cases.
-Similarly, if the tree is a literal string then the return value 
-from <tt>unStr</tt> will not be <tt>null</tt> with the actual literal. 
+Similarly, if the tree is a literal string then the return value
+from <tt>unStr</tt> will not be <tt>null</tt> with the actual literal.
 For example the output from:
 </span>
 <pre class="java">
@@ -545,15 +556,15 @@ System.out.println(elit.unStr());
 <span class="csharp">
 The result from <tt>UnApp</tt> is not <tt>null</tt> if the expression
 is an application, and <tt>null</tt> in all other cases.
-Similarly, if the tree is a literal string then the return value 
-from <tt>UnStr</tt> will not be <tt>null</tt> with the actual literal. 
+Similarly, if the tree is a literal string then the return value
+from <tt>UnStr</tt> will not be <tt>null</tt> with the actual literal.
 For example the output from:
 </span>
 <pre class="csharp">
 Expr elit = Expr.ReadExpr("\"literal\"");
 Console.WriteLine(elit.UnStr());
 </pre>
-is just the string "literal". 
+is just the string "literal".
 <span class="python">Situations like this can be detected
 in Python by checking the type of the result from <tt>unpack</tt>.
 It is also possible to get an integer or a floating point number
@@ -569,7 +580,7 @@ There are also the methods <tt>UnAbs</tt>, <tt>UnInt</tt>, <tt>UnFloat</tt> and 
 </span>
 </p>
 
-Constructing new trees is also easy. You can either use 
+Constructing new trees is also easy. You can either use
 <tt>readExpr</tt> to read trees from strings, or you can
 construct new trees from existing pieces. This is possible by
 <span class="python">
@@ -612,7 +623,7 @@ Console.WriteLine(e2);
 <p>If the host application needs to do a lot of expression manipulations,
 then it is helpful to use a higher-level API to the grammar,
 also known as "embedded grammars" in GF. The advantage is that
-you can construct and analyze expressions in a more compact way.</p> 
+you can construct and analyze expressions in a more compact way.</p>
 
 <span class="python">
 <p>In Python you first have to <tt>embed</tt> the grammar by calling:
@@ -721,7 +732,7 @@ call the method <tt>default</tt>. The following is an example:
       def on_DetCN(self,quant,cn):
         print("Found DetCN")
         cn.visit(self)
-			
+
       def on_AdjCN(self,adj,cn):
         print("Found AdjCN")
         cn.visit(self)
@@ -1007,7 +1018,7 @@ Traceback (most recent call last):
 pgf.PGFError: The concrete syntax is not loaded
 </pre>
 
-Before using the concrete syntax, you need to explicitly load it: 
+Before using the concrete syntax, you need to explicitly load it:
 <pre class="python">
 >>> eng.load("AppEng.pgf_c")
 >>> print(eng.lookupMorpho("letter"))
@@ -1060,7 +1071,7 @@ Traceback (most recent call last):
 pgf.PGFError: The concrete syntax is not loaded
 </pre>
 
-Before using the concrete syntax, you need to explicitly load it: 
+Before using the concrete syntax, you need to explicitly load it:
 <pre class="java">
 eng.load("AppEng.pgf_c")
 for (MorphoAnalysis an : eng.lookupMorpho("letter")) {
@@ -1289,6 +1300,7 @@ graph {
 }
 </pre>
 
+		</main>
+		</div>
 	</body>
 </html>
-

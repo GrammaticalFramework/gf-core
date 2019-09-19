@@ -371,7 +371,7 @@ browse pgf id = fmap (\def -> (def,producers,consumers)) definition
                                   Just (hyps,_,_) -> Just $ render (text "cat" <+> ppCId id <+> hsep (snd (mapAccumL (ppHypo 4) [] hyps)))
                                   Nothing         -> Nothing
 
-    (producers,consumers) = Map.foldWithKey accum ([],[]) (funs (abstract pgf))
+    (producers,consumers) = Map.foldrWithKey accum ([],[]) (funs (abstract pgf))
       where
         accum f (ty,_,_,_) (plist,clist) = 
           let !plist' = if id `elem` ps then f : plist else plist

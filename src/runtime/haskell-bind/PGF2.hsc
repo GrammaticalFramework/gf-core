@@ -66,7 +66,7 @@ module PGF2 (-- * PGF
              -- ** Generation
              generateAll,
              -- ** Morphological Analysis
-             MorphoAnalysis, lookupMorpho, fullFormLexicon,
+             MorphoAnalysis, lookupMorpho, lookupCohorts, fullFormLexicon,
              -- ** Visualizations
              GraphvizOptions(..), graphvizDefaults,
              graphvizAbstractTree, graphvizParseTree,
@@ -168,8 +168,6 @@ showPGF p =
 languages :: PGF -> Map.Map ConcName Concr
 languages p = langs p
 
--- | The abstract language name is the name of the top-level
--- abstract module
 concreteName :: Concr -> ConcName
 concreteName c = unsafePerformIO (peekUtf8CString =<< pgf_concrete_name (concr c))
 
@@ -893,8 +891,23 @@ newGraphvizOptions pool opts = do
 -- Functions using Concr
 -- Morpho analyses, parsing & linearization
 
-type MorphoAnalysis = (Fun,Cat,Float)
+-- | This triple is returned by all functions that deal with 
+-- the grammar's lexicon. Its first element is the name of an abstract
+-- lexical function which can produce a given word or 
+-- a multiword expression (i.e. this is the lemma).
+-- After that follows a string which describes 
+-- the particular inflection form.
+--
+-- The last element is a logarithm from the
+-- the probability of the function. The probability is not 
+-- conditionalized on the category of the function. This makes it
+-- possible to compare the likelihood of two functions even if they
+-- have different types. 
+type MorphoAnalysis = (Fun,String,Float)
 
+-- | 'lookupMorpho' takes a string which must be a single word or 
+-- a multiword expression. It then computes the list of all possible
+-- morphological analyses.
 lookupMorpho :: Concr -> String -> [MorphoAnalysis]
 lookupMorpho (Concr concr master) sent =
   unsafePerformIO $
@@ -907,6 +920,45 @@ lookupMorpho (Concr concr master) sent =
        pgf_lookup_morpho concr c_sent cback nullPtr
        freeHaskellFunPtr fptr
        readIORef ref
+
+-- | 'lookupCohorts' takes an arbitrary string an produces
+-- a list of all places where lexical items from the grammar have been
+-- identified (i.e. cohorts). The list consists of triples of the format @(start,ans,end)@,
+-- where @start-end@ identifies the span in the text and @ans@ is
+-- the list of possible morphological analyses similar to 'lookupMorpho'.
+--
+-- The list is sorted first by the @start@ position and after than
+-- by the @end@ position. This can be used for instance if you want to
+-- filter only the longest matches.
+lookupCohorts :: Concr -> String -> [(Int,[MorphoAnalysis],Int)]
+lookupCohorts lang@(Concr concr master) sent =
+  unsafePerformIO $
+    do pl <- gu_new_pool
+       ref <- newIORef []
+       cback <- gu_malloc pl (#size PgfMorphoCallback)
+       fptr <- wrapLookupMorphoCallback (getAnalysis ref)
+       (#poke PgfMorphoCallback, callback) cback fptr
+       c_sent <- newUtf8CString sent pl
+       enum <- pgf_lookup_cohorts concr c_sent cback pl nullPtr
+       fpl <- newForeignPtr gu_pool_finalizer pl
+       fromCohortRange enum fpl fptr ref
+  where
+    fromCohortRange enum fpl fptr ref =
+      allocaBytes (#size PgfCohortRange) $ \ptr ->
+      withForeignPtr fpl $ \pl ->
+        do gu_enum_next enum ptr pl
+           buf <- (#peek PgfCohortRange, buf) ptr
+           if buf == nullPtr
+             then do finalizeForeignPtr fpl
+                     freeHaskellFunPtr fptr
+                     touchConcr lang
+                     return []
+             else do start <- (#peek PgfCohortRange, start.pos) ptr
+                     end   <- (#peek PgfCohortRange, end.pos)   ptr
+                     ans   <- readIORef ref
+                     writeIORef ref []
+                     cohs  <- unsafeInterleaveIO (fromCohortRange enum fpl fptr ref)
+                     return ((start,ans,end):cohs)
 
 fullFormLexicon :: Concr -> [(String, [MorphoAnalysis])]
 fullFormLexicon lang =
@@ -1393,11 +1445,13 @@ bracketedLinearize lang e = unsafePerformIO $
 
     end_phrase ref _ c_cat c_fid c_lindex c_fun = do
       (bs':stack,bs) <- readIORef ref
-      cat <- peekUtf8CString c_cat
-      let fid    = fromIntegral c_fid
-      let lindex = fromIntegral c_lindex
-      fun <- peekUtf8CString c_fun
-      writeIORef ref (stack, Bracket cat fid lindex fun (reverse bs) : bs')
+      if null bs
+        then writeIORef ref (stack, bs')
+        else do cat <- peekUtf8CString c_cat
+                let fid    = fromIntegral c_fid
+                let lindex = fromIntegral c_lindex
+                fun <- peekUtf8CString c_fun
+                writeIORef ref (stack, Bracket cat fid lindex fun (reverse bs) : bs')
 
     symbol_ne exn _ = do
       gu_exn_raise exn gu_exn_type_PgfLinNonExist

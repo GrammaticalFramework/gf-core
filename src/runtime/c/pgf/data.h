@@ -344,8 +344,9 @@ struct PgfCCat {
 	PgfCncFuns* linrefs;
 	size_t n_synprods;
 	PgfProductionSeq* prods;
-	float viterbi_prob;
+	prob_t viterbi_prob;
 	int fid;
+	int chunk_count;
 	PgfItemConts* conts;
 	struct PgfAnswers* answers;
 	GuFinalizer fin[0];
