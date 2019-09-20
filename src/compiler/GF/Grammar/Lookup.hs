@@ -23,10 +23,11 @@ module GF.Grammar.Lookup (
            lookupResType, 
            lookupOverload,
            lookupOverloadTypes,
-           lookupParamValues, 
+           lookupParamValues,
            allParamValues,
-           lookupAbsDef, 
-           lookupLincat, 
+           lookupParamValueIndex,
+           lookupAbsDef,
+           lookupLincat,
            lookupFunType,
            lookupCatContext,
            allOpers, allOpersTo
@@ -99,7 +100,7 @@ lookupResType gr (m,c) = do
           return $ mkProd cont val' []
     AnyInd _ n        -> lookupResType gr (n,c)
     ResParam _ _      -> return typePType
-    ResValue _ (L _ t)-> return t
+    ResValue (L _ t) _-> return t
     _   -> raise $ render (c <+> "has no type defined in resource" <+> m)
 
 lookupOverloadTypes :: ErrorMonad m => Grammar -> QIdent -> m [(Term,Type)]
@@ -113,8 +114,8 @@ lookupOverloadTypes gr id@(m,c) = do
     CncFun (Just (cat,cont,val)) _ _ _ -> do
           val' <- lock cat val 
           ret $ mkProd cont val' []
-    ResParam _ _      -> ret typePType
-    ResValue _ (L _ t)  -> ret t
+    ResParam _ _       -> ret typePType
+    ResValue (L _ t) _ -> ret t
     ResOverload os tysts -> do
             tss <- mapM (\x -> lookupOverloadTypes gr (x,c)) os
             return $ [(tr,ty) | (L _ ty,L _ tr) <- tysts] ++
@@ -176,6 +177,13 @@ allParamValues cnc ptyp =
     -- to normalize records and record types
     sortByFst = sortBy (\ x y -> compare (fst x) (fst y))
 
+lookupParamValueIndex :: ErrorMonad m => Grammar -> QIdent -> m Int
+lookupParamValueIndex gr c = do
+  (_,info) <- lookupOrigInfo gr c
+  case info of
+    ResValue _ i -> return i
+    _            -> raise $ render (ppQIdent Qualified c <+> "has no parameter index defined")
+
 lookupAbsDef :: ErrorMonad m => Grammar -> ModuleName -> Ident -> m (Maybe Int,Maybe [Equation])
 lookupAbsDef gr m c = errIn (render ("looking up absdef of" <+> c)) $ do
   info <- lookupQIdentInfo gr (m,c)
@@ -226,7 +234,7 @@ allOpers gr =
     typesIn info = case info of
       AbsFun  (Just ltyp) _ _ _ -> [ltyp]
       ResOper (Just ltyp) _     -> [ltyp]
-      ResValue _ ltyp           -> [ltyp]
+      ResValue ltyp _           -> [ltyp]
       ResOverload _ tytrs       -> [ltyp | (ltyp,_) <- tytrs]
       CncFun  (Just (i,ctx,typ)) _ _ _ ->
                                    [L NoLoc (mkProdSimple ctx (lock' i typ))]

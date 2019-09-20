@@ -22,14 +22,12 @@ import GF.Data.Operations
 import GF.Data.Str
 import GF.Infra.Ident
 import GF.Grammar.Grammar
---import GF.Grammar.Values
 import GF.Grammar.Predef
 import GF.Grammar.Printer
 
 import Control.Monad.Identity(Identity(..))
 import qualified Data.Traversable as T(mapM)
 import Control.Monad (liftM, liftM2, liftM3)
---import Data.Char (isDigit)
 import Data.List (sortBy,nub)
 import Data.Monoid
 import GF.Text.Pretty(render,(<+>),hsep,fsep)
@@ -48,7 +46,7 @@ typeForm t =
     Q  c -> ([],c,[])
     QC c -> ([],c,[])
     Sort c -> ([],(MN identW, c),[])
-    _      -> error (render ("no normal form of type" <+> ppTerm Unqualified 0 t))
+    _      -> error (render ("no normal form of type" <+> show t))
 
 typeFormCnc :: Type -> (Context, Type)
 typeFormCnc t = 
@@ -615,13 +613,15 @@ allDependencies ism b =
     opersIn t = case t of
       Q  (n,c) | ism n -> [c]
       QC (n,c) | ism n -> [c]
+      Cn c             -> [c]
       _ -> collectOp opersIn t
     opty (Just (L _ ty)) = opersIn ty
     opty _ = []
     pts i = case i of
       ResOper pty pt -> [pty,pt]
       ResOverload _ tyts -> concat [[Just ty, Just tr] | (ty,tr) <- tyts]
-      ResParam (Just (L loc ps)) _ -> [Just (L loc t) | (_,cont) <- ps, (_,_,t) <- cont]
+      ResParam (Just (L loc ps)) _ -> [Just (L loc t) | (_,cont,_) <- ps, (_,_,t) <- cont]
+      ResValue pty _ -> [Just pty]
       CncCat pty _ _ _ _ -> [pty]
       CncFun _   pt _ _ -> [pt]  ---- (Maybe (Ident,(Context,Type))
       AbsFun pty _ ptr _ -> [pty] --- ptr is def, which can be mutual

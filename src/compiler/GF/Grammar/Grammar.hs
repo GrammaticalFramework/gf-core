@@ -330,7 +330,7 @@ data Info =
 
 -- judgements in resource
  | ResParam (Maybe (L [Param])) (Maybe [Term])   -- ^ (/RES/) the second parameter is list of all possible values
- | ResValue Int (L Type)                         -- ^ (/RES/) to mark parameter constructors for lookup
+ | ResValue (L Type) Int                         -- ^ (/RES/) to mark parameter constructors for lookup
  | ResOper  (Maybe (L Type)) (Maybe (L Term))    -- ^ (/RES/)
 
  | ResOverload [ModuleName] [(L Type,L Term)]         -- ^ (/RES/) idents: modules inherited
@@ -459,7 +459,7 @@ type Case = (Patt, Term)
 --type Cases = ([Patt], Term) 
 type LocalDef = (Ident, (Maybe Type, Term))
 
-type Param = (Ident, Context) 
+type Param = (Ident, Context, Int) 
 type Altern = (Term, [(Term, Term)])
 
 type Substitution =  [(Ident, Term)]

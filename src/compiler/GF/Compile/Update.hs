@@ -174,7 +174,7 @@ globalizeLoc fpath i =
     AbsCat mc             -> AbsCat (fmap gl mc)
     AbsFun mt ma md moper -> AbsFun (fmap gl mt) ma (fmap (fmap gl) md) moper
     ResParam mt mv        -> ResParam (fmap gl mt) mv
-    ResValue offset t    -> ResValue offset (gl t)
+    ResValue t offset     -> ResValue (gl t) offset
     ResOper mt m          -> ResOper (fmap gl mt) (fmap gl m)
     ResOverload ms os     -> ResOverload ms (map (\(x,y) -> (gl x,gl y)) os)
     CncCat mc md mr mp mpmcfg-> CncCat (fmap gl mc) (fmap gl md) (fmap gl mr) (fmap gl mp) mpmcfg
@@ -196,9 +196,9 @@ unifyAnyInfo m i j = case (i,j) of
 
   (ResParam mt1 mv1, ResParam mt2 mv2) ->
     liftM2 ResParam (unifyMaybeL mt1 mt2) (unifyMaybe mv1 mv2)
-  (ResValue offset1 (L l1 t1), ResValue offset2 (L l2 t2)) 
-      | offset1 == offset2 && t1==t2 -> return (ResValue offset1 (L l1 t1))
-      | otherwise                    -> fail ""
+  (ResValue (L l1 t1) i1, ResValue (L l2 t2) i2) 
+      | t1==t2 && i1 == i2 -> return (ResValue (L l1 t1) i1)
+      | otherwise          -> fail ""
   (_, ResOverload ms t) | elem m ms ->
     return $ ResOverload ms t
   (ResOper mt1 m1, ResOper mt2 m2) -> 

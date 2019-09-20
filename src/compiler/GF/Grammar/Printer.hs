@@ -106,8 +106,8 @@ ppJudgement q (id, ResParam pparams _) =
   (case pparams of
      Just (L _ ps) -> '=' <+> ppParams q ps
      _             -> empty) <+> ';'
-ppJudgement q (id, ResValue _ pvalue) = 
-  "-- param constructor" <+> id <+> ':' <+> 
+ppJudgement q (id, ResValue pvalue i) = 
+  "-- param constructor" <+> "[index" <+> i <> "]" <+> id <+> ':' <+> 
   (case pvalue of
      (L _ ty) -> ppTerm q 0 ty) <+> ';'
 ppJudgement q (id, ResOper  ptype pexp) =
@@ -322,7 +322,7 @@ ppBind (Implicit,v) = braces v
 ppAltern q (x,y) = ppTerm q 0 x <+> '/' <+> ppTerm q 0 y
 
 ppParams q ps = fsep (intersperse (pp '|') (map (ppParam q) ps))
-ppParam q (id,cxt) = id <+> hsep (map (ppDDecl q) cxt)
+ppParam q (id,cxt,_) = id <+> hsep (map (ppDDecl q) cxt)
 
 ppProduction (Production fid funid args) =
   ppFId fid <+> "->" <+> ppFunId funid <> 

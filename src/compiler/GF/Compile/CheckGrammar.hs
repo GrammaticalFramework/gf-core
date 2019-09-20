@@ -33,14 +33,13 @@ import qualified GF.Compile.Compute.ConcreteNew as CN
 import GF.Grammar
 import GF.Grammar.Lexer
 import GF.Grammar.Lookup
---import GF.Grammar.Predef
---import GF.Grammar.PatternMatch
 
 import GF.Data.Operations
 import GF.Infra.CheckM
 
 import Data.List
 import qualified Data.Set as Set
+import qualified Data.Map as Map
 import Control.Monad
 import GF.Text.Pretty
 
@@ -260,18 +259,30 @@ checkInfo opts cwd sgr (m,mo) c info = checkInModule cwd mo NoLoc empty $ do
       return (ResOverload os [(y,x) | (x,y) <- tysts'])
 
     ResParam (Just (L loc pcs)) _ -> do
-      ts <- chIn loc "parameter type" $ 
-              liftM concat $ mapM mkPar pcs
-      return (ResParam (Just (L loc pcs)) (Just ts))
+      (vs,pcs) <- chIn loc "parameter type" $
+                    mkParams 0 [] pcs
+      return (ResParam (Just (L loc pcs)) (Just vs))
+
+    ResValue (L loc ty) _ -> 
+      chIn loc "operation" $ do
+        let (_,Cn x) = typeFormCnc ty
+            is = case Map.lookup x (jments mo) of
+                   Just (ResParam (Just (L _ pcs)) _) -> [i | (f,_,i) <- pcs, f == c]
+                   _                                  -> []
+        case is of
+          [i] -> return (ResValue (L loc ty) i)
+          _   -> checkError (pp "Failed to find the value index for parameter" <+> pp c)
 
     _ ->  return info
  where
    gr = prependModule sgr (m,mo)
    chIn loc cat = checkInModule cwd mo loc ("Happened in" <+> cat <+> c)
 
-   mkPar (f,co) = do
-       vs <- liftM combinations $ mapM (\(_,_,ty) -> allParamValues gr ty) co
-       return $ map (mkApp (QC (m,f))) vs
+   mkParams i vs []             = return (vs,[])
+   mkParams i vs ((f,co,_):pcs) = do
+     vs0 <- liftM combinations $ mapM (\(_,_,ty) -> allParamValues gr ty) co
+     (vs,pcs) <- mkParams (i + length vs0) (vs ++ map (mkApp (QC (m,f))) vs0) pcs
+     return (vs,(f,co,i):pcs)
 
    checkUniq xss = case xss of
      x:y:xs 

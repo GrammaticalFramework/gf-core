@@ -353,9 +353,9 @@ paramType gr q@(_,n) =
             [ParamAliasDef ((gQId m n)) (convType t)])
       _ -> ((S.empty,S.empty),[])
   where
-    param m (n,ctx) = Param ((gQId m n)) [toParamId t|(_,_,t)<-ctx]
+    param m (n,ctx,_) = Param ((gQId m n)) [toParamId t|(_,_,t)<-ctx]
     argTypes = S.unions . map argTypes1
-    argTypes1 (n,ctx) = S.unions [paramTypes gr t|(_,_,t)<-ctx]
+    argTypes1 (n,ctx,_) = S.unions [paramTypes gr t|(_,_,t)<-ctx]
 
 lblId = LabelId . render -- hmm
 modId (MN m) = ModId (showIdent m)

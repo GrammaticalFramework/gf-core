@@ -156,9 +156,9 @@ renameInfo cwd status (m,mi) i info =
     ResParam (Just pp) m -> do
       pp' <- renLoc (mapM (renParam status)) pp
       return (ResParam (Just pp') m)
-    ResValue offset ty -> do
+    ResValue ty offset -> do
       t <- renLoc (renameTerm status []) ty
-      return (ResValue offset ty)
+      return (ResValue ty offset)
     CncCat mcat mdef mref mpr mpmcfg -> liftM5 CncCat (renTerm mcat) (renTerm mdef) (renTerm mref) (renTerm mpr) (return mpmcfg)
     CncFun mty mtr mpr mpmcfg -> liftM3 (CncFun mty)         (renTerm mtr) (renTerm mpr) (return mpmcfg)
     _ -> return info
@@ -186,9 +186,9 @@ renameInfo cwd status (m,mi) i info =
         return (ps',t')
 
     renParam :: Status -> Param -> Check Param
-    renParam env (c,co) = do
+    renParam env (c,co,i) = do
       co' <- renameContext env co
-      return (c,co')
+      return (c,co',i)
 
 renameTerm :: Status -> [Ident] -> Term -> Check Term
 renameTerm env vars = ren vars where
