@@ -57,9 +57,10 @@ grammar2PGF opts gr am probs = do
         cats = [(c', snd (mkContext [] cont), toLogProb (fromMaybe 0 (Map.lookup c' probs))) |
                                    ((m,c),AbsCat (Just (L _ cont))) <- adefs, let c' = i2i c]
 
-        funs = [(f', mkType [] ty, arity, toLogProb (fromMaybe 0 (Map.lookup f' funs_probs))) |
+        funs = [(f', mkType [] ty, arity, bcode, toLogProb (fromMaybe 0 (Map.lookup f' funs_probs))) |
                                    ((m,f),AbsFun (Just (L _ ty)) ma mdef _) <- adefs,
                                    let arity = mkArity ma mdef ty,
+                                   let bcode = mkDef gr arity mdef,
                                    let f' = i2i f]
                                    
         funs_probs = (Map.fromList . concat . Map.elems . fmap pad . Map.fromListWith (++))
@@ -173,12 +174,10 @@ mkContext scope hyps = mapAccumL (\scope (bt,x,ty) -> let ty' = mkType scope ty
                                                       in if x == identW
                                                            then (  scope,hypo bt (i2i x) ty')
                                                            else (x:scope,hypo bt (i2i x) ty')) scope hyps 
-{-
-mkDef gr arity (Just eqs) = Just ([C.Equ ps' (mkExp scope' e) | L _ (ps,e) <- eqs, let (scope',ps') = mapAccumL mkPatt [] ps]
-                                 ,generateByteCode gr arity eqs
-                                 )
-mkDef gr arity Nothing    = Nothing
--}
+
+mkDef gr arity (Just eqs) = generateByteCode gr arity eqs
+mkDef gr arity Nothing    = []
+
 mkArity (Just a) _        ty = a   -- known arity, i.e. defined function
 mkArity Nothing  (Just _) ty = 0   -- defined function with no arity - must be an axiom
 mkArity Nothing  _        ty = let (ctxt, _, _) = GM.typeForm ty  -- constructor

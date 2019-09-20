@@ -1,4 +1,4 @@
-module PGF (PGF, readPGF, showPGF,
+module PGF (PGF2.PGF, readPGF, showPGF,
             abstractName,
 
             CId, mkCId, wildCId, showCId, readCId,
@@ -22,7 +22,7 @@ module PGF (PGF, readPGF, showPGF,
             PGF2.Type, PGF2.Hypo, showType, showContext, PGF2.readType,
             mkType, unType,
 
-            Token,
+            PGF2.Token, PGF2.FId,
 
             Language, readLanguage, showLanguage,
             languages, startCat, languageCode,
@@ -51,13 +51,22 @@ module PGF (PGF, readPGF, showPGF,
             groupResults, conlls2latexDoc, gizaAlignment
            ) where
 
-import PGF.Internal
-import qualified PGF2
+import qualified PGF2 as PGF2
+import qualified PGF2.Internal as PGF2
 import qualified Data.Map as Map
 import qualified Text.ParserCombinators.ReadP as RP
 import Data.List(sortBy)
 import Text.PrettyPrint(text)
 import Data.Char(isDigit)
+
+newtype CId = CId String deriving (Show,Read,Eq,Ord)
+
+type Language = CId
+
+lookConcr gr (CId lang) =
+  case Map.lookup lang (PGF2.languages gr) of
+    Just cnc -> cnc
+    Nothing  -> error "Unknown language"
 
 readPGF = PGF2.readPGF
 
@@ -129,7 +138,7 @@ type TcError = String
 -- | This data type encodes the different outcomes which you could get from the parser.
 data ParseOutput
   = ParseFailed Int                -- ^ The integer is the position in number of tokens where the parser failed.
-  | TypeError   [(FId,TcError)]    -- ^ The parsing was successful but none of the trees is type correct. 
+  | TypeError   [(PGF2.FId,TcError)]    -- ^ The parsing was successful but none of the trees is type correct. 
                                    -- The forest id ('FId') points to the bracketed string from the parser
                                    -- where the type checking failed. More than one error is returned
                                    -- if there are many analizes for some phrase but they all are not type correct.
@@ -189,7 +198,7 @@ exprFunctions e = [CId f | f <- PGF2.exprFunctions e]
 compute = error "compute is not implemented"
 
 -- | rank from highest to lowest probability
-rankTreesByProbs :: PGF -> [PGF2.Expr] -> [(PGF2.Expr,Double)]
+rankTreesByProbs :: PGF2.PGF -> [PGF2.Expr] -> [(PGF2.Expr,Double)]
 rankTreesByProbs pgf ts = sortBy (\ (_,p) (_,q) -> compare q p) 
   [(t, realToFrac (PGF2.treeProbability pgf t)) | t <- ts]
 
@@ -212,7 +221,7 @@ graphvizDependencyTree format debug lbls cnclbls pgf lang e =
   in PGF2.graphvizDependencyTree format debug (fmap to_lbls' lbls) cnclbls (lookConcr pgf lang) e
 graphvizParseTreeDep = error "graphvizParseTreeDep is not implemented"
 
-browse :: PGF -> CId -> Maybe (String,[CId],[CId])
+browse :: PGF2.PGF -> CId -> Maybe (String,[CId],[CId])
 browse = error "browse is not implemented"
 
 -- | A type for plain applicative trees
