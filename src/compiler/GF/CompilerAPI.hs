@@ -16,8 +16,6 @@ import GF.Compile.ReadFiles
 import GF.Compile.Update
 import GF.Compile.Refresh
 
-import GF.Compile.Coding
-
 import GF.Grammar.Grammar
 import GF.Grammar.Lookup
 import GF.Grammar.Printer
