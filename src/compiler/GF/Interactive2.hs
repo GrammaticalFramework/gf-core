@@ -17,9 +17,6 @@ import GF.Infra.UseIO(ioErrorText,putStrLnE)
 import GF.Infra.SIO
 import GF.Infra.Option
 import qualified System.Console.Haskeline as Haskeline
---import GF.Text.Coding(decodeUnicode,encodeUnicode)
-
---import GF.Compile.Coding(codeTerm)
 
 import qualified PGF2 as C
 import qualified PGF as H

@@ -1,10 +1,10 @@
 {-# LANGUAGE CPP, ScopedTypeVariables, FlexibleInstances #-}
 -- | GF interactive mode
 module GF.Interactive (mainGFI,mainRunGFI,mainServerGFI) where
+
 import Prelude hiding (putStrLn,print)
 import qualified Prelude as P(putStrLn)
 import GF.Command.Interpreter(CommandEnv(..),mkCommandEnv,interpretCommandLine)
---import GF.Command.Importing(importSource,importGrammar)
 import GF.Command.Commands(PGFEnv,HasPGFEnv(..),pgf,pgfEnv,pgfCommands)
 import GF.Command.CommonCommands(commonCommands,extend)
 import GF.Command.SourceCommands
@@ -19,9 +19,6 @@ import GF.Infra.UseIO(ioErrorText,putStrLnE)
 import GF.Infra.SIO
 import GF.Infra.Option
 import qualified System.Console.Haskeline as Haskeline
---import GF.Text.Coding(decodeUnicode,encodeUnicode)
-
---import GF.Compile.Coding(codeTerm)
 
 import PGF
 import PGF.Internal(abstract,funs,lookStartCat,emptyPGF)
