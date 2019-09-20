@@ -21,22 +21,15 @@ import GF.Grammar.Printer
 import GF.Grammar.Macros
 import GF.Grammar.Lookup
 import GF.Grammar.Predef
---import GF.Compile.Refresh
---import GF.Compile.Compute.Concrete
 import GF.Compile.Compute.ConcreteNew(GlobalEnv,normalForm,resourceValues)
---import GF.Compile.CheckGrammar
---import GF.Compile.Update
-
 import GF.Data.Operations
---import GF.Infra.CheckM
 import GF.Infra.Option
 
 import Control.Monad
---import Data.List
 import qualified Data.Set as Set
+import qualified Data.Map as Map
 import GF.Text.Pretty
 import Debug.Trace
-
 
 -- | partial evaluation of concrete syntax. AR 6\/2001 -- 16\/5\/2003 -- 5\/2\/2005.
 
@@ -54,7 +47,7 @@ optimizeModule opts sgr m@(name,mi)
 
    updateEvalInfo mi (i,info) = do
      info <- evalInfo oopts resenv sgr (name,mi) i info
-     return (mi{jments=updateTree (i,info) (jments mi)})
+     return (mi{jments=Map.insert i info (jments mi)})
 
 evalInfo :: Options -> GlobalEnv -> SourceGrammar -> SourceModule -> Ident -> Info -> Err Info
 evalInfo opts resenv sgr m c info = do

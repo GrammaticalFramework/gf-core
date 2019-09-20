@@ -27,19 +27,20 @@ module GF.Compile.Rename (
 	       renameModule
 	      ) where
 
+import GF.Infra.Ident
+import GF.Infra.CheckM
 import GF.Grammar.Grammar
 import GF.Grammar.Values
 import GF.Grammar.Predef
-import GF.Infra.Ident
-import GF.Infra.CheckM
+import GF.Grammar.Lookup
 import GF.Grammar.Macros
 import GF.Grammar.Printer
---import GF.Grammar.Lookup
---import GF.Grammar.Printer
 import GF.Data.Operations
 
 import Control.Monad
 import Data.List (nub,(\\))
+import qualified Data.Map as Map
+import Data.Maybe(mapMaybe)
 import GF.Text.Pretty
 
 -- | this gives top-level access to renaming term input in the cc command
@@ -55,9 +56,9 @@ renameModule cwd gr mo@(m,mi) = do
   js     <- checkMapRecover (renameInfo cwd status mo) (jments mi)
   return (m, mi{jments = js})
 
-type Status = (StatusTree, [(OpenSpec, StatusTree)])
+type Status = (StatusMap, [(OpenSpec, StatusMap)])
 
-type StatusTree = BinTree Ident StatusInfo
+type StatusMap = Map.Map Ident StatusInfo
 
 type StatusInfo = Ident -> Term
 
@@ -73,12 +74,12 @@ renameIdentTerm' env@(act,imps) t0 =
     Q (m',c) | m' == cPredef {- && isInPredefined c -} -> return t0
     Q (m',c) -> do
       m <- lookupErr m' qualifs
-      f <- lookupTree showIdent c m
+      f <- lookupIdent c m
       return $ f c
     QC (m',c) | m' == cPredef {- && isInPredefined c -} -> return t0
     QC (m',c) -> do
       m <- lookupErr m' qualifs
-      f <- lookupTree showIdent c m
+      f <- lookupIdent c m
       return $ f c
     _ -> return t0
   where
@@ -93,30 +94,21 @@ renameIdentTerm' env@(act,imps) t0 =
       | otherwise     = checkError s
 
     ident alt c = 
-      case lookupTree showIdent c act of
-        Ok f -> return (f c)
-        _    -> case lookupTreeManyAll showIdent opens c of
-                  [f]  -> return (f c)
-                  []   -> alt c ("constant not found:" <+> c $$
-                                 "given" <+> fsep (punctuate ',' (map fst qualifs)))
-                  fs   -> case nub [f c | f <- fs]  of
-                            [tr]     -> return tr
-{-
-                            ts       -> return $ AdHocOverload ts  
-                                        -- name conflicts resolved as overloading in TypeCheck.RConcrete AR 31/1/2014
-                                        -- the old definition is below and still presupposed in TypeCheck.Concrete
--}
-                            ts@(t:_) -> do checkWarn ("atomic term" <+> ppTerm Qualified 0 t0 $$
-                                                      "conflict" <+> hsep (punctuate ',' (map (ppTerm Qualified 0) ts)) $$
-                                                      "given" <+> fsep (punctuate ',' (map fst qualifs)))
-                                           return t
+      case Map.lookup c act of
+        Just f -> return (f c)
+        _      -> case mapMaybe (Map.lookup c) opens of
+                    [f]  -> return (f c)
+                    []   -> alt c ("constant not found:" <+> c $$
+                                   "given" <+> fsep (punctuate ',' (map fst qualifs)))
+                    fs   -> case nub [f c | f <- fs]  of
+                              [tr]     -> return tr
+                              ts@(t:_) -> do checkWarn ("atomic term" <+> ppTerm Qualified 0 t0 $$
+                                                        "conflict" <+> hsep (punctuate ',' (map (ppTerm Qualified 0) ts)) $$
+                                                        "given" <+> fsep (punctuate ',' (map fst qualifs)))
+                                             return t
 
-            -- a warning will be generated in CheckGrammar, and the head returned
-            -- in next V: 
-            -- Bad $ "conflicting imports:" +++ unwords (map prt ts) 
-
-info2status :: Maybe ModuleName -> (Ident,Info) -> StatusInfo
-info2status mq (c,i) = case i of
+info2status :: Maybe ModuleName -> Ident -> Info -> StatusInfo
+info2status mq c i = case i of
   AbsFun _ _ Nothing _ -> maybe Con (curry QC) mq
   ResValue _  -> maybe Con (curry QC) mq
   ResParam _ _  -> maybe Con (curry QC) mq
@@ -124,10 +116,10 @@ info2status mq (c,i) = case i of
   AnyInd False m -> maybe Cn (const (curry Q m)) mq
   _           -> maybe Cn (curry Q) mq
 
-tree2status :: OpenSpec -> BinTree Ident Info -> BinTree Ident StatusInfo
+tree2status :: OpenSpec -> Map.Map Ident Info -> StatusMap
 tree2status o = case o of
-  OSimple i   -> mapTree (info2status (Just i))
-  OQualif i j -> mapTree (info2status (Just j))
+  OSimple i   -> Map.mapWithKey (info2status (Just i))
+  OQualif i j -> Map.mapWithKey (info2status (Just j))
 
 buildStatus :: FilePath -> Grammar -> Module -> Check Status
 buildStatus cwd gr mo@(m,mi) = checkInModule cwd mi NoLoc empty $ do
@@ -136,14 +128,14 @@ buildStatus cwd gr mo@(m,mi) = checkInModule cwd mi NoLoc empty $ do
   ops <- mapM (\o -> lookupModule gr1 (openedModule o) >>= \mi -> return (o,mi)) (mopens mi)
   let sts = map modInfo2status (exts++ops)
   return (if isModCnc mi
-            then (emptyBinTree,    reverse sts)  -- the module itself does not define any names
+            then (Map.empty,       reverse sts)  -- the module itself does not define any names
             else (self2status m mi,reverse sts)) -- so the empty ident is not needed
 
-modInfo2status :: (OpenSpec,ModuleInfo) -> (OpenSpec, StatusTree)
+modInfo2status :: (OpenSpec,ModuleInfo) -> (OpenSpec, StatusMap)
 modInfo2status (o,mo) = (o,tree2status o (jments mo))
 
-self2status :: ModuleName -> ModuleInfo -> StatusTree
-self2status c m = mapTree (info2status (Just c)) (jments m)
+self2status :: ModuleName -> ModuleInfo -> StatusMap
+self2status c m = Map.mapWithKey (info2status (Just c)) (jments m)
 
   
 renameInfo :: FilePath -> Status -> Module -> Ident -> Info -> Check Info

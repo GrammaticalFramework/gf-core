@@ -24,6 +24,7 @@ import GF.Grammar.Lexer
 import GF.Compile.Update (buildAnyTree)
 import Data.List(intersperse)
 import Data.Char(isAlphaNum)
+import qualified Data.Map as Map
 import PGF(mkCId)
 
 }
@@ -139,7 +140,7 @@ ModHeader
   : ComplMod ModType '=' ModHeaderBody { let { mstat = $1 ;
                                                (mtype,id) = $2 ;
                                                (extends,with,opens) = $4 }
-                                         in (id, ModInfo mtype mstat noOptions extends with opens [] "" Nothing emptyBinTree) }
+                                         in (id, ModInfo mtype mstat noOptions extends with opens [] "" Nothing Map.empty) }
 
 ComplMod :: { ModuleStatus }
 ComplMod 
