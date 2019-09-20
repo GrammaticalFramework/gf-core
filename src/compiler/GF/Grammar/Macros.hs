@@ -554,15 +554,11 @@ strsFromTerm t = case t of
     return [strTok (str2strings def) vars | 
               def  <- d0,
               vars <- [[(str2strings v, map sstr c) | (v,c) <- zip vv c0] | 
-                                                          vv <- combinations v0]
+                                                          vv <- sequence v0]
            ]
   FV ts -> mapM strsFromTerm ts >>= return . concat
   Strs ts -> mapM strsFromTerm ts >>= return . concat  
   _ -> raise (render ("cannot get Str from term" <+> ppTerm Unqualified 0 t))
-
--- | to print an Str-denoting term as a string; if the term is of wrong type, the error msg
-stringFromTerm :: Term -> String
-stringFromTerm = err id (ifNull "" (sstr . head)) . strsFromTerm
 
 getTableType :: TInfo -> Err Type
 getTableType i = case i of

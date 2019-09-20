@@ -26,8 +26,8 @@ module GF.Data.Operations (
 		   -- ** Checking
 		   checkUnique, unifyMaybeBy, unifyMaybe,
 
-                   -- ** Monadic operations on lists and pairs
-		   mapPairListM, mapPairsM, pairM,
+           -- ** Monadic operations on lists and pairs
+		   mapPairsM, pairM,
  
 		   -- ** Printing
 		   indent, (+++), (++-), (++++), (+++-), (+++++),
@@ -39,8 +39,7 @@ module GF.Data.Operations (
 		   topoTest, topoTest2,
 
 		   -- ** Misc
-		   ifNull,
-		   combinations, done, readIntArg, --singleton,
+		   readIntArg,
 		   iterFix,  chunks,
                 
 		  ) where
@@ -60,9 +59,6 @@ infixr 5 ++-
 infixr 5 ++++
 infixr 5 +++++
 
-ifNull :: b -> ([a] -> b) -> [a] -> b
-ifNull b f xs = if null xs then b else f xs
-
 -- the Error monad
 
 -- | Add msg s to 'Maybe' failures
@@ -70,16 +66,13 @@ maybeErr :: ErrorMonad m => String -> Maybe a -> m a
 maybeErr s = maybe (raise s) return
 
 testErr :: ErrorMonad m => Bool -> String -> m ()
-testErr cond msg = if cond then done else raise msg
+testErr cond msg = if cond then return () else raise msg
 
 errIn :: ErrorMonad m => String -> m a -> m a
 errIn msg m = handle m (\s -> raise (s ++++ "OCCURRED IN" ++++ msg))
 
 lookupErr :: (ErrorMonad m,Eq a,Show a) => a -> [(a,b)] -> m b
 lookupErr a abs = maybeErr ("Unknown" +++ show a) (lookup a abs)
-
-mapPairListM :: Monad m => ((a,b) -> m c) -> [(a,b)] -> m [(a,c)]
-mapPairListM f xys = mapM (\ p@(x,_) -> liftM ((,) x) (f p)) xys
 
 mapPairsM :: Monad m => (b -> m c) -> [(a,b)] -> m [(a,c)]
 mapPairsM f xys = mapM (\ (x,y) -> liftM ((,) x) (f y)) xys
@@ -193,21 +186,6 @@ wrapLines n s@(c:cs) =
                      l = length w
             _ -> s -- give up!!
 
---- optWrapLines = if argFlag "wraplines" True then wrapLines 0 else id
-
--- | 'combinations' is the same as 'sequence'!!!
--- peb 30\/5-04
-combinations :: [[a]] -> [[a]]
-combinations t = case t of 
-  []    -> [[]]
-  aa:uu -> [a:u | a <- aa, u <- combinations uu]
-
-{-
--- | 'singleton' is the same as 'return'!!!
-singleton :: a -> [a]
-singleton = (:[])
--}
-
 -- | Topological sorting with test of cyclicity
 topoTest :: Ord a => [(a,[a])] -> Either [a] [[a]]
 topoTest = topologicalSort . mkRel'
@@ -246,10 +224,6 @@ chunks sep ws = case span (/= sep) ws of
 
 readIntArg :: String -> Int
 readIntArg n = if (not (null n) && all isDigit n) then read n else 0
-
--- | @return ()@
-done :: Monad m => m ()
-done = return ()
 
 class (Functor m,Monad m) => ErrorMonad m where
   raise   :: String -> m a

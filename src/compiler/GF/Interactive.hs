@@ -12,7 +12,7 @@ import GF.Command.CommandInfo
 import GF.Command.Help(helpCommand)
 import GF.Command.Abstract
 import GF.Command.Parse(readCommandLine,pCommand)
-import GF.Data.Operations (Err(..),done)
+import GF.Data.Operations (Err(..))
 import GF.Data.Utilities(whenM,repeatM)
 import GF.Grammar hiding (Ident,isPrefixOf)
 import GF.Infra.UseIO(ioErrorText,putStrLnE)
@@ -159,7 +159,7 @@ execute1' s0 =
       do execute . lines =<< lift (restricted (readFile w))
          continue
       where
-        execute [] = done
+        execute []           = return ()
         execute (line:lines) = whenM (execute1' line) (execute lines)
 
     execute_history _   =
@@ -285,8 +285,8 @@ importInEnv opts files =
          if (verbAtLeast opts Normal)
            then case pgf1 of
                   Just pgf -> putStrLnFlush $ unwords $ "\nLanguages:" : Map.keys (languages pgf)
-                  Nothing  -> done
-           else done
+                  Nothing  -> return ()
+           else return ()
          return pgf1
 
 tryGetLine = do

@@ -122,7 +122,6 @@ executable gf
     GF.Command.TreeOperations
     GF.Compile.CFGtoPGF
     GF.Compile.CheckGrammar
-    GF.Compile.Compute.AppPredefined
     GF.Compile.Compute.ConcreteNew
     GF.Compile.Compute.Predef
     GF.Compile.Compute.Value

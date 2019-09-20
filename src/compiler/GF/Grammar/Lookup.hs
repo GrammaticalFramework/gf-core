@@ -166,11 +166,11 @@ allParamValues cnc ptyp =
     RecType r -> do
        let (ls,tys) = unzip $ sortByFst r
        tss <- mapM (allParamValues cnc) tys
-       return [R (zipAssign ls ts) | ts <- combinations tss]
+       return [R (zipAssign ls ts) | ts <- sequence tss]
     Table pt vt -> do
        pvs <- allParamValues cnc pt
        vvs <- allParamValues cnc vt
-       return [V pt ts | ts <- combinations (replicate (length pvs) vvs)]
+       return [V pt ts | ts <- sequence (replicate (length pvs) vvs)]
     _ -> raise (render ("cannot find parameter values for" <+> ptyp))
   where
     -- to normalize records and record types

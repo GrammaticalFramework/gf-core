@@ -14,7 +14,7 @@ import GF.Grammar.Lockfield(isLockLabel,lockRecType) --unlockRecord,lockLabel
 import GF.Compile.Compute.Value hiding (Error)
 import GF.Compile.Compute.Predef(predef,predefName,delta)
 import GF.Data.Str(Str,glueStr,str2strings,str,sstr,plusStr,strTok)
-import GF.Data.Operations(Err,err,errIn,maybeErr,combinations,mapPairsM)
+import GF.Data.Operations(Err,err,errIn,maybeErr,mapPairsM)
 import GF.Data.Utilities(mapFst,mapSnd)
 import GF.Infra.Option
 import Control.Monad(ap,liftM,liftM2) -- ,unless,mplus
@@ -317,7 +317,7 @@ strsFromValue t = case t of
     return [strTok (str2strings def) vars | 
               def  <- d0,
               vars <- [[(str2strings v, map sstr c) | (v,c) <- zip vv c0] | 
-                                                          vv <- combinations v0]
+                                                          vv <- sequence v0]
            ]
   VFV ts -> concat # mapM strsFromValue ts
   VStrs ts -> concat # mapM strsFromValue ts

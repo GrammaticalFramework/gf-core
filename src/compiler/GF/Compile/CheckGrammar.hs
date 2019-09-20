@@ -269,7 +269,7 @@ checkInfo opts cwd sgr (m,mo) c info = checkInModule cwd mo NoLoc empty $ do
    chIn loc cat = checkInModule cwd mo loc ("Happened in" <+> cat <+> c)
 
    mkPar (f,co) = do
-       vs <- liftM combinations $ mapM (\(_,_,ty) -> allParamValues gr ty) co
+       vs <- liftM sequence $ mapM (\(_,_,ty) -> allParamValues gr ty) co
        return $ map (mkApp (QC (m,f))) vs
 
    checkUniq xss = case xss of
