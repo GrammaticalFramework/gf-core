@@ -519,12 +519,12 @@ data AbstrInfo = AbstrInfo (Ptr GuSeq) (Ptr GuSeq) (Map.Map String (Ptr PgfAbsCa
 
 newAbstr :: (?builder :: Builder s) => [(String,Literal)] ->
                                        [(Cat,[B s Hypo],Float)] ->
-                                       [(Fun,B s Type,Int,Float)] ->
+                                       [(Fun,B s Type,Int,[[Instr]],Float)] ->
                                        B s AbstrInfo
 newAbstr aflags cats funs = unsafePerformIO $ do
   c_aflags <- newFlags aflags pool
   (c_cats,abscats) <- newAbsCats (sortByFst3 cats) pool
-  (c_funs,absfuns) <- newAbsFuns (sortByFst4 funs) pool
+  (c_funs,absfuns) <- newAbsFuns (sortByFst5 funs) pool
   c_abs_lin_fun <- newAbsLinFun
   c_non_lexical_buf <- gu_make_buf (#size PgfProductionIdxEntry) pool
   return (B (AbstrInfo c_aflags c_cats abscats c_funs absfuns c_abs_lin_fun c_non_lexical_buf touch))
@@ -559,7 +559,7 @@ newAbstr aflags cats funs = unsafePerformIO $ do
           absfuns <- pokeAbsFun ptr absfuns x
           pokeElems (ptr `plusPtr` (#size PgfAbsFun)) absfuns xs
 
-    pokeAbsFun ptr absfuns (name,B (Type c_ty _),arity,prob) = do
+    pokeAbsFun ptr absfuns (name,B (Type c_ty _),arity,_,prob) = do
       pfun <- gu_alloc_variant (#const PGF_EXPR_FUN)
                                (fromIntegral ((#size PgfExprFun)+utf8Length name))
                                (#const gu_flex_alignof(PgfExprFun))
@@ -1037,6 +1037,6 @@ writeConcr fpath c = do
     else do gu_pool_free pool
             return ()
 
-sortByFst  = sortBy (\(x,_)     (y,_)     -> compare x y)
-sortByFst3 = sortBy (\(x,_,_)   (y,_,_)   -> compare x y)
-sortByFst4 = sortBy (\(x,_,_,_) (y,_,_,_) -> compare x y)
+sortByFst  = sortBy (\(x,_)       (y,_)       -> compare x y)
+sortByFst3 = sortBy (\(x,_,_)     (y,_,_)     -> compare x y)
+sortByFst5 = sortBy (\(x,_,_,_,_) (y,_,_,_,_) -> compare x y)

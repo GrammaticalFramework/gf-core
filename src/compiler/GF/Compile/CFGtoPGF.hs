@@ -35,7 +35,7 @@ cf2abstr cfg probs = newAbstr aflags acats afuns
     aflags = [("startcat", LStr (fst (cfgStartCat cfg)))]
 
     acats  = [(c', [], toLogProb (fromMaybe 0 (Map.lookup c' probs))) | cat <- allCats' cfg, let c' = cat2id cat]
-    afuns  = [(f', dTyp [hypo Explicit "_" (dTyp [] (cat2id c) []) | NonTerminal c <- ruleRhs rule] (cat2id (ruleLhs rule)) [], 0, toLogProb (fromMaybe 0 (Map.lookup f' funs_probs)))
+    afuns  = [(f', dTyp [hypo Explicit "_" (dTyp [] (cat2id c) []) | NonTerminal c <- ruleRhs rule] (cat2id (ruleLhs rule)) [], 0, [], toLogProb (fromMaybe 0 (Map.lookup f' funs_probs)))
                             | rule <- allRules cfg
                             , let f' = mkRuleName rule]
 
