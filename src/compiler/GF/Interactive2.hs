@@ -10,7 +10,7 @@ import GF.Command.CommandInfo
 import GF.Command.Help(helpCommand)
 import GF.Command.Abstract
 import GF.Command.Parse(readCommandLine,pCommand)
-import GF.Data.Operations (Err(..),done)
+import GF.Data.Operations (Err(..))
 import GF.Data.Utilities(whenM,repeatM)
 
 import GF.Infra.UseIO(ioErrorText,putStrLnE)
@@ -164,7 +164,7 @@ execute1' s0 =
          continue
       where
         execute :: [String] -> ShellM ()
-        execute [] = done
+        execute [] = return ()
         execute (line:lines) = whenM (execute1' line) (execute lines)
 
     execute_history _   =
@@ -279,14 +279,14 @@ importInEnv opts files =
     _ | flag optRetainResource opts ->
           putStrLnE "Flag -retain is not supported in this shell"
     [file] | takeExtensions file == ".pgf" -> importPGF file
-    [] -> done
+    [] -> return ()
     _ -> do putStrLnE "Can only import one .pgf file"
   where
     importPGF file =
       do gfenv <- get
          case multigrammar gfenv of
            Just _ -> putStrLnE "Discarding previous grammar"
-           _ -> done
+           _ -> return ()
          pgf1 <- lift $ readPGF2 file
          let gfenv' = gfenv { pgfenv = pgfEnv pgf1 }
          when (verbAtLeast opts Normal) $

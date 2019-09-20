@@ -109,8 +109,9 @@ rebuildModule cwd gr mo@(i,mi@(ModInfo mt stat fs_ me mw ops_ med_ msrc_ env_ js
     -- add the instance opens to an incomplete module "with" instances
     Just (ext,incl,ops) -> do
       let (infs,insts) = unzip ops
-      let stat' = ifNull MSComplete (const MSIncomplete)
-                    [i | i <- is, notElem i infs]
+      let stat' = if all (flip elem infs) is
+                    then MSComplete
+                    else MSIncomplete
       unless (stat' == MSComplete || stat == MSIncomplete) 
              (checkError ("module" <+> i <+> "remains incomplete"))
       ModInfo mt0 _ fs me' _ ops0 _ fpath _ js <- lookupModule gr ext
