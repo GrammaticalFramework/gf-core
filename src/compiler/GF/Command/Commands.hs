@@ -172,6 +172,9 @@ pgfCommands = Map.fromList [
        "all metavariables in the tree. The generation can be biased by probabilities",
        "if the grammar was compiled with option -probs"
        ],
+     options = [
+       ("show_probs", "show the probability of each result")
+       ],
      flags = [
        ("cat","generation category"),
        ("lang","uses only functions that have linearizations in all these languages"),
@@ -182,7 +185,7 @@ pgfCommands = Map.fromList [
        let ts  = case mexp (toExprs arg) of
                    Just ex -> generateRandomFrom gen pgf ex
                    Nothing -> generateRandom     gen pgf (optType pgf opts)
-       returnFromExprs $ take (optNum opts) ts
+       returnFromExprs (isOpt "show_probs" opts) $ take (optNum opts) ts
      }),
 
   ("gt", emptyCommandInfo {
@@ -192,6 +195,9 @@ pgfCommands = Map.fromList [
        "Generates all trees of a given category.",
        "If a Tree argument is given, the command completes the Tree with values",
        "to all metavariables in the tree."
+       ],
+     options = [
+       ("show_probs", "show the probability of each result")
        ],
      flags = [
        ("cat","the generation category"),
@@ -207,7 +213,7 @@ pgfCommands = Map.fromList [
        let es = case mexp (toExprs arg) of
                   Just ex -> generateAllFrom pgf ex
                   Nothing -> generateAll     pgf (optType pgf opts)
-       returnFromExprs $ takeOptNum opts es
+       returnFromExprs (isOpt "show_probs" opts) $ takeOptNum opts es
      }),
 
   ("i", emptyCommandInfo {
@@ -329,6 +335,9 @@ pgfCommands = Map.fromList [
                               [(s,parse concr (optType pgf opts) s) |
                                             concr <- optLangs pgf opts] 
                            | s <- toStrings ts]),
+     options = [
+       ("show_probs", "show the probability of each result")
+       ],
      flags = [
        ("cat","target category of parsing"),
        ("lang","the languages of parsing (comma-separated, no spaces)"),
@@ -391,7 +400,7 @@ pgfCommands = Map.fromList [
        mkEx "pt -compute (plus one two)                               -- compute value"
        ],
      exec = needPGF $ \opts arg pgf ->
-            returnFromExprs .  takeOptNum opts . map (flip (,) 0) . treeOps pgf opts $ toExprs arg,
+            returnFromExprs False .  takeOptNum opts . map (flip (,) 0) . treeOps pgf opts $ toExprs arg,
      options = treeOpOptions undefined{-pgf-},
      flags = [("number","take at most this many trees")] ++ treeOpFlags undefined{-pgf-}
      }),
@@ -690,7 +699,7 @@ pgfCommands = Map.fromList [
 
    fromParse1 opts (s,po) =
      case po of
-       ParseOk ts      -> fromExprs (takeOptNum opts ts)
+       ParseOk ts      -> fromExprs (isOpt "show_probs" opts) (takeOptNum opts ts)
        ParseFailed i t -> pipeMessage $ "The parser failed at token "
                                         ++ show i ++": "
                                         ++ show t
@@ -768,11 +777,11 @@ pgfCommands = Map.fromList [
    optNumInf opts = valIntOpts "number" 1000000000 opts ---- 10^9
    takeOptNum opts = take (optNumInf opts)
 
-   returnFromExprs es =
+   returnFromExprs show_p es =
      return $ 
        case es of
          [] -> pipeMessage "no trees found"
-         _  -> fromExprs es
+         _  -> fromExprs show_p es
 
    prGrammar pgf opts
      | isOpt "pgf"      opts = do

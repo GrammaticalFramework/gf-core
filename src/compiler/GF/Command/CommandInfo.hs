@@ -43,7 +43,7 @@ newtype CommandOutput = Piped (CommandArguments,String) ---- errors, etc
 
 -- ** Converting command output
 fromStrings ss         = Piped (Strings ss, unlines ss)
-fromExprs   es         = Piped (Exprs es,unlines (map (showExpr [] . fst) es))
+fromExprs show_p es    = Piped (Exprs es,unlines (map (\(e,p) -> (if show_p then (++) ("["++show p++"] ") else id) (showExpr [] e)) es))
 fromString  s          = Piped (Strings [s], s)
 pipeWithMessage es msg = Piped (Exprs es,msg)
 pipeMessage msg        = Piped (Exprs [],msg)
