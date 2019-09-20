@@ -27,6 +27,7 @@ import GF.Grammar.Printer
 
 import Control.Monad.Identity(Identity(..))
 import qualified Data.Traversable as T(mapM)
+import qualified Data.Map as Map
 import Control.Monad (liftM, liftM2, liftM3)
 import Data.List (sortBy,nub)
 import Data.Monoid
@@ -606,9 +607,9 @@ sortRec = sortBy ordLabel where
 
 -- | dependency check, detecting circularities and returning topo-sorted list
 
-allDependencies :: (ModuleName -> Bool) -> BinTree Ident Info -> [(Ident,[Ident])]
+allDependencies :: (ModuleName -> Bool) -> Map.Map Ident Info -> [(Ident,[Ident])]
 allDependencies ism b = 
-  [(f, nub (concatMap opty (pts i))) | (f,i) <- tree2list b]
+  [(f, nub (concatMap opty (pts i))) | (f,i) <- Map.toList b]
   where
     opersIn t = case t of
       Q  (n,c) | ism n -> [c]
@@ -634,7 +635,7 @@ topoSortJments (m,mi) = do
           return
           (\cyc -> raise (render ("circular definitions:" <+> fsep (head cyc))))
           (topoTest (allDependencies (==m) (jments mi)))
-  return (reverse [(i,info) | i <- is, Ok info <- [lookupTree showIdent i (jments mi)]])
+  return (reverse [(i,info) | i <- is, Just info <- [Map.lookup i (jments mi)]])
 
 topoSortJments2 :: ErrorMonad m => SourceModule -> m [[(Ident,Info)]]
 topoSortJments2 (m,mi) = do
@@ -644,4 +645,4 @@ topoSortJments2 (m,mi) = do
                                    <+> fsep (head cyc))))
            (topoTest2 (allDependencies (==m) (jments mi)))
   return
-    [[(i,info) | i<-is,Ok info<-[lookupTree showIdent i (jments mi)]] | is<-iss]
+    [[(i,info) | i<-is,Just info<-[Map.lookup i (jments mi)]] | is<-iss]

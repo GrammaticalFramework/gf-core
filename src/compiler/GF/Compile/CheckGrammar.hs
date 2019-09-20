@@ -57,7 +57,7 @@ checkModule opts cwd sgr mo@(m,mi) = do
   where
     updateCheckInfos mo = fmap (foldl update mo) . parallelCheck . map check
       where check (i,info) = fmap ((,) i) (checkInfo opts cwd sgr mo i info)
-    update mo@(m,mi) (i,info) = (m,mi{jments=updateTree (i,info) (jments mi)})
+    update mo@(m,mi) (i,info) = (m,mi{jments=Map.insert i info (jments mi)})
 
 -- check if restricted inheritance modules are still coherent
 -- i.e. that the defs of remaining names don't depend on omitted names
@@ -70,7 +70,7 @@ checkRestrictedInheritance cwd sgr (name,mo) = checkInModule cwd mo NoLoc empty 
  where
    mos = modules sgr
    checkRem ((i,m),mi) = do
-     let (incl,excl) = partition (isInherited mi) (map fst (tree2list (jments m)))
+     let (incl,excl) = partition (isInherited mi) (Map.keys (jments m))
      let incld c   = Set.member c (Set.fromList incl)
      let illegal c = Set.member c (Set.fromList excl)
      let illegals = [(f,is) | 
@@ -87,10 +87,10 @@ checkCompleteGrammar opts cwd gr (am,abs) (cm,cnc) = checkInModule cwd cnc NoLoc
   let jsc = jments cnc
 
   -- check that all concrete constants are in abstract; build types for all lin
-  jsc <- foldM checkCnc emptyBinTree (tree2list jsc)
+  jsc <- foldM checkCnc Map.empty (Map.toList jsc)
 
   -- check that all abstract constants are in concrete; build default lin and lincats
-  jsc <- foldM checkAbs jsc (tree2list jsa)
+  jsc <- foldM checkAbs jsc (Map.toList jsa)
   
   return (cm,cnc{jments=jsc})
   where
@@ -111,17 +111,17 @@ checkCompleteGrammar opts cwd gr (am,abs) (cm,cnc) = checkInModule cwd cnc NoLoc
                  case lookupIdent c js of
                    Ok (AnyInd _ _) -> return js
                    Ok (CncFun ty (Just def) mn mf) ->
-                                 return $ updateTree (c,CncFun ty (Just def) mn mf) js
+                                 return $ Map.insert c (CncFun ty (Just def) mn mf) js
                    Ok (CncFun ty Nothing    mn mf) ->
                      case mb_def of
-                       Ok def -> return $ updateTree (c,CncFun ty (Just (L NoLoc def)) mn mf) js
+                       Ok def -> return $ Map.insert c (CncFun ty (Just (L NoLoc def)) mn mf) js
                        Bad _  -> do noLinOf c
                                     return js
                    _ -> do
                      case mb_def of
                        Ok def -> do (cont,val) <- linTypeOfType gr cm ty
                                     let linty = (snd (valCat ty),cont,val)
-                                    return $ updateTree (c,CncFun (Just linty) (Just (L NoLoc def)) Nothing Nothing) js
+                                    return $ Map.insert c (CncFun (Just linty) (Just (L NoLoc def)) Nothing Nothing) js
                        Bad _  -> do noLinOf c
                                     return js
          where noLinOf c = checkWarn ("no linearization of" <+> c)
@@ -130,24 +130,24 @@ checkCompleteGrammar opts cwd gr (am,abs) (cm,cnc) = checkInModule cwd cnc NoLoc
          Ok (CncCat (Just _) _ _ _ _) -> return js
          Ok (CncCat Nothing md mr mp mpmcfg) -> do
            checkWarn ("no linearization type for" <+> c <> ", inserting default {s : Str}")
-           return $ updateTree (c,CncCat (Just (L NoLoc defLinType)) md mr mp mpmcfg) js
+           return $ Map.insert c (CncCat (Just (L NoLoc defLinType)) md mr mp mpmcfg) js
          _ -> do
            checkWarn ("no linearization type for" <+> c <> ", inserting default {s : Str}")
-           return $ updateTree (c,CncCat (Just (L NoLoc defLinType)) Nothing Nothing Nothing Nothing) js
+           return $ Map.insert c (CncCat (Just (L NoLoc defLinType)) Nothing Nothing Nothing Nothing) js
        _ -> return js
      
-   checkCnc js i@(c,info) =
+   checkCnc js (c,info) =
      case info of
        CncFun _ d mn mf -> case lookupOrigInfo gr (am,c) of
                              Ok (_,AbsFun (Just (L _ ty)) _ _ _) -> 
                                         do (cont,val) <- linTypeOfType gr cm ty
                                            let linty = (snd (valCat ty),cont,val)
-                                           return $ updateTree (c,CncFun (Just linty) d mn mf) js
+                                           return $ Map.insert c (CncFun (Just linty) d mn mf) js
                              _       -> do checkWarn ("function" <+> c <+> "is not in abstract")
                                            return js
        CncCat {} ->
          case lookupOrigInfo gr (am,c) of
-           Ok (_,AbsCat _) -> return $ updateTree i js
+           Ok (_,AbsCat _) -> return $ Map.insert c info js
            {- -- This might be too pedantic:
            Ok (_,AbsFun {}) ->
                    checkError ("lincat:"<+>c<+>"is a fun, not a cat")
@@ -155,7 +155,7 @@ checkCompleteGrammar opts cwd gr (am,abs) (cm,cnc) = checkInModule cwd cnc NoLoc
            _ -> do checkWarn ("category" <+> c <+> "is not in abstract")
                    return js
 
-       _ -> return $ updateTree i js
+       _ -> return $ Map.insert c info js
 
 
 -- | General Principle: only Just-values are checked. 

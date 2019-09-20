@@ -28,14 +28,6 @@ module GF.Data.Operations (
 
                    -- ** Monadic operations on lists and pairs
 		   mapPairListM, mapPairsM, pairM,
-
-		   -- ** Binary search trees; now with FiniteMap
-		   BinTree, emptyBinTree, isInBinTree, --justLookupTree,
-		   lookupTree, --lookupTreeMany,
-                   lookupTreeManyAll, updateTree,
-		   buildTree, filterBinTree,
-                   mapTree, --mapMTree,
-                   tree2list,
  
 		   -- ** Printing
 		   indent, (+++), (++-), (++++), (+++-), (+++++),
@@ -50,10 +42,6 @@ module GF.Data.Operations (
 		   ifNull,
 		   combinations, done, readIntArg, --singleton,
 		   iterFix,  chunks,
-{-
-		   -- ** State monad with error; from Agda 6\/11\/2001
-		   STM(..), appSTM, stm, stmr, readSTM, updateSTM, writeSTM,
--}
                 
 		  ) where
 
@@ -116,44 +104,6 @@ unifyMaybeBy f (Just p1) (Just p2)
   | otherwise                      = fail ""
 unifyMaybeBy _ Nothing   mp2       = return mp2
 unifyMaybeBy _ mp1       _         = return mp1
-
--- binary search trees
-
-type BinTree a b = Map a b
-
-emptyBinTree :: BinTree a b
-emptyBinTree = Map.empty
-
-isInBinTree :: (Ord a) => a -> BinTree a b -> Bool
-isInBinTree = Map.member
-{-
-justLookupTree :: (ErrorMonad m,Ord a) => a -> BinTree a b -> m b
-justLookupTree = lookupTree (const [])
--}
-lookupTree :: (ErrorMonad m,Ord a) => (a -> String) -> a -> BinTree a b -> m b
-lookupTree pr x = maybeErr no . Map.lookup x
-  where no = "no occurrence of element" +++ pr x
-
-lookupTreeManyAll :: Ord a => (a -> String) -> [BinTree a b] -> a -> [b]
-lookupTreeManyAll pr (t:ts) x = case lookupTree pr x t of
-  Ok v -> v : lookupTreeManyAll pr ts x
-  _ -> lookupTreeManyAll pr ts x
-lookupTreeManyAll pr [] x = []
-
-updateTree :: (Ord a) => (a,b) -> BinTree a b -> BinTree a b
-updateTree (a,b) = Map.insert a b
-
-buildTree :: (Ord a) => [(a,b)] -> BinTree a b
-buildTree = Map.fromList
-
-mapTree :: ((a,b) -> c) -> BinTree a b -> BinTree a c
-mapTree f = Map.mapWithKey (\k v -> f (k,v))
-
-filterBinTree :: Ord a => (a -> b -> Bool) -> BinTree a b -> BinTree a b
-filterBinTree = Map.filterWithKey
-
-tree2list :: BinTree a b -> [(a,b)] -- inorder
-tree2list = Map.toList
 
 -- printing
 
@@ -297,42 +247,6 @@ chunks sep ws = case span (/= sep) ws of
 readIntArg :: String -> Int
 readIntArg n = if (not (null n) && all isDigit n) then read n else 0
 
-{-
--- state monad with error; from Agda 6/11/2001
-
-newtype STM s a = STM (s -> Err (a,s)) 
-
-appSTM :: STM s a -> s -> Err (a,s)
-appSTM (STM f) s = f s
-
-stm :: (s -> Err (a,s)) -> STM s a
-stm = STM
-
-stmr :: (s -> (a,s)) -> STM s a
-stmr f = stm (\s -> return (f s))
-
-instance Functor (STM s) where fmap = liftM
-
-instance Applicative (STM s) where
-  pure = return
-  (<*>) = ap
-
-instance  Monad (STM s) where
-  return a    = STM (\s -> return (a,s))
-  STM c >>= f = STM (\s -> do 
-                        (x,s') <- c s
-                        let STM f' = f x
-                        f' s')
-
-readSTM :: STM s s
-readSTM = stmr (\s -> (s,s))
-
-updateSTM :: (s -> s) -> STM s () 
-updateSTM f = stmr (\s -> ((),f s))
-
-writeSTM :: s -> STM s ()
-writeSTM s = stmr (const ((),s))
--}
 -- | @return ()@
 done :: Monad m => m ()
 done = return ()

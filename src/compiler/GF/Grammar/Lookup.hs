@@ -52,11 +52,11 @@ lock c = lockRecType c -- return
 unlock c = unlockRecord c -- return
 
 -- to look up a constant etc in a search tree --- why here? AR 29/5/2008
-lookupIdent :: ErrorMonad m => Ident -> BinTree Ident b -> m b
+lookupIdent :: ErrorMonad m => Ident -> Map.Map Ident b -> m b
 lookupIdent c t =
-  case lookupTree showIdent c t of
-    Ok v  -> return v
-    Bad _ -> raise ("unknown identifier" +++ showIdent c)
+  case Map.lookup c t of
+    Just v  -> return v
+    Nothing -> raise ("unknown identifier" +++ showIdent c)
 
 lookupIdentInfo :: ErrorMonad m => SourceModInfo -> Ident -> m Info
 lookupIdentInfo mo i = lookupIdent i (jments mo)
@@ -149,7 +149,7 @@ lookupOrigInfo gr (m,c) = do
 allOrigInfos :: Grammar -> ModuleName -> [(QIdent,Info)]
 allOrigInfos gr m = fromErr [] $ do
   mo <- lookupModule gr m
-  return [((m,c),i) | (c,_) <- tree2list (jments mo), Ok (m,i) <- [lookupOrigInfo gr (m,c)]]
+  return [((m,c),i) | (c,_) <- Map.toList (jments mo), Ok (m,i) <- [lookupOrigInfo gr (m,c)]]
 
 lookupParamValues :: ErrorMonad m => Grammar -> QIdent -> m [Term]
 lookupParamValues gr c = do

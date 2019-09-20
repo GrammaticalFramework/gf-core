@@ -29,7 +29,7 @@ import Control.Monad
 import GF.Text.Pretty
 
 -- | combine a list of definitions into a balanced binary search tree
-buildAnyTree :: Monad m => ModuleName -> [(Ident,Info)] -> m (BinTree Ident Info)
+buildAnyTree :: Monad m => ModuleName -> [(Ident,Info)] -> m (Map.Map Ident Info)
 buildAnyTree m = go Map.empty
   where
     go map []         = return map
@@ -101,8 +101,8 @@ rebuildModule cwd gr mo@(i,mi@(ModInfo mt stat fs_ me mw ops_ med_ msrc_ env_ js
             []  -> return mi{jments=js'}
             j0s -> do
                 m0s <- mapM (lookupModule gr) j0s
-                let notInM0 c _  = all (not . isInBinTree c . jments) m0s
-                let js2 = filterBinTree notInM0 js'
+                let notInM0 c _  = all (not . Map.member c . jments) m0s
+                let js2 = Map.filterWithKey notInM0 js'
                 return mi{jments=js2}
         _ -> return mi
 
@@ -123,8 +123,11 @@ rebuildModule cwd gr mo@(i,mi@(ModInfo mt stat fs_ me mw ops_ med_ msrc_ env_ js
 
       --- check if me is incomplete
       let fs1 = fs `addOptions` fs_                           -- new flags have priority
-      let js0 = [(c,globalizeLoc fpath j) | (c,j) <- tree2list js, isInherited incl c]
-      let js1 = buildTree (tree2list js_ ++ js0)
+      let js0 = Map.mapMaybeWithKey (\c j -> if isInherited incl c
+                                               then Just (globalizeLoc fpath j)
+                                               else Nothing)
+                                    js
+      let js1 = Map.union js0 js_
       let med1= nub (ext : infs ++ insts ++ med_)
       return $ ModInfo mt0 stat' fs1 me Nothing ops1 med1 msrc_ env_ js1
 
@@ -135,14 +138,14 @@ rebuildModule cwd gr mo@(i,mi@(ModInfo mt stat fs_ me mw ops_ med_ msrc_ env_ js
 -- If the extended module is incomplete, its judgements are just copied.
 extendMod :: Grammar ->
              Bool -> (Module,Ident -> Bool) -> ModuleName ->
-             BinTree Ident Info -> Check (BinTree Ident Info)
+             Map.Map Ident Info -> Check (Map.Map Ident Info)
 extendMod gr isCompl ((name,mi),cond) base new = foldM try new $ Map.toList (jments mi) 
   where
     try new (c,i0)
       | not (cond c) = return new
       | otherwise    = case Map.lookup c new of
                          Just j -> case unifyAnyInfo name i j of
-		                     Ok k  -> return $ updateTree (c,k) new
+		                     Ok k  -> return $ Map.insert c k new
 		                     Bad _ -> do (base,j) <- case j of 
 		                                               AnyInd _ m -> lookupOrigInfo gr (m,c)
 		                                               _          -> return (base,j)
@@ -155,8 +158,8 @@ extendMod gr isCompl ((name,mi),cond) base new = foldM try new $ Map.toList (jme
 		                                             nest 4 (ppJudgement Qualified (c,j)) $$
 		                                             "in module" <+> base)
                          Nothing-> if isCompl
-                                     then return $ updateTree (c,indirInfo name i) new
-                                     else return $ updateTree (c,i) new
+                                     then return $ Map.insert c (indirInfo name i) new
+                                     else return $ Map.insert c i new
       where
         i = globalizeLoc (msrc mi) i0
 
