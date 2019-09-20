@@ -101,4 +101,4 @@ getCommandTrees env needsTypeCheck a args =
     ATerm t -> return (Term t)
     ANoArg  -> return args  -- use piped
   where
-    one e = return (Exprs [e]) -- ignore piped
+    one e = return (Exprs [(e,0)]) -- ignore piped

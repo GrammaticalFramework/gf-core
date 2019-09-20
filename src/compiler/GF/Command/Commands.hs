@@ -204,10 +204,10 @@ pgfCommands = Map.fromList [
        mkEx "gt (AdjCN ? (UseN ?))  -- trees of form (AdjCN ? (UseN ?))"
        ],
      exec = needPGF $ \opts arg pgf -> do
-       let ts = case mexp (toExprs arg) of
+       let es = case mexp (toExprs arg) of
                   Just ex -> generateAllFrom pgf ex
                   Nothing -> generateAll     pgf (optType pgf opts)
-       returnFromExprs $ take (optNumInf opts) (map fst ts)
+       returnFromExprs $ takeOptNum opts es
      }),
 
   ("i", emptyCommandInfo {
@@ -323,10 +323,16 @@ pgfCommands = Map.fromList [
        "See also the ps command for lexing and character encoding."
        ],
      exec = needPGF $ \opts ts pgf ->
-              return $ fromParse opts (concat [map ((,) s) (par pgf opts s) | s <- toStrings ts]),
+              return $
+                foldr (joinPiped . fromParse1 opts) void 
+                  (concat [
+                              [(s,parse concr (optType pgf opts) s) |
+                                            concr <- optLangs pgf opts] 
+                           | s <- toStrings ts]),
      flags = [
        ("cat","target category of parsing"),
-       ("lang","the languages of parsing (comma-separated, no spaces)")
+       ("lang","the languages of parsing (comma-separated, no spaces)"),
+       ("number","limit the results to the top N trees")
        ]
      }),
 
@@ -351,7 +357,6 @@ pgfCommands = Map.fromList [
        ]),
      exec  = needPGF $ \opts _ pgf -> prGrammar pgf opts,
      flags = [
-       --"cat",
        ("file",   "set the file name when printing with -pgf option"),
        ("lang",   "select languages for the some options (default all languages)"),
        ("printer","select the printing format (see flag values above)")
@@ -386,7 +391,7 @@ pgfCommands = Map.fromList [
        mkEx "pt -compute (plus one two)                               -- compute value"
        ],
      exec = needPGF $ \opts arg pgf ->
-            returnFromExprs . takeOptNum opts . treeOps pgf opts $ toExprs arg,
+            returnFromExprs .  takeOptNum opts . map (flip (,) 0) . treeOps pgf opts $ toExprs arg,
      options = treeOpOptions undefined{-pgf-},
      flags = [("number","take at most this many trees")] ++ treeOpFlags undefined{-pgf-}
      }),
@@ -419,7 +424,7 @@ pgfCommands = Map.fromList [
                                            in (es,"on line" <+> n <> ':' <+> "parse error" $$ err)
            returnFromLines ls = case exprs ls of
                                   (es, err) | null es   -> return $ pipeMessage $ render (err $$ "no trees found")
-                                            | otherwise -> return $ pipeWithMessage es (render err)
+                                            | otherwise -> return $ pipeWithMessage (map (flip (,) 0) es) (render err)
 
        s <- restricted $ readFile file
        case opts of
@@ -679,23 +684,17 @@ pgfCommands = Map.fromList [
        Just pgf -> liftSIO $ exec opts ts pgf
        _ -> fail "Import a grammar before using this command"
 
-   par pgf opts s = [parse concr (optType pgf opts) s | concr <- optLangs pgf opts]
-
-   fromParse opts = foldr (joinPiped . fromParse1 opts) void
-
    joinPiped (Piped (es1,ms1)) (Piped (es2,ms2)) = Piped (jA es1 es2,ms1+++-ms2)
      where
        jA (Exprs es1) (Exprs es2) = Exprs (es1++es2)
-       -- ^ fromParse1 always output Exprs
 
    fromParse1 opts (s,po) =
-         case po of
-           ParseOk ts      -> fromExprs (map fst ts)
-           ParseFailed i _ -> pipeMessage $ "The parser failed at token "
-                                             ++ show i ++": "
-                                             ++ show (words s !! max 0 (i-1))
-                                          -- ++ " in " ++ show s
-           ParseIncomplete -> pipeMessage "The sentence is not complete"
+     case po of
+       ParseOk ts      -> fromExprs (takeOptNum opts ts)
+       ParseFailed i t -> pipeMessage $ "The parser failed at token "
+                                        ++ show i ++": "
+                                        ++ show t
+       ParseIncomplete -> pipeMessage "The sentence is not complete"
 
    optLins pgf opts ts = concatMap (optLin pgf opts) ts
    optLin pgf opts t =
@@ -769,9 +768,11 @@ pgfCommands = Map.fromList [
    optNumInf opts = valIntOpts "number" 1000000000 opts ---- 10^9
    takeOptNum opts = take (optNumInf opts)
 
-   returnFromExprs es = return $ case es of
-     [] -> pipeMessage "no trees found"
-     _  -> fromExprs es
+   returnFromExprs es =
+     return $ 
+       case es of
+         [] -> pipeMessage "no trees found"
+         _  -> fromExprs es
 
    prGrammar pgf opts
      | isOpt "pgf"      opts = do
