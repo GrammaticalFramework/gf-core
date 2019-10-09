@@ -9,7 +9,7 @@
 #include <math.h>
 #include <stdlib.h>
 
-//#define PGF_PARSER_DEBUG
+#define PGF_PARSER_DEBUG
 //#define PGF_COUNTS_DEBUG
 //#define PGF_RESULT_DEBUG
 
@@ -2083,6 +2083,8 @@ pgf_process_generated_cat(PgfParsing* ps,
 			children[i] = pcoerce->coerce;
 			break;
 		}
+		case PGF_PRODUCTION_EXTERN:
+			just_coercions = false;
 		}
 	}
 
