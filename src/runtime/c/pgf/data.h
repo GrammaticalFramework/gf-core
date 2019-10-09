@@ -322,7 +322,8 @@ typedef struct PgfProductionCoerce
 
 typedef struct {
 	PgfExprProb *ep;
-    GuSeq* lins;
+   	size_t n_lins;
+	PgfSymbols* lins[];
 } PgfProductionExtern;
 
 typedef struct {
