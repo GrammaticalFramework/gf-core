@@ -144,7 +144,7 @@ graphvizDependencyTree format debug mlab mclab pgf lang t =
                             vcat links) $$
                     text "}"
   where
-    conll  = maybe conll0 (\ls -> fixCoNLL ls conll0) mclab
+    conll  = fixCoNLL (maybe [] id mclab) conll0
     conll0 = (map.map) render wnodes
     nodes  = map mkNode leaves
     links  = map mkLink [(fid, fromMaybe (dep_lbl,nil) (lookup fid deps)) | ((cat,fid,fun,_),_,w) <- tail leaves]
@@ -771,12 +771,23 @@ type CncLabels = [
   ]
 
 fixCoNLL :: CncLabels -> CoNLL -> CoNLL
-fixCoNLL cncLabels conll = map fixc conll where
+fixCoNLL cncLabels conll = map fixc (markRoot conll) where
   labels  = [l | Left l <- cncLabels]
   flabels = [r | Right r <- cncLabels]
 
+-- change the root label from dep to root
+--- doing this for the leftmost word of the root node
+  markRoot rows = case rows of
+    (i:word:fun:pos:cat:x_:"0":"dep":xs):rs -> (i:word:fun:pos:cat:x_:"0":"root":xs) : map (markNoRoot i) rs
+    r:rs -> r : markRoot rs
+    _ -> rows --- what about if there is no root?
+
+  markNoRoot r row@(i:word:fun:pos:cat:x_:j:label:xs) = case j of
+    "0" -> (i:word:fun:pos:cat:x_: r :label:xs)
+    _ -> row
+    
   fixc row = case row of
-    (i:word:fun:pos:cat:x_:"0":"dep":xs) -> (i:word:fun:pos:cat:(feat cat word x_):"0":"root":xs) --- change the root label from dep to root 
+ 
     (i:word:fun:pos:cat:x_:j:label:xs) -> case look (fun,word) of
       Just (pos',label',"head") -> (i:word:fun:pos' pos:cat:(feat cat word x_):j :label':xs)
       Just (pos',label',target) -> (i:word:fun:pos' pos:cat:(feat cat word x_): getDep j target:label':xs)
