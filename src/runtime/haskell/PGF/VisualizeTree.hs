@@ -234,7 +234,7 @@ graphvizDependencyTree format debug mlab mclab pgf lang t =
 
     dep_lbl  = "dep"
     head_lbl = "head"
-    root_lbl = "ROOT"
+    root_lbl = "root"
     unspec   = text "_"
 
 -- auxiliaries for UD conversion  PK 15/12/2018 
@@ -567,7 +567,7 @@ dep2latex d =
 ---  ++ [Put (wpos rwld i,-15) (TinyText w) | (i,(_,w)) <- zip [0..] (map snd (tokens d))]   -- features 15u below bottom -> DON'T SHOW
   ++ concat [putArc rwld (aheight x y) x y label | ((x,y),label) <- deps d]    -- arcs and labels
   ++ [Put (wpos rwld (root d) + 15,height) (ArrowDown (height-arcbase))]
-  ++ [Put (wpos rwld (root d) + 20,height - 10) (TinyText "ROOT")]
+  ++ [Put (wpos rwld (root d) + 20,height - 10) (TinyText "root")]
   )]
  where
    wld i  = wordLength d i  -- >= 20.0
@@ -771,14 +771,14 @@ type CncLabels = [
   ]
 
 fixCoNLL :: CncLabels -> CoNLL -> CoNLL
-fixCoNLL cncLabels conll = map fixc (markRoot conll) where
+fixCoNLL cncLabels conll = map (fixMorpho . fixDep) (markRoot conll) where
   labels  = [l | Left l <- cncLabels]
   flabels = [r | Right r <- cncLabels]
 
 -- change the root label from dep to root
 --- doing this for the leftmost word of the root node
   markRoot rows = case rows of
-    (i:word:fun:pos:cat:x_:"0":"dep":xs):rs -> (i:word:fun:pos:cat:x_:"0":"root":xs) : map (markNoRoot i) rs
+    (i:word:fun:pos:cat:x_:"0":lab_:xs):rs -> (i:word:fun:pos:cat:x_:"0":"root":xs) : map (markNoRoot i) rs
     r:rs -> r : markRoot rs
     _ -> rows --- what about if there is no root?
 
@@ -786,13 +786,15 @@ fixCoNLL cncLabels conll = map fixc (markRoot conll) where
     "0" -> (i:word:fun:pos:cat:x_: r :label:xs)
     _ -> row
     
-  fixc row = case row of
+  fixDep row = case row of
  
-    (i:word:fun:pos:cat:x_:j:label:xs) -> case look (fun,word) of
-      Just (pos',label',"head") -> (i:word:fun:pos' pos:cat:(feat cat word x_):j :label':xs)
-      Just (pos',label',target) -> (i:word:fun:pos' pos:cat:(feat cat word x_): getDep j target:label':xs)
-      _ -> (i:word:fun:pos:cat:(feat cat word x_):j:label:xs)
+    (i:word:fun:pos:cat:x_:j:label:xs) | label /= "root" -> case look (fun,word) of
+      Just (pos',label',"head") -> (i:word:fun:pos' pos:cat: x_: j              :label':xs)
+      Just (pos',label',target) -> (i:word:fun:pos' pos:cat: x_: getDep j target:label':xs)
+      _ ->                         row
     _ -> row
+    
+  fixMorpho (i:word:fun:pos:cat: mo :j:label:xs) = (i:word:fun:pos:cat: (feat cat word mo) :j:label:xs)
     
   look (fun,word) = case lookup fun labels of
     Just relabel -> case relabel word of
