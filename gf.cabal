@@ -1,5 +1,5 @@
 name: gf
-version: 3.10.3-git
+version: 3.10.4-git
 
 cabal-version: >= 1.22
 build-type: Custom

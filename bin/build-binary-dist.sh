@@ -53,9 +53,9 @@ fi
 if which >/dev/null javac && which >/dev/null jar ; then
     pushd src/runtime/java
     rm -f libjpgf.la # In case it contains the wrong INSTALL_PATH
-    if make CFLAGS="-I$extrainclude -L$extralib" INSTALL_PATH="$prefix/lib"
+    if make CFLAGS="-I$extrainclude -L$extralib" INSTALL_PATH="$prefix"
     then
-	make INSTALL_PATH="$destdir$prefix/lib" install
+	make INSTALL_PATH="$destdir$prefix" install
     else
 	echo "*** Skipping the Java binding because of errors"
     fi
