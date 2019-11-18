@@ -304,7 +304,7 @@ cpgfMain qsem command (t,(pgf,pc)) =
     from1 = maybe (missing "from") return =<< from'
     from' = getLang "from"
 
-    to = (,) # getLangs "to" % unlexer (const False)
+    to = (,) # getLangs "to" % unlexerC (const False)
 
     getLangs = getLangs' readLang
     getLang = getLang' readLang
@@ -360,8 +360,15 @@ lexer good = maybe (return id) lexerfun =<< getInput "lexer"
 type Unlexer = String->String
 
 -- | Unlexing for the C runtime system, &+ is already applied
-unlexer :: (String -> Bool) -> CGI Unlexer
-unlexer good = maybe (return id) unlexerfun =<< getInput "unlexer"
+unlexerC :: (String -> Bool) -> CGI Unlexer
+unlexerC = unlexer' id
+
+-- | Unlexing for the Haskell runtime system, the default is to just apply &+
+unlexerH :: CGI Unlexer
+unlexerH = unlexer' (unwords . bindTok . words) (const False)
+
+unlexer' defaultUnlexer good =
+    maybe (return defaultUnlexer) unlexerfun =<< getInput "unlexer"
   where
     unlexerfun name =
        case stringOp good ("unlex"++name) of
@@ -466,7 +473,7 @@ pgfMain lcs@(alc,clc) path command tpgf@(t,pgf) =
     from = getLang "from"
 
     to1 = maybe (missing "to") return =<< getLang "to"
-    to = (,) # getLangs "to" % unlexer (const False)
+    to = (,) # getLangs "to" % unlexerH
 
     getLangs = getLangs' readLang
     getLang = getLang' readLang
