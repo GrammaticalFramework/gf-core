@@ -243,12 +243,22 @@ Some implementation details:
       the minibar. The rest of the documentation is displayed when you press
       the <b>More info</b> button (or the <b>i</b> button). The documentation
       can contain HTML markup. Blank lines are treated as paragraph breaks.
+  <li>[Added 2019-11-21] It is now possible to configure a list of preferred
+      grammars.
+      A preferred grammar is selected when a user visits Minibar for the
+      first time. (Like before, Minibar remembers the selected grammar for
+      future visits.)
+      <p>
+      A preferred list of grammars can be specified in <code>config.js</code>
+      in the <code>…/minibar</code> directory on the server, e.g. like this:
+      <pre>  preferred_grammars=["/grammars/Foods.pgf","/grammars/ResourceDemo.pgf"]</pre>
+      The first available grammar from the list is used.
 </ul>
 </main>
 <footer>
 <hr>
 <div class=modtime><small>
-<!-- hhmts start -->Last modified: Mon Aug  5 15:22:46 CEST 2019 <!-- hhmts end -->
+<!-- hhmts start -->Last modified: Thu Nov 21 14:23:59 CET 2019 <!-- hhmts end -->
 </small></div>
 <address>
 <a href="http://www.cse.chalmers.se/~hallgren/">Thomas Hallgren</a>
