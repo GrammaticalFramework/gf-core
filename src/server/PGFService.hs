@@ -39,7 +39,7 @@ import Control.Monad.State(State,evalState,get,put)
 import Control.Monad.Catch(bracket_)
 import Data.Char
 --import Data.Function (on)
-import Data.List ({-sortBy,-}intersperse,mapAccumL,nub,isSuffixOf,nubBy)
+import Data.List ({-sortBy,-}intersperse,mapAccumL,nub,isSuffixOf,nubBy,stripPrefix)
 import qualified Data.Map as Map
 import Data.Maybe
 import System.Random
@@ -1048,16 +1048,23 @@ linearizeAndUnlex pgf (mto,unlex) tree =
     langs = if null mto then PGF.languages pgf else mto
 
 selectLanguage :: PGF -> Maybe (Accept Language) -> PGF.Language
-selectLanguage pgf macc = case acceptable of
-                            []  -> case PGF.languages pgf of
-                                     []  -> error "No concrete syntaxes in PGF grammar."
-                                     l:_ -> l
-                            Language c:_ -> fromJust (langCodeLanguage pgf c)
+selectLanguage pgf macc =
+    case acceptable of
+      []  -> case PGF.languages pgf of
+               []  -> error "No concrete syntaxes in PGF grammar."
+               ls@(l1:_) -> case [l | l<-ls, langPart pgf l==Just "Eng"] of
+                              eng:_ -> eng
+                              _ -> l1
+      Language c:_ -> fromJust (langCodeLanguage pgf c)
   where langCodes = mapMaybe (PGF.languageCode pgf) (PGF.languages pgf)
         acceptable = negotiate (map Language langCodes) macc
 
 langCodeLanguage :: PGF -> String -> Maybe PGF.Language
-langCodeLanguage pgf code = listToMaybe [l | l <- PGF.languages pgf, PGF.languageCode pgf l == Just code]
+langCodeLanguage pgf code =
+  listToMaybe [l | l <- PGF.languages pgf, PGF.languageCode pgf l == Just code]
+
+langPart pgf lang =
+  stripPrefix (PGF.showCId (PGF.abstractName pgf)) (PGF.showCId lang)
 
 -- * General utilities
 
