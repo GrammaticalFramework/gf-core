@@ -64,10 +64,14 @@ else
     echo "Java SDK is not installed, so the Java binding will not be included"
 fi
 
+## To find dynamic C run-time libraries when running GF below
+export DYLD_LIBRARY_PATH="$extralib" LD_LIBRARY_PATH="$extralib"
+
+
 ## Build GF, with C run-time support enabled
 cabal install -w "$ghc" --only-dependencies -fserver -fc-runtime $extra
 cabal configure -w "$ghc" --prefix="$prefix" -fserver -fc-runtime $extra
-DYLD_LIBRARY_PATH="$extralib" LD_LIBRARY_PATH="$extralib" cabal build
+cabal build
   # Building the example grammars will fail, because the RGL is missing
 cabal copy --destdir="$destdir"  # create www directory
 
@@ -81,7 +85,7 @@ make copy
 popd
 
 # Build GF again, including example grammars that need the RGL
-DYLD_LIBRARY_PATH="$extralib" LD_LIBRARY_PATH="$extralib" cabal build
+cabal build
 
 ## Copy GF to $destdir
 cabal copy --destdir="$destdir"
