@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html> <head>
+<title>Smart paradigms</title>
+<meta charset="UTF-8">
+<meta name = "viewport" content = "width = device-width">
+<link rel=stylesheet href="../cloud.css">
+<style>
+.morpho_output {
+    background: white;
+    padding: 1ex;
+    margin: 1ex;
+    box-shadow: 5px 5px 5px rgba(0,0,0,0.3);
+}
+th,td { vertical-align: baseline; }
+</style>
+</head>
+
+<body>
+<header>
+<h1><a href="/"><img class=nofloat src="../P/gf-cloud.png" alt=""></a> Word inflection with smart paradigms</h1>
+</header>
+<main>
+
+Give language, part of speech, and one or more word forms, to obtain
+the inflection table.
+<p>
+<table>
+  <tr><th>Examples:
+    <td>
+<input onclick="submit_example(this)" type=button value="Eng N baby">
+<input onclick="submit_example(this)" type=button value="Fin V odottaa odotti">
+<input onclick="submit_example(this)" type=button value="Fre V manger">
+<input onclick="submit_example(this)" type=button value="Ger N Soldat Soldaten _masculine">
+<input onclick="submit_example(this)" type=button value="Hin N बच्छा">
+<input onclick="submit_example(this)" type=button value="Jpn V 答える _Gr2">
+      <input onclick="submit_example(this)" type=button value="Lat A vetus veteris">
+  </table>
+<p>
+  Thus notice that word forms are given without quotes. In addition
+  to word forms, in some languages it might be necessary to give
+  an inherent feature (e.g. gender) and these 
+  are prefixed with an underscore <tt>_</tt>.
+<p>
+<form name=morpho method=get action="gfmorpho.cgi" onsubmit="submitmorpho();return false" onreset="resetmorpho()">
+Create your own example:
+<!--
+<select name=language><option value=Eng>English</option></select>
+<select name=category>
+  <option value=N>Noun</option>
+  <option value=A>Adjective</option>
+  <option value=V>Verb</option>
+</select>
+-->
+<input size=40 name=args placeholder="Lang Cat word_forms">
+<input type=submit value="Submit">
+<input type=reset value="Clear">
+</form>
+
+<pre id=morpho_output></pre>
+
+
+<h2>Language and part of speech</h2>
+
+The available languages are:
+<pre>
+  Afr Amh Ara Bul Cat Chi Dan Dut Eng Est Eus Fin Fre Ger
+  Grc Gre Heb Hin Ice Ina Ita Jpn Lat Lav Mlt Mon Nep Nno
+  Nor Pes Pnb Pol Por Ron Rus Slv Snd Spa Swe Tha Tur Urd
+</pre>
+
+<!--
+In addition, the library has the languages <tt>Ara Bul Pol</tt>, but they
+are not yet available in this way; you can however use the full form of
+paradigm applications prefixed by "!" as described below.
+-->
+<p>
+
+The parts of speech are: N (= noun), A (= adjective), V (= verb).
+
+<p>
+
+The way this works is that the program constructs the most probable
+inflection table from the forms given. For a vast majority of words in
+all languages, it is enough to give just one form. But sometimes more
+forms are needed to get the inflection table right. 
+
+<p>
+
+This is a front-end to the Paradigms modules in the GF Resource Grammar. 
+See <a href=http://www.grammaticalframework.org/lib/doc/synopsis.html>RGL
+Synopsis</a> for more information on available languages and paradigms. 
+
+
+</main>
+<footer>
+<hr>
+<div class=modtime><small>
+  <!-- hhmts start -->Last modified: Tue Dec  3 16:24:08 CET 2019 <!-- hhmts end -->
+</small></div>
+<address>Thomas H</address>
+Based on <a href="gfmorpho.html">GFMorpho</a> by Aarne Ranta 2012.
+</body>
+<script src="../js/support.js"></script>
+<script src="../js/localstorage.js"></script>
+<script src="../gfse/cloud2.js"></script>
+<script src="morpho.js"></script>
+</html>
