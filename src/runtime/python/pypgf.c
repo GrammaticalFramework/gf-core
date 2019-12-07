@@ -1307,8 +1307,8 @@ static PyObject*
 Concr_printName(ConcrObject* self, PyObject *args)
 {
 	GuString id;
-    if (!PyArg_ParseTuple(args, "s", &id))
-        return NULL;
+	if (!PyArg_ParseTuple(args, "s", &id))
+		return NULL;
 
 	GuString name = pgf_print_name(self->concr, id);
 	if (name == NULL)
@@ -1490,7 +1490,7 @@ Concr_parse(ConcrObject* self, PyObject *args, PyObject *keywds)
 	int max_count = -1;
 	double heuristics = -1;
 	PyObject* py_callbacks = NULL;
-    if (!PyArg_ParseTupleAndKeywords(args, keywds, "s|OidO!", kwlist,
+	if (!PyArg_ParseTupleAndKeywords(args, keywds, "s|OidO!", kwlist,
                                      &sentence, &start, &max_count,
                                      &heuristics,
                                      &PyList_Type, &py_callbacks))
@@ -1586,10 +1586,10 @@ Concr_complete(ConcrObject* self, PyObject *args, PyObject *keywds)
 	PyObject* start = NULL;
 	GuString prefix = "";
 	int max_count = -1;
-    if (!PyArg_ParseTupleAndKeywords(args, keywds, "s|Osi", kwlist,
-                                     &sentence, &start,
-                                     &prefix, &max_count))
-        return NULL;
+	if (!PyArg_ParseTupleAndKeywords(args, keywds, "s|Osi", kwlist,
+	                                 &sentence, &start,
+	                                 &prefix, &max_count))
+		return NULL;
 
 	IterObject* pyres = (IterObject*) 
 		pgf_IterType.tp_alloc(&pgf_IterType, 0);
@@ -1681,9 +1681,9 @@ Concr_lookupSentence(ConcrObject* self, PyObject *args, PyObject *keywds)
 	const char *sentence = NULL;
 	PyObject* start = NULL;
 	int max_count = -1;
-    if (!PyArg_ParseTupleAndKeywords(args, keywds, "s|O", kwlist,
-                                     &sentence, &start, &max_count))
-        return NULL;
+	if (!PyArg_ParseTupleAndKeywords(args, keywds, "s|O", kwlist,
+	                                 &sentence, &start, &max_count))
+		return NULL;
 
 	IterObject* pyres = (IterObject*) 
 		pgf_IterType.tp_alloc(&pgf_IterType, 0);
@@ -2346,8 +2346,8 @@ pypgf_collect_morpho(PgfMorphoCallback* self,
 static PyObject*
 Concr_lookupMorpho(ConcrObject* self, PyObject *args) {
 	GuString sent;
-    if (!PyArg_ParseTuple(args, "s", &sent))
-        return NULL;
+	if (!PyArg_ParseTuple(args, "s", &sent))
+		return NULL;
 
 	GuPool *tmp_pool = gu_local_pool();
 	GuExn* err = gu_exn(tmp_pool);
@@ -2442,9 +2442,9 @@ Concr_fullFormLexicon(ConcrObject* self, PyObject *args)
 static PyObject*
 Concr_load(ConcrObject* self, PyObject *args)
 {
-    const char *fpath;
-    if (!PyArg_ParseTuple(args, "s", &fpath))
-        return NULL;
+	const char *fpath;
+	if (!PyArg_ParseTuple(args, "s", &fpath))
+		return NULL;
 
 	GuPool* tmp_pool = gu_local_pool();
 
@@ -2831,8 +2831,8 @@ static PyObject*
 PGF_functionsByCat(PGFObject* self, PyObject *args)
 {
 	PgfCId catname;
-    if (!PyArg_ParseTuple(args, "s", &catname))
-        return NULL;
+	if (!PyArg_ParseTuple(args, "s", &catname))
+		return NULL;
 
 	PyObject* functions = PyList_New(0);
 	if (functions == NULL) {
@@ -2888,9 +2888,9 @@ PGF_generateAll(PGFObject* self, PyObject *args, PyObject *keywds)
 
 	PyObject* start = NULL;
 	int max_count = -1;
-    if (!PyArg_ParseTupleAndKeywords(args, keywds, "O|i", kwlist,
-                                     &start, &max_count))
-        return NULL;
+	if (!PyArg_ParseTupleAndKeywords(args, keywds, "O|i", kwlist,
+	                                 &start, &max_count))
+		return NULL;
 
 	IterObject* pyres = (IterObject*)
 		pgf_IterType.tp_alloc(&pgf_IterType, 0);
@@ -3152,12 +3152,12 @@ static PyObject*
 PGF_embed(PGFObject* self, PyObject *args)
 {
 	PgfCId modname;
-    if (!PyArg_ParseTuple(args, "s", &modname))
-        return NULL;
+	if (!PyArg_ParseTuple(args, "s", &modname))
+		return NULL;
 
-    PyObject *m = PyImport_AddModule(modname);
-    if (m == NULL)
-        return NULL;
+	PyObject *m = PyImport_AddModule(modname);
+	if (m == NULL)
+		return NULL;
 
 	GuPool* tmp_pool = gu_local_pool();
 
@@ -3285,9 +3285,9 @@ static PyTypeObject pgf_PGFType = {
 static PGFObject*
 pgf_readPGF(PyObject *self, PyObject *args)
 {
-    const char *fpath;
-    if (!PyArg_ParseTuple(args, "s", &fpath))
-        return NULL;
+	const char *fpath;
+	if (!PyArg_ParseTuple(args, "s", &fpath))
+		return NULL;
 
 	PGFObject* py_pgf = (PGFObject*) pgf_PGFType.tp_alloc(&pgf_PGFType, 0);
 	py_pgf->pool = gu_new_pool();
@@ -3318,9 +3318,9 @@ pgf_readPGF(PyObject *self, PyObject *args)
 static ExprObject*
 pgf_readExpr(PyObject *self, PyObject *args) {
 	Py_ssize_t len;
-    const uint8_t *buf;
-    if (!PyArg_ParseTuple(args, "s#", &buf, &len))
-        return NULL;
+	const uint8_t *buf;
+	if (!PyArg_ParseTuple(args, "s#", &buf, &len))
+		return NULL;
 
 	ExprObject* pyexpr = (ExprObject*) pgf_ExprType.tp_alloc(&pgf_ExprType, 0);
 	if (pyexpr == NULL)
@@ -3348,9 +3348,9 @@ pgf_readExpr(PyObject *self, PyObject *args) {
 static TypeObject*
 pgf_readType(PyObject *self, PyObject *args) {
 	Py_ssize_t len;
-    const uint8_t *buf;
-    if (!PyArg_ParseTuple(args, "s#", &buf, &len))
-        return NULL;
+	const uint8_t *buf;
+	if (!PyArg_ParseTuple(args, "s#", &buf, &len))
+		return NULL;
 
 	TypeObject* pytype = (TypeObject*) pgf_TypeType.tp_alloc(&pgf_TypeType, 0);
 	if (pytype == NULL)
@@ -3405,20 +3405,20 @@ MOD_INIT(pgf)
 {
     PyObject *m;
 
-    if (PyType_Ready(&pgf_PGFType) < 0)
-        return MOD_ERROR_VAL;
+	if (PyType_Ready(&pgf_PGFType) < 0)
+		return MOD_ERROR_VAL;
 
-    if (PyType_Ready(&pgf_ConcrType) < 0)
-        return MOD_ERROR_VAL;
+	if (PyType_Ready(&pgf_ConcrType) < 0)
+		return MOD_ERROR_VAL;
 
-    if (PyType_Ready(&pgf_BracketType) < 0)
-        return MOD_ERROR_VAL;
+	if (PyType_Ready(&pgf_BracketType) < 0)
+		return MOD_ERROR_VAL;
 
-    if (PyType_Ready(&pgf_ExprType) < 0)
-        return MOD_ERROR_VAL;
+	if (PyType_Ready(&pgf_ExprType) < 0)
+		return MOD_ERROR_VAL;
 
-    if (PyType_Ready(&pgf_TypeType) < 0)
-        return MOD_ERROR_VAL;
+	if (PyType_Ready(&pgf_TypeType) < 0)
+		return MOD_ERROR_VAL;
 
 	if (PyType_Ready(&pgf_IterType) < 0)
 		return MOD_ERROR_VAL;
