@@ -6,6 +6,7 @@ module PGF2.FFI where
 #include <gu/hash.h>
 #include <gu/utf8.h>
 #include <pgf/pgf.h>
+#include <pgf/data.h>
 
 import Foreign ( alloca, peek, poke, peekByteOff )
 import Foreign.C
@@ -237,6 +238,16 @@ newSequence elem_size pokeElem values pool = do
       pokeElem  ptr x
       pokeElems (ptr `plusPtr` (fromIntegral elem_size)) xs
 
+type FId = Int
+data PArg = PArg [FId] {-# UNPACK #-} !FId deriving (Eq,Ord,Show)
+
+peekFId :: Ptr a -> IO FId 
+peekFId c_ccat = do
+  c_fid <- (#peek PgfCCat, fid) c_ccat
+  return (fromIntegral (c_fid :: CInt))
+
+deRef peekValue ptr = peek ptr >>= peekValue
+
 ------------------------------------------------------------------
 -- libpgf API
 
@@ -261,6 +272,7 @@ data PgfAbsCat
 data PgfCCat
 data PgfCncFun
 data PgfProductionApply
+data PgfParsing
 
 foreign import ccall "pgf/pgf.h pgf_read"
   pgf_read :: CString -> Ptr GuPool -> Ptr GuExn -> IO (Ptr PgfPGF)
@@ -360,6 +372,15 @@ foreign import ccall "wrapper"
 
 foreign import ccall "pgf/pgf.h pgf_align_words"
   pgf_align_words :: Ptr PgfConcr -> PgfExpr -> Ptr GuExn -> Ptr GuPool -> IO (Ptr GuSeq)
+
+foreign import ccall "pgf/pgf.h pgf_parse_to_chart"
+  pgf_parse_to_chart :: Ptr PgfConcr -> PgfType -> CString -> Double -> Ptr PgfCallbacksMap -> CSizeT -> Ptr GuExn -> Ptr GuPool -> Ptr GuPool -> IO (Ptr PgfParsing)
+
+foreign import ccall "pgf/pgf.h pgf_get_parse_roots"
+  pgf_get_parse_roots :: Ptr PgfParsing -> Ptr GuPool -> IO (Ptr GuSeq)
+
+foreign import ccall "pgf/pgf.h pgf_ccat_to_range"
+  pgf_ccat_to_range :: Ptr PgfParsing -> Ptr PgfCCat -> Ptr GuPool -> IO (Ptr GuSeq)
 
 foreign import ccall "pgf/pgf.h pgf_parse_with_heuristics"
   pgf_parse_with_heuristics :: Ptr PgfConcr -> PgfType -> CString -> Double -> Ptr PgfCallbacksMap -> Ptr GuExn -> Ptr GuPool -> Ptr GuPool -> IO (Ptr GuEnum)

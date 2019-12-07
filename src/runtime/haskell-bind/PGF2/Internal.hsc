@@ -53,7 +53,6 @@ data Production
   = PApply  {-# UNPACK #-} !FunId [PArg]
   | PCoerce {-# UNPACK #-} !FId
   deriving (Eq,Ord,Show)
-data PArg = PArg [FId] {-# UNPACK #-} !FId deriving (Eq,Ord,Show)
 type FunId = Int
 type SeqId = Int
 data Literal =
@@ -186,10 +185,6 @@ concrProductions c fid = unsafePerformIO $ do
           fid  <- peekFId c_ccat
           return (PArg hypos fid)
 
-peekFId c_ccat = do
-  c_fid <- (#peek PgfCCat, fid) c_ccat
-  return (fromIntegral (c_fid :: CInt))
-
 concrTotalFuns :: Concr -> FunId
 concrTotalFuns c = unsafePerformIO $ do
   c_cncfuns <- (#peek PgfConcr, cncfuns) (concr c)
@@ -270,8 +265,6 @@ concrSequence c seqid = unsafePerformIO $ do
       prefixes <- peekSequence (deRef peekUtf8CString) (#size GuString*) c_prefixes
       forms <- peekForms (len-1) (ptr `plusPtr` (#size PgfAlternative))
       return ((form,prefixes):forms)
-
-deRef peekValue ptr = peek ptr >>= peekValue
 
 fidString, fidInt, fidFloat, fidVar, fidStart :: FId
 fidString = (-1)

@@ -15,6 +15,7 @@
 
 #include <pgf/pgf.h>
 #include <pgf/linearizer.h>
+#include <pgf/data.h>
 #include <gu/enum.h>
 #include <gu/exn.h>
 
@@ -65,6 +66,7 @@ module PGF2 (-- * PGF
              alignWords,
              -- ** Parsing
              ParseOutput(..), parse, parseWithHeuristics,
+             parseToChart, PArg(..),
              -- ** Sentence Lookup
              lookupSentence,
              -- ** Generation
@@ -86,6 +88,7 @@ import Prelude hiding (fromEnum,(<>)) -- GHC 8.4.1 clash with Text.PrettyPrint
 import Control.Exception(Exception,throwIO)
 import Control.Monad(forM_)
 import System.IO.Unsafe(unsafePerformIO,unsafeInterleaveIO)
+import System.IO(fixIO)
 import Text.PrettyPrint
 import PGF2.Expr
 import PGF2.Type
@@ -99,7 +102,7 @@ import Data.IORef
 import Data.Char(isUpper,isSpace)
 import Data.List(isSuffixOf,maximumBy,nub)
 import Data.Function(on)
-
+import Data.Maybe(maybe)
  
 -----------------------------------------------------------------------
 -- Functions that take a PGF.
@@ -569,14 +572,14 @@ getAnalysis ref self c_lemma c_anal prob exn = do
   writeIORef ref ((lemma, anal, prob):ans)
 
 -- | This data type encodes the different outcomes which you could get from the parser.
-data ParseOutput
+data ParseOutput a
   = ParseFailed Int String         -- ^ The integer is the position in number of unicode characters where the parser failed.
                                    -- The string is the token where the parser have failed.
-  | ParseOk [(Expr,Float)]         -- ^ If the parsing and the type checking are successful we get a list of abstract syntax trees.
-                                   -- The list should be non-empty.
+  | ParseOk a                      -- ^ If the parsing and the type checking are successful 
+                                   -- we get the abstract syntax trees as either a list or a chart.
   | ParseIncomplete                -- ^ The sentence is not complete.
 
-parse :: Concr -> Type -> String -> ParseOutput
+parse :: Concr -> Type -> String -> ParseOutput [(Expr,Float)]
 parse lang ty sent = parseWithHeuristics lang ty sent (-1.0) []
 
 parseWithHeuristics :: Concr      -- ^ the language with which we parse
@@ -593,7 +596,7 @@ parseWithHeuristics :: Concr      -- ^ the language with which we parse
                                   -- the input sentence; the current offset in the sentence.
                                   -- If a literal has been recognized then the output should
                                   -- be Just (expr,probability,end_offset)
-                    -> ParseOutput
+                    -> ParseOutput [(Expr,Float)]
 parseWithHeuristics lang (Type ctype touchType) sent heuristic callbacks =
   unsafePerformIO $
     do exprPl  <- gu_new_pool
@@ -634,6 +637,129 @@ parseWithHeuristics lang (Type ctype touchType) sent heuristic callbacks =
                  exprFPl  <- newForeignPtr gu_pool_finalizer exprPl
                  exprs    <- fromPgfExprEnum enum parseFPl (touchConcr lang >> touchForeignPtr exprFPl)
                  return (ParseOk exprs)
+
+parseToChart :: Concr      -- ^ the language with which we parse
+             -> Type       -- ^ the start category
+             -> String     -- ^ the input sentence
+             -> Double     -- ^ the heuristic factor. 
+                           -- A negative value tells the parser 
+                           -- to lookup up the default from 
+                           -- the grammar flags
+             -> [(Cat, Int -> Int -> Maybe (Expr,Float,Int))]
+                           -- ^ a list of callbacks for literal categories.
+                           -- The arguments of the callback are:
+                           -- the index of the constituent for the literal category;
+                           -- the input sentence; the current offset in the sentence.
+                           -- If a literal has been recognized then the output should
+                           -- be Just (expr,probability,end_offset)
+             -> Int        -- ^ the maximal number of roots
+             -> ParseOutput ([FId],Map.Map FId ([(Int,Int,String)],[(Expr,[PArg],Float)]))
+parseToChart lang (Type ctype touchType) sent heuristic callbacks roots =
+  unsafePerformIO $
+  withGuPool $ \parsePl -> do
+    do exn   <- gu_new_exn parsePl
+       sent  <- newUtf8CString sent parsePl
+       callbacks_map <- mkCallbacksMap (concr lang) callbacks parsePl
+       ps    <- pgf_parse_to_chart (concr lang) ctype sent heuristic callbacks_map (fromIntegral roots) exn parsePl parsePl
+       touchType
+       failed  <- gu_exn_is_raised exn
+       if failed
+         then do is_parse_error <- gu_exn_caught exn gu_exn_type_PgfParseError
+                 if is_parse_error
+                   then do c_err <- (#peek GuExn, data.data) exn
+                           c_incomplete <- (#peek PgfParseError, incomplete) c_err
+                           if (c_incomplete :: CInt) == 0
+                             then do c_offset <- (#peek PgfParseError, offset) c_err
+                                     token_ptr <- (#peek PgfParseError, token_ptr) c_err
+                                     token_len <- (#peek PgfParseError, token_len) c_err
+                                     tok <- peekUtf8CStringLen token_ptr token_len
+                                     touchConcr lang
+                                     return (ParseFailed (fromIntegral (c_offset :: CInt)) tok)
+                             else do touchConcr lang
+                                     return ParseIncomplete
+                   else do is_exn <- gu_exn_caught exn gu_exn_type_PgfExn
+                           if is_exn
+                             then do c_msg <- (#peek GuExn, data.data) exn
+                                     msg <- peekUtf8CString c_msg
+                                     touchConcr lang
+                                     throwIO (PGFError msg)
+                             else do touchConcr lang
+                                     throwIO (PGFError "Parsing failed")
+         else do c_roots <- pgf_get_parse_roots ps parsePl
+                 let get_range c_ccat = pgf_ccat_to_range ps c_ccat parsePl
+                 c_len <- (#peek GuSeq, len) c_roots
+                 chart <- peekCCats get_range Map.empty (c_len :: CSizeT) (c_roots `plusPtr` (#offset GuSeq, data))
+                 touchConcr lang
+                 return (ParseOk chart)
+  where
+    peekCCats get_range chart 0   ptr = return ([],chart)
+    peekCCats get_range chart len ptr = do
+      (root, chart) <- deRef (peekCCat get_range chart) ptr
+      (roots,chart) <- peekCCats get_range chart (len-1) (ptr `plusPtr` (#size PgfCCat*))
+      return (root:roots,chart)
+
+    peekCCat get_range chart c_ccat = do
+      fid <- peekFId c_ccat
+      c_total_cats <- (#peek PgfConcr, total_cats) (concr lang)
+      if Map.member fid chart || fid < c_total_cats
+        then return (fid,chart)
+        else do range <- get_range c_ccat >>= peekSequence peekRange (#size PgfParseRange)
+                c_prods <- (#peek PgfCCat, prods) c_ccat
+                if c_prods == nullPtr
+                  then do return (fid,Map.insert fid (range,[]) chart)
+                  else do c_len <- (#peek PgfCCat, n_synprods) c_ccat
+                          (prods,chart) <- fixIO (\res -> peekProductions (Map.insert fid (range,fst res) chart)
+                                                                          (fromIntegral (c_len :: CSizeT))
+                                                                          (c_prods `plusPtr` (#offset GuSeq, data)))
+                          return (fid,chart)
+      where
+        peekProductions chart 0   ptr = return ([],chart)
+        peekProductions chart len ptr = do
+          (ps1, chart) <- deRef (peekProduction chart) ptr
+          (ps2,chart) <- peekProductions chart (len-1) (ptr `plusPtr` (#size GuVariant))
+          return (ps1++ps2,chart)
+
+        peekProduction chart p = do
+          tag <- gu_variant_tag  p
+          dt  <- gu_variant_data p
+          case tag of
+            (#const PGF_PRODUCTION_APPLY)  -> do { c_cncfun <- (#peek PgfProductionApply, fun) dt ;
+                                                   c_absfun <- (#peek PgfCncFun, absfun) c_cncfun ;
+                                                   expr     <- (#peek PgfAbsFun, ep.expr) c_absfun ;
+                                                   p        <- (#peek PgfAbsFun, ep.prob) c_absfun ;
+                                                   c_args   <- (#peek PgfProductionApply, args) dt ;
+                                                   c_len    <- (#peek GuSeq, len) c_args ;
+                                                   (pargs,chart) <- peekPArgs chart (c_len :: CSizeT) (c_args `plusPtr` (#offset GuSeq, data)) ;
+                                                   return ([(Expr expr (touchConcr lang), pargs, p)],chart) }
+            (#const PGF_PRODUCTION_COERCE) -> do { c_coerce    <- (#peek PgfProductionCoerce, coerce) dt ;
+                                                   (fid,chart) <- peekCCat get_range chart c_coerce ;
+                                                   return (maybe [] snd (Map.lookup fid chart),chart) }
+            (#const PGF_PRODUCTION_EXTERN) -> do { c_ep     <- (#peek PgfProductionExtern, ep) dt ;
+                                                   expr     <- (#peek PgfExprProb, expr) c_ep ;
+                                                   p        <- (#peek PgfExprProb, prob) c_ep ;
+                                                   return ([(Expr expr (touchConcr lang), [], p)],chart) }
+            _                             -> error ("Unknown production type "++show tag++" in the grammar")
+
+        peekPArgs chart 0   ptr = return ([],chart)
+        peekPArgs chart len ptr = do
+          (a, chart) <- peekPArg  chart ptr
+          (as,chart) <- peekPArgs chart (len-1) (ptr `plusPtr` (#size PgfPArg))
+          return (a:as,chart)
+
+        peekPArg chart ptr = do
+          c_hypos <- (#peek PgfPArg, hypos) ptr
+          hypos  <- if c_hypos /= nullPtr
+                      then peekSequence (deRef peekFId) (#size int) c_hypos
+                      else return []
+          c_ccat <- (#peek PgfPArg, ccat) ptr
+          (fid,chart) <- peekCCat get_range chart c_ccat
+          return (PArg hypos fid,chart)
+
+        peekRange ptr = do
+          s <- (#peek PgfParseRange, start) ptr
+          e <- (#peek PgfParseRange, end)   ptr
+          f <- (#peek PgfParseRange, field) ptr >>= peekCString
+          return ((fromIntegral :: CSizeT -> Int) s, (fromIntegral :: CSizeT -> Int) e, f)
 
 mkCallbacksMap :: Ptr PgfConcr -> [(String, Int -> Int -> Maybe (Expr,Float,Int))] -> Ptr GuPool -> IO (Ptr PgfCallbacksMap)
 mkCallbacksMap concr callbacks pool = do
@@ -700,7 +826,7 @@ parseWithOracle :: Concr      -- ^ the language with which we parse
                 -> Cat        -- ^ the start category
                 -> String     -- ^ the input sentence
                 -> Oracle
-                -> ParseOutput
+                -> ParseOutput [(Expr,Float)]
 parseWithOracle lang cat sent (predict,complete,literal) =
   unsafePerformIO $
     do parsePl <- gu_new_pool
@@ -906,7 +1032,6 @@ tabularLinearizeAll lang e = unsafePerformIO $
                 throwIO (PGFError msg)
         else do throwIO (PGFError "The abstract tree cannot be linearized")
 
-type FId    = Int
 type LIndex = Int
 
 -- | BracketedString represents a sentence that is linearized

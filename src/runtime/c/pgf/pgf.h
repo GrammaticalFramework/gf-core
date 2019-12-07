@@ -208,6 +208,12 @@ pgf_parse_with_heuristics(PgfConcr* concr, PgfType* typ,
                           GuExn* err,
                           GuPool* pool, GuPool* out_pool);
 
+typedef struct {
+	size_t   start;
+	size_t   end;
+	GuString field;
+} PgfParseRange;
+
 typedef struct PgfOracleCallback PgfOracleCallback;
 
 struct PgfOracleCallback {

@@ -2230,6 +2230,101 @@ pgf_parse_with_heuristics(PgfConcr* concr, PgfType* typ, GuString sentence,
 	return &ps->en;
 }
 
+PGF_API PgfParsing*
+pgf_parse_to_chart(PgfConcr* concr, PgfType* typ, GuString sentence,
+                   double heuristics,
+                   PgfCallbacksMap* callbacks,
+                   size_t n_roots,
+                   GuExn* err,
+                   GuPool* pool, GuPool* out_pool)
+{
+	if (concr->sequences == NULL ||
+	    concr->cnccats == NULL) {
+		GuExnData* err_data = gu_raise(err, PgfExn);
+		if (err_data) {
+			err_data->data = "The concrete syntax is not loaded";
+			return NULL;
+		}
+	}
+
+	// Begin parsing a sentence with the specified category
+	PgfParsing* ps =
+		pgf_parsing_init(concr, typ->cid, sentence, heuristics, callbacks, NULL, err, pool, out_pool);
+	if (ps == NULL) {
+		return NULL;
+	}
+
+#ifdef PGF_COUNTS_DEBUG
+	pgf_parsing_print_counts(ps);
+#endif
+
+	while (gu_buf_length(ps->expr_queue) < n_roots) {
+		if (!pgf_parsing_proceed(ps)) {
+			break;
+		}
+
+#ifdef PGF_COUNTS_DEBUG
+		pgf_parsing_print_counts(ps);
+#endif
+	}
+
+	return ps;
+}
+
+PGF_API PgfCCats*
+pgf_get_parse_roots(PgfParsing* ps, GuPool* pool)
+{
+	size_t n_cats   = 0;
+	size_t n_states = gu_buf_length(ps->expr_queue);
+	GuSeq* roots = gu_new_seq(PgfCCat*, n_states, pool);
+	for (size_t i = 0; i < n_states; i++) {
+		PgfCCat* ccat = gu_buf_get(ps->expr_queue, PgfExprState*, i)->answers->ccat;
+
+		bool found = false;
+		for (size_t j = 0; j < n_cats; j++) {
+			if (gu_seq_get(roots, PgfCCat*, j) == ccat) {
+				found = true;
+				break;
+			}
+		}
+
+		if (!found) {
+			gu_seq_set(roots, PgfCCat*, n_cats, ccat);
+			n_cats++;
+		}
+	}
+	roots->len = n_cats;
+	return roots;
+}
+	
+PGF_API GuSeq*
+pgf_ccat_to_range(PgfParsing* ps, PgfCCat* ccat, GuPool* pool)
+{
+	PgfItemConts*  conts = ccat->conts;
+	PgfParseState* state = ps->before;
+	GuBuf* buf = gu_new_buf(PgfParseRange, pool);
+
+	while (conts != NULL) {
+		PgfParseRange* range = gu_buf_extend(buf);
+		range->start = conts->state->end_offset;
+		range->end   = conts->state->end_offset;
+		range->field = conts->ccat->cnccat->labels[conts->lin_idx];
+		
+		while (state != NULL) {
+			if (pgf_parsing_get_completed(state, conts) == ccat) {
+				if (state->start_offset >= range->start)
+					range->end = state->start_offset;
+				break;
+			}
+			state = state->next;
+		}
+
+		conts = conts->ccat->conts;
+	}
+
+	return gu_buf_data_seq(buf);
+}
+
 PGF_API PgfExprEnum*
 pgf_parse_with_oracle(PgfConcr* concr, PgfType* typ,
                       GuString sentence,
