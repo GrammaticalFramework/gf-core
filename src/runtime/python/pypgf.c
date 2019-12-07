@@ -2514,7 +2514,7 @@ static PyMethodDef Concr_methods[] = {
     {"parse", (PyCFunction)Concr_parse, METH_VARARGS | METH_KEYWORDS,
      "Parses a string and returns an iterator over the abstract trees for this sentence\n\n"
      "Named arguments:\n"
-     "- sentence (string) or tokens (list of strings)\n"
+     "- sentence (string)\n"
      "- cat (string); OPTIONAL, default: the startcat of the grammar\n"
      "- n (int), max. trees; OPTIONAL, default: extract all trees\n"
      "- heuristics (double >= 0.0); OPTIONAL, default: taken from the flags in the grammar\n"
