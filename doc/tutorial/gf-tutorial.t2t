@@ -4738,10 +4738,6 @@ abstract Query = {
 To make it easy to define a transfer function, we export the
 abstract syntax to a system of Haskell datatypes:
 ```
-  % gf --output-format=haskell Query.pgf
-```
-It is also possible to produce the Haskell file together with PGF, by
-```
   % gf -make --output-format=haskell QueryEng.gf
 ```
 The result is a file named ``Query.hs``, containing a
