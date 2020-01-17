@@ -5,6 +5,7 @@
 #include <gu/mem.h>
 #include <gu/map.h>
 #include <gu/file.h>
+#include <gu/utf8.h>
 #include <pgf/pgf.h>
 #include <pgf/linearizer.h>
 
@@ -1346,6 +1347,39 @@ typedef struct {
 	GuFinalizer fin;
 } PyPgfLiteralCallback;
 
+#if PY_MAJOR_VERSION >= 3
+static size_t
+utf8_to_unicode_offset(GuString sentence, size_t offset)
+{
+	const uint8_t* start = (uint8_t*) sentence;
+	const uint8_t* end   = start+offset;
+
+	size_t chars = 0;
+	while (start < end) {
+		gu_utf8_decode(&start);
+		chars++;
+	}
+	
+	return chars;
+}
+
+static size_t
+unicode_to_utf8_offset(GuString sentence, size_t chars)
+{
+	const uint8_t* start = (uint8_t*) sentence;
+	const uint8_t* end   = start;
+
+	while (chars > 0) {
+		GuUCS ucs = gu_utf8_decode(&end);
+		if (ucs == 0)
+			break;
+		chars--;
+	}
+
+	return (end-start);
+}
+#endif
+
 static PgfExprProb*
 pypgf_literal_callback_match(PgfLiteralCallback* self, PgfConcr* concr,
                              size_t lin_idx,
@@ -1357,9 +1391,17 @@ pypgf_literal_callback_match(PgfLiteralCallback* self, PgfConcr* concr,
 
 	PyObject* result =
 		PyObject_CallFunction(callback->pycallback, "ii",
-		                      lin_idx, *poffset);
-	if (result == NULL)
+		                      lin_idx,
+#if PY_MAJOR_VERSION >= 3
+		                      utf8_to_unicode_offset(sentence, *poffset)
+#else
+		                      *poffset
+#endif
+		                     );
+	if (result == NULL) {
+		PyErr_Print();
 		return NULL;
+	}
 
 	if (result == Py_None) {
 		Py_DECREF(result);
@@ -1369,8 +1411,15 @@ pypgf_literal_callback_match(PgfLiteralCallback* self, PgfConcr* concr,
 	PgfExprProb* ep = gu_new(PgfExprProb, out_pool);
 
 	ExprObject* pyexpr;
+#if PY_MAJOR_VERSION >= 3
+	size_t chars;
+	if (!PyArg_ParseTuple(result, "Ofi", &pyexpr, &ep->prob, &chars))
+	    return NULL;
+	*poffset = unicode_to_utf8_offset(sentence, chars);
+#else
 	if (!PyArg_ParseTuple(result, "Ofi", &pyexpr, &ep->prob, poffset))
 	    return NULL;
+#endif
 
 	ep->expr = pyexpr->expr;
 
