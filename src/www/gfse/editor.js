@@ -1,5 +1,3 @@
-
-
 var editor=element("editor");
 var compiler_output=element("compiler_output")
 
@@ -899,9 +897,12 @@ function text_mode(g,file,ix) {
 	var ta=node("textarea",{class:"text_mode",rows:25,cols:80},
 		    [text(show_module(g,ix))])
 	var timeout;
-	ta.onkeyup=function() {
+	ta.onkeyup=function(event) {
 	    if(timeout) clearTimeout(timeout);
-	    timeout=setTimeout(function(){parse(ta.value)},400)
+	    timeout=setTimeout(function(){parse(ta.value)},400);
+	    if (event.key == ' ' && event.ctrlKey) {
+	      wordnet_search(g,ta);
+	    }
 	}
 	var mode_button=div_class("right",[button("Guided mode",switch_to_guided_mode)])
 	clear(file)
@@ -1134,13 +1135,15 @@ function draw_concrete(g,i) {
 
 var rgl_modules=["Syntax","Lexicon","Paradigms","Extra","Symbolic"];
 var common_modules=["Prelude"];
+var wordnet_modules=["WordNet"];
 var rgl_info = {
     Prelude: "Some facilities usable in all grammars",
     Paradigms: "Lexical categories (A, N, V, ...) and smart paradigms (mkA, mkN, mkV, ...) for turning raw strings into new dictionary entries.",
     Syntax: "Syntactic categories (Utt, Cl, V, NP, CN, AP, ...), structural words (this_Det, few_Det, ...) and functions for building phrases (mkUtt, mkCl, mkCN, mkVP, mkAP, ...)",
     Lexicon: "A multilingual lexicon with ~350 common words.",
     Extra: "Language-specific extra constructions not available via the common API.",
-    Symbolic: "Functions for symbolic expressions (numbers and variables in mathematics)"
+    Symbolic: "Functions for symbolic expressions (numbers and variables in mathematics)",
+    WordNet: "A large lexicon based on WordNet"
 }
 
 function add_open(g,ci) {
@@ -1165,6 +1168,12 @@ function add_open(g,ci) {
 	for(var i in common_modules) {
 	    var b=common_modules[i];
 	    add_module(b,b)
+	}
+	if (gfwordnet.languages.indexOf("Parse"+conc.langcode) >= 0) {
+		for(var i in wordnet_modules) {
+			var b=wordnet_modules[i];
+			add_module(b,b+conc.langcode)
+		}
 	}
 	if(list.length>0) {
 	    var file=element("file");
@@ -1459,6 +1468,89 @@ function arg_names(type) {
     return map(unique,names);
 }
 
+function wordnet_search(g,input) {
+	var selection = {
+		current: "Parse"+g.concretes[g.current-1].langcode,
+		langs: {},
+		langs_list: []
+	};
+	if (gfwordnet.languages.indexOf(selection.current) < 0) {
+		return;
+	}
+	var start = input.selectionStart;
+	var end   = input.selectionEnd;
+	if (start == end) {
+		while (start > 0 && input.value.charAt(start-1) != ' ') {
+			start--;
+		}
+	}
+	if (start == end)
+		return;
+	var lemma = input.value.substring(start,end);
+
+	var search_popup = element("search_popup");
+	var viewport = input.getBoundingClientRect();
+	search_popup.style.top     = viewport.top+"px";
+	search_popup.style.left    = viewport.left+"px";
+	search_popup.style.display = "block";
+
+	function close_popup() {
+		search_popup.innerHtml = "";
+		search_popup.style.display = "none";
+		delete(window.onkeyup);
+		delete(window.onclick);
+	}
+	window.onkeyup = function (event) {
+		if (event.keyCode == 27) {
+			close_popup();
+		}
+	}
+	window.onclick = close_popup
+	search_popup.onclick = function (event) {
+		event.stopPropagation();
+	}
+
+	var index=1;
+	for (var i=0; i < g.concretes.length; i++) {
+		var code = g.concretes[i].langcode;
+		var name = "Parse"+code;
+		if (gfwordnet.languages.indexOf(name) >= 0) {
+			selection.langs[name] = {name: langname[code], index: index};
+			selection.langs_list.push(name);
+			index++;
+		}
+	}
+	selection.isEqual = function(other) {
+		if (other.langs_list.length != this.langs_list.length)
+			return false;
+		for (var i = 0; i < other.langs_list.length; i++) {
+			if (other.langs_list[i] != this.langs_list[i])
+				return false;
+		}
+		return true;
+	}
+	gfwordnet.can_select=true;
+	gfwordnet.onclick_select = function(row) {
+		var code   = input.value;
+		var lex_id = row.getAttribute("data-lex-id");
+		input.value= code.substring(0,start)+lex_id+code.substring(end)
+		end = start+lex_id.length;
+		input.selectionStart= end;
+		input.selectionEnd  = end;
+		input.focus();
+
+		var conc=g.concretes[g.current-1];
+		conc.opens || (conc.opens=[]);
+		var open_name = "WordNet"+conc.langcode;
+		if (conc.opens.indexOf(open_name) < 0) {
+			conc.opens.push(open_name);
+		}
+
+		close_popup();
+	}
+	gfwordnet.search(selection, lemma, element("domains"), element("result"), null);
+}
+
 function draw_elin(g,igs,ci,f,dc,df) {
     var fun=f.fun;
     var conc=g.concretes[ci];
@@ -1476,7 +1568,7 @@ function draw_elin(g,igs,ci,f,dc,df) {
 	    }
 	    check_exp(s,check2);
 	}
-	text_editor(el,f.lin,check,true)
+	text_editor(el,f.lin,check,true,wordnet_search.bind(null,g))
     }
     function dl(cls) {
 	var fn=ident(f.fun)
@@ -1808,11 +1900,11 @@ function sort_list(list,olditems,key) {
     }
 }
 
-function text_editor(el,init,ok,async) {
-    string_editor(el,init,ok,async,true)
+function text_editor(el,init,ok,async,search) {
+    string_editor(el,init,ok,async,true,search)
 }
 
-function string_editor(el,init,ok,async,multiline) {
+function string_editor(el,init,ok,async,multiline,search) {
     var p=el.parentNode;
     function restore() {
 	e.parentNode.removeChild(e);
@@ -1843,6 +1935,13 @@ function string_editor(el,init,ok,async,multiline) {
 	var i=node("input",{"class":"string_edit",name:"it",value:init},[]);
 	if(init.length>10) i.size=init.length+5;
     }
+    if (search != null) {
+		i.onkeyup = function(event) {
+			if (event.key == ' ' && event.ctrlKey) {
+				search(i)
+			}
+		};
+    }
     var e=node("form",{},
 	       [i,
 		text(" "),
@@ -1850,6 +1949,9 @@ function string_editor(el,init,ok,async,multiline) {
 		button("Cancel",restore),
 		text(" "),
 		m])
+	if (search != null) {
+		e.appendChild(button("Search",function(event) { search(i); }));
+	}
     e.onsubmit=done
     start("");
 }
