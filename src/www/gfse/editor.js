@@ -634,6 +634,9 @@ function adjust_opens(cnc,oldcode,code) {
 	for(var li in rgl_modules)
 	    if(cnc.opens[oi]==rgl_modules[li]+oldcode)
 		cnc.opens[oi]=rgl_modules[li]+code;
+	for(var li in wordnet_modules)
+	    if(cnc.opens[oi]==wordnet_modules[li]+oldcode)
+		cnc.opens[oi]=wordnet_modules[li]+code;
 }
 
 function add_concrete2(ix,code) {
