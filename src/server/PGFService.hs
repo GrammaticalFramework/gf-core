@@ -159,6 +159,7 @@ cpgfMain qsem command (t,(pgf,pc)) =
     "c-translate"   -> withQSem qsem $
                        out t=<<join(trans # input % to % start % limit%treeopts)
     "c-lookupmorpho"-> out t=<< morpho # from1 % textInput
+    "c-lookupcohorts"->out t=<< cohorts # from1 % getInput "longest" % textInput
     "c-flush"       -> out t=<< flush
     "c-grammar"     -> out t grammar
     "c-abstrtree"   -> outputGraphviz=<< C.graphvizAbstractTree pgf C.graphvizDefaults # tree
@@ -245,9 +246,34 @@ cpgfMain qsem command (t,(pgf,pc)) =
                                     | (tree,prob) <- parses]
 
     morpho (from,concr) input =
-        showJSON [makeObj ["lemma".=l,"analysis".=a,"prob".=p]|(l,a,p)<-ms]
-      where ms = C.lookupMorpho concr input
+        showJSON [makeObj ["lemma".=l
+                          ,"analysis".=a
+                          ,"prob".=p]
+                     | (l,a,p)<-C.lookupMorpho concr input]
 
+    cohorts (from,concr) longest input =
+      showJSON [makeObj ["start" .=showJSON s
+                        ,"morpho".=showJSON [makeObj ["lemma".=l
+                                                     ,"analysis".=a
+                                                     ,"prob".=p] 
+                                                | (l,a,p)<-ms]
+                        ,"end"   .=showJSON e
+                        ]
+                   | (s,ms,e) <- (if longest==Just "true" then filterLongest else id)
+                                    (C.lookupCohorts concr input)]
+      where
+        filterLongest []       = []
+        filterLongest (an:ans) = longest an ans
+          where
+            longest prev                   [] = [prev]
+            longest prev@(start0,_,end0) (next@(start,an,end):ans)
+              | start0 == start               = longest next ans
+              | otherwise                     = prev : filter end0 (next:ans)
+
+            filter end                     [] = []
+            filter end (next@(start,_,_):ans)
+              | end <= start                  = filterLongest (next:ans)
+              | otherwise                     = filter end ans
 
     wordforword input@((from,_),_) = jsonWFW from . wordforword' input
 
