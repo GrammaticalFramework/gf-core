@@ -73,14 +73,13 @@ tryMatch (p,t) = do
   t' <- termForm t
   trym p t'
  where
-
-  isInConstantFormt = True -- tested already in matchPattern
   trym p t' =
     case (p,t') of
 --    (_,(x,Typed e ty,y)) -> trym p (x,e,y) -- Add this? /TH 2013-09-05
       (_,(x,Empty,y)) -> trym p (x,K [],y)   -- because "" = [""] = []
-      (PW, _) | isInConstantFormt -> return [] -- optimization with wildcard
-      (PV x,  _) | isInConstantFormt -> return [(x,t)]
+      (PW, _) -> return [] -- optimization with wildcard
+      (PV x,([],K s,[])) -> return [(x,words2term (words s))]
+      (PV x,  _) -> return [(x,t)]
       (PString s, ([],K i,[])) | s==i -> return []
       (PInt s, ([],EInt i,[])) | s==i -> return []
       (PFloat s,([],EFloat i,[])) | s==i -> return [] --- rounding?
@@ -131,6 +130,11 @@ tryMatch (p,t) = do
       (PChars cs, ([],K [c], [])) | elem c cs -> return []
 
       _ -> raise (render ("no match in case expr for" <+> t))
+
+  words2term []     = Empty
+  words2term [w]    = K w
+  words2term (w:ws) = C (K w) (words2term ws)
+
 
 matchPMSeq (m1,p1) (m2,p2) s = matchPSeq' m1 p1 m2 p2 s
 --matchPSeq p1 p2 s = matchPSeq' (0,maxBound::Int) p1 (0,maxBound::Int) p2 s
