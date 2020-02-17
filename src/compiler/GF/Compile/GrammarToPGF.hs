@@ -359,15 +359,19 @@ sortNubBy cmp = mergeAll . sequences
 -- This is used to allow case-insensitive parsing, while
 -- the linearizer still has access to the original cases.
 compareCaseInsensitve s1 s2 =
-    compareSeq (elems s1) (elems s2)
+    case compareSeq (elems s1) (elems s2) of
+      (EQ,c) -> c
+      (c, _) -> c
     where
-      compareSeq []     []     = EQ
-      compareSeq []     _      = LT
-      compareSeq _      []     = GT
+      compareSeq []     []     = dup EQ
+      compareSeq []     _      = dup LT
+      compareSeq _      []     = dup GT
       compareSeq (x:xs) (y:ys) =
         case compareSym x y of
-          EQ -> compareSeq xs ys
-          x  -> x
+          (EQ,EQ) -> compareSeq xs ys
+          (EQ,c2) -> case compareSeq xs ys of
+                       (c1,_) -> (c1,c2)
+          x       -> x
 
       compareSym s1 s2 =
         case s1 of
@@ -375,56 +379,57 @@ compareCaseInsensitve s1 s2 =
             -> case s2 of
                  D.SymCat d2 r2
                    -> case compare d1 d2 of
-                        EQ -> r1 `compare` r2
-                        x  -> x
-                 _ -> LT
+                        EQ -> dup (r1 `compare` r2)
+                        x  -> dup x
+                 _ -> dup LT
           D.SymLit d1 r1
             -> case s2 of
-                 D.SymCat {} -> GT
+                 D.SymCat {} -> dup GT
                  D.SymLit d2 r2
                    -> case compare d1 d2 of
-                        EQ -> r1 `compare` r2
-                        x  -> x
-                 _ -> LT
+                        EQ -> dup (r1 `compare` r2)
+                        x  -> dup x
+                 _ -> dup LT
           D.SymVar d1 r1
             -> if tagToEnum# (getTag s2 ># 2#)
-                 then LT
+                 then dup LT
                  else case s2 of
                         D.SymVar d2 r2
                           -> case compare d1 d2 of
-                               EQ -> r1 `compare` r2
-                               x  -> x
-                        _ -> GT
+                               EQ -> dup (r1 `compare` r2)
+                               x  -> dup x
+                        _ -> dup GT
           D.SymKS t1
             -> if tagToEnum# (getTag s2 ># 3#)
-                 then LT
+                 then dup LT
                  else case s2 of
                         D.SymKS t2 -> t1 `compareToken` t2
-                        _          -> GT
+                        _          -> dup GT
           D.SymKP a1 b1
             -> if tagToEnum# (getTag s2 ># 4#)
-                 then LT
+                 then dup LT
                  else case s2 of
                         D.SymKP a2 b2
                           -> case compare a1 a2 of
-                               EQ -> b1 `compare` b2
-                               x  -> x
-                        _ -> GT
+                               EQ -> dup (b1 `compare` b2)
+                               x  -> dup x
+                        _ -> dup GT
           _ -> let t1 = getTag s1
                    t2 = getTag s2
                in if tagToEnum# (t1 <# t2) 
-                    then LT
+                    then dup LT
                     else if tagToEnum# (t1 ==# t2)
-                           then EQ
-                           else GT
+                           then dup EQ
+                           else dup GT
   
-      compareToken []     []     = EQ
-      compareToken []     _      = LT
-      compareToken _      []     = GT
+      compareToken []     []     = dup EQ
+      compareToken []     _      = dup LT
+      compareToken _      []     = dup GT
       compareToken (x:xs) (y:ys)
         | x == y    = compareToken xs ys
         | otherwise = case compare (toLower x) (toLower y) of
                         EQ -> case compareToken xs ys of
-                                EQ -> compare x y
-                                x  -> x
-                        x  -> x
+                                (c,_) -> (c,compare x y)
+                        c  -> dup c
+
+      dup x = (x,x)
