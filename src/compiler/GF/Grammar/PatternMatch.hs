@@ -107,6 +107,10 @@ tryMatch (p,t) = do
             return (concat matches)
       (PT _ p',_) -> trym p' t'
 
+      (PAs x p',([],K s,[])) -> do
+         subst <- trym p' t'
+         return $ (x,words2term (words s)) : subst
+
       (PAs x p',_) -> do
          subst <- trym p' t'
          return $ (x,t) : subst
