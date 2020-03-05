@@ -15,7 +15,7 @@ public class UnknownLiteralCallback implements LiteralCallback {
 		this.sentence = sentence;
 	}
 
-	public CallbackResult match(int lin_idx, int offset) {
+	public CallbackResult match(String ann, int offset) {
 		if (offset < sentence.length() &&
 		    !Character.isUpperCase(sentence.charAt(offset))) {
 			int start_offset = offset;
@@ -35,7 +35,7 @@ public class UnknownLiteralCallback implements LiteralCallback {
 		return null;
 	}
 	
-	public Iterator<TokenProb> predict(int lin_idx, String prefix) {
+	public Iterator<TokenProb> predict(String ann, String prefix) {
 		return Collections.<TokenProb>emptyList().iterator();
 	}
 }

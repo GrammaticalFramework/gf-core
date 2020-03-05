@@ -456,7 +456,7 @@ typedef struct {
 
 static PgfExprProb*
 jpgf_literal_callback_match(PgfLiteralCallback* self, PgfConcr* concr,
-                            size_t lin_idx,
+                            GuString ann,
                             GuString sentence, size_t* poffset,
                             GuPool *out_pool)
 {
@@ -465,8 +465,9 @@ jpgf_literal_callback_match(PgfLiteralCallback* self, PgfConcr* concr,
 	JNIEnv *env;
     (*cachedJVM)->AttachCurrentThread(cachedJVM, (void**)&env, NULL);
 
-	size_t  joffset   = gu2j_string_offset(sentence, *poffset);
-	jobject result = (*env)->CallObjectMethod(env, callback->jcallback, callback->match_methodId, lin_idx, joffset);
+	jstring jann    = gu2j_string(env, ann);
+	size_t  joffset = gu2j_string_offset(sentence, *poffset);
+	jobject result = (*env)->CallObjectMethod(env, callback->jcallback, callback->match_methodId, jann, joffset);
 	if (result == NULL)
 		return NULL;
 
@@ -534,7 +535,7 @@ jpgf_token_prob_enum_fin(GuFinalizer* self)
 
 static GuEnum*
 jpgf_literal_callback_predict(PgfLiteralCallback* self, PgfConcr* concr,
-	                          size_t lin_idx,
+	                          GuString ann,
 	                          GuString prefix,
 	                          GuPool *out_pool)
 {
@@ -543,8 +544,9 @@ jpgf_literal_callback_predict(PgfLiteralCallback* self, PgfConcr* concr,
 	JNIEnv *env;
     (*cachedJVM)->AttachCurrentThread(cachedJVM, (void**)&env, NULL);
 
+	jstring jann    = gu2j_string(env, ann);
 	jstring jprefix = gu2j_string(env, prefix);
-	jobject jiterator = (*env)->CallObjectMethod(env, callback->jcallback, callback->predict_methodId, lin_idx, jprefix);
+	jobject jiterator = (*env)->CallObjectMethod(env, callback->jcallback, callback->predict_methodId, jann, jprefix);
 	if (jiterator == NULL)
 		return NULL;
 
@@ -582,8 +584,8 @@ JNIEXPORT void JNICALL Java_org_grammaticalframework_pgf_Parser_addLiteralCallba
 	callback->fin.fn = jpgf_literal_callback_fin;
 
 	jclass callback_class = (*env)->GetObjectClass(env, jcallback);
-	callback->match_methodId = (*env)->GetMethodID(env, callback_class, "match", "(II)Lorg/grammaticalframework/pgf/LiteralCallback$CallbackResult;");
-	callback->predict_methodId = (*env)->GetMethodID(env, callback_class, "predict", "(ILjava/lang/String;)Ljava/util/Iterator;");
+	callback->match_methodId = (*env)->GetMethodID(env, callback_class, "match", "(Ljava/lang/String;I)Lorg/grammaticalframework/pgf/LiteralCallback$CallbackResult;");
+	callback->predict_methodId = (*env)->GetMethodID(env, callback_class, "predict", "(Ljava/lang/String;Ljava/lang/String;)Ljava/util/Iterator;");
 
 	gu_pool_finally(pool, &callback->fin);
 	
@@ -964,7 +966,7 @@ pgf_bracket_lzn_symbol_token(PgfLinFuncs** funcs, PgfToken tok)
 }
 
 static void
-pgf_bracket_lzn_begin_phrase(PgfLinFuncs** funcs, PgfCId cat, int fid, size_t lindex, PgfCId fun)
+pgf_bracket_lzn_begin_phrase(PgfLinFuncs** funcs, PgfCId cat, int fid, GuString ann, PgfCId fun)
 {
 	PgfBracketLznState* state = gu_container(funcs, PgfBracketLznState, funcs);
 	
@@ -973,7 +975,7 @@ pgf_bracket_lzn_begin_phrase(PgfLinFuncs** funcs, PgfCId cat, int fid, size_t li
 }
 
 static void
-pgf_bracket_lzn_end_phrase(PgfLinFuncs** funcs, PgfCId cat, int fid, size_t lindex, PgfCId fun)
+pgf_bracket_lzn_end_phrase(PgfLinFuncs** funcs, PgfCId cat, int fid, GuString ann, PgfCId fun)
 {
 	PgfBracketLznState* state = gu_container(funcs, PgfBracketLznState, funcs);
 	JNIEnv* env = state->env;
@@ -998,7 +1000,7 @@ pgf_bracket_lzn_end_phrase(PgfLinFuncs** funcs, PgfCId cat, int fid, size_t lind
 		                                     jcat,
 		                                     jfun,
 		                                     fid,
-		                                     lindex,
+		                                     ann,
 		                                     jchildren);
 
 		(*env)->DeleteLocalRef(env, jchildren);
@@ -1051,7 +1053,7 @@ Java_org_grammaticalframework_pgf_Concr_bracketedLinearize(JNIEnv* env, jobject 
 	jclass bracket_class = (*env)->FindClass(env, "org/grammaticalframework/pgf/Bracket");
 	if (!bracket_class)
 		return NULL;
-	jmethodID bracket_constrId = (*env)->GetMethodID(env, bracket_class, "<init>", "(Ljava/lang/String;Ljava/lang/String;II[Ljava/lang/Object;)V");
+	jmethodID bracket_constrId = (*env)->GetMethodID(env, bracket_class, "<init>", "(Ljava/lang/String;Ljava/lang/String;ILjava/lang/String;[Ljava/lang/Object;)V");
 	if (!bracket_constrId)
 		return NULL;
 		

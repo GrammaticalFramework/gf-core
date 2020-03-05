@@ -1382,7 +1382,7 @@ unicode_to_utf8_offset(GuString sentence, size_t chars)
 
 static PgfExprProb*
 pypgf_literal_callback_match(PgfLiteralCallback* self, PgfConcr* concr,
-                             size_t lin_idx,
+                             GuString ann,
                              GuString sentence, size_t* poffset,
                              GuPool *out_pool)
 {
@@ -1390,8 +1390,8 @@ pypgf_literal_callback_match(PgfLiteralCallback* self, PgfConcr* concr,
 		gu_container(self, PyPgfLiteralCallback, callback);
 
 	PyObject* result =
-		PyObject_CallFunction(callback->pycallback, "ii",
-		                      lin_idx,
+		PyObject_CallFunction(callback->pycallback, "si",
+		                      ann,
 #if PY_MAJOR_VERSION >= 3
 		                      utf8_to_unicode_offset(sentence, *poffset)
 #else
@@ -1460,7 +1460,7 @@ pypgf_literal_callback_match(PgfLiteralCallback* self, PgfConcr* concr,
 
 static GuEnum*
 pypgf_literal_callback_predict(PgfLiteralCallback* self, PgfConcr* concr,
-	                           size_t lin_idx,
+	                           GuString ann,
 	                           GuString prefix,
 	                           GuPool *out_pool)
 {
@@ -1983,7 +1983,7 @@ typedef struct {
 	PyObject_HEAD
 	PyObject* cat;
 	int fid;
-	int lindex;
+	PyObject* ann;
 	PyObject* fun;
 	PyObject* children;
 } BracketObject;
@@ -2058,8 +2058,8 @@ static PyMemberDef Bracket_members[] = {
      "the abstract function for this bracket"},
     {"fid", T_INT, offsetof(BracketObject, fid), 0,
      "an id which identifies this bracket in the bracketed string. If there are discontinuous phrases this id will be shared for all brackets belonging to the same phrase."},
-    {"lindex", T_INT, offsetof(BracketObject, lindex), 0,
-     "the constituent index"},
+    {"ann", T_OBJECT_EX, offsetof(BracketObject, ann), 0,
+     "the analysis of the constituent"},
     {"children", T_OBJECT_EX, offsetof(BracketObject, children), 0,
      "a list with the children of this bracket"},
     {NULL}  /* Sentinel */
@@ -2124,7 +2124,7 @@ pgf_bracket_lzn_symbol_token(PgfLinFuncs** funcs, PgfToken tok)
 }
 
 static void
-pgf_bracket_lzn_begin_phrase(PgfLinFuncs** funcs, PgfCId cat, int fid, size_t lindex, PgfCId fun)
+pgf_bracket_lzn_begin_phrase(PgfLinFuncs** funcs, PgfCId cat, int fid, GuString ann, PgfCId fun)
 {
 	PgfBracketLznState* state = gu_container(funcs, PgfBracketLznState, funcs);
 	
@@ -2133,7 +2133,7 @@ pgf_bracket_lzn_begin_phrase(PgfLinFuncs** funcs, PgfCId cat, int fid, size_t li
 }
 
 static void
-pgf_bracket_lzn_end_phrase(PgfLinFuncs** funcs, PgfCId cat, int fid, size_t lindex, PgfCId fun)
+pgf_bracket_lzn_end_phrase(PgfLinFuncs** funcs, PgfCId cat, int fid, GuString ann, PgfCId fun)
 {
 	PgfBracketLznState* state = gu_container(funcs, PgfBracketLznState, funcs);
 
@@ -2145,7 +2145,7 @@ pgf_bracket_lzn_end_phrase(PgfLinFuncs** funcs, PgfCId cat, int fid, size_t lind
 		if (bracket != NULL) {
 			bracket->cat = PyString_FromString(cat);
 			bracket->fid = fid;
-			bracket->lindex = lindex;
+			bracket->ann = PyString_FromString(ann);
 			bracket->fun = PyString_FromString(fun);
 			bracket->children = state->list;
 			PyList_Append(parent, (PyObject*) bracket);

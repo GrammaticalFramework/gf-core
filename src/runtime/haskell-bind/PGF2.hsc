@@ -60,7 +60,7 @@ module PGF2 (-- * PGF
 
              -- ** Linearization
              linearize,linearizeAll,tabularLinearize,tabularLinearizeAll,bracketedLinearize,bracketedLinearizeAll,
-             FId, LIndex, BracketedString(..), showBracketedString, flattenBracketedString,
+             FId, BracketedString(..), showBracketedString, flattenBracketedString,
              printName,
 
              alignWords,
@@ -589,7 +589,7 @@ parseWithHeuristics :: Concr      -- ^ the language with which we parse
                                   -- A negative value tells the parser 
                                   -- to lookup up the default from 
                                   -- the grammar flags
-                    -> [(Cat, Int -> Int -> Maybe (Expr,Float,Int))]
+                    -> [(Cat, String -> Int -> Maybe (Expr,Float,Int))]
                                   -- ^ a list of callbacks for literal categories.
                                   -- The arguments of the callback are:
                                   -- the index of the constituent for the literal category;
@@ -645,7 +645,7 @@ parseToChart :: Concr      -- ^ the language with which we parse
                            -- A negative value tells the parser 
                            -- to lookup up the default from 
                            -- the grammar flags
-             -> [(Cat, Int -> Int -> Maybe (Expr,Float,Int))]
+             -> [(Cat, String -> Int -> Maybe (Expr,Float,Int))]
                            -- ^ a list of callbacks for literal categories.
                            -- The arguments of the callback are:
                            -- the index of the constituent for the literal category;
@@ -761,7 +761,7 @@ parseToChart lang (Type ctype touchType) sent heuristic callbacks roots =
           f <- (#peek PgfParseRange, field) ptr >>= peekCString
           return ((fromIntegral :: CSizeT -> Int) s, (fromIntegral :: CSizeT -> Int) e, f)
 
-mkCallbacksMap :: Ptr PgfConcr -> [(String, Int -> Int -> Maybe (Expr,Float,Int))] -> Ptr GuPool -> IO (Ptr PgfCallbacksMap)
+mkCallbacksMap :: Ptr PgfConcr -> [(String, String -> Int -> Maybe (Expr,Float,Int))] -> Ptr GuPool -> IO (Ptr PgfCallbacksMap)
 mkCallbacksMap concr callbacks pool = do
   callbacks_map <- pgf_new_callbacks_map concr pool
   forM_ callbacks $ \(cat,match) -> do
@@ -771,9 +771,10 @@ mkCallbacksMap concr callbacks pool = do
     hspgf_callbacks_map_add_literal concr callbacks_map ccat match predict pool
   return callbacks_map
   where
-    match_callback match clin_idx poffset out_pool = do
+    match_callback match c_ann poffset out_pool = do
       coffset <- peek poffset
-      case match (fromIntegral clin_idx) (fromIntegral coffset) of
+      ann <- peekUtf8CString c_ann
+      case match ann (fromIntegral coffset) of
         Nothing               -> return nullPtr
         Just (e,prob,offset') -> do poke poffset (fromIntegral offset')
 
@@ -1032,15 +1033,13 @@ tabularLinearizeAll lang e = unsafePerformIO $
                 throwIO (PGFError msg)
         else do throwIO (PGFError "The abstract tree cannot be linearized")
 
-type LIndex = Int
-
 -- | BracketedString represents a sentence that is linearized
 -- as usual but we also want to retain the ''brackets'' that
 -- mark the beginning and the end of each constituent.
 data BracketedString
   = Leaf String                                                                -- ^ this is the leaf i.e. a single token
   | BIND                                                                       -- ^ the surrounding tokens must be bound together
-  | Bracket CId {-# UNPACK #-} !FId {-# UNPACK #-} !LIndex CId [BracketedString]
+  | Bracket CId {-# UNPACK #-} !FId {-# UNPACK #-} String CId [BracketedString]
                                                                                -- ^ this is a bracket. The 'CId' is the category of
                                                                                -- the phrase. The 'FId' is an unique identifier for
                                                                                -- every phrase in the sentence. For context-free grammars
@@ -1049,7 +1048,7 @@ data BracketedString
                                                                                -- phrases then the identifiers are unique for every phrase but
                                                                                -- not for every bracket since the bracket represents a constituent.
                                                                                -- The different constituents could still be distinguished by using
-                                                                               -- the constituent index i.e. 'LIndex'. If the grammar is reduplicating
+                                                                               -- the analysis string. If the grammar is reduplicating
                                                                                -- then the constituent indices will be the same for all brackets
                                                                                -- that represents the same constituent.
                                                                                -- The second 'CId' is the name of the abstract function that generated
@@ -1063,7 +1062,7 @@ showBracketedString = render . ppBracketedString
 
 ppBracketedString (Leaf t) = text t
 ppBracketedString BIND     = text "&+"
-ppBracketedString (Bracket cat fid index _ bss) = parens (text cat <> colon <> int fid <+> hsep (map ppBracketedString bss))
+ppBracketedString (Bracket cat fid _ _ bss) = parens (text cat <> colon <> int fid <+> hsep (map ppBracketedString bss))
 
 -- | Extracts the sequence of tokens from the bracketed string
 flattenBracketedString :: BracketedString -> [String]
@@ -1161,19 +1160,19 @@ withBracketLinFuncs ref exn f =
       token <- peekUtf8CString c_token
       writeIORef ref (stack,Leaf token : bs)
 
-    begin_phrase ref _ c_cat c_fid c_lindex c_fun = do
+    begin_phrase ref _ c_cat c_fid c_ann c_fun = do
       (stack,bs) <- readIORef ref
       writeIORef ref (bs:stack,[])
 
-    end_phrase ref _ c_cat c_fid c_lindex c_fun = do
+    end_phrase ref _ c_cat c_fid c_ann c_fun = do
       (bs':stack,bs) <- readIORef ref
       if null bs
         then writeIORef ref (stack, bs')
         else do cat <- peekUtf8CString c_cat
                 let fid    = fromIntegral c_fid
-                let lindex = fromIntegral c_lindex
+                ann <- peekUtf8CString c_ann
                 fun <- peekUtf8CString c_fun
-                writeIORef ref (stack, Bracket cat fid lindex fun (reverse bs) : bs')
+                writeIORef ref (stack, Bracket cat fid ann fun (reverse bs) : bs')
 
     symbol_ne exn _ = do
       gu_exn_raise exn gu_exn_type_PgfLinNonExist

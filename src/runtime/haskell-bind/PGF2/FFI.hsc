@@ -350,7 +350,7 @@ foreign import ccall "pgf/pgf.h pgf_lzr_get_table"
   pgf_lzr_get_table :: Ptr PgfConcr -> Ptr PgfCncTree -> Ptr CSizeT -> Ptr (Ptr CString) -> IO ()
 
 type SymbolTokenCallback = Ptr (Ptr PgfLinFuncs) -> CString -> IO ()
-type PhraseCallback = Ptr (Ptr PgfLinFuncs) -> CString -> CInt -> CSizeT -> CString -> IO ()
+type PhraseCallback = Ptr (Ptr PgfLinFuncs) -> CString -> CInt -> CString -> CString -> IO ()
 type NonExistCallback = Ptr (Ptr PgfLinFuncs) -> IO ()
 type BindCallback = Ptr (Ptr PgfLinFuncs) -> IO ()
 type MetaCallback = Ptr (Ptr PgfLinFuncs) -> CInt -> IO ()
@@ -388,12 +388,12 @@ foreign import ccall "pgf/pgf.h pgf_parse_with_heuristics"
 foreign import ccall "pgf/pgf.h pgf_lookup_sentence"
   pgf_lookup_sentence :: Ptr PgfConcr -> PgfType -> CString -> Ptr GuPool -> Ptr GuPool -> IO (Ptr GuEnum)
 
-type LiteralMatchCallback = CSizeT -> Ptr CSizeT -> Ptr GuPool -> IO (Ptr PgfExprProb)
+type LiteralMatchCallback = CString -> Ptr CSizeT -> Ptr GuPool -> IO (Ptr PgfExprProb)
 
 foreign import ccall "wrapper"
   wrapLiteralMatchCallback :: LiteralMatchCallback -> IO (FunPtr LiteralMatchCallback)
 
-type LiteralPredictCallback = CSizeT -> CString -> Ptr GuPool -> IO (Ptr PgfExprProb)
+type LiteralPredictCallback = CString -> CString -> Ptr GuPool -> IO (Ptr PgfExprProb)
 
 foreign import ccall "wrapper"
   wrapLiteralPredictCallback :: LiteralPredictCallback -> IO (FunPtr LiteralPredictCallback)

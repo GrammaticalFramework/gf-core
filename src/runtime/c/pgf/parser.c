@@ -9,7 +9,7 @@
 #include <math.h>
 #include <stdlib.h>
 
-//#define PGF_PARSER_DEBUG
+#define PGF_PARSER_DEBUG
 //#define PGF_COUNTS_DEBUG
 //#define PGF_RESULT_DEBUG
 
@@ -1370,7 +1370,7 @@ pgf_parsing_symbol(PgfParsing* ps, PgfItem* item, PgfSymbol sym)
 
 						if (callback != NULL) {
 							ep = callback->match(callback, ps->concr,
-							                     slit->r,
+							                     parg->ccat->cnccat->labels[slit->r],
 							                     ps->sentence, &offset,
 							                     ps->out_pool);
 						}
@@ -1480,6 +1480,7 @@ pgf_parsing_symbol(PgfParsing* ps, PgfItem* item, PgfSymbol sym)
 	}
 	case PGF_SYMBOL_CAPIT:
 	case PGF_SYMBOL_ALL_CAPIT: {
+		printf("PGF_SYMBOL_CAPIT\n");
 		pgf_item_advance(item, ps->pool);
 		pgf_parsing_symbol(ps, item, item->curr_sym);
 		break;

@@ -4,7 +4,7 @@
 
 typedef struct {
 	PgfLiteralCallback callback;
-	PgfExprProb* (*match)(size_t lin_idx, size_t* poffset,
+	PgfExprProb* (*match)(GuString ann, size_t* poffset,
 	                      GuPool *out_pool);
 	GuFinalizer fin;
 } HSPgfLiteralCallback;
@@ -37,7 +37,7 @@ hspgf_hs2offset(GuString sentence, size_t hs_offset)
 
 static PgfExprProb*
 hspgf_match_callback(PgfLiteralCallback* self, PgfConcr* concr,
-	                 size_t lin_idx,
+	                 GuString ann,
 	                 GuString sentence, size_t* poffset,
 	                 GuPool *out_pool)
 {
@@ -46,7 +46,7 @@ hspgf_match_callback(PgfLiteralCallback* self, PgfConcr* concr,
 	size_t hs_offset =
 		hspgf_offset2hs(sentence, *poffset);
 	PgfExprProb* ep =
-		callback->match(lin_idx, &hs_offset, out_pool);
+		callback->match(ann, &hs_offset, out_pool);
 	*poffset = hspgf_hs2offset(sentence, hs_offset);
 
 	return ep;

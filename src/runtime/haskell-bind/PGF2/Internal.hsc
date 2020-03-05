@@ -35,7 +35,8 @@ import Control.Exception(Exception,throwIO)
 import Control.Monad(foldM)
 import qualified Data.Map as Map
 
-type Token = String
+type Token  = String
+type LIndex = Int
 data Symbol
   = SymCat {-# UNPACK #-} !Int {-# UNPACK #-} !LIndex
   | SymLit {-# UNPACK #-} !Int {-# UNPACK #-} !LIndex

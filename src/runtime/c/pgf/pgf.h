@@ -254,11 +254,11 @@ typedef struct PgfLiteralCallback PgfLiteralCallback;
 
 struct PgfLiteralCallback {
 	PgfExprProb* (*match)(PgfLiteralCallback* self, PgfConcr* concr,
-	                      size_t lin_idx,
+	                      GuString ann,
 	                      GuString sentence, size_t* poffset,
 	                      GuPool *out_pool);
     GuEnum*    (*predict)(PgfLiteralCallback* self, PgfConcr* concr,
-	                      size_t lin_idx,
+	                      GuString ann,
 	                      GuString prefix,
 	                      GuPool *out_pool);
 };
