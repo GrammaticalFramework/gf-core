@@ -1039,7 +1039,7 @@ tabularLinearizeAll lang e = unsafePerformIO $
 data BracketedString
   = Leaf String                                                                -- ^ this is the leaf i.e. a single token
   | BIND                                                                       -- ^ the surrounding tokens must be bound together
-  | Bracket CId {-# UNPACK #-} !FId {-# UNPACK #-} String CId [BracketedString]
+  | Bracket CId {-# UNPACK #-} !FId String CId [BracketedString]
                                                                                -- ^ this is a bracket. The 'CId' is the category of
                                                                                -- the phrase. The 'FId' is an unique identifier for
                                                                                -- every phrase in the sentence. For context-free grammars
@@ -1367,7 +1367,7 @@ instance Exception PGFError
 -----------------------------------------------------------------------
 
 type LiteralCallback =
-       PGF -> (ConcName,Concr) -> String -> Int -> Int -> Maybe (Expr,Float,Int)
+       PGF -> (ConcName,Concr) -> String -> String -> Int -> Maybe (Expr,Float,Int)
 
 -- | Callbacks for the App grammar
 literalCallbacks :: [(AbsName,[(Cat,LiteralCallback)])]
