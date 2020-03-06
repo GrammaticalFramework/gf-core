@@ -61,7 +61,7 @@ module PGF2 (-- * PGF
              -- ** Linearization
              linearize,linearizeAll,tabularLinearize,tabularLinearizeAll,bracketedLinearize,bracketedLinearizeAll,
              FId, BracketedString(..), showBracketedString, flattenBracketedString,
-             printName,
+             printName, categoryFields,
 
              alignWords,
              -- ** Parsing
@@ -988,6 +988,7 @@ tabularLinearizeAll lang e = unsafePerformIO $
     exn <- gu_new_exn tmpPl
     cts <- pgf_lzr_concretize (concr lang) (expr e) exn tmpPl
     failed <- gu_exn_is_raised exn
+    touchConcr lang
     if failed
       then throwExn exn
       else collect cts exn tmpPl
@@ -1032,6 +1033,28 @@ tabularLinearizeAll lang e = unsafePerformIO $
                 msg <- peekUtf8CString c_msg
                 throwIO (PGFError msg)
         else do throwIO (PGFError "The abstract tree cannot be linearized")
+
+categoryFields :: Concr -> Cat -> Maybe [String]
+categoryFields lang cat =
+  unsafePerformIO $ do
+    withGuPool $ \tmpPl -> do
+      p_n_lins <- gu_malloc tmpPl (#size size_t)
+      c_cat    <- newUtf8CString cat tmpPl
+      c_fields <- pgf_category_fields (concr lang) c_cat p_n_lins
+      if c_fields == nullPtr
+        then do touchConcr lang
+                return Nothing
+        else do len <- peek p_n_lins
+                fs  <- peekFields len c_fields
+                touchConcr lang
+                return (Just fs)
+  where
+     peekFields 0   ptr = return []
+     peekFields len ptr = do
+       f  <- peek ptr >>= peekUtf8CString
+       fs <- peekFields (len-1) (ptr `plusPtr` (#size GuString))
+       return (f:fs)
+
 
 -- | BracketedString represents a sentence that is linearized
 -- as usual but we also want to retain the ''brackets'' that

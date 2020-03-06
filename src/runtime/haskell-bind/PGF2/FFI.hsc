@@ -313,6 +313,9 @@ foreign import ccall "pgf/pgf.h pgf_category_context"
 foreign import ccall "pgf/pgf.h pgf_category_prob"
   pgf_category_prob :: Ptr PgfPGF -> CString -> IO (#type prob_t)
 
+foreign import ccall "pgf/pgf.h pgf_category_fields"
+  pgf_category_fields :: Ptr PgfConcr -> CString -> Ptr CSize -> IO (Ptr CString)
+
 foreign import ccall "pgf/pgf.h pgf_iter_functions"
   pgf_iter_functions :: Ptr PgfPGF -> Ptr GuMapItor -> Ptr GuExn -> IO ()
 

@@ -95,6 +95,9 @@ pgf_category_context(PgfPGF *gr, PgfCId catname);
 PGF_API_DECL prob_t
 pgf_category_prob(PgfPGF* pgf, PgfCId catname);
 
+PGF_API GuString*
+pgf_category_fields(PgfConcr* concr, PgfCId catname, size_t *n_lins);
+
 PGF_API_DECL void
 pgf_iter_functions(PgfPGF* pgf, GuMapItor* itor, GuExn* err);
 
