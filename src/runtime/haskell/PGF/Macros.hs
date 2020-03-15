@@ -1,3 +1,4 @@
+{-# LANGUAGE MagicHash, BangPatterns, FlexibleContexts #-}
 module PGF.Macros where
 import Prelude hiding ((<>)) -- GHC 8.4.1 clash with Text.PrettyPrint
 
@@ -13,6 +14,9 @@ import qualified Data.Array  as Array
 import Data.List
 import Data.Array.IArray
 import Text.PrettyPrint
+import GHC.Prim
+import GHC.Base(getTag)
+import Data.Char
 
 -- operations for manipulating PGF grammars and objects
 
@@ -241,3 +245,126 @@ computeSeq filter seq args = concatMap compute seq
 flattenBracketedString :: BracketedString -> [String]
 flattenBracketedString (Leaf w)                  = [w]
 flattenBracketedString (Bracket _ _ _ _ _ _ bss) = concatMap flattenBracketedString bss
+
+
+-- The following is a version of Data.List.sortBy which together
+-- with the sorting also eliminates duplicate values 
+sortNubBy cmp = mergeAll . sequences
+  where
+    sequences (a:b:xs) =
+      case cmp a b of
+        GT -> descending b [a]  xs
+        EQ -> sequences (b:xs)
+        LT -> ascending  b (a:) xs
+    sequences xs = [xs]
+
+    descending a as []     = [a:as]
+    descending a as (b:bs) =
+      case cmp a b of
+        GT -> descending b (a:as) bs
+        EQ -> descending a as bs
+        LT -> (a:as) : sequences (b:bs)
+
+    ascending a as []     = let !x = as [a]
+                            in [x]
+    ascending a as (b:bs) =
+      case cmp a b of
+        GT -> let !x = as [a]
+              in x : sequences (b:bs)
+        EQ -> ascending a as bs
+        LT -> ascending b (\ys -> as (a:ys)) bs
+
+    mergeAll [x] = x
+    mergeAll xs  = mergeAll (mergePairs xs)
+
+    mergePairs (a:b:xs) = let !x = merge a b
+                          in x : mergePairs xs
+    mergePairs xs       = xs
+
+    merge as@(a:as') bs@(b:bs') =
+      case cmp a b of
+        GT -> b:merge as  bs'
+        EQ -> a:merge as' bs'
+        LT -> a:merge as' bs
+    merge [] bs         = bs
+    merge as []         = as
+
+
+-- The following function does case-insensitive comparison of sequences.
+-- This is used to allow case-insensitive parsing, while
+-- the linearizer still has access to the original cases.
+compareCaseInsensitve s1 s2 =
+    case compareSeq (elems s1) (elems s2) of
+      (EQ,c) -> c
+      (c, _) -> c
+    where
+      compareSeq []     []     = dup EQ
+      compareSeq []     _      = dup LT
+      compareSeq _      []     = dup GT
+      compareSeq (x:xs) (y:ys) =
+        case compareSym x y of
+          (EQ,EQ) -> compareSeq xs ys
+          (EQ,c2) -> case compareSeq xs ys of
+                       (c1,_) -> (c1,c2)
+          x       -> x
+
+      compareSym s1 s2 =
+        case s1 of
+          SymCat d1 r1
+            -> case s2 of
+                 SymCat d2 r2
+                   -> case compare d1 d2 of
+                        EQ -> dup (r1 `compare` r2)
+                        x  -> dup x
+                 _ -> dup LT
+          SymLit d1 r1
+            -> case s2 of
+                 SymCat {} -> dup GT
+                 SymLit d2 r2
+                   -> case compare d1 d2 of
+                        EQ -> dup (r1 `compare` r2)
+                        x  -> dup x
+                 _ -> dup LT
+          SymVar d1 r1
+            -> if tagToEnum# (getTag s2 ># 2#)
+                 then dup LT
+                 else case s2 of
+                        SymVar d2 r2
+                          -> case compare d1 d2 of
+                               EQ -> dup (r1 `compare` r2)
+                               x  -> dup x
+                        _ -> dup GT
+          SymKS t1
+            -> if tagToEnum# (getTag s2 ># 3#)
+                 then dup LT
+                 else case s2 of
+                        SymKS t2 -> t1 `compareToken` t2
+                        _          -> dup GT
+          SymKP a1 b1
+            -> if tagToEnum# (getTag s2 ># 4#)
+                 then dup LT
+                 else case s2 of
+                        SymKP a2 b2
+                          -> case compare a1 a2 of
+                               EQ -> dup (b1 `compare` b2)
+                               x  -> dup x
+                        _ -> dup GT
+          _ -> let t1 = getTag s1
+                   t2 = getTag s2
+               in if tagToEnum# (t1 <# t2) 
+                    then dup LT
+                    else if tagToEnum# (t1 ==# t2)
+                           then dup EQ
+                           else dup GT
+  
+      compareToken []     []     = dup EQ
+      compareToken []     _      = dup LT
+      compareToken _      []     = dup GT
+      compareToken (x:xs) (y:ys)
+        | x == y    = compareToken xs ys
+        | otherwise = case compare (toLower x) (toLower y) of
+                        EQ -> case compareToken xs ys of
+                                (c,_) -> (c,compare x y)
+                        c  -> dup c
+
+      dup x = (x,x)

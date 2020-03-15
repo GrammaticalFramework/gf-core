@@ -1,4 +1,4 @@
-{-# LANGUAGE BangPatterns, FlexibleContexts, MagicHash #-}
+{-# LANGUAGE BangPatterns, FlexibleContexts #-}
 module GF.Compile.GrammarToPGF (mkCanon2pgf) where
 
 --import GF.Compile.Export
@@ -8,16 +8,13 @@ import GF.Compile.GenerateBC
 import PGF(CId,mkCId,utf8CId)
 import PGF.Internal(fidInt,fidFloat,fidString,fidVar)
 import PGF.Internal(updateProductionIndices)
---import qualified PGF.Macros as CM
 import qualified PGF.Internal as C
 import qualified PGF.Internal as D
 import GF.Grammar.Predef
---import GF.Grammar.Printer
 import GF.Grammar.Grammar
 import qualified GF.Grammar.Lookup as Look
 import qualified GF.Grammar as A
 import qualified GF.Grammar.Macros as GM
---import GF.Compile.GeneratePMCFG
 
 import GF.Infra.Ident
 import GF.Infra.Option
@@ -30,9 +27,6 @@ import qualified Data.Map as Map
 import qualified Data.IntMap as IntMap
 import Data.Array.IArray
 
-import Data.Char
-import GHC.Prim
-import GHC.Base(getTag)
 
 mkCanon2pgf :: Options -> SourceGrammar -> ModuleName -> IOE D.PGF
 mkCanon2pgf opts gr am = do
@@ -65,7 +59,7 @@ mkCanon2pgf opts gr am = do
     mkConcr cm = do
       let cflags = err (const noOptions) mflags (lookupModule gr cm)
           ciCmp | flag optCaseSensitive cflags = compare
-                | otherwise                    = compareCaseInsensitve
+                | otherwise                    = C.compareCaseInsensitve
 
       (ex_seqs,cdefs) <- addMissingPMCFGs
                             Map.empty 
@@ -74,7 +68,7 @@ mkCanon2pgf opts gr am = do
 
       let flags = Map.fromList [(mkCId f,x) | (f,x) <- optionsPGF cflags]
 
-          seqs = (mkArray . sortNubBy ciCmp . concat) $
+          seqs = (mkArray . C.sortNubBy ciCmp . concat) $
                      (Map.keys ex_seqs : [maybe [] elems (mseqs mi) | (m,mi) <- allExtends gr cm])
 
           ex_seqs_arr = mkMapArray ex_seqs :: Array SeqId Sequence
@@ -312,124 +306,3 @@ genPrintNames cdefs =
 
 mkArray    lst = listArray (0,length lst-1) lst
 mkMapArray map = array (0,Map.size map-1) [(v,k) | (k,v) <- Map.toList map]
-
--- The following is a version of Data.List.sortBy which together
--- with the sorting also eliminates duplicate values 
-sortNubBy cmp = mergeAll . sequences
-  where
-    sequences (a:b:xs) =
-      case cmp a b of
-        GT -> descending b [a]  xs
-        EQ -> sequences (b:xs)
-        LT -> ascending  b (a:) xs
-    sequences xs = [xs]
-
-    descending a as []     = [a:as]
-    descending a as (b:bs) =
-      case cmp a b of
-        GT -> descending b (a:as) bs
-        EQ -> descending a as bs
-        LT -> (a:as) : sequences (b:bs)
-
-    ascending a as []     = let !x = as [a]
-                            in [x]
-    ascending a as (b:bs) =
-      case cmp a b of
-        GT -> let !x = as [a]
-              in x : sequences (b:bs)
-        EQ -> ascending a as bs
-        LT -> ascending b (\ys -> as (a:ys)) bs
-
-    mergeAll [x] = x
-    mergeAll xs  = mergeAll (mergePairs xs)
-
-    mergePairs (a:b:xs) = let !x = merge a b
-                          in x : mergePairs xs
-    mergePairs xs       = xs
-
-    merge as@(a:as') bs@(b:bs') =
-      case cmp a b of
-        GT -> b:merge as  bs'
-        EQ -> a:merge as' bs'
-        LT -> a:merge as' bs
-    merge [] bs         = bs
-    merge as []         = as
-
--- The following function does case-insensitive comparison of sequences.
--- This is used to allow case-insensitive parsing, while
--- the linearizer still has access to the original cases.
-compareCaseInsensitve s1 s2 =
-    case compareSeq (elems s1) (elems s2) of
-      (EQ,c) -> c
-      (c, _) -> c
-    where
-      compareSeq []     []     = dup EQ
-      compareSeq []     _      = dup LT
-      compareSeq _      []     = dup GT
-      compareSeq (x:xs) (y:ys) =
-        case compareSym x y of
-          (EQ,EQ) -> compareSeq xs ys
-          (EQ,c2) -> case compareSeq xs ys of
-                       (c1,_) -> (c1,c2)
-          x       -> x
-
-      compareSym s1 s2 =
-        case s1 of
-          D.SymCat d1 r1
-            -> case s2 of
-                 D.SymCat d2 r2
-                   -> case compare d1 d2 of
-                        EQ -> dup (r1 `compare` r2)
-                        x  -> dup x
-                 _ -> dup LT
-          D.SymLit d1 r1
-            -> case s2 of
-                 D.SymCat {} -> dup GT
-                 D.SymLit d2 r2
-                   -> case compare d1 d2 of
-                        EQ -> dup (r1 `compare` r2)
-                        x  -> dup x
-                 _ -> dup LT
-          D.SymVar d1 r1
-            -> if tagToEnum# (getTag s2 ># 2#)
-                 then dup LT
-                 else case s2 of
-                        D.SymVar d2 r2
-                          -> case compare d1 d2 of
-                               EQ -> dup (r1 `compare` r2)
-                               x  -> dup x
-                        _ -> dup GT
-          D.SymKS t1
-            -> if tagToEnum# (getTag s2 ># 3#)
-                 then dup LT
-                 else case s2 of
-                        D.SymKS t2 -> t1 `compareToken` t2
-                        _          -> dup GT
-          D.SymKP a1 b1
-            -> if tagToEnum# (getTag s2 ># 4#)
-                 then dup LT
-                 else case s2 of
-                        D.SymKP a2 b2
-                          -> case compare a1 a2 of
-                               EQ -> dup (b1 `compare` b2)
-                               x  -> dup x
-                        _ -> dup GT
-          _ -> let t1 = getTag s1
-                   t2 = getTag s2
-               in if tagToEnum# (t1 <# t2) 
-                    then dup LT
-                    else if tagToEnum# (t1 ==# t2)
-                           then dup EQ
-                           else dup GT
-  
-      compareToken []     []     = dup EQ
-      compareToken []     _      = dup LT
-      compareToken _      []     = dup GT
-      compareToken (x:xs) (y:ys)
-        | x == y    = compareToken xs ys
-        | otherwise = case compare (toLower x) (toLower y) of
-                        EQ -> case compareToken xs ys of
-                                (c,_) -> (c,compare x y)
-                        c  -> dup c
-
-      dup x = (x,x)

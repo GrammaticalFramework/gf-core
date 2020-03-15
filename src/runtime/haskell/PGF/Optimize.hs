@@ -1,4 +1,4 @@
-{-# LANGUAGE BangPatterns #-}
+{-# LANGUAGE BangPatterns, FlexibleContexts #-}
 module PGF.Optimize
              ( optimizePGF
              , updateProductionIndices
@@ -44,9 +44,9 @@ topDownFilter startCat cnc =
                                             env2
                                             (productions cnc)
       cats = Map.mapWithKey filterCatLabels (cnccats cnc)
-      (seqs,funs) = env3
-  in cnc{ sequences   = mkSetArray seqs
-        , cncfuns     = mkSetArray funs
+      (seqs,funs) = reorderSeqs env3
+  in cnc{ sequences   = seqs
+        , cncfuns     = funs
         , productions = prods
         , cnccats     = cats
         , lindefs     = defs
@@ -171,7 +171,18 @@ topDownFilter startCat cnc =
                         in CncCat start end lbls'
         Nothing      -> error "unknown category"
 
-    mkSetArray map = array (0,Map.size map-1) [(v,k) | (k,v) <- Map.toList map]
+    reorderSeqs (seqs,funs) = (seqs',funs')
+      where
+        sorted = sortNubBy ciCmp (Map.toList seqs)
+        seqs'  = mkArray (map fst sorted)
+        re     = array (0,Map.size seqs-1) (zipWith (\(_,i) j -> (i,j)) sorted [0..]) :: Array LIndex LIndex
+        funs'  = array (0,Map.size funs-1) [(v,CncFun fun (amap ((!) re) lins)) | (CncFun fun lins,v) <- Map.toList funs]
+
+    ciCmp (s1,_) (s2,_)
+      | Map.lookup (mkCId "case_sensitive") (cflags cnc) == Just (LStr "on")
+                   = compare s1 s2
+      | otherwise  = compareCaseInsensitve s1 s2
+
     mkArray lst = listArray (0,length lst-1) lst
     
     mapAccumLSet f b set = let (b',lst) = mapAccumL f b (Set.toList set)
