@@ -985,6 +985,7 @@ pgf_bracket_lzn_end_phrase(PgfLinFuncs** funcs, PgfCId cat, int fid, GuString an
 	if (gu_buf_length(state->list) > 0) {
 		jstring jcat = gu2j_string(env, cat);
 		jstring jfun = gu2j_string(env, fun);
+		jstring jann = gu2j_string(env, ann);
 
 		size_t len = gu_buf_length(state->list);
 		jobjectArray jchildren = (*env)->NewObjectArray(env, len, state->object_class, NULL);
@@ -1000,10 +1001,11 @@ pgf_bracket_lzn_end_phrase(PgfLinFuncs** funcs, PgfCId cat, int fid, GuString an
 		                                     jcat,
 		                                     jfun,
 		                                     fid,
-		                                     ann,
+		                                     jann,
 		                                     jchildren);
 
 		(*env)->DeleteLocalRef(env, jchildren);
+		(*env)->DeleteLocalRef(env, jann);
 		(*env)->DeleteLocalRef(env, jfun);
 		(*env)->DeleteLocalRef(env, jcat);
 
