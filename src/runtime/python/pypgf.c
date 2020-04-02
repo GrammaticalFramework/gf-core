@@ -3497,9 +3497,16 @@ MOD_INIT(pgf)
     PyModule_AddObject(m, "Type", (PyObject *) &pgf_TypeType);
     Py_INCREF(&pgf_TypeType);
 
+    PyModule_AddObject(m, "PGF", (PyObject *) &pgf_PGFType);
     Py_INCREF(&pgf_PGFType);
+	
+    PyModule_AddObject(m, "Concr", (PyObject *) &pgf_ConcrType);
     Py_INCREF(&pgf_ConcrType);
+
+    PyModule_AddObject(m, "Iter", (PyObject *) &pgf_IterType);
     Py_INCREF(&pgf_IterType);
+
+    PyModule_AddObject(m, "Bracket", (PyObject *) &pgf_BracketType);
     Py_INCREF(&pgf_BracketType);
 
 	return MOD_SUCCESS_VAL(m);
