@@ -32,6 +32,7 @@ The following people have contributed code to some of the versions:
 - [Janna Khegai](http://www.cs.chalmers.se/~janna) (Chalmers)
 - [Peter Ljunglöf](http://www.cse.chalmers.se/~peb) (University of Gothenburg)
 - Petri Mäenpää (Nokia)
+- Lauri Alanko (University of Helsinki)
 
 At least the following colleagues are thanked for suggestions, bug
 reports, and other indirect contributions to the code.
