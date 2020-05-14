@@ -233,12 +233,13 @@ typedef struct {
 	GuEnum en;
 	PgfConcr* concr;
 	GuString sentence;
-	GuString current;
 	size_t len;
 	PgfMorphoCallback* callback;
     GuExn* err;
 	bool case_sensitive;
 	GuBuf* spots;
+	GuBuf* skip_spots;
+	GuBuf* empty_buf;
 	GuBuf* found;
 } PgfCohortsState;
 
@@ -253,6 +254,29 @@ cmp_cohort_spot(GuOrder* self, const void* a, const void* b)
 
 static GuOrder
 pgf_cohort_spot_order[1] = {{ cmp_cohort_spot }};
+
+static void
+pgf_lookup_cohorts_report_skip(PgfCohortsState *state,
+                               PgfCohortSpot* spot, GuString msg)
+{
+	PgfCohortSpot end_spot = *spot;
+	while (gu_ucs_is_space(*(end_spot.ptr-1))) {
+		end_spot.pos--;
+		end_spot.ptr--;
+	}
+
+	size_t n_spots = gu_buf_length(state->skip_spots);
+	for (size_t i = 0; i < n_spots; i++) {
+		PgfCohortSpot* skip_spot =
+			gu_buf_index(state->skip_spots, PgfCohortSpot, i);
+
+		PgfCohortRange* range = gu_buf_insert(state->found, 0);
+		range->start = *skip_spot;
+		range->end   = end_spot;
+		range->buf   = state->empty_buf;
+	}
+	gu_buf_flush(state->skip_spots);
+}
 
 static void
 pgf_lookup_cohorts_helper(PgfCohortsState *state, PgfCohortSpot* spot,
@@ -290,18 +314,23 @@ pgf_lookup_cohorts_helper(PgfCohortsState *state, PgfCohortSpot* spot,
 				pgf_lookup_cohorts_helper(state, spot, i, k-1, min, len);
 
 			if (seq->idx != NULL && gu_buf_length(seq->idx) > 0) {
+				// Report unknown words
+				pgf_lookup_cohorts_report_skip(state, spot, "a");
+
+				// Report the actual hit
 				PgfCohortRange* range = gu_buf_insert(state->found, 0);
 				range->start = *spot;
 				range->end   = current;
 				range->buf   = seq->idx;
-			}
 
-			while (*current.ptr != 0) {
-				if (!skip_space(&current.ptr, &current.pos))
-					break;
-			}
+				// Schedule the next search spot
+				while (*current.ptr != 0) {
+					if (!skip_space(&current.ptr, &current.pos))
+						break;
+				}
 
-			gu_buf_heap_push(state->spots, pgf_cohort_spot_order, &current);
+				gu_buf_heap_push(state->spots, pgf_cohort_spot_order, &current);
+			}
 
 			if (len <= max)
 				pgf_lookup_cohorts_helper(state, spot, k+1, j, len, max);
@@ -317,28 +346,44 @@ pgf_lookup_cohorts_enum_next(GuEnum* self, void* to, GuPool* pool)
 	PgfCohortsState* state = gu_container(self, PgfCohortsState, en);
 
 	while (gu_buf_length(state->found) == 0 &&
-		   gu_buf_length(state->spots) > 0) {
+	       gu_buf_length(state->spots) > 0) {
 		PgfCohortSpot spot;
 		gu_buf_heap_pop(state->spots, pgf_cohort_spot_order, &spot);
 
-		if (spot.ptr == state->current)
-			continue;
+		GuString next_ptr = state->sentence+state->len;
+		while (gu_buf_length(state->spots) > 0) {
+			GuString ptr =
+				gu_buf_index(state->spots, PgfCohortSpot, 0)->ptr;
+			if (ptr > spot.ptr) {
+				next_ptr = ptr;
+				break;
+			}
+			gu_buf_heap_pop(state->spots, pgf_cohort_spot_order, &spot);
+		}
 
-		if (*spot.ptr == 0)
-			break;
+		bool needs_report = true;
+		while (next_ptr > spot.ptr) {
+			pgf_lookup_cohorts_helper
+						   (state, &spot,
+							0, gu_seq_length(state->concr->sequences)-1,
+							1, (state->sentence+state->len)-spot.ptr);
 
-		pgf_lookup_cohorts_helper
-					   (state, &spot,
-						0, gu_seq_length(state->concr->sequences)-1,
-						1, (state->sentence+state->len)-spot.ptr);
-						
-		if (gu_buf_length(state->found) == 0) {
+			if (gu_buf_length(state->found) > 0)
+				break;
+
+			if (needs_report) {
+				gu_buf_push(state->skip_spots, PgfCohortSpot, spot);
+				needs_report = false;
+			}
+
 			// skip one character and try again
 			gu_utf8_decode((const uint8_t**) &spot.ptr);
 			spot.pos++;
-			gu_buf_heap_push(state->spots, pgf_cohort_spot_order, &spot);
 		}
 	}
+
+	PgfCohortSpot end_spot = {state->len, state->sentence+state->len};
+	pgf_lookup_cohorts_report_skip(state, &end_spot, "b");
 
 	PgfCohortRange* pRes = (PgfCohortRange*)to;
 
@@ -348,15 +393,11 @@ pgf_lookup_cohorts_enum_next(GuEnum* self, void* to, GuPool* pool)
 		pRes->end.pos   = 0;
 		pRes->end.ptr   = NULL;
 		pRes->buf       = NULL;
-		state->current  = NULL;
-		return;
 	} else do {
 		*pRes = gu_buf_pop(state->found, PgfCohortRange);
-		state->current = pRes->start.ptr;
 		pgf_morpho_iter(pRes->buf, state->callback, state->err);
 	} while (gu_buf_length(state->found) > 0 &&
 	         gu_buf_index_last(state->found, PgfCohortRange)->end.ptr == pRes->end.ptr);
-	         
 }
 
 PGF_API GuEnum*
@@ -373,15 +414,17 @@ pgf_lookup_cohorts(PgfConcr *concr, GuString sentence,
 	}
 
 	PgfCohortsState* state = gu_new(PgfCohortsState, pool);
-	state->en.next = pgf_lookup_cohorts_enum_next;
-	state->concr   = concr;
-	state->sentence= sentence;
-	state->len     = strlen(sentence);
-	state->callback= callback;
-	state->err     = err;
-	state->case_sensitive = pgf_is_case_sensitive(concr);
-	state->spots   = gu_new_buf(PgfCohortSpot,  pool);
-	state->found   = gu_new_buf(PgfCohortRange, pool);
+	state->en.next       = pgf_lookup_cohorts_enum_next;
+	state->concr         = concr;
+	state->sentence      = sentence;
+	state->len           = strlen(sentence);
+	state->callback      = callback;
+	state->err           = err;
+	state->case_sensitive= pgf_is_case_sensitive(concr);
+	state->spots         = gu_new_buf(PgfCohortSpot, pool);
+	state->skip_spots    = gu_new_buf(PgfCohortSpot, pool);
+	state->empty_buf     = gu_new_buf(PgfProductionIdxEntry, pool);
+	state->found         = gu_new_buf(PgfCohortRange, pool);
 
 	PgfCohortSpot spot = {0,sentence};
 	while (*spot.ptr != 0) {

@@ -73,6 +73,7 @@ module PGF2 (-- * PGF
              generateAll,
              -- ** Morphological Analysis
              MorphoAnalysis, lookupMorpho, lookupCohorts, fullFormLexicon,
+             filterBest, filterLongest,
              -- ** Visualizations
              GraphvizOptions(..), graphvizDefaults,
              graphvizAbstractTree, graphvizParseTree, graphvizWordAlignment,
@@ -99,11 +100,11 @@ import Foreign.C
 import Data.Typeable
 import qualified Data.Map as Map
 import Data.IORef
-import Data.Char(isUpper,isSpace)
+import Data.Char(isUpper,isSpace,isPunctuation)
 import Data.List(isSuffixOf,maximumBy,nub)
 import Data.Function(on)
 import Data.Maybe(maybe)
- 
+
 -----------------------------------------------------------------------
 -- Functions that take a PGF.
 -- PGF has many Concrs.
@@ -506,7 +507,7 @@ lookupMorpho (Concr concr master) sent =
 -- The list is sorted first by the @start@ position and after than
 -- by the @end@ position. This can be used for instance if you want to
 -- filter only the longest matches.
-lookupCohorts :: Concr -> String -> [(Int,[MorphoAnalysis],Int)]
+lookupCohorts :: Concr -> String -> [(Int,String,[MorphoAnalysis],Int)]
 lookupCohorts lang@(Concr concr master) sent =
   unsafePerformIO $
     do pl <- gu_new_pool
@@ -517,9 +518,9 @@ lookupCohorts lang@(Concr concr master) sent =
        c_sent <- newUtf8CString sent pl
        enum <- pgf_lookup_cohorts concr c_sent cback pl nullPtr
        fpl <- newForeignPtr gu_pool_finalizer pl
-       fromCohortRange enum fpl fptr ref
+       fromCohortRange enum fpl fptr 0 sent ref
   where
-    fromCohortRange enum fpl fptr ref =
+    fromCohortRange enum fpl fptr i sent ref =
       allocaBytes (#size PgfCohortRange) $ \ptr ->
       withForeignPtr fpl $ \pl ->
         do gu_enum_next enum ptr pl
@@ -533,8 +534,80 @@ lookupCohorts lang@(Concr concr master) sent =
                      end   <- (#peek PgfCohortRange, end.pos)   ptr
                      ans   <- readIORef ref
                      writeIORef ref []
-                     cohs  <- unsafeInterleaveIO (fromCohortRange enum fpl fptr ref)
-                     return ((start,ans,end):cohs)
+                     let sent' = drop (start-i)   sent
+                         tok   = take (end-start) sent'
+                     cohs  <- unsafeInterleaveIO (fromCohortRange enum fpl fptr start sent' ref)
+                     return ((start,tok,ans,end):cohs)
+
+filterBest :: [(Int,String,[MorphoAnalysis],Int)] -> [(Int,String,[MorphoAnalysis],Int)]
+filterBest ans = 
+  reverse (iterate (maxBound :: Int) [(0,0,[],ans)] [] [])
+  where
+    iterate v0 []                      []  res = res
+    iterate v0 []                      new res = iterate v0 new []  res
+    iterate v0 ((_,v,conf,    []):old) new res = 
+      case compare v0 v of
+        LT                                    -> res
+        EQ                                    -> iterate v0 old new (merge conf res)
+        GT                                    -> iterate v  old new conf
+    iterate v0 ((_,v,conf,an:ans):old) new res = iterate v0 old (insert (v+valueOf an) conf an ans [] new) res
+
+    valueOf (_,_,[],_) = 2
+    valueOf _          = 1
+
+    insert v conf an@(start,_,_,end) ans l_new []                               =
+      match start v conf ans ((end,v,comb conf an,filter end ans):l_new) []
+    insert v conf an@(start,_,_,end) ans l_new (new@(end0,v0,conf0,ans0):r_new) =
+      case compare end0 end of
+        LT         -> insert v conf an ans (new:l_new) r_new
+        EQ -> case compare v0 v of
+                LT -> match start v conf ans ((end,v,                     conf0,ans0):    l_new) r_new
+                EQ -> match start v conf ans ((end,v,merge (comb conf an) conf0,ans0):    l_new) r_new
+                GT -> match start v conf ans ((end,v,comb conf an,              ans0):    l_new) r_new
+        GT         -> match start v conf ans ((end,v,comb conf an,    filter end ans):new:l_new) r_new
+
+    match start0 v conf (an@(start,_,_,end):ans) l_new r_new
+      | start0 == start                 = insert v conf an ans l_new r_new
+    match start0 v conf ans l_new r_new = revOn l_new r_new
+
+    comb ((start0,w0,an0,end0):conf) (start,w,an,end)
+      | end0 == start && (unk w0 an0 || unk w an) = (start0,w0++w,[],end):conf
+    comb conf an = an:conf
+
+    filter end                     [] = []
+    filter end (next@(start,_,_,_):ans)
+      | end <= start                  = next:ans
+      | otherwise                     = filter end ans
+
+    revOn []     ys = ys
+    revOn (x:xs) ys = revOn xs (x:ys)
+
+    merge []                           ans                          = ans
+    merge ans                          []                           = ans
+    merge (an1@(start1,_,_,end1):ans1) (an2@(start2,_,_,end2):ans2) =
+      case compare (start1,end1) (start2,end2) of
+        GT -> an1 : merge ans1 (an2:ans2)
+        EQ -> an1 : merge ans1 ans2
+        LT -> an2 : merge (an1:ans1) ans2
+
+filterLongest :: [(Int,String,[MorphoAnalysis],Int)] -> [(Int,String,[MorphoAnalysis],Int)]
+filterLongest []       = []
+filterLongest (an:ans) = longest an ans
+  where
+    longest prev                   [] = [prev]
+    longest prev@(start0,_,_,end0) (next@(start,_,_,end):ans)
+      | start0 == start               = longest next ans
+      | otherwise                     = filter prev (next:ans)
+
+    filter prev                      [] = [prev]
+    filter prev@(start0,w0,an0,end0) (next@(start,w,an,end):ans)
+      | end0 == start && (unk w0 an0 || unk w an)
+                                        = filter (start0,w0++w,[],end) ans
+      | end0 <=  start                  = prev : longest next ans
+      | otherwise                       = filter prev ans
+
+unk w [] | any (not . isPunctuation) w = True
+unk _ _                                = False
 
 fullFormLexicon :: Concr -> [(String, [MorphoAnalysis])]
 fullFormLexicon lang =

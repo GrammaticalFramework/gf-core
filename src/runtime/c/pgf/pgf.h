@@ -171,8 +171,8 @@ pgf_lookup_morpho(PgfConcr *concr, GuString sentence,
                   PgfMorphoCallback* callback, GuExn* err);
 
 typedef struct {
-	size_t pos;
-	GuString ptr;
+	size_t pos;       // position in Unicode characters
+	GuString ptr;     // pointer into the string
 } PgfCohortSpot;
 
 typedef struct {
