@@ -242,6 +242,10 @@ rmcomments :: String -> String
 rmcomments [] = []
 rmcomments ('-':'-':xs) = []
 rmcomments ('-':x  :xs) = '-':rmcomments (x:xs)
+rmcomments ('#':xs) = case splitAt 3 xs of -- for compatibility with gf-ud annotations
+  ("cat",rest) -> rmcomments rest
+  ("fun",rest) -> rmcomments rest
+  _ -> [] --- gf-ud keywords not used in gf-core
 rmcomments (x:xs)       = x:rmcomments xs
 
 -- | Prepare lines obtained from a configuration file for labels for
@@ -761,19 +765,21 @@ ppSVG svg =
 -- UseComp {"not"} PART neg head 
 -- UseComp {*} AUX cop head
 
-type CncLabels = [
-  Either
-    (String, String -> Maybe (String -> String,String,String))
-    -- (fun, word -> (pos,label,target))
+type CncLabels = [CncLabel]
+
+data CncLabel =
+    CncSyncat (String, String -> Maybe (String -> String,String,String))
+    -- (fun, word/lemma -> (pos,label,target))
     -- the pos can remain unchanged, as in the current notation in the article
-    (String,[String])
-    -- (category, morphological forms)
-  ]
+  | CncMorpho (String,[String])
+    -- (category, features in ascending order)
+  | CncForm (String,(String,String))
+    -- (wordform, (lemma,features))
 
 fixCoNLL :: CncLabels -> CoNLL -> CoNLL
 fixCoNLL cncLabels conll = map (fixMorpho . fixDep) (markRoot conll) where
-  labels  = [l | Left l <- cncLabels]
-  flabels = [r | Right r <- cncLabels]
+  labels  = [l | CncSyncat l <- cncLabels]
+  flabels = [r | CncMorpho r <- cncLabels]
 
 -- change the root label from dep to root
 --- doing this for the leftmost word of the root node
@@ -818,7 +824,7 @@ getCncDepLabels :: String -> CncLabels
 getCncDepLabels s = wlabels ws ++ flabels fs
  where
   wlabels =
-    map Left .
+    map CncSyncat .
     map merge .
     groupBy (\ (x,_) (a,_) -> x == a) .
     sortBy (comparing fst) .
@@ -826,7 +832,7 @@ getCncDepLabels s = wlabels ws ++ flabels fs
     filter chooseW
     
   flabels =
-    map Right .
+    map CncMorpho .
     map collectTags .
     map words
 
