@@ -257,14 +257,8 @@ pgf_cohort_spot_order[1] = {{ cmp_cohort_spot }};
 
 static void
 pgf_lookup_cohorts_report_skip(PgfCohortsState *state,
-                               PgfCohortSpot* spot, GuString msg)
+                               PgfCohortSpot* spot)
 {
-	PgfCohortSpot end_spot = *spot;
-	while (gu_ucs_is_space(*(end_spot.ptr-1))) {
-		end_spot.pos--;
-		end_spot.ptr--;
-	}
-
 	size_t n_spots = gu_buf_length(state->skip_spots);
 	for (size_t i = 0; i < n_spots; i++) {
 		PgfCohortSpot* skip_spot =
@@ -272,7 +266,7 @@ pgf_lookup_cohorts_report_skip(PgfCohortsState *state,
 
 		PgfCohortRange* range = gu_buf_insert(state->found, 0);
 		range->start = *skip_spot;
-		range->end   = end_spot;
+		range->end   = *spot;
 		range->buf   = state->empty_buf;
 	}
 	gu_buf_flush(state->skip_spots);
@@ -315,7 +309,7 @@ pgf_lookup_cohorts_helper(PgfCohortsState *state, PgfCohortSpot* spot,
 
 			if (seq->idx != NULL && gu_buf_length(seq->idx) > 0) {
 				// Report unknown words
-				pgf_lookup_cohorts_report_skip(state, spot, "a");
+				pgf_lookup_cohorts_report_skip(state, spot);
 
 				// Report the actual hit
 				PgfCohortRange* range = gu_buf_insert(state->found, 0);
@@ -364,26 +358,48 @@ pgf_lookup_cohorts_enum_next(GuEnum* self, void* to, GuPool* pool)
 		bool needs_report = true;
 		while (next_ptr > spot.ptr) {
 			pgf_lookup_cohorts_helper
-						   (state, &spot,
-							0, gu_seq_length(state->concr->sequences)-1,
-							1, (state->sentence+state->len)-spot.ptr);
+			               (state, &spot,
+			                0, gu_seq_length(state->concr->sequences)-1,
+			                1, (state->sentence+state->len)-spot.ptr);
 
+			// got a hit -> exit
 			if (gu_buf_length(state->found) > 0)
 				break;
 
 			if (needs_report) {
+				// no hit, but the word must be reported as unknown.
 				gu_buf_push(state->skip_spots, PgfCohortSpot, spot);
 				needs_report = false;
 			}
 
-			// skip one character and try again
-			gu_utf8_decode((const uint8_t**) &spot.ptr);
-			spot.pos++;
+			// skip one character
+			const uint8_t* ptr = (const uint8_t*) spot.ptr;
+			GuUCS c = gu_utf8_decode(&ptr);
+			if (gu_ucs_is_space(c)) {
+				// We have encounter a space and we must report
+				// a new unknown word.
+				pgf_lookup_cohorts_report_skip(state, &spot);
+
+				spot.ptr = (GuString) ptr;
+				spot.pos++;
+
+				// Schedule the next search spot
+				while (*spot.ptr != 0) {
+					if (!skip_space(&spot.ptr, &spot.pos))
+						break;
+				}
+
+				gu_buf_heap_push(state->spots, pgf_cohort_spot_order, &spot);
+				break;
+			} else {
+				spot.ptr = (GuString) ptr;
+				spot.pos++;
+			}
 		}
 	}
 
 	PgfCohortSpot end_spot = {state->len, state->sentence+state->len};
-	pgf_lookup_cohorts_report_skip(state, &end_spot, "b");
+	pgf_lookup_cohorts_report_skip(state, &end_spot);
 
 	PgfCohortRange* pRes = (PgfCohortRange*)to;
 
@@ -393,11 +409,19 @@ pgf_lookup_cohorts_enum_next(GuEnum* self, void* to, GuPool* pool)
 		pRes->end.pos   = 0;
 		pRes->end.ptr   = NULL;
 		pRes->buf       = NULL;
-	} else do {
+	} else for (;;) {
 		*pRes = gu_buf_pop(state->found, PgfCohortRange);
 		pgf_morpho_iter(pRes->buf, state->callback, state->err);
-	} while (gu_buf_length(state->found) > 0 &&
-	         gu_buf_index_last(state->found, PgfCohortRange)->end.ptr == pRes->end.ptr);
+
+		if (gu_buf_length(state->found) <= 0)
+			break;
+
+		PgfCohortRange* last =
+	         gu_buf_index_last(state->found, PgfCohortRange);
+		if (last->start.ptr != pRes->start.ptr ||
+		    last->end.ptr   != pRes->end.ptr)
+		    break;
+	}
 }
 
 PGF_API GuEnum*
