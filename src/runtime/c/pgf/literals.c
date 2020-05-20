@@ -10,7 +10,7 @@ pgf_match_string_lit(PgfLiteralCallback* self, PgfConcr* concr,
                      GuString sentence, size_t* poffset,
                      GuPool *out_pool)
 {
-	if (strcmp("ann","s") != 0)
+	if (strcmp(ann,"s") != 0)
 		return NULL;
 
 	const uint8_t* buf = (uint8_t*) (sentence + *poffset);
@@ -72,7 +72,7 @@ pgf_match_int_lit(PgfLiteralCallback* self, PgfConcr* concr,
                   GuString sentence, size_t* poffset,
                   GuPool *out_pool)
 {
-	if (strcmp("ann","s") != 0)
+	if (strcmp(ann,"s") != 0)
 		return NULL;
 
 	const uint8_t* buf = (uint8_t*) (sentence + *poffset);
@@ -127,7 +127,7 @@ pgf_match_float_lit(PgfLiteralCallback* self, PgfConcr* concr,
                     GuString sentence, size_t* poffset,
                     GuPool *out_pool)
 {
-	if (strcmp("ann","s") != 0)
+	if (strcmp(ann,"s") != 0)
 		return NULL;
 
 	const uint8_t* buf = (uint8_t*) (sentence + *poffset);
@@ -233,7 +233,7 @@ pgf_match_name_lit(PgfLiteralCallback* self, PgfConcr* concr,
                    GuString sentence, size_t* poffset,
                    GuPool *out_pool)
 {
-	if (strcmp("ann","s") != 0)
+	if (strcmp(ann,"s") != 0)
 		return NULL;
 
 	GuPool* tmp_pool = gu_local_pool();
