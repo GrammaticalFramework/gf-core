@@ -806,14 +806,22 @@ hsExpr c =
     Just (f,cs) -> H.mkApp (H.mkCId f) (map hsExpr cs)
     _ -> case unStr c of
            Just str -> H.mkStr str
-           _ -> error $ "GF.Command.Commands2.hsExpr "++show c
+           _ -> case unInt c of
+                  Just n -> H.mkInt n
+                  _ -> case unFloat c of
+                         Just d -> H.mkFloat d
+                         _ -> error $ "GF.Command.Commands2.hsExpr "++show c
 
 cExpr e =
   case H.unApp e of
     Just (f,es) -> mkApp (H.showCId f) (map cExpr es)
     _ -> case H.unStr e of
            Just str -> mkStr str
-           _ -> error $ "GF.Command.Commands2.cExpr "++show e
+           _ -> case H.unInt e of
+                  Just n -> mkInt n
+                  _ -> case H.unFloat e of
+                         Just d -> mkFloat d
+                         _ -> error $ "GF.Command.Commands2.cExpr "++show e
 
 needPGF exec opts ts =
   do Env mb_pgf cncs <- getPGFEnv
