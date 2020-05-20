@@ -2421,6 +2421,129 @@ Concr_lookupMorpho(ConcrObject* self, PyObject *args) {
     return analyses;
 }
 
+#define PGF_MORPHOCALLBACK_NAME "pgf.MorphoCallback"
+
+static void
+pypgf_morphocallback_destructor(PyObject *capsule)
+{
+	PyMorphoCallback* callback =
+		PyCapsule_GetPointer(capsule, PGF_MORPHOCALLBACK_NAME);
+	Py_XDECREF(callback->analyses);
+}
+
+static PyObject*
+Iter_fetch_cohort(IterObject* self)
+{
+	PgfCohortRange range =
+		gu_next(self->res, PgfCohortRange, self->pool);
+	if (range.buf == NULL)
+		return NULL;
+
+	PyObject* py_start = PyLong_FromSize_t(range.start.pos);
+	if (py_start == NULL)
+		return NULL;
+	PyObject* py_end = PyLong_FromSize_t(range.end.pos);
+	if (py_end == NULL) {
+		Py_DECREF(py_start);
+		return NULL;
+	}
+
+	PyMorphoCallback* callback =
+		PyCapsule_GetPointer(PyTuple_GetItem(self->container, 0),
+		                     PGF_MORPHOCALLBACK_NAME);
+
+	PyObject* py_slice =
+		PySlice_New(py_start, py_end, NULL);
+	if (py_slice == NULL) {
+		Py_DECREF(py_start);
+		Py_DECREF(py_end);
+		return NULL;
+	}
+
+	PyObject* py_w = 
+		PyObject_GetItem(PyTuple_GetItem(self->container, 1), py_slice);
+
+	PyObject* res =
+		PyTuple_Pack(4, py_start, py_w, callback->analyses, py_end);
+
+	Py_DECREF(callback->analyses);
+	callback->analyses = PyList_New(0);
+
+	Py_DECREF(py_w);
+	Py_DECREF(py_slice);
+	Py_DECREF(py_end);
+	Py_DECREF(py_start);
+
+	return res;
+}
+
+static PyObject*
+Concr_lookupCohorts(ConcrObject* self, PyObject *args)
+{
+	PyObject* py_sent = NULL;
+	if (!PyArg_ParseTuple(args, "U", &py_sent))
+		return NULL;
+
+	IterObject* pyres = (IterObject*)
+		pgf_IterType.tp_alloc(&pgf_IterType, 0);
+	if (pyres == NULL)
+		return NULL;
+
+	pyres->pool   = gu_new_pool();
+	pyres->source = (PyObject*) self->grammar;
+	Py_XINCREF(pyres->source);
+
+	PyMorphoCallback* callback = gu_new(PyMorphoCallback,pyres->pool);
+	callback->fn.callback = pypgf_collect_morpho;
+	callback->analyses    = PyList_New(0);
+	PyObject* capsule =
+		PyCapsule_New(callback, PGF_MORPHOCALLBACK_NAME,
+		              pypgf_morphocallback_destructor);
+	if (capsule == NULL) {
+		Py_DECREF(pyres);
+		return NULL;
+	}
+	
+#if PY_MAJOR_VERSION >= 3
+	PyObject* bytes = PyUnicode_AsUTF8String(py_sent);
+	if (!bytes)
+		return NULL;
+	GuString sent = PyBytes_AsString(bytes);
+	if (!sent) {
+		Py_DECREF(bytes);
+		return NULL;
+	}
+#else
+	GuString sent = PyString_AsString(py_sent);
+	if (!sent)
+		return NULL;
+#endif
+
+
+	pyres->container =
+#if PY_MAJOR_VERSION >= 3
+		PyTuple_Pack(3, capsule, py_sent, bytes);
+	Py_DECREF(bytes);
+#else
+		PyTuple_Pack(2, capsule, py_sent);
+#endif
+	pyres->max_count = -1;
+	pyres->counter   = 0;
+	pyres->fetch     = Iter_fetch_cohort;
+
+	Py_DECREF(capsule);
+
+	GuExn* err = gu_new_exn(pyres->pool);
+	pyres->res = pgf_lookup_cohorts(self->concr, sent,
+                                    &callback->fn, pyres->pool, err);
+	if (pyres->res == NULL) {
+		Py_DECREF(pyres);
+		return NULL;
+	}
+
+	return (PyObject*) pyres;
+}
+
 static PyObject*
 Iter_fetch_fullform(IterObject* self)
 {
@@ -2605,6 +2728,9 @@ static PyMethodDef Concr_methods[] = {
     },
     {"lookupMorpho", (PyCFunction)Concr_lookupMorpho, METH_VARARGS,
      "Looks up a word in the lexicon of the grammar"
+    },
+    {"lookupCohorts", (PyCFunction)Concr_lookupCohorts, METH_VARARGS,
+     "Takes a sentence and returns all matches for lexical items from the grammar in that sentence"
     },
     {"fullFormLexicon", (PyCFunction)Concr_fullFormLexicon, METH_VARARGS,
      "Enumerates all words in the lexicon (useful for extracting full form lexicons)"
