@@ -1380,7 +1380,7 @@ pgf_parsing_symbol(PgfParsing* ps, PgfItem* item, PgfSymbol sym)
 						PgfSymbols* syms =
 							pgf_collect_extern_tok(ps, start, offset);
 
-						size_t n_lins = item->conts->ccat->cnccat->n_lins;
+						size_t n_lins = conts->ccat->cnccat->n_lins;
 
 						PgfProduction prod;
 						PgfProductionExtern* pext =
@@ -1394,7 +1394,7 @@ pgf_parsing_symbol(PgfParsing* ps, PgfItem* item, PgfSymbol sym)
 						for (size_t i = 0; i < n_lins; i++) {
 							pext->lins[i] = NULL;
 						}
-						pext->lins[item->conts->lin_idx] = syms;
+						pext->lins[conts->lin_idx] = syms;
 
 						PgfItem* item =
 							pgf_new_item(ps, conts, prod);
