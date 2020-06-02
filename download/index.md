@@ -114,7 +114,7 @@ automatically by cabal, and therefore need to be installed manually.
 Here is one way to do this:
 
 - On Ubuntu: `sudo apt-get install libghc-haskeline-dev`
-- On Fedora: `sudo yum install ghc-haskeline-devel`
+- On Fedora: `sudo dnf install ghc-haskeline-devel`
 
 **GHC version**
 
