@@ -652,13 +652,14 @@ checkEqLType gr g t u trm = do
           helpfulMsg =
             case (arrows inferredType, arrows expectedType) of
               (0,0) -> pp "" -- None of the types is a function
-              _ -> if expectedType `isLessApplied` inferredType
+              _ -> "\n   **" <+> 
+                  if expectedType `isLessApplied` inferredType
                     then "Maybe you gave too few arguments to" <+> funName
                     else pp "Double-check that type signature and number of arguments match."
       in checkError $ s <+> "type of" <+> term $$
                             "expected:" <+> expectedType $$ -- ppqType t u $$
                             "inferred:" <+> inferredType $$ -- ppqType u t
-                            "\n   **" <+> helpfulMsg <+> "\n"
+                            helpfulMsg
   where
     -- count the number of arrows in the prettyprinted term
     arrows :: Doc -> Int
