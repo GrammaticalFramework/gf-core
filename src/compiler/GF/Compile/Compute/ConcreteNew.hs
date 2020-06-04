@@ -291,9 +291,36 @@ glue env (v1,v2) = glu v1 v2
                                 vt v = case value2term loc (local env) v of
                                          Left i  -> Error ('#':show i)
                                          Right t -> t
-                            in error . render $
-                                         ppL loc (hang "unsupported token gluing:" 4
-                                                        (Glue (vt v1) (vt v2)))
+                                originalMsg = render $ ppL loc (hang "unsupported token gluing" 4
+                                                               (Glue (vt v1) (vt v2)))
+                                term = render $ pp  $ Glue (vt v1) (vt v2)
+                            in error $ unlines
+                                [originalMsg
+                                ,""
+                                ,"There was a problem in the expression `" ++ term ++ "`"
+                                ,"This can be due to two causes, check which one applies in your case."
+                                ,""
+                                ,"1) You are trying to use + on runtime arguments. Even if you are using"
+                                ,"   `"++term++"` in an oper, make sure that the oper isn't called in a"
+                                ,"   linearization that takes arguments. Both of the following are illegal:"
+                                ,""
+                                ,"      lin Test foo bar = foo.s + bar.s          <- explicit + in a lin"
+                                ,"      lin Test foo bar = opWithPlus foo bar     <- the oper uses +"
+                                ,""
+                                ,"2) One of the arguments in `"++term++"` is a bound variable"
+                                ,"   from pattern matching a string, but the cases are non-exhaustive."
+                                ,"   Example:"
+                                ,"      case \"test\" of {"
+                                ,"        x + \"a\" => x + \"b\"   <- no applicable case for \"test\", so x = ???"
+                                ,"      } ;"
+                                ,""
+                                ,"   You can fix this by adding a catch-all case in the end:"
+                                ,"      { x + \"a\" => x + \"b\" ;"
+                                ,"        _       => \"default case\" } ;"
+                                ,""
+                                ,"3) If neither applies, submit a bug report and we update the error message."
+                                ,"      https://github.com/GrammaticalFramework/gf-core/issues"
+                                ]
 
 
 -- | to get a string from a value that represents a sequence of terminals
