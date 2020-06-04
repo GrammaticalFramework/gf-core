@@ -132,7 +132,7 @@ inferLType gr g trm = case trm of
              let term = ppTerm Unqualified 0 f
                  funName = pp . head . words .render $ term
               in checkError ("A function type is expected for" <+> term <+> "instead of type" <+> ppType fty $$
-                             "\n      Maybe you gave too many arguments to" <+> funName)
+                             "\n   ** Maybe you gave too many arguments to" <+> funName <+> "\n")
 
    S f x -> do
      (f', fty) <- inferLType gr g f
@@ -432,7 +432,9 @@ checkLType gr g trm typ0 = do
                        else do b' <- checkIn (pp "abs") $ substituteLType [(bt',z,Vr x)] b
                                checkLType gr ((bt,x,a):g) c b'
           return $ (Abs bt x c', Prod bt' z a b')
-        _ -> checkError $ "function type expected instead of" <+> ppType typ
+        _ -> checkError $ "function type expected instead of" <+> ppType typ $$
+                          "\n   ** Double-check that the type signature of the operation" $$
+                          "matches the number of arguments given to it.\n"
 
     App f a -> do
        over <- getOverload gr g (Just typ) trm
@@ -652,11 +654,11 @@ checkEqLType gr g t u trm = do
               (0,0) -> pp "" -- None of the types is a function
               _ -> if expectedType `isLessApplied` inferredType
                     then "Maybe you gave too few arguments to" <+> funName
-                    else "Maybe you gave too many arguments to" <+> funName
+                    else pp "Double-check that type signature and number of arguments match."
       in checkError $ s <+> "type of" <+> term $$
                             "expected:" <+> expectedType $$ -- ppqType t u $$
                             "inferred:" <+> inferredType $$ -- ppqType u t
-                            "\n     " <+> helpfulMsg
+                            "\n   **" <+> helpfulMsg <+> "\n"
   where
     -- count the number of arrows in the prettyprinted term
     arrows :: Doc -> Int
