@@ -127,8 +127,12 @@ inferLType gr g trm = case trm of
              ty <- if isWildIdent z 
                       then return val
                       else substituteLType [(bt,z,a')] val
-             return (App f' a',ty) 
-           _ -> checkError ("A function type is expected for" <+> ppTerm Unqualified 0 f <+> "instead of type" <+> ppType fty)
+             return (App f' a',ty)
+           _ ->
+             let term = ppTerm Unqualified 0 f
+                 funName = pp . head . words .render $ term
+              in checkError ("A function type is expected for" <+> term <+> "instead of type" <+> ppType fty $$
+                             "\n      Maybe you gave too many arguments to" <+> funName)
 
    S f x -> do
      (f', fty) <- inferLType gr g f
@@ -638,9 +642,30 @@ checkEqLType gr g t u trm = do
   (b,t',u',s) <- checkIfEqLType gr g t u trm
   case b of
     True  -> return t'
-    False -> checkError $ s <+> "type of" <+> ppTerm Unqualified 0 trm $$
-                          "expected:" <+> ppTerm Qualified 0 t $$ -- ppqType t u $$
-                          "inferred:" <+> ppTerm Qualified 0 u -- ppqType u t
+    False ->
+      let inferredType = ppTerm Qualified 0 u
+          expectedType = ppTerm Qualified 0 t
+          term = ppTerm Unqualified 0 trm
+          funName = pp . head . words .render $ term
+          helpfulMsg =
+            case (arrows inferredType, arrows expectedType) of
+              (0,0) -> pp "" -- None of the types is a function
+              _ -> if expectedType `isLessApplied` inferredType
+                    then "Maybe you gave too few arguments to" <+> funName
+                    else "Maybe you gave too many arguments to" <+> funName
+      in checkError $ s <+> "type of" <+> term $$
+                            "expected:" <+> expectedType $$ -- ppqType t u $$
+                            "inferred:" <+> inferredType $$ -- ppqType u t
+                            "\n     " <+> helpfulMsg
+  where
+    -- count the number of arrows in the prettyprinted term
+    arrows :: Doc -> Int
+    arrows = length . filter (=="->") . words . render
+
+    -- If prettyprinted type t has fewer arrows then prettyprinted type u,
+    -- then t is "less applied", and we can print out more helpful error msg.
+    isLessApplied :: Doc -> Doc -> Bool
+    isLessApplied t u = arrows t < arrows u
 
 checkIfEqLType :: SourceGrammar -> Context -> Type -> Type -> Term -> Check (Bool,Type,Type,String)
 checkIfEqLType gr g t u trm = do
