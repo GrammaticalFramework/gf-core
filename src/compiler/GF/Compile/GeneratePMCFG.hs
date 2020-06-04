@@ -614,6 +614,20 @@ mkArray    lst = listArray (0,length lst-1) lst
 mkSetArray map = array (0,Map.size map-1) [(v,k) | (k,v) <- Map.toList map]
 
 bug msg = ppbug msg
-ppbug msg = error . render $ hang "Internal error in GeneratePMCFG:" 4 msg
+ppbug msg = error completeMsg
+ where
+  originalMsg = render $ hang "Internal error in GeneratePMCFG:" 4 msg
+  completeMsg =
+    unlines [originalMsg
+            ,""
+            ,"1) Check that you are not trying to pattern match a /runtime string/."
+            ,"   These are illegal:"
+            ,"     lin Test foo = case foo.s of {"
+            ,"                       \"str\" => … } ;   <- explicit matching argument of a lin"
+            ,"     lin Test foo = opThatMatches foo   <- calling an oper that pattern matches"
+            ,""
+            ,"2) Not about pattern matching? Submit a bug report and we update the error message."
+            ,"     https://github.com/GrammaticalFramework/gf-core/issues"
+            ]
 
 ppU = ppTerm Unqualified
