@@ -546,7 +546,7 @@ value2term' stop loc xs v0 =
 linPattVars p =
     if null dups
     then return pvs
-    else fail.render $ hang "Pattern is not linear:" 4 (ppPatt Unqualified 0 p)
+    else fail.render $ hang "Pattern is not linear. All variable names on the left-hand side must be distinct." 4 (ppPatt Unqualified 0 p)
   where
     allpvs = allPattVars p
     pvs = nub allpvs
