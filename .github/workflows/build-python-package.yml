@@ -1,0 +1,48 @@
+name: Build Python Package
+
+on: [push, pull_request]
+
+jobs:
+  build_wheels:
+    name: Build wheel on ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-18.04, macos-latest]
+
+    steps:
+    - uses: actions/checkout@v1
+
+    - uses: actions/setup-python@v1
+      name: Install Python
+      with:
+        python-version: '3.7'
+
+    - name: Install cibuildwheel
+      run: |
+        python -m pip install cibuildwheel==1.4.2  
+
+    - name: Install build tools for OSX
+      if: startsWith(matrix.os, 'macos')
+      run: |
+        brew install automake
+
+    - name: Build wheels on Linux
+      if: startsWith(matrix.os, 'macos') != true
+      env:
+        CIBW_BEFORE_BUILD: cd src/runtime/c && autoreconf -i && ./configure && make && make install
+      run: |
+        python -m cibuildwheel src/runtime/python --output-dir wheelhouse
+
+    - name: Build wheels on OSX
+      if: startsWith(matrix.os, 'macos')
+      env:
+        CIBW_BEFORE_BUILD: cd src/runtime/c && glibtoolize && autoreconf -i && ./configure && make && make install
+      run: |
+        python -m cibuildwheel src/runtime/python --output-dir wheelhouse
+
+    - uses: actions/upload-artifact@v1
+      with:
+        name: wheels
+        path: ./wheelhouse
