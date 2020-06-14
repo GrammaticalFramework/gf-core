@@ -1,4 +1,4 @@
-name: Build Python Package
+name: Build & Publish Python Package
 
 on: [push, pull_request]
 
@@ -42,7 +42,51 @@ jobs:
       run: |
         python -m cibuildwheel src/runtime/python --output-dir wheelhouse
 
-    - uses: actions/upload-artifact@v1
+    - uses: actions/upload-artifact@v2
       with:
-        name: wheels
         path: ./wheelhouse
+
+  build_sdist:
+    name: Build source distribution
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+
+      - uses: actions/setup-python@v2
+        name: Install Python
+        with:
+          python-version: '3.7'
+
+      - name: Build sdist
+        run: cd src/runtime/python && python setup.py sdist
+
+      - uses: actions/upload-artifact@v2
+        with:
+          path: dist/*.tar.gz
+
+  upload_pypi:
+    needs: [build_wheels, build_sdist]
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Set up Python
+        uses: actions/setup-python@v2
+        with:
+          python-version: '3.x'
+
+      - name: Install twine
+        run: pip install twine
+
+      - uses: actions/download-artifact@v2
+        with:
+          name: artifact
+          path: ./src/runtime/python/dist
+
+      - name: Publish
+        env:
+          TWINE_USERNAME: __token__
+          TWINE_PASSWORD: ${{ secrets.pypi_password }}
+        working-directory: ./src/runtime/python
+        run: |
+          curl -I --fail https://pypi.org/project/$(python setup.py --name)/$(python setup.py --version)/ || twine upload --repository testpypi dist/*
+        # To test: repository_url: https://test.pypi.org/legacy/
