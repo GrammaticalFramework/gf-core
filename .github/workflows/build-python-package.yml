@@ -7,7 +7,7 @@ jobs:
     name: Build wheel on ${{ matrix.os }}
     runs-on: ${{ matrix.os }}
     strategy:
-      fail-fast: false
+      fail-fast: true
       matrix:
         os: [ubuntu-18.04, macos-latest]
 
@@ -89,4 +89,3 @@ jobs:
         working-directory: ./src/runtime/python
         run: |
           curl -I --fail https://pypi.org/project/$(python setup.py --name)/$(python setup.py --version)/ || twine upload --repository testpypi dist/*
-        # To test: repository_url: https://test.pypi.org/legacy/
