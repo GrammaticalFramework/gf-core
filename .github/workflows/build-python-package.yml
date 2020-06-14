@@ -62,13 +62,15 @@ jobs:
 
       - uses: actions/upload-artifact@v2
         with:
-          path: dist/*.tar.gz
+          path: ./src/runtime/python/dist/*.tar.gz
 
   upload_pypi:
     needs: [build_wheels, build_sdist]
     runs-on: ubuntu-latest
     
     steps:
+      - uses: actions/checkout@v2
+
       - name: Set up Python
         uses: actions/setup-python@v2
         with:
@@ -86,6 +88,5 @@ jobs:
         env:
           TWINE_USERNAME: __token__
           TWINE_PASSWORD: ${{ secrets.pypi_password }}
-        working-directory: ./src/runtime/python
         run: |
-          curl -I --fail https://pypi.org/project/$(python setup.py --name)/$(python setup.py --version)/ || twine upload --repository testpypi dist/*
+          (cd ./src/runtime/python && curl -I --fail https://test.pypi.org/project/$(python setup.py --name)/$(python setup.py --version)/) || twine upload --repository testpypi dist/*
