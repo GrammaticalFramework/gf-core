@@ -67,6 +67,7 @@ jobs:
   upload_pypi:
     needs: [build_wheels, build_sdist]
     runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/master' && github.event_name == 'push'
     
     steps:
       - uses: actions/checkout@v2
@@ -82,7 +83,7 @@ jobs:
       - uses: actions/download-artifact@v2
         with:
           name: artifact
-          path: ./src/runtime/python/dist
+          path: ./dist
 
       - name: Publish
         env:
