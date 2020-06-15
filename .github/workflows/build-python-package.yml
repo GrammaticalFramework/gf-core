@@ -82,7 +82,7 @@ jobs:
       - uses: actions/download-artifact@v2
         with:
           name: artifact
-          path: ./src/runtime/python/dist
+          path: ./dist
 
       - name: Publish
         env:
