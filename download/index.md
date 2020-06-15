@@ -171,6 +171,20 @@ in the RGL folder.
 This assumes that you already have GF installed.
 For more details about building the RGL, see the [RGL README](https://github.com/GrammaticalFramework/gf-rgl/blob/master/README.md).
 
+## Installing the Python bindings from PyPI
+
+The Python library is available on PyPI as `pgf`, so it can be installed using:
+
+```
+pip install pgf
+```
+
+We provide binary wheels for Linux and OSX (with Windows missing so far), which 
+include the C runtime and a ready-to-go.  If there is no binary distribution for
+your platform, this will install the source tarball, which will attempt to build 
+the binding during installation, and requires the GF C runtime to be installed on
+your system.
+
 ## Older releases
 
 - [GF 3.9](index-3.9.html) (August 2017)

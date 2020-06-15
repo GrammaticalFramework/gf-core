@@ -391,6 +391,8 @@ bindings are found in the ``src/runtime/python`` and ``src/runtime/java``
 directories, respecively. Compile them by following the instructions in
 the ``INSTALL`` files in those directories.
 
+The Python library can also be installed from PyPI using `pip install pgf`.
+
 == Compilation of RGL ==
 
 As of 2018-07-26, the RGL is distributed separately from the GF compiler and runtimes.
