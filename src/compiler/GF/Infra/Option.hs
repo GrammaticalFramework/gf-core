@@ -348,7 +348,7 @@ optDescr =
            "Overrides the value of GF_LIB_PATH.",
      Option [] ["src","force-recomp"] (NoArg (recomp AlwaysRecomp)) 
                  "Always recompile from source.",
-     Option [] ["gfo","recomp-if-newer"] (NoArg (recomp RecompIfNewer)) 
+     Option [] ["recomp-if-newer"] (NoArg (recomp RecompIfNewer)) 
                  "(default) Recompile from source if the source is newer than the .gfo file.",
      Option [] ["gfo","no-recomp"] (NoArg (recomp NeverRecomp)) 
                  "Never recompile from source, if there is already .gfo file.",
