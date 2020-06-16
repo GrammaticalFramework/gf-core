@@ -291,9 +291,17 @@ glue env (v1,v2) = glu v1 v2
                                 vt v = case value2term loc (local env) v of
                                          Left i  -> Error ('#':show i)
                                          Right t -> t
-                            in error . render $
-                                         ppL loc (hang "unsupported token gluing:" 4
-                                                        (Glue (vt v1) (vt v2)))
+                                originalMsg = render $ ppL loc (hang "unsupported token gluing" 4
+                                                               (Glue (vt v1) (vt v2)))
+                                term = render $ pp  $ Glue (vt v1) (vt v2)
+                            in error $ unlines
+                                [originalMsg
+                                ,""
+                                ,"There was a problem in the expression `"++term++"`, either:"
+                                ,"1) You are trying to use + on runtime arguments, possibly via an oper."
+                                ,"2) One of the arguments in `"++term++"` is a bound variable from pattern matching a string, but the cases are non-exhaustive."
+                                ,"For more help see https://github.com/GrammaticalFramework/gf-core/tree/master/doc/errors/gluing.md"
+                                ]
 
 
 -- | to get a string from a value that represents a sequence of terminals
@@ -546,7 +554,7 @@ value2term' stop loc xs v0 =
 linPattVars p =
     if null dups
     then return pvs
-    else fail.render $ hang "Pattern is not linear:" 4 (ppPatt Unqualified 0 p)
+    else fail.render $ hang "Pattern is not linear. All variable names on the left-hand side must be distinct." 4 (ppPatt Unqualified 0 p)
   where
     allpvs = allPattVars p
     pvs = nub allpvs

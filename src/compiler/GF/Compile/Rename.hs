@@ -236,7 +236,7 @@ renamePattern :: Status -> Patt -> Check (Patt,[Ident])
 renamePattern env patt =
     do r@(p',vs) <- renp patt
        let dupl = vs \\ nub vs
-       unless (null dupl) $ checkError (hang ("[C.4.13] Pattern is not linear:") 4
+       unless (null dupl) $ checkError (hang ("[C.4.13] Pattern is not linear. All variable names on the left-hand side must be distinct.") 4
                                              patt)
        return r
   where
