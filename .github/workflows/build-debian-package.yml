@@ -38,8 +38,11 @@ jobs:
       run: |
         make deb
 
+    - name: Copy packages
+      run: |
+        mkdir debian/dist
+        cp ../gf_*.deb debian/dist/
+
     - uses: actions/upload-artifact@v2
-      env:
-        working-directory: ..
       with:
-        path: gf_*.deb
+        path: debian/dist
