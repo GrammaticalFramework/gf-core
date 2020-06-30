@@ -26,7 +26,9 @@ jobs:
           libghc-json-dev \
           python-dev \
           default-jdk \
-          libtool-bin
+          libtool-bin \
+          txt2tags \
+          pandoc
 
     - name: Checkout RGL
       env:
