@@ -39,5 +39,7 @@ jobs:
         make deb
 
     - uses: actions/upload-artifact@v2
+      env:
+        working-directory: ..
       with:
-        path: ../gf_*.deb
+        path: gf_*.deb
