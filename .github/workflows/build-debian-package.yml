@@ -1,0 +1,42 @@
+name: Build Debian Package
+
+on: [push, pull_request]
+
+jobs:
+  build:
+    name: Build on ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: true
+      matrix:
+        os: [ubuntu-18.04]
+    env:
+      LC_ALL: C.UTF-8
+
+    steps:
+    - uses: actions/checkout@v1
+
+    - name: Install build tools
+      run: |
+        apt install -y make \
+          dpkg-dev \
+          debhelper \
+          haskell-platform \
+          libghc-json-dev \
+          python-dev \
+          default-jdk \
+          libtool-bin
+
+    - name: Checkout RGL
+      env:
+        working-directory: ../
+      run: |
+        git clone https://github.com/GrammaticalFramework/gf-rgl.git
+
+    - name: Build Debian package
+      run: |
+        make deb
+
+    - uses: actions/upload-artifact@v2
+      with:
+        path: ../gf_*.deb
