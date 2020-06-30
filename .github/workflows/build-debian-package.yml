@@ -18,7 +18,8 @@ jobs:
 
     - name: Install build tools
       run: |
-        apt install -y make \
+        sudo apt install -y \
+          make \
           dpkg-dev \
           debhelper \
           haskell-platform \
