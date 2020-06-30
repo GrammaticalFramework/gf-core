@@ -31,10 +31,8 @@ jobs:
           pandoc
 
     - name: Checkout RGL
-      env:
-        working-directory: ../
       run: |
-        git clone https://github.com/GrammaticalFramework/gf-rgl.git
+        git clone --depth 1 https://github.com/GrammaticalFramework/gf-rgl.git ../gf-rgl
 
     - name: Build Debian package
       run: |
