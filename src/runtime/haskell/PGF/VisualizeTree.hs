@@ -239,20 +239,19 @@ graphvizDependencyTree format debug mlab mclab pgf lang t =
 
 -- auxiliaries for UD conversion  PK 15/12/2018 
 rmcomments :: String -> String
-rmcomments [] = []
-rmcomments ('-':'-':xs) = []
-rmcomments ('-':x  :xs) = '-':rmcomments (x:xs)
-rmcomments ('#':xs) = case splitAt 3 xs of -- for compatibility with gf-ud annotations
-  ("cat",rest) -> rmcomments rest
-  ("fun",rest) -> rmcomments rest
-  _ -> [] --- gf-ud keywords not used in gf-core
-rmcomments (x:xs)       = x:rmcomments xs
+rmcomments s = case s of
+  '-':'-':_ -> []
+  '#':'f':'u':'n':rest -> rmcomments rest -- the new gf-ud format
+  '#':'c':'a':'t':rest -> rmcomments rest
+  x:xs -> x : rmcomments xs
+  _ -> []
+  
 
 -- | Prepare lines obtained from a configuration file for labels for
 -- use with 'graphvizDependencyTree'. Format per line /fun/ /label/@*@.
+--- ignore other gf-ud annotatations than #fun and #cat at this point 
 getDepLabels :: String -> Labels
--- getDepLabels s = Map.fromList [(mkCId f,ls) | f:ls <- map words (lines s)]
-getDepLabels s = Map.fromList [(mkCId f,ls) | f:ls <- map (words . rmcomments) (lines s)]
+getDepLabels s = Map.fromList [(mkCId f,ls) | f:ls <- map (words . rmcomments) (lines s), not (head f == '#')]
 
 -- the old function, without dependencies
 graphvizParseTree :: PGF -> Language -> GraphvizOptions -> Tree -> String

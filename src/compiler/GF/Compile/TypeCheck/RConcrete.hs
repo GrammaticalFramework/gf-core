@@ -224,8 +224,14 @@ inferLType gr g trm = case trm of
      return (RecType (zip ls ts'), typeType)
 
    ExtR r s -> do
-     (r',rT) <- inferLType gr g r 
+   
+---     over <- getOverload gr g Nothing r
+---     let r1 = maybe r fst over
+     let r1 = r --- 
+
+     (r',rT) <- inferLType gr g r1
      rT'     <- computeLType gr g rT
+     
      (s',sT) <- inferLType gr g s
      sT'     <- computeLType gr g sT
 
@@ -332,8 +338,6 @@ getOverload gr g mt ot = case appForm ot of
        return $ Just v
      _ -> return Nothing
      
--- checkIfEqLType :: SourceGrammar -> Context -> Type -> Type -> Term -> Check (Bool,Type,Type,String)
--- checkEqLType   :: SourceGrammar -> Context -> Type -> Type -> Term -> Check Type
  where
    collectOverloads tr@(Q c) = case lookupOverload gr c of 
      Ok typs -> typs
@@ -514,8 +518,13 @@ checkLType gr g trm typ0 = do
                RecType ss -> return $ map fst ss
                _ ->  checkError ("cannot get labels from" $$ nest 2 (ppTerm Unqualified 0 typ2))
          let ll1 = [l | (l,_) <- rr, notElem l ll2]
-         (r',_) <- checkLType gr g r (RecType [field | field@(l,_) <- rr, elem l ll1])
-         (s',_) <- checkLType gr g s (RecType [field | field@(l,_) <- rr, elem l ll2])
+
+---         over <- getOverload gr g Nothing r --- this would solve #66 but fail ParadigmsAra. AR 6/7/2020
+---         let r1 = maybe r fst over
+         let r1 = r ---
+         
+         (r',_) <- checkLType gr g r1 (RecType [field | field@(l,_) <- rr, elem l ll1])
+         (s',_) <- checkLType gr g s  (RecType [field | field@(l,_) <- rr, elem l ll2])
 
          let rec = R ([(l,(Nothing,P r' l)) | l <- ll1] ++ [(l,(Nothing,P s' l)) | l <- ll2])
          return (rec, typ)
