@@ -331,7 +331,9 @@ getOverload gr g mt ot = case appForm ot of
        v <- matchOverload f typs ttys
        return $ Just v
      _ -> return Nothing
-
+     
+-- checkIfEqLType :: SourceGrammar -> Context -> Type -> Type -> Term -> Check (Bool,Type,Type,String)
+-- checkEqLType   :: SourceGrammar -> Context -> Type -> Type -> Term -> Check Type
  where
    collectOverloads tr@(Q c) = case lookupOverload gr c of 
      Ok typs -> typs
@@ -399,7 +401,7 @@ getOverload gr g mt ot = case appForm ot of
    matchVal mt v = elem mt [Nothing,Just v,Just (unlocked v)]
 
    unlocked v = case v of
-     RecType fs -> RecType $ filter (not . isLockLabel . fst) fs
+     RecType fs -> RecType $ filter (not . isLockLabel . fst) (sortRec fs)
      _ -> v
    ---- TODO: accept subtypes
    ---- TODO: use a trie
