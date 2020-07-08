@@ -531,12 +531,6 @@ foreign import ccall "pgf/pgf.h pgf_print"
 foreign import ccall "pgf/expr.h pgf_read_expr"
   pgf_read_expr :: Ptr GuIn -> Ptr GuPool -> Ptr GuPool -> Ptr GuExn -> IO PgfExpr
 
-foreign import ccall "pgf/expr.h pgf_read_expr_tuple"
-  pgf_read_expr_tuple :: Ptr GuIn -> CSizeT -> Ptr PgfExpr -> Ptr GuPool -> Ptr GuExn -> IO CInt
-
-foreign import ccall "pgf/expr.h pgf_read_expr_matrix"
-  pgf_read_expr_matrix :: Ptr GuIn -> CSizeT -> Ptr GuPool -> Ptr GuExn -> IO (Ptr GuSeq)
-
 foreign import ccall "pgf/expr.h pgf_read_type"
   pgf_read_type :: Ptr GuIn -> Ptr GuPool -> Ptr GuPool -> Ptr GuExn -> IO PgfType
 
