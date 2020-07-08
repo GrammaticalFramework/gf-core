@@ -1,8 +1,7 @@
 INSTALL_PATH = /usr/local
 
-C_SOURCES = jpgf.c jsg.c jni_utils.c
-JAVA_SOURCES = $(wildcard org/grammaticalframework/pgf/*.java) \
-               $(wildcard org/grammaticalframework/sg/*.java)
+C_SOURCES = jpgf.c jni_utils.c
+JAVA_SOURCES = $(wildcard org/grammaticalframework/pgf/*.java)
 
 JNI_INCLUDES = $(if $(wildcard /usr/lib/jvm/default-java/include/.*), -I/usr/lib/jvm/default-java/include -I/usr/lib/jvm/default-java/include/linux, \
                $(if $(wildcard /usr/lib/jvm/java-1.11.0-openjdk-amd64/include/.*), -I/usr/lib/jvm/java-1.11.0-openjdk-amd64/include/ -I/usr/lib/jvm/java-1.11.0-openjdk-amd64/include/linux, \
@@ -28,13 +27,13 @@ LIBTOOL = $(if $(shell command -v glibtool 2>/dev/null), glibtool, libtool)  --t
 all: libjpgf.la jpgf.jar
 
 libjpgf.la: $(patsubst %.c, %.lo, $(C_SOURCES))
-	$(LIBTOOL) --mode=link $(GCC) $(CFLAGS) -g -O -o libjpgf.la -shared $^ -rpath $(INSTALL_PATH)/lib -lgu -lpgf -lsg $(WINDOWS_LDFLAGS)
+	$(LIBTOOL) --mode=link $(GCC) $(CFLAGS) -g -O -o libjpgf.la -shared $^ -rpath $(INSTALL_PATH)/lib -lgu -lpgf $(WINDOWS_LDFLAGS)
 
 %.lo : %.c
 	$(LIBTOOL) --mode=compile $(GCC) $(CFLAGS) -g -O -c $(JNI_INCLUDES) $(WINDOWS_CCFLAGS) -std=c99 -shared $< -o $@
 
 jpgf.jar: $(patsubst %.java, %.class, $(JAVA_SOURCES))
-	jar -cf $@ org/grammaticalframework/pgf/*.class org/grammaticalframework/sg/*.class
+	jar -cf $@ org/grammaticalframework/pgf/*.class
 
 %.class : %.java
 	javac $<
@@ -45,7 +44,7 @@ install: libjpgf.la jpgf.jar
 
 
 doc:
-	javadoc org.grammaticalframework.pgf org.grammaticalframework.sg -d java-api
+	javadoc org.grammaticalframework.pgf -d java-api
 
 clean:
 	rm -f *.lo

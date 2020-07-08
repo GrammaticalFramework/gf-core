@@ -170,15 +170,6 @@ pgf_expr_unmeta(PgfExpr expr);
 PGF_API_DECL PgfExpr
 pgf_read_expr(GuIn* in, GuPool* pool, GuPool* tmp_pool, GuExn* err);
 
-PGF_API_DECL int
-pgf_read_expr_tuple(GuIn* in,
-                    size_t n_exprs, PgfExpr exprs[],
-                    GuPool* pool, GuExn* err);
-
-PGF_API_DECL GuSeq*
-pgf_read_expr_matrix(GuIn* in, size_t n_exprs,
-                     GuPool* pool, GuExn* err);
-
 PGF_API_DECL PgfType*
 pgf_read_type(GuIn* in, GuPool* pool, GuPool* tmp_pool, GuExn* err);
 
