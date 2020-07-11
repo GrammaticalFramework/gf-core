@@ -1,26 +1,46 @@
-This is a binding to the new GF runtime in C.
+# PGF2
+
+This is a Haskell binding to the PGF runtime in C.
 
 The files are:
 
-PGF2.hsc         -- a user API similar to Python and Java APIs
-PGF2/FFI.hs      -- an internal module with FFI definitions for 
-                 -- the relevant C functions
+- PGF2.hsc: a user API similar to Python and Java APIs
+- PGF2/FFI.hs: an internal module with FFI definitions for the relevant C functions
 
-HOW TO COMPILE:
+## How to compile
 
+```
 cabal install
+```
 
-HOW TO USE:
+**Note:** you must have the PGF C runtime already installed and available.
+See <https://github.com/GrammaticalFramework/gf-core/blob/master/src/runtime/c/INSTALL>
 
-- Import PGF to the Haskell program that you're writing. 
-  The Cabal infrastructure will make sure to tell the compiler
-  where to find the relevant modules. Example:
+## How to use
 
-  module Main where
+Import PGF to the Haskell program that you're writing. 
+The Cabal infrastructure will make sure to tell the compiler
+where to find the relevant modules.
 
-  import PGF2
-  import qualified Data.Map as Map
+## Example
 
-  main = do
-    pgf <- readPGF "Foo.pgf"
-    let Just english = Map.lookup "FooEng" (languages pgf)
+```haskell
+module Main where
+
+import PGF2
+import qualified Data.Map as Map
+
+main = do
+  pgf <- readPGF "Foo.pgf"
+  let Just english = Map.lookup "FooEng" (languages pgf)
+```
+
+## Changelog
+
+### 1.1.0
+
+Remove SG library.
+
+### 1.0.0
+
+Everything up until 2020-07-11.
