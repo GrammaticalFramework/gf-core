@@ -1,16 +1,18 @@
 name: pgf2
 version: 1.1.0
-synopsis: Bindings to the Grammatical Framework C runtime
+synopsis: Bindings to the PGF runtime in C
 description:
   GF, Grammatical Framework, is a programming language for multilingual grammar applications.
   GF grammars are compiled into Portable Grammar Format (PGF) which can be used with the PGF runtime, written in C.
   This package provides Haskell bindings to that runtime.
 homepage: https://www.grammaticalframework.org
 license: LGPL-3
-author: Krasimir Angelov, Inari Listenmaa
+license-file: LICENSE
+author: Krasimir Angelov
+maintainer: Krasimir Angelov, John J. Camilleri
 category: Language
 build-type: Simple
-extra-source-files: README
+extra-source-files: CHANGELOG.md, README.md
 cabal-version: >=1.10
 
 library
@@ -22,7 +24,7 @@ library
     PGF2.Expr,
     PGF2.Type
   build-depends:
-    base >=4.3,
+    base >=4.3 && <5,
     containers,
     pretty
   default-language: Haskell2010

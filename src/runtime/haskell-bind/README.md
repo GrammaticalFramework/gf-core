@@ -2,10 +2,10 @@
 
 This is a Haskell binding to the PGF runtime in C.
 
-The files are:
+The exposed modules are:
 
-- PGF2.hsc: a user API similar to Python and Java APIs
-- PGF2/FFI.hs: an internal module with FFI definitions for the relevant C functions
+- `PGF2`: a user API similar to Python and Java APIs
+- `PGF2.Internal`: an internal module with FFI definitions for the relevant C functions
 
 ## How to compile
 
@@ -31,16 +31,16 @@ import PGF2
 import qualified Data.Map as Map
 
 main = do
-  pgf <- readPGF "Foo.pgf"
-  let Just english = Map.lookup "FooEng" (languages pgf)
+  pgf <- readPGF "App12.pgf"
+  let Just eng = Map.lookup "AppEng" (languages pgf)
+  
+  -- Parsing
+  let res = parse eng (startCat pgf) "this is a small theatre"
+  let ParseOk ((tree,prob):rest) = res
+  print tree
+  
+  -- Linearisation
+  let Just expr = readExpr "AdjCN (PositA red_A) (UseN theatre_N)"
+  let s = linearize eng expr
+  print s
 ```
-
-## Changelog
-
-### 1.1.0
-
-Remove SG library.
-
-### 1.0.0
-
-Everything up until 2020-07-11.
