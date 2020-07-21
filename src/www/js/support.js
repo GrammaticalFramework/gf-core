@@ -89,7 +89,7 @@ function GetXmlHttpObject(handler)
   return objXMLHttp
 }
 
-function ajax_http(method,url,body,callback,errorcallback) {
+function ajax_http(method,url,body,contenttype,callback,errorcallback) {
     var http=GetXmlHttpObject()
     if (!http) {
 	var errortext="Browser does not support HTTP Request";
@@ -109,17 +109,20 @@ function ajax_http(method,url,body,callback,errorcallback) {
 	}
 	http.onreadystatechange=statechange;
 	http.open(method,url,true)
+	if (contenttype != null) {
+		http.setRequestHeader("Content-Type", contenttype)
+	}
 	http.send(body)
     }
     return http
 }
 
 function ajax_http_get(url,callback,errorcallback) {
-    ajax_http("GET",url,null,callback,errorcallback)
+    ajax_http("GET",url,null,null,callback,errorcallback)
 }
 
 function ajax_http_post(url,formdata,callback,errorcallback) {
-    ajax_http("POST",url,formdata,callback,errorcallback)
+    ajax_http("POST",url,formdata,null,callback,errorcallback)
     // See https://developer.mozilla.org/En/XMLHttpRequest/Using_XMLHttpRequest#Using_FormData_objects
 }
 
