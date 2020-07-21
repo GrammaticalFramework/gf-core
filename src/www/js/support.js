@@ -135,6 +135,10 @@ function ajax_http_post_json(url,formdata,cont,errorcallback) {
     ajax_http_post(url, formdata, with_json(cont,errorcallback), errorcallback);
 }
 
+function ajax_http_post_querystring_json(url,querystring,cont,errorcallback) {
+    ajax_http("POST",url,querystring,"application/x-www-form-urlencoded",with_json(cont,errorcallback),errorcallback);
+}
+
 function with_json(cont,errorcallback) {
     return function(txt){
 	if(txt) {
