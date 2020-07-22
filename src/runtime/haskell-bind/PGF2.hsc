@@ -1266,9 +1266,7 @@ withBracketLinFuncs ref exn f =
         then writeIORef ref (stack, bs')
         else do cat <- peekUtf8CString c_cat
                 let fid    = fromIntegral c_fid
-                ann <- if c_ann == nullPtr
-                         then return ""
-                         else peekUtf8CString c_ann
+                ann <- peekUtf8CString c_ann
                 fun <- peekUtf8CString c_fun
                 writeIORef ref (stack, Bracket cat fid ann fun (reverse bs) : bs')
 
