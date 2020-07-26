@@ -152,6 +152,8 @@ cpgfMain qsem command (t,(pgf,pc)) =
   case command of
     "c-parse"       -> withQSem qsem $
                        out t=<< join (parse # input % start % limit % treeopts)
+    "c-parseToChart"-> withQSem qsem $
+                       out t=<< join (parseToChart # input % limit)
     "c-linearize"   -> out t=<< lin # tree % to
     "c-bracketedLinearize"
                     -> out t=<< bracketedLin # tree % to
@@ -218,6 +220,35 @@ cpgfMain qsem command (t,(pgf,pc)) =
             purge r@(_,t') = if diffUTCTime t t'<120 then Just r else Nothing
                              -- remove unused parse results after 2 minutes
 -}
+
+    parseToChart ((from,concr),input) mlimit =
+      do r <- case C.parseToChart concr cat input (-1) callbacks (fromMaybe 5 mlimit) of
+                C.ParseOk chart     -> return (good chart)
+                C.ParseFailed _ tok -> return (bad tok)
+                C.ParseIncomplete   -> return (bad "")
+         return $ showJSON [makeObj ("from".=from:r)]
+      where
+        callbacks = maybe [] cb $ lookup (C.abstractName pgf) C.literalCallbacks
+        cb fs = [(cat,f pgf (from,concr) input)|(cat,f)<-fs]
+
+        bad  err           = ["parseFailed".=err]
+        good (roots,chart) = ["roots".=showJSON roots,
+                              "chart".=makeObj [show fid .= mkChartObj inf | (fid,inf)<-Map.toList chart]]
+
+        mkChartObj (brackets,prods,cat) =
+          makeObj ["brackets".=map mkChartBracket brackets
+                  ,"prods"   .=map mkChartProd prods
+                  ,"cat"     .=cat
+                  ]
+
+        mkChartBracket (s,e,ann) =
+          makeObj ["start".=s,"end".=e,"ann".=ann]
+
+        mkChartProd (expr,args,prob) =
+          makeObj ["tree".=expr,"args".=map mkChartPArg args,"prob".=prob]
+
+        mkChartPArg (C.PArg _ fid) = showJSON fid
+
     linAll tree to = showJSON (linAll' tree to)
     linAll' tree (tos,unlex) =
         [makeObj ["to".=to,
