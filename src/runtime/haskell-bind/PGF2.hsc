@@ -726,7 +726,7 @@ parseToChart :: Concr      -- ^ the language with which we parse
                            -- If a literal has been recognized then the output should
                            -- be Just (expr,probability,end_offset)
              -> Int        -- ^ the maximal number of roots
-             -> ParseOutput ([FId],Map.Map FId ([(Int,Int,String)],[(Expr,[PArg],Float)]))
+             -> ParseOutput ([FId],Map.Map FId ([(Int,Int,String)],[(Expr,[PArg],Float)],Cat))
 parseToChart lang (Type ctype touchType) sent heuristic callbacks roots =
   unsafePerformIO $
   withGuPool $ \parsePl -> do
@@ -776,19 +776,23 @@ parseToChart lang (Type ctype touchType) sent heuristic callbacks roots =
       c_total_cats <- (#peek PgfConcr, total_cats) (concr lang)
       if Map.member fid chart || fid < c_total_cats
         then return (fid,chart)
-        else do range <- get_range c_ccat >>= peekSequence peekRange (#size PgfParseRange)
+        else do c_cnccat <- (#peek PgfCCat, cnccat) c_ccat
+                c_abscat <- (#peek PgfCCat, cnccat) c_cnccat
+                c_name   <- (#peek PgfCCat, cnccat) c_abscat
+                cat      <- peekUtf8CString c_name
+                range <- get_range c_ccat >>= peekSequence peekRange (#size PgfParseRange)
                 c_prods <- (#peek PgfCCat, prods) c_ccat
                 if c_prods == nullPtr
-                  then do return (fid,Map.insert fid (range,[]) chart)
+                  then do return (fid,Map.insert fid (range,[],cat) chart)
                   else do c_len <- (#peek PgfCCat, n_synprods) c_ccat
-                          (prods,chart) <- fixIO (\res -> peekProductions (Map.insert fid (range,fst res) chart)
+                          (prods,chart) <- fixIO (\res -> peekProductions (Map.insert fid (range,fst res,cat) chart)
                                                                           (fromIntegral (c_len :: CSizeT))
                                                                           (c_prods `plusPtr` (#offset GuSeq, data)))
                           return (fid,chart)
       where
         peekProductions chart 0   ptr = return ([],chart)
         peekProductions chart len ptr = do
-          (ps1, chart) <- deRef (peekProduction chart) ptr
+          (ps1,chart) <- deRef (peekProduction chart) ptr
           (ps2,chart) <- peekProductions chart (len-1) (ptr `plusPtr` (#size GuVariant))
           return (ps1++ps2,chart)
 
@@ -806,12 +810,14 @@ parseToChart lang (Type ctype touchType) sent heuristic callbacks roots =
                                                    return ([(Expr expr (touchConcr lang), pargs, p)],chart) }
             (#const PGF_PRODUCTION_COERCE) -> do { c_coerce    <- (#peek PgfProductionCoerce, coerce) dt ;
                                                    (fid,chart) <- peekCCat get_range chart c_coerce ;
-                                                   return (maybe [] snd (Map.lookup fid chart),chart) }
+                                                   return (maybe [] snd3 (Map.lookup fid chart),chart) }
             (#const PGF_PRODUCTION_EXTERN) -> do { c_ep     <- (#peek PgfProductionExtern, ep) dt ;
                                                    expr     <- (#peek PgfExprProb, expr) c_ep ;
                                                    p        <- (#peek PgfExprProb, prob) c_ep ;
                                                    return ([(Expr expr (touchConcr lang), [], p)],chart) }
             _                             -> error ("Unknown production type "++show tag++" in the grammar")
+
+        snd3 (_,x,_) = x
 
         peekPArgs chart 0   ptr = return ([],chart)
         peekPArgs chart len ptr = do
