@@ -2301,26 +2301,29 @@ pgf_get_parse_roots(PgfParsing* ps, GuPool* pool)
 PGF_API GuSeq*
 pgf_ccat_to_range(PgfParsing* ps, PgfCCat* ccat, GuPool* pool)
 {
-	PgfItemConts*  conts = ccat->conts;
 	PgfParseState* state = ps->before;
 	GuBuf* buf = gu_new_buf(PgfParseRange, pool);
 
-	while (conts != NULL) {
-		PgfParseRange* range = gu_buf_extend(buf);
-		range->start = conts->state->end_offset;
-		range->end   = conts->state->end_offset;
-		range->field = conts->ccat->cnccat->labels[conts->lin_idx];
-		
+	while (ccat->conts != NULL) {
+		size_t start = ccat->conts->state->end_offset;
+		size_t end   = start;
 		while (state != NULL) {
-			if (pgf_parsing_get_completed(state, conts) == ccat) {
-				if (state->start_offset >= range->start)
-					range->end = state->start_offset;
+			if (pgf_parsing_get_completed(state, ccat->conts) == ccat) {
+				if (state->start_offset >= start)
+					end = state->start_offset;
 				break;
 			}
 			state = state->next;
 		}
 
-		conts = conts->ccat->conts;
+		if (start != end) {
+			PgfParseRange* range = gu_buf_extend(buf);
+			range->start = start;
+			range->end   = end;
+			range->field = ccat->cnccat->labels[ccat->conts->lin_idx];
+		}
+
+		ccat = ccat->conts->ccat;
 	}
 
 	return gu_buf_data_seq(buf);
