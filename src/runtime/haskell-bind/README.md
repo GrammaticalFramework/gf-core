@@ -1,6 +1,6 @@
 # PGF2
 
-This is a Haskell binding to the PGF runtime in C.
+This is a Haskell binding to the PGF runtime written in C.
 
 The exposed modules are:
 
@@ -9,18 +9,19 @@ The exposed modules are:
 
 ## How to compile
 
-```
-cabal install
-```
-
 **Note:** you must have the PGF C runtime already installed and available.
 See <https://github.com/GrammaticalFramework/gf-core/blob/master/src/runtime/c/INSTALL>
 
+Once the runtine is installed, you can use:
+
+```
+cabal install pgf2
+```
+
 ## How to use
 
-Import PGF to the Haskell program that you're writing. 
-The Cabal infrastructure will make sure to tell the compiler
-where to find the relevant modules.
+Simply import `PGF2` in your Haskell program.
+The Cabal infrastructure will make sure to tell the compiler where to find the relevant modules.
 
 ## Example
 
