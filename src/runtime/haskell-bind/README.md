@@ -9,13 +9,22 @@ The exposed modules are:
 
 ## How to compile
 
-**Note:** you must have the PGF C runtime already installed and available.
+**Important:** You must have the C runtime already installed and available on your system.
 See <https://github.com/GrammaticalFramework/gf-core/blob/master/src/runtime/c/INSTALL>
 
-Once the runtine is installed, you can use:
+Once the runtine is installed, you can install the library to your global Cabal installation:
 
 ```
-cabal install pgf2
+cabal install pgf2 --extra-lib-dirs=/usr/local/lib
+```
+
+or add it to your `stack.yaml` file:
+
+```yaml
+extra-deps:
+  - pgf2
+extra-lib-dirs:
+  - /usr/local/lib
 ```
 
 ## How to use
