@@ -26,50 +26,56 @@ import Data.List --(isPrefixOf, find, intersperse)
 import qualified Data.Map as Map
 
 type Prefix = String -> String
+type DerivingClause = String
 
 -- | the main function
 grammar2haskell :: Options
                 -> String  -- ^ Module name.
                 -> PGF
                 -> String
-grammar2haskell opts name gr = foldr (++++) [] $  
-  pragmas ++ haskPreamble gadt name ++ [types, gfinstances gId lexical gr'] ++ compos
+grammar2haskell opts name gr = foldr (++++) [] $
+  pragmas ++ haskPreamble gadt name derivingClause extraImports ++
+  [types, gfinstances gId lexical gr'] ++ compos
     where gr' = hSkeleton gr
           gadt = haskellOption opts HaskellGADT
+          dataExt = haskellOption opts HaskellData
           lexical cat = haskellOption opts HaskellLexical && isLexicalCat opts cat
           gId | haskellOption opts HaskellNoPrefix = id
               | otherwise = ("G"++)
           pragmas | gadt = ["{-# OPTIONS_GHC -fglasgow-exts #-}","{-# LANGUAGE GADTs #-}"]
+                  | dataExt = ["{-# LANGUAGE DeriveDataTypeable #-}"]
                   | otherwise = []
+          derivingClause
+                 | dataExt = "deriving (Show,Data)"
+                 | otherwise = "deriving Show"
+          extraImports | gadt = ["import Control.Monad.Identity",
+                                 "import Data.Monoid"]
+                       | dataExt = ["import Data.Data"]
+                       | otherwise = []
           types | gadt = datatypesGADT gId lexical gr'
-                | otherwise = datatypes gId lexical gr'
+                | otherwise = datatypes gId derivingClause lexical gr'
           compos | gadt = prCompos gId lexical gr' ++ composClass
                  | otherwise = []
 
-haskPreamble gadt name =
+haskPreamble gadt name derivingClause extraImports =
  [
   "module " ++ name ++ " where",
   ""
- ] ++
- (if gadt then [
-  "import Control.Monad.Identity",
-  "import Data.Monoid"
-  ] else []) ++
- [
+ ] ++ extraImports ++ [
   "import PGF hiding (Tree)",
   "----------------------------------------------------",
   "-- automatic translation from GF to Haskell",
   "----------------------------------------------------",
-  "", 
+  "",
   "class Gf a where",
   "  gf :: a -> Expr",
   "  fg :: Expr -> a",
   "",
-  predefInst gadt "GString" "String"  "unStr"    "mkStr",
+  predefInst gadt derivingClause "GString" "String"  "unStr"    "mkStr",
   "",
-  predefInst gadt "GInt"    "Int"     "unInt"    "mkInt",
+  predefInst gadt derivingClause "GInt"    "Int"     "unInt"    "mkInt",
   "",
-  predefInst gadt "GFloat"  "Double"  "unFloat"  "mkFloat",
+  predefInst gadt derivingClause "GFloat"  "Double"  "unFloat"  "mkFloat",
   "",
   "----------------------------------------------------",
   "-- below this line machine-generated",
@@ -77,11 +83,11 @@ haskPreamble gadt name =
   ""
  ]
 
-predefInst gadt gtyp typ destr consr = 
+predefInst gadt derivingClause gtyp typ destr consr =
   (if gadt
-    then [] 
-    else ("newtype" +++ gtyp +++ "=" +++ gtyp +++ typ +++ " deriving Show\n\n") 
-    ) 
+    then []
+    else ("newtype" +++ gtyp +++ "=" +++ gtyp +++ typ +++ derivingClause ++ "\n\n")
+    )
   ++
   "instance Gf" +++ gtyp +++ "where" ++++
   "  gf (" ++ gtyp +++ "x) =" +++ consr +++ "x" ++++
@@ -94,24 +100,24 @@ type OIdent = String
 
 type HSkeleton = [(OIdent, [(OIdent, [OIdent])])]
 
-datatypes :: Prefix -> (OIdent -> Bool) -> (String,HSkeleton) -> String
-datatypes gId lexical = (foldr (+++++) "") . (filter (/="")) . (map (hDatatype gId lexical)) . snd
+datatypes :: Prefix -> DerivingClause -> (OIdent -> Bool) -> (String,HSkeleton) -> String
+datatypes gId derivingClause lexical = (foldr (+++++) "") . (filter (/="")) . (map (hDatatype gId derivingClause lexical)) . snd
 
 gfinstances :: Prefix -> (OIdent -> Bool) -> (String,HSkeleton) -> String
 gfinstances gId lexical (m,g) = (foldr (+++++) "") $ (filter (/="")) $ (map (gfInstance gId lexical m)) g
 
 
-hDatatype  :: Prefix -> (OIdent -> Bool) -> (OIdent, [(OIdent, [OIdent])]) -> String
-hDatatype _ _ ("Cn",_) = "" ---
-hDatatype gId _ (cat,[]) = "data" +++ gId cat
-hDatatype gId _ (cat,rules) | isListCat (cat,rules) = 
- "newtype" +++ gId cat +++ "=" +++ gId cat +++ "[" ++ gId (elemCat cat) ++ "]" 
-  +++ "deriving Show"
-hDatatype gId lexical (cat,rules) =
+hDatatype  :: Prefix -> DerivingClause -> (OIdent -> Bool) -> (OIdent, [(OIdent, [OIdent])]) -> String
+hDatatype _ _ _ ("Cn",_) = "" ---
+hDatatype gId _ _ (cat,[]) = "data" +++ gId cat
+hDatatype gId derivingClause _ (cat,rules) | isListCat (cat,rules) =
+ "newtype" +++ gId cat +++ "=" +++ gId cat +++ "[" ++ gId (elemCat cat) ++ "]"
+  +++ derivingClause
+hDatatype gId derivingClause lexical (cat,rules) =
  "data" +++ gId cat +++ "=" ++
  (if length rules == 1 then "" else "\n  ") +++
  foldr1 (\x y -> x ++ "\n |" +++ y) constructors ++++
- "  deriving Show"
+ "  " +++ derivingClause
   where
     constructors = [gId f +++ foldr (+++) "" (map (gId) xx) | (f,xx) <- nonLexicalRules (lexical cat) rules]
                    ++ if lexical cat then [lexicalConstructor cat +++ "String"] else []
