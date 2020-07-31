@@ -40,8 +40,10 @@ grammar2haskell opts name gr = foldr (++++) [] $
           gadt = haskellOption opts HaskellGADT
           dataExt = haskellOption opts HaskellData
           lexical cat = haskellOption opts HaskellLexical && isLexicalCat opts cat
-          gId | haskellOption opts HaskellNoPrefix = id
-              | otherwise = ("G"++)
+          gId | haskellOption opts HaskellNoPrefix = rmForbiddenChars
+              | otherwise = ("G"++) . rmForbiddenChars
+          -- GF grammars allow weird identifier names inside '', e.g. 'VP/Object'
+          rmForbiddenChars = filter (`notElem` "'!#$%&*+./<=>?@\\^|-~")
           pragmas | gadt = ["{-# OPTIONS_GHC -fglasgow-exts #-}","{-# LANGUAGE GADTs #-}"]
                   | dataExt = ["{-# LANGUAGE DeriveDataTypeable #-}"]
                   | otherwise = []
