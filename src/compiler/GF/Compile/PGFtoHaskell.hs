@@ -119,7 +119,7 @@ hDatatype gId derivingClause lexical (cat,rules) =
  "data" +++ gId cat +++ "=" ++
  (if length rules == 1 then "" else "\n  ") +++
  foldr1 (\x y -> x ++ "\n |" +++ y) constructors ++++
- "  " +++ derivingClause
+ " " +++ derivingClause
   where
     constructors = [gId f +++ foldr (+++) "" (map (gId) xx) | (f,xx) <- nonLexicalRules (lexical cat) rules]
                    ++ if lexical cat then [lexicalConstructor cat +++ "String"] else []
