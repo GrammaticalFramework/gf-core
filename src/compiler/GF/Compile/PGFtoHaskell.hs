@@ -44,7 +44,7 @@ grammar2haskell opts name gr = foldr (++++) [] $
               | otherwise = ("G"++) . rmForbiddenChars
           -- GF grammars allow weird identifier names inside '', e.g. 'VP/Object'
           rmForbiddenChars = filter (`notElem` "'!#$%&*+./<=>?@\\^|-~")
-          pragmas | gadt = ["{-# OPTIONS_GHC -fglasgow-exts #-}","{-# LANGUAGE GADTs #-}"]
+          pragmas | gadt = ["{-# LANGUAGE GADTs, FlexibleInstances, KindSignatures, RankNTypes, TypeSynonymInstances #-}"]
                   | dataExt = ["{-# LANGUAGE DeriveDataTypeable #-}"]
                   | otherwise = []
           derivingClause
