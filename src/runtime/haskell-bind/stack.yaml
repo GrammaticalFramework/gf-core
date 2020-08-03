@@ -1,0 +1,3 @@
+# This is mainly here so that I can run `stack sdist` for uploading to Hackage
+
+resolver: lts-12.26 # ghc 8.4.4
