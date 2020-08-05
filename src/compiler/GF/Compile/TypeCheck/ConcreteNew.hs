@@ -19,6 +19,10 @@ import GF.Text.Pretty
 import Data.List (nub, (\\), tails)
 import qualified Data.IntMap as IntMap
 import Data.Maybe(fromMaybe,isNothing)
+#if !MIN_VERSION_base(4,11,0)
+-- Control.Monad.Fail import is redundant since GHC 8.8.1
+import qualified Control.Monad.Fail as Fail
+#endif
 
 checkLType :: GlobalEnv -> Term -> Type -> Check (Term, Type)
 checkLType ge t ty = runTcM $ do
@@ -646,7 +650,18 @@ instance Monad TcM where
   f >>= g  = TcM (\ms msgs -> case unTcM f ms msgs of
                                 TcOk x ms msgs -> unTcM (g x) ms msgs
                                 TcFail    msgs -> TcFail msgs)
+
+#if !(MIN_VERSION_base(4,13,0))
   fail     = tcError . pp
+#endif
+
+instance Fail.MonadFail TcM where
+  fail     = tcError . pp
+
+
+-- Control.Monad.Fail import will become redundant in GHC 8.8+
+import qualified Control.Monad.Fail as Fail
+
 
 instance Applicative TcM where
   pure = return

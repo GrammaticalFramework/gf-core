@@ -16,6 +16,10 @@ module GF.Data.ErrM where
 
 import Control.Monad (MonadPlus(..),ap)
 import Control.Applicative
+#if !MIN_VERSION_base(4,11,0)
+-- Control.Monad.Fail import is redundant since GHC 8.8.1
+import qualified Control.Monad.Fail as Fail
+#endif
 
 -- | Like 'Maybe' type with error msgs
 data Err a = Ok a | Bad String
@@ -33,9 +37,22 @@ fromErr a = err (const a) id
 
 instance Monad Err where
   return      = Ok
-  fail        = Bad
   Ok a  >>= f = f a
   Bad s >>= f = Bad s
+
+#if !(MIN_VERSION_base(4,11,0))
+  fail        = Bad
+#endif
+
+instance Fail.MonadFail Err where
+  fail        = Bad
+
+-- Control.Monad.Fail import will become redundant in GHC 8.8+
+import qualified Control.Monad.Fail as Fail
+
+
+
+
 
 -- | added 2\/10\/2003 by PEB
 instance Functor Err where
