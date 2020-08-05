@@ -15,11 +15,14 @@ import System.Posix
 #endif
 
 import CGI(CGI,CGIResult,setHeader,output,outputFPS,outputError,
-           getInput,catchCGI,throwCGI)
+           getInput)
 
 import Text.JSON
 import qualified Codec.Binary.UTF8.String as UTF8 (encodeString)
 import qualified Data.ByteString.Lazy as BS
+import Control.Monad.Catch (MonadThrow(throwM))
+import Network.CGI.Monad (catchCGI)
+import Control.Monad.Catch (MonadCatch(catch))
 
 -- * Logging
 
@@ -53,11 +56,11 @@ instance Exception CGIError where
   fromException (SomeException e) = cast e
 
 throwCGIError :: Int -> String -> [String] -> CGI a
-throwCGIError c m t = throwCGI $ toException $ CGIError c m t
+throwCGIError c m t = throwM $ toException $ CGIError c m t
 
 handleCGIErrors :: CGI CGIResult -> CGI CGIResult
 handleCGIErrors x =
-    x `catchCGI` \e -> case fromException e of
+    x `catch` \e -> case fromException e of
                          Nothing -> throw e
                          Just (CGIError c m t) -> do setXO; outputError c m t
 
