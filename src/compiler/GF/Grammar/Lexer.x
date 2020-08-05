@@ -19,9 +19,6 @@ import qualified Data.Map as Map
 import Data.Word(Word8)
 import Data.Char(readLitChar)
 --import Debug.Trace(trace)
-
--- Control.Monad.Fail import will become redundant in GHC 8.8+
-import qualified Control.Monad.Fail as Fail
 }
 
 
@@ -287,14 +284,9 @@ instance Monad P where
                              POk s a          -> unP (k a) s
                              PFailed posn err -> PFailed posn err
 
-#if !(MIN_VERSION_base(4,13,0))
+
+instance MonadFail P where
   fail msg    = P $ \(_,AI posn _ _) -> PFailed posn msg
-#endif
-
-instance Fail.MonadFail P where
-  fail msg    = P $ \(_,AI posn _ _) -> PFailed posn msg
-
-
 
 
 runP :: P a -> BS.ByteString -> Either (Posn,String) a

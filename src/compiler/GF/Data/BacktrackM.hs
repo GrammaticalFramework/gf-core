@@ -69,6 +69,8 @@ instance Monad (BacktrackM s) where
     return a   = BM (\c s b -> c a s b)
     BM m >>= k = BM (\c s b -> m (\a s b -> unBM (k a) c s b) s b)
 	where unBM (BM m) = m
+
+instance MonadFail (BacktrackM s) where
     fail _ = mzero
 
 instance Functor (BacktrackM s) where
