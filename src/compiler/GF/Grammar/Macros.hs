@@ -237,7 +237,7 @@ isPredefConstant t = case t of
   Q (mod,_) | mod == cPredef || mod == cPredefAbs -> True
   _                                               -> False
 
-checkPredefError :: Monad m => Term -> m Term
+checkPredefError :: MonadFail m => Term -> m Term
 checkPredefError t =
     case t of
       Error s -> fail ("Error: "++s)

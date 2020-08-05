@@ -256,6 +256,9 @@ instance Output m => Output (CollectOutput m) where
   putStrLnE s = CO (return (putStrLnE s,()))
   putStrE   s = CO (return (putStrE s,()))
 
+instance MonadFail m => MonadFail (CollectOutput m) where
+  fail = CO . fail
+
 instance ErrorMonad m => ErrorMonad (CollectOutput m) where
   raise e = CO (raise e)
   handle (CO m) h = CO $ handle m (unCO . h)

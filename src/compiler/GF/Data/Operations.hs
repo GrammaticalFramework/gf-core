@@ -88,10 +88,10 @@ checkUnique ss = ["overloaded" +++ show s | s <- nub overloads] where
   overloaded s = length (filter (==s) ss) > 1
 
 -- | this is what happens when matching two values in the same module
-unifyMaybe :: (Eq a, Monad m) => Maybe a -> Maybe a -> m (Maybe a)
+unifyMaybe :: (Eq a, MonadFail m) => Maybe a -> Maybe a -> m (Maybe a)
 unifyMaybe = unifyMaybeBy id
 
-unifyMaybeBy :: (Eq b, Monad m) => (a->b) -> Maybe a -> Maybe a -> m (Maybe a)
+unifyMaybeBy :: (Eq b, MonadFail m) => (a->b) -> Maybe a -> Maybe a -> m (Maybe a)
 unifyMaybeBy f (Just p1) (Just p2)
   | f p1==f p2                     = return (Just p1)
   | otherwise                      = fail ""

@@ -35,7 +35,7 @@ type OneOutput = (Maybe FullPath,CompiledModule)
 type CompiledModule = Module
 
 compileOne, reuseGFO, useTheSource ::
-    (Output m,ErrorMonad m,MonadIO m) =>
+    (Output m,ErrorMonad m,MonadIO m, MonadFail m) =>
     Options -> Grammar -> FullPath -> m OneOutput
 
 -- | Compile a given source file (or just load a .gfo file),

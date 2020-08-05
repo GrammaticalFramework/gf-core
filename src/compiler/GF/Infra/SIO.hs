@@ -58,6 +58,9 @@ instance Monad SIO where
   return x = SIO (const (return x))
   SIO m1 >>= xm2 = SIO $ \ h -> m1 h >>= \ x -> unS (xm2 x) h
 
+instance MonadFail SIO where
+  fail = liftSIO . fail
+
 instance Output SIO where
   ePutStr = lift0 . ePutStr
   ePutStrLn = lift0 . ePutStrLn

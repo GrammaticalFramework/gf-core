@@ -196,6 +196,9 @@ newtype CnvMonad a = CM {unCM :: SourceGrammar
                               -> ([ProtoFCat],[Symbol])
                               -> Branch b}
 
+instance MonadFail CnvMonad where
+  fail = bug
+
 instance Applicative CnvMonad where
   pure = return
   (<*>) = ap

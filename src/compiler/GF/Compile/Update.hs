@@ -29,7 +29,7 @@ import Control.Monad
 import GF.Text.Pretty
 
 -- | combine a list of definitions into a balanced binary search tree
-buildAnyTree :: Monad m => ModuleName -> [(Ident,Info)] -> m (Map.Map Ident Info)
+buildAnyTree :: MonadFail m => ModuleName -> [(Ident,Info)] -> m (Map.Map Ident Info)
 buildAnyTree m = go Map.empty
   where
     go map []         = return map

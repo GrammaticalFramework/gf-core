@@ -53,6 +53,9 @@ instance Monad Check where
                  (ws,Success x) -> unCheck (g x) {-ctxt-} ws
                  (ws,Fail msg)  -> (ws,Fail msg)
 
+instance MonadFail Check where
+  fail = raise
+
 instance Applicative Check where
   pure = return
   (<*>) = ap
