@@ -6,6 +6,7 @@
 *.gfo
 *.pgf
 dist/
+dist-newstyle/
 src/runtime/c/.libs/
 src/runtime/c/Makefile
 src/runtime/c/Makefile.in
