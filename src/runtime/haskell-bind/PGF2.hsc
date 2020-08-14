@@ -433,6 +433,7 @@ graphvizParseTree c opts e =
          c_opts <- newGraphvizOptions tmpPl opts
          pgf_graphviz_parse_tree (concr c) (expr e) c_opts out exn
          touchExpr e
+         touchConcr c
          s <- gu_string_buf_freeze sb tmpPl
          peekUtf8CString s
 
@@ -858,16 +859,7 @@ mkCallbacksMap concr callbacks pool = do
         Just (e,prob,offset') -> do poke poffset (fromIntegral offset')
 
                                     -- here we copy the expression to out_pool
-                                    c_e <- withGuPool $ \tmpPl -> do
-                                             exn <- gu_new_exn tmpPl
-        
-                                             (sb,out) <- newOut tmpPl
-                                             let printCtxt = nullPtr
-                                             pgf_print_expr (expr e) printCtxt 1 out exn
-                                             c_str <- gu_string_buf_freeze sb tmpPl
-
-                                             guin <- gu_string_in c_str tmpPl
-                                             pgf_read_expr guin out_pool tmpPl exn
+                                    c_e <- pgf_clone_expr (expr e) out_pool
 
                                     ep <- gu_malloc out_pool (#size PgfExprProb)
                                     (#poke PgfExprProb, expr) ep c_e

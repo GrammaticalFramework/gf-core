@@ -1683,6 +1683,168 @@ pgf_type_eq(PgfType* t1, PgfType* t2)
 	return true;
 }
 
+PGF_API PgfLiteral
+pgf_clone_literal(PgfLiteral lit, GuPool* pool)
+{
+	PgfLiteral new_lit = gu_null_variant;
+
+	GuVariantInfo inf = gu_variant_open(lit);
+	switch (inf.tag) {
+	case PGF_LITERAL_STR: {
+		PgfLiteralStr* lit_str     = inf.data;
+		PgfLiteralStr* new_lit_str =
+			gu_new_flex_variant(PGF_LITERAL_STR,
+						        PgfLiteralStr,
+						        val, strlen(lit_str->val)+1,
+						        &new_lit, pool);
+		strcpy(new_lit_str->val, lit_str->val);
+		break;
+	}
+	case PGF_LITERAL_INT: {
+		PgfLiteralInt *lit_int     = inf.data;
+		PgfLiteralInt *new_lit_int =
+			gu_new_variant(PGF_LITERAL_INT,
+						   PgfLiteralInt,
+						   &new_lit, pool);
+		new_lit_int->val = lit_int->val;
+		break;
+	}
+	case PGF_LITERAL_FLT: {
+		PgfLiteralFlt *lit_flt     = inf.data;
+		PgfLiteralFlt *new_lit_flt =
+			gu_new_variant(PGF_LITERAL_FLT,
+						   PgfLiteralFlt,
+						   &new_lit, pool);
+		new_lit_flt->val = lit_flt->val;
+		break;
+	}
+	default:
+		gu_impossible();
+	}
+
+	return new_lit;
+}
+
+PGF_API PgfExpr
+pgf_clone_expr(PgfExpr expr, GuPool* pool)
+{
+	PgfExpr new_expr = gu_null_variant;
+
+	GuVariantInfo inf = gu_variant_open(expr);
+	switch (inf.tag) {
+	case PGF_EXPR_ABS: {
+		PgfExprAbs* abs     = inf.data;
+		PgfExprAbs* new_abs =
+			gu_new_variant(PGF_EXPR_ABS,
+						   PgfExprAbs,
+						   &new_expr, pool);
+
+		new_abs->bind_type = abs->bind_type;
+		new_abs->id = gu_string_copy(abs->id, pool);
+		new_abs->body = pgf_clone_expr(abs->body,pool);
+		break;
+	}
+	case PGF_EXPR_APP: {
+		PgfExprApp* app     = inf.data;
+		PgfExprApp* new_app =
+			gu_new_variant(PGF_EXPR_APP,
+						   PgfExprApp,
+						   &new_expr, pool);
+		new_app->fun = pgf_clone_expr(app->fun, pool);
+		new_app->arg = pgf_clone_expr(app->arg, pool);
+		break;
+	}
+	case PGF_EXPR_LIT: {
+		PgfExprLit* lit     = inf.data;
+		PgfExprLit* new_lit =
+			gu_new_variant(PGF_EXPR_LIT,
+						   PgfExprLit,
+						   &new_expr, pool);
+		new_lit->lit = pgf_clone_literal(lit->lit, pool);
+		break;
+	}
+	case PGF_EXPR_META: {
+		PgfExprMeta* meta     = inf.data;
+		PgfExprMeta* new_meta =
+			gu_new_variant(PGF_EXPR_META,
+						   PgfExprMeta,
+						   &new_expr, pool);
+		new_meta->id = meta->id;
+		break;
+	}
+	case PGF_EXPR_FUN: {
+		PgfExprFun* fun     = inf.data;
+		PgfExprFun* new_fun =
+			gu_new_flex_variant(PGF_EXPR_FUN,
+						        PgfExprFun,
+						        fun, strlen(fun->fun)+1,
+						        &new_expr, pool);
+		strcpy(new_fun->fun, fun->fun);
+		break;
+	}
+	case PGF_EXPR_VAR: {
+		PgfExprVar* var     = inf.data;
+		PgfExprVar* new_var =
+			gu_new_variant(PGF_EXPR_VAR,
+						   PgfExprVar,
+						   &new_expr, pool);
+		new_var->var = var->var;
+		break;
+	}
+	case PGF_EXPR_TYPED: {
+		PgfExprTyped* typed = inf.data;
+
+		PgfExprTyped *new_typed =
+			gu_new_variant(PGF_EXPR_TYPED,
+						   PgfExprTyped,
+						   &new_expr, pool);
+		new_typed->expr = pgf_clone_expr(typed->expr, pool);
+		new_typed->type = pgf_clone_type(typed->type, pool);
+		break;
+	}
+	case PGF_EXPR_IMPL_ARG: {
+		PgfExprImplArg* impl     = inf.data;
+		PgfExprImplArg *new_impl =
+			gu_new_variant(PGF_EXPR_IMPL_ARG,
+						   PgfExprImplArg,
+						   &new_expr, pool);
+		new_impl->expr = pgf_clone_expr(impl->expr, pool);
+		break;
+	}
+	default:
+		gu_impossible();
+	}
+
+	return new_expr;
+}
+
+PGF_API PgfType*
+pgf_clone_type(PgfType* type, GuPool* pool)
+{
+	PgfType* new_type =
+		gu_new_flex(pool, PgfType, exprs, type->n_exprs);
+
+	size_t n_hypos = gu_seq_length(type->hypos);
+	new_type->hypos = gu_new_seq(PgfHypo, n_hypos, pool);
+	for (size_t i = 0; i < n_hypos; i++) {
+		PgfHypo* hypo     = gu_seq_index(type->hypos,     PgfHypo, i);
+		PgfHypo* new_hypo = gu_seq_index(new_type->hypos, PgfHypo, i);
+
+		new_hypo->bind_type = hypo->bind_type;
+		new_hypo->cid = gu_string_copy(hypo->cid, pool);
+		new_hypo->type = pgf_clone_type(hypo->type, pool);
+	}
+
+	new_type->cid = gu_string_copy(type->cid, pool);
+
+	new_type->n_exprs = type->n_exprs;
+	for (size_t i = 0; i < new_type->n_exprs; i++) {
+		new_type->exprs[i] = pgf_clone_expr(type->exprs[i], pool);
+	}
+
+	return new_type;
+}
+
 PGF_API prob_t
 pgf_compute_tree_probability(PgfPGF *gr, PgfExpr expr)
 {

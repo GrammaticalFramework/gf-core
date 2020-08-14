@@ -551,3 +551,6 @@ foreign import ccall "pgf/data.h pgf_lzr_index"
 
 foreign import ccall "pgf/data.h pgf_production_is_lexical"
   pgf_production_is_lexical :: Ptr PgfProductionApply -> Ptr GuBuf -> Ptr GuPool -> IO (#type bool)
+
+foreign import ccall "pgf/expr.h pgf_clone_expr"
+  pgf_clone_expr :: PgfExpr -> Ptr GuPool -> IO PgfExpr
