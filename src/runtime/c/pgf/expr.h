@@ -229,10 +229,6 @@ PGF_API_DECL void
 pgf_print_context(PgfHypos *hypos, PgfPrintContext* ctxt,
                   GuOut *out, GuExn *err);
 
-PGF_API_DECL void
-pgf_print_expr_tuple(size_t n_exprs, PgfExpr exprs[], PgfPrintContext* ctxt,
-                     GuOut* out, GuExn* err);
-
 PGF_API PgfLiteral
 pgf_clone_literal(PgfLiteral lit, GuPool* pool);
 

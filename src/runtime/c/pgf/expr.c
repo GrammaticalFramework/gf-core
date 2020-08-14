@@ -1635,19 +1635,6 @@ pgf_print_context(PgfHypos *hypos, PgfPrintContext* ctxt,
 	}
 }
 
-PGF_API void
-pgf_print_expr_tuple(size_t n_exprs, PgfExpr exprs[], PgfPrintContext* ctxt,
-                     GuOut* out, GuExn* err)
-{
-	gu_putc('<', out, err);
-	for (size_t i = 0; i < n_exprs; i++) {
-		if (i > 0)
-			gu_putc(',', out, err);
-		pgf_print_expr(exprs[i], ctxt, 0, out, err);
-	}
-	gu_putc('>', out, err);
-}
-
 PGF_API bool
 pgf_type_eq(PgfType* t1, PgfType* t2)
 {

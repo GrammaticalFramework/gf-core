@@ -513,9 +513,6 @@ foreign import ccall "pgf/expr.h pgf_compute"
 foreign import ccall "pgf/expr.h pgf_print_expr"
   pgf_print_expr :: PgfExpr -> Ptr PgfPrintContext -> CInt -> Ptr GuOut -> Ptr GuExn -> IO ()
 
-foreign import ccall "pgf/expr.h pgf_print_expr_tuple"
-  pgf_print_expr_tuple :: CSizeT -> Ptr PgfExpr -> Ptr PgfPrintContext -> Ptr GuOut -> Ptr GuExn -> IO ()
-
 foreign import ccall "pgf/expr.h pgf_print_type"
   pgf_print_type :: PgfType -> Ptr PgfPrintContext -> CInt -> Ptr GuOut -> Ptr GuExn -> IO ()
 
