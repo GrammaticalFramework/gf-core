@@ -4200,7 +4200,8 @@ We construct a calculator with addition, subtraction, multiplication, and
 division of integers.
 ```
   abstract Calculator = {
-
+  flags startcat = Exp ;
+  
   cat Exp ;
 
   fun
@@ -4226,7 +4227,7 @@ We begin with a
 concrete syntax that always uses parentheses around binary
 operator applications:
 ```
-  concrete CalculatorP of Calculator = {
+  concrete CalculatorP of Calculator = open Prelude in {
 
   lincat
     Exp = SS ;
