@@ -1,22 +1,24 @@
 ---
 title: "Video tutorials"
-author: Inari Listenmaa
-date: 2020-08-30
 ---
 
 GF has a YouTube channel [Grammatical Framework](https://www.youtube.com/channel/UCZ96DechSUVcXAhtOId9VVA). 
-In addition to its own uploads, the GF channel keeps a playlist [All GF videos](https://www.youtube.com/playlist?list=PLrgqBB5thLeT15fUtJ8_Dtk8ppdtH90MK), and more specific playlists for narrower topics. 
+In addition to its own uploads, the GF channel keeps a playlist of [all GF videos](https://www.youtube.com/playlist?list=PLrgqBB5thLeT15fUtJ8_Dtk8ppdtH90MK), and more specific playlists for narrower topics. 
 If you make a video about GF, let us know and we'll add it to the suitable playlist(s)!
+
+- [General introduction to GF](#general-introduction-to-gf)
+- [Beginner resources](#beginner-resources)
+- [Resource grammar tutorials](#resource-grammar-tutorials)
 
 ## General introduction to GF
 
-These videos introduce GF at a high level.
+These videos introduce GF at a high level, and present some use cases.
 
-#### Grammatical Framework: Formalizing the Grammars of the World
+__Grammatical Framework: Formalizing the Grammars of the World__
 
 <iframe width="560" height="315" src="https://www.youtube-nocookie.com/embed/x1LFbDQhbso" frameborder="0" allow="accelerometer; autoplay; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>
 
-#### Aarne Ranta: Automatic Translation for Consumers and Producers
+__Aarne Ranta: Automatic Translation for Consumers and Producers__
 
 <iframe width="560" height="315" src="https://www.youtube-nocookie.com/embed/An-AmFScw1o" frameborder="0" allow="accelerometer; autoplay; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>
 
