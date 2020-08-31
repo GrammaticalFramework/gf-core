@@ -898,7 +898,7 @@ Parentheses are only needed for grouping.
 Parsing something that is not in grammar will fail:
 ```
   > parse "hello dad"
-  Unknown words: dad
+  The parser failed at token 2: "dad"
 
   > parse "world hello"
   no tree found
@@ -2948,7 +2948,7 @@ We need the following combinations:
 ```
 We also need **lexical insertion**, to form phrases from single words:
 ```
-  mkCN : N -> NP ;
+  mkCN : N -> CN ;
   mkAP : A -> AP ;
 ```
 Naming convention: to construct a //C//, use a function ``mk``//C//.
@@ -2969,7 +2969,7 @@ can be built as follows:
 ```
   mkCl
     (mkNP these_Det
-       (mkCN (mkAP very_AdA (mkAP warm_A)) (mkCN pizza_CN)))
+       (mkCN (mkAP very_AdA (mkAP warm_A)) (mkCN pizza_N)))
     (mkAP italian_AP)
 ```
 The task now: to define the concrete syntax of ``Foods`` so that
