@@ -2,8 +2,7 @@
 title: "Video tutorials"
 ---
 
-GF has a YouTube channel [Grammatical Framework](https://www.youtube.com/channel/UCZ96DechSUVcXAhtOId9VVA). 
-In addition to its own uploads, the GF channel keeps a playlist of [all GF videos](https://www.youtube.com/playlist?list=PLrgqBB5thLeT15fUtJ8_Dtk8ppdtH90MK), and more specific playlists for narrower topics. 
+The GF [YouTube channel](https://www.youtube.com/channel/UCZ96DechSUVcXAhtOId9VVA) keeps a playlist of [all GF videos](https://www.youtube.com/playlist?list=PLrgqBB5thLeT15fUtJ8_Dtk8ppdtH90MK), and more specific playlists for narrower topics.
 If you make a video about GF, let us know and we'll add it to the suitable playlist(s)!
 
 - [General introduction to GF](#general-introduction-to-gf)
@@ -30,7 +29,7 @@ These videos show how to install GF on your computer (Mac or Windows), and how t
 
 ## Resource grammar tutorials
 
-These videos show incremental improvements to a [miniature version of the resource grammar](https://github.com/inariksit/comp-syntax-2020/tree/master/lab2/grammar/dummy#readme). 
-They assume some prior knowledge of GF, roughly lessons 1--3 from the [GF tutorial](http://www.grammaticalframework.org/doc/tutorial/gf-tutorial.html).
+These videos show incremental improvements to a [miniature version of the resource grammar](https://github.com/inariksit/comp-syntax-2020/tree/master/lab2/grammar/dummy#readme).
+They assume some prior knowledge of GF, roughly lessons 1-3 from the [GF tutorial](http://www.grammaticalframework.org/doc/tutorial/gf-tutorial.html).
 
 <iframe width="560" height="315" src="https://www.youtube-nocookie.com/embed/videoseries?list=PLrgqBB5thLeTPkp88lnOmRtprCa8g0wX2" frameborder="0" allow="accelerometer; autoplay; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>
