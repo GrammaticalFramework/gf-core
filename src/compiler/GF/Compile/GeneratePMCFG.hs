@@ -41,6 +41,7 @@ import Control.Monad
 import Control.Monad.Identity
 --import Control.Exception
 --import Debug.Trace(trace)
+import qualified Control.Monad.Fail as Fail
 
 ----------------------------------------------------------------------
 -- main conversion function
@@ -196,7 +197,7 @@ newtype CnvMonad a = CM {unCM :: SourceGrammar
                               -> ([ProtoFCat],[Symbol])
                               -> Branch b}
 
-instance MonadFail CnvMonad where
+instance Fail.MonadFail CnvMonad where
   fail = bug
 
 instance Applicative CnvMonad where

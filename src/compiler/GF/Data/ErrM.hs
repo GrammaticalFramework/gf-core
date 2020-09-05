@@ -12,10 +12,12 @@
 -- hack for BNFC generated files. AR 21/9/2003
 -----------------------------------------------------------------------------
 
+{-# LANGUAGE CPP #-}
 module GF.Data.ErrM where
 
 import Control.Monad (MonadPlus(..),ap)
 import Control.Applicative
+import qualified Control.Monad.Fail as Fail
 
 -- | Like 'Maybe' type with error msgs
 data Err a = Ok a | Bad String
@@ -36,7 +38,12 @@ instance Monad Err where
   Ok a  >>= f = f a
   Bad s >>= f = Bad s
 
-instance MonadFail Err where
+#if !(MIN_VERSION_base(4,13,0))
+  -- Monad(fail) will be removed in GHC 8.8+
+  fail = Fail.fail
+#endif
+
+instance Fail.MonadFail Err where
   fail        = Bad
 
 

@@ -19,6 +19,7 @@ import qualified Data.Map as Map
 import Data.Word(Word8)
 import Data.Char(readLitChar)
 --import Debug.Trace(trace)
+import qualified Control.Monad.Fail as Fail
 }
 
 
@@ -285,7 +286,7 @@ instance Monad P where
                              PFailed posn err -> PFailed posn err
 
 
-instance MonadFail P where
+instance Fail.MonadFail P where
   fail msg    = P $ \(_,AI posn _ _) -> PFailed posn msg
 
 

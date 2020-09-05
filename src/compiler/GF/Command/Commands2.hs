@@ -25,7 +25,7 @@ data PGFEnv = Env {pgf::Maybe PGF,concs::Map.Map ConcName Concr}
 pgfEnv pgf = Env (Just pgf) (languages pgf)
 emptyPGFEnv = Env Nothing Map.empty
 
-class (MonadFail m,MonadSIO m) => HasPGFEnv m where getPGFEnv :: m PGFEnv
+class (Fail.MonadFail m,MonadSIO m) => HasPGFEnv m where getPGFEnv :: m PGFEnv
 
 instance (Monad m,HasPGFEnv m) => TypeCheckArg m where
   typeCheckArg e = do env <- getPGFEnv

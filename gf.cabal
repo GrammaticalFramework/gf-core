@@ -82,6 +82,7 @@ Library
                  pretty,
                  mtl,
                  exceptions,
+                 fail,
                  ghc-prim
   hs-source-dirs: src/runtime/haskell
 

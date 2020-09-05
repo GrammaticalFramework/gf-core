@@ -32,6 +32,7 @@ import System.FilePath(makeRelative)
 import Control.Parallel.Strategies(parList,rseq,using)
 import Control.Monad(liftM,ap)
 import Control.Applicative(Applicative(..))
+import qualified Control.Monad.Fail as Fail
 
 type Message = Doc
 type Error   = Message
@@ -53,7 +54,7 @@ instance Monad Check where
                  (ws,Success x) -> unCheck (g x) {-ctxt-} ws
                  (ws,Fail msg)  -> (ws,Fail msg)
 
-instance MonadFail Check where
+instance Fail.MonadFail Check where
   fail = raise
 
 instance Applicative Check where
