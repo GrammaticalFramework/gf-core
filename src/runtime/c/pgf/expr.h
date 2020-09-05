@@ -229,9 +229,14 @@ PGF_API_DECL void
 pgf_print_context(PgfHypos *hypos, PgfPrintContext* ctxt,
                   GuOut *out, GuExn *err);
 
-PGF_API_DECL void
-pgf_print_expr_tuple(size_t n_exprs, PgfExpr exprs[], PgfPrintContext* ctxt,
-                     GuOut* out, GuExn* err);
+PGF_API PgfLiteral
+pgf_clone_literal(PgfLiteral lit, GuPool* pool);
+
+PGF_API PgfExpr
+pgf_clone_expr(PgfExpr expr, GuPool* pool);
+
+PGF_API PgfType*
+pgf_clone_type(PgfType* type, GuPool* pool);
 
 PGF_API_DECL prob_t
 pgf_compute_tree_probability(PgfPGF *gr, PgfExpr expr);

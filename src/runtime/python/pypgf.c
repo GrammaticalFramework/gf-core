@@ -1412,7 +1412,7 @@ pypgf_literal_callback_match(PgfLiteralCallback* self, PgfConcr* concr,
 
 	ExprObject* pyexpr;
 #if PY_MAJOR_VERSION >= 3
-	size_t chars;
+	int chars;
 	if (!PyArg_ParseTuple(result, "Ofi", &pyexpr, &ep->prob, &chars))
 	    return NULL;
 	*poffset = unicode_to_utf8_offset(sentence, chars);
@@ -1421,37 +1421,7 @@ pypgf_literal_callback_match(PgfLiteralCallback* self, PgfConcr* concr,
 	    return NULL;
 #endif
 
-	ep->expr = pyexpr->expr;
-
-	{
-		// This is an uggly hack. We first show the expression ep->expr
-		// and then we read it back but in out_pool. The whole purpose
-		// of this is to copy the expression from the temporary pool
-		// that was created in the Java binding to the parser pool.
-		// There should be a real copying function or even better
-		// there must be a way to avoid copying at all.
-
-		GuPool* tmp_pool = gu_local_pool();
-
-		GuExn* err = gu_exn(tmp_pool);
-		GuStringBuf* sbuf = gu_new_string_buf(tmp_pool);
-		GuOut* out = gu_string_buf_out(sbuf);
-
-		pgf_print_expr(ep->expr, NULL, 0, out, err);
-
-		GuIn* in = gu_data_in((uint8_t*) gu_string_buf_data(sbuf),
-		                      gu_string_buf_length(sbuf),
-		                      tmp_pool);
-
-		ep->expr = pgf_read_expr(in, out_pool, tmp_pool, err);
-		if (!gu_ok(err) || gu_variant_is_null(ep->expr)) {
-			PyErr_SetString(PGFError, "The expression cannot be parsed");
-			gu_pool_free(tmp_pool);
-			return NULL;
-		}
-
-		gu_pool_free(tmp_pool);
-	}
+	ep->expr = pgf_clone_expr(pyexpr->expr, out_pool);
 
 	Py_DECREF(result);
 

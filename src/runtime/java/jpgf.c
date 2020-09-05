@@ -486,39 +486,8 @@ jpgf_literal_callback_match(PgfLiteralCallback* self, PgfConcr* concr,
 
 	PgfExprProb* ep = gu_new(PgfExprProb, out_pool);
 	ep->expr = gu_variant_from_ptr(get_ref(env, jexpr));
+	ep->expr = pgf_clone_expr(ep->expr, out_pool);
 	ep->prob = prob;
-
-	
-	{
-		// This is an uggly hack. We first show the expression ep->expr
-		// and then we read it back but in out_pool. The whole purpose
-		// of this is to copy the expression from the temporary pool
-		// that was created in the Java binding to the parser pool.
-		// There should be a real copying function or even better
-		// there must be a way to avoid copying at all.
-
-		GuPool* tmp_pool = gu_local_pool();
-
-		GuExn* err = gu_exn(tmp_pool);
-		GuStringBuf* sbuf = gu_new_string_buf(tmp_pool);
-		GuOut* out = gu_string_buf_out(sbuf);
-
-		pgf_print_expr(ep->expr, NULL, 0, out, err);
-
-		GuString str = gu_string_buf_data(sbuf);
-		size_t   len = gu_string_buf_length(sbuf);
-		GuIn* in = gu_data_in((uint8_t*) str, len, tmp_pool);
-
-		ep->expr = pgf_read_expr(in, out_pool, tmp_pool, err);
-		if (!gu_ok(err) || gu_variant_is_null(ep->expr)) {
-			throw_string_exception(env, "org/grammaticalframework/pgf/PGFError", "The expression cannot be parsed");
-			gu_pool_free(tmp_pool);
-			return NULL;
-		}
-
-		gu_pool_free(tmp_pool);
-	}
-
 	return ep;
 }
 
