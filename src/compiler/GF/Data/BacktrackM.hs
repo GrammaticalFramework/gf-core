@@ -73,8 +73,7 @@ instance Monad (BacktrackM s) where
 	where unBM (BM m) = m
 
 #if !(MIN_VERSION_base(4,13,0))
-  -- Monad(fail) will be removed in GHC 8.8+
-  fail = Fail.fail
+    fail = Fail.fail
 #endif
 
 instance Fail.MonadFail (BacktrackM s) where
