@@ -38,6 +38,9 @@ import GF.Server(server)
 #endif
 
 import GF.Command.Messages(welcome)
+import GF.Infra.UseIO (Output)
+-- Provides an orphan instance of MonadFail for StateT in ghc versions < 8
+import Control.Monad.Trans.Instances ()
 
 -- | Run the GF Shell in quiet mode (@gf -run@).
 mainRunGFI :: Options -> [FilePath] -> IO ()
@@ -131,7 +134,8 @@ execute1' s0 =
          "dt":ws  -> define_tree ws
       -- ordinary commands
          _        -> do env <- gets commandenv
-                        interpretCommandLine env s0
+                        -- () env s0
+                        -- interpretCommandLine env s0
                         continue
   where
     continue,stop :: ShellM Bool

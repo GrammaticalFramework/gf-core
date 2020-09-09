@@ -11,6 +11,9 @@ import GF.Infra.UseIO(putStrLnE)
 
 import Control.Monad(when)
 import qualified Data.Map as Map
+import GF.Infra.UseIO (Output)
+import qualified Control.Monad.Fail as Fail
+-- import Control.Monad.State (StateT)
 
 data CommandEnv m = CommandEnv {
   commands      :: Map.Map String (CommandInfo m),
@@ -22,6 +25,7 @@ data CommandEnv m = CommandEnv {
 mkCommandEnv cmds = CommandEnv cmds Map.empty Map.empty
 
 --interpretCommandLine :: CommandEnv -> String -> SIO ()
+interpretCommandLine :: (Output m, TypeCheckArg m) => CommandEnv m -> String -> m ()
 interpretCommandLine env line =
   case readCommandLine line of
     Just []    -> return ()

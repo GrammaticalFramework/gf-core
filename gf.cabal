@@ -83,6 +83,9 @@ Library
                  mtl,
                  exceptions,
                  fail,
+                 -- For compatability with ghc < 8
+                 -- We need transformers-compat >= 0.6.3, but that is only in newer snapshots where it is redundant.
+                 transformers-compat,
                  ghc-prim
   hs-source-dirs: src/runtime/haskell
 
