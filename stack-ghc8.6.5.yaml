@@ -3,3 +3,4 @@ resolver: lts-14.3 # ghc 8.6.5
 extra-deps:
 - network-2.6.3.6
 - httpd-shed-0.4.0.3
+- cgi-3001.5.0.0
