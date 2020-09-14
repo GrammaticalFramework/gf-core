@@ -19,7 +19,6 @@ main = defaultMainWithHooks simpleUserHooks
   , preInst   = gfPreInst
   , postInst  = gfPostInst
   , postCopy  = gfPostCopy
-  , sDistHook = gfSDist
   }
   where
     gfPreBuild args  = gfPre args . buildDistPref

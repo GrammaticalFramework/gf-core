@@ -1,5 +1,6 @@
 -- -*- haskell -*-
 {
+{-# LANGUAGE CPP #-}
 module GF.Grammar.Lexer
          ( Token(..), Posn(..)
          , P, runP, runPartial, token, lexer, getPosn, failLoc
@@ -18,6 +19,7 @@ import qualified Data.Map as Map
 import Data.Word(Word8)
 import Data.Char(readLitChar)
 --import Debug.Trace(trace)
+import qualified Control.Monad.Fail as Fail
 }
 
 
@@ -282,7 +284,11 @@ instance Monad P where
   (P m) >>= k = P $ \ s -> case m s of
                              POk s a          -> unP (k a) s
                              PFailed posn err -> PFailed posn err
+
+
+instance Fail.MonadFail P where
   fail msg    = P $ \(_,AI posn _ _) -> PFailed posn msg
+
 
 runP :: P a -> BS.ByteString -> Either (Posn,String) a
 runP p bs = snd <$> runP' p (Pn 1 0,bs)

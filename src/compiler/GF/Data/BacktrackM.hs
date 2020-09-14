@@ -13,6 +13,7 @@
 -----------------------------------------------------------------------------
 
 {-# LANGUAGE Rank2Types, MultiParamTypeClasses, FlexibleInstances #-}
+{-# LANGUAGE CPP #-}
 module GF.Data.BacktrackM (
                     -- * the backtracking state monad
 		    BacktrackM,
@@ -32,6 +33,7 @@ import Data.List
 import Control.Applicative
 import Control.Monad
 import Control.Monad.State.Class
+import qualified Control.Monad.Fail as Fail
 
 ----------------------------------------------------------------------
 -- Combining endomorphisms and continuations
@@ -69,6 +71,12 @@ instance Monad (BacktrackM s) where
     return a   = BM (\c s b -> c a s b)
     BM m >>= k = BM (\c s b -> m (\a s b -> unBM (k a) c s b) s b)
 	where unBM (BM m) = m
+
+#if !(MIN_VERSION_base(4,13,0))
+    fail = Fail.fail
+#endif
+
+instance Fail.MonadFail (BacktrackM s) where
     fail _ = mzero
 
 instance Functor (BacktrackM s) where

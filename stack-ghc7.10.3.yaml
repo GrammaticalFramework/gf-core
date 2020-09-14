@@ -1,1 +1,12 @@
 resolver: lts-6.35 # ghc 7.10.3
+
+extra-deps:
+- happy-1.19.9
+- alex-3.2.4
+- transformers-compat-0.6.5
+
+allow-newer: true
+
+flags:
+  transformers-compat:
+    four: true

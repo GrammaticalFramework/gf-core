@@ -101,6 +101,10 @@ import GHC.Word
 --import GHC.Int
 #endif
 
+-- Control.Monad.Fail import will become redundant in GHC 8.8+
+import qualified Control.Monad.Fail as Fail
+
+
 -- | The parse state
 data S = S {-# UNPACK #-} !B.ByteString  -- current chunk
            L.ByteString                  -- the rest of the input
@@ -126,6 +130,11 @@ instance Monad Get where
                              (a, s') -> unGet (k a) s')
     {-# INLINE (>>=) #-}
 
+#if !(MIN_VERSION_base(4,13,0))
+    fail      = failDesc
+#endif
+
+instance Fail.MonadFail Get where
     fail      = failDesc
 
 instance MonadFix Get where
