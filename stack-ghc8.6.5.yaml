@@ -1,4 +1,4 @@
-resolver: lts-14.3 # ghc 8.6.5
+resolver: lts-14.27 # ghc 8.6.5
 
 extra-deps:
 - network-2.6.3.6
