@@ -134,8 +134,7 @@ execute1' s0 =
          "dt":ws  -> define_tree ws
       -- ordinary commands
          _        -> do env <- gets commandenv
-                        -- () env s0
-                        -- interpretCommandLine env s0
+                        interpretCommandLine env s0
                         continue
   where
     continue,stop :: ShellM Bool
