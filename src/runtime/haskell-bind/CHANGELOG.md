@@ -1,3 +1,8 @@
+## 1.2.1
+
+- Remove deprecated pgf_print_expr_tuple
+- Added an API for cloning expressions/types/literals
+
 ## 1.2.0
 
 - Stop `pgf-shell` from being built by default.
