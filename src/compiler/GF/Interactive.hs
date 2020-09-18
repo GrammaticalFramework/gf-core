@@ -102,7 +102,7 @@ timeIt act =
 
 -- | Optionally show how much CPU time was used to run an IO action
 optionallyShowCPUTime :: (Monad m,MonadSIO m) => Options -> m a -> m a
-optionallyShowCPUTime opts act 
+optionallyShowCPUTime opts act
   | not (verbAtLeast opts Normal) = act
   | otherwise = do (dt,r) <- timeIt act
                    liftSIO $ putStrLnFlush $ show (dt `div` 1000000000) ++ " msec"
@@ -134,8 +134,7 @@ execute1' s0 =
          "dt":ws  -> define_tree ws
       -- ordinary commands
          _        -> do env <- gets commandenv
-                        -- () env s0
-                        -- interpretCommandLine env s0
+                        interpretCommandLine env s0
                         continue
   where
     continue,stop :: ShellM Bool
@@ -367,7 +366,7 @@ wordCompletion gfenv (left,right) = do
     pgf    = multigrammar gfenv
     cmdEnv = commandenv gfenv
     optLang opts = valCIdOpts "lang" (head (languages pgf)) opts
-    optType opts = 
+    optType opts =
       let str = valStrOpts "cat" (showCId $ lookStartCat pgf) opts
       in case readType str of
            Just ty -> ty
@@ -414,7 +413,7 @@ wc_type = cmd_name
     option x y (c  :cs)
       | isIdent c       = option x y cs
       | otherwise       = cmd x cs
-      
+
     optValue x y ('"':cs) = str x y cs
     optValue x y cs       = cmd x cs
 
@@ -432,7 +431,7 @@ wc_type = cmd_name
       where
         x1 = take (length x - length y - d) x
         x2 = takeWhile (\c -> isIdent c || isSpace c || c == '-' || c == '=' || c == '"') x1
-        
+
         cmd = case [x | (x,cs) <- RP.readP_to_S pCommand x2, all isSpace cs] of
 	        [x] -> Just x
                 _   -> Nothing
