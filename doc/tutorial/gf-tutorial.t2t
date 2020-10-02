@@ -2646,12 +2646,12 @@ The verb //switch off// is called a
 
 We can define transitive verbs and their combinations as follows:
 ```
-  lincat TV = {s : Number => Str ; part : Str} ;
+  lincat V2 = {s : Number => Str ; part : Str} ;
 
-  fun AppTV : Item -> TV -> Item -> Phrase ;
+  fun AppV2 : Item -> V2 -> Item -> Phrase ;
 
-  lin AppTV subj tv obj =
-    {s = subj.s ++ tv.s ! subj.n ++ obj.s ++ tv.part} ;
+  lin AppV2 subj v2 obj =
+    {s = subj.s ++ v2.s ! subj.n ++ obj.s ++ v2.part} ;
 ```
 
 **Exercise**. Define the language ``a^n b^n c^n`` in GF, i.e.
@@ -2717,11 +2717,11 @@ This topic will be covered in #Rseclexing.
 
 The symbol ``**`` is used for both record types and record objects.
 ```
-  lincat TV = Verb ** {c : Case} ;
+  lincat V2 = Verb ** {c : Case} ;
 
   lin Follow = regVerb "folgen" ** {c = Dative} ;
 ```
-``TV`` becomes a **subtype** of ``Verb``.
+``V2`` (transitive verb) becomes a **subtype** of ``Verb``.
 
 If //T// is a subtype of //R//, an object of //T// can be used whenever
 an object of //R// is required.
