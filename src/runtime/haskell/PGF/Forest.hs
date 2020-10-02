@@ -33,6 +33,7 @@ import qualified Data.IntMap as IntMap
 import Control.Monad
 import Control.Monad.State
 import PGF.Utilities (nub')
+import qualified Data.ByteString.UTF8 as UTF8
 
 data Forest
   = Forest
@@ -103,11 +104,11 @@ bracketedTokn dp f@(Forest abs cnc forest root) =
         descend (PCoerce fid)       = trustedSpots parents' (PArg [] fid)
         descend (PConst c e _)      = IntSet.empty
 
-isLindefCId id 
+isLindefCId id@(CId utf8)
   | take l s == lindef = Just (mkCId (drop l s))
   | otherwise          = Nothing
   where
-    s      = showCId id
+    s      = UTF8.toString utf8
     lindef = "lindef "
     l      = length lindef
 
