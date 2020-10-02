@@ -42,6 +42,7 @@ import qualified GF.Command.Importing as GF(importGrammar, importSource)
 #ifdef C_RUNTIME
 import qualified PGF2
 #endif
+import qualified Control.Monad.Fail as Fail
 
 -- * The SIO monad
 
@@ -57,6 +58,9 @@ instance Applicative SIO where
 instance Monad SIO where
   return x = SIO (const (return x))
   SIO m1 >>= xm2 = SIO $ \ h -> m1 h >>= \ x -> unS (xm2 x) h
+
+instance Fail.MonadFail SIO where
+  fail = liftSIO . fail
 
 instance Output SIO where
   ePutStr = lift0 . ePutStr

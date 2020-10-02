@@ -1,6 +1,7 @@
 import Data.List(partition)
 import System.IO
 import Distribution.Simple.BuildPaths(exeExtension)
+import Distribution.System ( buildPlatform )
 import System.Process(readProcess)
 import System.Directory(doesFileExist,getDirectoryContents)
 import System.FilePath((</>),(<.>),takeExtension)
@@ -71,7 +72,7 @@ main =
 
 -- Should consult the Cabal configuration!
 run_gf = readProcess default_gf ["-run","-gf-lib-path="++gf_lib_path]
-default_gf = "dist/build/gf/gf"<.>exeExtension
+default_gf = "dist/build/gf/gf"<.>exeExtension buildPlatform
 gf_lib_path = "dist/build/rgl"
 
 -- | List files, excluding "." and ".."

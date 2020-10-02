@@ -30,12 +30,13 @@ import qualified Data.Map as Map
 import GF.Text.Pretty(render,(<+>),($$)) --Doc,
 import GF.System.Console(TermColors(..),getTermColors)
 import Control.Monad((<=<))
+import qualified Control.Monad.Fail as Fail
 
 type OneOutput = (Maybe FullPath,CompiledModule)
 type CompiledModule = Module
 
 compileOne, reuseGFO, useTheSource ::
-    (Output m,ErrorMonad m,MonadIO m) =>
+    (Output m,ErrorMonad m,MonadIO m, Fail.MonadFail m) =>
     Options -> Grammar -> FullPath -> m OneOutput
 
 -- | Compile a given source file (or just load a .gfo file),

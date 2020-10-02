@@ -32,6 +32,7 @@ import Control.Monad (liftM, liftM2, liftM3)
 import Data.List (sortBy,nub)
 import Data.Monoid
 import GF.Text.Pretty(render,(<+>),hsep,fsep)
+import qualified Control.Monad.Fail as Fail
 
 -- ** Functions for constructing and analysing source code terms.
 
@@ -237,7 +238,7 @@ isPredefConstant t = case t of
   Q (mod,_) | mod == cPredef || mod == cPredefAbs -> True
   _                                               -> False
 
-checkPredefError :: Monad m => Term -> m Term
+checkPredefError :: Fail.MonadFail m => Term -> m Term
 checkPredefError t =
     case t of
       Error s -> fail ("Error: "++s)

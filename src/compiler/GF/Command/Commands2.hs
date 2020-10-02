@@ -18,6 +18,7 @@ import Data.Maybe
 import qualified Data.Map as Map
 import GF.Text.Pretty
 import Control.Monad(mplus)
+import qualified Control.Monad.Fail as Fail
 
 
 data PGFEnv = Env {pgf::Maybe PGF,concs::Map.Map ConcName Concr}
@@ -25,7 +26,7 @@ data PGFEnv = Env {pgf::Maybe PGF,concs::Map.Map ConcName Concr}
 pgfEnv pgf = Env (Just pgf) (languages pgf)
 emptyPGFEnv = Env Nothing Map.empty
 
-class (Monad m,MonadSIO m) => HasPGFEnv m where getPGFEnv :: m PGFEnv
+class (Fail.MonadFail m,MonadSIO m) => HasPGFEnv m where getPGFEnv :: m PGFEnv
 
 instance (Monad m,HasPGFEnv m) => TypeCheckArg m where
   typeCheckArg e = do env <- getPGFEnv

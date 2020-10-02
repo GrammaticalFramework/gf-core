@@ -1,3 +1,4 @@
+{-# LANGUAGE CPP #-}
 module GF.Compile.TypeCheck.ConcreteNew( checkLType, inferLType ) where
 
 -- The code here is based on the paper:
@@ -19,6 +20,7 @@ import GF.Text.Pretty
 import Data.List (nub, (\\), tails)
 import qualified Data.IntMap as IntMap
 import Data.Maybe(fromMaybe,isNothing)
+import qualified Control.Monad.Fail as Fail
 
 checkLType :: GlobalEnv -> Term -> Type -> Check (Term, Type)
 checkLType ge t ty = runTcM $ do
@@ -646,7 +648,15 @@ instance Monad TcM where
   f >>= g  = TcM (\ms msgs -> case unTcM f ms msgs of
                                 TcOk x ms msgs -> unTcM (g x) ms msgs
                                 TcFail    msgs -> TcFail msgs)
+
+#if !(MIN_VERSION_base(4,13,0))
+  -- Monad(fail) will be removed in GHC 8.8+
+  fail = Fail.fail
+#endif
+
+instance Fail.MonadFail TcM where
   fail     = tcError . pp
+
 
 instance Applicative TcM where
   pure = return

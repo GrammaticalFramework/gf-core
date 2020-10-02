@@ -18,6 +18,7 @@ jobs:
 
     - name: Install build tools
       run: |
+        sudo apt update
         sudo apt install -y \
           make \
           dpkg-dev \

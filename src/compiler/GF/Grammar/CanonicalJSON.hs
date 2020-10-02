@@ -6,6 +6,7 @@ import Text.JSON
 import Control.Applicative ((<|>))
 import Data.Ratio (denominator, numerator)
 import GF.Grammar.Canonical
+import Control.Monad (guard)
 
 
 encodeJSON :: FilePath -> Grammar -> IO ()
@@ -126,10 +127,10 @@ instance JSON LinType where
   -- records are encoded as records:
   showJSON (RecordType rows) = showJSON rows
 
-  readJSON o = do "Str"   <- readJSON o; return StrType
-    <|>        do "Float" <- readJSON o; return FloatType
-    <|>        do "Int"   <- readJSON o; return IntType
-    <|>        do  ptype  <- readJSON o; return (ParamType ptype)
+  readJSON o = StrType   <$ parseString "Str"   o
+    <|>        FloatType <$ parseString "Float" o
+    <|>        IntType   <$ parseString "Int"   o
+    <|>        ParamType <$> readJSON o
     <|>        TableType  <$> o!".tblarg" <*> o!".tblval"
     <|>        TupleType  <$> o!".tuple"
     <|>        RecordType <$> readJSON o
@@ -186,7 +187,7 @@ instance JSON LinPattern where
   -- and records as records:
   showJSON (RecordPattern r) = showJSON r
 
-  readJSON o = do "_" <- readJSON o; return WildPattern
+  readJSON o = do  p  <- parseString "_" o; return WildPattern
     <|>        do  p  <- readJSON o; return (ParamPattern (Param p []))
     <|>        ParamPattern  <$> readJSON o
     <|>        RecordPattern <$> readJSON o
@@ -237,7 +238,7 @@ instance JSON VarId where
   showJSON Anonymous = showJSON "_"
   showJSON (VarId x) = showJSON x
 
-  readJSON o = do "_" <- readJSON o; return Anonymous
+  readJSON o = do parseString "_" o; return Anonymous
     <|>        VarId <$> readJSON o
 
 instance JSON QualId where
@@ -267,6 +268,9 @@ instance JSON FlagValue where
 
 --------------------------------------------------------------------------------
 -- ** Convenience functions
+
+parseString :: String -> JSValue -> Result ()
+parseString s o = guard . (== s) =<< readJSON o
 
 (!) :: JSON a => JSValue -> String -> Result a
 obj ! key = maybe (fail $ "CanonicalJSON.(!): Could not find key: " ++ show key)

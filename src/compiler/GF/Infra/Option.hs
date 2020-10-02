@@ -44,6 +44,7 @@ import Data.Set (Set)
 import qualified Data.Set as Set
 
 import PGF.Internal(Literal(..))
+import qualified Control.Monad.Fail as Fail
 
 usageHeader :: String
 usageHeader = unlines 
@@ -548,7 +549,7 @@ lookupShow xs z = fromMaybe "lookupShow" $ lookup z [(y,x) | (x,y) <- xs]
 lookupReadsPrec :: [(String,a)] -> Int -> ReadS a
 lookupReadsPrec xs _ s = [(z,rest) | (x,rest) <- lex s, (y,z) <- xs, y == x]
 
-onOff :: Monad m => (Bool -> m a) -> Bool -> ArgDescr (m a)
+onOff :: Fail.MonadFail m => (Bool -> m a) -> Bool -> ArgDescr (m a)
 onOff f def = OptArg g "[on,off]"
   where g ma = maybe (return def) readOnOff ma >>= f
         readOnOff x = case map toLower x of
@@ -556,7 +557,7 @@ onOff f def = OptArg g "[on,off]"
                         "off" -> return False
                         _     -> fail $ "Expected [on,off], got: " ++ show x
 
-readOutputFormat :: Monad m => String -> m OutputFormat
+readOutputFormat :: Fail.MonadFail m => String -> m OutputFormat
 readOutputFormat s = 
     maybe (fail $ "Unknown output format: " ++ show s) return $ lookup s outputFormats
 
