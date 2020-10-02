@@ -2757,7 +2757,11 @@ Thus the labels ``p1, p2,...`` are hard-coded.
 English indefinite article:
 ```
   oper artIndef : Str =
-    pre {"a" ; "an" / strs {"a" ; "e" ; "i" ; "o"}} ;
+     pre {
+       ("a" | "e" | "i" | "o") => "an" ;
+       _ => "a"
+     } ;
+
 ```
 Thus
 ```
