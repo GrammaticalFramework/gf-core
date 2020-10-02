@@ -2475,7 +2475,7 @@ can be used to read a text and return for each word its analyses
 ```
 The command ``morpho_quiz = mq`` generates inflection exercises.
 ```
-  % gf -path=alltenses:prelude $GF_LIB_PATH/alltenses/IrregFre.gfo
+  % gf alltenses/IrregFre.gfo
 
   > morpho_quiz -cat=V
 
@@ -2488,11 +2488,6 @@ The command ``morpho_quiz = mq`` generates inflection exercises.
   réapparaîtriez
   Score 0/1
 ```
-To create a list for later use, use the command ``morpho_list = ml``
-```
-  > morpho_list -number=25 -cat=V | write_file exx.txt
-```
-
 
 
 
