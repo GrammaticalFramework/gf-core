@@ -35,7 +35,7 @@ $u = [.\n]                -- universal: any character
 
 :-
 "--" [.]* ; -- Toss single line comments
-"{-" ([$u # \-] | \- [$u # \}])* ("-")+ "}" ; 
+"{-" ([$u # \-] | \- [$u # \}])* ("-")+ "}" ;
 
 $white+ ;
 @rsyms                          { tok ident }
@@ -138,7 +138,7 @@ data Token
 
 res = eitherResIdent
 eitherResIdent :: (Ident -> Token) -> Ident -> Token
-eitherResIdent tv s = 
+eitherResIdent tv s =
   case Map.lookup s resWords of
     Just t  -> t
     Nothing -> tv s
@@ -285,6 +285,10 @@ instance Monad P where
                              POk s a          -> unP (k a) s
                              PFailed posn err -> PFailed posn err
 
+#if !(MIN_VERSION_base(4,13,0))
+  -- Monad(fail) will be removed in GHC 8.8+
+  fail = Fail.fail
+#endif
 
 instance Fail.MonadFail P where
   fail msg    = P $ \(_,AI posn _ _) -> PFailed posn msg
