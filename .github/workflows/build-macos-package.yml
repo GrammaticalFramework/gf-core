@@ -18,9 +18,9 @@ jobs:
 
     - name: Install build tools
       run: |
-        sudo apt update
-        sudo apt install -y \
-          haskell-platform
+        brew install \
+          ghc \
+          cabal-install
 
     - name: Checkout RGL
       run: |
