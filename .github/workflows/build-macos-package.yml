@@ -34,8 +34,6 @@ jobs:
     - name: Build macOS package
       run: |
         make pkg
-      env:
-        PREFIX: /Users/runner/work/gf-core/gf-core/dist/gf-3.10.4-git/
 
     - name: Copy packages
       run: |
