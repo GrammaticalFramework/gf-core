@@ -30,6 +30,7 @@ pushd src/runtime/c
 bash setup.sh configure --prefix="$prefix"
 bash setup.sh build
 bash setup.sh install prefix="$destdir$prefix"
+libtool --finish "$prefix/lib"
 popd
 
 ## Build the python binding to the C run-time system
