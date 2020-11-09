@@ -29,7 +29,7 @@ set -x                             # print commands before executing them
 pushd src/runtime/c
 bash setup.sh configure --prefix="$prefix"
 bash setup.sh build
-bash setup.sh install prefix="$prefix"
+bash setup.sh install prefix="$destdir$prefix"
 popd
 
 ## Build the python binding to the C run-time system
@@ -70,7 +70,7 @@ export DYLD_LIBRARY_PATH="$extralib" LD_LIBRARY_PATH="$extralib"
 
 ## Build GF, with C run-time support enabled
 cabal install -w "$ghc" --only-dependencies -fserver -fc-runtime $extra
-cabal configure -w "$ghc" --prefix="$prefix" -fserver -fc-runtime $extra
+cabal configure -w "$ghc" --prefix="$destdir$prefix" -fserver -fc-runtime $extra
 cabal build
 # Building the example grammars will fail, because the RGL is missing
 cabal copy --destdir="$destdir"  # create www directory
