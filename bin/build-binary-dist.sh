@@ -38,11 +38,11 @@ if which >/dev/null python; then
     EXTRA_INCLUDE_DIRS="$extrainclude" EXTRA_LIB_DIRS="$extralib" python setup.py build
     python setup.py install --prefix="$destdir$prefix"
     if [ "$fmt" == pkg ] ; then
-	# A hack for Python on OS X to find the PGF modules
-	pyver=$(ls "$destdir$prefix/lib" | sed -n 's/^python//p')
-	pydest="$destdir/Library/Python/$pyver/site-packages"
-	mkdir -p "$pydest"
-	ln "$destdir$prefix/lib/python$pyver/site-packages"/pgf* "$pydest"
+        # A hack for Python on OS X to find the PGF modules
+        pyver=$(ls "$destdir$prefix/lib" | sed -n 's/^python//p')
+        pydest="$destdir/Library/Python/$pyver/site-packages"
+        mkdir -p "$pydest"
+        ln "$destdir$prefix/lib/python$pyver/site-packages"/pgf* "$pydest"
     fi
     popd
 else
@@ -55,9 +55,9 @@ if which >/dev/null javac && which >/dev/null jar ; then
     rm -f libjpgf.la # In case it contains the wrong INSTALL_PATH
     if make CFLAGS="-I$extrainclude -L$extralib" INSTALL_PATH="$prefix"
     then
-	make INSTALL_PATH="$destdir$prefix" install
+        make INSTALL_PATH="$destdir$prefix" install
     else
-	echo "*** Skipping the Java binding because of errors"
+        echo "*** Skipping the Java binding because of errors"
     fi
     popd
 else
@@ -95,14 +95,14 @@ cabal register --gen-pkg-config=$libdir/gf-$ver.conf
 ## Create the binary distribution package
 case $fmt in
     tar.gz)
-	targz="$name-bin-$hw-$os.tar.gz"     # the final tar file
-	tar -C "$destdir/$prefix" -zcf "dist/$targz" .
-	echo "Created $targz, consider renaming it to something more user friendly"
-	;;
+        targz="$name-bin-$hw-$os.tar.gz"     # the final tar file
+        tar -C "$destdir/$prefix" -zcf "dist/$targz" .
+        echo "Created $targz, consider renaming it to something more user friendly"
+        ;;
     pkg)
-	pkg=$name.pkg
-	pkgbuild --identifier org.grammaticalframework.gf.pkg --version "$ver" --root "$destdir" --install-location / dist/$pkg
-	echo "Created $pkg"
+        pkg=$name.pkg
+        pkgbuild --identifier org.grammaticalframework.gf.pkg --version "$ver" --root "$destdir" --install-location / dist/$pkg
+        echo "Created $pkg"
 esac
 
 rm -r "$destdir"
