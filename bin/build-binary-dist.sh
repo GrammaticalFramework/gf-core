@@ -25,6 +25,8 @@ extra="--extra-lib-dirs=$extralib --extra-include-dirs=$extrainclude"
 set -e                             # Stop if an error occurs
 set -x                             # print commands before executing them
 
+cabal --version
+
 ## First configure & build the C run-time system
 pushd src/runtime/c
 bash setup.sh configure --prefix="$prefix"
@@ -74,7 +76,7 @@ cabal install -w "$ghc" --only-dependencies -fserver -fc-runtime $extra
 cabal configure -w "$ghc" --prefix="$prefix" -fserver -fc-runtime $extra
 cabal build
 # Building the example grammars will fail, because the RGL is missing
-cabal v1-copy --destdir="$destdir"  # create www directory
+cabal copy --destdir="$destdir"  # create www directory
 
 ## Build the RGL and copy it to $destdir
 PATH=$PWD/dist/build/gf:$PATH
@@ -89,7 +91,7 @@ popd
 cabal build
 
 ## Copy GF to $destdir
-cabal v1-copy --destdir="$destdir"
+cabal copy --destdir="$destdir"
 libdir=$(dirname $(find "$destdir" -name PGF.hi))
 cabal register --gen-pkg-config=$libdir/gf-$ver.conf
 

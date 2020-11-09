@@ -9,8 +9,8 @@ jobs:
     strategy:
       matrix:
         os: [macOS-latest]
-        cabal: ["2.4"]
         ghc: ["8.6.5"]
+        cabal: ["2.4"]
 
     steps:
     - uses: actions/checkout@v2
@@ -21,6 +21,10 @@ jobs:
       with:
         ghc-version: ${{ matrix.ghc }}
         cabal-version: ${{ matrix.cabal }}
+
+    - name: Check cabal version
+      run: |
+        cabal --version
 
     - name: Install build tools
       run: |
