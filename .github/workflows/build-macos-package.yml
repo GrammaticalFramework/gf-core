@@ -15,7 +15,7 @@ jobs:
     steps:
     - uses: actions/checkout@v2
 
-    - uses: actions/setup-haskell@v1.1.1
+    - uses: actions/setup-haskell@v1.1
       id: setup-haskell-cabal
       name: Setup Haskell
       with:
