@@ -1,0 +1,40 @@
+name: Build macOS Package
+
+on: [push, pull_request]
+
+jobs:
+  build:
+    name: Build on ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: true
+      matrix:
+        os: [macos-latest]
+    # env:
+    #   LC_ALL: C.UTF-8
+
+    steps:
+    - uses: actions/checkout@v1
+
+    - name: Install build tools
+      run: |
+        sudo apt update
+        sudo apt install -y \
+          haskell-platform
+
+    - name: Checkout RGL
+      run: |
+        git clone --depth 1 https://github.com/GrammaticalFramework/gf-rgl.git ../gf-rgl
+
+    - name: Build macOS package
+      run: |
+        make pkg
+
+    - name: Copy packages
+      run: |
+        mkdir macos/dist
+        cp ../gf_*.pkg macos/dist/
+
+    - uses: actions/upload-artifact@v2
+      with:
+        path: macos/dist
