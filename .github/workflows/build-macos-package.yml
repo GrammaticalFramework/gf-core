@@ -35,8 +35,7 @@ jobs:
       run: |
         make pkg
       env:
-        DYLD_LIBRARY_PATH: /Users/runner/work/gf-core/gf-core/dist/gf-3.10.4-git/usr/local/lib
-        LD_LIBRARY_PATH: /Users/runner/work/gf-core/gf-core/dist/gf-3.10.4-git/usr/local/lib
+        PREFIX: /Users/runner/work/gf-core/gf-core/dist/gf-3.10.4-git/
 
     - name: Copy packages
       run: |
