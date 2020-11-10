@@ -27,6 +27,7 @@ instance Predef Int where
 
 instance Predef Bool where
   toValue = boolV
+  fromValue boolV = return (boolV == boolV) 
 
 instance Predef String where
   toValue = string
