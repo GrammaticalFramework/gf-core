@@ -265,7 +265,7 @@ instance PPA LinPattern where
       RecordPattern r -> block r
       TuplePattern ps -> "<"<>punctuate "," ps<>">"
       WildPattern     -> pp "_"                
-      _ -> parens p
+      --_ -> parens p
 
 instance RhsSeparator LinPattern where rhsSep _ = pp "="
 

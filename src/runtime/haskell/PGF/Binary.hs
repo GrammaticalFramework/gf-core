@@ -185,6 +185,55 @@ instance Binary Instr where
   put (PUSH_ACCUM (LFlt d)) = putWord8 78 >> put d
   put (POP_ACCUM          ) = putWord8 80
   put (ADD                ) = putWord8 84
+  get = do tag <- getWord8
+           case tag of
+             0 -> liftM CHECK_ARGS get 
+             4 -> liftM2 CASE get get
+             8 -> liftM2  CASE_LIT get get
+             9 -> liftM2  CASE_LIT get get
+             10 -> liftM2  CASE_LIT get get
+             12 -> liftM  SAVE get
+             16 -> liftM ALLOC get
+             20 -> liftM  PUT_CONSTR get
+             24 -> liftM PUT_CLOSURE get
+             28 -> liftM  PUT_LIT get
+             29 -> liftM PUT_LIT get
+             30 -> liftM PUT_LIT get
+             --32 -> liftM SET get
+             --33 -> liftM SET get
+             --34 -> liftM SET get
+             --35 -> liftM SET get
+             36 -> return SET_PAD
+             40 -> return PUSH_FRAME
+             --44 -> liftM PUSH get
+             --45 -> liftM PUSH get
+             --46 -> liftM PUSH get
+             --47 -> liftM PUSH get
+             --48 -> liftM2 TUCK get get
+             --49 -> liftM2 TUCK get get
+             --50 -> liftM2 TUCK get get
+             --51 -> liftM2 TUCK get get
+             --52 -> liftM EVAL get 
+             --53 -> liftM2 EVAL get
+             --54 -> liftM2 EVAL get get
+             --55 -> liftM2 EVAL get get
+             --56 -> liftM2 EVAL get get
+             --57 -> liftM2 EVAL get get
+             --58 -> liftM2 EVAL get get
+             --59 -> liftM2 EVAL get get
+             --60 -> liftM2 EVAL get get
+             --61 -> liftM2 EVAL get get
+             --62 -> liftM2 EVAL get get
+             --63 -> liftM2 EVAL get get
+             --64 -> liftM DROP get
+             --68 -> liftM JUMP get
+             72 -> return FAIL
+             76 -> liftM PUSH_ACCUM get
+             77 -> liftM PUSH_ACCUM get
+             78 -> liftM PUSH_ACCUM get
+             80 -> return POP_ACCUM
+             84 -> return ADD
+             _ -> decodingError
 
 instance Binary Type where
   put (DTyp hypos cat exps) = put (hypos,cat,exps)

@@ -528,7 +528,7 @@ value2term' stop loc xs v0 =
 --  VGlue v1 v2    -> Glue (v2t v1) (v2t v2)
 --  VExtR v1 v2    -> ExtR (v2t v1) (v2t v2)
     VError err     -> return (Error err)
-    _              -> bug ("value2term "++show loc++" : "++show v0)
+--    _              -> bug ("value2term "++show loc++" : "++show v0)
   where
     v2t = v2txs xs
     v2txs = value2term' stop loc
