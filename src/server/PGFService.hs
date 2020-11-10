@@ -1024,6 +1024,7 @@ instance JSON PGF.Trie where
     showJSON (PGF.Ap f [[]]) = makeObj ["fun".=f] -- leaf
 --  showJSON (PGF.Ap f [es]) = makeObj ["fun".=f,"children".=es] -- one alternative
     showJSON (PGF.Ap f alts) = makeObj ["fun".=f,"alts".=alts]
+    readJSON = error "PGF.Trie.readJSON intentionally not defined"
 
 instance JSON PGF.CId where
     readJSON x = readJSON x >>= maybe (fail "Bad language.") return . PGF.readLanguage
