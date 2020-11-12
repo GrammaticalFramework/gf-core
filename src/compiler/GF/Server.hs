@@ -6,7 +6,7 @@ import qualified Data.Map as M
 import Control.Applicative -- for GHC<7.10
 import Control.Monad(when)
 import Control.Monad.State(StateT(..),get,gets,put)
-import Control.Monad.Except(ExceptT(..),Except(..),runExceptT)
+import Control.Monad.Except(ExceptT(..),runExceptT)
 import System.Random(randomRIO)
 --import System.IO(stderr,hPutStrLn)
 import GF.System.Catch(try)
