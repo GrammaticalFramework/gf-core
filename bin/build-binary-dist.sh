@@ -4,7 +4,7 @@
 ### It assumes that you have Haskell and Cabal installed.
 ### Two binary package formats are supported (specified with the FMT env var):
 ### - plain tar files (.tar.gz)
-### - OS X installer packages (.pkg)
+### - macOS installer packages (.pkg)
 
 os=$(uname)     # Operating system name (e.g. Darwin or Linux)
 hw=$(uname -m)  # Hardware name (e.g. i686 or x86_64)
@@ -42,7 +42,7 @@ if which >/dev/null python; then
     EXTRA_INCLUDE_DIRS="$extrainclude" EXTRA_LIB_DIRS="$extralib" python setup.py build
     python setup.py install --prefix="$destdir$prefix"
     if [ "$fmt" == pkg ] ; then
-        # A hack for Python on OS X to find the PGF modules
+        # A hack for Python on macOS to find the PGF modules
         pyver=$(ls "$destdir$prefix/lib" | sed -n 's/^python//p')
         pydest="$destdir/Library/Python/$pyver/site-packages"
         mkdir -p "$pydest"
