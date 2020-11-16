@@ -1,15 +1,18 @@
 #! /bin/bash
 
-### This script builds a binary distribution of GF from the source
-### package that this script is a part of. It assumes that you have installed
-### a recent version of the Haskell Platform.
-### Two binary package formats are supported: plain tar files (.tar.gz) and
-### OS X Installer packages (.pkg).
+### This script builds a binary distribution of GF from source.
+### It assumes that you have Haskell and Cabal installed.
+### Two binary package formats are supported (specified with the FMT env var):
+### - plain tar files (.tar.gz)
+### - OS X installer packages (.pkg)
 
 os=$(uname)     # Operating system name (e.g. Darwin or Linux)
 hw=$(uname -m)  # Hardware name (e.g. i686 or x86_64)
 
-# GF version number:
+cabal="cabal v1-" # Cabal >= 2.4
+# cabal="cabal " # Cabal <= 2.2
+
+## Get GF version number from Cabal file
 ver=$(grep -i ^version: gf.cabal | sed -e 's/version://' -e 's/ //g')
 
 name="gf-$ver"
@@ -25,14 +28,13 @@ extra="--extra-lib-dirs=$extralib --extra-include-dirs=$extrainclude"
 set -e                             # Stop if an error occurs
 set -x                             # print commands before executing them
 
-cabal --version
-
 ## First configure & build the C run-time system
 pushd src/runtime/c
 bash setup.sh configure --prefix="$prefix"
 bash setup.sh build
-bash setup.sh install prefix="$prefix"
-bash setup.sh install prefix="$destdir$prefix"
+## Install in two places:
+# bash setup.sh install prefix="$prefix" # for GF build to find
+bash setup.sh install prefix="$destdir$prefix" # for inclusion in distribution
 popd
 
 ## Build the python binding to the C run-time system
@@ -60,47 +62,32 @@ if which >/dev/null javac && which >/dev/null jar ; then
     then
         make INSTALL_PATH="$destdir$prefix" install
     else
-        echo "*** Skipping the Java binding because of errors"
+        echo "Skipping the Java binding because of errors"
     fi
     popd
 else
     echo "Java SDK is not installed, so the Java binding will not be included"
 fi
 
-## To find dynamic C run-time libraries when running GF below
+## To find dynamic C run-time libraries when building GF below
 export DYLD_LIBRARY_PATH="$extralib" LD_LIBRARY_PATH="$extralib"
 
-
 ## Build GF, with C run-time support enabled
-cabal install -w "$ghc" --only-dependencies -fserver -fc-runtime $extra
-cabal configure -w "$ghc" --prefix="$prefix" -fserver -fc-runtime $extra
-cabal build
-# Building the example grammars will fail, because the RGL is missing
-cabal copy --destdir="$destdir"  # create www directory
-
-## Build the RGL and copy it to $destdir
-PATH=$PWD/dist/build/gf:$PATH
-export GF_LIB_PATH="$(dirname $(find "$destdir" -name www))/lib"   # hmm
-mkdir -p "$GF_LIB_PATH"
-pushd ../gf-rgl
-make build
-make copy
-popd
-
-# Build GF again, including example grammars that need the RGL
-cabal build
+${cabal}install -w "$ghc" --only-dependencies -fserver -fc-runtime $extra
+${cabal}configure -w "$ghc" --prefix="$prefix" -fserver -fc-runtime $extra
+${cabal}build
 
 ## Copy GF to $destdir
-cabal copy --destdir="$destdir"
+${cabal}copy --destdir="$destdir"
 libdir=$(dirname $(find "$destdir" -name PGF.hi))
-cabal register --gen-pkg-config=$libdir/gf-$ver.conf
+${cabal}register --gen-pkg-config="$libdir/gf-$ver.conf"
 
 ## Create the binary distribution package
 case $fmt in
     tar.gz)
         targz="$name-bin-$hw-$os.tar.gz"     # the final tar file
-        tar -C "$destdir/$prefix" -zcf "dist/$targz" .
-        echo "Created $targz, consider renaming it to something more user friendly"
+        tar --directory "$destdir/$prefix" --gzip --create --file "dist/$targz" .
+        echo "Created $targz"
         ;;
     pkg)
         pkg=$name.pkg
@@ -108,4 +95,5 @@ case $fmt in
         echo "Created $pkg"
 esac
 
+## Cleanup
 rm -r "$destdir"
