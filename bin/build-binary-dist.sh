@@ -32,9 +32,8 @@ set -x                             # print commands before executing them
 pushd src/runtime/c
 bash setup.sh configure --prefix="$prefix"
 bash setup.sh build
-## Install in two places:
-# bash setup.sh install prefix="$prefix" # for GF build to find
-bash setup.sh install prefix="$destdir$prefix" # for inclusion in distribution
+bash setup.sh install prefix="$prefix" # hack required for GF build on macOS
+bash setup.sh install prefix="$destdir$prefix"
 popd
 
 ## Build the python binding to the C run-time system
