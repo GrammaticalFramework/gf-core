@@ -3,14 +3,14 @@ Section: devel
 Priority: optional
 Maintainer: Thomas Hallgren <hallgren@chalmers.se>
 Standards-Version: 3.9.2
-Build-Depends: debhelper (>= 5), haskell-platform (>= 2011.2.0.1), libghc-haskeline-dev, libghc-mtl-dev, libghc-json-dev, autoconf, automake, libtool-bin, python-dev, java-sdk, txt2tags, pandoc
+Build-Depends: debhelper (>= 5), haskell-platform (>= 2011.2.0.1), libghc-haskeline-dev, libghc-mtl-dev, libghc-json-dev, autoconf, automake, libtool-bin, python-dev, java-sdk
 Homepage: http://www.grammaticalframework.org/
 
 Package: gf
 Architecture: any
 Depends: ${shlibs:Depends}
 Description: Tools for GF, a grammar formalism based on type theory
- Grammatical Framework (GF) is a grammar formalism based on type theory. 
+ Grammatical Framework (GF) is a grammar formalism based on type theory.
  It consists of a special-purpose programming language,
  a compiler of the language, and a generic grammar processor.
  .
