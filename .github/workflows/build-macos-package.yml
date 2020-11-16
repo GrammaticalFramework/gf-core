@@ -24,10 +24,6 @@ jobs:
         ghc-version: ${{ matrix.ghc }}
         cabal-version: ${{ matrix.cabal }}
 
-    - name: Check cabal version
-      run: |
-        cabal --version
-
     - name: Install build tools
       run: |
         brew install \
@@ -38,12 +34,9 @@ jobs:
       run: |
         make pkg
 
-    - name: Copy packages
-      run: |
-        mkdir macos/dist
-        cp ../gf_*.pkg macos/dist/
-
     - name: Upload artifact
       uses: actions/upload-artifact@v2
       with:
-        path: macos/dist
+        name: macOS package
+        path: dist/gf_*.pkg
+        if-no-files-found: error
