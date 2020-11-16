@@ -17,9 +17,9 @@ jobs:
     steps:
     - uses: actions/checkout@v2
 
-    - uses: actions/setup-haskell@v1
+    - name: Setup Haskell
+      uses: actions/setup-haskell@v1
       id: setup-haskell-cabal
-      name: Setup Haskell
       with:
         ghc-version: ${{ matrix.ghc }}
         cabal-version: ${{ matrix.cabal }}
@@ -32,10 +32,7 @@ jobs:
       run: |
         brew install \
           automake
-
-    - name: Checkout RGL
-      run: |
-        git clone --depth 1 https://github.com/GrammaticalFramework/gf-rgl.git ../gf-rgl
+        cabal v1-install alex happy
 
     - name: Build macOS package
       run: |
@@ -46,6 +43,7 @@ jobs:
         mkdir macos/dist
         cp ../gf_*.pkg macos/dist/
 
-    - uses: actions/upload-artifact@v2
+    - name: Upload artifact
+      uses: actions/upload-artifact@v2
       with:
         path: macos/dist
