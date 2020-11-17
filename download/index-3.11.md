@@ -1,0 +1,182 @@
+---
+title: Grammatical Framework Download and Installation
+...
+
+**GF 3.11** was released on ? December 2020.
+
+What's new? See the [release notes](release-3.11.html).
+
+## Binary packages
+
+Unlike previous versions, these binary packages include only the GF core (compiler and runtime).
+
+| Platform        | Download                                           | Features       | How to install                   |
+|:----------------|:---------------------------------------------------|:---------------|:---------------------------------|
+| macOS           | [gf-3.11.pkg](gf-3.11.pkg)                         | GF, S, C, J, P | Double-click on the package icon |
+| Ubuntu (32-bit) | [gf\_3.11\_i386.deb](gf_3.11_i386.deb)             | GF, S, C, J, P | `sudo dpkg -i gf_3.11_i386.deb`  |
+| Ubuntu (64-bit) | [gf\_3.11\_amd64.deb](gf_3.11_amd64.deb)           | GF, S, C, J, P | `sudo dpkg -i gf_3.11_amd64.deb` |
+| Windows         | [gf-3.11-bin-windows.zip](gf-3.11-bin-windows.zip) | GF, S          | `unzip gf-3.11-bin-windows.zip`  |
+
+**Features**
+
+- GF = GF shell and grammar compiler
+- S = `gf -server` mode
+- C = C run-time system
+- J/P = Java/Python binding to the C run-time system
+
+### Notes
+
+The Windows package is installed by just unpacking it anywhere. You will
+probably need to set the `PATH` and `GF_LIB_PATH` environment variables,
+see Inari's notes on [Installing GF on Windows](http://www.grammaticalframework.org/~inari/gf-windows.html#toc3).
+
+The Ubuntu `.deb` packages should work on Ubuntu 16.04 and 18.04 and
+similar Linux distributions. The `.deb` packages were updated
+to version 3.10-2 after the release of GF 3.10.
+(Because of a packaging bug the Resource Grammar Library was missing
+in the 3.10-1 packages.)
+
+The packages for macOS (Mac OS X) should work on at least 10.13 and
+10.14 (High Sierra and Mojave)
+
+## Installing the latest release from source
+
+[GF is on Hackage](http://hackage.haskell.org/package/gf), so under
+normal circumstances the procedure is fairly simple:
+
+1.  Install a recent version of the [Haskell
+    Platform](http://hackage.haskell.org/platform) (see note below)
+2.  `cabal update`
+3.  On Linux: install some C libraries from your Linux distribution (see note below)
+4.  `cabal install gf`
+
+This installs the GF executable and Haskell libraries, but **does not include the RGL**.
+
+You can also download the source code release from [GitHub](https://github.com/GrammaticalFramework/gf-core/releases),
+and follow the instructions below under **Installing from the latest developer source code**.
+
+### Notes
+
+**Installation location**
+
+The above steps installs GF for a single user. The executables are put
+in `$HOME/.cabal/bin` (or, with recent versions of the Haskell platform
+on Mac OS X, in `$HOME/Library/Haskell/bin`), so it is a good idea to
+put a line in your `.bash_profile` or `.profile` to add that directory
+to you path:
+
+```
+PATH=$HOME/.cabal/bin:$PATH
+```
+
+or
+
+```
+PATH=$HOME/Library/Haskell/bin:$PATH
+```
+
+**Build tools**
+
+In order to compile GF you need the build tools **Alex** and **Happy**.
+These can be installed via Cabal, e.g.:
+
+```
+cabal install alex happy
+```
+
+or obtained by other means, depending on your OS.
+
+**Haskeline**
+
+GF uses [`haskeline`](http://hackage.haskell.org/package/haskeline), which
+on Linux depends on some non-Haskell libraries that won't be installed
+automatically by cabal, and therefore need to be installed manually.
+Here is one way to do this:
+
+- On Ubuntu: `sudo apt-get install libghc-haskeline-dev`
+- On Fedora: `sudo dnf install ghc-haskeline-devel`
+
+**GHC version**
+
+The GF source code has been updated to compile with GHC 8.4.
+Using older versions of GHC (e.g. 8.2, 8.0 and 7.10) should still work too.
+
+## Installing from the latest developer source code
+
+If you haven't already, clone the repository with:
+
+```
+git clone https://github.com/GrammaticalFramework/gf-core.git
+```
+
+If you've already cloned the repository previously, update with:
+
+```
+git pull
+```
+
+Then install with:
+
+```
+cabal install
+```
+
+or, if you're a Stack user:
+
+```
+stack install
+```
+
+The above notes for installing from source apply also in these cases.
+For more info on working with the GF source code, see the
+[GF Developers Guide](../doc/gf-developers.html).
+
+## Installing the RGL from source
+
+To install the RGL from source,
+you can download a release from [GitHub](https://github.com/GrammaticalFramework/gf-rgl/releases)
+or get the latest version by cloning the repository:
+
+```
+git clone https://github.com/GrammaticalFramework/gf-rgl.git
+```
+
+In both cases, once you have the RGL sources you can install them by running:
+
+```
+make
+```
+
+in the RGL folder.
+This assumes that you already have GF installed.
+For more details about building the RGL, see the [RGL README](https://github.com/GrammaticalFramework/gf-rgl/blob/master/README.md).
+
+## Installing the Python bindings from PyPI
+
+The Python library is available on PyPI as `pgf`, so it can be installed using:
+
+```
+pip install pgf
+```
+
+We provide binary wheels for Linux and OSX (with Windows missing so far), which
+include the C runtime and a ready-to-go.  If there is no binary distribution for
+your platform, this will install the source tarball, which will attempt to build
+the binding during installation, and requires the GF C runtime to be installed on
+your system.
+
+## Older releases
+
+- [GF 3.10](index-3.10.html) (December 2018)
+- [GF 3.9](index-3.9.html) (August 2017)
+- [GF 3.8](index-3.8.html) (June 2016)
+- [GF 3.7.1](index-3.7.1.html) (October 2015)
+- [GF 3.7](index-3.7.html) (June 2015)
+- [GF 3.6](index-3.6.html) (June 2014)
+- [GF 3.5](index-3.5.html) (August 2013)
+- [GF 3.4](index-3.4.html) (January 2013)
+- [GF 3.3.3](index-3.3.3.html) (March 2012)
+- [GF 3.3](index-3.3.html) (October 2011)
+- [GF 3.2.9](index-3.2.9.html) source-only snapshot (September 2011)
+- [GF 3.2](index-3.2.html) (December 2010)
+- [GF 3.1.6](index-3.1.6.html) (April 2010)
