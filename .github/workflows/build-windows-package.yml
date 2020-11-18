@@ -37,6 +37,6 @@ jobs:
     - name: Upload exe to artifact
       uses: actions/upload-artifact@v2
       with:
-        name: Windows package
+        name: gf-${{ github.sha }}-windows
         path: dist\build\gf\gf.exe
         if-no-files-found: error

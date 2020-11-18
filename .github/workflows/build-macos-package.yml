@@ -38,6 +38,6 @@ jobs:
     - name: Upload artifact
       uses: actions/upload-artifact@v2
       with:
-        name: macOS package
+        name: gf-${{ github.sha }}-macos
         path: dist/gf-*.pkg
         if-no-files-found: error
