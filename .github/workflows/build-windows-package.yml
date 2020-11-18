@@ -1,0 +1,43 @@
+name: Build Windows Package
+
+on:
+  push:
+  workflow_dispatch:
+
+jobs:
+  build:
+    name: Build on ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [windows-2019]
+        ghc: ["8.6.5"]
+        cabal: ["2.4"]
+
+    steps:
+    - uses: actions/checkout@v2
+
+    - name: Setup Haskell
+      uses: actions/setup-haskell@v1
+      id: setup-haskell-cabal
+      with:
+        ghc-version: ${{ matrix.ghc }}
+        cabal-version: ${{ matrix.cabal }}
+
+    # - name: Install build tools
+    #   run: |
+    #     brew install \
+    #       automake \
+    #       openjdk
+    #     cabal v1-install alex happy
+
+    - name: Build GF package
+      run: |
+        cabal build
+
+    # - name: Upload artifact
+    #   uses: actions/upload-artifact@v2
+    #   with:
+    #     name: macOS package
+    #     path: dist/gf-*.pkg
+    #     if-no-files-found: error
