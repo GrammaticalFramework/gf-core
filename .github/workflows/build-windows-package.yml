@@ -17,6 +17,12 @@ jobs:
     steps:
     - uses: actions/checkout@v2
 
+    - name: Setup MSYS2
+      uses: msys2/setup-msys2@v2
+      with:
+        install: >-
+          base-devel
+
     - name: Setup Haskell
       uses: actions/setup-haskell@v1
       id: setup-haskell-cabal
@@ -27,6 +33,19 @@ jobs:
     - name: Install build tools
       run: |
         cabal install alex happy
+
+    - name: Build C runtime
+      shell: msys2 {0}
+      run: |
+        cd src\runtime\c
+        autoreconf -i
+        ./configure
+        make
+        make install
+
+    # - name: Build Java bindings
+    #
+    # - name: Build Python bindings
 
     - name: Build GF
       run: |
