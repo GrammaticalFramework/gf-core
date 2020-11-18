@@ -32,8 +32,8 @@ jobs:
 
     - name: Build macOS package
       run: |
-        mkdir -p /Library/Java/Home
-        ln -s /usr/local/opt/openjdk/include /Library/Java/Home/include
+        sudo mkdir -p /Library/Java/Home
+        sudo ln -s /usr/local/opt/openjdk/include /Library/Java/Home/include
         make pkg
 
     - name: Upload artifact
