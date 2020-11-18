@@ -33,6 +33,8 @@ jobs:
 
     - name: Build GF package
       run: |
+        cabal install --only-dependencies
+        cabal configure
         cabal build
 
     # - name: Upload artifact
