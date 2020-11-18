@@ -10,7 +10,7 @@ jobs:
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
-        os: [macOS-latest]
+        os: [macos-10.15]
         ghc: ["8.6.5"]
         cabal: ["2.4"]
 
@@ -27,7 +27,8 @@ jobs:
     - name: Install build tools
       run: |
         brew install \
-          automake
+          automake \
+          openjdk
         cabal v1-install alex happy
 
     - name: Build macOS package
