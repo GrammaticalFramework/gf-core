@@ -32,7 +32,7 @@ jobs:
 
     - name: Build macOS package
       run: |
-        export CPPFLAGS="-I/usr/local/opt/openjdk/include"
+        ln -s /usr/local/opt/openjdk/include /Library/Java/Home/include
         make pkg
 
     - name: Upload artifact
