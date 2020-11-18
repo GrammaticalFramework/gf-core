@@ -23,14 +23,11 @@ jobs:
         ghc-version: ${{ matrix.ghc }}
         cabal-version: ${{ matrix.cabal }}
 
-    # - name: Install build tools
-    #   run: |
-    #     brew install \
-    #       automake \
-    #       openjdk
-    #     cabal v1-install alex happy
+    - name: Install build tools
+      run: |
+        cabal install alex happy
 
-    - name: Build GF package
+    - name: Build GF
       run: |
         cabal install --only-dependencies
         cabal configure
