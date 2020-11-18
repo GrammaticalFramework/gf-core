@@ -1,6 +1,7 @@
 name: Build macOS Package
 
 on:
+  push: # testing until merged into master
   workflow_dispatch:
 
 jobs:
@@ -17,7 +18,9 @@ jobs:
     - uses: actions/checkout@v2
 
     # just to see output
-    - run: find / -name jni.h
+    - run: echo $JAVA_HOME
+    - run: echo $JAVA_INCLUDE_DIR
+    - run: export JAVA_INCLUDE_DIR=/usr/local/Cellar/openjdk/15.0.1/include
     - run: brew reinstall openjdk
 
     - name: Setup Haskell
