@@ -30,13 +30,13 @@ jobs:
 
     - name: Build GF
       run: |
-        cabal install --only-dependencies
-        cabal configure
+        cabal install --only-dependencies -fserver
+        cabal configure -fserver
         cabal build
 
-    # - name: Upload artifact
-    #   uses: actions/upload-artifact@v2
-    #   with:
-    #     name: macOS package
-    #     path: dist/gf-*.pkg
-    #     if-no-files-found: error
+    - name: Upload exe to artifact
+      uses: actions/upload-artifact@v2
+      with:
+        name: Windows package
+        path: dist\build\gf\gf.exe
+        if-no-files-found: error
