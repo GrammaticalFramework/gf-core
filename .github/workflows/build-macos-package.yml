@@ -17,6 +17,11 @@ jobs:
     steps:
     - uses: actions/checkout@v2
 
+    # just to see output
+    - run: locate jni.h
+    - run: find / -name jni.h
+    - run: brew reinstall openjdk
+
     - name: Setup Haskell
       uses: actions/setup-haskell@v1
       id: setup-haskell-cabal
@@ -27,8 +32,7 @@ jobs:
     - name: Install build tools
       run: |
         brew install \
-          automake \
-          openjdk
+          automake
         cabal v1-install alex happy
 
     - name: Build macOS package
