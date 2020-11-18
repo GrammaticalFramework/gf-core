@@ -1,7 +1,6 @@
 name: Build macOS Package
 
 on:
-  push:
   workflow_dispatch:
 
 jobs:
