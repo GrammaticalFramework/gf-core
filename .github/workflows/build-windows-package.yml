@@ -37,15 +37,11 @@ jobs:
     - name: Build C runtime
       shell: msys2 {0}
       run: |
-        cd src\runtime\c
+        cd src/runtime/c
         autoreconf -i
         ./configure
         make
         make install
-
-    # - name: Build Java bindings
-    #
-    # - name: Build Python bindings
 
     - name: Build GF
       run: |
