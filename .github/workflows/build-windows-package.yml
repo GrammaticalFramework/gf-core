@@ -22,6 +22,7 @@ jobs:
       with:
         install: >-
           base-devel
+          gcc
 
     - name: Setup Haskell
       uses: actions/setup-haskell@v1
