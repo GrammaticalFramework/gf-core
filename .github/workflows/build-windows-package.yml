@@ -44,6 +44,23 @@ jobs:
         make
         make install
 
+    - name: Upload C runtime to artifact
+      uses: actions/upload-artifact@v2
+      with:
+        name: gf-${{ github.sha }}-windows
+        path: |
+          /mingw64/bin/libpgf-0.dll
+          /mingw64/bin/libgu-0.dll
+        if-no-files-found: error
+
+    # - name: Build Java bindings
+    #
+    # - name: Upload Java bindings to artifact
+    #
+    # - name: Build Python bindings
+    #
+    # - name: Upload Python bindings to artifact
+
     - name: Build GF
       run: |
         cabal install --only-dependencies -fserver
