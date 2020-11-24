@@ -55,8 +55,8 @@ jobs:
       run: |
         cd src/runtime/java
         make \
-          JNI_INCLUDES="-I \"/c/Program Files/Java/jdk8u275-b01/include\" -I \"/c/Program Files/Java/jdk8u275-b01/include/win32\" -I \"/mingw64/include\" " \
-          WINDOWS_LDFLAGS="-L\"/mingw64/lib\" -no-undefined -D__int64=int64_t"
+          JNI_INCLUDES="-I \"/c/Program Files/Java/jdk8u275-b01/include\" -I \"/c/Program Files/Java/jdk8u275-b01/include/win32\" -I \"/mingw64/include\" -D__int64=int64_t" \
+          WINDOWS_LDFLAGS="-L\"/mingw64/lib\" -no-undefined"
         make install
         # cp ... /c/tmp-dist
 
