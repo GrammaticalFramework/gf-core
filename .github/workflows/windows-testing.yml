@@ -8,4 +8,4 @@ jobs:
 
     steps:
     - run: |
-        dir C:\Program Files\Java\
+        dir "C:\Program Files\Java"
