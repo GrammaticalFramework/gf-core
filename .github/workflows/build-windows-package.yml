@@ -57,8 +57,15 @@ jobs:
         path: C:\tmp-dist\*
         if-no-files-found: error
 
-    # - name: Build Java bindings
-    #
+    - name: Build Java bindings
+      shell: msys2 {0}
+      run: |
+        cd src/runtime/java
+        make \
+          JNI_INCLUDES="-I \"/c/Program Files/Java/jdk8u275-b01/include\" -I \"/c/Program Files/Java/jdk8u275-b01/include/win32\" -I \"/mingw64/local/include\" " \
+          WINDOWS_LDFLAGS="-L\"/mingw64/local/lib\" -no-undefined"
+        make install
+
     # - name: Upload Java bindings to artifact
     #
     # - name: Build Python bindings
