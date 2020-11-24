@@ -60,7 +60,8 @@ jobs:
           JNI_INCLUDES="-I \"/c/Program Files/Java/jdk8u275-b01/include\" -I \"/c/Program Files/Java/jdk8u275-b01/include/win32\" -I \"/mingw64/include\" -D__int64=int64_t" \
           WINDOWS_LDFLAGS="-L\"/mingw64/lib\" -no-undefined"
         make install
-        cp /usr/local/lib/jpgf.jar /c/tmp-dist
+        find /mingw64 -name jpgf.jar
+        cp /mingw64/lib/jpgf.jar /c/tmp-dist
 
     # - name: Build Python bindings
 
