@@ -27,7 +27,7 @@ jobs:
     - name: Find Java stuff
       shell: msys2 {0}
       run: |
-        find / -name "jni.h"
+        find /c -name "jni.h"
 
     - name: Setup Haskell
       uses: actions/setup-haskell@v1
