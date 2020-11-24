@@ -1,0 +1,10 @@
+name: Windows testing
+
+on: push
+
+jobs:
+  run:
+    runs-on: windows-2019
+
+    steps:
+    - run: where java
