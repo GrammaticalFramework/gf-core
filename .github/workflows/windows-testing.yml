@@ -7,4 +7,5 @@ jobs:
     runs-on: windows-2019
 
     steps:
-    - run: where java
+    - run: |
+        dir C:\Program Files\Java\
