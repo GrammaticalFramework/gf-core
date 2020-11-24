@@ -60,11 +60,16 @@ jobs:
           JNI_INCLUDES="-I \"/c/Program Files/Java/jdk8u275-b01/include\" -I \"/c/Program Files/Java/jdk8u275-b01/include/win32\" -I \"/mingw64/include\" -D__int64=int64_t" \
           WINDOWS_LDFLAGS="-L\"/mingw64/lib\" -no-undefined"
         make install
-        find /mingw64 -name jpgf.jar
-        cp .libs//msys-jpgf-0.dll /c/tmp-dist
+        cp .libs//msys-jpgf-0.dll /c/tmp-dist/jpgf.dll
         cp jpgf.jar /c/tmp-dist
 
-    # - name: Build Python bindings
+    - name: Build Python bindings
+      shell: msys2 {0}
+      run: |
+        cd src/runtime/python
+        python setup.py build
+        python setup.py install
+        cp build/*/pgf.so /c/tmp-dist
 
     - name: Build GF
       run: |
