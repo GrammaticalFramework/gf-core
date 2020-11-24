@@ -48,7 +48,7 @@ jobs:
       uses: actions/upload-artifact@v2
       with:
         name: gf-${{ github.sha }}-windows
-        path: /mingw64/bin/*
+        path: /d/mingw64/bin/*
         if-no-files-found: error
 
     # - name: Build Java bindings
