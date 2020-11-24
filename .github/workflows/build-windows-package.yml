@@ -61,7 +61,8 @@ jobs:
           WINDOWS_LDFLAGS="-L\"/mingw64/lib\" -no-undefined"
         make install
         find /mingw64 -name jpgf.jar
-        cp /mingw64/lib/jpgf.jar /c/tmp-dist
+        cp .libs//msys-jpgf-0.dll /c/tmp-dist
+        cp jpgf.jar /c/tmp-dist
 
     # - name: Build Python bindings
 
