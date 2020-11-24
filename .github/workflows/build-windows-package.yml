@@ -24,6 +24,11 @@ jobs:
           base-devel
           gcc
 
+    - name: Find Java stuff
+      shell: msys2 {0}
+      run: |
+        find / -name "jni.h"
+
     - name: Setup Haskell
       uses: actions/setup-haskell@v1
       id: setup-haskell-cabal
