@@ -44,13 +44,16 @@ jobs:
         make
         make install
 
+    - shell: mysys2 {0}
+      run: |
+        ls -al /mingw64/bin
+
     - name: Upload C runtime to artifact
       uses: actions/upload-artifact@v2
       with:
         name: gf-${{ github.sha }}-windows
         path: |
-          /mingw64/bin/libpgf-0.dll
-          /mingw64/bin/libgu-0.dll
+          /mingw64/bin
         if-no-files-found: error
 
     # - name: Build Java bindings

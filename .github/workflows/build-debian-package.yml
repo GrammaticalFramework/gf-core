@@ -1,7 +1,6 @@
 name: Build Debian Package
 
 on:
-  push: # testing until merged into master
   workflow_dispatch:
 
 jobs:
