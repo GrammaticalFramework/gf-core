@@ -44,7 +44,7 @@ jobs:
         make
         make install
 
-    - shell: mysys2 {0}
+    - shell: msys2 {0}
       run: |
         ls -al /mingw64/bin
 
