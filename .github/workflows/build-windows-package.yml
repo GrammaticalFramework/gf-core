@@ -50,37 +50,28 @@ jobs:
         make install
         cp /mingw64/bin/*.dll /c/tmp-dist
 
-    - name: Upload C runtime to artifact
-      uses: actions/upload-artifact@v2
-      with:
-        name: gf-${{ github.sha }}-windows
-        path: C:\tmp-dist\*
-        if-no-files-found: error
-
     - name: Build Java bindings
       shell: msys2 {0}
       run: |
         cd src/runtime/java
         make \
           JNI_INCLUDES="-I \"/c/Program Files/Java/jdk8u275-b01/include\" -I \"/c/Program Files/Java/jdk8u275-b01/include/win32\" -I \"/mingw64/include\" " \
-          WINDOWS_LDFLAGS="-L\"/mingw64/lib\" -no-undefined"
+          WINDOWS_LDFLAGS="-L\"/mingw64/lib\" -no-undefined -D__int64=int64_t"
         make install
+        # cp ... /c/tmp-dist
 
-    # - name: Upload Java bindings to artifact
-    #
     # - name: Build Python bindings
-    #
-    # - name: Upload Python bindings to artifact
 
     - name: Build GF
       run: |
         cabal install --only-dependencies -fserver
         cabal configure -fserver
         cabal build
+        copy dist\build\gf\gf.exe C:\tmp-dist
 
-    - name: Upload exe to artifact
+    - name: Upload artifact
       uses: actions/upload-artifact@v2
       with:
         name: gf-${{ github.sha }}-windows
-        path: dist\build\gf\gf.exe
+        path: C:\tmp-dist\*
         if-no-files-found: error
