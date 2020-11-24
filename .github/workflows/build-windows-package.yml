@@ -53,6 +53,9 @@ jobs:
     - name: Build Java bindings
       shell: msys2 {0}
       run: |
+        echo $PATH
+        export PATH="${PATH}:/c/Program Files/Java/jdk8u275-b01/bin"
+
         cd src/runtime/java
         make \
           JNI_INCLUDES="-I \"/c/Program Files/Java/jdk8u275-b01/include\" -I \"/c/Program Files/Java/jdk8u275-b01/include/win32\" -I \"/mingw64/include\" -D__int64=int64_t" \
