@@ -34,6 +34,7 @@ jobs:
     - name: Install build tools
       run: |
         cabal install alex happy
+        pip install python-dev-tools
 
     - name: Prepare dist folder
       shell: msys2 {0}
@@ -64,10 +65,11 @@ jobs:
         cp jpgf.jar /c/tmp-dist
 
     - name: Build Python bindings
-      # shell: msys2 {0}
+      env:
+        EXTRA_INCLUDE_DIRS: /usr/local/include
+        EXTRA_LIB_DIRS: /usr/local/lib
       run: |
         cd src/runtime/python
-        pip install python-dev-tools
         python setup.py build
         python setup.py install
       # cp build/*/pgf.so /c/tmp-dist
