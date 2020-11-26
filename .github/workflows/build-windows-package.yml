@@ -23,6 +23,7 @@ jobs:
         install: >-
           base-devel
           gcc
+          python-pip
 
     - name: Prepare dist folder
       shell: msys2 {0}
@@ -59,15 +60,12 @@ jobs:
 
     - name: Install Python build tools
       shell: msys2 {0}
-      env:
-        MSYS2_PATH_TYPE: inherit
       run: |
         pip install python-dev-tools
 
     - name: Build Python bindings
       shell: msys2 {0}
       env:
-        MSYS2_PATH_TYPE: inherit
         EXTRA_INCLUDE_DIRS: /mingw64/include
         EXTRA_LIB_DIRS: /mingw64/lib
       run: |
