@@ -24,18 +24,6 @@ jobs:
           base-devel
           gcc
 
-    - name: Setup Haskell
-      uses: actions/setup-haskell@v1
-      id: setup-haskell-cabal
-      with:
-        ghc-version: ${{ matrix.ghc }}
-        cabal-version: ${{ matrix.cabal }}
-
-    - name: Install build tools
-      run: |
-        cabal install alex happy
-        pip install python-dev-tools
-
     - name: Prepare dist folder
       shell: msys2 {0}
       run: |
@@ -64,7 +52,15 @@ jobs:
         cp .libs//msys-jpgf-0.dll /c/tmp-dist/jpgf.dll
         cp jpgf.jar /c/tmp-dist
 
-    - run: where python
+    - run: echo %PATH%
+
+    - shell: msys2 {0}
+      run: echo $PATH
+
+    - name: Install Python build tools
+      shell: msys2 {0}
+      run: |
+        pip install python-dev-tools
 
     - name: Build Python bindings
       shell: msys2 {0}
@@ -72,10 +68,22 @@ jobs:
         EXTRA_INCLUDE_DIRS: /mingw64/include
         EXTRA_LIB_DIRS: /mingw64/lib
       run: |
+        pip install python-dev-tools
         cd src/runtime/python
         python setup.py build
         python setup.py install
       # cp build/*/pgf.so /c/tmp-dist
+
+    - name: Setup Haskell
+      uses: actions/setup-haskell@v1
+      id: setup-haskell-cabal
+      with:
+        ghc-version: ${{ matrix.ghc }}
+        cabal-version: ${{ matrix.cabal }}
+
+    - name: Install Haskell build tools
+      run: |
+        cabal install alex happy
 
     - name: Build GF
       run: |
