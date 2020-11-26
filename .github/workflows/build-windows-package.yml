@@ -59,6 +59,8 @@ jobs:
 
     - name: Install Python build tools
       shell: msys2 {0}
+      env:
+        MSYS2_PATH_TYPE: inherit
       run: |
         pip install python-dev-tools
 
@@ -68,7 +70,6 @@ jobs:
         EXTRA_INCLUDE_DIRS: /mingw64/include
         EXTRA_LIB_DIRS: /mingw64/lib
       run: |
-        pip install python-dev-tools
         cd src/runtime/python
         python setup.py build
         python setup.py install
