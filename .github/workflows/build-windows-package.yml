@@ -64,10 +64,13 @@ jobs:
         cp .libs//msys-jpgf-0.dll /c/tmp-dist/jpgf.dll
         cp jpgf.jar /c/tmp-dist
 
+    - run: where python
+
     - name: Build Python bindings
+      shell: msys2 {0}
       env:
-        EXTRA_INCLUDE_DIRS: /usr/local/include
-        EXTRA_LIB_DIRS: /usr/local/lib
+        EXTRA_INCLUDE_DIRS: /mingw64/include
+        EXTRA_LIB_DIRS: /mingw64/lib
       run: |
         cd src/runtime/python
         python setup.py build
