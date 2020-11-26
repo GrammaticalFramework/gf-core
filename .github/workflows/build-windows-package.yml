@@ -29,6 +29,9 @@ jobs:
       shell: msys2 {0}
       run: |
         mkdir /c/tmp-dist
+        mkdir /c/tmp-dist/c
+        mkdir /c/tmp-dist/java
+        mkdir /c/tmp-dist/python
 
     - name: Build C runtime
       shell: msys2 {0}
@@ -38,8 +41,8 @@ jobs:
         ./configure
         make
         make install
-        cp /mingw64/bin/libpgf-0.dll /c/tmp-dist
-        cp /mingw64/bin/libgu-0.dll /c/tmp-dist
+        cp /mingw64/bin/libpgf-0.dll /c/tmp-dist/c
+        cp /mingw64/bin/libgu-0.dll /c/tmp-dist/c
 
     - name: Build Java bindings
       shell: msys2 {0}
@@ -50,13 +53,8 @@ jobs:
           JNI_INCLUDES="-I \"/c/Program Files/Java/jdk8u275-b01/include\" -I \"/c/Program Files/Java/jdk8u275-b01/include/win32\" -I \"/mingw64/include\" -D__int64=int64_t" \
           WINDOWS_LDFLAGS="-L\"/mingw64/lib\" -no-undefined"
         make install
-        cp .libs//msys-jpgf-0.dll /c/tmp-dist/jpgf.dll
-        cp jpgf.jar /c/tmp-dist
-
-    - run: $Env:Path
-
-    - shell: msys2 {0}
-      run: echo $PATH
+        cp .libs//msys-jpgf-0.dll /c/tmp-dist/java/jpgf.dll
+        cp jpgf.jar /c/tmp-dist/java
 
     - name: Build Python bindings
       shell: msys2 {0}
@@ -67,7 +65,7 @@ jobs:
         cd src/runtime/python
         python setup.py build
         python setup.py install
-      # cp build/*/pgf.so /c/tmp-dist
+        cp /usr/lib/python3.8/site-packages/pgf* /c/tmp-dist/python
 
     - name: Setup Haskell
       uses: actions/setup-haskell@v1
