@@ -52,7 +52,7 @@ jobs:
         cp .libs//msys-jpgf-0.dll /c/tmp-dist/jpgf.dll
         cp jpgf.jar /c/tmp-dist
 
-    - run: echo %PATH%
+    - run: $Env:Path
 
     - shell: msys2 {0}
       run: echo $PATH
