@@ -23,7 +23,7 @@ jobs:
         install: >-
           base-devel
           gcc
-          python-pip
+          python-devel
 
     - name: Prepare dist folder
       shell: msys2 {0}
@@ -57,11 +57,6 @@ jobs:
 
     - shell: msys2 {0}
       run: echo $PATH
-
-    - name: Install Python build tools
-      shell: msys2 {0}
-      run: |
-        pip install python-dev-tools
 
     - name: Build Python bindings
       shell: msys2 {0}
