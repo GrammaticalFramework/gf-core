@@ -568,9 +568,9 @@ unifyVar ge scope i env vs ty2 = do            -- Check whether i is bound
     Bound ty1       -> do v <- liftErr (eval ge env ty1)
                           unify ge scope (vapply (geLoc ge) v vs) ty2
     Unbound scope' _ -> case value2term (geLoc ge) (scopeVars scope') ty2 of
-                          Left i     -> let (v,_) = reverse scope !! i
-                                        in tcError ("Variable" <+> pp v <+> "has escaped")
-                          Right ty2' -> do ms2 <- getMetaVars (geLoc ge) [(scope,ty2)]
+                          -- Left i     -> let (v,_) = reverse scope !! i
+                          --               in tcError ("Variable" <+> pp v <+> "has escaped")
+                                ty2' -> do ms2 <- getMetaVars (geLoc ge) [(scope,ty2)]
                                            if i `elem` ms2
                                              then tcError ("Occurs check for" <+> ppMeta i <+> "in:" $$
                                                            nest 2 (ppTerm Unqualified 0 ty2'))
@@ -766,8 +766,8 @@ zonkTerm t = composOp zonkTerm t
 
 tc_value2term loc xs v =
   case value2term loc xs v of
-    Left i  -> tcError ("Variable #" <+> pp i <+> "has escaped")
-    Right t -> return t
+    -- Left i  -> tcError ("Variable #" <+> pp i <+> "has escaped")
+    t -> return t
 
 
 

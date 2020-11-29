@@ -30,11 +30,12 @@ import Debug.Trace(trace)
 normalForm :: GlobalEnv -> L Ident -> Term -> Term
 normalForm (GE gr rv opts _) loc = err (bugloc loc) id . nfx (GE gr rv opts loc)
 
+nfx :: GlobalEnv -> Term -> Err Term
 nfx env@(GE _ _ _ loc) t = do
   v <- eval env [] t
   case value2term loc [] v of
-    Left i  -> fail ("variable #"++show i++" is out of scope")
-    Right t -> return t
+    -- Left i  -> fail ("variable #"++show i++" is out of scope")
+    t -> return t
 
 eval :: GlobalEnv -> Env -> Term -> Err Value
 eval (GE gr rvs opts loc) env t = ($ (map snd env)) # value cenv t
@@ -289,8 +290,8 @@ glue env (v1,v2) = glu v1 v2
                        then VC v1 (VC (VApp BIND []) v2)
                        else let loc  = gloc env
                                 vt v = case value2term loc (local env) v of
-                                         Left i  -> Error ('#':show i)
-                                         Right t -> t
+                                        --  Left i  -> Error ('#':show i)
+                                        t -> t
                                 originalMsg = render $ ppL loc (hang "unsupported token gluing" 4
                                                                (Glue (vt v1) (vt v2)))
                                 term = render $ pp  $ Glue (vt v1) (vt v2)
@@ -356,8 +357,8 @@ select env vv =
 
 match loc cs v =
   case value2term loc [] v of
-    Left i  -> bad ("variable #"++show i++" is out of scope")
-    Right t -> err bad return (matchPattern cs t)
+    -- Left i  -> bad ("variable #"++show i++" is out of scope")
+    t -> err bad return (matchPattern cs t)
   where
     bad = fail . ("In pattern matching: "++)
 
@@ -384,8 +385,8 @@ valueTable env i cs =
 
     convertv cs' vty =
       case value2term (gloc env) [] vty of
-        Left i    -> fail ("variable #"++show i++" is out of scope")
-        Right pty -> convert' cs' =<< paramValues'' env pty
+        -- Left i    -> fail ("variable #"++show i++" is out of scope")
+        pty -> convert' cs' =<< paramValues'' env pty
 
     convert cs' ty = convert' cs' =<< paramValues' env ty
 
@@ -497,8 +498,8 @@ vtrace loc arg res = trace (render (hang (pv arg) 4 ("->"<+>pv res))) res
               t -> ppTerm Unqualified 10 t
 
 -- | Convert a value back to a term
-value2term :: GLocation -> [Ident] -> Value -> Either Int Term
-value2term loc xs v0 = Right $ value2term' False loc xs v0
+value2term :: GLocation -> [Ident] -> Value -> Term
+value2term = value2term' False
 
 value2term' :: Bool -> p -> [Ident] -> Value -> Term
 value2term' stop loc xs v0 =
