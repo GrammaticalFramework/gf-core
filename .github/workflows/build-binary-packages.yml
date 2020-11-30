@@ -1,15 +1,96 @@
-name: Build Windows Package
+name: Build Binary Packages
 
 on:
   workflow_dispatch:
+  release:
 
 jobs:
-  build:
-    name: Build on ${{ matrix.os }}
-    runs-on: ${{ matrix.os }}
+
+# ---
+
+  ubuntu:
+    name: Build Ubuntu package
+    runs-on: ubuntu-18.04
+    # env:
+    #   LC_ALL: C.UTF-8
+
+    steps:
+    - uses: actions/checkout@v2
+
+    - name: Install build tools
+      run: |
+        sudo apt update
+        sudo apt install -y \
+          make \
+          dpkg-dev \
+          debhelper \
+          haskell-platform \
+          libghc-json-dev \
+          python-dev \
+          default-jdk \
+          libtool-bin
+
+    - name: Build Debian package
+      run: |
+        make deb
+
+    - name: Copy package
+      run: |
+        cp ../gf_*.deb dist/
+
+    - name: Upload artifact
+      uses: actions/upload-artifact@v2
+      with:
+        name: gf-${{ github.sha }}-debian
+        path: dist/gf_*.deb
+        if-no-files-found: error
+
+# ---
+
+  macos:
+    name: Build macOS package
+    runs-on: macos-10.15
     strategy:
       matrix:
-        os: [windows-2019]
+        ghc: ["8.6.5"]
+        cabal: ["2.4"]
+
+    steps:
+    - uses: actions/checkout@v2
+
+    - name: Setup Haskell
+      uses: actions/setup-haskell@v1
+      id: setup-haskell-cabal
+      with:
+        ghc-version: ${{ matrix.ghc }}
+        cabal-version: ${{ matrix.cabal }}
+
+    - name: Install build tools
+      run: |
+        brew install \
+          automake
+        cabal v1-install alex happy
+
+    - name: Build macOS package
+      run: |
+        sudo mkdir -p /Library/Java/Home
+        sudo ln -s /usr/local/opt/openjdk/include /Library/Java/Home/include
+        make pkg
+
+    - name: Upload artifact
+      uses: actions/upload-artifact@v2
+      with:
+        name: gf-${{ github.sha }}-macos
+        path: dist/gf-*.pkg
+        if-no-files-found: error
+
+# ---
+
+  windows:
+    name: Build Windows package
+    runs-on: windows-2019
+    strategy:
+      matrix:
         ghc: ["8.6.5"]
         cabal: ["2.4"]
 
