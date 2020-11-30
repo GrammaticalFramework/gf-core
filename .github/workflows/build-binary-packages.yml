@@ -11,16 +11,28 @@ jobs:
   ubuntu:
     name: Build Ubuntu package
     runs-on: ubuntu-18.04
-    # env:
-    #   LC_ALL: C.UTF-8
+    # strategy:
+    #   matrix:
+    #     ghc: ["8.6.5"]
+    #     cabal: ["2.4"]
 
     steps:
     - uses: actions/checkout@v2
 
+    # Note: `haskell-platform` is listed as requirement in debian/control,
+    # which is why it's installed using apt instead of the Setup Haskell action.
+
+    # - name: Setup Haskell
+    #   uses: actions/setup-haskell@v1
+    #   id: setup-haskell-cabal
+    #   with:
+    #     ghc-version: ${{ matrix.ghc }}
+    #     cabal-version: ${{ matrix.cabal }}
+
     - name: Install build tools
       run: |
-        sudo apt update
-        sudo apt install -y \
+        sudo apt-get update
+        sudo apt-get install -y \
           make \
           dpkg-dev \
           debhelper \
@@ -30,7 +42,7 @@ jobs:
           default-jdk \
           libtool-bin
 
-    - name: Build Debian package
+    - name: Build package
       run: |
         make deb
 
@@ -71,7 +83,7 @@ jobs:
           automake
         cabal v1-install alex happy
 
-    - name: Build macOS package
+    - name: Build package
       run: |
         sudo mkdir -p /Library/Java/Home
         sudo ln -s /usr/local/opt/openjdk/include /Library/Java/Home/include
