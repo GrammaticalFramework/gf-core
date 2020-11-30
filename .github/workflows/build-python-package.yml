@@ -1,6 +1,10 @@
 name: Build & Publish Python Package
 
-on: [push, pull_request]
+# Trigger the workflow on push or pull request, but only for the master branch
+on:
+  pull_request:
+  push:
+    branches: [master]
 
 jobs:
   build_wheels:
@@ -9,7 +13,7 @@ jobs:
     strategy:
       fail-fast: true
       matrix:
-        os: [ubuntu-18.04, macos-latest]
+        os: [ubuntu-18.04, macos-10.15]
 
     steps:
     - uses: actions/checkout@v1

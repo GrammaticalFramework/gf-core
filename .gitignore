@@ -5,6 +5,12 @@
 *.jar
 *.gfo
 *.pgf
+debian/.debhelper
+debian/debhelper-build-stamp
+debian/gf
+debian/gf.debhelper.log
+debian/gf.substvars
+debian/files
 dist/
 dist-newstyle/
 src/runtime/c/.libs/

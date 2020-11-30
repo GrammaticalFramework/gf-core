@@ -1,6 +1,6 @@
 #!/usr/bin/make -f
 
-%: 
+%:
 	+dh $@
 
 #dh_shlibdeps has a problem finding which package some of the Haskell
@@ -26,14 +26,10 @@ override_dh_auto_build:
 	cd src/runtime/python && EXTRA_INCLUDE_DIRS=$(CURDIR)/src/runtime/c EXTRA_LIB_DIRS=$(CURDIR)/src/runtime/c/.libs python setup.py build
 	cd src/runtime/java && make CFLAGS="-I$(CURDIR)/src/runtime/c -L$(CURDIR)/src/runtime/c/.libs" INSTALL_PATH=/usr
 	echo $(SET_LDL)
-	-$(SET_LDL) cabal build # builds gf, fails to build example grammars
-	export $(SET_LDL); PATH=$(CURDIR)/dist/build/gf:$$PATH && make -C ../gf-rgl build
-	GF_LIB_PATH=$(CURDIR)/../gf-rgl/dist $(SET_LDL) cabal build # have RGL now, ok to build example grammars
-	make html
+	-$(SET_LDL) cabal build
 
 override_dh_auto_install:
-	$(SET_LDL) cabal copy --destdir=$(CURDIR)/debian/gf # creates www directory
-	export GF_LIB_PATH="$$(dirname $$(find "$(CURDIR)/debian/gf" -name www))/lib" && echo "GF_LIB_PATH=$$GF_LIB_PATH" && mkdir -p "$$GF_LIB_PATH" && make -C ../gf-rgl copy
+	$(SET_LDL) cabal copy --destdir=$(CURDIR)/debian/gf
 	cd src/runtime/c && bash setup.sh copy prefix=$(CURDIR)/debian/gf/usr
 	cd src/runtime/python && python setup.py install --prefix=$(CURDIR)/debian/gf/usr
 	cd src/runtime/java && make INSTALL_PATH=$(CURDIR)/debian/gf/usr install

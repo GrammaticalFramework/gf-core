@@ -1,0 +1,173 @@
+name: Build Binary Packages
+
+on:
+  workflow_dispatch:
+  release:
+
+jobs:
+
+# ---
+
+  ubuntu:
+    name: Build Ubuntu package
+    runs-on: ubuntu-18.04
+    # env:
+    #   LC_ALL: C.UTF-8
+
+    steps:
+    - uses: actions/checkout@v2
+
+    - name: Install build tools
+      run: |
+        sudo apt update
+        sudo apt install -y \
+          make \
+          dpkg-dev \
+          debhelper \
+          haskell-platform \
+          libghc-json-dev \
+          python-dev \
+          default-jdk \
+          libtool-bin
+
+    - name: Build Debian package
+      run: |
+        make deb
+
+    - name: Copy package
+      run: |
+        cp ../gf_*.deb dist/
+
+    - name: Upload artifact
+      uses: actions/upload-artifact@v2
+      with:
+        name: gf-${{ github.sha }}-ubuntu
+        path: dist/gf_*.deb
+        if-no-files-found: error
+
+# ---
+
+  macos:
+    name: Build macOS package
+    runs-on: macos-10.15
+    strategy:
+      matrix:
+        ghc: ["8.6.5"]
+        cabal: ["2.4"]
+
+    steps:
+    - uses: actions/checkout@v2
+
+    - name: Setup Haskell
+      uses: actions/setup-haskell@v1
+      id: setup-haskell-cabal
+      with:
+        ghc-version: ${{ matrix.ghc }}
+        cabal-version: ${{ matrix.cabal }}
+
+    - name: Install build tools
+      run: |
+        brew install \
+          automake
+        cabal v1-install alex happy
+
+    - name: Build macOS package
+      run: |
+        sudo mkdir -p /Library/Java/Home
+        sudo ln -s /usr/local/opt/openjdk/include /Library/Java/Home/include
+        make pkg
+
+    - name: Upload artifact
+      uses: actions/upload-artifact@v2
+      with:
+        name: gf-${{ github.sha }}-macos
+        path: dist/gf-*.pkg
+        if-no-files-found: error
+
+# ---
+
+  windows:
+    name: Build Windows package
+    runs-on: windows-2019
+    strategy:
+      matrix:
+        ghc: ["8.6.5"]
+        cabal: ["2.4"]
+
+    steps:
+    - uses: actions/checkout@v2
+
+    - name: Setup MSYS2
+      uses: msys2/setup-msys2@v2
+      with:
+        install: >-
+          base-devel
+          gcc
+          python-devel
+
+    - name: Prepare dist folder
+      shell: msys2 {0}
+      run: |
+        mkdir /c/tmp-dist
+        mkdir /c/tmp-dist/c
+        mkdir /c/tmp-dist/java
+        mkdir /c/tmp-dist/python
+
+    - name: Build C runtime
+      shell: msys2 {0}
+      run: |
+        cd src/runtime/c
+        autoreconf -i
+        ./configure
+        make
+        make install
+        cp /mingw64/bin/libpgf-0.dll /c/tmp-dist/c
+        cp /mingw64/bin/libgu-0.dll /c/tmp-dist/c
+
+    - name: Build Java bindings
+      shell: msys2 {0}
+      run: |
+        export PATH="${PATH}:/c/Program Files/Java/jdk8u275-b01/bin"
+        cd src/runtime/java
+        make \
+          JNI_INCLUDES="-I \"/c/Program Files/Java/jdk8u275-b01/include\" -I \"/c/Program Files/Java/jdk8u275-b01/include/win32\" -I \"/mingw64/include\" -D__int64=int64_t" \
+          WINDOWS_LDFLAGS="-L\"/mingw64/lib\" -no-undefined"
+        make install
+        cp .libs//msys-jpgf-0.dll /c/tmp-dist/java/jpgf.dll
+        cp jpgf.jar /c/tmp-dist/java
+
+    - name: Build Python bindings
+      shell: msys2 {0}
+      env:
+        EXTRA_INCLUDE_DIRS: /mingw64/include
+        EXTRA_LIB_DIRS: /mingw64/lib
+      run: |
+        cd src/runtime/python
+        python setup.py build
+        python setup.py install
+        cp /usr/lib/python3.8/site-packages/pgf* /c/tmp-dist/python
+
+    - name: Setup Haskell
+      uses: actions/setup-haskell@v1
+      id: setup-haskell-cabal
+      with:
+        ghc-version: ${{ matrix.ghc }}
+        cabal-version: ${{ matrix.cabal }}
+
+    - name: Install Haskell build tools
+      run: |
+        cabal install alex happy
+
+    - name: Build GF
+      run: |
+        cabal install --only-dependencies -fserver
+        cabal configure -fserver
+        cabal build
+        copy dist\build\gf\gf.exe C:\tmp-dist
+
+    - name: Upload artifact
+      uses: actions/upload-artifact@v2
+      with:
+        name: gf-${{ github.sha }}-windows
+        path: C:\tmp-dist\*
+        if-no-files-found: error
