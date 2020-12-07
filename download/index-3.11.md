@@ -6,10 +6,12 @@ title: Grammatical Framework Download and Installation
 
 What's new? See the [release notes](release-3.11.html).
 
-#### Note: GF core and RGL
+#### Note: GF core and the RGL
 
 The following instructions explain how to install **GF core**, i.e. the compiler, shell and run-time systems.
 Obtaining the **Resource Grammar Library (RGL)** is done separately; see the section at the bottom of this page.
+
+---
 
 ## Installing from a binary package
 
@@ -24,7 +26,7 @@ Unlike in previous versions, the binaries **do not** include the RGL.
 
 [Binary packages on GitHub](https://github.com/GrammaticalFramework/gf-core/releases/tag/RELEASE-3.11)
 
-### Debian/Ubuntu
+#### Debian/Ubuntu
 
 To install the package use:
 ```
@@ -33,18 +35,19 @@ sudo dpkg -i gf_3.11.deb
 
 The Ubuntu `.deb` packages should work on Ubuntu 16.04, 18.04 and similar Linux distributions.
 
-### macOS
+#### macOS
 
 To install the package, just double-click it and follow the installer instructions.
 
 The packages should work on at least 10.13 (High Sierra) and 10.14 (Mojave).
 
-### Windows
+#### Windows
 
 To install the package, unpack it anywhere.
 
 You will probably need to update the `PATH` environment variable to include your chosen install location.
-<!-- see Inari's notes on [Installing GF on Windows](http://www.grammaticalframework.org/~inari/gf-windows.html#toc3). -->
+
+For more information, see [Using GF on Windows](https://www.grammaticalframework.org/~inari/gf-windows.html) (may be outdated).
 
 ## Installing the latest release from source
 
