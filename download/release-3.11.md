@@ -24,7 +24,7 @@ since the release of GF 3.10 in December 2018.
 
 ## GF compiler and run-time library
 
-- Huge improvements in time & space requirements for grammar compilation.
+- Huge improvements in time & space requirements for grammar compilation (pending [#87](https://github.com/GrammaticalFramework/gf-core/pull/87)).
 - Add CoNLL output to `visualize_tree` shell command.
 - Add canonical GF as output format in the compiler.
 - Add PGF JSON as output format in the compiler.
