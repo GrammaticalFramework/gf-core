@@ -47,7 +47,7 @@ To install the package, unpack it anywhere.
 
 You will probably need to update the `PATH` environment variable to include your chosen install location.
 
-For more information, see [Using GF on Windows](https://www.grammaticalframework.org/~inari/gf-windows.html) (may be outdated).
+For more information, see [Using GF on Windows](https://www.grammaticalframework.org/~inari/gf-windows.html) (latest updated for Windows 10).
 
 ## Installing the latest release from source
 
