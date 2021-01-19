@@ -1,6 +1,7 @@
-module GF.Compile (compileToPGF, link, batchCompile, srcAbsName) where
+module GF.Compile (compileToPGF, link, linkl, batchCompile, srcAbsName) where
 
 import GF.Compile.GrammarToPGF(mkCanon2pgf)
+import GF.Compile.GrammarToLPGF(mkCanon2lpgf)
 import GF.Compile.ReadFiles(ModEnv,getOptionsFromFile,getAllFiles,
                             importsOfModule)
 import GF.CompileOne(compileOne)
@@ -39,8 +40,15 @@ link opts (cnc,gr) =
     pgf <- mkCanon2pgf opts gr abs
     probs <- liftIO (maybe (return . defaultProbabilities) readProbabilitiesFromFile (flag optProbsFile opts) pgf)
     when (verbAtLeast opts Normal) $ putStrE "OK"
-    return $ setProbabilities probs 
+    return $ setProbabilities probs
            $ if flag optOptimizePGF opts then optimizePGF pgf else pgf
+
+linkl :: Options -> (ModuleName,Grammar) -> IOE PGF
+linkl opts (cnc,gr) =
+  putPointE Normal opts "linking ... " $ do
+    let abs = srcAbsName gr cnc
+    lpgf <- mkCanon2lpgf opts gr abs
+    return lpgf
 
 -- | Returns the name of the abstract syntax corresponding to the named concrete syntax
 srcAbsName gr cnc = err (const cnc) id $ abstractOfConcrete gr cnc

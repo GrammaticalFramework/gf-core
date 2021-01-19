@@ -3,7 +3,7 @@ module GF.Compiler (mainGFC, linkGrammars, writePGF, writeOutputs) where
 import PGF
 import PGF.Internal(concretes,optimizePGF,unionPGF)
 import PGF.Internal(putSplitAbs,encodeFile,runPut)
-import GF.Compile as S(batchCompile,link,srcAbsName)
+import GF.Compile as S(batchCompile,link,linkl,srcAbsName)
 import GF.CompileInParallel as P(parallelBatchCompile)
 import GF.Compile.Export
 import GF.Compile.ConcreteToHaskell(concretes2haskell)
@@ -11,7 +11,8 @@ import GF.Compile.GrammarToCanonical--(concretes2canonical)
 import GF.Compile.CFGtoPGF
 import GF.Compile.GetGrammar
 import GF.Grammar.BNFC
-import GF.Grammar.CFG
+import GF.Grammar.CFG hiding (Grammar)
+import GF.Grammar.Grammar (Grammar, ModuleName)
 
 --import GF.Infra.Ident(showIdent)
 import GF.Infra.UseIO
@@ -23,6 +24,7 @@ import GF.Text.Pretty(render,render80)
 import Data.Maybe
 import qualified Data.Map as Map
 import qualified Data.Set as Set
+import Data.Time(UTCTime)
 import qualified Data.ByteString.Lazy as BSL
 import GF.Grammar.CanonicalJSON (encodeJSON)
 import System.FilePath
@@ -47,7 +49,7 @@ mainGFC opts fs = do
    extensionIs ext = (== ext) .  takeExtension
 
 compileSourceFiles :: Options -> [FilePath] -> IOE ()
-compileSourceFiles opts fs = 
+compileSourceFiles opts fs =
     do output <- batchCompile opts fs
        exportCanonical output
        unless (flag optStopAfterPhase opts == Compile) $
@@ -93,6 +95,12 @@ compileSourceFiles opts fs =
 -- If a @.pgf@ file by the same name already exists and it is newer than the
 -- source grammar files (as indicated by the 'UTCTime' argument), it is not
 -- recreated. Calls 'writePGF' and 'writeOutputs'.
+linkGrammars :: Options -> (UTCTime,[(ModuleName, Grammar)]) -> IOE ()
+linkGrammars opts (_,cnc_grs) | FmtLPGF `elem` flag optOutputFormats opts = do
+  pgfs <- mapM (linkl opts) cnc_grs
+  let pgf0 = foldl1 unionPGF pgfs
+  writePGF opts pgf0
+  putStrLn "LPGF"
 linkGrammars opts (t_src,~cnc_grs@(~(cnc,gr):_)) =
     do let abs = render (srcAbsName gr cnc)
            pgfFile = outputPath opts (grammarName' opts abs<.>"pgf")
@@ -155,7 +163,7 @@ unionPGFFiles opts fs =
 -- Calls 'exportPGF'.
 writeOutputs :: Options -> PGF -> IOE ()
 writeOutputs opts pgf = do
-  sequence_ [writeOutput opts name str 
+  sequence_ [writeOutput opts name str
                  | fmt <- flag optOutputFormats opts,
                    (name,str) <- exportPGF opts fmt pgf]
 

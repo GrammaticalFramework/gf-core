@@ -184,6 +184,7 @@ Library
     GF.Compile.Export
     GF.Compile.GenerateBC
     GF.Compile.GeneratePMCFG
+    GF.Compile.GrammarToLPGF
     GF.Compile.GrammarToPGF
     GF.Compile.Multi
     GF.Compile.Optimize
