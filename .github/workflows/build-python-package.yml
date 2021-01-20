@@ -1,6 +1,10 @@
 name: Build & Publish Python Package
 
-on: [push, pull_request]
+# Trigger the workflow on push or pull request, but only for the master branch
+on:
+  pull_request:
+  push:
+    branches: [master]
 
 jobs:
   build_wheels:
@@ -9,7 +13,7 @@ jobs:
     strategy:
       fail-fast: true
       matrix:
-        os: [ubuntu-18.04, macos-latest]
+        os: [ubuntu-18.04, macos-10.15]
 
     steps:
     - uses: actions/checkout@v1
@@ -21,7 +25,7 @@ jobs:
 
     - name: Install cibuildwheel
       run: |
-        python -m pip install cibuildwheel==1.4.2  
+        python -m pip install git+https://github.com/joerick/cibuildwheel.git@master
 
     - name: Install build tools for OSX
       if: startsWith(matrix.os, 'macos')
@@ -69,7 +73,7 @@ jobs:
     needs: [build_wheels, build_sdist]
     runs-on: ubuntu-latest
     if: github.ref == 'refs/heads/master' && github.event_name == 'push'
-    
+
     steps:
       - uses: actions/checkout@v2
 

@@ -2475,7 +2475,7 @@ can be used to read a text and return for each word its analyses
 ```
 The command ``morpho_quiz = mq`` generates inflection exercises.
 ```
-  % gf -path=alltenses:prelude $GF_LIB_PATH/alltenses/IrregFre.gfo
+  % gf alltenses/IrregFre.gfo
 
   > morpho_quiz -cat=V
 
@@ -2488,11 +2488,6 @@ The command ``morpho_quiz = mq`` generates inflection exercises.
   réapparaîtriez
   Score 0/1
 ```
-To create a list for later use, use the command ``morpho_list = ml``
-```
-  > morpho_list -number=25 -cat=V | write_file exx.txt
-```
-
 
 
 
@@ -2651,12 +2646,12 @@ The verb //switch off// is called a
 
 We can define transitive verbs and their combinations as follows:
 ```
-  lincat TV = {s : Number => Str ; part : Str} ;
+  lincat V2 = {s : Number => Str ; part : Str} ;
 
-  fun AppTV : Item -> TV -> Item -> Phrase ;
+  fun AppV2 : Item -> V2 -> Item -> Phrase ;
 
-  lin AppTV subj tv obj =
-    {s = subj.s ++ tv.s ! subj.n ++ obj.s ++ tv.part} ;
+  lin AppV2 subj v2 obj =
+    {s = subj.s ++ v2.s ! subj.n ++ obj.s ++ v2.part} ;
 ```
 
 **Exercise**. Define the language ``a^n b^n c^n`` in GF, i.e.
@@ -2722,11 +2717,11 @@ This topic will be covered in #Rseclexing.
 
 The symbol ``**`` is used for both record types and record objects.
 ```
-  lincat TV = Verb ** {c : Case} ;
+  lincat V2 = Verb ** {c : Case} ;
 
   lin Follow = regVerb "folgen" ** {c = Dative} ;
 ```
-``TV`` becomes a **subtype** of ``Verb``.
+``V2`` (transitive verb) becomes a **subtype** of ``Verb``.
 
 If //T// is a subtype of //R//, an object of //T// can be used whenever
 an object of //R// is required.
@@ -2757,7 +2752,11 @@ Thus the labels ``p1, p2,...`` are hard-coded.
 English indefinite article:
 ```
   oper artIndef : Str =
-    pre {"a" ; "an" / strs {"a" ; "e" ; "i" ; "o"}} ;
+     pre {
+       ("a" | "e" | "i" | "o") => "an" ;
+       _ => "a"
+     } ;
+
 ```
 Thus
 ```

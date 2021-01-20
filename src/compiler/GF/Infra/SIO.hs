@@ -60,7 +60,7 @@ instance Monad SIO where
   SIO m1 >>= xm2 = SIO $ \ h -> m1 h >>= \ x -> unS (xm2 x) h
 
 instance Fail.MonadFail SIO where
-  fail = liftSIO . fail
+  fail = lift0 . fail
 
 instance Output SIO where
   ePutStr = lift0 . ePutStr
