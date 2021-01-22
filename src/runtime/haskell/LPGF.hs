@@ -1,16 +1,7 @@
 -- | Linearisation-only PGF format
 -- Closely follows description in Section 2 of Angelov, Bringert, Ranta (2009)
 -- "PGF: A Portable Run-Time Format for Type-Theoretical Grammars"
-module LPGF (
-  LPGF,
-  abstractName,
-  linearize, linearizeConcr,
-  readLPGF,
-
-  -- internal/testing
-  encodeFile,
-  zero
-  ) where
+module LPGF where
 
 import PGF (Language, readLanguage, showLanguage)
 import PGF.CId

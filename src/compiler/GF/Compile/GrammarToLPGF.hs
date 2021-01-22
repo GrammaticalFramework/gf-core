@@ -1,66 +1,81 @@
 -- {-# LANGUAGE BangPatterns, FlexibleContexts #-}
 module GF.Compile.GrammarToLPGF (mkCanon2lpgf) where
 
-import LPGF
+import LPGF (LPGF (..))
+import qualified LPGF as L
 
 --import GF.Compile.Export
 -- import GF.Compile.GeneratePMCFG
 -- import GF.Compile.GenerateBC
 --
--- import PGF(CId,mkCId,utf8CId)
+import PGF.CId
 -- import PGF.Internal(fidInt,fidFloat,fidString,fidVar)
 -- import PGF.Internal(updateProductionIndices)
 -- import qualified PGF.Internal as C
 -- import qualified PGF.Internal as D
--- import GF.Grammar.Predef
+import GF.Grammar.Predef
 import GF.Grammar.Grammar
--- import qualified GF.Grammar.Lookup as Look
--- import qualified GF.Grammar as A
--- import qualified GF.Grammar.Macros as GM
---
--- import GF.Infra.Ident
+import qualified GF.Grammar.Lookup as Look
+import qualified GF.Grammar as A
+import qualified GF.Grammar.Macros as GM
+
+import GF.Infra.Ident
 import GF.Infra.Option
 import GF.Infra.UseIO (IOE)
 -- import GF.Data.Operations
 --
 -- import Data.List
 -- import qualified Data.Set as Set
--- import qualified Data.Map as Map
+import qualified Data.Map as Map
 -- import qualified Data.IntMap as IntMap
 -- import Data.Array.IArray
 
 mkCanon2lpgf :: Options -> SourceGrammar -> ModuleName -> IOE LPGF
-mkCanon2lpgf opts gr am =
-  return zero
-
---   (an,abs) <- mkAbstr am
---   cncs     <- mapM mkConcr (allConcretes gr am)
---   -- return $ updateProductionIndices (D.PGF Map.empty an abs (Map.fromList cncs))
---   return $ D.PGF Map.empty an abs (Map.fromList cncs)
---   where
+mkCanon2lpgf opts gr am = do
+  (an,abs) <- mkAbstr am
+  cncs     <- mapM mkConcr (allConcretes gr am)
+  return $ LPGF {
+    L.absname = an,
+    L.abstract = abs,
+    L.concretes = Map.fromList cncs
+  }
+  where
 --     cenv = resourceValues opts gr
---
---     mkAbstr am = return (mi2i am, D.Abstr flags funs cats)
---       where
+
+    mkAbstr :: ModuleName -> IOE (CId, L.Abstr)
+    mkAbstr am = return (mi2i am, L.Abstr { L.cats = cats, L.funs = funs })
+      where
 --         aflags = err (const noOptions) mflags (lookupModule gr am)
---
---         adefs =
---             [((cPredefAbs,c), AbsCat (Just (L NoLoc []))) | c <- [cFloat,cInt,cString]] ++
---             Look.allOrigInfos gr am
---
+
+        adefs =
+            [((cPredefAbs,c), AbsCat (Just (L NoLoc []))) | c <- [cFloat,cInt,cString]] ++
+            Look.allOrigInfos gr am
+
 --         flags = Map.fromList [(mkCId f,x) | (f,x) <- optionsPGF aflags]
---
---         funs = Map.fromList [(i2i f, (mkType [] ty, arity, mkDef gr arity mdef, 0)) |
---                                    ((m,f),AbsFun (Just (L _ ty)) ma mdef _) <- adefs,
---                                    let arity = mkArity ma mdef ty]
---
---         cats = Map.fromList [(i2i c, (snd (mkContext [] cont),catfuns c, 0)) |
---                                    ((m,c),AbsCat (Just (L _ cont))) <- adefs]
---
+
+        funs = Map.fromList [ (i2i f, mkType [] ty)
+                            | ((m,f),AbsFun (Just (L _ ty)) ma mdef _) <- adefs
+                            , let arity = mkArity ma mdef ty
+                            ]
+
+        cats = Map.fromList [ (i2i c, ())
+                            | ((m,c),AbsCat (Just (L _ cont))) <- adefs
+                            ]
+
 --         catfuns cat =
 --               [(0,i2i f) | ((m,f),AbsFun (Just (L _ ty)) _ _ (Just True)) <- adefs, snd (GM.valCat ty) == cat]
---
---     mkConcr cm = do
+
+    mkConcr :: ModuleName -> IOE (CId, L.Concr)
+    mkConcr cm = do
+      let
+        lincats = Map.fromList []
+        lins = Map.fromList []
+
+      return (mi2i cm, L.Concr {
+          L.lincats = lincats,
+          L.lins = lins
+        })
+
 --       let cflags = err (const noOptions) mflags (lookupModule gr cm)
 --           ciCmp | flag optCaseSensitive cflags = compare
 --                 | otherwise                    = C.compareCaseInsensitve
@@ -102,19 +117,20 @@ mkCanon2lpgf opts gr am =
 --           (seqs,info) <- addPMCFG opts gr cenv Nothing am cm seqs id info
 --           (seqs,is  ) <- addMissingPMCFGs seqs is
 --           return (seqs, ((m,id), info) : is)
---
--- i2i :: Ident -> CId
--- i2i = utf8CId . ident2utf8
---
--- mi2i :: ModuleName -> CId
--- mi2i (MN i) = i2i i
---
--- mkType :: [Ident] -> A.Type -> C.Type
--- mkType scope t =
---   case GM.typeForm t of
---     (hyps,(_,cat),args) -> let (scope',hyps') = mkContext scope hyps
---                            in C.DTyp hyps' (i2i cat) (map (mkExp scope') args)
---
+
+i2i :: Ident -> CId
+i2i = utf8CId . ident2utf8
+
+mi2i :: ModuleName -> CId
+mi2i (MN i) = i2i i
+
+mkType :: [Ident] -> A.Type -> L.Type
+mkType scope t =
+  case GM.typeForm t of
+    (hyps,(_,cat),args) -> L.Type (map (\(bt,i,t) -> i2i i) hyps) (i2i cat)
+    -- (hyps,(_,cat),args) -> let (scope',hyps') = mkContext scope hyps
+    --                        in D.Type hyps' (i2i cat) (map (mkExp scope') args)
+
 -- mkExp :: [Ident] -> A.Term -> C.Expr
 -- mkExp scope t =
 --   case t of
@@ -156,12 +172,12 @@ mkCanon2lpgf opts gr am =
 --                                  ,generateByteCode gr arity eqs
 --                                  )
 -- mkDef gr arity Nothing    = Nothing
---
--- mkArity (Just a) _        ty = a   -- known arity, i.e. defined function
--- mkArity Nothing  (Just _) ty = 0   -- defined function with no arity - must be an axiom
--- mkArity Nothing  _        ty = let (ctxt, _, _) = GM.typeForm ty  -- constructor
---                                in length ctxt
---
+
+mkArity (Just a) _        ty = a   -- known arity, i.e. defined function
+mkArity Nothing  (Just _) ty = 0   -- defined function with no arity - must be an axiom
+mkArity Nothing  _        ty = let (ctxt, _, _) = GM.typeForm ty  -- constructor
+                               in length ctxt
+
 -- genCncCats gr am cm cdefs =
 --   let (index,cats) = mkCncCats 0 cdefs
 --   in (index, Map.fromList cats)
