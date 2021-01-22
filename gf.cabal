@@ -107,6 +107,7 @@ Library
     PGF
     PGF.Internal
     PGF.Haskell
+    LPGF
 
   other-modules:
     PGF.Data

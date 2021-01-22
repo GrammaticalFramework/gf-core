@@ -3,6 +3,8 @@ module GF.Compiler (mainGFC, linkGrammars, writePGF, writeOutputs) where
 import PGF
 import PGF.Internal(concretes,optimizePGF,unionPGF)
 import PGF.Internal(putSplitAbs,encodeFile,runPut)
+import LPGF(LPGF)
+import qualified LPGF
 import GF.Compile as S(batchCompile,link,linkl,srcAbsName)
 import GF.CompileInParallel as P(parallelBatchCompile)
 import GF.Compile.Export
@@ -97,10 +99,8 @@ compileSourceFiles opts fs =
 -- recreated. Calls 'writePGF' and 'writeOutputs'.
 linkGrammars :: Options -> (UTCTime,[(ModuleName, Grammar)]) -> IOE ()
 linkGrammars opts (_,cnc_grs) | FmtLPGF `elem` flag optOutputFormats opts = do
-  pgfs <- mapM (linkl opts) cnc_grs
-  let pgf0 = foldl1 unionPGF pgfs
-  writePGF opts pgf0
-  putStrLn "LPGF"
+  lpgf <- linkl opts (head cnc_grs)
+  writeLPGF opts lpgf
 linkGrammars opts (t_src,~cnc_grs@(~(cnc,gr):_)) =
     do let abs = render (srcAbsName gr cnc)
            pgfFile = outputPath opts (grammarName' opts abs<.>"pgf")
@@ -186,6 +186,12 @@ writePGF opts pgf =
            let outfile = outputPath opts (showCId (fst cnc) <.> "pgf_c")
            writing opts outfile $ encodeFile outfile cnc
 
+writeLPGF :: Options -> LPGF -> IOE ()
+writeLPGF opts lpgf = do
+  let
+    grammarName = fromMaybe (showCId (LPGF.abstractName lpgf)) (flag optName opts)
+    outfile = outputPath opts (grammarName <.> "lpgf")
+  writing opts outfile $ liftIO $ LPGF.encodeFile outfile lpgf
 
 writeOutput :: Options -> FilePath-> String -> IOE ()
 writeOutput opts file str = writing opts path $ writeUTF8File path str

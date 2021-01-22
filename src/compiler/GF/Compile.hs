@@ -25,6 +25,7 @@ import GF.Text.Pretty(render,($$),(<+>),nest)
 
 import PGF.Internal(optimizePGF)
 import PGF(PGF,defaultProbabilities,setProbabilities,readProbabilitiesFromFile)
+import LPGF(LPGF)
 
 -- | Compiles a number of source files and builds a 'PGF' structure for them.
 -- This is a composition of 'link' and 'batchCompile'.
@@ -43,7 +44,8 @@ link opts (cnc,gr) =
     return $ setProbabilities probs
            $ if flag optOptimizePGF opts then optimizePGF pgf else pgf
 
-linkl :: Options -> (ModuleName,Grammar) -> IOE PGF
+-- | Link a grammar into a 'LPGF' that can be used for linearization only.
+linkl :: Options -> (ModuleName,Grammar) -> IOE LPGF
 linkl opts (cnc,gr) =
   putPointE Normal opts "linking ... " $ do
     let abs = srcAbsName gr cnc
