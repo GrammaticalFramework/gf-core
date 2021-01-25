@@ -1,4 +1,4 @@
-module GF.Compiler (mainGFC, linkGrammars, writePGF, writeOutputs) where
+module GF.Compiler (mainGFC, linkGrammars, writePGF, writeLPGF, writeOutputs) where
 
 import PGF
 import PGF.Internal(concretes,optimizePGF,unionPGF)

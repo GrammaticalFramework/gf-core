@@ -1,5 +1,7 @@
 import LPGF
 import PGF (Tree, mkCId, mkApp, readLanguage, showLanguage, showExpr)
+import GF (compileToLPGF, writeLPGF)
+import GF.Support (noOptions)
 
 import Control.Monad (forM_)
 import qualified Data.Map as Map
@@ -7,7 +9,14 @@ import Text.Printf (printf)
 
 main :: IO ()
 main = do
+  -- Compile LPGF
+  lpgf <- compileToLPGF noOptions ["testsuite/lpgf/ZeroEng.gf", "testsuite/lpgf/ZeroGer.gf"]
+  writeLPGF noOptions lpgf
+
+  -- Read back from file
   lpgf <- readLPGF "Zero.lpgf"
+
+  -- Do some linearization
   forM_ [tree1, tree2, tree3] $ \tree -> do
     putStrLn (showExpr [] tree)
     forM_ (Map.toList (concretes lpgf)) $ \(lang,concr) ->

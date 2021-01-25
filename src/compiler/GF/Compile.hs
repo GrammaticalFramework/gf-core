@@ -1,4 +1,4 @@
-module GF.Compile (compileToPGF, link, linkl, batchCompile, srcAbsName) where
+module GF.Compile (compileToPGF, compileToLPGF, link, linkl, batchCompile, srcAbsName) where
 
 import GF.Compile.GrammarToPGF(mkCanon2pgf)
 import GF.Compile.GrammarToLPGF(mkCanon2lpgf)
@@ -31,6 +31,9 @@ import LPGF(LPGF)
 -- This is a composition of 'link' and 'batchCompile'.
 compileToPGF :: Options -> [FilePath] -> IOE PGF
 compileToPGF opts fs = link opts . snd =<< batchCompile opts fs
+
+compileToLPGF :: Options -> [FilePath] -> IOE LPGF
+compileToLPGF opts fs = linkl opts . snd =<< batchCompile opts fs
 
 -- | Link a grammar into a 'PGF' that can be used to 'PGF.linearize' and
 -- 'PGF.parse' with the "PGF" run-time system.
