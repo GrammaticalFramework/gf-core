@@ -1,5 +1,5 @@
 import LPGF
-import PGF (Tree, mkCId, mkApp, readLanguage, showLanguage, showExpr)
+import PGF (Tree, mkCId, mkApp, showLanguage, showExpr)
 import GF (compileToLPGF, writeLPGF)
 import GF.Support (noOptions)
 

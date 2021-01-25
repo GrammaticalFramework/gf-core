@@ -8,6 +8,7 @@ import PGF.CId
 import PGF.Expr (Expr)
 import PGF.Tree (Tree (..), expr2tree, prTree)
 
+import Data.Binary (Binary, get, put, encodeFile, decodeFile)
 import qualified Data.Map as Map
 import Text.Printf (printf)
 
@@ -16,30 +17,30 @@ data LPGF = LPGF {
   absname   :: CId,
   abstract  :: Abstr,
   concretes :: Map.Map CId Concr
-} deriving (Read, Show)
+} deriving (Show)
 
 -- | Abstract syntax
 data Abstr = Abstr {
   -- cats :: Map.Map CId (),
   -- funs :: Map.Map CId Type
-} deriving (Read, Show)
+} deriving (Show)
 
 -- | Concrete syntax
 data Concr = Concr {
   -- lincats :: Map.Map CId LinType, -- ^ assigning a linearization type to each category
   lins    :: Map.Map CId LinFun  -- ^ assigning a linearization function to each function
-} deriving (Read, Show)
+} deriving (Show)
 
 -- | Abstract function type
-data Type = Type [CId] CId
-  deriving (Read, Show)
+-- data Type = Type [CId] CId
+--   deriving (Show)
 
 -- | Linearisation type
 data LinType =
     LTStr
   | LTInt Int
   | LTProduct [LinType]
-  deriving (Read, Show)
+  deriving (Show)
 
 -- | Linearisation function
 data LinFun =
@@ -50,16 +51,47 @@ data LinFun =
   | LFTuple [LinFun]
   | LFProjection LinFun LinFun -- ^ In order for the projection to be well-formed, t1 must be a tuple and t2 an integer within the bounds of the size of the tuple
   | LFArgument Int
-  deriving (Read, Show)
+  deriving (Show, Read)
+
+instance Binary LPGF where
+  put lpgf = do
+    put (absname lpgf)
+    put (abstract lpgf)
+    put (concretes lpgf)
+  get = do
+    an <- get
+    abs <- get
+    concs <- get
+    return $ LPGF {
+      absname = an,
+      abstract = abs,
+      concretes = concs
+    }
+
+instance Binary Abstr where
+  put abs = return ()
+  get = return $ Abstr {}
+
+instance Binary Concr where
+  put concr = put (lins concr)
+  get = do
+    ls <- get
+    return $ Concr {
+      lins = ls
+    }
+
+instance Binary LinFun where
+  put = put . show
+  get = read <$> get
 
 abstractName :: LPGF -> CId
 abstractName = absname
 
 encodeFile :: FilePath -> LPGF -> IO ()
-encodeFile path lpgf = writeFile path (show lpgf)
+encodeFile = Data.Binary.encodeFile
 
 readLPGF :: FilePath -> IO LPGF
-readLPGF path = read <$> readFile path
+readLPGF = Data.Binary.decodeFile
 
 -- | Helper for building concat trees
 mkConcat :: [LinFun] -> LinFun
@@ -81,12 +113,11 @@ linearizeConcr concr expr = lin2string $ lin (expr2tree expr)
   where
     lin :: Tree -> LinFun
     lin tree = case tree of
-      Fun f as -> v
-        where
-          Just t = Map.lookup f (lins concr)
-          ts = map lin as
-          v = eval ts t
-      x -> error $ printf "Cannot lin %s" (prTree x)
+      Fun f as ->
+        case Map.lookup f (lins concr) of
+          Just t -> eval (map lin as) t
+          _ -> error $ printf "Lookup failed for function: %s" (showCId f)
+      x -> error $ printf "Cannot lin: %s" (prTree x)
 
 -- | Evaluation context is a sequence of terms
 type Context = [LinFun]
