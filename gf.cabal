@@ -355,3 +355,52 @@ test-suite gf-tests
   hs-source-dirs: testsuite
   build-depends:  base>=4.3 && <5, Cabal>=1.8, directory, filepath, process
   default-language:    Haskell2010
+
+test-suite lpgf
+  type: exitcode-stdio-1.0
+  main-is: run.hs
+  hs-source-dirs:
+    src/compiler
+    src/runtime/haskell
+    testsuite/lpgf
+  build-depends:
+    array,
+    base>=4.3 && <5,
+    bytestring,
+    containers,
+    ghc-prim,
+    mtl,
+    pretty,
+    random,
+    utf8-string
+  other-modules:
+    Data.Binary
+    Data.Binary.Builder
+    Data.Binary.Get
+    Data.Binary.IEEE754
+    Data.Binary.Put
+    LPGF
+    PGF
+    PGF.Binary
+    PGF.ByteCode
+    PGF.CId
+    PGF.Data
+    PGF.Expr
+    PGF.Expr
+    PGF.Forest
+    PGF.Generate
+    PGF.Linearize
+    PGF.Macros
+    PGF.Morphology
+    PGF.OldBinary
+    PGF.Optimize
+    PGF.Paraphrase
+    PGF.Parse
+    PGF.Probabilistic
+    PGF.Tree
+    PGF.TrieMap
+    PGF.Type
+    PGF.TypeCheck
+    PGF.Utilities
+    PGF.VisualizeTree
+  default-language: Haskell2010

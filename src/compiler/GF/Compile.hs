@@ -15,7 +15,7 @@ import GF.Infra.UseIO(IOE,FullPath,liftIO,getLibraryDirectory,putIfVerb,
                       justModuleName,extendPathEnv,putStrE,putPointE)
 import GF.Data.Operations(raise,(+++),err)
 
-import Control.Monad(foldM,when,(<=<),filterM,liftM)
+import Control.Monad(foldM,when,(<=<),filterM)
 import GF.System.Directory(doesFileExist,getModificationTime)
 import System.FilePath((</>),isRelative,dropFileName)
 import qualified Data.Map as Map(empty,insert,elems) --lookup

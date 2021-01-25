@@ -22,11 +22,13 @@ import qualified GF.Grammar.Macros as GM
 import GF.Infra.Ident
 import GF.Infra.Option
 import GF.Infra.UseIO (IOE)
--- import GF.Data.Operations
---
--- import Data.List
+import GF.Data.Operations
+
+import Control.Monad (forM_)
+import Data.List (elemIndex)
 -- import qualified Data.Set as Set
 import qualified Data.Map as Map
+import Data.Maybe (mapMaybe)
 -- import qualified Data.IntMap as IntMap
 -- import Data.Array.IArray
 
@@ -43,8 +45,8 @@ mkCanon2lpgf opts gr am = do
 --     cenv = resourceValues opts gr
 
     mkAbstr :: ModuleName -> IOE (CId, L.Abstr)
-    mkAbstr am = return (mi2i am, L.Abstr { L.cats = cats, L.funs = funs })
-      where
+    mkAbstr am = do
+      let
 --         aflags = err (const noOptions) mflags (lookupModule gr am)
 
         adefs =
@@ -64,17 +66,55 @@ mkCanon2lpgf opts gr am = do
 
 --         catfuns cat =
 --               [(0,i2i f) | ((m,f),AbsFun (Just (L _ ty)) _ _ (Just True)) <- adefs, snd (GM.valCat ty) == cat]
+      return (mi2i am, L.Abstr {
+        -- L.cats = cats,
+        -- L.funs = funs
+      })
 
     mkConcr :: ModuleName -> IOE (CId, L.Concr)
     mkConcr cm = do
+
       let
-        lincats = Map.fromList []
-        lins = Map.fromList []
+        js = fromErr [] $ do
+          mo <- lookupModule gr cm
+          -- return [((m,c),i) | (c,_) <- Map.toList (jments mo), Ok (m,i) <- [Look.lookupOrigInfo gr (cm,c)]]
+          return $ Map.toList (jments mo)
+
+        -- lincats = Map.fromList []
+        lins = Map.fromList $ mapMaybe mkLin js
+
+        mkLin :: (Ident, Info) -> Maybe (CId, L.LinFun)
+        mkLin (i, info) = case info of
+          CncFun typ def@(Just (L (Local n _) term)) pn pmcfg -> do
+            lin <- term2lin [] Nothing term
+            return (i2i i, lin)
+          _ -> Nothing
+
+        term2lin :: [Ident] -> Maybe Type -> Term -> Maybe L.LinFun
+        term2lin cxt mtype t = case t of
+          Abs Explicit arg term -> term2lin (arg:cxt) mtype term
+          C t1 t2 -> do
+            t1' <- term2lin cxt Nothing t1
+            t2' <- term2lin cxt Nothing t2
+            return $ L.LFConcat t1' t2'
+          K s -> Just $ L.LFToken s
+          Vr arg -> do
+            ix <- elemIndex arg (reverse cxt)
+            return $ L.LFArgument (ix+1)
+          R asgns -> do
+            ts <- sequence [ term2lin cxt mtype term | (_, (mtype, term)) <- asgns ]
+            return $ L.LFTuple ts
+          QC qiV -> do -- qi = ZeroEng.Sg
+            QC qiP <- mtype
+            let vs = [ ic | QC ic <- fromErr [] $ Look.lookupParamValues gr qiP ]
+            ix <- elemIndex qiV vs
+            return $ L.LFInt (ix+1)
+          _ -> Nothing
 
       return (mi2i cm, L.Concr {
-          L.lincats = lincats,
-          L.lins = lins
-        })
+        -- L.lincats = lincats,
+        L.lins = lins
+      })
 
 --       let cflags = err (const noOptions) mflags (lookupModule gr cm)
 --           ciCmp | flag optCaseSensitive cflags = compare

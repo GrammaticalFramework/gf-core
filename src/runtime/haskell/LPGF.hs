@@ -3,11 +3,11 @@
 -- "PGF: A Portable Run-Time Format for Type-Theoretical Grammars"
 module LPGF where
 
-import PGF (Language, readLanguage, showLanguage)
+import PGF (Language)
 import PGF.CId
-import PGF.Tree
+import PGF.Expr (Expr)
+import PGF.Tree (Tree (..), expr2tree, prTree)
 
-import Control.Monad (forM_)
 import qualified Data.Map as Map
 import Text.Printf (printf)
 
@@ -20,13 +20,13 @@ data LPGF = LPGF {
 
 -- | Abstract syntax
 data Abstr = Abstr {
-  cats :: Map.Map CId (),
-  funs :: Map.Map CId Type
+  -- cats :: Map.Map CId (),
+  -- funs :: Map.Map CId Type
 } deriving (Read, Show)
 
 -- | Concrete syntax
 data Concr = Concr {
-  lincats :: Map.Map CId LinType, -- ^ assigning a linearization type to each category
+  -- lincats :: Map.Map CId LinType, -- ^ assigning a linearization type to each category
   lins    :: Map.Map CId LinFun  -- ^ assigning a linearization function to each function
 } deriving (Read, Show)
 
@@ -68,7 +68,7 @@ mkConcat [x] = x
 mkConcat xs = foldl1 LFConcat xs
 
 -- | Main linearize function
-linearize :: LPGF -> Language -> Tree -> String
+linearize :: LPGF -> Language -> Expr -> String
 linearize lpgf lang =
   case Map.lookup lang (concretes lpgf) of
     Just concr -> linearizeConcr concr
@@ -76,8 +76,8 @@ linearize lpgf lang =
 
 -- | Language-specific linearize function
 -- Section 2.5
-linearizeConcr :: Concr -> Tree -> String
-linearizeConcr concr tree = lin2string $ lin tree
+linearizeConcr :: Concr -> Expr -> String
+linearizeConcr concr expr = lin2string $ lin (expr2tree expr)
   where
     lin :: Tree -> LinFun
     lin tree = case tree of
@@ -116,75 +116,3 @@ lin2string l = case l of
   LFToken tok -> tok
   LFConcat l1 l2 -> unwords [lin2string l1, lin2string l2]
   x -> printf "[%s]" (show x)
-
----
-
-main :: IO ()
-main =
-  forM_ [tree1, tree2, tree3] $ \tree -> do
-    putStrLn (prTree tree)
-    forM_ (Map.toList (concretes zero)) $ \(lang,concr) ->
-      printf "%s: %s\n" (showLanguage lang) (linearizeConcr concr tree)
-    putStrLn ""
-
--- Pred John Walk
-tree1 :: Tree
-tree1 = Fun (mkCId "Pred") [Fun (mkCId "John") [], Fun (mkCId "Walk") []]
-
--- Pred We Walk
-tree2 :: Tree
-tree2 = Fun (mkCId "Pred") [Fun (mkCId "We") [], Fun (mkCId "Walk") []]
-
--- And (Pred John Walk) (Pred We Walk)
-tree3 :: Tree
-tree3 = Fun (mkCId "And") [tree1, tree2]
-
--- Initial LPGF, Figures 6 & 7
-zero :: LPGF
-zero = LPGF {
-  absname = mkCId "Zero",
-  abstract = Abstr {
-    cats = Map.fromList [
-      (mkCId "S", ()),
-      (mkCId "NP", ()),
-      (mkCId "VP", ())
-    ],
-    funs = Map.fromList [
-      (mkCId "And", Type [mkCId "S", mkCId "S"] (mkCId "S")),
-      (mkCId "Pred", Type [mkCId "NP", mkCId "VP"] (mkCId "S")),
-      (mkCId "John", Type [] (mkCId "NP")),
-      (mkCId "We", Type [] (mkCId "NP")),
-      (mkCId "Walk", Type [] (mkCId "VP"))
-    ]
-  },
-  concretes = Map.fromList [
-    (mkCId "ZeroEng", Concr {
-      lincats = Map.fromList [
-        (mkCId "S", LTStr),
-        (mkCId "NP", LTProduct [LTStr, LTInt 2]),
-        (mkCId "VP", LTProduct [LTStr, LTStr])
-      ],
-      lins = Map.fromList [
-        (mkCId "And", mkConcat [LFArgument 1, LFToken "and", LFArgument 2]),
-        (mkCId "Pred", mkConcat [LFProjection (LFArgument 1) (LFInt 1), LFProjection (LFArgument 2) (LFProjection (LFArgument 1) (LFInt 2))]),
-        (mkCId "John", LFTuple [LFToken "John", LFInt 1]),
-        (mkCId "We", LFTuple [LFToken "we", LFInt 2]),
-        (mkCId "Walk", LFTuple [LFToken "walks", LFToken "walk"])
-      ]
-    }),
-    (mkCId "ZeroGer", Concr {
-      lincats = Map.fromList [
-        (mkCId "S", LTStr),
-        (mkCId "NP", LTProduct [LTStr, LTInt 2, LTInt 3]),
-        (mkCId "VP", LTProduct [LTProduct [LTStr, LTStr, LTStr], LTProduct [LTStr, LTStr, LTStr]])
-      ],
-      lins = Map.fromList [
-        (mkCId "And", mkConcat [LFArgument 1, LFToken "und", LFArgument 2]),
-        (mkCId "Pred", mkConcat [LFProjection (LFArgument 1) (LFInt 1), LFProjection (LFProjection (LFArgument 2) (LFProjection (LFArgument 1) (LFInt 2))) (LFProjection (LFArgument 1) (LFInt 3))]),
-        (mkCId "John", LFTuple [LFToken "John", LFInt 1, LFInt 3]),
-        (mkCId "We", LFTuple [LFToken "wir", LFInt 2, LFInt 1]),
-        (mkCId "Walk", LFTuple [LFTuple [LFToken "gehe", LFToken "gehst", LFToken "geht"], LFTuple [LFToken "gehen", LFToken "geht", LFToken "gehen"]])
-      ]
-    })
-  ]
-}

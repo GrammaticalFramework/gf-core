@@ -5,6 +5,7 @@
 *.jar
 *.gfo
 *.pgf
+*.lpgf
 debian/.debhelper
 debian/debhelper-build-stamp
 debian/gf
