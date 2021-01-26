@@ -72,23 +72,47 @@ mkCanon2lpgf opts gr am = do
 
         term2lin :: [Ident] -> Maybe Type -> Term -> Maybe L.LinFun
         term2lin cxt mtype t = case t of
+          -- abstraction: x -> b
           Abs Explicit arg term -> term2lin (arg:cxt) mtype term
+
+          -- concatenation: s ++ t
           C t1 t2 -> do
             t1' <- term2lin cxt Nothing t1
             t2' <- term2lin cxt Nothing t2
             return $ L.LFConcat t1' t2'
+
+          -- string literal or token: "foo"
           K s -> Just $ L.LFToken s
+
+          -- variable
           Vr arg -> do
             ix <- elemIndex arg (reverse cxt)
             return $ L.LFArgument (ix+1)
+
+          -- record: { p = a ; ... }
           R asgns -> do
             ts <- sequence [ term2lin cxt mtype term | (_, (mtype, term)) <- asgns ]
             return $ L.LFTuple ts
+
+          -- qualified constructor from a package
           QC qiV -> do
             QC qiP <- mtype
             let vs = [ ic | QC ic <- fromErr [] $ Look.lookupParamValues gr qiP ]
             ix <- elemIndex qiV vs
             return $ L.LFInt (ix+1)
+
+          -- projection: r.p
+          P term lbl -> do
+            t <- term2lin cxt mtype term
+            let ix = 0 -- TODO need type of t to lookup this
+            return $ L.LFProjection t (L.LFInt (ix+1))
+
+          -- selection: t ! p
+          S t1 t2 -> do -- TODO
+            t1' <- term2lin cxt mtype t1
+            t2' <- term2lin cxt mtype t2
+            return $ L.LFProjection t1' t2'
+
           _ -> Nothing
 
       return (mi2i cm, L.Concr {
