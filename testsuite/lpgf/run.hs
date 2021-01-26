@@ -10,11 +10,11 @@ import Text.Printf (printf)
 main :: IO ()
 main = do
   -- Compile LPGF
-  lpgf <- compileToLPGF noOptions ["testsuite/lpgf/ZeroEng.gf", "testsuite/lpgf/ZeroGer.gf"]
+  lpgf <- compileToLPGF noOptions ["testsuite/lpgf/WalkingEng.gf", "testsuite/lpgf/WalkingGer.gf"]
   writeLPGF noOptions lpgf
 
   -- Read back from file
-  lpgf <- readLPGF "Zero.lpgf"
+  lpgf <- readLPGF "Walking.lpgf"
 
   -- Do some linearization
   forM_ [tree1, tree2, tree3] $ \tree -> do
@@ -35,9 +35,9 @@ tree3 :: Tree
 tree3 = mkApp (mkCId "And") [tree1, tree2]
 
 -- Initial LPGF, Figures 6 & 7
-zero :: LPGF
-zero = LPGF {
-  absname = mkCId "Zero",
+walking :: LPGF
+walking = LPGF {
+  absname = mkCId "Walking",
   abstract = Abstr {
     -- cats = Map.fromList [
     --   (mkCId "S", ()),
@@ -53,7 +53,7 @@ zero = LPGF {
     -- ]
   },
   concretes = Map.fromList [
-    (mkCId "ZeroEng", Concr {
+    (mkCId "WalkingEng", Concr {
       -- lincats = Map.fromList [
       --   (mkCId "S", LTStr),
       --   (mkCId "NP", LTProduct [LTStr, LTInt 2]),
@@ -67,7 +67,7 @@ zero = LPGF {
         (mkCId "Walk", LFTuple [LFToken "walks", LFToken "walk"])
       ]
     }),
-    (mkCId "ZeroGer", Concr {
+    (mkCId "WalkingGer", Concr {
       -- lincats = Map.fromList [
       --   (mkCId "S", LTStr),
       --   (mkCId "NP", LTProduct [LTStr, LTInt 2, LTInt 3]),

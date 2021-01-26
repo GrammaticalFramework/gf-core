@@ -1,5 +1,5 @@
 -- From Angelov, Bringert, Ranta (2009)
-abstract Zero = {
+abstract Walking = {
   flags startcat = S ;
   cat
     S; NP; VP;

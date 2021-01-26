@@ -1,5 +1,5 @@
 -- From Angelov, Bringert, Ranta (2009)
-concrete ZeroEng of Zero = {
+concrete WalkingEng of Walking = {
   lincat
     S = Str ;
     NP = {s : Str; n : Number} ;

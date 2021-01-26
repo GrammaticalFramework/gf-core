@@ -1,5 +1,5 @@
 -- From Angelov, Bringert, Ranta (2009)
-concrete ZeroGer of Zero = {
+concrete WalkingGer of Walking = {
   lincat
     S = Str ;
     NP = {s : Str; n : Number; p : Person} ;
