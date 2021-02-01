@@ -18,6 +18,7 @@ main = do
 
   -- Do some linearization
   forM_ [tree1, tree2, tree3] $ \tree -> do
+    putStrLn ""
     putStrLn (showExpr [] tree)
     forM_ (Map.toList (concretes lpgf)) $ \(lang,concr) ->
       printf "%s: %s\n" (showLanguage lang) (linearizeConcr concr tree)
@@ -61,10 +62,12 @@ walking = LPGF {
       -- ],
       lins = Map.fromList [
         (mkCId "And", mkConcat [LFArgument 1, LFToken "and", LFArgument 2]),
-        (mkCId "Pred", mkConcat [LFProjection (LFArgument 1) (LFInt 1), LFProjection (LFArgument 2) (LFProjection (LFArgument 1) (LFInt 2))]),
+        -- (mkCId "Pred", mkConcat [LFProjection (LFArgument 1) (LFInt 1), LFProjection (LFArgument 2) (LFProjection (LFArgument 1) (LFInt 2))]),
+        (mkCId "Pred", mkConcat [LFProjection (LFArgument 1) (LFInt 1), LFProjection (LFProjection (LFArgument 2) (LFInt 1)) (LFProjection (LFArgument 1) (LFInt 2))]),
         (mkCId "John", LFTuple [LFToken "John", LFInt 1]),
         (mkCId "We", LFTuple [LFToken "we", LFInt 2]),
-        (mkCId "Walk", LFTuple [LFToken "walks", LFToken "walk"])
+        -- (mkCId "Walk", LFTuple [LFToken "walks", LFToken "walk"])
+        (mkCId "Walk", LFTuple [LFTuple [LFToken "walks", LFToken "walk"]])
       ]
     }),
     (mkCId "WalkingGer", Concr {
@@ -75,10 +78,12 @@ walking = LPGF {
       -- ],
       lins = Map.fromList [
         (mkCId "And", mkConcat [LFArgument 1, LFToken "und", LFArgument 2]),
-        (mkCId "Pred", mkConcat [LFProjection (LFArgument 1) (LFInt 1), LFProjection (LFProjection (LFArgument 2) (LFProjection (LFArgument 1) (LFInt 2))) (LFProjection (LFArgument 1) (LFInt 3))]),
+        -- (mkCId "Pred", mkConcat [LFProjection (LFArgument 1) (LFInt 1), LFProjection (LFProjection (LFArgument 2) (LFProjection (LFArgument 1) (LFInt 2))) (LFProjection (LFArgument 1) (LFInt 3))]),
+        (mkCId "Pred", mkConcat [LFProjection (LFArgument 1) (LFInt 1), LFProjection (LFProjection (LFProjection (LFArgument 2) (LFInt 1)) (LFProjection (LFArgument 1) (LFInt 2))) (LFProjection (LFArgument 1) (LFInt 3))]),
         (mkCId "John", LFTuple [LFToken "John", LFInt 1, LFInt 3]),
         (mkCId "We", LFTuple [LFToken "wir", LFInt 2, LFInt 1]),
-        (mkCId "Walk", LFTuple [LFTuple [LFToken "gehe", LFToken "gehst", LFToken "geht"], LFTuple [LFToken "gehen", LFToken "geht", LFToken "gehen"]])
+        -- (mkCId "Walk", LFTuple [LFTuple [LFToken "gehe", LFToken "gehst", LFToken "geht"], LFTuple [LFToken "gehen", LFToken "geht", LFToken "gehen"]])
+        (mkCId "Walk", LFTuple [LFTuple [LFTuple [LFToken "gehe", LFToken "gehst", LFToken "geht"], LFTuple [LFToken "gehen", LFToken "geht", LFToken "gehen"]]])
       ]
     })
   ]

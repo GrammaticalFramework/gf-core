@@ -44,7 +44,8 @@ data LinType =
 
 -- | Linearisation function
 data LinFun =
-    LFEmpty
+    LFError String
+  | LFEmpty
   | LFToken String
   | LFConcat LinFun LinFun
   | LFInt Int
@@ -125,6 +126,7 @@ type Context = [LinFun]
 -- | Operational semantics, Table 2
 eval :: Context -> LinFun -> LinFun
 eval cxt t = case t of
+  LFError err -> error err
   LFEmpty -> LFEmpty
   LFToken tok -> LFToken tok
   LFConcat s t -> LFConcat v w
@@ -136,8 +138,14 @@ eval cxt t = case t of
     where vs = map (eval cxt) ts
   LFProjection t u -> vs !! (i-1)
     where
-      LFTuple vs = eval cxt t
-      LFInt i = eval cxt u
+      -- LFTuple vs = eval cxt t
+      -- LFInt i = eval cxt u
+      vs = case eval cxt t of
+        LFTuple vs -> vs
+        x -> error $ "ERROR expected LFTuple, got: " ++ show x
+      i = case eval cxt u of
+        LFInt j -> j
+        x -> error $ "ERROR expected LFInt, got: " ++ show x
   LFArgument i -> cxt !! (i-1)
 
 -- | Turn concrete syntax terms into an actual string

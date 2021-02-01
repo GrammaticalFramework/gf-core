@@ -30,7 +30,7 @@ data TypeApp  = TypeApp CatId [Type]        deriving Show
 data TypeBinding = TypeBinding VarId Type   deriving Show
 
 --------------------------------------------------------------------------------
--- ** Concreate syntax
+-- ** Concrete syntax
 
 -- | Concrete Syntax
 data Concrete  = Concrete ModId ModId Flags [ParamDef] [LincatDef] [LinDef]
@@ -44,12 +44,12 @@ data LincatDef = LincatDef CatId LinType  deriving Show
 data LinDef    = LinDef FunId [VarId] LinValue  deriving Show
 
 -- | Linearization type, RHS of @lincat@
-data LinType = FloatType 
-             | IntType 
+data LinType = FloatType
+             | IntType
              | ParamType ParamType
              | RecordType [RecordRowType]
-             | StrType 
-             | TableType LinType LinType 
+             | StrType
+             | TableType LinType LinType
              | TupleType [LinType]
               deriving (Eq,Ord,Show)
 
@@ -59,7 +59,7 @@ newtype ParamType = ParamTypeId ParamId deriving (Eq,Ord,Show)
 data LinValue = ConcatValue LinValue LinValue
               | LiteralValue LinLiteral
               | ErrorValue String
-              | ParamConstant ParamValue 
+              | ParamConstant ParamValue
               | PredefValue PredefId
               | RecordValue [RecordRowValue]
               | TableValue LinType [TableRowValue]
@@ -73,9 +73,9 @@ data LinValue = ConcatValue LinValue LinValue
               | CommentedValue String LinValue
               deriving (Eq,Ord,Show)
 
-data LinLiteral = FloatConstant Float 
-                | IntConstant Int 
-                | StrConstant String 
+data LinLiteral = FloatConstant Float
+                | IntConstant Int
+                | StrConstant String
                 deriving (Eq,Ord,Show)
 
 data LinPattern = ParamPattern ParamPattern
@@ -106,7 +106,7 @@ newtype PredefId = PredefId Id        deriving (Eq,Ord,Show)
 newtype LabelId  = LabelId Id         deriving (Eq,Ord,Show)
 data VarValueId  = VarValueId QualId  deriving (Eq,Ord,Show)
 
--- | Name of param type or param value 
+-- | Name of param type or param value
 newtype ParamId = ParamId QualId  deriving (Eq,Ord,Show)
 
 --------------------------------------------------------------------------------
@@ -117,7 +117,7 @@ newtype ModId = ModId Id  deriving (Eq,Ord,Show)
 newtype CatId = CatId Id  deriving (Eq,Ord,Show)
 newtype FunId = FunId Id  deriving (Eq,Show)
 
-data VarId = Anonymous | VarId Id  deriving Show
+data VarId = Anonymous | VarId Id  deriving (Eq,Show)
 
 newtype Flags = Flags [(FlagName,FlagValue)] deriving Show
 type FlagName = Id
@@ -249,7 +249,7 @@ instance PPA LinLiteral where
             FloatConstant f -> pp f
             IntConstant n -> pp n
             StrConstant s -> doubleQuotes s -- hmm
-  
+
 instance RhsSeparator LinValue where rhsSep _ = pp "="
 
 instance Pretty LinPattern where
@@ -264,7 +264,7 @@ instance PPA LinPattern where
       ParamPattern pv -> ppA pv
       RecordPattern r -> block r
       TuplePattern ps -> "<"<>punctuate "," ps<>">"
-      WildPattern     -> pp "_"                
+      WildPattern     -> pp "_"
       _ -> parens p
 
 instance RhsSeparator LinPattern where rhsSep _ = pp "="

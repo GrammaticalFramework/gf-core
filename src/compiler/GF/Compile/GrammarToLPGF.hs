@@ -4,121 +4,137 @@ import LPGF (LPGF (..))
 import qualified LPGF as L
 
 import PGF.CId
-import GF.Grammar.Predef
+-- import GF.Grammar.Predef
 import GF.Grammar.Grammar
-import qualified GF.Grammar.Lookup as Look
-import qualified GF.Grammar as A
-import qualified GF.Grammar.Macros as GM
+-- import qualified GF.Grammar.Lookup as Look
+-- import qualified GF.Grammar as A
+-- import qualified GF.Grammar.Macros as GM
+import qualified GF.Grammar.Canonical as C
+import GF.Compile.GrammarToCanonical (grammar2canonical)
 
 import GF.Infra.Ident
 import GF.Infra.Option
 import GF.Infra.UseIO (IOE)
-import GF.Data.Operations
+-- import GF.Data.Operations
 
-import Control.Monad (forM_)
+-- import Control.Monad (forM_)
+import Data.Either (lefts, rights)
 import Data.List (elemIndex)
 import qualified Data.Map as Map
-import Data.Maybe (mapMaybe)
+import Data.Maybe (catMaybes)
+import Text.Printf (printf)
 
 mkCanon2lpgf :: Options -> SourceGrammar -> ModuleName -> IOE LPGF
 mkCanon2lpgf opts gr am = do
-  (an,abs) <- mkAbstr am
-  cncs     <- mapM mkConcr (allConcretes gr am)
-  return $ LPGF {
+  let grcn@(C.Grammar ab cncs) = grammar2canonical opts am gr
+  (an,abs) <- mkAbstr ab
+  cncs     <- mapM mkConcr cncs
+  let lpgf = LPGF {
     L.absname = an,
     L.abstract = abs,
     L.concretes = Map.fromList cncs
   }
+  print lpgf
+  return lpgf
   where
-    mkAbstr :: ModuleName -> IOE (CId, L.Abstr)
-    mkAbstr am = do
-      let
-        adefs =
-            [((cPredefAbs,c), AbsCat (Just (L NoLoc []))) | c <- [cFloat,cInt,cString]] ++
-            Look.allOrigInfos gr am
+    mkAbstr :: C.Abstract -> IOE (CId, L.Abstr)
+    mkAbstr (C.Abstract modId flags cats funs) = return (mdi2i modId, L.Abstr {})
 
-        -- funs = Map.fromList [ (i2i f, mkType [] ty)
-        --                     | ((m,f),AbsFun (Just (L _ ty)) ma mdef _) <- adefs
-        --                     , let arity = mkArity ma mdef ty
-        --                     ]
-        --
-        -- cats = Map.fromList [ (i2i c, ())
-        --                     | ((m,c),AbsCat (Just (L _ cont))) <- adefs
-        --                     ]
-
-      return (mi2i am, L.Abstr {
-        -- L.cats = cats,
-        -- L.funs = funs
-      })
-
-    mkConcr :: ModuleName -> IOE (CId, L.Concr)
-    mkConcr cm = do
+    mkConcr :: C.Concrete -> IOE (CId, L.Concr)
+    mkConcr (C.Concrete modId absModId flags params lincats lindefs) = do
+      -- print modId
+      -- print absModId
+      -- print flags
+      -- print params
+      -- print lincats
+      -- print lindefs
 
       let
-        js = fromErr [] $ do
-          mo <- lookupModule gr cm
-          -- return [((m,c),i) | (c,_) <- Map.toList (jments mo), Ok (m,i) <- [Look.lookupOrigInfo gr (cm,c)]]
-          return $ Map.toList (jments mo)
+        es = map mkLin lindefs
+        lins = Map.fromList $ rights es
 
-        -- lincats = Map.fromList []
-        lins = Map.fromList $ mapMaybe mkLin js
+        mkLin :: C.LinDef -> Either String (CId, L.LinFun)
+        mkLin ld@(C.LinDef funId varIds linValue) = do
+          lf <- val2lin varIds linValue
+          return (fi2i funId, lf)
 
-        mkLin :: (Ident, Info) -> Maybe (CId, L.LinFun)
-        mkLin (i, info) = case info of
-          CncFun typ def@(Just (L (Local n _) term)) pn pmcfg -> do
-            lin <- term2lin [] Nothing term
-            return (i2i i, lin)
-          _ -> Nothing
+        val2lin :: [C.VarId] -> C.LinValue -> Either String L.LinFun
+        val2lin vids lv = case lv of
 
-        term2lin :: [Ident] -> Maybe Type -> Term -> Maybe L.LinFun
-        term2lin cxt mtype t = case t of
-          -- abstraction: x -> b
-          Abs Explicit arg term -> term2lin (arg:cxt) mtype term
+          C.ConcatValue v1 v2 -> do
+            v1' <- val2lin vids v1
+            v2' <- val2lin vids v2
+            return $ L.LFConcat v1' v2'
 
-          -- concatenation: s ++ t
-          C t1 t2 -> do
-            t1' <- term2lin cxt Nothing t1
-            t2' <- term2lin cxt Nothing t2
-            return $ L.LFConcat t1' t2'
+          C.LiteralValue ll -> case ll of
+            C.FloatConstant f -> return $ L.LFToken (show f)
+            C.IntConstant i -> return $ L.LFToken (show i) -- LFInt ?
+            C.StrConstant s -> return $ L.LFToken s
 
-          -- string literal or token: "foo"
-          K s -> Just $ L.LFToken s
+          C.ErrorValue err -> return $ L.LFError err
 
-          -- variable
-          Vr arg -> do
-            ix <- elemIndex arg (reverse cxt)
-            return $ L.LFArgument (ix+1)
+          C.ParamConstant p@(C.Param (C.ParamId (C.Qual _ _)) _) -> do
+            let
+              mixs =
+                [ elemIndex p pvs
+                | C.ParamDef pid pvds <- params
+                , let pvs = map (\(C.Param pid []) -> C.Param pid []) pvds -- TODO assumption of [] probably wrong
+                ] -- look in all paramdefs
+            case catMaybes mixs of
+              ix:_ -> return $ L.LFInt (ix+1)
+              _ -> Left $ printf "Cannot find param value: %s" (show p)
 
-          -- record: { p = a ; ... }
-          R asgns -> do
-            ts <- sequence [ term2lin cxt mtype term | (_, (mtype, term)) <- asgns ]
+          -- PredefValue PredefId -- TODO predef not supported
+
+          C.RecordValue rrvs -> do
+            ts <- sequence [ val2lin vids lv | C.RecordRow lid lv <- rrvs ]
             return $ L.LFTuple ts
 
-          -- qualified constructor from a package
-          QC qiV -> do
-            QC qiP <- mtype
-            let vs = [ ic | QC ic <- fromErr [] $ Look.lookupParamValues gr qiP ]
-            ix <- elemIndex qiV vs
-            return $ L.LFInt (ix+1)
+          C.TableValue lt trvs -> do
+            ts <- sequence [ val2lin vids lv | C.TableRow lpatt lv <- trvs ] -- TODO variables in lhs
+            return $ L.LFTuple ts
 
-          -- projection: r.p
-          P term lbl -> do
-            t <- term2lin cxt mtype term
-            let ix = 0 -- TODO need type of t to lookup this
-            return $ L.LFProjection t (L.LFInt (ix+1))
+          C.TupleValue lvs -> do
+            ts <- mapM (val2lin vids) lvs
+            return $ L.LFTuple ts
 
-          -- selection: t ! p
-          S t1 t2 -> do -- TODO
-            t1' <- term2lin cxt mtype t1
-            t2' <- term2lin cxt mtype t2
-            return $ L.LFProjection t1' t2'
+          C.VariantValue [] -> return L.LFEmpty
+          C.VariantValue (vr:_) -> val2lin vids vr -- TODO variants not supported, just pick first
 
-          _ -> Nothing
+          C.VarValue (C.VarValueId (C.Unqual v)) -> do
+            ix <- eitherElemIndex (C.VarId v) vids
+            return $ L.LFArgument (ix+1)
 
-      return (mi2i cm, L.Concr {
+          -- PreValue [([String], LinValue)] LinValue -- TODO pre not supported
+
+          C.Projection v1 (C.LabelId lbl) -> do
+            v1' <- val2lin vids v1
+            let lblIx = case lbl of -- TODO
+                  "s" -> 0
+                  "n" -> 1
+                  "p" -> 2
+            return $ L.LFProjection v1' (L.LFInt (lblIx+1))
+
+          C.Selection v1 v2 -> do
+            v1' <- val2lin vids v1
+            v2' <- val2lin vids v2
+            return $ L.LFProjection v1' v2'
+
+          C.CommentedValue cmnt lv -> val2lin vids lv
+
+          v -> Left $ printf "val2lin not implemented for: %s" (show v)
+
+      mapM_ putStrLn (lefts es)
+
+      return (mdi2i modId, L.Concr {
         -- L.lincats = lincats,
         L.lins = lins
       })
+
+eitherElemIndex :: (Eq a, Show a) => a -> [a] -> Either String Int
+eitherElemIndex x xs = case elemIndex x xs of
+  Just ix -> Right ix
+  Nothing -> Left $ printf "Cannot find: %s" (show x)
 
 i2i :: Ident -> CId
 i2i = utf8CId . ident2utf8
@@ -126,12 +142,8 @@ i2i = utf8CId . ident2utf8
 mi2i :: ModuleName -> CId
 mi2i (MN i) = i2i i
 
--- mkType :: [Ident] -> A.Type -> L.Type
--- mkType scope t =
---   case GM.typeForm t of
---     (hyps,(_,cat),args) -> L.Type (map (\(bt,i,t) -> i2i i) hyps) (i2i cat)
+mdi2i :: C.ModId -> CId
+mdi2i (C.ModId i) = mkCId i
 
--- mkArity (Just a) _        ty = a   -- known arity, i.e. defined function
--- mkArity Nothing  (Just _) ty = 0   -- defined function with no arity - must be an axiom
--- mkArity Nothing  _        ty = let (ctxt, _, _) = GM.typeForm ty  -- constructor
---                                in length ctxt
+fi2i :: C.FunId -> CId
+fi2i (C.FunId i) = mkCId i

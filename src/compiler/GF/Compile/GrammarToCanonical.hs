@@ -17,7 +17,7 @@ import GF.Grammar.Predef(cPredef,cInts)
 import GF.Compile.Compute.Predef(predef)
 import GF.Compile.Compute.Value(Predefined(..))
 import GF.Infra.Ident(ModuleName(..),Ident,prefixIdent,showIdent,isWildIdent)
-import GF.Infra.Option(optionsPGF)
+import GF.Infra.Option(Options, optionsPGF)
 import PGF.Internal(Literal(..))
 import GF.Compile.Compute.ConcreteNew(normalForm,resourceValues)
 import GF.Grammar.Canonical as C
@@ -25,6 +25,7 @@ import Debug.Trace
 
 -- | Generate Canonical code for the named abstract syntax and all associated
 -- concrete syntaxes
+grammar2canonical :: Options -> ModuleName -> SourceGrammar -> C.Grammar
 grammar2canonical opts absname gr =
    Grammar (abstract2canonical absname gr)
            (map snd (concretes2canonical opts absname gr))
@@ -72,7 +73,7 @@ concrete2canonical gr cenv absname cnc modinfo =
       [lincat|(_,Left lincat)<-defs]
       [lin|(_,Right lin)<-defs]
   where
-    defs = concatMap (toCanonical gr absname cenv) . 
+    defs = concatMap (toCanonical gr absname cenv) .
            M.toList $
            jments modinfo
 
@@ -189,7 +190,7 @@ convert' gr vs = ppT
         _ -> VarValue (gQId cPredef n) -- hmm
       where
        p = PredefValue . PredefId
-      
+
     ppP p =
       case p of
         PC c ps -> ParamPattern (Param (gId c) (map ppP ps))
