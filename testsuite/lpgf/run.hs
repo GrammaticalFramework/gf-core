@@ -34,7 +34,7 @@ doGrammar gname = do
   lpgf <- readLPGF $ gname ++ ".lpgf"
 
   -- Read treebank
-  gs <- groups . lines <$> readFile (dir </> gname <.> "trees")
+  gs <- groups . lines <$> readFile (dir </> gname <.> "treebank")
   forM_ gs $ \grp -> do
     let ast = drop 2 $ dropWhile (/=':') $ head grp
     printf "%s: %s\n" gname ast

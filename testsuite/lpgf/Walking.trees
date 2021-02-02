@@ -1,11 +1,3 @@
-Walking: Pred John Walk
-WalkingEng: John walks
-WalkingGer: John geht
-
-Walking: Pred We Walk
-WalkingEng: we walk
-WalkingGer: wir gehen
-
-Walking: And (Pred John Walk) (Pred We Walk)
-WalkingEng: John walks and we walk
-WalkingGer: John geht und wir gehen
+Pred John Walk
+Pred We Walk
+And (Pred John Walk) (Pred We Walk)

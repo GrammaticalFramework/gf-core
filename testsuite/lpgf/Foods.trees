@@ -1,29 +1,5 @@
-Foods: Pred (This Pizza) (Very Boring)
-FoodsEng: this pizza is very boring
-
-Foods: Pred (That Pizza) Delicious
-FoodsEng: that pizza is delicious
-
-Foods: Pred (That Wine) Boring
-FoodsEng: that wine is boring
-
-Foods: Pred (This Cheese) Fresh
-FoodsEng: this cheese is fresh
-
-Foods: Pred (Those Fish) Boring
-FoodsEng: those fish are boring
-
-Foods: Pred (This Cheese) Warm
-FoodsEng: this cheese is warm
-
-Foods: Pred (That (Mod Boring (Mod Italian Pizza))) Italian
-FoodsEng: that boring Italian pizza is Italian
-
-Foods: Pred (Those Cheese) Expensive
-FoodsEng: those cheeses are expensive
-
-Foods: Pred (Those Wine) Italian
-FoodsEng: those wines are Italian
-
-Foods: Pred (This Wine) Boring
-FoodsEng: this wine is boring
+Pred (That Wine) Delicious
+Pred (This Pizza) (Very Boring)
+Pred (This Cheese) Fresh
+Pred (Those Fish) Warm
+Pred (That (Mod Boring (Mod Italian Pizza))) Expensive
