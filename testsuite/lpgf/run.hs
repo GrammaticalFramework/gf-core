@@ -1,90 +1,59 @@
 import LPGF
-import PGF (Tree, mkCId, mkApp, showLanguage, showExpr)
+import PGF (showLanguage, readExpr)
 import GF (compileToLPGF, writeLPGF)
 import GF.Support (noOptions)
 
 import Control.Monad (forM_)
+import qualified Data.List as L
 import qualified Data.Map as Map
 import Text.Printf (printf)
+import System.Directory (listDirectory)
+import System.FilePath ((</>), (<.>), takeBaseName, takeExtension)
+
+dir :: FilePath
+dir = "testsuite" </> "lpgf"
 
 main :: IO ()
 main = do
+  doGrammar "Walking"
+  doGrammar "Foods"
+
+doGrammar :: String -> IO ()
+doGrammar gname = do
+  -- Collect concrete modules
+  mods <- map (dir </>)
+        . filter (\p -> gname `L.isPrefixOf` takeBaseName p && takeExtension p == ".gf")
+        <$> listDirectory dir
+
   -- Compile LPGF
-  lpgf <- compileToLPGF noOptions ["testsuite/lpgf/WalkingEng.gf", "testsuite/lpgf/WalkingGer.gf"]
+  lpgf <- compileToLPGF noOptions mods
   writeLPGF noOptions lpgf
+  putStrLn ""
 
   -- Read back from file
-  lpgf <- readLPGF "Walking.lpgf"
+  lpgf <- readLPGF $ gname ++ ".lpgf"
 
-  -- Do some linearization
-  forM_ [tree1, tree2, tree3] $ \tree -> do
-    putStrLn ""
-    putStrLn (showExpr [] tree)
-    forM_ (Map.toList (concretes lpgf)) $ \(lang,concr) ->
-      printf "%s: %s\n" (showLanguage lang) (linearizeConcr concr tree)
+  -- Read treebank
+  gs <- groups . lines <$> readFile (dir </> gname <.> "trees")
+  forM_ gs $ \grp -> do
+    let ast = drop 2 $ dropWhile (/=':') $ head grp
+    printf "%s: %s\n" gname ast
+    let
+      Just tree = readExpr ast
+    -- Do some linearization
+      langs =
+        [ printf "%s: %s" (showLanguage lang) (linearizeConcr concr tree)
+        | (lang,concr) <- Map.toList (concretes lpgf)
+        ]
+    mapM_ putStrLn langs
+    if langs == tail grp
+    then putStrLn "✅\n"
+    else do
+      putStrLn "❌ expected:"
+      mapM_ putStrLn (tail grp)
+      putStrLn ""
+      error "Test failed"
 
--- Pred John Walk
-tree1 :: Tree
-tree1 = mkApp (mkCId "Pred") [mkApp (mkCId "John") [], mkApp (mkCId "Walk") []]
-
--- Pred We Walk
-tree2 :: Tree
-tree2 = mkApp (mkCId "Pred") [mkApp (mkCId "We") [], mkApp (mkCId "Walk") []]
-
--- And (Pred John Walk) (Pred We Walk)
-tree3 :: Tree
-tree3 = mkApp (mkCId "And") [tree1, tree2]
-
--- Initial LPGF, Figures 6 & 7
-walking :: LPGF
-walking = LPGF {
-  absname = mkCId "Walking",
-  abstract = Abstr {
-    -- cats = Map.fromList [
-    --   (mkCId "S", ()),
-    --   (mkCId "NP", ()),
-    --   (mkCId "VP", ())
-    -- ],
-    -- funs = Map.fromList [
-    --   (mkCId "And", Type [mkCId "S", mkCId "S"] (mkCId "S")),
-    --   (mkCId "Pred", Type [mkCId "NP", mkCId "VP"] (mkCId "S")),
-    --   (mkCId "John", Type [] (mkCId "NP")),
-    --   (mkCId "We", Type [] (mkCId "NP")),
-    --   (mkCId "Walk", Type [] (mkCId "VP"))
-    -- ]
-  },
-  concretes = Map.fromList [
-    (mkCId "WalkingEng", Concr {
-      -- lincats = Map.fromList [
-      --   (mkCId "S", LTStr),
-      --   (mkCId "NP", LTProduct [LTStr, LTInt 2]),
-      --   (mkCId "VP", LTProduct [LTStr, LTStr])
-      -- ],
-      lins = Map.fromList [
-        (mkCId "And", mkConcat [LFArgument 1, LFToken "and", LFArgument 2]),
-        -- (mkCId "Pred", mkConcat [LFProjection (LFArgument 1) (LFInt 1), LFProjection (LFArgument 2) (LFProjection (LFArgument 1) (LFInt 2))]),
-        (mkCId "Pred", mkConcat [LFProjection (LFArgument 1) (LFInt 1), LFProjection (LFProjection (LFArgument 2) (LFInt 1)) (LFProjection (LFArgument 1) (LFInt 2))]),
-        (mkCId "John", LFTuple [LFToken "John", LFInt 1]),
-        (mkCId "We", LFTuple [LFToken "we", LFInt 2]),
-        -- (mkCId "Walk", LFTuple [LFToken "walks", LFToken "walk"])
-        (mkCId "Walk", LFTuple [LFTuple [LFToken "walks", LFToken "walk"]])
-      ]
-    }),
-    (mkCId "WalkingGer", Concr {
-      -- lincats = Map.fromList [
-      --   (mkCId "S", LTStr),
-      --   (mkCId "NP", LTProduct [LTStr, LTInt 2, LTInt 3]),
-      --   (mkCId "VP", LTProduct [LTProduct [LTStr, LTStr, LTStr], LTProduct [LTStr, LTStr, LTStr]])
-      -- ],
-      lins = Map.fromList [
-        (mkCId "And", mkConcat [LFArgument 1, LFToken "und", LFArgument 2]),
-        -- (mkCId "Pred", mkConcat [LFProjection (LFArgument 1) (LFInt 1), LFProjection (LFProjection (LFArgument 2) (LFProjection (LFArgument 1) (LFInt 2))) (LFProjection (LFArgument 1) (LFInt 3))]),
-        (mkCId "Pred", mkConcat [LFProjection (LFArgument 1) (LFInt 1), LFProjection (LFProjection (LFProjection (LFArgument 2) (LFInt 1)) (LFProjection (LFArgument 1) (LFInt 2))) (LFProjection (LFArgument 1) (LFInt 3))]),
-        (mkCId "John", LFTuple [LFToken "John", LFInt 1, LFInt 3]),
-        (mkCId "We", LFTuple [LFToken "wir", LFInt 2, LFInt 1]),
-        -- (mkCId "Walk", LFTuple [LFTuple [LFToken "gehe", LFToken "gehst", LFToken "geht"], LFTuple [LFToken "gehen", LFToken "geht", LFToken "gehen"]])
-        (mkCId "Walk", LFTuple [LFTuple [LFTuple [LFToken "gehe", LFToken "gehst", LFToken "geht"], LFTuple [LFToken "gehen", LFToken "geht", LFToken "gehen"]]])
-      ]
-    })
-  ]
-}
+groups :: [String] -> [[String]]
+groups [] = []
+groups ss = let (a,b) = break (=="") ss in a : groups (drop 1 b)

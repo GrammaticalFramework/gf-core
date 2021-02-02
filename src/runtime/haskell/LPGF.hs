@@ -153,5 +153,6 @@ lin2string :: LinFun -> String
 lin2string l = case l of
   LFEmpty -> ""
   LFToken tok -> tok
+  LFTuple [l] -> lin2string l
   LFConcat l1 l2 -> unwords [lin2string l1, lin2string l2]
   x -> printf "[%s]" (show x)
