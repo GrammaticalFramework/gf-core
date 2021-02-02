@@ -15,6 +15,7 @@ dir = "testsuite" </> "lpgf"
 
 main :: IO ()
 main = do
+  doGrammar "Scratch"
   doGrammar "Walking"
   doGrammar "Foods"
 

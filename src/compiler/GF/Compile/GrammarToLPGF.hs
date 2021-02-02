@@ -37,7 +37,10 @@ mkCanon2lpgf opts gr am = do
 
     mkConcr :: C.Concrete -> IOE (CId, L.Concr)
     mkConcr (C.Concrete modId absModId flags params lincats lindefs) = do
+      -- print params
+      -- print lindefs
       let
+        paramMap = mkParamMap params
         es = map mkLin lindefs
         lins = Map.fromList $ rights es
 
@@ -61,16 +64,11 @@ mkCanon2lpgf opts gr am = do
 
               C.ErrorValue err -> return $ L.LFError err
 
-              C.ParamConstant p@(C.Param (C.ParamId (C.Qual _ _)) _) -> do
-                let
-                  mixs =
-                    [ elemIndex p pvs
-                    | C.ParamDef pid pvds <- params
-                    , let pvs = map (\(C.Param pid []) -> C.Param pid []) pvds -- TODO assumption of [] probably wrong
-                    ] -- look in all paramdefs
+              C.ParamConstant _ -> do -- TODO only works when param value can be known at compile time
+                let mixs = map (elemIndex lv) paramMap
                 case catMaybes mixs of
                   ix:_ -> return $ L.LFInt (ix+1)
-                  _ -> Left $ printf "Cannot find param value: %s" (show p)
+                  _ -> Left $ printf "Cannot find param value: %s" (show lv)
 
               -- PredefValue PredefId -- TODO predef not supported
 
@@ -78,8 +76,8 @@ mkCanon2lpgf opts gr am = do
                 ts <- sequence [ val2lin lv | C.RecordRow lid lv <- rrvs ]
                 return $ L.LFTuple ts
 
-              C.TableValue lt trvs -> do
-                ts <- sequence [ val2lin lv | C.TableRow lpatt lv <- trvs ] -- TODO variables in lhs
+              C.TableValue lt trvs -> do -- lt is type
+                ts <- sequence [ val2lin lv | C.TableRow lpatt lv <- trvs ] -- TODO variables in lhs ?
                 return $ L.LFTuple ts
 
               C.TupleValue lvs -> do
@@ -141,3 +139,22 @@ mdi2i (C.ModId i) = mkCId i
 
 fi2i :: C.FunId -> CId
 fi2i (C.FunId i) = mkCId i
+
+-- | Enumerate all paramvalue combinations for looking up index numbers
+mkParamMap :: [C.ParamDef] -> [[C.LinValue]]
+mkParamMap defs = map mk' defs
+  where
+    mk' :: C.ParamDef -> [C.LinValue]
+    mk' (C.ParamDef _ pids) = concatMap mk'' pids
+    mk' (C.ParamAliasDef _ _) = [] -- TODO
+
+    mk'' :: C.ParamValueDef -> [C.LinValue]
+    mk'' (C.Param pid []) = [C.ParamConstant (C.Param pid [])]
+    mk'' (C.Param pid pids) =
+      [ C.ParamConstant (C.Param pid k) | k <- sequence kids ]
+      where
+        kids =
+          [ mk' def
+          | p <- pids
+          , def <- [ d | d@(C.ParamDef pid _) <- defs, pid == p ]
+          ] :: [[C.LinValue]]
