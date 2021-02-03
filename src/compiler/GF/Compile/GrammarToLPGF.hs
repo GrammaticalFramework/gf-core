@@ -59,7 +59,7 @@ mkCanon2lpgf opts gr am = do
 
               C.LiteralValue ll -> case ll of
                 C.FloatConstant f -> return $ L.LFToken (show f)
-                C.IntConstant i -> return $ L.LFToken (show i) -- LFInt i ?
+                C.IntConstant i -> return $ L.LFToken (show i)
                 C.StrConstant s -> return $ L.LFToken s
 
               C.ErrorValue err -> return $ L.LFError err

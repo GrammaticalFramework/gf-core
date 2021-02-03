@@ -21,8 +21,6 @@ data LPGF = LPGF {
 
 -- | Abstract syntax
 data Abstr = Abstr {
-  -- cats :: Map.Map CId (),
-  -- funs :: Map.Map CId Type
 } deriving (Show)
 
 -- | Concrete syntax
@@ -35,12 +33,12 @@ data Concr = Concr {
 -- data Type = Type [CId] CId
 --   deriving (Show)
 
--- | Linearisation type
-data LinType =
-    LTStr
-  | LTInt Int
-  | LTProduct [LinType]
-  deriving (Show)
+-- -- | Linearisation type
+-- data LinType =
+--     LTStr
+--   | LTInt Int
+--   | LTProduct [LinType]
+--   deriving (Show)
 
 -- | Linearisation function
 data LinFun =
@@ -50,7 +48,7 @@ data LinFun =
   | LFConcat LinFun LinFun
   | LFInt Int
   | LFTuple [LinFun]
-  | LFProjection LinFun LinFun -- ^ In order for the projection to be well-formed, t1 must be a tuple and t2 an integer within the bounds of the size of the tuple
+  | LFProjection LinFun LinFun
   | LFArgument Int
   deriving (Show, Read)
 
@@ -94,12 +92,6 @@ encodeFile = Data.Binary.encodeFile
 readLPGF :: FilePath -> IO LPGF
 readLPGF = Data.Binary.decodeFile
 
--- | Helper for building concat trees
-mkConcat :: [LinFun] -> LinFun
-mkConcat [] = LFEmpty
-mkConcat [x] = x
-mkConcat xs = foldl1 LFConcat xs
-
 -- | Main linearize function
 linearize :: LPGF -> Language -> Expr -> String
 linearize lpgf lang =
@@ -108,7 +100,6 @@ linearize lpgf lang =
     Nothing -> error $ printf "Unknown language: %s" (showCId lang)
 
 -- | Language-specific linearize function
--- Section 2.5
 linearizeConcr :: Concr -> Expr -> String
 linearizeConcr concr expr = lin2string $ lin (expr2tree expr)
   where

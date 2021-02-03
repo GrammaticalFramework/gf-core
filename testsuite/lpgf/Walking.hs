@@ -70,3 +70,9 @@ walking = LPGF {
     })
   ]
 }
+
+-- | Helper for building concat trees
+mkConcat :: [LinFun] -> LinFun
+mkConcat [] = LFEmpty
+mkConcat [x] = x
+mkConcat xs = foldl1 LFConcat xs
