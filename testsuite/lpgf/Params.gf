@@ -1,4 +1,4 @@
-abstract Scratch = {
+abstract Params = {
   cat S ; F ;
   fun
     FtoS : F -> S ;

@@ -11,7 +11,8 @@ import GF.Compile.GrammarToCanonical (grammar2canonical)
 import GF.Infra.Option
 import GF.Infra.UseIO (IOE)
 
-import Control.Monad (unless)
+import qualified Control.Monad.State as CMS
+import Control.Monad (unless, forM_)
 import Data.Either (lefts, rights)
 import Data.List (elemIndex)
 import qualified Data.Map as Map
@@ -27,20 +28,20 @@ mkCanon2lpgf opts gr am = do
     L.abstract = abs,
     L.concretes = Map.fromList cncs
   }
-  -- print lpgf
+  -- dumpCanonical canon
+  -- dumpLPGF lpgf
   return lpgf
   where
-    C.Grammar ab cncs = grammar2canonical opts am gr
+    canon@(C.Grammar ab cncs) = grammar2canonical opts am gr
 
     mkAbstr :: C.Abstract -> IOE (CId, L.Abstr)
     mkAbstr (C.Abstract modId flags cats funs) = return (mdi2i modId, L.Abstr {})
 
     mkConcr :: C.Concrete -> IOE (CId, L.Concr)
     mkConcr (C.Concrete modId absModId flags params lincats lindefs) = do
-      -- print params
-      -- print lindefs
       let
         paramMap = mkParamMap params
+        paramTuples = mkParamTuples params
         es = map mkLin lindefs
         lins = Map.fromList $ rights es
 
@@ -64,11 +65,28 @@ mkCanon2lpgf opts gr am = do
 
               C.ErrorValue err -> return $ L.LFError err
 
-              C.ParamConstant _ -> do -- TODO only works when param value can be known at compile time
+              -- when param value can be known at compile time
+              -- this case is actually covered below and can be omitted, but it will result in smaller LPGF
+              -- and should thus be seen as an optimisation
+              C.ParamConstant _ | isParamConstant lv -> do
                 let mixs = map (elemIndex lv) paramMap
                 case catMaybes mixs of
                   ix:_ -> return $ L.LFInt (ix+1)
                   _ -> Left $ printf "Cannot find param value: %s" (show lv)
+
+              -- when param value is dynamic
+              C.ParamConstant (C.Param pid pids) -> do
+                -- get param group index and defn for this constructor
+                let defs = [ (gix,d) | (gix,d@(C.ParamDef _ ps)) <- zip [0..] params, any (\(C.Param p _) -> p == pid) ps ] :: [(Int,C.ParamDef)]
+                (gix,def) <- if null defs then Left (printf "Cannot find param group: %s" (show pid)) else Right $ head defs
+                let (C.ParamDef _ defpids) = def
+
+                pidIx <- eitherElemIndex pid [ p | C.Param p _ <- defpids ]
+                pids' <- mapM val2lin pids
+                let
+                  tuple = paramTuples !! gix
+                  term = foldl L.LFProjection tuple (L.LFInt (pidIx+1):pids')
+                return term
 
               -- PredefValue PredefId -- TODO predef not supported
 
@@ -129,16 +147,21 @@ mkCanon2lpgf opts gr am = do
         L.lins = lins
       })
 
-eitherElemIndex :: (Eq a, Show a) => a -> [a] -> Either String Int
-eitherElemIndex x xs = case elemIndex x xs of
-  Just ix -> Right ix
-  Nothing -> Left $ printf "Cannot find: %s" (show x)
+-- | Dump canonical grammar, for debugging
+dumpCanonical :: C.Grammar -> IO ()
+dumpCanonical (C.Grammar ab cncs) = do
+  putStrLn ""
+  forM_ cncs $ \(C.Concrete modId absModId flags params lincats lindefs) -> do
+    mapM_ print params
+    putStrLn ""
+    mapM_ print lindefs
+    putStrLn ""
 
-mdi2i :: C.ModId -> CId
-mdi2i (C.ModId i) = mkCId i
-
-fi2i :: C.FunId -> CId
-fi2i (C.FunId i) = mkCId i
+-- | Dump LPGF, for debugging
+dumpLPGF :: LPGF -> IO ()
+dumpLPGF lpgf =
+  forM_ (Map.toList $ L.concretes lpgf) $ \(cid,concr) ->
+    mapM_ print (Map.toList $ L.lins concr)
 
 -- | Enumerate all paramvalue combinations for looking up index numbers
 mkParamMap :: [C.ParamDef] -> [[C.LinValue]]
@@ -146,7 +169,7 @@ mkParamMap defs = map mk' defs
   where
     mk' :: C.ParamDef -> [C.LinValue]
     mk' (C.ParamDef _ pids) = concatMap mk'' pids
-    mk' (C.ParamAliasDef _ _) = [] -- TODO
+    mk' (C.ParamAliasDef _ _) = [] -- TODO ?
 
     mk'' :: C.ParamValueDef -> [C.LinValue]
     mk'' (C.Param pid []) = [C.ParamConstant (C.Param pid [])]
@@ -158,3 +181,45 @@ mkParamMap defs = map mk' defs
           | p <- pids
           , def <- [ d | d@(C.ParamDef pid _) <- defs, pid == p ]
           ] :: [[C.LinValue]]
+
+-- | Build LPGF tuple of param values, needed when param index is looked up dynamically
+mkParamTuples :: [C.ParamDef] -> [L.LinFun]
+mkParamTuples defs = map (\def -> CMS.evalState (mk' def) 1) defs
+  where
+    mk' :: C.ParamDef -> CMS.State Int L.LinFun
+    mk' (C.ParamDef _ pids) = do
+      ms <- mapM mk'' pids
+      return $ L.LFTuple ms
+    mk' (C.ParamAliasDef _ _) = return $ L.LFTuple [] -- TODO ?
+
+    mk'' :: C.ParamValueDef -> CMS.State Int L.LinFun
+    mk'' (C.Param _ []) = do
+      ix <- CMS.get
+      CMS.modify (+1)
+      return $ L.LFInt ix
+    mk'' (C.Param _ pids) = do
+      ms <- sequence
+        [ mk' def
+        | p <- pids
+        , def <- [ d | d@(C.ParamDef pid _) <- defs, pid == p ]
+        ]
+      return $ L.LFTuple ms
+
+-- | Is a param value completely constant/static?
+isParamConstant :: C.LinValue -> Bool
+isParamConstant (C.ParamConstant (C.Param _ lvs)) = all isParamConstant lvs
+isParamConstant _ = False
+
+-- | Convert Maybe to Either value with error
+m2e :: String -> Maybe a -> Either String a
+m2e err = maybe (Left err) Right
+
+-- | Wrap elemIndex into Either value
+eitherElemIndex :: (Eq a, Show a) => a -> [a] -> Either String Int
+eitherElemIndex x xs = m2e (printf "Cannot find: %s" (show x)) (elemIndex x xs)
+
+mdi2i :: C.ModId -> CId
+mdi2i (C.ModId i) = mkCId i
+
+fi2i :: C.FunId -> CId
+fi2i (C.FunId i) = mkCId i

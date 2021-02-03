@@ -15,9 +15,9 @@ dir = "testsuite" </> "lpgf"
 
 main :: IO ()
 main = do
-  doGrammar "Scratch"
+  doGrammar "Params"
   doGrammar "Walking"
-  doGrammar "Foods"
+  -- doGrammar "Foods"
 
 doGrammar :: String -> IO ()
 doGrammar gname = do
@@ -55,6 +55,7 @@ doGrammar gname = do
       putStrLn ""
       error "Test failed"
 
+-- | Group list of lines by blank lines
 groups :: [String] -> [[String]]
 groups [] = []
 groups ss = let (a,b) = break (=="") ss in a : groups (drop 1 b)
