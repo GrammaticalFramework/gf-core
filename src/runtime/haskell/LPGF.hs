@@ -12,6 +12,9 @@ import Data.Binary (Binary, get, put, encodeFile, decodeFile)
 import qualified Data.Map as Map
 import Text.Printf (printf)
 
+import Prelude hiding ((!!))
+import qualified Prelude
+
 -- | Linearisation-only PGF
 data LPGF = LPGF {
   absname   :: CId,
@@ -147,3 +150,9 @@ lin2string l = case l of
   LFTuple [l] -> lin2string l
   LFConcat l1 l2 -> unwords [lin2string l1, lin2string l2]
   x -> printf "[%s]" (show x)
+
+(!!) :: (Show a) => [a] -> Int -> a
+(!!) xs i
+  | i < 0 = error $ printf "!!: index %d too small for list: %s" i (show xs)
+  | i > length xs - 1 = error $ printf "!!: index %d too large for list: %s" i (show xs)
+  | otherwise = xs Prelude.!! i

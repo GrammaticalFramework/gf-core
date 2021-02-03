@@ -17,7 +17,7 @@ main :: IO ()
 main = do
   doGrammar "Params"
   doGrammar "Walking"
-  -- doGrammar "Foods"
+  doGrammar "Foods"
 
 doGrammar :: String -> IO ()
 doGrammar gname = do

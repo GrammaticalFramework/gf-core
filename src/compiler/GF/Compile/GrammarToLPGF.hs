@@ -14,7 +14,7 @@ import GF.Infra.UseIO (IOE)
 import qualified Control.Monad.State as CMS
 import Control.Monad (unless, forM_)
 import Data.Either (lefts, rights)
-import Data.List (elemIndex)
+import Data.List (elemIndex, find)
 import qualified Data.Map as Map
 import Data.Maybe (catMaybes)
 import Text.Printf (printf)
@@ -169,7 +169,7 @@ mkParamMap defs = map mk' defs
   where
     mk' :: C.ParamDef -> [C.LinValue]
     mk' (C.ParamDef _ pids) = concatMap mk'' pids
-    mk' (C.ParamAliasDef _ _) = [] -- TODO ?
+    mk' (C.ParamAliasDef _ _) = error "mkParamMap not implemented for ParamAliasDef" -- TODO
 
     mk'' :: C.ParamValueDef -> [C.LinValue]
     mk'' (C.Param pid []) = [C.ParamConstant (C.Param pid [])]
@@ -179,7 +179,7 @@ mkParamMap defs = map mk' defs
         kids =
           [ mk' def
           | p <- pids
-          , def <- [ d | d@(C.ParamDef pid _) <- defs, pid == p ]
+          , let Just def = find (\(C.ParamDef pid _) -> pid == p) defs
           ] :: [[C.LinValue]]
 
 -- | Build LPGF tuple of param values, needed when param index is looked up dynamically
@@ -190,20 +190,22 @@ mkParamTuples defs = map (\def -> CMS.evalState (mk' def) 1) defs
     mk' (C.ParamDef _ pids) = do
       ms <- mapM mk'' pids
       return $ L.LFTuple ms
-    mk' (C.ParamAliasDef _ _) = return $ L.LFTuple [] -- TODO ?
+    mk' (C.ParamAliasDef _ _) = error "mkParamTuples not implemented for ParamAliasDef" -- TODO
 
     mk'' :: C.ParamValueDef -> CMS.State Int L.LinFun
     mk'' (C.Param _ []) = do
       ix <- CMS.get
       CMS.modify (+1)
       return $ L.LFInt ix
-    mk'' (C.Param _ pids) = do
-      ms <- sequence
-        [ mk' def
-        | p <- pids
-        , def <- [ d | d@(C.ParamDef pid _) <- defs, pid == p ]
-        ]
-      return $ L.LFTuple ms
+    mk'' (C.Param p0 (pid:pids)) = do
+      let Just def = find (\(C.ParamDef p _) -> pid == p) defs
+      let ms = CMS.evalState (mk' def) 1
+      let L.LFTuple ms' = ms
+      ns <- sequence
+          [ mk'' (C.Param p0 pids)
+          | m <- ms'
+          ]
+      return $ L.LFTuple ns
 
 -- | Is a param value completely constant/static?
 isParamConstant :: C.LinValue -> Bool
