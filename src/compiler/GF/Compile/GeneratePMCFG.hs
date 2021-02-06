@@ -622,7 +622,9 @@ ppbug msg = error completeMsg
  where
   originalMsg = render $ hang "Internal error in GeneratePMCFG:" 4 msg
   completeMsg =
-    unlines [originalMsg
+    case render msg of -- the error message for pattern matching a runtime string
+      "descend (CStr 0,CNil,CProj (LIdent (Id {rawId2utf8 = \"s\"})) CNil)"
+        -> unlines [originalMsg -- add more helpful output
             ,""
             ,"1) Check that you are not trying to pattern match a /runtime string/."
             ,"   These are illegal:"
@@ -633,5 +635,6 @@ ppbug msg = error completeMsg
             ,"2) Not about pattern matching? Submit a bug report and we update the error message."
             ,"     https://github.com/GrammaticalFramework/gf-core/issues"
             ]
+      _ -> originalMsg -- any other message: just print it as is
 
 ppU = ppTerm Unqualified
