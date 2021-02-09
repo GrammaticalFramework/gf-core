@@ -148,7 +148,7 @@ lin2string l = case l of
   LFEmpty -> ""
   LFToken tok -> tok
   LFTuple [l] -> lin2string l
-  LFConcat l1 l2 -> unwords [lin2string l1, lin2string l2]
+  LFConcat l1 l2 -> unwords $ filter (not.null) [lin2string l1, lin2string l2]
   x -> printf "[%s]" (show x)
 
 (!!) :: (Show a) => [a] -> Int -> a

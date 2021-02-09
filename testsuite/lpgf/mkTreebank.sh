@@ -4,7 +4,16 @@ if [ $# -lt 1 ]; then
   echo "Must specify trees file"
   exit 1
 fi
+TREES=$1
 ABSNAME="${1%.*}"
-echo "read_file -file=$1 -lines -tree | linearize -treebank | write_file -file=$ABSNAME.treebank" | gf --run $ABSNAME*.gf
-echo "Wrote $ABSNAME.treebank"
-echo "(you will have to add newlines separating the trees manually)"
+TREEBANK="$ABSNAME.treebank"
+
+# echo "read_file -file=$TREES -lines -tree | linearize -treebank | write_file -file=$TREEBANK" | gf --run $ABSNAME*.gf
+
+: > $TREEBANK
+while read tree; do
+  echo "linearize -treebank $tree | write_file -file=$TREEBANK -append" | gf --run --quiet $ABSNAME*.gf
+  echo "" >> $TREEBANK
+done < $TREES
+
+echo "Wrote $TREEBANK"
