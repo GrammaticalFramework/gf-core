@@ -12,7 +12,7 @@ TREEBANK="$ABSNAME.treebank"
 
 : > $TREEBANK
 while read tree; do
-  echo "linearize -treebank $tree | write_file -file=$TREEBANK -append" | gf --run --quiet $ABSNAME*.gf
+  echo "linearize -treebank $tree | write_file -file=$TREEBANK -append" | gf --run $ABSNAME*.gf > /dev/null
   echo "" >> $TREEBANK
 done < $TREES
 
