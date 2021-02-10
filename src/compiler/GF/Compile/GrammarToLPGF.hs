@@ -103,7 +103,7 @@ mkCanon2lpgf opts gr am = do
                 return $ L.LFTuple ts
 
               C.VariantValue [] -> return L.LFEmpty
-              C.VariantValue (vr:_) -> val2lin vr -- TODO variants not supported, just pick first
+              C.VariantValue (vr:_) -> val2lin vr -- NOTE variants not supported, just pick first
 
               C.VarValue (C.VarValueId (C.Unqual v)) -> do
                 ix <- eitherElemIndex (C.VarId v) varIds
