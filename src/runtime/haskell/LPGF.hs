@@ -130,16 +130,11 @@ eval cxt t = case t of
   LFInt i -> LFInt i
   LFTuple ts -> LFTuple vs
     where vs = map (eval cxt) ts
-  LFProjection t u -> vs !! (i-1)
-    where
-      -- LFTuple vs = eval cxt t
-      -- LFInt i = eval cxt u
-      vs = case eval cxt t of
-        LFTuple vs -> vs
-        x -> error $ "ERROR expected LFTuple, got: " ++ show x
-      i = case eval cxt u of
-        LFInt j -> j
-        x -> error $ "ERROR expected LFInt, got: " ++ show x
+  LFProjection t u ->
+    case (eval cxt t, eval cxt u) of
+      (LFTuple vs, LFInt i) -> vs !! (i-1)
+      (tp@(LFTuple _), LFTuple is) | all isInt is -> foldl (\(LFTuple vs) (LFInt i) -> vs !! (i-1)) tp is
+      (t',u') -> error $ printf "Incompatible projection:\n%s\n%s" (show t') (show u')
   LFArgument i -> cxt !! (i-1)
 
 -- | Turn concrete syntax terms into an actual string
@@ -156,3 +151,7 @@ lin2string l = case l of
   | i < 0 = error $ printf "!!: index %d too small for list: %s" i (show xs)
   | i > length xs - 1 = error $ printf "!!: index %d too large for list: %s" i (show xs)
   | otherwise = xs Prelude.!! i
+
+isInt :: LinFun -> Bool
+isInt (LFInt _) = True
+isInt _ = False

@@ -10,11 +10,12 @@ import GF.Compile.GrammarToCanonical (grammar2canonical)
 
 import GF.Infra.Option
 import GF.Infra.UseIO (IOE)
+import GF.Text.Pretty (pp, render)
 
 import qualified Control.Monad.State as CMS
 import Control.Monad (unless, forM_)
 import Data.Either (lefts, rights)
-import Data.List (elemIndex, find)
+import Data.List (elemIndex, find, groupBy)
 import qualified Data.Map as Map
 import Data.Maybe (catMaybes)
 import Text.Printf (printf)
@@ -28,6 +29,7 @@ mkCanon2lpgf opts gr am = do
     L.abstract = abs,
     L.concretes = Map.fromList cncs
   }
+  -- ppCanonical canon
   -- dumpCanonical canon
   -- dumpLPGF lpgf
   return lpgf
@@ -94,8 +96,18 @@ mkCanon2lpgf opts gr am = do
                 ts <- sequence [ val2lin lv | C.RecordRow lid lv <- rrvs ]
                 return $ L.LFTuple ts
 
-              C.TableValue lt trvs -> do -- lt is type
-                ts <- sequence [ val2lin lv | C.TableRow lpatt lv <- trvs ] -- TODO variables in lhs ?
+              C.TableValue lt trvs | isRecordType lt -> go trvs
+                where
+                  go :: [C.TableRowValue] -> Either String L.LinFun
+                  go [C.TableRow _ lv] = val2lin lv
+                  go trvs = do
+                    let grps = groupBy (\(C.TableRow (C.RecordPattern rps1) _) (C.TableRow (C.RecordPattern rps2) _) -> head rps1 == head rps2) trvs
+                    ts <- mapM (go . map (\(C.TableRow (C.RecordPattern rps) lv) -> C.TableRow (C.RecordPattern (tail rps)) lv)) grps
+                    return $ L.LFTuple ts
+
+              -- C.TableValue lt trvs | isParamType lt -> do
+              C.TableValue _ trvs -> do
+                ts <- sequence [ val2lin lv | C.TableRow _ lv <- trvs ] -- TODO variables in lhs ?
                 return $ L.LFTuple ts
 
               C.TupleValue lvs -> do
@@ -147,21 +159,6 @@ mkCanon2lpgf opts gr am = do
         L.lins = lins
       })
 
--- | Dump canonical grammar, for debugging
-dumpCanonical :: C.Grammar -> IO ()
-dumpCanonical (C.Grammar ab cncs) = do
-  putStrLn ""
-  forM_ cncs $ \(C.Concrete modId absModId flags params lincats lindefs) -> do
-    mapM_ print params
-    putStrLn ""
-    mapM_ print lindefs
-    putStrLn ""
-
--- | Dump LPGF, for debugging
-dumpLPGF :: LPGF -> IO ()
-dumpLPGF lpgf =
-  forM_ (Map.toList $ L.concretes lpgf) $ \(cid,concr) ->
-    mapM_ print (Map.toList $ L.lins concr)
 
 -- | Enumerate all paramvalue combinations for looking up index numbers
 mkParamMap :: [C.ParamDef] -> [[C.LinValue]]
@@ -207,10 +204,22 @@ mkParamTuples defs = map (\def -> CMS.evalState (mk' def) 1) defs
           ]
       return $ L.LFTuple ns
 
+isParamType :: C.LinType -> Bool
+isParamType (C.ParamType _) = True
+isParamType _ = False
+
+isRecordType :: C.LinType -> Bool
+isRecordType (C.RecordType _) = True
+isRecordType _ = False
+
 -- | Is a param value completely constant/static?
 isParamConstant :: C.LinValue -> Bool
 isParamConstant (C.ParamConstant (C.Param _ lvs)) = all isParamConstant lvs
 isParamConstant _ = False
+
+isLFInt :: L.LinFun -> Bool
+isLFInt (L.LFInt _) = True
+isLFInt _ = False
 
 -- | Convert Maybe to Either value with error
 m2e :: String -> Maybe a -> Either String a
@@ -225,3 +234,23 @@ mdi2i (C.ModId i) = mkCId i
 
 fi2i :: C.FunId -> CId
 fi2i (C.FunId i) = mkCId i
+
+-- | Pretty-print canonical grammar, for debugging
+ppCanonical :: C.Grammar -> IO ()
+ppCanonical = putStrLn . render . pp
+
+-- | Dump canonical grammar, for debugging
+dumpCanonical :: C.Grammar -> IO ()
+dumpCanonical (C.Grammar ab cncs) = do
+  putStrLn ""
+  forM_ cncs $ \(C.Concrete modId absModId flags params lincats lindefs) -> do
+    mapM_ print params
+    putStrLn ""
+    mapM_ print lindefs
+    putStrLn ""
+
+-- | Dump LPGF, for debugging
+dumpLPGF :: LPGF -> IO ()
+dumpLPGF lpgf =
+  forM_ (Map.toList $ L.concretes lpgf) $ \(cid,concr) ->
+    mapM_ print (Map.toList $ L.lins concr)

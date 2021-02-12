@@ -10,6 +10,6 @@ abstract Foods = {
     Mod : Quality -> Kind -> Kind ;
     Wine, Cheese, Fish, Pizza : Kind ;
     Very : Quality -> Quality ;
-    Fresh, Warm, Italian, 
+    Fresh, Warm, Italian,
       Expensive, Delicious, Boring : Quality ;
 }

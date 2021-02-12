@@ -15,10 +15,10 @@ dir = "testsuite" </> "lpgf"
 
 main :: IO ()
 main = do
+  doGrammar "Tables"
   doGrammar "Params"
   doGrammar "Walking"
   doGrammar "Foods"
-  doGrammar "Tables"
 
 doGrammar :: String -> IO ()
 doGrammar gname = do
@@ -42,7 +42,7 @@ doGrammar gname = do
     printf "%s: %s\n" gname ast
     let
       Just tree = readExpr ast
-    -- Do some linearization
+      -- Do some linearization
       langs =
         [ printf "%s: %s" (showLanguage lang) (linearizeConcr concr tree)
         | (lang,concr) <- Map.toList (concretes lpgf)
