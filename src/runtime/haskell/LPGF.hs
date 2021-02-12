@@ -45,7 +45,9 @@ data Concr = Concr {
 
 -- | Linearisation function
 data LinFun =
-    LFError String
+    LFError String -- ^ a runtime error, should probably not be supported at all
+  | LFBind -- ^ bind token
+
   | LFEmpty
   | LFToken String
   | LFConcat LinFun LinFun
@@ -121,6 +123,8 @@ type Context = [LinFun]
 eval :: Context -> LinFun -> LinFun
 eval cxt t = case t of
   LFError err -> error err
+  LFBind -> LFBind
+
   LFEmpty -> LFEmpty
   LFToken tok -> LFToken tok
   LFConcat s t -> LFConcat v w
@@ -141,8 +145,10 @@ eval cxt t = case t of
 lin2string :: LinFun -> String
 lin2string l = case l of
   LFEmpty -> ""
+  LFBind -> "" -- when encountered at beginning/end
   LFToken tok -> tok
   LFTuple [l] -> lin2string l
+  LFConcat l1 (LFConcat LFBind l2) -> lin2string l1 ++ lin2string l2
   LFConcat l1 l2 -> unwords $ filter (not.null) [lin2string l1, lin2string l2]
   x -> printf "[%s]" (show x)
 

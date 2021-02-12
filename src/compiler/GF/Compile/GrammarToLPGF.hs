@@ -90,7 +90,7 @@ mkCanon2lpgf opts gr am = do
                   term = foldl L.LFProjection tuple (L.LFInt (pidIx+1):pids')
                 return term
 
-              -- PredefValue PredefId -- TODO predef not supported
+              C.PredefValue (C.PredefId "BIND") -> return L.LFBind
 
               C.RecordValue rrvs -> do
                 ts <- sequence [ val2lin lv | C.RecordRow lid lv <- rrvs ]

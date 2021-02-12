@@ -1,0 +1,6 @@
+Bind: FtoS f1
+BindCnc: hello there
+
+Bind: FtoS f2
+BindCnc: good bye
+
