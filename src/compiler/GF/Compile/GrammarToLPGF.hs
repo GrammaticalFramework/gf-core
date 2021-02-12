@@ -105,8 +105,8 @@ mkCanon2lpgf opts gr am = do
                     ts <- mapM (go . map (\(C.TableRow (C.RecordPattern rps) lv) -> C.TableRow (C.RecordPattern (tail rps)) lv)) grps
                     return $ L.LFTuple ts
 
-              -- C.TableValue lt trvs | isParamType lt -> do
-              C.TableValue _ trvs -> do
+              C.TableValue lt trvs | isParamType lt -> do
+              -- C.TableValue _ trvs -> do
                 ts <- sequence [ val2lin lv | C.TableRow _ lv <- trvs ] -- TODO variables in lhs ?
                 return $ L.LFTuple ts
 
@@ -129,11 +129,11 @@ mkCanon2lpgf opts gr am = do
                 argIx <- eitherElemIndex (C.VarId v) varIds
                 -- lookup type for function
                 let (C.Abstract _ _ _ funs) = ab
-                (C.Type args _) <- case [ ftype | C.FunDef fid ftype <- funs, fid == funId ] of t:_ -> Right t ; _ -> Left $ printf "Cannot find type for: %s" v
+                (C.Type args _) <- [ ftype | C.FunDef fid ftype <- funs, fid == funId ] `headOrLeft` printf "Cannot find type for: %s" v
                 -- lookup type for argument
                 let C.TypeBinding _ (C.Type _ (C.TypeApp catId _)) = args !! argIx
                 -- lookup label index in argument type
-                rrs <- case [ rrs | C.LincatDef cid (C.RecordType rrs) <- lincats, cid == catId ] of t:_ -> Right t ; _ -> Left $ printf "Cannot find type for: %s" (show catId)
+                rrs <- [ rrs | C.LincatDef cid (C.RecordType rrs) <- lincats, cid == catId ] `headOrLeft` printf "Cannot find type for: %s" (show catId)
                 let rrs' = [ lid | C.RecordRow lid _ <- rrs ]
                 lblIx <- eitherElemIndex lblId rrs'
 
@@ -158,7 +158,6 @@ mkCanon2lpgf opts gr am = do
       return (mdi2i modId, L.Concr {
         L.lins = lins
       })
-
 
 -- | Enumerate all paramvalue combinations for looking up index numbers
 mkParamMap :: [C.ParamDef] -> [[C.LinValue]]
@@ -221,6 +220,12 @@ isLFInt :: L.LinFun -> Bool
 isLFInt (L.LFInt _) = True
 isLFInt _ = False
 
+-- | If list is non-empty return its head, else a fallback value
+headOrLeft :: [a] -> b -> Either b a
+headOrLeft (a:_) _ = Right a
+headOrLeft _ b = Left b
+
+
 -- | Convert Maybe to Either value with error
 m2e :: String -> Maybe a -> Either String a
 m2e err = maybe (Left err) Right
@@ -234,6 +239,7 @@ mdi2i (C.ModId i) = mkCId i
 
 fi2i :: C.FunId -> CId
 fi2i (C.FunId i) = mkCId i
+
 
 -- | Pretty-print canonical grammar, for debugging
 ppCanonical :: C.Grammar -> IO ()
