@@ -15,7 +15,7 @@ import GF.Text.Pretty (pp, render)
 import qualified Control.Monad.State as CMS
 import Control.Monad (unless, forM_)
 import Data.Either (lefts, rights)
-import Data.List (elemIndex, find, groupBy)
+import Data.List (elemIndex, find, groupBy, sortBy)
 import qualified Data.Map as Map
 import Data.Maybe (catMaybes)
 import Text.Printf (printf)
@@ -90,10 +90,17 @@ mkCanon2lpgf opts gr am = do
                   term = foldl L.LFProjection tuple (L.LFInt (pidIx+1):pids')
                 return term
 
-              C.PredefValue (C.PredefId "BIND") -> return L.LFBind
+              C.PredefValue (C.PredefId pid) -> case pid of
+                "BIND" -> return L.LFBind
+                -- "SOFT_BIND" ->
+                -- "SOFT_SPACE" ->
+                -- "CAPIT" ->
+                -- "ALL_CAPIT" ->
+                _ -> Left $ printf "Unknown predef function: %s" pid
 
               C.RecordValue rrvs -> do
-                ts <- sequence [ val2lin lv | C.RecordRow lid lv <- rrvs ]
+                let rrvs' = sortRecordRows rrvs
+                ts <- sequence [ val2lin lv | C.RecordRow lid lv <- rrvs' ]
                 return $ L.LFTuple ts
 
               C.TableValue lt trvs | isRecordType lt -> go trvs
@@ -203,6 +210,22 @@ mkParamTuples defs = map (\def -> CMS.evalState (mk' def) 1) defs
           ]
       return $ L.LFTuple ns
 
+-- | Always put 's' reocord field first, then sort alphabetically
+-- This seems to be done inconsistently in the canonical format
+-- Based on GF.Granmar.Macros.sortRec
+sortRecord :: C.LinValue -> C.LinValue
+sortRecord (C.RecordValue rrvs) = C.RecordValue (sortRecordRows rrvs)
+sortRecord lv = lv
+
+sortRecordRows :: [C.RecordRowValue] -> [C.RecordRowValue]
+sortRecordRows = sortBy ordLabel
+  where
+    ordLabel (C.RecordRow (C.LabelId l1) _) (C.RecordRow (C.LabelId l2) _) =
+      case (l1,l2) of
+        ("s",_) -> LT
+        (_,"s") -> GT
+        (s1,s2) -> compare s1 s2
+
 isParamType :: C.LinType -> Bool
 isParamType (C.ParamType _) = True
 isParamType _ = False
@@ -249,8 +272,19 @@ ppCanonical = putStrLn . render . pp
 dumpCanonical :: C.Grammar -> IO ()
 dumpCanonical (C.Grammar ab cncs) = do
   putStrLn ""
+
+  let (C.Abstract modId flags cats funs) = ab
+  print modId
+  mapM_ print cats
+  putStrLn ""
+  mapM_ print funs
+  putStrLn ""
+
   forM_ cncs $ \(C.Concrete modId absModId flags params lincats lindefs) -> do
+    print modId
     mapM_ print params
+    putStrLn ""
+    mapM_ print lincats
     putStrLn ""
     mapM_ print lindefs
     putStrLn ""
