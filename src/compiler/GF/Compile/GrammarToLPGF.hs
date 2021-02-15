@@ -13,7 +13,7 @@ import GF.Infra.UseIO (IOE)
 import GF.Text.Pretty (pp, render)
 
 import qualified Control.Monad.State as CMS
-import Control.Monad (unless, forM_)
+import Control.Monad (unless, forM, forM_)
 import Data.Either (lefts, rights)
 import Data.List (elemIndex, find, groupBy, sortBy)
 import qualified Data.Map as Map
@@ -128,7 +128,12 @@ mkCanon2lpgf opts gr am = do
                 ix <- eitherElemIndex (C.VarId v) varIds
                 return $ L.LFArgument (ix+1)
 
-              -- PreValue [([String], LinValue)] LinValue -- TODO pre not supported
+              C.PreValue pts df -> do
+                pts' <- forM pts $ \(pfxs, lv) -> do
+                  lv' <- val2lin lv
+                  return (pfxs, lv')
+                df' <- val2lin df
+                return $ L.LFPre pts' df'
 
               -- specific case when lhs is variable into function
               C.Projection (C.VarValue (C.VarValueId (C.Unqual v))) lblId -> do

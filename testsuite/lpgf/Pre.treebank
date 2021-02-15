@@ -1,0 +1,12 @@
+Pre: mkS a ant
+PreCnc: an ant
+
+Pre: mkS the ant
+PreCnc: the ant
+
+Pre: mkS a dog
+PreCnc: a dog
+
+Pre: mkS the dog
+PreCnc: the dog
+

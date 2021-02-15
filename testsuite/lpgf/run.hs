@@ -18,6 +18,7 @@ main = do
   doGrammar "Bind"
   doGrammar "Tables"
   doGrammar "Params"
+  doGrammar "Pre"
   doGrammar "Walking"
   doGrammar "Foods"
   -- doGrammar' "Foods" ["Fre"]

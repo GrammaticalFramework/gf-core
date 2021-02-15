@@ -9,6 +9,7 @@ import PGF.Expr (Expr)
 import PGF.Tree (Tree (..), expr2tree, prTree)
 
 import Data.Binary (Binary, get, put, encodeFile, decodeFile)
+import Data.List (isPrefixOf)
 import qualified Data.Map as Map
 import Text.Printf (printf)
 
@@ -45,9 +46,12 @@ data Concr = Concr {
 
 -- | Linearisation function
 data LinFun =
+  -- Additions
     LFError String -- ^ a runtime error, should probably not be supported at all
   | LFBind -- ^ bind token
+  | LFPre [([String], LinFun)] LinFun
 
+  -- From original definition in paper
   | LFEmpty
   | LFToken String
   | LFConcat LinFun LinFun
@@ -124,6 +128,10 @@ eval :: Context -> LinFun -> LinFun
 eval cxt t = case t of
   LFError err -> error err
   LFBind -> LFBind
+  LFPre pts df -> LFPre pts' df'
+    where
+      pts' = [ (strs, eval cxt t) | (strs,t) <- pts]
+      df' = eval cxt df
 
   LFEmpty -> LFEmpty
   LFToken tok -> LFToken tok
@@ -148,6 +156,11 @@ lin2string l = case l of
   LFBind -> "" -- when encountered at beginning/end
   LFToken tok -> tok
   LFTuple [l] -> lin2string l
+  LFConcat (LFPre pts df) l2 -> lin2string $ LFConcat l1 l2
+    where
+      l2' = lin2string l2
+      matches = [ l | (pfxs, l) <- pts, any (`isPrefixOf` l2') pfxs ]
+      l1 = if null matches then df else head matches
   LFConcat l1 (LFConcat LFBind l2) -> lin2string l1 ++ lin2string l2
   LFConcat l1 l2 -> unwords $ filter (not.null) [lin2string l1, lin2string l2]
   x -> printf "[%s]" (show x)
