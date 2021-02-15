@@ -8,7 +8,7 @@ import qualified Data.List as L
 import qualified Data.Map as Map
 import Text.Printf (printf)
 import System.Directory (listDirectory)
-import System.FilePath ((</>), (<.>), takeBaseName, takeExtension)
+import System.FilePath ((</>), (<.>), takeBaseName, takeExtension, dropExtension)
 
 dir :: FilePath
 dir = "testsuite" </> "lpgf"
@@ -20,12 +20,19 @@ main = do
   doGrammar "Params"
   doGrammar "Walking"
   doGrammar "Foods"
+  -- doGrammar' "Foods" ["Fre"]
 
 doGrammar :: String -> IO ()
-doGrammar gname = do
+doGrammar gname = doGrammar' gname []
+
+doGrammar' :: String -> [String] -> IO ()
+doGrammar' gname cncs = do
   -- Collect concrete modules
   mods <- map (dir </>)
-        . filter (\p -> gname `L.isPrefixOf` takeBaseName p && takeExtension p == ".gf")
+        . filter (\p -> gname `L.isPrefixOf` takeBaseName p
+                        && takeExtension p == ".gf"
+                        && null cncs || any (`L.isSuffixOf` dropExtension p) cncs
+                  )
         <$> listDirectory dir
 
   -- Compile LPGF
