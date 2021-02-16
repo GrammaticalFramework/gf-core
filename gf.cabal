@@ -86,7 +86,8 @@ Library
                  -- For compatability with ghc < 8
                  -- We need transformers-compat >= 0.6.3, but that is only in newer snapshots where it is redundant.
                  transformers-compat,
-                 ghc-prim
+                 ghc-prim,
+                 text
   hs-source-dirs: src/runtime/haskell
 
   other-modules:
@@ -536,6 +537,7 @@ test-suite lpgf
     process,
     random,
     terminfo,
+    text,
     time,
     transformers-compat,
     unix,

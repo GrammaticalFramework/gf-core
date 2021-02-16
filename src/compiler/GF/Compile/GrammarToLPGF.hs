@@ -18,12 +18,13 @@ import Data.Either (lefts, rights)
 import Data.List (elemIndex, find, groupBy, sortBy)
 import qualified Data.Map as Map
 import Data.Maybe (catMaybes)
+import qualified Data.Text as T
 import Text.Printf (printf)
 
 mkCanon2lpgf :: Options -> SourceGrammar -> ModuleName -> IOE LPGF
 mkCanon2lpgf opts gr am = do
-  (an,abs) <- mkAbstr ab
-  cncs     <- mapM mkConcr cncs
+  (an,abs) <- mkAbstract ab
+  cncs     <- mapM mkConcrete cncs
   let lpgf = LPGF {
     L.absname = an,
     L.abstract = abs,
@@ -36,11 +37,11 @@ mkCanon2lpgf opts gr am = do
   where
     canon@(C.Grammar ab cncs) = grammar2canonical opts am gr
 
-    mkAbstr :: C.Abstract -> IOE (CId, L.Abstr)
-    mkAbstr (C.Abstract modId flags cats funs) = return (mdi2i modId, L.Abstr {})
+    mkAbstract :: C.Abstract -> IOE (CId, L.Abstract)
+    mkAbstract (C.Abstract modId flags cats funs) = return (mdi2i modId, L.Abstract {})
 
-    mkConcr :: C.Concrete -> IOE (CId, L.Concr)
-    mkConcr (C.Concrete modId absModId flags params lincats lindefs) = do
+    mkConcrete :: C.Concrete -> IOE (CId, L.Concrete)
+    mkConcrete (C.Concrete modId absModId flags params lincats lindefs) = do
       let
         paramMap = mkParamMap params
         paramTuples = mkParamTuples params
@@ -61,9 +62,9 @@ mkCanon2lpgf opts gr am = do
                 return $ L.LFConcat v1' v2'
 
               C.LiteralValue ll -> case ll of
-                C.FloatConstant f -> return $ L.LFToken (show f)
-                C.IntConstant i -> return $ L.LFToken (show i)
-                C.StrConstant s -> return $ L.LFToken s
+                C.FloatConstant f -> return $ L.LFToken $ T.pack $ show f
+                C.IntConstant i -> return $ L.LFToken $ T.pack $ show i
+                C.StrConstant s -> return $ L.LFToken $ T.pack s
 
               C.ErrorValue err -> return $ L.LFError err
 
@@ -132,7 +133,7 @@ mkCanon2lpgf opts gr am = do
               C.PreValue pts df -> do
                 pts' <- forM pts $ \(pfxs, lv) -> do
                   lv' <- val2lin lv
-                  return (pfxs, lv')
+                  return (map T.pack pfxs, lv')
                 df' <- val2lin df
                 return $ L.LFPre pts' df'
 
@@ -168,7 +169,7 @@ mkCanon2lpgf opts gr am = do
 
       unless (null $ lefts es) (error $ unlines (lefts es))
 
-      return (mdi2i modId, L.Concr {
+      return (mdi2i modId, L.Concrete {
         L.lins = lins
       })
 

@@ -53,7 +53,7 @@ doGrammar' gname cncs = do
       Just tree = readExpr ast
       -- Do some linearization
       langs =
-        [ printf "%s: %s" (showLanguage lang) (linearizeConcr concr tree)
+        [ printf "%s: %s" (showLanguage lang) (linearizeConcrete concr tree)
         | (lang,concr) <- Map.toList (concretes lpgf)
         ]
     mapM_ putStrLn langs
