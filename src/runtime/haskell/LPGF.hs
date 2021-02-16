@@ -131,7 +131,8 @@ linearizeConcreteText concr expr = lin2string $ lin (expr2tree expr)
       Fun f as ->
         case Map.lookup f (lins concr) of
           Just t -> eval (map lin as) t
-          _ -> error $ printf "Lookup failed for function: %s" (showCId f)
+          -- _ -> error $ printf "Lookup failed for function: %s" (showCId f)
+          _ -> LFToken $ T.pack $ printf "[%s]" (showCId f)
       x -> error $ printf "Cannot lin: %s" (prTree x)
 
 -- | Evaluation context is a sequence of terms
