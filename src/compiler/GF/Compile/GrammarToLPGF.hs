@@ -90,10 +90,11 @@ mkCanon2lpgf opts gr am = do
                   term = foldl L.LFProjection tuple (L.LFInt (pidIx+1):pids')
                 return term
 
+              -- https://www.aclweb.org/anthology/W15-3305.pdf
               C.PredefValue (C.PredefId pid) -> case pid of
                 "BIND" -> return L.LFBind
                 "SOFT_BIND" -> return L.LFBind
-                -- "SOFT_SPACE" ->
+                "SOFT_SPACE" -> return L.LFSpace
                 -- "CAPIT" ->
                 -- "ALL_CAPIT" ->
                 _ -> Left $ printf "Unknown predef function: %s" pid

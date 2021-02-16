@@ -7,4 +7,5 @@ concrete BindCnc of Bind = open Prelude in {
     concat a b = ss (a.s ++ b.s) ;
     bind a b = ss (a.s ++ BIND ++ b.s) ;
     softbind a b = ss (a.s ++ SOFT_BIND ++ b.s) ;
+    softspace a b = ss (a.s ++ SOFT_SPACE ++ b.s) ;
 }

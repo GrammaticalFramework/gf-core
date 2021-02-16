@@ -12,3 +12,6 @@ BindCnc: hello theregoodbye
 
 Bind: softbind f1 f2
 BindCnc: hello theregoodbye
+
+Bind: softspace f1 f2
+BindCnc: hello there goodbye

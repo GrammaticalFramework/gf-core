@@ -6,4 +6,5 @@ abstract Bind = {
     concat : S -> S -> S ;
     bind : S -> S -> S ;
     softbind : S -> S -> S ;
+    softspace : S -> S -> S ;
 }

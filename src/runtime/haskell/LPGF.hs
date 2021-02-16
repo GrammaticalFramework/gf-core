@@ -48,7 +48,8 @@ data Concr = Concr {
 data LinFun =
   -- Additions
     LFError String -- ^ a runtime error, should probably not be supported at all
-  | LFBind -- ^ bind token
+  | LFBind
+  | LFSpace
   | LFPre [([String], LinFun)] LinFun
 
   -- From original definition in paper
@@ -127,19 +128,14 @@ type Context = [LinFun]
 eval :: Context -> LinFun -> LinFun
 eval cxt t = case t of
   LFError err -> error err
-  LFBind -> LFBind
   LFPre pts df -> LFPre pts' df'
     where
       pts' = [ (strs, eval cxt t) | (strs,t) <- pts]
       df' = eval cxt df
-
-  LFEmpty -> LFEmpty
-  LFToken tok -> LFToken tok
   LFConcat s t -> LFConcat v w
     where
       v = eval cxt s
       w = eval cxt t
-  LFInt i -> LFInt i
   LFTuple ts -> LFTuple vs
     where vs = map (eval cxt) ts
   LFProjection t u ->
@@ -148,12 +144,14 @@ eval cxt t = case t of
       (tp@(LFTuple _), LFTuple is) | all isInt is -> foldl (\(LFTuple vs) (LFInt i) -> vs !! (i-1)) tp is
       (t',u') -> error $ printf "Incompatible projection:\n%s\n%s" (show t) (show u)
   LFArgument i -> cxt !! (i-1)
+  _ -> t
 
 -- | Turn concrete syntax terms into an actual string
 lin2string :: LinFun -> String
 lin2string l = case l of
   LFEmpty -> ""
   LFBind -> "" -- when encountered at beginning/end
+  LFSpace -> "" -- when encountered at beginning/end
   LFToken tok -> tok
   LFTuple [l] -> lin2string l
   LFConcat (LFPre pts df) l2 -> lin2string $ LFConcat l1 l2
@@ -162,6 +160,7 @@ lin2string l = case l of
       matches = [ l | (pfxs, l) <- pts, any (`isPrefixOf` l2') pfxs ]
       l1 = if null matches then df else head matches
   LFConcat l1 (LFConcat LFBind l2) -> lin2string l1 ++ lin2string l2
+  LFConcat l1 (LFConcat LFSpace l2) -> lin2string $ LFConcat l1 l2
   LFConcat l1 l2 -> unwords $ filter (not.null) [lin2string l1, lin2string l2]
   x -> printf "[%s]" (show x)
 
