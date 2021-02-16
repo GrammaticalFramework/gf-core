@@ -54,14 +54,13 @@ mkCanon2lpgf opts gr am = do
           (lf, _) <- val2lin linValue
           return (fi2i funId, lf)
           where
-            -- Type information in return is only needed during projection, so we can be lazy about specifying it (hence the Nothings)
             val2lin :: C.LinValue -> Either String (L.LinFun, Maybe C.LinType)
             val2lin lv = case lv of
 
               C.ConcatValue v1 v2 -> do
                 (v1',t1) <- val2lin v1
                 (v2',t2) <- val2lin v2
-                return (L.LFConcat v1' v2', t1 <|> t2) -- NOTE surely t1 == t2
+                return (L.LFConcat v1' v2', t1 <|> t2) -- t1 else t2
 
               C.LiteralValue ll -> case ll of
                 C.FloatConstant f -> return (L.LFToken $ T.pack $ show f, Just C.FloatType)
@@ -82,8 +81,6 @@ mkCanon2lpgf opts gr am = do
               -- when param value is dynamic
               C.ParamConstant (C.Param pid pids) -> do
                 -- get param group index and defn for this constructor
-                -- let defs = [ (gix,d) | (gix,d@(C.ParamDef _ ps)) <- zip [0..] params, any (\(C.Param p _) -> p == pid) ps ] :: [(Int,C.ParamDef)]
-                -- (gix,def) <- if null defs then Left (printf "Cannot find param group: %s" (show pid)) else Right $ head defs
                 (gix,def) <- [ (gix,d) | (gix,d@(C.ParamDef _ ps)) <- zip [0..] params, any (\(C.Param p _) -> p == pid) ps ]
                               `headOrLeft` printf "Cannot find param group: %s" (show pid)
                 let (C.ParamDef tpid defpids) = def
@@ -119,8 +116,10 @@ mkCanon2lpgf opts gr am = do
                     return (L.LFTuple (map fst ts), Just lt)
 
               C.TableValue lt trvs | isParamType lt -> do
-                ts <- sequence [ val2lin lv | C.TableRow _ lv <- trvs ] -- TODO variables in lhs ?
+                ts <- sequence [ val2lin lv | C.TableRow _ lv <- trvs ]
                 return (L.LFTuple (map fst ts), Just lt)
+
+              -- TODO TuplePattern, WildPattern?
 
               C.TupleValue lvs -> do
                 ts <- mapM val2lin lvs
