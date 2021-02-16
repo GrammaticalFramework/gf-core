@@ -18,7 +18,7 @@ import Control.Monad (unless, forM, forM_)
 import Data.Either (lefts, rights)
 import Data.List (elemIndex, find, groupBy, sortBy)
 import qualified Data.Map as Map
-import Data.Maybe (catMaybes, fromJust)
+import Data.Maybe (fromJust)
 import qualified Data.Text as T
 import Text.Printf (printf)
 
@@ -74,24 +74,26 @@ mkCanon2lpgf opts gr am = do
               -- this case is actually covered below and can be omitted, but it will result in smaller LPGF
               -- and should thus be seen as an optimisation
               C.ParamConstant _ | isParamConstant lv -> do
-                let mixs = map (elemIndex lv) paramMap
-                case catMaybes mixs of
-                  ix:_ -> return (L.LFInt (ix+1), Nothing)
-                  _ -> Left $ printf "Cannot find param value: %s" (show lv)
+                (gix,ix) <- [ (gix,ix) | (gix,lvs) <- zip [0..] paramMap, Just ix <- [elemIndex lv lvs] ]
+                            `headOrLeft` printf "Cannot find param value: %s" (show lv)
+                let (C.ParamDef tpid _) = params !! gix
+                return (L.LFInt (ix+1), Just $ C.ParamType (C.ParamTypeId tpid))
 
               -- when param value is dynamic
               C.ParamConstant (C.Param pid pids) -> do
                 -- get param group index and defn for this constructor
-                let defs = [ (gix,d) | (gix,d@(C.ParamDef _ ps)) <- zip [0..] params, any (\(C.Param p _) -> p == pid) ps ] :: [(Int,C.ParamDef)]
-                (gix,def) <- if null defs then Left (printf "Cannot find param group: %s" (show pid)) else Right $ head defs
-                let (C.ParamDef _ defpids) = def
+                -- let defs = [ (gix,d) | (gix,d@(C.ParamDef _ ps)) <- zip [0..] params, any (\(C.Param p _) -> p == pid) ps ] :: [(Int,C.ParamDef)]
+                -- (gix,def) <- if null defs then Left (printf "Cannot find param group: %s" (show pid)) else Right $ head defs
+                (gix,def) <- [ (gix,d) | (gix,d@(C.ParamDef _ ps)) <- zip [0..] params, any (\(C.Param p _) -> p == pid) ps ]
+                              `headOrLeft` printf "Cannot find param group: %s" (show pid)
+                let (C.ParamDef tpid defpids) = def
 
                 pidIx <- eitherElemIndex pid [ p | C.Param p _ <- defpids ]
                 pids' <- mapM val2lin pids
                 let
                   tuple = paramTuples !! gix
                   term = foldl L.LFProjection tuple (L.LFInt (pidIx+1):map fst pids')
-                return (term, Nothing)
+                return (term, Just $ C.ParamType (C.ParamTypeId tpid))
 
               -- https://www.aclweb.org/anthology/W15-3305.pdf
               C.PredefValue (C.PredefId pid) -> case pid of
@@ -105,7 +107,7 @@ mkCanon2lpgf opts gr am = do
               C.RecordValue rrvs -> do
                 let rrvs' = sortRecordRows rrvs
                 ts <- sequence [ val2lin lv | C.RecordRow lid lv <- rrvs' ]
-                return (L.LFTuple (map fst ts), Just $ C.RecordType (map (C.RecordRow undefined . fromJust . snd) ts)) -- TODO remove undefined
+                return (L.LFTuple (map fst ts), Just $ C.RecordType [ C.RecordRow lid lt | (C.RecordRow lid _, (_, Just lt)) <- zip rrvs' ts])
 
               C.TableValue lt trvs | isRecordType lt -> go trvs
                 where
@@ -143,8 +145,8 @@ mkCanon2lpgf opts gr am = do
                 pts' <- forM pts $ \(pfxs, lv) -> do
                   (lv', _) <- val2lin lv
                   return (map T.pack pfxs, lv')
-                (df', _) <- val2lin df
-                return (L.LFPre pts' df', Nothing)
+                (df', lt) <- val2lin df
+                return (L.LFPre pts' df', lt)
 
               C.Projection v1 lblId -> do
                 (v1', mtyp) <- val2lin v1
