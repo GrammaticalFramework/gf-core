@@ -1,9 +1,10 @@
 concrete BindCnc of Bind = open Prelude in {
   lincat
-    S = Str ;
-    F = { s : Str } ;
+    S = SS ;
   lin
-    f1 = { s = "hello the" ++ BIND ++ "re" } ;
-    f2 = { s = "good" ++ "bye" } ;
-    FtoS f = f.s ;
+    f1 = ss ("hello the" ++ BIND ++ "re") ;
+    f2 = ss ("good" ++ SOFT_BIND ++ "bye") ;
+    concat a b = ss (a.s ++ b.s) ;
+    bind a b = ss (a.s ++ BIND ++ b.s) ;
+    softbind a b = ss (a.s ++ SOFT_BIND ++ b.s) ;
 }

@@ -1,7 +1,9 @@
 abstract Bind = {
-  cat S ; F ;
+  cat S ;
   fun
-    FtoS : F -> S ;
-    f1 : F ;
-    f2 : F ;
+    f1 : S ;
+    f2 : S ;
+    concat : S -> S -> S ;
+    bind : S -> S -> S ;
+    softbind : S -> S -> S ;
 }

@@ -92,7 +92,7 @@ mkCanon2lpgf opts gr am = do
 
               C.PredefValue (C.PredefId pid) -> case pid of
                 "BIND" -> return L.LFBind
-                -- "SOFT_BIND" ->
+                "SOFT_BIND" -> return L.LFBind
                 -- "SOFT_SPACE" ->
                 -- "CAPIT" ->
                 -- "ALL_CAPIT" ->

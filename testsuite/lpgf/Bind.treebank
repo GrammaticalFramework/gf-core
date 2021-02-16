@@ -1,6 +1,14 @@
-Bind: FtoS f1
+Bind: f1
 BindCnc: hello there
 
-Bind: FtoS f2
-BindCnc: good bye
+Bind: f2
+BindCnc: goodbye
 
+Bind: concat f1 f2
+BindCnc: hello there goodbye
+
+Bind: bind f1 f2
+BindCnc: hello theregoodbye
+
+Bind: softbind f1 f2
+BindCnc: hello theregoodbye
