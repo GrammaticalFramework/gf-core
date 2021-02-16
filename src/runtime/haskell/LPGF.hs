@@ -1,4 +1,5 @@
 {-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE LambdaCase #-}
 
 -- | Linearisation-only grammar format.
 -- Closely follows description in Section 2 of Angelov, Bringert, Ranta (2009):
@@ -10,10 +11,12 @@ import PGF.CId
 import PGF.Expr (Expr)
 import PGF.Tree (Tree (..), expr2tree, prTree)
 
-import Data.Binary (Binary, get, put, encodeFile, decodeFile)
+import Control.Monad (liftM, liftM2)
+import Data.Binary (Binary, put, get, putWord8, getWord8, encodeFile, decodeFile)
 import qualified Data.Map as Map
 import Data.Text (Text)
 import qualified Data.Text as T
+import qualified Data.Text.Encoding as TE
 import Text.Printf (printf)
 
 import Prelude hiding ((!!))
@@ -95,8 +98,37 @@ instance Binary Concrete where
     }
 
 instance Binary LinFun where
-  put = put . show
-  get = read <$> get
+  put = \case
+    LFError e          -> putWord8 0 >> put e
+    LFBind             -> putWord8 1
+    LFSpace            -> putWord8 2
+    LFCapit            -> putWord8 3
+    LFAllCapit         -> putWord8 4
+    LFPre ps d         -> putWord8 5 >> put ([(map TE.encodeUtf8 p,l) | (p,l) <- ps],d)
+    LFEmpty            -> putWord8 6
+    LFToken t          -> putWord8 7 >> put (TE.encodeUtf8 t)
+    LFConcat l1 l2     -> putWord8 8 >> put (l1,l2)
+    LFInt i            -> putWord8 9 >> put i
+    LFTuple ls         -> putWord8 10 >> put ls
+    LFProjection l1 l2 -> putWord8 11 >> put (l1,l2)
+    LFArgument i       -> putWord8 12 >> put i
+  get = do
+    tag <- getWord8
+    case tag of
+      0 -> liftM LFError get
+      1 -> return LFBind
+      2 -> return LFSpace
+      3 -> return LFCapit
+      4 -> return LFAllCapit
+      5 -> liftM2 (\ps -> LFPre [(map TE.decodeUtf8 p,l) | (p,l) <- ps]) get get
+      6 -> return LFEmpty
+      7 -> liftM (LFToken . TE.decodeUtf8) get
+      8 -> liftM2 LFConcat get get
+      9 -> liftM LFInt get
+      10 -> liftM LFTuple get
+      11 -> liftM2 LFProjection get get
+      12 -> liftM LFArgument get
+      _ -> fail "Failed to decode LPGF binary format"
 
 abstractName :: LPGF -> CId
 abstractName = absname
