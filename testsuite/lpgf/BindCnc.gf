@@ -8,4 +8,6 @@ concrete BindCnc of Bind = open Prelude in {
     bind a b = ss (a.s ++ BIND ++ b.s) ;
     softbind a b = ss (a.s ++ SOFT_BIND ++ b.s) ;
     softspace a b = ss (a.s ++ SOFT_SPACE ++ b.s) ;
+    capit a = ss (CAPIT ++ a.s) ;
+    allcapit a = ss (ALL_CAPIT ++ a.s) ;
 }

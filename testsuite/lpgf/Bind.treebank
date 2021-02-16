@@ -15,3 +15,6 @@ BindCnc: hello theregoodbye
 
 Bind: softspace f1 f2
 BindCnc: hello there goodbye
+
+Bind: concat (capit f1) (allcapit f2)
+BindCnc: Hello there GOODBYE

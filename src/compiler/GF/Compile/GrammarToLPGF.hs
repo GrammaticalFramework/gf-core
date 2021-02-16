@@ -95,8 +95,8 @@ mkCanon2lpgf opts gr am = do
                 "BIND" -> return L.LFBind
                 "SOFT_BIND" -> return L.LFBind
                 "SOFT_SPACE" -> return L.LFSpace
-                -- "CAPIT" ->
-                -- "ALL_CAPIT" ->
+                "CAPIT" -> return L.LFCapit
+                "ALL_CAPIT" -> return L.LFAllCapit
                 _ -> Left $ printf "Unknown predef function: %s" pid
 
               C.RecordValue rrvs -> do

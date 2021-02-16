@@ -9,6 +9,7 @@ import PGF.Expr (Expr)
 import PGF.Tree (Tree (..), expr2tree, prTree)
 
 import Data.Binary (Binary, get, put, encodeFile, decodeFile)
+import Data.Char (toUpper)
 import Data.List (isPrefixOf)
 import qualified Data.Map as Map
 import Text.Printf (printf)
@@ -50,6 +51,8 @@ data LinFun =
     LFError String -- ^ a runtime error, should probably not be supported at all
   | LFBind
   | LFSpace
+  | LFCapit
+  | LFAllCapit
   | LFPre [([String], LinFun)] LinFun
 
   -- From original definition in paper
@@ -161,6 +164,8 @@ lin2string l = case l of
       l1 = if null matches then df else head matches
   LFConcat l1 (LFConcat LFBind l2) -> lin2string l1 ++ lin2string l2
   LFConcat l1 (LFConcat LFSpace l2) -> lin2string $ LFConcat l1 l2
+  LFConcat LFCapit l2 -> let l = lin2string l2 in toUpper (head l) : tail l
+  LFConcat LFAllCapit l2 -> let tks = words (lin2string l2) in unwords $ map toUpper (head tks) : tail tks
   LFConcat l1 l2 -> unwords $ filter (not.null) [lin2string l1, lin2string l2]
   x -> printf "[%s]" (show x)
 
