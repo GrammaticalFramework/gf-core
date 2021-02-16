@@ -12,4 +12,5 @@ concrete PreCnc of Pre = {
     } } ;
     the = { s = "the" } ;
     mkS det n = { s = det.s ++ n.s } ;
+    detS det = { s = det.s } ;
 }

@@ -4,4 +4,5 @@ abstract Pre = {
     ant, dog: N ;
     a, the: Det ;
     mkS : Det -> N -> S;
+    detS : Det -> S;
 }

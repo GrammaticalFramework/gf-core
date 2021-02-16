@@ -10,3 +10,8 @@ PreCnc: a dog
 Pre: mkS the dog
 PreCnc: the dog
 
+Pre: detS a
+PreCnc: a
+
+Pre: detS the
+PreCnc: the

@@ -167,6 +167,7 @@ lin2string l = case l of
   LFSpace -> "" -- when encountered at beginning/end
   LFToken tok -> tok
   LFTuple [l] -> lin2string l
+  LFPre pts df -> lin2string df -- when encountered at end
   LFConcat (LFPre pts df) l2 -> lin2string $ LFConcat l1 l2
     where
       l2' = lin2string l2
@@ -177,7 +178,7 @@ lin2string l = case l of
   LFConcat LFCapit l2 -> let l = lin2string l2 in T.toUpper (T.take 1 l) `T.append` T.drop 1 l
   LFConcat LFAllCapit l2 -> let tks = T.words (lin2string l2) in T.unwords $ T.toUpper (head tks) : tail tks
   LFConcat l1 l2 -> T.unwords $ filter (not.T.null) [lin2string l1, lin2string l2]
-  x -> T.pack $ printf "[%s]" (show x)
+  x -> T.pack $ printf "<%s>" (show x)
 
 -- | List indexing with more verbose error messages
 (!!) :: (Show a) => [a] -> Int -> a
