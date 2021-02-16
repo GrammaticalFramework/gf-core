@@ -168,6 +168,7 @@ lin2string l = case l of
   LFSpace -> "" -- when encountered at beginning/end
   LFToken tok -> tok
   LFTuple [l] -> lin2string l
+  LFTuple (l:_) -> lin2string l -- unselected table, just choose first option (see e.g. FoodsJpn)
   LFPre pts df -> lin2string df -- when encountered at end
   LFConcat (LFPre pts df) l2 -> lin2string $ LFConcat l1 l2
     where
