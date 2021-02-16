@@ -24,6 +24,8 @@ import Text.Printf (printf)
 
 mkCanon2lpgf :: Options -> SourceGrammar -> ModuleName -> IOE LPGF
 mkCanon2lpgf opts gr am = do
+  -- ppCanonical canon
+  -- dumpCanonical canon
   (an,abs) <- mkAbstract ab
   cncs     <- mapM mkConcrete cncs
   let lpgf = LPGF {
@@ -31,8 +33,6 @@ mkCanon2lpgf opts gr am = do
     L.abstract = abs,
     L.concretes = Map.fromList cncs
   }
-  -- ppCanonical canon
-  -- dumpCanonical canon
   -- dumpLPGF lpgf
   return lpgf
   where
@@ -54,14 +54,14 @@ mkCanon2lpgf opts gr am = do
           (lf, _) <- val2lin linValue
           return (fi2i funId, lf)
           where
-            -- Type information in return is only needed during projection, so we can be lazy about specifying it
+            -- Type information in return is only needed during projection, so we can be lazy about specifying it (hence the Nothings)
             val2lin :: C.LinValue -> Either String (L.LinFun, Maybe C.LinType)
             val2lin lv = case lv of
 
               C.ConcatValue v1 v2 -> do
                 (v1',t1) <- val2lin v1
                 (v2',t2) <- val2lin v2
-                return (L.LFConcat v1' v2', t1 <|> t2) -- surely t1 == t2
+                return (L.LFConcat v1' v2', t1 <|> t2) -- NOTE surely t1 == t2
 
               C.LiteralValue ll -> case ll of
                 C.FloatConstant f -> return (L.LFToken $ T.pack $ show f, Just C.FloatType)
@@ -105,7 +105,7 @@ mkCanon2lpgf opts gr am = do
               C.RecordValue rrvs -> do
                 let rrvs' = sortRecordRows rrvs
                 ts <- sequence [ val2lin lv | C.RecordRow lid lv <- rrvs' ]
-                return (L.LFTuple (map fst ts), Just $ C.RecordType (map (C.RecordRow undefined . fromJust . snd) ts))
+                return (L.LFTuple (map fst ts), Just $ C.RecordType (map (C.RecordRow undefined . fromJust . snd) ts)) -- TODO remove undefined
 
               C.TableValue lt trvs | isRecordType lt -> go trvs
                 where
@@ -128,9 +128,16 @@ mkCanon2lpgf opts gr am = do
               C.VariantValue (vr:_) -> val2lin vr -- NOTE variants not supported, just pick first
 
               C.VarValue (C.VarValueId (C.Unqual v)) -> do
+                -- lookup argument index
                 ix <- eitherElemIndex (C.VarId v) varIds
-                let typ = undefined -- TODO
-                return (L.LFArgument (ix+1), Just typ)
+                -- lookup type for function
+                let (C.Abstract _ _ _ funs) = ab
+                (C.Type args _) <- [ ftype | C.FunDef fid ftype <- funs, fid == funId ] `headOrLeft` printf "Cannot find type for: %s" v
+                -- lookup category for argument
+                let C.TypeBinding _ (C.Type _ (C.TypeApp catId _)) = args !! ix
+                -- lookup lintype for category
+                lt <- [ lt | C.LincatDef cid lt <- lincats, cid == catId ] `headOrLeft` printf "Cannot find type for: %s" (show catId)
+                return (L.LFArgument (ix+1), Just lt)
 
               C.PreValue pts df -> do
                 pts' <- forM pts $ \(pfxs, lv) -> do
@@ -139,27 +146,15 @@ mkCanon2lpgf opts gr am = do
                 (df', _) <- val2lin df
                 return (L.LFPre pts' df', Nothing)
 
-              -- specific case when lhs is variable into function
-              C.Projection (C.VarValue (C.VarValueId (C.Unqual v))) lblId -> do
-                -- lookup argument index
-                argIx <- eitherElemIndex (C.VarId v) varIds
-                -- lookup type for function
-                let (C.Abstract _ _ _ funs) = ab
-                (C.Type args _) <- [ ftype | C.FunDef fid ftype <- funs, fid == funId ] `headOrLeft` printf "Cannot find type for: %s" v
-                -- lookup type for argument
-                let C.TypeBinding _ (C.Type _ (C.TypeApp catId _)) = args !! argIx
-                -- lookup label index in argument type
-                rrs <- [ rrs | C.LincatDef cid (C.RecordType rrs) <- lincats, cid == catId ] `headOrLeft` printf "Cannot find type for: %s" (show catId)
+              C.Projection v1 lblId -> do
+                (v1', mtyp) <- val2lin v1
+                -- find label index in argument type
+                let Just (C.RecordType rrs) = mtyp
                 let rrs' = [ lid | C.RecordRow lid _ <- rrs ]
                 lblIx <- eitherElemIndex lblId rrs'
-
-                return (L.LFProjection (L.LFArgument (argIx+1)) (L.LFInt (lblIx+1)), Nothing)
-
-              -- C.Projection v1 (C.LabelId lbl) -> do -- TODO
-              --   return L.LFEmpty
-                -- v1' <- val2lin v1
-                -- let lblIx = undefined
-                -- return $ L.LFProjection v1' (L.LFInt (lblIx+1))
+                -- lookup lintype for record row
+                let C.RecordRow _ lt = rrs !! lblIx
+                return (L.LFProjection v1' (L.LFInt (lblIx+1)), Just lt)
 
               C.Selection v1 v2 -> do
                 (v1', t1) <- val2lin v1
