@@ -12,12 +12,13 @@ import GF.Infra.Option
 import GF.Infra.UseIO (IOE)
 import GF.Text.Pretty (pp, render)
 
+import Control.Applicative ((<|>))
 import qualified Control.Monad.State as CMS
 import Control.Monad (unless, forM, forM_)
 import Data.Either (lefts, rights)
 import Data.List (elemIndex, find, groupBy, sortBy)
 import qualified Data.Map as Map
-import Data.Maybe (catMaybes)
+import Data.Maybe (catMaybes, fromJust)
 import qualified Data.Text as T
 import Text.Printf (printf)
 
@@ -50,23 +51,24 @@ mkCanon2lpgf opts gr am = do
 
         mkLin :: C.LinDef -> Either String (CId, L.LinFun)
         mkLin (C.LinDef funId varIds linValue) = do
-          lf <- val2lin linValue
+          (lf, _) <- val2lin linValue
           return (fi2i funId, lf)
           where
-            val2lin :: C.LinValue -> Either String L.LinFun
+            -- Type information in return is only needed during projection, so we can be lazy about specifying it
+            val2lin :: C.LinValue -> Either String (L.LinFun, Maybe C.LinType)
             val2lin lv = case lv of
 
               C.ConcatValue v1 v2 -> do
-                v1' <- val2lin v1
-                v2' <- val2lin v2
-                return $ L.LFConcat v1' v2'
+                (v1',t1) <- val2lin v1
+                (v2',t2) <- val2lin v2
+                return (L.LFConcat v1' v2', t1 <|> t2) -- surely t1 == t2
 
               C.LiteralValue ll -> case ll of
-                C.FloatConstant f -> return $ L.LFToken $ T.pack $ show f
-                C.IntConstant i -> return $ L.LFToken $ T.pack $ show i
-                C.StrConstant s -> return $ L.LFToken $ T.pack s
+                C.FloatConstant f -> return (L.LFToken $ T.pack $ show f, Just C.FloatType)
+                C.IntConstant i -> return (L.LFToken $ T.pack $ show i, Just C.IntType)
+                C.StrConstant s -> return (L.LFToken $ T.pack s, Just C.StrType)
 
-              C.ErrorValue err -> return $ L.LFError err
+              C.ErrorValue err -> return (L.LFError err, Nothing)
 
               -- when param value can be known at compile time
               -- this case is actually covered below and can be omitted, but it will result in smaller LPGF
@@ -74,7 +76,7 @@ mkCanon2lpgf opts gr am = do
               C.ParamConstant _ | isParamConstant lv -> do
                 let mixs = map (elemIndex lv) paramMap
                 case catMaybes mixs of
-                  ix:_ -> return $ L.LFInt (ix+1)
+                  ix:_ -> return (L.LFInt (ix+1), Nothing)
                   _ -> Left $ printf "Cannot find param value: %s" (show lv)
 
               -- when param value is dynamic
@@ -88,54 +90,54 @@ mkCanon2lpgf opts gr am = do
                 pids' <- mapM val2lin pids
                 let
                   tuple = paramTuples !! gix
-                  term = foldl L.LFProjection tuple (L.LFInt (pidIx+1):pids')
-                return term
+                  term = foldl L.LFProjection tuple (L.LFInt (pidIx+1):map fst pids')
+                return (term, Nothing)
 
               -- https://www.aclweb.org/anthology/W15-3305.pdf
               C.PredefValue (C.PredefId pid) -> case pid of
-                "BIND" -> return L.LFBind
-                "SOFT_BIND" -> return L.LFBind
-                "SOFT_SPACE" -> return L.LFSpace
-                "CAPIT" -> return L.LFCapit
-                "ALL_CAPIT" -> return L.LFAllCapit
+                "BIND" -> return (L.LFBind, Nothing)
+                "SOFT_BIND" -> return (L.LFBind, Nothing)
+                "SOFT_SPACE" -> return (L.LFSpace, Nothing)
+                "CAPIT" -> return (L.LFCapit, Nothing)
+                "ALL_CAPIT" -> return (L.LFAllCapit, Nothing)
                 _ -> Left $ printf "Unknown predef function: %s" pid
 
               C.RecordValue rrvs -> do
                 let rrvs' = sortRecordRows rrvs
                 ts <- sequence [ val2lin lv | C.RecordRow lid lv <- rrvs' ]
-                return $ L.LFTuple ts
+                return (L.LFTuple (map fst ts), Just $ C.RecordType (map (C.RecordRow undefined . fromJust . snd) ts))
 
               C.TableValue lt trvs | isRecordType lt -> go trvs
                 where
-                  go :: [C.TableRowValue] -> Either String L.LinFun
+                  go :: [C.TableRowValue] -> Either String (L.LinFun, Maybe C.LinType)
                   go [C.TableRow _ lv] = val2lin lv
                   go trvs = do
                     let grps = groupBy (\(C.TableRow (C.RecordPattern rps1) _) (C.TableRow (C.RecordPattern rps2) _) -> head rps1 == head rps2) trvs
                     ts <- mapM (go . map (\(C.TableRow (C.RecordPattern rps) lv) -> C.TableRow (C.RecordPattern (tail rps)) lv)) grps
-                    return $ L.LFTuple ts
+                    return (L.LFTuple (map fst ts), Just lt)
 
               C.TableValue lt trvs | isParamType lt -> do
-              -- C.TableValue _ trvs -> do
                 ts <- sequence [ val2lin lv | C.TableRow _ lv <- trvs ] -- TODO variables in lhs ?
-                return $ L.LFTuple ts
+                return (L.LFTuple (map fst ts), Just lt)
 
               C.TupleValue lvs -> do
                 ts <- mapM val2lin lvs
-                return $ L.LFTuple ts
+                return (L.LFTuple (map fst ts), Just $ C.TupleType (map (fromJust.snd) ts))
 
-              C.VariantValue [] -> return L.LFEmpty
+              C.VariantValue [] -> return (L.LFEmpty, Nothing)
               C.VariantValue (vr:_) -> val2lin vr -- NOTE variants not supported, just pick first
 
               C.VarValue (C.VarValueId (C.Unqual v)) -> do
                 ix <- eitherElemIndex (C.VarId v) varIds
-                return $ L.LFArgument (ix+1)
+                let typ = undefined -- TODO
+                return (L.LFArgument (ix+1), Just typ)
 
               C.PreValue pts df -> do
                 pts' <- forM pts $ \(pfxs, lv) -> do
-                  lv' <- val2lin lv
+                  (lv', _) <- val2lin lv
                   return (map T.pack pfxs, lv')
-                df' <- val2lin df
-                return $ L.LFPre pts' df'
+                (df', _) <- val2lin df
+                return (L.LFPre pts' df', Nothing)
 
               -- specific case when lhs is variable into function
               C.Projection (C.VarValue (C.VarValueId (C.Unqual v))) lblId -> do
@@ -151,17 +153,19 @@ mkCanon2lpgf opts gr am = do
                 let rrs' = [ lid | C.RecordRow lid _ <- rrs ]
                 lblIx <- eitherElemIndex lblId rrs'
 
-                return $ L.LFProjection (L.LFArgument (argIx+1)) (L.LFInt (lblIx+1))
+                return (L.LFProjection (L.LFArgument (argIx+1)) (L.LFInt (lblIx+1)), Nothing)
 
-              -- C.Projection v1 (C.LabelId lbl) -> do -- TODO how to handle general case?
+              -- C.Projection v1 (C.LabelId lbl) -> do -- TODO
+              --   return L.LFEmpty
                 -- v1' <- val2lin v1
                 -- let lblIx = undefined
                 -- return $ L.LFProjection v1' (L.LFInt (lblIx+1))
 
               C.Selection v1 v2 -> do
-                v1' <- val2lin v1
-                v2' <- val2lin v2
-                return $ L.LFProjection v1' v2'
+                (v1', t1) <- val2lin v1
+                (v2', t2) <- val2lin v2
+                let Just (C.TableType t11 t12) = t1
+                return (L.LFProjection v1' v2', Just t12)
 
               C.CommentedValue cmnt lv -> val2lin lv
 
