@@ -1,3 +1,5 @@
+module Main where
+
 import LPGF
 import PGF (showLanguage, readExpr)
 import GF (compileToLPGF, writeLPGF)
