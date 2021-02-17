@@ -19,6 +19,8 @@ import System.Environment (lookupEnv)
 import System.FilePath ((</>), takeBaseName, takeExtension)
 import Text.Printf (printf)
 
+import GHC.Stats
+
 dir :: FilePath
 dir = "testsuite" </> "lpgf"
 
@@ -60,6 +62,10 @@ main = do
     printf "- LPGF size: %s\n" (convertSize size)
     time "linearise LPGF" (return $ length $ linLPGF lpgf trees)
     return ()
+
+  stats <- getRTSStats
+  printf "Max live memory: %s\n" (convertSize (read (show (max_live_bytes stats))))
+  printf "Max used memory: %s\n" (convertSize (read (show (max_mem_in_use_bytes stats))))
 
 time :: String -> IO a -> IO a
 time desc io = do

@@ -28,7 +28,8 @@ Comparing PGF, PGF2, LPGF along following criteria:
 ### Running
 
 ```
-stack build --test --bench --no-run-tests --no-run-benchmarks && time stack bench
-stack build --test --bench --no-run-tests --no-run-benchmarks && time PGF_ONLY=1 stack bench
-stack build --test --bench --no-run-tests --no-run-benchmarks && time LPGF_ONLY=1 stack bench
+stack build --test --bench --no-run-tests --no-run-benchmarks
+stack bench --benchmark-arguments "+RTS -T -RTS"
+PGF_ONLY=1 stack bench --benchmark-arguments "+RTS -T -RTS"
+LPGF_ONLY=1 stack bench --benchmark-arguments "+RTS -T -RTS"
 ```
