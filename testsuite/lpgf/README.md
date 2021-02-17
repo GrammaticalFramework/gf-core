@@ -30,6 +30,7 @@ Comparing PGF, PGF2, LPGF along following criteria:
 ```
 stack build --test --bench --no-run-tests --no-run-benchmarks
 stack bench --benchmark-arguments "+RTS -T -RTS"
-PGF_ONLY=1 stack bench --benchmark-arguments "+RTS -T -RTS"
-LPGF_ONLY=1 stack bench --benchmark-arguments "+RTS -T -RTS"
+ONLY=PGF stack bench --benchmark-arguments "+RTS -T -RTS"
+ONLY=PGF2 stack bench --benchmark-arguments "+RTS -T -RTS"
+ONLY=LPGF stack bench --benchmark-arguments "+RTS -T -RTS"
 ```
