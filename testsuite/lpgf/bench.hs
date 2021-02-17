@@ -8,12 +8,14 @@ import PGF (PGF)
 import GF (compileToPGF, compileToLPGF, writePGF, writeLPGF)
 import GF.Support (Options, Flags (..), Verbosity (..), noOptions, addOptions, modifyFlags)
 
+import Control.Monad (when)
 import qualified Data.List as L
-import Data.Maybe (fromJust)
+import Data.Maybe (fromJust, isNothing)
 import qualified Data.Map as Map
 import Data.Text (Text)
 import Data.Time.Clock (getCurrentTime, diffUTCTime)
 import System.Directory (listDirectory, getFileSize)
+import System.Environment (lookupEnv)
 import System.FilePath ((</>), takeBaseName, takeExtension)
 import Text.Printf (printf)
 
@@ -35,27 +37,29 @@ main = do
   mods <- map (dir </>)
         . filter (\p -> grammarName `L.isPrefixOf` takeBaseName p && takeExtension p == ".gf")
         <$> listDirectory dir
-
-  -- Compile
-  (pathPGF, pgf) <- time "compile PGF" (compilePGF mods)
-  (pathLPGF, lpgf) <- time "compile LPGF" (compileLPGF mods)
-
-  -- Compare filesizes
-  sizePGF <- getFileSize pathPGF
-  sizeLPGF <- getFileSize pathLPGF
-  printf "- PGF size: %s\n" (convertSize sizePGF)
-  printf "- LPGF size: %s\n" (convertSize sizeLPGF)
+  printf "Found modules: %s\n" (unwords mods)
 
   -- Read trees
   lns <- lines <$> readFile (dir </> treesFile)
   let trees = map (fromJust . PGF.readExpr) lns
   printf "Read %d trees\n" (length trees)
 
-  -- Linearise
-  time "linearise PGF" (return $ length $ linPGF pgf trees)
-  time "linearise LPGF" (return $ length $ linLPGF lpgf trees)
+  doPGF <- isNothing <$> lookupEnv "LPGF_ONLY"
+  doLPGF <- isNothing <$> lookupEnv "PGF_ONLY"
 
-  return ()
+  when doPGF $ do
+    (path, pgf) <- time "compile PGF" (compilePGF mods)
+    size <- getFileSize path
+    printf "- PGF size: %s\n" (convertSize size)
+    time "linearise PGF" (return $ length $ linPGF pgf trees)
+    return ()
+
+  when doLPGF $ do
+    (path, lpgf) <- time "compile LPGF" (compileLPGF mods)
+    size <- getFileSize path
+    printf "- LPGF size: %s\n" (convertSize size)
+    time "linearise LPGF" (return $ length $ linLPGF lpgf trees)
+    return ()
 
 time :: String -> IO a -> IO a
 time desc io = do
