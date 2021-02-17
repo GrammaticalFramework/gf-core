@@ -27,10 +27,13 @@ Comparing PGF, PGF2, LPGF along following criteria:
 
 ### Running
 
+Run each command separately so that memory measurements are isolated.
+
 ```
 stack build --test --bench --no-run-tests --no-run-benchmarks
-stack bench --benchmark-arguments "+RTS -T -RTS"
-ONLY=PGF stack bench --benchmark-arguments "+RTS -T -RTS"
-ONLY=PGF2 stack bench --benchmark-arguments "+RTS -T -RTS"
-ONLY=LPGF stack bench --benchmark-arguments "+RTS -T -RTS"
+stack bench --benchmark-arguments "compile pgf +RTS -T -RTS"
+stack bench --benchmark-arguments "compile lpgf +RTS -T -RTS"
+stack bench --benchmark-arguments "run pgf +RTS -T -RTS"
+stack bench --benchmark-arguments "run pgf2 +RTS -T -RTS"
+stack bench --benchmark-arguments "run lpgf +RTS -T -RTS"
 ```

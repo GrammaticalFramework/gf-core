@@ -701,12 +701,29 @@ benchmark lpgf-bench
     PGF.TypeCheck
     PGF.Utilities
     PGF.VisualizeTree
+    PGF2
+    PGF2.Expr
+    PGF2.Type
+    PGF2.FFI
     Paths_gf
   if flag(interrupt)
     cpp-options: -DUSE_INTERRUPT
     other-modules: GF.System.UseSignal
   else
     other-modules: GF.System.NoSignal
+
+  hs-source-dirs:
+    src/runtime/haskell-bind
+  other-modules:
+    PGF2
+    PGF2.FFI
+    PGF2.Expr
+    PGF2.Type
+  build-tools:     hsc2hs
+  extra-libraries: pgf gu
+  c-sources:       src/runtime/haskell-bind/utils.c
+  cc-options:      -std=c99
+
   build-depends:
     array,
     base>=4.6 && <5,
