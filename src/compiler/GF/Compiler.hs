@@ -30,7 +30,7 @@ import Data.Time(UTCTime)
 import qualified Data.ByteString.Lazy as BSL
 import GF.Grammar.CanonicalJSON (encodeJSON)
 import System.FilePath
-import Control.Monad(when,unless,forM_)
+import Control.Monad(when,unless,forM,void)
 
 -- | Compile the given GF grammar files. The result is a number of @.gfo@ files
 -- and, depending on the options, a @.pgf@ file. (@gf -batch@, @gf -make@)
@@ -100,7 +100,7 @@ compileSourceFiles opts fs =
 linkGrammars :: Options -> (UTCTime,[(ModuleName, Grammar)]) -> IOE ()
 linkGrammars opts (_,cnc_grs) | FmtLPGF `elem` flag optOutputFormats opts = do
   lpgf <- linkl opts (head cnc_grs)
-  writeLPGF opts lpgf
+  void $ writeLPGF opts lpgf
 linkGrammars opts (t_src,~cnc_grs@(~(cnc,gr):_)) =
     do let abs = render (srcAbsName gr cnc)
            pgfFile = outputPath opts (grammarName' opts abs<.>"pgf")
@@ -153,7 +153,7 @@ unionPGFFiles opts fs =
              pgfFile = outputPath opts (grammarName opts pgf <.> "pgf")
          if pgfFile `elem` fs
            then putStrLnE $ "Refusing to overwrite " ++ pgfFile
-           else writePGF opts pgf
+           else void $ writePGF opts pgf
          writeOutputs opts pgf
 
     readPGFVerbose f =
@@ -170,32 +170,39 @@ writeOutputs opts pgf = do
 -- | Write the result of compiling a grammar (e.g. with 'compileToPGF' or
 -- 'link') to a @.pgf@ file.
 -- A split PGF file is output if the @-split-pgf@ option is used.
-writePGF :: Options -> PGF -> IOE ()
+writePGF :: Options -> PGF -> IOE [FilePath]
 writePGF opts pgf =
     if flag optSplitPGF opts then writeSplitPGF else writeNormalPGF
   where
     writeNormalPGF =
        do let outfile = outputPath opts (grammarName opts pgf <.> "pgf")
           writing opts outfile $ encodeFile outfile pgf
+          return [outfile]
 
     writeSplitPGF =
       do let outfile = outputPath opts (grammarName opts pgf <.> "pgf")
          writing opts outfile $ BSL.writeFile outfile (runPut (putSplitAbs pgf))
                                 --encodeFile_ outfile (putSplitAbs pgf)
-         forM_ (Map.toList (concretes pgf)) $ \cnc -> do
+         outfiles <- forM (Map.toList (concretes pgf)) $ \cnc -> do
            let outfile = outputPath opts (showCId (fst cnc) <.> "pgf_c")
            writing opts outfile $ encodeFile outfile cnc
+           return outfile
 
-writeLPGF :: Options -> LPGF -> IOE ()
+         return (outfile:outfiles)
+
+writeLPGF :: Options -> LPGF -> IOE FilePath
 writeLPGF opts lpgf = do
   let
     grammarName = fromMaybe (showCId (LPGF.abstractName lpgf)) (flag optName opts)
     outfile = outputPath opts (grammarName <.> "lpgf")
   writing opts outfile $ liftIO $ LPGF.encodeFile outfile lpgf
+  return outfile
 
-writeOutput :: Options -> FilePath-> String -> IOE ()
-writeOutput opts file str = writing opts path $ writeUTF8File path str
-  where path = outputPath opts file
+writeOutput :: Options -> FilePath-> String -> IOE FilePath
+writeOutput opts file str = do
+  let outfile = outputPath opts file
+  writing opts outfile $ writeUTF8File outfile str
+  return outfile
 
 -- * Useful helper functions
 
