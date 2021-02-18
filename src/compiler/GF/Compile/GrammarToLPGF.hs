@@ -157,7 +157,11 @@ mkCanon2lpgf opts gr am = do
                 -- find label index in argument type
                 let Just (C.RecordType rrs) = mtyp
                 let rrs' = [ lid | C.RecordRow lid _ <- rrs ]
-                lblIx <- eitherElemIndex lblId rrs'
+                -- lblIx <- eitherElemIndex lblId rrs'
+                let
+                  lblIx = case eitherElemIndex lblId rrs' of
+                    Right x -> x
+                    Left _ -> 0 -- corresponds to Prelude.False
                 -- lookup lintype for record row
                 let C.RecordRow _ lt = rrs !! lblIx
                 return (L.LFProjection v1' (L.LFInt (lblIx+1)), Just lt)
