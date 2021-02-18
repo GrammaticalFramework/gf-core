@@ -14,18 +14,23 @@ import GF.Text.Pretty (pp, render)
 
 import Control.Applicative ((<|>))
 import qualified Control.Monad.State as CMS
-import Control.Monad (unless, forM, forM_)
+import Control.Monad (when, unless, forM, forM_)
 import Data.Either (lefts, rights)
-import Data.List (elemIndex, find, groupBy, sortBy)
+import Data.List (elemIndex)
+import qualified Data.List as L
 import qualified Data.Map as Map
-import Data.Maybe (fromJust)
+import Data.Maybe (fromJust, isJust)
 import qualified Data.Text as T
+import System.Environment (lookupEnv)
+import System.FilePath ((</>), (<.>))
 import Text.Printf (printf)
 
 mkCanon2lpgf :: Options -> SourceGrammar -> ModuleName -> IOE LPGF
 mkCanon2lpgf opts gr am = do
-  -- ppCanonical canon
-  -- dumpCanonical canon
+  debug <- isJust <$> lookupEnv "DEBUG"
+  when debug $ do
+    writeCanonical "DEBUG" canon
+    dumpCanonical "DEBUG" canon
   (an,abs) <- mkAbstract ab
   cncs     <- mapM mkConcrete cncs
   let lpgf = LPGF {
@@ -33,7 +38,7 @@ mkCanon2lpgf opts gr am = do
     L.abstract = abs,
     L.concretes = Map.fromList cncs
   }
-  -- dumpLPGF lpgf
+  when debug $ dumpLPGF lpgf
   return lpgf
   where
     canon@(C.Grammar ab cncs) = grammar2canonical opts am gr
@@ -111,7 +116,7 @@ mkCanon2lpgf opts gr am = do
                   go :: [C.TableRowValue] -> Either String (L.LinFun, Maybe C.LinType)
                   go [C.TableRow _ lv] = val2lin lv
                   go trvs = do
-                    let grps = groupBy (\(C.TableRow (C.RecordPattern rps1) _) (C.TableRow (C.RecordPattern rps2) _) -> head rps1 == head rps2) trvs
+                    let grps = L.groupBy (\(C.TableRow (C.RecordPattern rps1) _) (C.TableRow (C.RecordPattern rps2) _) -> head rps1 == head rps2) trvs
                     ts <- mapM (go . map (\(C.TableRow (C.RecordPattern rps) lv) -> C.TableRow (C.RecordPattern (tail rps)) lv)) grps
                     return (L.LFTuple (map fst ts), Just lt)
 
@@ -208,7 +213,7 @@ mkParamTuples defs = map (\def -> CMS.evalState (mk' def) 1) defs
       CMS.modify (+1)
       return $ L.LFInt ix
     mk'' (C.Param p0 (pid:pids)) = do
-      let Just def = find (\(C.ParamDef p _) -> pid == p) defs
+      let Just def = L.find (\(C.ParamDef p _) -> pid == p) pdefs
       let ms = CMS.evalState (mk' def) 1
       let L.LFTuple ms' = ms
       ns <- sequence
@@ -225,7 +230,7 @@ sortRecord (C.RecordValue rrvs) = C.RecordValue (sortRecordRows rrvs)
 sortRecord lv = lv
 
 sortRecordRows :: [C.RecordRowValue] -> [C.RecordRowValue]
-sortRecordRows = sortBy ordLabel
+sortRecordRows = L.sortBy ordLabel
   where
     ordLabel (C.RecordRow (C.LabelId l1) _) (C.RecordRow (C.LabelId l2) _) =
       case (l1,l2) of
@@ -262,7 +267,10 @@ m2e err = maybe (Left err) Right
 
 -- | Wrap elemIndex into Either value
 eitherElemIndex :: (Eq a, Show a) => a -> [a] -> Either String Int
-eitherElemIndex x xs = m2e (printf "Cannot find: %s" (show x)) (elemIndex x xs)
+eitherElemIndex x xs = m2e (printf "Cannot find: %s in %s" (show x) (show xs)) (elemIndex x xs)
+
+mdi2s :: C.ModId -> String
+mdi2s (C.ModId i) = i
 
 mdi2i :: C.ModId -> CId
 mdi2i (C.ModId i) = mkCId i
@@ -270,33 +278,38 @@ mdi2i (C.ModId i) = mkCId i
 fi2i :: C.FunId -> CId
 fi2i (C.FunId i) = mkCId i
 
+-- Debugging
 
--- | Pretty-print canonical grammar, for debugging
-ppCanonical :: C.Grammar -> IO ()
-ppCanonical = putStrLn . render . pp
+-- -- | Pretty-print canonical grammar to console
+-- ppCanonical :: C.Grammar -> IO ()
+-- ppCanonical = putStrLn . render . pp
 
--- | Dump canonical grammar, for debugging
-dumpCanonical :: C.Grammar -> IO ()
-dumpCanonical (C.Grammar ab cncs) = do
-  putStrLn ""
-
+-- | Pretty-print canonical grammars to file
+writeCanonical :: FilePath -> C.Grammar -> IO ()
+writeCanonical path (C.Grammar ab cncs) = do
   let (C.Abstract modId flags cats funs) = ab
-  print modId
-  mapM_ print cats
-  putStrLn ""
-  mapM_ print funs
-  putStrLn ""
+  writeFile (path </> mdi2s modId <.> "canonical.gf") (render $ pp ab)
+  forM_ cncs $ \cnc@(C.Concrete modId absModId flags params lincats lindefs) ->
+    writeFile (path </> mdi2s modId <.> "canonical.gf") (render $ pp cnc)
+
+-- | Dump canonical grammars to file
+dumpCanonical :: FilePath -> C.Grammar -> IO ()
+dumpCanonical path (C.Grammar ab cncs) = do
+  let (C.Abstract modId flags cats funs) = ab
+  let body = unlines $ map show cats ++ [""] ++ map show funs
+  writeFile (path </> mdi2s modId <.> "canonical.dump") body
 
   forM_ cncs $ \(C.Concrete modId absModId flags params lincats lindefs) -> do
-    print modId
-    mapM_ print params
-    putStrLn ""
-    mapM_ print lincats
-    putStrLn ""
-    mapM_ print lindefs
-    putStrLn ""
+    let body = unlines $ concat [
+          map show params,
+          [""],
+          map show lincats,
+          [""],
+          map show lindefs
+          ]
+    writeFile (path </> mdi2s modId <.> "canonical.dump") body
 
--- | Dump LPGF, for debugging
+-- | Dump LPGF to console
 dumpLPGF :: LPGF -> IO ()
 dumpLPGF lpgf =
   forM_ (Map.toList $ L.concretes lpgf) $ \(cid,concr) ->
