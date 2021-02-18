@@ -10,50 +10,50 @@ import GF.Support (Options, Flags (..), Verbosity (..), noOptions, addOptions, m
 
 import Control.Monad (when)
 import qualified Data.List as L
-import Data.Maybe (fromJust)
+import Data.Maybe (fromJust, isJust, isNothing)
 import qualified Data.Map as Map
 import Data.Text (Text)
 import Data.Time.Clock (getCurrentTime, diffUTCTime)
 import System.Directory (listDirectory, getFileSize)
 import System.Environment (getArgs)
 import System.Exit (die)
-import System.FilePath ((</>), (<.>), takeBaseName, takeExtension)
+import System.FilePath ((</>), (<.>), takeBaseName, takeExtension, dropExtension)
 import Text.Printf (printf)
 
 import GHC.Stats
-
-dir :: FilePath
-dir = "testsuite" </> "lpgf"
-
-grammarName :: String
-grammarName = "Foods"
-
-treesFile :: String
-treesFile = "Foods-all.trees"
 
 options :: Options
 options = addOptions (modifyFlags (\f -> f{optVerbosity=Quiet})) noOptions
 
 usage :: String
-usage = "Usage: ... <compile|run> [pgf|pgf2|lpgf]"
+usage = "Arguments:\n\
+\  compile [pgf|lpgf] FoodsEng.gf FoodsGer.gf ...\n\
+\  run [pgf|pgf2|lpgf] Foods.pgf test.trees\
+\"
 
 main :: IO ()
 main = do
+  -- Parse command line arguments
   args <- getArgs
-  when (length args < 1) (die usage)
+  let argc = length args
+  when (argc < 1) (die usage)
   let (mode:_) = args
   when (mode `L.notElem` ["compile","run"]) (die usage)
-  let target = if length args >= 2 then args !! 1 else ""
+  when (mode == "compile" && argc < 2) (die usage)
+  when (mode == "run" && argc < 3) (die usage)
+  let target = let a1 = args !! 1 in if a1 `elem` ["pgf", "pgf2", "lpgf"] then Just a1 else Nothing
+  let mods = if mode == "compile" then drop (if isJust target then 2 else 1) args else []
+  -- If * is supplied in module name, collect modules ourselves
+  -- mods <- map (dir </>)
+  --       . filter (\p -> grammarName `L.isPrefixOf` takeBaseName p && takeExtension p == ".gf")
+  --       <$> listDirectory dir
 
-  -- Collect concrete modules
-  mods <- map (dir </>)
-        . filter (\p -> grammarName `L.isPrefixOf` takeBaseName p && takeExtension p == ".gf")
-        <$> listDirectory dir
-  printf "Found %d modules\n" (length mods)
+  let binaryFile = if mode == "run" then Just $ args !! (if isJust target then 2 else 1) else Nothing
+  let treesFile = if mode == "run" then Just $ args !! (if isJust target then 3 else 2) else Nothing
 
-  let doPGF = null target || target == "pgf"
-  let doPGF2 = null target || target == "pgf2"
-  let doLPGF = null target || target == "lpgf"
+  let doPGF = isNothing target || target == Just "pgf"
+  let doPGF2 = isNothing target || target == Just "pgf2"
+  let doLPGF = isNothing target || target == Just "lpgf"
 
   -- Compilation
   when (mode == "compile") $ do
@@ -72,26 +72,26 @@ main = do
   -- Linearisation
   when (mode == "run") $ do
     -- Read trees
-    lns <- lines <$> readFile (dir </> treesFile)
+    lns <- lines <$> readFile (fromJust treesFile)
     let trees = map (fromJust . PGF.readExpr) lns
     let trees2 = map (fromJust . PGF2.readExpr) lns
     printf "Read %d trees\n" (length trees)
 
     when doPGF $ do
       putStrLn "PGF"
-      pgf <- PGF.readPGF (grammarName <.> "pgf") -- might fail!
+      pgf <- PGF.readPGF (dropExtension (fromJust binaryFile) <.> "pgf")
       time "linearise" (return $ length $ linPGF pgf trees)
       return ()
 
     when doPGF2 $ do
       putStrLn "PGF2"
-      pgf <- PGF2.readPGF (grammarName <.> "pgf") -- might fail!
+      pgf <- PGF2.readPGF (dropExtension (fromJust binaryFile) <.> "pgf")
       time "linearise" (return $ length $ linPGF2 pgf trees2)
       return ()
 
     when doLPGF $ do
       putStrLn "LPGF"
-      lpgf <- LPGF.readLPGF (grammarName <.> "lpgf") -- might fail!
+      lpgf <- LPGF.readLPGF (dropExtension (fromJust binaryFile) <.> "lpgf")
       time "linearise" (return $ length $ linLPGF lpgf trees)
       return ()
 

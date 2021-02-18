@@ -28,12 +28,13 @@ Comparing PGF, PGF2, LPGF along following criteria:
 ### Running
 
 Run each command separately so that memory measurements are isolated.
+The `+RTS -T -RTS` is so that GHC can report its own memory usage.
 
 ```
 stack build --test --bench --no-run-tests --no-run-benchmarks
-stack bench --benchmark-arguments "compile pgf +RTS -T -RTS"
-stack bench --benchmark-arguments "compile lpgf +RTS -T -RTS"
-stack bench --benchmark-arguments "run pgf +RTS -T -RTS"
-stack bench --benchmark-arguments "run pgf2 +RTS -T -RTS"
-stack bench --benchmark-arguments "run lpgf +RTS -T -RTS"
+stack bench --benchmark-arguments "compile pgf  Foods*.gf +RTS -T -RTS"
+stack bench --benchmark-arguments "compile lpgf Foods*.gf +RTS -T -RTS"
+stack bench --benchmark-arguments "run pgf  Foods.pgf  foods.trees +RTS -T -RTS"
+stack bench --benchmark-arguments "run pgf2 Foods.pgf  foods.trees +RTS -T -RTS"
+stack bench --benchmark-arguments "run lpgf Foods.lpgf foods.trees +RTS -T -RTS"
 ```
