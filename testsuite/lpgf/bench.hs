@@ -9,7 +9,7 @@ import GF.Support (Options, Flags (..), Verbosity (..), noOptions, addOptions, m
 
 import Control.DeepSeq (force)
 import Control.Exception (evaluate)
-import Control.Monad (when)
+import Control.Monad (when, forM)
 import qualified Data.List as L
 import Data.Maybe (fromJust, isJust, isNothing)
 import qualified Data.Map as Map
@@ -18,7 +18,7 @@ import Data.Time.Clock (getCurrentTime, diffUTCTime)
 import System.Directory (listDirectory, getFileSize)
 import System.Environment (getArgs)
 import System.Exit (die)
-import System.FilePath ((</>), (<.>), takeBaseName, takeExtension, dropExtension)
+import System.FilePath ((</>), (<.>), takeFileName, takeDirectory, dropExtension)
 import Text.Printf (printf)
 
 import GHC.Stats
@@ -43,11 +43,22 @@ main = do
   when (mode == "compile" && argc < 2) (die usage)
   when (mode == "run" && argc < 3) (die usage)
   let target = let a1 = args !! 1 in if a1 `elem` ["pgf", "pgf2", "lpgf"] then Just a1 else Nothing
-  let mods = if mode == "compile" then drop (if isJust target then 2 else 1) args else []
-  -- If * is supplied in module name, collect modules ourselves
-  -- mods <- map (dir </>)
-  --       . filter (\p -> grammarName `L.isPrefixOf` takeBaseName p && takeExtension p == ".gf")
-  --       <$> listDirectory dir
+  let mods' = if mode == "compile" then drop (if isJust target then 2 else 1) args else []
+
+  mods <- concat <$> forM mods' (\mod ->
+    -- If * is supplied in module name, collect modules ourselves
+    if '*' `elem` mod
+    then do
+      let
+        dir = takeDirectory mod
+        pre = takeWhile (/='*') (takeFileName mod)
+        post = drop 1 $ dropWhile (/='*') (takeFileName mod)
+      map (dir </>)
+        . filter (\p -> let fn = takeFileName p in pre `L.isPrefixOf` fn && post `L.isSuffixOf` fn)
+        <$> listDirectory dir
+    else
+      return [mod]
+    )
 
   let binaryFile = if mode == "run" then Just $ args !! (if isJust target then 2 else 1) else Nothing
   let treesFile = if mode == "run" then Just $ args !! (if isJust target then 3 else 2) else Nothing
