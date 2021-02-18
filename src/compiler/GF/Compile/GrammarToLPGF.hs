@@ -190,7 +190,7 @@ inlineParamAliases defs = if null aliases then defs else map rp' pdefs
 
     rp' :: C.ParamDef -> C.ParamDef
     rp' (C.ParamDef pid pids) = C.ParamDef pid (map rp'' pids)
-    rp' _ = error "inlineParamAliases called on ParamAliasDef"
+    rp' (C.ParamAliasDef _ _) = error "inlineParamAliases called on ParamAliasDef"
 
     rp'' :: C.ParamValueDef -> C.ParamValueDef
     rp'' (C.Param pid pids) = C.Param pid (map rp''' pids)

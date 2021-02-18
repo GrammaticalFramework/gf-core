@@ -1,4 +1,3 @@
-{-# LANGUAGE BangPatterns #-}
 module Main where
 
 import qualified LPGF
@@ -8,6 +7,8 @@ import qualified PGF2
 import GF (compileToPGF, compileToLPGF, writePGF, writeLPGF)
 import GF.Support (Options, Flags (..), Verbosity (..), noOptions, addOptions, modifyFlags)
 
+import Control.DeepSeq (force)
+import Control.Exception (evaluate)
 import Control.Monad (when)
 import qualified Data.List as L
 import Data.Maybe (fromJust, isJust, isNothing)
@@ -80,19 +81,19 @@ main = do
     when doPGF $ do
       putStrLn "PGF"
       pgf <- PGF.readPGF (dropExtension (fromJust binaryFile) <.> "pgf")
-      time "linearise" (return $ length $ linPGF pgf trees)
+      time "linearise" (evaluate $ force $ linPGF pgf trees)
       return ()
 
     when doPGF2 $ do
       putStrLn "PGF2"
       pgf <- PGF2.readPGF (dropExtension (fromJust binaryFile) <.> "pgf")
-      time "linearise" (return $ length $ linPGF2 pgf trees2)
+      time "linearise" (evaluate $ force $ linPGF2 pgf trees2)
       return ()
 
     when doLPGF $ do
       putStrLn "LPGF"
       lpgf <- LPGF.readLPGF (dropExtension (fromJust binaryFile) <.> "lpgf")
-      time "linearise" (return $ length $ linLPGF lpgf trees)
+      time "linearise" (evaluate $ force $ linLPGF lpgf trees)
       return ()
 
   stats <- getRTSStats
@@ -102,7 +103,7 @@ main = do
 time :: String -> IO a -> IO a
 time desc io = do
   start <- getCurrentTime
-  !r <- io
+  r <- io
   end <- getCurrentTime
   printf "- %s: %s\n" desc (show (diffUTCTime end start))
   return r
@@ -110,7 +111,7 @@ time desc io = do
 -- timePure :: String -> a -> IO a
 -- timePure desc val = do
 --   start <- getCurrentTime
---   let !r = val
+--   let r = val
 --   end <- getCurrentTime
 --   printf "- %s: %s\n" desc (show (diffUTCTime end start))
 --   return r

@@ -729,6 +729,7 @@ benchmark lpgf-bench
     base>=4.6 && <5,
     bytestring,
     containers,
+    deepseq,
     directory,
     filepath,
     ghc-prim,
