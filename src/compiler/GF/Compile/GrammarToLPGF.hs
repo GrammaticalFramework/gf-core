@@ -182,13 +182,33 @@ mkCanon2lpgf opts gr am = do
         L.lins = lins
       })
 
+-- | Remove ParamAliasDefs by inlining their definitions
+inlineParamAliases :: [C.ParamDef] -> [C.ParamDef]
+inlineParamAliases defs = if null aliases then defs else map rp' pdefs
+  where
+    (aliases,pdefs) = L.partition isParamAliasDef defs
+
+    rp' :: C.ParamDef -> C.ParamDef
+    rp' (C.ParamDef pid pids) = C.ParamDef pid (map rp'' pids)
+    rp' _ = error "inlineParamAliases called on ParamAliasDef"
+
+    rp'' :: C.ParamValueDef -> C.ParamValueDef
+    rp'' (C.Param pid pids) = C.Param pid (map rp''' pids)
+
+    rp''' :: C.ParamId -> C.ParamId
+    rp''' pid = case L.find (\(C.ParamAliasDef p _) -> p == pid) aliases of
+      Just (C.ParamAliasDef _ (C.ParamType (C.ParamTypeId p))) -> p
+      _ -> pid
+
 -- | Enumerate all paramvalue combinations for looking up index numbers
 mkParamMap :: [C.ParamDef] -> [[C.LinValue]]
-mkParamMap defs = map mk' defs
+mkParamMap defs = map mk' pdefs
   where
+    pdefs = inlineParamAliases defs
+
     mk' :: C.ParamDef -> [C.LinValue]
     mk' (C.ParamDef _ pids) = concatMap mk'' pids
-    mk' (C.ParamAliasDef _ _) = error "mkParamMap not implemented for ParamAliasDef" -- TODO
+    mk' (C.ParamAliasDef _ _) = error "mkParamMap not implemented for ParamAliasDef"
 
     mk'' :: C.ParamValueDef -> [C.LinValue]
     mk'' (C.Param pid []) = [C.ParamConstant (C.Param pid [])]
@@ -198,18 +218,20 @@ mkParamMap defs = map mk' defs
         kids =
           [ mk' def
           | p <- pids
-          , let Just def = find (\(C.ParamDef pid _) -> pid == p) defs
+          , let Just def = L.find (\(C.ParamDef pid _) -> pid == p) pdefs
           ] :: [[C.LinValue]]
 
 -- | Build LPGF tuple of param values, needed when param index is looked up dynamically
 mkParamTuples :: [C.ParamDef] -> [L.LinFun]
-mkParamTuples defs = map (\def -> CMS.evalState (mk' def) 1) defs
+mkParamTuples defs = map (\def -> CMS.evalState (mk' def) 1) pdefs
   where
+    pdefs = inlineParamAliases defs
+
     mk' :: C.ParamDef -> CMS.State Int L.LinFun
     mk' (C.ParamDef _ pids) = do
       ms <- mapM mk'' pids
       return $ L.LFTuple ms
-    mk' (C.ParamAliasDef _ _) = error "mkParamTuples not implemented for ParamAliasDef" -- TODO
+    mk' (C.ParamAliasDef _ _) = error "mkParamTuples not implemented for ParamAliasDef"
 
     mk'' :: C.ParamValueDef -> CMS.State Int L.LinFun
     mk'' (C.Param _ []) = do
@@ -241,6 +263,10 @@ sortRecordRows = L.sortBy ordLabel
         ("s",_) -> LT
         (_,"s") -> GT
         (s1,s2) -> compare s1 s2
+
+isParamAliasDef :: C.ParamDef -> Bool
+isParamAliasDef (C.ParamAliasDef _ _) = True
+isParamAliasDef _ = False
 
 isParamType :: C.LinType -> Bool
 isParamType (C.ParamType _) = True
