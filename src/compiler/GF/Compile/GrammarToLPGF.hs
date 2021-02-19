@@ -49,10 +49,36 @@ mkCanon2lpgf opts gr am = do
     mkConcrete :: C.Concrete -> IOE (CId, L.Concrete)
     mkConcrete (C.Concrete modId absModId flags params lincats lindefs) = do
       let
+        (C.Abstract _ _ _ funs) = ab
         paramMap = mkParamMap params
         paramTuples = mkParamTuples params
-        es = map mkLin lindefs
+
+        -- filter out record fields from defn which don't appear in lincat
+        -- this seems to be an inconsistency in the canonical representation
+        lindefs' =
+          [ C.LinDef funId varIds linValue'
+          | (C.LinDef funId varIds linValue) <- lindefs
+          , let linValue' = case (linValue, lookupLinType funId) of
+                  (C.RecordValue rrvs, Right (C.RecordType rrs)) ->
+                    let defnFields = [ lid | (C.RecordRow lid _) <- rrs ]
+                    in C.RecordValue [ rrv | rrv@(C.RecordRow lid _) <- rrvs, lid `elem` defnFields ]
+                  (x,_) -> x
+          ]
+        es = map mkLin lindefs'
         lins = Map.fromList $ rights es
+
+        -- | Lookup lintype for a function
+        lookupLinType :: C.FunId -> Either String C.LinType
+        lookupLinType funId = do
+          (C.Type _ (C.TypeApp catId _)) <- [ ftype | C.FunDef fid ftype <- funs, fid == funId ] `headOrLeft` printf "Cannot find type for: %s" (show funId)
+          [ lt | C.LincatDef cid lt <- lincats, cid == catId ] `headOrLeft` printf "Cannot find lincat for: %s" (show catId)
+
+        -- | Lookup lintype for a function's argument
+        lookupLinTypeArg :: C.FunId -> Int -> Either String C.LinType
+        lookupLinTypeArg funId argIx = do
+          (C.Type args _) <- [ ftype | C.FunDef fid ftype <- funs, fid == funId ] `headOrLeft` printf "Cannot find type for: %s" (show funId)
+          let C.TypeBinding _ (C.Type _ (C.TypeApp catId _)) = args !! argIx
+          [ lt | C.LincatDef cid lt <- lincats, cid == catId ] `headOrLeft` printf "Cannot find lincat for: %s" (show catId)
 
         mkLin :: C.LinDef -> Either String (CId, L.LinFun)
         mkLin (C.LinDef funId varIds linValue) = do
@@ -134,15 +160,8 @@ mkCanon2lpgf opts gr am = do
               C.VariantValue (vr:_) -> val2lin vr -- NOTE variants not supported, just pick first
 
               C.VarValue (C.VarValueId (C.Unqual v)) -> do
-                -- lookup argument index
                 ix <- eitherElemIndex (C.VarId v) varIds
-                -- lookup type for function
-                let (C.Abstract _ _ _ funs) = ab
-                (C.Type args _) <- [ ftype | C.FunDef fid ftype <- funs, fid == funId ] `headOrLeft` printf "Cannot find type for: %s" v
-                -- lookup category for argument
-                let C.TypeBinding _ (C.Type _ (C.TypeApp catId _)) = args !! ix
-                -- lookup lintype for category
-                lt <- [ lt | C.LincatDef cid lt <- lincats, cid == catId ] `headOrLeft` printf "Cannot find type for: %s" (show catId)
+                lt <- lookupLinTypeArg funId ix
                 return (L.LFArgument (ix+1), Just lt)
 
               C.PreValue pts df -> do

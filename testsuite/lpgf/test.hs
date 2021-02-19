@@ -48,11 +48,11 @@ doGrammar' gname cncs = do
 
   -- Compile LPGF
   lpgf <- compileToLPGF noOptions mods
-  writeLPGF noOptions lpgf
+  path <- writeLPGF noOptions lpgf
   putStrLn ""
 
   -- Read back from file
-  lpgf <- readLPGF $ gname ++ ".lpgf"
+  lpgf <- readLPGF path
 
   -- Read treebank
   gs <- groups . lines <$> readFile (dir </> gname <.> "treebank")
