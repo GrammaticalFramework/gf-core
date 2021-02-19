@@ -359,7 +359,7 @@ test-suite gf-tests
 
 test-suite lpgf
   type: exitcode-stdio-1.0
-  main-is: run.hs
+  main-is: test.hs
   hs-source-dirs:
     src/compiler
     src/runtime/haskell
