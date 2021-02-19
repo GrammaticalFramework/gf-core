@@ -8,6 +8,15 @@ Possible exceptions:
 - No handling of variants (design choice)
 - Rendering of missing fucntions
 
+### Running
+
+```
+stack build --test --bench --no-run-tests --no-run-benchmarks
+stack test gf:test:lpgf # all LPGF tests
+stack test gf:test:lpgf --test-arguments="Params" # specific grammar
+stack test gf:test:lpgf --test-arguments="Foods Fre Ger" # specific grammar and languages
+```
+
 ## Benchmark
 
 ### Compilation

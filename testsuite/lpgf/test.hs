@@ -8,35 +8,41 @@ import GF.Support (noOptions)
 import Control.Monad (forM_)
 import qualified Data.List as L
 import qualified Data.Map as Map
-import Text.Printf (printf)
+import System.Environment (getArgs)
 import System.Directory (listDirectory)
 import System.FilePath ((</>), (<.>), takeBaseName, takeExtension, dropExtension)
+import Text.Printf (printf)
 
 dir :: FilePath
 dir = "testsuite" </> "lpgf"
 
 main :: IO ()
 main = do
-  doGrammar "Bind"
-  doGrammar "Tables"
-  doGrammar "Params"
-  doGrammar "Pre"
-  doGrammar "Projection"
-
-  doGrammar "Walking"
-  doGrammar "Foods"
-  -- doGrammar' "Foods" ["Fre"]
+  args <- getArgs
+  case args of
+    [] -> do
+      doGrammar "Bind"
+      doGrammar "Tables"
+      doGrammar "Params"
+      doGrammar "Pre"
+      doGrammar "Projection"
+      doGrammar "Walking"
+      doGrammar "Foods"
+    [absname] ->
+      doGrammar absname
+    absname:langs ->
+      doGrammar' absname langs
 
 doGrammar :: String -> IO ()
 doGrammar gname = doGrammar' gname []
 
 doGrammar' :: String -> [String] -> IO ()
 doGrammar' gname cncs = do
-  -- Collect concrete modules
+  -- Collect paths to concrete modules
   mods <- map (dir </>)
         . filter (\p -> gname `L.isPrefixOf` takeBaseName p
                         && takeExtension p == ".gf"
-                        && null cncs || any (`L.isSuffixOf` dropExtension p) cncs
+                        && (null cncs || any (`L.isSuffixOf` dropExtension p) cncs)
                   )
         <$> listDirectory dir
 
@@ -56,16 +62,19 @@ doGrammar' gname cncs = do
     let
       Just tree = readExpr ast
       -- Do some linearization
-      langs =
+      outs =
         [ printf "%s: %s" (showLanguage lang) (linearizeConcrete concr tree)
         | (lang,concr) <- Map.toList (concretes lpgf)
         ]
-    mapM_ putStrLn langs
-    if langs == tail grp
+    mapM_ putStrLn outs
+
+    -- filter out missing langs from treebank
+    let golds = [ g | o <- outs, g <- tail grp, takeWhile (/=':') o == takeWhile (/=':') g  ]
+    if outs == golds
     then putStrLn "✅\n"
     else do
       putStrLn "❌ expected:"
-      mapM_ putStrLn (tail grp)
+      mapM_ putStrLn golds
       putStrLn ""
       error "Test failed"
 
