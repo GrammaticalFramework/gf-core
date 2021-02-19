@@ -29,8 +29,8 @@ mkCanon2lpgf :: Options -> SourceGrammar -> ModuleName -> IOE LPGF
 mkCanon2lpgf opts gr am = do
   debug <- isJust <$> lookupEnv "DEBUG"
   when debug $ do
-    writeCanonical "DEBUG" canon
-    dumpCanonical "DEBUG" canon
+    writeCanonical debugDir canon
+    dumpCanonical debugDir canon
   (an,abs) <- mkAbstract ab
   cncs     <- mapM mkConcrete cncs
   let lpgf = LPGF {
@@ -38,7 +38,7 @@ mkCanon2lpgf opts gr am = do
     L.abstract = abs,
     L.concretes = Map.fromList cncs
   }
-  when debug $ dumpLPGF lpgf
+  when debug $ dumpLPGF debugDir lpgf
   return lpgf
   where
     canon@(C.Grammar ab cncs) = grammar2canonical opts am gr
@@ -310,6 +310,9 @@ fi2i (C.FunId i) = mkCId i
 
 -- Debugging
 
+debugDir :: FilePath
+debugDir = "DEBUG"
+
 -- -- | Pretty-print canonical grammar to console
 -- ppCanonical :: C.Grammar -> IO ()
 -- ppCanonical = putStrLn . render . pp
@@ -339,8 +342,9 @@ dumpCanonical path (C.Grammar ab cncs) = do
           ]
     writeFile (path </> mdi2s modId <.> "canonical.dump") body
 
--- | Dump LPGF to console
-dumpLPGF :: LPGF -> IO ()
-dumpLPGF lpgf =
-  forM_ (Map.toList $ L.concretes lpgf) $ \(cid,concr) ->
-    mapM_ print (Map.toList $ L.lins concr)
+-- | Dump LPGF to file
+dumpLPGF :: FilePath -> LPGF -> IO ()
+dumpLPGF path lpgf =
+  forM_ (Map.toList $ L.concretes lpgf) $ \(cid,concr) -> do
+    let body = unlines $ map show (Map.toList $ L.lins concr)
+    writeFile (path </> showCId cid <.> "lpgf.dump") body
