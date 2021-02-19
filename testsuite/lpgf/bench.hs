@@ -7,7 +7,7 @@ import qualified PGF2
 import GF (compileToPGF, compileToLPGF, writePGF, writeLPGF)
 import GF.Support (Options, Flags (..), Verbosity (..), noOptions, addOptions, modifyFlags)
 
-import Control.DeepSeq (force)
+import Control.DeepSeq (NFData, force)
 import Control.Exception (evaluate)
 import Control.Monad (when, forM)
 import qualified Data.List as L
@@ -71,13 +71,13 @@ main = do
   when (mode == "compile") $ do
     when doPGF $ do
       putStrLn "PGF"
-      (path, pgf) <- time "compile" (compilePGF mods)
+      (path, pgf) <- time "- compile: " (compilePGF mods)
       size <- getFileSize path
       printf "- size: %s  %s\n" (convertSize size) path
 
     when doLPGF $ do
       putStrLn "LPGF"
-      (path, lpgf) <- time "compile" (compileLPGF mods)
+      (path, lpgf) <- time "- compile: " (compileLPGF mods)
       size <- getFileSize path
       printf "- size: %s  %s\n" (convertSize size) path
 
@@ -92,40 +92,34 @@ main = do
     when doPGF $ do
       putStrLn "PGF"
       pgf <- PGF.readPGF (dropExtension (fromJust binaryFile) <.> "pgf")
-      time "linearise" (evaluate $ force $ linPGF pgf trees)
+      timePure "- linearise: " (linPGF pgf trees)
       return ()
 
     when doPGF2 $ do
       putStrLn "PGF2"
       pgf <- PGF2.readPGF (dropExtension (fromJust binaryFile) <.> "pgf")
-      time "linearise" (evaluate $ force $ linPGF2 pgf trees2)
+      timePure "- linearise: " (linPGF2 pgf trees2)
       return ()
 
     when doLPGF $ do
       putStrLn "LPGF"
       lpgf <- LPGF.readLPGF (dropExtension (fromJust binaryFile) <.> "lpgf")
-      time "linearise" (evaluate $ force $ linLPGF lpgf trees)
+      timePure "- linearise: " (linLPGF lpgf trees)
       return ()
 
   stats <- getRTSStats
-  printf "Max live memory: %s\n" (convertSize (read (show (max_live_bytes stats))))
-  printf "Max used memory: %s\n" (convertSize (read (show (max_mem_in_use_bytes stats))))
+  printf "Max memory: %s\n" (convertSize (fromIntegral (max_mem_in_use_bytes stats)))
 
 time :: String -> IO a -> IO a
 time desc io = do
   start <- getCurrentTime
-  r <- io
+  r <- io >>= evaluate -- only WHNF
   end <- getCurrentTime
-  printf "- %s: %s\n" desc (show (diffUTCTime end start))
+  putStrLn $ desc ++ show (diffUTCTime end start)
   return r
 
--- timePure :: String -> a -> IO a
--- timePure desc val = do
---   start <- getCurrentTime
---   let r = val
---   end <- getCurrentTime
---   printf "- %s: %s\n" desc (show (diffUTCTime end start))
---   return r
+timePure :: (NFData a) => String -> a -> IO a
+timePure desc val = time desc (return $ force val)
 
 compilePGF :: [FilePath] -> IO (FilePath, PGF.PGF)
 compilePGF mods = do
@@ -154,7 +148,8 @@ linLPGF lpgf trees =
 -- | Produce human readable file size
 -- Adapted from https://hackage.haskell.org/package/hrfsize
 convertSize :: Integer -> String
-convertSize = convertSize' . fromInteger
+convertSize = convertSize'' . fromInteger
+
 convertSize' :: Double -> String
 convertSize' size
   | size < 1024.0 = printf "%.0v bytes" size
@@ -162,3 +157,11 @@ convertSize' size
   | size < 1024.0 ^ (3 :: Int) = printf "%.2v MiB" $ size / 1024.0 ^ (2 :: Int)
   | size < 1024.0 ^ (4 :: Int) = printf "%.2v GiB" $ size / 1024.0 ^ (3 :: Int)
   | otherwise = printf "%.2v TiB" $ size / 1024.0 ^ (4 :: Int)
+
+convertSize'' :: Double -> String
+convertSize'' size
+  | size < 1000 = printf "%.0v bytes" size
+  | size < 1000 ^ (2 :: Int) = printf "%.2v KB" $ size / 1000
+  | size < 1000 ^ (3 :: Int) = printf "%.2v MB" $ size / 1000 ^ (2 :: Int)
+  | size < 1000 ^ (4 :: Int) = printf "%.2v GB" $ size / 1000 ^ (3 :: Int)
+  | otherwise = printf "%.2v TB" $ size / 1000 ^ (4 :: Int)
