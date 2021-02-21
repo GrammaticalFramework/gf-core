@@ -1,0 +1,12 @@
+Missing: Pred John Love Fish
+MissingCnc: John loves fish a lot
+
+Missing: Pred John Eat Fish
+MissingCnc: John [Eat] fish [Eat]
+
+Missing: Pred Fish Love Dogs
+MissingCnc: fish love [Dogs] a lot
+
+Missing: Pred Dogs Eat Fish
+MissingCnc: [Dogs] [Eat] fish [Eat]
+
