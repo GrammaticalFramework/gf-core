@@ -34,7 +34,7 @@ data Abstract = Abstract {
 } deriving (Show)
 
 -- | Concrete syntax
-data Concrete = Concrete {
+newtype Concrete = Concrete {
   -- lincats :: Map.Map CId LinType, -- ^ a linearization type for each category
   lins    :: Map.Map CId LinFun  -- ^ a linearization function for each function
 } deriving (Show)
@@ -59,6 +59,7 @@ data LinFun =
   | LFCapit -- ^ capitalise next character
   | LFAllCapit -- ^ capitalise next word
   | LFPre [([Text], LinFun)] LinFun
+  | LFMissing CId -- ^ missing definition (inserted at runtime)
 
   -- From original definition in paper
   | LFEmpty
@@ -105,6 +106,7 @@ instance Binary LinFun where
     LFCapit            -> putWord8 3
     LFAllCapit         -> putWord8 4
     LFPre ps d         -> putWord8 5 >> put ([(map TE.encodeUtf8 p,l) | (p,l) <- ps],d)
+    LFMissing f        -> putWord8 13 >> put f
     LFEmpty            -> putWord8 6
     LFToken t          -> putWord8 7 >> put (TE.encodeUtf8 t)
     LFConcat l1 l2     -> putWord8 8 >> put (l1,l2)
@@ -115,16 +117,17 @@ instance Binary LinFun where
   get = do
     tag <- getWord8
     case tag of
-      0 -> liftM LFError get
-      1 -> return LFBind
-      2 -> return LFSpace
-      3 -> return LFCapit
-      4 -> return LFAllCapit
-      5 -> liftM2 (\ps -> LFPre [(map TE.decodeUtf8 p,l) | (p,l) <- ps]) get get
-      6 -> return LFEmpty
-      7 -> liftM (LFToken . TE.decodeUtf8) get
-      8 -> liftM2 LFConcat get get
-      9 -> liftM LFInt get
+      0  -> liftM LFError get
+      1  -> return LFBind
+      2  -> return LFSpace
+      3  -> return LFCapit
+      4  -> return LFAllCapit
+      5  -> liftM2 (\ps -> LFPre [(map TE.decodeUtf8 p,l) | (p,l) <- ps]) get get
+      13 -> liftM LFMissing get
+      6  -> return LFEmpty
+      7  -> liftM (LFToken . TE.decodeUtf8) get
+      8  -> liftM2 LFConcat get get
+      9  -> liftM LFInt get
       10 -> liftM LFTuple get
       11 -> liftM2 LFProjection get get
       12 -> liftM LFArgument get
@@ -164,7 +167,7 @@ linearizeConcreteText concr expr = lin2string $ lin (expr2tree expr)
         case Map.lookup f (lins concr) of
           Just t -> eval (map lin as) t
           -- _ -> error $ printf "Lookup failed for function: %s" (showCId f)
-          _ -> LFToken $ T.pack $ printf "[%s]" (showCId f)
+          _ -> LFMissing f
       x -> error $ printf "Cannot lin: %s" (prTree x)
 
 -- | Evaluation context is a sequence of terms
@@ -186,6 +189,7 @@ eval cxt t = case t of
     where vs = map (eval cxt) ts
   LFProjection t u ->
     case (eval cxt t, eval cxt u) of
+      (LFMissing f, _) -> LFMissing f
       (LFTuple vs, LFInt i) -> vs !! (i-1)
       (tp@(LFTuple _), LFTuple is) | all isInt is -> foldl (\(LFTuple vs) (LFInt i) -> vs !! (i-1)) tp is
       (t',u') -> error $ printf "Incompatible projection:\n- %s ~> %s\n- %s ~> %s" (show t) (show t') (show u) (show u')
@@ -199,6 +203,7 @@ lin2string l = case l of
   LFBind -> "" -- when encountered at beginning/end
   LFSpace -> "" -- when encountered at beginning/end
   LFToken tok -> tok
+  LFMissing cid -> T.pack $ printf "[%s]" (show cid)
   LFTuple [l] -> lin2string l
   LFTuple (l:_) -> lin2string l -- unselected table, just choose first option (see e.g. FoodsJpn)
   LFPre pts df -> lin2string df -- when encountered at end
@@ -212,7 +217,7 @@ lin2string l = case l of
   LFConcat LFCapit l2 -> let l = lin2string l2 in T.toUpper (T.take 1 l) `T.append` T.drop 1 l
   LFConcat LFAllCapit l2 -> let tks = T.words (lin2string l2) in T.unwords $ T.toUpper (head tks) : tail tks
   LFConcat l1 l2 -> T.unwords $ filter (not.T.null) [lin2string l1, lin2string l2]
-  x -> T.pack $ printf "<%s>" (show x)
+  x -> T.pack $ printf "[%s]" (show x)
 
 -- | List indexing with more verbose error messages
 (!!) :: (Show a) => [a] -> Int -> a

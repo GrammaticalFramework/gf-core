@@ -342,14 +342,14 @@ writeCanonical path (C.Grammar ab cncs) = do
   let (C.Abstract modId flags cats funs) = ab
   writeFile (path </> mdi2s modId <.> "canonical.gf") (render $ pp ab)
   forM_ cncs $ \cnc@(C.Concrete modId absModId flags params lincats lindefs) ->
-    writeFile (path </> mdi2s modId <.> "canonical.gf") (render $ pp cnc)
+    writeFile' (path </> mdi2s modId <.> "canonical.gf") (render $ pp cnc)
 
 -- | Dump canonical grammars to file
 dumpCanonical :: FilePath -> C.Grammar -> IO ()
 dumpCanonical path (C.Grammar ab cncs) = do
   let (C.Abstract modId flags cats funs) = ab
   let body = unlines $ map show cats ++ [""] ++ map show funs
-  writeFile (path </> mdi2s modId <.> "canonical.dump") body
+  writeFile' (path </> mdi2s modId <.> "canonical.dump") body
 
   forM_ cncs $ \(C.Concrete modId absModId flags params lincats lindefs) -> do
     let body = unlines $ concat [
@@ -359,11 +359,17 @@ dumpCanonical path (C.Grammar ab cncs) = do
           [""],
           map show lindefs
           ]
-    writeFile (path </> mdi2s modId <.> "canonical.dump") body
+    writeFile' (path </> mdi2s modId <.> "canonical.dump") body
 
 -- | Dump LPGF to file
 dumpLPGF :: FilePath -> LPGF -> IO ()
 dumpLPGF path lpgf =
   forM_ (Map.toList $ L.concretes lpgf) $ \(cid,concr) -> do
     let body = unlines $ map show (Map.toList $ L.lins concr)
-    writeFile (path </> showCId cid <.> "lpgf.dump") body
+    writeFile' (path </> showCId cid <.> "lpgf.dump") body
+
+-- | Write a file and report it to console
+writeFile' :: FilePath -> String -> IO ()
+writeFile' p b = do
+  writeFile p b
+  putStrLn $ "Wrote " ++ p
