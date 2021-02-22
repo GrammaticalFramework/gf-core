@@ -1809,6 +1809,23 @@ As the last rule, subtyping is transitive:
 -   if *A* is a subtype of *B* and *B* is a subtype of *C*, then *A* is
     a subtype of *C*.
 
+### List categories
+
+[]{#lists}
+
+Since categories of lists of elements of another category are a common idiom, the following syntactic sugar is available:
+
+    cat [C] {n}
+
+abbreviates a set of three judgements:
+
+   cat ListC ;
+   fun BaseC : C -> ... -> C -> ListC ; --n C’s
+   fun ConsC : C -> ListC -> ListC
+
+The functions `BaseC` and `ConsC` are automatically generated in the abstract syntax, but their linearizations, as well as the linearization type of `ListC`, must be defined manually. The type expression `[C]` is in all contexts interchangeable with `ListC`.
+
+More information on lists in GF can be found [here](https://inariksit.github.io/gf/2021/02/22/lists.html).
 
 ### Tables and table types
 
@@ -2113,7 +2130,7 @@ of *x*, and the application thereby disappears.
 
 []{#reuse}
 
-*This section is valid for GF 3.0, which abandons the \"lock field\"*
+*This section is valid for GF 3.0, which abandons the \"[lock field](https://inariksit.github.io/gf/2018/05/25/subtyping-gf.html#lock-fields)\"*
 *discipline of GF 2.8.*
 
 As explained [here](#openabstract), abstract syntax modules can be
