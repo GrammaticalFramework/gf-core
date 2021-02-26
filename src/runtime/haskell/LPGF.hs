@@ -272,9 +272,14 @@ instance PP LinFun where
           CMW.tell [ T.replicate (n+1) "  " `T.append` T.pack (show p) | p <- ps ]
           pp' (n+1) d
 
-        c@(LFConcat l1 l2) | isDeep l1 || isDeep l2 -> do
-          p "LFConcat"
-          mapM_ (pp' (n+1)) (unConcat c)
+        c@(LFConcat l1 l2) -> do
+          let ts = unConcat c
+          if any isDeep ts
+          then do
+            p "LFConcat"
+            mapM_ (pp' (n+1)) ts
+          else
+            ps $ "LFConcat " ++ show ts
         LFTuple ls | any isDeep ls -> do
           p "LFTuple"
           mapM_ (pp' (n+1)) ls

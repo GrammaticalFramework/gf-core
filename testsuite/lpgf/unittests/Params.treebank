@@ -1,5 +1,5 @@
 Params: FtoS f1
-ParamsCnc: PR R1 Q1
+ParamsCnc: PRQ _ Q3
 
 Params: FtoS f2
-ParamsCnc: PR R2 _
+ParamsCnc: PRQ (RT _) Q1

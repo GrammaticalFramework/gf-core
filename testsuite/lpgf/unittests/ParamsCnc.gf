@@ -1,21 +1,30 @@
 concrete ParamsCnc of Params = {
   param
-    R = R1 | R2 ;
-    P = PR R Q | PP ;
+    P = Px | PRQ R Q | Py ;
+    R = R0 | RT T ;
+    T = T0 | T1 ;
     Q = Q3 | Q2 | Q1 ;
   lincat
     S = Str ;
-    F = { r : R } ;
+    F = { r : R; q : Q } ;
   lin
-    f1 = { r = R1 } ;
-    f2 = { r = R2 } ;
-    FtoS f = tbl ! PR f.r Q1 ;
+    f1 = { r = R0 ; q = Q3 } ;
+    f2 = { r = RT T1 ; q = Q1 } ;
+    FtoS f = tbl ! PRQ f.r f.q ;
   oper
     tbl = table {
-      PR R1 Q2 => "PR R1 Q2" ;
-      PR R1 Q1 => "PR R1 Q1" ;
-      PR R1 Q3 => "PR R1 Q3" ;
-      PR R2 _ => "PR R2 _" ;
-      PP => "PP"
+      Px => "Px" ;
+      Py => "Py" ;
+      PRQ R0 Q1 => "PRQ R0 Q1" ;
+      PRQ R0 Q2 => "PRQ R0 Q2" ;
+      -- PRQ R0 Q3 => "PRQ R0 Q3" ;
+      PRQ (RT _) Q1 => "PRQ (RT _) Q1" ;
+      -- PRQ (RT T0) Q1 => "PRQ (RT T0) Q1" ;
+      PRQ (RT T0) Q2 => "PRQ (RT T0) Q2" ;
+      -- PRQ (RT T0) Q3 => "PRQ (RT T0) Q3" ;
+      -- PRQ (RT T1) Q1 => "PRQ (RT T1) Q1" ;
+      PRQ (RT T1) Q2 => "PRQ (RT T1) Q2" ;
+      -- PRQ (RT T1) Q3 => "PRQ (RT T1) Q3" ;
+      PRQ _ Q3 => "PRQ _ Q3"
     } ;
 }
