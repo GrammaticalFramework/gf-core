@@ -11,7 +11,8 @@ import PGF.CId
 import PGF.Expr (Expr)
 import PGF.Tree (Tree (..), expr2tree, prTree)
 
-import Control.Monad (liftM, liftM2)
+import Control.Monad (liftM, liftM2, forM_)
+import qualified Control.Monad.Writer as CMW
 import Data.Binary (Binary, put, get, putWord8, getWord8, encodeFile, decodeFile)
 import qualified Data.Map as Map
 import Data.Text (Text)
@@ -229,3 +230,69 @@ lin2string l = case l of
 isInt :: LinFun -> Bool
 isInt (LFInt _) = True
 isInt _ = False
+
+-- | Helper for building concat trees
+mkConcat :: [LinFun] -> LinFun
+mkConcat [] = LFEmpty
+mkConcat [x] = x
+mkConcat xs = foldl1 LFConcat xs
+
+-- | Helper for unfolding concat trees
+unConcat :: LinFun -> [LinFun]
+unConcat (LFConcat l1 l2) = concatMap unConcat [l1, l2]
+unConcat lf = [lf]
+
+------------------------------------------------------------------------------
+-- Pretty-printing
+
+type Doc = CMW.Writer [Text] ()
+
+render :: Doc -> Text
+render = T.unlines . CMW.execWriter
+
+class PP a where
+  pp :: a -> Doc
+
+instance PP LPGF where
+  pp (LPGF _ _ cncs) = mapM_ pp cncs
+
+instance PP Concrete where
+  pp (Concrete lins) =
+    forM_ (Map.toList lins) $ \(cid,lin) -> do
+      CMW.tell [T.pack ("# " ++ showCId cid)]
+      pp lin
+      CMW.tell [""]
+
+instance PP LinFun where
+  pp = pp' 0
+    where
+      pp' n = \case
+        LFPre ps d -> do
+          p "LFPre"
+          CMW.tell [ T.replicate (n+1) "  " `T.append` T.pack (show p) | p <- ps ]
+          pp' (n+1) d
+
+        c@(LFConcat l1 l2) | isDeep l1 || isDeep l2 -> do
+          p "LFConcat"
+          mapM_ (pp' (n+1)) (unConcat c)
+        LFTuple ls | any isDeep ls -> do
+          p "LFTuple"
+          mapM_ (pp' (n+1)) ls
+        LFProjection l1 l2 | isDeep l1 || isDeep l2 -> do
+          p "LFProjection"
+          pp' (n+1) l1
+          pp' (n+1) l2
+        t -> ps $ show t
+        where
+          p :: Text -> Doc
+          p t = CMW.tell [ T.replicate n "  " `T.append` t ]
+          ps :: String -> Doc
+          ps = p . T.pack
+
+      isDeep = not . isTerm
+      isTerm = \case
+        LFPre _ _ -> False
+        LFConcat _ _ -> False
+        LFTuple _ -> False
+        LFProjection _ _ -> False
+        _ -> True
