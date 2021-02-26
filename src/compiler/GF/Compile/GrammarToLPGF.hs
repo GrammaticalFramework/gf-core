@@ -52,8 +52,8 @@ mkCanon2lpgf opts gr am = do
         (C.Abstract _ _ _ funs) = ab
         paramMap = mkParamMap params
         paramTuples = mkParamTuples params
-      -- mapM_ (putStrLn . T.unpack . L.render . L.pp) paramTuples
-      let
+      -- mapM_ (\(C.ParamDef pid _,ptup) -> putStrLn $ show pid ++ "\n" ++ T.unpack (L.render $ L.pp ptup)) (zip params paramTuples)
+      -- let
         -- filter out record fields from defn which don't appear in lincat
         -- this seems to be an inconsistency in the canonical representation
         lindefs' =
@@ -112,12 +112,6 @@ mkCanon2lpgf opts gr am = do
 
               -- when param value is dynamic
               C.ParamConstant (C.Param pid lvs) -> do
-                -- get param group index and defn for this constructor
-                (gix,def) <- [ (gix,d) | (gix,d@(C.ParamDef _ ps)) <- zip [0..] params, any (\(C.Param p _) -> p == pid) ps ]
-                              `headOrLeft` printf "Cannot find param group: %s" (show pid)
-                let (C.ParamDef tpid defpids) = def
-                pidIx <- eitherElemIndex pid [ p | C.Param p _ <- defpids ]
-
                 let
                   collectProjections :: C.LinValue -> Either String [L.LinFun]
                   collectProjections (C.ParamConstant (C.Param pid lvs)) = do
@@ -131,24 +125,15 @@ mkCanon2lpgf opts gr am = do
                     (lf ,_) <- val2lin lv
                     return [lf]
 
+                -- get param group index and defn for this constructor
+                (gix,def) <- [ (gix,d) | (gix,d@(C.ParamDef _ ps)) <- zip [0..] params, any (\(C.Param p _) -> p == pid) ps ]
+                              `headOrLeft` printf "Cannot find param group: %s" (show pid)
+                let (C.ParamDef tpid _) = def
+
                 let tuple = paramTuples !! gix
                 lfs <- collectProjections lv
                 let term = foldl L.LFProjection tuple lfs
 
-                -- term <- case lvs of
-                --   [] -> return $ L.LFProjection tuple (L.LFInt (pidIx+1))
-                --   [lv0] -> do
-                --     (lf0,lt0) <- val2lin lv0
-                --     return $ L.LFProjection (L.LFProjection tuple (L.LFInt (pidIx+1))) lf0
-                --   [lv1,lv2] -> do
-                --     (lf1,lt1) <- val2lin lv1
-                --     (lf2,lt2) <- val2lin lv2
-                --     return $ L.LFProjection (L.LFProjection (L.LFProjection tuple (L.LFInt (pidIx+1))) lf1) lf2
-
-                -- lvs' <- mapM val2lin lvs
-                -- let term = foldl L.LFProjection tuple (L.LFInt (pidIx+1):map fst lvs')
-
-                -- term = L.LFProjection (L.LFProjection (L.LFProjection (L.LFProjection tuple (L.LFInt 2 {- AMod -})) (L.LFInt 1 {- GSg -})) (L.LFInt 3 {- Neutr -})) (L.LFInt 1 {- True -})
                 return (term, Just $ C.ParamType (C.ParamTypeId tpid))
 
               C.PredefValue (C.PredefId pid) -> case pid of
@@ -274,6 +259,7 @@ mkParamTuples :: [C.ParamDef] -> [L.LinFun]
 mkParamTuples defs = map (\def -> CMS.evalState (mk' def) 1) pdefs
   where
     pdefs = inlineParamAliases defs
+    paramMap = zip defs (mkParamMap defs)
 
     mk' :: C.ParamDef -> CMS.State Int L.LinFun
     mk' (C.ParamDef _ pids) = do
@@ -292,18 +278,15 @@ mkParamTuples defs = map (\def -> CMS.evalState (mk' def) 1) pdefs
       mk' def
 
     -- mk'' x@(C.Param p0 [pid1,pid2]) = do
-    --   let Just def1 = L.find (\(C.ParamDef p _) -> pid1 == p) pdefs
+    --   let Just (C.ParamDef d1 _) = L.find (\(C.ParamDef p _) -> pid1 == p) pdefs
     --   let Just def2 = L.find (\(C.ParamDef p _) -> pid2 == p) pdefs
-    --   let m1 = CMS.evalState (mk' def1) 1 -- get shape without affecting our counter
-    --   -- m2 <- mk' def2
-    --   let LFTuple m1' = m1
-    --   -- let LFTuple m2' = m2
-    --   L.LFTuple <$> sequence [ mk' def2 | _ <- m1' ]
+    --   let x = head [ xs | (C.ParamDef d _,xs) <- map2, d == d1 ]
+    --   L.LFTuple <$> sequence [ mk' def2 | _ <- x ]
 
     mk'' (C.Param p0 (pid:pids)) = do
-      let Just def = L.find (\(C.ParamDef p _) -> pid == p) pdefs
-      let L.LFTuple ms = CMS.evalState (mk' def) 1 -- get shape without affecting our counter
-      L.LFTuple <$> sequence [ mk'' (C.Param p0 pids) | _ <- ms ]
+      let Just (C.ParamDef dpid _) = L.find (\(C.ParamDef p _) -> pid == p) pdefs
+      let Just (_, lvs) = L.find (\(C.ParamDef d _, lvs) -> dpid == d) paramMap
+      L.LFTuple <$> sequence [ mk'' (C.Param p0 pids) | _ <- lvs ]
 
 -- | Always put 's' reocord field first, then sort alphabetically
 -- This seems to be done inconsistently in the canonical format
