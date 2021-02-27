@@ -239,13 +239,13 @@ mkParamTuples defs = map (addIndexes . mk') pdefs
       let Just def = L.find (\(C.ParamDef p _) -> pid == p) pdefs
       in  mk' def
 
-    mk'' x@(C.Param p0 [pid1,pid2]) =
-      let
-        Just def1 = L.find (\(C.ParamDef p _) -> pid1 == p) pdefs
-        Just def2 = L.find (\(C.ParamDef p _) -> pid2 == p) pdefs
-        lf1 = mk' def1
-        lf2 = mk' def2
-      in replaceEmpty lf2 lf1
+    -- mk'' x@(C.Param p0 [pid1,pid2]) =
+    --   let
+    --     Just def1 = L.find (\(C.ParamDef p _) -> pid1 == p) pdefs
+    --     Just def2 = L.find (\(C.ParamDef p _) -> pid2 == p) pdefs
+    --     lf1 = mk' def1
+    --     lf2 = mk' def2
+    --   in replaceEmpty lf2 lf1
 
     mk'' x@(C.Param p0 (pid:pids)) =
       let

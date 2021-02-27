@@ -191,6 +191,7 @@ eval cxt t = case t of
   LFProjection t u ->
     case (eval cxt t, eval cxt u) of
       (LFMissing f, _) -> LFMissing f
+      (_, LFMissing f) -> LFMissing f
       (LFTuple vs, LFInt i) -> vs !! (i-1)
       (tp@(LFTuple _), LFTuple is) | all isInt is -> foldl (\(LFTuple vs) (LFInt i) -> vs !! (i-1)) tp is
       (t',u') -> error $ printf "Incompatible projection:\n- %s ~> %s\n- %s ~> %s" (show t) (show t') (show u) (show u')
