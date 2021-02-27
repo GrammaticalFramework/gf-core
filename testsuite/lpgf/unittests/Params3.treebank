@@ -1,0 +1,29 @@
+Params3: mkModPl
+Params3Cnc: mod pl
+
+Params3: mkModSgHumanFalse GFem
+Params3Cnc: mod sg human fem f
+
+Params3: mkModSgHumanFalse GMasc
+Params3Cnc: mod sg human masc f
+
+Params3: mkModSgHumanFalse GNeutr
+Params3Cnc: mod sg human neutr f
+
+Params3: mkModSgHumanTrue GFem
+Params3Cnc: mod sg human fem t
+
+Params3: mkModSgHumanTrue GMasc
+Params3Cnc: mod sg human masc t
+
+Params3: mkModSgHumanTrue GNeutr
+Params3Cnc: mod sg human neutr t
+
+Params3: mkModSgNonFalse
+Params3Cnc: mod sg nonhuman f
+
+Params3: mkModSgNonTrue
+Params3Cnc: mod sg nonhuman f
+
+Params3: mkPred
+Params3Cnc: pred

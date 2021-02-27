@@ -22,12 +22,17 @@ main = do
   case args of
     [] -> do
       doGrammar "unittests" "Bind"
-      doGrammar "unittests" "Tables"
-      doGrammar "unittests" "Params"
+      doGrammar "unittests" "Missing"
+      doGrammar "unittests" "Params1"
+      doGrammar "unittests" "Params2"
+      doGrammar "unittests" "Params3"
       doGrammar "unittests" "Pre"
       doGrammar "unittests" "Projection"
+      doGrammar "unittests" "Tables"
+
       doGrammar "walking" "Walking"
       doGrammar "foods" "Foods"
+      -- doGrammar "phrasebook" "Phrasebook"
     [absname] ->
       doGrammar (takeDirectory absname) (takeBaseName absname)
     absname:langs ->

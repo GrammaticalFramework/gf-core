@@ -1,4 +1,4 @@
-abstract Params = {
+abstract Params1 = {
   cat S ; F ;
   fun
     FtoS : F -> S ;

@@ -1,6 +1,6 @@
 module GF.Compile.GrammarToLPGF (mkCanon2lpgf) where
 
-import LPGF (LPGF (..))
+import LPGF (LPGF (..), LinFun (..))
 import qualified LPGF as L
 
 import PGF.CId
@@ -46,14 +46,13 @@ mkCanon2lpgf opts gr am = do
     mkAbstract :: C.Abstract -> IOE (CId, L.Abstract)
     mkAbstract (C.Abstract modId flags cats funs) = return (mdi2i modId, L.Abstract {})
 
-    mkConcrete :: C.Concrete -> IOE (CId, L.Concrete)
+    mkConcrete :: C.Concrete -> IOE (CId, L.Concrete) -- TODO don't need IO
     mkConcrete (C.Concrete modId absModId flags params lincats lindefs) = do
       let
         (C.Abstract _ _ _ funs) = ab
-        paramMap = mkParamMap params
         paramTuples = mkParamTuples params
-      -- mapM_ (\(C.ParamDef pid _,ptup) -> putStrLn $ show pid ++ "\n" ++ T.unpack (L.render $ L.pp ptup)) (zip params paramTuples)
-      -- let
+      -- mapM_ (\(C.ParamDef (C.ParamId (C.Qual _ pid)) _,ptup) -> putStrLn $ "# " ++ pid ++ "\n" ++ T.unpack (L.render $ L.pp ptup)) (zip params paramTuples)
+
         -- filter out record fields from defn which don't appear in lincat
         -- this seems to be an inconsistency in the canonical representation
         lindefs' =
@@ -101,16 +100,8 @@ mkCanon2lpgf opts gr am = do
 
               C.ErrorValue err -> return (L.LFError err, Nothing)
 
-              -- when param value is known at compile time
-              -- this case is actually covered below and can be omitted,
-              -- but will result in smaller LPGF and is thus an optimisation
-              C.ParamConstant _ | isParamConstant lv -> do
-                (gix,ix) <- [ (gix,ix) | (gix,lvs) <- zip [0..] paramMap, Just ix <- [elemIndex lv lvs] ]
-                            `headOrLeft` printf "Cannot find param value: %s" (show lv)
-                let (C.ParamDef tpid _) = params !! gix
-                return (L.LFInt (ix+1), Just $ C.ParamType (C.ParamTypeId tpid))
-
-              -- when param value is dynamic
+              -- the expressions built here can be quite large,
+              -- but will be reduced during optimisation if possible
               C.ParamConstant (C.Param pid lvs) -> do
                 let
                   collectProjections :: C.LinValue -> Either String [L.LinFun]
@@ -231,62 +222,58 @@ inlineParamAliases defs = if null aliases then defs else map rp' pdefs
       Just (C.ParamAliasDef _ (C.ParamType (C.ParamTypeId p))) -> p
       _ -> pid
 
--- | Enumerate all param value combinations for looking up index numbers.
--- Used when param value is static (known at compile time)
-mkParamMap :: [C.ParamDef] -> [[C.LinValue]]
-mkParamMap defs = map mk' pdefs
-  where
-    pdefs = inlineParamAliases defs
-
-    mk' :: C.ParamDef -> [C.LinValue]
-    mk' (C.ParamDef _ pids) = concatMap mk'' pids
-    mk' (C.ParamAliasDef _ _) = error "mkParamMap not implemented for ParamAliasDef"
-
-    mk'' :: C.ParamValueDef -> [C.LinValue]
-    mk'' (C.Param pid []) = [C.ParamConstant (C.Param pid [])]
-    mk'' (C.Param pid pids) =
-      [ C.ParamConstant (C.Param pid k) | k <- sequence kids ]
-      where
-        kids =
-          [ mk' def
-          | p <- pids
-          , let Just def = L.find (\(C.ParamDef pid _) -> pid == p) pdefs
-          ] :: [[C.LinValue]]
-
--- | Build nested tuple of param values.
--- Needed when param value is dynamic (known only at run time)
+-- | Build nested tuple of param values
 mkParamTuples :: [C.ParamDef] -> [L.LinFun]
-mkParamTuples defs = map (\def -> CMS.evalState (mk' def) 1) pdefs
+mkParamTuples defs = map (addIndexes . mk') pdefs
   where
     pdefs = inlineParamAliases defs
-    paramMap = zip defs (mkParamMap defs)
 
-    mk' :: C.ParamDef -> CMS.State Int L.LinFun
-    mk' (C.ParamDef _ pids) = do
-      ms <- mapM mk'' pids
-      return $ L.LFTuple ms
+    mk' :: C.ParamDef -> L.LinFun
+    mk' (C.ParamDef _ pids) = L.LFTuple $ map mk'' pids
     mk' (C.ParamAliasDef _ _) = error "mkParamTuples not implemented for ParamAliasDef"
 
-    mk'' :: C.ParamValueDef -> CMS.State Int L.LinFun
-    mk'' (C.Param _ []) = do
-      ix <- CMS.get
-      CMS.modify (+1)
-      return $ L.LFInt ix
+    mk'' :: C.ParamValueDef -> L.LinFun
+    mk'' (C.Param _ []) = LFEmpty -- placeholder for terminal node, replaced later
 
-    mk'' x@(C.Param p0 [pid]) = do
+    mk'' x@(C.Param p0 [pid]) =
       let Just def = L.find (\(C.ParamDef p _) -> pid == p) pdefs
-      mk' def
+      in  mk' def
 
-    -- mk'' x@(C.Param p0 [pid1,pid2]) = do
-    --   let Just (C.ParamDef d1 _) = L.find (\(C.ParamDef p _) -> pid1 == p) pdefs
-    --   let Just def2 = L.find (\(C.ParamDef p _) -> pid2 == p) pdefs
-    --   let x = head [ xs | (C.ParamDef d _,xs) <- map2, d == d1 ]
-    --   L.LFTuple <$> sequence [ mk' def2 | _ <- x ]
+    mk'' x@(C.Param p0 [pid1,pid2]) =
+      let
+        Just def1 = L.find (\(C.ParamDef p _) -> pid1 == p) pdefs
+        Just def2 = L.find (\(C.ParamDef p _) -> pid2 == p) pdefs
+        lf1 = mk' def1
+        lf2 = mk' def2
+      in replaceEmpty lf2 lf1
 
-    mk'' (C.Param p0 (pid:pids)) = do
-      let Just (C.ParamDef dpid _) = L.find (\(C.ParamDef p _) -> pid == p) pdefs
-      let Just (_, lvs) = L.find (\(C.ParamDef d _, lvs) -> dpid == d) paramMap
-      L.LFTuple <$> sequence [ mk'' (C.Param p0 pids) | _ <- lvs ]
+    mk'' x@(C.Param p0 (pid:pids)) =
+      let
+        Just def = L.find (\(C.ParamDef p _) -> pid == p) pdefs
+        this = mk' def
+        rest = mk'' (C.Param p0 pids)
+      in replaceEmpty rest this
+
+    -- traverse LinFun term and replace Empty with sequential index
+    addIndexes :: L.LinFun -> L.LinFun
+    addIndexes lf = CMS.evalState (num lf) 1
+      where
+        num :: L.LinFun -> CMS.State Int L.LinFun
+        num lf = case lf of
+          L.LFEmpty -> do
+            ix <- CMS.get
+            CMS.modify (+1)
+            return $ L.LFInt ix
+          L.LFTuple lfs -> L.LFTuple <$> mapM num lfs
+          x -> error $ "mkParamTuples.number not implemented for: " ++ show x
+
+    -- traverse LinFun term and replace Empty with given term
+    replaceEmpty :: L.LinFun -> L.LinFun -> L.LinFun
+    replaceEmpty with tree = case tree of
+      L.LFEmpty -> with
+      L.LFTuple lfs -> L.LFTuple $ map (replaceEmpty with) lfs
+      x -> error $ "mkParamTuples.replaceEmpty not implemented for: " ++ show x
+
 
 -- | Always put 's' reocord field first, then sort alphabetically
 -- This seems to be done inconsistently in the canonical format

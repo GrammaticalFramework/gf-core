@@ -1,4 +1,4 @@
-concrete ParamsCnc of Params = {
+concrete Params1Cnc of Params1 = {
   param
     P = Px | PRQ R Q | Py ;
     R = R0 | RT T ;
