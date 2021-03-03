@@ -14,7 +14,6 @@ import GF.Infra.UseIO (IOE)
 import GF.Text.Pretty (pp, render)
 
 import Control.Applicative ((<|>))
-import qualified Control.Monad.State as CMS
 import Control.Monad (when, unless, forM, forM_)
 import Data.Either (lefts, rights)
 import Data.List (elemIndex)
@@ -136,26 +135,6 @@ mkCanon2lpgf opts gr am = do
                 let (C.ParamDef tpid _) = def
                 return (term, Just $ C.ParamType (C.ParamTypeId tpid))
 
-              -- C.Selection v1 v2 -> do
-              --   (v1', t1) <- val2lin v1
-              --   (v2', t2) <- val2lin v2
-              --   -- let Just (C.TableType t11 t12) = t1 -- t11 == t2
-              --
-              --   case t1 of
-              --     Just (C.TableType (C.ParamType (C.ParamTypeId pid)) tret) -> do
-              --       (gix,_) <- [ (gix,d) | (gix,d@(C.ParamDef p _)) <- zip [0..] params, p == pid ]
-              --                     `headOrLeft` printf "Cannot find param group: %s" (show pid)
-              --       let tuple = paramTuples !! gix
-              --       let v2'' = case v2' of
-              --             L.Tuple lfs -> foldl L.Projection tuple lfs
-              --             lf -> L.Projection tuple lf
-              --       return (L.Projection v1' v2'', Just tret)
-              --
-              --     Just (C.TableType (C.RecordType rrts) tret) ->
-              --       return (L.Projection v1' v2', Just tret)
-              --
-              --     _ -> Left $ printf "Unhandled type in selection: %s" (show t1)
-
               C.PredefValue (C.PredefId pid) -> case pid of
                 "BIND" -> return (L.Bind, Nothing)
                 "SOFT_BIND" -> return (L.Bind, Nothing)
@@ -175,18 +154,35 @@ mkCanon2lpgf opts gr am = do
                   go [C.TableRow _ lv] = val2lin lv
                   go trvs = do
                     let grps = L.groupBy (\(C.TableRow (C.RecordPattern rps1) _) (C.TableRow (C.RecordPattern rps2) _) -> head rps1 == head rps2) trvs
-                    ts <- mapM (go . map (\(C.TableRow (C.RecordPattern rps) lv) -> C.TableRow (C.RecordPattern (tail rps)) lv)) grps
+                    -- ts <- mapM (go . map (\(C.TableRow (C.RecordPattern rps) lv) -> C.TableRow (C.RecordPattern (tail rps)) lv)) grps
+                    ts <- forM grps $ \grp ->
+                      go $ map (\(C.TableRow (C.RecordPattern rps) lv) -> C.TableRow (C.RecordPattern (tail rps)) lv) grp
                     let typ = case ts of
                           (_, Just tst):_ -> Just $ C.TableType lt tst
                           _ -> Nothing
                     return (L.Tuple (map fst ts), typ)
 
-              C.TableValue lt trvs | isParamType lt -> do
-                ts <- sequence [ val2lin lv | C.TableRow _ lv <- trvs ]
-                let typ = case ts of
-                      (_, Just tst):_ -> Just $ C.TableType lt tst
-                      _ -> Nothing
-                return (L.Tuple (map fst ts), typ)
+              C.TableValue lt trvs | isParamType lt -> go trvs
+                where
+                  go :: [C.TableRowValue] -> Either String (L.LinFun, Maybe C.LinType)
+                  go [C.TableRow _ lv] = val2lin lv
+                  go trvs = do
+                    let grps = L.groupBy (\(C.TableRow (C.ParamPattern (C.Param pid1 _)) _) (C.TableRow (C.ParamPattern (C.Param pid2 _)) _) -> pid1 == pid2) trvs
+                    ts <- forM grps $ \grp ->
+                      go =<< forM grp (\row ->
+                        case row of
+                          C.TableRow (C.ParamPattern (C.Param _ [])) lv -> return row
+                          C.TableRow (C.ParamPattern (C.Param _ patts)) lv -> return $ C.TableRow (C.ParamPattern (C.Param pid' patts')) lv
+                            where
+                              C.ParamPattern (C.Param pid1 patts1) = head patts
+                              pid' = pid1
+                              patts' = patts1 ++ tail patts
+                          _ -> Left $ printf "Unhandled table row: %s" (show row)
+                        )
+                    let typ = case ts of
+                          (_, Just tst):_ -> Just $ C.TableType lt tst
+                          _ -> Nothing
+                    return (L.Tuple (map fst ts), typ)
 
               -- TODO TuplePattern, WildPattern?
 
@@ -194,7 +190,7 @@ mkCanon2lpgf opts gr am = do
                 ts <- mapM val2lin lvs
                 return (L.Tuple (map fst ts), Just $ C.TupleType (map (fromJust.snd) ts))
 
-              C.VariantValue [] -> return (L.Empty, Nothing)
+              C.VariantValue [] -> return (L.Empty, Nothing) -- TODO Just C.StrType ?
               C.VariantValue (vr:_) -> val2lin vr -- NOTE variants not supported, just pick first
 
               C.VarValue (C.VarValueId (C.Unqual v)) -> do
@@ -229,7 +225,10 @@ mkCanon2lpgf opts gr am = do
                 let Just (C.TableType t11 t12) = t1 -- t11 == t2
                 return (L.Projection v1' v2', Just t12)
 
-              C.CommentedValue cmnt lv -> val2lin lv
+              -- C.CommentedValue cmnt lv -> val2lin lv
+              C.CommentedValue cmnt lv -> case cmnt of
+                "impossible" -> val2lin lv >>= \(_, typ) -> return (L.Empty, typ) -- TODO untested optimisation
+                _ -> val2lin lv
 
               v -> Left $ printf "val2lin not implemented for: %s" (show v)
 
@@ -240,14 +239,14 @@ mkCanon2lpgf opts gr am = do
       })
 
 -- | Remove ParamAliasDefs by inlining their definitions
-inlineParamAliases :: [C.ParamDef] -> [C.ParamDef] -- TODO use error monad
+inlineParamAliases :: [C.ParamDef] -> [C.ParamDef]
 inlineParamAliases defs = if null aliases then defs else map rp' pdefs
   where
     (aliases,pdefs) = L.partition isParamAliasDef defs
 
     rp' :: C.ParamDef -> C.ParamDef
     rp' (C.ParamDef pid pids) = C.ParamDef pid (map rp'' pids)
-    rp' (C.ParamAliasDef _ _) = error "inlineParamAliases called on ParamAliasDef"
+    rp' (C.ParamAliasDef _ _) = error "inlineParamAliases called on ParamAliasDef" -- impossible
 
     rp'' :: C.ParamValueDef -> C.ParamValueDef
     rp'' (C.Param pid pids) = C.Param pid (map rp''' pids)
@@ -257,65 +256,9 @@ inlineParamAliases defs = if null aliases then defs else map rp' pdefs
       Just (C.ParamAliasDef _ (C.ParamType (C.ParamTypeId p))) -> p
       _ -> pid
 
--- | Build nested tuple of param values
-mkParamTuples :: [C.ParamDef] -> [L.LinFun] -- TODO use error monad
-mkParamTuples defs = map (addIndexes . mk') pdefs
-  where
-    pdefs = inlineParamAliases defs
-
-    mk' :: C.ParamDef -> L.LinFun
-    mk' (C.ParamDef _ pids) = L.Tuple $ map mk'' pids
-    mk' (C.ParamAliasDef _ _) = error "mkParamTuples not implemented for ParamAliasDef"
-
-    mk'' :: C.ParamValueDef -> L.LinFun
-    mk'' (C.Param _ []) = L.Empty -- placeholder for terminal node, replaced later
-
-    -- mk'' x@(C.Param p0 [pid]) =
-    --   let Just def = L.find (\(C.ParamDef p _) -> pid == p) pdefs
-    --   in  mk' def
-
-    -- mk'' x@(C.Param p0 [pid1,pid2]) =
-    --   let
-    --     Just def1 = L.find (\(C.ParamDef p _) -> pid1 == p) pdefs
-    --     Just def2 = L.find (\(C.ParamDef p _) -> pid2 == p) pdefs
-    --     lf1 = mk' def1
-    --     lf2 = mk' def2
-    --   in replaceEmpty lf2 lf1
-
-    mk'' x@(C.Param p0 (pid:pids)) =
-      let
-        Just def = L.find (\(C.ParamDef p _) -> pid == p) pdefs
-        this = mk' def
-        rest = mk'' (C.Param p0 pids)
-      in replaceEmpty rest this
-
-    -- | Traverse LinFun term and replace Empty with sequential index
-    addIndexes :: L.LinFun -> L.LinFun
-    addIndexes lf = CMS.evalState (num lf) 1
-      where
-        num :: L.LinFun -> CMS.State Int L.LinFun
-        num lf = case lf of
-          L.Empty -> do
-            ix <- CMS.get
-            CMS.modify (+1)
-            return $ L.Ix ix
-          L.Tuple lfs -> L.Tuple <$> mapM num lfs
-          x -> error $ "mkParamTuples.number not implemented for: " ++ show x
-
-    -- | Traverse LinFun term and replace Empty with given term
-    replaceEmpty :: L.LinFun -> L.LinFun -> L.LinFun
-    replaceEmpty with tree = case tree of
-      L.Empty -> with
-      L.Tuple lfs -> L.Tuple $ map (replaceEmpty with) lfs
-      x -> error $ "mkParamTuples.replaceEmpty not implemented for: " ++ show x
-
 -- | Always put 's' reocord field first, then sort alphabetically
 -- This seems to be done inconsistently in the canonical format
 -- Based on GF.Granmar.Macros.sortRec
-sortRecord :: C.LinValue -> C.LinValue
-sortRecord (C.RecordValue rrvs) = C.RecordValue (sortRecordRows rrvs)
-sortRecord lv = lv
-
 sortRecordRows :: [C.RecordRowValue] -> [C.RecordRowValue]
 sortRecordRows = L.sortBy ordLabel
   where
@@ -324,6 +267,10 @@ sortRecordRows = L.sortBy ordLabel
         ("s",_) -> LT
         (_,"s") -> GT
         (s1,s2) -> compare s1 s2
+
+-- sortRecord :: C.LinValue -> C.LinValue
+-- sortRecord (C.RecordValue rrvs) = C.RecordValue (sortRecordRows rrvs)
+-- sortRecord lv = lv
 
 isParamAliasDef :: C.ParamDef -> Bool
 isParamAliasDef (C.ParamAliasDef _ _) = True
@@ -336,15 +283,6 @@ isParamType _ = False
 isRecordType :: C.LinType -> Bool
 isRecordType (C.RecordType _) = True
 isRecordType _ = False
-
--- | Is a param value completely constant/static?
-isParamConstant :: C.LinValue -> Bool
-isParamConstant (C.ParamConstant (C.Param _ lvs)) = all isParamConstant lvs
-isParamConstant _ = False
-
-isIx :: L.LinFun -> Bool
-isIx (L.Ix _) = True
-isIx _ = False
 
 -- | Minimise a linfun by evaluating projections where possible
 -- This code closely matches the runtime's `eval` function, except we have no context
@@ -362,11 +300,6 @@ reduce lf = case lf of
       (tp@(L.Tuple _), L.Tuple is) | all L.isIx is -> foldl (\(L.Tuple vs) (L.Ix i) -> vs !! (i-1)) tp is
       (t',u') -> L.Projection t' u'
   t -> t
-
--- -- | If list is non-empty return its head, else a fallback value
--- headOrLeft :: [a] -> b -> Either b a
--- headOrLeft (a:_) _ = Right a
--- headOrLeft _ b = Left b
 
 -- | Convert Maybe to Either value with error
 m2e :: String -> Maybe a -> Either String a
