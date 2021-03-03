@@ -521,6 +521,7 @@ test-suite lpgf
   else
     other-modules: GF.System.NoSignal
   build-depends:
+    ansi-terminal,
     array,
     base>=4.6 && <5,
     bytestring,

@@ -1,7 +1,2399 @@
-Phrasebook: PQuestion (HowFarFrom (APlace (CitRestaurant Indian)) (ThePlace Bank))
-PhrasebookDan: hvor langt er en [Indian] restaurant fra banken?
-PhrasebookFin: kuinka kaukana pankki on [Indian] ravintolasta?
-PhrasebookFre: quelle est la distance d'un restaurant [Indian] à la banque?
-PhrasebookGer: wie weit ist die Bank von einem [Indian] Restaurant entfernt?
-PhrasebookNor: hvor langt er det til banken fra en [Indian] restaurant?
-PhrasebookSwe: hur långt är det till banken från en indisk restaurang?
+Phrasebook: PSentence (SHaveNoMass (Children (Children WeFemale)) Chicken)
+PhrasebookBul: децата на нашите деца не имат пиле.
+PhrasebookCat: els fills d'els nostres fills no tenen pollastre.
+PhrasebookChi: 我 们 的 孩 子 的 孩 子 没 有 鸡 。
+PhrasebookDan: vores børns børn har ikke kylling.
+PhrasebookDut: de kinderen van onze kinderen hebben geen kip.
+PhrasebookEng: our children's children don't have chicken.
+PhrasebookEst: meie laste lastel ei ole kana.
+PhrasebookFin: lastemme lapsilla ei ole kanaa.
+PhrasebookFre: les enfants de nos enfants n'ont pas de poulet.
+PhrasebookGer: die Kinder von unseren Kindern haben kein Huhn.
+PhrasebookHin: हमारे बच्चों के बच्चे मुरग़ी नहीं रखते हैं.
+PhrasebookIta: i bambini dei nostri bambini non hanno pollo.
+PhrasebookJpn: 私達 の 子供 の 子供 は 鶏 を 持っていません 。
+PhrasebookLav: mūsu bērnu bērniem nav vista.
+PhrasebookNor: barna våres barn har ikke kylling.
+PhrasebookPol: dzieci naszych dzieci nie mają kurczaka.
+PhrasebookRon: copiii copiilor noştri nu au pui.
+PhrasebookSnd: اسانجو ٻان ڪا ٻاا ڪڪڙ رکن ن ٿا.
+PhrasebookSpa: los hijos de nuestros hijos no tienen pollo.
+PhrasebookSwe: våra barns barn har inte kyckling.
+PhrasebookTha: ลูก ของ ลูก ของ เรา ไม่ มี ไก่
+PhrasebookUrd: ہمارے بچوں کے بچے مرغی نہیں رکھتے ہیں
+
+Phrasebook: PImperativeFamPos VSwim
+PhrasebookBul: плувай
+PhrasebookCat: neda
+PhrasebookChi: 游 泳
+PhrasebookDan: svøm
+PhrasebookDut: zwem
+PhrasebookEng: swim
+PhrasebookEst: uju
+PhrasebookFin: ui
+PhrasebookFre: nage
+PhrasebookGer: schwimm
+PhrasebookHin: तैरना
+PhrasebookIta: nuota
+PhrasebookJpn: 泳いで
+PhrasebookLav: peldi
+PhrasebookNor: svømm
+PhrasebookPol: pływaj
+PhrasebookRon: înoată
+PhrasebookSnd: تر
+PhrasebookSpa: nada
+PhrasebookSwe: simma
+PhrasebookTha: ว่าย ซิ
+PhrasebookUrd: تیرنا
+
+Phrasebook: PGreetingFemale GHowAreYou
+PhrasebookBul: как си!
+PhrasebookCat: què tal!
+PhrasebookChi: 你 好 吗 ！
+PhrasebookDan: hvordan har du det!
+PhrasebookDut: hoe gaat het!
+PhrasebookEng: how are you!
+PhrasebookEst: kuidas käsi käib!
+PhrasebookFin: mitä kuuluu!
+PhrasebookFre: comment ça va!
+PhrasebookGer: wie geht's!
+PhrasebookHin: आप कैसे हैं!
+PhrasebookIta: come sta!
+PhrasebookJpn: お元気ですか ！
+PhrasebookLav: kā klājas!
+PhrasebookNor: hvordan går det!
+PhrasebookPol: jak się masz!
+PhrasebookRon: ce faci!
+PhrasebookSnd: توهان ڪيئن آهيو!
+PhrasebookSpa: ¡ cómo está!
+PhrasebookSwe: hur står det till!
+PhrasebookTha: สบายดีไหม ค่ะ
+PhrasebookUrd: آپ كیسی ہو
+
+Phrasebook: PImperativeFamNeg VWrite
+PhrasebookBul: не пиши
+PhrasebookCat: no escriguis
+PhrasebookChi: 不 写
+PhrasebookDan: skriv ikke
+PhrasebookDut: schrijf niet
+PhrasebookEng: don't write
+PhrasebookEst: ära kirjuta
+PhrasebookFin: älä kirjoita
+PhrasebookFre: n'écris pas
+PhrasebookGer: schreib nicht
+PhrasebookHin: मत लिखना
+PhrasebookIta: non scrivere
+PhrasebookJpn: 書かない で
+PhrasebookLav: neraksti
+PhrasebookNor: skriv ikke
+PhrasebookPol: nie pisz
+PhrasebookRon: nu scrie
+PhrasebookSnd:
+PhrasebookSpa: no escribas
+PhrasebookSwe: skriv inte
+PhrasebookTha: อย่า เขียน
+PhrasebookUrd: مت لکھنا
+
+Phrasebook: PImperativeFamNeg VStop
+PhrasebookBul: не спирай
+PhrasebookCat: no aturis
+PhrasebookChi: 不 停 止
+PhrasebookDan: stands ikke
+PhrasebookDut: stop niet
+PhrasebookEng: don't stop
+PhrasebookEst: ära peatu
+PhrasebookFin: älä pysähdy
+PhrasebookFre: ne t'arrête pas
+PhrasebookGer: halt nicht
+PhrasebookHin: मत रुकना
+PhrasebookIta: non fermarti
+PhrasebookJpn: 止まらない で
+PhrasebookLav: neapstājies
+PhrasebookNor: stans ikke
+PhrasebookPol: nie zatrzymuj
+PhrasebookRon: nu te opri
+PhrasebookSnd: ن بيه
+PhrasebookSpa: no pares
+PhrasebookSwe: stanna inte
+PhrasebookTha: อย่า หยุด
+PhrasebookUrd: مت رکنا
+
+Phrasebook: PImperativePlurNeg (V2Eat (OneObj (ObjMass Salt)))
+PhrasebookBul: не яжте сол
+PhrasebookCat: no mengeu sal
+PhrasebookChi: 不 吃 盐
+PhrasebookDan: spis ikke salt
+PhrasebookDut: eet zout niet
+PhrasebookEng: don't eat salt
+PhrasebookEst: ärge sööge soola
+PhrasebookFin: älkää syökö suolaa
+PhrasebookFre: ne mangez pas du sel
+PhrasebookGer: esst nicht Salz
+PhrasebookHin: मत नमक खाना
+PhrasebookIta: non mangiate sale
+PhrasebookJpn: 塩 を 食べない で
+PhrasebookLav: neēdiet sāli
+PhrasebookNor: spis ikke salt
+PhrasebookPol: nie jedzcie soli
+PhrasebookRon: nu mâncaţi sare
+PhrasebookSnd: ن کائ
+PhrasebookSpa: no comáis sal
+PhrasebookSwe: ät inte salt
+PhrasebookTha: อย่า กิน เกลือ
+PhrasebookUrd: مت نمک کھانا
+
+Phrasebook: PQuestion (QProp (Is (ThisMass Chicken) (Too Fresh)))
+PhrasebookBul: това пиле е ли прекалено свежо?
+PhrasebookCat: aquest pollastre és massa fresc?
+PhrasebookChi: 这 只 鸡 是 太 新 鲜 的 吗 ？
+PhrasebookDan: er denne kylling for frisk?
+PhrasebookDut: is deze kip te vers?
+PhrasebookEng: is this chicken too fresh?
+PhrasebookEst: kas see kana on liiga toores?
+PhrasebookFin: onko tämä kana liian tuoretta?
+PhrasebookFre: est-ce que ce poulet est trop frais?
+PhrasebookGer: ist dieses Huhn zu frisch?
+PhrasebookHin: क्या यह मुरग़ी बहुत ताज़ी है?
+PhrasebookIta: questo pollo è troppo fresco?
+PhrasebookJpn: この 鶏 は あまりにも 新鮮 です か 。
+PhrasebookLav: vai šī vista ir pārāk svaiga?
+PhrasebookNor: er denne kyllingen for fersk?
+PhrasebookPol: czy ten kurczak jest za świeży?
+PhrasebookRon: acest pui este prea proaspăt?
+PhrasebookSnd: ڇا ھي ڪڪڙ بيحد تازو آھي?
+PhrasebookSpa: ¿ este pollo es demasiado fresco?
+PhrasebookSwe: är den här kycklingen för färsk?
+PhrasebookTha: ไก่ กำ ลัง นี้ สด เกินไป ไหม
+PhrasebookUrd: کیا یہ مرغی بہت تازہ ہے
+
+Phrasebook: PImperativePolNeg (V2Eat (OneObj (ObjIndef Apple)))
+PhrasebookBul: не яжте ябълка
+PhrasebookCat: no mengi una poma
+PhrasebookChi: 不 吃 一 个 苹 果
+PhrasebookDan: spis ikke et æble
+PhrasebookDut: eet u een appel niet
+PhrasebookEng: don't eat an apple
+PhrasebookEst: ärge sööge õuna
+PhrasebookFin: älkää syökö omenaa
+PhrasebookFre: ne mangez pas une pomme
+PhrasebookGer: essen Sie nicht einen Apfel
+PhrasebookHin: मत सेब खाना
+PhrasebookIta: non mangi una mela
+PhrasebookJpn: リンゴ を 食べない で ください
+PhrasebookLav: lūdzu neēdiet ābolu
+PhrasebookNor: spis ikke et eple
+PhrasebookPol: nie jedz jabłka
+PhrasebookRon: nu mânca un măr
+PhrasebookSnd: ن کائ
+PhrasebookSpa: no coma una manzana
+PhrasebookSwe: ät inte ett äpple
+PhrasebookTha: อย่า กิน แอป เปิ้ล
+PhrasebookUrd: مت سیب کھانا
+
+Phrasebook: PImperativePlurNeg VWait
+PhrasebookBul: не чакайте
+PhrasebookCat: no espereu
+PhrasebookChi: 不 等
+PhrasebookDan: vent ikke
+PhrasebookDut: wacht niet
+PhrasebookEng: don't wait
+PhrasebookEst: ärge oodake
+PhrasebookFin: älkää odottako
+PhrasebookFre: n'attendez pas
+PhrasebookGer: wartet nicht
+PhrasebookHin: मत इंतज़ार करना
+PhrasebookIta: non aspettate
+PhrasebookJpn: 待たない で
+PhrasebookLav: negaidiet
+PhrasebookNor: vent ikke
+PhrasebookPol: nie czekajcie
+PhrasebookRon: nu aşteptaţi
+PhrasebookSnd: ن انتظار انتظا
+PhrasebookSpa: no esperéis
+PhrasebookSwe: vänta inte
+PhrasebookTha: อย่า รอ
+PhrasebookUrd: مت انتظار کرنا
+
+Phrasebook: PImperativeFamNeg VEat
+PhrasebookBul: не яж
+PhrasebookCat: no mengis
+PhrasebookChi: 不 吃
+PhrasebookDan: spis ikke
+PhrasebookDut: eet niet
+PhrasebookEng: don't eat
+PhrasebookEst: ära söö
+PhrasebookFin: älä syö
+PhrasebookFre: ne mange pas
+PhrasebookGer: ess nicht
+PhrasebookHin: मत खाना
+PhrasebookIta: non mangiare
+PhrasebookJpn: 食べない で
+PhrasebookLav: neēd
+PhrasebookNor: spis ikke
+PhrasebookPol: nie jedz
+PhrasebookRon: nu mânca
+PhrasebookSnd: ن کائ
+PhrasebookSpa: no comas
+PhrasebookSwe: ät inte
+PhrasebookTha: อย่า กิน
+PhrasebookUrd: مت کھانا
+
+Phrasebook: PSentence (SPropNot (PropOpen (APlace AmusementPark)))
+PhrasebookBul: увеселителен парк не е отворен.
+PhrasebookCat: un parc d' atraccions no està obert.
+PhrasebookChi: 一 个 游 乐 园 不 是 开 放 的 。
+PhrasebookDan: en forlystelsespark har ikke åbent.
+PhrasebookDut: een pretpark is niet geopend.
+PhrasebookEng: an amusement park isn't open.
+PhrasebookEst: lõbustuspark ei ole avatud.
+PhrasebookFin: huvipuisto ei ole avoinna.
+PhrasebookFre: un parc d'attractions n'est pas ouvert.
+PhrasebookGer: ein Vergnügungspark ist nicht geöffnet.
+PhrasebookHin: मनोरंजन उद्यान खुला नहीं है.
+PhrasebookIta: un parco divertimenti non è aperto.
+PhrasebookJpn: 遊園地 は 開いていません 。
+PhrasebookLav: atrakciju parks nav atvērts.
+PhrasebookNor: en fornøyelsespark er ikke åpen.
+PhrasebookPol: wesołe miasteczko nie jest otwarte.
+PhrasebookRon: un parc de distracții nu este deschis.
+PhrasebookSnd:
+PhrasebookSpa: un parque de atracciones no está abierto.
+PhrasebookSwe: en nöjespark är inte öppen.
+PhrasebookTha: สวนสนุก ไม่ เปิด
+PhrasebookUrd: ایمیوزیم پارك كھلا نہیں ہے
+
+Phrasebook: PImperativePolPos (V2Eat (OneObj (ObjMass Meat)))
+PhrasebookBul: яжте месо
+PhrasebookCat: mengi carn
+PhrasebookChi: 吃 肉
+PhrasebookDan: spis kød
+PhrasebookDut: eet u vlees
+PhrasebookEng: eat meat
+PhrasebookEst: sööge liha
+PhrasebookFin: syökää lihaa
+PhrasebookFre: mangez de la viande
+PhrasebookGer: essen Sie Fleisch
+PhrasebookHin: गोश्त खाना
+PhrasebookIta: mangi carne
+PhrasebookJpn: 肉 を 食べて ください
+PhrasebookLav: lūdzu ēdiet gaļu
+PhrasebookNor: spis kjøtt
+PhrasebookPol: zjedz mięso
+PhrasebookRon: sã mănânci carne
+PhrasebookSnd: کائ
+PhrasebookSpa: coma carne
+PhrasebookSwe: ät kött
+PhrasebookTha: กิน เนื้อ ซิ
+PhrasebookUrd: گوشت کھانا
+
+Phrasebook: PImperativePolPos VWait
+PhrasebookBul: чакайте
+PhrasebookCat: esperi
+PhrasebookChi: 等
+PhrasebookDan: vent
+PhrasebookDut: wacht u
+PhrasebookEng: wait
+PhrasebookEst: oodake
+PhrasebookFin: odottakaa
+PhrasebookFre: attendez
+PhrasebookGer: warten Sie
+PhrasebookHin: इंतज़ार करना
+PhrasebookIta: aspetti
+PhrasebookJpn: 待って ください
+PhrasebookLav: lūdzu gaidiet
+PhrasebookNor: vent
+PhrasebookPol: poczekaj
+PhrasebookRon: sã aştepţi
+PhrasebookSnd: انتظار انتظا
+PhrasebookSpa: espere
+PhrasebookSwe: vänta
+PhrasebookTha: รอ ซิ
+PhrasebookUrd: انتظار کرنا
+
+Phrasebook: PImperativeFamNeg VRun
+PhrasebookBul: не бягай
+PhrasebookCat: no corris
+PhrasebookChi: 不 跑
+PhrasebookDan: løb ikke
+PhrasebookDut: ren niet
+PhrasebookEng: don't run
+PhrasebookEst: ära jookse
+PhrasebookFin: älä juokse
+PhrasebookFre: ne cours pas
+PhrasebookGer: lauf nicht
+PhrasebookHin: मत दौड़ना
+PhrasebookIta: non correre
+PhrasebookJpn: 走らない で
+PhrasebookLav: neskrien
+PhrasebookNor: spring ikke
+PhrasebookPol: nie biegnij
+PhrasebookRon: nu fugi
+PhrasebookSnd: ن ڊوڙ
+PhrasebookSpa: no corras
+PhrasebookSwe: spring inte
+PhrasebookTha: อย่า วิ่ง
+PhrasebookUrd: مت دوڑنا
+
+Phrasebook: PImperativePolPos VStop
+PhrasebookBul: спрете
+PhrasebookCat: aturi
+PhrasebookChi: 停 止
+PhrasebookDan: stands
+PhrasebookDut: stopt u
+PhrasebookEng: stop
+PhrasebookEst: peatuge
+PhrasebookFin: pysähtykää
+PhrasebookFre: arrêtez-vous
+PhrasebookGer: halten Sie
+PhrasebookHin: रुकना
+PhrasebookIta: fermisi
+PhrasebookJpn: 止まって ください
+PhrasebookLav: lūdzu apstājieties
+PhrasebookNor: stans
+PhrasebookPol: zatrzymaj
+PhrasebookRon: sã te opreşti
+PhrasebookSnd: بيه
+PhrasebookSpa: pare
+PhrasebookSwe: stanna
+PhrasebookTha: หยุด ซิ
+PhrasebookUrd: رکنا
+
+Phrasebook: PImperativePlurNeg VSleep
+PhrasebookBul: не спете
+PhrasebookCat: no dormiu
+PhrasebookChi: 不 睡 觉
+PhrasebookDan: sov ikke
+PhrasebookDut: slaap niet
+PhrasebookEng: don't sleep
+PhrasebookEst: ärge magage
+PhrasebookFin: älkää nukkuko
+PhrasebookFre: ne dormez pas
+PhrasebookGer: schlaft nicht
+PhrasebookHin: मत सोना
+PhrasebookIta: non dormite
+PhrasebookJpn: 寝ない で
+PhrasebookLav: neguliet
+PhrasebookNor: sov ikke
+PhrasebookPol: nie śpijcie
+PhrasebookRon: nu dormiţi
+PhrasebookSnd: ن سمھ
+PhrasebookSpa: no durmáis
+PhrasebookSwe: sov inte
+PhrasebookTha: อย่า นอน หลับ
+PhrasebookUrd: مت سونا
+
+Phrasebook: PSentence (SHaveNo (Son (Daughter YouPlurPolMale)) (SuchKind (Very Fresh) Pizza))
+PhrasebookBul: синът на вашата дъщеря не има много свежи пици.
+PhrasebookCat: el fill de llur filla no té pizzes molt fresques.
+PhrasebookChi: 你 们 的 女 儿 的 儿 子 没 有 非 常 新 鲜 的 比 萨 饼 。
+PhrasebookDan: jeres datters søn har ikke meget friske pizzaer.
+PhrasebookDut: de zoon van jullie dochter heeft geen erg verse pizza's.
+PhrasebookEng: your daughter's son doesn't have very fresh pizzas.
+PhrasebookEst: teie tütre pojal ei ole väga tooreseid pitsasid.
+PhrasebookFin: tyttärenne pojalla ei ole erittäin tuoreita pizzoja.
+PhrasebookFre: le fils de votre fille n'a pas de pizzas très fraîches.
+PhrasebookGer: der Sohn von Ihrer Tochter hat keine sehr frischen Pizzen.
+PhrasebookHin: तुम्हारी बेटी का बेटा बहुत ताज़े पिज़्ज़े नहीं रखता है.
+PhrasebookIta: il figlio di Loro figlia non ha pizze molto fresche.
+PhrasebookJpn: あなた方 の お嬢さん の 息子さん は とても 新鮮な ピザ を 持っていません 。
+PhrasebookLav: jūsu meitas dēlam nav ļoti svaigas picas.
+PhrasebookNor: datteren deres sønn har ikke mye ferske pizzaer.
+PhrasebookPol: syn waszej córki nie ma bardzo świeżych pizz.
+PhrasebookRon: fiul fiicei voastre nu are nişte pizze foarte proaspete.
+PhrasebookSnd: توھانجي ڌي ڪا پٽ تمام تازا پيزا رکی ن ٿو.
+PhrasebookSpa: el hijo de su hija no tiene pizzas muy frescas.
+PhrasebookSwe: er dotters son har inte mycket färska pizzor.
+PhrasebookTha: ลูกชาย ของ ลูกสาว ของ พวกคุณ ไม่ มี พิซซา สด มาก
+PhrasebookUrd: تمھاری بیٹی کا بیٹا بہت تازہ پیزے نہیں رکھتا ہے
+
+Phrasebook: PImperativePolNeg VSwim
+PhrasebookBul: не плувайте
+PhrasebookCat: no nedi
+PhrasebookChi: 不 游 泳
+PhrasebookDan: svøm ikke
+PhrasebookDut: zwemt u niet
+PhrasebookEng: don't swim
+PhrasebookEst: ärge ujuge
+PhrasebookFin: älkää uiko
+PhrasebookFre: ne nagez pas
+PhrasebookGer: schwimmen Sie nicht
+PhrasebookHin: मत तैरना
+PhrasebookIta: non nuoti
+PhrasebookJpn: 泳がない で ください
+PhrasebookLav: lūdzu nepeldiet
+PhrasebookNor: svømm ikke
+PhrasebookPol: nie pływaj
+PhrasebookRon: nu înota
+PhrasebookSnd: ن تر
+PhrasebookSpa: no nade
+PhrasebookSwe: simma inte
+PhrasebookTha: อย่า ว่าย
+PhrasebookUrd: مت تیرنا
+
+Phrasebook: PImperativePolNeg VWait
+PhrasebookBul: не чакайте
+PhrasebookCat: no esperi
+PhrasebookChi: 不 等
+PhrasebookDan: vent ikke
+PhrasebookDut: wacht u niet
+PhrasebookEng: don't wait
+PhrasebookEst: ärge oodake
+PhrasebookFin: älkää odottako
+PhrasebookFre: n'attendez pas
+PhrasebookGer: warten Sie nicht
+PhrasebookHin: मत इंतज़ार करना
+PhrasebookIta: non aspetti
+PhrasebookJpn: 待たない で ください
+PhrasebookLav: lūdzu negaidiet
+PhrasebookNor: vent ikke
+PhrasebookPol: nie czekaj
+PhrasebookRon: nu aştepta
+PhrasebookSnd: ن انتظار انتظا
+PhrasebookSpa: no espere
+PhrasebookSwe: vänta inte
+PhrasebookTha: อย่า รอ
+PhrasebookUrd: مت انتظار کرنا
+
+Phrasebook: PGreetingMale GGoodMorning
+PhrasebookBul: добро утро!
+PhrasebookCat: bon dia!
+PhrasebookChi: 早 上 好 ！
+PhrasebookDan: god morgen!
+PhrasebookDut: goedemorgen!
+PhrasebookEng: good morning!
+PhrasebookEst: tere hommikust!
+PhrasebookFin: hyvää huomenta!
+PhrasebookFre: bonjour!
+PhrasebookGer: guten Morgen!
+PhrasebookHin: नमस्कार!
+PhrasebookIta: buongiorno!
+PhrasebookJpn: おはようございます ！
+PhrasebookLav: labrīt!
+PhrasebookNor: god morgen!
+PhrasebookPol: dzień dobry!
+PhrasebookRon: bună dimineaţa!
+PhrasebookSnd: صبح بخير!
+PhrasebookSpa: ¡ buenos días!
+PhrasebookSwe: god morgon!
+PhrasebookTha: สวัสดี ครับ
+PhrasebookUrd: صبح بخیر
+
+Phrasebook: PGreetingFemale GSorryPol
+PhrasebookBul: извинете!
+PhrasebookCat: em sap greu!
+PhrasebookChi: 对 不 起 ！
+PhrasebookDan: undskyld!
+PhrasebookDut: mijn verontschuldiging!
+PhrasebookEng: sorry!
+PhrasebookEst: vabandust!
+PhrasebookFin: anteeksi!
+PhrasebookFre: pardon!
+PhrasebookGer: Entschuldigung!
+PhrasebookHin: क्षमा कीजिये!
+PhrasebookIta: scusimi!
+PhrasebookJpn: 申し訳ありません ！
+PhrasebookLav: piedodiet!
+PhrasebookNor: beklager!
+PhrasebookPol: przepraszam!
+PhrasebookRon: îmi pare rău!
+PhrasebookSnd: معاف ڪجو!
+PhrasebookSpa: ¡ disculpe!
+PhrasebookSwe: förlåt!
+PhrasebookTha: ขอโทษ ค่ะ
+PhrasebookUrd: معاف كیجیے گا
+
+Phrasebook: PGreetingFemale GExcuse
+PhrasebookBul: извинете!
+PhrasebookCat: perdona!
+PhrasebookChi: 原 谅 我 ！
+PhrasebookDan: undskyld mig!
+PhrasebookDut: pardon!
+PhrasebookEng: excuse me!
+PhrasebookEst: vabandust!
+PhrasebookFin: anteeksi!
+PhrasebookFre: excuse-moi!
+PhrasebookGer: Entschuldigung!
+PhrasebookHin: क्षमा कीजिये!
+PhrasebookIta: scusa!
+PhrasebookJpn: すみません ！
+PhrasebookLav: atvainojiet!
+PhrasebookNor: unnskyld!
+PhrasebookPol: przepraszam!
+PhrasebookRon: pardon!
+PhrasebookSnd: معاف ڪجو!
+PhrasebookSpa: ¡ perdón!
+PhrasebookSwe: ursäkta!
+PhrasebookTha: ขอโทษ ค่ะ
+PhrasebookUrd: معاف كیجیے گا
+
+Phrasebook: PImperativePlurPos VWalk
+PhrasebookBul: ходете
+PhrasebookCat: camineu
+PhrasebookChi: 走
+PhrasebookDan: gå
+PhrasebookDut: loop
+PhrasebookEng: walk
+PhrasebookEst: kõndige
+PhrasebookFin: kävelkää
+PhrasebookFre: marchez
+PhrasebookGer: geht
+PhrasebookHin: चलना
+PhrasebookIta: camminate
+PhrasebookJpn: 歩いて
+PhrasebookLav: staigājiet
+PhrasebookNor: gå
+PhrasebookPol: pospacerujcie
+PhrasebookRon: mergeţi
+PhrasebookSnd: ھل
+PhrasebookSpa: caminad
+PhrasebookSwe: gå
+PhrasebookTha: เดิน ซิ
+PhrasebookUrd: چلنا
+
+Phrasebook: PImperativePlurNeg VWalk
+PhrasebookBul: не ходете
+PhrasebookCat: no camineu
+PhrasebookChi: 不 走
+PhrasebookDan: gå ikke
+PhrasebookDut: loop niet
+PhrasebookEng: don't walk
+PhrasebookEst: ärge kõndige
+PhrasebookFin: älkää kävelkö
+PhrasebookFre: ne marchez pas
+PhrasebookGer: geht nicht
+PhrasebookHin: मत चलना
+PhrasebookIta: non camminate
+PhrasebookJpn: 歩かない で
+PhrasebookLav: nestaigājiet
+PhrasebookNor: gå ikke
+PhrasebookPol: nie spacerujcie
+PhrasebookRon: nu mergeţi
+PhrasebookSnd: ن ھل
+PhrasebookSpa: no caminéis
+PhrasebookSwe: gå inte
+PhrasebookTha: อย่า เดิน
+PhrasebookUrd: مت چلنا
+
+Phrasebook: PSentence (SHaveNo YouFamMale Pizza)
+PhrasebookBul: ти не имаш пици.
+PhrasebookCat: no tens pizzes.
+PhrasebookChi: 你 没 有 比 萨 饼 。
+PhrasebookDan: du har ikke pizzaer.
+PhrasebookDut: jij hebt geen pizza's.
+PhrasebookEng: you don't have pizzas.
+PhrasebookEst: sinul ei ole pitsasid.
+PhrasebookFin: sinulla ei ole pizzoja.
+PhrasebookFre: tu n'as pas de pizzas.
+PhrasebookGer: du hast keine Pizzen.
+PhrasebookHin: तुम पिज़्ज़े नहीं रखते हो.
+PhrasebookIta: non hai pizze.
+PhrasebookJpn: あなた は ピザ を 持っていません 。
+PhrasebookLav: tev nav picas.
+PhrasebookNor: du har ikke pizzaer.
+PhrasebookPol: nie masz pizz.
+PhrasebookRon: tu nu ai nişte pizze.
+PhrasebookSnd:
+PhrasebookSpa: no tienes pizzas.
+PhrasebookSwe: du har inte pizzor.
+PhrasebookTha: เธอ ไม่ มี พิซซา
+PhrasebookUrd: تم پیزے نہیں رکھتے ہو
+
+Phrasebook: PQuestion (HowFarFromBy (SuperlPlace TheMostExpensive Pharmacy) (SuperlPlace TheMostPopular Zoo) ByFoot)
+PhrasebookBul: колко далече е най - известният зоопарк от най - скъпата аптека пеша?
+PhrasebookCat: a quina distància està de la farmàcia més cara a peu el zoo més popular?
+PhrasebookChi: [HowFarFromBy] ？
+PhrasebookDan: hvor langt er den populæreste zoologiske have fra det dyreste apotek til fods?
+PhrasebookDut: hoe ver is de populairste dierentuin van de duurste apotheek te voet?
+PhrasebookEng: how far is the most popular zoo from the most expensive pharmacy by foot?
+PhrasebookEst: kui kaugel kõige populaarsem loomaaed on jalgsi kõige kallimast apteegist?
+PhrasebookFin: kuinka kaukana suosituin eläintarha on kalleimmasta apteekista jalkaisin?
+PhrasebookFre: quelle est la distance de la plus chère pharmacie au plus populaire zoo à pied?
+PhrasebookGer: wie weit ist es zum beliebtesten Zoo von der teuresten Apotheke zu Fuß?
+PhrasebookHin: पैदल चलकर सब से महंगी दवासाजी से सब से मशहूर चिड़ियाघर कितनी दूर है?
+PhrasebookIta: quanto dista dalla farmacia più costosa a piedi lo zoo più alla moda?
+PhrasebookJpn: 徒歩で 一番 高い 薬局 から 一番 盛んな 動物園 は どのくらい 遠い です か 。
+PhrasebookLav: cik tālu vispopulārākais zoodārzs ir no visdārgākās aptiekas kājām?
+PhrasebookNor: hvor langt er det til den populæreste dyreparken fra det dyreste apoteket til fots?
+PhrasebookPol: jak daleko jest pieszo z najdroższej apteki do najpopularniejszego zoo?
+PhrasebookRon: cât este pâna la cea mai populară grădină zoologică de la cea mai scumpă farmacie pe jos?
+PhrasebookSnd: مشهور راڻي باغ مهانگو ميڊيڪل اسٽور وٽان پيادو ڪتنی پري آھي?
+PhrasebookSpa: ¿ a qué distancia el zoo más popular está de la farmacia más cara a pie?
+PhrasebookSwe: hur långt är det till den populäraste djurparken från det dyraste apoteket till fots?
+PhrasebookTha: สวนสัตว์ แห่ง โด่งดัง ที่ สุด ไกลเท่าไร จาก ร้านขายยา แห่ง แพง ที่ สุด ด้วยการเดิน
+PhrasebookUrd: پیدل سب سے مہنگی فارمیسی سے سب سے مشہور چڑیا گھر کتنی دور ہے
+
+Phrasebook: PImperativePolPos VWait
+PhrasebookBul: чакайте
+PhrasebookCat: esperi
+PhrasebookChi: 等
+PhrasebookDan: vent
+PhrasebookDut: wacht u
+PhrasebookEng: wait
+PhrasebookEst: oodake
+PhrasebookFin: odottakaa
+PhrasebookFre: attendez
+PhrasebookGer: warten Sie
+PhrasebookHin: इंतज़ार करना
+PhrasebookIta: aspetti
+PhrasebookJpn: 待って ください
+PhrasebookLav: lūdzu gaidiet
+PhrasebookNor: vent
+PhrasebookPol: poczekaj
+PhrasebookRon: sã aştepţi
+PhrasebookSnd: انتظار انتظا
+PhrasebookSpa: espere
+PhrasebookSwe: vänta
+PhrasebookTha: รอ ซิ
+PhrasebookUrd: انتظار کرنا
+
+Phrasebook: PGreetingMale PNo
+PhrasebookBul: не!
+PhrasebookCat: no!
+PhrasebookChi: 不 ！
+PhrasebookDan: nej!
+PhrasebookDut: neen!
+PhrasebookEng: no!
+PhrasebookEst: ei!
+PhrasebookFin: ei!
+PhrasebookFre: non!
+PhrasebookGer: nein!
+PhrasebookHin: नहीं!
+PhrasebookIta: no!
+PhrasebookJpn: いいえ ！
+PhrasebookLav: nē!
+PhrasebookNor: nei!
+PhrasebookPol: nie!
+PhrasebookRon: nu!
+PhrasebookSnd: نا!
+PhrasebookSpa: ¡ no!
+PhrasebookSwe: nej!
+PhrasebookTha: ไม่ ครับ
+PhrasebookUrd: نہیں
+
+Phrasebook: PImperativePolNeg (V2Eat (OneObj (ObjIndef Pizza)))
+PhrasebookBul: не яжте пица
+PhrasebookCat: no mengi una pizza
+PhrasebookChi: 不 吃 一 个 比 萨 饼
+PhrasebookDan: spis ikke en pizza
+PhrasebookDut: eet u een pizza niet
+PhrasebookEng: don't eat a pizza
+PhrasebookEst: ärge sööge pitsat
+PhrasebookFin: älkää syökö pizzaa
+PhrasebookFre: ne mangez pas une pizza
+PhrasebookGer: essen Sie nicht eine Pizza
+PhrasebookHin: मत पिज़्ज़ा खाना
+PhrasebookIta: non mangi una pizza
+PhrasebookJpn: ピザ を 食べない で ください
+PhrasebookLav: lūdzu neēdiet picu
+PhrasebookNor: spis ikke en pizza
+PhrasebookPol: nie jedz pizzy
+PhrasebookRon: nu mânca o pizză
+PhrasebookSnd: ن کائ
+PhrasebookSpa: no coma una pizza
+PhrasebookSwe: ät inte en pizza
+PhrasebookTha: อย่า กิน พิซซา
+PhrasebookUrd: مت پیزہ کھانا
+
+Phrasebook: PImperativePlurPos (V2Eat (OneObj (ObjIndef Pizza)))
+PhrasebookBul: яжте пица
+PhrasebookCat: mengeu una pizza
+PhrasebookChi: 吃 一 个 比 萨 饼
+PhrasebookDan: spis en pizza
+PhrasebookDut: eet een pizza
+PhrasebookEng: eat a pizza
+PhrasebookEst: sööge pitsat
+PhrasebookFin: syökää pizzaa
+PhrasebookFre: mangez une pizza
+PhrasebookGer: esst eine Pizza
+PhrasebookHin: पिज़्ज़ा खाना
+PhrasebookIta: mangiate una pizza
+PhrasebookJpn: ピザ を 食べて
+PhrasebookLav: ēdiet picu
+PhrasebookNor: spis en pizza
+PhrasebookPol: zjedzcie pizzę
+PhrasebookRon: mâncaţi o pizză
+PhrasebookSnd: کائ
+PhrasebookSpa: comed una pizza
+PhrasebookSwe: ät en pizza
+PhrasebookTha: กิน พิซซา ซิ
+PhrasebookUrd: پیزہ کھانا
+
+Phrasebook: PImperativeFamPos VDrink
+PhrasebookBul: пий
+PhrasebookCat: beu
+PhrasebookChi: 喝
+PhrasebookDan: drik
+PhrasebookDut: drink
+PhrasebookEng: drink
+PhrasebookEst: joo
+PhrasebookFin: juo
+PhrasebookFre: bois
+PhrasebookGer: trink
+PhrasebookHin: पीना
+PhrasebookIta: bevi
+PhrasebookJpn: 飲んで
+PhrasebookLav: dzer
+PhrasebookNor: drikk
+PhrasebookPol: wypij
+PhrasebookRon: bea
+PhrasebookSnd: پيئ
+PhrasebookSpa: toma
+PhrasebookSwe: drick
+PhrasebookTha: ดื่ม ซิ
+PhrasebookUrd: پینا
+
+Phrasebook: PGreetingMale GSeeYouSoon
+PhrasebookBul: до скоро!
+PhrasebookCat: fins aviat!
+PhrasebookChi: 很 快 再 见 ！
+PhrasebookDan: vi ses snart!
+PhrasebookDut: tot ziens!
+PhrasebookEng: see you soon!
+PhrasebookEst: kohtumiseni!
+PhrasebookFin: nähdään pian!
+PhrasebookFre: à bientôt!
+PhrasebookGer: bis bald!
+PhrasebookHin: फिर मिलेंगे!
+PhrasebookIta: a presto!
+PhrasebookJpn: またね ！
+PhrasebookLav: uz drīzu tikšanos!
+PhrasebookNor: se deg snart!
+PhrasebookPol: do zobaczenia!
+PhrasebookRon: pe curând!
+PhrasebookSnd: موڪلاڻي ڪانهي!
+PhrasebookSpa: ¡ nos vemos pronto!
+PhrasebookSwe: vi ses snart!
+PhrasebookTha: เจอกันนะ ครับ
+PhrasebookUrd: ملتے ہیں
+
+Phrasebook: PImperativePolPos (V2Eat (OneObj (ObjPlural Apple)))
+PhrasebookBul: яжте ябълки
+PhrasebookCat: mengi pomes
+PhrasebookChi: 吃 些 苹 果
+PhrasebookDan: spis æbler
+PhrasebookDut: eet u appels
+PhrasebookEng: eat apples
+PhrasebookEst: sööge õunu
+PhrasebookFin: syökää omenoita
+PhrasebookFre: mangez des pommes
+PhrasebookGer: essen Sie Äpfel
+PhrasebookHin: सेब खाना
+PhrasebookIta: mangi mele
+PhrasebookJpn: リンゴ を 食べて ください
+PhrasebookLav: lūdzu ēdiet ābolus
+PhrasebookNor: spis epler
+PhrasebookPol: zjedz jabłka
+PhrasebookRon: sã mănânci nişte mere
+PhrasebookSnd: کائ
+PhrasebookSpa: coma manzanas
+PhrasebookSwe: ät äpplen
+PhrasebookTha: กิน แอป เปิ้ล ซิ
+PhrasebookUrd: سیب کھانا
+
+Phrasebook: PGreetingFemale PNo
+PhrasebookBul: не!
+PhrasebookCat: no!
+PhrasebookChi: 不 ！
+PhrasebookDan: nej!
+PhrasebookDut: neen!
+PhrasebookEng: no!
+PhrasebookEst: ei!
+PhrasebookFin: ei!
+PhrasebookFre: non!
+PhrasebookGer: nein!
+PhrasebookHin: नहीं!
+PhrasebookIta: no!
+PhrasebookJpn: いいえ ！
+PhrasebookLav: nē!
+PhrasebookNor: nei!
+PhrasebookPol: nie!
+PhrasebookRon: nu!
+PhrasebookSnd: نا!
+PhrasebookSpa: ¡ no!
+PhrasebookSwe: nej!
+PhrasebookTha: ไม่ ค่ะ
+PhrasebookUrd: نہیں
+
+Phrasebook: PImperativeFamNeg VRead
+PhrasebookBul: не чети
+PhrasebookCat: no llegeixis
+PhrasebookChi: 不 读
+PhrasebookDan: læs ikke
+PhrasebookDut: lees niet
+PhrasebookEng: don't read
+PhrasebookEst: ära loe
+PhrasebookFin: älä lue
+PhrasebookFre: ne lis pas
+PhrasebookGer: les nicht
+PhrasebookHin: मत पढ़ना
+PhrasebookIta: non leggere
+PhrasebookJpn: 読まない で
+PhrasebookLav: nelasi
+PhrasebookNor: les ikke
+PhrasebookPol: nie czytaj
+PhrasebookRon: nu citi
+PhrasebookSnd:
+PhrasebookSpa: no leas
+PhrasebookSwe: läs inte
+PhrasebookTha: อย่า อ่าน
+PhrasebookUrd: مت پڑھنا
+
+Phrasebook: PImperativeFamPos (V2Eat (OneObj (ObjPlural Pizza)))
+PhrasebookBul: яж пици
+PhrasebookCat: menja pizzes
+PhrasebookChi: 吃 些 比 萨 饼
+PhrasebookDan: spis pizzaer
+PhrasebookDut: eet pizza's
+PhrasebookEng: eat pizzas
+PhrasebookEst: söö pitsasid
+PhrasebookFin: syö pizzoja
+PhrasebookFre: mange des pizzas
+PhrasebookGer: ess Pizzen
+PhrasebookHin: पिज़्ज़े खाना
+PhrasebookIta: mangia pizze
+PhrasebookJpn: ピザ を 食べて
+PhrasebookLav: ēd picas
+PhrasebookNor: spis pizzaer
+PhrasebookPol: zjedz pizze
+PhrasebookRon: mănâncă nişte pizze
+PhrasebookSnd: کائ
+PhrasebookSpa: come pizzas
+PhrasebookSwe: ät pizzor
+PhrasebookTha: กิน พิซซา ซิ
+PhrasebookUrd: پیزے کھانا
+
+Phrasebook: PImperativeFamPos VEat
+PhrasebookBul: яж
+PhrasebookCat: menja
+PhrasebookChi: 吃
+PhrasebookDan: spis
+PhrasebookDut: eet
+PhrasebookEng: eat
+PhrasebookEst: söö
+PhrasebookFin: syö
+PhrasebookFre: mange
+PhrasebookGer: ess
+PhrasebookHin: खाना
+PhrasebookIta: mangia
+PhrasebookJpn: 食べて
+PhrasebookLav: ēd
+PhrasebookNor: spis
+PhrasebookPol: zjedz
+PhrasebookRon: mănâncă
+PhrasebookSnd: کائ
+PhrasebookSpa: come
+PhrasebookSwe: ät
+PhrasebookTha: กิน ซิ
+PhrasebookUrd: کھانا
+
+Phrasebook: PImperativePlurPos VRead
+PhrasebookBul: четете
+PhrasebookCat: llegiu
+PhrasebookChi: 读
+PhrasebookDan: læs
+PhrasebookDut: lees
+PhrasebookEng: read
+PhrasebookEst: lugege
+PhrasebookFin: lukekaa
+PhrasebookFre: lisez
+PhrasebookGer: lest
+PhrasebookHin: पढ़ना
+PhrasebookIta: leggete
+PhrasebookJpn: 読んで
+PhrasebookLav: lasiet
+PhrasebookNor: les
+PhrasebookPol: przeczytajcie
+PhrasebookRon: citiţi
+PhrasebookSnd:
+PhrasebookSpa: leed
+PhrasebookSwe: läs
+PhrasebookTha: อ่าน ซิ
+PhrasebookUrd: پڑھنا
+
+Phrasebook: PSentence (SPropNot (PropClosedDay (SuperlPlace TheBest Station) Wednesday))
+PhrasebookBul: най - добрата гара не е затворена в средите.
+PhrasebookCat: la millora estació no és tancada els dimecres.
+PhrasebookChi: 最 好 的 那 个 车 站 在 星 期 三 不 是 关 闭 的 。
+PhrasebookDan: den bedste station har ikke lukket på onsdager.
+PhrasebookDut: het beste station is niet gesloten op woensdagen.
+PhrasebookEng: the best station isn't closed on Wednesdays.
+PhrasebookEst: kõige parem jaam ei ole kolmapäeviti suletud.
+PhrasebookFin: paras asema ei ole kiinni keskiviikkoisin.
+PhrasebookFre: la meilleure gare n'est pas fermée le mercredi.
+PhrasebookGer: der beste Bahnhof ist nicht Mittwochs geschlossen.
+PhrasebookHin: सब से अच्छा स्टेशन बंद बुधवार को नहीं है.
+PhrasebookIta: la migliore stazione non è chiusa di mercoledì.
+PhrasebookJpn: 一番 良い 駅 は 水曜日 に 閉まっていません 。
+PhrasebookLav: vislabākā stacija nav slēgta trešdienās.
+PhrasebookNor: den beste stasjonen er ikke stengt på onsdager.
+PhrasebookPol: najlepsza stacja nie jest we środy zamknięta.
+PhrasebookRon: cea mai bună gară nu este închisă miercuri.
+PhrasebookSnd: سٺو اسٽيشن اربع ڏانھن بند ن آھي.
+PhrasebookSpa: la mejor estación no está cerrada los miércoles.
+PhrasebookSwe: den bästa stationen är inte stängd på onsdagar.
+PhrasebookTha: สถานี แห่ง ดี ที่ สุด ไม่ ปิด วันพุธ
+PhrasebookUrd: سب سے اچھا سٹیشن بند بدھ کو نہیں ہے
+
+Phrasebook: PImperativePolPos (V2Eat (OneObj (ObjMass Meat)))
+PhrasebookBul: яжте месо
+PhrasebookCat: mengi carn
+PhrasebookChi: 吃 肉
+PhrasebookDan: spis kød
+PhrasebookDut: eet u vlees
+PhrasebookEng: eat meat
+PhrasebookEst: sööge liha
+PhrasebookFin: syökää lihaa
+PhrasebookFre: mangez de la viande
+PhrasebookGer: essen Sie Fleisch
+PhrasebookHin: गोश्त खाना
+PhrasebookIta: mangi carne
+PhrasebookJpn: 肉 を 食べて ください
+PhrasebookLav: lūdzu ēdiet gaļu
+PhrasebookNor: spis kjøtt
+PhrasebookPol: zjedz mięso
+PhrasebookRon: sã mănânci carne
+PhrasebookSnd: کائ
+PhrasebookSpa: coma carne
+PhrasebookSwe: ät kött
+PhrasebookTha: กิน เนื้อ ซิ
+PhrasebookUrd: گوشت کھانا
+
+Phrasebook: PImperativeFamPos VPlay
+PhrasebookBul: играй
+PhrasebookCat: juga
+PhrasebookChi: 玩
+PhrasebookDan: spil
+PhrasebookDut: speel
+PhrasebookEng: play
+PhrasebookEst: mängi
+PhrasebookFin: pelaa
+PhrasebookFre: joue
+PhrasebookGer: spiele
+PhrasebookHin: खेलना
+PhrasebookIta: gioca
+PhrasebookJpn: 遊んで
+PhrasebookLav: spēlē
+PhrasebookNor: lek
+PhrasebookPol: zagraj
+PhrasebookRon: joacă
+PhrasebookSnd: کيڏ
+PhrasebookSpa: juga
+PhrasebookSwe: lek
+PhrasebookTha: เล่น ซิ
+PhrasebookUrd: کھیلنا
+
+Phrasebook: PGreetingMale GHappyBirthday
+PhrasebookBul: честит рожден ден!
+PhrasebookCat: feliç aniversari!
+PhrasebookChi: 祝 你 生 日 快 乐 ！
+PhrasebookDan: tillykke med fødselsdagen!
+PhrasebookDut: gelukkige verjaardag!
+PhrasebookEng: happy birthday!
+PhrasebookEst: palju õnne sünnipäevaks!
+PhrasebookFin: hyvää syntymäpäivää!
+PhrasebookFre: joyeux anniversaire!
+PhrasebookGer: alles Gute zum Geburtstag!
+PhrasebookHin: जन्मदिन की शुभकामनाएँ!
+PhrasebookIta: buon compleanno!
+PhrasebookJpn: お誕生日おめでとうございます ！
+PhrasebookLav: daudz laimes dzimšanas dienā!
+PhrasebookNor: gratulerer med dagen!
+PhrasebookPol: wszystkiego najlepszego z okazji urodzin!
+PhrasebookRon: la mulți ani!
+PhrasebookSnd: جنم ڏينهن مبارڪ!
+PhrasebookSpa: ¡ feliz cumpleaños!
+PhrasebookSwe: grattis på födelsedagen!
+PhrasebookTha: สุขสันต์วันเกิด ครับ
+PhrasebookUrd: سالگرہ مبارك
+
+Phrasebook: PGreetingMale GPleaseGive
+PhrasebookBul: моля!
+PhrasebookCat: si et plau!
+PhrasebookChi: 请 ！
+PhrasebookDan: vær så sød!
+PhrasebookDut: alstublieft!
+PhrasebookEng: please!
+PhrasebookEst: palun!
+PhrasebookFin: ole hyvä!
+PhrasebookFre: s'il te plaît!
+PhrasebookGer: bitte!
+PhrasebookHin: कृपया!
+PhrasebookIta: per favore!
+PhrasebookJpn: ください ！
+PhrasebookLav: lūdzu!
+PhrasebookNor: vær så snill!
+PhrasebookPol: poproszę!
+PhrasebookRon: te rog!
+PhrasebookSnd: مهرباني ڪريو!
+PhrasebookSpa: ¡ por favor!
+PhrasebookSwe: var så god!
+PhrasebookTha: นะ ครับ
+PhrasebookUrd: مہربانی كر كے
+
+Phrasebook: PImperativeFamPos VStop
+PhrasebookBul: спри
+PhrasebookCat: atura
+PhrasebookChi: 停 止
+PhrasebookDan: stands
+PhrasebookDut: stop
+PhrasebookEng: stop
+PhrasebookEst: peatu
+PhrasebookFin: pysähdy
+PhrasebookFre: arrête-toi
+PhrasebookGer: halt
+PhrasebookHin: रुकना
+PhrasebookIta: fermati
+PhrasebookJpn: 止まって
+PhrasebookLav: apstājies
+PhrasebookNor: stans
+PhrasebookPol: zatrzymaj
+PhrasebookRon: opreşte
+PhrasebookSnd: بيه
+PhrasebookSpa: para
+PhrasebookSwe: stanna
+PhrasebookTha: หยุด ซิ
+PhrasebookUrd: رکنا
+
+Phrasebook: PImperativeFamPos VRead
+PhrasebookBul: чети
+PhrasebookCat: llegeix
+PhrasebookChi: 读
+PhrasebookDan: læs
+PhrasebookDut: lees
+PhrasebookEng: read
+PhrasebookEst: loe
+PhrasebookFin: lue
+PhrasebookFre: lis
+PhrasebookGer: les
+PhrasebookHin: पढ़ना
+PhrasebookIta: leggi
+PhrasebookJpn: 読んで
+PhrasebookLav: lasi
+PhrasebookNor: les
+PhrasebookPol: przeczytaj
+PhrasebookRon: citeşte
+PhrasebookSnd:
+PhrasebookSpa: lee
+PhrasebookSwe: läs
+PhrasebookTha: อ่าน ซิ
+PhrasebookUrd: پڑھنا
+
+Phrasebook: PSentence (SPropNot (PropClosedDay (ThePlace Hotel) Thursday))
+PhrasebookBul: хотелът не е затворен в четвъртъците.
+PhrasebookCat: l'hotel no és tancat els dijous.
+PhrasebookChi: 旅 馆 在 星 期 四 不 是 关 闭 的 。
+PhrasebookDan: hotellet har ikke lukket på torsdager.
+PhrasebookDut: het hotel is niet gesloten op donderdagen.
+PhrasebookEng: the hotel isn't closed on Thursdays.
+PhrasebookEst: hotell ei ole neljapäeviti suletud.
+PhrasebookFin: hotelli ei ole kiinni torstaisin.
+PhrasebookFre: l'hôtel n'est pas fermé le jeudi.
+PhrasebookGer: das Hotel ist nicht Donnerstags geschlossen.
+PhrasebookHin: होटेल बंद गुरुवार को नहीं है.
+PhrasebookIta: l'albergo non è chiuso di giovedì.
+PhrasebookJpn: ホテル は 木曜日 に 閉まっていません 。
+PhrasebookLav: viesnīca nav slēgta ceturtdienās.
+PhrasebookNor: hotellet er ikke stengt på torsdager.
+PhrasebookPol: hotel nie jest w czwartki zamknięty.
+PhrasebookRon: hotelul nu este închis joi.
+PhrasebookSnd: هوٽل خميس ڏانھن بند ن آھي.
+PhrasebookSpa: el hotel no está cerrado los jueves.
+PhrasebookSwe: hotellet är inte stängt på torsdagar.
+PhrasebookTha: โรงแรม ไม่ ปิด วันพฤหัสบดี
+PhrasebookUrd: ہوٹل بند جمعرات کو نہیں ہے
+
+Phrasebook: PGreetingFemale PYes
+PhrasebookBul: да!
+PhrasebookCat: sí!
+PhrasebookChi: 对 ！
+PhrasebookDan: ja!
+PhrasebookDut: ja!
+PhrasebookEng: yes!
+PhrasebookEst: jah!
+PhrasebookFin: kyllä!
+PhrasebookFre: oui!
+PhrasebookGer: ja!
+PhrasebookHin: हाँ!
+PhrasebookIta: sì!
+PhrasebookJpn: はい ！
+PhrasebookLav: jā!
+PhrasebookNor: ja!
+PhrasebookPol: tak!
+PhrasebookRon: da!
+PhrasebookSnd: ھا!
+PhrasebookSpa: ¡ sí!
+PhrasebookSwe: ja!
+PhrasebookTha: ใช่ ค่ะ
+PhrasebookUrd: ہاں
+
+Phrasebook: PImperativeFamNeg VWalk
+PhrasebookBul: не ходи
+PhrasebookCat: no caminis
+PhrasebookChi: 不 走
+PhrasebookDan: gå ikke
+PhrasebookDut: loop niet
+PhrasebookEng: don't walk
+PhrasebookEst: ära kõnni
+PhrasebookFin: älä kävele
+PhrasebookFre: ne marche pas
+PhrasebookGer: geh nicht
+PhrasebookHin: मत चलना
+PhrasebookIta: non camminare
+PhrasebookJpn: 歩かない で
+PhrasebookLav: nestaigā
+PhrasebookNor: gå ikke
+PhrasebookPol: nie spaceruj
+PhrasebookRon: nu merge
+PhrasebookSnd: ن ھل
+PhrasebookSpa: no camines
+PhrasebookSwe: gå inte
+PhrasebookTha: อย่า เดิน
+PhrasebookUrd: مت چلنا
+
+Phrasebook: PGreetingMale GHello
+PhrasebookBul: здравей!
+PhrasebookCat: hola!
+PhrasebookChi: 你 好 ！
+PhrasebookDan: hej!
+PhrasebookDut: hallo!
+PhrasebookEng: hello!
+PhrasebookEst: tere!
+PhrasebookFin: hei!
+PhrasebookFre: salut!
+PhrasebookGer: Hallo!
+PhrasebookHin: नमस्कार!
+PhrasebookIta: ciao!
+PhrasebookJpn: こんにちは ！
+PhrasebookLav: sveiki!
+PhrasebookNor: hei!
+PhrasebookPol: cześć!
+PhrasebookRon: salut!
+PhrasebookSnd: السلام عليڪم!
+PhrasebookSpa: ¡ hola!
+PhrasebookSwe: hej!
+PhrasebookTha: สวัสดี ครับ
+PhrasebookUrd: اسلام علیكم
+
+Phrasebook: PImperativeFamNeg VSit
+PhrasebookBul: не седи
+PhrasebookCat: no et seguis
+PhrasebookChi: 不 坐
+PhrasebookDan: sid ikke
+PhrasebookDut: zit niet
+PhrasebookEng: don't sit
+PhrasebookEst: ära istu
+PhrasebookFin: älä istu
+PhrasebookFre: ne t'assieds pas
+PhrasebookGer: sitz nicht
+PhrasebookHin: मत बैठना
+PhrasebookIta: non sederti
+PhrasebookJpn: 座らない で
+PhrasebookLav: nesēdi
+PhrasebookNor: sitt ikke
+PhrasebookPol: nie siedź
+PhrasebookRon: nu te aşeza
+PhrasebookSnd: ن ويه
+PhrasebookSpa: no te sientes
+PhrasebookSwe: sitt inte
+PhrasebookTha: อย่า นั่ง
+PhrasebookUrd: مت بیٹھنا
+
+Phrasebook: PImperativeFamNeg VWrite
+PhrasebookBul: не пиши
+PhrasebookCat: no escriguis
+PhrasebookChi: 不 写
+PhrasebookDan: skriv ikke
+PhrasebookDut: schrijf niet
+PhrasebookEng: don't write
+PhrasebookEst: ära kirjuta
+PhrasebookFin: älä kirjoita
+PhrasebookFre: n'écris pas
+PhrasebookGer: schreib nicht
+PhrasebookHin: मत लिखना
+PhrasebookIta: non scrivere
+PhrasebookJpn: 書かない で
+PhrasebookLav: neraksti
+PhrasebookNor: skriv ikke
+PhrasebookPol: nie pisz
+PhrasebookRon: nu scrie
+PhrasebookSnd:
+PhrasebookSpa: no escribas
+PhrasebookSwe: skriv inte
+PhrasebookTha: อย่า เขียน
+PhrasebookUrd: مت لکھنا
+
+Phrasebook: PSentence (SHaveNoMass (Daughter YouPlurPolFemale) (SuchMassKind (PropQuality Boring) Salt))
+PhrasebookBul: вашата дъщеря не има еднообразна сол.
+PhrasebookCat: llur filla no té sal avorrida.
+PhrasebookChi: 你 们 的 女 儿 没 有 难 吃 的 盐 。
+PhrasebookDan: jeres datter har ikke kedeligt salt.
+PhrasebookDut: jullie dochter heeft geen saaie zout.
+PhrasebookEng: your daughter doesn't have boring salt.
+PhrasebookEst: teie tütrel ei ole igavat soola.
+PhrasebookFin: tyttärellänne ei ole tylsää suolaa.
+PhrasebookFre: votre fille n'a pas de sel ennuyeux.
+PhrasebookGer: Ihre Tochter hat kein langweiliges Salz.
+PhrasebookHin: आप की बेटी उबाऊ नमक नहीं रखती है.
+PhrasebookIta: Loro figlia non ha sale noioso.
+PhrasebookJpn: あなた方 の お嬢さん は つまらない 塩 を 持っていません 。
+PhrasebookLav: jūsu meitai nav garlaicīgs sāls.
+PhrasebookNor: datteren deres har ikke kjedelig salt.
+PhrasebookPol: wasza córka nie ma nudnej soli.
+PhrasebookRon: fiica voastră nu are sare plictisitoare.
+PhrasebookSnd:
+PhrasebookSpa: su hija no tiene sal aburrida.
+PhrasebookSwe: er dotter har inte tråkigt salt.
+PhrasebookTha: ลูกสาว ของ พวกคุณ ไม่ มี เกลือ น่าเบื่อ
+PhrasebookUrd: آپ كی بیٹی فضول نمک نہیں رکھتی ہے
+
+Phrasebook: PImperativePlurNeg (V2Eat (OneObj (ObjMass Chicken)))
+PhrasebookBul: не яжте пиле
+PhrasebookCat: no mengeu pollastre
+PhrasebookChi: 不 吃 鸡
+PhrasebookDan: spis ikke kylling
+PhrasebookDut: eet kip niet
+PhrasebookEng: don't eat chicken
+PhrasebookEst: ärge sööge kana
+PhrasebookFin: älkää syökö kanaa
+PhrasebookFre: ne mangez pas du poulet
+PhrasebookGer: esst nicht Huhn
+PhrasebookHin: मत मुरग़ी खाना
+PhrasebookIta: non mangiate pollo
+PhrasebookJpn: 鶏 を 食べない で
+PhrasebookLav: neēdiet vistu
+PhrasebookNor: spis ikke kylling
+PhrasebookPol: nie jedzcie kurczaka
+PhrasebookRon: nu mâncaţi pui
+PhrasebookSnd: ن کائ
+PhrasebookSpa: no comáis pollo
+PhrasebookSwe: ät inte kyckling
+PhrasebookTha: อย่า กิน ไก่
+PhrasebookUrd: مت مرغی کھانا
+
+Phrasebook: PGreetingFemale GThanks
+PhrasebookBul: благодаря ти!
+PhrasebookCat: gràcies!
+PhrasebookChi: 谢 谢 ！
+PhrasebookDan: tak!
+PhrasebookDut: dank je wel!
+PhrasebookEng: thank you!
+PhrasebookEst: suur tänu!
+PhrasebookFin: kiitos!
+PhrasebookFre: merci!
+PhrasebookGer: Danke!
+PhrasebookHin: धन्यवाद!
+PhrasebookIta: grazie!
+PhrasebookJpn: ありがとう ！
+PhrasebookLav: paldies!
+PhrasebookNor: takk!
+PhrasebookPol: dziękuję!
+PhrasebookRon: mulţumesc!
+PhrasebookSnd: ٿورا!
+PhrasebookSpa: ¡ gracias!
+PhrasebookSwe: tack!
+PhrasebookTha: ขอบคุณ ค่ะ
+PhrasebookUrd: شكریہ
+
+Phrasebook: PGreetingMale (PSeeYouPlaceDate (APlace Bank) Today)
+PhrasebookBul: ще се видим в банка днес!
+PhrasebookCat: a reveure avui a un banc!
+PhrasebookChi: 今 天 在 一 间 银 行 见 ！
+PhrasebookDan: vi ses i en bank idag!
+PhrasebookDut: ik zie je vandaag op een bank!
+PhrasebookEng: see you at a bank today!
+PhrasebookEst: kohtumiseni pangis täna!
+PhrasebookFin: nähdään pankissa tänään!
+PhrasebookFre: on se voit à une banque aujourd'hui!
+PhrasebookGer: wir sehen uns heute in einer Bank!
+PhrasebookHin: बैंक में आज मिलते हैं!
+PhrasebookIta: ci vediamo in una banca oggi!
+PhrasebookJpn: 銀行 で 今日 会いましょう ！
+PhrasebookLav: tiksimies šodien bankā!
+PhrasebookNor: vi ses i en bank idag!
+PhrasebookPol: do zobaczenia dziś w banku!
+PhrasebookRon: ne vedem la o bancă astăzi!
+PhrasebookSnd: بئنڪ ۾ اڄ ملون ٿا!
+PhrasebookSpa: ¡ nos vemos hoy en un banco!
+PhrasebookSwe: vi ses i en bank idag!
+PhrasebookTha: เจอกันที่ ที่ ธนาคาร วันนี้ ครับ
+PhrasebookUrd: بینك میں آج ملتے ہیں
+
+Phrasebook: PImperativePlurPos VWalk
+PhrasebookBul: ходете
+PhrasebookCat: camineu
+PhrasebookChi: 走
+PhrasebookDan: gå
+PhrasebookDut: loop
+PhrasebookEng: walk
+PhrasebookEst: kõndige
+PhrasebookFin: kävelkää
+PhrasebookFre: marchez
+PhrasebookGer: geht
+PhrasebookHin: चलना
+PhrasebookIta: camminate
+PhrasebookJpn: 歩いて
+PhrasebookLav: staigājiet
+PhrasebookNor: gå
+PhrasebookPol: pospacerujcie
+PhrasebookRon: mergeţi
+PhrasebookSnd: ھل
+PhrasebookSpa: caminad
+PhrasebookSwe: gå
+PhrasebookTha: เดิน ซิ
+PhrasebookUrd: چلنا
+
+Phrasebook: PImperativeFamPos VWrite
+PhrasebookBul: пиши
+PhrasebookCat: escriu
+PhrasebookChi: 写
+PhrasebookDan: skriv
+PhrasebookDut: schrijf
+PhrasebookEng: write
+PhrasebookEst: kirjuta
+PhrasebookFin: kirjoita
+PhrasebookFre: écris
+PhrasebookGer: schreib
+PhrasebookHin: लिखना
+PhrasebookIta: scrivi
+PhrasebookJpn: 書いて
+PhrasebookLav: raksti
+PhrasebookNor: skriv
+PhrasebookPol: napisz
+PhrasebookRon: scrie
+PhrasebookSnd:
+PhrasebookSpa: escribe
+PhrasebookSwe: skriv
+PhrasebookTha: เขียน ซิ
+PhrasebookUrd: لکھنا
+
+Phrasebook: PImperativePolNeg VWait
+PhrasebookBul: не чакайте
+PhrasebookCat: no esperi
+PhrasebookChi: 不 等
+PhrasebookDan: vent ikke
+PhrasebookDut: wacht u niet
+PhrasebookEng: don't wait
+PhrasebookEst: ärge oodake
+PhrasebookFin: älkää odottako
+PhrasebookFre: n'attendez pas
+PhrasebookGer: warten Sie nicht
+PhrasebookHin: मत इंतज़ार करना
+PhrasebookIta: non aspetti
+PhrasebookJpn: 待たない で ください
+PhrasebookLav: lūdzu negaidiet
+PhrasebookNor: vent ikke
+PhrasebookPol: nie czekaj
+PhrasebookRon: nu aştepta
+PhrasebookSnd: ن انتظار انتظا
+PhrasebookSpa: no espere
+PhrasebookSwe: vänta inte
+PhrasebookTha: อย่า รอ
+PhrasebookUrd: مت انتظار کرنا
+
+Phrasebook: PQuestion (QWhereDoVerbPhrase (Husband YouPolMale) VEat)
+PhrasebookBul: къде яде вашият съпруг?
+PhrasebookCat: on menja el seu marit?
+PhrasebookChi: 您 的 丈 夫 去 哪 里 吃 ？
+PhrasebookDan: hvor spiser Deres mand?
+PhrasebookDut: waar eet uw man?
+PhrasebookEng: where does your husband eat?
+PhrasebookEst: kus teie mees sööb?
+PhrasebookFin: missä miehenne syö?
+PhrasebookFre: où votre mari mange?
+PhrasebookGer: wo isst Ihr Mann?
+PhrasebookHin: कहाँ आप का पति खाता है?
+PhrasebookIta: dove mangia Suo marito?
+PhrasebookJpn: あなた の ご主人 は どこ で 食べます か 。
+PhrasebookLav: kur Jūsu vīrs ēd?
+PhrasebookNor: hvor spiser mannen Deres?
+PhrasebookPol: gdzie pana mąż je?
+PhrasebookRon: unde mănâncă soţul dumneavoastră?
+PhrasebookSnd: ڪٿي توھان جي مڙس کائی ٿو?
+PhrasebookSpa: ¿ dónde su marido come?
+PhrasebookSwe: var äter er man?
+PhrasebookTha: สามี ของ คุณ กิน ที่ไหน
+PhrasebookUrd: کہاں آپ کا شوہر کھاتا ہے
+
+Phrasebook: PImperativePlurNeg VStop
+PhrasebookBul: не спирайте
+PhrasebookCat: no atureu
+PhrasebookChi: 不 停 止
+PhrasebookDan: stands ikke
+PhrasebookDut: stop niet
+PhrasebookEng: don't stop
+PhrasebookEst: ärge peatuge
+PhrasebookFin: älkää pysähtykö
+PhrasebookFre: ne vous arrêtez pas
+PhrasebookGer: haltet nicht
+PhrasebookHin: मत रुकना
+PhrasebookIta: non fermatevi
+PhrasebookJpn: 止まらない で
+PhrasebookLav: neapstājieties
+PhrasebookNor: stans ikke
+PhrasebookPol: nie zatrzymujcie
+PhrasebookRon: nu vă opriţi
+PhrasebookSnd: ن بيه
+PhrasebookSpa: no paréis
+PhrasebookSwe: stanna inte
+PhrasebookTha: อย่า หยุด
+PhrasebookUrd: مت رکنا
+
+Phrasebook: PImperativeFamNeg VRun
+PhrasebookBul: не бягай
+PhrasebookCat: no corris
+PhrasebookChi: 不 跑
+PhrasebookDan: løb ikke
+PhrasebookDut: ren niet
+PhrasebookEng: don't run
+PhrasebookEst: ära jookse
+PhrasebookFin: älä juokse
+PhrasebookFre: ne cours pas
+PhrasebookGer: lauf nicht
+PhrasebookHin: मत दौड़ना
+PhrasebookIta: non correre
+PhrasebookJpn: 走らない で
+PhrasebookLav: neskrien
+PhrasebookNor: spring ikke
+PhrasebookPol: nie biegnij
+PhrasebookRon: nu fugi
+PhrasebookSnd: ن ڊوڙ
+PhrasebookSpa: no corras
+PhrasebookSwe: spring inte
+PhrasebookTha: อย่า วิ่ง
+PhrasebookUrd: مت دوڑنا
+
+Phrasebook: PImperativePolNeg VWrite
+PhrasebookBul: не пишете
+PhrasebookCat: no escrigui
+PhrasebookChi: 不 写
+PhrasebookDan: skriv ikke
+PhrasebookDut: schrijft u niet
+PhrasebookEng: don't write
+PhrasebookEst: ärge kirjutage
+PhrasebookFin: älkää kirjoittako
+PhrasebookFre: n'écrivez pas
+PhrasebookGer: schreiben Sie nicht
+PhrasebookHin: मत लिखना
+PhrasebookIta: non scriva
+PhrasebookJpn: 書かない で ください
+PhrasebookLav: lūdzu nerakstiet
+PhrasebookNor: skriv ikke
+PhrasebookPol: nie pisz
+PhrasebookRon: nu scrie
+PhrasebookSnd:
+PhrasebookSpa: no escriba
+PhrasebookSwe: skriv inte
+PhrasebookTha: อย่า เขียน
+PhrasebookUrd: مت لکھنا
+
+Phrasebook: PGreetingFemale PYesToNo
+PhrasebookBul: да!
+PhrasebookCat: sí!
+PhrasebookChi: 对 ！
+PhrasebookDan: ja!
+PhrasebookDut: ja!
+PhrasebookEng: yes!
+PhrasebookEst: jah!
+PhrasebookFin: kyllä!
+PhrasebookFre: si!
+PhrasebookGer: doch!
+PhrasebookHin: हाँ!
+PhrasebookIta: sì!
+PhrasebookJpn: はい ！
+PhrasebookLav: jā!
+PhrasebookNor: ja!
+PhrasebookPol: tak!
+PhrasebookRon: da!
+PhrasebookSnd: ھا!
+PhrasebookSpa: ¡ sí!
+PhrasebookSwe: jo!
+PhrasebookTha: ใช่ ค่ะ
+PhrasebookUrd: ہاں
+
+Phrasebook: PQuestion (HowFarBy (SuperlPlace TheWorst Church) ByFoot)
+PhrasebookBul: колко далече е най - лошата църква пеша?
+PhrasebookCat: a quina distància està a peu la pitjora església?
+PhrasebookChi: 步 行 到 最 坏 的 那 所 教 堂 有 多 远 ？
+PhrasebookDan: hvor langt er den dårligste kirke til fods?
+PhrasebookDut: hoe ver is de slechtste kerk te voet?
+PhrasebookEng: how far is the worst church by foot?
+PhrasebookEst: kui kaugel kõige halvem kirik on jalgsi?
+PhrasebookFin: kuinka kaukana huonoin kirkko on jalkaisin?
+PhrasebookFre: à quelle distance est la pire église à pied?
+PhrasebookGer: wie weit ist es zur schlimmsten Kirche zu Fuß?
+PhrasebookHin: पैदल चलकर सब से बुरा गिरजा कितनी दूर है?
+PhrasebookIta: quanto dista a piedi la peggiore chiesa?
+PhrasebookJpn: 徒歩で 一番 悪い 教会 は どのくらい 遠い です か 。
+PhrasebookLav: cik tālu vissliktākā baznīca ir kājām?
+PhrasebookNor: hvor langt er det til den dårligste kirka til fots?
+PhrasebookPol: jak daleko jest pieszo do najgorszego kościoła?
+PhrasebookRon: cât este pâna la cea mai rea biserică pe jos?
+PhrasebookSnd: خراب چرچ پيادو ڪتنی پري آھي?
+PhrasebookSpa: ¿ a qué distancia la peor iglesia está a pie?
+PhrasebookSwe: hur långt är det till den sämsta kyrkan till fots?
+PhrasebookTha: โบสถ์ แห่ง เลว ที่ สุด ไกลเท่าไร ด้วยการเดิน
+PhrasebookUrd: پیدل سب سے برا چرچ کتنی دور ہے
+
+Phrasebook: PImperativeFamNeg VWalk
+PhrasebookBul: не ходи
+PhrasebookCat: no caminis
+PhrasebookChi: 不 走
+PhrasebookDan: gå ikke
+PhrasebookDut: loop niet
+PhrasebookEng: don't walk
+PhrasebookEst: ära kõnni
+PhrasebookFin: älä kävele
+PhrasebookFre: ne marche pas
+PhrasebookGer: geh nicht
+PhrasebookHin: मत चलना
+PhrasebookIta: non camminare
+PhrasebookJpn: 歩かない で
+PhrasebookLav: nestaigā
+PhrasebookNor: gå ikke
+PhrasebookPol: nie spaceruj
+PhrasebookRon: nu merge
+PhrasebookSnd: ن ھل
+PhrasebookSpa: no camines
+PhrasebookSwe: gå inte
+PhrasebookTha: อย่า เดิน
+PhrasebookUrd: مت چلنا
+
+Phrasebook: PGreetingFemale GSorryPol
+PhrasebookBul: извинете!
+PhrasebookCat: em sap greu!
+PhrasebookChi: 对 不 起 ！
+PhrasebookDan: undskyld!
+PhrasebookDut: mijn verontschuldiging!
+PhrasebookEng: sorry!
+PhrasebookEst: vabandust!
+PhrasebookFin: anteeksi!
+PhrasebookFre: pardon!
+PhrasebookGer: Entschuldigung!
+PhrasebookHin: क्षमा कीजिये!
+PhrasebookIta: scusimi!
+PhrasebookJpn: 申し訳ありません ！
+PhrasebookLav: piedodiet!
+PhrasebookNor: beklager!
+PhrasebookPol: przepraszam!
+PhrasebookRon: îmi pare rău!
+PhrasebookSnd: معاف ڪجو!
+PhrasebookSpa: ¡ disculpe!
+PhrasebookSwe: förlåt!
+PhrasebookTha: ขอโทษ ค่ะ
+PhrasebookUrd: معاف كیجیے گا
+
+Phrasebook: PImperativePlurNeg VSit
+PhrasebookBul: не седете
+PhrasebookCat: no us segueu
+PhrasebookChi: 不 坐
+PhrasebookDan: sid ikke
+PhrasebookDut: zit niet
+PhrasebookEng: don't sit
+PhrasebookEst: ärge istuge
+PhrasebookFin: älkää istuko
+PhrasebookFre: ne vous asseyez pas
+PhrasebookGer: sitzt nicht
+PhrasebookHin: मत बैठना
+PhrasebookIta: non sedetevi
+PhrasebookJpn: 座らない で
+PhrasebookLav: nesēdiet
+PhrasebookNor: sitt ikke
+PhrasebookPol: nie siedźcie
+PhrasebookRon: nu vă aşezaţi
+PhrasebookSnd: ن ويه
+PhrasebookSpa: no vos sentéis
+PhrasebookSwe: sitt inte
+PhrasebookTha: อย่า นั่ง
+PhrasebookUrd: مت بیٹھنا
+
+Phrasebook: PImperativeFamNeg VWait
+PhrasebookBul: не чакай
+PhrasebookCat: no esperis
+PhrasebookChi: 不 等
+PhrasebookDan: vent ikke
+PhrasebookDut: wacht niet
+PhrasebookEng: don't wait
+PhrasebookEst: ära oota
+PhrasebookFin: älä odota
+PhrasebookFre: n'attends pas
+PhrasebookGer: warte nicht
+PhrasebookHin: मत इंतज़ार करना
+PhrasebookIta: non aspettare
+PhrasebookJpn: 待たない で
+PhrasebookLav: negaidi
+PhrasebookNor: vent ikke
+PhrasebookPol: nie czekaj
+PhrasebookRon: nu aştepta
+PhrasebookSnd: ن انتظار انتظا
+PhrasebookSpa: no esperes
+PhrasebookSwe: vänta inte
+PhrasebookTha: อย่า รอ
+PhrasebookUrd: مت انتظار کرنا
+
+Phrasebook: PQuestion (HowFarBy (APlace Center) ByFoot)
+PhrasebookBul: колко далече е център пеша?
+PhrasebookCat: a quina distància està a peu un centre?
+PhrasebookChi: 步 行 到 一 个 中 心 有 多 远 ？
+PhrasebookDan: hvor langt er et centrum til fods?
+PhrasebookDut: hoe ver is een centrum te voet?
+PhrasebookEng: how far is a center by foot?
+PhrasebookEst: kui kaugel keskus on jalgsi?
+PhrasebookFin: kuinka kaukana keskusta on jalkaisin?
+PhrasebookFre: à quelle distance est un centre à pied?
+PhrasebookGer: wie weit ist es zu einem Zentrum zu Fuß?
+PhrasebookHin: पैदल चलकर केन्द्र कितनी दूर है?
+PhrasebookIta: quanto dista a piedi un centro?
+PhrasebookJpn: 徒歩で センター は どのくらい 遠い です か 。
+PhrasebookLav: cik tālu centrs ir kājām?
+PhrasebookNor: hvor langt er det til et sentrum til fots?
+PhrasebookPol: jak daleko jest pieszo do centrum?
+PhrasebookRon: cât este pâna la un centru pe jos?
+PhrasebookSnd: سينٽر پيادو ڪتنی پري آھي?
+PhrasebookSpa: ¿ a qué distancia un centro está a pie?
+PhrasebookSwe: hur långt är det till en innerstad till fots?
+PhrasebookTha: ศูนย์กลาง ไกลเท่าไร ด้วยการเดิน
+PhrasebookUrd: پیدل سنٹر کتنی دور ہے
+
+Phrasebook: PImperativeFamPos VEat
+PhrasebookBul: яж
+PhrasebookCat: menja
+PhrasebookChi: 吃
+PhrasebookDan: spis
+PhrasebookDut: eet
+PhrasebookEng: eat
+PhrasebookEst: söö
+PhrasebookFin: syö
+PhrasebookFre: mange
+PhrasebookGer: ess
+PhrasebookHin: खाना
+PhrasebookIta: mangia
+PhrasebookJpn: 食べて
+PhrasebookLav: ēd
+PhrasebookNor: spis
+PhrasebookPol: zjedz
+PhrasebookRon: mănâncă
+PhrasebookSnd: کائ
+PhrasebookSpa: come
+PhrasebookSwe: ät
+PhrasebookTha: กิน ซิ
+PhrasebookUrd: کھانا
+
+Phrasebook: PImperativePlurPos VEat
+PhrasebookBul: яжте
+PhrasebookCat: mengeu
+PhrasebookChi: 吃
+PhrasebookDan: spis
+PhrasebookDut: eet
+PhrasebookEng: eat
+PhrasebookEst: sööge
+PhrasebookFin: syökää
+PhrasebookFre: mangez
+PhrasebookGer: esst
+PhrasebookHin: खाना
+PhrasebookIta: mangiate
+PhrasebookJpn: 食べて
+PhrasebookLav: ēdiet
+PhrasebookNor: spis
+PhrasebookPol: zjedzcie
+PhrasebookRon: mâncaţi
+PhrasebookSnd: کائ
+PhrasebookSpa: comed
+PhrasebookSwe: ät
+PhrasebookTha: กิน ซิ
+PhrasebookUrd: کھانا
+
+Phrasebook: PGreetingMale GPleaseGive
+PhrasebookBul: моля!
+PhrasebookCat: si et plau!
+PhrasebookChi: 请 ！
+PhrasebookDan: vær så sød!
+PhrasebookDut: alstublieft!
+PhrasebookEng: please!
+PhrasebookEst: palun!
+PhrasebookFin: ole hyvä!
+PhrasebookFre: s'il te plaît!
+PhrasebookGer: bitte!
+PhrasebookHin: कृपया!
+PhrasebookIta: per favore!
+PhrasebookJpn: ください ！
+PhrasebookLav: lūdzu!
+PhrasebookNor: vær så snill!
+PhrasebookPol: poproszę!
+PhrasebookRon: te rog!
+PhrasebookSnd: مهرباني ڪريو!
+PhrasebookSpa: ¡ por favor!
+PhrasebookSwe: var så god!
+PhrasebookTha: นะ ครับ
+PhrasebookUrd: مہربانی كر كے
+
+Phrasebook: PImperativePlurPos VWrite
+PhrasebookBul: пишете
+PhrasebookCat: escriviu
+PhrasebookChi: 写
+PhrasebookDan: skriv
+PhrasebookDut: schrijf
+PhrasebookEng: write
+PhrasebookEst: kirjutage
+PhrasebookFin: kirjoittakaa
+PhrasebookFre: écrivez
+PhrasebookGer: schreibt
+PhrasebookHin: लिखना
+PhrasebookIta: scrivete
+PhrasebookJpn: 書いて
+PhrasebookLav: rakstiet
+PhrasebookNor: skriv
+PhrasebookPol: napiszcie
+PhrasebookRon: scrieţi
+PhrasebookSnd:
+PhrasebookSpa: escribid
+PhrasebookSwe: skriv
+PhrasebookTha: เขียน ซิ
+PhrasebookUrd: لکھنا
+
+Phrasebook: PImperativeFamNeg VWait
+PhrasebookBul: не чакай
+PhrasebookCat: no esperis
+PhrasebookChi: 不 等
+PhrasebookDan: vent ikke
+PhrasebookDut: wacht niet
+PhrasebookEng: don't wait
+PhrasebookEst: ära oota
+PhrasebookFin: älä odota
+PhrasebookFre: n'attends pas
+PhrasebookGer: warte nicht
+PhrasebookHin: मत इंतज़ार करना
+PhrasebookIta: non aspettare
+PhrasebookJpn: 待たない で
+PhrasebookLav: negaidi
+PhrasebookNor: vent ikke
+PhrasebookPol: nie czekaj
+PhrasebookRon: nu aştepta
+PhrasebookSnd: ن انتظار انتظا
+PhrasebookSpa: no esperes
+PhrasebookSwe: vänta inte
+PhrasebookTha: อย่า รอ
+PhrasebookUrd: مت انتظار کرنا
+
+Phrasebook: PImperativeFamPos VRun
+PhrasebookBul: бягай
+PhrasebookCat: corre
+PhrasebookChi: 跑
+PhrasebookDan: løb
+PhrasebookDut: ren
+PhrasebookEng: run
+PhrasebookEst: jookse
+PhrasebookFin: juokse
+PhrasebookFre: cours
+PhrasebookGer: lauf
+PhrasebookHin: दौड़ना
+PhrasebookIta: corri
+PhrasebookJpn: 走って
+PhrasebookLav: skrien
+PhrasebookNor: spring
+PhrasebookPol: pobiegnij
+PhrasebookRon: fugi
+PhrasebookSnd: ڊوڙ
+PhrasebookSpa: corre
+PhrasebookSwe: spring
+PhrasebookTha: วิ่ง ซิ
+PhrasebookUrd: دوڑنا
+
+Phrasebook: PQuestion (HowFar (APlace Zoo))
+PhrasebookBul: колко далече е зоопарк?
+PhrasebookCat: a quina distància està un zoo?
+PhrasebookChi: 一 个 动 物 园 有 多 远 ？
+PhrasebookDan: hvor langt er det til en zoologisk have?
+PhrasebookDut: hoe ver is een dierentuin?
+PhrasebookEng: how far is a zoo?
+PhrasebookEst: kui kaugel loomaaed on?
+PhrasebookFin: kuinka kaukana eläintarha on?
+PhrasebookFre: à quelle distance est un zoo?
+PhrasebookGer: wie weit ist ein Zoo?
+PhrasebookHin: चिड़ियाघर कितनी दूर है?
+PhrasebookIta: quanto dista uno zoo?
+PhrasebookJpn: 動物園 は どのくらい 遠い です か 。
+PhrasebookLav: cik tālu ir zoodārzs?
+PhrasebookNor: hvor langt er det til en dyrepark?
+PhrasebookPol: jak daleko jest zoo?
+PhrasebookRon: cât este pâna la o grădină zoologică?
+PhrasebookSnd: راڻي باغ ڪتنی پري آھي?
+PhrasebookSpa: ¿ a qué distancia un zoo está?
+PhrasebookSwe: hur långt är det till en djurpark?
+PhrasebookTha: สวนสัตว์ ไกลเท่าไร
+PhrasebookUrd: چڑیا گھر کتنی دور ہے
+
+Phrasebook: PImperativeFamNeg (V2Wait (PersonName NameNN))
+PhrasebookBul: не чакай за NN
+PhrasebookCat: no esperis a NN
+PhrasebookChi: 不 等 NN
+PhrasebookDan: vent ikke på NN
+PhrasebookDut: wacht niet op NN
+PhrasebookEng: don't wait for NN
+PhrasebookEst: ära oota NNt
+PhrasebookFin: älä odota NN:ää
+PhrasebookFre: n'attends pas NN
+PhrasebookGer: warte nicht auf NN
+PhrasebookHin: मत NN का इंतज़ार करना
+PhrasebookIta: non aspettare NN
+PhrasebookJpn: NN を 待たない で
+PhrasebookLav: negaidi NN
+PhrasebookNor: vent ikke på NN
+PhrasebookPol: nie czekaj na NN
+PhrasebookRon: nu îl aştepta pe NN
+PhrasebookSnd: ن انتظار انتظا
+PhrasebookSpa: no esperes a NN
+PhrasebookSwe: vänta inte på NN
+PhrasebookTha: อย่า รอ NN
+PhrasebookUrd: مت NN انتظار کرنا
+
+Phrasebook: PGreetingFemale GExcuse
+PhrasebookBul: извинете!
+PhrasebookCat: perdona!
+PhrasebookChi: 原 谅 我 ！
+PhrasebookDan: undskyld mig!
+PhrasebookDut: pardon!
+PhrasebookEng: excuse me!
+PhrasebookEst: vabandust!
+PhrasebookFin: anteeksi!
+PhrasebookFre: excuse-moi!
+PhrasebookGer: Entschuldigung!
+PhrasebookHin: क्षमा कीजिये!
+PhrasebookIta: scusa!
+PhrasebookJpn: すみません ！
+PhrasebookLav: atvainojiet!
+PhrasebookNor: unnskyld!
+PhrasebookPol: przepraszam!
+PhrasebookRon: pardon!
+PhrasebookSnd: معاف ڪجو!
+PhrasebookSpa: ¡ perdón!
+PhrasebookSwe: ursäkta!
+PhrasebookTha: ขอโทษ ค่ะ
+PhrasebookUrd: معاف كیجیے گا
+
+Phrasebook: PImperativePlurNeg VSit
+PhrasebookBul: не седете
+PhrasebookCat: no us segueu
+PhrasebookChi: 不 坐
+PhrasebookDan: sid ikke
+PhrasebookDut: zit niet
+PhrasebookEng: don't sit
+PhrasebookEst: ärge istuge
+PhrasebookFin: älkää istuko
+PhrasebookFre: ne vous asseyez pas
+PhrasebookGer: sitzt nicht
+PhrasebookHin: मत बैठना
+PhrasebookIta: non sedetevi
+PhrasebookJpn: 座らない で
+PhrasebookLav: nesēdiet
+PhrasebookNor: sitt ikke
+PhrasebookPol: nie siedźcie
+PhrasebookRon: nu vă aşezaţi
+PhrasebookSnd: ن ويه
+PhrasebookSpa: no vos sentéis
+PhrasebookSwe: sitt inte
+PhrasebookTha: อย่า นั่ง
+PhrasebookUrd: مت بیٹھنا
+
+Phrasebook: PSentence (SHaveNo YouPolFemale (SuchKind (Too Cold) Apple))
+PhrasebookBul: вие не имате прекалено студени ябълки.
+PhrasebookCat: no té pomes massa fredes.
+PhrasebookChi: 您 没 有 太 冷 的 苹 果 。
+PhrasebookDan: De har ikke for kolde æbler.
+PhrasebookDut: u heeft geen te koude appels.
+PhrasebookEng: you don't have too cold apples.
+PhrasebookEst: teil ei ole liiga külmasid õunu.
+PhrasebookFin: teillä ei ole liian kylmiä omenoita.
+PhrasebookFre: vous n'avez pas de pommes trop froides.
+PhrasebookGer: Sie haben keine zu kalten Äpfel.
+PhrasebookHin: आप बहुत सर्द सेब नहीं रखती हैं.
+PhrasebookIta: non ha mele troppo fredde.
+PhrasebookJpn: あなた は あまりにも 寒い リンゴ を 持っていません 。
+PhrasebookLav: Jums nav pārāk auksti āboli.
+PhrasebookNor: Dere har ikke for kalde epler.
+PhrasebookPol: pani nie ma za zimnych jabłek.
+PhrasebookRon: dumneavoastră nu aveţi nişte mere prea reci.
+PhrasebookSnd:
+PhrasebookSpa: no tiene manzanas demasiado frías.
+PhrasebookSwe: ni har inte för kalla äpplen.
+PhrasebookTha: คุณ ไม่ มี แอป เปิ้ล หนาว เกินไป
+PhrasebookUrd: آپ بہت ٹھنڈے سیب نہیں رکھتیں ہیں
+
+Phrasebook: PGreetingFemale GGoodbye
+PhrasebookBul: довиждане!
+PhrasebookCat: a reveure!
+PhrasebookChi: 再 见 ！
+PhrasebookDan: farvel!
+PhrasebookDut: tot ziens!
+PhrasebookEng: goodbye!
+PhrasebookEst: head aega!
+PhrasebookFin: näkemiin!
+PhrasebookFre: au revoir!
+PhrasebookGer: auf Wiedersehen!
+PhrasebookHin: हम आपसे विदा लेते हैं!
+PhrasebookIta: arrivederci!
+PhrasebookJpn: さようなら ！
+PhrasebookLav: visu labu!
+PhrasebookNor: ha det bra!
+PhrasebookPol: do widzenia!
+PhrasebookRon: la revedere!
+PhrasebookSnd: خدا حافظ!
+PhrasebookSpa: ¡ hasta luego!
+PhrasebookSwe: hej då!
+PhrasebookTha: ลาก่อน ค่ะ
+PhrasebookUrd: خدا حافظ
+
+Phrasebook: PImperativeFamPos VWait
+PhrasebookBul: чакай
+PhrasebookCat: espera
+PhrasebookChi: 等
+PhrasebookDan: vent
+PhrasebookDut: wacht
+PhrasebookEng: wait
+PhrasebookEst: oota
+PhrasebookFin: odota
+PhrasebookFre: attends
+PhrasebookGer: warte
+PhrasebookHin: इंतज़ार करना
+PhrasebookIta: aspetta
+PhrasebookJpn: 待って
+PhrasebookLav: gaidi
+PhrasebookNor: vent
+PhrasebookPol: poczekaj
+PhrasebookRon: aşteaptă
+PhrasebookSnd: انتظار انتظا
+PhrasebookSpa: espera
+PhrasebookSwe: vänta
+PhrasebookTha: รอ ซิ
+PhrasebookUrd: انتظار کرنا
+
+Phrasebook: PImperativePolNeg VSit
+PhrasebookBul: не седете
+PhrasebookCat: no es segui
+PhrasebookChi: 不 坐
+PhrasebookDan: sid ikke
+PhrasebookDut: zit u niet
+PhrasebookEng: don't sit
+PhrasebookEst: ärge istuge
+PhrasebookFin: älkää istuko
+PhrasebookFre: ne vous asseyez pas
+PhrasebookGer: sitzen Sie nicht
+PhrasebookHin: मत बैठना
+PhrasebookIta: non siedasi
+PhrasebookJpn: 座らない で ください
+PhrasebookLav: lūdzu nesēdiet
+PhrasebookNor: sitt ikke
+PhrasebookPol: nie siedź
+PhrasebookRon: nu te aşeza
+PhrasebookSnd: ن ويه
+PhrasebookSpa: no se siente
+PhrasebookSwe: sitt inte
+PhrasebookTha: อย่า นั่ง
+PhrasebookUrd: مت بیٹھنا
+
+Phrasebook: PGreetingMale GExcusePol
+PhrasebookBul: извинете!
+PhrasebookCat: perdoni!
+PhrasebookChi: 原 谅 我 ！
+PhrasebookDan: undskyld mig!
+PhrasebookDut: pardon!
+PhrasebookEng: excuse me!
+PhrasebookEst: vabandust!
+PhrasebookFin: anteeksi!
+PhrasebookFre: excusez-moi!
+PhrasebookGer: Entschuldigung!
+PhrasebookHin: क्षमा कीजिये!
+PhrasebookIta: scusi!
+PhrasebookJpn: すみません ！
+PhrasebookLav: atvainojiet!
+PhrasebookNor: unnskyld!
+PhrasebookPol: przepraszam!
+PhrasebookRon: mă scuzați!
+PhrasebookSnd: معاف ڪجو!
+PhrasebookSpa: ¡ perdone!
+PhrasebookSwe: ursäkta!
+PhrasebookTha: ขอโทษ ครับ
+PhrasebookUrd: معاف كیجیے گا
+
+Phrasebook: PQuestion (WherePerson (Wife TheyMale))
+PhrasebookBul: къде е тяхната съпруга?
+PhrasebookCat: on està la seva dona?
+PhrasebookChi: 他 们 的 妻 子 在 哪 里 ？
+PhrasebookDan: hvor er deres kone?
+PhrasebookDut: waar is hun vrouw?
+PhrasebookEng: where is their wife?
+PhrasebookEst: kus nende naine on?
+PhrasebookFin: missä heidän vaimonsa on?
+PhrasebookFre: où est leur femme?
+PhrasebookGer: wo ist ihre Frau?
+PhrasebookHin: उन की पत्नी कहाँ है?
+PhrasebookIta: dove è loro moglie?
+PhrasebookJpn: あの人達 の 奥さん は どこ に います か 。
+PhrasebookLav: kur ir viņu sieva?
+PhrasebookNor: hvor er kona deres?
+PhrasebookPol: gdzie jest ich żona?
+PhrasebookRon: unde este soţia lor?
+PhrasebookSnd: انهن جو زال ڪٿي آھي?
+PhrasebookSpa: ¿ dónde su esposa está?
+PhrasebookSwe: var är deras fru?
+PhrasebookTha: ภรรยา ของ พวกเขา อยู่ ที่ไหน
+PhrasebookUrd: ان کی بیوی کہاں ہے
+
+Phrasebook: PImperativeFamPos VEat
+PhrasebookBul: яж
+PhrasebookCat: menja
+PhrasebookChi: 吃
+PhrasebookDan: spis
+PhrasebookDut: eet
+PhrasebookEng: eat
+PhrasebookEst: söö
+PhrasebookFin: syö
+PhrasebookFre: mange
+PhrasebookGer: ess
+PhrasebookHin: खाना
+PhrasebookIta: mangia
+PhrasebookJpn: 食べて
+PhrasebookLav: ēd
+PhrasebookNor: spis
+PhrasebookPol: zjedz
+PhrasebookRon: mănâncă
+PhrasebookSnd: کائ
+PhrasebookSpa: come
+PhrasebookSwe: ät
+PhrasebookTha: กิน ซิ
+PhrasebookUrd: کھانا
+
+Phrasebook: PImperativePlurNeg (V2Drink (OneObj (ObjPlural Apple)))
+PhrasebookBul: не пийте ябълки
+PhrasebookCat: no begueu pomes
+PhrasebookChi: 不 喝 些 苹 果
+PhrasebookDan: drik ikke æbler
+PhrasebookDut: drink appels niet
+PhrasebookEng: don't drink apples
+PhrasebookEst: ärge jooge õunu
+PhrasebookFin: älkää juoko omenoita
+PhrasebookFre: ne buvez pas des pommes
+PhrasebookGer: trinkt nicht Äpfel
+PhrasebookHin: मत सेब पीना
+PhrasebookIta: non bevete mele
+PhrasebookJpn: リンゴ を 飲まない で
+PhrasebookLav: nedzeriet ābolus
+PhrasebookNor: drikk ikke epler
+PhrasebookPol: nie pijcie jabłek
+PhrasebookRon: nu beţi nişte mere
+PhrasebookSnd: ن پيئ
+PhrasebookSpa: no toméis manzanas
+PhrasebookSwe: drick inte äpplen
+PhrasebookTha: อย่า ดื่ม แอป เปิ้ล
+PhrasebookUrd: مت سیب پینا
+
+Phrasebook: PImperativeFamNeg (V2Eat (OneObj (ObjIndef Apple)))
+PhrasebookBul: не яж ябълка
+PhrasebookCat: no mengis una poma
+PhrasebookChi: 不 吃 一 个 苹 果
+PhrasebookDan: spis ikke et æble
+PhrasebookDut: eet een appel niet
+PhrasebookEng: don't eat an apple
+PhrasebookEst: ära söö õuna
+PhrasebookFin: älä syö omenaa
+PhrasebookFre: ne mange pas une pomme
+PhrasebookGer: ess nicht einen Apfel
+PhrasebookHin: मत सेब खाना
+PhrasebookIta: non mangiare una mela
+PhrasebookJpn: リンゴ を 食べない で
+PhrasebookLav: neēd ābolu
+PhrasebookNor: spis ikke et eple
+PhrasebookPol: nie jedz jabłka
+PhrasebookRon: nu mânca un măr
+PhrasebookSnd: ن کائ
+PhrasebookSpa: no comas una manzana
+PhrasebookSwe: ät inte ett äpple
+PhrasebookTha: อย่า กิน แอป เปิ้ล
+PhrasebookUrd: مت سیب کھانا
+
+Phrasebook: PImperativeFamPos VStop
+PhrasebookBul: спри
+PhrasebookCat: atura
+PhrasebookChi: 停 止
+PhrasebookDan: stands
+PhrasebookDut: stop
+PhrasebookEng: stop
+PhrasebookEst: peatu
+PhrasebookFin: pysähdy
+PhrasebookFre: arrête-toi
+PhrasebookGer: halt
+PhrasebookHin: रुकना
+PhrasebookIta: fermati
+PhrasebookJpn: 止まって
+PhrasebookLav: apstājies
+PhrasebookNor: stans
+PhrasebookPol: zatrzymaj
+PhrasebookRon: opreşte
+PhrasebookSnd: بيه
+PhrasebookSpa: para
+PhrasebookSwe: stanna
+PhrasebookTha: หยุด ซิ
+PhrasebookUrd: رکنا
+
+Phrasebook: PImperativePlurNeg VStop
+PhrasebookBul: не спирайте
+PhrasebookCat: no atureu
+PhrasebookChi: 不 停 止
+PhrasebookDan: stands ikke
+PhrasebookDut: stop niet
+PhrasebookEng: don't stop
+PhrasebookEst: ärge peatuge
+PhrasebookFin: älkää pysähtykö
+PhrasebookFre: ne vous arrêtez pas
+PhrasebookGer: haltet nicht
+PhrasebookHin: मत रुकना
+PhrasebookIta: non fermatevi
+PhrasebookJpn: 止まらない で
+PhrasebookLav: neapstājieties
+PhrasebookNor: stans ikke
+PhrasebookPol: nie zatrzymujcie
+PhrasebookRon: nu vă opriţi
+PhrasebookSnd: ن بيه
+PhrasebookSpa: no paréis
+PhrasebookSwe: stanna inte
+PhrasebookTha: อย่า หยุด
+PhrasebookUrd: مت رکنا
+
+Phrasebook: PGreetingMale GGoodNight
+PhrasebookBul: лека нощ!
+PhrasebookCat: bona nit!
+PhrasebookChi: 晚 安 ！
+PhrasebookDan: godnat!
+PhrasebookDut: goedenacht!
+PhrasebookEng: good night!
+PhrasebookEst: head ööd!
+PhrasebookFin: hyvää yötä!
+PhrasebookFre: bonne nuit!
+PhrasebookGer: gute Nacht!
+PhrasebookHin: नमस्कार!
+PhrasebookIta: buona notte!
+PhrasebookJpn: おやすみなさい ！
+PhrasebookLav: ar labunakti!
+PhrasebookNor: god natt!
+PhrasebookPol: dobranoc!
+PhrasebookRon: noapte bună!
+PhrasebookSnd: رات بخير!
+PhrasebookSpa: ¡ buenas noches!
+PhrasebookSwe: god natt!
+PhrasebookTha: ราตรีสวัสดิ์ ครับ
+PhrasebookUrd: رات بخیر
+
+Phrasebook: PGreetingFemale GWhatTime
+PhrasebookBul: колко е часът!
+PhrasebookCat: [GWhatTime]!
+PhrasebookChi: 现 在 是 什 么 时 候 ！
+PhrasebookDan: [GWhatTime]!
+PhrasebookDut: hoe laat is het!
+PhrasebookEng: what time is it!
+PhrasebookEst: [GWhatTime]!
+PhrasebookFin: paljonko kello on!
+PhrasebookFre: quelle heure est-il!
+PhrasebookGer: wieviel Uhr ist es!
+PhrasebookHin: कितने बजे हैं!
+PhrasebookIta: che ore sono!
+PhrasebookJpn: 今何時ですか ！
+PhrasebookLav: [GWhatTime]!
+PhrasebookNor: [GWhatTime]!
+PhrasebookPol: [GWhatTime]!
+PhrasebookRon: [GWhatTime]!
+PhrasebookSnd: [GWhatTime]!
+PhrasebookSpa: ¡ qué hora es!
+PhrasebookSwe: vad är klockan!
+PhrasebookTha: [GWhatTime] ค่ะ
+PhrasebookUrd: [GWhatTime]
+
+Phrasebook: PQuestion (QWhereDoVerbPhrase YouPlurFamMale (V2Wait (Wife YouPlurPolMale)))
+PhrasebookBul: къде чакате за вашата съпруга вие?
+PhrasebookCat: on espereu a llur dona?
+PhrasebookChi: 你 们 去 哪 里 等 你 们 的 妻 子 ？
+PhrasebookDan: hvor venter I på jeres kone?
+PhrasebookDut: waar wachten jullie op jullie vrouw?
+PhrasebookEng: where do you wait for your wife?
+PhrasebookEst: kus teie ootate teie naist?
+PhrasebookFin: missä odotatte vaimoanne?
+PhrasebookFre: où vous attendez votre femme?
+PhrasebookGer: wo wartet ihr auf Ihre Frau?
+PhrasebookHin: कहाँ तुम तुम्हारी पत्नी का इंतज़ार करते हो?
+PhrasebookIta: dove aspettate Loro moglie?
+PhrasebookJpn: あなた方 は どこ で あなた方 の 奥さん を 待ちます か 。
+PhrasebookLav: kur jūs gaidāt jūsu sievu?
+PhrasebookNor: hvor venter dere på kona deres?
+PhrasebookPol: gdzie wy czekacie na waszą żonę?
+PhrasebookRon: unde o aşteptaţi voi pe soţia voastră?
+PhrasebookSnd: ڪٿي توھان توھانجي زال انتظار انتظاو ٿا?
+PhrasebookSpa: ¿ dónde esperáis a su esposa?
+PhrasebookSwe: var väntar ni på er fru?
+PhrasebookTha: พวกคุณ รอ ภรรยา ของ พวกคุณ ที่ไหน
+PhrasebookUrd: کہاں تم تمھاری بیوی انتظار کرتے ہو
+
+Phrasebook: PGreetingMale GNiceToMeetYou
+PhrasebookBul: радвам се да се видим!
+PhrasebookCat: encantat de conèixer-lo!
+PhrasebookChi: 很 高 兴 见 到 你 ！
+PhrasebookDan: hyggeligt at møde dig!
+PhrasebookDut: leuk je te ontmoeten!
+PhrasebookEng: nice to meet you!
+PhrasebookEst: meeldiv tutvuda!
+PhrasebookFin: hauska tutustua!
+PhrasebookFre: enchanté!
+PhrasebookGer: nett, Sie zu treffen!
+PhrasebookHin: आप से मिल कर च्छा लगा!
+PhrasebookIta: piacere di conoscerti!
+PhrasebookJpn: 初めまして ！
+PhrasebookLav: prieks iepazīties!
+PhrasebookNor: hyggelig å treffe deg!
+PhrasebookPol: miło mi!
+PhrasebookRon: încântat!
+PhrasebookSnd: توهان سان ملي ڪري سٺو لڳو!
+PhrasebookSpa: ¡ encantado de conocerle!
+PhrasebookSwe: trevligt att träffas!
+PhrasebookTha: ยินดีที่ได้รู้จัก ครับ
+PhrasebookUrd: آپ سے مل كر اچھا لگا
+
+Phrasebook: PGreetingFemale PYesToNo
+PhrasebookBul: да!
+PhrasebookCat: sí!
+PhrasebookChi: 对 ！
+PhrasebookDan: ja!
+PhrasebookDut: ja!
+PhrasebookEng: yes!
+PhrasebookEst: jah!
+PhrasebookFin: kyllä!
+PhrasebookFre: si!
+PhrasebookGer: doch!
+PhrasebookHin: हाँ!
+PhrasebookIta: sì!
+PhrasebookJpn: はい ！
+PhrasebookLav: jā!
+PhrasebookNor: ja!
+PhrasebookPol: tak!
+PhrasebookRon: da!
+PhrasebookSnd: ھا!
+PhrasebookSpa: ¡ sí!
+PhrasebookSwe: jo!
+PhrasebookTha: ใช่ ค่ะ
+PhrasebookUrd: ہاں
+
+Phrasebook: PImperativePlurPos VDrink
+PhrasebookBul: пийте
+PhrasebookCat: beveu
+PhrasebookChi: 喝
+PhrasebookDan: drik
+PhrasebookDut: drink
+PhrasebookEng: drink
+PhrasebookEst: jooge
+PhrasebookFin: juokaa
+PhrasebookFre: buvez
+PhrasebookGer: trinkt
+PhrasebookHin: पीना
+PhrasebookIta: bevete
+PhrasebookJpn: 飲んで
+PhrasebookLav: dzeriet
+PhrasebookNor: drikk
+PhrasebookPol: wypijcie
+PhrasebookRon: beţi
+PhrasebookSnd: پيئ
+PhrasebookSpa: tomad
+PhrasebookSwe: drick
+PhrasebookTha: ดื่ม ซิ
+PhrasebookUrd: پینا
+
+Phrasebook: PImperativeFamNeg VEat
+PhrasebookBul: не яж
+PhrasebookCat: no mengis
+PhrasebookChi: 不 吃
+PhrasebookDan: spis ikke
+PhrasebookDut: eet niet
+PhrasebookEng: don't eat
+PhrasebookEst: ära söö
+PhrasebookFin: älä syö
+PhrasebookFre: ne mange pas
+PhrasebookGer: ess nicht
+PhrasebookHin: मत खाना
+PhrasebookIta: non mangiare
+PhrasebookJpn: 食べない で
+PhrasebookLav: neēd
+PhrasebookNor: spis ikke
+PhrasebookPol: nie jedz
+PhrasebookRon: nu mânca
+PhrasebookSnd: ن کائ
+PhrasebookSpa: no comas
+PhrasebookSwe: ät inte
+PhrasebookTha: อย่า กิน
+PhrasebookUrd: مت کھانا
+
+Phrasebook: PImperativeFamPos VRead
+PhrasebookBul: чети
+PhrasebookCat: llegeix
+PhrasebookChi: 读
+PhrasebookDan: læs
+PhrasebookDut: lees
+PhrasebookEng: read
+PhrasebookEst: loe
+PhrasebookFin: lue
+PhrasebookFre: lis
+PhrasebookGer: les
+PhrasebookHin: पढ़ना
+PhrasebookIta: leggi
+PhrasebookJpn: 読んで
+PhrasebookLav: lasi
+PhrasebookNor: les
+PhrasebookPol: przeczytaj
+PhrasebookRon: citeşte
+PhrasebookSnd:
+PhrasebookSpa: lee
+PhrasebookSwe: läs
+PhrasebookTha: อ่าน ซิ
+PhrasebookUrd: پڑھنا
+
+Phrasebook: PSentence (SHave YouPlurPolFemale (OneObj (ObjIndef Pizza)))
+PhrasebookBul: вие имате пица.
+PhrasebookCat: tenen una pizza.
+PhrasebookChi: 你 们 有 一 个 比 萨 饼 。
+PhrasebookDan: I har en pizza.
+PhrasebookDut: jullie hebben een pizza.
+PhrasebookEng: you have a pizza.
+PhrasebookEst: teil on pitsa.
+PhrasebookFin: teillä on pizza.
+PhrasebookFre: vous avez une pizza.
+PhrasebookGer: Sie haben eine Pizza.
+PhrasebookHin: आप पिज़्ज़ा रखती हैं.
+PhrasebookIta: hanno una pizza.
+PhrasebookJpn: あなた方 は ピザ を 持っています 。
+PhrasebookLav: jums ir pica.
+PhrasebookNor: dere har en pizza.
+PhrasebookPol: wy macie pizzę.
+PhrasebookRon: voi aveţi o pizză.
+PhrasebookSnd:
+PhrasebookSpa: tienen una pizza.
+PhrasebookSwe: ni har en pizza.
+PhrasebookTha: พวกคุณ มี พิซซา
+PhrasebookUrd: آپ پیزہ رکھتیں ہیں
+
+Phrasebook: PSentence (SPropNot (PropOpenDay (SuperlPlace TheCheapest Supermarket) Thursday))
+PhrasebookBul: най - евтиният супермаркет не е отворен в четвъртъците.
+PhrasebookCat: el supermercat més barat no és obert els dijous.
+PhrasebookChi: 最 廉 价 的 那 家 超 级 市 场 在 星 期 四 不 是 开 放 的 。
+PhrasebookDan: det billigste supermarked har ikke åbent på torsdager.
+PhrasebookDut: de goedkoopste supermarkt is niet geopend op donderdagen.
+PhrasebookEng: the cheapest supermarket isn't open on Thursdays.
+PhrasebookEst: kõige odavam supermarket ei ole neljapäeviti avatud.
+PhrasebookFin: halvin supermarket ei ole avoinna torstaisin.
+PhrasebookFre: le supermarché le plus bon marché n'est pas ouvert le jeudi.
+PhrasebookGer: der billigste Supermarkt ist nicht Donnerstags geöffnet.
+PhrasebookHin: सब से सस्ता सुपर बाज़ार खुला गुरुवार को नहीं है.
+PhrasebookIta: il supermercato meno caro non è aperto di giovedì.
+PhrasebookJpn: 一番 安い スーパー は 木曜日 に 開いていません 。
+PhrasebookLav: vislētākais lielveikals nav atvērts ceturtdienās.
+PhrasebookNor: det billigste supermarkedet er ikke åpent på torsdager.
+PhrasebookPol: najtańszy supermarket nie jest w czwartki otwarty.
+PhrasebookRon: cel mai ieftin supermarket nu este deschis joi.
+PhrasebookSnd: سستو سپر مارڪيٽ خميس ڏانھن کلي ن آھي.
+PhrasebookSpa: el supermercado más barato no está abierto los jueves.
+PhrasebookSwe: det billigaste snabbköpet är inte öppet på torsdagar.
+PhrasebookTha: ซุปเปอร์มาเก็ต แห่ง ราคาถูก ที่ สุด ไม่ เปิด วันพฤหัสบดี
+PhrasebookUrd: سب سے سستا سپر ماركیٹ كھلا جمعرات کو نہیں ہے

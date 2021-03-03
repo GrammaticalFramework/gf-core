@@ -5,10 +5,12 @@ import PGF (showLanguage, readExpr)
 import GF (compileToLPGF, writeLPGF)
 import GF.Support (noOptions)
 
-import Control.Monad (forM_)
+import Control.Monad (forM, when)
 import qualified Data.List as L
 import qualified Data.Map as Map
+import System.Console.ANSI
 import System.Environment (getArgs)
+import System.Exit (exitFailure)
 import System.Directory (listDirectory)
 import System.FilePath ((</>), (<.>), takeDirectory, takeBaseName, takeExtension, dropExtension)
 import Text.Printf (printf)
@@ -61,29 +63,54 @@ doGrammar' path gname cncs = do
 
   -- Read treebank
   gs <- groups . lines <$> readFile (dir </> path </> gname <.> "treebank")
-  forM_ gs $ \grp -> do
+  results <- forM gs $ \grp -> do
     let ast = drop 2 $ dropWhile (/=':') $ head grp
-    printf "%s: %s\n" gname ast
+    printf "- %s: %s\n" gname ast
     let
       Just tree = readExpr ast
-      -- Do some linearization
+      -- Linearization into all languages
       outs =
         [ printf "%s: %s" (showLanguage lang) (linearizeConcrete concr tree)
         | (lang,concr) <- Map.toList (concretes lpgf)
         ]
-    mapM_ putStrLn outs
 
     -- filter out missing langs from treebank
     let golds = [ g | o <- outs, g <- tail grp, takeWhile (/=':') o == takeWhile (/=':') g  ]
-    if outs == golds
-    then putStrLn "✅\n"
-    else do
-      putStrLn "❌ expected:"
-      mapM_ putStrLn golds
-      putStrLn ""
-      error "Test failed"
+
+    rs <- forM (zip outs golds) $ \(out,gold) ->
+      if out == gold
+      then do
+        printPass out
+        return True
+      else do
+        printFail out gold
+        return False
+    putStrLn ""
+    return rs
+
+  let trees = length results
+  let langs = length (head results)
+  let total = length (concat results)
+  let (ts,fs) = L.partition id (concat results)
+  let passed = length ts
+  let failed = length fs
+  printf "Passed %d | Failed %d | Total %d lins (%d trees, %d languages)\n" passed failed total trees langs
+  when (failed > 0) exitFailure
 
 -- | Group list of lines by blank lines
 groups :: [String] -> [[String]]
 groups [] = []
 groups ss = let (a,b) = break (=="") ss in a : groups (drop 1 b)
+
+printPass s = do
+  setSGR [SetColor Foreground Vivid Green]
+  printf "✓"
+  setSGR [Reset]
+  printf " %s\n" s
+
+printFail s t = do
+  setSGR [SetColor Foreground Dull Red]
+  printf "✗ %s\n" s
+  setSGR [SetColor Foreground Dull Yellow]
+  printf "→ %s\n" t
+  setSGR [Reset]
