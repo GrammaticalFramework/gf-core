@@ -51,9 +51,37 @@ mkCanon2lpgf opts gr am = do
     mkConcrete (C.Concrete modId absModId flags params' lincats lindefs) = do
       let
         (C.Abstract _ _ _ funs) = ab
-        params = inlineParamAliases params' -- TODO remove by making mkParamTuples return map
-        paramTuples = mkParamTuples params'
-      let
+        params = inlineParamAliases params'
+
+        -- Builds maps for lookups
+
+        paramValueMap :: Map.Map C.ParamId C.ParamDef -- constructor -> definition
+        paramValueMap = Map.fromList [ (v,d) | d@(C.ParamDef _ vs) <- params, (C.Param v _) <- vs ]
+
+        lincatMap :: Map.Map C.CatId C.LincatDef
+        lincatMap = Map.fromList [ (cid,d) | d@(C.LincatDef cid _) <- lincats ]
+
+        funMap :: Map.Map C.FunId C.FunDef
+        funMap = Map.fromList [ (fid,d) | d@(C.FunDef fid _) <- funs ]
+
+        -- | Lookup lintype for a function
+        lookupLinType :: C.FunId -> Either String C.LinType
+        lookupLinType funId = do
+          fun <- m2e (printf "Cannot find type for: %s" (show funId)) (Map.lookup funId funMap)
+          let (C.FunDef _ (C.Type _ (C.TypeApp catId _))) = fun
+          lincat <- m2e (printf "Cannot find lincat for: %s" (show catId)) (Map.lookup catId lincatMap)
+          let (C.LincatDef _ lt) = lincat
+          return lt
+
+        -- | Lookup lintype for a function's argument
+        lookupLinTypeArg :: C.FunId -> Int -> Either String C.LinType
+        lookupLinTypeArg funId argIx = do
+          fun <- m2e (printf "Cannot find type for: %s" (show funId)) (Map.lookup funId funMap)
+          let (C.FunDef _ (C.Type args _)) = fun
+          let (C.TypeBinding _ (C.Type _ (C.TypeApp catId _))) = args !! argIx
+          lincat <- m2e (printf "Cannot find lincat for: %s" (show catId)) (Map.lookup catId lincatMap)
+          let (C.LincatDef _ lt) = lincat
+          return lt
 
         -- filter out record fields from defn which don't appear in lincat
         -- this seems to be an inconsistency in the canonical representation
@@ -69,19 +97,7 @@ mkCanon2lpgf opts gr am = do
         es = map mkLin lindefs'
         lins = Map.fromList $ rights es
 
-        -- | Lookup lintype for a function
-        lookupLinType :: C.FunId -> Either String C.LinType
-        lookupLinType funId = do
-          (C.Type _ (C.TypeApp catId _)) <- [ ftype | C.FunDef fid ftype <- funs, fid == funId ] `headOrLeft` printf "Cannot find type for: %s" (show funId)
-          [ lt | C.LincatDef cid lt <- lincats, cid == catId ] `headOrLeft` printf "Cannot find lincat for: %s" (show catId)
-
-        -- | Lookup lintype for a function's argument
-        lookupLinTypeArg :: C.FunId -> Int -> Either String C.LinType
-        lookupLinTypeArg funId argIx = do
-          (C.Type args _) <- [ ftype | C.FunDef fid ftype <- funs, fid == funId ] `headOrLeft` printf "Cannot find type for: %s" (show funId)
-          let C.TypeBinding _ (C.Type _ (C.TypeApp catId _)) = args !! argIx
-          [ lt | C.LincatDef cid lt <- lincats, cid == catId ] `headOrLeft` printf "Cannot find lincat for: %s" (show catId)
-
+        -- | Main code generation function
         mkLin :: C.LinDef -> Either String (CId, L.LinFun)
         mkLin (C.LinDef funId varIds linValue) = do
           (lf, _) <- val2lin linValue
@@ -102,14 +118,11 @@ mkCanon2lpgf opts gr am = do
 
               C.ErrorValue err -> return (L.Error err, Nothing)
 
-              -- the expressions built here can be quite large,
-              -- but will be reduced during optimisation if possible
               C.ParamConstant (C.Param pid lvs) -> do
                 let
                   collectProjections :: C.LinValue -> Either String [L.LinFun]
                   collectProjections (C.ParamConstant (C.Param pid lvs)) = do
-                    def <- [ d | d@(C.ParamDef _ ps) <- params, any (\(C.Param p _) -> p == pid) ps ]
-                            `headOrLeft` printf "Cannot find param group: %s" (show pid)
+                    def <- m2e (printf "Cannot find param definition: %s" (show pid)) (Map.lookup pid paramValueMap)
                     let (C.ParamDef tpid defpids) = def
                     pidIx <- eitherElemIndex pid [ p | C.Param p _ <- defpids ]
                     rest <- mapM collectProjections lvs
@@ -117,38 +130,31 @@ mkCanon2lpgf opts gr am = do
                   collectProjections lv = do
                     (lf,_) <- val2lin lv
                     return [lf]
-
-                -- get param group index and defn for this constructor
-                (gix,def) <- [ (gix,d) | (gix,d@(C.ParamDef _ ps)) <- zip [0..] params, any (\(C.Param p _) -> p == pid) ps ]
-                              `headOrLeft` printf "Cannot find param group: %s" (show pid)
-                let (C.ParamDef tpid _) = def
-
-                -- let tuple = paramTuples !! gix
                 lfs <- collectProjections lv
-                -- let term = foldl L.Projection tuple lfs
-                let term = L.Tuple lfs -- unapplied!
-
+                let term = L.Tuple lfs
+                def <- m2e (printf "Cannot find param definition: %s" (show pid)) (Map.lookup pid paramValueMap)
+                let (C.ParamDef tpid _) = def
                 return (term, Just $ C.ParamType (C.ParamTypeId tpid))
 
-              C.Selection v1 v2 -> do
-                (v1', t1) <- val2lin v1
-                (v2', t2) <- val2lin v2
-                -- let Just (C.TableType t11 t12) = t1 -- t11 == t2
-
-                case t1 of
-                  Just (C.TableType (C.ParamType (C.ParamTypeId pid)) tret) -> do
-                    (gix,_) <- [ (gix,d) | (gix,d@(C.ParamDef p _)) <- zip [0..] params, p == pid ]
-                                  `headOrLeft` printf "Cannot find param group: %s" (show pid)
-                    let tuple = paramTuples !! gix
-                    let v2'' = case v2' of
-                          L.Tuple lfs -> foldl L.Projection tuple lfs
-                          lf -> L.Projection tuple lf
-                    return (L.Projection v1' v2'', Just tret)
-
-                  Just (C.TableType (C.RecordType rrts) tret) ->
-                    return (L.Projection v1' v2', Just tret)
-
-                  _ -> Left $ printf "Unhandled type in selection: %s" (show t1)
+              -- C.Selection v1 v2 -> do
+              --   (v1', t1) <- val2lin v1
+              --   (v2', t2) <- val2lin v2
+              --   -- let Just (C.TableType t11 t12) = t1 -- t11 == t2
+              --
+              --   case t1 of
+              --     Just (C.TableType (C.ParamType (C.ParamTypeId pid)) tret) -> do
+              --       (gix,_) <- [ (gix,d) | (gix,d@(C.ParamDef p _)) <- zip [0..] params, p == pid ]
+              --                     `headOrLeft` printf "Cannot find param group: %s" (show pid)
+              --       let tuple = paramTuples !! gix
+              --       let v2'' = case v2' of
+              --             L.Tuple lfs -> foldl L.Projection tuple lfs
+              --             lf -> L.Projection tuple lf
+              --       return (L.Projection v1' v2'', Just tret)
+              --
+              --     Just (C.TableType (C.RecordType rrts) tret) ->
+              --       return (L.Projection v1' v2', Just tret)
+              --
+              --     _ -> Left $ printf "Unhandled type in selection: %s" (show t1)
 
               C.PredefValue (C.PredefId pid) -> case pid of
                 "BIND" -> return (L.Bind, Nothing)
@@ -217,11 +223,11 @@ mkCanon2lpgf opts gr am = do
                 let C.RecordRow _ lt = rrs !! lblIx
                 return (L.Projection v1' (L.Ix (lblIx+1)), Just lt)
 
-              -- C.Selection v1 v2 -> do
-              --   (v1', t1) <- val2lin v1
-              --   (v2', t2) <- val2lin v2
-              --   let Just (C.TableType t11 t12) = t1
-              --   return (L.Projection v1' v2', Just t12)
+              C.Selection v1 v2 -> do
+                (v1', t1) <- val2lin v1
+                (v2', t2) <- val2lin v2
+                let Just (C.TableType t11 t12) = t1 -- t11 == t2
+                return (L.Projection v1' v2', Just t12)
 
               C.CommentedValue cmnt lv -> val2lin lv
 
@@ -357,10 +363,10 @@ reduce lf = case lf of
       (t',u') -> L.Projection t' u'
   t -> t
 
--- | If list is non-empty return its head, else a fallback value
-headOrLeft :: [a] -> b -> Either b a
-headOrLeft (a:_) _ = Right a
-headOrLeft _ b = Left b
+-- -- | If list is non-empty return its head, else a fallback value
+-- headOrLeft :: [a] -> b -> Either b a
+-- headOrLeft (a:_) _ = Right a
+-- headOrLeft _ b = Left b
 
 -- | Convert Maybe to Either value with error
 m2e :: String -> Maybe a -> Either String a

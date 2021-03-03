@@ -38,34 +38,34 @@ walking = LPGF {
   concretes = Map.fromList [
     (mkCId "WalkingEng", Concr {
       -- lincats = Map.fromList [
-      --   (mkCId "S", LTStr),
-      --   (mkCId "NP", LTProduct [LTStr, LTInt 2]),
-      --   (mkCId "VP", LTProduct [LTStr, LTStr])
+      --   (mkCId "S", StrType),
+      --   (mkCId "NP", ProductType [StrType, IxType 2]),
+      --   (mkCId "VP", ProductType [StrType, StrType])
       -- ],
       lins = Map.fromList [
-        (mkCId "And", mkConcat [LFArgument 1, LFToken "and", LFArgument 2]),
-        -- (mkCId "Pred", mkConcat [LFProjection (LFArgument 1) (LFInt 1), LFProjection (LFArgument 2) (LFProjection (LFArgument 1) (LFInt 2))]),
-        (mkCId "Pred", mkConcat [LFProjection (LFArgument 1) (LFInt 1), LFProjection (LFProjection (LFArgument 2) (LFInt 1)) (LFProjection (LFArgument 1) (LFInt 2))]),
-        (mkCId "John", LFTuple [LFToken "John", LFInt 1]),
-        (mkCId "We", LFTuple [LFToken "we", LFInt 2]),
-        -- (mkCId "Walk", LFTuple [LFToken "walks", LFToken "walk"])
-        (mkCId "Walk", LFTuple [LFTuple [LFToken "walks", LFToken "walk"]])
+        (mkCId "And", mkConcat [Argument 1, Token "and", Argument 2]),
+        -- (mkCId "Pred", mkConcat [Projection (Argument 1) (Ix 1), Projection (Argument 2) (Projection (Argument 1) (Ix 2))]),
+        (mkCId "Pred", mkConcat [Projection (Argument 1) (Ix 1), Projection (Projection (Argument 2) (Ix 1)) (Projection (Argument 1) (Ix 2))]),
+        (mkCId "John", Tuple [Token "John", Ix 1]),
+        (mkCId "We", Tuple [Token "we", Ix 2]),
+        -- (mkCId "Walk", Tuple [Token "walks", Token "walk"])
+        (mkCId "Walk", Tuple [Tuple [Token "walks", Token "walk"]])
       ]
     }),
     (mkCId "WalkingGer", Concr {
       -- lincats = Map.fromList [
-      --   (mkCId "S", LTStr),
-      --   (mkCId "NP", LTProduct [LTStr, LTInt 2, LTInt 3]),
-      --   (mkCId "VP", LTProduct [LTProduct [LTStr, LTStr, LTStr], LTProduct [LTStr, LTStr, LTStr]])
+      --   (mkCId "S", StrType),
+      --   (mkCId "NP", ProductType [StrType, IxType 2, IxType 3]),
+      --   (mkCId "VP", ProductType [ProductType [StrType, StrType, StrType], ProductType [StrType, StrType, StrType]])
       -- ],
       lins = Map.fromList [
-        (mkCId "And", mkConcat [LFArgument 1, LFToken "und", LFArgument 2]),
-        -- (mkCId "Pred", mkConcat [LFProjection (LFArgument 1) (LFInt 1), LFProjection (LFProjection (LFArgument 2) (LFProjection (LFArgument 1) (LFInt 2))) (LFProjection (LFArgument 1) (LFInt 3))]),
-        (mkCId "Pred", mkConcat [LFProjection (LFArgument 1) (LFInt 1), LFProjection (LFProjection (LFProjection (LFArgument 2) (LFInt 1)) (LFProjection (LFArgument 1) (LFInt 2))) (LFProjection (LFArgument 1) (LFInt 3))]),
-        (mkCId "John", LFTuple [LFToken "John", LFInt 1, LFInt 3]),
-        (mkCId "We", LFTuple [LFToken "wir", LFInt 2, LFInt 1]),
-        -- (mkCId "Walk", LFTuple [LFTuple [LFToken "gehe", LFToken "gehst", LFToken "geht"], LFTuple [LFToken "gehen", LFToken "geht", LFToken "gehen"]])
-        (mkCId "Walk", LFTuple [LFTuple [LFTuple [LFToken "gehe", LFToken "gehst", LFToken "geht"], LFTuple [LFToken "gehen", LFToken "geht", LFToken "gehen"]]])
+        (mkCId "And", mkConcat [Argument 1, Token "und", Argument 2]),
+        -- (mkCId "Pred", mkConcat [Projection (Argument 1) (Ix 1), Projection (Projection (Argument 2) (Projection (Argument 1) (Ix 2))) (Projection (Argument 1) (Ix 3))]),
+        (mkCId "Pred", mkConcat [Projection (Argument 1) (Ix 1), Projection (Projection (Projection (Argument 2) (Ix 1)) (Projection (Argument 1) (Ix 2))) (Projection (Argument 1) (Ix 3))]),
+        (mkCId "John", Tuple [Token "John", Ix 1, Ix 3]),
+        (mkCId "We", Tuple [Token "wir", Ix 2, Ix 1]),
+        -- (mkCId "Walk", Tuple [Tuple [Token "gehe", Token "gehst", Token "geht"], Tuple [Token "gehen", Token "geht", Token "gehen"]])
+        (mkCId "Walk", Tuple [Tuple [Tuple [Token "gehe", Token "gehst", Token "geht"], Tuple [Token "gehen", Token "geht", Token "gehen"]]])
       ]
     })
   ]
@@ -73,6 +73,6 @@ walking = LPGF {
 
 -- | Helper for building concat trees
 mkConcat :: [LinFun] -> LinFun
-mkConcat [] = LFEmpty
+mkConcat [] = Empty
 mkConcat [x] = x
-mkConcat xs = foldl1 LFConcat xs
+mkConcat xs = foldl1 Concat xs
