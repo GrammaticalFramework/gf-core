@@ -8,7 +8,8 @@ import GF.Grammar.Grammar
 import qualified GF.Grammar.Canonical as C
 import GF.Compile.GrammarToCanonical (grammar2canonical)
 
-import GF.Infra.Option
+import GF.Data.Operations (ErrorMonad (..))
+import GF.Infra.Option (Options)
 import GF.Infra.UseIO (IOE)
 import GF.Text.Pretty (pp, render)
 
@@ -43,16 +44,15 @@ mkCanon2lpgf opts gr am = do
   where
     canon@(C.Grammar ab cncs) = grammar2canonical opts am gr
 
-    mkAbstract :: C.Abstract -> IOE (CId, L.Abstract)
+    mkAbstract :: (ErrorMonad err) => C.Abstract -> err (CId, L.Abstract)
     mkAbstract (C.Abstract modId flags cats funs) = return (mdi2i modId, L.Abstract {})
 
-    mkConcrete :: C.Concrete -> IOE (CId, L.Concrete) -- TODO don't need IO, use ErrM
+    mkConcrete :: (ErrorMonad err) => C.Concrete -> err (CId, L.Concrete)
     mkConcrete (C.Concrete modId absModId flags params' lincats lindefs) = do
       let
         (C.Abstract _ _ _ funs) = ab
         params = inlineParamAliases params' -- TODO remove by making mkParamTuples return map
         paramTuples = mkParamTuples params'
-      -- mapM_ (\(C.ParamDef (C.ParamId (C.Qual _ pid)) _,ptup) -> putStrLn $ "# " ++ pid ++ "\n" ++ T.unpack (L.render $ L.pp ptup)) (zip params paramTuples)
       let
 
         -- filter out record fields from defn which don't appear in lincat
@@ -227,14 +227,14 @@ mkCanon2lpgf opts gr am = do
 
               v -> Left $ printf "val2lin not implemented for: %s" (show v)
 
-      unless (null $ lefts es) (error $ unlines (lefts es))
+      unless (null $ lefts es) (raise $ unlines (lefts es))
 
       return (mdi2i modId, L.Concrete {
         L.lins = lins
       })
 
 -- | Remove ParamAliasDefs by inlining their definitions
-inlineParamAliases :: [C.ParamDef] -> [C.ParamDef]
+inlineParamAliases :: [C.ParamDef] -> [C.ParamDef] -- TODO use error monad
 inlineParamAliases defs = if null aliases then defs else map rp' pdefs
   where
     (aliases,pdefs) = L.partition isParamAliasDef defs
@@ -252,7 +252,7 @@ inlineParamAliases defs = if null aliases then defs else map rp' pdefs
       _ -> pid
 
 -- | Build nested tuple of param values
-mkParamTuples :: [C.ParamDef] -> [L.LinFun]
+mkParamTuples :: [C.ParamDef] -> [L.LinFun] -- TODO use error monad
 mkParamTuples defs = map (addIndexes . mk') pdefs
   where
     pdefs = inlineParamAliases defs
