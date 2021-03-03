@@ -16,6 +16,7 @@ concrete TablesCnc of Tables = {
     f6 = { pr = { r = R2; q = Q3 } } ;
 
     FtoS f = tbl ! f.pr ;
+    FtoS2 f = tbl ! { r = R2 ; q = f.pr.q } ;
   oper
     tbl = table {
       { r = R1 ; q = _ }  => "R1 _" ;

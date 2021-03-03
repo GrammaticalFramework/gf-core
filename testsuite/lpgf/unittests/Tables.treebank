@@ -15,3 +15,21 @@ TablesCnc: _ Q2
 
 Tables: FtoS f6
 TablesCnc: R2 Q3
+
+Tables: FtoS2 f1
+TablesCnc: _ _
+
+Tables: FtoS2 f2
+TablesCnc: _ Q2
+
+Tables: FtoS2 f3
+TablesCnc: R2 Q3
+
+Tables: FtoS2 f4
+TablesCnc: _ _
+
+Tables: FtoS2 f5
+TablesCnc: _ Q2
+
+Tables: FtoS2 f6
+TablesCnc: R2 Q3

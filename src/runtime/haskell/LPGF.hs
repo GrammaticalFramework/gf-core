@@ -4,6 +4,7 @@
 -- | Linearisation-only grammar format.
 -- Closely follows description in Section 2 of Angelov, Bringert, Ranta (2009):
 -- "PGF: A Portable Run-Time Format for Type-Theoretical Grammars".
+-- http://citeseerx.ist.psu.edu/viewdoc/download?doi=10.1.1.640.6330&rep=rep1&type=pdf
 module LPGF where
 
 import PGF (Language)
@@ -46,30 +47,30 @@ newtype Concrete = Concrete {
 
 -- -- | Linearisation type
 -- data LinType =
---     LTStr
---   | LTInt Int
---   | LTProduct [LinType]
+--     StrType
+--   | IxType Int
+--   | ProductType [LinType]
 --   deriving (Show)
 
 -- | Linearisation function
 data LinFun =
   -- Additions
-    LFError String -- ^ a runtime error, should probably not be supported at all
-  | LFBind -- ^ join adjacent tokens
-  | LFSpace -- ^ space between adjacent tokens
-  | LFCapit -- ^ capitalise next character
-  | LFAllCapit -- ^ capitalise next word
-  | LFPre [([Text], LinFun)] LinFun
-  | LFMissing CId -- ^ missing definition (inserted at runtime)
+    Error String -- ^ a runtime error, should probably not be supported at all
+  | Bind -- ^ join adjacent tokens
+  | Space -- ^ space between adjacent tokens
+  | Capit -- ^ capitalise next character
+  | AllCapit -- ^ capitalise next word
+  | Pre [([Text], LinFun)] LinFun
+  | Missing CId -- ^ missing definition (inserted at runtime)
 
   -- From original definition in paper
-  | LFEmpty
-  | LFToken Text
-  | LFConcat LinFun LinFun
-  | LFInt Int
-  | LFTuple [LinFun]
-  | LFProjection LinFun LinFun
-  | LFArgument Int
+  | Empty
+  | Token Text
+  | Concat LinFun LinFun
+  | Ix Int
+  | Tuple [LinFun]
+  | Projection LinFun LinFun
+  | Argument Int
   deriving (Show, Read)
 
 instance Binary LPGF where
@@ -101,37 +102,37 @@ instance Binary Concrete where
 
 instance Binary LinFun where
   put = \case
-    LFError e          -> putWord8 0 >> put e
-    LFBind             -> putWord8 1
-    LFSpace            -> putWord8 2
-    LFCapit            -> putWord8 3
-    LFAllCapit         -> putWord8 4
-    LFPre ps d         -> putWord8 5 >> put ([(map TE.encodeUtf8 p,l) | (p,l) <- ps],d)
-    LFMissing f        -> putWord8 13 >> put f
-    LFEmpty            -> putWord8 6
-    LFToken t          -> putWord8 7 >> put (TE.encodeUtf8 t)
-    LFConcat l1 l2     -> putWord8 8 >> put (l1,l2)
-    LFInt i            -> putWord8 9 >> put i
-    LFTuple ls         -> putWord8 10 >> put ls
-    LFProjection l1 l2 -> putWord8 11 >> put (l1,l2)
-    LFArgument i       -> putWord8 12 >> put i
+    Error e          -> putWord8 0 >> put e
+    Bind             -> putWord8 1
+    Space            -> putWord8 2
+    Capit            -> putWord8 3
+    AllCapit         -> putWord8 4
+    Pre ps d         -> putWord8 5 >> put ([(map TE.encodeUtf8 p,l) | (p,l) <- ps],d)
+    Missing f        -> putWord8 13 >> put f
+    Empty            -> putWord8 6
+    Token t          -> putWord8 7 >> put (TE.encodeUtf8 t)
+    Concat l1 l2     -> putWord8 8 >> put (l1,l2)
+    Ix i             -> putWord8 9 >> put i
+    Tuple ls         -> putWord8 10 >> put ls
+    Projection l1 l2 -> putWord8 11 >> put (l1,l2)
+    Argument i       -> putWord8 12 >> put i
   get = do
     tag <- getWord8
     case tag of
-      0  -> liftM LFError get
-      1  -> return LFBind
-      2  -> return LFSpace
-      3  -> return LFCapit
-      4  -> return LFAllCapit
-      5  -> liftM2 (\ps -> LFPre [(map TE.decodeUtf8 p,l) | (p,l) <- ps]) get get
-      13 -> liftM LFMissing get
-      6  -> return LFEmpty
-      7  -> liftM (LFToken . TE.decodeUtf8) get
-      8  -> liftM2 LFConcat get get
-      9  -> liftM LFInt get
-      10 -> liftM LFTuple get
-      11 -> liftM2 LFProjection get get
-      12 -> liftM LFArgument get
+      0  -> liftM  Error get
+      1  -> return Bind
+      2  -> return Space
+      3  -> return Capit
+      4  -> return AllCapit
+      5  -> liftM2 (\ps -> Pre [(map TE.decodeUtf8 p,l) | (p,l) <- ps]) get get
+      13 -> liftM  Missing get
+      6  -> return Empty
+      7  -> liftM (Token . TE.decodeUtf8) get
+      8  -> liftM2 Concat get get
+      9  -> liftM  Ix get
+      10 -> liftM  Tuple get
+      11 -> liftM2 Projection get get
+      12 -> liftM  Argument get
       _ -> fail "Failed to decode LPGF binary format"
 
 abstractName :: LPGF -> CId
@@ -168,7 +169,7 @@ linearizeConcreteText concr expr = lin2string $ lin (expr2tree expr)
         case Map.lookup f (lins concr) of
           Just t -> eval (map lin as) t
           -- _ -> error $ printf "Lookup failed for function: %s" (showCId f)
-          _ -> LFMissing f
+          _ -> Missing f
       x -> error $ printf "Cannot lin: %s" (prTree x)
 
 -- | Evaluation context is a sequence of terms
@@ -177,48 +178,53 @@ type Context = [LinFun]
 -- | Operational semantics
 eval :: Context -> LinFun -> LinFun
 eval cxt t = case t of
-  LFError err -> error err
-  LFPre pts df -> LFPre pts' df'
+  Error err -> error err
+  Pre pts df -> Pre pts' df'
     where
       pts' = [ (strs, eval cxt t) | (strs,t) <- pts]
       df' = eval cxt df
-  LFConcat s t -> LFConcat v w
+  Concat s t -> Concat v w
     where
       v = eval cxt s
       w = eval cxt t
-  LFTuple ts -> LFTuple vs
+  Tuple ts -> Tuple vs
     where vs = map (eval cxt) ts
-  LFProjection t u ->
+  Projection t u ->
     case (eval cxt t, eval cxt u) of
-      (LFMissing f, _) -> LFMissing f
-      (_, LFMissing f) -> LFMissing f
-      (LFTuple vs, LFInt i) -> vs !! (i-1)
-      (tp@(LFTuple _), LFTuple is) | all isInt is -> foldl (\(LFTuple vs) (LFInt i) -> vs !! (i-1)) tp is
-      (t',u') -> error $ printf "Incompatible projection:\n- %s ~> %s\n- %s ~> %s" (show t) (show t') (show u) (show u')
-  LFArgument i -> cxt !! (i-1)
+      (Missing f, _) -> Missing f
+      (_, Missing f) -> Missing f
+      (Tuple vs, Ix i) -> vs !! (i-1)
+      (tp@(Tuple _), tv@(Tuple _)) | all isIx (flattenTuple tv) -> foldl (\(Tuple vs) (Ix i) -> vs !! (i-1)) tp (flattenTuple tv)
+      (t',u') -> error $ printf "Incompatible projection:\n- %s\n⇓ %s\n- %s\n⇓ %s" (show t) (show t') (show u) (show u')
+  Argument i -> cxt !! (i-1)
   _ -> t
+
+flattenTuple :: LinFun -> [LinFun]
+flattenTuple = \case
+  Tuple vs -> concatMap flattenTuple vs
+  lf -> [lf]
 
 -- | Turn concrete syntax terms into an actual string
 lin2string :: LinFun -> Text
 lin2string l = case l of
-  LFEmpty -> ""
-  LFBind -> "" -- when encountered at beginning/end
-  LFSpace -> "" -- when encountered at beginning/end
-  LFToken tok -> tok
-  LFMissing cid -> T.pack $ printf "[%s]" (show cid)
-  LFTuple [l] -> lin2string l
-  LFTuple (l:_) -> lin2string l -- unselected table, just choose first option (see e.g. FoodsJpn)
-  LFPre pts df -> lin2string df -- when encountered at end
-  LFConcat (LFPre pts df) l2 -> lin2string $ LFConcat l1 l2
+  Empty -> ""
+  Bind -> "" -- when encountered at beginning/end
+  Space -> "" -- when encountered at beginning/end
+  Token tok -> tok
+  Missing cid -> T.pack $ printf "[%s]" (show cid)
+  Tuple [l] -> lin2string l
+  Tuple (l:_) -> lin2string l -- unselected table, just choose first option (see e.g. FoodsJpn)
+  Pre pts df -> lin2string df -- when encountered at end
+  Concat (Pre pts df) l2 -> lin2string $ Concat l1 l2
     where
       l2' = lin2string l2
       matches = [ l | (pfxs, l) <- pts, any (`T.isPrefixOf` l2') pfxs ]
       l1 = if null matches then df else head matches
-  LFConcat l1 (LFConcat LFBind l2) -> lin2string l1 `T.append` lin2string l2
-  LFConcat l1 (LFConcat LFSpace l2) -> lin2string $ LFConcat l1 l2
-  LFConcat LFCapit l2 -> let l = lin2string l2 in T.toUpper (T.take 1 l) `T.append` T.drop 1 l
-  LFConcat LFAllCapit l2 -> let tks = T.words (lin2string l2) in T.unwords $ T.toUpper (head tks) : tail tks
-  LFConcat l1 l2 -> T.unwords $ filter (not.T.null) [lin2string l1, lin2string l2]
+  Concat l1 (Concat Bind l2) -> lin2string l1 `T.append` lin2string l2
+  Concat l1 (Concat Space l2) -> lin2string $ Concat l1 l2
+  Concat Capit l2 -> let l = lin2string l2 in T.toUpper (T.take 1 l) `T.append` T.drop 1 l
+  Concat AllCapit l2 -> let tks = T.words (lin2string l2) in T.unwords $ T.toUpper (head tks) : tail tks
+  Concat l1 l2 -> T.unwords $ filter (not.T.null) [lin2string l1, lin2string l2]
   x -> T.pack $ printf "[%s]" (show x)
 
 -- | List indexing with more verbose error messages
@@ -228,19 +234,19 @@ lin2string l = case l of
   | i > length xs - 1 = error $ printf "!!: index %d too large for list: %s" i (show xs)
   | otherwise = xs Prelude.!! i
 
-isInt :: LinFun -> Bool
-isInt (LFInt _) = True
-isInt _ = False
+isIx :: LinFun -> Bool
+isIx (Ix _) = True
+isIx _ = False
 
 -- | Helper for building concat trees
 mkConcat :: [LinFun] -> LinFun
-mkConcat [] = LFEmpty
+mkConcat [] = Empty
 mkConcat [x] = x
-mkConcat xs = foldl1 LFConcat xs
+mkConcat xs = foldl1 Concat xs
 
 -- | Helper for unfolding concat trees
 unConcat :: LinFun -> [LinFun]
-unConcat (LFConcat l1 l2) = concatMap unConcat [l1, l2]
+unConcat (Concat l1 l2) = concatMap unConcat [l1, l2]
 unConcat lf = [lf]
 
 ------------------------------------------------------------------------------
@@ -268,24 +274,24 @@ instance PP LinFun where
   pp = pp' 0
     where
       pp' n = \case
-        LFPre ps d -> do
-          p "LFPre"
+        Pre ps d -> do
+          p "Pre"
           CMW.tell [ T.replicate (n+1) "  " `T.append` T.pack (show p) | p <- ps ]
           pp' (n+1) d
 
-        c@(LFConcat l1 l2) -> do
+        c@(Concat l1 l2) -> do
           let ts = unConcat c
           if any isDeep ts
           then do
-            p "LFConcat"
+            p "Concat"
             mapM_ (pp' (n+1)) ts
           else
-            ps $ "LFConcat " ++ show ts
-        LFTuple ls | any isDeep ls -> do
-          p "LFTuple"
+            ps $ "Concat " ++ show ts
+        Tuple ls | any isDeep ls -> do
+          p "Tuple"
           mapM_ (pp' (n+1)) ls
-        LFProjection l1 l2 | isDeep l1 || isDeep l2 -> do
-          p "LFProjection"
+        Projection l1 l2 | isDeep l1 || isDeep l2 -> do
+          p "Projection"
           pp' (n+1) l1
           pp' (n+1) l2
         t -> ps $ show t
@@ -297,8 +303,8 @@ instance PP LinFun where
 
       isDeep = not . isTerm
       isTerm = \case
-        LFPre _ _ -> False
-        LFConcat _ _ -> False
-        LFTuple _ -> False
-        LFProjection _ _ -> False
+        Pre _ _ -> False
+        Concat _ _ -> False
+        Tuple _ -> False
+        Projection _ _ -> False
         _ -> True
