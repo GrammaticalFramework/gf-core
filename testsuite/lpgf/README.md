@@ -19,6 +19,8 @@ stack test gf:test:lpgf --test-arguments="foods/Foods Fre Ger" # specific gramma
 
 ## Benchmark
 
+Compare performance metrics between LPGF and PGF[2]. Note: correctness is not checked here.
+
 ### Compilation
 
 Comparing PGF, LPGF along following criteria:

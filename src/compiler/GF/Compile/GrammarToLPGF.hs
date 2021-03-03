@@ -15,12 +15,16 @@ import GF.Text.Pretty (pp, render)
 
 import Control.Applicative ((<|>))
 import Control.Monad (when, unless, forM, forM_)
+import qualified Control.Monad.State as CMS
 import Data.Either (lefts, rights)
+import qualified Data.IntMap as IntMap
 import Data.List (elemIndex)
 import qualified Data.List as L
-import qualified Data.Map as Map
+import qualified Data.Map.Strict as Map
 import Data.Maybe (fromJust, isJust)
+import Data.Text (Text)
 import qualified Data.Text as T
+import Data.Tuple (swap)
 import System.Environment (lookupEnv)
 import System.FilePath ((</>), (<.>))
 import Text.Printf (printf)
@@ -234,9 +238,11 @@ mkCanon2lpgf opts gr am = do
 
       unless (null $ lefts es) (raise $ unlines (lefts es))
 
-      return (mdi2i modId, L.Concrete {
+      let concr = extractStrings $ L.Concrete {
+        L.toks = IntMap.empty,
         L.lins = lins
-      })
+      }
+      return (mdi2i modId, concr)
 
 -- | Remove ParamAliasDefs by inlining their definitions
 inlineParamAliases :: [C.ParamDef] -> [C.ParamDef]
@@ -284,22 +290,52 @@ isRecordType :: C.LinType -> Bool
 isRecordType (C.RecordType _) = True
 isRecordType _ = False
 
--- | Minimise a linfun by evaluating projections where possible
--- This code closely matches the runtime's `eval` function, except we have no context
-reduce :: L.LinFun -> L.LinFun
-reduce lf = case lf of
-  L.Pre pts df -> L.Pre pts' df'
-    where
-      pts' = [ (strs,reduce t) | (strs,t) <- pts]
-      df' = reduce df
-  L.Concat s t -> L.Concat (reduce s) (reduce t)
-  L.Tuple ts -> L.Tuple (map reduce ts)
-  L.Projection t u ->
-    case (reduce t, reduce u) of
-      (L.Tuple vs, L.Ix i) -> reduce $ vs !! (i-1)
-      (tp@(L.Tuple _), L.Tuple is) | all L.isIx is -> foldl (\(L.Tuple vs) (L.Ix i) -> vs !! (i-1)) tp is
-      (t',u') -> L.Projection t' u'
-  t -> t
+-- | Find all token strings, put them in a map and replace with token indexes
+extractStrings :: L.Concrete -> L.Concrete
+extractStrings concr = L.Concrete { L.toks = strMap, L.lins = lins'}
+  where
+    state = (
+      L.toks concr, -- the IntMap we're building
+      Map.fromList (map swap (IntMap.toList (L.toks concr))) -- a reversed map for lookups
+      )
+    (lins',(strMap,_)) = CMS.runState (go0 (L.lins concr)) state
+
+    go0 :: Map.Map CId L.LinFun -> CMS.State (IntMap.IntMap Text, Map.Map Text Int) (Map.Map CId L.LinFun)
+    go0 mp = do
+      xs <- mapM (\(cid,lin) -> go lin >>= \lin' -> return (cid,lin')) (Map.toList mp)
+      return $ Map.fromList xs
+
+    go :: L.LinFun -> CMS.State (IntMap.IntMap Text, Map.Map Text Int) L.LinFun
+    go lf = case lf of
+      L.Token str -> do
+        (intMap,revMap) <- CMS.get
+        case Map.lookup str revMap of
+          Just i -> return $ L.TokenIx i
+          Nothing -> do
+            -- add string to map and replace with index
+            let i = IntMap.size intMap
+            let intMap' = IntMap.insert i str intMap
+            let revMap' = Map.insert str i revMap
+            CMS.put (intMap',revMap')
+            return $ L.TokenIx i
+
+      -- TODO big savings can be made by putting prefixes in string map too
+      L.Pre pts df -> do
+        pts' <- mapM (\(pfxs,lv) -> go lv >>= \lv' -> return (pfxs,lv')) pts
+        df' <- go df
+        return $ L.Pre pts' df'
+      L.Concat s t -> do
+        s' <- go s
+        t' <- go t
+        return $ L.Concat s' t'
+      L.Tuple ts -> do
+        ts' <- mapM go ts
+        return $ L.Tuple ts'
+      L.Projection t u -> do
+        t' <- go t
+        u' <- go u
+        return $ L.Projection t' u'
+      t -> return t
 
 -- | Convert Maybe to Either value with error
 m2e :: String -> Maybe a -> Either String a
@@ -352,7 +388,7 @@ dumpCanonical path (C.Grammar ab cncs) = do
 ppLPGF :: FilePath -> LPGF -> IO ()
 ppLPGF path lpgf =
   forM_ (Map.toList $ L.concretes lpgf) $ \(cid,concr) ->
-    writeFile' (path </> showCId cid <.> "lpgf.txt") (T.unpack $ L.render $ L.pp concr)
+    writeFile' (path </> showCId cid <.> "lpgf.txt") (L.render $ L.pp concr)
 
 -- | Dump LPGF to file
 dumpLPGF :: FilePath -> LPGF -> IO ()

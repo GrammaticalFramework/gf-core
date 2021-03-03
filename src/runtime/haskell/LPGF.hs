@@ -15,7 +15,8 @@ import PGF.Tree (Tree (..), expr2tree, prTree)
 import Control.Monad (liftM, liftM2, forM_)
 import qualified Control.Monad.Writer as CMW
 import Data.Binary (Binary, put, get, putWord8, getWord8, encodeFile, decodeFile)
-import qualified Data.Map as Map
+import qualified Data.IntMap as IntMap
+import qualified Data.Map.Strict as Map
 import Data.Text (Text)
 import qualified Data.Text as T
 import qualified Data.Text.Encoding as TE
@@ -36,7 +37,8 @@ data Abstract = Abstract {
 } deriving (Show)
 
 -- | Concrete syntax
-newtype Concrete = Concrete {
+data Concrete = Concrete {
+  toks    :: IntMap.IntMap Text, -- ^ all strings are stored exactly once here
   -- lincats :: Map.Map CId LinType, -- ^ a linearization type for each category
   lins    :: Map.Map CId LinFun  -- ^ a linearization function for each function
 } deriving (Show)
@@ -66,6 +68,7 @@ data LinFun =
   -- From original definition in paper
   | Empty
   | Token Text
+  | TokenIx Int -- ^ index into `toks` map
   | Concat LinFun LinFun
   | Ix Int
   | Tuple [LinFun]
@@ -93,10 +96,14 @@ instance Binary Abstract where
   get = return $ Abstract {}
 
 instance Binary Concrete where
-  put concr = put (lins concr)
+  put concr = do
+    put (toks concr)
+    put (lins concr)
   get = do
+    ts <- get
     ls <- get
     return $ Concrete {
+      toks = ts,
       lins = ls
     }
 
@@ -107,10 +114,11 @@ instance Binary LinFun where
     Space            -> putWord8 2
     Capit            -> putWord8 3
     AllCapit         -> putWord8 4
-    Pre ps d         -> putWord8 5 >> put ([(map TE.encodeUtf8 p,l) | (p,l) <- ps],d)
+    Pre ps d         -> putWord8 5 >> put (ps,d)
     Missing f        -> putWord8 13 >> put f
     Empty            -> putWord8 6
-    Token t          -> putWord8 7 >> put (TE.encodeUtf8 t)
+    Token t          -> putWord8 7 >> put t
+    TokenIx i        -> putWord8 14 >> put i
     Concat l1 l2     -> putWord8 8 >> put (l1,l2)
     Ix i             -> putWord8 9 >> put i
     Tuple ls         -> putWord8 10 >> put ls
@@ -124,16 +132,21 @@ instance Binary LinFun where
       2  -> return Space
       3  -> return Capit
       4  -> return AllCapit
-      5  -> liftM2 (\ps -> Pre [(map TE.decodeUtf8 p,l) | (p,l) <- ps]) get get
+      5  -> liftM2 Pre get get
       13 -> liftM  Missing get
       6  -> return Empty
-      7  -> liftM (Token . TE.decodeUtf8) get
+      7  -> liftM  Token get
+      14 -> liftM  TokenIx get
       8  -> liftM2 Concat get get
       9  -> liftM  Ix get
       10 -> liftM  Tuple get
       11 -> liftM2 Projection get get
       12 -> liftM  Argument get
-      _ -> fail "Failed to decode LPGF binary format"
+      _  -> fail "Failed to decode LPGF binary format"
+
+instance Binary Text where
+  put = put . TE.encodeUtf8
+  get = liftM TE.decodeUtf8 get
 
 abstractName :: LPGF -> CId
 abstractName = absname
@@ -167,13 +180,16 @@ linearizeConcreteText concr expr = lin2string $ lin (expr2tree expr)
     lin tree = case tree of
       Fun f as ->
         case Map.lookup f (lins concr) of
-          Just t -> eval (map lin as) t
-          -- _ -> error $ printf "Lookup failed for function: %s" (showCId f)
+          Just t -> eval cxt t
+            where cxt = Context { cxToks = toks concr, cxArgs = map lin as }
           _ -> Missing f
       x -> error $ printf "Cannot lin: %s" (prTree x)
 
--- | Evaluation context is a sequence of terms
-type Context = [LinFun]
+-- | Evaluation context
+data Context = Context {
+  cxArgs :: [LinFun], -- ^  is a sequence of terms
+  cxToks :: IntMap.IntMap Text -- ^ token map
+}
 
 -- | Operational semantics
 eval :: Context -> LinFun -> LinFun
@@ -181,8 +197,9 @@ eval cxt t = case t of
   Error err -> error err
   Pre pts df -> Pre pts' df'
     where
-      pts' = [ (strs, eval cxt t) | (strs,t) <- pts]
+      pts' = [(pfxs, eval cxt t) | (pfxs, t) <- pts]
       df' = eval cxt df
+  TokenIx i -> maybe Empty Token $ IntMap.lookup i (cxToks cxt)
   Concat s t -> Concat v w
     where
       v = eval cxt s
@@ -196,7 +213,7 @@ eval cxt t = case t of
       (Tuple vs, Ix i) -> vs !! (i-1)
       (tp@(Tuple _), tv@(Tuple _)) | all isIx (flattenTuple tv) -> foldl (\(Tuple vs) (Ix i) -> vs !! (i-1)) tp (flattenTuple tv)
       (t',u') -> error $ printf "Incompatible projection:\n- %s\n⇓ %s\n- %s\n⇓ %s" (show t) (show t') (show u) (show u')
-  Argument i -> cxt !! (i-1)
+  Argument i -> cxArgs cxt !! (i-1)
   _ -> t
 
 flattenTuple :: LinFun -> [LinFun]
@@ -252,10 +269,10 @@ unConcat lf = [lf]
 ------------------------------------------------------------------------------
 -- Pretty-printing
 
-type Doc = CMW.Writer [Text] ()
+type Doc = CMW.Writer [String] ()
 
-render :: Doc -> Text
-render = T.unlines . CMW.execWriter
+render :: Doc -> String
+render = unlines . CMW.execWriter
 
 class PP a where
   pp :: a -> Doc
@@ -264,9 +281,12 @@ instance PP LPGF where
   pp (LPGF _ _ cncs) = mapM_ pp cncs
 
 instance PP Concrete where
-  pp (Concrete lins) =
+  pp (Concrete toks lins) = do
+    forM_ (IntMap.toList toks) $ \(i,tok) ->
+      CMW.tell [show i ++ " " ++ T.unpack tok]
+    CMW.tell [""]
     forM_ (Map.toList lins) $ \(cid,lin) -> do
-      CMW.tell [T.pack ("# " ++ showCId cid)]
+      CMW.tell ["# " ++ showCId cid]
       pp lin
       CMW.tell [""]
 
@@ -276,7 +296,7 @@ instance PP LinFun where
       pp' n = \case
         Pre ps d -> do
           p "Pre"
-          CMW.tell [ T.replicate (n+1) "  " `T.append` T.pack (show p) | p <- ps ]
+          CMW.tell [ replicate (2*(n+1)) ' ' ++ show p | p <- ps ]
           pp' (n+1) d
 
         c@(Concat l1 l2) -> do
@@ -286,7 +306,7 @@ instance PP LinFun where
             p "Concat"
             mapM_ (pp' (n+1)) ts
           else
-            ps $ "Concat " ++ show ts
+            p $ "Concat " ++ show ts
         Tuple ls | any isDeep ls -> do
           p "Tuple"
           mapM_ (pp' (n+1)) ls
@@ -294,12 +314,10 @@ instance PP LinFun where
           p "Projection"
           pp' (n+1) l1
           pp' (n+1) l2
-        t -> ps $ show t
+        t -> p $ show t
         where
-          p :: Text -> Doc
-          p t = CMW.tell [ T.replicate n "  " `T.append` t ]
-          ps :: String -> Doc
-          ps = p . T.pack
+          p :: String -> Doc
+          p t = CMW.tell [ replicate (2*n) ' ' ++ t ]
 
       isDeep = not . isTerm
       isTerm = \case
