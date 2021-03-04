@@ -174,11 +174,15 @@ mkCanon2lpgf opts gr am = do
                 -- remove one level of depth and recurse
                 let
                   handleGroup :: [C.TableRowValue] -> Either String (L.LinFun, Maybe C.LinType)
-                  handleGroup [C.TableRow _ lv] = val2lin lv -- TODO suspect
+                  handleGroup [C.TableRow patt lv] =
+                    case reducePattern patt of
+                      Just patt' -> do
+                        (lf,lt) <- handleGroup [C.TableRow patt' lv]
+                        return (L.Tuple [lf],lt)
+                      Nothing    -> val2lin lv
                   handleGroup rows = do
-                    let reductions = map reduceRow rows
-                    let rows' = map fromJust reductions
-                    val2lin (C.TableValue lt rows') -- TODO lt is wrong here
+                    let rows' = map reduceRow rows
+                    val2lin (C.TableValue lt rows') -- lt is wrong here, but is unused
 
                   reducePattern :: C.LinPattern -> Maybe C.LinPattern
                   reducePattern patt =
@@ -198,11 +202,10 @@ mkCanon2lpgf opts gr am = do
 
                       _ -> error $ printf "Unhandled pattern in reducing: %s" (show patt)
 
-                  reduceRow :: C.TableRowValue -> Maybe C.TableRowValue
-                  reduceRow row@(C.TableRow patt lv) =
-                    case reducePattern patt of
-                      Just patt' -> Just $ C.TableRow patt' lv
-                      Nothing    -> Nothing
+                  reduceRow :: C.TableRowValue -> C.TableRowValue
+                  reduceRow (C.TableRow patt lv) =
+                    let Just patt' = reducePattern patt
+                    in  C.TableRow patt' lv
 
                 -- ts :: [(L.LinFun, Maybe C.LinType)]
                 ts <- mapM handleGroup grps
