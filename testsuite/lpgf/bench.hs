@@ -15,6 +15,7 @@ import Data.Maybe (fromJust, isJust, isNothing)
 import qualified Data.Map as Map
 import Data.Text (Text)
 import Data.Time.Clock (getCurrentTime, diffUTCTime)
+import System.Console.ANSI
 import System.Directory (listDirectory, getFileSize)
 import System.Environment (getArgs)
 import System.Exit (die)
@@ -70,13 +71,13 @@ main = do
   -- Compilation
   when (mode == "compile") $ do
     when doPGF $ do
-      putStrLn "PGF"
+      heading "PGF"
       (path, pgf) <- time "- compile: " (compilePGF mods)
       size <- getFileSize path
       printf "- size: %s  %s\n" (convertSize size) path
 
     when doLPGF $ do
-      putStrLn "LPGF"
+      heading "LPGF"
       (path, lpgf) <- time "- compile: " (compileLPGF mods)
       size <- getFileSize path
       printf "- size: %s  %s\n" (convertSize size) path
@@ -90,25 +91,31 @@ main = do
     printf "Read %d trees\n" (length trees)
 
     when doPGF $ do
-      putStrLn "PGF"
+      heading "PGF"
       pgf <- PGF.readPGF (dropExtension (fromJust binaryFile) <.> "pgf")
       timePure "- linearise: " (linPGF pgf trees)
       return ()
 
     when doPGF2 $ do
-      putStrLn "PGF2"
+      heading "PGF2"
       pgf <- PGF2.readPGF (dropExtension (fromJust binaryFile) <.> "pgf")
       timePure "- linearise: " (linPGF2 pgf trees2)
       return ()
 
     when doLPGF $ do
-      putStrLn "LPGF"
+      heading "LPGF"
       lpgf <- LPGF.readLPGF (dropExtension (fromJust binaryFile) <.> "lpgf")
       timePure "- linearise: " (linLPGF lpgf trees)
       return ()
 
   stats <- getRTSStats
   printf "Max memory: %s\n" (convertSize (fromIntegral (max_mem_in_use_bytes stats)))
+
+heading :: String -> IO ()
+heading s = do
+  setSGR [SetColor Foreground Vivid Yellow, SetConsoleIntensity BoldIntensity]
+  putStrLn s
+  setSGR [Reset]
 
 time :: String -> IO a -> IO a
 time desc io = do

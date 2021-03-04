@@ -733,6 +733,7 @@ benchmark lpgf-bench
   cc-options:      -std=c99
 
   build-depends:
+    ansi-terminal,
     array,
     base>=4.6 && <5,
     bytestring,
