@@ -16,4 +16,7 @@ abstract Params5 = {
     showP : P_ -> S ;
     showPQ : P_ -> Q_ -> S ;
     showQP : Q_ -> P_ -> S ;
+
+    showPQnested : P_ -> Q_ -> S ;
+    showPPQ : P_ -> Q_ -> S ;
 }

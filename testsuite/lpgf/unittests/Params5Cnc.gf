@@ -23,6 +23,9 @@ concrete Params5Cnc of Params5 = {
     showPQ p q = tblPQRec ! { p = p ; q = q } ;
     showQP q p = tblQPRec ! { q = q ; p = p } ;
 
+    showPQnested p q = tblPtblQRec ! { p = p } ! { q = q } ;
+    showPPQ p q = tblPPQRec ! { pp = {p = p} ; q = q } ;
+
   oper
     tblP : P => Str ;
     tblP = table {
@@ -50,7 +53,7 @@ concrete Params5Cnc of Params5 = {
       {q=QR R2 ; p=PQ (QR R2)} => "QR R2 ; PQ (QR R2)"
     } ;
 
-    tblPQRec : {p:P ;  q:Q} => Str ;
+    tblPQRec : {p:P ; q:Q} => Str ;
     tblPQRec = table {
       {p=P1 ; q=Q1} => "P1 ; Q1";
       {p=P1 ; q=QR R1} => "P1 ; QR R1";
@@ -68,5 +71,52 @@ concrete Params5Cnc of Params5 = {
       {p=PQ (QR R2) ; q=QR R1} => "PQ (QR R2) ; QR R1";
       {p=PQ (QR R2) ; q=QR R2} => "PQ (QR R2) ; QR R2"
     } ;
+
+    tblPtblQRec : {p:P} => {q:Q} => Str ;
+    tblPtblQRec = table {
+      {p=P1} => table {
+        {q=Q1} => "P1 ; Q1";
+        {q=QR R1} => "P1 ; QR R1";
+        {q=QR R2} => "P1 ; QR R2"
+      };
+
+      {p=PQ Q1} => table {
+        {q=Q1} => "PQ Q1 ; Q1";
+        {q=QR R1} => "PQ Q1 ; QR R1";
+        {q=QR R2} => "PQ Q1 ; QR R2"
+      };
+
+      {p=PQ (QR R1)} => table {
+        {q=Q1} => "PQ (QR R1) ; Q1";
+        {q=QR R1} => "PQ (QR R1) ; QR R1";
+        {q=QR R2} => "PQ (QR R1) ; QR R2"
+      };
+
+      {p=PQ (QR R2)} => table {
+        {q=Q1} => "PQ (QR R2) ; Q1";
+        {q=QR R1} => "PQ (QR R2) ; QR R1";
+        {q=QR R2} => "PQ (QR R2) ; QR R2"
+      }
+    } ;
+
+    tblPPQRec : {pp: {p:P} ; q:Q} => Str ;
+    tblPPQRec = table {
+      {pp={p=P1} ; q=Q1} => "P1 ; Q1";
+      {pp={p=P1} ; q=QR R1} => "P1 ; QR R1";
+      {pp={p=P1} ; q=QR R2} => "P1 ; QR R2";
+
+      {pp={p=PQ Q1} ; q=Q1} => "PQ Q1 ; Q1";
+      {pp={p=PQ Q1} ; q=QR R1} => "PQ Q1 ; QR R1";
+      {pp={p=PQ Q1} ; q=QR R2} => "PQ Q1 ; QR R2";
+
+      {pp={p=PQ (QR R1)} ; q=Q1} => "PQ (QR R1) ; Q1";
+      {pp={p=PQ (QR R1)} ; q=QR R1} => "PQ (QR R1) ; QR R1";
+      {pp={p=PQ (QR R1)} ; q=QR R2} => "PQ (QR R1) ; QR R2";
+
+      {pp={p=PQ (QR R2)} ; q=Q1} => "PQ (QR R2) ; Q1";
+      {pp={p=PQ (QR R2)} ; q=QR R1} => "PQ (QR R2) ; QR R1";
+      {pp={p=PQ (QR R2)} ; q=QR R2} => "PQ (QR R2) ; QR R2"
+    } ;
+
 
 }
