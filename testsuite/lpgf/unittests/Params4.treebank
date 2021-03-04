@@ -1,0 +1,44 @@
+Params4: pqrec p1 q1
+Params4Cnc: P1 ; Q1
+
+Params4: pqrec p1 q2
+Params4Cnc: P1 ; Q2
+
+Params4: pqrec p2 q1
+Params4Cnc: P2 ; Q1
+
+Params4: pqrec p2 q2
+Params4Cnc: P2 ; Q2
+
+Params4: r0
+Params4Cnc: R0
+
+Params4: rp p1
+Params4Cnc: RP P1
+
+Params4: rp p2
+Params4Cnc: RP P2
+
+Params4: rpq p1 q1
+Params4Cnc: RPQ P1 Q1
+
+Params4: rpq p1 q2
+Params4Cnc: RPQ P1 Q2
+
+Params4: rpq p2 q1
+Params4Cnc: RPQ P2 Q1
+
+Params4: rpq p2 q2
+Params4Cnc: RPQ P2 Q2
+
+Params4: xpq p1 q1
+Params4Cnc: XPQ P1 Q1
+
+Params4: xpq p1 q2
+Params4Cnc: XPQ P1 Q2
+
+Params4: xpq p2 q1
+Params4Cnc: XPQ P2 Q1
+
+Params4: xpq p2 q2
+Params4Cnc: XPQ P2 Q2

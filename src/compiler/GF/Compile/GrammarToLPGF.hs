@@ -157,10 +157,23 @@ mkCanon2lpgf opts gr am = do
                   go :: [C.TableRowValue] -> Either String (L.LinFun, Maybe C.LinType)
                   go [C.TableRow _ lv] = val2lin lv
                   go trvs = do
-                    let grps = L.groupBy (\(C.TableRow (C.RecordPattern rps1) _) (C.TableRow (C.RecordPattern rps2) _) -> head rps1 == head rps2) trvs
-                    -- ts <- mapM (go . map (\(C.TableRow (C.RecordPattern rps) lv) -> C.TableRow (C.RecordPattern (tail rps)) lv)) grps
+                    let grps = flip L.groupBy trvs $ \tr1 tr2 ->
+                          let
+                            C.TableRow (C.RecordPattern (C.RecordRow lid1 (C.ParamPattern (C.Param pid1 _)):_)) _ = tr1
+                            C.TableRow (C.RecordPattern (C.RecordRow lid2 (C.ParamPattern (C.Param pid2 _)):_)) _ = tr2
+                          in lid1 == lid2 && pid1 == pid2
                     ts <- forM grps $ \grp ->
-                      go $ map (\(C.TableRow (C.RecordPattern rps) lv) -> C.TableRow (C.RecordPattern (tail rps)) lv) grp
+                      go =<< forM grp (\row ->
+                        case row of
+                          C.TableRow (C.RecordPattern []) lv -> return row
+                          C.TableRow (C.RecordPattern (C.RecordRow _ (C.ParamPattern (C.Param _ [])):rrs)) lv -> return $ C.TableRow (C.RecordPattern rrs) lv
+                          C.TableRow (C.RecordPattern rrs) lv -> return $ C.TableRow (C.RecordPattern rrs') lv
+                            where
+                              C.RecordRow lid (C.ParamPattern (C.Param pid patts)) = head rrs
+                              C.ParamPattern (C.Param pid2 patts2) = head patts
+                              rrs' = C.RecordRow lid (C.ParamPattern (C.Param pid2 (patts2 ++ tail patts))) : tail rrs
+                          _ -> Left $ printf "Unhandled table row: %s" (show row)
+                        )
                     let typ = case ts of
                           (_, Just tst):_ -> Just $ C.TableType lt tst
                           _ -> Nothing
@@ -231,7 +244,7 @@ mkCanon2lpgf opts gr am = do
 
               -- C.CommentedValue cmnt lv -> val2lin lv
               C.CommentedValue cmnt lv -> case cmnt of
-                "impossible" -> val2lin lv >>= \(_, typ) -> return (L.Empty, typ) -- TODO untested optimisation
+                "impossible" -> val2lin lv >>= \(_, typ) -> return (L.Empty, typ)
                 _ -> val2lin lv
 
               v -> Left $ printf "val2lin not implemented for: %s" (show v)

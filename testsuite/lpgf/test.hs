@@ -28,6 +28,8 @@ main = do
       doGrammar "unittests" "Params1"
       doGrammar "unittests" "Params2"
       doGrammar "unittests" "Params3"
+      doGrammar "unittests" "Params4"
+      doGrammar "unittests" "Params5"
       doGrammar "unittests" "Pre"
       doGrammar "unittests" "Projection"
       doGrammar "unittests" "Tables"

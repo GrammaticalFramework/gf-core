@@ -17,6 +17,10 @@ stack test gf:test:lpgf --test-arguments="unittests/Params" # specific grammar
 stack test gf:test:lpgf --test-arguments="foods/Foods Fre Ger" # specific grammar and languages
 ```
 
+```
+stack build --test --bench --no-run-tests --no-run-benchmarks && DEBUG=1 stack test gf:test:lpgf --test-arguments="foods/Foods Fre Ger"
+```
+
 Set environment variable `DEBUG=1` to enable dumping of intermediate formats.
 
 ## Benchmark
@@ -55,15 +59,16 @@ stack bench --benchmark-arguments "run lpgf Foods.lpgf testsuite/lpgf/foods/Food
 
 # Notes on compilation
 
-## 1
+## 1 (see unittests/Params4)
 
-param defns
-  P = P1 | P2
-  Q = Q1 | Q2
-  R = RP P | RPQ P Q | R0
-  X = XPQ P Q
+**param defns**
+P = P1 | P2
+Q = Q1 | Q2
+R = RP P | RPQ P Q | R0
+X = XPQ P Q
 
-translation (NB: tuples may be listed, but will be concatted at runtime)
+**translation**
+NB: tuples may be nested, but will be concatted at runtime
 
 P1        = <1>
 P2        = <2>
@@ -110,14 +115,15 @@ X => Str
 {p=P2 ; r1=RP P1 ; r2=RPQ P1 Q2 ; r3=R0 }
 < <2>  ,  <1, 1> ,   <2,  1, 2> ,   <3>>
 
-## 2
+## 2 (see unittests/Params5)
 
-param defns
-  P = P1 | PQ Q
-  Q = Q1 | QR R
-  R = R1 | R2
+**param defns**
 
-translation
+P = P1 | PQ Q
+Q = Q1 | QR R
+R = R1 | R2
+
+**translation**
 
 P1       = <1>
 PQ Q1    = <2,1>
@@ -156,3 +162,30 @@ P => Str
 {q=QR R2 ; p=PQ Q1}      = <<2,2>,<2,1>>
 {q=QR R2 ; p=PQ (QR R1)} = <<2,2>,<2,2,1>>
 {q=QR R2 ; p=PQ (QR R2)} = <<2,2>,<2,2,2>>
+
+**NOTE**: GF will swap q and p in record, as part of record field sorting, resulting in the following:
+
+{p:P ; q:Q} => Str
+< <"P1;Q1", <"P1;QR R1","P1;QR R2">>,
+  < <"PQ Q1;Q1", <"PQ Q1;QR R1","PQ Q1;QR R2">>,
+    < <"PQ (QR R1);Q1", <"PQ (QR R1);QR R1","PQ (QR R1);QR R2">>,
+      <"PQ (QR R2);Q1", <"PQ (QR R2);QR R1","PQ (QR R2);QR R2">>
+    >
+  >
+>
+
+{p=P1 ; q=Q1}            = <<1>,<1>>
+{p=P1 ; q=QR R1}         = <<1>,<2,1>>
+{p=P1 ; q=QR R2}         = <<1>,<2,2>>
+
+{p=PQ Q1 ; q=Q1}         = <<2,1>,<1>>
+{p=PQ Q1 ; q=QR R1}      = <<2,1>,<2,1>>
+{p=PQ Q1 ; q=QR R2}      = <<2,1>,<2,2>>
+
+{p=PQ (QR R1) ; q=Q1}    = <<2,2,1>,<1>>
+{p=PQ (QR R1) ; q=QR R1} = <<2,2,1>,<2,1>>
+{p=PQ (QR R1) ; q=QR R2} = <<2,2,1>,<2,2>>
+
+{p=PQ (QR R2) ; q=Q1}    = <<2,2,2>,<1>>
+{p=PQ (QR R2) ; q=QR R1} = <<2,2,2>,<2,1>>
+{p=PQ (QR R2) ; q=QR R2} = <<2,2,2>,<2,2>>
