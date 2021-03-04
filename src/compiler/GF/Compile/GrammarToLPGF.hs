@@ -29,6 +29,9 @@ import System.Environment (lookupEnv)
 import System.FilePath ((</>), (<.>))
 import Text.Printf (printf)
 
+import qualified Debug.Trace
+trace x = Debug.Trace.trace ("> " ++ show x) (return ())
+
 mkCanon2lpgf :: Options -> SourceGrammar -> ModuleName -> IOE LPGF
 mkCanon2lpgf opts gr am = do
   debug <- isJust <$> lookupEnv "DEBUG"
@@ -36,7 +39,7 @@ mkCanon2lpgf opts gr am = do
     ppCanonical debugDir canon
     dumpCanonical debugDir canon
   (an,abs) <- mkAbstract ab
-  cncs     <- mapM mkConcrete cncs
+  cncs     <- mapM (mkConcrete debug) cncs
   let lpgf = LPGF {
     L.absname = an,
     L.abstract = abs,
@@ -50,8 +53,8 @@ mkCanon2lpgf opts gr am = do
     mkAbstract :: (ErrorMonad err) => C.Abstract -> err (CId, L.Abstract)
     mkAbstract (C.Abstract modId flags cats funs) = return (mdi2i modId, L.Abstract {})
 
-    mkConcrete :: (ErrorMonad err) => C.Concrete -> err (CId, L.Concrete)
-    mkConcrete (C.Concrete modId absModId flags params' lincats lindefs) = do
+    mkConcrete :: (ErrorMonad err) => Bool -> C.Concrete -> err (CId, L.Concrete)
+    mkConcrete debug (C.Concrete modId absModId flags params' lincats lindefs) = do
       let
         (C.Abstract _ _ _ funs) = ab
         params = inlineParamAliases params'
@@ -103,6 +106,7 @@ mkCanon2lpgf opts gr am = do
         -- | Main code generation function
         mkLin :: C.LinDef -> Either String (CId, L.LinFun)
         mkLin (C.LinDef funId varIds linValue) = do
+          when debug $ trace funId
           (lf, _) <- val2lin linValue
           return (fi2i funId, lf)
           where
@@ -152,6 +156,64 @@ mkCanon2lpgf opts gr am = do
                 ts <- sequence [ val2lin lv | C.RecordRow lid lv <- rrvs' ]
                 return (L.Tuple (map fst ts), Just $ C.RecordType [ C.RecordRow lid lt | (C.RecordRow lid _, (_, Just lt)) <- zip rrvs' ts])
 
+              C.TableValue lt trvs -> do
+                -- group the rows by "left-most" value
+                let
+                  groupRow :: C.TableRowValue -> C.TableRowValue -> Bool
+                  groupRow (C.TableRow p1 _) (C.TableRow p2 _) = groupPattern p1 p2
+
+                  groupPattern :: C.LinPattern -> C.LinPattern -> Bool
+                  groupPattern p1 p2 = case (p1,p2) of
+                    (C.ParamPattern (C.Param pid1 _), C.ParamPattern (C.Param pid2 _)) -> pid1 == pid2 -- compare only constructors
+                    (C.RecordPattern (C.RecordRow lid1 patt1:_), C.RecordPattern (C.RecordRow lid2 patt2:_)) -> groupPattern patt1 patt2 -- lid1 == lid2 necessarily
+                    _ -> error $ printf "Mismatched patterns in grouping:\n%s\n%s" (show p1) (show p2)
+
+                  grps :: [[C.TableRowValue]]
+                  grps = L.groupBy groupRow trvs
+
+                -- remove one level of depth and recurse
+                let
+                  handleGroup :: [C.TableRowValue] -> Either String (L.LinFun, Maybe C.LinType)
+                  handleGroup [C.TableRow _ lv] = val2lin lv -- TODO suspect
+                  handleGroup rows = do
+                    let reductions = map reduceRow rows
+                    let rows' = map fromJust reductions
+                    val2lin (C.TableValue lt rows') -- TODO lt is wrong here
+
+                  reducePattern :: C.LinPattern -> Maybe C.LinPattern
+                  reducePattern patt =
+                    case patt of
+                      C.ParamPattern (C.Param _ []) -> Nothing
+                      C.ParamPattern (C.Param _ patts) -> Just $ C.ParamPattern (C.Param pid' patts')
+                        where
+                          C.ParamPattern (C.Param pid1 patts1) = head patts
+                          pid' = pid1
+                          patts' = patts1 ++ tail patts
+
+                      C.RecordPattern [] -> Nothing
+                      C.RecordPattern (C.RecordRow lid patt:rrs) ->
+                        case reducePattern patt of
+                          Just patt' -> Just $ C.RecordPattern (C.RecordRow lid patt':rrs)
+                          Nothing    -> if null rrs then Nothing else Just $ C.RecordPattern rrs
+
+                      _ -> error $ printf "Unhandled pattern in reducing: %s" (show patt)
+
+                  reduceRow :: C.TableRowValue -> Maybe C.TableRowValue
+                  reduceRow row@(C.TableRow patt lv) =
+                    case reducePattern patt of
+                      Just patt' -> Just $ C.TableRow patt' lv
+                      Nothing    -> Nothing
+
+                -- ts :: [(L.LinFun, Maybe C.LinType)]
+                ts <- mapM handleGroup grps
+
+                -- return
+                let typ = case ts of
+                      (_, Just tst):_ -> Just $ C.TableType lt tst
+                      _ -> Nothing
+                return (L.Tuple (map fst ts), typ)
+
+{-
               C.TableValue lt trvs | isRecordType lt -> go trvs
                 where
                   go :: [C.TableRowValue] -> Either String (L.LinFun, Maybe C.LinType)
@@ -200,7 +262,7 @@ mkCanon2lpgf opts gr am = do
                           (_, Just tst):_ -> Just $ C.TableType lt tst
                           _ -> Nothing
                     return (L.Tuple (map fst ts), typ)
-
+-}
               -- TODO TuplePattern, WildPattern?
 
               C.TupleValue lvs -> do
@@ -251,7 +313,8 @@ mkCanon2lpgf opts gr am = do
 
       unless (null $ lefts es) (raise $ unlines (lefts es))
 
-      let concr = extractStrings $ L.Concrete {
+      let maybeOptimise = if debug then id else extractStrings
+      let concr = maybeOptimise $ L.Concrete {
         L.toks = IntMap.empty,
         L.lins = lins
       }
