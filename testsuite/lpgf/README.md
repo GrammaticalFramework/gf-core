@@ -17,6 +17,8 @@ stack test gf:test:lpgf --test-arguments="unittests/Params" # specific grammar
 stack test gf:test:lpgf --test-arguments="foods/Foods Fre Ger" # specific grammar and languages
 ```
 
+Set environment variable `DEBUG=1` to enable dumping of intermediate formats.
+
 ## Benchmark
 
 Compare performance metrics between LPGF and PGF[2]. Note: correctness is not checked here.

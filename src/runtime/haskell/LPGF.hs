@@ -68,12 +68,16 @@ data LinFun =
   -- From original definition in paper
   | Empty
   | Token Text
-  | TokenIx Int -- ^ index into `toks` map
   | Concat LinFun LinFun
   | Ix Int
   | Tuple [LinFun]
   | Projection LinFun LinFun
   | Argument Int
+
+  -- For reducing LPGF file when stored
+  | PreIx [(Int, LinFun)] LinFun -- ^ index into `toks` map (must apply read to convert to list)
+  | TokenIx Int -- ^ index into `toks` map
+
   deriving (Show, Read)
 
 instance Binary LPGF where
@@ -116,14 +120,17 @@ instance Binary LinFun where
     AllCapit         -> putWord8 4
     Pre ps d         -> putWord8 5 >> put (ps,d)
     Missing f        -> putWord8 13 >> put f
+
     Empty            -> putWord8 6
     Token t          -> putWord8 7 >> put t
-    TokenIx i        -> putWord8 14 >> put i
     Concat l1 l2     -> putWord8 8 >> put (l1,l2)
     Ix i             -> putWord8 9 >> put i
     Tuple ls         -> putWord8 10 >> put ls
     Projection l1 l2 -> putWord8 11 >> put (l1,l2)
     Argument i       -> putWord8 12 >> put i
+
+    PreIx ps d       -> putWord8 15 >> put (ps,d)
+    TokenIx i        -> putWord8 14 >> put i
   get = do
     tag <- getWord8
     case tag of
@@ -134,14 +141,17 @@ instance Binary LinFun where
       4  -> return AllCapit
       5  -> liftM2 Pre get get
       13 -> liftM  Missing get
+
       6  -> return Empty
       7  -> liftM  Token get
-      14 -> liftM  TokenIx get
       8  -> liftM2 Concat get get
       9  -> liftM  Ix get
       10 -> liftM  Tuple get
       11 -> liftM2 Projection get get
       12 -> liftM  Argument get
+
+      15 -> liftM2 PreIx get get
+      14 -> liftM  TokenIx get
       _  -> fail "Failed to decode LPGF binary format"
 
 instance Binary Text where
@@ -199,7 +209,7 @@ eval cxt t = case t of
     where
       pts' = [(pfxs, eval cxt t) | (pfxs, t) <- pts]
       df' = eval cxt df
-  TokenIx i -> maybe Empty Token $ IntMap.lookup i (cxToks cxt)
+
   Concat s t -> Concat v w
     where
       v = eval cxt s
@@ -214,6 +224,13 @@ eval cxt t = case t of
       (tp@(Tuple _), tv@(Tuple _)) | all isIx (flattenTuple tv) -> foldl (\(Tuple vs) (Ix i) -> vs !! (i-1)) tp (flattenTuple tv)
       (t',u') -> error $ printf "Incompatible projection:\n- %s\n⇓ %s\n- %s\n⇓ %s" (show t) (show t') (show u) (show u')
   Argument i -> cxArgs cxt !! (i-1)
+
+  PreIx pts df -> Pre pts' df'
+    where
+      pts' = [(pfxs, eval cxt t) | (ix, t) <- pts, let pfxs = maybe [] (read . T.unpack) $ IntMap.lookup ix (cxToks cxt)]
+      df' = eval cxt df
+  TokenIx i -> maybe Empty Token $ IntMap.lookup i (cxToks cxt)
+
   _ -> t
 
 flattenTuple :: LinFun -> [LinFun]

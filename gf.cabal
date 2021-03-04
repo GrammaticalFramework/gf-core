@@ -87,7 +87,9 @@ Library
                  -- We need transformers-compat >= 0.6.3, but that is only in newer snapshots where it is redundant.
                  transformers-compat,
                  ghc-prim,
-                 text
+                 text,
+                 hashable,
+                 unordered-containers
   hs-source-dirs: src/runtime/haskell
 
   other-modules:
@@ -216,6 +218,7 @@ Library
     GF.Data.ErrM
     GF.Data.Graph
     GF.Data.Graphviz
+    GF.Data.IntMapBuilder
     GF.Data.Relation
     GF.Data.Str
     GF.Data.Utilities
@@ -423,6 +426,7 @@ test-suite lpgf
     GF.Data.ErrM
     GF.Data.Graph
     GF.Data.Graphviz
+    GF.Data.IntMapBuilder
     GF.Data.Operations
     GF.Data.Relation
     GF.Data.Str
@@ -529,6 +533,7 @@ test-suite lpgf
     directory,
     filepath,
     ghc-prim,
+    hashable,
     haskeline,
     json,
     mtl,
@@ -541,6 +546,7 @@ test-suite lpgf
     time,
     transformers-compat,
     unix,
+    unordered-containers,
     utf8-string
   default-language: Haskell2010
 
@@ -610,6 +616,7 @@ benchmark lpgf-bench
     GF.Data.ErrM
     GF.Data.Graph
     GF.Data.Graphviz
+    GF.Data.IntMapBuilder
     GF.Data.Operations
     GF.Data.Relation
     GF.Data.Str
@@ -734,6 +741,7 @@ benchmark lpgf-bench
     directory,
     filepath,
     ghc-prim,
+    hashable,
     haskeline,
     json,
     mtl,
@@ -746,5 +754,6 @@ benchmark lpgf-bench
     time,
     transformers-compat,
     unix,
+    unordered-containers,
     utf8-string
   default-language: Haskell2010

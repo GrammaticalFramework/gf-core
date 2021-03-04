@@ -9,6 +9,7 @@ import qualified GF.Grammar.Canonical as C
 import GF.Compile.GrammarToCanonical (grammar2canonical)
 
 import GF.Data.Operations (ErrorMonad (..))
+import qualified GF.Data.IntMapBuilder as IntMapBuilder
 import GF.Infra.Option (Options)
 import GF.Infra.UseIO (IOE)
 import GF.Text.Pretty (pp, render)
@@ -24,7 +25,6 @@ import qualified Data.Map.Strict as Map
 import Data.Maybe (fromJust, isJust)
 import Data.Text (Text)
 import qualified Data.Text as T
-import Data.Tuple (swap)
 import System.Environment (lookupEnv)
 import System.FilePath ((</>), (<.>))
 import Text.Printf (printf)
@@ -292,38 +292,36 @@ isRecordType _ = False
 
 -- | Find all token strings, put them in a map and replace with token indexes
 extractStrings :: L.Concrete -> L.Concrete
-extractStrings concr = L.Concrete { L.toks = strMap, L.lins = lins'}
+extractStrings concr = L.Concrete { L.toks = toks', L.lins = lins' }
   where
-    state = (
-      L.toks concr, -- the IntMap we're building
-      Map.fromList (map swap (IntMap.toList (L.toks concr))) -- a reversed map for lookups
-      )
-    (lins',(strMap,_)) = CMS.runState (go0 (L.lins concr)) state
+    imb = IntMapBuilder.fromIntMap (L.toks concr)
+    (lins',imb') = CMS.runState (go0 (L.lins concr)) imb
+    toks' = IntMapBuilder.toIntMap imb'
 
-    go0 :: Map.Map CId L.LinFun -> CMS.State (IntMap.IntMap Text, Map.Map Text Int) (Map.Map CId L.LinFun)
+    go0 :: Map.Map CId L.LinFun -> CMS.State (IntMapBuilder.IMB Text) (Map.Map CId L.LinFun)
     go0 mp = do
       xs <- mapM (\(cid,lin) -> go lin >>= \lin' -> return (cid,lin')) (Map.toList mp)
       return $ Map.fromList xs
 
-    go :: L.LinFun -> CMS.State (IntMap.IntMap Text, Map.Map Text Int) L.LinFun
+    go :: L.LinFun -> CMS.State (IntMapBuilder.IMB Text) L.LinFun
     go lf = case lf of
       L.Token str -> do
-        (intMap,revMap) <- CMS.get
-        case Map.lookup str revMap of
-          Just i -> return $ L.TokenIx i
-          Nothing -> do
-            -- add string to map and replace with index
-            let i = IntMap.size intMap
-            let intMap' = IntMap.insert i str intMap
-            let revMap' = Map.insert str i revMap
-            CMS.put (intMap',revMap')
-            return $ L.TokenIx i
+        imb <- CMS.get
+        let (ix,imb') = IntMapBuilder.insert' str imb
+        CMS.put imb'
+        return $ L.TokenIx ix
 
-      -- TODO big savings can be made by putting prefixes in string map too
       L.Pre pts df -> do
-        pts' <- mapM (\(pfxs,lv) -> go lv >>= \lv' -> return (pfxs,lv')) pts
+        -- pts' <- mapM (\(pfxs,lv) -> go lv >>= \lv' -> return (pfxs,lv')) pts
+        pts' <- forM pts $ \(pfxs,lv) -> do
+          imb <- CMS.get
+          let str = T.pack $ show pfxs
+          let (ix,imb') = IntMapBuilder.insert' str imb
+          CMS.put imb'
+          lv' <- go lv
+          return (ix,lv')
         df' <- go df
-        return $ L.Pre pts' df'
+        return $ L.PreIx pts' df'
       L.Concat s t -> do
         s' <- go s
         t' <- go t
