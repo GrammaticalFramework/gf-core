@@ -68,13 +68,14 @@ doGrammar' path gname cncs = do
   results <- forM gs $ \grp -> do
     let ast = drop 2 $ dropWhile (/=':') $ head grp
     printf "- %s: %s\n" gname ast
-    let
-      Just tree = readExpr ast
-      -- Linearization into all languages
-      outs =
-        [ printf "%s: %s" (showLanguage lang) (linearizeConcrete concr tree)
-        | (lang,concr) <- Map.toList (concretes lpgf)
-        ]
+    let Just tree = readExpr ast
+
+    -- Linearization into all languages
+    outs <- forM (Map.toList (concretes lpgf)) $ \(lang,concr) -> do
+      e <- try $ linearizeConcrete concr tree
+      return $ case e of
+        Right s -> printf "%s: %s" (showLanguage lang) s
+        Left  e -> printf "%s: ERROR: %s" (showLanguage lang) e
 
     -- filter out missing langs from treebank
     let golds = [ g | o <- outs, g <- tail grp, takeWhile (/=':') o == takeWhile (/=':') g  ]

@@ -65,7 +65,7 @@ PhrasebookNor: hvordan går det!
 PhrasebookPol: jak się masz!
 PhrasebookRon: ce faci!
 PhrasebookSnd: توهان ڪيئن آهيو!
-PhrasebookSpa: ¡ cómo está!
+PhrasebookSpa: ¡cómo está!
 PhrasebookSwe: hur står det till!
 PhrasebookTha: สบายดีไหม ค่ะ
 PhrasebookUrd: آپ كیسی ہو
@@ -88,7 +88,7 @@ PhrasebookLav: neraksti
 PhrasebookNor: skriv ikke
 PhrasebookPol: nie pisz
 PhrasebookRon: nu scrie
-PhrasebookSnd:
+PhrasebookSnd: ن [VWrite] [VWrite]
 PhrasebookSpa: no escribas
 PhrasebookSwe: skriv inte
 PhrasebookTha: อย่า เขียน
@@ -161,7 +161,7 @@ PhrasebookNor: er denne kyllingen for fersk?
 PhrasebookPol: czy ten kurczak jest za świeży?
 PhrasebookRon: acest pui este prea proaspăt?
 PhrasebookSnd: ڇا ھي ڪڪڙ بيحد تازو آھي?
-PhrasebookSpa: ¿ este pollo es demasiado fresco?
+PhrasebookSpa: ¿este pollo es demasiado fresco?
 PhrasebookSwe: är den här kycklingen för färsk?
 PhrasebookTha: ไก่ กำ ลัง นี้ สด เกินไป ไหม
 PhrasebookUrd: کیا یہ مرغی بہت تازہ ہے
@@ -473,7 +473,7 @@ PhrasebookNor: god morgen!
 PhrasebookPol: dzień dobry!
 PhrasebookRon: bună dimineaţa!
 PhrasebookSnd: صبح بخير!
-PhrasebookSpa: ¡ buenos días!
+PhrasebookSpa: ¡buenos días!
 PhrasebookSwe: god morgon!
 PhrasebookTha: สวัสดี ครับ
 PhrasebookUrd: صبح بخیر
@@ -497,7 +497,7 @@ PhrasebookNor: beklager!
 PhrasebookPol: przepraszam!
 PhrasebookRon: îmi pare rău!
 PhrasebookSnd: معاف ڪجو!
-PhrasebookSpa: ¡ disculpe!
+PhrasebookSpa: ¡disculpe!
 PhrasebookSwe: förlåt!
 PhrasebookTha: ขอโทษ ค่ะ
 PhrasebookUrd: معاف كیجیے گا
@@ -521,7 +521,7 @@ PhrasebookNor: unnskyld!
 PhrasebookPol: przepraszam!
 PhrasebookRon: pardon!
 PhrasebookSnd: معاف ڪجو!
-PhrasebookSpa: ¡ perdón!
+PhrasebookSpa: ¡perdón!
 PhrasebookSwe: ursäkta!
 PhrasebookTha: ขอโทษ ค่ะ
 PhrasebookUrd: معاف كیجیے گا
@@ -617,7 +617,7 @@ PhrasebookNor: hvor langt er det til den populæreste dyreparken fra det dyreste
 PhrasebookPol: jak daleko jest pieszo z najdroższej apteki do najpopularniejszego zoo?
 PhrasebookRon: cât este pâna la cea mai populară grădină zoologică de la cea mai scumpă farmacie pe jos?
 PhrasebookSnd: مشهور راڻي باغ مهانگو ميڊيڪل اسٽور وٽان پيادو ڪتنی پري آھي?
-PhrasebookSpa: ¿ a qué distancia el zoo más popular está de la farmacia más cara a pie?
+PhrasebookSpa: ¿a qué distancia el zoo más popular está de la farmacia más cara a pie?
 PhrasebookSwe: hur långt är det till den populäraste djurparken från det dyraste apoteket till fots?
 PhrasebookTha: สวนสัตว์ แห่ง โด่งดัง ที่ สุด ไกลเท่าไร จาก ร้านขายยา แห่ง แพง ที่ สุด ด้วยการเดิน
 PhrasebookUrd: پیدل سب سے مہنگی فارمیسی سے سب سے مشہور چڑیا گھر کتنی دور ہے
@@ -665,7 +665,7 @@ PhrasebookNor: nei!
 PhrasebookPol: nie!
 PhrasebookRon: nu!
 PhrasebookSnd: نا!
-PhrasebookSpa: ¡ no!
+PhrasebookSpa: ¡no!
 PhrasebookSwe: nej!
 PhrasebookTha: ไม่ ครับ
 PhrasebookUrd: نہیں
@@ -761,7 +761,7 @@ PhrasebookNor: se deg snart!
 PhrasebookPol: do zobaczenia!
 PhrasebookRon: pe curând!
 PhrasebookSnd: موڪلاڻي ڪانهي!
-PhrasebookSpa: ¡ nos vemos pronto!
+PhrasebookSpa: ¡nos vemos pronto!
 PhrasebookSwe: vi ses snart!
 PhrasebookTha: เจอกันนะ ครับ
 PhrasebookUrd: ملتے ہیں
@@ -809,7 +809,7 @@ PhrasebookNor: nei!
 PhrasebookPol: nie!
 PhrasebookRon: nu!
 PhrasebookSnd: نا!
-PhrasebookSpa: ¡ no!
+PhrasebookSpa: ¡no!
 PhrasebookSwe: nej!
 PhrasebookTha: ไม่ ค่ะ
 PhrasebookUrd: نہیں
@@ -832,7 +832,7 @@ PhrasebookLav: nelasi
 PhrasebookNor: les ikke
 PhrasebookPol: nie czytaj
 PhrasebookRon: nu citi
-PhrasebookSnd:
+PhrasebookSnd: ن [VRead] [VRead]
 PhrasebookSpa: no leas
 PhrasebookSwe: läs inte
 PhrasebookTha: อย่า อ่าน
@@ -904,7 +904,7 @@ PhrasebookLav: lasiet
 PhrasebookNor: les
 PhrasebookPol: przeczytajcie
 PhrasebookRon: citiţi
-PhrasebookSnd:
+PhrasebookSnd: [VRead] [VRead]
 PhrasebookSpa: leed
 PhrasebookSwe: läs
 PhrasebookTha: อ่าน ซิ
@@ -1001,7 +1001,7 @@ PhrasebookNor: gratulerer med dagen!
 PhrasebookPol: wszystkiego najlepszego z okazji urodzin!
 PhrasebookRon: la mulți ani!
 PhrasebookSnd: جنم ڏينهن مبارڪ!
-PhrasebookSpa: ¡ feliz cumpleaños!
+PhrasebookSpa: ¡feliz cumpleaños!
 PhrasebookSwe: grattis på födelsedagen!
 PhrasebookTha: สุขสันต์วันเกิด ครับ
 PhrasebookUrd: سالگرہ مبارك
@@ -1025,7 +1025,7 @@ PhrasebookNor: vær så snill!
 PhrasebookPol: poproszę!
 PhrasebookRon: te rog!
 PhrasebookSnd: مهرباني ڪريو!
-PhrasebookSpa: ¡ por favor!
+PhrasebookSpa: ¡por favor!
 PhrasebookSwe: var så god!
 PhrasebookTha: นะ ครับ
 PhrasebookUrd: مہربانی كر كے
@@ -1072,7 +1072,7 @@ PhrasebookLav: lasi
 PhrasebookNor: les
 PhrasebookPol: przeczytaj
 PhrasebookRon: citeşte
-PhrasebookSnd:
+PhrasebookSnd: [VRead] [VRead]
 PhrasebookSpa: lee
 PhrasebookSwe: läs
 PhrasebookTha: อ่าน ซิ
@@ -1121,7 +1121,7 @@ PhrasebookNor: ja!
 PhrasebookPol: tak!
 PhrasebookRon: da!
 PhrasebookSnd: ھا!
-PhrasebookSpa: ¡ sí!
+PhrasebookSpa: ¡sí!
 PhrasebookSwe: ja!
 PhrasebookTha: ใช่ ค่ะ
 PhrasebookUrd: ہاں
@@ -1169,7 +1169,7 @@ PhrasebookNor: hei!
 PhrasebookPol: cześć!
 PhrasebookRon: salut!
 PhrasebookSnd: السلام عليڪم!
-PhrasebookSpa: ¡ hola!
+PhrasebookSpa: ¡hola!
 PhrasebookSwe: hej!
 PhrasebookTha: สวัสดี ครับ
 PhrasebookUrd: اسلام علیكم
@@ -1216,7 +1216,7 @@ PhrasebookLav: neraksti
 PhrasebookNor: skriv ikke
 PhrasebookPol: nie pisz
 PhrasebookRon: nu scrie
-PhrasebookSnd:
+PhrasebookSnd: ن [VWrite] [VWrite]
 PhrasebookSpa: no escribas
 PhrasebookSwe: skriv inte
 PhrasebookTha: อย่า เขียน
@@ -1289,7 +1289,7 @@ PhrasebookNor: takk!
 PhrasebookPol: dziękuję!
 PhrasebookRon: mulţumesc!
 PhrasebookSnd: ٿورا!
-PhrasebookSpa: ¡ gracias!
+PhrasebookSpa: ¡gracias!
 PhrasebookSwe: tack!
 PhrasebookTha: ขอบคุณ ค่ะ
 PhrasebookUrd: شكریہ
@@ -1313,7 +1313,7 @@ PhrasebookNor: vi ses i en bank idag!
 PhrasebookPol: do zobaczenia dziś w banku!
 PhrasebookRon: ne vedem la o bancă astăzi!
 PhrasebookSnd: بئنڪ ۾ اڄ ملون ٿا!
-PhrasebookSpa: ¡ nos vemos hoy en un banco!
+PhrasebookSpa: ¡nos vemos hoy en un banco!
 PhrasebookSwe: vi ses i en bank idag!
 PhrasebookTha: เจอกันที่ ที่ ธนาคาร วันนี้ ครับ
 PhrasebookUrd: بینك میں آج ملتے ہیں
@@ -1360,7 +1360,7 @@ PhrasebookLav: raksti
 PhrasebookNor: skriv
 PhrasebookPol: napisz
 PhrasebookRon: scrie
-PhrasebookSnd:
+PhrasebookSnd: [VWrite] [VWrite]
 PhrasebookSpa: escribe
 PhrasebookSwe: skriv
 PhrasebookTha: เขียน ซิ
@@ -1409,7 +1409,7 @@ PhrasebookNor: hvor spiser mannen Deres?
 PhrasebookPol: gdzie pana mąż je?
 PhrasebookRon: unde mănâncă soţul dumneavoastră?
 PhrasebookSnd: ڪٿي توھان جي مڙس کائی ٿو?
-PhrasebookSpa: ¿ dónde su marido come?
+PhrasebookSpa: ¿dónde su marido come?
 PhrasebookSwe: var äter er man?
 PhrasebookTha: สามี ของ คุณ กิน ที่ไหน
 PhrasebookUrd: کہاں آپ کا شوہر کھاتا ہے
@@ -1480,7 +1480,7 @@ PhrasebookLav: lūdzu nerakstiet
 PhrasebookNor: skriv ikke
 PhrasebookPol: nie pisz
 PhrasebookRon: nu scrie
-PhrasebookSnd:
+PhrasebookSnd: ن [VWrite] [VWrite]
 PhrasebookSpa: no escriba
 PhrasebookSwe: skriv inte
 PhrasebookTha: อย่า เขียน
@@ -1505,7 +1505,7 @@ PhrasebookNor: ja!
 PhrasebookPol: tak!
 PhrasebookRon: da!
 PhrasebookSnd: ھا!
-PhrasebookSpa: ¡ sí!
+PhrasebookSpa: ¡sí!
 PhrasebookSwe: jo!
 PhrasebookTha: ใช่ ค่ะ
 PhrasebookUrd: ہاں
@@ -1529,7 +1529,7 @@ PhrasebookNor: hvor langt er det til den dårligste kirka til fots?
 PhrasebookPol: jak daleko jest pieszo do najgorszego kościoła?
 PhrasebookRon: cât este pâna la cea mai rea biserică pe jos?
 PhrasebookSnd: خراب چرچ پيادو ڪتنی پري آھي?
-PhrasebookSpa: ¿ a qué distancia la peor iglesia está a pie?
+PhrasebookSpa: ¿a qué distancia la peor iglesia está a pie?
 PhrasebookSwe: hur långt är det till den sämsta kyrkan till fots?
 PhrasebookTha: โบสถ์ แห่ง เลว ที่ สุด ไกลเท่าไร ด้วยการเดิน
 PhrasebookUrd: پیدل سب سے برا چرچ کتنی دور ہے
@@ -1577,7 +1577,7 @@ PhrasebookNor: beklager!
 PhrasebookPol: przepraszam!
 PhrasebookRon: îmi pare rău!
 PhrasebookSnd: معاف ڪجو!
-PhrasebookSpa: ¡ disculpe!
+PhrasebookSpa: ¡disculpe!
 PhrasebookSwe: förlåt!
 PhrasebookTha: ขอโทษ ค่ะ
 PhrasebookUrd: معاف كیجیے گا
@@ -1649,7 +1649,7 @@ PhrasebookNor: hvor langt er det til et sentrum til fots?
 PhrasebookPol: jak daleko jest pieszo do centrum?
 PhrasebookRon: cât este pâna la un centru pe jos?
 PhrasebookSnd: سينٽر پيادو ڪتنی پري آھي?
-PhrasebookSpa: ¿ a qué distancia un centro está a pie?
+PhrasebookSpa: ¿a qué distancia un centro está a pie?
 PhrasebookSwe: hur långt är det till en innerstad till fots?
 PhrasebookTha: ศูนย์กลาง ไกลเท่าไร ด้วยการเดิน
 PhrasebookUrd: پیدل سنٹر کتنی دور ہے
@@ -1721,7 +1721,7 @@ PhrasebookNor: vær så snill!
 PhrasebookPol: poproszę!
 PhrasebookRon: te rog!
 PhrasebookSnd: مهرباني ڪريو!
-PhrasebookSpa: ¡ por favor!
+PhrasebookSpa: ¡por favor!
 PhrasebookSwe: var så god!
 PhrasebookTha: นะ ครับ
 PhrasebookUrd: مہربانی كر كے
@@ -1744,7 +1744,7 @@ PhrasebookLav: rakstiet
 PhrasebookNor: skriv
 PhrasebookPol: napiszcie
 PhrasebookRon: scrieţi
-PhrasebookSnd:
+PhrasebookSnd: [VWrite] [VWrite]
 PhrasebookSpa: escribid
 PhrasebookSwe: skriv
 PhrasebookTha: เขียน ซิ
@@ -1817,7 +1817,7 @@ PhrasebookNor: hvor langt er det til en dyrepark?
 PhrasebookPol: jak daleko jest zoo?
 PhrasebookRon: cât este pâna la o grădină zoologică?
 PhrasebookSnd: راڻي باغ ڪتنی پري آھي?
-PhrasebookSpa: ¿ a qué distancia un zoo está?
+PhrasebookSpa: ¿a qué distancia un zoo está?
 PhrasebookSwe: hur långt är det till en djurpark?
 PhrasebookTha: สวนสัตว์ ไกลเท่าไร
 PhrasebookUrd: چڑیا گھر کتنی دور ہے
@@ -1865,7 +1865,7 @@ PhrasebookNor: unnskyld!
 PhrasebookPol: przepraszam!
 PhrasebookRon: pardon!
 PhrasebookSnd: معاف ڪجو!
-PhrasebookSpa: ¡ perdón!
+PhrasebookSpa: ¡perdón!
 PhrasebookSwe: ursäkta!
 PhrasebookTha: ขอโทษ ค่ะ
 PhrasebookUrd: معاف كیجیے گا
@@ -1937,7 +1937,7 @@ PhrasebookNor: ha det bra!
 PhrasebookPol: do widzenia!
 PhrasebookRon: la revedere!
 PhrasebookSnd: خدا حافظ!
-PhrasebookSpa: ¡ hasta luego!
+PhrasebookSpa: ¡hasta luego!
 PhrasebookSwe: hej då!
 PhrasebookTha: ลาก่อน ค่ะ
 PhrasebookUrd: خدا حافظ
@@ -2009,7 +2009,7 @@ PhrasebookNor: unnskyld!
 PhrasebookPol: przepraszam!
 PhrasebookRon: mă scuzați!
 PhrasebookSnd: معاف ڪجو!
-PhrasebookSpa: ¡ perdone!
+PhrasebookSpa: ¡perdone!
 PhrasebookSwe: ursäkta!
 PhrasebookTha: ขอโทษ ครับ
 PhrasebookUrd: معاف كیجیے گا
@@ -2033,7 +2033,7 @@ PhrasebookNor: hvor er kona deres?
 PhrasebookPol: gdzie jest ich żona?
 PhrasebookRon: unde este soţia lor?
 PhrasebookSnd: انهن جو زال ڪٿي آھي?
-PhrasebookSpa: ¿ dónde su esposa está?
+PhrasebookSpa: ¿dónde su esposa está?
 PhrasebookSwe: var är deras fru?
 PhrasebookTha: ภรรยา ของ พวกเขา อยู่ ที่ไหน
 PhrasebookUrd: ان کی بیوی کہاں ہے
@@ -2177,7 +2177,7 @@ PhrasebookNor: god natt!
 PhrasebookPol: dobranoc!
 PhrasebookRon: noapte bună!
 PhrasebookSnd: رات بخير!
-PhrasebookSpa: ¡ buenas noches!
+PhrasebookSpa: ¡buenas noches!
 PhrasebookSwe: god natt!
 PhrasebookTha: ราตรีสวัสดิ์ ครับ
 PhrasebookUrd: رات بخیر
@@ -2201,7 +2201,7 @@ PhrasebookNor: [GWhatTime]!
 PhrasebookPol: [GWhatTime]!
 PhrasebookRon: [GWhatTime]!
 PhrasebookSnd: [GWhatTime]!
-PhrasebookSpa: ¡ qué hora es!
+PhrasebookSpa: ¡qué hora es!
 PhrasebookSwe: vad är klockan!
 PhrasebookTha: [GWhatTime] ค่ะ
 PhrasebookUrd: [GWhatTime]
@@ -2225,7 +2225,7 @@ PhrasebookNor: hvor venter dere på kona deres?
 PhrasebookPol: gdzie wy czekacie na waszą żonę?
 PhrasebookRon: unde o aşteptaţi voi pe soţia voastră?
 PhrasebookSnd: ڪٿي توھان توھانجي زال انتظار انتظاو ٿا?
-PhrasebookSpa: ¿ dónde esperáis a su esposa?
+PhrasebookSpa: ¿dónde esperáis a su esposa?
 PhrasebookSwe: var väntar ni på er fru?
 PhrasebookTha: พวกคุณ รอ ภรรยา ของ พวกคุณ ที่ไหน
 PhrasebookUrd: کہاں تم تمھاری بیوی انتظار کرتے ہو
@@ -2249,7 +2249,7 @@ PhrasebookNor: hyggelig å treffe deg!
 PhrasebookPol: miło mi!
 PhrasebookRon: încântat!
 PhrasebookSnd: توهان سان ملي ڪري سٺو لڳو!
-PhrasebookSpa: ¡ encantado de conocerle!
+PhrasebookSpa: ¡encantado de conocerle!
 PhrasebookSwe: trevligt att träffas!
 PhrasebookTha: ยินดีที่ได้รู้จัก ครับ
 PhrasebookUrd: آپ سے مل كر اچھا لگا
@@ -2273,7 +2273,7 @@ PhrasebookNor: ja!
 PhrasebookPol: tak!
 PhrasebookRon: da!
 PhrasebookSnd: ھا!
-PhrasebookSpa: ¡ sí!
+PhrasebookSpa: ¡sí!
 PhrasebookSwe: jo!
 PhrasebookTha: ใช่ ค่ะ
 PhrasebookUrd: ہاں
@@ -2344,7 +2344,7 @@ PhrasebookLav: lasi
 PhrasebookNor: les
 PhrasebookPol: przeczytaj
 PhrasebookRon: citeşte
-PhrasebookSnd:
+PhrasebookSnd: [VRead] [VRead]
 PhrasebookSpa: lee
 PhrasebookSwe: läs
 PhrasebookTha: อ่าน ซิ

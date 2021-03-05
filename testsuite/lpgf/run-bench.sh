@@ -12,9 +12,9 @@ FLAGS="+RTS -T -RTS"
 stack build --test --bench --no-run-tests --no-run-benchmarks
 
 printf "\n-- COMPILE --\n\n"
-DEBUG=1 stack bench --benchmark-arguments "compile pgf ${PREFIX}${1}.gf ${FLAGS}"
+stack bench --benchmark-arguments "compile pgf ${PREFIX}${1}.gf ${FLAGS}"
 printf "\n"
-DEBUG=1 stack bench --benchmark-arguments "compile lpgf ${PREFIX}${1}.gf ${FLAGS}"
+stack bench --benchmark-arguments "compile lpgf ${PREFIX}${1}.gf ${FLAGS}"
 
 printf "\n-- RUN -- \n\n"
 stack bench --benchmark-arguments "run pgf Phrasebook.pgf ${TREES} ${FLAGS}"

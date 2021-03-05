@@ -10,6 +10,7 @@ import GF.Support (Options, Flags (..), Verbosity (..), noOptions, addOptions, m
 import Control.DeepSeq (NFData, force)
 import Control.Exception (evaluate)
 import Control.Monad (when, forM)
+import Data.Either (isLeft)
 import qualified Data.List as L
 import Data.Maybe (fromJust, isJust, isNothing)
 import qualified Data.Map as Map
@@ -105,8 +106,12 @@ main = do
     when doLPGF $ do
       heading "LPGF"
       lpgf <- LPGF.readLPGF (dropExtension (fromJust binaryFile) <.> "lpgf")
-      timePure "- linearise: " (linLPGF lpgf trees)
-      return ()
+      -- timePure "- linearise: " (linLPGF lpgf trees)
+      ress <- time "- linearise: " (linLPGF' lpgf trees)
+      when (any (any isLeft) ress) $ do
+        setSGR [SetColor Foreground Dull Red]
+        putStrLn "Teminated with errors"
+        setSGR [Reset]
 
   stats <- getRTSStats
   printf "Max memory: %s\n" (convertSize (fromIntegral (max_mem_in_use_bytes stats)))
@@ -117,6 +122,7 @@ heading s = do
   putStrLn s
   setSGR [Reset]
 
+-- For accurate timing, IO action must for evaluation itself (e.g., write to file)
 time :: String -> IO a -> IO a
 time desc io = do
   start <- getCurrentTime
@@ -125,6 +131,7 @@ time desc io = do
   putStrLn $ desc ++ show (diffUTCTime end start)
   return r
 
+-- Performs deep evaluation
 timePure :: (NFData a) => String -> a -> IO a
 timePure desc val = time desc (return $ force val)
 
@@ -151,6 +158,10 @@ linPGF2 pgf trees =
 linLPGF :: LPGF.LPGF -> [PGF.Expr] -> [[Text]]
 linLPGF lpgf trees =
   [ map (LPGF.linearizeConcreteText concr) trees | (_,concr) <- Map.toList (LPGF.concretes lpgf) ]
+
+linLPGF' :: LPGF.LPGF -> [PGF.Expr] -> IO [[Either String Text]]
+linLPGF' lpgf trees =
+  forM (Map.toList (LPGF.concretes lpgf)) $ \(_,concr) -> mapM (LPGF.try . LPGF.linearizeConcreteText concr) trees
 
 -- | Produce human readable file size
 -- Adapted from https://hackage.haskell.org/package/hrfsize

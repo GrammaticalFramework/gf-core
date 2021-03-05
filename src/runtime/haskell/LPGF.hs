@@ -1,5 +1,6 @@
-{-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE LambdaCase #-}
+{-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE ScopedTypeVariables #-}
 
 -- | Linearisation-only grammar format.
 -- Closely follows description in Section 2 of Angelov, Bringert, Ranta (2009):
@@ -12,6 +13,7 @@ import PGF.CId
 import PGF.Expr (Expr)
 import PGF.Tree (Tree (..), expr2tree, prTree)
 
+import qualified Control.Exception as EX
 import Control.Monad (liftM, liftM2, forM_)
 import qualified Control.Monad.Writer as CMW
 import Data.Binary (Binary, put, get, putWord8, getWord8, encodeFile, decodeFile)
@@ -194,6 +196,13 @@ linearizeConcreteText concr expr = lin2string $ lin (expr2tree expr)
             where cxt = Context { cxToks = toks concr, cxArgs = map lin as }
           _ -> Missing f
       x -> error $ printf "Cannot lin: %s" (prTree x)
+
+-- | Run a compatation and catch any exception/errors.
+-- Ideally this library should never throw exceptions, but we're still in development...
+try :: a -> IO (Either String a)
+try comp = do
+  let f = Right <$> EX.evaluate comp
+  EX.catch f (\(e :: EX.SomeException) -> return $ Left (show e))
 
 -- | Evaluation context
 data Context = Context {
