@@ -100,14 +100,23 @@ mkCanon2lpgf opts gr am = do
 
         -- Filter out record fields from definitions which don't appear in lincat.
         -- Workaround for https://github.com/GrammaticalFramework/gf-core/issues/101
+        cleanupRecordFields :: C.LinValue -> C.LinType -> C.LinValue
+        cleanupRecordFields (C.RecordValue rrvs) (C.RecordType rrs) =
+          let defnFields = Map.fromList [ (lid, lt) | (C.RecordRow lid lt) <- rrs ]
+          in C.RecordValue
+              [ C.RecordRow lid lv'
+              | C.RecordRow lid lv <- rrvs
+              , Map.member lid defnFields
+              , let Just lt = Map.lookup lid defnFields
+              , let lv' = cleanupRecordFields lv lt
+              ]
+        cleanupRecordFields lv _ = lv
+
         lindefs' =
           [ C.LinDef funId varIds linValue'
           | (C.LinDef funId varIds linValue) <- lindefs
-          , let linValue' = case (linValue, lookupLinType funId) of
-                  (C.RecordValue rrvs, Right (C.RecordType rrs)) ->
-                    let defnFields = [ lid | (C.RecordRow lid _) <- rrs ]
-                    in C.RecordValue [ rrv | rrv@(C.RecordRow lid _) <- rrvs, lid `elem` defnFields ]
-                  (x,_) -> x
+          , let Right linType = lookupLinType funId
+          , let linValue' = cleanupRecordFields linValue linType
           ]
         es = map mkLin lindefs'
         lins = Map.fromList $ rights es
@@ -115,7 +124,7 @@ mkCanon2lpgf opts gr am = do
         -- | Main code generation function
         mkLin :: C.LinDef -> Either String (CId, L.LinFun)
         mkLin (C.LinDef funId varIds linValue) = do
-          when debug $ trace funId
+          -- when debug $ trace funId
           (lf, _) <- val2lin linValue
           return (fi2i funId, lf)
           where
