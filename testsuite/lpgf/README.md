@@ -19,6 +19,7 @@ stack test gf:test:lpgf --test-arguments="foods/Foods Fre Ger" # specific gramma
 
 ```
 stack build --test --bench --no-run-tests --no-run-benchmarks && DEBUG=1 stack test gf:test:lpgf --test-arguments="foods/Foods Fre Ger"
+stack build --test --bench --no-run-tests --no-run-benchmarks && DEBUG=1 stack test gf:test:lpgf --test-arguments="phrasebook/Phrasebook Bul"
 ```
 
 Set environment variable `DEBUG=1` to enable dumping of intermediate formats.

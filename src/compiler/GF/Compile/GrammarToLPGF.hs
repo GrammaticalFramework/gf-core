@@ -70,6 +70,15 @@ mkCanon2lpgf opts gr am = do
         funMap :: Map.Map C.FunId C.FunDef
         funMap = Map.fromList [ (fid,d) | d@(C.FunDef fid _) <- funs ]
 
+        -- | Lookup paramdef, providing dummy fallback when not found
+        -- Workaround for https://github.com/GrammaticalFramework/gf-core/issues/100
+        lookupParamDef :: C.ParamId -> Either String C.ParamDef
+        lookupParamDef pid = case Map.lookup pid paramValueMap of
+          Just d -> Right d
+          Nothing ->
+            -- Left $ printf "Cannot find param definition: %s" (show pid)
+            Right $ C.ParamDef (C.ParamId (C.Unqual "DUMMY")) [C.Param pid []]
+
         -- | Lookup lintype for a function
         lookupLinType :: C.FunId -> Either String C.LinType
         lookupLinType funId = do
@@ -89,8 +98,8 @@ mkCanon2lpgf opts gr am = do
           let (C.LincatDef _ lt) = lincat
           return lt
 
-        -- filter out record fields from defn which don't appear in lincat
-        -- this seems to be an inconsistency in the canonical representation
+        -- Filter out record fields from definitions which don't appear in lincat.
+        -- Workaround for https://github.com/GrammaticalFramework/gf-core/issues/101
         lindefs' =
           [ C.LinDef funId varIds linValue'
           | (C.LinDef funId varIds linValue) <- lindefs
@@ -129,7 +138,7 @@ mkCanon2lpgf opts gr am = do
                 let
                   collectProjections :: C.LinValue -> Either String [L.LinFun]
                   collectProjections (C.ParamConstant (C.Param pid lvs)) = do
-                    def <- m2e (printf "Cannot find param definition: %s" (show pid)) (Map.lookup pid paramValueMap)
+                    def <- lookupParamDef pid
                     let (C.ParamDef tpid defpids) = def
                     pidIx <- eitherElemIndex pid [ p | C.Param p _ <- defpids ]
                     rest <- mapM collectProjections lvs
@@ -139,7 +148,7 @@ mkCanon2lpgf opts gr am = do
                     return [lf]
                 lfs <- collectProjections lv
                 let term = L.Tuple lfs
-                def <- m2e (printf "Cannot find param definition: %s" (show pid)) (Map.lookup pid paramValueMap)
+                def <- lookupParamDef pid
                 let (C.ParamDef tpid _) = def
                 return (term, Just $ C.ParamType (C.ParamTypeId tpid))
 
@@ -341,8 +350,8 @@ inlineParamAliases defs = if null aliases then defs else map rp' pdefs
       Just (C.ParamAliasDef _ (C.ParamType (C.ParamTypeId p))) -> p
       _ -> pid
 
--- | Always put 's' reocord field first, then sort alphabetically
--- This seems to be done inconsistently in the canonical format
+-- | Always put 's' reocord field first, then sort alphabetically.
+-- Workaround for https://github.com/GrammaticalFramework/gf-core/issues/102
 -- Based on GF.Granmar.Macros.sortRec
 sortRecordRows :: [C.RecordRowValue] -> [C.RecordRowValue]
 sortRecordRows = L.sortBy ordLabel
