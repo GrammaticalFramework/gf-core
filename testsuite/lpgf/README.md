@@ -57,6 +57,14 @@ stack bench --benchmark-arguments "run pgf2 Foods.pgf  testsuite/lpgf/foods/Food
 stack bench --benchmark-arguments "run lpgf Foods.lpgf testsuite/lpgf/foods/Foods-all.trees +RTS -T -RTS"
 ```
 
+```
+stack build --test --bench --no-run-tests --no-run-benchmarks &&
+stack bench --benchmark-arguments "compile pgf  testsuite/lpgf/phrasebook/Phrasebook*.gf +RTS -T -RTS" &&
+stack bench --benchmark-arguments "compile lpgf testsuite/lpgf/phrasebook/Phrasebook*.gf +RTS -T -RTS" &&
+stack bench --benchmark-arguments "run pgf  Foods.pgf  testsuite/lpgf/phrasebook/Phrasebook-10000.trees +RTS -T -RTS" &&
+stack bench --benchmark-arguments "run pgf2 Foods.pgf  testsuite/lpgf/phrasebook/Phrasebook-10000.trees +RTS -T -RTS" &&
+stack bench --benchmark-arguments "run lpgf Foods.lpgf testsuite/lpgf/phrasebook/Phrasebook-10000.trees +RTS -T -RTS"
+```
 
 # Notes on compilation
 
