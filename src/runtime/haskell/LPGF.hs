@@ -232,7 +232,6 @@ eval cxt t = case t of
       (Missing f, _) -> Missing f
       (_, Missing f) -> Missing f
       (Tuple vs, Ix i) -> vs !! (i-1)
-      -- (tp@(Tuple _), tv@(Tuple _)) | all isIx (flattenTuple tv) -> foldl (\(Tuple vs) (Ix i) -> vs !! (i-1)) tp (flattenTuple tv)
       (t', tv@(Tuple _)) -> eval cxt $ foldl Projection t' (flattenTuple tv)
       (t',u') -> error $ printf "Incompatible projection:\n- %s\n⇓ %s\n- %s\n⇓ %s" (show t) (show t') (show u) (show u')
   Argument i -> cxArgs cxt !! (i-1)
