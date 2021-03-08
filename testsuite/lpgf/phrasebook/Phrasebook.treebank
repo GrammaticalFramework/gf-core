@@ -256,7 +256,7 @@ PhrasebookLav: atrakciju parks nav atvērts.
 PhrasebookNor: en fornøyelsespark er ikke åpen.
 PhrasebookPol: wesołe miasteczko nie jest otwarte.
 PhrasebookRon: un parc de distracții nu este deschis.
-PhrasebookSnd:
+PhrasebookSnd: [AmusementPark] کلي ن [AmusementPark].
 PhrasebookSpa: un parque de atracciones no está abierto.
 PhrasebookSwe: en nöjespark är inte öppen.
 PhrasebookTha: สวนสนุก ไม่ เปิด
@@ -592,14 +592,14 @@ PhrasebookLav: tev nav picas.
 PhrasebookNor: du har ikke pizzaer.
 PhrasebookPol: nie masz pizz.
 PhrasebookRon: tu nu ai nişte pizze.
-PhrasebookSnd:
+PhrasebookSnd: [YouFamMale] پيزا [YouFamMale] ن [YouFamMale].
 PhrasebookSpa: no tienes pizzas.
 PhrasebookSwe: du har inte pizzor.
 PhrasebookTha: เธอ ไม่ มี พิซซา
 PhrasebookUrd: تم پیزے نہیں رکھتے ہو
 
 Phrasebook: PQuestion (HowFarFromBy (SuperlPlace TheMostExpensive Pharmacy) (SuperlPlace TheMostPopular Zoo) ByFoot)
-PhrasebookBul: колко далече е най - известният зоопарк от най - скъпата аптека пеша?
+PhrasebookBul: колко далече е най-известният зоопарк от най-скъпата аптека пеша?
 PhrasebookCat: a quina distància està de la farmàcia més cara a peu el zoo més popular?
 PhrasebookChi: [HowFarFromBy] ？
 PhrasebookDan: hvor langt er den populæreste zoologiske have fra det dyreste apotek til fods?
@@ -911,7 +911,7 @@ PhrasebookTha: อ่าน ซิ
 PhrasebookUrd: پڑھنا
 
 Phrasebook: PSentence (SPropNot (PropClosedDay (SuperlPlace TheBest Station) Wednesday))
-PhrasebookBul: най - добрата гара не е затворена в средите.
+PhrasebookBul: най-добрата гара не е затворена в средите.
 PhrasebookCat: la millora estació no és tancada els dimecres.
 PhrasebookChi: 最 好 的 那 个 车 站 在 星 期 三 不 是 关 闭 的 。
 PhrasebookDan: den bedste station har ikke lukket på onsdager.
@@ -1240,7 +1240,7 @@ PhrasebookLav: jūsu meitai nav garlaicīgs sāls.
 PhrasebookNor: datteren deres har ikke kjedelig salt.
 PhrasebookPol: wasza córka nie ma nudnej soli.
 PhrasebookRon: fiica voastră nu are sare plictisitoare.
-PhrasebookSnd:
+PhrasebookSnd: [YouPlurPolFemale] فضول لوڻ [YouPlurPolFemale] ن [YouPlurPolFemale].
 PhrasebookSpa: su hija no tiene sal aburrida.
 PhrasebookSwe: er dotter har inte tråkigt salt.
 PhrasebookTha: ลูกสาว ของ พวกคุณ ไม่ มี เกลือ น่าเบื่อ
@@ -1511,7 +1511,7 @@ PhrasebookTha: ใช่ ค่ะ
 PhrasebookUrd: ہاں
 
 Phrasebook: PQuestion (HowFarBy (SuperlPlace TheWorst Church) ByFoot)
-PhrasebookBul: колко далече е най - лошата църква пеша?
+PhrasebookBul: колко далече е най-лошата църква пеша?
 PhrasebookCat: a quina distància està a peu la pitjora església?
 PhrasebookChi: 步 行 到 最 坏 的 那 所 教 堂 有 多 远 ？
 PhrasebookDan: hvor langt er den dårligste kirke til fods?
@@ -1912,7 +1912,7 @@ PhrasebookLav: Jums nav pārāk auksti āboli.
 PhrasebookNor: Dere har ikke for kalde epler.
 PhrasebookPol: pani nie ma za zimnych jabłek.
 PhrasebookRon: dumneavoastră nu aveţi nişte mere prea reci.
-PhrasebookSnd:
+PhrasebookSnd: [YouPolFemale] بيحد ٿڌا صوف [YouPolFemale] ن [YouPolFemale].
 PhrasebookSpa: no tiene manzanas demasiado frías.
 PhrasebookSwe: ni har inte för kalla äpplen.
 PhrasebookTha: คุณ ไม่ มี แอป เปิ้ล หนาว เกินไป
@@ -2368,14 +2368,14 @@ PhrasebookLav: jums ir pica.
 PhrasebookNor: dere har en pizza.
 PhrasebookPol: wy macie pizzę.
 PhrasebookRon: voi aveţi o pizză.
-PhrasebookSnd:
+PhrasebookSnd: [YouPlurPolFemale] پيزا [YouPlurPolFemale] [YouPlurPolFemale].
 PhrasebookSpa: tienen una pizza.
 PhrasebookSwe: ni har en pizza.
 PhrasebookTha: พวกคุณ มี พิซซา
 PhrasebookUrd: آپ پیزہ رکھتیں ہیں
 
 Phrasebook: PSentence (SPropNot (PropOpenDay (SuperlPlace TheCheapest Supermarket) Thursday))
-PhrasebookBul: най - евтиният супермаркет не е отворен в четвъртъците.
+PhrasebookBul: най-евтиният супермаркет не е отворен в четвъртъците.
 PhrasebookCat: el supermercat més barat no és obert els dijous.
 PhrasebookChi: 最 廉 价 的 那 家 超 级 市 场 在 星 期 四 不 是 开 放 的 。
 PhrasebookDan: det billigste supermarked har ikke åbent på torsdager.

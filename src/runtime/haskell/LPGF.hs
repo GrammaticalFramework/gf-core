@@ -17,6 +17,7 @@ import qualified Control.Exception as EX
 import Control.Monad (liftM, liftM2, forM_)
 import qualified Control.Monad.Writer as CMW
 import Data.Binary (Binary, put, get, putWord8, getWord8, encodeFile, decodeFile)
+import Data.Either (isLeft)
 import qualified Data.IntMap as IntMap
 import qualified Data.Map.Strict as Map
 import Data.Text (Text)
@@ -133,6 +134,7 @@ instance Binary LinFun where
 
     PreIx ps d       -> putWord8 15 >> put (ps,d)
     TokenIx i        -> putWord8 14 >> put i
+
   get = do
     tag <- getWord8
     case tag of
@@ -230,7 +232,8 @@ eval cxt t = case t of
       (Missing f, _) -> Missing f
       (_, Missing f) -> Missing f
       (Tuple vs, Ix i) -> vs !! (i-1)
-      (tp@(Tuple _), tv@(Tuple _)) | all isIx (flattenTuple tv) -> foldl (\(Tuple vs) (Ix i) -> vs !! (i-1)) tp (flattenTuple tv)
+      -- (tp@(Tuple _), tv@(Tuple _)) | all isIx (flattenTuple tv) -> foldl (\(Tuple vs) (Ix i) -> vs !! (i-1)) tp (flattenTuple tv)
+      (t', tv@(Tuple _)) -> eval cxt $ foldl Projection t' (flattenTuple tv)
       (t',u') -> error $ printf "Incompatible projection:\n- %s\n⇓ %s\n- %s\n⇓ %s" (show t) (show t') (show u) (show u')
   Argument i -> cxArgs cxt !! (i-1)
 
@@ -247,28 +250,53 @@ flattenTuple = \case
   Tuple vs -> concatMap flattenTuple vs
   lf -> [lf]
 
--- | Turn concrete syntax terms into an actual string
+-- | Turn concrete syntax terms into an actual string.
+-- This is done in two passes, first to flatten concats & evaluate pre's, then to
+-- apply BIND and other predefs.
 lin2string :: LinFun -> Text
-lin2string l = case l of
-  Empty -> ""
-  Bind -> "" -- when encountered at beginning/end
-  Space -> "" -- when encountered at beginning/end
-  Token tok -> tok
-  Missing cid -> T.pack $ printf "[%s]" (show cid)
-  Tuple [l] -> lin2string l
-  Tuple (l:_) -> lin2string l -- unselected table, just choose first option (see e.g. FoodsJpn)
-  Pre pts df -> lin2string df -- when encountered at end
-  Concat (Pre pts df) l2 -> lin2string $ Concat l1 l2
-    where
-      l2' = lin2string l2
-      matches = [ l | (pfxs, l) <- pts, any (`T.isPrefixOf` l2') pfxs ]
-      l1 = if null matches then df else head matches
-  Concat l1 (Concat Bind l2) -> lin2string l1 `T.append` lin2string l2
-  Concat l1 (Concat Space l2) -> lin2string $ Concat l1 l2
-  Concat Capit l2 -> let l = lin2string l2 in T.toUpper (T.take 1 l) `T.append` T.drop 1 l
-  Concat AllCapit l2 -> let tks = T.words (lin2string l2) in T.unwords $ T.toUpper (head tks) : tail tks
-  Concat l1 l2 -> T.unwords $ filter (not.T.null) [lin2string l1, lin2string l2]
-  x -> T.pack $ printf "[%s]" (show x)
+lin2string lf = T.unwords $ join $ flatten [lf]
+  where
+    -- Process bind et al into final token list
+    join :: [Either LinFun Text] -> [Text]
+    join elt = case elt of
+      Right tok:Left Bind:ls ->
+        case join ls of
+          next:ls' -> tok `T.append` next : ls'
+          _ -> []
+      Right tok:ls -> tok : join ls
+      Left Space:ls -> join ls
+      Left Capit:ls ->
+        case join ls of
+          next:ls' -> T.toUpper (T.take 1 next) `T.append` T.drop 1 next : ls'
+          _ -> []
+      Left AllCapit:ls ->
+        case join ls of
+          next:ls' -> T.toUpper next : ls'
+          _ -> []
+      Left (Missing cid):ls -> join (Right (T.pack (printf "[%s]" (show cid))) : ls)
+      [] -> []
+      x -> error $ printf "Unhandled term in lin2string: %s" (show x)
+
+    -- Process concats, tuples, pre into flat list
+    flatten :: [LinFun] -> [Either LinFun Text]
+    flatten [] = []
+    flatten (l:ls) = case l of
+      Empty -> flatten ls
+      Token "" -> flatten ls
+      Token tok -> Right tok : flatten ls
+      Concat l1 l2 -> flatten (l1 : l2 : ls)
+      Tuple [l] -> flatten (l:ls)
+      Tuple (l:_) -> flatten (l:ls) -- unselected table, just choose first option (see e.g. FoodsJpn)
+      Pre pts df ->
+        let
+          f = flatten ls
+          ch = case dropWhile isLeft f of
+            Right next:_ ->
+              let matches = [ l | (pfxs, l) <- pts, any (`T.isPrefixOf` next) pfxs ]
+              in  if null matches then df else head matches
+            _ -> df
+        in flatten (ch:ls)
+      x -> Left x : flatten ls
 
 -- | List indexing with more verbose error messages
 (!!) :: (Show a) => [a] -> Int -> a

@@ -9,4 +9,6 @@ abstract Bind = {
     softspace : S -> S -> S ;
     capit : S -> S ;
     allcapit : S -> S ;
+    prebind : S -> S ;
+    precapit : S -> S ;
 }

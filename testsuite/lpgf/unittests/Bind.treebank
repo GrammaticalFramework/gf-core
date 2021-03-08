@@ -18,3 +18,15 @@ BindCnc: hello there goodbye
 
 Bind: concat (capit f1) (allcapit f2)
 BindCnc: Hello there GOODBYE
+
+Bind: prebind f1
+BindCnc: |hello there
+
+Bind: prebind f2
+BindCnc: > goodbye
+
+Bind: precapit f1
+BindCnc: |Hello there
+
+Bind: precapit f2
+BindCnc: > Goodbye
