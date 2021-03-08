@@ -1,3 +1,5 @@
+{-# LANGUAGE LambdaCase #-}
+
 module Main where
 
 import LPGF
@@ -5,7 +7,8 @@ import PGF (showLanguage, readExpr)
 import GF (compileToLPGF, writeLPGF)
 import GF.Support (noOptions)
 
-import Control.Monad (forM, when)
+import Control.Monad (forM, forM_, when)
+import Data.Either (isLeft)
 import qualified Data.List as L
 import qualified Data.Map as Map
 import System.Console.ANSI
@@ -67,7 +70,6 @@ doGrammar' path gname cncs = do
   gs <- groups . lines <$> readFile (dir </> path </> gname <.> "treebank")
   results <- forM gs $ \grp -> do
     let ast = drop 2 $ dropWhile (/=':') $ head grp
-    printf "- %s: %s\n" gname ast
     let Just tree = readExpr ast
 
     -- Linearization into all languages
@@ -80,16 +82,26 @@ doGrammar' path gname cncs = do
     -- filter out missing langs from treebank
     let golds = [ g | o <- outs, g <- tail grp, takeWhile (/=':') o == takeWhile (/=':') g  ]
 
+    -- rs :: [Maybe (Text,Text)] out,gold
     rs <- forM (zip outs golds) $ \(out,gold) ->
       if out == gold
-      then do
-        printPass out
-        return True
-      else do
-        printFail out gold
-        return False
-    putStrLn ""
-    return rs
+      then return $ Right out -- pass
+      else return $ Left (out,gold) -- fail
+
+    -- Output if any failed
+    when (any isLeft rs) $ do
+      printf "- %s: %s\n" gname ast
+      forM_ rs $ \case
+        Right out -> do
+          green "✓"
+          printf " %s\n" out
+          putStrLn out
+        Left (out,gold) -> do
+          red $ printf "✗ %s\n" out
+          yellow $ printf "→ %s\n" gold
+      putStrLn ""
+
+    return $ map (either (const False) (const True)) rs
 
   let trees = length results
   let langs = length (head results)
@@ -97,7 +109,17 @@ doGrammar' path gname cncs = do
   let (ts,fs) = L.partition id (concat results)
   let passed = length ts
   let failed = length fs
-  printf "Passed %d | Failed %d | Total %d lins (%d trees, %d languages)\n" passed failed total trees langs
+
+  if failed == 0
+  then do
+    green $ printf "Passed %d" passed
+    printf " | Failed %d" failed
+  else do
+    printf "Passed %d | " passed
+    red $ printf "Failed %d" failed
+
+  printf " | Total %d lins (%d trees, %d languages)\n" total trees langs
+
   when (failed > 0) exitFailure
 
 -- | Group list of lines by blank lines
@@ -105,15 +127,17 @@ groups :: [String] -> [[String]]
 groups [] = []
 groups ss = let (a,b) = break (=="") ss in a : groups (drop 1 b)
 
-printPass s = do
+green s = do
   setSGR [SetColor Foreground Vivid Green]
-  printf "✓"
+  putStr s
   setSGR [Reset]
-  printf " %s\n" s
 
-printFail s t = do
-  setSGR [SetColor Foreground Dull Red]
-  printf "✗ %s\n" s
+yellow s = do
   setSGR [SetColor Foreground Dull Yellow]
-  printf "→ %s\n" t
+  putStr s
+  setSGR [Reset]
+
+red s = do
+  setSGR [SetColor Foreground Dull Red]
+  putStr s
   setSGR [Reset]
