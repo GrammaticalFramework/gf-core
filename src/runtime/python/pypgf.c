@@ -2078,6 +2078,58 @@ static PyTypeObject pgf_BracketType = {
 };
 
 typedef struct {
+	PyObject_HEAD
+} BINDObject;
+
+static PyObject *
+BIND_repr(BINDObject *self)
+{
+	return PyString_FromString("&+");
+}
+
+static PyTypeObject pgf_BINDType = {
+    PyVarObject_HEAD_INIT(NULL, 0)
+    //0,                       /*ob_size*/
+    "pgf.BIND",                /*tp_name*/
+    sizeof(BINDObject),        /*tp_basicsize*/
+    0,                         /*tp_itemsize*/
+    0,                         /*tp_dealloc*/
+    0,                         /*tp_print*/
+    0,                         /*tp_getattr*/
+    0,                         /*tp_setattr*/
+    0,                         /*tp_compare*/
+    0,                         /*tp_repr*/
+    0,                         /*tp_as_number*/
+    0,                         /*tp_as_sequence*/
+    0,                         /*tp_as_mapping*/
+    0,                         /*tp_hash */
+    0,                         /*tp_call*/
+    (reprfunc) BIND_repr,      /*tp_str*/
+    0,                         /*tp_getattro*/
+    0,                         /*tp_setattro*/
+    0,                         /*tp_as_buffer*/
+    Py_TPFLAGS_DEFAULT | Py_TPFLAGS_BASETYPE, /*tp_flags*/
+    "a marker for BIND in a bracketed string", /*tp_doc*/
+    0,		                   /*tp_traverse */
+    0,		                   /*tp_clear */
+    0,		                   /*tp_richcompare */
+    0,		                   /*tp_weaklistoffset */
+    0,		                   /*tp_iter */
+    0,		                   /*tp_iternext */
+    0,                         /*tp_methods */
+    0,                         /*tp_members */
+    0,                         /*tp_getset */
+    0,                         /*tp_base */
+    0,                         /*tp_dict */
+    0,                         /*tp_descr_get */
+    0,                         /*tp_descr_set */
+    0,                         /*tp_dictoffset */
+    0,                         /*tp_init */
+    0,                         /*tp_alloc */
+    0,                         /*tp_new */
+};
+
+typedef struct {
 	PgfLinFuncs* funcs;
 	GuBuf* stack;
 	PyObject* list;
@@ -2129,6 +2181,16 @@ pgf_bracket_lzn_end_phrase(PgfLinFuncs** funcs, PgfCId cat, int fid, GuString an
 }
 
 static void
+pgf_bracket_lzn_symbol_bind(PgfLinFuncs** funcs)
+{
+	PgfBracketLznState* state = gu_container(funcs, PgfBracketLznState, funcs);
+
+	PyObject* bind = pgf_BINDType.tp_alloc(&pgf_BINDType, 0);
+	PyList_Append(state->list, bind);
+	Py_DECREF(bind);
+}
+
+static void
 pgf_bracket_lzn_symbol_meta(PgfLinFuncs** funcs, PgfMetaId meta_id)
 {
 	pgf_bracket_lzn_symbol_token(funcs, "?");
@@ -2139,7 +2201,7 @@ static PgfLinFuncs pgf_bracket_lin_funcs = {
 	.begin_phrase  = pgf_bracket_lzn_begin_phrase,
 	.end_phrase    = pgf_bracket_lzn_end_phrase,
 	.symbol_ne     = NULL,
-	.symbol_bind   = NULL,
+	.symbol_bind   = pgf_bracket_lzn_symbol_bind,
 	.symbol_capit  = NULL,
 	.symbol_meta   = pgf_bracket_lzn_symbol_meta
 };
@@ -3559,6 +3621,9 @@ MOD_INIT(pgf)
 	if (PyType_Ready(&pgf_BracketType) < 0)
 		return MOD_ERROR_VAL;
 
+	if (PyType_Ready(&pgf_BINDType) < 0)
+		return MOD_ERROR_VAL;
+
 	if (PyType_Ready(&pgf_ExprType) < 0)
 		return MOD_ERROR_VAL;
 
@@ -3604,6 +3669,9 @@ MOD_INIT(pgf)
 
     PyModule_AddObject(m, "Bracket", (PyObject *) &pgf_BracketType);
     Py_INCREF(&pgf_BracketType);
+
+    PyModule_AddObject(m, "BIND", (PyObject *) &pgf_BINDType);
+    Py_INCREF(&pgf_BINDType);
 
 	return MOD_SUCCESS_VAL(m);
 }

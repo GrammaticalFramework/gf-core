@@ -28,17 +28,17 @@ main = defaultMainWithHooks simpleUserHooks
       return emptyHookedBuildInfo
 
     gfPostBuild args flags pkg lbi = do
-      noRGLmsg
+      -- noRGLmsg
       let gf = default_gf lbi
       buildWeb gf flags (pkg,lbi)
 
     gfPostInst args flags pkg lbi = do
-      noRGLmsg
+      -- noRGLmsg
       saveInstallPath args flags (pkg,lbi)
       installWeb (pkg,lbi)
 
     gfPostCopy args flags  pkg lbi = do
-      noRGLmsg
+      -- noRGLmsg
       saveCopyPath args flags (pkg,lbi)
       copyWeb flags (pkg,lbi)
 

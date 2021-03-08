@@ -322,7 +322,7 @@ gu_map_iter(GuMap* map, GuMapItor* itor, GuExn* err)
 }
 
 GU_API bool
-gu_map_next(GuMap* map, size_t* pi, void** pkey, void* pvalue)
+gu_map_next(GuMap* map, size_t* pi, void* pkey, void* pvalue)
 {
 	while (*pi < map->data.n_entries) {
 		if (gu_map_entry_is_free(map, &map->data, *pi)) {
@@ -330,14 +330,17 @@ gu_map_next(GuMap* map, size_t* pi, void** pkey, void* pvalue)
 			continue;
 		}
 
-		*pkey = &map->data.keys[*pi * map->key_size];
 		if (map->hasher == gu_addr_hasher) {
-			*pkey = *(void**) *pkey;
+            *((void**) pkey) = *((void**) &map->data.keys[*pi * sizeof(void*)]);
+        } else if (map->hasher == gu_word_hasher) {
+            *((GuWord*) pkey) = *((GuWord*) &map->data.keys[*pi * sizeof(GuWord)]);
 		} else if (map->hasher == gu_string_hasher) {
-			*pkey = *(void**) *pkey;
-		}
+			*((GuString*) pkey) = *((GuString*) &map->data.keys[*pi * sizeof(GuString)]);
+		} else {
+            memcpy(pkey, &map->data.keys[*pi * map->key_size], map->key_size);
+        }
 
-		memcpy(pvalue, &map->data.values[*pi * map->cell_size], 
+		memcpy(pvalue, &map->data.values[*pi * map->cell_size],
 		       map->value_size);
 
 		(*pi)++;
