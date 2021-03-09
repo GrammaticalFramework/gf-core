@@ -61,10 +61,30 @@ stack bench --benchmark-arguments "run lpgf Foods.lpgf testsuite/lpgf/foods/Food
 stack build --test --bench --no-run-tests --no-run-benchmarks &&
 stack bench --benchmark-arguments "compile pgf  testsuite/lpgf/phrasebook/Phrasebook*.gf +RTS -T -RTS" &&
 stack bench --benchmark-arguments "compile lpgf testsuite/lpgf/phrasebook/Phrasebook*.gf +RTS -T -RTS" &&
-stack bench --benchmark-arguments "run pgf  Foods.pgf  testsuite/lpgf/phrasebook/Phrasebook-10000.trees +RTS -T -RTS" &&
-stack bench --benchmark-arguments "run pgf2 Foods.pgf  testsuite/lpgf/phrasebook/Phrasebook-10000.trees +RTS -T -RTS" &&
-stack bench --benchmark-arguments "run lpgf Foods.lpgf testsuite/lpgf/phrasebook/Phrasebook-10000.trees +RTS -T -RTS"
+stack bench --benchmark-arguments "run pgf  Phrasebook.pgf  testsuite/lpgf/phrasebook/Phrasebook-10000.trees +RTS -T -RTS" &&
+stack bench --benchmark-arguments "run pgf2 Phrasebook.pgf  testsuite/lpgf/phrasebook/Phrasebook-10000.trees +RTS -T -RTS" &&
+stack bench --benchmark-arguments "run lpgf Phrasebook.lpgf testsuite/lpgf/phrasebook/Phrasebook-10000.trees +RTS -T -RTS"
 ```
+
+## Profiling
+
+```
+stack bench --work-dir .stack-work-profile --profile --benchmark-arguments "compile lpgf testsuite/lpgf/phrasebook/PhrasebookFre.gf +RTS -T -p -h -RTS"
+```
+
+Produced files:
+- `lpgf-bench.prof` - total time and memory allocation (`-p`)
+- `lpgf-bench.hp` - heap profile (`-h`)
+
+```
+stack exec -- hp2ps -c lpgf-bench.hp && open lpgf-bench.ps
+```
+
+**Resources**
+
+- https://downloads.haskell.org/ghc/8.6.5/docs/html/users_guide/profiling.html
+- http://book.realworldhaskell.org/read/profiling-and-optimization.html
+- https://wiki.haskell.org/Performance
 
 # Notes on compilation
 
