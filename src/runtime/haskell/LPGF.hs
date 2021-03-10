@@ -16,13 +16,12 @@ import PGF.Tree (Tree (..), expr2tree, prTree)
 import qualified Control.Exception as EX
 import Control.Monad (liftM, liftM2, forM_)
 import qualified Control.Monad.Writer as CMW
+import Data.Char (toUpper)
 import Data.Binary (Binary, put, get, putWord8, getWord8, encodeFile, decodeFile)
 import Data.Either (isLeft)
 import qualified Data.IntMap as IntMap
+import Data.List (isPrefixOf)
 import qualified Data.Map.Strict as Map
-import Data.Text (Text)
-import qualified Data.Text as T
-import qualified Data.Text.Encoding as TE
 import Text.Printf (printf)
 
 import Prelude hiding ((!!))
@@ -41,7 +40,7 @@ data Abstract = Abstract {
 
 -- | Concrete syntax
 data Concrete = Concrete {
-  toks    :: IntMap.IntMap Text, -- ^ all strings are stored exactly once here
+  toks    :: IntMap.IntMap String, -- ^ all strings are stored exactly once here
   -- lincats :: Map.Map CId LinType, -- ^ a linearization type for each category
   lins    :: Map.Map CId LinFun  -- ^ a linearization function for each function
 } deriving (Show)
@@ -65,12 +64,12 @@ data LinFun =
   | Space -- ^ space between adjacent tokens
   | Capit -- ^ capitalise next character
   | AllCapit -- ^ capitalise next word
-  | Pre [([Text], LinFun)] LinFun
+  | Pre [([String], LinFun)] LinFun
   | Missing CId -- ^ missing definition (inserted at runtime)
 
   -- From original definition in paper
   | Empty
-  | Token Text
+  | Token String
   | Concat LinFun LinFun
   | Ix Int
   | Tuple [LinFun]
@@ -158,10 +157,6 @@ instance Binary LinFun where
       14 -> liftM  TokenIx get
       _  -> fail "Failed to decode LPGF binary format"
 
-instance Binary Text where
-  put = put . TE.encodeUtf8
-  get = liftM TE.decodeUtf8 get
-
 abstractName :: LPGF -> CId
 abstractName = absname
 
@@ -173,22 +168,14 @@ readLPGF = Data.Binary.decodeFile
 
 -- | Main linearize function, to 'String'
 linearize :: LPGF -> Language -> Expr -> String
-linearize lpgf lang expr = T.unpack $ linearizeText lpgf lang expr
-
--- | Main linearize function, to 'Data.Text.Text'
-linearizeText :: LPGF -> Language -> Expr -> Text
-linearizeText lpgf lang =
+linearize lpgf lang =
   case Map.lookup lang (concretes lpgf) of
-    Just concr -> linearizeConcreteText concr
+    Just concr -> linearizeConcrete concr
     Nothing -> error $ printf "Unknown language: %s" (showCId lang)
 
 -- | Language-specific linearize function, to 'String'
 linearizeConcrete :: Concrete -> Expr -> String
-linearizeConcrete concr expr = T.unpack $ linearizeConcreteText concr expr
-
--- | Language-specific linearize function, to 'Data.Text.Text'
-linearizeConcreteText :: Concrete -> Expr -> Text
-linearizeConcreteText concr expr = lin2string $ lin (expr2tree expr)
+linearizeConcrete concr expr = lin2string $ lin (expr2tree expr)
   where
     lin :: Tree -> LinFun
     lin tree = case tree of
@@ -209,7 +196,7 @@ try comp = do
 -- | Evaluation context
 data Context = Context {
   cxArgs :: [LinFun], -- ^  is a sequence of terms
-  cxToks :: IntMap.IntMap Text -- ^ token map
+  cxToks :: IntMap.IntMap String -- ^ token map
 }
 
 -- | Operational semantics
@@ -238,7 +225,7 @@ eval cxt t = case t of
 
   PreIx pts df -> Pre pts' df'
     where
-      pts' = [(pfxs, eval cxt t) | (ix, t) <- pts, let pfxs = maybe [] (read . T.unpack) $ IntMap.lookup ix (cxToks cxt)]
+      pts' = [(pfxs, eval cxt t) | (ix, t) <- pts, let pfxs = maybe [] read $ IntMap.lookup ix (cxToks cxt)]
       df' = eval cxt df
   TokenIx i -> maybe Empty Token $ IntMap.lookup i (cxToks cxt)
 
@@ -252,32 +239,32 @@ flattenTuple = \case
 -- | Turn concrete syntax terms into an actual string.
 -- This is done in two passes, first to flatten concats & evaluate pre's, then to
 -- apply BIND and other predefs.
-lin2string :: LinFun -> Text
-lin2string lf = T.unwords $ join $ flatten [lf]
+lin2string :: LinFun -> String
+lin2string lf = unwords $ join $ flatten [lf]
   where
     -- Process bind et al into final token list
-    join :: [Either LinFun Text] -> [Text]
+    join :: [Either LinFun String] -> [String]
     join elt = case elt of
       Right tok:Left Bind:ls ->
         case join ls of
-          next:ls' -> tok `T.append` next : ls'
+          next:ls' -> tok : next : ls'
           _ -> []
       Right tok:ls -> tok : join ls
       Left Space:ls -> join ls
       Left Capit:ls ->
         case join ls of
-          next:ls' -> T.toUpper (T.take 1 next) `T.append` T.drop 1 next : ls'
+          next:ls' -> (toUpper (head next) : tail next) : ls'
           _ -> []
       Left AllCapit:ls ->
         case join ls of
-          next:ls' -> T.toUpper next : ls'
+          next:ls' -> map toUpper next : ls'
           _ -> []
-      Left (Missing cid):ls -> join (Right (T.pack (printf "[%s]" (show cid))) : ls)
+      Left (Missing cid):ls -> join (Right (printf "[%s]" (show cid)) : ls)
       [] -> []
       x -> error $ printf "Unhandled term in lin2string: %s" (show x)
 
     -- Process concats, tuples, pre into flat list
-    flatten :: [LinFun] -> [Either LinFun Text]
+    flatten :: [LinFun] -> [Either LinFun String]
     flatten [] = []
     flatten (l:ls) = case l of
       Empty -> flatten ls
@@ -291,7 +278,7 @@ lin2string lf = T.unwords $ join $ flatten [lf]
           f = flatten ls
           ch = case dropWhile isLeft f of
             Right next:_ ->
-              let matches = [ l | (pfxs, l) <- pts, any (`T.isPrefixOf` next) pfxs ]
+              let matches = [ l | (pfxs, l) <- pts, any (`isPrefixOf` next) pfxs ]
               in  if null matches then df else head matches
             _ -> df
         in flatten (ch:ls)
@@ -336,7 +323,7 @@ instance PP LPGF where
 instance PP Concrete where
   pp (Concrete toks lins) = do
     forM_ (IntMap.toList toks) $ \(i,tok) ->
-      CMW.tell [show i ++ " " ++ T.unpack tok]
+      CMW.tell [show i ++ " " ++ tok]
     CMW.tell [""]
     forM_ (Map.toList lins) $ \(cid,lin) -> do
       CMW.tell ["# " ++ showCId cid]

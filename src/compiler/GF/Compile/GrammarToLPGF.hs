@@ -23,8 +23,6 @@ import Data.List (elemIndex)
 import qualified Data.List as L
 import qualified Data.Map.Strict as Map
 import Data.Maybe (fromJust, isJust)
-import Data.Text (Text)
-import qualified Data.Text as T
 import System.Environment (lookupEnv)
 import System.FilePath ((</>), (<.>))
 import Text.Printf (printf)
@@ -137,9 +135,9 @@ mkCanon2lpgf opts gr am = do
                 return (L.Concat v1' v2', t1 <|> t2) -- t1 else t2
 
               C.LiteralValue ll -> case ll of
-                C.FloatConstant f -> return (L.Token $ T.pack $ show f, Just C.FloatType)
-                C.IntConstant i -> return (L.Token $ T.pack $ show i, Just C.IntType)
-                C.StrConstant s -> return (L.Token $ T.pack s, Just C.StrType)
+                C.FloatConstant f -> return (L.Token $ show f, Just C.FloatType)
+                C.IntConstant i -> return (L.Token $ show i, Just C.IntType)
+                C.StrConstant s -> return (L.Token s, Just C.StrType)
 
               C.ErrorValue err -> return (L.Error err, Nothing)
 
@@ -251,7 +249,7 @@ mkCanon2lpgf opts gr am = do
               C.PreValue pts df -> do
                 pts' <- forM pts $ \(pfxs, lv) -> do
                   (lv', _) <- val2lin lv
-                  return (map T.pack pfxs, lv')
+                  return (pfxs, lv')
                 (df', lt) <- val2lin df
                 return (L.Pre pts' df', lt)
 
@@ -345,12 +343,12 @@ extractStrings concr = L.Concrete { L.toks = toks', L.lins = lins' }
     (lins',imb') = CMS.runState (go0 (L.lins concr)) imb
     toks' = IntMapBuilder.toIntMap imb'
 
-    go0 :: Map.Map CId L.LinFun -> CMS.State (IntMapBuilder.IMB Text) (Map.Map CId L.LinFun)
+    go0 :: Map.Map CId L.LinFun -> CMS.State (IntMapBuilder.IMB String) (Map.Map CId L.LinFun)
     go0 mp = do
       xs <- mapM (\(cid,lin) -> go lin >>= \lin' -> return (cid,lin')) (Map.toList mp)
       return $ Map.fromList xs
 
-    go :: L.LinFun -> CMS.State (IntMapBuilder.IMB Text) L.LinFun
+    go :: L.LinFun -> CMS.State (IntMapBuilder.IMB String) L.LinFun
     go lf = case lf of
       L.Token str -> do
         imb <- CMS.get
@@ -362,7 +360,7 @@ extractStrings concr = L.Concrete { L.toks = toks', L.lins = lins' }
         -- pts' <- mapM (\(pfxs,lv) -> go lv >>= \lv' -> return (pfxs,lv')) pts
         pts' <- forM pts $ \(pfxs,lv) -> do
           imb <- CMS.get
-          let str = T.pack $ show pfxs
+          let str = show pfxs
           let (ix,imb') = IntMapBuilder.insert' str imb
           CMS.put imb'
           lv' <- go lv

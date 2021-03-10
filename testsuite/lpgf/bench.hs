@@ -14,7 +14,6 @@ import Data.Either (isLeft)
 import qualified Data.List as L
 import Data.Maybe (fromJust, isJust, isNothing)
 import qualified Data.Map as Map
-import Data.Text (Text)
 import Data.Time.Clock (getCurrentTime, diffUTCTime)
 import System.Console.ANSI
 import System.Directory (listDirectory, getFileSize)
@@ -155,13 +154,13 @@ linPGF2 :: PGF2.PGF -> [PGF2.Expr] -> [[String]]
 linPGF2 pgf trees =
   [ map (PGF2.linearize concr) trees | (_, concr) <- Map.toList (PGF2.languages pgf) ]
 
-linLPGF :: LPGF.LPGF -> [PGF.Expr] -> [[Text]]
+linLPGF :: LPGF.LPGF -> [PGF.Expr] -> [[String]]
 linLPGF lpgf trees =
-  [ map (LPGF.linearizeConcreteText concr) trees | (_,concr) <- Map.toList (LPGF.concretes lpgf) ]
+  [ map (LPGF.linearizeConcrete concr) trees | (_,concr) <- Map.toList (LPGF.concretes lpgf) ]
 
-linLPGF' :: LPGF.LPGF -> [PGF.Expr] -> IO [[Either String Text]]
+linLPGF' :: LPGF.LPGF -> [PGF.Expr] -> IO [[Either String String]]
 linLPGF' lpgf trees =
-  forM (Map.toList (LPGF.concretes lpgf)) $ \(_,concr) -> mapM (LPGF.try . LPGF.linearizeConcreteText concr) trees
+  forM (Map.toList (LPGF.concretes lpgf)) $ \(_,concr) -> mapM (LPGF.try . LPGF.linearizeConcrete concr) trees
 
 -- | Produce human readable file size
 -- Adapted from https://hackage.haskell.org/package/hrfsize
