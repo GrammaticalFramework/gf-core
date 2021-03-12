@@ -15,8 +15,9 @@ import GF.Infra.UseIO (IOE)
 import GF.Text.Pretty (pp, render)
 
 import Control.Applicative ((<|>))
-import Control.Monad (when, forM, forM_)
+import Control.Monad (when, unless, forM, forM_)
 import qualified Control.Monad.State.Strict as CMS
+import Data.Either (lefts, rights)
 import Data.List (elemIndex)
 import qualified Data.List as L
 import qualified Data.Map.Strict as Map
@@ -126,22 +127,11 @@ mkConcrete debug (C.Abstract _ _ _ funs) (C.Concrete modId absModId flags params
     mkLin :: C.LinDef -> CodeGen (CId, L.LinFun)
     mkLin (C.LinDef funId varIds linValue) = do
       -- when debug $ trace funId
-      (lf, _) <- val2lin' linValue --skip memoisation at top level
+      (lf, _) <- val2lin linValue
       return (fi2i funId, lf)
       where
         val2lin :: C.LinValue -> CodeGen (L.LinFun, Maybe C.LinType)
-        val2lin lv@(C.TableValue _ _) = do
-          m <- CMS.get
-          case Map.lookup lv m of
-            Just r -> return r
-            Nothing -> do
-              r <- val2lin' lv
-              CMS.put (Map.insert lv r m)
-              return r
-        val2lin lv = val2lin' lv
-
-        val2lin' :: C.LinValue -> CodeGen (L.LinFun, Maybe C.LinType)
-        val2lin' lv = case lv of
+        val2lin lv = case lv of
 
           C.ConcatValue v1 v2 -> do
             (v1',t1) <- val2lin v1
@@ -159,9 +149,9 @@ mkConcrete debug (C.Abstract _ _ _ funs) (C.Concrete modId absModId flags params
             let
               collectProjections :: C.LinValue -> CodeGen [L.LinFun]
               collectProjections (C.ParamConstant (C.Param pid lvs)) = do
-                def <- CMS.lift $ lookupParamDef pid
+                def <- lookupParamDef pid
                 let (C.ParamDef tpid defpids) = def
-                pidIx <- CMS.lift $ eitherElemIndex pid [ p | C.Param p _ <- defpids ]
+                pidIx <- eitherElemIndex pid [ p | C.Param p _ <- defpids ]
                 rest <- mapM collectProjections lvs
                 return $ L.Ix (pidIx+1) : concat rest
               collectProjections lv = do
@@ -169,7 +159,7 @@ mkConcrete debug (C.Abstract _ _ _ funs) (C.Concrete modId absModId flags params
                 return [lf]
             lfs <- collectProjections lv
             let term = L.Tuple lfs
-            def <- CMS.lift $ lookupParamDef pid
+            def <- lookupParamDef pid
             let (C.ParamDef tpid _) = def
             return (term, Just $ C.ParamType (C.ParamTypeId tpid))
 
@@ -179,7 +169,7 @@ mkConcrete debug (C.Abstract _ _ _ funs) (C.Concrete modId absModId flags params
             "SOFT_SPACE" -> return (L.Space, Nothing)
             "CAPIT" -> return (L.Capit, Nothing)
             "ALL_CAPIT" -> return (L.AllCapit, Nothing)
-            _ -> CMS.lift $ Left $ printf "Unknown predef function: %s" pid
+            _ -> Left $ printf "Unknown predef function: %s" pid
 
           C.RecordValue rrvs -> do
             let rrvs' = sortRecordRows rrvs
@@ -256,8 +246,8 @@ mkConcrete debug (C.Abstract _ _ _ funs) (C.Concrete modId absModId flags params
           C.VariantValue (vr:_) -> val2lin vr -- NOTE variants not supported, just pick first
 
           C.VarValue (C.VarValueId (C.Unqual v)) -> do
-            ix <- CMS.lift $ eitherElemIndex (C.VarId v) varIds
-            lt <- CMS.lift $ lookupLinTypeArg funId ix
+            ix <- eitherElemIndex (C.VarId v) varIds
+            lt <- lookupLinTypeArg funId ix
             return (L.Argument (ix+1), Just lt)
 
           C.PreValue pts df -> do
@@ -292,22 +282,21 @@ mkConcrete debug (C.Abstract _ _ _ funs) (C.Concrete modId absModId flags params
             "impossible" -> val2lin lv >>= \(_, typ) -> return (L.Empty, typ)
             _ -> val2lin lv
 
-          v -> CMS.lift $ Left $ printf "val2lin not implemented for: %s" (show v)
+          v -> Left $ printf "val2lin not implemented for: %s" (show v)
 
   -- Invoke code generation
 
-  let e = flip CMS.evalStateT Map.empty $ mapM mkLin lindefs
-  case e of
-    Left err -> raise err
-    Right lins -> do
-      let maybeOptimise = if debug then id else extractStrings
-      let concr = maybeOptimise $ L.Concrete {
-        L.toks = IntMapBuilder.emptyIntMap,
-        L.lins = Map.fromList lins
-      }
-      return (mdi2i modId, concr)
+  let es = map mkLin lindefs
+  unless (null $ lefts es) (raise $ unlines (lefts es))
 
-type CodeGen a = CMS.StateT (Map.Map C.LinValue (L.LinFun, Maybe C.LinType)) (Either String) a
+  let maybeOptimise = if debug then id else extractStrings
+  let concr = maybeOptimise $ L.Concrete {
+    L.toks = IntMapBuilder.emptyIntMap,
+    L.lins = Map.fromList (rights es)
+  }
+  return (mdi2i modId, concr)
+
+type CodeGen a = Either String a
 
 -- | Remove ParamAliasDefs by inlining their definitions
 inlineParamAliases :: [C.ParamDef] -> [C.ParamDef]
