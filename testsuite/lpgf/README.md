@@ -206,8 +206,8 @@ Max memory: 2.25 GB
 | PhrasebookFre | 41397 |  32967 |  80% |
 
 Conclusions:
-- map itself requires more memory than acual compilation
-- lookup is also as also as actual compilation
+- map itself requires more memory than actual compilation
+- lookup/insert is also as bad as actual compilation
 
 Tried HashMap (deriving Hashable for LinValue), no inprovement.
 Using show on LinValue for keys is incredibly slow.
