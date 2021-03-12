@@ -86,6 +86,132 @@ stack exec -- hp2ps -c lpgf-bench.hp && open lpgf-bench.ps
 - http://book.realworldhaskell.org/read/profiling-and-optimization.html
 - https://wiki.haskell.org/Performance
 
+
+### Honing in
+
+```
+stack build --test --bench --no-run-tests --no-run-benchmarks &&
+stack bench --benchmark-arguments "compile lpgf testsuite/lpgf/phrasebook/PhrasebookFre.gf +RTS -T -RTS"
+```
+
+**Baseline PGF**
+- compile: 1.600776s
+- size: 2.88 MB  Phrasebook.pgf
+Max memory: 328.20 MB
+
+**Baseline LPGF = B**
+- compile: 12.401099s
+- size: 3.01 MB  Phrasebook.lpgf
+Max memory: 1.33 GB
+
+**Baseline LPGF String**
+- compile: 12.124689s
+- size: 3.01 MB  Phrasebook.lpgf
+Max memory: 1.34 GB
+
+**B -extractStrings**
+- compile: 13.822735s
+- size: 5.78 MB  Phrasebook.lpgf
+Max memory: 1.39 GB
+
+**B -cleanupRecordFields**
+- compile: 13.670776s
+- size: 3.01 MB  Phrasebook.lpgf
+Max memory: 1.48 GB
+
+**No generation at all = E**
+- compile: 0.521001s
+- size: 3.27 KB  Phrasebook.lpgf
+Max memory: 230.69 MB
+
+**+ Concat, Literal, Error, Predef, Tuple, Variant, Commented**
+- compile: 1.503594s
+- size: 3.27 KB  Phrasebook.lpgf
+Max memory: 395.31 MB
+
+**+ Var, Pre, Selection**
+- compile: 1.260184s
+- size: 3.28 KB  Phrasebook.lpgf
+Max memory: 392.17 MB
+
+**+ Record**
+- compile: 1.659233s
+- size: 7.07 KB  Phrasebook.lpgf
+Max memory: 397.41 MB
+
+**+ Projection = X**
+- compile: 1.446217s
+- size: 7.94 KB  Phrasebook.lpgf
+Max memory: 423.62 MB
+
+**X + Param**
+- compile: 2.073838s
+- size: 10.82 KB  Phrasebook.lpgf
+Max memory: 619.71 MB
+
+**X + Table**
+- compile: 11.26558s
+- size: 2.48 MB  Phrasebook.lpgf
+Max memory: 1.15 GB
+
+### Repeated terms in compilation
+
+**Param and Table**
+
+| Concr         |  Total | Unique | Perc |
+|:--------------|-------:|-------:|-----:|
+| PhrasebookEng |   8673 |   1724 |  20% |
+| PhrasebookSwe |  14802 |   2257 |  15% |
+| PhrasebookFin | 526225 |   4866 |   1% |
+
+**Param**
+
+| Concr         |  Total | Unique | Perc |
+|:--------------|-------:|-------:|-----:|
+| PhrasebookEng |   3211 |     78 |   2% |
+| PhrasebookSwe |   7567 |     69 |   1% |
+| PhrasebookFin | 316355 |    310 | 0.1% |
+
+**Table**
+
+| Concr         |  Total | Unique | Perc |
+|:--------------|-------:|-------:|-----:|
+| PhrasebookEng |   5470 |   1654 |  30% |
+| PhrasebookSwe |   7243 |   2196 |  30% |
+| PhrasebookFin | 209878 |   4564 |   2% |
+
+### After impelementing state monad for table memoisation
+
+**worse!**
+- compile: 12.55848s
+- size: 3.01 MB  Phrasebook.lpgf
+Max memory: 2.25 GB
+
+**Params**
+
+| Concr         |  Total | Misses |  Perc |
+|:--------------|-------:|-------:|------:|
+| PhrasebookEng |   3211 |     72 |    2% |
+| PhrasebookSwe |   7526 |     61 |    1% |
+| PhrasebookFin | 135268 |    333 |  0.2% |
+| PhrasebookFre | 337102 |     76 | 0.02% |
+
+**Tables**
+
+| Concr         | Total | Misses | Perc |
+|:--------------|------:|-------:|-----:|
+| PhrasebookEng |  3719 |   3170 |  85% |
+| PhrasebookSwe |  4031 |   3019 |  75% |
+| PhrasebookFin | 36875 |  21730 |  59% |
+| PhrasebookFre | 41397 |  32967 |  80% |
+
+Conclusions:
+- map itself requires more memory than acual compilation
+- lookup is also as also as actual compilation
+
+Tried HashMap (deriving Hashable for LinValue), no inprovement.
+Using show on LinValue for keys is incredibly slow.
+
 # Notes on compilation
 
 ## 1 (see unittests/Params4)

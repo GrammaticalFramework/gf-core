@@ -23,6 +23,10 @@ empty = IMB {
   valMap = HashMap.empty
 }
 
+-- | An empty IntMap
+emptyIntMap :: IntMap a
+emptyIntMap = IntMap.empty
+
 -- | Lookup a value
 lookup :: (Eq a, Hashable a) => a -> IMB a -> Maybe Int
 lookup a IMB { valMap = vm } = HashMap.lookup a vm
