@@ -279,7 +279,8 @@ mkConcrete debug (C.Abstract _ _ _ funs) (C.Concrete modId absModId flags params
 
           -- C.CommentedValue cmnt lv -> val2lin lv
           C.CommentedValue cmnt lv -> case cmnt of
-            "impossible" -> val2lin lv >>= \(_, typ) -> return (L.Empty, typ)
+            "impossible" -> return (L.Empty, Nothing)
+            -- "impossible" -> val2lin lv >>= \(_, typ) -> return (L.Empty, typ)
             _ -> val2lin lv
 
           v -> Left $ printf "val2lin not implemented for: %s" (show v)
