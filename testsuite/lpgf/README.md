@@ -196,6 +196,15 @@ Max memory: 2.25 GB
 | PhrasebookFin | 135268 |    333 |  0.2% |
 | PhrasebookFre | 337102 |     76 | 0.02% |
 
+_modify instead of insert_
+
+| Concr         |  Total | Misses |  Perc |
+|:--------------|-------:|-------:|------:|
+| PhrasebookEng |   3211 |     70 |    2% |
+| PhrasebookSwe |   7526 |     61 |    1% |
+| PhrasebookFin | 135268 |    302 |  0.2% |
+| PhrasebookFre | 337102 |     72 | 0.02% |
+
 **Tables**
 
 | Concr         | Total | Misses | Perc |
@@ -205,9 +214,18 @@ Max memory: 2.25 GB
 | PhrasebookFin | 36875 |  21730 |  59% |
 | PhrasebookFre | 41397 |  32967 |  80% |
 
+_modify instead of insert_
+
+| Concr         | Total | Misses | Perc |
+|:--------------|------:|-------:|-----:|
+| PhrasebookEng |  2415 |   1646 |  68% |
+| PhrasebookSwe |  3228 |   2188 |  68% |
+| PhrasebookFin |  8793 |   4556 |  52% |
+| PhrasebookFre | 12490 |   5793 |  46% |
+
 Conclusions:
 - map itself requires more memory than acual compilation
-- lookup is also as also as actual compilation
+- lookup is also as slow as actual compilation
 
 Tried HashMap (deriving Hashable for LinValue), no inprovement.
 Using show on LinValue for keys is incredibly slow.

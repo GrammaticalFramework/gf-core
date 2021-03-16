@@ -131,12 +131,13 @@ mkConcrete debug (C.Abstract _ _ _ funs) (C.Concrete modId absModId flags params
       where
         val2lin :: C.LinValue -> CodeGen (L.LinFun, Maybe C.LinType)
         val2lin lv@(C.TableValue _ _) = do
+        -- val2lin lv@(C.ParamConstant _) = do
           m <- CMS.get
           case Map.lookup lv m of
             Just r -> return r
             Nothing -> do
               r <- val2lin' lv
-              CMS.put (Map.insert lv r m)
+              CMS.modify (Map.insert lv r)
               return r
         val2lin lv = val2lin' lv
 
