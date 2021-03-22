@@ -21,7 +21,7 @@ done < $TREES
 
 echo "Writing $TREEBANK"
 : > $TREEBANK
-gf --crun $ABSNAME.pgf < "$SCRIPT" > /dev/null
+gf --crun "$ABSNAME.pgf" < "$SCRIPT" > /dev/null
 
 echo "Removing $SCRIPT"
 rm "$SCRIPT"

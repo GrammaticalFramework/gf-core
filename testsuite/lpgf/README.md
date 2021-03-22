@@ -104,10 +104,16 @@ Max memory: 328.20 MB
 - size: 3.01 MB  Phrasebook.lpgf
 Max memory: 1.33 GB
 
-**Baseline LPGF String**
+**Baseline LPGF String instead of Text**
 - compile: 12.124689s
 - size: 3.01 MB  Phrasebook.lpgf
 Max memory: 1.34 GB
+
+**Baseline LPGF with impossible pruning**
+- compile: 7.406503s
+- size: 3.01 MB  Phrasebook.lpgf
+Max memory: 1.13 GB
+
 
 **B -extractStrings**
 - compile: 13.822735s

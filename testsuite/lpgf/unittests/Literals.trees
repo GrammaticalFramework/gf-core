@@ -1,0 +1,3 @@
+mkString "hello"
+mkInt 123
+mkFloat 30.809
