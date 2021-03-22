@@ -53,12 +53,20 @@ mkAbstract :: (ErrorMonad err) => C.Abstract -> err (CId, L.Abstract)
 mkAbstract (C.Abstract modId flags cats funs) = return (mdi2i modId, L.Abstract {})
 
 mkConcrete :: (ErrorMonad err) => Bool -> C.Abstract -> C.Concrete -> err (CId, L.Concrete)
-mkConcrete debug (C.Abstract _ _ _ funs) (C.Concrete modId absModId flags params0 lincats lindefs0) = do
+mkConcrete debug (C.Abstract _ _ _ funs) (C.Concrete modId absModId flags params0 lincats0 lindefs0) = do
   let
     -- Some transformations on canonical grammar
 
     params :: [C.ParamDef]
     params = inlineParamAliases params0
+
+    lincats :: [C.LincatDef]
+    lincats = s:i:f:lincats0
+      where
+        ss = C.RecordType [C.RecordRow (C.LabelId "s") C.StrType]
+        s = C.LincatDef (C.CatId "String") ss
+        i = C.LincatDef (C.CatId "Int") ss
+        f = C.LincatDef (C.CatId "Float") ss
 
     lindefs :: [C.LinDef]
     lindefs =

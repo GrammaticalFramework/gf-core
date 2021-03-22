@@ -10,7 +10,7 @@ module LPGF where
 
 import PGF (Language)
 import PGF.CId
-import PGF.Expr (Expr)
+import PGF.Expr (Expr, Literal (..))
 import PGF.Tree (Tree (..), expr2tree, prTree)
 
 import qualified Control.Exception as EX
@@ -23,6 +23,7 @@ import qualified Data.Map.Strict as Map
 import Data.Text (Text)
 import qualified Data.Text as T
 import qualified Data.Text.Encoding as TE
+import Numeric (showFFloat)
 import Text.Printf (printf)
 
 import Prelude hiding ((!!))
@@ -191,12 +192,18 @@ linearizeConcreteText :: Concrete -> Expr -> Text
 linearizeConcreteText concr expr = lin2string $ lin (expr2tree expr)
   where
     lin :: Tree -> LinFun
-    lin tree = case tree of
+    lin = \case
       Fun f as ->
         case Map.lookup f (lins concr) of
           Just t -> eval cxt t
             where cxt = Context { cxToks = toks concr, cxArgs = map lin as }
           _ -> Missing f
+      Lit l -> Tuple [Token (T.pack s)]
+        where
+          s = case l of
+            LStr s -> s
+            LInt i -> show i
+            LFlt f -> showFFloat (Just 6) f ""
       x -> error $ printf "Cannot lin: %s" (prTree x)
 
 -- | Run a compatation and catch any exception/errors.

@@ -4,4 +4,6 @@ abstract Literals = {
     mkString : String -> S ;
     mkInt : Int -> S ;
     mkFloat : Float -> S ;
+
+    and : S -> S -> S ;
 }

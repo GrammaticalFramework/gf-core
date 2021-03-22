@@ -1,9 +1,12 @@
 Literals: mkString "hello"
-LiteralsCnc: hello
+LiteralsCnc: « hello »
 
 Literals: mkInt 123
 LiteralsCnc: 123
 
 Literals: mkFloat 30.809000
 LiteralsCnc: 30.809000
+
+Literals: and (mkString "one") (mkString "two")
+LiteralsCnc: « one » and « two »
 
