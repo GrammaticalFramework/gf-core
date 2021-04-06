@@ -10,6 +10,7 @@ import GF.Compile.GrammarToCanonical (grammar2canonical)
 
 import GF.Data.Operations (ErrorMonad (..))
 import qualified GF.Data.IntMapBuilder as IntMapBuilder
+import GF.Infra.Ident (rawIdentS, showRawIdent)
 import GF.Infra.Option (Options)
 import GF.Infra.UseIO (IOE)
 import GF.Text.Pretty (pp, render)
@@ -63,10 +64,10 @@ mkConcrete debug (C.Abstract _ _ _ funs) (C.Concrete modId absModId flags params
     lincats :: [C.LincatDef]
     lincats = s:i:f:lincats0
       where
-        ss = C.RecordType [C.RecordRow (C.LabelId "s") C.StrType]
-        s = C.LincatDef (C.CatId "String") ss
-        i = C.LincatDef (C.CatId "Int") ss
-        f = C.LincatDef (C.CatId "Float") ss
+        ss = C.RecordType [C.RecordRow (C.LabelId (rawIdentS "s")) C.StrType]
+        s = C.LincatDef (C.CatId (rawIdentS "String")) ss
+        i = C.LincatDef (C.CatId (rawIdentS "Int")) ss
+        f = C.LincatDef (C.CatId (rawIdentS "Float")) ss
 
     lindefs :: [C.LinDef]
     lindefs =
@@ -108,7 +109,7 @@ mkConcrete debug (C.Abstract _ _ _ funs) (C.Concrete modId absModId flags params
       Just d -> Right d
       Nothing ->
         -- Left $ printf "Cannot find param definition: %s" (show pid)
-        Right $ C.ParamDef (C.ParamId (C.Unqual "DUMMY")) [C.Param pid []]
+        Right $ C.ParamDef (C.ParamId (C.Unqual (rawIdentS "DUMMY"))) [C.Param pid []]
 
     -- | Lookup lintype for a function
     lookupLinType :: C.FunId -> Either String C.LinType
@@ -171,13 +172,13 @@ mkConcrete debug (C.Abstract _ _ _ funs) (C.Concrete modId absModId flags params
             let (C.ParamDef tpid _) = def
             return (term, Just $ C.ParamType (C.ParamTypeId tpid))
 
-          C.PredefValue (C.PredefId pid) -> case pid of
+          C.PredefValue (C.PredefId pid) -> case showRawIdent pid of
             "BIND" -> return (L.Bind, Nothing)
             "SOFT_BIND" -> return (L.Bind, Nothing)
             "SOFT_SPACE" -> return (L.Space, Nothing)
             "CAPIT" -> return (L.Capit, Nothing)
             "ALL_CAPIT" -> return (L.AllCapit, Nothing)
-            _ -> Left $ printf "Unknown predef function: %s" pid
+            x -> Left $ printf "Unknown predef function: %s" x
 
           C.RecordValue rrvs -> do
             let rrvs' = sortRecordRows rrvs
@@ -332,7 +333,7 @@ sortRecordRows :: [C.RecordRowValue] -> [C.RecordRowValue]
 sortRecordRows = L.sortBy ordLabel
   where
     ordLabel (C.RecordRow (C.LabelId l1) _) (C.RecordRow (C.LabelId l2) _) =
-      case (l1,l2) of
+      case (showRawIdent l1, showRawIdent l2) of
         ("s",_) -> LT
         (_,"s") -> GT
         (s1,s2) -> compare s1 s2
@@ -407,13 +408,13 @@ eitherElemIndex :: (Eq a, Show a) => a -> [a] -> Either String Int
 eitherElemIndex x xs = m2e (printf "Cannot find: %s in %s" (show x) (show xs)) (elemIndex x xs)
 
 mdi2s :: C.ModId -> String
-mdi2s (C.ModId i) = i
+mdi2s (C.ModId i) = showRawIdent i
 
 mdi2i :: C.ModId -> CId
-mdi2i (C.ModId i) = mkCId i
+mdi2i (C.ModId i) = mkCId (showRawIdent i)
 
 fi2i :: C.FunId -> CId
-fi2i (C.FunId i) = mkCId i
+fi2i (C.FunId i) = mkCId (showRawIdent i)
 
 -- Debugging
 

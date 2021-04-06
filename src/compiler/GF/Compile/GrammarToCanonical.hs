@@ -16,7 +16,7 @@ import GF.Grammar.Lockfield(isLockLabel)
 import GF.Grammar.Predef(cPredef,cInts)
 import GF.Compile.Compute.Predef(predef)
 import GF.Compile.Compute.Value(Predefined(..))
-import GF.Infra.Ident(ModuleName(..),Ident,prefixIdent,showIdent,isWildIdent)
+import GF.Infra.Ident(ModuleName(..),Ident,ident2raw,rawIdentS,prefixIdent,showIdent,isWildIdent)
 import GF.Infra.Option(Options, optionsPGF)
 import PGF.Internal(Literal(..))
 import GF.Compile.Compute.ConcreteNew(normalForm,resourceValues)
@@ -70,8 +70,8 @@ concretes2canonical opts absname gr =
 concrete2canonical gr cenv absname cnc modinfo =
   Concrete (modId cnc) (modId absname) (convFlags gr cnc)
       (neededParamTypes S.empty (params defs))
-      [lincat|(_,Left lincat)<-defs]
-      [lin|(_,Right lin)<-defs]
+      [lincat | (_,Left lincat) <- defs]
+      [lin | (_,Right lin) <- defs]
   where
     defs = concatMap (toCanonical gr absname cenv) .
            M.toList $
@@ -189,7 +189,7 @@ convert' gr vs = ppT
         Ok ALL_CAPIT  -> p "ALL_CAPIT"
         _ -> VarValue (gQId cPredef n) -- hmm
       where
-       p = PredefValue . PredefId
+       p = PredefValue . PredefId . rawIdentS
 
     ppP p =
       case p of
@@ -248,7 +248,7 @@ projection r l = maybe (Projection r l) id (proj r l)
 
 proj r l =
   case r of
-    RecordValue r -> case [v|RecordRow l' v<-r,l'==l] of
+    RecordValue r -> case [v | RecordRow l' v <- r, l'==l] of
                           [v] -> Just v
                           _ -> Nothing
     _ -> Nothing
@@ -258,7 +258,7 @@ selection t v =
   -- Note: impossible cases can become possible after grammar transformation
   case t of
     TableValue tt r ->
-        case nub [rv|TableRow _ rv<-keep] of
+        case nub [rv | TableRow _ rv <- keep] of
           [rv] -> rv
           _ -> Selection (TableValue tt r') v
       where
@@ -358,16 +358,20 @@ paramType gr q@(_,n) =
     argTypes = S.unions . map argTypes1
     argTypes1 (n,ctx) = S.unions [paramTypes gr t|(_,_,t)<-ctx]
 
-lblId = LabelId . render -- hmm
-modId (MN m) = ModId (showIdent m)
+lblId :: Label -> C.LabelId
+lblId (LIdent ri) = LabelId ri
+lblId (LVar i) = LabelId (rawIdentS (show i)) -- hmm
+
+modId :: ModuleName -> C.ModId
+modId (MN m) = ModId (ident2raw m)
 
 class FromIdent i where gId :: Ident -> i
 
 instance FromIdent VarId where
-  gId i = if isWildIdent i then Anonymous else VarId (showIdent i)
+  gId i = if isWildIdent i then Anonymous else VarId (ident2raw i)
 
-instance FromIdent C.FunId where gId = C.FunId . showIdent
-instance FromIdent CatId where gId = CatId . showIdent
+instance FromIdent C.FunId where gId = C.FunId . ident2raw
+instance FromIdent CatId where gId = CatId . ident2raw
 instance FromIdent ParamId where gId = ParamId . unqual
 instance FromIdent VarValueId where gId = VarValueId . unqual
 
@@ -376,11 +380,11 @@ class FromIdent i => QualIdent i where gQId :: ModuleName -> Ident -> i
 instance QualIdent ParamId    where gQId m n = ParamId (qual m n)
 instance QualIdent VarValueId where gQId m n = VarValueId (qual m n)
 
-qual m n = Qual (modId m) (showIdent n)
-unqual n = Unqual (showIdent n)
+qual m n = Qual (modId m) (ident2raw n)
+unqual n = Unqual (ident2raw n)
 
 convFlags gr mn =
-  Flags [(n,convLit v) |
+  Flags [(rawIdentS n,convLit v) |
          (n,v)<-err (const []) (optionsPGF.mflags) (lookupModule gr mn)]
   where
     convLit l =

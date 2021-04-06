@@ -11,6 +11,7 @@
 module GF.Grammar.Canonical where
 import Prelude hiding ((<>))
 import GF.Text.Pretty
+import GF.Infra.Ident (RawIdent)
 
 -- | A Complete grammar
 data Grammar = Grammar Abstract [Concrete] deriving Show
@@ -126,7 +127,7 @@ data FlagValue = Str String | Int Int | Flt Double deriving Show
 
 -- *** Identifiers
 
-type Id = String
+type Id = RawIdent
 data QualId = Qual ModId Id | Unqual Id  deriving (Eq,Ord,Show)
 
 --------------------------------------------------------------------------------

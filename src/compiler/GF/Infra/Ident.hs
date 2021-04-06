@@ -5,7 +5,7 @@
 -- Stability   : (stable)
 -- Portability : (portable)
 --
--- > CVS $Date: 2005/11/15 11:43:33 $ 
+-- > CVS $Date: 2005/11/15 11:43:33 $
 -- > CVS $Author: aarne $
 -- > CVS $Revision: 1.8 $
 --
@@ -13,18 +13,18 @@
 -----------------------------------------------------------------------------
 
 module GF.Infra.Ident (-- ** Identifiers
-              ModuleName(..), moduleNameS,
-	      Ident, ident2utf8, showIdent, prefixIdent,
-              -- *** Normal identifiers (returned by the parser)
-	      identS, identC, identW,
-              -- *** Special identifiers for internal use
-              identV, identA, identAV,
-	      argIdent, isArgIdent, getArgIndex,
-              varStr, varX, isWildIdent, varIndex,
-              -- *** Raw identifiers
-              RawIdent, rawIdentS, rawIdentC, ident2raw, prefixRawIdent,
-              isPrefixOf, showRawIdent
-	     ) where
+  ModuleName(..), moduleNameS,
+  Ident, ident2utf8, showIdent, prefixIdent,
+  -- *** Normal identifiers (returned by the parser)
+  identS, identC, identW,
+  -- *** Special identifiers for internal use
+  identV, identA, identAV,
+  argIdent, isArgIdent, getArgIndex,
+  varStr, varX, isWildIdent, varIndex,
+  -- *** Raw identifiers
+  RawIdent, rawIdentS, rawIdentC, ident2raw, prefixRawIdent,
+  isPrefixOf, showRawIdent
+) where
 
 import qualified Data.ByteString.UTF8 as UTF8
 import qualified Data.ByteString.Char8 as BS(append,isPrefixOf)
@@ -46,7 +46,7 @@ instance Pretty ModuleName where pp (MN m) = pp m
 
 -- | the constructors labelled /INTERNAL/ are
 -- internal representation never returned by the parser
-data Ident = 
+data Ident =
    IC  {-# UNPACK #-} !RawIdent                                           -- ^ raw identifier after parsing, resolved in Rename
  | IW                                                                     -- ^ wildcard
 --
@@ -54,7 +54,7 @@ data Ident =
  | IV  {-# UNPACK #-} !RawIdent {-# UNPACK #-} !Int                       -- ^ /INTERNAL/ variable
  | IA  {-# UNPACK #-} !RawIdent {-# UNPACK #-} !Int                       -- ^ /INTERNAL/ argument of cat at position
  | IAV {-# UNPACK #-} !RawIdent {-# UNPACK #-} !Int {-# UNPACK #-} !Int   -- ^ /INTERNAL/ argument of cat with bindings at position
--- 
+--
   deriving (Eq, Ord, Show, Read)
 
 -- | Identifiers are stored as UTF-8-encoded bytestrings.
@@ -70,13 +70,12 @@ rawIdentS = Id . pack
 rawIdentC = Id
 showRawIdent = unpack . rawId2utf8
 
-prefixRawIdent (Id x) (Id y) = Id (BS.append x y) 
+prefixRawIdent (Id x) (Id y) = Id (BS.append x y)
 isPrefixOf (Id x) (Id y) = BS.isPrefixOf x y
 
 instance Binary RawIdent where
   put = put . rawId2utf8
   get = fmap rawIdentC get
-
 
 -- | This function should be used with care, since the returned ByteString is
 -- UTF-8-encoded.
@@ -88,6 +87,7 @@ ident2utf8 i = case i of
   IAV (Id s) b j -> BS.append s (pack ('_':show b ++ '_':show j))
   IW -> pack "_"
 
+ident2raw :: Ident -> RawIdent
 ident2raw = Id . ident2utf8
 
 showIdent :: Ident -> String
@@ -95,12 +95,13 @@ showIdent i = unpack $! ident2utf8 i
 
 instance Pretty Ident where pp = pp . showIdent
 
+instance Pretty RawIdent where pp = pp . showRawIdent
+
 identS :: String -> Ident
 identS = identC . rawIdentS
 
 identC :: RawIdent -> Ident
 identW :: Ident
-
 
 prefixIdent :: String -> Ident -> Ident
 prefixIdent pref = identC . Id . BS.append (pack pref) . ident2utf8
@@ -112,7 +113,7 @@ identV :: RawIdent -> Int -> Ident
 identA :: RawIdent -> Int -> Ident
 identAV:: RawIdent -> Int -> Int -> Ident
 
-(identC, identV, identA, identAV, identW) = 
+(identC, identV, identA, identAV, identW) =
     (IC,     IV,     IA,     IAV,     IW)
 
 -- | to mark argument variables

@@ -160,6 +160,11 @@ Max memory: 619.71 MB
 - size: 2.48 MB  Phrasebook.lpgf
 Max memory: 1.15 GB
 
+**RawIdents**
+- compile: 5.393466s
+- size: 3.01 MB  Phrasebook.lpgf
+Max memory: 1.12 GB
+
 ### Repeated terms in compilation
 
 **Param and Table**
