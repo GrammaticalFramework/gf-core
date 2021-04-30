@@ -50,6 +50,8 @@ module PGF2 (-- * PGF
              mkType, unType,
 
              -- ** Type checking
+             -- | Dynamically-built expressions should always be type-checked before using in other functions,
+             -- as the exceptions thrown by using invalid expressions may not catchable.
              checkExpr, inferExpr, checkType,
 
              -- ** Computing
@@ -180,7 +182,7 @@ languageCode c = unsafePerformIO (peekUtf8CString =<< pgf_language_code (concr c
 
 
 -- | Generates an exhaustive possibly infinite list of
--- all abstract syntax expressions of the given type. 
+-- all abstract syntax expressions of the given type.
 -- The expressions are ordered by their probability.
 generateAll :: PGF -> Type -> [(Expr,Float)]
 generateAll p (Type ctype _) =
@@ -469,21 +471,21 @@ newGraphvizOptions pool opts = do
 -- Functions using Concr
 -- Morpho analyses, parsing & linearization
 
--- | This triple is returned by all functions that deal with 
+-- | This triple is returned by all functions that deal with
 -- the grammar's lexicon. Its first element is the name of an abstract
--- lexical function which can produce a given word or 
+-- lexical function which can produce a given word or
 -- a multiword expression (i.e. this is the lemma).
--- After that follows a string which describes 
+-- After that follows a string which describes
 -- the particular inflection form.
 --
 -- The last element is a logarithm from the
--- the probability of the function. The probability is not 
+-- the probability of the function. The probability is not
 -- conditionalized on the category of the function. This makes it
 -- possible to compare the likelihood of two functions even if they
--- have different types. 
+-- have different types.
 type MorphoAnalysis = (Fun,String,Float)
 
--- | 'lookupMorpho' takes a string which must be a single word or 
+-- | 'lookupMorpho' takes a string which must be a single word or
 -- a multiword expression. It then computes the list of all possible
 -- morphological analyses.
 lookupMorpho :: Concr -> String -> [MorphoAnalysis]
@@ -541,12 +543,12 @@ lookupCohorts lang@(Concr concr master) sent =
                      return ((start,tok,ans,end):cohs)
 
 filterBest :: [(Int,String,[MorphoAnalysis],Int)] -> [(Int,String,[MorphoAnalysis],Int)]
-filterBest ans = 
+filterBest ans =
   reverse (iterate (maxBound :: Int) [(0,0,[],ans)] [] [])
   where
     iterate v0 []                      []  res = res
     iterate v0 []                      new res = iterate v0 new []  res
-    iterate v0 ((_,v,conf,    []):old) new res = 
+    iterate v0 ((_,v,conf,    []):old) new res =
       case compare v0 v of
         LT                                    -> res
         EQ                                    -> iterate v0 old new (merge conf res)
@@ -649,7 +651,7 @@ getAnalysis ref self c_lemma c_anal prob exn = do
 data ParseOutput a
   = ParseFailed Int String         -- ^ The integer is the position in number of unicode characters where the parser failed.
                                    -- The string is the token where the parser have failed.
-  | ParseOk a                      -- ^ If the parsing and the type checking are successful 
+  | ParseOk a                      -- ^ If the parsing and the type checking are successful
                                    -- we get the abstract syntax trees as either a list or a chart.
   | ParseIncomplete                -- ^ The sentence is not complete.
 
@@ -659,9 +661,9 @@ parse lang ty sent = parseWithHeuristics lang ty sent (-1.0) []
 parseWithHeuristics :: Concr      -- ^ the language with which we parse
                     -> Type       -- ^ the start category
                     -> String     -- ^ the input sentence
-                    -> Double     -- ^ the heuristic factor. 
-                                  -- A negative value tells the parser 
-                                  -- to lookup up the default from 
+                    -> Double     -- ^ the heuristic factor.
+                                  -- A negative value tells the parser
+                                  -- to lookup up the default from
                                   -- the grammar flags
                     -> [(Cat, String -> Int -> Maybe (Expr,Float,Int))]
                                   -- ^ a list of callbacks for literal categories.
@@ -715,9 +717,9 @@ parseWithHeuristics lang (Type ctype touchType) sent heuristic callbacks =
 parseToChart :: Concr      -- ^ the language with which we parse
              -> Type       -- ^ the start category
              -> String     -- ^ the input sentence
-             -> Double     -- ^ the heuristic factor. 
-                           -- A negative value tells the parser 
-                           -- to lookup up the default from 
+             -> Double     -- ^ the heuristic factor.
+                           -- A negative value tells the parser
+                           -- to lookup up the default from
                            -- the grammar flags
              -> [(Cat, String -> Int -> Maybe (Expr,Float,Int))]
                            -- ^ a list of callbacks for literal categories.
@@ -886,7 +888,7 @@ lookupSentence lang (Type ctype _) sent =
 
 -- | The oracle is a triple of functions.
 -- The first two take a category name and a linearization field name
--- and they should return True/False when the corresponding 
+-- and they should return True/False when the corresponding
 -- prediction or completion is appropriate. The third function
 -- is the oracle for literals.
 type Oracle = (Maybe (Cat -> String -> Int -> Bool)
@@ -1047,7 +1049,7 @@ linearizeAll lang e = unsafePerformIO $
 
 -- | Generates a table of linearizations for an expression
 tabularLinearize :: Concr -> Expr -> [(String, String)]
-tabularLinearize lang e = 
+tabularLinearize lang e =
   case tabularLinearizeAll lang e of
     (lins:_) -> lins
     _        -> []
@@ -1138,7 +1140,7 @@ data BracketedString
                                                                                -- the phrase. The 'FId' is an unique identifier for
                                                                                -- every phrase in the sentence. For context-free grammars
                                                                                -- i.e. without discontinuous constituents this identifier
-                                                                               -- is also unique for every bracket. When there are discontinuous 
+                                                                               -- is also unique for every bracket. When there are discontinuous
                                                                                -- phrases then the identifiers are unique for every phrase but
                                                                                -- not for every bracket since the bracket represents a constituent.
                                                                                -- The different constituents could still be distinguished by using
@@ -1148,7 +1150,7 @@ data BracketedString
                                                                                -- The second 'CId' is the name of the abstract function that generated
                                                                                -- this phrase.
 
--- | Renders the bracketed string as a string where 
+-- | Renders the bracketed string as a string where
 -- the brackets are shown as @(S ...)@ where
 -- @S@ is the category.
 showBracketedString :: BracketedString -> String
@@ -1166,7 +1168,7 @@ flattenBracketedString (Bracket _ _ _ _ bss) = concatMap flattenBracketedString 
 
 bracketedLinearize :: Concr -> Expr -> [BracketedString]
 bracketedLinearize lang e = unsafePerformIO $
-  withGuPool $ \pl -> 
+  withGuPool $ \pl ->
     do exn <- gu_new_exn pl
        cts <- pgf_lzr_concretize (concr lang) (expr e) exn pl
        failed <- gu_exn_is_raised exn
@@ -1192,7 +1194,7 @@ bracketedLinearize lang e = unsafePerformIO $
 
 bracketedLinearizeAll :: Concr -> Expr -> [[BracketedString]]
 bracketedLinearizeAll lang e = unsafePerformIO $
-  withGuPool $ \pl -> 
+  withGuPool $ \pl ->
     do exn <- gu_new_exn pl
        cts <- pgf_lzr_concretize (concr lang) (expr e) exn pl
        failed <- gu_exn_is_raised exn
@@ -1467,7 +1469,7 @@ type LiteralCallback =
 literalCallbacks :: [(AbsName,[(Cat,LiteralCallback)])]
 literalCallbacks = [("App",[("PN",nerc),("Symb",chunk)])]
 
--- | Named entity recognition for the App grammar 
+-- | Named entity recognition for the App grammar
 -- (based on ../java/org/grammaticalframework/pgf/NercLiteralCallback.java)
 nerc :: LiteralCallback
 nerc pgf (lang,concr) sentence lin_idx offset =
