@@ -26,6 +26,14 @@ import Distribution.PackageDescription(PackageDescription(..))
   so users won't see this message unless they check the log.)
 -}
 
+-- | Notice about contrib grammars
+noContribMsg :: IO ()
+noContribMsg = putStr $ unlines
+  [ "Example grammars are no longer included in the main GF repository, but have moved to gf-contrib."
+  , "If you want them to be built, clone the following repository in the same directory as gf-core:"
+  , "https://github.com/GrammaticalFramework/gf-contrib.git"
+  ]
+
 example_grammars :: [(String, String, [String])] -- [(pgf, subdir, source modules)]
 example_grammars =
    [("Letter.pgf","letter",letterSrc)
@@ -50,11 +58,8 @@ buildWeb gf flags (pkg,lbi) = do
   contrib_exists <- doesDirectoryExist contrib_dir
   if contrib_exists
   then mapM_ build_pgf example_grammars
-  else putStr $ unlines
-    [ "Example grammars are no longer included in the main GF repository, but have moved to gf-contrib."
-    , "If you want these example grammars to be built, clone this repository in the same top-level directory as GF:"
-    , "https://github.com/GrammaticalFramework/gf-contrib.git"
-    ]
+  -- else noContribMsg
+  else return ()
   where
     gfo_dir = buildDir lbi </> "examples"
 
