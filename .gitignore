@@ -49,7 +49,7 @@ src/runtime/java/.libs/
 src/runtime/python/build/
 .cabal-sandbox
 cabal.sandbox.config
-.stack-work
+.stack-work*
 DATA_DIR
 
 stack*.yaml.lock
@@ -70,3 +70,10 @@ doc/icfp-2012.html
 download/*.html
 gf-book/index.html
 src/www/gf-web-api.html
+
+DEBUG/
+PROF/
+*.aux
+*.hp
+*.prof
+*.ps
