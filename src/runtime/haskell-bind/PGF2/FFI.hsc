@@ -256,6 +256,7 @@ data PgfApplication
 data PgfConcr
 type PgfExpr = Ptr ()
 data PgfExprProb
+data PgfTokenProb
 data PgfExprParser
 data PgfFullFormEntry
 data PgfMorphoCallback

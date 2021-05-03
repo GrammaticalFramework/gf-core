@@ -972,13 +972,13 @@ parseWithOracle lang cat sent (predict,complete,literal) =
                          return ep
         Nothing    -> do return nullPtr
 
+-- | Returns possible completions of the current partial input.
 complete :: Concr      -- ^ the language with which we parse
-         -> Type        -- ^ the start category
-         -> String     -- ^ the input sentence
-         -> String     -- ^ prefix (?)
-         -> Maybe Int  -- ^ maximum number of results
-         -> ParseOutput [String]
-complete lang (Type ctype _) sent pfx mn =
+         -> Type       -- ^ the start category
+         -> String     -- ^ the input sentence (excluding token being completed)
+         -> String     -- ^ prefix (partial token being completed)
+         -> ParseOutput [(String, CId, CId, Float)]  -- ^ (token, category, function, probability)
+complete lang (Type ctype _) sent pfx =
   unsafePerformIO $ do
     parsePl <- gu_new_pool
     exn     <- gu_new_exn parsePl
@@ -1013,7 +1013,7 @@ complete lang (Type ctype _) sent pfx mn =
       fpl <- newForeignPtr gu_pool_finalizer parsePl
       ParseOk <$> fromCompletions enum fpl
   where
-    fromCompletions :: Ptr GuEnum -> ForeignPtr GuPool -> IO [String]
+    fromCompletions :: Ptr GuEnum -> ForeignPtr GuPool -> IO [(String, CId, CId, Float)]
     fromCompletions enum fpl =
       withGuPool $ \tmpPl -> do
         cmpEntry <- alloca $ \ptr ->
@@ -1026,11 +1026,12 @@ complete lang (Type ctype _) sent pfx mn =
           touchConcr lang
           return []
         else do
-          (sb,out) <- newOut tmpPl
-          cstr <- gu_string_buf_freeze sb tmpPl
-          tok  <- peekUtf8CString cstr
+          tok <- peekUtf8CString =<< (#peek PgfTokenProb, tok) cmpEntry
+          cat <- peekUtf8CString =<< (#peek PgfTokenProb, cat) cmpEntry
+          fun <- peekUtf8CString =<< (#peek PgfTokenProb, fun) cmpEntry
+          prob <- (#peek PgfTokenProb, prob) cmpEntry
           toks <- unsafeInterleaveIO (fromCompletions enum fpl)
-          return (tok : toks)
+          return ((tok, cat, fun, prob) : toks)
 
 -- | Returns True if there is a linearization defined for that function in that language
 hasLinearization :: Concr -> Fun -> Bool
