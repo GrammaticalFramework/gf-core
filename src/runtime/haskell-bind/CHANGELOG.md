@@ -1,7 +1,11 @@
+## 1.3.0
+
+- Add completion support.
+
 ## 1.2.1
 
-- Remove deprecated pgf_print_expr_tuple
-- Added an API for cloning expressions/types/literals
+- Remove deprecated `pgf_print_expr_tuple`.
+- Added an API for cloning expressions/types/literals.
 
 ## 1.2.0
 

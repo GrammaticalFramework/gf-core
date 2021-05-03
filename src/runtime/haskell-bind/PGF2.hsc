@@ -43,32 +43,28 @@ module PGF2 (-- * PGF
              mkCId,
              exprHash, exprSize, exprFunctions, exprSubstitute,
              treeProbability,
-
              -- ** Types
              Type, Hypo, BindType(..), startCat,
              readType, showType, showContext,
              mkType, unType,
-
              -- ** Type checking
              -- | Dynamically-built expressions should always be type-checked before using in other functions,
              -- as the exceptions thrown by using invalid expressions may not catchable.
              checkExpr, inferExpr, checkType,
-
              -- ** Computing
              compute,
 
              -- * Concrete syntax
              ConcName,Concr,languages,concreteName,languageCode,
-
              -- ** Linearization
              linearize,linearizeAll,tabularLinearize,tabularLinearizeAll,bracketedLinearize,bracketedLinearizeAll,
              FId, BracketedString(..), showBracketedString, flattenBracketedString,
              printName, categoryFields,
-
              alignWords,
              -- ** Parsing
              ParseOutput(..), parse, parseWithHeuristics,
              parseToChart, PArg(..),
+             complete,
              -- ** Sentence Lookup
              lookupSentence,
              -- ** Generation
@@ -975,6 +971,36 @@ parseWithOracle lang cat sent (predict,complete,literal) =
                          (#poke PgfExprProb, prob) ep prob
                          return ep
         Nothing    -> do return nullPtr
+
+complete :: Concr      -- ^ the language with which we parse
+         -> Type        -- ^ the start category
+         -> String     -- ^ the input sentence
+         -> String     -- ^ prefix (?)
+         -> Maybe Int  -- ^ maximum number of results
+         -> ParseOutput [(Expr,Float)]
+complete lang (Type ctype _) sent pfx mn =
+  unsafePerformIO $ do
+    parsePl <- gu_new_pool
+    exprPl  <- gu_new_pool
+    exn     <- gu_new_exn parsePl
+
+    sent <- newUtf8CString sent parsePl
+    pfx  <- newUtf8CString pfx parsePl
+
+    enum <- pgf_complete (concr lang) ctype sent pfx exn parsePl
+    failed <- gu_exn_is_raised exn
+    if failed
+    then do
+      is_parse_error <- gu_exn_caught exn gu_exn_type_PgfParseError
+      if is_parse_error
+      then return (ParseFailed 0 "")
+      else throwIO (PGFError "Some other error")
+      -- TODO cleanup!!!
+    else do
+      parseFPl <- newForeignPtr gu_pool_finalizer parsePl
+      exprFPl  <- newForeignPtr gu_pool_finalizer exprPl
+      exprs    <- fromPgfExprEnum enum parseFPl (touchConcr lang >> touchForeignPtr exprFPl)
+      return (ParseOk exprs)
 
 -- | Returns True if there is a linearization defined for that function in that language
 hasLinearization :: Concr -> Fun -> Bool
