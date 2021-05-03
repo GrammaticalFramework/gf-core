@@ -5,8 +5,8 @@ extra-deps:
 - httpd-shed-0.4.0.3
 - cgi-3001.5.0.0
 
-flags:
-  gf:
-    c-runtime: true
+# flags:
+#   gf:
+#     c-runtime: true
 # extra-lib-dirs:
 #   - /usr/local/lib
