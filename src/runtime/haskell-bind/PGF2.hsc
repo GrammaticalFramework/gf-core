@@ -988,11 +988,27 @@ complete lang (Type ctype _) sent pfx mn =
     failed <- gu_exn_is_raised exn
     if failed
     then do
-      -- TODO better error handling, cleanup
       is_parse_error <- gu_exn_caught exn gu_exn_type_PgfParseError
       if is_parse_error
-      then return (ParseFailed 0 "")
-      else throwIO (PGFError "Some other error")
+      then do
+        c_err <- (#peek GuExn, data.data) exn
+        c_offset <- (#peek PgfParseError, offset) c_err
+        token_ptr <- (#peek PgfParseError, token_ptr) c_err
+        token_len <- (#peek PgfParseError, token_len) c_err
+        tok <- peekUtf8CStringLen token_ptr token_len
+        gu_pool_free parsePl
+        return (ParseFailed (fromIntegral (c_offset :: CInt)) tok)
+      else do
+        is_exn <- gu_exn_caught exn gu_exn_type_PgfExn
+        if is_exn
+        then do
+          c_msg <- (#peek GuExn, data.data) exn
+          msg <- peekUtf8CString c_msg
+          gu_pool_free parsePl
+          throwIO (PGFError msg)
+        else do
+          gu_pool_free parsePl
+          throwIO (PGFError "Parsing failed")
     else do
       fpl <- newForeignPtr gu_pool_finalizer parsePl
       ParseOk <$> fromCompletions enum fpl
