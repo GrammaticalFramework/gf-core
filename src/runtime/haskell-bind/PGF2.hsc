@@ -43,32 +43,28 @@ module PGF2 (-- * PGF
              mkCId,
              exprHash, exprSize, exprFunctions, exprSubstitute,
              treeProbability,
-
              -- ** Types
              Type, Hypo, BindType(..), startCat,
              readType, showType, showContext,
              mkType, unType,
-
              -- ** Type checking
              -- | Dynamically-built expressions should always be type-checked before using in other functions,
              -- as the exceptions thrown by using invalid expressions may not catchable.
              checkExpr, inferExpr, checkType,
-
              -- ** Computing
              compute,
 
              -- * Concrete syntax
              ConcName,Concr,languages,concreteName,languageCode,
-
              -- ** Linearization
              linearize,linearizeAll,tabularLinearize,tabularLinearizeAll,bracketedLinearize,bracketedLinearizeAll,
              FId, BracketedString(..), showBracketedString, flattenBracketedString,
              printName, categoryFields,
-
              alignWords,
              -- ** Parsing
              ParseOutput(..), parse, parseWithHeuristics,
              parseToChart, PArg(..),
+             complete,
              -- ** Sentence Lookup
              lookupSentence,
              -- ** Generation
@@ -975,6 +971,67 @@ parseWithOracle lang cat sent (predict,complete,literal) =
                          (#poke PgfExprProb, prob) ep prob
                          return ep
         Nothing    -> do return nullPtr
+
+-- | Returns possible completions of the current partial input.
+complete :: Concr      -- ^ the language with which we parse
+         -> Type       -- ^ the start category
+         -> String     -- ^ the input sentence (excluding token being completed)
+         -> String     -- ^ prefix (partial token being completed)
+         -> ParseOutput [(String, CId, CId, Float)]  -- ^ (token, category, function, probability)
+complete lang (Type ctype _) sent pfx =
+  unsafePerformIO $ do
+    parsePl <- gu_new_pool
+    exn     <- gu_new_exn parsePl
+    sent <- newUtf8CString sent parsePl
+    pfx  <- newUtf8CString pfx parsePl
+    enum <- pgf_complete (concr lang) ctype sent pfx exn parsePl
+    failed <- gu_exn_is_raised exn
+    if failed
+    then do
+      is_parse_error <- gu_exn_caught exn gu_exn_type_PgfParseError
+      if is_parse_error
+      then do
+        c_err <- (#peek GuExn, data.data) exn
+        c_offset <- (#peek PgfParseError, offset) c_err
+        token_ptr <- (#peek PgfParseError, token_ptr) c_err
+        token_len <- (#peek PgfParseError, token_len) c_err
+        tok <- peekUtf8CStringLen token_ptr token_len
+        gu_pool_free parsePl
+        return (ParseFailed (fromIntegral (c_offset :: CInt)) tok)
+      else do
+        is_exn <- gu_exn_caught exn gu_exn_type_PgfExn
+        if is_exn
+        then do
+          c_msg <- (#peek GuExn, data.data) exn
+          msg <- peekUtf8CString c_msg
+          gu_pool_free parsePl
+          throwIO (PGFError msg)
+        else do
+          gu_pool_free parsePl
+          throwIO (PGFError "Parsing failed")
+    else do
+      fpl <- newForeignPtr gu_pool_finalizer parsePl
+      ParseOk <$> fromCompletions enum fpl
+  where
+    fromCompletions :: Ptr GuEnum -> ForeignPtr GuPool -> IO [(String, CId, CId, Float)]
+    fromCompletions enum fpl =
+      withGuPool $ \tmpPl -> do
+        cmpEntry <- alloca $ \ptr ->
+                      withForeignPtr fpl $ \pl ->
+                        do gu_enum_next enum ptr pl
+                           peek ptr
+        if cmpEntry == nullPtr
+        then do
+          finalizeForeignPtr fpl
+          touchConcr lang
+          return []
+        else do
+          tok <- peekUtf8CString =<< (#peek PgfTokenProb, tok) cmpEntry
+          cat <- peekUtf8CString =<< (#peek PgfTokenProb, cat) cmpEntry
+          fun <- peekUtf8CString =<< (#peek PgfTokenProb, fun) cmpEntry
+          prob <- (#peek PgfTokenProb, prob) cmpEntry
+          toks <- unsafeInterleaveIO (fromCompletions enum fpl)
+          return ((tok, cat, fun, prob) : toks)
 
 -- | Returns True if there is a linearization defined for that function in that language
 hasLinearization :: Concr -> Fun -> Bool
