@@ -977,30 +977,44 @@ complete :: Concr      -- ^ the language with which we parse
          -> String     -- ^ the input sentence
          -> String     -- ^ prefix (?)
          -> Maybe Int  -- ^ maximum number of results
-         -> ParseOutput [(Expr,Float)]
+         -> ParseOutput [String]
 complete lang (Type ctype _) sent pfx mn =
   unsafePerformIO $ do
     parsePl <- gu_new_pool
-    exprPl  <- gu_new_pool
     exn     <- gu_new_exn parsePl
-
     sent <- newUtf8CString sent parsePl
     pfx  <- newUtf8CString pfx parsePl
-
     enum <- pgf_complete (concr lang) ctype sent pfx exn parsePl
     failed <- gu_exn_is_raised exn
     if failed
     then do
+      -- TODO better error handling, cleanup
       is_parse_error <- gu_exn_caught exn gu_exn_type_PgfParseError
       if is_parse_error
       then return (ParseFailed 0 "")
       else throwIO (PGFError "Some other error")
-      -- TODO cleanup!!!
     else do
-      parseFPl <- newForeignPtr gu_pool_finalizer parsePl
-      exprFPl  <- newForeignPtr gu_pool_finalizer exprPl
-      exprs    <- fromPgfExprEnum enum parseFPl (touchConcr lang >> touchForeignPtr exprFPl)
-      return (ParseOk exprs)
+      fpl <- newForeignPtr gu_pool_finalizer parsePl
+      ParseOk <$> fromCompletions enum fpl
+  where
+    fromCompletions :: Ptr GuEnum -> ForeignPtr GuPool -> IO [String]
+    fromCompletions enum fpl =
+      withGuPool $ \tmpPl -> do
+        cmpEntry <- alloca $ \ptr ->
+                      withForeignPtr fpl $ \pl ->
+                        do gu_enum_next enum ptr pl
+                           peek ptr
+        if cmpEntry == nullPtr
+        then do
+          finalizeForeignPtr fpl
+          touchConcr lang
+          return []
+        else do
+          (sb,out) <- newOut tmpPl
+          cstr <- gu_string_buf_freeze sb tmpPl
+          tok  <- peekUtf8CString cstr
+          toks <- unsafeInterleaveIO (fromCompletions enum fpl)
+          return (tok : toks)
 
 -- | Returns True if there is a linearization defined for that function in that language
 hasLinearization :: Concr -> Fun -> Bool
