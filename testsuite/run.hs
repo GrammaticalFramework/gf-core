@@ -14,7 +14,7 @@ main =
           ok = length good
           fail = ok<cnt
       putStrLn $ show ok++"/"++show cnt++ " passed/tests"
-      let overview = "dist/test/gf-tests.html"
+      let overview = "gf-tests.html"
       writeFile overview (toHTML bad)
       if ok<cnt 
         then do putStrLn $ overview++" contains an overview of the failed tests"
@@ -55,7 +55,8 @@ main =
 
     runTest in_file out_file gold_file = do
       input <- readFile in_file
-      writeFile out_file =<< run_gf input
+      rgl_lib_dir <- readFile "DATA_DIR"
+      writeFile out_file =<< run_gf ["-run","-gf-lib-path=" ++ rgl_lib_dir] input
       exists <- doesFileExist gold_file
       if exists
         then do out <- compatReadFile out_file
@@ -71,9 +72,8 @@ main =
          hGetContents h
 
 -- Should consult the Cabal configuration!
-run_gf = readProcess default_gf ["-run","-gf-lib-path="++gf_lib_path]
-default_gf = "dist/build/gf/gf"<.>exeExtension buildPlatform
-gf_lib_path = "dist/build/rgl"
+run_gf = readProcess default_gf 
+default_gf = "gf"<.>exeExtension buildPlatform
 
 -- | List files, excluding "." and ".."
 ls path = filter (`notElem` [".",".."]) `fmap` getDirectoryContents path
