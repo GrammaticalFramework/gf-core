@@ -49,15 +49,17 @@ You will probably need to update the `PATH` environment variable to include your
 
 For more information, see [Using GF on Windows](https://www.grammaticalframework.org/~inari/gf-windows.html) (latest updated for Windows 10).
 
-## Installing the latest release from source
+## Installing the latest Hackage release (macOS, Linux, and WSL2 on Windows)
 
 [GF is on Hackage](http://hackage.haskell.org/package/gf), so under
 normal circumstances the procedure is fairly simple:
 
-1.  Install a recent version of the [Haskell Platform](http://hackage.haskell.org/platform) (see note below)
-2.  `cabal update`
-3.  On Linux: install some C libraries from your Linux distribution (see note below)
-4.  `cabal install gf`
+1.  Install ghcup https://www.haskell.org/ghcup/
+2.  `ghcup install ghc 8.10.4`
+3.  `ghcup set ghc 8.10.4`
+4.  `cabal update`
+5.  On Linux: install some C libraries from your Linux distribution (see note below)
+6.  `cabal install gf-3.11`
 
 You can also download the source code release from [GitHub](https://github.com/GrammaticalFramework/gf-core/releases),
 and follow the instructions below under **Installing from the latest developer source code**.
@@ -73,17 +75,6 @@ so you might want to add this directory to your path (in `.bash_profile` or simi
 ```
 PATH=$HOME/.cabal/bin:$PATH
 ```
-
-**Build tools**
-
-In order to compile GF you need the build tools **Alex** and **Happy**.
-These can be installed via Cabal, e.g.:
-
-```
-cabal install alex happy
-```
-
-or obtained by other means, depending on your OS.
 
 **Haskeline**
 
