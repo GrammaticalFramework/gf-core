@@ -14,6 +14,7 @@ maintainer: Thomas Hallgren
 tested-with: GHC==7.10.3, GHC==8.0.2, GHC==8.2.2, GHC==8.4.3
 
 data-dir: src
+extra-source-files: WebSetup.hs
 data-files:
   www/*.html
   www/*.css
