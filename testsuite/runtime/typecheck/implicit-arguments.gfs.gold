@@ -15,8 +15,6 @@ Type:        Label {n1}
 Probability: 1.0
 
 {n1} is implicit argument but not implicit argument is expected here
-CallStack (from HasCallStack):
-  error, called at src/compiler/GF/Command/Commands.hs:744:43 in gf-3.10.4-EdD6fabQUzM4AhRenbxTb3:GF.Command.Commands
 Expression:  <\{_1}, x -> x : ({m} : Node) -> (n : Node) -> Node>
 Type:        ({m} : Node) -> (n : Node) -> Node
 Probability: 1.0

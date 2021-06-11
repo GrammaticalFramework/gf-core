@@ -4,5 +4,3 @@ Probability: 1.0
 
 Meta variable(s) ?2 should be resolved
 in the expression: s ?2 (app ?2) ?4
-CallStack (from HasCallStack):
-  error, called at src/compiler/GF/Command/Commands.hs:744:43 in gf-3.10.4-EdD6fabQUzM4AhRenbxTb3:GF.Command.Commands

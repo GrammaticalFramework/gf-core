@@ -1,31 +1,17 @@
 Couldn't match expected type Nat
        against inferred type String
 In the expression: "0"
-CallStack (from HasCallStack):
-  error, called at src/compiler/GF/Command/Commands.hs:744:43 in gf-3.10.4-EdD6fabQUzM4AhRenbxTb3:GF.Command.Commands
 Category Int should have 0 argument(s), but has been given 1
 In the type: Int 0
-CallStack (from HasCallStack):
-  error, called at src/compiler/GF/Command/Commands.hs:744:43 in gf-3.10.4-EdD6fabQUzM4AhRenbxTb3:GF.Command.Commands
 A function type is expected for the expression 1 instead of type Int
-CallStack (from HasCallStack):
-  error, called at src/compiler/GF/Command/Commands.hs:744:43 in gf-3.10.4-EdD6fabQUzM4AhRenbxTb3:GF.Command.Commands
 Couldn't match expected type Int -> Int
        against inferred type Int
 In the expression: 1
-CallStack (from HasCallStack):
-  error, called at src/compiler/GF/Command/Commands.hs:744:43 in gf-3.10.4-EdD6fabQUzM4AhRenbxTb3:GF.Command.Commands
 unknown category of function identifier unknown_fun
 
 Category unknown_cat is not in scope
-CallStack (from HasCallStack):
-  error, called at src/compiler/GF/Command/Commands.hs:744:43 in gf-3.10.4-EdD6fabQUzM4AhRenbxTb3:GF.Command.Commands
 Cannot infer the type of expression \x -> x
-CallStack (from HasCallStack):
-  error, called at src/compiler/GF/Command/Commands.hs:744:43 in gf-3.10.4-EdD6fabQUzM4AhRenbxTb3:GF.Command.Commands
 A function type is expected for the expression \x -> x instead of type Int
-CallStack (from HasCallStack):
-  error, called at src/compiler/GF/Command/Commands.hs:744:43 in gf-3.10.4-EdD6fabQUzM4AhRenbxTb3:GF.Command.Commands
 Expression:  append (succ (succ zero)) (succ zero) (vector (succ (succ zero))) (vector (succ zero))
 Type:        Vector (succ (succ (succ zero)))
 Probability: 3.532127097800926e-8
@@ -45,8 +31,6 @@ Probability: 0.125
 Couldn't match expected type Morph (\v0 -> v0)
        against inferred type Morph (\v0 -> succ zero)
 In the expression: mkMorph (\x -> succ zero)
-CallStack (from HasCallStack):
-  error, called at src/compiler/GF/Command/Commands.hs:744:43 in gf-3.10.4-EdD6fabQUzM4AhRenbxTb3:GF.Command.Commands
 Expression:  <append zero (succ zero) : Vector zero -> Vector (succ zero) -> Vector (succ zero)>
 Type:        Vector zero -> Vector (succ zero) -> Vector (succ zero)
 Probability: 1.0
@@ -56,8 +40,6 @@ Type:        (n : Nat) -> Vector n -> (m : Nat) -> Vector m -> Vector (plus n m)
 Probability: 1.0
 
 Category EQ is not in scope
-CallStack (from HasCallStack):
-  error, called at src/compiler/GF/Command/Commands.hs:744:43 in gf-3.10.4-EdD6fabQUzM4AhRenbxTb3:GF.Command.Commands
 Expression:  <\v1, v2 -> cmpVector ?7 v1 v2 : Vector ?7 -> Vector ?7 -> Int> (vector ?7)
 Type:        Vector ?7 -> Int
 Probability: 0.3333333333333333
@@ -65,8 +47,6 @@ Probability: 0.3333333333333333
 Couldn't match expected type (m : Nat) -> Vector ?1
        against inferred type (n : Nat) -> Vector n
 In the expression: vector
-CallStack (from HasCallStack):
-  error, called at src/compiler/GF/Command/Commands.hs:744:43 in gf-3.10.4-EdD6fabQUzM4AhRenbxTb3:GF.Command.Commands
 Expression:  f1 (\v -> v) vector
 Type:        Int
 Probability: 5.555555555555555e-2
@@ -78,13 +58,9 @@ Probability: 0.16666666666666666
 Couldn't match expected type Vector x
        against inferred type Vector (succ x)
 In the expression: vector (succ x)
-CallStack (from HasCallStack):
-  error, called at src/compiler/GF/Command/Commands.hs:744:43 in gf-3.10.4-EdD6fabQUzM4AhRenbxTb3:GF.Command.Commands
 Couldn't match expected type Vector n
        against inferred type Vector (succ n)
 In the expression: vector (succ n)
-CallStack (from HasCallStack):
-  error, called at src/compiler/GF/Command/Commands.hs:744:43 in gf-3.10.4-EdD6fabQUzM4AhRenbxTb3:GF.Command.Commands
 Expression:  h ?2 (u0 ?2)
 Type:        Int
 Probability: 8.333333333333333e-2
@@ -92,12 +68,8 @@ Probability: 8.333333333333333e-2
 Couldn't match expected type U ?2 ?2
        against inferred type U ?2 (succ ?2)
 In the expression: u1 ?2
-CallStack (from HasCallStack):
-  error, called at src/compiler/GF/Command/Commands.hs:744:43 in gf-3.10.4-EdD6fabQUzM4AhRenbxTb3:GF.Command.Commands
 Meta variable(s) ?11 should be resolved
 in the expression: cmpVector (succ (succ zero)) (vector (succ (succ zero))) (append ?11 (succ zero) (vector ?11) (vector (succ zero)))
-CallStack (from HasCallStack):
-  error, called at src/compiler/GF/Command/Commands.hs:744:43 in gf-3.10.4-EdD6fabQUzM4AhRenbxTb3:GF.Command.Commands
 Expression:  diff (succ (succ (succ zero))) (succ (succ zero)) (vector (succ (succ (succ (succ (succ zero)))))) (vector (succ (succ (succ zero))))
 Type:        Vector (succ (succ zero))
 Probability: 2.1558392930913853e-12
@@ -105,8 +77,6 @@ Probability: 2.1558392930913853e-12
 Couldn't match expected type Vector (plus (succ (succ (succ zero))) (succ (succ zero)))
        against inferred type Vector (succ (succ (succ (succ zero))))
 In the expression: vector (succ (succ (succ (succ zero))))
-CallStack (from HasCallStack):
-  error, called at src/compiler/GF/Command/Commands.hs:744:43 in gf-3.10.4-EdD6fabQUzM4AhRenbxTb3:GF.Command.Commands
 Expression:  idMorph (mkMorph2 (\x -> x) (vector zero))
 Type:        Nat
 Probability: 1.0416666666666666e-2
@@ -114,5 +84,3 @@ Probability: 1.0416666666666666e-2
 Couldn't match expected type Vector zero
        against inferred type Vector n
 In the expression: x
-CallStack (from HasCallStack):
-  error, called at src/compiler/GF/Command/Commands.hs:744:43 in gf-3.10.4-EdD6fabQUzM4AhRenbxTb3:GF.Command.Commands
