@@ -1,7 +1,7 @@
 import Data.List(partition)
 import System.IO
 import Distribution.Simple.BuildPaths(exeExtension)
-import Distribution.System ( buildPlatform )
+import Distribution.System ( buildPlatform, OS (Windows), Platform (Platform) )
 import System.Process(readProcess)
 import System.Directory(doesFileExist,getDirectoryContents)
 import System.FilePath((</>),(<.>),takeExtension)
@@ -73,7 +73,12 @@ main =
 
 -- Should consult the Cabal configuration!
 run_gf = readProcess default_gf 
-default_gf = "gf"<.>exeExtension buildPlatform
+default_gf = "gf"<.>exeExtension
+  where
+    -- shadows Distribution.Simple.BuildPaths.exeExtension, which changed type signature in Cabal 2.4
+    exeExtension = case buildPlatform of
+      Platform arch Windows -> "exe"
+      _ -> ""
 
 -- | List files, excluding "." and ".."
 ls path = filter (`notElem` [".",".."]) `fmap` getDirectoryContents path
