@@ -741,7 +741,7 @@ pgfCommands = Map.fromList [
                                      Nothing   -> do putStrLn ("unknown category of function identifier "++show id)
                                                      return void
          [e]         -> case inferExpr pgf e of
-                          Left tcErr   -> error $ render (ppTcError tcErr)
+                          Left tcErr   -> errorWithoutStackTrace $ render (ppTcError tcErr)
                           Right (e,ty) -> do putStrLn ("Expression:  "++showExpr [] e)
                                              putStrLn ("Type:        "++showType [] ty)
                                              putStrLn ("Probability: "++show (probTree pgf e))
