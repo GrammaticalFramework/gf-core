@@ -1,4 +1,4 @@
-{-# LANGUAGE FlexibleInstances, UndecidableInstances #-}
+{-# LANGUAGE FlexibleInstances, UndecidableInstances, CPP #-}
 module GF.Command.Commands (
   PGFEnv,HasPGFEnv(..),pgf,mos,pgfEnv,pgfCommands,
   options,flags,
@@ -1019,3 +1019,7 @@ stanzas = map unlines . chop . lines where
   chop ls = case break (=="") ls of
     (ls1,[])  -> [ls1]
     (ls1,_:ls2) -> ls1 : chop ls2
+
+#if !(MIN_VERSION_base(4,9,0))
+errorWithoutStackTrace = error
+#endif
