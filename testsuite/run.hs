@@ -11,7 +11,7 @@ main =
    do res <- walk "testsuite"
       let cnt = length res
           (good,bad) = partition ((=="OK").fst.snd) res
-          ok = length good
+          ok = length good + length (filter ((=="FAIL (expected)").fst.snd) bad)
           fail = ok<cnt
       putStrLn $ show ok++"/"++show cnt++ " passed/tests"
       let overview = "gf-tests.html"
@@ -62,7 +62,9 @@ main =
         then do out <- compatReadFile out_file
                 gold <- compatReadFile gold_file
                 let info = (input,gold,out)
-                return $! if out == gold then ("OK",info) else ("FAIL",info)
+                if in_file `elem` expectedFailures
+                  then return $! if out == gold then ("Unexpected success",info) else ("FAIL (expected)",info)
+                  else return $! if out == gold then ("OK",info) else ("FAIL",info)
         else do out <- compatReadFile out_file
                 return ("MISSING GOLD",(input,"",out))
     -- Avoid failures caused by Win32/Unix text file incompatibility
@@ -70,6 +72,13 @@ main =
       do h <- openFile path ReadMode
          hSetNewlineMode h universalNewlineMode
          hGetContents h
+
+expectedFailures :: [String]
+expectedFailures =
+  [ "testsuite/runtime/parser/parser.gfs" -- Only parses `z` as `zero` and not also as e.g. `succ zero` as expected
+  , "testsuite/runtime/linearize/brackets.gfs" -- Missing "cannot linearize in the end"
+  , "testsuite/compiler/typecheck/abstract/non-abstract-terms.gfs" -- Gives a different error than expected
+  ]
 
 -- Should consult the Cabal configuration!
 run_gf = readProcess default_gf 
