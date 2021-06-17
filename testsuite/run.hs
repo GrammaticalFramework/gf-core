@@ -55,8 +55,7 @@ main =
 
     runTest in_file out_file gold_file = do
       input <- readFile in_file
-      rgl_lib_dir <- readFile "DATA_DIR"
-      writeFile out_file =<< run_gf ["-run","-gf-lib-path=" ++ rgl_lib_dir] input
+      writeFile out_file =<< run_gf ["-run"] input
       exists <- doesFileExist gold_file
       if exists
         then do out <- compatReadFile out_file
