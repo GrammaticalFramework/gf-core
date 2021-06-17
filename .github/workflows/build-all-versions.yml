@@ -56,9 +56,9 @@ jobs:
         cabal configure --enable-tests --enable-benchmarks --test-show-details=direct
         cabal build all
 
-    - name: Test
-      run: |
-        cabal test all
+    # - name: Test
+    #   run: |
+    #     cabal test all
 
   stack:
     name: stack / ghc ${{ matrix.ghc }}
