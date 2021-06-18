@@ -353,4 +353,5 @@ test-suite gf-tests
   main-is:        run.hs
   hs-source-dirs: testsuite
   build-depends:  base>=4.3 && <5, Cabal>=1.8, directory, filepath, process
+  build-tool-depends: gf:gf
   default-language:    Haskell2010

@@ -90,6 +90,6 @@ jobs:
         stack build --system-ghc --stack-yaml stack-ghc${{ matrix.ghc }}.yaml
         # stack build --system-ghc --test --bench --no-run-tests --no-run-benchmarks
 
-    # - name: Test
-    #   run: |
-    #     stack test --system-ghc
+    - name: Test
+      run: |
+        stack test --system-ghc --stack-yaml stack-ghc${{ matrix.ghc }}.yaml

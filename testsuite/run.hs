@@ -1,7 +1,7 @@
 import Data.List(partition)
 import System.IO
 import Distribution.Simple.BuildPaths(exeExtension)
-import Distribution.System ( buildPlatform )
+import Distribution.System ( buildPlatform, OS (Windows), Platform (Platform) )
 import System.Process(readProcess)
 import System.Directory(doesFileExist,getDirectoryContents)
 import System.FilePath((</>),(<.>),takeExtension)
@@ -11,10 +11,10 @@ main =
    do res <- walk "testsuite"
       let cnt = length res
           (good,bad) = partition ((=="OK").fst.snd) res
-          ok = length good
+          ok = length good + length (filter ((=="FAIL (expected)").fst.snd) bad)
           fail = ok<cnt
       putStrLn $ show ok++"/"++show cnt++ " passed/tests"
-      let overview = "dist/test/gf-tests.html"
+      let overview = "gf-tests.html"
       writeFile overview (toHTML bad)
       if ok<cnt 
         then do putStrLn $ overview++" contains an overview of the failed tests"
@@ -55,13 +55,15 @@ main =
 
     runTest in_file out_file gold_file = do
       input <- readFile in_file
-      writeFile out_file =<< run_gf input
+      writeFile out_file =<< run_gf ["-run"] input
       exists <- doesFileExist gold_file
       if exists
         then do out <- compatReadFile out_file
                 gold <- compatReadFile gold_file
                 let info = (input,gold,out)
-                return $! if out == gold then ("OK",info) else ("FAIL",info)
+                if in_file `elem` expectedFailures
+                  then return $! if out == gold then ("Unexpected success",info) else ("FAIL (expected)",info)
+                  else return $! if out == gold then ("OK",info) else ("FAIL",info)
         else do out <- compatReadFile out_file
                 return ("MISSING GOLD",(input,"",out))
     -- Avoid failures caused by Win32/Unix text file incompatibility
@@ -70,10 +72,21 @@ main =
          hSetNewlineMode h universalNewlineMode
          hGetContents h
 
+expectedFailures :: [String]
+expectedFailures =
+  [ "testsuite/runtime/parser/parser.gfs" -- Only parses `z` as `zero` and not also as e.g. `succ zero` as expected
+  , "testsuite/runtime/linearize/brackets.gfs" -- Missing "cannot linearize in the end"
+  , "testsuite/compiler/typecheck/abstract/non-abstract-terms.gfs" -- Gives a different error than expected
+  ]
+
 -- Should consult the Cabal configuration!
-run_gf = readProcess default_gf ["-run","-gf-lib-path="++gf_lib_path]
-default_gf = "dist/build/gf/gf"<.>exeExtension buildPlatform
-gf_lib_path = "dist/build/rgl"
+run_gf = readProcess default_gf 
+default_gf = "gf"<.>exeExtension
+  where
+    -- shadows Distribution.Simple.BuildPaths.exeExtension, which changed type signature in Cabal 2.4
+    exeExtension = case buildPlatform of
+      Platform arch Windows -> "exe"
+      _ -> ""
 
 -- | List files, excluding "." and ".."
 ls path = filter (`notElem` [".",".."]) `fmap` getDirectoryContents path

@@ -1,5 +1,6 @@
 
 
-testsuite/compiler/check/oper-definition/Res.gf:3:
-  Happened in operation my_oper
-   No definition given to the operation
+testsuite/compiler/check/oper-definition/Res.gf:
+   testsuite/compiler/check/oper-definition/Res.gf:3:
+     Happened in operation my_oper
+      No definition given to the operation

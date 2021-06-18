@@ -1,4 +1,4 @@
-{-# LANGUAGE FlexibleInstances, UndecidableInstances #-}
+{-# LANGUAGE FlexibleInstances, UndecidableInstances, CPP #-}
 module GF.Command.Commands (
   PGFEnv,HasPGFEnv(..),pgf,mos,pgfEnv,pgfCommands,
   options,flags,
@@ -741,7 +741,7 @@ pgfCommands = Map.fromList [
                                      Nothing   -> do putStrLn ("unknown category of function identifier "++show id)
                                                      return void
          [e]         -> case inferExpr pgf e of
-                          Left tcErr   -> error $ render (ppTcError tcErr)
+                          Left tcErr   -> errorWithoutStackTrace $ render (ppTcError tcErr)
                           Right (e,ty) -> do putStrLn ("Expression:  "++showExpr [] e)
                                              putStrLn ("Type:        "++showType [] ty)
                                              putStrLn ("Probability: "++show (probTree pgf e))
@@ -1019,3 +1019,7 @@ stanzas = map unlines . chop . lines where
   chop ls = case break (=="") ls of
     (ls1,[])  -> [ls1]
     (ls1,_:ls2) -> ls1 : chop ls2
+
+#if !(MIN_VERSION_base(4,9,0))
+errorWithoutStackTrace = error
+#endif
