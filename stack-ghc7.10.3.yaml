@@ -12,3 +12,8 @@ allow-newer: true
 flags:
   transformers-compat:
     four: true
+#   gf:
+#     c-runtime: true
+#
+# extra-lib-dirs:
+#   - /usr/local/lib

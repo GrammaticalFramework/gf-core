@@ -2,3 +2,9 @@ resolver: lts-12.26 # ghc 8.4.4
 
 extra-deps:
 - cgi-3001.3.0.3
+
+# flags:
+#   gf:
+#     c-runtime: true
+# extra-lib-dirs:
+#   - /usr/local/lib

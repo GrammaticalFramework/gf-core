@@ -4,3 +4,9 @@ extra-deps:
 - cgi-3001.3.0.3
 - httpd-shed-0.4.0.3
 - exceptions-0.10.2
+
+# flags:
+#   gf:
+#     c-runtime: true
+# extra-lib-dirs:
+#   - /usr/local/lib
