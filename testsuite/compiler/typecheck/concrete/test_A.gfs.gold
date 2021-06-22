@@ -1,5 +1,9 @@
 
 
-testsuite/compiler/typecheck/concrete/A.gf:5:
-  Happened in operation silly
-   A function type is expected for a_Det instead of type Str
+testsuite/compiler/typecheck/concrete/A.gf:
+   testsuite/compiler/typecheck/concrete/A.gf:5:
+     Happened in operation silly
+      A function type is expected for a_Det instead of type Str
+      
+   ** Maybe you gave too many arguments to a_Det 
+

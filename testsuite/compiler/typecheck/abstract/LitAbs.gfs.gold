@@ -1,5 +1,12 @@
-data null : CStr ""
-data empty : CStr ""
-data other : CStr "other"
-data zero : CInt 0
-data pi : CFloat 3.14
+data empty : CStr "" ;
+Probability: 0.5
+
+data other : CStr "other" ;
+Probability: 0.5
+
+data zero : CInt 0 ;
+Probability: 1.0
+
+data pi : CFloat 3.14 ;
+Probability: 1.0
+

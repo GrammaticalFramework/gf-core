@@ -151,29 +151,37 @@ getFile get path =
 cpgfMain qsem command (t,(pgf,pc)) =
   case command of
     "c-parse"       -> withQSem qsem $
-                       out t=<< join (parse # input % start % limit % treeopts)
+                       out t=<< join (parse # input % cat % start % limit % treeopts)
     "c-parseToChart"-> withQSem qsem $
-                       out t=<< join (parseToChart # input % limit)
+                       out t=<< join (parseToChart # input % cat % limit)
     "c-linearize"   -> out t=<< lin # tree % to
     "c-bracketedLinearize"
                     -> out t=<< bracketedLin # tree % to
     "c-linearizeAll"-> out t=<< linAll # tree % to
     "c-translate"   -> withQSem qsem $
-                       out t=<<join(trans # input % to % start % limit%treeopts)
+                       out t=<<join(trans # input % cat % to % start % limit%treeopts)
     "c-lookupmorpho"-> out t=<< morpho # from1 % textInput
     "c-lookupcohorts"->out t=<< cohorts # from1 % getInput "filter" % textInput
     "c-flush"       -> out t=<< flush
     "c-grammar"     -> out t grammar
     "c-abstrtree"   -> outputGraphviz=<< C.graphvizAbstractTree pgf C.graphvizDefaults # tree
     "c-parsetree"   -> outputGraphviz=<< (\cnc -> C.graphvizParseTree cnc C.graphvizDefaults) . snd # from1 %tree
-    "c-wordforword" -> out t =<< wordforword # input % to
+    "c-wordforword" -> out t =<< wordforword # input % cat % to
     _               -> badRequest "Unknown command" command
   where
     flush = liftIO $ do --modifyMVar_ pc $ const $ return Map.empty
                         performGC
                         return $ showJSON ()
 
-    cat = C.startCat pgf
+    cat :: CGI C.Type
+    cat =
+       do mcat  <- getInput1 "cat"
+          case mcat of
+            Nothing -> return (C.startCat pgf)
+            Just cat -> case C.readType cat of
+                          Nothing  -> badRequest "Bad category" cat
+                          Just typ -> return typ
+
     langs = C.languages pgf
 
     grammar = showJSON $ makeObj
@@ -184,8 +192,8 @@ cpgfMain qsem command (t,(pgf,pc)) =
       where
         languages = [makeObj ["name".= l] | (l,_)<-Map.toList langs]
 
-    parse input@((from,_),_) start mlimit (trie,json) =
-        do r <- parse' start mlimit input
+    parse input@((from,_),_) cat start mlimit (trie,json) =
+        do r <- parse' cat start mlimit input
            return $ showJSON [makeObj ("from".=from:jsonParseResult json r)]
 
     jsonParseResult json = either bad good
@@ -195,7 +203,7 @@ cpgfMain qsem command (t,(pgf,pc)) =
         tp (tree,prob) = makeObj (addTree json tree++["prob".=prob])
 
     -- Without caching parse results:
-    parse' start mlimit ((from,concr),input) =
+    parse' cat start mlimit ((from,concr),input) =
         case C.parseWithHeuristics concr cat input (-1) callbacks of
           C.ParseOk ts        -> return (Right (maybe id take mlimit (drop start ts)))
           C.ParseFailed _ tok -> return (Left tok)
@@ -221,7 +229,7 @@ cpgfMain qsem command (t,(pgf,pc)) =
                              -- remove unused parse results after 2 minutes
 -}
 
-    parseToChart ((from,concr),input) mlimit =
+    parseToChart ((from,concr),input) cat mlimit =
       do r <- case C.parseToChart concr cat input (-1) callbacks (fromMaybe 5 mlimit) of
                 C.ParseOk chart     -> return (good chart)
                 C.ParseFailed _ tok -> return (bad tok)
@@ -262,8 +270,8 @@ cpgfMain qsem command (t,(pgf,pc)) =
     bracketedLin' tree (tos,unlex) =
         [makeObj ["to".=to,"brackets".=showJSON (C.bracketedLinearize c tree)]|(to,c)<-tos]
 
-    trans input@((from,_),_) to start mlimit (trie,jsontree) =
-      do parses <- parse' start mlimit input
+    trans input@((from,_),_) cat to start mlimit (trie,jsontree) =
+      do parses <- parse' cat start mlimit input
          return $
            showJSON [ makeObj ["from".=from,
                                "translations".= jsonParses parses]]
@@ -297,7 +305,7 @@ cpgfMain qsem command (t,(pgf,pc)) =
                                       _              -> id)
                                      (C.lookupCohorts concr input)]
 
-    wordforword input@((from,_),_) = jsonWFW from . wordforword' input
+    wordforword input@((from,_),_) cat = jsonWFW from . wordforword' input cat
 
     jsonWFW from rs =
       showJSON
@@ -307,7 +315,7 @@ cpgfMain qsem command (t,(pgf,pc)) =
                                         [makeObj["to".=to,"text".=text]
                                          | (to,text)<-rs]]]]]
 
-    wordforword' inp@((from,concr),input) (tos,unlex) =
+    wordforword' inp@((from,concr),input) cat (tos,unlex) =
         [(to,unlex . unwords $ map (lin_word' c) pws)
          |let pws=map parse_word' (words input),(to,c)<-tos]
       where
