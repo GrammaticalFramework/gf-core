@@ -30,13 +30,16 @@ GF particularly addresses four aspects of grammars:
 
 ## Compilation and installation
 
-The simplest way of installing GF is with the command:
+The simplest way of installing GF from source is with the command:
 ```
 cabal install
 ```
+or:
+```
+stack install
+```
 
-For more details, see the [download page](http://www.grammaticalframework.org/download/index.html)
-and [developers manual](http://www.grammaticalframework.org/doc/gf-developers.html).
+For more information, including links to precompiled binaries, see the [download page](http://www.grammaticalframework.org/download/index.html).
 
 ## About this repository
 
