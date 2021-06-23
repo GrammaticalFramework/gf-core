@@ -45,6 +45,8 @@ but the generated _artifacts_ must be manually attached to the release as _asset
 
 ### 4. Upload to Hackage
 
+In order to do this you will need to be added the [GF maintainers](https://hackage.haskell.org/package/gf/maintainers/) on Hackage.
+
 1. Run `make sdist`
 2. Upload the package, either:
     1. **Manually**: visit <https://hackage.haskell.org/upload> and upload the file `dist/gf-X.Y.tar.gz`
