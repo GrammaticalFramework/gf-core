@@ -9,7 +9,7 @@ synopsis: Grammatical Framework
 description: A library for interpreting the Portable Grammar Format (PGF)
 homepage: http://www.grammaticalframework.org/
 bug-reports: https://github.com/GrammaticalFramework/gf-core/issues
-tested-with: GHC==7.6.3, GHC==7.8.3, GHC==7.10.3, GHC==8.0.2, GHC=8.4.4
+tested-with: GHC==7.6.3, GHC==7.8.3, GHC==7.10.3, GHC==8.0.2, GHC==8.4.4
 
 library
   default-language: Haskell2010
