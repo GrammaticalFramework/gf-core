@@ -11,7 +11,7 @@ import GF.Data.ErrM
 import GF.Text.Pretty
 import GF.Grammar.Grammar
 import GF.Grammar.Lookup(lookupOrigInfo,allOrigInfos,allParamValues)
-import GF.Grammar.Macros(typeForm,collectOp,collectPattOp,mkAbs,mkApp,term2patt)
+import GF.Grammar.Macros(typeForm,collectOp,collectPattOp,mkAbs,mkApp,term2patt,sortRec)
 import GF.Grammar.Lockfield(isLockLabel)
 import GF.Grammar.Predef(cPredef,cInts)
 import GF.Compile.Compute.Predef(predef)
@@ -162,7 +162,7 @@ convert' gr vs = ppT
         S t p -> selection (ppT t) (ppT p)
         C t1 t2 -> concatValue (ppT t1) (ppT t2)
         App f a -> ap (ppT f) (ppT a)
-        R r -> RecordValue (fields r)
+        R r -> RecordValue (fields (sortRec r))
         P t l -> projection (ppT t) (lblId l)
         Vr x -> VarValue (gId x)
         Cn x -> VarValue (gId x) -- hmm
