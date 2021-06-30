@@ -6,24 +6,24 @@ VERSION=$(shell sed -ne "s/^version: *\([0-9.]*\).*/\1/p" gf.cabal)
 all: build
 
 dist/setup-config: gf.cabal Setup.hs WebSetup.hs
-	cabal configure
+	cabal v1-configure
 
 build: dist/setup-config
-	cabal build
+	cabal v1-build
 
 install:
-	cabal copy
-	cabal register
+	cabal v1-copy
+	cabal v1-register
 
 doc:
-	cabal haddock
+	cabal v1-haddock
 
 clean:
-	cabal clean
+	cabal v1-clean
 	bash bin/clean_html
 
 gf:
-	cabal build rgl-none
+	cabal v1-build rgl-none
 	strip dist/build/gf/gf
 
 html::
