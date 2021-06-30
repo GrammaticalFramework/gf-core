@@ -7,7 +7,7 @@ import GF.Text.Pretty
 --import GF.Grammar.Predef(cPredef,cInts)
 --import GF.Compile.Compute.Predef(predef)
 --import GF.Compile.Compute.Value(Predefined(..))
-import GF.Infra.Ident(Ident,identS,identW,prefixIdent)
+import GF.Infra.Ident(Ident,identC,identS,identW,prefixIdent,showRawIdent,rawIdentS)
 import GF.Infra.Option
 import GF.Haskell as H
 import GF.Grammar.Canonical as C
@@ -21,7 +21,7 @@ concretes2haskell opts absname gr =
      | let Grammar abstr cncs = grammar2canonical opts absname gr,
        cncmod<-cncs,
        let ModId name = concName cncmod
-           filename = name ++ ".hs" :: FilePath
+           filename = showRawIdent name ++ ".hs" :: FilePath
   ]
 
 -- | Generate Haskell code for the given concrete module.
@@ -53,7 +53,7 @@ concrete2haskell opts
     labels = S.difference (S.unions (map S.fromList recs)) common_labels
     common_records = S.fromList [[label_s]]
     common_labels = S.fromList [label_s]
-    label_s = LabelId "s"
+    label_s = LabelId (rawIdentS "s")
 
     signature (CatDef c _) = TypeSig lf (Fun abs (pure lin))
       where
@@ -69,7 +69,7 @@ concrete2haskell opts
       where
      --funcats = S.fromList [c | FunDef f (C.Type _ (TypeApp c _))<-funs]
        allcats = S.fromList [c | CatDef c _<-cats]
-      
+
     gId :: ToIdent i => i -> Ident
     gId = (if haskellOption opts HaskellNoPrefix then id else prefixIdent "G")
           . toIdent
@@ -116,7 +116,7 @@ concrete2haskell opts
               where (ls,ts) = unzip $ sortOn fst [(l,t)|RecordRow l t<-rs]
             StrType -> tcon0 (identS "Str")
             TableType pt lt -> Fun (ppT pt) (ppT lt)
---          TupleType lts -> 
+--          TupleType lts ->
 
     lincatDef (LincatDef c t) = tsyn0 (lincatName c) (convLinType t)
 
@@ -126,7 +126,7 @@ concrete2haskell opts
     linDefs = map eqn . sortOn fst . map linDef
       where eqn (cat,(f,(ps,rhs))) = (cat,Eqn (f,ps) rhs)
 
-    linDef (LinDef f xs rhs0) = 
+    linDef (LinDef f xs rhs0) =
         (cat,(linfunName cat,(lhs,rhs)))
       where
         lhs = [ConP (aId f) (map VarP abs_args)]
@@ -144,7 +144,7 @@ concrete2haskell opts
           where
             vs = [(VarValueId (Unqual x),a)|(VarId x,a)<-zip xs args]
             env= [(VarValueId (Unqual x),lc)|(VarId x,lc)<-zip xs (map arglincat absctx)]
-            
+
         letlin a (TypeBinding _ (C.Type _ (TypeApp acat _))) =
           (a,Ap (Var (linfunName acat)) (Var (abs_arg a)))
 
@@ -187,7 +187,7 @@ concrete2haskell opts
 
         pId p@(ParamId s) =
           if "to_R_" `isPrefixOf` unqual s then toIdent p else gId p -- !! a hack
-          
+
         table cs =
             if all (null.patVars) ps
             then lets ds (LambdaCase [(ppP p,t')|(p,t')<-zip ps ts'])
@@ -315,13 +315,13 @@ instance Records rhs => Records (TableRow rhs) where
 
 -- | Record subtyping is converted into explicit coercions in Haskell
 coerce env ty t =
-  case (ty,t) of 
+  case (ty,t) of
     (_,VariantValue ts) -> VariantValue (map (coerce env ty) ts)
     (TableType ti tv,TableValue _ cs) ->
       TableValue ti [TableRow p (coerce env tv t)|TableRow p t<-cs]
     (RecordType rt,RecordValue r) ->
       RecordValue [RecordRow l (coerce env ft f) |
-                     RecordRow l f<-r,ft<-[ft|RecordRow l' ft<-rt,l'==l]]
+                     RecordRow l f<-r,ft<-[ft | RecordRow l' ft <- rt, l'==l]]
     (RecordType rt,VarValue x)->
       case lookup x env of
         Just ty' | ty'/=ty -> -- better to compare to normal form of ty'
@@ -334,18 +334,17 @@ coerce env ty t =
     _ -> t
   where
     app f ts = ParamConstant (Param f ts) -- !! a hack
-    to_rcon = ParamId . Unqual . to_rcon' . labels
+    to_rcon = ParamId . Unqual . rawIdentS . to_rcon' . labels
 
 patVars p = []
 
-labels r = [l|RecordRow l _<-r]
+labels r = [l | RecordRow l _ <- r]
 
 proj = Var . identS . proj'
-proj' (LabelId l) = "proj_"++l
+proj' (LabelId l) = "proj_" ++ showRawIdent l
 rcon = Var . rcon'
 rcon' = identS . rcon_name
-rcon_name ls = "R"++concat (sort ['_':l|LabelId l<-ls])
-
+rcon_name ls = "R"++concat (sort ['_':showRawIdent l | LabelId l <- ls])
 to_rcon' = ("to_"++) . rcon_name
 
 recordType ls =
@@ -400,17 +399,17 @@ linfunName c = prefixIdent "lin" (toIdent c)
 
 class ToIdent i where toIdent :: i -> Ident
 
-instance ToIdent ParamId where toIdent (ParamId q) = qIdentS q
-instance ToIdent PredefId where toIdent (PredefId s) = identS s
-instance ToIdent CatId   where toIdent (CatId s) = identS s
-instance ToIdent C.FunId where toIdent (FunId s) = identS s
-instance ToIdent VarValueId where toIdent (VarValueId q) = qIdentS q
+instance ToIdent ParamId where toIdent (ParamId q) = qIdentC q
+instance ToIdent PredefId where toIdent (PredefId s) = identC s
+instance ToIdent CatId   where toIdent (CatId s) = identC s
+instance ToIdent C.FunId where toIdent (FunId s) = identC s
+instance ToIdent VarValueId where toIdent (VarValueId q) = qIdentC q
 
-qIdentS = identS . unqual
+qIdentC = identS . unqual
 
-unqual (Qual (ModId m) n) = m++"_"++n
-unqual (Unqual n) = n
+unqual (Qual (ModId m) n) = showRawIdent m++"_"++ showRawIdent n
+unqual (Unqual n) = showRawIdent n
 
 instance ToIdent VarId where
   toIdent Anonymous = identW
-  toIdent (VarId s) = identS s
+  toIdent (VarId s) = identC s
