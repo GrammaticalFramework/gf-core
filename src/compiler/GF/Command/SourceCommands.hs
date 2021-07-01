@@ -19,7 +19,7 @@ import GF.Grammar.ShowTerm
 import GF.Grammar.Lookup (allOpers,allOpersTo)
 import GF.Compile.Rename(renameSourceTerm)
 import GF.Compile.Compute.Concrete(normalForm,resourceValues)
-import GF.Compile.TypeCheck.RConcrete as TC(inferLType,ppType)
+import GF.Compile.TypeCheck.Concrete as TC(inferLType,ppType)
 import GF.Infra.Dependencies(depGraph)
 import GF.Infra.CheckM(runCheck)
 

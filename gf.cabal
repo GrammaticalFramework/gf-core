@@ -207,7 +207,6 @@ library
     GF.Compile.TypeCheck.Concrete
     GF.Compile.TypeCheck.ConcreteNew
     GF.Compile.TypeCheck.Primitives
-    GF.Compile.TypeCheck.RConcrete
     GF.Compile.TypeCheck.TC
     GF.Compile.Update
     GF.Data.BacktrackM
