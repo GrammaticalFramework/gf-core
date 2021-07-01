@@ -5,7 +5,7 @@
 -- Stability   : (stable)
 -- Portability : (portable)
 --
--- > CVS $Date: 2005/11/11 23:24:33 $ 
+-- > CVS $Date: 2005/11/11 23:24:33 $
 -- > CVS $Author: aarne $
 -- > CVS $Revision: 1.31 $
 --
@@ -29,7 +29,7 @@ import GF.Infra.Option
 import GF.Compile.TypeCheck.Abstract
 import GF.Compile.TypeCheck.RConcrete
 import qualified GF.Compile.TypeCheck.ConcreteNew as CN
-import qualified GF.Compile.Compute.ConcreteNew as CN
+import qualified GF.Compile.Compute.Concrete as CN
 
 import GF.Grammar
 import GF.Grammar.Lexer
@@ -74,9 +74,9 @@ checkRestrictedInheritance cwd sgr (name,mo) = checkInModule cwd mo NoLoc empty 
      let (incl,excl) = partition (isInherited mi) (Map.keys (jments m))
      let incld c   = Set.member c (Set.fromList incl)
      let illegal c = Set.member c (Set.fromList excl)
-     let illegals = [(f,is) | 
+     let illegals = [(f,is) |
            (f,cs) <- allDeps, incld f, let is = filter illegal cs, not (null is)]
-     case illegals of 
+     case illegals of
        [] -> return ()
        cs -> checkWarn ("In inherited module" <+> i <> ", dependence of excluded constants:" $$
                          nest 2 (vcat [f <+> "on" <+> fsep is | (f,is) <- cs]))
@@ -92,12 +92,12 @@ checkCompleteGrammar opts cwd gr (am,abs) (cm,cnc) = checkInModule cwd cnc NoLoc
 
   -- check that all abstract constants are in concrete; build default lin and lincats
   jsc <- foldM checkAbs jsc (Map.toList jsa)
-  
+
   return (cm,cnc{jments=jsc})
   where
    checkAbs js i@(c,info) =
      case info of
-       AbsFun (Just (L loc ty)) _ _ _ 
+       AbsFun (Just (L loc ty)) _ _ _
            -> do let mb_def = do
                        let (cxt,(_,i),_) = typeForm ty
                        info <- lookupIdent i js
@@ -136,11 +136,11 @@ checkCompleteGrammar opts cwd gr (am,abs) (cm,cnc) = checkInModule cwd cnc NoLoc
            checkWarn ("no linearization type for" <+> c <> ", inserting default {s : Str}")
            return $ Map.insert c (CncCat (Just (L NoLoc defLinType)) Nothing Nothing Nothing Nothing) js
        _ -> return js
-     
+
    checkCnc js (c,info) =
      case info of
        CncFun _ d mn mf -> case lookupOrigInfo gr (am,c) of
-                             Ok (_,AbsFun (Just (L _ ty)) _ _ _) -> 
+                             Ok (_,AbsFun (Just (L _ ty)) _ _ _) ->
                                         do (cont,val) <- linTypeOfType gr cm ty
                                            let linty = (snd (valCat ty),cont,val)
                                            return $ Map.insert c (CncFun (Just linty) d mn mf) js
@@ -159,14 +159,14 @@ checkCompleteGrammar opts cwd gr (am,abs) (cm,cnc) = checkInModule cwd cnc NoLoc
        _ -> return $ Map.insert c info js
 
 
--- | General Principle: only Just-values are checked. 
+-- | General Principle: only Just-values are checked.
 -- A May-value has always been checked in its origin module.
 checkInfo :: Options -> FilePath -> SourceGrammar -> SourceModule -> Ident -> Info -> Check Info
 checkInfo opts cwd sgr (m,mo) c info = checkInModule cwd mo NoLoc empty $ do
   checkReservedId c
   case info of
-    AbsCat (Just (L loc cont)) -> 
-      mkCheck loc "the category" $ 
+    AbsCat (Just (L loc cont)) ->
+      mkCheck loc "the category" $
         checkContext gr cont
 
     AbsFun (Just (L loc typ0)) ma md moper -> do
@@ -181,7 +181,7 @@ checkInfo opts cwd sgr (m,mo) c info = checkInModule cwd mo NoLoc empty $ do
 
     CncCat mty mdef mref mpr mpmcfg -> do
       mty  <- case mty of
-                Just (L loc typ) -> chIn loc "linearization type of" $ 
+                Just (L loc typ) -> chIn loc "linearization type of" $
                                      (if False --flag optNewComp opts
                                         then do (typ,_) <- CN.checkLType (CN.resourceValues opts gr) typ typeType
                                                 typ  <- computeLType gr [] typ
@@ -191,19 +191,19 @@ checkInfo opts cwd sgr (m,mo) c info = checkInModule cwd mo NoLoc empty $ do
                                                 return (Just (L loc typ)))
                 Nothing          -> return Nothing
       mdef <- case (mty,mdef) of
-                (Just (L _ typ),Just (L loc def)) -> 
+                (Just (L _ typ),Just (L loc def)) ->
                     chIn loc "default linearization of" $ do
                        (def,_) <- checkLType gr [] def (mkFunType [typeStr] typ)
                        return (Just (L loc def))
                 _ -> return Nothing
       mref <- case (mty,mref) of
-                (Just (L _ typ),Just (L loc ref)) -> 
+                (Just (L _ typ),Just (L loc ref)) ->
                     chIn loc "reference linearization of" $ do
                        (ref,_) <- checkLType gr [] ref (mkFunType [typ] typeStr)
                        return (Just (L loc ref))
                 _ -> return Nothing
       mpr  <- case mpr of
-                (Just (L loc t)) -> 
+                (Just (L loc t)) ->
                     chIn loc "print name of" $ do
                        (t,_) <- checkLType gr [] t typeStr
                        return (Just (L loc t))
@@ -212,13 +212,13 @@ checkInfo opts cwd sgr (m,mo) c info = checkInModule cwd mo NoLoc empty $ do
 
     CncFun mty mt mpr mpmcfg -> do
       mt <- case (mty,mt) of
-              (Just (cat,cont,val),Just (L loc trm)) -> 
+              (Just (cat,cont,val),Just (L loc trm)) ->
                   chIn loc "linearization of" $ do
                      (trm,_) <- checkLType gr [] trm (mkFunType (map (\(_,_,ty) -> ty) cont) val)  -- erases arg vars
                      return (Just (L loc trm))
               _ -> return mt
       mpr  <- case mpr of
-                (Just (L loc t)) -> 
+                (Just (L loc t)) ->
                     chIn loc "print name of" $ do
                        (t,_) <- checkLType gr [] t typeStr
                        return (Just (L loc t))
@@ -251,16 +251,16 @@ checkInfo opts cwd sgr (m,mo) c info = checkInModule cwd mo NoLoc empty $ do
     ResOverload os tysts -> chIn NoLoc "overloading" $ do
       tysts' <- mapM (uncurry $ flip (\(L loc1 t) (L loc2 ty) -> checkLType gr [] t ty >>= \(t,ty) -> return (L loc1 t, L loc2 ty))) tysts  -- return explicit ones
       tysts0 <- lookupOverload gr (m,c)  -- check against inherited ones too
-      tysts1 <- mapM (uncurry $ flip (checkLType gr [])) 
+      tysts1 <- mapM (uncurry $ flip (checkLType gr []))
                   [(mkFunType args val,tr) | (args,(val,tr)) <- tysts0]
       --- this can only be a partial guarantee, since matching
       --- with value type is only possible if expected type is given
-      checkUniq $ 
+      checkUniq $
         sort [let (xs,t) = typeFormCnc x in t : map (\(b,x,t) -> t) xs | (_,x) <- tysts1]
       return (ResOverload os [(y,x) | (x,y) <- tysts'])
 
     ResParam (Just (L loc pcs)) _ -> do
-      ts <- chIn loc "parameter type" $ 
+      ts <- chIn loc "parameter type" $
               liftM concat $ mapM mkPar pcs
       return (ResParam (Just (L loc pcs)) (Just ts))
 
@@ -274,9 +274,9 @@ checkInfo opts cwd sgr (m,mo) c info = checkInModule cwd mo NoLoc empty $ do
        return $ map (mkApp (QC (m,f))) vs
 
    checkUniq xss = case xss of
-     x:y:xs 
+     x:y:xs
       | x == y    -> checkError $ "ambiguous for type" <+>
-                                  ppType (mkFunType (tail x) (head x))  
+                                  ppType (mkFunType (tail x) (head x))
       | otherwise -> checkUniq $ y:xs
      _ -> return ()
 
@@ -294,7 +294,7 @@ checkInfo opts cwd sgr (m,mo) c info = checkInModule cwd mo NoLoc empty $ do
        t' <- compAbsTyp ((x,Vr x):g) t
        return $ Prod b x a' t'
      Abs _ _ _ -> return t
-     _ -> composOp (compAbsTyp g) t  
+     _ -> composOp (compAbsTyp g) t
 
 
 -- | for grammars obtained otherwise than by parsing ---- update!!

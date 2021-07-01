@@ -6,7 +6,7 @@
 -- Stability   : (stable)
 -- Portability : (portable)
 --
--- > CVS $Date: 2005/09/16 13:56:13 $ 
+-- > CVS $Date: 2005/09/16 13:56:13 $
 -- > CVS $Author: aarne $
 -- > CVS $Revision: 1.18 $
 --
@@ -21,7 +21,7 @@ import GF.Grammar.Printer
 import GF.Grammar.Macros
 import GF.Grammar.Lookup
 import GF.Grammar.Predef
-import GF.Compile.Compute.ConcreteNew(GlobalEnv,normalForm,resourceValues)
+import GF.Compile.Compute.Concrete(GlobalEnv,normalForm,resourceValues)
 import GF.Data.Operations
 import GF.Infra.Option
 
@@ -90,7 +90,7 @@ evalInfo opts resenv sgr m c info = do
     let ppr' = fmap (evalPrintname resenv c) ppr
     return $ CncFun mt pde' ppr' mpmcfg -- only cat in type actually needed
 {-
-  ResOper pty pde 
+  ResOper pty pde
     | not new && OptExpand `Set.member` optim -> do
          pde' <- case pde of
                    Just (L loc de) -> do de <- computeConcrete gr de
@@ -171,13 +171,13 @@ mkLinDefault gr typ = liftM (Abs Explicit varStr) $ mkDefField typ
      _ -> Bad (render ("linearization type field cannot be" <+> typ))
 
 mkLinReference :: SourceGrammar -> Type -> Err Term
-mkLinReference gr typ = 
- liftM (Abs Explicit varStr) $ 
+mkLinReference gr typ =
+ liftM (Abs Explicit varStr) $
    case mkDefField typ (Vr varStr) of
      Bad "no string" -> return Empty
      x               -> x
  where
-   mkDefField ty trm = 
+   mkDefField ty trm =
      case ty of
        Table pty ty -> do ps <- allParamValues gr pty
                           case ps of
@@ -203,7 +203,7 @@ factor param c i t =
     T (TComp ty) cs -> factors ty [(p, factor param c (i+1) v) | (p, v) <- cs]
     _               -> composSafeOp (factor param c i) t
   where
-    factors ty pvs0  
+    factors ty pvs0
                  | not param = V ty (map snd pvs0)
     factors ty []            = V ty []
     factors ty pvs0@[(p,v)]  = V ty [v]
@@ -224,7 +224,7 @@ factor param c i t =
 replace :: Term -> Term -> Term -> Term
 replace old new trm =
   case trm of
-    -- these are the important cases, since they can correspond to patterns  
+    -- these are the important cases, since they can correspond to patterns
     QC _     | trm == old -> new
     App _ _  | trm == old -> new
     R _      | trm == old -> new

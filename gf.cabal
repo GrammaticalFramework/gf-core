@@ -178,7 +178,7 @@ library
     GF.Command.TreeOperations
     GF.Compile.CFGtoPGF
     GF.Compile.CheckGrammar
-    GF.Compile.Compute.ConcreteNew
+    GF.Compile.Compute.Concrete
     GF.Compile.Compute.Predef
     GF.Compile.Compute.Value
     GF.Compile.ExampleBased

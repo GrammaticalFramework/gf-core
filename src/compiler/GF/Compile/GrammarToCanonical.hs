@@ -19,7 +19,7 @@ import GF.Compile.Compute.Value(Predefined(..))
 import GF.Infra.Ident(ModuleName(..),Ident,prefixIdent,showIdent,isWildIdent)
 import GF.Infra.Option(optionsPGF)
 import PGF.Internal(Literal(..))
-import GF.Compile.Compute.ConcreteNew(normalForm,resourceValues)
+import GF.Compile.Compute.Concrete(normalForm,resourceValues)
 import GF.Grammar.Canonical as C
 import Debug.Trace
 
@@ -72,7 +72,7 @@ concrete2canonical gr cenv absname cnc modinfo =
       [lincat|(_,Left lincat)<-defs]
       [lin|(_,Right lin)<-defs]
   where
-    defs = concatMap (toCanonical gr absname cenv) . 
+    defs = concatMap (toCanonical gr absname cenv) .
            M.toList $
            jments modinfo
 
@@ -189,7 +189,7 @@ convert' gr vs = ppT
         _ -> VarValue (gQId cPredef n) -- hmm
       where
        p = PredefValue . PredefId
-      
+
     ppP p =
       case p of
         PC c ps -> ParamPattern (Param (gId c) (map ppP ps))
