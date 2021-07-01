@@ -1,8 +1,9 @@
-abstract Phrasebook = 
-  Greetings,
-  Words
-  ** {
+abstract Phrasebook = {
 
-flags startcat = Phrase ;
+cat PlaceKind ;
+fun Airport : PlaceKind ;
+
+cat VerbPhrase ;
+fun VRead : VerbPhrase ;
 
 }

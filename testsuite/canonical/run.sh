@@ -12,17 +12,28 @@ else
   echo "Canonical grammar compiles: OK"
 fi
 
+echo ""
+
 # https://github.com/GrammaticalFramework/gf-core/issues/101
 stack run -- --batch --output-format=canonical_gf grammars/PhrasebookGer.gf
-for s in c2 objCtrl; do
-  grep VRead --after-context=216 canonical/PhrasebookGer.gf | grep "$s" > /dev/null
-  if [ $? -ne 1 ]; then
-    echo "Canonical grammar contains `$s`: FAIL"
-    FAILURES=$((FAILURES+1))
-  else
-    echo "Canonical grammar does not contain `$s`: OK"
-  fi
-done
+# for s in c2 objCtrl; do
+#   grep VRead --after-context=216 canonical/PhrasebookGer.gf | grep "$s" > /dev/null
+#   if [ $? -ne 1 ]; then
+#     echo "Canonical grammar contains \`$s\`: FAIL"
+#     FAILURES=$((FAILURES+1))
+#   else
+#     echo "Canonical grammar does not contain \`$s\`: OK"
+#   fi
+# done
+diff canonical/PhrasebookGer.gf gold/PhrasebookGer.gf
+if [ $? -ne 0 ]; then
+  echo "Canonical grammar doesn't match gold version: FAIL"
+  FAILURES=$((FAILURES+1))
+else
+  echo "Canonical grammar matches gold version: OK"
+fi
+
+echo ""
 
 # https://github.com/GrammaticalFramework/gf-core/issues/102
 stack run -- --batch --output-format=canonical_gf grammars/FoodsFin.gf
@@ -34,6 +45,9 @@ else
   echo "Canonical grammar matches gold version: OK"
 fi
 
+echo ""
+
+# Summary
 if [ $FAILURES -ne 0 ]; then
   echo "Failures: $FAILURES"
   exit 1
