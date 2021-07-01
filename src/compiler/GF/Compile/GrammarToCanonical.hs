@@ -17,13 +17,13 @@ import GF.Grammar.Lockfield(isLockLabel)
 import GF.Grammar.Predef(cPredef,cInts)
 import GF.Compile.Compute.Predef(predef)
 import GF.Compile.Compute.Value(Predefined(..))
-import GF.Infra.Ident(ModuleName(..),Ident,ident2raw,rawIdentS,{-prefixIdent,-}showIdent,isWildIdent)
+import GF.Infra.Ident(ModuleName(..),Ident,ident2raw,rawIdentS,showIdent,isWildIdent)
 import GF.Infra.Option(Options,optionsPGF)
 import PGF.Internal(Literal(..))
 import GF.Compile.Compute.ConcreteNew(GlobalEnv,normalForm,resourceValues)
 import GF.Grammar.Canonical as C
 import System.FilePath ((</>), (<.>))
-import Debug.Trace(trace,traceShow)
+import qualified Debug.Trace as T
 
 
 -- | Generate Canonical code for the named abstract syntax and all associated
@@ -60,7 +60,6 @@ abstract2canonical absname gr =
 
     convHypo' (bt,name,t) = TypeBinding (gId name) (convType t)
 
-
 -- | Generate Canonical code for the all concrete syntaxes associated with
 -- the named abstract syntax in given the grammar.
 concretes2canonical :: Options -> ModuleName -> G.Grammar -> [(FilePath, Concrete)]
@@ -93,11 +92,7 @@ concrete2canonical gr cenv absname cnc modinfo =
         else let ((got,need),def) = paramType gr q
              in def++neededParamTypes (S.union got have) (S.toList need++qs)
 
-toCanonical :: G.Grammar
-              -> ModuleName
-              -> GlobalEnv
-              -> (Ident, Info)
-              -> [(S.Set QIdent, Either LincatDef LinDef)]
+toCanonical :: G.Grammar -> ModuleName -> GlobalEnv -> (Ident, Info) -> [(S.Set QIdent, Either LincatDef LinDef)]
 toCanonical gr absname cenv (name,jment) =
   case jment of
     CncCat (Just (L loc typ)) _ _ pprn _ ->
@@ -110,7 +105,8 @@ toCanonical gr absname cenv (name,jment) =
       where
         tts = tableTypes gr [e']
 
-        e' = unAbs (length params) $
+        e' = cleanupRecordFields lincat $
+             unAbs (length params) $
              nf loc (mkAbs params (mkApp def (map Vr args)))
         params = [(b,x)|(b,x,_)<-ctx]
         args = map snd params
@@ -121,7 +117,6 @@ toCanonical gr absname cenv (name,jment) =
     _ -> []
   where
     nf loc = normalForm cenv (L loc name)
---  aId n = prefixIdent "A." (gId n)
 
     unAbs 0 t = t
     unAbs n (Abs _ _ t) = unAbs (n-1) t
@@ -155,7 +150,20 @@ paramTypes gr t =
                  Ok (_,ResParam {}) -> S.singleton q
                  _ -> ignore
 
-    ignore = trace ("Ignore: " ++ show t) S.empty
+    ignore = T.trace ("Ignore: " ++ show t) S.empty
+
+-- | Filter out record fields from definitions which don't appear in lincat.
+cleanupRecordFields :: G.Type -> Term -> Term
+cleanupRecordFields (RecType ls) (R as) =
+  let defnFields = M.fromList ls
+  in R
+      [ (lbl, (mty, t'))
+      | (lbl, (mty, t)) <- as
+      , M.member lbl defnFields
+      , let Just ty = M.lookup lbl defnFields
+      , let t' = cleanupRecordFields ty t
+      ]
+cleanupRecordFields _ t = t
 
 convert :: G.Grammar -> Term -> LinValue
 convert gr = convert' gr []

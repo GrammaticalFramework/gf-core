@@ -205,9 +205,9 @@ lin VRead =
                        "gelesener"};
             aux = ResGer_VHaben; particle = ""; prefix = "";
             vtype = ResGer_VAct};
-         a1 = ""; a2 = ""; adj = "";
-         ext = ""; inf = {s = ""; ctrl = ResGer_NoC; isAux = Prelude_True};
-         infExt = ""; isAux = Prelude_False;
+         a1 = ""; a2 = ""; adj = ""; ext = "";
+         inf = {s = ""; ctrl = ResGer_NoC; isAux = Prelude_True}; infExt = "";
+         isAux = Prelude_False;
          nn =
            table {ResGer_Ag ResGer_Masc ParamX_Sg ParamX_P1 =>
                     {p1 = ""; p2 = ""; p3 = ""; p4 = ""; p5 = ""; p6 = ""};

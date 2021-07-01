@@ -9,7 +9,14 @@ if [ $? -ne 0 ]; then
   echo "Canonical grammar doesn't compile: FAIL"
   FAILURES=$((FAILURES+1))
 else
-  echo "Canonical grammar compiles: OK"
+  # echo "Canonical grammar compiles: OK"
+  diff canonical/PhrasebookBul.gf gold/PhrasebookBul.gf
+  if [ $? -ne 0 ]; then
+    echo "Canonical grammar doesn't match gold version: FAIL"
+    FAILURES=$((FAILURES+1))
+  else
+    echo "Canonical grammar matches gold version: OK"
+  fi
 fi
 
 echo ""
