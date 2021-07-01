@@ -12,7 +12,7 @@ import GF.Data.ErrM
 import GF.Text.Pretty
 import GF.Grammar.Grammar as G
 import GF.Grammar.Lookup(lookupOrigInfo,allOrigInfos,allParamValues)
-import GF.Grammar.Macros(typeForm,collectOp,collectPattOp,mkAbs,mkApp,term2patt,sortRec)
+import GF.Grammar.Macros(typeForm,collectOp,collectPattOp,composSafeOp,mkAbs,mkApp,term2patt,sortRec)
 import GF.Grammar.Lockfield(isLockLabel)
 import GF.Grammar.Predef(cPredef,cInts)
 import GF.Compile.Compute.Predef(predef)
@@ -163,6 +163,7 @@ cleanupRecordFields (RecType ls) (R as) =
       , let Just ty = M.lookup lbl defnFields
       , let t' = cleanupRecordFields ty t
       ]
+cleanupRecordFields ty t@(FV _) = composSafeOp (cleanupRecordFields ty) t
 cleanupRecordFields _ t = t
 
 convert :: G.Grammar -> Term -> LinValue
