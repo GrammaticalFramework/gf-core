@@ -27,9 +27,9 @@ import GF.Infra.Ident
 import GF.Infra.Option
 
 import GF.Compile.TypeCheck.Abstract
-import GF.Compile.TypeCheck.Concrete
-import qualified GF.Compile.TypeCheck.ConcreteNew as CN
-import qualified GF.Compile.Compute.Concrete as CN
+import GF.Compile.TypeCheck.Concrete(computeLType,checkLType,inferLType,ppType)
+import qualified GF.Compile.TypeCheck.ConcreteNew as CN(checkLType,inferLType)
+import qualified GF.Compile.Compute.Concrete as CN(normalForm,resourceValues)
 
 import GF.Grammar
 import GF.Grammar.Lexer
