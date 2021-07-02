@@ -170,9 +170,12 @@ commonCommands = fmap (mapCommandExec liftSIO) $ Map.fromList [
        restrictedSystem $ syst ++ " <" ++ tmpi ++ " >" ++ tmpo
        fmap fromString $ restricted $ readFile tmpo,
        -}
-       fmap fromString . restricted . readShellProcess syst $ toString arg,
+       fmap (fromStrings . lines) . restricted . readShellProcess syst . unlines $ toStrings arg,
      flags = [
        ("command","the system command applied to the argument")
+       ],
+     options = [
+       ("lines","preserve input lines, and return output as a list of lines")
        ],
      examples = [
        mkEx "gt | l | ? wc  -- generate trees, linearize, and count words"
