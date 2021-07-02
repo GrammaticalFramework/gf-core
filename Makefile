@@ -1,30 +1,47 @@
-.PHONY: all build install doc clean gf html deb pkg bintar sdist
+.PHONY: all build install doc clean html deb pkg bintar sdist
 
 # This gets the numeric part of the version from the cabal file
 VERSION=$(shell sed -ne "s/^version: *\([0-9.]*\).*/\1/p" gf.cabal)
 
+# Check if stack is installed
+STACK=$(shell if hash stack 2>/dev/null; then echo "1"; else echo "0"; fi)
+
+# Check if cabal >= 2.4 is installed (with v1- and v2- commands)
+CABAL_NEW=$(shell if cabal v1-repl --help >/dev/null 2>&1 ; then echo "1"; else echo "0"; fi)
+
+ifeq ($(STACK),1)
+  CMD=stack
+else
+  CMD=cabal
+  ifeq ($(CABAL_NEW),1)
+    CMD_PFX=v1-
+  endif
+endif
+
 all: build
 
 dist/setup-config: gf.cabal Setup.hs WebSetup.hs
-	cabal v1-configure
+ifneq ($(STACK),1)
+	cabal ${CMD_PFX}configure
+endif
 
 build: dist/setup-config
-	cabal v1-build
+	${CMD} ${CMD_PFX}build
 
 install:
-	cabal v1-copy
-	cabal v1-register
+ifeq ($(STACK),1)
+	stack install
+else
+	cabal ${CMD_PFX}copy
+	cabal ${CMD_PFX}register
+endif
 
 doc:
-	cabal v1-haddock
+	${CMD} ${CMD_PFX}haddock
 
 clean:
-	cabal v1-clean
+	${CMD} ${CMD_PFX}clean
 	bash bin/clean_html
-
-gf:
-	cabal v1-build rgl-none
-	strip dist/build/gf/gf
 
 html::
 	bash bin/update_html
@@ -35,7 +52,7 @@ html::
 deb:
 	dpkg-buildpackage -b -uc
 
-# Make an OS X Installer package
+# Make a macOS installer package
 pkg:
 	FMT=pkg bash bin/build-binary-dist.sh
 
