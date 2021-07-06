@@ -1,7 +1,3 @@
-# This default stack file is a copy of stack-ghc8.10.4.yaml
-# But committing a symlink can be problematic on Windows, so it's a real copy.
-# See: https://github.com/GrammaticalFramework/gf-core/pull/106
-
 resolver: lts-18.0 # ghc 8.10.4
 
 extra-deps:
