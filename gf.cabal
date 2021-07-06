@@ -8,10 +8,9 @@ license-file: LICENSE
 category: Natural Language Processing, Compiler
 synopsis: Grammatical Framework
 description: GF, Grammatical Framework, is a programming language for multilingual grammar applications
-homepage: http://www.grammaticalframework.org/
+homepage: https://www.grammaticalframework.org/
 bug-reports: https://github.com/GrammaticalFramework/gf-core/issues
-maintainer: Thomas Hallgren
-tested-with: GHC==8.0.2, GHC==8.10.4
+tested-with: GHC==7.10.3, GHC==8.0.2, GHC==8.10.4
 
 data-dir: src
 extra-source-files: WebSetup.hs
@@ -75,7 +74,7 @@ flag c-runtime
 library
   default-language:    Haskell2010
   build-depends:
-    -- | GHC 8.0.2 to GHC 8.10.4
+    -- GHC 8.0.2 to GHC 8.10.4
     base >= 4.9.1 && <4.15,
     array >= 0.5.1 && < 0.6,
     containers >= 0.5.7 && < 0.7,
@@ -84,9 +83,9 @@ library
     random >= 1.1 && < 1.3,
     pretty >= 1.1.3 && < 1.2,
     mtl >= 2.2.1 && < 2.3,
+    -- For compatability with GHC < 8
     exceptions >= 0.8.3 && < 0.11,
     fail >= 4.9.0 && < 4.10,
-    -- For compatability with ghc < 8
     -- We need transformers-compat >= 0.6.3, but that is only in newer snapshots where it is redundant.
     transformers-compat >= 0.5.1.4 && < 0.7,
     ghc-prim >= 0.5.0 && < 0.7

@@ -1,15 +1,15 @@
 name: pgf
-version: 3.10.1-git
+version: 3.11.0-git
 
-cabal-version: >= 1.20
+cabal-version: 1.22
 build-type: Simple
 license: OtherLicense
 category: Natural Language Processing
 synopsis: Grammatical Framework
 description: A library for interpreting the Portable Grammar Format (PGF)
-homepage: http://www.grammaticalframework.org/
+homepage: https://www.grammaticalframework.org/
 bug-reports: https://github.com/GrammaticalFramework/gf-core/issues
-tested-with: GHC==7.6.3, GHC==7.8.3, GHC==7.10.3, GHC==8.0.2, GHC==8.4.4
+tested-with: GHC==7.10.3, GHC==8.0.2, GHC==8.10.4
 
 library
   default-language: Haskell2010
@@ -22,8 +22,9 @@ library
     random >= 1.1 && < 1.3,
     pretty >= 1.1.3 && < 1.2,
     mtl >= 2.2.1 && < 2.3,
-    ghc-prim >= 0.5.0 && < 0.7
-    -- exceptions,
+    ghc-prim >= 0.5.0 && < 0.7,
+    -- For compatability with GHC < 8
+    fail >= 4.9.0 && < 4.10
 
   other-modules:
     -- not really part of GF but I have changed the original binary library
