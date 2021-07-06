@@ -10,7 +10,7 @@ jobs:
 
   ubuntu:
     name: Build Ubuntu package
-    runs-on: ubuntu-18.04
+    runs-on: ubuntu-latest
     # strategy:
     #   matrix:
     #     ghc: ["8.6.5"]
