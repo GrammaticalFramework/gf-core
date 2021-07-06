@@ -18,8 +18,8 @@ import GF.Grammar.Parser (runP, pExp)
 import GF.Grammar.ShowTerm
 import GF.Grammar.Lookup (allOpers,allOpersTo)
 import GF.Compile.Rename(renameSourceTerm)
-import qualified GF.Compile.Compute.ConcreteNew as CN(normalForm,resourceValues)
-import GF.Compile.TypeCheck.RConcrete as TC(inferLType,ppType)
+import GF.Compile.Compute.Concrete(normalForm,resourceValues)
+import GF.Compile.TypeCheck.Concrete as TC(inferLType,ppType)
 import GF.Infra.Dependencies(depGraph)
 import GF.Infra.CheckM(runCheck)
 
@@ -259,7 +259,7 @@ checkComputeTerm os sgr t =
      ((t,_),_) <- runCheck $ do t <- renameSourceTerm sgr mo t
                                 inferLType sgr [] t
      let opts = modifyFlags (\fs->fs{optTrace=isOpt "trace" os})
-         t1 = CN.normalForm (CN.resourceValues opts sgr) (L NoLoc identW) t
+         t1 = normalForm (resourceValues opts sgr) (L NoLoc identW) t
          t2 = evalStr t1
      checkPredefError t2
   where

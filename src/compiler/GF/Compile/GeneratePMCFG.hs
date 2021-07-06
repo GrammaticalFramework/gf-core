@@ -25,7 +25,7 @@ import GF.Data.BacktrackM
 import GF.Data.Operations
 import GF.Infra.UseIO (ePutStr,ePutStrLn) -- IOE,
 import GF.Data.Utilities (updateNthM) --updateNth
-import GF.Compile.Compute.ConcreteNew(normalForm,resourceValues)
+import GF.Compile.Compute.Concrete(normalForm,resourceValues)
 import qualified Data.Map as Map
 import qualified Data.Set as Set
 import qualified Data.List as List
@@ -82,7 +82,7 @@ addPMCFG opts gr cenv opath am cm seqs id (GF.Grammar.CncFun mty@(Just (cat,cont
                           (goB b1 CNil [])
                           (pres,pargs)
       pmcfg      = getPMCFG pmcfgEnv1
-      
+
       stats      = let PMCFG prods funs = pmcfg
                        (s,e)            = bounds funs
                        !prods_cnt       = length prods
@@ -103,7 +103,7 @@ addPMCFG opts gr cenv opath am cm seqs id (GF.Grammar.CncFun mty@(Just (cat,cont
           newArgs  = map getFIds newArgs'
       in addFunction env0 newCat fun newArgs
 
-addPMCFG opts gr cenv opath am cm seqs id (GF.Grammar.CncCat mty@(Just (L _ lincat)) 
+addPMCFG opts gr cenv opath am cm seqs id (GF.Grammar.CncCat mty@(Just (L _ lincat))
                                                              mdef@(Just (L loc1 def))
                                                              mref@(Just (L loc2 ref))
                                                              mprn
@@ -162,7 +162,7 @@ pgfCncCat :: SourceGrammar -> Type -> Int -> CncCat
 pgfCncCat gr lincat index =
   let ((_,size),schema) = computeCatRange gr lincat
   in PGF.CncCat index (index+size-1)
-                      (mkArray (map (renderStyle style{mode=OneLineMode} . ppPath) 
+                      (mkArray (map (renderStyle style{mode=OneLineMode} . ppPath)
                                     (getStrPaths schema)))
   where
     getStrPaths :: Schema Identity s c -> [Path]
@@ -243,7 +243,7 @@ choices nr path = do (args,_) <- get
                                                                                                                     | (value,index) <- values])
     descend schema       path              rpath = bug $ "descend "++show (schema,path,rpath)
 
-    updateEnv path value gr c (args,seq) = 
+    updateEnv path value gr c (args,seq) =
       case updateNthM (restrictProtoFCat path value) nr args of
         Just args -> c value (args,seq)
         Nothing   -> bug "conflict in updateEnv"
@@ -606,7 +606,7 @@ restrictProtoFCat path v (PFCat cat f schema) = do
                                                        Just index -> return (CPar (m,[(v,index)]))
                                                        Nothing    -> mzero
     addConstraint CNil             v (CStr _)      = bug "restrictProtoFCat: string path"
-    
+
     update k0 f [] = return []
     update k0 f (x@(k,Identity v):xs)
       | k0 == k    = do v <- f v

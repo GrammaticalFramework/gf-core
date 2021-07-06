@@ -20,7 +20,7 @@ import GF.Compile.Compute.Value(Predefined(..))
 import GF.Infra.Ident(ModuleName(..),Ident,ident2raw,rawIdentS,showIdent,isWildIdent)
 import GF.Infra.Option(Options,optionsPGF)
 import PGF.Internal(Literal(..))
-import GF.Compile.Compute.ConcreteNew(GlobalEnv,normalForm,resourceValues)
+import GF.Compile.Compute.Concrete(GlobalEnv,normalForm,resourceValues)
 import GF.Grammar.Canonical as C
 import System.FilePath ((</>), (<.>))
 import qualified Debug.Trace as T
