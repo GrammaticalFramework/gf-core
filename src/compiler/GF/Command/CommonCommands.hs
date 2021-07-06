@@ -176,9 +176,6 @@ commonCommands = fmap (mapCommandExec liftSIO) $ Map.fromList [
      flags = [
        ("command","the system command applied to the argument")
        ],
-     options = [
-       ("lines","preserve input lines, and return output as a list of lines")
-       ],
      examples = [
        mkEx "gt | l | ? wc  -- generate trees, linearize, and count words"
        ]
