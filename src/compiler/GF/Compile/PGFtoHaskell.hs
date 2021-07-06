@@ -5,7 +5,7 @@
 -- Stability   : (stable)
 -- Portability : (portable)
 --
--- > CVS $Date: 2005/06/17 12:39:07 $ 
+-- > CVS $Date: 2005/06/17 12:39:07 $
 -- > CVS $Author: bringert $
 -- > CVS $Revision: 1.8 $
 --
@@ -22,7 +22,7 @@ import PGF.Internal
 import GF.Data.Operations
 import GF.Infra.Option
 
-import Data.List --(isPrefixOf, find, intersperse)
+import Data.List(isPrefixOf,find,intercalate,intersperse,groupBy,sortBy)
 import qualified Data.Map as Map
 
 type Prefix = String -> String
@@ -34,11 +34,12 @@ grammar2haskell :: Options
                 -> PGF
                 -> String
 grammar2haskell opts name gr = foldr (++++) [] $
-  pragmas ++ haskPreamble gadt name derivingClause extraImports ++
+  pragmas ++ haskPreamble gadt name derivingClause (extraImports ++ pgfImports) ++
   [types, gfinstances gId lexical gr'] ++ compos
     where gr' = hSkeleton gr
           gadt = haskellOption opts HaskellGADT
           dataExt = haskellOption opts HaskellData
+          pgf2 = haskellOption opts HaskellPGF2
           lexical cat = haskellOption opts HaskellLexical && isLexicalCat opts cat
           gId | haskellOption opts HaskellNoPrefix = rmForbiddenChars
               | otherwise = ("G"++) . rmForbiddenChars
@@ -50,21 +51,23 @@ grammar2haskell opts name gr = foldr (++++) [] $
           derivingClause
                  | dataExt = "deriving (Show,Data)"
                  | otherwise = "deriving Show"
-          extraImports | gadt = ["import Control.Monad.Identity",
-                                 "import Data.Monoid"]
+          extraImports | gadt = ["import Control.Monad.Identity", "import Data.Monoid"]
                        | dataExt = ["import Data.Data"]
                        | otherwise = []
+          pgfImports | pgf2 = ["import PGF2 hiding (Tree)", "", "showCId :: CId -> String", "showCId = id"]
+                     | otherwise = ["import PGF hiding (Tree)"]
           types | gadt = datatypesGADT gId lexical gr'
                 | otherwise = datatypes gId derivingClause lexical gr'
           compos | gadt = prCompos gId lexical gr' ++ composClass
                  | otherwise = []
 
-haskPreamble gadt name derivingClause extraImports =
+haskPreamble :: Bool -> String -> String -> [String] -> [String]
+haskPreamble gadt name derivingClause imports =
  [
   "module " ++ name ++ " where",
   ""
- ] ++ extraImports ++ [
-  "import PGF hiding (Tree)",
+ ] ++ imports ++ [
+  "",
   "----------------------------------------------------",
   "-- automatic translation from GF to Haskell",
   "----------------------------------------------------",
@@ -85,10 +88,11 @@ haskPreamble gadt name derivingClause extraImports =
   ""
  ]
 
+predefInst :: Bool -> String -> String -> String -> String -> String -> String
 predefInst gadt derivingClause gtyp typ destr consr =
   (if gadt
     then []
-    else ("newtype" +++ gtyp +++ "=" +++ gtyp +++ typ +++ derivingClause ++ "\n\n")
+    else "newtype" +++ gtyp +++ "=" +++ gtyp +++ typ +++ derivingClause ++ "\n\n"
     )
   ++
   "instance Gf" +++ gtyp +++ "where" ++++
@@ -103,10 +107,10 @@ type OIdent = String
 type HSkeleton = [(OIdent, [(OIdent, [OIdent])])]
 
 datatypes :: Prefix -> DerivingClause -> (OIdent -> Bool) -> (String,HSkeleton) -> String
-datatypes gId derivingClause lexical = (foldr (+++++) "") . (filter (/="")) . (map (hDatatype gId derivingClause lexical)) . snd
+datatypes gId derivingClause lexical = foldr (+++++) "" . filter (/="") . map (hDatatype gId derivingClause lexical) . snd
 
 gfinstances :: Prefix -> (OIdent -> Bool) -> (String,HSkeleton) -> String
-gfinstances gId lexical (m,g) = (foldr (+++++) "") $ (filter (/="")) $ (map (gfInstance gId lexical m)) g
+gfinstances gId lexical (m,g) = foldr (+++++) "" $ filter (/="") $ map (gfInstance gId lexical m) g
 
 
 hDatatype  :: Prefix -> DerivingClause -> (OIdent -> Bool) -> (OIdent, [(OIdent, [OIdent])]) -> String
@@ -131,16 +135,17 @@ nonLexicalRules True rules = [r | r@(f,t) <- rules, not (null t)]
 lexicalConstructor :: OIdent -> String
 lexicalConstructor cat = "Lex" ++ cat
 
+predefTypeSkel :: HSkeleton
 predefTypeSkel = [(c,[]) | c <- ["String", "Int", "Float"]]
 
 -- GADT version of data types
 datatypesGADT :: Prefix -> (OIdent -> Bool) -> (String,HSkeleton) -> String
-datatypesGADT gId lexical (_,skel) = unlines $ 
+datatypesGADT gId lexical (_,skel) = unlines $
     concatMap (hCatTypeGADT gId) (skel ++ predefTypeSkel) ++
-    [ 
-      "", 
+    [
+      "",
       "data Tree :: * -> * where"
-    ] ++ 
+    ] ++
     concatMap (map ("  "++) . hDatatypeGADT gId lexical) skel ++
     [
       "  GString :: String -> Tree GString_",
@@ -164,23 +169,23 @@ hCatTypeGADT gId (cat,rules)
        "data"+++gId cat++"_"]
 
 hDatatypeGADT :: Prefix -> (OIdent -> Bool) -> (OIdent, [(OIdent, [OIdent])]) -> [String]
-hDatatypeGADT gId lexical (cat, rules) 
+hDatatypeGADT gId lexical (cat, rules)
     | isListCat (cat,rules) = [gId cat+++"::"+++"["++gId (elemCat cat)++"]" +++ "->" +++ t]
     | otherwise =
-        [ gId f +++ "::" +++ concatMap (\a -> gId a +++ "-> ") args ++ t 
+        [ gId f +++ "::" +++ concatMap (\a -> gId a +++ "-> ") args ++ t
           | (f,args) <- nonLexicalRules (lexical cat) rules ]
         ++ if lexical cat then [lexicalConstructor cat +++ ":: String ->"+++ t] else []
   where t = "Tree" +++ gId cat ++ "_"
 
 hEqGADT :: Prefix -> (OIdent -> Bool) -> (OIdent, [(OIdent, [OIdent])]) -> [String]
 hEqGADT gId lexical (cat, rules)
-  | isListCat (cat,rules) = let r = listr cat in ["(" ++ patt "x" r ++ "," ++ patt "y" r ++ ") -> " ++ listeqs] 
+  | isListCat (cat,rules) = let r = listr cat in ["(" ++ patt "x" r ++ "," ++ patt "y" r ++ ") -> " ++ listeqs]
   | otherwise = ["(" ++ patt "x" r ++ "," ++ patt "y" r ++ ") -> " ++ eqs r | r <- nonLexicalRules (lexical cat) rules]
           ++ if lexical cat then ["(" ++ lexicalConstructor cat +++ "x" ++ "," ++ lexicalConstructor cat +++ "y" ++ ") -> x == y"] else []
 
  where
    patt s (f,xs) = unwords (gId f : mkSVars s (length xs))
-   eqs (_,xs) = unwords ("and" : "[" : intersperse "," [x ++ " == " ++ y | 
+   eqs (_,xs) = unwords ("and" : "[" : intersperse "," [x ++ " == " ++ y |
      (x,y) <- zip (mkSVars "x" (length xs)) (mkSVars "y" (length xs)) ] ++ ["]"])
    listr c = (c,["foo"]) -- foo just for length = 1
    listeqs = "and [x == y | (x,y) <- zip x1 y1]"
@@ -189,25 +194,26 @@ prCompos :: Prefix -> (OIdent -> Bool) -> (String,HSkeleton) -> [String]
 prCompos gId lexical (_,catrules) =
     ["instance Compos Tree where",
      "  compos r a f t = case t of"]
-    ++ 
+    ++
     ["    " ++ prComposCons (gId f) xs | (c,rs) <- catrules, not (isListCat (c,rs)),
-                                         (f,xs) <- rs, not (null xs)] 
-    ++ 
+                                         (f,xs) <- rs, not (null xs)]
+    ++
     ["    " ++ prComposCons (gId c) ["x1"] | (c,rs) <- catrules, isListCat (c,rs)]
-    ++ 
+    ++
     ["    _ -> r t"]
   where
-    prComposCons f xs = let vs = mkVars (length xs) in 
+    prComposCons f xs = let vs = mkVars (length xs) in
                         f +++ unwords vs +++ "->" +++ rhs f (zip vs xs)
     rhs f vcs = "r" +++ f +++ unwords (map (prRec f) vcs)
-    prRec f (v,c) 
+    prRec f (v,c)
       | isList f  = "`a` foldr (a . a (r (:)) . f) (r [])" +++ v
       | otherwise = "`a`" +++ "f" +++ v
-    isList f = (gId "List") `isPrefixOf` f
+    isList f = gId "List" `isPrefixOf` f
 
 gfInstance :: Prefix -> (OIdent -> Bool) -> String -> (OIdent, [(OIdent, [OIdent])]) -> String
 gfInstance gId lexical m crs = hInstance gId lexical m crs ++++ fInstance gId lexical m crs
 
+hInstance :: (String -> String) -> (String -> Bool) -> String -> (String, [(OIdent, [OIdent])]) -> String
 ----hInstance m ("Cn",_) = "" --- seems to belong to an old applic. AR 18/5/2004
 hInstance gId _ m (cat,[]) = unlines [
   "instance Show" +++ gId cat,
@@ -216,15 +222,15 @@ hInstance gId _ m (cat,[]) = unlines [
   "  gf _ = undefined",
   "  fg _ = undefined"
   ]
-hInstance gId lexical m (cat,rules) 
+hInstance gId lexical m (cat,rules)
  | isListCat (cat,rules) =
   "instance Gf" +++ gId cat +++ "where" ++++
-     "  gf (" ++ gId cat +++ "[" ++ concat (intersperse "," baseVars) ++ "])" 
+     "  gf (" ++ gId cat +++ "[" ++ intercalate "," baseVars ++ "])"
            +++ "=" +++ mkRHS ("Base"++ec) baseVars ++++
-     "  gf (" ++ gId cat +++ "(x:xs)) = " 
-           ++ mkRHS ("Cons"++ec) ["x",prParenth (gId cat+++"xs")] 
+     "  gf (" ++ gId cat +++ "(x:xs)) = "
+           ++ mkRHS ("Cons"++ec) ["x",prParenth (gId cat+++"xs")]
 -- no show for GADTs
---     ++++ " gf (" ++ gId cat +++ "xs) = error (\"Bad " ++ cat ++ " value: \" ++ show xs)" 
+--     ++++ " gf (" ++ gId cat +++ "xs) = error (\"Bad " ++ cat ++ " value: \" ++ show xs)"
  | otherwise =
   "instance Gf" +++ gId cat +++ "where\n" ++
   unlines ([mkInst f xx | (f,xx) <- nonLexicalRules (lexical cat) rules]
@@ -233,19 +239,22 @@ hInstance gId lexical m (cat,rules)
    ec = elemCat cat
    baseVars = mkVars (baseSize (cat,rules))
    mkInst f xx = let xx' = mkVars (length xx) in "  gf " ++
-     (if length xx == 0 then gId f else prParenth (gId f +++ foldr1 (+++) xx')) +++
+     (if null xx then gId f else prParenth (gId f +++ foldr1 (+++) xx')) +++
      "=" +++ mkRHS f xx'
-   mkRHS f vars = "mkApp (mkCId \"" ++ f ++ "\")" +++ 
-		   "[" ++ prTList ", " ["gf" +++ x | x <- vars] ++ "]"
+   mkRHS f vars = "mkApp (mkCId \"" ++ f ++ "\")" +++
+       "[" ++ prTList ", " ["gf" +++ x | x <- vars] ++ "]"
 
+mkVars :: Int -> [String]
 mkVars = mkSVars "x"
+
+mkSVars :: String -> Int -> [String]
 mkSVars s n = [s ++ show i | i <- [1..n]]
 
 ----fInstance m ("Cn",_) = "" ---
 fInstance _ _ m (cat,[]) = ""
 fInstance gId lexical m (cat,rules) =
   "  fg t =" ++++
-  (if isList 
+  (if isList
     then "    " ++ gId cat ++ " (fgs t) where\n     fgs t = case unApp t of"
     else "    case unApp t of") ++++
   unlines [mkInst f xx | (f,xx) <- nonLexicalRules (lexical cat) rules] ++++
@@ -257,27 +266,28 @@ fInstance gId lexical m (cat,rules) =
      "      Just (i," ++
      "[" ++ prTList "," xx' ++ "])" +++
      "| i == mkCId \"" ++ f ++ "\" ->" +++ mkRHS f xx'
-       where xx' = ["x" ++ show i | (_,i) <- zip xx [1..]]
-	     mkRHS f vars 
-		 | isList =
-		     if "Base" `isPrefixOf` f 
-                       then "[" ++ prTList ", " [ "fg" +++ x | x <- vars ] ++ "]"
-		       else "fg" +++ (vars !! 0) +++ ":" +++ "fgs" +++ (vars !! 1)
-		 | otherwise = 
-		     gId f +++  
-		     prTList " " [prParenth ("fg" +++ x) | x <- vars]
+       where
+         xx' = ["x" ++ show i | (_,i) <- zip xx [1..]]
+         mkRHS f vars
+           | isList =
+               if "Base" `isPrefixOf` f
+                             then "[" ++ prTList ", " [ "fg" +++ x | x <- vars ] ++ "]"
+                 else "fg" +++ (vars !! 0) +++ ":" +++ "fgs" +++ (vars !! 1)
+           | otherwise =
+               gId f +++
+               prTList " " [prParenth ("fg" +++ x) | x <- vars]
 
 --type HSkeleton = [(OIdent, [(OIdent, [OIdent])])]
 hSkeleton :: PGF -> (String,HSkeleton)
-hSkeleton gr = 
-  (showCId (absname gr), 
-   let fs = 
-         [(showCId c, [(showCId f, map showCId cs) | (f, (cs,_)) <- fs]) | 
+hSkeleton gr =
+  (showCId (absname gr),
+   let fs =
+         [(showCId c, [(showCId f, map showCId cs) | (f, (cs,_)) <- fs]) |
                                         fs@((_, (_,c)):_) <- fns]
-   in fs ++ [(sc, []) | c <- cts, let sc = showCId c, notElem sc (["Int", "Float", "String"] ++ map fst fs)]
+   in fs ++ [(sc, []) | c <- cts, let sc = showCId c, sc `notElem` (["Int", "Float", "String"] ++ map fst fs)]
   )
  where
-   cts = Map.keys (cats (abstract gr)) 
+   cts = Map.keys (cats (abstract gr))
    fns = groupBy valtypg (sortBy valtyps (map jty (Map.assocs (funs (abstract gr)))))
    valtyps (_, (_,x)) (_, (_,y)) = compare x y
    valtypg (_, (_,x)) (_, (_,y)) = x == y
@@ -291,9 +301,10 @@ updateSkeleton cat skel rule =
 -}
 isListCat :: (OIdent, [(OIdent, [OIdent])]) -> Bool
 isListCat (cat,rules) = "List" `isPrefixOf` cat && length rules == 2
-		    && ("Base"++c) `elem` fs && ("Cons"++c) `elem` fs
-    where c = elemCat cat
-	  fs = map fst rules
+        && ("Base"++c) `elem` fs && ("Cons"++c) `elem` fs
+    where
+      c = elemCat cat
+      fs = map fst rules
 
 -- | Gets the element category of a list category.
 elemCat :: OIdent -> OIdent
@@ -310,7 +321,7 @@ baseSize (_,rules) = length bs
     where Just (_,bs) = find (("Base" `isPrefixOf`) . fst) rules
 
 composClass :: [String]
-composClass = 
+composClass =
     [
      "",
      "class Compos t where",
@@ -337,4 +348,3 @@ composClass =
      "",
      "newtype C b a = C { unC :: b }"
     ]
-

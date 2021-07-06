@@ -15,6 +15,7 @@ import GF.Command.Abstract --(isOpt,valStrOpts,prOpt)
 import GF.Text.Pretty
 import GF.Text.Transliterations
 import GF.Text.Lexing(stringOp,opInEnv)
+import Data.Char (isSpace)
 
 import qualified PGF as H(showCId,showExpr,toATree,toTrie,Trie(..))
 
@@ -170,7 +171,8 @@ commonCommands = fmap (mapCommandExec liftSIO) $ Map.fromList [
        restrictedSystem $ syst ++ " <" ++ tmpi ++ " >" ++ tmpo
        fmap fromString $ restricted $ readFile tmpo,
        -}
-       fmap fromString . restricted . readShellProcess syst $ toString arg,
+       fmap (fromStrings . lines) . restricted . readShellProcess syst . unlines . map (dropWhile (=='\n')) $ toStrings $ arg,
+
      flags = [
        ("command","the system command applied to the argument")
        ],
