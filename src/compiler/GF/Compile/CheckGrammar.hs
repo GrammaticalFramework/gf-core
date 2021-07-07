@@ -175,7 +175,7 @@ checkInfo opts cwd sgr (m,mo) c info = checkInModule cwd mo NoLoc empty $ do
         checkTyp gr typ
       case md of
         Just eqs -> mapM_ (\(L loc eq) -> mkCheck loc "the definition of function" $
-	                                        checkDef gr (m,c) typ eq) eqs
+                                          checkDef gr (m,c) typ eq) eqs
         Nothing  -> return ()
       return (AbsFun (Just (L loc typ)) ma md moper)
 
@@ -316,7 +316,7 @@ linTypeOfType cnc m typ = do
    mkLinArg (i,(n,mc@(m,cat))) = do
      val  <- lookLin mc
      let vars = mkRecType varLabel $ replicate n typeStr
-	 symb = argIdent n cat i
+         symb = argIdent n cat i
      rec <- if n==0 then return val else
                        errIn (render ("extending" $$
                                       nest 2 vars $$

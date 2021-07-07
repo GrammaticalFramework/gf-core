@@ -18,7 +18,7 @@ import Data.List
 --------------------------
 
 cf2pgf :: FilePath -> ParamCFG -> PGF
-cf2pgf fpath cf = 
+cf2pgf fpath cf =
  let pgf = PGF Map.empty aname (cf2abstr cf) (Map.singleton cname (cf2concr cf))
  in updateProductionIndices pgf
  where
@@ -33,7 +33,7 @@ cf2abstr cfg = Abstr aflags afuns acats
 
     acats  = Map.fromList [(cat, ([], [(0,mkRuleName rule) | rule <- rules], 0))
                             | (cat,rules) <- (Map.toList . Map.fromListWith (++))
-                                                [(cat2id cat, catRules cfg cat) | 
+                                                [(cat2id cat, catRules cfg cat) |
                                                      cat <- allCats' cfg]]
     afuns  = Map.fromList [(mkRuleName rule, (cftype [cat2id c | NonTerminal c <- ruleRhs rule] (cat2id (ruleLhs rule)), 0, Nothing, 0))
                             | rule <- allRules cfg]
@@ -52,7 +52,7 @@ cf2concr cfg = Concr Map.empty Map.empty
     cats  = allCats' cfg
     rules = allRules cfg
 
-    sequences0 = Set.fromList (listArray (0,0) [SymCat 0 0] : 
+    sequences0 = Set.fromList (listArray (0,0) [SymCat 0 0] :
                                map mkSequence rules)
     sequences  = listArray (0,Set.size sequences0-1) (Set.toList sequences0)
 
@@ -102,7 +102,7 @@ cf2concr cfg = Concr Map.empty Map.empty
 
     mkLinDefRef (cat,_) =
       (cat2fid cat 0,[0])
-      
+
     addProd prods (fid,prod) =
       case IntMap.lookup fid prods of
         Just set -> IntMap.insert fid (Set.insert prod set) prods
@@ -130,5 +130,5 @@ cf2concr cfg = Concr Map.empty Map.empty
 
 mkRuleName rule =
   case ruleName rule of
-	CFObj n _ -> n
-	_         -> wildCId
+    CFObj n _ -> n
+    _         -> wildCId

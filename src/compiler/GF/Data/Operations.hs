@@ -5,7 +5,7 @@
 -- Stability   : (stable)
 -- Portability : (portable)
 --
--- > CVS $Date: 2005/11/11 16:12:41 $ 
+-- > CVS $Date: 2005/11/11 16:12:41 $
 -- > CVS $Author: bringert $
 -- > CVS $Revision: 1.22 $
 --
@@ -15,34 +15,34 @@
 -----------------------------------------------------------------------------
 
 module GF.Data.Operations (
-		   -- ** The Error monad
-		   Err(..), err, maybeErr, testErr, fromErr, errIn, 
-		   lookupErr,
+     -- ** The Error monad
+     Err(..), err, maybeErr, testErr, fromErr, errIn,
+     lookupErr,
 
-		   -- ** Error monad class
-		   ErrorMonad(..), checks, --doUntil, allChecks, checkAgain,
-                   liftErr,
-		   
-		   -- ** Checking
-		   checkUnique, unifyMaybeBy, unifyMaybe,
+     -- ** Error monad class
+     ErrorMonad(..), checks, --doUntil, allChecks, checkAgain,
+                 liftErr,
 
-           -- ** Monadic operations on lists and pairs
-		   mapPairsM, pairM,
- 
-		   -- ** Printing
-		   indent, (+++), (++-), (++++), (+++-), (+++++),
-		   prUpper, prReplicate, prTList, prQuotedString, prParenth, prCurly, 
-		   prBracket, prArgList, prSemicList, prCurlyList, restoreEscapes,
-		   numberedParagraphs, prConjList, prIfEmpty, wrapLines,
+     -- ** Checking
+     checkUnique, unifyMaybeBy, unifyMaybe,
 
-		   -- ** Topological sorting
-		   topoTest, topoTest2,
+         -- ** Monadic operations on lists and pairs
+     mapPairsM, pairM,
 
-		   -- ** Misc
-		   readIntArg,
-		   iterFix,  chunks,
-                
-		  ) where
+     -- ** Printing
+     indent, (+++), (++-), (++++), (+++-), (+++++),
+     prUpper, prReplicate, prTList, prQuotedString, prParenth, prCurly,
+     prBracket, prArgList, prSemicList, prCurlyList, restoreEscapes,
+     numberedParagraphs, prConjList, prIfEmpty, wrapLines,
+
+     -- ** Topological sorting
+     topoTest, topoTest2,
+
+     -- ** Misc
+     readIntArg,
+     iterFix,  chunks,
+
+    ) where
 
 import Data.Char (isSpace, toUpper, isSpace, isDigit)
 import Data.List (nub, partition, (\\))
@@ -107,7 +107,7 @@ indent i s = replicate i ' ' ++ s
 (+++), (++-), (++++), (+++-), (+++++) :: String -> String -> String
 a +++ b   = a ++ " "    ++ b
 
-a ++- ""  = a 
+a ++- ""  = a
 a ++- b   = a +++ b
 
 a ++++ b  = a ++ "\n"   ++ b
@@ -145,20 +145,20 @@ prCurly   s = "{" ++ s ++ "}"
 prBracket s = "[" ++ s ++ "]"
 
 prArgList, prSemicList, prCurlyList :: [String] -> String
-prArgList   = prParenth . prTList "," 
+prArgList   = prParenth . prTList ","
 prSemicList = prTList " ; "
 prCurlyList = prCurly . prSemicList
 
 restoreEscapes :: String -> String
-restoreEscapes s = 
-  case s of 
+restoreEscapes s =
+  case s of
     []       -> []
     '"' : t  -> '\\' : '"'  : restoreEscapes t
     '\\': t  -> '\\' : '\\' : restoreEscapes t
     c   : t  -> c : restoreEscapes t
 
 numberedParagraphs :: [[String]] -> [String]
-numberedParagraphs t = case t of 
+numberedParagraphs t = case t of
   []   -> []
   p:[] -> p
   _    -> concat [(show n ++ ".") : s | (n,s) <- zip [1..] t]
@@ -204,12 +204,12 @@ topoTest2 g0 = maybe (Right cycles) Left (tsort g)
         ([],[]) -> Just []
         ([],_) -> Nothing
         (ns,rest) -> (leaves:) `fmap` tsort [(n,es \\ leaves) | (n,es)<-rest]
-	  where leaves = map fst ns
+            where leaves = map fst ns
 
 
 -- | Fix point iterator (for computing e.g. transitive closures or reachability)
 iterFix :: Eq a => ([a] -> [a]) -> [a] -> [a]
-iterFix more start = iter start start 
+iterFix more start = iter start start
   where
     iter old new = if (null new')
                       then old
@@ -241,7 +241,7 @@ liftErr e = err raise return e
 {-
 instance ErrorMonad (STM s) where
   raise msg = STM (\s -> raise msg)
-  handle (STM f) g = STM (\s -> (f s) 
+  handle (STM f) g = STM (\s -> (f s)
                                 `handle` (\e -> let STM g' = (g e) in
                                                     g' s))
 

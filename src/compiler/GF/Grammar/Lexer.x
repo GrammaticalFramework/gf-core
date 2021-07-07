@@ -267,7 +267,7 @@ type AlexInput2 = (AlexInput,AlexInput)
 
 data ParseResult a
   = POk AlexInput2 a
-  | PFailed Posn	-- The position of the error
+  | PFailed Posn        -- The position of the error
             String      -- The error message
 
 newtype P a = P { unP :: AlexInput2 -> ParseResult a }

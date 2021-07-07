@@ -5,21 +5,22 @@
 -- Stability   : (stable)
 -- Portability : (portable)
 --
--- > CVS $Date: 2005/10/02 20:50:19 $ 
+-- > CVS $Date: 2005/10/02 20:50:19 $
 -- > CVS $Author: aarne $
 -- > CVS $Revision: 1.11 $
 --
 -- Thierry Coquand's type checking algorithm that creates a trace
 -----------------------------------------------------------------------------
 
-module GF.Compile.TypeCheck.TC (AExp(..),
-	   Theory,
-	   checkExp,
-	   inferExp,
-	   checkBranch,
-	   eqVal,
-	   whnf
-	  ) where
+module GF.Compile.TypeCheck.TC (
+    AExp(..),
+    Theory,
+    checkExp,
+    inferExp,
+    checkBranch,
+    eqVal,
+    whnf
+  ) where
 
 import GF.Data.Operations
 import GF.Grammar
@@ -31,17 +32,17 @@ import Data.Maybe
 import GF.Text.Pretty
 
 data AExp =
-     AVr   Ident Val 
+     AVr   Ident Val
    | ACn   QIdent Val
-   | AType 
-   | AInt  Int 
+   | AType
+   | AInt  Int
    | AFloat Double
    | AStr  String
    | AMeta MetaId Val
    | ALet  (Ident,(Val,AExp)) AExp
-   | AApp  AExp AExp Val 
-   | AAbs  Ident Val AExp 
-   | AProd Ident AExp AExp 
+   | AApp  AExp AExp Val
+   | AAbs  Ident Val AExp
+   | AProd Ident AExp AExp
 -- -- | AEqs  [([Exp],AExp)] --- not used
    | ARecType [ALabelling]
    | AR    [AAssign]
@@ -50,7 +51,7 @@ data AExp =
    | AData Val
   deriving (Eq,Show)
 
-type ALabelling = (Label, AExp) 
+type ALabelling = (Label, AExp)
 type AAssign = (Label, (Val, AExp))
 
 type Theory = QIdent -> Err Val
@@ -71,7 +72,7 @@ whnf :: Val -> Err Val
 whnf v = ---- errIn ("whnf" +++ prt v) $ ---- debug
          case v of
   VApp u w -> do
-    u' <- whnf u 
+    u' <- whnf u
     w' <- whnf w
     app u' w'
   VClos env e -> eval env e
@@ -81,9 +82,9 @@ app :: Val -> Val -> Err Val
 app u v = case u of
   VClos env (Abs _ x e) -> eval ((x,v):env) e
   _ -> return $ VApp u v
-  
+
 eval :: Env -> Term -> Err Val
-eval env e = ---- errIn ("eval" +++ prt e +++ "in" +++ prEnv env) $ 
+eval env e = ---- errIn ("eval" +++ prt e +++ "in" +++ prEnv env) $
              case e of
   Vr x    -> lookupVar env x
   Q c   -> return $ VCn c
@@ -95,23 +96,23 @@ eval env e = ---- errIn ("eval" +++ prt e +++ "in" +++ prEnv env) $
   _ -> return $ VClos env e
 
 eqVal :: Int -> Val -> Val -> Err [(Val,Val)]
-eqVal k u1 u2 = ---- errIn (prt u1 +++ "<>" +++ prBracket (show k) +++ prt u2) $ 
+eqVal k u1 u2 = ---- errIn (prt u1 +++ "<>" +++ prBracket (show k) +++ prt u2) $
                 do
   w1 <- whnf u1
-  w2 <- whnf u2 
+  w2 <- whnf u2
   let v = VGen k
   case (w1,w2) of
     (VApp f1 a1, VApp f2 a2) -> liftM2 (++) (eqVal k f1 f2) (eqVal k a1 a2)
     (VClos env1 (Abs _ x1 e1), VClos env2 (Abs _ x2 e2)) ->
       eqVal (k+1) (VClos ((x1,v x1):env1) e1) (VClos ((x2,v x1):env2) e2)
     (VClos env1 (Prod _ x1 a1 e1), VClos env2 (Prod _ x2 a2 e2)) ->
-      liftM2 (++) 
+      liftM2 (++)
         (eqVal k     (VClos            env1  a1) (VClos            env2  a2))
         (eqVal (k+1) (VClos ((x1,v x1):env1) e1) (VClos ((x2,v x1):env2) e2))
     (VGen i _, VGen j _) -> return [(w1,w2) | i /= j]
-    (VCn (_, i), VCn (_,j)) -> return [(w1,w2) | i /= j] 
+    (VCn (_, i), VCn (_,j)) -> return [(w1,w2) | i /= j]
     --- thus ignore qualifications; valid because inheritance cannot
-    --- be qualified. Simplifies annotation. AR 17/3/2005 
+    --- be qualified. Simplifies annotation. AR 17/3/2005
     _ -> return [(w1,w2) | w1 /= w2]
 -- invariant: constraints are in whnf
 
@@ -127,10 +128,10 @@ checkExp th tenv@(k,rho,gamma) e ty = do
 
     Abs _ x t -> case typ of
       VClos env (Prod _ y a b) -> do
-	a' <- whnf $ VClos env a ---
-	(t',cs) <- checkExp th 
-                           (k+1,(x,v x):rho, (x,a'):gamma) t (VClos ((y,v x):env) b)
-	return (AAbs x a' t', cs)
+                           a' <- whnf $ VClos env a ---
+                           (t',cs) <- checkExp th
+                                          (k+1,(x,v x):rho, (x,a'):gamma) t (VClos ((y,v x):env) b)
+                           return (AAbs x a' t', cs)
       _ -> Bad (render ("function type expected for" <+> ppTerm Unqualified 0 e <+> "instead of" <+> ppValue Unqualified 0 typ))
 
     Let (x, (mb_typ, e1)) e2 -> do
@@ -150,7 +151,7 @@ checkExp th tenv@(k,rho,gamma) e ty = do
       (b',csb) <- checkType th (k+1, (x,v x):rho, (x,VClos rho a):gamma) b
       return (AProd x a' b', csa ++ csb)
 
-    R xs -> 
+    R xs ->
       case typ of
         VRecType ys -> do case [l | (l,_) <- ys, isNothing (lookup l xs)] of
                             [] -> return ()
@@ -174,7 +175,7 @@ checkInferExp th tenv@(k,_,_) e typ = do
   (e',w,cs1) <- inferExp th tenv e
   cs2 <- eqVal k w typ
   return (e',cs1 ++ cs2)
-      
+
 inferExp :: Theory -> TCEnv -> Term -> Err (AExp, Val, [(Val,Val)])
 inferExp th tenv@(k,rho,gamma) e = case e of
    Vr x -> mkAnnot (AVr x) $ noConstr $ lookupVar gamma x
@@ -200,13 +201,13 @@ inferExp th tenv@(k,rho,gamma) e = case e of
     (e2,val2,cs2) <- inferExp th (k,rho,(x,val1):gamma) e2
     return (ALet (x,(val1,e1)) e2, val2, cs1++cs2)
    App f t -> do
-    (f',w,csf) <- inferExp th tenv f 
+    (f',w,csf) <- inferExp th tenv f
     typ <- whnf w
     case typ of
       VClos env (Prod _ x a b) -> do
         (a',csa) <- checkExp th tenv t (VClos env a)
-	b' <- whnf $ VClos ((x,VClos rho t):env) b
-	return $ (AApp f' a' b', b', csf ++ csa)
+        b' <- whnf $ VClos ((x,VClos rho t):env) b
+        return $ (AApp f' a' b', b', csf ++ csa)
       _ -> Bad (render ("Prod expected for function" <+> ppTerm Unqualified 0 f <+> "instead of" <+> ppValue Unqualified 0 typ))
    _ -> Bad (render ("cannot infer type of expression" <+> ppTerm Unqualified 0 e))
 
@@ -232,9 +233,9 @@ checkAssign th tenv@(k,rho,gamma) typs (lbl,(Nothing,exp)) = do
                    return ((lbl,(val,aexp)),cs)
 
 checkBranch :: Theory -> TCEnv -> Equation -> Val -> Err (([Term],AExp),[(Val,Val)])
-checkBranch th tenv b@(ps,t) ty = errIn ("branch" +++ show b) $ 
-                                  chB tenv' ps' ty 
- where 
+checkBranch th tenv b@(ps,t) ty = errIn ("branch" +++ show b) $
+                                  chB tenv' ps' ty
+ where
 
   (ps',_,rho2,k') = ps2ts k ps
   tenv' = (k, rho2++rho, gamma) ---- k' ?
@@ -245,11 +246,11 @@ checkBranch th tenv b@(ps,t) ty = errIn ("branch" +++ show b) $
       typ <- whnf ty
       case typ of
         VClos env (Prod _ y a b) -> do
-	  a' <- whnf $ VClos env a
+          a' <- whnf $ VClos env a
           (p', sigma, binds, cs1) <- checkP tenv p y a'
           let tenv' = (length binds, sigma ++ rho, binds ++ gamma)
           ((ps',exp),cs2) <- chB tenv' ps2 (VClos ((y,p'):env) b)
-	  return ((p:ps',exp), cs1 ++ cs2) -- don't change the patt
+          return ((p:ps',exp), cs1 ++ cs2) -- don't change the patt
         _ -> Bad (render ("Product expected for definiens" <+> ppTerm Unqualified 0 t <+> "instead of" <+> ppValue Unqualified 0 typ))
     [] -> do
       (e,cs) <- checkExp th tenv t ty
@@ -259,15 +260,15 @@ checkBranch th tenv b@(ps,t) ty = errIn ("branch" +++ show b) $
      let sigma = [(x, VGen i x) | ((x,_),i) <- zip delta [k..]]
      return (VClos sigma t, sigma, delta, cs)
 
-  ps2ts k = foldr p2t ([],0,[],k) 
+  ps2ts k = foldr p2t ([],0,[],k)
   p2t p (ps,i,g,k) = case p of
-     PW      -> (Meta i : ps, i+1,g,k) 
+     PW      -> (Meta i : ps, i+1,g,k)
      PV x    -> (Vr x   : ps, i, upd x k g,k+1)
      PAs x p -> p2t p (ps,i,g,k)
      PString s -> (K s : ps, i, g, k)
      PInt n -> (EInt n : ps, i, g, k)
      PFloat n -> (EFloat n : ps, i, g, k)
-     PP c xs -> (mkApp (Q c) xss : ps, j, g',k') 
+     PP c xs -> (mkApp (Q c) xss : ps, j, g',k')
                     where (xss,j,g',k') = foldr p2t ([],i,g,k) xs
      PImplArg p -> p2t p (ps,i,g,k)
      PTilde t -> (t : ps, i, g, k)
@@ -307,8 +308,8 @@ checkPatt th tenv exp val = do
        case typ of
          VClos env (Prod _ x a b) -> do
            (a',_,csa) <- checkExpP tenv t (VClos env a)
-	   b' <- whnf $ VClos ((x,VClos rho t):env) b
-	   return $ (AApp f' a' b', b', csf ++ csa)
+           b' <- whnf $ VClos ((x,VClos rho t):env) b
+           return $ (AApp f' a' b', b', csf ++ csa)
          _ -> Bad (render ("Prod expected for function" <+> ppTerm Unqualified 0 f <+> "instead of" <+> ppValue Unqualified 0 typ))
      _ -> Bad (render ("cannot typecheck pattern" <+> ppTerm Unqualified 0 exp))
 
@@ -321,4 +322,3 @@ mkAnnot :: (Val -> AExp) -> Err (Val,[(Val,Val)]) -> Err (AExp,Val,[(Val,Val)])
 mkAnnot a ti = do
   (v,cs) <- ti
   return (a v, v, cs)
-

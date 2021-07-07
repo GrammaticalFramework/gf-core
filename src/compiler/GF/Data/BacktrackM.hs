@@ -16,18 +16,18 @@
 {-# LANGUAGE CPP #-}
 module GF.Data.BacktrackM (
                     -- * the backtracking state monad
-		    BacktrackM,
-		    -- * monad specific utilities
-		    member,
-		    cut,
-		    -- * running the monad
-		    foldBM,          runBM,
-		    foldSolutions,   solutions,
-		    foldFinalStates, finalStates,
-		    
-		    -- * reexport the 'MonadState' class
-		    module Control.Monad.State.Class,
-		  ) where
+                    BacktrackM,
+                    -- * monad specific utilities
+                    member,
+                    cut,
+                    -- * running the monad
+                    foldBM,          runBM,
+                    foldSolutions,   solutions,
+                    foldFinalStates, finalStates,
+
+                    -- * reexport the 'MonadState' class
+                    module Control.Monad.State.Class,
+                  ) where
 
 import Data.List
 import Control.Applicative
@@ -70,7 +70,7 @@ instance Applicative (BacktrackM s) where
 instance Monad (BacktrackM s) where
     return a   = BM (\c s b -> c a s b)
     BM m >>= k = BM (\c s b -> m (\a s b -> unBM (k a) c s b) s b)
-	where unBM (BM m) = m
+        where unBM (BM m) = m
 
 #if !(MIN_VERSION_base(4,13,0))
     fail = Fail.fail

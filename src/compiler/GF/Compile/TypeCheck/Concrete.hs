@@ -69,7 +69,6 @@ computeLType gr g0 t = comp (reverse [(b,x, Vr x) | (b,x,_) <- g0] ++ g0) t
       lockRecType c t' ---- locking to be removed AR 20/6/2009
 
     _ | ty == typeTok -> return typeStr
-    _ | isPredefConstant ty -> return ty
 
     _ -> composOp (comp g) ty
 
