@@ -39,6 +39,7 @@ import GF.Data.Operations
 
 import Control.Monad
 import Data.List (nub,(\\))
+import qualified Data.List as L
 import qualified Data.Map as Map
 import Data.Maybe(mapMaybe)
 import GF.Text.Pretty
@@ -105,7 +106,26 @@ renameIdentTerm' env@(act,imps) t0 =
                               ts@(t:_) -> do checkWarn ("atomic term" <+> ppTerm Qualified 0 t0 $$
                                                         "conflict" <+> hsep (punctuate ',' (map (ppTerm Qualified 0) ts)) $$
                                                         "given" <+> fsep (punctuate ',' (map fst qualifs)))
-                                             return t
+                                             return (bestTerm ts) -- Heuristic for resource grammar. Returns t for all others.
+       where
+        -- Hotfix for https://github.com/GrammaticalFramework/gf-core/issues/56
+        -- Real bug is probably somewhere deeper in recognising excluded functions. /IL 2020-06-06
+        notFromCommonModule :: Term -> Bool
+        notFromCommonModule term =
+          let t = render $ ppTerm Qualified 0 term :: String
+           in not $ any (\moduleName -> moduleName `L.isPrefixOf` t)
+                        ["CommonX", "ConstructX", "ExtendFunctor"
+                        ,"MarkHTMLX", "ParamX", "TenseX", "TextX"]
+
+        -- If one of the terms comes from the common modules,
+        -- we choose the other one, because that's defined in the grammar.
+        bestTerm :: [Term] -> Term
+        bestTerm [] = error "constant not found" -- not reached: bestTerm is only called for case ts@(t:_)
+        bestTerm ts@(t:_) =
+          let notCommon = [t | t <- ts, notFromCommonModule t]
+           in case notCommon of
+                []    -> t -- All terms are from common modules, return first of original list
+                (u:_) -> u -- ≥1 terms are not from common modules, return first of those
 
 info2status :: Maybe ModuleName -> Ident -> Info -> StatusInfo
 info2status mq c i = case i of

@@ -58,6 +58,7 @@ mainGFI opts files = do
 
 shell opts files = flip evalStateT (emptyGFEnv opts) $
                    do mapStateT runSIO $ importInEnv opts files
+                      modify $ \ gfenv0 -> gfenv0 {history = [unwords ("i":files)]}
                       loop
 
 {-
@@ -101,7 +102,7 @@ timeIt act =
 
 -- | Optionally show how much CPU time was used to run an IO action
 optionallyShowCPUTime :: (Monad m,MonadSIO m) => Options -> m a -> m a
-optionallyShowCPUTime opts act 
+optionallyShowCPUTime opts act
   | not (verbAtLeast opts Normal) = act
   | otherwise = do (dt,r) <- timeIt act
                    liftSIO $ putStrLnFlush $ show (dt `div` 1000000000) ++ " msec"
@@ -358,7 +359,7 @@ wordCompletion gfenv (left,right) = do
     CmplIdent _ pref
       -> case mb_pgf of
            Just pgf -> ret (length pref)
-                           [Haskeline.simpleCompletion name 
+                           [Haskeline.simpleCompletion name
                             | name <- C.functions pgf,
                               isPrefixOf pref name]
            _ -> ret (length pref) []
@@ -369,7 +370,7 @@ wordCompletion gfenv (left,right) = do
     cmdEnv = commandenv gfenv
 {-
     optLang opts = valStrOpts "lang" (head $ Map.keys (concretes cmdEnv)) opts
-    optType opts = 
+    optType opts =
       let str = valStrOpts "cat" (H.showCId $ H.lookStartCat pgf) opts
       in case H.readType str of
            Just ty -> ty
@@ -416,7 +417,7 @@ wc_type = cmd_name
     option x y (c  :cs)
       | isIdent c       = option x y cs
       | otherwise       = cmd x cs
-      
+
     optValue x y ('"':cs) = str x y cs
     optValue x y cs       = cmd x cs
 
@@ -434,7 +435,7 @@ wc_type = cmd_name
       where
         x1 = take (length x - length y - d) x
         x2 = takeWhile (\c -> isIdent c || isSpace c || c == '-' || c == '=' || c == '"') x1
-        
+
         cmd = case [x | (x,cs) <- RP.readP_to_S pCommand x2, all isSpace cs] of
 	        [x] -> Just x
                 _   -> Nothing

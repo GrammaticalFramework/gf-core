@@ -54,6 +54,10 @@ DATA_DIR
 
 stack*.yaml.lock
 
+# Output files for test suite
+*.out
+gf-tests.html
+
 # Generated documentation (not exhaustive)
 demos/index-numbers.html
 demos/resourcegrammars.html

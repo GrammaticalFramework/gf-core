@@ -16,18 +16,19 @@ import Data.Version
 import System.Directory
 import System.Environment (getArgs)
 import System.Exit
-import GF.System.Console (setConsoleEncoding)
+-- import GF.System.Console (setConsoleEncoding)
 
 -- | Run the GF main program, taking arguments from the command line.
 -- (It calls 'setConsoleEncoding' and 'getOptions', then 'mainOpts'.)
 -- Run @gf --help@ for usage info.
 main :: IO ()
 main = do
-  --setConsoleEncoding
+  -- setConsoleEncoding
   uncurry mainOpts =<< getOptions
 
 -- | Get and parse GF command line arguments. Fix relative paths.
 -- Calls 'getArgs' and 'parseOptions'.
+getOptions :: IO (Options, [FilePath])
 getOptions = do
   args <- getArgs
   case parseOptions args of
@@ -43,7 +44,7 @@ getOptions = do
 -- the options it invokes 'mainGFC', 'mainGFI', 'mainRunGFI', 'mainServerGFI',
 -- or it just prints version/usage info.
 mainOpts :: Options -> [FilePath] -> IO ()
-mainOpts opts files = 
+mainOpts opts files =
     case flag optMode opts of
       ModeVersion     -> putStrLn $ "Grammatical Framework (GF) version " ++ showVersion version ++ "\n" ++ buildInfo
       ModeHelp        -> putStrLn helpMessage

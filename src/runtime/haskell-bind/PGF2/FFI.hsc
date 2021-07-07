@@ -103,7 +103,7 @@ foreign import ccall unsafe "gu/file.h gu_file_in"
 
 foreign import ccall safe  "gu/enum.h gu_enum_next"
   gu_enum_next :: Ptr a -> Ptr (Ptr b) -> Ptr GuPool -> IO ()
- 
+
 foreign import ccall unsafe "gu/string.h gu_string_buf_freeze"
   gu_string_buf_freeze :: Ptr GuStringBuf -> Ptr GuPool -> IO CString
 
@@ -241,7 +241,7 @@ newSequence elem_size pokeElem values pool = do
 type FId = Int
 data PArg = PArg [FId] {-# UNPACK #-} !FId deriving (Eq,Ord,Show)
 
-peekFId :: Ptr a -> IO FId 
+peekFId :: Ptr a -> IO FId
 peekFId c_ccat = do
   c_fid <- (#peek PgfCCat, fid) c_ccat
   return (fromIntegral (c_fid :: CInt))
@@ -256,6 +256,7 @@ data PgfApplication
 data PgfConcr
 type PgfExpr = Ptr ()
 data PgfExprProb
+data PgfTokenProb
 data PgfExprParser
 data PgfFullFormEntry
 data PgfMorphoCallback
@@ -421,6 +422,9 @@ foreign import ccall
 
 foreign import ccall "pgf/pgf.h pgf_parse_with_oracle"
   pgf_parse_with_oracle :: Ptr PgfConcr -> CString -> CString -> Ptr PgfOracleCallback -> Ptr GuExn -> Ptr GuPool -> Ptr GuPool -> IO (Ptr GuEnum)
+
+foreign import ccall "pgf/pgf.h pgf_complete"
+  pgf_complete :: Ptr PgfConcr -> PgfType -> CString -> CString -> Ptr GuExn -> Ptr GuPool -> IO (Ptr GuEnum)
 
 foreign import ccall "pgf/pgf.h pgf_lookup_morpho"
   pgf_lookup_morpho :: Ptr PgfConcr -> CString -> Ptr PgfMorphoCallback -> Ptr GuExn -> IO ()

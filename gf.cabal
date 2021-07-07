@@ -1,19 +1,19 @@
 name: gf
-version: 3.10.4-git
+version: 3.11.0-git
 
-cabal-version: >= 1.22
+cabal-version: 1.22
 build-type: Custom
 license: OtherLicense
 license-file: LICENSE
 category: Natural Language Processing, Compiler
 synopsis: Grammatical Framework
 description: GF, Grammatical Framework, is a programming language for multilingual grammar applications
-homepage: http://www.grammaticalframework.org/
+homepage: https://www.grammaticalframework.org/
 bug-reports: https://github.com/GrammaticalFramework/gf-core/issues
-maintainer: Thomas Hallgren
-tested-with: GHC==7.10.3, GHC==8.0.2, GHC==8.2.2, GHC==8.4.3
+tested-with: GHC==7.10.3, GHC==8.0.2, GHC==8.10.4
 
 data-dir: src
+extra-source-files: WebSetup.hs
 data-files:
   www/*.html
   www/*.css
@@ -71,25 +71,24 @@ flag c-runtime
   Description: Include functionality from the C run-time library (which must be installed already)
   Default:     False
 
-Library
+library
   default-language:    Haskell2010
-  build-depends: base >= 4.6 && <5,
-                 array,
-                 containers,
-                 bytestring,
-                 utf8-string,
-                 random,
-                 pretty,
-                 mtl,
-                 exceptions,
-                 fail,
-                 -- For compatability with ghc < 8
-                 -- We need transformers-compat >= 0.6.3, but that is only in newer snapshots where it is redundant.
-                 transformers-compat,
-                 ghc-prim,
-                 text,
-                 hashable,
-                 unordered-containers
+  build-depends:
+    -- GHC 8.0.2 to GHC 8.10.4
+    base >= 4.9.1 && <4.15,
+    array >= 0.5.1 && < 0.6,
+    containers >= 0.5.7 && < 0.7,
+    bytestring >= 0.10.8 && < 0.11,
+    utf8-string >= 1.0.1.1 && < 1.1,
+    random >= 1.1 && < 1.3,
+    pretty >= 1.1.3 && < 1.2,
+    mtl >= 2.2.1 && < 2.3,
+    -- For compatability with GHC < 8
+    exceptions >= 0.8.3 && < 0.11,
+    fail >= 4.9.0 && < 4.10,
+    -- We need transformers-compat >= 0.6.3, but that is only in newer snapshots where it is redundant.
+    transformers-compat >= 0.5.1.4 && < 0.7,
+    ghc-prim >= 0.5.0 && < 0.7
   hs-source-dirs: src/runtime/haskell
 
   other-modules:
@@ -149,8 +148,14 @@ Library
 
 ---- GF compiler as a library:
 
-  build-depends: filepath, directory>=1.2, time,
-                 process, haskeline, parallel>=3, json
+  build-depends:
+    filepath >= 1.4.1 && < 1.5,
+    directory >= 1.3.0 && < 1.4,
+    time >= 1.6.0 && < 1.10,
+    process >= 1.4.3 && < 1.7,
+    haskeline >= 0.7.3 && < 0.9,
+    parallel >= 3.2.1.1 && < 3.3,
+    json >= 0.9.1 && < 0.11
 
   hs-source-dirs: src/compiler
   exposed-modules:
@@ -181,7 +186,7 @@ Library
     GF.Command.TreeOperations
     GF.Compile.CFGtoPGF
     GF.Compile.CheckGrammar
-    GF.Compile.Compute.ConcreteNew
+    GF.Compile.Compute.Concrete
     GF.Compile.Compute.Predef
     GF.Compile.Compute.Value
     GF.Compile.ExampleBased
@@ -211,7 +216,6 @@ Library
     GF.Compile.TypeCheck.Concrete
     GF.Compile.TypeCheck.ConcreteNew
     GF.Compile.TypeCheck.Primitives
-    GF.Compile.TypeCheck.RConcrete
     GF.Compile.TypeCheck.TC
     GF.Compile.Update
     GF.Data.BacktrackM
@@ -279,12 +283,12 @@ Library
     cpp-options: -DC_RUNTIME
 
   if flag(server)
-    build-depends: httpd-shed>=0.4.0.3, network>=2.3 && <2.7,
-                   cgi>=3001.2.2.0
+    build-depends: httpd-shed >= 0.4.0 && < 0.5, network>=2.3 && <2.7,
+                   cgi >= 3001.3.0.2 && < 3001.6
     if flag(network-uri)
-      build-depends: network-uri>=2.6, network>=2.6
+      build-depends: network-uri >= 2.6.1.0 && < 2.7, network>=2.6 && <2.7
     else
-      build-depends: network<2.6
+      build-depends: network >= 2.5 && <2.6
 
     cpp-options: -DSERVER_MODE
     other-modules:
@@ -318,14 +322,14 @@ Library
   ghc-options: -fno-warn-tabs
 
   if os(windows)
-    build-depends: Win32
+    build-depends: Win32 >= 2.3.1.1 && < 2.7
   else
-    build-depends: unix, terminfo>=0.4
+    build-depends: unix >= 2.7.2 && < 2.8, terminfo >=0.4.0 && < 0.5
 
   if impl(ghc>=8.2)
     ghc-options: -fhide-source-paths
 
-Executable gf
+executable gf
   hs-source-dirs: src/programs
   main-is: gf-main.hs
   default-language:    Haskell2010
@@ -358,6 +362,7 @@ test-suite gf-tests
   main-is:        run.hs
   hs-source-dirs: testsuite
   build-depends:  base>=4.3 && <5, Cabal>=1.8, directory, filepath, process
+  build-tool-depends: gf:gf
   default-language:    Haskell2010
 
 test-suite lpgf

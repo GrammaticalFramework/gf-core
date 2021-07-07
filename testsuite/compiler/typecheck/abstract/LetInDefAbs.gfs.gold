@@ -1,0 +1,15 @@
+fun f : Int -> Int ;
+def f n = ? ;
+000 CHECK_ARGS  1
+    ALLOC       2
+    PUT_CLOSURE 001
+    SET_PAD
+    TUCK        hp(0) 1
+    EVAL        f tail(0)
+001 ALLOC       2
+    PUT_LIT     0
+    PUSH_FRAME
+    PUSH        hp(0)
+    EVAL        f update
+Probability: 1.0
+

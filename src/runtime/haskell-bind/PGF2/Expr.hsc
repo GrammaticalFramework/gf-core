@@ -19,7 +19,7 @@ wildCId = "_" :: CId
 type Cat = CId -- ^ Name of syntactic category
 type Fun = CId -- ^ Name of function
 
-data BindType = 
+data BindType =
     Explicit
   | Implicit
   deriving Show
@@ -38,7 +38,7 @@ instance Show Expr where
   show = showExpr []
 
 instance Eq Expr where
-  (Expr e1 e1_touch) == (Expr e2 e2_touch) = 
+  (Expr e1 e1_touch) == (Expr e2 e2_touch) =
     unsafePerformIO $ do
       res <- pgf_expr_eq e1 e2
       e1_touch >> e2_touch
@@ -113,9 +113,9 @@ unApp (Expr expr touch) =
       appl <- pgf_expr_unapply expr pl
       if appl == nullPtr
         then return Nothing
-        else do 
+        else do
            fun <- peekCString =<< (#peek PgfApplication, fun) appl
-           arity <- (#peek PgfApplication, n_args) appl :: IO CInt 
+           arity <- (#peek PgfApplication, n_args) appl :: IO CInt
            c_args <- peekArray (fromIntegral arity) (appl `plusPtr` (#offset PgfApplication, args))
            return $ Just (fun, [Expr c_arg touch | c_arg <- c_args])
 
@@ -140,7 +140,9 @@ unStr (Expr expr touch) =
               touch
               return (Just s)
 
--- | Constructs an expression from an integer literal
+-- | Constructs an expression from an integer literal.
+-- Note that the C runtime does not support long integers, and you may run into overflow issues with large values.
+-- See [here](https://github.com/GrammaticalFramework/gf-core/issues/109) for more details.
 mkInt :: Int -> Expr
 mkInt val =
   unsafePerformIO $ do
@@ -267,7 +269,7 @@ foreign import ccall "wrapper"
 -- in the expression in order reverse to the order
 -- of binding.
 showExpr :: [CId] -> Expr -> String
-showExpr scope e = 
+showExpr scope e =
   unsafePerformIO $
     withGuPool $ \tmpPl ->
       do (sb,out) <- newOut tmpPl

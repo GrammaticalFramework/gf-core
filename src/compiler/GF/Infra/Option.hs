@@ -132,8 +132,13 @@ data CFGTransform = CFGNoLR
                   | CFGRemoveCycles
   deriving (Show,Eq,Ord)
 
-data HaskellOption = HaskellNoPrefix | HaskellGADT | HaskellLexical
-                   | HaskellConcrete | HaskellVariants | HaskellData
+data HaskellOption = HaskellNoPrefix
+                   | HaskellGADT
+                   | HaskellLexical
+                   | HaskellConcrete
+                   | HaskellVariants
+                   | HaskellData
+                   | HaskellPGF2
   deriving (Show,Eq,Ord)
 
 data Warning = WarnMissingLincat
@@ -534,7 +539,8 @@ haskellOptionNames =
      ("lexical",  HaskellLexical),
      ("concrete", HaskellConcrete),
      ("variants", HaskellVariants),
-     ("data",     HaskellData)]
+     ("data",     HaskellData),
+     ("pgf2",     HaskellPGF2)]
 
 -- | This is for bacward compatibility. Since GHC 6.12 we
 -- started using the native Unicode support in GHC but it
