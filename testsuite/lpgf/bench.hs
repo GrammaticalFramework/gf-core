@@ -1,3 +1,5 @@
+{-# LANGUAGE ScopedTypeVariables #-}
+
 module Main where
 
 import qualified LPGF
@@ -8,7 +10,7 @@ import GF (compileToPGF, compileToLPGF, writePGF, writeLPGF)
 import GF.Support (Options, Flags (..), Verbosity (..), noOptions, addOptions, modifyFlags)
 
 import Control.DeepSeq (NFData, force)
-import Control.Exception (evaluate)
+import qualified Control.Exception as EX
 import Control.Monad (when, forM)
 import Data.Either (isLeft)
 import qualified Data.List as L
@@ -126,7 +128,7 @@ heading s = do
 time :: String -> IO a -> IO a
 time desc io = do
   start <- getCurrentTime
-  r <- io >>= evaluate -- only WHNF
+  r <- io >>= EX.evaluate -- only WHNF
   end <- getCurrentTime
   putStrLn $ desc ++ show (diffUTCTime end start)
   return r
@@ -161,7 +163,7 @@ linLPGF lpgf trees =
 
 linLPGF' :: LPGF.LPGF -> [PGF.Expr] -> IO [[Either String Text]]
 linLPGF' lpgf trees =
-  forM (Map.toList (LPGF.concretes lpgf)) $ \(_,concr) -> mapM (LPGF.try . LPGF.linearizeConcreteText concr) trees
+  forM (Map.toList (LPGF.concretes lpgf)) $ \(_,concr) -> mapM (try . LPGF.linearizeConcreteText concr) trees
 
 -- | Produce human readable file size
 -- Adapted from https://hackage.haskell.org/package/hrfsize
@@ -183,3 +185,9 @@ convertSize'' size
   | size < 1000 ^ (3 :: Int) = printf "%.2v MB" $ size / 1000 ^ (2 :: Int)
   | size < 1000 ^ (4 :: Int) = printf "%.2v GB" $ size / 1000 ^ (3 :: Int)
   | otherwise = printf "%.2v TB" $ size / 1000 ^ (4 :: Int)
+
+-- | Run a computation and catch any exception/errors.
+try :: a -> IO (Either String a)
+try comp = do
+  let f = Right <$> EX.evaluate comp
+  EX.catch f (\(e :: EX.SomeException) -> return $ Left (show e))

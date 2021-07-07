@@ -1,12 +1,13 @@
 {-# LANGUAGE LambdaCase #-}
+{-# LANGUAGE ScopedTypeVariables #-}
 
 module Main where
 
 import LPGF
-import PGF (showLanguage, readExpr)
 import GF (compileToLPGF, writeLPGF)
 import GF.Support (noOptions)
 
+import qualified Control.Exception as EX
 import Control.Monad (forM, forM_, when)
 import Data.Either (isLeft)
 import qualified Data.List as L
@@ -141,3 +142,9 @@ red s = do
   setSGR [SetColor Foreground Dull Red]
   putStr s
   setSGR [Reset]
+
+-- | Run a computation and catch any exception/errors.
+try :: a -> IO (Either String a)
+try comp = do
+  let f = Right <$> EX.evaluate comp
+  EX.catch f (\(e :: EX.SomeException) -> return $ Left (show e))

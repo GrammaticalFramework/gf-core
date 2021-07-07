@@ -6,14 +6,31 @@
 -- Closely follows description in Section 2 of Angelov, Bringert, Ranta (2009):
 -- "PGF: A Portable Run-Time Format for Type-Theoretical Grammars".
 -- http://citeseerx.ist.psu.edu/viewdoc/download?doi=10.1.1.640.6330&rep=rep1&type=pdf
-module LPGF where
+module LPGF (
+  -- ** Types
+  LPGF (..), Abstract (..), Concrete (..), LinFun (..),
+
+  -- ** Reading/writing
+  readLPGF, LPGF.encodeFile,
+
+  -- ** Linearization
+  linearize, linearizeText, linearizeConcrete, linearizeConcreteText,
+
+  -- ** Other
+  abstractName,
+  PGF.showLanguage, PGF.readExpr,
+
+  -- ** DEBUG only, to be removed
+  render, pp
+) where
 
 import PGF (Language)
 import PGF.CId
 import PGF.Expr (Expr, Literal (..))
 import PGF.Tree (Tree (..), expr2tree, prTree)
+import qualified PGF
 
-import qualified Control.Exception as EX
+-- import qualified Control.Exception as EX
 import Control.Monad (liftM, liftM2, forM_)
 import qualified Control.Monad.Writer as CMW
 import Data.Binary (Binary, put, get, putWord8, getWord8, encodeFile, decodeFile)
@@ -206,12 +223,12 @@ linearizeConcreteText concr expr = lin2string $ lin (expr2tree expr)
             LFlt f -> showFFloat (Just 6) f ""
       x -> error $ printf "Cannot lin: %s" (prTree x)
 
--- | Run a compatation and catch any exception/errors.
--- Ideally this library should never throw exceptions, but we're still in development...
-try :: a -> IO (Either String a)
-try comp = do
-  let f = Right <$> EX.evaluate comp
-  EX.catch f (\(e :: EX.SomeException) -> return $ Left (show e))
+-- -- | Run a computation and catch any exception/errors.
+-- -- Ideally this library should never throw exceptions, but we're still in development...
+-- try :: a -> IO (Either String a)
+-- try comp = do
+--   let f = Right <$> EX.evaluate comp
+--   EX.catch f (\(e :: EX.SomeException) -> return $ Left (show e))
 
 -- | Evaluation context
 data Context = Context {
