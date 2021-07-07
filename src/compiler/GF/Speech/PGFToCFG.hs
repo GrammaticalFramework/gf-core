@@ -28,7 +28,7 @@ toBNF f pgf cnc = prCFG $ f $ pgfToCFG pgf cnc
 
 type Profile = [Int]
 
-pgfToCFG :: PGF 
+pgfToCFG :: PGF
           -> CId   -- ^ Concrete syntax name
           -> CFG
 pgfToCFG pgf lang = mkCFG (showCId (lookStartCat pgf)) extCats (startRules ++ concatMap ruleToCFRule rules)
@@ -40,8 +40,8 @@ pgfToCFG pgf lang = mkCFG (showCId (lookStartCat pgf)) extCats (startRules ++ co
                          , prod <- Set.toList set]
 
     fcatCats :: Map FId Cat
-    fcatCats = Map.fromList [(fc, showCId c ++ "_" ++ show i) 
-                                 | (c,CncCat s e lbls) <- Map.toList (cnccats cnc), 
+    fcatCats = Map.fromList [(fc, showCId c ++ "_" ++ show i)
+                                 | (c,CncCat s e lbls) <- Map.toList (cnccats cnc),
                                    (fc,i) <- zip (range (s,e)) [1..]]
 
     fcatCat :: FId -> Cat
@@ -58,7 +58,7 @@ pgfToCFG pgf lang = mkCFG (showCId (lookStartCat pgf)) extCats (startRules ++ co
     topdownRules cat = f cat []
       where
         f cat rules = maybe rules (Set.foldr g rules) (IntMap.lookup cat (productions cnc))
-	 
+
         g (PApply funid args) rules = (cncfuns cnc ! funid,args) : rules
         g (PCoerce cat)       rules = f cat rules
 
@@ -67,13 +67,13 @@ pgfToCFG pgf lang = mkCFG (showCId (lookStartCat pgf)) extCats (startRules ++ co
     extCats = Set.fromList $ map ruleLhs startRules
 
     startRules :: [CFRule]
-    startRules = [Rule (showCId c) [NonTerminal (fcatToCat fc r)] (CFRes 0) 
-                      | (c,CncCat s e lbls) <- Map.toList (cnccats cnc), 
+    startRules = [Rule (showCId c) [NonTerminal (fcatToCat fc r)] (CFRes 0)
+                      | (c,CncCat s e lbls) <- Map.toList (cnccats cnc),
                         fc <- range (s,e), not (isPredefFId fc),
                         r <- [0..catLinArity fc-1]]
 
     ruleToCFRule :: (FId,Production) -> [CFRule]
-    ruleToCFRule (c,PApply funid args) = 
+    ruleToCFRule (c,PApply funid args) =
         [Rule (fcatToCat c l) (mkRhs row) (profilesToTerm [fixProfile row n | n <- [0..length args-1]])
            | (l,seqid) <- Array.assocs rhs
            , let row = sequences cnc ! seqid
@@ -106,7 +106,7 @@ pgfToCFG pgf lang = mkCFG (showCId (lookStartCat pgf)) extCats (startRules ++ co
         fixProfile row i = [k | (k,j) <- nts, j == i]
             where
               nts = zip [0..] [j | nt <- Array.elems row, j <- getPos nt]
-              
+
               getPos (SymCat j _) = [j]
               getPos (SymLit j _) = [j]
               getPos _            = []

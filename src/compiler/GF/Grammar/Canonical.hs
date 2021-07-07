@@ -45,12 +45,12 @@ data LincatDef = LincatDef CatId LinType  deriving Show
 data LinDef    = LinDef FunId [VarId] LinValue  deriving Show
 
 -- | Linearization type, RHS of @lincat@
-data LinType = FloatType 
-             | IntType 
+data LinType = FloatType
+             | IntType
              | ParamType ParamType
              | RecordType [RecordRowType]
-             | StrType 
-             | TableType LinType LinType 
+             | StrType
+             | TableType LinType LinType
              | TupleType [LinType]
               deriving (Eq,Ord,Show)
 
@@ -60,7 +60,7 @@ newtype ParamType = ParamTypeId ParamId deriving (Eq,Ord,Show)
 data LinValue = ConcatValue LinValue LinValue
               | LiteralValue LinLiteral
               | ErrorValue String
-              | ParamConstant ParamValue 
+              | ParamConstant ParamValue
               | PredefValue PredefId
               | RecordValue [RecordRowValue]
               | TableValue LinType [TableRowValue]
@@ -74,9 +74,9 @@ data LinValue = ConcatValue LinValue LinValue
               | CommentedValue String LinValue
               deriving (Eq,Ord,Show)
 
-data LinLiteral = FloatConstant Float 
-                | IntConstant Int 
-                | StrConstant String 
+data LinLiteral = FloatConstant Float
+                | IntConstant Int
+                | StrConstant String
                 deriving (Eq,Ord,Show)
 
 data LinPattern = ParamPattern ParamPattern
@@ -107,7 +107,7 @@ newtype PredefId = PredefId Id        deriving (Eq,Ord,Show)
 newtype LabelId  = LabelId Id         deriving (Eq,Ord,Show)
 data VarValueId  = VarValueId QualId  deriving (Eq,Ord,Show)
 
--- | Name of param type or param value 
+-- | Name of param type or param value
 newtype ParamId = ParamId QualId  deriving (Eq,Ord,Show)
 
 --------------------------------------------------------------------------------
@@ -250,7 +250,7 @@ instance PPA LinLiteral where
             FloatConstant f -> pp f
             IntConstant n -> pp n
             StrConstant s -> doubleQuotes s -- hmm
-  
+
 instance RhsSeparator LinValue where rhsSep _ = pp "="
 
 instance Pretty LinPattern where
@@ -265,7 +265,7 @@ instance PPA LinPattern where
       ParamPattern pv -> ppA pv
       RecordPattern r -> block r
       TuplePattern ps -> "<"<>punctuate "," ps<>">"
-      WildPattern     -> pp "_"                
+      WildPattern     -> pp "_"
 
 instance RhsSeparator LinPattern where rhsSep _ = pp "="
 

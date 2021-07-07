@@ -5,7 +5,7 @@
 -- Stability   : (stable)
 -- Portability : (portable)
 --
--- > CVS $Date: 2005/05/30 18:39:44 $ 
+-- > CVS $Date: 2005/05/30 18:39:44 $
 -- > CVS $Author: aarne $
 -- > CVS $Revision: 1.8 $
 --
@@ -34,14 +34,14 @@ buildAnyTree :: Fail.MonadFail m => ModuleName -> [(Ident,Info)] -> m (Map.Map I
 buildAnyTree m = go Map.empty
   where
     go map []         = return map
-    go map ((c,j):is) = do
+    go map ((c,j):is) =
       case Map.lookup c map of
         Just i  -> case unifyAnyInfo m i j of
-		     Ok k  -> go (Map.insert c k map) is
-		     Bad _ -> fail $ render ("conflicting information in module"<+>m $$
-		                             nest 4 (ppJudgement Qualified (c,i)) $$
-		                             "and" $+$
-		                             nest 4 (ppJudgement Qualified (c,j)))
+          Ok k  -> go (Map.insert c k map) is
+          Bad _ -> fail $ render ("conflicting information in module"<+>m $$
+                                  nest 4 (ppJudgement Qualified (c,i)) $$
+                                  "and" $+$
+                                  nest 4 (ppJudgement Qualified (c,j)))
         Nothing -> go (Map.insert c j map) is
 
 extendModule :: FilePath -> SourceGrammar -> SourceModule -> Check SourceModule
@@ -51,14 +51,14 @@ extendModule cwd gr (name,m)
   ---- Should be replaced by real control. AR 4/2/2005
   | mstatus m == MSIncomplete && isModCnc m = return (name,m)
   | otherwise                               = checkInModule cwd m NoLoc empty $ do
-                                                 m' <- foldM extOne m (mextend m) 
+                                                 m' <- foldM extOne m (mextend m)
                                                  return (name,m')
  where
    extOne mo (n,cond) = do
      m0 <- lookupModule gr n
 
      -- test that the module types match, and find out if the old is complete
-     unless (sameMType (mtype m) (mtype mo)) 
+     unless (sameMType (mtype m) (mtype mo))
             (checkError ("illegal extension type to module" <+> name))
 
      let isCompl = isCompleteModule m0
@@ -67,7 +67,7 @@ extendModule cwd gr (name,m)
      js1 <- extendMod gr isCompl ((n,m0), isInherited cond) name (jments mo)
 
      -- if incomplete, throw away extension information
-     return $ 
+     return $
           if isCompl
             then mo {jments = js1}
             else mo {mextend= filter ((/=n) . fst) (mextend mo)
@@ -75,7 +75,7 @@ extendModule cwd gr (name,m)
                     ,jments = js1
                     }
 
--- | rebuilding instance + interface, and "with" modules, prior to renaming. 
+-- | rebuilding instance + interface, and "with" modules, prior to renaming.
 -- AR 24/10/2003
 rebuildModule :: FilePath -> SourceGrammar -> SourceModule -> Check SourceModule
 rebuildModule cwd gr mo@(i,mi@(ModInfo mt stat fs_ me mw ops_ med_ msrc_ env_ js_)) =
@@ -88,8 +88,8 @@ rebuildModule cwd gr mo@(i,mi@(ModInfo mt stat fs_ me mw ops_ med_ msrc_ env_ js
 
     -- add the information given in interface into an instance module
     Nothing -> do
-      unless (null is || mstatus mi == MSIncomplete) 
-             (checkError ("module" <+> i <+> 
+      unless (null is || mstatus mi == MSIncomplete)
+             (checkError ("module" <+> i <+>
                           "has open interfaces and must therefore be declared incomplete"))
       case mt of
         MTInstance (i0,mincl) -> do
@@ -113,7 +113,7 @@ rebuildModule cwd gr mo@(i,mi@(ModInfo mt stat fs_ me mw ops_ med_ msrc_ env_ js
       let stat' = if all (flip elem infs) is
                     then MSComplete
                     else MSIncomplete
-      unless (stat' == MSComplete || stat == MSIncomplete) 
+      unless (stat' == MSComplete || stat == MSIncomplete)
              (checkError ("module" <+> i <+> "remains incomplete"))
       ModInfo mt0 _ fs me' _ ops0 _ fpath _ js <- lookupModule gr ext
       let ops1 = nub $
@@ -141,24 +141,24 @@ rebuildModule cwd gr mo@(i,mi@(ModInfo mt stat fs_ me mw ops_ med_ msrc_ env_ js
 extendMod :: Grammar ->
              Bool -> (Module,Ident -> Bool) -> ModuleName ->
              Map.Map Ident Info -> Check (Map.Map Ident Info)
-extendMod gr isCompl ((name,mi),cond) base new = foldM try new $ Map.toList (jments mi) 
+extendMod gr isCompl ((name,mi),cond) base new = foldM try new $ Map.toList (jments mi)
   where
     try new (c,i0)
       | not (cond c) = return new
       | otherwise    = case Map.lookup c new of
                          Just j -> case unifyAnyInfo name i j of
-		                     Ok k  -> return $ Map.insert c k new
-		                     Bad _ -> do (base,j) <- case j of 
-		                                               AnyInd _ m -> lookupOrigInfo gr (m,c)
-		                                               _          -> return (base,j)
-		                                 (name,i) <- case i of 
+                                     Ok k  -> return $ Map.insert c k new
+                                     Bad _ -> do (base,j) <- case j of
+                                                               AnyInd _ m -> lookupOrigInfo gr (m,c)
+                                                               _          -> return (base,j)
+                                                 (name,i) <- case i of
                                                                AnyInd _ m -> lookupOrigInfo gr (m,c)
                                                                _          -> return (name,i)
-		                                 checkError ("cannot unify the information" $$ 
-		                                             nest 4 (ppJudgement Qualified (c,i)) $$
-		                                             "in module" <+> name <+> "with" $$
-		                                             nest 4 (ppJudgement Qualified (c,j)) $$
-		                                             "in module" <+> base)
+                                                 checkError ("cannot unify the information" $$
+                                                             nest 4 (ppJudgement Qualified (c,i)) $$
+                                                             "in module" <+> name <+> "with" $$
+                                                             nest 4 (ppJudgement Qualified (c,j)) $$
+                                                             "in module" <+> base)
                          Nothing-> if isCompl
                                      then return $ Map.insert c (indirInfo name i) new
                                      else return $ Map.insert c i new
@@ -166,11 +166,11 @@ extendMod gr isCompl ((name,mi),cond) base new = foldM try new $ Map.toList (jme
         i = globalizeLoc (msrc mi) i0
 
     indirInfo :: ModuleName -> Info -> Info
-    indirInfo n info = AnyInd b n' where 
+    indirInfo n info = AnyInd b n' where
       (b,n') = case info of
         ResValue _ -> (True,n)
         ResParam _ _ -> (True,n)
-        AbsFun _ _ Nothing _ -> (True,n) 
+        AbsFun _ _ Nothing _ -> (True,n)
         AnyInd b k -> (b,k)
         _ -> (False,n) ---- canonical in Abs
 
@@ -194,24 +194,24 @@ globalizeLoc fpath i =
 
 unifyAnyInfo :: ModuleName -> Info -> Info -> Err Info
 unifyAnyInfo m i j = case (i,j) of
-  (AbsCat mc1, AbsCat mc2) -> 
+  (AbsCat mc1, AbsCat mc2) ->
     liftM AbsCat (unifyMaybeL mc1 mc2)
-  (AbsFun mt1 ma1 md1 moper1, AbsFun mt2 ma2 md2 moper2) -> 
+  (AbsFun mt1 ma1 md1 moper1, AbsFun mt2 ma2 md2 moper2) ->
     liftM4 AbsFun (unifyMaybeL mt1 mt2) (unifAbsArrity ma1 ma2) (unifAbsDefs md1 md2) (unifyMaybe moper1 moper2) -- adding defs
 
   (ResParam mt1 mv1, ResParam mt2 mv2) ->
     liftM2 ResParam (unifyMaybeL mt1 mt2) (unifyMaybe mv1 mv2)
-  (ResValue (L l1 t1), ResValue (L l2 t2)) 
+  (ResValue (L l1 t1), ResValue (L l2 t2))
       | t1==t2    -> return (ResValue (L l1 t1))
       | otherwise -> fail ""
   (_, ResOverload ms t) | elem m ms ->
     return $ ResOverload ms t
-  (ResOper mt1 m1, ResOper mt2 m2) -> 
+  (ResOper mt1 m1, ResOper mt2 m2) ->
     liftM2 ResOper (unifyMaybeL mt1 mt2) (unifyMaybeL m1 m2)
 
-  (CncCat mc1 md1 mr1 mp1 mpmcfg1, CncCat mc2 md2 mr2 mp2 mpmcfg2) -> 
+  (CncCat mc1 md1 mr1 mp1 mpmcfg1, CncCat mc2 md2 mr2 mp2 mpmcfg2) ->
     liftM5 CncCat (unifyMaybeL mc1 mc2) (unifyMaybeL md1 md2) (unifyMaybeL mr1 mr2) (unifyMaybeL mp1 mp2)  (unifyMaybe mpmcfg1 mpmcfg2)
-  (CncFun m mt1 md1 mpmcfg1, CncFun _ mt2 md2 mpmcfg2) -> 
+  (CncFun m mt1 md1 mpmcfg1, CncFun _ mt2 md2 mpmcfg2) ->
     liftM3 (CncFun m) (unifyMaybeL mt1 mt2) (unifyMaybeL md1 md2) (unifyMaybe mpmcfg1 mpmcfg2)
 
   (AnyInd b1 m1, AnyInd b2 m2) -> do

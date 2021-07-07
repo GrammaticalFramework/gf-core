@@ -396,7 +396,7 @@ tcRecTypeFields ge scope ((l,ty):rs) mb_ty = do
   return ((l,ty):rs,mb_ty)
 
 -- | Invariant: if the third argument is (Just rho),
--- 	            then rho is in weak-prenex form
+--              then rho is in weak-prenex form
 instSigma :: GlobalEnv -> Scope -> Term -> Sigma -> Maybe Rho -> TcM (Term, Rho)
 instSigma ge scope t ty1 Nothing    = return (t,ty1)           -- INST1
 instSigma ge scope t ty1 (Just ty2) = do                       -- INST2
@@ -631,8 +631,8 @@ allBinders = [ identS [x]          | x <- ['a'..'z'] ] ++
 type Scope = [(Ident,Value)]
 
 type Sigma = Value
-type Rho   = Value	-- No top-level ForAll
-type Tau   = Value	-- No ForAlls anywhere
+type Rho   = Value -- No top-level ForAll
+type Tau   = Value -- No ForAlls anywhere
 
 data MetaValue
   = Unbound Scope Sigma
@@ -724,8 +724,8 @@ getMetaVars loc sc_tys = do
     go (Vr tv)    acc = acc
     go (App x y)  acc = go x (go y acc)
     go (Meta i)   acc
-	  | i `elem` acc  = acc
-	  | otherwise	  = i : acc
+      | i `elem` acc  = acc
+      | otherwise     = i : acc
     go (Q _)      acc = acc
     go (QC _)     acc = acc
     go (Sort _)   acc = acc
@@ -742,9 +742,9 @@ getFreeVars loc sc_tys = do
   return (foldr (go []) [] tys)
   where
     go bound (Vr tv)            acc
-	  | tv `elem` bound             = acc
-	  | tv `elem` acc               = acc
-	  | otherwise                   = tv : acc
+      | tv `elem` bound             = acc
+      | tv `elem` acc               = acc
+      | otherwise                   = tv : acc
     go bound (App x y)          acc = go bound x (go bound y acc)
     go bound (Meta _)           acc = acc
     go bound (Q _)              acc = acc

@@ -5,7 +5,7 @@
 -- Stability   : (stable)
 -- Portability : (portable)
 --
--- > CVS $Date: 2005/05/30 18:39:44 $ 
+-- > CVS $Date: 2005/05/30 18:39:44 $
 -- > CVS $Author: aarne $
 -- > CVS $Revision: 1.19 $
 --
@@ -23,9 +23,9 @@
 -----------------------------------------------------------------------------
 
 module GF.Compile.Rename (
-	       renameSourceTerm,
-	       renameModule
-	      ) where
+     renameSourceTerm,
+     renameModule
+    ) where
 
 import GF.Infra.Ident
 import GF.Infra.CheckM
@@ -68,7 +68,7 @@ renameIdentTerm env = accumulateError (renameIdentTerm' env)
 
 -- Fails immediately on error, makes it possible to try other possibilities
 renameIdentTerm' :: Status -> Term -> Check Term
-renameIdentTerm' env@(act,imps) t0 = 
+renameIdentTerm' env@(act,imps) t0 =
   case t0 of
     Vr c -> ident predefAbs c
     Cn c -> ident (\_ s -> checkError s) c
@@ -85,8 +85,8 @@ renameIdentTerm' env@(act,imps) t0 =
     _ -> return t0
   where
     opens   = [st  | (OSimple _,st) <- imps]
-    qualifs = [(m, st) | (OQualif m _, st) <- imps] ++ 
-              [(m, st) | (OQualif _ m, st) <- imps] ++ 
+    qualifs = [(m, st) | (OQualif m _, st) <- imps] ++
+              [(m, st) | (OQualif _ m, st) <- imps] ++
               [(m, st) | (OSimple m, st) <- imps] -- qualif is always possible
 
     -- this facility is mainly for BWC with GF1: you need not import PredefAbs
@@ -94,7 +94,7 @@ renameIdentTerm' env@(act,imps) t0 =
       | isPredefCat c = return (Q (cPredefAbs,c))
       | otherwise     = checkError s
 
-    ident alt c = 
+    ident alt c =
       case Map.lookup c act of
         Just f -> return (f c)
         _      -> case mapMaybe (Map.lookup c) opens of
@@ -157,7 +157,7 @@ modInfo2status (o,mo) = (o,tree2status o (jments mo))
 self2status :: ModuleName -> ModuleInfo -> StatusMap
 self2status c m = Map.mapWithKey (info2status (Just c)) (jments m)
 
-  
+
 renameInfo :: FilePath -> Status -> Module -> Ident -> Info -> Check Info
 renameInfo cwd status (m,mi) i info =
   case info of
@@ -208,7 +208,7 @@ renameTerm env vars = ren vars where
     Abs b x t    -> liftM  (Abs b x) (ren (x:vs) t)
     Prod bt x a b -> liftM2 (Prod bt x) (ren vs a) (ren (x:vs) b)
     Typed a b  -> liftM2 Typed (ren vs a) (ren vs b)
-    Vr x      
+    Vr x
       | elem x vs -> return trm
       | otherwise -> renid trm
     Cn _   -> renid trm
@@ -219,7 +219,7 @@ renameTerm env vars = ren vars where
       i' <- case i of
         TTyped ty -> liftM TTyped $ ren vs ty -- the only annotation in source
         _ -> return i
-      liftM (T i') $ mapM (renCase vs) cs  
+      liftM (T i') $ mapM (renCase vs) cs
 
     Let (x,(m,a)) b -> do
       m' <- case m of
@@ -229,7 +229,7 @@ renameTerm env vars = ren vars where
       b' <- ren (x:vs) b
       return $ Let (x,(m',a')) b'
 
-    P t@(Vr r) l                                               -- Here we have $r.l$ and this is ambiguous it could be either 
+    P t@(Vr r) l                                               -- Here we have $r.l$ and this is ambiguous it could be either
                                                                -- record projection from variable or constant $r$ or qualified expression with module $r$
       | elem r vs -> return trm                                -- try var proj first ..
       | otherwise -> checks [ renid' (Q (MN r,label2ident l))      -- .. and qualified expression second.
@@ -331,7 +331,7 @@ renamePattern env patt =
 renameContext :: Status -> Context -> Check Context
 renameContext b = renc [] where
   renc vs cont = case cont of
-    (bt,x,t) : xts 
+    (bt,x,t) : xts
       | isWildIdent x -> do
           t'   <- ren vs t
           xts' <- renc vs xts

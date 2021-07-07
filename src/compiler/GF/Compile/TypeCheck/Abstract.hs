@@ -5,7 +5,7 @@
 -- Stability   : (stable)
 -- Portability : (portable)
 --
--- > CVS $Date: 2005/09/15 16:22:02 $ 
+-- > CVS $Date: 2005/09/15 16:22:02 $
 -- > CVS $Author: aarne $
 -- > CVS $Revision: 1.16 $
 --
@@ -13,11 +13,11 @@
 -----------------------------------------------------------------------------
 
 module GF.Compile.TypeCheck.Abstract (-- * top-level type checking functions; TC should not be called directly.
-		  checkContext,
-		  checkTyp,
-		  checkDef,
-		  checkConstrs,
-		 ) where
+    checkContext,
+    checkTyp,
+    checkDef,
+    checkConstrs,
+   ) where
 
 import GF.Data.Operations
 
@@ -33,8 +33,8 @@ import GF.Text.Pretty
 --import Control.Monad (foldM, liftM, liftM2)
 
 -- | invariant way of creating TCEnv from context
-initTCEnv gamma = 
-  (length gamma,[(x,VGen i x) | ((x,_),i) <- zip gamma [0..]], gamma) 
+initTCEnv gamma =
+  (length gamma,[(x,VGen i x) | ((x,_),i) <- zip gamma [0..]], gamma)
 
 -- interface to TC type checker
 
