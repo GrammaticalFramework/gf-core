@@ -393,7 +393,7 @@ test-suite lpgf
     GF.Compile
     GF.Compile.CFGtoPGF
     GF.Compile.CheckGrammar
-    GF.Compile.Compute.ConcreteNew
+    GF.Compile.Compute.Concrete
     GF.Compile.Compute.Predef
     GF.Compile.Compute.Value
     GF.Compile.ConcreteToHaskell
@@ -419,9 +419,9 @@ test-suite lpgf
     GF.Compile.Tags
     GF.Compile.ToAPI
     GF.Compile.TypeCheck.Abstract
+    GF.Compile.TypeCheck.Concrete
     GF.Compile.TypeCheck.ConcreteNew
     GF.Compile.TypeCheck.Primitives
-    GF.Compile.TypeCheck.RConcrete
     GF.Compile.TypeCheck.TC
     GF.Compile.Update
     GF.CompileInParallel
@@ -583,7 +583,7 @@ benchmark lpgf-bench
     GF.Compile
     GF.Compile.CFGtoPGF
     GF.Compile.CheckGrammar
-    GF.Compile.Compute.ConcreteNew
+    GF.Compile.Compute.Concrete
     GF.Compile.Compute.Predef
     GF.Compile.Compute.Value
     GF.Compile.ConcreteToHaskell
@@ -609,9 +609,9 @@ benchmark lpgf-bench
     GF.Compile.Tags
     GF.Compile.ToAPI
     GF.Compile.TypeCheck.Abstract
+    GF.Compile.TypeCheck.Concrete
     GF.Compile.TypeCheck.ConcreteNew
     GF.Compile.TypeCheck.Primitives
-    GF.Compile.TypeCheck.RConcrete
     GF.Compile.TypeCheck.TC
     GF.Compile.Update
     GF.CompileInParallel
