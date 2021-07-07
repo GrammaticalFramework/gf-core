@@ -13,13 +13,13 @@ fold t =
   case unApp t of
     Just (i,[x])  ->
         case M.lookup i foldable of
-	        Just j -> appFold j x
-	        _      -> mkApp i [fold x]
+          Just j -> appFold j x
+          _      -> mkApp i [fold x]
     Just (i,xs)   -> mkApp i $ map fold xs
     _             -> t
 
 appFold :: CId -> Tree -> Tree
-appFold j t = 
+appFold j t =
   case unApp t of
     Just (i,[t,ts]) | isPre i "Cons"  -> mkApp j [fold t, appFold j ts]
     Just (i,[t,s])  | isPre i "Base"  -> mkApp j [fold t, fold s]
