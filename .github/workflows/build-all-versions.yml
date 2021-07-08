@@ -53,7 +53,7 @@ jobs:
 
     - name: Build
       run: |
-        cabal configure --enable-tests --enable-benchmarks --test-show-details=direct
+        cabal configure --enable-tests --test-show-details=direct
         cabal build all
 
     # - name: Test
@@ -87,8 +87,7 @@ jobs:
 
     - name: Build
       run: |
-        stack build --system-ghc --stack-yaml stack-ghc${{ matrix.ghc }}.yaml
-        # stack build --system-ghc --test --bench --no-run-tests --no-run-benchmarks
+        stack build --system-ghc --stack-yaml stack-ghc${{ matrix.ghc }}.yaml --test --no-run-tests
 
     - name: Test
       run: |
