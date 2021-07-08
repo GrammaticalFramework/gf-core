@@ -576,7 +576,7 @@ test-suite lpgf
   else
     other-modules: GF.System.NoSignal
   build-depends:
-    ansi-terminal,
+    ansi-terminal >= 0.6.3 && < 0.12,
     array >= 0.5.1 && < 0.6,
     base >=4.6 && < 5,
     bytestring >= 0.10.8 && < 0.11,
@@ -598,9 +598,9 @@ test-suite lpgf
     unordered-containers >= 0.2.8 && < 0.3,
     utf8-string >= 1.0.1.1 && < 1.1
 
-  if impl(ghc<8)
+  if impl(ghc<8.0)
     build-depends:
-      ghc-prim >= 0.5.0 && < 0.7
+      fail >= 4.9.0 && < 4.10
 
   if os(windows)
     build-depends:
