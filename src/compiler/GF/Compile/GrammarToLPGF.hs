@@ -1,7 +1,7 @@
 module GF.Compile.GrammarToLPGF (mkCanon2lpgf) where
 
-import LPGF (LPGF (..))
-import qualified LPGF as L
+import LPGF.Internal (LPGF (..))
+import qualified LPGF.Internal as L
 
 import PGF.CId
 import GF.Grammar.Grammar

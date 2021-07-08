@@ -4,7 +4,7 @@ import PGF
 import PGF.Internal(concretes,optimizePGF,unionPGF)
 import PGF.Internal(putSplitAbs,encodeFile,runPut)
 import LPGF(LPGF)
-import qualified LPGF
+import qualified LPGF.Internal as LPGF
 import GF.Compile as S(batchCompile,link,linkl,srcAbsName)
 import GF.CompileInParallel as P(parallelBatchCompile)
 import GF.Compile.Export
@@ -193,7 +193,7 @@ writePGF opts pgf =
 writeLPGF :: Options -> LPGF -> IOE FilePath
 writeLPGF opts lpgf = do
   let
-    grammarName = fromMaybe (showCId (LPGF.abstractName lpgf)) (flag optName opts)
+    grammarName = fromMaybe (showCId (LPGF.absname lpgf)) (flag optName opts)
     outfile = outputPath opts (grammarName <.> "lpgf")
   writing opts outfile $ liftIO $ LPGF.encodeFile outfile lpgf
   return outfile

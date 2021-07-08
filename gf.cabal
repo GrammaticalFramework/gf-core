@@ -109,12 +109,13 @@ library
   ghc-prof-options: -fprof-auto
 
   exposed-modules:
+    LPGF
     PGF
     PGF.Internal
     PGF.Haskell
-    LPGF
 
   other-modules:
+    LPGF.Internal
     PGF.Data
     PGF.Macros
     PGF.Binary
@@ -540,6 +541,7 @@ test-suite lpgf
     GF.Text.Pretty
     GF.Text.Transliterations
     LPGF
+    LPGF.Internal
     PGF
     PGF.Binary
     PGF.ByteCode
@@ -740,6 +742,7 @@ benchmark lpgf-bench
     GF.Text.Pretty
     GF.Text.Transliterations
     LPGF
+    LPGF.Internal
     PGF
     PGF.Binary
     PGF.ByteCode
