@@ -437,7 +437,7 @@ wc_type = cmd_name
         x2 = takeWhile (\c -> isIdent c || isSpace c || c == '-' || c == '=' || c == '"') x1
 
         cmd = case [x | (x,cs) <- RP.readP_to_S pCommand x2, all isSpace cs] of
-	        [x] -> Just x
+                [x] -> Just x
                 _   -> Nothing
 
     isIdent c = c == '_' || c == '\'' || isAlphaNum c
