@@ -58,7 +58,7 @@ jobs:
 
     - name: Test
       run: |
-        PATH="$PWD/dist/build/gf:$PATH" cabal test gf-tests --show-details=direct
+        PATH="$PWD/dist/build/gf:$PATH" cabal test gf-tests
 
   stack:
     name: stack / ghc ${{ matrix.ghc }}
