@@ -54,11 +54,11 @@ jobs:
     - name: Build
       run: |
         cabal configure --enable-tests --test-show-details=direct
-        cabal build all
+        cabal build
 
-    # - name: Test
-    #   run: |
-    #     cabal test all
+    - name: Test
+      run: |
+        cabal test gf-tests
 
   stack:
     name: stack / ghc ${{ matrix.ghc }}
@@ -91,4 +91,4 @@ jobs:
 
     - name: Test
       run: |
-        stack test --system-ghc --stack-yaml stack-ghc${{ matrix.ghc }}.yaml
+        stack test --system-ghc --stack-yaml stack-ghc${{ matrix.ghc }}.yaml gf:test:gf-tests
