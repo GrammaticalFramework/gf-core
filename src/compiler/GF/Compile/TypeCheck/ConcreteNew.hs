@@ -765,9 +765,9 @@ zonkTerm (Meta i) = do
 zonkTerm t = composOp zonkTerm t
 
 tc_value2term loc xs v =
-  case value2term loc xs v of
+  return $ value2term loc xs v
+    -- Old value2term error message:
     -- Left i  -> tcError ("Variable #" <+> pp i <+> "has escaped")
-    t -> return t
 
 
 

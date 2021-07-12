@@ -33,9 +33,9 @@ normalForm (GE gr rv opts _) loc = err (bugloc loc) id . nfx (GE gr rv opts loc)
 nfx :: GlobalEnv -> Term -> Err Term
 nfx env@(GE _ _ _ loc) t = do
   v <- eval env [] t
-  case value2term loc [] v of
+  return (value2term loc [] v)
+    -- Old value2term error message:
     -- Left i  -> fail ("variable #"++show i++" is out of scope")
-    t -> return t
 
 eval :: GlobalEnv -> Env -> Term -> Err Value
 eval (GE gr rvs opts loc) env t = ($ (map snd env)) # value cenv t
@@ -289,9 +289,9 @@ glue env (v1,v2) = glu v1 v2
           (v1,v2) -> if flag optPlusAsBind (opts env)
                        then VC v1 (VC (VApp BIND []) v2)
                        else let loc  = gloc env
-                                vt v = case value2term loc (local env) v of
+                                vt v = value2term loc (local env) v
+                                        -- Old value2term error message:
                                         --  Left i  -> Error ('#':show i)
-                                        t -> t
                                 originalMsg = render $ ppL loc (hang "unsupported token gluing" 4
                                                                (Glue (vt v1) (vt v2)))
                                 term = render $ pp  $ Glue (vt v1) (vt v2)
@@ -356,9 +356,9 @@ select env vv =
       (v1,v2) -> ok2 VS v1 v2
 
 match loc cs v =
-  case value2term loc [] v of
+  err bad return (matchPattern cs (value2term loc [] v))
+    -- Old value2term error message:
     -- Left i  -> bad ("variable #"++show i++" is out of scope")
-    t -> err bad return (matchPattern cs t)
   where
     bad = fail . ("In pattern matching: "++)
 
@@ -384,9 +384,8 @@ valueTable env i cs =
     wild = case i of TWild _ -> True; _ -> False
 
     convertv cs' vty =
-      case value2term (gloc env) [] vty of
-        -- Left i    -> fail ("variable #"++show i++" is out of scope")
-        pty -> convert' cs' =<< paramValues'' env pty
+      convert' cs' =<< paramValues'' env (value2term (gloc env) [] vty)
+        -- Old value2term error message: Left i    -> fail ("variable #"++show i++" is out of scope")
 
     convert cs' ty = convert' cs' =<< paramValues' env ty
 
@@ -493,9 +492,9 @@ vtrace loc arg res = trace (render (hang (pv arg) 4 ("->"<+>pv res))) res
     pf (_,VString n) = pp n
     pf (_,v) = ppV v
     pa (_,v) = ppV v
-    ppV v = case value2term' True loc [] v of
+    ppV v = ppTerm Unqualified 10 (value2term' True loc [] v)
+              -- Old value2term error message:
               -- Left i  -> "variable #" <> pp i <+> "is out of scope"
-              t -> ppTerm Unqualified 10 t
 
 -- | Convert a value back to a term
 value2term :: GLocation -> [Ident] -> Value -> Term
