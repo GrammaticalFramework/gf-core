@@ -394,13 +394,15 @@ extra-lib-dirs:
 ```
 
 First you will need to install the following libraries if not already installed:
+autoconf, automake, libtool, make
 
-```
-apt-get install
-```
+On Ubuntu ``apt-get install autotools-dev``
+On Fedora ``dnf install autoconf automake libtool``
+
 
 and then run ``stack install``, also from the top directory.
 
+If you get an error ``error while loading shared libraries`` when trying to run gf with C runtime, remember to declare your LD_LIBRARY_PATH. Add ``export LD_LIBRARY_PATH="/usr/local/lib"`` to either your .bashrc or .profile. You should now be able to start GF with C runtime.
 
 === 3. Use GF server mode with C runtime ===
 
