@@ -392,9 +392,6 @@ autoconf, automake, libtool, make
 On Ubuntu ``apt-get install autotools-dev``
 On Fedora ``dnf install autoconf automake libtool``
 
-```
-apt-get install
-```
 and then run ``stack install``, also from the top directory.
 
 If you get an error ``error while loading shared libraries`` when trying to run gf with C runtime, remember to declare your LD_LIBRARY_PATH. Add ``export LD_LIBRARY_PATH="/usr/local/lib"`` to either your .bashrc or .profile. You should now be able to start GF with C runtime.
@@ -455,6 +452,10 @@ If you do not have Haskell installed, you can use the simple build script ``Setu
 
 
 == Creating binary distribution packages ==
+
+The binaries are generated with Github Actions. More details can be viewed here:
+
+https://github.com/GrammaticalFramework/gf-core/actions/workflows/build-binary-packages.yml
 
 === Creating .deb packages for Ubuntu ===
 
