@@ -26,6 +26,7 @@ If the Haskell Tool Stack is already installed, enter the following command in a
 - On Ubuntu: ``sudo apt-get install git libghc6-haskeline-dev``
 - On Fedora: ``sudo dnf install git ghc-haskeline-devel``
 
+
 **On Mac OS and Windows**, the tools can be downloaded from their respective
 web sites, as described below.
 
@@ -50,79 +51,60 @@ required by //haskeline// are installed.  Here is one way to do this:
 
 == Getting the source ==
 
-Once you have all tools in place you can get the GF source code. If you
-just want to compile and use GF then it is enough to have read-only
-access. It is also possible to make changes in the source code but if you
-want these changes to be applied back to the main source repository you will
-have to send the changes to us.  If you plan to work continuously on
-GF then you should consider getting read-write access.
+Once you have all tools in place you can get the GF source code from
+[GitHub https://github.com/GrammaticalFramework/gf-core].
 
-=== Read-only access ===
+=== Read-only access: clone the main repository ===
 
-==== Getting a fresh copy for read-only access ====
-
-Anyone can get the latest development version of GF by running:
+If you only want to compile and use GF, you can just clone the repository as follows:
 
 ```
-$ git clone https://github.com/GrammaticalFramework/gf-core.git
-$ git clone https://github.com/GrammaticalFramework/gf-rgl.git
+  $ git clone https://github.com/GrammaticalFramework/gf-core.git
 ```
 
-This will create directories ``gf-core`` and ``gf-rgl`` in the current directory.
-
-
-==== Updating your copy ====
-
-To get all new patches from each repo:
-```
-$ git pull
-```
-This can be done anywhere in your local repository.
-
-
-==== Recording local changes ====[record]
-
-Since every copy is a repository, you can have local version control
-of your changes.
-
-If you have added files, you first need to tell your local repository to
-keep them under revision control:
+To get new updates, run the following anywhere in your local copy of the repository:
 
 ```
-$ git add file1 file2 ...
+  $ git pull
 ```
 
-To record changes, use:
+=== Contribute your changes: create a fork ===
+
+If you want the possibility to contribute your changes, you should
+[create your own fork https://docs.github.com/en/get-started/quickstart/fork-a-repo]
+of the repository, and then clone that.
 
 ```
-$ git commit file1 file2 ...
+  $ git clone https://github.com/<YOUR_USERNAME>/gf-core.git
 ```
 
-This creates a patch against the previous version and stores it in your
-local repository. You can record any number of changes before
-pushing them to the main repo. In fact, you don't have to push them at
-all if you want to keep the changes only in your local repo.
-
-Instead of enumerating all modified files on the command line,
-you can use the flag ``-a`` to automatically record //all// modified
-files. You still need to use ``git add`` to add new files.
-
-
-=== Read-write access ===
-
-If you are a member of the GF project on GitHub, you can push your
-changes directly to the GF git repository on GitHub.
+**Updating your copy —**
+Once you have cloned your fork, you need to set up the main GrammaticalFramework repository as a remote:
 
 ```
-$ git push
+  $ git remote add upstream https://github.com/GrammaticalFramework/gf-core.git
 ```
 
-It is also possible for anyone else to contribute by
+Then you can get the latest updates by running the following:
 
-- creating a fork of the GF repository on GitHub,
-- working with local clone of the fork (obtained with ``git clone``),
-- pushing changes to the fork,
-- and finally sending a pull request.
+```
+  $ git pull upstream master
+```
+
+**Recording local changes —**
+If you are new to Git, we recommend to read a tutorial on how to [record and push your changes https://git-scm.com/book/en/v2/Git-Basics-Recording-Changes-to-the-Repository] to your fork.
+
+
+**Pull request —**
+TODO
+
+
+%It is also possible for anyone else to contribute by
+
+%- creating a fork of the GF repository on GitHub,
+%- working with local clone of the fork (obtained with ``git clone``),
+%- pushing changes to the fork,
+%- and finally sending a pull request.
 
 
 == Compilation from source with Stack ==
@@ -414,7 +396,8 @@ extra-lib-dirs:
 First you will need to install the following libraries if not already installed:
 
 ```
-apt-get install 
+apt-get install
+```
 
 and then run ``stack install``, also from the top directory.
 
