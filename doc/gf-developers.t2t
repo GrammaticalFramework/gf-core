@@ -96,16 +96,9 @@ If you are new to Git, we recommend to read a tutorial on how to [record and pus
 
 
 **Pull request —**
-TODO
-
-
-%It is also possible for anyone else to contribute by
-
-%- creating a fork of the GF repository on GitHub,
-%- working with local clone of the fork (obtained with ``git clone``),
-%- pushing changes to the fork,
-%- and finally sending a pull request.
-
+When you want to contribute your changes to the main gf-core repository,
+[create a pull request https://docs.github.com/en/github/collaborating-with-pull-requests/proposing-changes-to-your-work-with-pull-requests/creating-a-pull-request]
+from your fork.
 
 == Compilation from source with Stack ==
 
@@ -399,7 +392,9 @@ autoconf, automake, libtool, make
 On Ubuntu ``apt-get install autotools-dev``
 On Fedora ``dnf install autoconf automake libtool``
 
-
+```
+apt-get install
+```
 and then run ``stack install``, also from the top directory.
 
 If you get an error ``error while loading shared libraries`` when trying to run gf with C runtime, remember to declare your LD_LIBRARY_PATH. Add ``export LD_LIBRARY_PATH="/usr/local/lib"`` to either your .bashrc or .profile. You should now be able to start GF with C runtime.
