@@ -30,6 +30,21 @@ If the Haskell Tool Stack is already installed, enter the following command in a
 **On Mac OS and Windows**, the tools can be downloaded from their respective
 web sites, as described below.
 
+=== Stack ===
+The primary installation method is via ``stack``. To install [stack https://docs.haskellstack.org/en/stable/README/]
+- **On Mac and other Unix**, do either
+```
+curl -sSL https://get.haskellstack.org/ | sh
+```
+**OR**
+```
+wget -qO- https://get.haskellstack.org/ | sh
+```
+- **On Windows and other operating systems** :check out the install and [upgrade guide https://docs.haskellstack.org/en/stable/install_and_upgrade]
+
+If you already have stack installed, upgrade it to the latest version by running: ``stack upgrade``
+
+
 === Git ===
 
 To get the GF source code, you also need //Git//.
