@@ -15,51 +15,27 @@ you are a GF user who just wants to download and install GF
 == Setting up your system for building GF ==
 
 To build GF from source you need to install some tools on your
-system: the //Haskell Platform//, //Git// and the //Haskeline library//.
+system: the Haskell Tool Stack, //Git// and the //Haskeline library//.
 
 **On Linux** the best option is to install the tools via the standard
 software distribution channels, i.e. by using the //Software Center//
 in Ubuntu or the corresponding tool in other popular Linux distributions.
-Or, from a Terminal window, the following command should be enough:
 
-- On Ubuntu: ``sudo apt-get install haskell-platform git libghc6-haskeline-dev``
-- On Fedora: ``sudo dnf install haskell-platform git ghc-haskeline-devel``
+If the Haskell Tool Stack is already installed, enter the following command in a Terminal:
 
+- On Ubuntu: ``sudo apt-get install git libghc6-haskeline-dev``
+- On Fedora: ``sudo dnf install git ghc-haskeline-devel``
 
 **On Mac OS and Windows**, the tools can be downloaded from their respective
 web sites, as described below.
-
-=== The Haskell Platform ===
-
-GF is written in Haskell, so first of all you need
-the //Haskell Platform//, e.g. version 8.0.2 or 7.10.3. Downloads
-and installation instructions are available from here:
-
-    http://hackage.haskell.org/platform/
-
-Once you have installed the Haskell Platform, open a terminal
-(Command Prompt on Windows) and try to execute the following command:
-```
-$ ghc --version
-```
-This command should show you which version of GHC you have. If the installation
-of the Haskell Platform	 was successful you should see a message like:
-
-```
-The Glorious Glasgow Haskell Compilation System, version 8.0.2
-```
-
-Other required tools included in the Haskell Platform are
-[Cabal http://www.haskell.org/cabal/],
-[Alex http://www.haskell.org/alex/]
-and
-[Happy http://www.haskell.org/happy/].
 
 === Git ===
 
 To get the GF source code, you also need //Git//.
 //Git// is a distributed version control system, see
 https://git-scm.com/downloads for more information.
+
+If you've entered the command above, it incudes git installation.
 
 === The haskeline library ===
 
@@ -147,6 +123,17 @@ It is also possible for anyone else to contribute by
 - working with local clone of the fork (obtained with ``git clone``),
 - pushing changes to the fork,
 - and finally sending a pull request.
+
+
+== Compilation from source with Stack ==
+
+Assuming you have the Haskell Tool Stack, Git, and Haskeline installed, entering
+
+```
+$ stack install
+```
+
+into a Terminal will install GF and all necessary libraries, including Alex and Happy.
 
 
 
@@ -423,6 +410,11 @@ flags:
 extra-lib-dirs:
    - /usr/local/lib
 ```
+
+First you will need to install the following libraries if not already installed:
+
+```
+apt-get install 
 
 and then run ``stack install``, also from the top directory.
 
