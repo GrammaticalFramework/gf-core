@@ -458,7 +458,6 @@ extra-lib-dirs:
 and then run ``stack install``, also from the top directory.
 
 
-The Python library can also be installed from PyPI using `pip install pgf`.
 
 == Compilation of RGL ==
 
@@ -552,36 +551,63 @@ the GF ``.rpm`` package.
 When building ``.rpm`` packages for GF 3.4, we also had to build ``.rpm``s for
 ``fst`` and ``httpd-shed``.
 
-== Running the testsuite ==
+== Running the test suite ==
 
-**NOTE:** The test suite has not been maintained recently, so expect many
-tests to fail.
-%% // TH 2012-08-06
+The GF test suite is run with one of the following commands from the top directory:
 
-GF has testsuite. It is run with the following command:
 ```
-$ cabal test
+  $ cabal test
 ```
+
+or
+
+```
+  $ stack test
+```
+
 The testsuite architecture for GF is very simple but still very flexible.
 GF by itself is an interpreter and could execute commands in batch mode.
 This is everything that we need to organize a testsuite. The root of the
-testsuite is the testsuite/ directory. It contains subdirectories which
-themself contain GF batch files (with extension .gfs). The above command
-searches the subdirectories of the testsuite/ directory for files with extension
-.gfs and when it finds one it is executed with the GF interpreter.
-The output of the script is stored in file with extension .out and is compared
-with the content of the corresponding file with extension .gold, if there is one.
-If the contents are identical the command reports that the test was passed successfully.
-Otherwise the test had failed.
+testsuite is the ``testsuite/`` directory. It contains subdirectories
+which themselves contain GF batch files (with extension ``.gfs``).
+The above command searches the subdirectories of the ``testsuite/`` directory
+for files with extension ``.gfs`` and when it finds one, it is executed with
+the GF interpreter. The output of the script is stored in file with extension ``.out``
+and is compared with the content of the corresponding file with extension ``.gold``, if there is one.
 
-Every time when you make some changes to GF that have to be tested, instead of
-writing the commands by hand in the GF shell, add them to one .gfs file in the testsuite
-and run the test. In this way you can use the same test later and we will be sure
-that we will not incidentaly break your code later.
+Every time when you make some changes to GF that have to be tested,
+instead of writing the commands by hand in the GF shell, add them to one ``.gfs``
+file in the testsuite subdirectory where its ``.gf`` file resides and run the test.
+In this way you can use the same test later and we will be sure that we will not
+accidentally break your code later.
 
-If you don't want to run the whole testsuite you can write the path to the subdirectory
-in which you are interested. For example:
+**Test Outcome - Passed:** If the contents of the files with the ``.out`` extension
+are identical to their correspondingly-named files with the extension ``.gold``,
+the command will report that the tests passed successfully, e.g.
+
 ```
-$ cabal test testsuite/compiler
+ Running 1 test suites...
+ Test suite gf-tests: RUNNING...
+ Test suite gf-tests: PASS
+ 1 of 1 test suites (1 of 1 test cases) passed.
 ```
-will run only the testsuite for the compiler.
+
+**Test Outcome - Failed:**  If there is a contents mismatch between the files
+with the ``.out`` extension and their corresponding files with the extension ``.gold``,
+the test diagnostics will show a fail and the areas that failed. e.g.
+
+```
+  testsuite/compiler/compute/Records.gfs: OK
+  testsuite/compiler/compute/Variants.gfs: FAIL
+  testsuite/compiler/params/params.gfs: OK
+  Test suite gf-tests: FAIL
+  0 of 1 test suites (0 of 1 test cases) passed.
+```
+
+The fail results overview is available in gf-tests.html which shows 4 columns:
+
++ //Results// - only areas that fail will appear. (Note: There are 3 failures in the gf-tests.html which are labelled as (expected). These failures should be ignored.)
++ //Input// - which is the test written in the .gfs file
++ //Gold// - the expected output from running the test set out in the .gfs file. This column refers to the contents from the .gold extension files.
++ //Output// - This column refers to the contents from the .out extension files which are generated as test output.
+After fixing the areas which fail, rerun the test command. Repeat the entire process of fix-and-test until the test suite passes before  submitting a pull request to include your changes.
