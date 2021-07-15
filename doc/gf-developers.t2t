@@ -1,6 +1,6 @@
 GF Developers Guide
 
-2018-07-26
+2021-07-15
 
 %!options(html): --toc
 
@@ -15,66 +15,81 @@ you are a GF user who just wants to download and install GF
 == Setting up your system for building GF ==
 
 To build GF from source you need to install some tools on your
-system: the Haskell Tool Stack, //Git// and the //Haskeline library//.
+system: the Haskell build tool //Stack//, the version control software //Git// and the //Haskeline// library.
 
-**On Linux** the best option is to install the tools via the standard
-software distribution channels, i.e. by using the //Software Center//
-in Ubuntu or the corresponding tool in other popular Linux distributions.
+%**On Linux** the best option is to install the tools via the standard
+%software distribution channels, i.e. by using the //Software Center//
+%in Ubuntu or the corresponding tool in other popular Linux distributions.
 
-If the Haskell Tool Stack is already installed, enter the following command in a Terminal:
-
-- On Ubuntu: ``sudo apt-get install git libghc6-haskeline-dev``
-- On Fedora: ``sudo dnf install git ghc-haskeline-devel``
-
-
-**On Mac OS and Windows**, the tools can be downloaded from their respective
-web sites, as described below.
+%**On Mac OS and Windows**, the tools can be downloaded from their respective
+%web sites, as described below.
 
 === Stack ===
-The primary installation method is via ``stack``. To install [stack https://docs.haskellstack.org/en/stable/README/]
-- **On Mac and other Unix**, do either
-```
-curl -sSL https://get.haskellstack.org/ | sh
-```
-**OR**
-```
-wget -qO- https://get.haskellstack.org/ | sh
-```
-- **On Windows and other operating systems** :check out the install and [upgrade guide https://docs.haskellstack.org/en/stable/install_and_upgrade]
+The primary installation method is via //Stack//.
+(You can also use Cabal, but we recommend Stack to those who are new to Haskell.)
 
-If you already have stack installed, upgrade it to the latest version by running: ``stack upgrade``
+To install Stack:
+
+- **On Linux and Mac OS**, do either
+
+    ``$ curl -sSL https://get.haskellstack.org/ | sh``
+
+  or
+
+    ``$ wget -qO- https://get.haskellstack.org/ | sh``
+
+
+- **On other operating systems**, see the [installation guide https://docs.haskellstack.org/en/stable/install_and_upgrade].
+
+
+%If you already have Stack installed, upgrade it to the latest version by running: ``stack upgrade``
 
 
 === Git ===
 
-To get the GF source code, you also need //Git//.
-//Git// is a distributed version control system, see
-https://git-scm.com/downloads for more information.
+To get the GF source code, you also need //Git//, a distributed version control system.
 
-If you've entered the command above, it incudes git installation.
+- **On Linux**, the best option is to install the tools via the standard
+software distribution channels:
 
-=== The haskeline library ===
+  - On Ubuntu: ``sudo apt-get install git-all``
+  - On Fedora: ``sudo dnf install git-all``
+
+
+- **On other operating systems**, see
+https://git-scm.com/book/en/v2/Getting-Started-Installing-Git for installation.
+
+
+
+=== Haskeline ===
 
 GF uses //haskeline// to enable command line editing in the GF shell.
-This should work automatically on Mac OS and Windows, but on Linux one
-extra step is needed to make sure the C libraries (terminfo)
-required by //haskeline// are installed.  Here is one way to do this:
 
-- On Ubuntu: ``sudo apt-get install libghc-haskeline-dev``
-- On Fedora: ``sudo dnf install ghc-haskeline-devel``
+- **On Mac OS and Windows**, this should work automatically.
+
+- **On Linux**, an extra step is needed to make sure the C libraries (terminfo)
+required by //haskeline// are installed:
+
+  - On Ubuntu: ``sudo apt-get install libghc-haskeline-dev``
+  - On Fedora: ``sudo dnf install ghc-haskeline-devel``
 
 
-== Getting the source ==
+== Getting the source ==[getting-source]
 
 Once you have all tools in place you can get the GF source code from
-[GitHub https://github.com/GrammaticalFramework/gf-core].
+[GitHub https://github.com/GrammaticalFramework/]:
+
+- https://github.com/GrammaticalFramework/gf-core for the GF compiler
+- https://github.com/GrammaticalFramework/gf-rgl for the Resource Grammar Library
+
 
 === Read-only access: clone the main repository ===
 
-If you only want to compile and use GF, you can just clone the repository as follows:
+If you only want to compile and use GF, you can just clone the repositories as follows:
 
 ```
   $ git clone https://github.com/GrammaticalFramework/gf-core.git
+  $ git clone https://github.com/GrammaticalFramework/gf-rgl.git
 ```
 
 To get new updates, run the following anywhere in your local copy of the repository:
@@ -83,18 +98,22 @@ To get new updates, run the following anywhere in your local copy of the reposit
   $ git pull
 ```
 
-=== Contribute your changes: create a fork ===
+=== Contribute your changes: fork the main repository ===
 
-If you want the possibility to contribute your changes, you should
-[create your own fork https://docs.github.com/en/get-started/quickstart/fork-a-repo]
-of the repository, and then clone that.
+If you want the possibility to contribute your changes,
+you should create your own fork, do your changes there,
+and then send a pull request to the main repository.
+
++ **Creating and cloning a fork  —**
+See GitHub documentation for instructions how to [create your own fork https://docs.github.com/en/get-started/quickstart/fork-a-repo]
+of the repository. Once you've done it, clone the fork to your local computer.
 
 ```
   $ git clone https://github.com/<YOUR_USERNAME>/gf-core.git
 ```
 
-**Updating your copy —**
-Once you have cloned your fork, you need to set up the main GrammaticalFramework repository as a remote:
++ **Updating your copy —**
+Once you have cloned your fork, you need to set up the main repository as a remote:
 
 ```
   $ git remote add upstream https://github.com/GrammaticalFramework/gf-core.git
@@ -106,61 +125,44 @@ Then you can get the latest updates by running the following:
   $ git pull upstream master
 ```
 
-**Recording local changes —**
-If you are new to Git, we recommend to read a tutorial on how to [record and push your changes https://git-scm.com/book/en/v2/Git-Basics-Recording-Changes-to-the-Repository] to your fork.
++ **Recording local changes —**
+See Git tutorial on how to [record and push your changes https://git-scm.com/book/en/v2/Git-Basics-Recording-Changes-to-the-Repository] to your fork.
 
-
-**Pull request —**
++ **Pull request —**
 When you want to contribute your changes to the main gf-core repository,
 [create a pull request https://docs.github.com/en/github/collaborating-with-pull-requests/proposing-changes-to-your-work-with-pull-requests/creating-a-pull-request]
 from your fork.
 
-== Compilation from source with Stack ==
 
-Assuming you have the Haskell Tool Stack, Git, and Haskeline installed, entering
+
+If you want to contribute to the RGL as well, do the same process for the RGL repository.
+
+
+== Compilation from source ==
+
+By now you should have installed Stack and Haskeline, and cloned the Git repository on your own computer, in a directory called ``gf-core``.
+
+=== Primary recommendation: use Stack ===
+
+Open a terminal, go to the top directory (``gf-core``), and type the following command.
 
 ```
 $ stack install
 ```
 
-into a Terminal will install GF and all necessary libraries, including Alex and Happy.
+It will install GF and all necessary tools and libraries to do that.
 
 
+=== Alternative: use Cabal ===
+You can also install GF using Cabal, if you prefer Cabal to Stack. In that case, you may need to install some prerequisites yourself.
 
-== Compilation from source with Cabal ==
-
-The build system of GF is based on //Cabal//, which is part of the
-Haskell Platform, so no extra steps are needed to install it. In the simplest
-case, all you need to do to compile and install GF, after downloading the
-source code as described above, is
+The actual installation process is similar to Stack: open a terminal, go to the top directory (``gf-core``), and type the following command.
 
 ```
 $ cabal install
 ```
 
-//The old (partially outdated) instructions for Cabal are moved to a [separate page ../doc/gf-developers-old-cabal.html]. If you run into trouble with ``cabal install``, you may want to take a look.//
-
-
-%=== SDist ===
-%
-%You can use the command:
-%
-%% This does *NOT* include everything that is needed // TH 2012-08-06
-%```
-%$ cabal sdist
-%```
-%
-%to prepare archive with all source codes needed to compile GF.
-
-=== Known problems with Cabal ===
-
-Some versions of Cabal (at least version 1.16) seem to have a bug that can
-cause the following error:
-
-```
-Configuring gf-3.x...
-setup: Distribution/Simple/PackageIndex.hs:124:8-13: Assertion failed
-```
+//The old (potentially outdated) instructions for Cabal are moved to a [separate page ../doc/gf-developers-old-cabal.html]. If you run into trouble with ``cabal install``, you may want to take a look.//
 
 == Compiling GF with C runtime system support ==
 
@@ -290,6 +292,10 @@ and then run ``stack install``, also from the top directory.
 
 As of 2018-07-26, the RGL is distributed separately from the GF compiler and runtimes.
 
+To get the source, follow the previous instructions on [how to clone a repository with Git #getting-source].
+
+After cloning the RGL, you should have a directory named ``gf-rgl`` on your computer.
+
 === Simple ===
 To install the RGL, you can use the following commands from within the ``gf-rgl`` repository:
 ```
@@ -371,8 +377,8 @@ the test diagnostics will show a fail and the areas that failed. e.g.
 
 The fail results overview is available in gf-tests.html which shows 4 columns:
 
-+ //Results// - only areas that fail will appear. (Note: There are 3 failures in the gf-tests.html which are labelled as (expected). These failures should be ignored.)
-+ //Input// - which is the test written in the .gfs file
-+ //Gold// - the expected output from running the test set out in the .gfs file. This column refers to the contents from the .gold extension files.
-+ //Output// - This column refers to the contents from the .out extension files which are generated as test output.
++ __Results__ - only areas that fail will appear. (Note: There are 3 failures in the gf-tests.html which are labelled as (expected). These failures should be ignored.)
++ __Input__ - which is the test written in the .gfs file
++ __Gold__ - the expected output from running the test set out in the .gfs file. This column refers to the contents from the .gold extension files.
++ __Output__ - This column refers to the contents from the .out extension files which are generated as test output.
 After fixing the areas which fail, rerun the test command. Repeat the entire process of fix-and-test until the test suite passes before  submitting a pull request to include your changes.
