@@ -197,7 +197,7 @@ CitRestaurant cit = mkCNPlace (mkCN cit  (mkN "Restaurant" "Restaurants" neuter)
 
     Bike = mkTransport L.bike_N ; 
     Bus = mkTransport (mkN "Bus" "Bus" "Bus" "Bus" "Buss" "Buss" masculine) ;
-    Car = mkTransport L.car_N ;
+    Car = mkTransport (mkN "Wagen" "Wagen" masculine) ; -- L.car_N ;
     Ferry = mkTransport (mkN "Fähre" "Fähre" "Fähre" "Fähre" "Fähren" "Fähren" feminine) ;
     Plane = mkTransport (mkN "Flugzeug" "Flugzeug" "Flugzeug" "Flugzeug" "Flugzeuge" "Flugzeuge" neuter) ;
     Subway = mkTransport (mkN "U-Bahn" "U-Bahn" "U-Bahn" "U-Bahn" "U-Bahnen" "U-Bahnen" feminine) ;
