@@ -136,16 +136,18 @@ jobs:
         cp /mingw64/bin/libpgf-0.dll /c/tmp-dist/c
         cp /mingw64/bin/libgu-0.dll /c/tmp-dist/c
 
+    # JAVA_HOME_8_X64 = C:\hostedtoolcache\windows\Java_Adopt_jdk\8.0.292-10\x64
     - name: Build Java bindings
       shell: msys2 {0}
       run: |
-        export PATH="${PATH}:/c/Program Files/Java/jdk8u275-b01/bin"
+        export JDKPATH=/c/hostedtoolcache/windows/Java_Adopt_jdk/8.0.292-10/x64
+        export PATH="${PATH}:${JDKPATH}/bin"
         cd src/runtime/java
         make \
-          JNI_INCLUDES="-I \"/c/Program Files/Java/jdk8u275-b01/include\" -I \"/c/Program Files/Java/jdk8u275-b01/include/win32\" -I \"/mingw64/include\" -D__int64=int64_t" \
+          JNI_INCLUDES="-I \"${JDKPATH}/include\" -I \"${JDKPATH}/include/win32\" -I \"/mingw64/include\" -D__int64=int64_t" \
           WINDOWS_LDFLAGS="-L\"/mingw64/lib\" -no-undefined"
         make install
-        cp .libs//msys-jpgf-0.dll /c/tmp-dist/java/jpgf.dll
+        cp .libs/msys-jpgf-0.dll /c/tmp-dist/java/jpgf.dll
         cp jpgf.jar /c/tmp-dist/java
 
     - name: Build Python bindings
