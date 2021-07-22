@@ -2,7 +2,8 @@ name: Build Binary Packages
 
 on:
   workflow_dispatch:
-  release:
+  release: 
+    types: ["created"]
 
 jobs:
 
