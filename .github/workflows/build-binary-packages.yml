@@ -10,11 +10,13 @@ jobs:
 
   ubuntu:
     name: Build Ubuntu package
-    runs-on: ubuntu-latest
-    # strategy:
-    #   matrix:
-    #     ghc: ["8.6.5"]
-    #     cabal: ["2.4"]
+    strategy:
+      matrix:
+        os:
+        - ubuntu-18.04
+        - ubuntu-20.04
+
+    runs-on: ${{ matrix.os }}
 
     steps:
     - uses: actions/checkout@v2
@@ -53,7 +55,7 @@ jobs:
     - name: Upload artifact
       uses: actions/upload-artifact@v2
       with:
-        name: gf-${{ github.sha }}-ubuntu
+        name: gf-${{ github.sha }}-${{ matrix.os }}
         path: dist/gf_*.deb
         if-no-files-found: error
 
