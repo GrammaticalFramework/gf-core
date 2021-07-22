@@ -26,7 +26,8 @@ jobs:
     - name: Find Java stuff
       shell: msys2 {0}
       run: |
-        find /c -name "jni.h"
+        echo $JAVA_HOME_8_X64
+        find "/c/Program Files/Java" -name "jni.h"
 
     - name: Prepare dist folder
       shell: msys2 {0}
