@@ -159,7 +159,7 @@ jobs:
         cd src/runtime/python
         python setup.py build
         python setup.py install
-        cp /usr/lib/python3.8/site-packages/pgf* /c/tmp-dist/python
+        cp /usr/lib/python3.9/site-packages/pgf* /c/tmp-dist/python
 
     - name: Setup Haskell
       uses: actions/setup-haskell@v1
