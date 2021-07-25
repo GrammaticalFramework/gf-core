@@ -1,7 +1,7 @@
 ---
 title: GF 3.11 Release Notes
-date: ... July 2021
-...
+date: 25 July 2021
+---
 
 ## Installation
 
