@@ -60,12 +60,16 @@ jobs:
         path: dist/gf_*.deb
         if-no-files-found: error
 
+    - name: Rename package for specific ubuntu version
+      run: |
+        mv dist/gf_*.deb dist/gf-${{ github.event.release.tag_name }}-${{ matrix.os }}.deb
+
     - uses: actions/upload-release-asset@v1.0.2
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       with:
         upload_url: ${{ github.event.release.upload_url }}
-        asset_path: dist/gf_*.deb
+        asset_path: dist/gf-${{ github.event.release.tag_name }}-${{ matrix.os }}.deb
         asset_name: gf-${{ github.event.release.tag_name }}-${{ matrix.os }}.deb
         asset_content_type: application/octet-stream
 
@@ -105,17 +109,21 @@ jobs:
     - name: Upload artifact
       uses: actions/upload-artifact@v2
       with:
-        name: gf-${{ github.sha }}-macos
+        name: gf-${{ github.event.release.tag_name }}-macos
         path: dist/gf-*.pkg
         if-no-files-found: error
+    
+    - name: Rename package
+      run: |
+        mv dist/gf-*.pkg dist/gf-${{ github.event.release.tag_name }}-macos.pkg
 
     - uses: actions/upload-release-asset@v1.0.2
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       with:
         upload_url: ${{ github.event.release.upload_url }}
-        asset_path: dist/gf_*.pkg
-        asset_name: gf-${{ github.event.release.tag_name }}-${{ matrix.os }}.deb
+        asset_path: dist/gf-${{ github.event.release.tag_name }}-macos.pkg
+        asset_name: gf-${{ github.event.release.tag_name }}-macos.pkg
         asset_content_type: application/octet-stream
 
 # ---
@@ -205,15 +213,18 @@ jobs:
     - name: Upload artifact
       uses: actions/upload-artifact@v2
       with:
-        name: gf-${{ github.sha }}-windows
+        name: gf-${{ github.event.release.tag_name }}-windows
         path: C:\tmp-dist\*
         if-no-files-found: error
 
+    - name: Create archive
+      run: |
+        Compress-Archive C:\tmp-dist C:\gf-${{ github.event.release.tag_name }}-windows.zip
     - uses: actions/upload-release-asset@v1.0.2
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       with:
         upload_url: ${{ github.event.release.upload_url }}
-        asset_path: C:\tmp-dist\*
-        asset_name: gf-${{ github.event.release.tag_name }}-${{ matrix.os }}
-        asset_content_type: application/octet-stream
+        asset_path: C:\gf-${{ github.event.release.tag_name }}-windows.zip
+        asset_name: gf-${{ github.event.release.tag_name }}-windows.zip
+        asset_content_type: application/zip
