@@ -23,10 +23,10 @@ data Fun      = Fun      { fname:: FunId, ftype:: Type }
 
 data Concrete = Concrete { langcode:: Id,
                            opens:: [ModId],
-		           params:: [Param],
-		           lincats:: [Lincat],
-		           opers:: [Oper],
-		           lins:: [Lin] }
+                           params:: [Param],
+                           lincats:: [Lincat],
+                           opers:: [Oper],
+                           lins:: [Lin] }
                 deriving Show
 
 data Param  = Param  {pname:: Id, prhs:: String}              deriving Show

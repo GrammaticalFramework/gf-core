@@ -5,7 +5,7 @@
 -- Stability   : (stable)
 -- Portability : (portable)
 --
--- > CVS $Date: 2005/10/26 17:13:13 $ 
+-- > CVS $Date: 2005/10/26 17:13:13 $
 -- > CVS $Author: bringert $
 -- > CVS $Revision: 1.1 $
 --
@@ -83,7 +83,7 @@ transitiveClosure r = fix (Map.map growSet) r
   where growSet ys = foldl Set.union ys (map (allRelated r) $ Set.toList ys)
 
 reflexiveClosure_ :: Ord a => [a] -- ^ The set over which the relation is defined.
-		 -> Rel a -> Rel a
+                  -> Rel a -> Rel a
 reflexiveClosure_ u r = relates [(x,x) | x <- u] r
 
 -- | Uses 'domain'
@@ -104,7 +104,7 @@ reflexiveElements :: Ord a => Rel a -> Set a
 reflexiveElements r = Set.fromList [ x | (x,ys) <- Map.toList r, x `Set.member` ys ]
 
 -- | Keep the related pairs for which the predicate is true.
-filterRel :: Ord a => (a -> a -> Bool) -> Rel a -> Rel a 
+filterRel :: Ord a => (a -> a -> Bool) -> Rel a -> Rel a
 filterRel p = fst . purgeEmpty . Map.mapWithKey (Set.filter . p)
 
 -- | Remove keys that map to no elements.
@@ -112,16 +112,16 @@ purgeEmpty :: Ord a => Rel a -> (Rel a, Set a)
 purgeEmpty r = let (r',r'') = Map.partition (not . Set.null) r
                 in (r', Map.keysSet r'')
 
--- | Get the equivalence classes from an equivalence relation. 
+-- | Get the equivalence classes from an equivalence relation.
 equivalenceClasses :: Ord a => Rel a -> [Set a]
 equivalenceClasses r = equivalenceClasses_ (Map.keys r) r
  where equivalenceClasses_ [] _ = []
        equivalenceClasses_ (x:xs) r = ys:equivalenceClasses_ zs r
-	   where ys = allRelated r x
-                 zs = [x' | x' <- xs, not (x' `Set.member` ys)]
+          where ys = allRelated r x
+                zs = [x' | x' <- xs, not (x' `Set.member` ys)]
 
 isTransitive :: Ord a => Rel a -> Bool
-isTransitive r = and [z `Set.member` ys | (x,ys) <- Map.toList r, 
+isTransitive r = and [z `Set.member` ys | (x,ys) <- Map.toList r,
                       y <- Set.toList ys, z <- Set.toList (allRelated r y)]
 
 isReflexive :: Ord a => Rel a -> Bool
@@ -181,7 +181,7 @@ remove x r = let (mss,r') = Map.updateLookupWithKey (\_ _ -> Nothing) x r
                    Nothing      -> (r', Set.empty, Set.empty)
                    -- remove element from all incoming and outgoing sets
                    -- of other elements
-                   Just (is,os) -> 
+                   Just (is,os) ->
                        let r''  = foldr (\i -> Map.adjust (\ (is',os') -> (is', Set.delete x os')) i) r'  $ Set.toList is
                            r''' = foldr (\o -> Map.adjust (\ (is',os') -> (Set.delete x is', os')) o) r'' $ Set.toList os
                         in (r''', is, os)

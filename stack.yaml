@@ -1,9 +1,18 @@
-# This default stack file is a copy of stack-ghc8.6.5.yaml
-# But committing a symlink is probably a bad idea, so it's a real copy
+# This default stack file is a copy of stack-ghc8.10.4.yaml
+# But committing a symlink can be problematic on Windows, so it's a real copy.
+# See: https://github.com/GrammaticalFramework/gf-core/pull/106
 
-resolver: lts-14.27 # ghc 8.6.5
+resolver: lts-18.0 # ghc 8.10.4
 
 extra-deps:
 - network-2.6.3.6
 - httpd-shed-0.4.0.3
-- cgi-3001.5.0.0
+- cgi-3001.5.0.0@sha256:3d1193a328d5f627a021a0ef3927c1ae41dd341e32dba612fed52d0e3a6df056,2990
+- json-0.10@sha256:d9fc6b07ce92b8894825a17d2cf14799856767eb30c8bf55962baa579207d799,3210
+- multipart-0.2.0@sha256:b8770e3ff6089be4dd089a8250894b31287cca671f3d258190a505f9351fa8a9,1084
+
+# flags:
+#   gf:
+#     c-runtime: true
+# extra-lib-dirs:
+#   - /usr/local/lib

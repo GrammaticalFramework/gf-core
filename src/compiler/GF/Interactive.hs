@@ -38,7 +38,6 @@ import GF.Server(server)
 #endif
 
 import GF.Command.Messages(welcome)
-import GF.Infra.UseIO (Output)
 -- Provides an orphan instance of MonadFail for StateT in ghc versions < 8
 import Control.Monad.Trans.Instances ()
 
@@ -56,6 +55,7 @@ mainGFI opts files = do
 
 shell opts files = flip evalStateT (emptyGFEnv opts) $
                    do mapStateT runSIO $ importInEnv opts files
+                      modify $ \ gfenv0 -> gfenv0 {history = [unwords ("i":files)]}
                       loop
 
 #ifdef SERVER_MODE
@@ -433,7 +433,7 @@ wc_type = cmd_name
         x2 = takeWhile (\c -> isIdent c || isSpace c || c == '-' || c == '=' || c == '"') x1
 
         cmd = case [x | (x,cs) <- RP.readP_to_S pCommand x2, all isSpace cs] of
-	        [x] -> Just x
+                [x] -> Just x
                 _   -> Nothing
 
     isIdent c = c == '_' || c == '\'' || isAlphaNum c

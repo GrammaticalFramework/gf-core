@@ -1,28 +1,19 @@
 (S:2 (E:1 (_:0 ?1)) is even)
 
-
 (S:3 exists x such that (S:2 (E:1 (_:0 x)) is even))
-
 
 (S:1 (E:0 a))
 
-
 (S:1 (E:0 aa) a)
-
 
 (S:1 (E:0 a) b)
 
-
 (S:1 (String:0 abcd) is string)
-
 
 (S:1 (Int:0 100) is integer)
 
-
 (S:1 (Float:0 12.4) is float)
-
 
 (S:1 (String:0 xyz) is string)
 
-
-cannot linearize
+ cannot linearize

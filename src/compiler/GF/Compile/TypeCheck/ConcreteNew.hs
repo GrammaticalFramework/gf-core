@@ -10,7 +10,7 @@ import GF.Grammar hiding (Env, VGen, VApp, VRecType)
 import GF.Grammar.Lookup
 import GF.Grammar.Predef
 import GF.Grammar.Lockfield
-import GF.Compile.Compute.ConcreteNew
+import GF.Compile.Compute.Concrete
 import GF.Compile.Compute.Predef(predef,predefName)
 import GF.Infra.CheckM
 import GF.Data.Operations
@@ -133,7 +133,7 @@ tcRho ge scope t@(RecType rs) (Just ty) = do
                          [] -> unifyVar ge scope i env vs vtypePType
                          _  -> return ()
     ty              -> do ty <- zonkTerm =<< tc_value2term (geLoc ge) (scopeVars scope) ty
-                          tcError ("The record type" <+> ppTerm Unqualified 0 t $$ 
+                          tcError ("The record type" <+> ppTerm Unqualified 0 t $$
                                    "cannot be of type" <+> ppTerm Unqualified 0 ty)
   (rs,mb_ty) <- tcRecTypeFields ge scope rs (Just ty')
   return (f (RecType rs),ty)
@@ -187,7 +187,7 @@ tcRho ge scope (R rs) (Just ty) = do
   case ty' of
     (VRecType ltys) -> do lttys <- checkRecFields ge scope rs ltys
                           rs <- mapM (\(l,t,ty) -> tc_value2term (geLoc ge) (scopeVars scope) ty >>= \ty -> return (l, (Just ty, t))) lttys
-                          return ((f . R)  rs, 
+                          return ((f . R)  rs,
                                   VRecType [(l, ty) | (l,t,ty) <- lttys]
                                  )
     ty              -> do lttys <- inferRecFields ge scope rs
@@ -277,11 +277,11 @@ tcApp ge scope (App fun arg) =                                  -- APP2
         varg <- liftErr (eval ge (scopeEnv scope) arg)
         return (App fun arg, res_ty varg)
 tcApp ge scope (Q id) =                                          -- VAR (global)
-  mkTcA (lookupOverloadTypes (geGrammar ge) id) `bindTcA` \(t,ty) -> 
+  mkTcA (lookupOverloadTypes (geGrammar ge) id) `bindTcA` \(t,ty) ->
      do ty <- liftErr (eval ge [] ty)
         return (t,ty)
 tcApp ge scope (QC id) =                                         -- VAR (global)
-  mkTcA (lookupOverloadTypes (geGrammar ge) id) `bindTcA` \(t,ty) -> 
+  mkTcA (lookupOverloadTypes (geGrammar ge) id) `bindTcA` \(t,ty) ->
      do ty <- liftErr (eval ge [] ty)
         return (t,ty)
 tcApp ge scope t =
@@ -350,7 +350,7 @@ tcPatt ge scope (PM q) ty0 = do
     Bad err -> tcError (pp err)
 tcPatt ge scope p ty = unimplemented ("tcPatt "++show p)
 
-inferRecFields ge scope rs = 
+inferRecFields ge scope rs =
   mapM (\(l,r) -> tcRecField ge scope l r Nothing) rs
 
 checkRecFields ge scope []          ltys
@@ -368,7 +368,7 @@ checkRecFields ge scope ((l,t):lts) ltys =
   where
     takeIt l1 []  = (Nothing, [])
     takeIt l1 (lty@(l2,ty):ltys)
-      | l1 == l2  = (Just ty,ltys) 
+      | l1 == l2  = (Just ty,ltys)
       | otherwise = let (mb_ty,ltys') = takeIt l1 ltys
                     in (mb_ty,lty:ltys')
 
@@ -390,13 +390,13 @@ tcRecTypeFields ge scope ((l,ty):rs) mb_ty = do
                | s == cPType -> return mb_ty
              VMeta _ _ _     -> return mb_ty
              _               -> do sort <- zonkTerm =<< tc_value2term (geLoc ge) (scopeVars scope) sort
-                                   tcError ("The record type field" <+> l <+> ':' <+> ppTerm Unqualified 0 ty $$ 
+                                   tcError ("The record type field" <+> l <+> ':' <+> ppTerm Unqualified 0 ty $$
                                             "cannot be of type" <+> ppTerm Unqualified 0 sort)
   (rs,mb_ty) <- tcRecTypeFields ge scope rs mb_ty
   return ((l,ty):rs,mb_ty)
 
 -- | Invariant: if the third argument is (Just rho),
--- 	            then rho is in weak-prenex form
+--              then rho is in weak-prenex form
 instSigma :: GlobalEnv -> Scope -> Term -> Sigma -> Maybe Rho -> TcM (Term, Rho)
 instSigma ge scope t ty1 Nothing    = return (t,ty1)           -- INST1
 instSigma ge scope t ty1 (Just ty2) = do                       -- INST2
@@ -444,11 +444,11 @@ subsCheckRho ge scope t (VApp p1 _) (VApp p2 _)                         -- Rule 
   | predefName p1 == cInts && predefName p2 == cInt = return t
 subsCheckRho ge scope t (VApp p1 [VInt i]) (VApp p2 [VInt j])           -- Rule INT2
   | predefName p1 == cInts && predefName p2 == cInts =
-      if i <= j 
+      if i <= j
         then return t
         else tcError ("Ints" <+> i <+> "is not a subtype of" <+> "Ints" <+> j)
 subsCheckRho ge scope t ty1@(VRecType rs1) ty2@(VRecType rs2) = do      -- Rule REC
-  let mkAccess scope t = 
+  let mkAccess scope t =
         case t of
           ExtR t1 t2 -> do (scope,mkProj1,mkWrap1) <- mkAccess scope t1
                            (scope,mkProj2,mkWrap2) <- mkAccess scope t2
@@ -557,7 +557,7 @@ unify ge scope v (VMeta i env vs) = unifyVar ge scope i env vs v
 unify ge scope v1 v2 = do
   t1 <- zonkTerm =<< tc_value2term (geLoc ge) (scopeVars scope) v1
   t2 <- zonkTerm =<< tc_value2term (geLoc ge) (scopeVars scope) v2
-  tcError ("Cannot unify terms:" <+> (ppTerm Unqualified 0 t1 $$ 
+  tcError ("Cannot unify terms:" <+> (ppTerm Unqualified 0 t1 $$
                                       ppTerm Unqualified 0 t2))
 
 -- | Invariant: tv1 is a flexible type variable
@@ -568,9 +568,9 @@ unifyVar ge scope i env vs ty2 = do            -- Check whether i is bound
     Bound ty1       -> do v <- liftErr (eval ge env ty1)
                           unify ge scope (vapply (geLoc ge) v vs) ty2
     Unbound scope' _ -> case value2term (geLoc ge) (scopeVars scope') ty2 of
-                          Left i     -> let (v,_) = reverse scope !! i
-                                        in tcError ("Variable" <+> pp v <+> "has escaped")
-                          Right ty2' -> do ms2 <- getMetaVars (geLoc ge) [(scope,ty2)]
+                          -- Left i     -> let (v,_) = reverse scope !! i
+                          --               in tcError ("Variable" <+> pp v <+> "has escaped")
+                                ty2' -> do ms2 <- getMetaVars (geLoc ge) [(scope,ty2)]
                                            if i `elem` ms2
                                              then tcError ("Occurs check for" <+> ppMeta i <+> "in:" $$
                                                            nest 2 (ppTerm Unqualified 0 ty2'))
@@ -609,7 +609,7 @@ quantify ge scope t tvs ty0 = do
   ty <- tc_value2term (geLoc ge) (scopeVars scope) ty0
   let used_bndrs = nub (bndrs ty)  -- Avoid quantified type variables in use
       new_bndrs  = take (length tvs) (allBinders \\ used_bndrs)
-  mapM_ bind (tvs `zip` new_bndrs)   -- 'bind' is just a cunning way 
+  mapM_ bind (tvs `zip` new_bndrs)   -- 'bind' is just a cunning way
   ty <- zonkTerm ty                  -- of doing the substitution
   vty <- liftErr (eval ge [] (foldr (\v ty -> Prod Implicit v typeType ty) ty new_bndrs))
   return (foldr (Abs Implicit) t new_bndrs,vty)
@@ -619,7 +619,7 @@ quantify ge scope t tvs ty0 = do
     bndrs (Prod _ x t1 t2) = [x] ++ bndrs t1  ++ bndrs t2
     bndrs _                = []
 
-allBinders :: [Ident]    -- a,b,..z, a1, b1,... z1, a2, b2,... 
+allBinders :: [Ident]    -- a,b,..z, a1, b1,... z1, a2, b2,...
 allBinders = [ identS [x]          | x <- ['a'..'z'] ] ++
              [ identS (x : show i) | i <- [1 :: Integer ..], x <- ['a'..'z']]
 
@@ -631,8 +631,8 @@ allBinders = [ identS [x]          | x <- ['a'..'z'] ] ++
 type Scope = [(Ident,Value)]
 
 type Sigma = Value
-type Rho   = Value	-- No top-level ForAll
-type Tau   = Value	-- No ForAlls anywhere
+type Rho   = Value -- No top-level ForAll
+type Tau   = Value -- No ForAlls anywhere
 
 data MetaValue
   = Unbound Scope Sigma
@@ -688,12 +688,12 @@ runTcM f = case unTcM f IntMap.empty [] of
              TcFail (msg:msgs) -> do checkWarnings msgs; checkError msg
 
 newMeta :: Scope -> Sigma -> TcM MetaId
-newMeta scope ty = TcM (\ms msgs -> 
+newMeta scope ty = TcM (\ms msgs ->
   let i = IntMap.size ms
   in TcOk i (IntMap.insert i (Unbound scope ty) ms) msgs)
 
 getMeta :: MetaId -> TcM MetaValue
-getMeta i = TcM (\ms msgs -> 
+getMeta i = TcM (\ms msgs ->
   case IntMap.lookup i ms of
     Just mv -> TcOk mv ms msgs
     Nothing -> TcFail (("Unknown metavariable" <+> ppMeta i) : msgs))
@@ -702,7 +702,7 @@ setMeta :: MetaId -> MetaValue -> TcM ()
 setMeta i mv = TcM (\ms msgs -> TcOk () (IntMap.insert i mv ms) msgs)
 
 newVar :: Scope -> Ident
-newVar scope = head [x | i <- [1..], 
+newVar scope = head [x | i <- [1..],
                          let x = identS ('v':show i),
                          isFree scope x]
   where
@@ -721,11 +721,11 @@ getMetaVars loc sc_tys = do
   return (foldr go [] tys)
   where
     -- Get the MetaIds from a term; no duplicates in result
-    go (Vr tv)    acc = acc 
+    go (Vr tv)    acc = acc
     go (App x y)  acc = go x (go y acc)
     go (Meta i)   acc
-	  | i `elem` acc  = acc
-	  | otherwise	  = i : acc
+      | i `elem` acc  = acc
+      | otherwise     = i : acc
     go (Q _)      acc = acc
     go (QC _)     acc = acc
     go (Sort _)   acc = acc
@@ -741,10 +741,10 @@ getFreeVars loc sc_tys = do
   tys <- mapM (\(scope,ty) -> zonkTerm =<< tc_value2term loc (scopeVars scope) ty) sc_tys
   return (foldr (go []) [] tys)
   where
-    go bound (Vr tv)            acc 
-	  | tv `elem` bound             = acc
-	  | tv `elem` acc               = acc
-	  | otherwise                   = tv : acc
+    go bound (Vr tv)            acc
+      | tv `elem` bound             = acc
+      | tv `elem` acc               = acc
+      | otherwise                   = tv : acc
     go bound (App x y)          acc = go bound x (go bound y acc)
     go bound (Meta _)           acc = acc
     go bound (Q _)              acc = acc
@@ -765,13 +765,13 @@ zonkTerm (Meta i) = do
 zonkTerm t = composOp zonkTerm t
 
 tc_value2term loc xs v =
-  case value2term loc xs v of
-    Left i  -> tcError ("Variable #" <+> pp i <+> "has escaped")
-    Right t -> return t
+  return $ value2term loc xs v
+    -- Old value2term error message:
+    -- Left i  -> tcError ("Variable #" <+> pp i <+> "has escaped")
 
 
 
-data TcA x a 
+data TcA x a
   = TcSingle   (MetaStore -> [Message] -> TcResult a)
   | TcMany [x] (MetaStore -> [Message] -> [(a,MetaStore,[Message])])
 

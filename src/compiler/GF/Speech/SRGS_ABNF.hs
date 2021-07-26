@@ -5,7 +5,7 @@
 -- Stability   : (stable)
 -- Portability : (portable)
 --
--- > CVS $Date: 2005/11/01 20:09:04 $ 
+-- > CVS $Date: 2005/11/01 20:09:04 $
 -- > CVS $Author: bringert $
 -- > CVS $Revision: 1.16 $
 --
@@ -38,7 +38,7 @@ width :: Int
 width = 75
 
 srgsAbnfPrinter :: Options
-	        -> PGF -> CId -> String
+                -> PGF -> CId -> String
 srgsAbnfPrinter opts pgf cnc = showDoc $ prABNF sisr $ makeNonLeftRecursiveSRG opts pgf cnc
     where sisr = flag optSISR opts
 
@@ -72,7 +72,7 @@ prItem :: Maybe SISRFormat -> CFTerm -> SRGItem -> Doc
 prItem sisr t = f 0
   where
     f _ (REUnion [])  = pp "$VOID"
-    f p (REUnion xs) 
+    f p (REUnion xs)
         | not (null es) = brackets (f 0 (REUnion nes))
         | otherwise = (if p >= 1 then parens else id) (alts (map (f 1) xs))
       where (es,nes) = partition isEpsilon xs
@@ -84,13 +84,13 @@ prItem sisr t = f 0
 
 prSymbol :: Maybe SISRFormat -> CFTerm -> SRGSymbol -> Doc
 prSymbol sisr cn (NonTerminal n@(c,_)) = prCat c <+> tag sisr (catSISR cn n)
-prSymbol _ cn (Terminal t) 
+prSymbol _ cn (Terminal t)
     | all isPunct t = empty  -- removes punctuation
     | otherwise = pp t -- FIXME: quote if there is whitespace or odd chars
 
 tag :: Maybe SISRFormat -> (SISRFormat -> SISRTag) -> Doc
 tag Nothing _ = empty
-tag (Just fmt) t = 
+tag (Just fmt) t =
     case t fmt of
       [] -> empty
       -- grr, silly SRGS ABNF does not have an escaping mechanism
@@ -125,4 +125,3 @@ prepunctuate p (x:xs) = x : map (p <>) xs
 
 ($++$) :: Doc -> Doc -> Doc
 x $++$ y = x $$ emptyLine $$ y
-

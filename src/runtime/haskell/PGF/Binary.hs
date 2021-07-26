@@ -28,7 +28,7 @@ instance Binary PGF where
            let v = (major,minor)
            if major==pgfMajorVersion && minor<=pgfMinorVersion
              then getPGF'
-             else if v==Old.version 
+             else if v==Old.version
                   then Old.getPGF'
                   else fail $ "Unsupported PGF version "++show (major,minor)
 
@@ -185,6 +185,7 @@ instance Binary Instr where
   put (PUSH_ACCUM (LFlt d)) = putWord8 78 >> put d
   put (POP_ACCUM          ) = putWord8 80
   put (ADD                ) = putWord8 84
+  get = fail "Missing implementation for ‘get’ in the instance declaration for ‘Binary Instr’"
 
 instance Binary Type where
   put (DTyp hypos cat exps) = put (hypos,cat,exps)

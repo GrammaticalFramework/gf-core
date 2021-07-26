@@ -6,7 +6,7 @@
 -- Stability   : (stable)
 -- Portability : (portable)
 --
--- > CVS $Date: 2005/10/27 13:21:53 $ 
+-- > CVS $Date: 2005/10/27 13:21:53 $
 -- > CVS $Author: aarne $
 -- > CVS $Revision: 1.15 $
 --
@@ -20,17 +20,17 @@ module GF.Grammar.Lookup (
            lookupOrigInfo,
            allOrigInfos,
            lookupResDef, lookupResDefLoc,
-           lookupResType, 
+           lookupResType,
            lookupOverload,
            lookupOverloadTypes,
-           lookupParamValues, 
+           lookupParamValues,
            allParamValues,
-           lookupAbsDef, 
-           lookupLincat, 
+           lookupAbsDef,
+           lookupLincat,
            lookupFunType,
            lookupCatContext,
            allOpers, allOpersTo
-	      ) where
+          ) where
 
 import GF.Data.Operations
 import GF.Infra.Ident
@@ -69,7 +69,7 @@ lookupResDef gr x = fmap unLoc (lookupResDefLoc gr x)
 lookupResDefLoc gr (m,c)
   | isPredefCat c = fmap noLoc (lock c defLinType)
   | otherwise     = look m c
-  where 
+  where
     look m c = do
       info <- lookupQIdentInfo gr (m,c)
       case info of
@@ -77,7 +77,7 @@ lookupResDefLoc gr (m,c)
         ResOper _ Nothing  -> return (noLoc (Q (m,c)))
         CncCat (Just (L l ty)) _ _ _ _ -> fmap (L l) (lock c ty)
         CncCat _ _ _ _ _         -> fmap noLoc (lock c defLinType)
-      
+
         CncFun (Just (cat,_,_)) (Just (L l tr)) _ _ -> fmap (L l) (unlock cat tr)
         CncFun _                (Just ltr) _ _ -> return ltr
 
@@ -95,7 +95,7 @@ lookupResType gr (m,c) = do
     -- used in reused concrete
     CncCat _ _ _ _ _ -> return typeType
     CncFun (Just (cat,cont,val)) _ _ _ -> do
-          val' <- lock cat val 
+          val' <- lock cat val
           return $ mkProd cont val' []
     AnyInd _ n        -> lookupResType gr (n,c)
     ResParam _ _      -> return typePType
@@ -111,7 +111,7 @@ lookupOverloadTypes gr id@(m,c) = do
     -- used in reused concrete
     CncCat _ _ _ _ _ -> ret typeType
     CncFun (Just (cat,cont,val)) _ _ _ -> do
-          val' <- lock cat val 
+          val' <- lock cat val
           ret $ mkProd cont val' []
     ResParam _ _      -> ret typePType
     ResValue (L _ t)  -> ret t
@@ -130,8 +130,8 @@ lookupOverload gr (m,c) = do
     case info of
       ResOverload os tysts -> do
             tss <- mapM (\x -> lookupOverload gr (x,c)) os
-            return $ [let (args,val) = typeFormCnc ty in (map (\(b,x,t) -> t) args,(val,tr)) | 
-                      (L _ ty,L _ tr) <- tysts] ++ 
+            return $ [let (args,val) = typeFormCnc ty in (map (\(b,x,t) -> t) args,(val,tr)) |
+                      (L _ ty,L _ tr) <- tysts] ++
                      concat tss
 
       AnyInd _ n  -> lookupOverload gr (n,c)
@@ -216,7 +216,7 @@ lookupCatContext gr m c = do
 -- notice that it only gives the modules that are reachable and the opers that are included
 
 allOpers :: Grammar -> [(QIdent,Type,Location)]
-allOpers gr = 
+allOpers gr =
   [((m,op),typ,loc) |
       (m,mi)  <- maybe [] (allExtends gr) (greatestResource gr),
       (op,info)  <- Map.toList (jments mi),

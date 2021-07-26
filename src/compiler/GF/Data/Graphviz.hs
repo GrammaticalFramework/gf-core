@@ -5,7 +5,7 @@
 -- Stability   : (stable)
 -- Portability : (portable)
 --
--- > CVS $Date: 2005/09/15 18:10:44 $ 
+-- > CVS $Date: 2005/09/15 18:10:44 $
 -- > CVS $Author: bringert $
 -- > CVS $Revision: 1.2 $
 --
@@ -13,14 +13,14 @@
 -----------------------------------------------------------------------------
 
 module GF.Data.Graphviz (
-				  Graph(..), GraphType(..), 
-				  Node(..), Edge(..),
-				  Attr,
-                                  addSubGraphs,
-                                  setName,
-                                  setAttr,
-				  prGraphviz
-			) where
+                          Graph(..), GraphType(..),
+                          Node(..), Edge(..),
+                          Attr,
+                          addSubGraphs,
+                          setName,
+                          setAttr,
+                          prGraphviz
+                        ) where
 
 import Data.Char
 
@@ -70,14 +70,14 @@ prGraphviz g@(Graph t i _ _ _ _) =
     graphtype t ++ " " ++ maybe "" esc i ++ " {\n" ++ prGraph g ++ "}\n"
 
 prSubGraph :: Graph -> String
-prSubGraph g@(Graph _ i _ _ _ _) = 
+prSubGraph g@(Graph _ i _ _ _ _) =
     "subgraph" ++ " " ++ maybe "" esc i ++ " {\n" ++ prGraph g ++ "}"
 
 prGraph :: Graph -> String
-prGraph (Graph t id at ns es ss) = 
+prGraph (Graph t id at ns es ss) =
     unlines $ map (++";") (map prAttr at
-		           ++ map prNode ns 
-		           ++ map (prEdge t) es
+                           ++ map prNode ns
+                           ++ map (prEdge t) es
                            ++ map prSubGraph ss)
 
 graphtype :: GraphType -> String
@@ -96,7 +96,7 @@ edgeop Undirected = "--"
 
 prAttrList :: [Attr] -> String
 prAttrList [] = ""
-prAttrList at =	"[" ++ join "," (map prAttr at) ++ "]"
+prAttrList at = "[" ++ join "," (map prAttr at) ++ "]"
 
 prAttr :: Attr -> String
 prAttr (n,v) = esc n ++ " = " ++ esc v

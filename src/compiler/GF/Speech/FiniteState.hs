@@ -5,37 +5,37 @@
 -- Stability   : (stable)
 -- Portability : (portable)
 --
--- > CVS $Date: 2005/11/10 16:43:44 $ 
+-- > CVS $Date: 2005/11/10 16:43:44 $
 -- > CVS $Author: bringert $
 -- > CVS $Revision: 1.16 $
 --
 -- A simple finite state network module.
 -----------------------------------------------------------------------------
 module GF.Speech.FiniteState (FA(..), State, NFA, DFA,
-			      startState, finalStates,
-			      states, transitions,
+                              startState, finalStates,
+                              states, transitions,
                               isInternal,
-			      newFA, newFA_,
-			      addFinalState,
-			      newState, newStates,
+                              newFA, newFA_,
+                              addFinalState,
+                              newState, newStates,
                               newTransition, newTransitions,
                               insertTransitionWith, insertTransitionsWith,
-			      mapStates, mapTransitions,
+                              mapStates, mapTransitions,
                               modifyTransitions,
-                              nonLoopTransitionsTo, nonLoopTransitionsFrom, 
+                              nonLoopTransitionsTo, nonLoopTransitionsFrom,
                               loops,
                               removeState,
                               oneFinalState,
                               insertNFA,
                               onGraph,
-			      moveLabelsToNodes, removeTrivialEmptyNodes,
+                              moveLabelsToNodes, removeTrivialEmptyNodes,
                               minimize,
                               dfa2nfa,
                               unusedNames, renameStates,
-			      prFAGraphviz, faToGraphviz) where
+                              prFAGraphviz, faToGraphviz) where
 
 import Data.List
-import Data.Maybe 
+import Data.Maybe
 --import Data.Map (Map)
 import qualified Data.Map as Map
 import Data.Set (Set)
@@ -98,13 +98,13 @@ newTransition f t l = onGraph (newEdge (f,t,l))
 newTransitions :: [(n, n, b)] -> FA n a b -> FA n a b
 newTransitions es = onGraph (newEdges es)
 
-insertTransitionWith :: Eq n => 
+insertTransitionWith :: Eq n =>
                         (b -> b -> b) -> (n, n, b) -> FA n a b -> FA n a b
 insertTransitionWith f t = onGraph (insertEdgeWith f t)
 
-insertTransitionsWith :: Eq n => 
+insertTransitionsWith :: Eq n =>
                          (b -> b -> b) -> [(n, n, b)] -> FA n a b -> FA n a b
-insertTransitionsWith f ts fa = 
+insertTransitionsWith f ts fa =
     foldl' (flip (insertTransitionWith f)) fa ts
 
 mapStates :: (a -> c) -> FA n a b -> FA n c b
@@ -128,11 +128,11 @@ unusedNames (FA (Graph names _ _) _ _) = names
 -- | Gets all incoming transitions to a given state, excluding
 -- transtions from the state itself.
 nonLoopTransitionsTo :: Eq n => n -> FA n a b -> [(n,b)]
-nonLoopTransitionsTo s fa = 
+nonLoopTransitionsTo s fa =
     [(f,l) | (f,t,l) <- transitions fa, t == s && f /= s]
 
 nonLoopTransitionsFrom :: Eq n => n -> FA n a b -> [(n,b)]
-nonLoopTransitionsFrom s fa = 
+nonLoopTransitionsFrom s fa =
     [(t,l) | (f,t,l) <- transitions fa, f == s && t /= s]
 
 loops :: Eq n => n -> FA n a b -> [b]
@@ -145,7 +145,7 @@ renameStates :: Ord x => [y] -- ^ Infinite supply of new names
 renameStates supply (FA g s fs) = FA (renameNodes newName rest g) s' fs'
     where (ns,rest) = splitAt (length (nodes g)) supply
           newNodes = Map.fromList (zip (map fst (nodes g)) ns)
-	  newName n = Map.findWithDefault (error "FiniteState.newName") n newNodes
+          newName n = Map.findWithDefault (error "FiniteState.newName") n newNodes
           s' = newName s
           fs' = map newName fs
 
@@ -154,9 +154,9 @@ insertNFA :: NFA a -- ^ NFA to insert into
           -> (State, State) -- ^ States to insert between
           -> NFA a -- ^ NFA to insert.
           -> NFA a
-insertNFA (FA g1 s1 fs1) (f,t) (FA g2 s2 fs2) 
+insertNFA (FA g1 s1 fs1) (f,t) (FA g2 s2 fs2)
     = FA (newEdges es g') s1 fs1
-    where 
+    where
     es = (f,ren s2,Nothing):[(ren f2,t,Nothing) | f2 <- fs2]
     (g',ren) = mergeGraphs g1 g2
 
@@ -182,9 +182,9 @@ oneFinalState nl el fa =
 moveLabelsToNodes :: (Ord n,Eq a) => FA n () (Maybe a) -> FA n (Maybe a) ()
 moveLabelsToNodes = onGraph f
   where f g@(Graph c _ _) = Graph c' ns (concat ess)
-	    where is = [ ((n,l),inc) | (n, (l,inc,_)) <- Map.toList (nodeInfo g)]
-		  (c',is') = mapAccumL fixIncoming c is
-		  (ns,ess) = unzip (concat is')
+         where is = [ ((n,l),inc) | (n, (l,inc,_)) <- Map.toList (nodeInfo g)]
+               (c',is') = mapAccumL fixIncoming c is
+               (ns,ess) = unzip (concat is')
 
 
 -- | Remove empty nodes which are not start or final, and have
@@ -196,12 +196,12 @@ removeTrivialEmptyNodes = pruneUnusable . skipSimpleEmptyNodes
 --   This is not done if the pointed-to node is a final node.
 skipSimpleEmptyNodes :: (Eq a, Ord n) => FA n (Maybe a) () -> FA n (Maybe a) ()
 skipSimpleEmptyNodes fa = onGraph og fa
-  where 
+  where
   og g@(Graph c ns es) = if es' == es then g else og (Graph c ns es')
     where
     es' = concatMap changeEdge es
     info = nodeInfo g
-    changeEdge e@(f,t,()) 
+    changeEdge e@(f,t,())
       | isNothing (getNodeLabel info t)
        -- && (i * o <= i + o)
         && not (isFinal fa t)
@@ -223,28 +223,28 @@ pruneUnusable fa = onGraph f fa
  where
  f g = if Set.null rns then g else f (removeNodes rns g)
   where info = nodeInfo g
-        rns = Set.fromList [ n | (n,_) <- nodes g, 
+        rns = Set.fromList [ n | (n,_) <- nodes g,
                              isInternal fa n,
-                             inDegree info n == 0 
+                             inDegree info n == 0
                              || outDegree info n == 0]
 
-fixIncoming :: (Ord n, Eq a) => [n] 
+fixIncoming :: (Ord n, Eq a) => [n]
             -> (Node n (),[Edge n (Maybe a)]) -- ^ A node and its incoming edges
             -> ([n],[(Node n (Maybe a),[Edge n ()])]) -- ^ Replacement nodes with their
                                                       -- incoming edges.
 fixIncoming cs c@((n,()),es) = (cs'', ((n,Nothing),es'):newContexts)
   where ls = nub $ map edgeLabel es
-	(cs',cs'') = splitAt (length ls) cs
-	newNodes = zip cs' ls
-	es' = [ (x,n,()) | x <- map fst newNodes ]
-	-- separate cyclic and non-cyclic edges
-	(cyc,ncyc) = partition (\ (f,_,_) -> f == n) es
-	          -- keep all incoming non-cyclic edges with the right label
-	to (x,l) = [ (f,x,()) | (f,_,l') <- ncyc, l == l']
-	          -- for each cyclic edge with the right label, 
-	          -- add an edge from each of the new nodes (including this one)
-		    ++ [ (y,x,()) | (f,_,l') <- cyc, l == l', (y,_) <- newNodes]
-	newContexts = [ (v, to v) | v <- newNodes ]
+        (cs',cs'') = splitAt (length ls) cs
+        newNodes = zip cs' ls
+        es' = [ (x,n,()) | x <- map fst newNodes ]
+        -- separate cyclic and non-cyclic edges
+        (cyc,ncyc) = partition (\ (f,_,_) -> f == n) es
+                  -- keep all incoming non-cyclic edges with the right label
+        to (x,l) = [ (f,x,()) | (f,_,l') <- ncyc, l == l']
+                  -- for each cyclic edge with the right label,
+                  -- add an edge from each of the new nodes (including this one)
+                  ++ [ (y,x,()) | (f,_,l') <- cyc, l == l', (y,_) <- newNodes]
+        newContexts = [ (v, to v) | v <- newNodes ]
 
 --alphabet :: Eq b => Graph n a (Maybe b) -> [b]
 --alphabet = nub . catMaybes . map edgeLabel . edges
@@ -254,19 +254,19 @@ determinize (FA g s f) = let (ns,es) = h (Set.singleton start) Set.empty Set.emp
                              (ns',es') = (Set.toList ns, Set.toList es)
                              final = filter isDFAFinal ns'
                              fa = FA (Graph undefined [(n,()) | n <- ns'] es') start final
- 		          in renameStates [0..] fa
+                         in renameStates [0..] fa
   where info = nodeInfo g
 --        reach = nodesReachable out
-	start = closure info $ Set.singleton s
+        start = closure info $ Set.singleton s
         isDFAFinal n = not (Set.null (Set.fromList f `Set.intersection` n))
-	h currentStates oldStates es
-	    | Set.null currentStates = (oldStates,es)
-	    | otherwise = ((h $! uniqueNewStates) $! allOldStates) $! es'
-	    where 
-	    allOldStates = oldStates `Set.union` currentStates
+        h currentStates oldStates es
+            | Set.null currentStates = (oldStates,es)
+            | otherwise = ((h $! uniqueNewStates) $! allOldStates) $! es'
+            where
+            allOldStates = oldStates `Set.union` currentStates
             (newStates,es') = new (Set.toList currentStates) Set.empty es
-	    uniqueNewStates = newStates Set.\\ allOldStates
-        -- Get the sets of states reachable from the given states 
+            uniqueNewStates = newStates Set.\\ allOldStates
+        -- Get the sets of states reachable from the given states
         -- by consuming one symbol, and the associated edges.
         new [] rs es = (rs,es)
         new (n:ns) rs es = new ns rs' es'
@@ -281,7 +281,7 @@ closure info x = closure_ x x
   where closure_ acc check | Set.null check = acc
                            | otherwise = closure_ acc' check'
             where
-            reach = Set.fromList [y | x <- Set.toList check, 
+            reach = Set.fromList [y | x <- Set.toList check,
                                       (_,y,Nothing) <- getOutgoing info x]
             acc' = acc `Set.union` reach
             check' = reach Set.\\ acc
@@ -296,8 +296,8 @@ reachable1 info ns = Map.fromListWith (++) [(c, [y]) | n <- Set.toList ns, (_,y,
 reverseNFA :: NFA a -> NFA a
 reverseNFA (FA g s fs) = FA g''' s' [s]
     where g' = reverseGraph g
-	  (g'',s') = newNode () g'
-	  g''' = newEdges [(s',f,Nothing) | f <- fs] g''
+          (g'',s') = newNode () g'
+          g''' = newEdges [(s',f,Nothing) | f <- fs] g''
 
 dfa2nfa :: DFA a -> NFA a
 dfa2nfa = mapTransitions Just
@@ -313,13 +313,13 @@ prFAGraphviz  = Dot.prGraphviz . faToGraphviz
 --prFAGraphviz_  = Dot.prGraphviz . faToGraphviz . mapStates show . mapTransitions show
 
 faToGraphviz :: (Eq n,Show n) => FA n String String -> Dot.Graph
-faToGraphviz (FA (Graph _ ns es) s f) 
+faToGraphviz (FA (Graph _ ns es) s f)
     = Dot.Graph Dot.Directed Nothing [] (map mkNode ns) (map mkEdge es) []
    where mkNode (n,l) = Dot.Node (show n) attrs
-	     where attrs = [("label",l)]
-			   ++ if n == s then [("shape","box")] else []
-			   ++ if n `elem` f then [("style","bold")] else []
-	 mkEdge (x,y,l) = Dot.Edge (show x) (show y) [("label",l)]
+          where attrs = [("label",l)]
+                 ++ if n == s then [("shape","box")] else []
+                 ++ if n `elem` f then [("style","bold")] else []
+         mkEdge (x,y,l) = Dot.Edge (show x) (show y) [("label",l)]
 
 --
 -- * Utilities

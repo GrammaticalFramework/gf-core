@@ -1,5 +1,4 @@
 i -src testsuite/compiler/typecheck/abstract/LitAbs.gf
-ai null
 ai empty
 ai other
 ai zero

@@ -6,30 +6,35 @@ module GF.Compile.GrammarToCanonical(
        ) where
 import Data.List(nub,partition)
 import qualified Data.Map as M
+import Data.Maybe(fromMaybe)
 import qualified Data.Set as S
 import GF.Data.ErrM
 import GF.Text.Pretty
-import GF.Grammar.Grammar
+import GF.Grammar.Grammar as G
 import GF.Grammar.Lookup(lookupOrigInfo,allOrigInfos,allParamValues)
-import GF.Grammar.Macros(typeForm,collectOp,collectPattOp,mkAbs,mkApp,term2patt)
+import GF.Grammar.Macros(typeForm,collectOp,collectPattOp,composSafeOp,mkAbs,mkApp,term2patt,sortRec)
 import GF.Grammar.Lockfield(isLockLabel)
 import GF.Grammar.Predef(cPredef,cInts)
 import GF.Compile.Compute.Predef(predef)
 import GF.Compile.Compute.Value(Predefined(..))
-import GF.Infra.Ident(ModuleName(..),Ident,prefixIdent,showIdent,isWildIdent)
-import GF.Infra.Option(optionsPGF)
+import GF.Infra.Ident(ModuleName(..),Ident,ident2raw,rawIdentS,showIdent,isWildIdent)
+import GF.Infra.Option(Options,optionsPGF)
 import PGF.Internal(Literal(..))
-import GF.Compile.Compute.ConcreteNew(normalForm,resourceValues)
+import GF.Compile.Compute.Concrete(GlobalEnv,normalForm,resourceValues)
 import GF.Grammar.Canonical as C
-import Debug.Trace
+import System.FilePath ((</>), (<.>))
+import qualified Debug.Trace as T
+
 
 -- | Generate Canonical code for the named abstract syntax and all associated
 -- concrete syntaxes
+grammar2canonical :: Options -> ModuleName -> G.Grammar -> C.Grammar
 grammar2canonical opts absname gr =
    Grammar (abstract2canonical absname gr)
            (map snd (concretes2canonical opts absname gr))
 
 -- | Generate Canonical code for the named abstract syntax
+abstract2canonical :: ModuleName -> G.Grammar -> Abstract
 abstract2canonical absname gr =
     Abstract (modId absname) (convFlags gr absname) cats funs
   where
@@ -44,6 +49,7 @@ abstract2canonical absname gr =
     convHypo (bt,name,t) =
       case typeForm t of
         ([],(_,cat),[]) -> gId cat -- !!
+        tf -> error $ "abstract2canonical convHypo: " ++ show tf
 
     convType t =
       case typeForm t of
@@ -54,25 +60,26 @@ abstract2canonical absname gr =
 
     convHypo' (bt,name,t) = TypeBinding (gId name) (convType t)
 
-
 -- | Generate Canonical code for the all concrete syntaxes associated with
 -- the named abstract syntax in given the grammar.
+concretes2canonical :: Options -> ModuleName -> G.Grammar -> [(FilePath, Concrete)]
 concretes2canonical opts absname gr =
   [(cncname,concrete2canonical gr cenv absname cnc cncmod)
      | let cenv = resourceValues opts gr,
        cnc<-allConcretes gr absname,
-       let cncname = "canonical/"++render cnc ++ ".gf" :: FilePath
+       let cncname = "canonical" </> render cnc <.> "gf"
            Ok cncmod = lookupModule gr cnc
   ]
 
 -- | Generate Canonical GF for the given concrete module.
+concrete2canonical :: G.Grammar -> GlobalEnv -> ModuleName -> ModuleName -> ModuleInfo -> Concrete
 concrete2canonical gr cenv absname cnc modinfo =
   Concrete (modId cnc) (modId absname) (convFlags gr cnc)
       (neededParamTypes S.empty (params defs))
-      [lincat|(_,Left lincat)<-defs]
-      [lin|(_,Right lin)<-defs]
+      [lincat | (_,Left lincat) <- defs]
+      [lin | (_,Right lin) <- defs]
   where
-    defs = concatMap (toCanonical gr absname cenv) . 
+    defs = concatMap (toCanonical gr absname cenv) .
            M.toList $
            jments modinfo
 
@@ -85,6 +92,7 @@ concrete2canonical gr cenv absname cnc modinfo =
         else let ((got,need),def) = paramType gr q
              in def++neededParamTypes (S.union got have) (S.toList need++qs)
 
+toCanonical :: G.Grammar -> ModuleName -> GlobalEnv -> (Ident, Info) -> [(S.Set QIdent, Either LincatDef LinDef)]
 toCanonical gr absname cenv (name,jment) =
   case jment of
     CncCat (Just (L loc typ)) _ _ pprn _ ->
@@ -97,7 +105,8 @@ toCanonical gr absname cenv (name,jment) =
       where
         tts = tableTypes gr [e']
 
-        e' = unAbs (length params) $
+        e' = cleanupRecordFields lincat $
+             unAbs (length params) $
              nf loc (mkAbs params (mkApp def (map Vr args)))
         params = [(b,x)|(b,x,_)<-ctx]
         args = map snd params
@@ -108,12 +117,12 @@ toCanonical gr absname cenv (name,jment) =
     _ -> []
   where
     nf loc = normalForm cenv (L loc name)
---  aId n = prefixIdent "A." (gId n)
 
     unAbs 0 t = t
     unAbs n (Abs _ _ t) = unAbs (n-1) t
     unAbs _ t = t
 
+tableTypes :: G.Grammar -> [Term] -> S.Set QIdent
 tableTypes gr ts = S.unions (map tabtys ts)
   where
     tabtys t =
@@ -122,6 +131,7 @@ tableTypes gr ts = S.unions (map tabtys ts)
         T (TTyped t) cs -> S.union (paramTypes gr t) (tableTypes gr (map snd cs))
         _ -> collectOp tabtys t
 
+paramTypes :: G.Grammar -> G.Type -> S.Set QIdent
 paramTypes gr t =
   case t of
     RecType fs -> S.unions (map (paramTypes gr.snd) fs)
@@ -140,11 +150,26 @@ paramTypes gr t =
                  Ok (_,ResParam {}) -> S.singleton q
                  _ -> ignore
 
-    ignore = trace ("Ignore: "++show t) S.empty
+    ignore = T.trace ("Ignore: " ++ show t) S.empty
 
+-- | Filter out record fields from definitions which don't appear in lincat.
+cleanupRecordFields :: G.Type -> Term -> Term
+cleanupRecordFields (RecType ls) (R as) =
+  let defnFields = M.fromList ls
+  in R
+      [ (lbl, (mty, t'))
+      | (lbl, (mty, t)) <- as
+      , M.member lbl defnFields
+      , let Just ty = M.lookup lbl defnFields
+      , let t' = cleanupRecordFields ty t
+      ]
+cleanupRecordFields ty t@(FV _) = composSafeOp (cleanupRecordFields ty) t
+cleanupRecordFields _ t = t
 
+convert :: G.Grammar -> Term -> LinValue
 convert gr = convert' gr []
 
+convert' :: G.Grammar -> [Ident] -> Term -> LinValue
 convert' gr vs = ppT
   where
     ppT0 = convert' gr vs
@@ -162,20 +187,20 @@ convert' gr vs = ppT
         S t p -> selection (ppT t) (ppT p)
         C t1 t2 -> concatValue (ppT t1) (ppT t2)
         App f a -> ap (ppT f) (ppT a)
-        R r -> RecordValue (fields r)
+        R r -> RecordValue (fields (sortRec r))
         P t l -> projection (ppT t) (lblId l)
         Vr x -> VarValue (gId x)
         Cn x -> VarValue (gId x) -- hmm
         Con c -> ParamConstant (Param (gId c) [])
         Sort k -> VarValue (gId k)
         EInt n -> LiteralValue (IntConstant n)
-        Q (m,n) -> if m==cPredef then ppPredef n else VarValue ((gQId m n))
-        QC (m,n) -> ParamConstant (Param ((gQId m n)) [])
+        Q (m,n) -> if m==cPredef then ppPredef n else VarValue (gQId m n)
+        QC (m,n) -> ParamConstant (Param (gQId m n) [])
         K s -> LiteralValue (StrConstant s)
         Empty -> LiteralValue (StrConstant "")
         FV ts -> VariantValue (map ppT ts)
         Alts t' vs -> alts vs (ppT t')
-        _ -> error $ "convert' "++show t
+        _ -> error $ "convert' ppT: " ++ show t
 
     ppCase (p,t) = TableRow (ppP p) (ppTv (patVars p++vs) t)
 
@@ -188,12 +213,12 @@ convert' gr vs = ppT
         Ok ALL_CAPIT  -> p "ALL_CAPIT"
         _ -> VarValue (gQId cPredef n) -- hmm
       where
-       p = PredefValue . PredefId
-      
+       p = PredefValue . PredefId . rawIdentS
+
     ppP p =
       case p of
         PC c ps -> ParamPattern (Param (gId c) (map ppP ps))
-        PP (m,c) ps -> ParamPattern (Param ((gQId m c)) (map ppP ps))
+        PP (m,c) ps -> ParamPattern (Param (gQId m c) (map ppP ps))
         PR r -> RecordPattern (fields r) {-
         PW -> WildPattern
         PV x -> VarP x
@@ -202,6 +227,7 @@ convert' gr vs = ppT
         PFloat x -> Lit (show x)
         PT _ p -> ppP p
         PAs x p -> AsP x (ppP p) -}
+        _ -> error $ "convert' ppP: " ++ show p
       where
         fields = map field . filter (not.isLockLabel.fst)
         field (l,p) = RecordRow (lblId l) (ppP p)
@@ -218,12 +244,12 @@ convert' gr vs = ppT
         pre Empty = [""]  -- Empty == K ""
         pre (Strs ts) = concatMap pre ts
         pre (EPatt p) = pat p
-        pre t = error $ "pre "++show t
+        pre t = error $ "convert' alts pre: " ++ show t
 
         pat (PString s) = [s]
         pat (PAlt p1 p2) = pat p1++pat p2
         pat (PSeq p1 p2) = [s1++s2 | s1<-pat p1, s2<-pat p2]
-        pat p = error $ "pat "++show p
+        pat p = error $ "convert' alts pat: "++show p
 
     fields = map field . filter (not.isLockLabel.fst)
     field (l,(_,t)) = RecordRow (lblId l) (ppT t)
@@ -236,6 +262,7 @@ convert' gr vs = ppT
                  ParamConstant (Param p (ps++[a]))
                _ -> error $ "convert' ap: "++render (ppA f <+> ppA a)
 
+concatValue :: LinValue -> LinValue -> LinValue
 concatValue v1 v2 =
   case (v1,v2) of
     (LiteralValue (StrConstant ""),_) -> v2
@@ -243,21 +270,24 @@ concatValue v1 v2 =
     _ -> ConcatValue v1 v2
 
 -- | Smart constructor for projections
-projection r l = maybe (Projection r l) id (proj r l)
+projection :: LinValue -> LabelId -> LinValue
+projection r l = fromMaybe (Projection r l) (proj r l)
 
+proj :: LinValue -> LabelId -> Maybe LinValue
 proj r l =
   case r of
-    RecordValue r -> case [v|RecordRow l' v<-r,l'==l] of
+    RecordValue r -> case [v | RecordRow l' v <- r, l'==l] of
                           [v] -> Just v
                           _ -> Nothing
     _ -> Nothing
 
 -- | Smart constructor for selections
+selection :: LinValue -> LinValue -> LinValue
 selection t v =
   -- Note: impossible cases can become possible after grammar transformation
   case t of
     TableValue tt r ->
-        case nub [rv|TableRow _ rv<-keep] of
+        case nub [rv | TableRow _ rv <- keep] of
           [rv] -> rv
           _ -> Selection (TableValue tt r') v
       where
@@ -276,13 +306,16 @@ selection t v =
         (keep,discard) = partition (mightMatchRow v) r
     _ -> Selection t v
 
+impossible :: LinValue -> LinValue
 impossible = CommentedValue "impossible"
 
+mightMatchRow :: LinValue -> TableRow rhs -> Bool
 mightMatchRow v (TableRow p _) =
   case p of
     WildPattern -> True
     _ -> mightMatch v p
 
+mightMatch :: LinValue -> LinPattern -> Bool
 mightMatch v p =
   case v of
     ConcatValue _ _ -> False
@@ -294,16 +327,18 @@ mightMatch v p =
     RecordValue rv ->
       case p of
         RecordPattern rp ->
-          and [maybe False (flip mightMatch p) (proj v l) | RecordRow l p<-rp]
+          and [maybe False (`mightMatch` p) (proj v l) | RecordRow l p<-rp]
         _ -> False
     _ -> True
 
+patVars :: Patt -> [Ident]
 patVars p =
   case p of
     PV x -> [x]
     PAs x p -> x:patVars p
     _ -> collectPattOp patVars p
 
+convType :: Term -> LinType
 convType = ppT
   where
     ppT t =
@@ -315,9 +350,9 @@ convType = ppT
         Sort k -> convSort k
 --      EInt n -> tcon0 (identS ("({-"++show n++"-})")) -- type level numeric literal
         FV (t:ts) -> ppT t -- !!
-        QC (m,n) -> ParamType (ParamTypeId ((gQId m n)))
-        Q (m,n) -> ParamType (ParamTypeId ((gQId m n)))
-        _ -> error $ "Missing case in convType for: "++show t
+        QC (m,n) -> ParamType (ParamTypeId (gQId m n))
+        Q (m,n) -> ParamType (ParamTypeId (gQId m n))
+        _ -> error $ "convType ppT: " ++ show t
 
     convFields = map convField . filter (not.isLockLabel.fst)
     convField (l,r) = RecordRow (lblId l) (ppT r)
@@ -326,15 +361,20 @@ convType = ppT
                    "Float" -> FloatType
                    "Int" -> IntType
                    "Str" -> StrType
-                   _ -> error ("convSort "++show k)
+                   _ -> error $ "convType convSort: " ++ show k
 
+toParamType :: Term -> ParamType
 toParamType t = case convType t of
                   ParamType pt -> pt
-                  _ -> error ("toParamType "++show t)
+                  _ -> error $ "toParamType: " ++ show t
 
+toParamId :: Term -> ParamId
 toParamId t = case toParamType t of
                    ParamTypeId p -> p
 
+paramType :: G.Grammar
+             -> (ModuleName, Ident)
+             -> ((S.Set (ModuleName, Ident), S.Set QIdent), [ParamDef])
 paramType gr q@(_,n) =
     case lookupOrigInfo gr q of
       Ok (m,ResParam (Just (L _ ps)) _)
@@ -342,7 +382,7 @@ paramType gr q@(_,n) =
          ((S.singleton (m,n),argTypes ps),
           [ParamDef name (map (param m) ps)]
          )
-       where name = (gQId m n)
+       where name = gQId m n
       Ok (m,ResOper  _ (Just (L _ t)))
         | m==cPredef && n==cInts ->
            ((S.empty,S.empty),[]) {-
@@ -350,36 +390,46 @@ paramType gr q@(_,n) =
             [Type (ConAp ((gQId m n)) [identS "n"]) (TId (identS "Int"))])-}
         | otherwise ->
            ((S.singleton (m,n),paramTypes gr t),
-            [ParamAliasDef ((gQId m n)) (convType t)])
+            [ParamAliasDef (gQId m n) (convType t)])
       _ -> ((S.empty,S.empty),[])
   where
-    param m (n,ctx) = Param ((gQId m n)) [toParamId t|(_,_,t)<-ctx]
+    param m (n,ctx) = Param (gQId m n) [toParamId t|(_,_,t)<-ctx]
     argTypes = S.unions . map argTypes1
     argTypes1 (n,ctx) = S.unions [paramTypes gr t|(_,_,t)<-ctx]
 
-lblId = LabelId . render -- hmm
-modId (MN m) = ModId (showIdent m)
+lblId :: Label -> C.LabelId
+lblId (LIdent ri) = LabelId ri
+lblId (LVar i) = LabelId (rawIdentS (show i)) -- hmm
 
-class FromIdent i where gId :: Ident -> i
+modId :: ModuleName -> C.ModId
+modId (MN m) = ModId (ident2raw m)
+
+class FromIdent i where
+  gId :: Ident -> i
 
 instance FromIdent VarId where
-  gId i = if isWildIdent i then Anonymous else VarId (showIdent i)
+  gId i = if isWildIdent i then Anonymous else VarId (ident2raw i)
 
-instance FromIdent C.FunId where gId = C.FunId . showIdent
-instance FromIdent CatId where gId = CatId . showIdent
+instance FromIdent C.FunId where gId = C.FunId . ident2raw
+instance FromIdent CatId where gId = CatId . ident2raw
 instance FromIdent ParamId where gId = ParamId . unqual
 instance FromIdent VarValueId where gId = VarValueId . unqual
 
-class FromIdent i => QualIdent i where gQId :: ModuleName -> Ident -> i
+class FromIdent i => QualIdent i where
+  gQId :: ModuleName -> Ident -> i
 
-instance QualIdent ParamId    where gQId m n = ParamId (qual m n)
+instance QualIdent ParamId where gQId m n = ParamId (qual m n)
 instance QualIdent VarValueId where gQId m n = VarValueId (qual m n)
 
-qual m n = Qual (modId m) (showIdent n)
-unqual n = Unqual (showIdent n)
+qual :: ModuleName -> Ident -> QualId
+qual m n = Qual (modId m) (ident2raw n)
 
+unqual :: Ident -> QualId
+unqual n = Unqual (ident2raw n)
+
+convFlags :: G.Grammar -> ModuleName -> Flags
 convFlags gr mn =
-  Flags [(n,convLit v) |
+  Flags [(rawIdentS n,convLit v) |
          (n,v)<-err (const []) (optionsPGF.mflags) (lookupModule gr mn)]
   where
     convLit l =

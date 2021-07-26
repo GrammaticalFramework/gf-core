@@ -5,7 +5,7 @@
 -- Stability   : (stable)
 -- Portability : (portable)
 --
--- > CVS $Date: 2005/04/21 16:22:33 $ 
+-- > CVS $Date: 2005/04/21 16:22:33 $
 -- > CVS $Author: bringert $
 -- > CVS $Revision: 1.5 $
 --
@@ -14,10 +14,10 @@
 
 module GF.Infra.CheckM
           (Check, CheckResult, Message, runCheck, runCheck',
-	   checkError, checkCond, checkWarn, checkWarnings, checkAccumError,
-	   checkIn, checkInModule, checkMap, checkMapRecover,
+           checkError, checkCond, checkWarn, checkWarnings, checkAccumError,
+           checkIn, checkInModule, checkMap, checkMapRecover,
            parallelCheck, accumulateError, commitCheck,
-	  ) where
+          ) where
 import Prelude hiding ((<>)) -- GHC 8.4.1 clash with Text.PrettyPrint
 
 import GF.Data.Operations
@@ -141,10 +141,10 @@ checkMapRecover f = fmap Map.fromList . parallelCheck . map f' . Map.toList
   where f' (k,v) = fmap ((,)k) (f k v)
 
 {-
-checkMapRecover f mp = do 
+checkMapRecover f mp = do
   let xs = map (\ (k,v) -> (k,runCheck (f k v))) (Map.toList mp)
   case [s | (_,Bad s) <- xs] of
-    ss@(_:_) -> checkError (text (unlines ss)) 
+    ss@(_:_) -> checkError (text (unlines ss))
     _   -> do
       let (kx,ss) = unzip [((k,x),s) | (k, Ok (x,s)) <- xs]
       if not (all null ss) then checkWarn (text (unlines ss)) else return ()

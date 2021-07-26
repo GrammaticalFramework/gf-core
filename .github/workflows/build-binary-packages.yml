@@ -2,7 +2,8 @@ name: Build Binary Packages
 
 on:
   workflow_dispatch:
-  release:
+  release: 
+    types: ["created"]
 
 jobs:
 
@@ -10,11 +11,13 @@ jobs:
 
   ubuntu:
     name: Build Ubuntu package
-    runs-on: ubuntu-18.04
-    # strategy:
-    #   matrix:
-    #     ghc: ["8.6.5"]
-    #     cabal: ["2.4"]
+    strategy:
+      matrix:
+        os:
+        - ubuntu-18.04
+        - ubuntu-20.04
+
+    runs-on: ${{ matrix.os }}
 
     steps:
     - uses: actions/checkout@v2
@@ -53,19 +56,33 @@ jobs:
     - name: Upload artifact
       uses: actions/upload-artifact@v2
       with:
-        name: gf-${{ github.sha }}-ubuntu
+        name: gf-${{ github.event.release.tag_name }}-${{ matrix.os }}.deb
         path: dist/gf_*.deb
         if-no-files-found: error
+
+    - name: Rename package for specific ubuntu version
+      run: |
+        mv dist/gf_*.deb dist/gf-${{ github.event.release.tag_name }}-${{ matrix.os }}.deb
+
+    - uses: actions/upload-release-asset@v1.0.2
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        upload_url: ${{ github.event.release.upload_url }}
+        asset_path: dist/gf-${{ github.event.release.tag_name }}-${{ matrix.os }}.deb
+        asset_name: gf-${{ github.event.release.tag_name }}-${{ matrix.os }}.deb
+        asset_content_type: application/octet-stream
 
 # ---
 
   macos:
     name: Build macOS package
-    runs-on: macos-10.15
     strategy:
       matrix:
         ghc: ["8.6.5"]
         cabal: ["2.4"]
+        os: ["macos-10.15"]
+    runs-on: ${{ matrix.os }}
 
     steps:
     - uses: actions/checkout@v2
@@ -92,19 +109,33 @@ jobs:
     - name: Upload artifact
       uses: actions/upload-artifact@v2
       with:
-        name: gf-${{ github.sha }}-macos
+        name: gf-${{ github.event.release.tag_name }}-macos
         path: dist/gf-*.pkg
         if-no-files-found: error
+    
+    - name: Rename package
+      run: |
+        mv dist/gf-*.pkg dist/gf-${{ github.event.release.tag_name }}-macos.pkg
+
+    - uses: actions/upload-release-asset@v1.0.2
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        upload_url: ${{ github.event.release.upload_url }}
+        asset_path: dist/gf-${{ github.event.release.tag_name }}-macos.pkg
+        asset_name: gf-${{ github.event.release.tag_name }}-macos.pkg
+        asset_content_type: application/octet-stream
 
 # ---
 
   windows:
     name: Build Windows package
-    runs-on: windows-2019
     strategy:
       matrix:
         ghc: ["8.6.5"]
         cabal: ["2.4"]
+        os: ["windows-2019"]
+    runs-on: ${{ matrix.os }}
 
     steps:
     - uses: actions/checkout@v2
@@ -136,16 +167,18 @@ jobs:
         cp /mingw64/bin/libpgf-0.dll /c/tmp-dist/c
         cp /mingw64/bin/libgu-0.dll /c/tmp-dist/c
 
+    # JAVA_HOME_8_X64 = C:\hostedtoolcache\windows\Java_Adopt_jdk\8.0.292-10\x64
     - name: Build Java bindings
       shell: msys2 {0}
       run: |
-        export PATH="${PATH}:/c/Program Files/Java/jdk8u275-b01/bin"
+        export JDKPATH=/c/hostedtoolcache/windows/Java_Adopt_jdk/8.0.292-10/x64
+        export PATH="${PATH}:${JDKPATH}/bin"
         cd src/runtime/java
         make \
-          JNI_INCLUDES="-I \"/c/Program Files/Java/jdk8u275-b01/include\" -I \"/c/Program Files/Java/jdk8u275-b01/include/win32\" -I \"/mingw64/include\" -D__int64=int64_t" \
+          JNI_INCLUDES="-I \"${JDKPATH}/include\" -I \"${JDKPATH}/include/win32\" -I \"/mingw64/include\" -D__int64=int64_t" \
           WINDOWS_LDFLAGS="-L\"/mingw64/lib\" -no-undefined"
         make install
-        cp .libs//msys-jpgf-0.dll /c/tmp-dist/java/jpgf.dll
+        cp .libs/msys-jpgf-0.dll /c/tmp-dist/java/jpgf.dll
         cp jpgf.jar /c/tmp-dist/java
 
     - name: Build Python bindings
@@ -157,7 +190,7 @@ jobs:
         cd src/runtime/python
         python setup.py build
         python setup.py install
-        cp /usr/lib/python3.8/site-packages/pgf* /c/tmp-dist/python
+        cp /usr/lib/python3.9/site-packages/pgf* /c/tmp-dist/python
 
     - name: Setup Haskell
       uses: actions/setup-haskell@v1
@@ -180,6 +213,18 @@ jobs:
     - name: Upload artifact
       uses: actions/upload-artifact@v2
       with:
-        name: gf-${{ github.sha }}-windows
+        name: gf-${{ github.event.release.tag_name }}-windows
         path: C:\tmp-dist\*
         if-no-files-found: error
+
+    - name: Create archive
+      run: |
+        Compress-Archive C:\tmp-dist C:\gf-${{ github.event.release.tag_name }}-windows.zip
+    - uses: actions/upload-release-asset@v1.0.2
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        upload_url: ${{ github.event.release.upload_url }}
+        asset_path: C:\gf-${{ github.event.release.tag_name }}-windows.zip
+        asset_name: gf-${{ github.event.release.tag_name }}-windows.zip
+        asset_content_type: application/zip

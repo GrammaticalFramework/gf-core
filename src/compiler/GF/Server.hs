@@ -6,7 +6,7 @@ import qualified Data.Map as M
 import Control.Applicative -- for GHC<7.10
 import Control.Monad(when)
 import Control.Monad.State(StateT(..),get,gets,put)
-import Control.Monad.Error(ErrorT(..),Error(..))
+import Control.Monad.Except(ExceptT(..),runExceptT)
 import System.Random(randomRIO)
 --import System.IO(stderr,hPutStrLn)
 import GF.System.Catch(try)
@@ -108,9 +108,9 @@ handle_fcgi execute1 state0 stateM cache =
 
 -- * Request handler
 -- | Handler monad
-type HM s a = StateT (Q,s) (ErrorT Response IO) a
+type HM s a = StateT (Q,s) (ExceptT Response IO) a
 run :: HM s Response -> (Q,s) -> IO (s,Response)
-run m s = either bad ok =<< runErrorT (runStateT m s)
+run m s = either bad ok =<< runExceptT (runStateT m s)
   where
     bad resp = return (snd s,resp)
     ok (resp,(qs,state)) = return (state,resp)
@@ -123,12 +123,12 @@ put_qs qs = do state <- get_state; put (qs,state)
 put_state state = do qs <- get_qs; put (qs,state)
 
 err :: Response -> HM s a
-err e = StateT $ \ s -> ErrorT $ return $ Left e
+err e = StateT $ \ s -> ExceptT $ return $ Left e
 
 hmbracket_ :: IO () -> IO () -> HM s a -> HM s a
 hmbracket_ pre post m =
     do s <- get
-       e <- liftIO $ bracket_ pre post $ runErrorT $ runStateT m s
+       e <- liftIO $ bracket_ pre post $ runExceptT $ runStateT m s
        case e of
          Left resp -> err resp
          Right (a,s) -> do put s;return a
@@ -407,9 +407,6 @@ resp404 path = Response 404 [plain,xo] $ "Not found: "++path++"\n"
 resp500 msg  = Response 500 [plain,xo] $ "Internal error: "++msg++"\n"
 resp501 msg  = Response 501 [plain,xo] $ "Not implemented: "++msg++"\n"
 
-instance Error Response where
-  noMsg = resp500 "no message"
-  strMsg = resp500
 
 -- * Content types
 plain = ct "text/plain" ""

@@ -5,7 +5,7 @@
 -- Stability   : (stable)
 -- Portability : (portable)
 --
--- > CVS $Date: 2005/11/10 16:43:44 $ 
+-- > CVS $Date: 2005/11/10 16:43:44 $
 -- > CVS $Author: bringert $
 -- > CVS $Revision: 1.2 $
 --
@@ -34,7 +34,7 @@ import Data.Set (Set)
 import qualified Data.Set as Set
 
 data Graph n a b = Graph [n] ![Node n a] ![Edge n b]
-		 deriving (Eq,Show)
+    deriving (Eq,Show)
 
 type Node n a = (n,a)
 type Edge n b = (n,n,b)
@@ -63,7 +63,7 @@ emap f (Graph c ns es) = Graph c ns [(x,y,f l) | (x,y,l) <- es]
 
 -- | Add a node to the graph.
 newNode :: a               -- ^ Node label
-        -> Graph n a b 
+        -> Graph n a b
         -> (Graph n a b,n) -- ^ Node graph and name of new node
 newNode l (Graph (c:cs) ns es) = (Graph cs ((c,l):ns) es, c)
 
@@ -83,7 +83,7 @@ newEdges es g = foldl' (flip newEdge) g es
 -- lazy version:
 -- newEdges es' (Graph c ns es) = Graph c ns (es'++es)
 
-insertEdgeWith :: Eq n => 
+insertEdgeWith :: Eq n =>
                   (b -> b -> b) -> Edge n b -> Graph n a b -> Graph n a b
 insertEdgeWith f e@(x,y,l) (Graph c ns es) = Graph c ns (h es)
   where h [] = [e]
@@ -97,7 +97,7 @@ removeNode n = removeNodes (Set.singleton n)
 -- | Remove a set of nodes and all edges to and from those nodes.
 removeNodes :: Ord n => Set n -> Graph n a b -> Graph n a b
 removeNodes xs (Graph c ns es) = Graph c ns' es'
-  where 
+  where
   keepNode n = not (Set.member n xs)
   ns' = [ x | x@(n,_) <- ns, keepNode n ]
   es' = [ e | e@(f,t,_) <- es, keepNode f && keepNode t ]
@@ -105,7 +105,7 @@ removeNodes xs (Graph c ns es) = Graph c ns' es'
 -- | Get a map of node names to info about each node.
 nodeInfo :: Ord n => Graph n a b -> NodeInfo n a b
 nodeInfo g = Map.fromList [ (n, (x, fn inc n, fn out n)) | (n,x) <- nodes g ]
-  where 
+  where
   inc = groupEdgesBy edgeTo g
   out = groupEdgesBy edgeFrom g
   fn m n = fromMaybe [] (Map.lookup n m)
@@ -148,16 +148,16 @@ reverseGraph :: Graph n a b -> Graph n a b
 reverseGraph (Graph c ns es) = Graph c ns [ (t,f,l) | (f,t,l) <- es ]
 
 -- | Add the nodes from the second graph to the first graph.
---   The nodes in the second graph will be renamed using the name 
+--   The nodes in the second graph will be renamed using the name
 --   supply in the first graph.
 --   This function is more efficient when the second graph
 --   is smaller than the first.
-mergeGraphs :: Ord m => Graph n a b -> Graph m a b 
+mergeGraphs :: Ord m => Graph n a b -> Graph m a b
             -> (Graph n a b, m -> n) -- ^ The new graph and a function translating
                                       --  the old names of nodes in the second graph
                                       --  to names in the new graph.
 mergeGraphs (Graph c ns1 es1) g2 = (Graph c' (ns2++ns1) (es2++es1), newName)
-  where 
+  where
   (xs,c') = splitAt (length (nodes g2)) c
   newNames = Map.fromList (zip (map fst (nodes g2)) xs)
   newName n = fromJust $ Map.lookup n newNames
@@ -170,7 +170,7 @@ renameNodes :: (n -> m) -- ^ renaming function
             -> Graph n a b -> Graph m a b
 renameNodes newName c (Graph _ ns es) = Graph c ns' es'
     where ns' = map' (\ (n,x) -> (newName n,x)) ns
-	  es' = map' (\ (f,t,l) -> (newName f, newName t, l)) es
+          es' = map' (\ (f,t,l) -> (newName f, newName t, l)) es
 
 -- | A strict 'map'
 map' :: (a -> b) -> [a] -> [b]

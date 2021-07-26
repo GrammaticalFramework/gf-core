@@ -1,2 +1,5 @@
 i -src testsuite/compiler/typecheck/abstract/PolyTypes.gf
+ai f
+
 i -src testsuite/compiler/typecheck/abstract/RecTypes.gf
+ai f
