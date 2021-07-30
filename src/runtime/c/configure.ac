@@ -1,9 +1,8 @@
-AC_INIT(Portable Grammar Format library, 0.1-pre, 
+AC_INIT(Portable Grammar Format library, 3.0-pre,
 		 http://www.grammaticalframework.org/, 
 		 libpgf)
 AC_PREREQ(2.58)
 
-AC_CONFIG_SRCDIR([gu/mem.c])
 AC_CONFIG_AUX_DIR([scripts])
 AC_CONFIG_MACRO_DIR([m4])
 
@@ -21,9 +20,7 @@ AC_CHECK_LIB(m,nan)
 AC_PROG_MAKE_SET
 AC_PROG_INSTALL
 AC_PROG_LIBTOOL
-AC_PROG_CC
-AC_PROG_CC_C99
-AM_PROG_CC_C_O
+AC_PROG_CXX
 
 [if [ "x$GCC" = "xyes" ]; then
   CFLAGS="$CFLAGS\
@@ -34,29 +31,7 @@ AM_PROG_CC_C_O
  -Wno-unused-value"
 fi]
 
-case "$target_cpu" in
-	i?86)	 cpu=i386; AC_DEFINE(LIGHTNING_I386, 1,
-		   [Define if lightning is targeting the x86 architecture]) ;;
-	x86_64)	 cpu=i386; AC_DEFINE(LIGHTNING_I386, 1,
-		   [Define if lightning is targeting the x86 architecture]) ;;
-	sparc*)	 cpu=sparc; AC_DEFINE(LIGHTNING_SPARC, 1,
-		   [Define if lightning is targeting the sparc architecture]) ;;
-	powerpc) cpu=ppc; AC_DEFINE(LIGHTNING_PPC, 1,
-		   [Define if lightning is targeting the powerpc architecture]) ;;
-    arm*)    cpu=arm; AC_DEFINE(LIGHTNING_ARM, 1,
-		   [Define if lightning is targeting the arm architecture]) ;;
-	*)	 AC_MSG_ERROR([cpu $target_cpu not supported])	;;
-esac
-
-cpu_dir=pgf/lightning/$cpu
-AC_CONFIG_LINKS(pgf/lightning/asm.h:$cpu_dir/asm.h			dnl
-                pgf/lightning/fp.h:$cpu_dir/fp.h			dnl
-                pgf/lightning/core.h:$cpu_dir/core.h		dnl
-                pgf/lightning/funcs.h:$cpu_dir/funcs.h, [],
-  [cpu_dir=$cpu_dir])
-
 AC_CONFIG_FILES([Makefile
-	         libgu.pc
 		 libpgf.pc
 		 ])
 

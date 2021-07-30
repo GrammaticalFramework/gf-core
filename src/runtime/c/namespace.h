@@ -1,0 +1,215 @@
+#ifndef NAMESPACE_H
+#define NAMESPACE_H
+
+#include "db.h"
+
+template <class V>
+class Node;
+
+template <class V>
+using Namespace = ref<Node<V>>;
+
+template <class V>
+class Node {
+public:
+    size_t sz;
+    ref<V> value;
+    ref<Node> left;
+    ref<Node> right;
+
+    static
+    ref<Node> new_node(ref<V> value) {
+        ref<Node> node = current_db->malloc<Node>();
+        node->sz    = 1;
+        node->value = value;
+        node->left  = 0;
+        node->right = 0;
+        return node;
+    }
+
+    static
+    ref<Node> new_node(ref<V> value, ref<Node> left, ref<Node> right) {
+        ref<Node> node = current_db->malloc<Node>();
+        node->sz    = 1+namespace_size(left)+namespace_size(right);
+        node->value = value;
+        node->left  = left;
+        node->right = right;
+        return node;
+    }
+
+    static
+    ref<Node> balanceL(ref<V> value, ref<Node> left, ref<Node> right) {
+        if (right == 0) {
+            if (left == 0) {
+                return new_node(value);
+            } else {
+                if (left->left == 0) {
+                    if (left->right == 0) {
+                        return new_node(value,left,0);
+                    } else {
+                        return new_node(left->right->value,
+                                        new_node(left->value),
+                                        new_node(value));
+                    }
+                } else {
+                    if (left->right == 0) {
+                        return new_node(left->value,
+                                        left->left,
+                                        new_node(value));
+                    } else {
+                        if (left->right->sz < 2 * left->left->sz) {
+                            return new_node(left->value,
+                                            left->left,
+                                            new_node(value,
+                                                     left->right,
+                                                     0));
+                        } else {
+                            return new_node(left->right->value,
+                                            new_node(left->value,
+                                                     left->left,
+                                                     left->right->left),
+                                            new_node(value,
+                                                     left->right->right,
+                                                     0));
+                        }
+                    }
+                }
+            }
+        } else {
+            if (left == 0) {
+                return new_node(value,0,right);
+            } else {
+                if (left->sz > 3*right->sz) {
+                    if (left->right->sz < 2*left->left->sz)
+                        return new_node(left->value,
+                                        left->left,
+                                        new_node(value,
+                                                 left->right,
+                                                 right));
+                    else
+                        return new_node(left->right->value,
+                                        new_node(left->value,
+                                                 left->left,
+                                                 left->right->left),
+                                        new_node(value,
+                                                 left->right->right,
+                                                 right));
+                } else {
+                    return new_node(value,left,right);
+                }
+            }
+        }
+    }
+
+    static
+    ref<Node> balanceR(ref<V> value, ref<Node> left, ref<Node> right) {
+        if (left == 0) {
+            if (right == 0) {
+                return new_node(value);
+            } else {
+                if (right->left == 0) {
+                    if (right->right == 0) {
+                        return new_node(value,0,right);
+                    } else {
+                        return new_node(right->value,
+                                        new_node(value),
+                                        right->right);
+                    }
+                } else {
+                    if (right->right == 0) {
+                        return new_node(right->left->value,
+                                        new_node(value),
+                                        new_node(right->value));
+                    } else {
+                        if (right->left->sz < 2 * right->right->sz) {
+                            return new_node(right->value,
+                                            new_node(value,
+                                                     0,
+                                                     right->left),
+                                            right->right);
+                        } else {
+                            return new_node(right->left->value,
+                                            new_node(value,
+                                                     0,
+                                                     right->left->left),
+                                            new_node(right->value,
+                                                     right->left->right,
+                                                     right->right));
+                        }
+                    }
+                }
+            }
+        } else {
+            if (right == 0) {
+                return new_node(value,left,0);
+            } else {
+                if (right->sz > 3*left->sz) {
+                    if (right->left->sz < 2*right->right->sz)
+                        return new_node(right->value,
+                                        new_node(value,
+                                                 left,
+                                                 right->left),
+                                        right->right);
+                    else
+                        return new_node(right->left->value,
+                                        new_node(value,
+                                                 left,
+                                                 right->left->left),
+                                        new_node(right->value,
+                                                 right->left->right,
+                                                 right->right));
+                } else {
+                    return new_node(value,left,right);
+                }
+            }
+        }
+    }
+};
+
+template <class V>
+Namespace<V> namespace_empty() {
+    return 0;
+}
+
+template <class V>
+Namespace<V> namespace_singleton(ref<V> value) {
+    return Node<V>::new_node(value);
+}
+
+template <class V>
+Namespace<V> namespace_insert(Namespace<V> map, ref<V> value) {
+    if (map == 0)
+        return Node<V>::new_node(value);
+
+    int cmp = strcmp(value->name,map->value->name);
+    if (cmp < 0)
+        return Node<V>::balanceL(map->value,
+                                 namespace_insert(map->left, value),map->right);
+    else if (cmp > 0)
+        return Node<V>::balanceR(map->value,
+                                 map->left, namespace_insert(map->right, value));
+    else
+        return Node<V>::new_node(value,map->left,map->right);
+}
+
+template <class V>
+ref<V> namespace_lookup(Namespace<V> map, const char *name) {
+    while (map != 0) {
+        int cmp = strcmp(name,map->value->name);
+        if (cmp < 0)
+            map = map->left;
+        else if (cmp > 0)
+            map = map->right;
+        else
+            return map->value;
+    }
+    return NULL;
+}
+
+template <class V>
+size_t namespace_size(Namespace<V> map) {
+    if (map == 0)
+        return 0;
+    return map->sz;
+}
+#endif

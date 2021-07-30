@@ -5,7 +5,6 @@ includedir=@includedir@
 
 Name: libpgf
 Description: Portable Grammar Format library
-Requires: libgu
 Version: @VERSION@
 Libs: -L${libdir} -lpgf
 Cflags: -I${includedir}
