@@ -10,6 +10,7 @@
 
 #include "pgf.h"
 #include "db.h"
+#include "text.h"
 #include "namespace.h"
 #include "expr.h"
 
@@ -31,7 +32,7 @@ private:
 
 struct PGF_INTERNAL_DECL PgfFlag {
     PgfLiteral value;
-    char name[];
+    PgfText name;
 };
 
 typedef struct {

@@ -10,6 +10,8 @@ pgfinclude_HEADERS = \
 libpgf_la_SOURCES = \
 	db.cxx \
 	db.h \
+	text.cxx \
+	text.h \
 	pgf.cxx \
 	reader.cxx \
 	reader.h \

@@ -181,7 +181,7 @@ Namespace<V> namespace_insert(Namespace<V> map, ref<V> value) {
     if (map == 0)
         return Node<V>::new_node(value);
 
-    int cmp = strcmp(value->name,map->value->name);
+    int cmp = textcmp(value->name,map->value->name);
     if (cmp < 0)
         return Node<V>::balanceL(map->value,
                                  namespace_insert(map->left, value),map->right);

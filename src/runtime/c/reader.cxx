@@ -82,9 +82,9 @@ uint64_t PgfReader::read_uint()
 	return u;
 }
 
-moffset PgfReader::read_name(size_t size)
+moffset PgfReader::read_name(size_t struct_size)
 {
-    size_t len = read_len();
+    size_t len  = read_len();
 
     char* buf = (char*) alloca(len*6+1);
 	char* p   = buf;
@@ -115,10 +115,14 @@ moffset PgfReader::read_name(size_t size)
 
         p += len;
 	}
+
+    size_t size = p-buf;
 	*p++ = 0;
 
-	moffset offs = current_db->malloc(size+(p-buf));
-	strcpy((char*) (current_base+offs+size), buf);
+	moffset offs = current_db->malloc(struct_size+size+1);
+    PgfText* ptext = (PgfText*) (current_base+offs+struct_size-sizeof(PgfText));
+    ptext->size = size;
+	memcpy(ptext->text, buf, size+1);
 
 	return offs;
 }
