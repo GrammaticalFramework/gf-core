@@ -1,9 +1,9 @@
-{-# LANGUAGE FlexibleInstances, UndecidableInstances #-}
+{-# LANGUAGE FlexibleInstances, UndecidableInstances, CPP #-}
 module GF.Command.Commands (
   HasPGF(..),pgfCommands,
   options,flags,
   ) where
-import Prelude hiding (putStrLn)
+import Prelude hiding (putStrLn,(<>))
 
 import PGF2
 import PGF2.Internal(writePGF)
@@ -31,10 +31,13 @@ import qualified Data.Map as Map
 import GF.Text.Pretty
 import Data.List (sort)
 import Control.Monad(mplus)
+import qualified Control.Monad.Fail as Fail
+--import Debug.Trace
+
 
 class (Functor m,Monad m,MonadSIO m) => HasPGF m where getPGF :: m (Maybe PGF)
 
-instance (Monad m,HasPGF m) => TypeCheckArg m where
+instance (Monad m,HasPGF m,Fail.MonadFail m) => TypeCheckArg m where
   typeCheckArg e = do mb_pgf <- getPGF
                       case mb_pgf of
                         Just pgf -> either fail
@@ -708,16 +711,10 @@ pgfCommands = Map.fromList [
    optLins pgf opts ts = concatMap (optLin pgf opts) ts
    optLin pgf opts t =
      case opts of
-       _ | isOpt "treebank" opts && isOpt "chunks" opts ->
-         (abstractName pgf ++ ": " ++ showExpr [] t) :
-         [lang ++ ": " ++ li | (lang,li) <- linChunks pgf opts t] --linear pgf opts lang t | lang <- optLangs pgf opts]
        _ | isOpt "treebank" opts ->
          (abstractName pgf ++ ": " ++ showExpr [] t) :
          [concreteName concr ++ ": " ++ s | concr <- optLangs pgf opts, s<-linear opts concr t]
-       _ | isOpt "chunks" opts -> map snd $ linChunks pgf opts t   
        _ -> [s | concr <- optLangs pgf opts, s <- linear opts concr t]
-   linChunks pgf opts t = 
-     [(concreteName concr, unwords (intersperse "<+>" (map (unlines . linear opts concr) (treeChunks t)))) | concr <- optLangs pgf opts]
 
    linear :: [Option] -> Concr -> Expr -> [String]
    linear opts concr = case opts of
@@ -916,3 +913,7 @@ stanzas = map unlines . chop . lines where
   chop ls = case break (=="") ls of
     (ls1,[])  -> [ls1]
     (ls1,_:ls2) -> ls1 : chop ls2
+
+#if !(MIN_VERSION_base(4,9,0))
+errorWithoutStackTrace = error
+#endif

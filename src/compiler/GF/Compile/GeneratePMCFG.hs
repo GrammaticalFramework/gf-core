@@ -26,7 +26,7 @@ import GF.Data.BacktrackM
 import GF.Data.Operations
 import GF.Infra.UseIO (ePutStr,ePutStrLn) -- IOE,
 import GF.Data.Utilities (updateNthM) --updateNth
-import GF.Compile.Compute.ConcreteNew(normalForm,resourceValues)
+import GF.Compile.Compute.Concrete(normalForm,resourceValues)
 import qualified Data.Map as Map
 import qualified Data.Set as Set
 import qualified Data.List as List
@@ -42,6 +42,7 @@ import Control.Monad
 import Control.Monad.Identity
 --import Control.Exception
 --import Debug.Trace(trace)
+import qualified Control.Monad.Fail as Fail
 
 ----------------------------------------------------------------------
 -- main conversion function
@@ -82,7 +83,7 @@ addPMCFG opts gr cenv opath am cm seqs id (CncFun mty@(Just (cat,cont,val)) mlin
                           (goB b1 CNil [])
                           (pres,pargs)
       pmcfg      = getPMCFG pmcfgEnv1
-      
+
       stats      = let PMCFG prods funs = pmcfg
                        (s,e)            = bounds funs
                        !prods_cnt       = length prods
@@ -200,6 +201,9 @@ newtype CnvMonad a = CM {unCM :: SourceGrammar
                               -> ([ProtoFCat],[Symbol])
                               -> Branch b}
 
+instance Fail.MonadFail CnvMonad where
+  fail = bug
+
 instance Applicative CnvMonad where
   pure = return
   (<*>) = ap
@@ -243,7 +247,7 @@ choices nr path = do (args,_) <- get
                                                                                                                     | (value,index) <- values])
     descend schema       path              rpath = bug $ "descend "++show (schema,path,rpath)
 
-    updateEnv path value gr c (args,seq) = 
+    updateEnv path value gr c (args,seq) =
       case updateNthM (restrictProtoFCat path value) nr args of
         Just args -> c value (args,seq)
         Nothing   -> bug "conflict in updateEnv"
@@ -604,7 +608,7 @@ restrictProtoFCat path v (PFCat cat f schema) = do
                                                        Just index -> return (CPar (m,[(v,index)]))
                                                        Nothing    -> mzero
     addConstraint CNil             v (CStr _)      = bug "restrictProtoFCat: string path"
-    
+
     update k0 f [] = return []
     update k0 f (x@(k,Identity v):xs)
       | k0 == k    = do v <- f v
@@ -616,6 +620,23 @@ mkArray    lst = listArray (0,length lst-1) lst
 mkSetArray map = array (0,Map.size map-1) [(v,k) | (k,v) <- Map.toList map]
 
 bug msg = ppbug msg
-ppbug msg = error . render $ hang "Internal error in GeneratePMCFG:" 4 msg
+ppbug msg = error completeMsg
+ where
+  originalMsg = render $ hang "Internal error in GeneratePMCFG:" 4 msg
+  completeMsg =
+    case render msg of -- the error message for pattern matching a runtime string
+      "descend (CStr 0,CNil,CProj (LIdent (Id {rawId2utf8 = \"s\"})) CNil)"
+        -> unlines [originalMsg -- add more helpful output
+            ,""
+            ,"1) Check that you are not trying to pattern match a /runtime string/."
+            ,"   These are illegal:"
+            ,"     lin Test foo = case foo.s of {"
+            ,"                       \"str\" => … } ;   <- explicit matching argument of a lin"
+            ,"     lin Test foo = opThatMatches foo   <- calling an oper that pattern matches"
+            ,""
+            ,"2) Not about pattern matching? Submit a bug report and we update the error message."
+            ,"     https://github.com/GrammaticalFramework/gf-core/issues"
+            ]
+      _ -> originalMsg -- any other message: just print it as is
 
 ppU = ppTerm Unqualified

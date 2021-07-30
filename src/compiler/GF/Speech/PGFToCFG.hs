@@ -67,7 +67,7 @@ pgfToCFG pgf cnc = mkCFG start_cat extCats (startRules ++ concatMap ruleToCFRule
                         r <- [0..catLinArity fc-1]]
 
     ruleToCFRule :: (FId,Production) -> [CFRule]
-    ruleToCFRule (c,PApply funid args) = 
+    ruleToCFRule (c,PApply funid args) =
         [Rule (fcatToCat c l) (mkRhs row) (profilesToTerm [fixProfile row n | n <- [0..length args-1]])
            | (l,seqid) <- zip [0..] rhs
            , let row = concrSequence cnc seqid
@@ -100,7 +100,7 @@ pgfToCFG pgf cnc = mkCFG start_cat extCats (startRules ++ concatMap ruleToCFRule
         fixProfile row i = [k | (k,j) <- nts, j == i]
             where
               nts = zip [0..] [j | nt <- row, j <- getPos nt]
-              
+
               getPos (SymCat j _) = [j]
               getPos (SymLit j _) = [j]
               getPos _            = []

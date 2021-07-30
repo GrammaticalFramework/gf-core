@@ -158,7 +158,7 @@ parse_ pgf lang cat dp s =
     PGF2.ParseIncomplete   -> (ParseIncomplete,      PGF2.Leaf s)
 
 complete pgf lang cat s prefix = 
-  let compls = Map.fromListWith (++) [(tok,[CId fun]) | (tok,_,fun,_) <- PGF2.complete (lookConcr pgf lang) cat s prefix]
+  let compls = Map.fromListWith (++) [(tok,[CId fun]) | PGF2.ParseOk res <- [PGF2.complete (lookConcr pgf lang) cat s prefix], (tok,_,fun,_) <- res]
   in (PGF2.Leaf [],s,compls)
 
 hasLinearization pgf lang (CId f) = PGF2.hasLinearization (lookConcr pgf lang) f

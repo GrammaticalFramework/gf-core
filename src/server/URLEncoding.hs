@@ -6,9 +6,9 @@ import Data.Char (chr,digitToInt,isHexDigit)
 -- | Decode hexadecimal escapes
 urlDecodeUnicode :: String -> String
 urlDecodeUnicode [] = ""
-urlDecodeUnicode ('%':'u':x1:x2:x3:x4:s) 
+urlDecodeUnicode ('%':'u':x1:x2:x3:x4:s)
     | all isHexDigit [x1,x2,x3,x4] =
-    chr (    digitToInt x1 `shiftL` 12 
+    chr (    digitToInt x1 `shiftL` 12
          .|. digitToInt x2 `shiftL` 8
          .|. digitToInt x3 `shiftL` 4
          .|. digitToInt x4) : urlDecodeUnicode s
@@ -45,8 +45,8 @@ fromhex2 d1 d2 = 16*digitToInt d1+digitToInt d2
 -- Repeatedly extract (and transform) values until a predicate hold.  Return the list of values.
 unfoldr :: (a -> (b, a)) -> (a -> Bool) -> a -> [b]
 unfoldr f p x | p x       = []
-	      | otherwise = y:unfoldr f p x'
-			      where (y, x') = f x
+              | otherwise = y:unfoldr f p x'
+                              where (y, x') = f x
 
 chopList :: ([a] -> (b, [a])) -> [a] -> [b]
 chopList f l = unfoldr f null l
@@ -54,8 +54,8 @@ chopList f l = unfoldr f null l
 breakAt :: (Eq a) => a -> [a] -> ([a], [a])
 breakAt _ [] = ([], [])
 breakAt x (x':xs) =
-	if x == x' then
-	    ([], xs)
-	else
-	    let (ys, zs) = breakAt x xs
-	    in  (x':ys, zs)
+    if x == x' then
+        ([], xs)
+    else
+        let (ys, zs) = breakAt x xs
+        in  (x':ys, zs)

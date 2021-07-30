@@ -1,5 +1,5 @@
 -- | Lexers and unlexers - they work on space-separated word strings
-module GF.Text.Lexing (stringOp,opInEnv) where
+module GF.Text.Lexing (stringOp,opInEnv,bindTok) where
 
 import GF.Text.Transliterations
 

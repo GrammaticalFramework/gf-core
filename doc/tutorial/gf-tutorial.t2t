@@ -898,7 +898,7 @@ Parentheses are only needed for grouping.
 Parsing something that is not in grammar will fail:
 ```
   > parse "hello dad"
-  Unknown words: dad
+  The parser failed at token 2: "dad"
 
   > parse "world hello"
   no tree found
@@ -2475,7 +2475,7 @@ can be used to read a text and return for each word its analyses
 ```
 The command ``morpho_quiz = mq`` generates inflection exercises.
 ```
-  % gf -path=alltenses:prelude $GF_LIB_PATH/alltenses/IrregFre.gfo
+  % gf alltenses/IrregFre.gfo
 
   > morpho_quiz -cat=V
 
@@ -2488,11 +2488,6 @@ The command ``morpho_quiz = mq`` generates inflection exercises.
   réapparaîtriez
   Score 0/1
 ```
-To create a list for later use, use the command ``morpho_list = ml``
-```
-  > morpho_list -number=25 -cat=V | write_file exx.txt
-```
-
 
 
 
@@ -2651,12 +2646,12 @@ The verb //switch off// is called a
 
 We can define transitive verbs and their combinations as follows:
 ```
-  lincat TV = {s : Number => Str ; part : Str} ;
+  lincat V2 = {s : Number => Str ; part : Str} ;
 
-  fun AppTV : Item -> TV -> Item -> Phrase ;
+  fun AppV2 : Item -> V2 -> Item -> Phrase ;
 
-  lin AppTV subj tv obj =
-    {s = subj.s ++ tv.s ! subj.n ++ obj.s ++ tv.part} ;
+  lin AppV2 subj v2 obj =
+    {s = subj.s ++ v2.s ! subj.n ++ obj.s ++ v2.part} ;
 ```
 
 **Exercise**. Define the language ``a^n b^n c^n`` in GF, i.e.
@@ -2722,11 +2717,11 @@ This topic will be covered in #Rseclexing.
 
 The symbol ``**`` is used for both record types and record objects.
 ```
-  lincat TV = Verb ** {c : Case} ;
+  lincat V2 = Verb ** {c : Case} ;
 
   lin Follow = regVerb "folgen" ** {c = Dative} ;
 ```
-``TV`` becomes a **subtype** of ``Verb``.
+``V2`` (transitive verb) becomes a **subtype** of ``Verb``.
 
 If //T// is a subtype of //R//, an object of //T// can be used whenever
 an object of //R// is required.
@@ -2757,7 +2752,11 @@ Thus the labels ``p1, p2,...`` are hard-coded.
 English indefinite article:
 ```
   oper artIndef : Str =
-    pre {"a" ; "an" / strs {"a" ; "e" ; "i" ; "o"}} ;
+     pre {
+       ("a" | "e" | "i" | "o") => "an" ;
+       _ => "a"
+     } ;
+
 ```
 Thus
 ```
@@ -2948,7 +2947,7 @@ We need the following combinations:
 ```
 We also need **lexical insertion**, to form phrases from single words:
 ```
-  mkCN : N -> NP ;
+  mkCN : N -> CN ;
   mkAP : A -> AP ;
 ```
 Naming convention: to construct a //C//, use a function ``mk``//C//.
@@ -2969,7 +2968,7 @@ can be built as follows:
 ```
   mkCl
     (mkNP these_Det
-       (mkCN (mkAP very_AdA (mkAP warm_A)) (mkCN pizza_CN)))
+       (mkCN (mkAP very_AdA (mkAP warm_A)) (mkCN pizza_N)))
     (mkAP italian_AP)
 ```
 The task now: to define the concrete syntax of ``Foods`` so that
@@ -3718,48 +3717,24 @@ Concrete syntax does not know if a category is a dependent type.
 ```
 Notice that the ``Kind`` argument is suppressed in linearization.
 
-Parsing with dependent types is performed in two phases:
+Parsing with dependent types consists of two phases:
 + context-free parsing
 + filtering through type checker
 
+Parsing a type-correct command works as expected:
 
-By just doing the first phase, the ``kind`` argument is not found:
 ```
   > parse "dim the light"
-  CAction ? dim (DKindOne light)
-```
-Moreover, type-incorrect commands are not rejected:
-```
-  > parse "dim the fan"
-  CAction ? dim (DKindOne fan)
-```
-The term ``?`` is a **metavariable**, returned by the parser
-for any subtree that is suppressed by a linearization rule.
-These are the same kind of metavariables as were used #Rsecediting
-to mark incomplete parts of trees in the syntax editor.
-
-
-
-#NEW
-
-===Solving metavariables===
-
-Use the command ``put_tree = pt`` with the option ``-typecheck``:
-```
-  > parse "dim the light" | put_tree -typecheck
   CAction light dim (DKindOne light)
 ```
-The ``typecheck`` process may fail, in which case an error message
-is shown and no tree is returned:
+However, type-incorrect commands are rejected by the typecheck:
 ```
-  > parse "dim the fan" | put_tree -typecheck
-
-  Error in tree UCommand (CAction ? 0 dim (DKindOne fan)) :
-    (? 0 <> fan) (? 0 <> light)
+  > parse "dim the fan"
+  The parsing is successful but the type checking failed with error(s):
+    Couldn't match expected type Device light
+       against the interred type Device fan
+    In the expression: DKindOne fan       
 ```
-
-
-
 
 #NEW
 
@@ -3786,21 +3761,17 @@ to express Haskell-type library functions:
     \_,_,_,f,x,y -> f y x ;
 ```
 
-
 #NEW
 
 ===Dependent types: exercises===
 
 1. Write an abstract syntax module with above contents
 and an appropriate English concrete syntax. Try to parse the commands
-//dim the light// and //dim the fan//, with and without ``solve`` filtering.
+//dim the light// and //dim the fan//.
 
-
-2. Perform random and exhaustive generation, with and without
-``solve`` filtering.
+2. Perform random and exhaustive generation.
 
 3. Add some device kinds and actions to the grammar.
-
 
 
 #NEW
@@ -3910,7 +3881,6 @@ fun
   dim      : (k : Kind) -> Dimmable k -> Action k ;
 ```
 Classes for new actions can be added incrementally.
-
 
 
 #NEW
@@ -4200,7 +4170,8 @@ We construct a calculator with addition, subtraction, multiplication, and
 division of integers.
 ```
   abstract Calculator = {
-
+  flags startcat = Exp ;
+  
   cat Exp ;
 
   fun
@@ -4226,7 +4197,7 @@ We begin with a
 concrete syntax that always uses parentheses around binary
 operator applications:
 ```
-  concrete CalculatorP of Calculator = {
+  concrete CalculatorP of Calculator = open Prelude in {
 
   lincat
     Exp = SS ;
@@ -4737,10 +4708,6 @@ abstract Query = {
 
 To make it easy to define a transfer function, we export the
 abstract syntax to a system of Haskell datatypes:
-```
-  % gf --output-format=haskell Query.pgf
-```
-It is also possible to produce the Haskell file together with PGF, by
 ```
   % gf -make --output-format=haskell QueryEng.gf
 ```

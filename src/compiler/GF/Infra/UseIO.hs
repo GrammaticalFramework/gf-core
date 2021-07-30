@@ -150,6 +150,9 @@ instance ErrorMonad IO where
                                 then h (ioeGetErrorString e)
                                 else ioError e
 {-
+-- Control.Monad.Fail import will become redundant in GHC 8.8+
+import qualified Control.Monad.Fail as Fail
+
 instance Functor IOE where fmap = liftM
 
 instance Applicative IOE where
@@ -161,7 +164,15 @@ instance  Monad IOE where
   IOE c >>= f = IOE $ do 
                   x <- c          -- Err a
                   appIOE $ err raise f x         -- f :: a -> IOE a
+
+ #if !(MIN_VERSION_base(4,13,0))
   fail = raise
+ #endif
+
+instance Fail.MonadFail IOE where
+  fail = raise
+
+
 -}
 
 -- | Print the error message and return a default value if the IO operation 'fail's

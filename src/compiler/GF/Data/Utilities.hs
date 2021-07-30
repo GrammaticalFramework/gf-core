@@ -4,7 +4,7 @@
 -- Stability   : (stable)
 -- Portability : (portable)
 --
--- > CVS $Date: 2005/10/26 18:47:16 $ 
+-- > CVS $Date: 2005/10/26 18:47:16 $
 -- > CVS $Author: bringert $
 -- > CVS $Revision: 1.6 $
 --
@@ -33,7 +33,7 @@ longerThan    n = not . notLongerThan n
 lookupList :: Eq a => a -> [(a, b)] -> [b]
 lookupList a [] = []
 lookupList a (p:ps) | a == fst p = snd p : lookupList a ps
-		    | otherwise  =         lookupList a ps
+                    | otherwise  =         lookupList a ps
 
 split :: [a] -> ([a], [a])
 split (x : y : as) = (x:xs, y:ys)
@@ -48,8 +48,8 @@ splitBy p (a : as) = if p a then (a:xs, ys) else (xs, a:ys)
 foldMerge :: (a -> a -> a) -> a -> [a] -> a
 foldMerge merge zero = fm
     where fm [] = zero
-	  fm [a] = a
-	  fm abs = let (as, bs) = split abs in fm as `merge` fm bs
+          fm [a] = a
+          fm abs = let (as, bs) = split abs in fm as `merge` fm bs
 
 select :: [a] -> [(a, [a])]
 select [] = []
@@ -68,7 +68,7 @@ safeInit :: [a] -> [a]
 safeInit [] = []
 safeInit xs = init xs
 
--- | Sorts and then groups elements given an ordering of the 
+-- | Sorts and then groups elements given an ordering of the
 --   elements.
 sortGroupBy :: (a -> a -> Ordering) -> [a] -> [[a]]
 sortGroupBy f = groupBy (compareEq f) . sortBy f

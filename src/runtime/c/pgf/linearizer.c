@@ -628,7 +628,7 @@ typedef struct {
 	PgfLzrCachedTag tag;
 	PgfCId cat;
 	int fid;
-	int lin_idx;
+	GuString ann;
 	PgfCId fun;
 } PgfLzrCached;
 
@@ -666,7 +666,7 @@ pgf_lzr_cache_flush(PgfLzrCache* cache, PgfSymbols* form)
 				                        cache->lzr->funcs,
 				                        event->cat,
 				                        event->fid,
-				                        event->lin_idx,
+				                        event->ann,
 				                        event->fun);
 			}
 			break;
@@ -676,7 +676,7 @@ pgf_lzr_cache_flush(PgfLzrCache* cache, PgfSymbols* form)
 				                        cache->lzr->funcs,
 				                        event->cat,
 				                        event->fid,
-				                        event->lin_idx,
+				                        event->ann,
 				                        event->fun);
 			}
 			break;
@@ -731,27 +731,27 @@ found:
 }
 
 static void
-pgf_lzr_cache_begin_phrase(PgfLinFuncs** funcs, PgfCId cat, int fid, size_t lin_idx, PgfCId fun)
+pgf_lzr_cache_begin_phrase(PgfLinFuncs** funcs, PgfCId cat, int fid, GuString ann, PgfCId fun)
 {
 	PgfLzrCache*  cache = gu_container(funcs, PgfLzrCache, funcs);
 	PgfLzrCached* event = gu_buf_extend(cache->events);
-	event->tag     = PGF_CACHED_BEGIN;
-	event->cat     = cat;
-	event->fid     = fid;
-	event->lin_idx = lin_idx;
-	event->fun     = fun;
+	event->tag = PGF_CACHED_BEGIN;
+	event->cat = cat;
+	event->fid = fid;
+	event->ann = ann;
+	event->fun = fun;
 }
 
 static void
-pgf_lzr_cache_end_phrase(PgfLinFuncs** funcs, PgfCId cat, int fid, size_t lin_idx, PgfCId fun)
+pgf_lzr_cache_end_phrase(PgfLinFuncs** funcs, PgfCId cat, int fid, GuString ann, PgfCId fun)
 {
 	PgfLzrCache*  cache = gu_container(funcs, PgfLzrCache, funcs);
 	PgfLzrCached* event = gu_buf_extend(cache->events);
-	event->tag     = PGF_CACHED_END;
-	event->cat     = cat;
-	event->fid     = fid;
-	event->lin_idx = lin_idx;
-	event->fun     = fun;
+	event->tag = PGF_CACHED_END;
+	event->cat = cat;
+	event->fid = fid;
+	event->ann = ann;
+	event->fun = fun;
 }
 
 static void
@@ -939,8 +939,8 @@ pgf_lzr_linearize_tree(PgfLzr* lzr, PgfCncTree ctree, size_t lin_idx)
 
 		if ((*lzr->funcs)->begin_phrase && fapp->ccat != NULL) {
 			(*lzr->funcs)->begin_phrase(lzr->funcs,
-			                            fun->absfun->type->cid,
-			                            fapp->fid, lin_idx,
+			                            fapp->ccat->cnccat->abscat->name,
+			                            fapp->fid, fapp->ccat->cnccat->labels[lin_idx],
 			                            fun->absfun->name);
 		}
 
@@ -949,8 +949,8 @@ pgf_lzr_linearize_tree(PgfLzr* lzr, PgfCncTree ctree, size_t lin_idx)
 		
 		if ((*lzr->funcs)->end_phrase && fapp->ccat != NULL) {
 			(*lzr->funcs)->end_phrase(lzr->funcs,
-			                          fun->absfun->type->cid,
-			                          fapp->fid, lin_idx,
+			                          fapp->ccat->cnccat->abscat->name,
+			                          fapp->fid, fapp->ccat->cnccat->labels[lin_idx],
 			                          fun->absfun->name);
 		}
 		break;
@@ -979,7 +979,7 @@ pgf_lzr_linearize_tree(PgfLzr* lzr, PgfCncTree ctree, size_t lin_idx)
 		
 		if ((*lzr->funcs)->begin_phrase) {
 			(*lzr->funcs)->begin_phrase(lzr->funcs,
-			                            cat, flit->fid, 0,
+			                            cat, flit->fid, "s",
 			                            "");
 		}
 
@@ -1011,7 +1011,7 @@ pgf_lzr_linearize_tree(PgfLzr* lzr, PgfCncTree ctree, size_t lin_idx)
 
 		if ((*lzr->funcs)->end_phrase) {
 			(*lzr->funcs)->end_phrase(lzr->funcs,
-							          cat, flit->fid, 0,
+							          cat, flit->fid, "s",
 							          "");
 		}
 

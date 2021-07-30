@@ -5,7 +5,7 @@ cat CStr String ;
     CFloat Float ;
 
 data empty : CStr "" ;
-     null  : CStr [] ;
+    -- null  : CStr [] ; -- Commented out by IL 06/2021: causes parse error
      other : CStr "other" ;
 
 data zero : CInt 0 ;

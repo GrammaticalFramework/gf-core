@@ -147,7 +147,7 @@ else
     fi
   done
   find . -name '*.md' | while read file ; do
-    if [[ "$file" == *"README.md" ]] ; then continue ; fi
+    if [[ "$file" == *"README.md" ]] || [[ "$file" == *"RELEASE.md" ]] ; then continue ; fi
     html="${file%.md}.html"
     if [ "$file" -nt "$html" ] || [ "$template" -nt "$html" ] ; then
       render_md_html "$file" "$html"

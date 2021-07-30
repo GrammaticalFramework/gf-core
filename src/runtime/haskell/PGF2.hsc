@@ -15,6 +15,7 @@
 
 #include <pgf/pgf.h>
 #include <pgf/linearizer.h>
+#include <pgf/data.h>
 #include <gu/enum.h>
 #include <gu/exn.h>
 
@@ -38,30 +39,28 @@ module PGF2 (-- * PGF
              mkMeta,unMeta,
              exprHash, exprSize, exprFunctions, exprSubstitute,
              treeProbability,
-
              -- ** Types
              Type, Hypo, BindType(..), startCat,
              readType, showType, showContext,
              mkType, unType,
-
              -- ** Type checking
+             -- | Dynamically-built expressions should always be type-checked before using in other functions,
+             -- as the exceptions thrown by using invalid expressions may not catchable.
              checkExpr, inferExpr, checkType,
-
              -- ** Computing
              compute,
 
              -- * Concrete syntax
              ConcName,Concr,languages,concreteName,languageCode,
-
              -- ** Linearization
-             linearize,linearizeAll,tabularLinearize,tabularLinearizeAll,bracketedLinearize,
-             FId, LIndex, BracketedString(..), showBracketedString, flattenBracketedString,
-             printName,
+             linearize,linearizeAll,tabularLinearize,tabularLinearizeAll,bracketedLinearize,bracketedLinearizeAll,
+             FId, BracketedString(..), showBracketedString, flattenBracketedString,
+             printName, categoryFields,
              alignWords, gizaAlignment,
-
              -- ** Parsing
-             ParseOutput(..), parse, parseWithHeuristics, complete,
-
+             ParseOutput(..), parse, parseWithHeuristics,
+             parseToChart, PArg(..),
+             complete,
              -- ** Sentence Lookup
              lookupSentence,
 
@@ -71,6 +70,7 @@ module PGF2 (-- * PGF
 
              -- ** Morphological Analysis
              MorphoAnalysis, lookupMorpho, lookupCohorts, fullFormLexicon,
+             filterBest, filterLongest,
              -- ** Visualizations
              GraphvizOptions(..), graphvizDefaults,
              graphvizAbstractTree, graphvizParseTree,
@@ -88,11 +88,12 @@ module PGF2 (-- * PGF
              readProbabilitiesFromFile
             ) where
 
-import Prelude hiding (fromEnum)
+import Prelude hiding (fromEnum,(<>))
 import Control.Exception(Exception,throwIO)
 import Control.Monad(forM_)
 import System.IO.Unsafe(unsafePerformIO,unsafeInterleaveIO)
 import System.Random
+import System.IO(fixIO)
 import Text.PrettyPrint
 import PGF2.Expr
 import PGF2.Type
@@ -103,12 +104,12 @@ import Foreign.C
 import Data.Typeable
 import qualified Data.Map as Map
 import Data.IORef
-import Data.Char(isUpper,isSpace)
+import Data.Char(isUpper,isSpace,isPunctuation)
 import Data.List(isSuffixOf,maximumBy,nub,mapAccumL,intersperse,groupBy,find)
 import Data.Maybe(fromMaybe)
 import Data.Function(on)
+import Data.Maybe(maybe)
 
- 
 -----------------------------------------------------------------------
 -- Functions that take a PGF.
 -- PGF has many Concrs.
@@ -188,7 +189,7 @@ languageCode c = unsafePerformIO $ do
     else fmap Just (peekUtf8CString c_code)
 
 -- | Generates an exhaustive possibly infinite list of
--- all abstract syntax expressions of the given type. 
+-- all abstract syntax expressions of the given type.
 -- The expressions are ordered by their probability.
 generateAll :: PGF -> Type -> [(Expr,Float)]
 generateAll p (Type ctype _) =
@@ -450,6 +451,7 @@ graphvizParseTree c opts e =
          c_opts <- newGraphvizOptions tmpPl opts
          pgf_graphviz_parse_tree (concr c) (expr e) c_opts out exn
          touchExpr e
+         touchConcr c
          s <- gu_string_buf_freeze sb tmpPl
          peekUtf8CString s
 
@@ -915,21 +917,21 @@ newGraphvizOptions pool opts = do
 -- Functions using Concr
 -- Morpho analyses, parsing & linearization
 
--- | This triple is returned by all functions that deal with 
+-- | This triple is returned by all functions that deal with
 -- the grammar's lexicon. Its first element is the name of an abstract
--- lexical function which can produce a given word or 
+-- lexical function which can produce a given word or
 -- a multiword expression (i.e. this is the lemma).
--- After that follows a string which describes 
+-- After that follows a string which describes
 -- the particular inflection form.
 --
 -- The last element is a logarithm from the
--- the probability of the function. The probability is not 
+-- the probability of the function. The probability is not
 -- conditionalized on the category of the function. This makes it
 -- possible to compare the likelihood of two functions even if they
--- have different types. 
+-- have different types.
 type MorphoAnalysis = (Fun,String,Float)
 
--- | 'lookupMorpho' takes a string which must be a single word or 
+-- | 'lookupMorpho' takes a string which must be a single word or
 -- a multiword expression. It then computes the list of all possible
 -- morphological analyses.
 lookupMorpho :: Concr -> String -> [MorphoAnalysis]
@@ -954,7 +956,7 @@ lookupMorpho (Concr concr master) sent =
 -- The list is sorted first by the @start@ position and after than
 -- by the @end@ position. This can be used for instance if you want to
 -- filter only the longest matches.
-lookupCohorts :: Concr -> String -> [(Int,[MorphoAnalysis],Int)]
+lookupCohorts :: Concr -> String -> [(Int,String,[MorphoAnalysis],Int)]
 lookupCohorts lang@(Concr concr master) sent =
   unsafePerformIO $
     do pl <- gu_new_pool
@@ -965,9 +967,9 @@ lookupCohorts lang@(Concr concr master) sent =
        c_sent <- newUtf8CString sent pl
        enum <- pgf_lookup_cohorts concr c_sent cback pl nullPtr
        fpl <- newForeignPtr gu_pool_finalizer pl
-       fromCohortRange enum fpl fptr ref
+       fromCohortRange enum fpl fptr 0 sent ref
   where
-    fromCohortRange enum fpl fptr ref =
+    fromCohortRange enum fpl fptr i sent ref =
       allocaBytes (#size PgfCohortRange) $ \ptr ->
       withForeignPtr fpl $ \pl ->
         do gu_enum_next enum ptr pl
@@ -981,8 +983,80 @@ lookupCohorts lang@(Concr concr master) sent =
                      end   <- (#peek PgfCohortRange, end.pos)   ptr
                      ans   <- readIORef ref
                      writeIORef ref []
-                     cohs  <- unsafeInterleaveIO (fromCohortRange enum fpl fptr ref)
-                     return ((start,ans,end):cohs)
+                     let sent' = drop (start-i)   sent
+                         tok   = take (end-start) sent'
+                     cohs  <- unsafeInterleaveIO (fromCohortRange enum fpl fptr start sent' ref)
+                     return ((start,tok,ans,end):cohs)
+
+filterBest :: [(Int,String,[MorphoAnalysis],Int)] -> [(Int,String,[MorphoAnalysis],Int)]
+filterBest ans =
+  reverse (iterate (maxBound :: Int) [(0,0,[],ans)] [] [])
+  where
+    iterate v0 []                      []  res = res
+    iterate v0 []                      new res = iterate v0 new []  res
+    iterate v0 ((_,v,conf,    []):old) new res =
+      case compare v0 v of
+        LT                                    -> res
+        EQ                                    -> iterate v0 old new (merge conf res)
+        GT                                    -> iterate v  old new conf
+    iterate v0 ((_,v,conf,an:ans):old) new res = iterate v0 old (insert (v+valueOf an) conf an ans [] new) res
+
+    valueOf (_,_,[],_) = 2
+    valueOf _          = 1
+
+    insert v conf an@(start,_,_,end) ans l_new []                               =
+      match start v conf ans ((end,v,comb conf an,filter end ans):l_new) []
+    insert v conf an@(start,_,_,end) ans l_new (new@(end0,v0,conf0,ans0):r_new) =
+      case compare end0 end of
+        LT         -> insert v conf an ans (new:l_new) r_new
+        EQ -> case compare v0 v of
+                LT -> match start v conf ans ((end,v,                     conf0,ans0):    l_new) r_new
+                EQ -> match start v conf ans ((end,v,merge (comb conf an) conf0,ans0):    l_new) r_new
+                GT -> match start v conf ans ((end,v,comb conf an,              ans0):    l_new) r_new
+        GT         -> match start v conf ans ((end,v,comb conf an,    filter end ans):new:l_new) r_new
+
+    match start0 v conf (an@(start,_,_,end):ans) l_new r_new
+      | start0 == start                 = insert v conf an ans l_new r_new
+    match start0 v conf ans l_new r_new = revOn l_new r_new
+
+    comb ((start0,w0,an0,end0):conf) (start,w,an,end)
+      | end0 == start && (unk w0 an0 || unk w an) = (start0,w0++w,[],end):conf
+    comb conf an = an:conf
+
+    filter end                     [] = []
+    filter end (next@(start,_,_,_):ans)
+      | end <= start                  = next:ans
+      | otherwise                     = filter end ans
+
+    revOn []     ys = ys
+    revOn (x:xs) ys = revOn xs (x:ys)
+
+    merge []                           ans                          = ans
+    merge ans                          []                           = ans
+    merge (an1@(start1,_,_,end1):ans1) (an2@(start2,_,_,end2):ans2) =
+      case compare (start1,end1) (start2,end2) of
+        GT -> an1 : merge ans1 (an2:ans2)
+        EQ -> an1 : merge ans1 ans2
+        LT -> an2 : merge (an1:ans1) ans2
+
+filterLongest :: [(Int,String,[MorphoAnalysis],Int)] -> [(Int,String,[MorphoAnalysis],Int)]
+filterLongest []       = []
+filterLongest (an:ans) = longest an ans
+  where
+    longest prev                   [] = [prev]
+    longest prev@(start0,_,_,end0) (next@(start,_,_,end):ans)
+      | start0 == start               = longest next ans
+      | otherwise                     = filter prev (next:ans)
+
+    filter prev                      [] = [prev]
+    filter prev@(start0,w0,an0,end0) (next@(start,w,an,end):ans)
+      | end0 == start && (unk w0 an0 || unk w an)
+                                        = filter (start0,w0++w,[],end) ans
+      | end0 <=  start                  = prev : longest next ans
+      | otherwise                       = filter prev ans
+
+unk w [] | any (not . isPunctuation) w = True
+unk _ _                                = False
 
 fullFormLexicon :: Concr -> [(String, [MorphoAnalysis])]
 fullFormLexicon lang =
@@ -1020,32 +1094,32 @@ getAnalysis ref self c_lemma c_anal prob exn = do
   writeIORef ref ((lemma, anal, prob):ans)
 
 -- | This data type encodes the different outcomes which you could get from the parser.
-data ParseOutput
+data ParseOutput a
   = ParseFailed Int String         -- ^ The integer is the position in number of unicode characters where the parser failed.
                                    -- The string is the token where the parser have failed.
-  | ParseOk [(Expr,Float)]         -- ^ If the parsing and the type checking are successful we get a list of abstract syntax trees.
-                                   -- The list should be non-empty.
+  | ParseOk a                      -- ^ If the parsing and the type checking are successful
+                                   -- we get the abstract syntax trees as either a list or a chart.
   | ParseIncomplete                -- ^ The sentence is not complete.
 
-parse :: Concr -> Type -> String -> ParseOutput
+parse :: Concr -> Type -> String -> ParseOutput [(Expr,Float)]
 parse lang ty sent = parseWithHeuristics lang ty sent (-1.0) []
 
 parseWithHeuristics :: Concr      -- ^ the language with which we parse
                     -> Type       -- ^ the start category
                     -> String     -- ^ the input sentence
-                    -> Double     -- ^ the heuristic factor. 
-                                  -- A negative value tells the parser 
-                                  -- to lookup up the default from 
+                    -> Double     -- ^ the heuristic factor.
+                                  -- A negative value tells the parser
+                                  -- to lookup up the default from
                                   -- the grammar flags
-                    -> [(Cat, Int -> Int -> Maybe (Expr,Float,Int))]
+                    -> [(Cat, String -> Int -> Maybe (Expr,Float,Int))]
                                   -- ^ a list of callbacks for literal categories.
                                   -- The arguments of the callback are:
                                   -- the index of the constituent for the literal category;
                                   -- the input sentence; the current offset in the sentence.
                                   -- If a literal has been recognized then the output should
                                   -- be Just (expr,probability,end_offset)
-                    -> ParseOutput
-parseWithHeuristics lang (Type ctype _) sent heuristic callbacks =
+                    -> ParseOutput [(Expr,Float)]
+parseWithHeuristics lang (Type ctype touchType) sent heuristic callbacks =
   unsafePerformIO $
     do exprPl  <- gu_new_pool
        parsePl <- gu_new_pool
@@ -1085,7 +1159,137 @@ parseWithHeuristics lang (Type ctype _) sent heuristic callbacks =
                  exprs    <- fromPgfExprEnum enum parseFPl (touchConcr lang >> touchForeignPtr exprFPl)
                  return (ParseOk exprs)
 
-mkCallbacksMap :: Ptr PgfConcr -> [(String, Int -> Int -> Maybe (Expr,Float,Int))] -> Ptr GuPool -> IO (Ptr PgfCallbacksMap)
+parseToChart :: Concr      -- ^ the language with which we parse
+             -> Type       -- ^ the start category
+             -> String     -- ^ the input sentence
+             -> Double     -- ^ the heuristic factor.
+                           -- A negative value tells the parser
+                           -- to lookup up the default from
+                           -- the grammar flags
+             -> [(Cat, String -> Int -> Maybe (Expr,Float,Int))]
+                           -- ^ a list of callbacks for literal categories.
+                           -- The arguments of the callback are:
+                           -- the index of the constituent for the literal category;
+                           -- the input sentence; the current offset in the sentence.
+                           -- If a literal has been recognized then the output should
+                           -- be Just (expr,probability,end_offset)
+             -> Int        -- ^ the maximal number of roots
+             -> ParseOutput ([FId],Map.Map FId ([(Int,Int,String)],[(Expr,[PArg],Float)],Cat))
+parseToChart lang (Type ctype touchType) sent heuristic callbacks roots =
+  unsafePerformIO $
+  withGuPool $ \parsePl -> do
+    do exn   <- gu_new_exn parsePl
+       sent  <- newUtf8CString sent parsePl
+       callbacks_map <- mkCallbacksMap (concr lang) callbacks parsePl
+       ps    <- pgf_parse_to_chart (concr lang) ctype sent heuristic callbacks_map (fromIntegral roots) exn parsePl parsePl
+       touchType
+       failed  <- gu_exn_is_raised exn
+       if failed
+         then do is_parse_error <- gu_exn_caught exn gu_exn_type_PgfParseError
+                 if is_parse_error
+                   then do c_err <- (#peek GuExn, data.data) exn
+                           c_incomplete <- (#peek PgfParseError, incomplete) c_err
+                           if (c_incomplete :: CInt) == 0
+                             then do c_offset <- (#peek PgfParseError, offset) c_err
+                                     token_ptr <- (#peek PgfParseError, token_ptr) c_err
+                                     token_len <- (#peek PgfParseError, token_len) c_err
+                                     tok <- peekUtf8CStringLen token_ptr token_len
+                                     touchConcr lang
+                                     return (ParseFailed (fromIntegral (c_offset :: CInt)) tok)
+                             else do touchConcr lang
+                                     return ParseIncomplete
+                   else do is_exn <- gu_exn_caught exn gu_exn_type_PgfExn
+                           if is_exn
+                             then do c_msg <- (#peek GuExn, data.data) exn
+                                     msg <- peekUtf8CString c_msg
+                                     touchConcr lang
+                                     throwIO (PGFError msg)
+                             else do touchConcr lang
+                                     throwIO (PGFError "Parsing failed")
+         else do c_roots <- pgf_get_parse_roots ps parsePl
+                 let get_range c_ccat = pgf_ccat_to_range ps c_ccat parsePl
+                 c_len <- (#peek GuSeq, len) c_roots
+                 chart <- peekCCats get_range Map.empty (c_len :: CSizeT) (c_roots `plusPtr` (#offset GuSeq, data))
+                 touchConcr lang
+                 return (ParseOk chart)
+  where
+    peekCCats get_range chart 0   ptr = return ([],chart)
+    peekCCats get_range chart len ptr = do
+      (root, chart) <- deRef (peekCCat get_range chart) ptr
+      (roots,chart) <- peekCCats get_range chart (len-1) (ptr `plusPtr` (#size PgfCCat*))
+      return (root:roots,chart)
+
+    peekCCat get_range chart c_ccat = do
+      fid <- peekFId c_ccat
+      c_total_cats <- (#peek PgfConcr, total_cats) (concr lang)
+      if Map.member fid chart || fid < c_total_cats
+        then return (fid,chart)
+        else do c_cnccat <- (#peek PgfCCat, cnccat) c_ccat
+                c_abscat <- (#peek PgfCCat, cnccat) c_cnccat
+                c_name   <- (#peek PgfCCat, cnccat) c_abscat
+                cat      <- peekUtf8CString c_name
+                range <- get_range c_ccat >>= peekSequence peekRange (#size PgfParseRange)
+                c_prods <- (#peek PgfCCat, prods) c_ccat
+                if c_prods == nullPtr
+                  then do return (fid,Map.insert fid (range,[],cat) chart)
+                  else do c_len <- (#peek PgfCCat, n_synprods) c_ccat
+                          (prods,chart) <- fixIO (\res -> peekProductions (Map.insert fid (range,fst res,cat) chart)
+                                                                          (fromIntegral (c_len :: CSizeT))
+                                                                          (c_prods `plusPtr` (#offset GuSeq, data)))
+                          return (fid,chart)
+      where
+        peekProductions chart 0   ptr = return ([],chart)
+        peekProductions chart len ptr = do
+          (ps1,chart) <- deRef (peekProduction chart) ptr
+          (ps2,chart) <- peekProductions chart (len-1) (ptr `plusPtr` (#size GuVariant))
+          return (ps1++ps2,chart)
+
+        peekProduction chart p = do
+          tag <- gu_variant_tag  p
+          dt  <- gu_variant_data p
+          case tag of
+            (#const PGF_PRODUCTION_APPLY)  -> do { c_cncfun <- (#peek PgfProductionApply, fun) dt ;
+                                                   c_absfun <- (#peek PgfCncFun, absfun) c_cncfun ;
+                                                   expr     <- (#peek PgfAbsFun, ep.expr) c_absfun ;
+                                                   p        <- (#peek PgfAbsFun, ep.prob) c_absfun ;
+                                                   c_args   <- (#peek PgfProductionApply, args) dt ;
+                                                   c_len    <- (#peek GuSeq, len) c_args ;
+                                                   (pargs,chart) <- peekPArgs chart (c_len :: CSizeT) (c_args `plusPtr` (#offset GuSeq, data)) ;
+                                                   return ([(Expr expr (touchConcr lang), pargs, p)],chart) }
+            (#const PGF_PRODUCTION_COERCE) -> do { c_coerce    <- (#peek PgfProductionCoerce, coerce) dt ;
+                                                   (fid,chart) <- peekCCat get_range chart c_coerce ;
+                                                   return (maybe [] snd3 (Map.lookup fid chart),chart) }
+            (#const PGF_PRODUCTION_EXTERN) -> do { c_ep     <- (#peek PgfProductionExtern, ep) dt ;
+                                                   expr     <- (#peek PgfExprProb, expr) c_ep ;
+                                                   p        <- (#peek PgfExprProb, prob) c_ep ;
+                                                   return ([(Expr expr (touchConcr lang), [], p)],chart) }
+            _                             -> error ("Unknown production type "++show tag++" in the grammar")
+
+        snd3 (_,x,_) = x
+
+        peekPArgs chart 0   ptr = return ([],chart)
+        peekPArgs chart len ptr = do
+          (a, chart) <- peekPArg  chart ptr
+          (as,chart) <- peekPArgs chart (len-1) (ptr `plusPtr` (#size PgfPArg))
+          return (a:as,chart)
+
+        peekPArg chart ptr = do
+          c_hypos <- (#peek PgfPArg, hypos) ptr
+          hypos  <- if c_hypos /= nullPtr
+                      then do res <- peekSequence (deRef peekFId) (#size int) c_hypos
+                              return [(fid,fid) | fid <- res]
+                      else return []
+          c_ccat <- (#peek PgfPArg, ccat) ptr
+          (fid,chart) <- peekCCat get_range chart c_ccat
+          return (PArg hypos fid,chart)
+
+        peekRange ptr = do
+          s <- (#peek PgfParseRange, start) ptr
+          e <- (#peek PgfParseRange, end)   ptr
+          f <- (#peek PgfParseRange, field) ptr >>= peekCString
+          return ((fromIntegral :: CSizeT -> Int) s, (fromIntegral :: CSizeT -> Int) e, f)
+
+mkCallbacksMap :: Ptr PgfConcr -> [(String, String -> Int -> Maybe (Expr,Float,Int))] -> Ptr GuPool -> IO (Ptr PgfCallbacksMap)
 mkCallbacksMap concr callbacks pool = do
   callbacks_map <- pgf_new_callbacks_map concr pool
   forM_ callbacks $ \(cat,match) -> do
@@ -1095,23 +1299,15 @@ mkCallbacksMap concr callbacks pool = do
     hspgf_callbacks_map_add_literal concr callbacks_map ccat match predict pool
   return callbacks_map
   where
-    match_callback match clin_idx poffset out_pool = do
+    match_callback match c_ann poffset out_pool = do
       coffset <- peek poffset
-      case match (fromIntegral clin_idx) (fromIntegral coffset) of
+      ann <- peekUtf8CString c_ann
+      case match ann (fromIntegral coffset) of
         Nothing               -> return nullPtr
         Just (e,prob,offset') -> do poke poffset (fromIntegral offset')
 
                                     -- here we copy the expression to out_pool
-                                    c_e <- withGuPool $ \tmpPl -> do
-                                             exn <- gu_new_exn tmpPl
-        
-                                             (sb,out) <- newOut tmpPl
-                                             let printCtxt = nullPtr
-                                             pgf_print_expr (expr e) printCtxt 1 out exn
-                                             c_str <- gu_string_buf_freeze sb tmpPl
-
-                                             guin <- gu_string_in c_str tmpPl
-                                             pgf_read_expr guin out_pool tmpPl exn
+                                    c_e <- pgf_clone_expr (expr e) out_pool
 
                                     ep <- gu_malloc out_pool (#size PgfExprProb)
                                     (#poke PgfExprProb, expr) ep c_e
@@ -1119,26 +1315,6 @@ mkCallbacksMap concr callbacks pool = do
                                     return ep
 
     predict_callback _ _ _ = return nullPtr
-
-complete :: Concr      -- ^ the language with which we do word completion
-         -> Type       -- ^ the start category
-         -> String     -- ^ the input sentence
-         -> String     -- ^ prefix for the word to be completed
-         -> [(String, Cat, Fun, Float)]
-complete lang (Type ctype _) sent prefix =
-  unsafePerformIO $
-    do pl      <- gu_new_pool
-       exn     <- gu_new_exn pl
-       sent    <- newUtf8CString sent   pl
-       prefix  <- newUtf8CString prefix pl
-       enum    <- pgf_complete (concr lang) ctype sent prefix exn pl
-       failed  <- gu_exn_is_raised exn
-       if failed
-         then do gu_pool_free pl
-                 return []
-         else do fpl    <- newForeignPtr gu_pool_finalizer pl
-                 tokens <- fromPgfTokenEnum enum fpl
-                 return tokens
 
 lookupSentence :: Concr      -- ^ the language with which we parse
                -> Type       -- ^ the start category
@@ -1158,7 +1334,7 @@ lookupSentence lang (Type ctype _) sent =
 
 -- | The oracle is a triple of functions.
 -- The first two take a category name and a linearization field name
--- and they should return True/False when the corresponding 
+-- and they should return True/False when the corresponding
 -- prediction or completion is appropriate. The third function
 -- is the oracle for literals.
 type Oracle = (Maybe (Cat -> String -> Int -> Bool)
@@ -1170,7 +1346,7 @@ parseWithOracle :: Concr      -- ^ the language with which we parse
                 -> Cat        -- ^ the start category
                 -> String     -- ^ the input sentence
                 -> Oracle
-                -> ParseOutput
+                -> ParseOutput [(Expr,Float)]
 parseWithOracle lang cat sent (predict,complete,literal) =
   unsafePerformIO $
     do parsePl <- gu_new_pool
@@ -1246,6 +1422,67 @@ parseWithOracle lang cat sent (predict,complete,literal) =
                          return ep
         Nothing    -> do return nullPtr
 
+-- | Returns possible completions of the current partial input.
+complete :: Concr      -- ^ the language with which we parse
+         -> Type       -- ^ the start category
+         -> String     -- ^ the input sentence (excluding token being completed)
+         -> String     -- ^ prefix (partial token being completed)
+         -> ParseOutput [(String, Fun, Cat, Float)]  -- ^ (token, category, function, probability)
+complete lang (Type ctype _) sent pfx =
+  unsafePerformIO $ do
+    parsePl <- gu_new_pool
+    exn     <- gu_new_exn parsePl
+    sent <- newUtf8CString sent parsePl
+    pfx  <- newUtf8CString pfx parsePl
+    enum <- pgf_complete (concr lang) ctype sent pfx exn parsePl
+    failed <- gu_exn_is_raised exn
+    if failed
+    then do
+      is_parse_error <- gu_exn_caught exn gu_exn_type_PgfParseError
+      if is_parse_error
+      then do
+        c_err <- (#peek GuExn, data.data) exn
+        c_offset <- (#peek PgfParseError, offset) c_err
+        token_ptr <- (#peek PgfParseError, token_ptr) c_err
+        token_len <- (#peek PgfParseError, token_len) c_err
+        tok <- peekUtf8CStringLen token_ptr token_len
+        gu_pool_free parsePl
+        return (ParseFailed (fromIntegral (c_offset :: CInt)) tok)
+      else do
+        is_exn <- gu_exn_caught exn gu_exn_type_PgfExn
+        if is_exn
+        then do
+          c_msg <- (#peek GuExn, data.data) exn
+          msg <- peekUtf8CString c_msg
+          gu_pool_free parsePl
+          throwIO (PGFError msg)
+        else do
+          gu_pool_free parsePl
+          throwIO (PGFError "Parsing failed")
+    else do
+      fpl <- newForeignPtr gu_pool_finalizer parsePl
+      ParseOk <$> fromCompletions enum fpl
+  where
+    fromCompletions :: Ptr GuEnum -> ForeignPtr GuPool -> IO [(String, Cat, Fun, Float)]
+    fromCompletions enum fpl =
+      withGuPool $ \tmpPl -> do
+        cmpEntry <- alloca $ \ptr ->
+                      withForeignPtr fpl $ \pl ->
+                        do gu_enum_next enum ptr pl
+                           peek ptr
+        if cmpEntry == nullPtr
+        then do
+          finalizeForeignPtr fpl
+          touchConcr lang
+          return []
+        else do
+          tok <- peekUtf8CString =<< (#peek PgfTokenProb, tok) cmpEntry
+          cat <- peekUtf8CString =<< (#peek PgfTokenProb, cat) cmpEntry
+          fun <- peekUtf8CString =<< (#peek PgfTokenProb, fun) cmpEntry
+          prob <- (#peek PgfTokenProb, prob) cmpEntry
+          toks <- unsafeInterleaveIO (fromCompletions enum fpl)
+          return ((tok, cat, fun, prob) : toks)
+
 -- | Returns True if there is a linearization defined for that function in that language
 hasLinearization :: Concr -> Fun -> Bool
 hasLinearization lang id = unsafePerformIO $
@@ -1319,7 +1556,7 @@ linearizeAll lang e = unsafePerformIO $
 
 -- | Generates a table of linearizations for an expression
 tabularLinearize :: Concr -> Expr -> [(String, String)]
-tabularLinearize lang e = 
+tabularLinearize lang e =
   case tabularLinearizeAll lang e of
     (lins:_) -> lins
     _        -> []
@@ -1331,6 +1568,7 @@ tabularLinearizeAll lang e = unsafePerformIO $
     exn <- gu_new_exn tmpPl
     cts <- pgf_lzr_concretize (concr lang) (expr e) exn tmpPl
     failed <- gu_exn_is_raised exn
+    touchConcr lang
     if failed
       then throwExn exn
       else collect cts exn tmpPl
@@ -1368,45 +1606,58 @@ tabularLinearizeAll lang e = unsafePerformIO $
                 ss <- collectTable lang ctree (lin_idx+1) labels exn tmpPl
                 return ((label,s):ss)
 
-    throwExn exn = do
-      is_exn <- gu_exn_caught exn gu_exn_type_PgfExn
-      if is_exn
-        then do c_msg <- (#peek GuExn, data.data) exn
-                msg <- peekUtf8CString c_msg
-                throwIO (PGFError msg)
-        else do throwIO (PGFError "The abstract tree cannot be linearized")
+categoryFields :: Concr -> Cat -> Maybe [String]
+categoryFields lang cat =
+  unsafePerformIO $ do
+    withGuPool $ \tmpPl -> do
+      p_n_lins <- gu_malloc tmpPl (#size size_t)
+      c_cat    <- newUtf8CString cat tmpPl
+      c_fields <- pgf_category_fields (concr lang) c_cat p_n_lins
+      if c_fields == nullPtr
+        then do touchConcr lang
+                return Nothing
+        else do len <- peek p_n_lins
+                fs  <- peekFields len c_fields
+                touchConcr lang
+                return (Just fs)
+  where
+     peekFields 0   ptr = return []
+     peekFields len ptr = do
+       f  <- peek ptr >>= peekUtf8CString
+       fs <- peekFields (len-1) (ptr `plusPtr` (#size GuString))
+       return (f:fs)
 
-type FId    = Int
-type LIndex = Int
 
 -- | BracketedString represents a sentence that is linearized
 -- as usual but we also want to retain the ''brackets'' that
 -- mark the beginning and the end of each constituent.
 data BracketedString
   = Leaf String                                                                -- ^ this is the leaf i.e. a single token
-  | Bracket Cat {-# UNPACK #-} !FId {-# UNPACK #-} !LIndex Fun [BracketedString]
+  | BIND                                                                       -- ^ the surrounding tokens must be bound together
+  | Bracket Cat {-# UNPACK #-} !FId String Fun [BracketedString]
                                                                                -- ^ this is a bracket. The 'Cat' is the category of
                                                                                -- the phrase. The 'FId' is an unique identifier for
                                                                                -- every phrase in the sentence. For context-free grammars
                                                                                -- i.e. without discontinuous constituents this identifier
-                                                                               -- is also unique for every bracket. When there are discontinuous 
+                                                                               -- is also unique for every bracket. When there are discontinuous
                                                                                -- phrases then the identifiers are unique for every phrase but
                                                                                -- not for every bracket since the bracket represents a constituent.
                                                                                -- The different constituents could still be distinguished by using
-                                                                               -- the constituent index i.e. 'LIndex'. If the grammar is reduplicating
+                                                                               -- the analysis string. If the grammar is reduplicating
                                                                                -- then the constituent indices will be the same for all brackets
                                                                                -- that represents the same constituent.
                                                                                -- The 'Fun' is the name of the abstract function that generated
                                                                                -- this phrase.
 
--- | Renders the bracketed string as a string where 
+-- | Renders the bracketed string as a string where
 -- the brackets are shown as @(S ...)@ where
 -- @S@ is the category.
 showBracketedString :: BracketedString -> String
 showBracketedString = render . ppBracketedString
 
 ppBracketedString (Leaf t) = text t
-ppBracketedString (Bracket cat fid index _ bss) = parens (text cat <> colon <> int fid <+> hsep (map ppBracketedString bss))
+ppBracketedString BIND     = text "&+"
+ppBracketedString (Bracket cat fid _ _ bss) = parens (text cat <> colon <> int fid <+> hsep (map ppBracketedString bss))
 
 -- | Extracts the sequence of tokens from the bracketed string
 flattenBracketedString :: BracketedString -> [String]
@@ -1415,7 +1666,7 @@ flattenBracketedString (Bracket _ _ _ _ bss) = concatMap flattenBracketedString 
 
 bracketedLinearize :: Concr -> Expr -> [BracketedString]
 bracketedLinearize lang e = unsafePerformIO $
-  withGuPool $ \pl -> 
+  withGuPool $ \pl ->
     do exn <- gu_new_exn pl
        cts <- pgf_lzr_concretize (concr lang) (expr e) exn pl
        failed <- gu_exn_is_raised exn
@@ -1428,27 +1679,8 @@ bracketedLinearize lang e = unsafePerformIO $
                            return []
                    else do ctree <- pgf_lzr_wrap_linref ctree pl
                            ref <- newIORef ([],[])
-                           allocaBytes (#size PgfLinFuncs) $ \pLinFuncs  ->
-                            alloca $ \ppLinFuncs -> do
-                              fptr_symbol_token <- wrapSymbolTokenCallback (symbol_token ref)
-                              fptr_begin_phrase <- wrapPhraseCallback (begin_phrase ref)
-                              fptr_end_phrase   <- wrapPhraseCallback (end_phrase ref)
-                              fptr_symbol_ne    <- wrapSymbolNonExistCallback (symbol_ne exn)
-                              fptr_symbol_meta  <- wrapSymbolMetaCallback (symbol_meta ref)
-                              (#poke PgfLinFuncs, symbol_token) pLinFuncs fptr_symbol_token
-                              (#poke PgfLinFuncs, begin_phrase) pLinFuncs fptr_begin_phrase
-                              (#poke PgfLinFuncs, end_phrase)   pLinFuncs fptr_end_phrase
-                              (#poke PgfLinFuncs, symbol_ne)    pLinFuncs fptr_symbol_ne
-                              (#poke PgfLinFuncs, symbol_bind)  pLinFuncs nullPtr
-                              (#poke PgfLinFuncs, symbol_capit) pLinFuncs nullPtr
-                              (#poke PgfLinFuncs, symbol_meta)  pLinFuncs fptr_symbol_meta
-                              poke ppLinFuncs pLinFuncs
-                              pgf_lzr_linearize (concr lang) ctree 0 ppLinFuncs pl
-                              freeHaskellFunPtr fptr_symbol_token
-                              freeHaskellFunPtr fptr_begin_phrase
-                              freeHaskellFunPtr fptr_end_phrase
-                              freeHaskellFunPtr fptr_symbol_ne
-                              freeHaskellFunPtr fptr_symbol_meta
+                           withBracketLinFuncs ref exn $ \ppLinFuncs ->
+                             pgf_lzr_linearize (concr lang) ctree 0 ppLinFuncs pl
                            failed <- gu_exn_is_raised exn
                            if failed
                              then do is_nonexist <- gu_exn_caught exn gu_exn_type_PgfLinNonExist
@@ -1457,41 +1689,105 @@ bracketedLinearize lang e = unsafePerformIO $
                                        else throwExn exn
                              else do (_,bs) <- readIORef ref
                                      return (reverse bs)
+
+bracketedLinearizeAll :: Concr -> Expr -> [[BracketedString]]
+bracketedLinearizeAll lang e = unsafePerformIO $
+  withGuPool $ \pl ->
+    do exn <- gu_new_exn pl
+       cts <- pgf_lzr_concretize (concr lang) (expr e) exn pl
+       failed <- gu_exn_is_raised exn
+       if failed
+         then do touchExpr e
+                 throwExn exn
+         else do ref <- newIORef ([],[])
+                 bss <- withBracketLinFuncs ref exn $ \ppLinFuncs ->
+                          collect ref cts ppLinFuncs exn pl
+                 touchExpr e
+                 return bss
+  where
+    collect ref cts ppLinFuncs exn pl = withGuPool $ \tmpPl -> do
+      ctree <- alloca $ \ptr -> do gu_enum_next cts ptr tmpPl
+                                   peek ptr
+      if ctree == nullPtr
+        then return []
+        else do ctree <- pgf_lzr_wrap_linref ctree pl
+                pgf_lzr_linearize (concr lang) ctree 0 ppLinFuncs pl
+                failed <- gu_exn_is_raised exn
+                if failed
+                  then do is_nonexist <- gu_exn_caught exn gu_exn_type_PgfLinNonExist
+                          if is_nonexist
+                            then collect ref cts ppLinFuncs exn pl
+                            else throwExn exn
+                   else do (_,bs) <- readIORef ref
+                           writeIORef ref ([],[])
+                           bss <- collect ref cts ppLinFuncs exn pl
+                           return (reverse bs : bss)
+
+withBracketLinFuncs ref exn f =
+  allocaBytes (#size PgfLinFuncs) $ \pLinFuncs  ->
+    alloca $ \ppLinFuncs -> do
+      fptr_symbol_token <- wrapSymbolTokenCallback (symbol_token ref)
+      fptr_begin_phrase <- wrapPhraseCallback (begin_phrase ref)
+      fptr_end_phrase   <- wrapPhraseCallback (end_phrase ref)
+      fptr_symbol_ne    <- wrapSymbolNonExistCallback (symbol_ne exn)
+      fptr_symbol_bind  <- wrapSymbolBindCallback (symbol_bind ref)
+      fptr_symbol_meta  <- wrapSymbolMetaCallback (symbol_meta ref)
+      (#poke PgfLinFuncs, symbol_token) pLinFuncs fptr_symbol_token
+      (#poke PgfLinFuncs, begin_phrase) pLinFuncs fptr_begin_phrase
+      (#poke PgfLinFuncs, end_phrase)   pLinFuncs fptr_end_phrase
+      (#poke PgfLinFuncs, symbol_ne)    pLinFuncs fptr_symbol_ne
+      (#poke PgfLinFuncs, symbol_bind)  pLinFuncs fptr_symbol_bind
+      (#poke PgfLinFuncs, symbol_capit) pLinFuncs nullPtr
+      (#poke PgfLinFuncs, symbol_meta)  pLinFuncs fptr_symbol_meta
+      poke ppLinFuncs pLinFuncs
+      res <- f ppLinFuncs
+      freeHaskellFunPtr fptr_symbol_token
+      freeHaskellFunPtr fptr_begin_phrase
+      freeHaskellFunPtr fptr_end_phrase
+      freeHaskellFunPtr fptr_symbol_ne
+      freeHaskellFunPtr fptr_symbol_bind
+      freeHaskellFunPtr fptr_symbol_meta
+      return res
   where
     symbol_token ref _ c_token = do
       (stack,bs) <- readIORef ref
       token <- peekUtf8CString c_token
       writeIORef ref (stack,Leaf token : bs)
 
-    begin_phrase ref _ c_cat c_fid c_lindex c_fun = do
+    begin_phrase ref _ c_cat c_fid c_ann c_fun = do
       (stack,bs) <- readIORef ref
       writeIORef ref (bs:stack,[])
 
-    end_phrase ref _ c_cat c_fid c_lindex c_fun = do
+    end_phrase ref _ c_cat c_fid c_ann c_fun = do
       (bs':stack,bs) <- readIORef ref
       if null bs
         then writeIORef ref (stack, bs')
         else do cat <- peekUtf8CString c_cat
                 let fid    = fromIntegral c_fid
-                let lindex = fromIntegral c_lindex
+                ann <- peekUtf8CString c_ann
                 fun <- peekUtf8CString c_fun
-                writeIORef ref (stack, Bracket cat fid lindex fun (reverse bs) : bs')
+                writeIORef ref (stack, Bracket cat fid ann fun (reverse bs) : bs')
 
     symbol_ne exn _ = do
       gu_exn_raise exn gu_exn_type_PgfLinNonExist
+      return ()
+
+    symbol_bind ref _ = do
+      (stack,bs) <- readIORef ref
+      writeIORef ref (stack,BIND : bs)
       return ()
 
     symbol_meta ref _ meta_id = do
       (stack,bs) <- readIORef ref
       writeIORef ref (stack,Leaf "?" : bs)
 
-    throwExn exn = do
-      is_exn <- gu_exn_caught exn gu_exn_type_PgfExn
-      if is_exn
-        then do c_msg <- (#peek GuExn, data.data) exn
-                msg <- peekUtf8CString c_msg
-                throwIO (PGFError msg)
-        else do throwIO (PGFError "The abstract tree cannot be linearized")
+throwExn exn = do
+  is_exn <- gu_exn_caught exn gu_exn_type_PgfExn
+  if is_exn
+    then do c_msg <- (#peek GuExn, data.data) exn
+            msg <- peekUtf8CString c_msg
+            throwIO (PGFError msg)
+    else do throwIO (PGFError "The abstract tree cannot be linearized")
 
 alignWords :: Concr -> Expr -> [(String, [Int])]
 alignWords lang e = unsafePerformIO $
@@ -1684,13 +1980,13 @@ instance Exception PGFError
 -----------------------------------------------------------------------
 
 type LiteralCallback =
-       PGF -> (ConcName,Concr) -> String -> Int -> Int -> Maybe (Expr,Float,Int)
+       PGF -> (ConcName,Concr) -> String -> String -> Int -> Maybe (Expr,Float,Int)
 
 -- | Callbacks for the App grammar
 literalCallbacks :: [(AbsName,[(Cat,LiteralCallback)])]
 literalCallbacks = [("App",[("PN",nerc),("Symb",chunk)])]
 
--- | Named entity recognition for the App grammar 
+-- | Named entity recognition for the App grammar
 -- (based on ../java/org/grammaticalframework/pgf/NercLiteralCallback.java)
 nerc :: LiteralCallback
 nerc pgf (lang,concr) sentence lin_idx offset =

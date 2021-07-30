@@ -220,6 +220,20 @@ pgf_category_prob(PgfPGF* pgf, PgfCId catname)
 	return abscat->prob;
 }
 
+PGF_API GuString*
+pgf_category_fields(PgfConcr* concr, PgfCId catname, size_t *n_lins)
+{
+	PgfCncCat* cnccat =
+		gu_map_get(concr->cnccats, catname, PgfCncCat*);
+	if (!cnccat) {
+		*n_lins = 0;
+		return NULL;
+	}
+
+	*n_lins = cnccat->n_lins;
+	return &cnccat->labels;
+}
+
 PGF_API GuString
 pgf_language_code(PgfConcr* concr)
 {

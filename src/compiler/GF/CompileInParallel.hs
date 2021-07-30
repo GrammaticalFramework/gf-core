@@ -1,6 +1,6 @@
 -- | Parallel grammar compilation
 module GF.CompileInParallel(parallelBatchCompile) where
-import Prelude hiding (catch)
+import Prelude hiding (catch,(<>))
 import Control.Monad(join,ap,when,unless)
 import Control.Applicative
 import GF.Infra.Concurrency
@@ -20,6 +20,8 @@ import GF.Infra.Ident(moduleNameS)
 import GF.Text.Pretty
 import GF.System.Console(TermColors(..),getTermColors)
 import qualified Data.ByteString.Lazy as BS
+-- Control.Monad.Fail import will become redundant in GHC 8.8+
+import qualified Control.Monad.Fail as Fail
 
 -- | Compile the given grammar files and everything they depend on,
 -- like 'batchCompile'. This function compiles modules in parallel.
@@ -252,6 +254,9 @@ instance Output m => Output (CollectOutput m) where
   ePutStrLn s = CO (return (ePutStrLn s,()))
   putStrLnE s = CO (return (putStrLnE s,()))
   putStrE   s = CO (return (putStrE s,()))
+
+instance Fail.MonadFail m => Fail.MonadFail (CollectOutput m) where
+  fail = CO . fail
 
 instance ErrorMonad m => ErrorMonad (CollectOutput m) where
   raise e = CO (raise e)

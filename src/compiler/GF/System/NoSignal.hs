@@ -14,11 +14,11 @@
 
 module GF.System.NoSignal where
 
-import Control.Exception (Exception,catch)
+import Control.Exception (SomeException,catch)
 import Prelude hiding (catch)
 
 {-# NOINLINE runInterruptibly #-}
-runInterruptibly :: IO a -> IO (Either Exception a)
+runInterruptibly :: IO a -> IO (Either SomeException a)
 --runInterruptibly = fmap Right
 runInterruptibly a = 
     p `catch` h

@@ -12,8 +12,8 @@ data Value
   | VGen Int [Value] -- for lambda bound variables, possibly applied
   | VMeta MetaId Env [Value]
 -- -- | VClosure Env Term -- used in Typecheck.ConcreteNew
-  | VAbs BindType Ident Binding -- used in Compute.ConcreteNew
-  | VProd BindType Value Ident Binding -- used in Compute.ConcreteNew
+  | VAbs BindType Ident Binding -- used in Compute.Concrete
+  | VProd BindType Value Ident Binding -- used in Compute.Concrete
   | VInt Int
   | VFloat Double
   | VString String
@@ -47,10 +47,10 @@ type Env = [(Ident,Value)]
 
 -- | Predefined functions
 data Predefined = Drop | Take | Tk | Dp | EqStr | Occur | Occurs | ToUpper
-                | ToLower | IsUpper | Length | Plus | EqInt | LessInt 
+                | ToLower | IsUpper | Length | Plus | EqInt | LessInt
              {- | Show | Read | ToStr | MapStr | EqVal -}
                 | Error | Trace
                 -- Canonical values below:
-                | PBool | PFalse | PTrue | Int | Float | Ints | NonExist 
+                | PBool | PFalse | PTrue | Int | Float | Ints | NonExist
                 | BIND | SOFT_BIND | SOFT_SPACE | CAPIT | ALL_CAPIT
                 deriving (Show,Eq,Ord,Ix,Bounded,Enum)

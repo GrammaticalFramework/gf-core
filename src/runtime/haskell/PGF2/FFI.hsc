@@ -6,6 +6,7 @@ module PGF2.FFI where
 #include <gu/hash.h>
 #include <gu/utf8.h>
 #include <pgf/pgf.h>
+#include <pgf/data.h>
 
 import Foreign ( alloca, peek, poke, peekByteOff )
 import Foreign.C
@@ -102,7 +103,7 @@ foreign import ccall unsafe "gu/file.h gu_file_in"
 
 foreign import ccall safe  "gu/enum.h gu_enum_next"
   gu_enum_next :: Ptr a -> Ptr (Ptr b) -> Ptr GuPool -> IO ()
- 
+
 foreign import ccall unsafe "gu/string.h gu_string_buf_freeze"
   gu_string_buf_freeze :: Ptr GuStringBuf -> Ptr GuPool -> IO CString
 
@@ -237,6 +238,16 @@ newSequence elem_size pokeElem values pool = do
       pokeElem  ptr x
       pokeElems (ptr `plusPtr` (fromIntegral elem_size)) xs
 
+type FId = Int
+data PArg = PArg [(FId,FId)] {-# UNPACK #-} !FId deriving (Eq,Ord,Show)
+
+peekFId :: Ptr a -> IO FId
+peekFId c_ccat = do
+  c_fid <- (#peek PgfCCat, fid) c_ccat
+  return (fromIntegral (c_fid :: CInt))
+
+deRef peekValue ptr = peek ptr >>= peekValue
+
 ------------------------------------------------------------------
 -- libpgf API
 
@@ -245,6 +256,7 @@ data PgfApplication
 data PgfConcr
 type PgfExpr = Ptr ()
 data PgfExprProb
+data PgfTokenProb
 data PgfExprParser
 data PgfFullFormEntry
 data PgfMorphoCallback
@@ -261,6 +273,7 @@ data PgfAbsCat
 data PgfCCat
 data PgfCncFun
 data PgfProductionApply
+data PgfParsing
 
 foreign import ccall "pgf/pgf.h pgf_read"
   pgf_read :: CString -> Ptr GuPool -> Ptr GuExn -> IO (Ptr PgfPGF)
@@ -310,6 +323,9 @@ foreign import ccall "pgf/pgf.h pgf_category_context"
 foreign import ccall "pgf/pgf.h pgf_category_prob"
   pgf_category_prob :: Ptr PgfPGF -> CString -> IO (#type prob_t)
 
+foreign import ccall "pgf/pgf.h pgf_category_fields"
+  pgf_category_fields :: Ptr PgfConcr -> CString -> Ptr CSize -> IO (Ptr CString)
+
 foreign import ccall "pgf/pgf.h pgf_iter_functions"
   pgf_iter_functions :: Ptr PgfPGF -> Ptr GuMapItor -> Ptr GuExn -> IO ()
 
@@ -347,8 +363,9 @@ foreign import ccall "pgf/pgf.h pgf_lzr_get_table"
   pgf_lzr_get_table :: Ptr PgfConcr -> Ptr PgfCncTree -> Ptr CSizeT -> Ptr (Ptr CString) -> IO ()
 
 type SymbolTokenCallback = Ptr (Ptr PgfLinFuncs) -> CString -> IO ()
-type PhraseCallback = Ptr (Ptr PgfLinFuncs) -> CString -> CInt -> CSizeT -> CString -> IO ()
+type PhraseCallback = Ptr (Ptr PgfLinFuncs) -> CString -> CInt -> CString -> CString -> IO ()
 type NonExistCallback = Ptr (Ptr PgfLinFuncs) -> IO ()
+type BindCallback = Ptr (Ptr PgfLinFuncs) -> IO ()
 type MetaCallback = Ptr (Ptr PgfLinFuncs) -> CInt -> IO ()
 
 foreign import ccall "wrapper"
@@ -361,26 +378,35 @@ foreign import ccall "wrapper"
   wrapSymbolNonExistCallback :: NonExistCallback -> IO (FunPtr NonExistCallback)
 
 foreign import ccall "wrapper"
+  wrapSymbolBindCallback :: BindCallback -> IO (FunPtr BindCallback)
+
+foreign import ccall "wrapper"
   wrapSymbolMetaCallback :: MetaCallback -> IO (FunPtr MetaCallback)
 
 foreign import ccall "pgf/pgf.h pgf_align_words"
   pgf_align_words :: Ptr PgfConcr -> PgfExpr -> Ptr GuExn -> Ptr GuPool -> IO (Ptr GuSeq)
 
+foreign import ccall "pgf/pgf.h pgf_parse_to_chart"
+  pgf_parse_to_chart :: Ptr PgfConcr -> PgfType -> CString -> Double -> Ptr PgfCallbacksMap -> CSizeT -> Ptr GuExn -> Ptr GuPool -> Ptr GuPool -> IO (Ptr PgfParsing)
+
+foreign import ccall "pgf/pgf.h pgf_get_parse_roots"
+  pgf_get_parse_roots :: Ptr PgfParsing -> Ptr GuPool -> IO (Ptr GuSeq)
+
+foreign import ccall "pgf/pgf.h pgf_ccat_to_range"
+  pgf_ccat_to_range :: Ptr PgfParsing -> Ptr PgfCCat -> Ptr GuPool -> IO (Ptr GuSeq)
+
 foreign import ccall "pgf/pgf.h pgf_parse_with_heuristics"
   pgf_parse_with_heuristics :: Ptr PgfConcr -> PgfType -> CString -> Double -> Ptr PgfCallbacksMap -> Ptr GuExn -> Ptr GuPool -> Ptr GuPool -> IO (Ptr GuEnum)
-
-foreign import ccall "pgf/pgf.h pgf_complete"
-  pgf_complete :: Ptr PgfConcr -> PgfType -> CString -> CString -> Ptr GuExn -> Ptr GuPool -> IO (Ptr GuEnum)
 
 foreign import ccall "pgf/pgf.h pgf_lookup_sentence"
   pgf_lookup_sentence :: Ptr PgfConcr -> PgfType -> CString -> Ptr GuPool -> Ptr GuPool -> IO (Ptr GuEnum)
 
-type LiteralMatchCallback = CSizeT -> Ptr CSizeT -> Ptr GuPool -> IO (Ptr PgfExprProb)
+type LiteralMatchCallback = CString -> Ptr CSizeT -> Ptr GuPool -> IO (Ptr PgfExprProb)
 
 foreign import ccall "wrapper"
   wrapLiteralMatchCallback :: LiteralMatchCallback -> IO (FunPtr LiteralMatchCallback)
 
-type LiteralPredictCallback = CSizeT -> CString -> Ptr GuPool -> IO (Ptr PgfExprProb)
+type LiteralPredictCallback = CString -> CString -> Ptr GuPool -> IO (Ptr PgfExprProb)
 
 foreign import ccall "wrapper"
   wrapLiteralPredictCallback :: LiteralPredictCallback -> IO (FunPtr LiteralPredictCallback)
@@ -405,6 +431,9 @@ foreign import ccall
 
 foreign import ccall "pgf/pgf.h pgf_parse_with_oracle"
   pgf_parse_with_oracle :: Ptr PgfConcr -> CString -> CString -> Ptr PgfOracleCallback -> Ptr GuExn -> Ptr GuPool -> Ptr GuPool -> IO (Ptr GuEnum)
+
+foreign import ccall "pgf/pgf.h pgf_complete"
+  pgf_complete :: Ptr PgfConcr -> PgfType -> CString -> CString -> Ptr GuExn -> Ptr GuPool -> IO (Ptr GuEnum)
 
 foreign import ccall "pgf/pgf.h pgf_lookup_morpho"
   pgf_lookup_morpho :: Ptr PgfConcr -> CString -> Ptr PgfMorphoCallback -> Ptr GuExn -> IO ()
@@ -500,9 +529,6 @@ foreign import ccall "pgf/expr.h pgf_compute"
 foreign import ccall "pgf/expr.h pgf_print_expr"
   pgf_print_expr :: PgfExpr -> Ptr PgfPrintContext -> CInt -> Ptr GuOut -> Ptr GuExn -> IO ()
 
-foreign import ccall "pgf/expr.h pgf_print_expr_tuple"
-  pgf_print_expr_tuple :: CSizeT -> Ptr PgfExpr -> Ptr PgfPrintContext -> Ptr GuOut -> Ptr GuExn -> IO ()
-
 foreign import ccall "pgf/expr.h pgf_print_type"
   pgf_print_type :: PgfType -> Ptr PgfPrintContext -> CInt -> Ptr GuOut -> Ptr GuExn -> IO ()
 
@@ -517,12 +543,6 @@ foreign import ccall "pgf/pgf.h pgf_print"
 
 foreign import ccall "pgf/expr.h pgf_read_expr"
   pgf_read_expr :: Ptr GuIn -> Ptr GuPool -> Ptr GuPool -> Ptr GuExn -> IO PgfExpr
-
-foreign import ccall "pgf/expr.h pgf_read_expr_tuple"
-  pgf_read_expr_tuple :: Ptr GuIn -> CSizeT -> Ptr PgfExpr -> Ptr GuPool -> Ptr GuExn -> IO CInt
-
-foreign import ccall "pgf/expr.h pgf_read_expr_matrix"
-  pgf_read_expr_matrix :: Ptr GuIn -> CSizeT -> Ptr GuPool -> Ptr GuExn -> IO (Ptr GuSeq)
 
 foreign import ccall "pgf/expr.h pgf_read_type"
   pgf_read_type :: Ptr GuIn -> Ptr GuPool -> Ptr GuPool -> Ptr GuExn -> IO PgfType
@@ -544,3 +564,6 @@ foreign import ccall "pgf/data.h pgf_lzr_index"
 
 foreign import ccall "pgf/data.h pgf_production_is_lexical"
   pgf_production_is_lexical :: Ptr PgfProductionApply -> Ptr GuBuf -> Ptr GuPool -> IO (#type bool)
+
+foreign import ccall "pgf/expr.h pgf_clone_expr"
+  pgf_clone_expr :: PgfExpr -> Ptr GuPool -> IO PgfExpr

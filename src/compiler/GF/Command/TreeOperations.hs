@@ -1,10 +1,9 @@
 module GF.Command.TreeOperations (
   treeOp,
   allTreeOps,
-  treeChunks
   ) where
 
-import PGF2(Expr,PGF,Fun,compute,mkApp,unApp,unapply,unMeta,exprSize,exprFunctions)
+import PGF2(Expr,PGF,Fun,compute,mkApp,unApp,unMeta,exprSize,exprFunctions)
 import Data.List
 
 type TreeOp = [Expr] -> [Expr]
@@ -33,16 +32,6 @@ largest = reverse . smallest
 
 smallest :: [Expr] -> [Expr]
 smallest = sortBy (\t u -> compare (exprSize t) (exprSize u))
-
-treeChunks :: Expr -> [Expr]
-treeChunks = snd . cks where
-  cks t = 
-    case unapply t of
-      (t, ts) -> case unMeta t of
-                   Just _  -> (False,concatMap (snd . cks) ts)
-                   Nothing -> case unzip (map cks ts) of
-                                (bs,_) | and bs      -> (True, [t])
-                                (_,cts)              -> (False,concat cts)
 
 subtrees :: Expr -> [Expr]
 subtrees t = t : case unApp t of

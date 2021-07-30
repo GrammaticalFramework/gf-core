@@ -1,0 +1,230 @@
+name: Build Binary Packages
+
+on:
+  workflow_dispatch:
+  release: 
+    types: ["created"]
+
+jobs:
+
+# ---
+
+  ubuntu:
+    name: Build Ubuntu package
+    strategy:
+      matrix:
+        os:
+        - ubuntu-18.04
+        - ubuntu-20.04
+
+    runs-on: ${{ matrix.os }}
+
+    steps:
+    - uses: actions/checkout@v2
+
+    # Note: `haskell-platform` is listed as requirement in debian/control,
+    # which is why it's installed using apt instead of the Setup Haskell action.
+
+    # - name: Setup Haskell
+    #   uses: actions/setup-haskell@v1
+    #   id: setup-haskell-cabal
+    #   with:
+    #     ghc-version: ${{ matrix.ghc }}
+    #     cabal-version: ${{ matrix.cabal }}
+
+    - name: Install build tools
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y \
+          make \
+          dpkg-dev \
+          debhelper \
+          haskell-platform \
+          libghc-json-dev \
+          python-dev \
+          default-jdk \
+          libtool-bin
+
+    - name: Build package
+      run: |
+        make deb
+
+    - name: Copy package
+      run: |
+        cp ../gf_*.deb dist/
+
+    - name: Upload artifact
+      uses: actions/upload-artifact@v2
+      with:
+        name: gf-${{ github.event.release.tag_name }}-${{ matrix.os }}.deb
+        path: dist/gf_*.deb
+        if-no-files-found: error
+
+    - name: Rename package for specific ubuntu version
+      run: |
+        mv dist/gf_*.deb dist/gf-${{ github.event.release.tag_name }}-${{ matrix.os }}.deb
+
+    - uses: actions/upload-release-asset@v1.0.2
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        upload_url: ${{ github.event.release.upload_url }}
+        asset_path: dist/gf-${{ github.event.release.tag_name }}-${{ matrix.os }}.deb
+        asset_name: gf-${{ github.event.release.tag_name }}-${{ matrix.os }}.deb
+        asset_content_type: application/octet-stream
+
+# ---
+
+  macos:
+    name: Build macOS package
+    strategy:
+      matrix:
+        ghc: ["8.6.5"]
+        cabal: ["2.4"]
+        os: ["macos-10.15"]
+    runs-on: ${{ matrix.os }}
+
+    steps:
+    - uses: actions/checkout@v2
+
+    - name: Setup Haskell
+      uses: actions/setup-haskell@v1
+      id: setup-haskell-cabal
+      with:
+        ghc-version: ${{ matrix.ghc }}
+        cabal-version: ${{ matrix.cabal }}
+
+    - name: Install build tools
+      run: |
+        brew install \
+          automake
+        cabal v1-install alex happy
+
+    - name: Build package
+      run: |
+        sudo mkdir -p /Library/Java/Home
+        sudo ln -s /usr/local/opt/openjdk/include /Library/Java/Home/include
+        make pkg
+
+    - name: Upload artifact
+      uses: actions/upload-artifact@v2
+      with:
+        name: gf-${{ github.event.release.tag_name }}-macos
+        path: dist/gf-*.pkg
+        if-no-files-found: error
+    
+    - name: Rename package
+      run: |
+        mv dist/gf-*.pkg dist/gf-${{ github.event.release.tag_name }}-macos.pkg
+
+    - uses: actions/upload-release-asset@v1.0.2
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        upload_url: ${{ github.event.release.upload_url }}
+        asset_path: dist/gf-${{ github.event.release.tag_name }}-macos.pkg
+        asset_name: gf-${{ github.event.release.tag_name }}-macos.pkg
+        asset_content_type: application/octet-stream
+
+# ---
+
+  windows:
+    name: Build Windows package
+    strategy:
+      matrix:
+        ghc: ["8.6.5"]
+        cabal: ["2.4"]
+        os: ["windows-2019"]
+    runs-on: ${{ matrix.os }}
+
+    steps:
+    - uses: actions/checkout@v2
+
+    - name: Setup MSYS2
+      uses: msys2/setup-msys2@v2
+      with:
+        install: >-
+          base-devel
+          gcc
+          python-devel
+
+    - name: Prepare dist folder
+      shell: msys2 {0}
+      run: |
+        mkdir /c/tmp-dist
+        mkdir /c/tmp-dist/c
+        mkdir /c/tmp-dist/java
+        mkdir /c/tmp-dist/python
+
+    - name: Build C runtime
+      shell: msys2 {0}
+      run: |
+        cd src/runtime/c
+        autoreconf -i
+        ./configure
+        make
+        make install
+        cp /mingw64/bin/libpgf-0.dll /c/tmp-dist/c
+        cp /mingw64/bin/libgu-0.dll /c/tmp-dist/c
+
+    # JAVA_HOME_8_X64 = C:\hostedtoolcache\windows\Java_Adopt_jdk\8.0.292-10\x64
+    - name: Build Java bindings
+      shell: msys2 {0}
+      run: |
+        export JDKPATH=/c/hostedtoolcache/windows/Java_Adopt_jdk/8.0.292-10/x64
+        export PATH="${PATH}:${JDKPATH}/bin"
+        cd src/runtime/java
+        make \
+          JNI_INCLUDES="-I \"${JDKPATH}/include\" -I \"${JDKPATH}/include/win32\" -I \"/mingw64/include\" -D__int64=int64_t" \
+          WINDOWS_LDFLAGS="-L\"/mingw64/lib\" -no-undefined"
+        make install
+        cp .libs/msys-jpgf-0.dll /c/tmp-dist/java/jpgf.dll
+        cp jpgf.jar /c/tmp-dist/java
+
+    - name: Build Python bindings
+      shell: msys2 {0}
+      env:
+        EXTRA_INCLUDE_DIRS: /mingw64/include
+        EXTRA_LIB_DIRS: /mingw64/lib
+      run: |
+        cd src/runtime/python
+        python setup.py build
+        python setup.py install
+        cp /usr/lib/python3.9/site-packages/pgf* /c/tmp-dist/python
+
+    - name: Setup Haskell
+      uses: actions/setup-haskell@v1
+      id: setup-haskell-cabal
+      with:
+        ghc-version: ${{ matrix.ghc }}
+        cabal-version: ${{ matrix.cabal }}
+
+    - name: Install Haskell build tools
+      run: |
+        cabal install alex happy
+
+    - name: Build GF
+      run: |
+        cabal install --only-dependencies -fserver
+        cabal configure -fserver
+        cabal build
+        copy dist\build\gf\gf.exe C:\tmp-dist
+
+    - name: Upload artifact
+      uses: actions/upload-artifact@v2
+      with:
+        name: gf-${{ github.event.release.tag_name }}-windows
+        path: C:\tmp-dist\*
+        if-no-files-found: error
+
+    - name: Create archive
+      run: |
+        Compress-Archive C:\tmp-dist C:\gf-${{ github.event.release.tag_name }}-windows.zip
+    - uses: actions/upload-release-asset@v1.0.2
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        upload_url: ${{ github.event.release.upload_url }}
+        asset_path: C:\gf-${{ github.event.release.tag_name }}-windows.zip
+        asset_name: gf-${{ github.event.release.tag_name }}-windows.zip
+        asset_content_type: application/zip

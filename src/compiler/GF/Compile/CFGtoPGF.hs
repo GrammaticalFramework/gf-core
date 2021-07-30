@@ -134,4 +134,3 @@ mkRuleName rule =
   case ruleName rule of
 	CFObj n _ -> n
 	_         -> "_"
-

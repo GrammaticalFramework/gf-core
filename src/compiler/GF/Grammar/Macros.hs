@@ -5,7 +5,7 @@
 -- Stability   : (stable)
 -- Portability : (portable)
 --
--- > CVS $Date: 2005/11/11 16:38:00 $ 
+-- > CVS $Date: 2005/11/11 16:38:00 $
 -- > CVS $Author: bringert $
 -- > CVS $Revision: 1.24 $
 --
@@ -32,6 +32,7 @@ import Control.Monad (liftM, liftM2, liftM3)
 import Data.List (sortBy,nub)
 import Data.Monoid
 import GF.Text.Pretty(render,(<+>),hsep,fsep)
+import qualified Control.Monad.Fail as Fail
 
 -- ** Functions for constructing and analysing source code terms.
 
@@ -50,14 +51,14 @@ typeForm t =
     _      -> error (render ("no normal form of type" <+> ppTerm Unqualified 0 t))
 
 typeFormCnc :: Type -> (Context, Type)
-typeFormCnc t = 
+typeFormCnc t =
   case t of
     Prod b x a t -> let (x', v) = typeFormCnc t
                     in ((b,x,a):x',v)
     _            -> ([],t)
 
 valCat :: Type -> Cat
-valCat typ = 
+valCat typ =
   let (_,cat,_) = typeForm typ
   in cat
 
@@ -98,7 +99,7 @@ isHigherOrderType t = fromErr True $ do  -- pessimistic choice
 contextOfType :: Monad m => Type -> m Context
 contextOfType typ = case typ of
   Prod b x a t -> liftM ((b,x,a):) $ contextOfType t
-  _            -> return [] 
+  _            -> return []
 
 termForm :: Monad m => Term -> m ([(BindType,Ident)], Term, [Term])
 termForm t = case t of
@@ -107,8 +108,8 @@ termForm t = case t of
         return ((b,x):x', fun, args)
    App c a ->
      do (_,fun, args) <- termForm c
-        return ([],fun,args ++ [a]) 
-   _       -> 
+        return ([],fun,args ++ [a])
+   _       ->
      return ([],t,[])
 
 termFormCnc :: Term -> ([(BindType,Ident)], Term)
@@ -237,7 +238,7 @@ isPredefConstant t = case t of
   Q (mod,_) | mod == cPredef || mod == cPredefAbs -> True
   _                                               -> False
 
-checkPredefError :: Monad m => Term -> m Term
+checkPredefError :: Fail.MonadFail m => Term -> m Term
 checkPredefError t =
     case t of
       Error s -> fail ("Error: "++s)
@@ -253,7 +254,7 @@ mkTable :: [Term] -> Term -> Term
 mkTable tt t = foldr Table t tt
 
 mkCTable :: [(BindType,Ident)] -> Term -> Term
-mkCTable ids v = foldr ccase v ids where 
+mkCTable ids v = foldr ccase v ids where
   ccase (_,x) t = T TRaw [(PV x,t)]
 
 mkHypo :: Term -> Hypo
@@ -286,7 +287,7 @@ plusRecType t1 t2 = case (t1, t2) of
     filter (`elem` (map fst r1)) (map fst r2) of
       [] -> return (RecType (r1 ++ r2))
       ls -> raise $ render ("clashing labels" <+> hsep ls)
-  _ -> raise $ render ("cannot add record types" <+> ppTerm Unqualified 0 t1 <+> "and" <+> ppTerm Unqualified 0 t2) 
+  _ -> raise $ render ("cannot add record types" <+> ppTerm Unqualified 0 t1 <+> "and" <+> ppTerm Unqualified 0 t2)
 
 --plusRecord :: Term -> Term -> Err Term
 plusRecord t1 t2 =
@@ -303,7 +304,7 @@ defLinType = RecType [(theLinLabel,  typeStr)]
 
 -- | refreshing variables
 mkFreshVar :: [Ident] -> Ident
-mkFreshVar olds = varX (maxVarIndex olds + 1) 
+mkFreshVar olds = varX (maxVarIndex olds + 1)
 
 -- | trying to preserve a given symbol
 mkFreshVarX :: [Ident] -> Ident -> Ident
@@ -312,7 +313,7 @@ mkFreshVarX olds x = if (elem x olds) then (varX (maxVarIndex olds + 1)) else x
 maxVarIndex :: [Ident] -> Int
 maxVarIndex = maximum . ((-1):) . map varIndex
 
-mkFreshVars :: Int -> [Ident] -> [Ident] 
+mkFreshVars :: Int -> [Ident] -> [Ident]
 mkFreshVars n olds = [varX (maxVarIndex olds + i) | i <- [1..n]]
 
 -- | quick hack for refining with var in editor
@@ -412,11 +413,11 @@ patt2term pt = case pt of
   PC c pp   -> mkApp (Con c) (map patt2term pp)
   PP c pp   -> mkApp (QC  c) (map patt2term pp)
 
-  PR r      -> R [assign l (patt2term p) | (l,p) <- r] 
+  PR r      -> R [assign l (patt2term p) | (l,p) <- r]
   PT _ p    -> patt2term p
   PInt i    -> EInt i
   PFloat i  -> EFloat i
-  PString s -> K s 
+  PString s -> K s
 
   PAs x p   -> appCons cAs    [Vr x, patt2term p]            --- an encoding
   PChar     -> appCons cChar  []                             --- an encoding
@@ -435,7 +436,7 @@ composSafeOp op = runIdentity . composOp (return . op)
 
 -- | to define compositional term functions
 composOp :: Monad m => (Term -> m Term) -> Term -> m Term
-composOp co trm = 
+composOp co trm =
  case trm of
    App c a          -> liftM2 App (co c) (co a)
    Abs b x t        -> liftM (Abs b x) (co t)
@@ -551,13 +552,13 @@ strsFromTerm t = case t of
     v0 <- mapM (strsFromTerm . fst) vs
     c0 <- mapM (strsFromTerm . snd) vs
   --let vs' = zip v0 c0
-    return [strTok (str2strings def) vars | 
+    return [strTok (str2strings def) vars |
               def  <- d0,
-              vars <- [[(str2strings v, map sstr c) | (v,c) <- zip vv c0] | 
+              vars <- [[(str2strings v, map sstr c) | (v,c) <- zip vv c0] |
                                                           vv <- sequence v0]
            ]
   FV ts -> mapM strsFromTerm ts >>= return . concat
-  Strs ts -> mapM strsFromTerm ts >>= return . concat  
+  Strs ts -> mapM strsFromTerm ts >>= return . concat
   _ -> raise (render ("cannot get Str from term" <+> ppTerm Unqualified 0 t))
 
 getTableType :: TInfo -> Err Type
@@ -589,11 +590,11 @@ noExist = FV []
 defaultLinType :: Type
 defaultLinType = mkRecType linLabel [typeStr]
 
--- normalize records and record types; put s first
+-- | normalize records and record types; put s first
 
 sortRec :: [(Label,a)] -> [(Label,a)]
 sortRec = sortBy ordLabel where
-  ordLabel (r1,_) (r2,_) = 
+  ordLabel (r1,_) (r2,_) =
     case (showIdent (label2ident r1), showIdent (label2ident r2)) of
       ("s",_) -> LT
       (_,"s") -> GT
@@ -604,7 +605,7 @@ sortRec = sortBy ordLabel where
 -- | dependency check, detecting circularities and returning topo-sorted list
 
 allDependencies :: (ModuleName -> Bool) -> Map.Map Ident Info -> [(Ident,[Ident])]
-allDependencies ism b = 
+allDependencies ism b =
   [(f, nub (concatMap opty (pts i))) | (f,i) <- Map.toList b]
   where
     opersIn t = case t of

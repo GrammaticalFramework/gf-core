@@ -6,6 +6,8 @@ import Text.JSON
 import Control.Applicative ((<|>))
 import Data.Ratio (denominator, numerator)
 import GF.Grammar.Canonical
+import Control.Monad (guard)
+import GF.Infra.Ident (RawIdent,showRawIdent,rawIdentS)
 
 
 encodeJSON :: FilePath -> Grammar -> IO ()
@@ -28,7 +30,7 @@ instance JSON Grammar where
 -- ** Abstract Syntax
 
 instance JSON Abstract where
-  showJSON (Abstract absid flags cats funs) 
+  showJSON (Abstract absid flags cats funs)
     = makeObj [("abs", showJSON absid),
                ("flags", showJSON flags),
                ("cats", showJSON cats),
@@ -80,7 +82,7 @@ instance JSON TypeBinding where
 -- ** Concrete syntax
 
 instance JSON Concrete where
-  showJSON (Concrete cncid absid flags params lincats lins) 
+  showJSON (Concrete cncid absid flags params lincats lins)
     = makeObj [("cnc", showJSON cncid),
                ("abs", showJSON absid),
                ("flags", showJSON flags),
@@ -126,10 +128,10 @@ instance JSON LinType where
   -- records are encoded as records:
   showJSON (RecordType rows) = showJSON rows
 
-  readJSON o = do "Str"   <- readJSON o; return StrType
-    <|>        do "Float" <- readJSON o; return FloatType
-    <|>        do "Int"   <- readJSON o; return IntType
-    <|>        do  ptype  <- readJSON o; return (ParamType ptype)
+  readJSON o = StrType   <$ parseString "Str"   o
+    <|>        FloatType <$ parseString "Float" o
+    <|>        IntType   <$ parseString "Int"   o
+    <|>        ParamType <$> readJSON o
     <|>        TableType  <$> o!".tblarg" <*> o!".tblval"
     <|>        TupleType  <$> o!".tuple"
     <|>        RecordType <$> readJSON o
@@ -186,7 +188,7 @@ instance JSON LinPattern where
   -- and records as records:
   showJSON (RecordPattern r) = showJSON r
 
-  readJSON o = do "_" <- readJSON o; return WildPattern
+  readJSON o = do  p  <- parseString "_" o; return WildPattern
     <|>        do  p  <- readJSON o; return (ParamPattern (Param p []))
     <|>        ParamPattern  <$> readJSON o
     <|>        RecordPattern <$> readJSON o
@@ -203,12 +205,12 @@ instance JSON a => JSON (RecordRow a) where
   -- record rows and lists of record rows are both encoded as JSON records (i.e., objects)
   showJSON  row  = showJSONs [row]
   showJSONs rows = makeObj (map toRow rows)
-    where toRow (RecordRow (LabelId lbl) val) = (lbl, showJSON val)
+    where toRow (RecordRow (LabelId lbl) val) = (showRawIdent lbl, showJSON val)
 
   readJSON  obj = head <$> readJSONs obj
   readJSONs obj = mapM fromRow (assocsJSObject obj)
     where fromRow (lbl, jsvalue) = do value <- readJSON jsvalue
-                                      return (RecordRow (LabelId lbl) value)
+                                      return (RecordRow (LabelId (rawIdentS lbl)) value)
 
 instance JSON rhs => JSON (TableRow rhs) where
   showJSON (TableRow l v) = makeObj [(".pattern", showJSON l), (".value", showJSON v)]
@@ -218,43 +220,47 @@ instance JSON rhs => JSON (TableRow rhs) where
 
 -- *** Identifiers in Concrete Syntax
 
-instance JSON PredefId   where showJSON (PredefId    s) = showJSON s ; readJSON = fmap PredefId    . readJSON 
-instance JSON LabelId    where showJSON (LabelId     s) = showJSON s ; readJSON = fmap LabelId     . readJSON 
-instance JSON VarValueId where showJSON (VarValueId  s) = showJSON s ; readJSON = fmap VarValueId  . readJSON 
-instance JSON ParamId    where showJSON (ParamId     s) = showJSON s ; readJSON = fmap ParamId     . readJSON 
-instance JSON ParamType  where showJSON (ParamTypeId s) = showJSON s ; readJSON = fmap ParamTypeId . readJSON 
+instance JSON PredefId   where showJSON (PredefId    s) = showJSON s ; readJSON = fmap PredefId    . readJSON
+instance JSON LabelId    where showJSON (LabelId     s) = showJSON s ; readJSON = fmap LabelId     . readJSON
+instance JSON VarValueId where showJSON (VarValueId  s) = showJSON s ; readJSON = fmap VarValueId  . readJSON
+instance JSON ParamId    where showJSON (ParamId     s) = showJSON s ; readJSON = fmap ParamId     . readJSON
+instance JSON ParamType  where showJSON (ParamTypeId s) = showJSON s ; readJSON = fmap ParamTypeId . readJSON
 
 
 --------------------------------------------------------------------------------
 -- ** Used in both Abstract and Concrete Syntax
 
-instance JSON ModId where showJSON (ModId s) = showJSON s ; readJSON = fmap ModId . readJSON 
-instance JSON CatId where showJSON (CatId s) = showJSON s ; readJSON = fmap CatId . readJSON 
-instance JSON FunId where showJSON (FunId s) = showJSON s ; readJSON = fmap FunId . readJSON 
+instance JSON ModId where showJSON (ModId s) = showJSON s ; readJSON = fmap ModId . readJSON
+instance JSON CatId where showJSON (CatId s) = showJSON s ; readJSON = fmap CatId . readJSON
+instance JSON FunId where showJSON (FunId s) = showJSON s ; readJSON = fmap FunId . readJSON
 
 instance JSON VarId where
   -- the anonymous variable is the underscore:
   showJSON Anonymous = showJSON "_"
   showJSON (VarId x) = showJSON x
 
-  readJSON o = do "_" <- readJSON o; return Anonymous
+  readJSON o = do parseString "_" o; return Anonymous
     <|>        VarId <$> readJSON o
 
 instance JSON QualId where
-  showJSON (Qual (ModId m) n) = showJSON (m++"."++n)
+  showJSON (Qual (ModId m) n) = showJSON (showRawIdent m++"."++showRawIdent n)
   showJSON (Unqual n) = showJSON n
 
   readJSON o = do qualid <- readJSON o
                   let (mod, id) = span (/= '.') qualid
-                  return $ if null mod then Unqual id else Qual (ModId mod) id
+                  return $ if null mod then Unqual (rawIdentS id) else Qual (ModId (rawIdentS mod)) (rawIdentS id)
+
+instance JSON RawIdent where
+  showJSON i = showJSON $ showRawIdent i
+  readJSON o = rawIdentS <$> readJSON o
 
 instance JSON Flags where
   -- flags are encoded directly as JSON records (i.e., objects):
-  showJSON (Flags fs) = makeObj [(f, showJSON v) | (f, v) <- fs]
+  showJSON (Flags fs) = makeObj [(showRawIdent f, showJSON v) | (f, v) <- fs]
 
   readJSON obj = Flags <$> mapM fromRow (assocsJSObject obj)
     where fromRow (lbl, jsvalue) = do value <- readJSON jsvalue
-                                      return (lbl, value)
+                                      return (rawIdentS lbl, value)
 
 instance JSON FlagValue where
   -- flag values are encoded as basic JSON types:
@@ -267,6 +273,9 @@ instance JSON FlagValue where
 
 --------------------------------------------------------------------------------
 -- ** Convenience functions
+
+parseString :: String -> JSValue -> Result ()
+parseString s o = guard . (== s) =<< readJSON o
 
 (!) :: JSON a => JSValue -> String -> Result a
 obj ! key = maybe (fail $ "CanonicalJSON.(!): Could not find key: " ++ show key)

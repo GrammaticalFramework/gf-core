@@ -33,7 +33,7 @@ import Control.Monad.State(State,evalState,get,put)
 import Control.Monad.Catch(bracket_)
 import Data.Char
 --import Data.Function (on)
-import Data.List ({-sortBy,-}intersperse,mapAccumL,nub,isSuffixOf,nubBy)
+import Data.List ({-sortBy,-}intersperse,mapAccumL,nub,isSuffixOf,nubBy,stripPrefix)
 import qualified Data.Map as Map
 import Data.Maybe
 import System.Random
@@ -103,6 +103,7 @@ getFile get path =
 
 pgfMain qsem command (t,pgf) =
   case command of
+<<<<<<< HEAD
     "parse"       -> withQSem qsem $
                        out t=<< join (parse # input % start % limit % treeopts)
     "linearize"   -> out t=<< lin # tree % to
@@ -118,13 +119,46 @@ pgfMain qsem command (t,pgf) =
     "parsetree"   -> outputGraphviz=<< (\cnc -> graphvizParseTree cnc graphvizDefaults) . snd # from1 %tree
     "wordforword" -> out t =<< wordforword # input % to
     _             -> badRequest "Unknown command" command
+=======
+    "c-parse"       -> withQSem qsem $
+                       out t=<< join (parse # input % cat % start % limit % treeopts)
+    "c-parseToChart"-> withQSem qsem $
+                       out t=<< join (parseToChart # input % cat % limit)
+    "c-linearize"   -> out t=<< lin # tree % to
+    "c-bracketedLinearize"
+                    -> out t=<< bracketedLin # tree % to
+    "c-linearizeAll"-> out t=<< linAll # tree % to
+    "c-translate"   -> withQSem qsem $
+                       out t=<<join(trans # input % cat % to % start % limit%treeopts)
+    "c-lookupmorpho"-> out t=<< morpho # from1 % textInput
+    "c-lookupcohorts"->out t=<< cohorts # from1 % getInput "filter" % textInput
+    "c-flush"       -> out t=<< flush
+    "c-grammar"     -> out t grammar
+    "c-abstrtree"   -> outputGraphviz=<< C.graphvizAbstractTree pgf C.graphvizDefaults # tree
+    "c-parsetree"   -> outputGraphviz=<< (\cnc -> C.graphvizParseTree cnc C.graphvizDefaults) . snd # from1 %tree
+    "c-wordforword" -> out t =<< wordforword # input % cat % to
+    _               -> badRequest "Unknown command" command
+>>>>>>> master
   where
     flush = liftIO $ do --modifyMVar_ pc $ const $ return Map.empty
                         performGC
                         return $ showJSON ()
 
+<<<<<<< HEAD
     cat = startCat pgf
     langs = languages pgf
+=======
+    cat :: CGI C.Type
+    cat =
+       do mcat  <- getInput1 "cat"
+          case mcat of
+            Nothing -> return (C.startCat pgf)
+            Just cat -> case C.readType cat of
+                          Nothing  -> badRequest "Bad category" cat
+                          Just typ -> return typ
+
+    langs = C.languages pgf
+>>>>>>> master
 
     grammar = showJSON $ makeObj
                  ["name".=abstractName pgf,
@@ -134,8 +168,8 @@ pgfMain qsem command (t,pgf) =
       where
         languages = [makeObj ["name".= l] | (l,_)<-Map.toList langs]
 
-    parse input@((from,_),_) start mlimit (trie,json) =
-        do r <- parse' start mlimit input
+    parse input@((from,_),_) cat start mlimit (trie,json) =
+        do r <- parse' cat start mlimit input
            return $ showJSON [makeObj ("from".=from:jsonParseResult json r)]
 
     jsonParseResult json = either bad good
@@ -146,14 +180,71 @@ pgfMain qsem command (t,pgf) =
                                  ,"prob".=prob
                                  ]
 
+<<<<<<< HEAD
     parse' start mlimit ((from,concr),input) =
         case parseWithHeuristics concr cat input (-1) callbacks of
           ParseOk ts        -> return (Right (maybe id take mlimit (drop start ts)))
           ParseFailed _ tok -> return (Left tok)
           ParseIncomplete   -> return (Left "")
+=======
+    -- Without caching parse results:
+    parse' cat start mlimit ((from,concr),input) =
+        case C.parseWithHeuristics concr cat input (-1) callbacks of
+          C.ParseOk ts        -> return (Right (maybe id take mlimit (drop start ts)))
+          C.ParseFailed _ tok -> return (Left tok)
+          C.ParseIncomplete   -> return (Left "")
+>>>>>>> master
       where
         callbacks = maybe [] cb $ lookup (abstractName pgf) literalCallbacks
         cb fs = [(cat,f pgf (from,concr) input)|(cat,f)<-fs]
+<<<<<<< HEAD
+=======
+{-
+    -- Caching parse results:
+    parse' start mlimit ((from,concr),input) = 
+        liftIO $ do t <- getCurrentTime
+                    fmap (maybe id take mlimit . drop start)
+                      # modifyMVar pc (parse'' t)
+      where
+        key = (from,input)
+        parse'' t pc = maybe new old $ Map.lookup key pc
+          where
+            new = return (update (res,t) pc,res)
+              where res = C.parse concr cat input
+            old (res,_) = return (update (res,t) pc,res)
+            update r = Map.mapMaybe purge . Map.insert key r
+            purge r@(_,t') = if diffUTCTime t t'<120 then Just r else Nothing
+                             -- remove unused parse results after 2 minutes
+-}
+
+    parseToChart ((from,concr),input) cat mlimit =
+      do r <- case C.parseToChart concr cat input (-1) callbacks (fromMaybe 5 mlimit) of
+                C.ParseOk chart     -> return (good chart)
+                C.ParseFailed _ tok -> return (bad tok)
+                C.ParseIncomplete   -> return (bad "")
+         return $ showJSON [makeObj ("from".=from:r)]
+      where
+        callbacks = maybe [] cb $ lookup (C.abstractName pgf) C.literalCallbacks
+        cb fs = [(cat,f pgf (from,concr) input)|(cat,f)<-fs]
+
+        bad  err           = ["parseFailed".=err]
+        good (roots,chart) = ["roots".=showJSON roots,
+                              "chart".=makeObj [show fid .= mkChartObj inf | (fid,inf)<-Map.toList chart]]
+
+        mkChartObj (brackets,prods,cat) =
+          makeObj ["brackets".=map mkChartBracket brackets
+                  ,"prods"   .=map mkChartProd prods
+                  ,"cat"     .=cat
+                  ]
+
+        mkChartBracket (s,e,ann) =
+          makeObj ["start".=s,"end".=e,"ann".=ann]
+
+        mkChartProd (expr,args,prob) =
+          makeObj ["tree".=expr,"args".=map mkChartPArg args,"prob".=prob]
+
+        mkChartPArg (C.PArg _ fid) = showJSON fid
+>>>>>>> master
 
     linAll tree to = showJSON (linAll' tree to)
     linAll' tree (tos,unlex) =
@@ -168,8 +259,8 @@ pgfMain qsem command (t,pgf) =
     bracketedLin' tree (tos,unlex) =
         [makeObj ["to".=to,"brackets".=showJSON (bracketedLinearize c tree)]|(to,c)<-tos]
 
-    trans input@((from,_),_) to start mlimit (trie,jsontree) =
-      do parses <- parse' start mlimit input
+    trans input@((from,_),_) cat to start mlimit (trie,jsontree) =
+      do parses <- parse' cat start mlimit input
          return $
            showJSON [ makeObj ["from".=from,
                                "translations".= jsonParses parses]]
@@ -183,11 +274,35 @@ pgfMain qsem command (t,pgf) =
                                     | (tree,prob) <- parses]
 
     morpho (from,concr) input =
+<<<<<<< HEAD
         showJSON [makeObj ["lemma".=l,"analysis".=a,"prob".=p]|(l,a,p)<-ms]
       where ms = lookupMorpho concr input
 
 
     wordforword input@((from,_),_) = jsonWFW from . wordforword' input
+=======
+        showJSON [makeObj ["lemma".=l
+                          ,"analysis".=a
+                          ,"prob".=p]
+                     | (l,a,p)<-C.lookupMorpho concr input]
+
+    cohorts (from,concr) filter input =
+      showJSON [makeObj ["start" .=showJSON s
+                        ,"word"  .=showJSON w
+                        ,"morpho".=showJSON [makeObj ["lemma".=l
+                                                     ,"analysis".=a
+                                                     ,"prob".=p] 
+                                                | (l,a,p)<-ms]
+                        ,"end"   .=showJSON e
+                        ]
+                   | (s,w,ms,e) <- (case filter of
+                                      Just "longest" -> C.filterLongest
+                                      Just "best"    -> C.filterBest
+                                      _              -> id)
+                                     (C.lookupCohorts concr input)]
+
+    wordforword input@((from,_),_) cat = jsonWFW from . wordforword' input cat
+>>>>>>> master
 
     jsonWFW from rs =
       showJSON
@@ -197,7 +312,7 @@ pgfMain qsem command (t,pgf) =
                                         [makeObj["to".=to,"text".=text]
                                          | (to,text)<-rs]]]]]
 
-    wordforword' inp@((from,concr),input) (tos,unlex) =
+    wordforword' inp@((from,concr),input) cat (tos,unlex) =
         [(to,unlex . unwords $ map (lin_word' c) pws)
          |let pws=map parse_word' (words input),(to,c)<-tos]
       where
@@ -242,7 +357,7 @@ pgfMain qsem command (t,pgf) =
     from1 = maybe (missing "from") return =<< from'
     from' = getLang "from"
 
-    to = (,) # getLangs "to" % unlexer (const False)
+    to = (,) # getLangs "to" % unlexerC (const False)
 
     getLangs = getLangs' readLang
     getLang = getLang' readLang
@@ -274,8 +389,15 @@ lexer good = maybe (return id) lexerfun =<< getInput "lexer"
 type Unlexer = String->String
 
 -- | Unlexing for the C runtime system, &+ is already applied
-unlexer :: (String -> Bool) -> CGI Unlexer
-unlexer good = maybe (return id) unlexerfun =<< getInput "unlexer"
+unlexerC :: (String -> Bool) -> CGI Unlexer
+unlexerC = unlexer' id
+
+-- | Unlexing for the Haskell runtime system, the default is to just apply &+
+unlexerH :: CGI Unlexer
+unlexerH = unlexer' (unwords . bindTok . words) (const False)
+
+unlexer' defaultUnlexer good =
+    maybe (return defaultUnlexer) unlexerfun =<< getInput "unlexer"
   where
     unlexerfun name =
        case stringOp good ("unlex"++name) of
@@ -380,7 +502,7 @@ pgfMain lcs@(alc,clc) path command tpgf@(t,pgf) =
     from = getLang "from"
 
     to1 = maybe (missing "to") return =<< getLang "to"
-    to = (,) # getLangs "to" % unlexer (const False)
+    to = (,) # getLangs "to" % unlexerH
 
     getLangs = getLangs' readLang
     getLang = getLang' readLang
@@ -853,9 +975,55 @@ doBrowse pgf (Just id) cssClass href _ pn = -- default to "html" format
       where pns = ["<DT>"++(show lang)++"</DT><DD>"++(PGF.showPrintName pgf lang id)++"</DD>" | lang <- PGF.languages pgf ]
 -}
 
+<<<<<<< HEAD
 instance JSON Expr where
     readJSON x = readJSON x >>= maybe (fail "Bad expression.") return . readExpr
     showJSON = showJSON . showExpr []
+=======
+class ToATree a where 
+  showTree :: a -> String
+  toATree :: a -> PGF.ATree a
+
+instance ToATree PGF.Expr where
+  showTree = PGF.showExpr []
+  toATree = PGF.toATree
+
+-- | Render trees as JSON with numbered functions
+jsonExpr e = evalState (expr (toATree e)) 0
+  where
+    expr e =
+      case e of
+        PGF.Other e -> return (makeObj ["other".=e])
+        PGF.App f es ->
+                do js <- mapM expr es
+                   let children=["children".=js | not (null js)]
+                   i<-inc
+                   return $ makeObj (["fun".=f,"fid".=i]++children)
+
+    inc :: State Int Int
+    inc = do i <- get; put (i+1); return i
+
+instance JSON PGF.Trie where
+    showJSON (PGF.Oth e) = makeObj ["other".=e]
+    showJSON (PGF.Ap f [[]]) = makeObj ["fun".=f] -- leaf
+--  showJSON (PGF.Ap f [es]) = makeObj ["fun".=f,"children".=es] -- one alternative
+    showJSON (PGF.Ap f alts) = makeObj ["fun".=f,"alts".=alts]
+    readJSON = error "PGF.Trie.readJSON intentionally not defined"
+
+instance JSON PGF.CId where
+    readJSON x = readJSON x >>= maybe (fail "Bad language.") return . PGF.readLanguage
+    showJSON = showJSON . PGF.showLanguage
+
+instance JSON PGF.Expr where
+    readJSON x = readJSON x >>= maybe (fail "Bad expression.") return . PGF.readExpr
+    showJSON = showJSON . PGF.showExpr []
+
+instance JSON PGF.BracketedString where
+    readJSON x = return (PGF.Leaf "")
+    showJSON (PGF.Bracket cat fid _ index fun _ bs) =
+        makeObj ["cat".=cat, "fid".=fid, "index".=index, "fun".=fun, "children".=bs]
+    showJSON (PGF.Leaf s) = makeObj ["token".=s]
+>>>>>>> master
 
 instance JSON BracketedString where
     readJSON x = return (Leaf "")
@@ -869,6 +1037,7 @@ transfer lang = if "LaTeX" `isSuffixOf` show lang
                 then fold -- OpenMath LaTeX transfer
                 else id
 
+<<<<<<< HEAD
 selectLanguage :: PGF -> Maybe (Accept Language) -> Concr
 selectLanguage pgf macc = case acceptable of
                             []  -> case Map.elems (languages pgf) of
@@ -880,6 +1049,45 @@ selectLanguage pgf macc = case acceptable of
 
 langCodeLanguage :: PGF -> String -> Maybe Concr
 langCodeLanguage pgf code = listToMaybe [concr | concr <- Map.elems (languages pgf), languageCode concr == Just code]
+=======
+-- | tabulate all variants and their forms
+linearizeTabular
+  :: PGF -> To -> PGF.Tree -> [(PGF.Language,[(String,[String])])]
+linearizeTabular pgf (tos,unlex) tree =
+    [(to,lintab to (transfer to tree)) | to <- langs]
+  where
+    langs = if null tos then PGF.languages pgf else tos
+    lintab to t = [(p,map unlex (nub [t|(p',t)<-vs,p'==p]))|p<-ps]
+      where
+        ps = nub (map fst vs)
+        vs = concat (PGF.tabularLinearizes pgf to t)
+
+linearizeAndUnlex pgf (mto,unlex) tree =
+    [(to,s,bss) | to<-langs,
+                 let bss = PGF.bracketedLinearize pgf to (transfer to tree)
+                     s   = unlex . unwords $ concatMap PGF.flattenBracketedString bss]
+  where
+    langs = if null mto then PGF.languages pgf else mto
+
+selectLanguage :: PGF -> Maybe (Accept Language) -> PGF.Language
+selectLanguage pgf macc =
+    case acceptable of
+      []  -> case PGF.languages pgf of
+               []  -> error "No concrete syntaxes in PGF grammar."
+               ls@(l1:_) -> case [l | l<-ls, langPart pgf l==Just "Eng"] of
+                              eng:_ -> eng
+                              _ -> l1
+      Language c:_ -> fromJust (langCodeLanguage pgf c)
+  where langCodes = mapMaybe (PGF.languageCode pgf) (PGF.languages pgf)
+        acceptable = negotiate (map Language langCodes) macc
+
+langCodeLanguage :: PGF -> String -> Maybe PGF.Language
+langCodeLanguage pgf code =
+  listToMaybe [l | l <- PGF.languages pgf, PGF.languageCode pgf l == Just code]
+
+langPart pgf lang =
+  stripPrefix (PGF.showCId (PGF.abstractName pgf)) (PGF.showCId lang)
+>>>>>>> master
 
 -- * General utilities
 

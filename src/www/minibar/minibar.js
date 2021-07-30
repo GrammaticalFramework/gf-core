@@ -181,7 +181,15 @@ Minibar.prototype.show_grammarlist=function(dir,grammar_names,dir_count) {
 	    if(last_grammar && elem(last_grammar,t.grammars))
 		grammar0=last_grammar;
 	}
+	var pgs=t.options.preferred_grammars
+	if(!grammar0 && pgs)
+	    for(var i in pgs)
+		if(elem(pgs[i],t.grammars)) {
+		    grammar0=pgs[i]
+		    break
+		}
 	if(!grammar0) grammar0=t.grammars[0];
+	//console.log("grammar0=",grammar0)
 	t.grammar_menu.value=grammar0;
 	t.select_grammar(grammar0);
     }

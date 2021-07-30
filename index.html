@@ -22,9 +22,9 @@
   <h4 class="text-black-50">A programming language for multilingual grammar applications</h4>
 </div>
 
-<div class="row my-4">
+<div class="row mt-4">
 
-  <div class="col-sm-6 col-md-3">
+  <div class="col-sm-6 col-md-3 mb-4">
     <h3>Get started</h3>
     <ul class="mb-2">
       <li><a href="https://www.youtube.com/watch?v=x1LFbDQhbso">Google Tech Talk</a></li>
@@ -39,6 +39,7 @@
         /
         <a href="lib/doc/rgl-tutorial/index.html">RGL Tutorial</a>
       </li>
+      <li><a href="doc/gf-video-tutorials.html">Video Tutorials</a></li>
     </ul>
 
     <a href="download/index.html" class="btn btn-primary ml-3">
@@ -47,7 +48,7 @@
     </a>
   </div>
 
-  <div class="col-sm-6 col-md-3">
+  <div class="col-sm-6 col-md-3 mb-4">
     <h3>Learn more</h3>
 
     <ul class="mb-2">
@@ -55,6 +56,7 @@
       <li><a href="doc/gf-refman.html">Reference Manual</a></li>
       <li><a href="doc/gf-shell-reference.html">Shell Reference</a></li>
       <li><a href="http://www.molto-project.eu/sites/default/files/MOLTO_D2.3.pdf">Best Practices</a> <small>[PDF]</small></li>
+      <li><a href="https://www.mitpressjournals.org/doi/pdf/10.1162/COLI_a_00378">Scaling Up (Computational Linguistics 2020)</a></li>
     </ul>
 
     <a href="lib/doc/synopsis/index.html" class="btn btn-primary ml-3">
@@ -63,27 +65,30 @@
     </a>
   </div>
 
-  <div class="col-sm-6 col-md-3">
+  <div class="col-sm-6 col-md-3 mb-4">
     <h3>Develop</h3>
     <ul class="mb-2">
       <li><a href="doc/gf-developers.html">Developers Guide</a></li>
       <!-- <li><a href="/~hallgren/gf-experiment/browse/">Browse Source Code</a></li> -->
-      <li><a href="http://hackage.haskell.org/package/gf/docs/PGF.html">PGF library API (Haskell runtime)</a></li>
-      <li><a href="doc/runtime-api.html">PGF library API (C runtime)</a></li>
+      <li>PGF library API:<br>
+        <a href="http://hackage.haskell.org/package/gf/docs/PGF.html">Haskell</a> /
+        <a href="doc/runtime-api.html">C&nbsp;runtime</a>
+      </li>
       <li><a href="http://hackage.haskell.org/package/gf/docs/GF.html">GF compiler API</a></li>
       <!-- <li><a href="src/ui/android/README">GF on Android (new)</a></li>
       <li><a href="/android/">GF on Android (old) </a></li> -->
       <li><a href="doc/gf-editor-modes.html">Text Editor Support</a></li>
+      <li><a href="http://www.grammaticalframework.org/~john/rgl-browser/">RGL source browser</a></li>
     </ul>
   </div>
 
-  <div class="col-sm-6 col-md-3">
+  <div class="col-sm-6 col-md-3 mb-4">
     <h3>Contribute</h3>
     <ul class="mb-2">
       <li><a href="http://groups.google.com/group/gf-dev">Mailing List</a></li>
       <li><a href="https://github.com/GrammaticalFramework/gf-core/issues">Issue Tracker</a></li>
       <li><a href="doc/gf-people.html">Authors</a></li>
-      <li><a href="//school.grammaticalframework.org/2018/">Summer School</a></li>
+      <li><a href="//school.grammaticalframework.org/2020/">Summer School</a></li>
     </ul>
     <a href="https://github.com/GrammaticalFramework/" class="btn btn-primary ml-3">
       <i class="fab fa-github mr-1"></i>
@@ -169,6 +174,7 @@ least one, it may help you to get a first idea of what GF is.
     <li>macOS</li>
     <li>Windows</li>
     <li>Android mobile platform (via Java; runtime)</li>
+    <li>iOS mobile platform (iPhone, iPad)</li>
     <li>via compilation to JavaScript, almost any platform that has a web browser (runtime)</li>
     </ul>
 
@@ -208,9 +214,9 @@ least one, it may help you to get a first idea of what GF is.
     </p>
 
     <p>
-    We run the IRC channel <strong><code>#gf</code></strong> on the Freenode network, where you are welcome to look for help with small questions or just start a general discussion.
-    You can <a href="https://webchat.freenode.net/?channels=gf">open a web chat</a>
-    or <a href="/irc/">browse the channel logs</a>.
+    We run the IRC channel <strong><code>#gf</code></strong> on the Libera network, where you are welcome to look for help with small questions or just start a general discussion.
+    You can <a href="https://web.libera.chat/?channels=#gf">open a web chat</a>
+    or <a href="https://www.grammaticalframework.org/irc/?C=M;O=D">browse the channel logs</a>.
     </p>
     <p>
     If you have a larger question which the community may benefit from, we recommend you ask it on the <a href="http://groups.google.com/group/gf-dev">mailing list</a>.
@@ -220,8 +226,24 @@ least one, it may help you to get a first idea of what GF is.
 
   <div class="col-md-6">
     <h2>News</h2>
-
+    <dt class="col-sm-3 text-center text-nowrap">2021-07-25</dt>
+    <dd class="col-sm-9">
+      <strong>GF 3.11 released.</strong>
+      <a href="download/release-3.11.html">Release notes</a>
+    </dd>
     <dl class="row">
+      <dt class="col-sm-3 text-center text-nowrap">2021-05-05</dt>
+      <dd class="col-sm-9">
+        <a href="https://cloud.grammaticalframework.org/wordnet/">GF WordNet</a> now supports languages for which there are no other WordNets. New additions: Afrikaans, German, Korean, Maltese, Polish, Somali, Swahili.
+      </dd>
+      <dt class="col-sm-3 text-center text-nowrap">2021-03-01</dt>
+      <dd class="col-sm-9">
+        <a href="//school.grammaticalframework.org/2020/">Seventh GF Summer School</a>, in Singapore and online, 26 July &ndash; 6 August 2021.
+      </dd>
+      <dt class="col-sm-3 text-center text-nowrap">2020-09-29</dt>
+      <dd class="col-sm-9">
+        <a href="https://www.mitpressjournals.org/doi/pdf/10.1162/COLI_a_00378">Abstract Syntax as Interlingua</a>: Scaling Up the Grammatical Framework from Controlled Languages to Robust Pipelines. A paper in Computational Linguistics (2020) summarizing much of the development in GF in the past ten years.
+      </dd>
       <dt class="col-sm-3 text-center text-nowrap">2018-12-03</dt>
       <dd class="col-sm-9">
         <a href="//school.grammaticalframework.org/2018/">Sixth GF Summer School</a> in Stellenbosch (South Africa), 3–14 December 2018
@@ -324,9 +346,11 @@ least one, it may help you to get a first idea of what GF is.
     Afrikaans,
     Amharic (partial),
     Arabic (partial),
+    Basque (partial),
     Bulgarian,
     Catalan,
     Chinese,
+    Czech (partial),
     Danish,
     Dutch,
     English,
@@ -338,10 +362,12 @@ least one, it may help you to get a first idea of what GF is.
     Greek modern,
     Hebrew (fragments),
     Hindi,
+    Hungarian (partial),
     Interlingua,
-    Japanese,
     Italian,
-    Latin (fragments),
+    Japanese,
+    Korean (partial),
+    Latin (partial),
     Latvian,
     Maltese,
     Mongolian,
@@ -354,7 +380,9 @@ least one, it may help you to get a first idea of what GF is.
     Romanian,
     Russian,
     Sindhi,
+    Slovak (partial),
     Slovene (partial),
+    Somali (partial),
     Spanish,
     Swahili (fragments),
     Swedish,

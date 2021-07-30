@@ -5,7 +5,14 @@
 *.jar
 *.gfo
 *.pgf
+debian/.debhelper
+debian/debhelper-build-stamp
+debian/gf
+debian/gf.debhelper.log
+debian/gf.substvars
+debian/files
 dist/
+dist-newstyle/
 src/runtime/c/.libs/
 src/runtime/c/Makefile
 src/runtime/c/Makefile.in
@@ -45,6 +52,10 @@ cabal.sandbox.config
 DATA_DIR
 
 stack*.yaml.lock
+
+# Output files for test suite
+*.out
+gf-tests.html
 
 # Generated documentation (not exhaustive)
 demos/index-numbers.html

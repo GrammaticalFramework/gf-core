@@ -1,5 +1,6 @@
 -- -*- haskell -*-
 {
+{-# LANGUAGE CPP #-}
 module GF.Grammar.Lexer
          ( Token(..), Posn(..)
          , P, runP, runPartial, token, lexer, getPosn, failLoc
@@ -18,6 +19,7 @@ import qualified Data.Map as Map
 import Data.Word(Word8)
 import Data.Char(readLitChar)
 --import Debug.Trace(trace)
+import qualified Control.Monad.Fail as Fail
 }
 
 
@@ -33,7 +35,7 @@ $u = [.\n]                -- universal: any character
 
 :-
 "--" [.]* ; -- Toss single line comments
-"{-" ([$u # \-] | \- [$u # \}])* ("-")+ "}" ; 
+"{-" ([$u # \-] | \- [$u # \}])* ("-")+ "}" ;
 
 $white+ ;
 @rsyms                          { tok ident }
@@ -136,7 +138,7 @@ data Token
 
 res = eitherResIdent
 eitherResIdent :: (Ident -> Token) -> Ident -> Token
-eitherResIdent tv s = 
+eitherResIdent tv s =
   case Map.lookup s resWords of
     Just t  -> t
     Nothing -> tv s
@@ -265,7 +267,7 @@ type AlexInput2 = (AlexInput,AlexInput)
 
 data ParseResult a
   = POk AlexInput2 a
-  | PFailed Posn	-- The position of the error
+  | PFailed Posn        -- The position of the error
             String      -- The error message
 
 newtype P a = P { unP :: AlexInput2 -> ParseResult a }
@@ -282,7 +284,15 @@ instance Monad P where
   (P m) >>= k = P $ \ s -> case m s of
                              POk s a          -> unP (k a) s
                              PFailed posn err -> PFailed posn err
+
+#if !(MIN_VERSION_base(4,13,0))
+  -- Monad(fail) will be removed in GHC 8.8+
+  fail = Fail.fail
+#endif
+
+instance Fail.MonadFail P where
   fail msg    = P $ \(_,AI posn _ _) -> PFailed posn msg
+
 
 runP :: P a -> BS.ByteString -> Either (Posn,String) a
 runP p bs = snd <$> runP' p (Pn 1 0,bs)

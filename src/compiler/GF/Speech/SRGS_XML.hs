@@ -34,13 +34,13 @@ prSrgsXml :: Maybe SISRFormat -> SRG -> String
 prSrgsXml sisr srg = showXMLDoc (optimizeSRGS xmlGr)
     where
     xmlGr = grammar sisr (srgStartCat srg) (srgLanguage srg) $
-              [meta "description" 
+              [meta "description"
                  ("SRGS XML speech recognition grammar for " ++ srgName srg ++ "."),
                meta "generator" "Grammatical Framework"]
-	    ++ map ruleToXML (srgRules srg)
+               ++ map ruleToXML (srgRules srg)
     ruleToXML (SRGRule cat alts) = Tag "rule" ([("id",cat)]++pub) (prRhs alts)
         where pub = if isExternalCat srg cat then [("scope","public")] else []
-    prRhs rhss = [oneOf (map (mkProd sisr) rhss)] 
+    prRhs rhss = [oneOf (map (mkProd sisr) rhss)]
 
 mkProd :: Maybe SISRFormat -> SRGAlt -> XML
 mkProd sisr (SRGAlt mp n rhs) = Tag "item" [] (ti ++ [x] ++ tf)
@@ -50,9 +50,9 @@ mkProd sisr (SRGAlt mp n rhs) = Tag "item" [] (ti ++ [x] ++ tf)
 
 mkItem :: Maybe SISRFormat -> CFTerm -> SRGItem -> XML
 mkItem sisr cn = f
-  where 
+  where
     f (REUnion [])  = ETag "ruleref" [("special","VOID")]
-    f (REUnion xs) 
+    f (REUnion xs)
         | not (null es) = Tag "item" [("repeat","0-1")] [f (REUnion nes)]
         | otherwise = oneOf (map f xs)
       where (es,nes) = partition isEpsilon xs
@@ -62,7 +62,7 @@ mkItem sisr cn = f
     f (RESymbol s)  = symItem sisr cn s
 
 symItem :: Maybe SISRFormat -> CFTerm -> Symbol SRGNT Token -> XML
-symItem sisr cn (NonTerminal n@(c,_)) = 
+symItem sisr cn (NonTerminal n@(c,_)) =
     Tag "item" [] $ [ETag "ruleref" [("uri","#" ++ c)]] ++ tag sisr (catSISR cn n)
 symItem _ _ (Terminal t) = Tag "item" [] [Data (showToken t)]
 
@@ -81,12 +81,12 @@ oneOf = Tag "one-of" []
 grammar :: Maybe SISRFormat
         -> String  -- ^ root
         -> Maybe String -- ^language
-	-> [XML] -> XML
-grammar sisr root ml = 
+        -> [XML] -> XML
+grammar sisr root ml =
     Tag "grammar" $ [("xmlns","http://www.w3.org/2001/06/grammar"),
-		     ("version","1.0"),
-		     ("mode","voice"),
-		     ("root",root)]
+                     ("version","1.0"),
+                     ("mode","voice"),
+                     ("root",root)]
                  ++ (if isJust sisr then [("tag-format","semantics/1.0")] else [])
                  ++ maybe [] (\l -> [("xml:lang", l)]) ml
 
@@ -94,7 +94,7 @@ meta :: String -> String -> XML
 meta n c = ETag "meta" [("name",n),("content",c)]
 
 optimizeSRGS :: XML -> XML
-optimizeSRGS = bottomUpXML f 
+optimizeSRGS = bottomUpXML f
   where f (Tag "item" [] [x@(Tag "item" _ _)]) = x
         f (Tag "item" [] [x@(Tag "one-of" _ _)]) = x
         f (Tag "item" as [Tag "item" [] xs]) = Tag "item" as xs

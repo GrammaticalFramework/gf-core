@@ -36,6 +36,7 @@ import qualified System.Random as IO(newStdGen)
 import qualified GF.Infra.UseIO as IO(getLibraryDirectory)
 import qualified GF.System.Signal as IO(runInterruptibly)
 import qualified GF.Command.Importing as GF(importGrammar, importSource)
+import qualified Control.Monad.Fail as Fail
 
 -- * The SIO monad
 
@@ -51,6 +52,9 @@ instance Applicative SIO where
 instance Monad SIO where
   return x = SIO (const (return x))
   SIO m1 >>= xm2 = SIO $ \ h -> m1 h >>= \ x -> unS (xm2 x) h
+
+instance Fail.MonadFail SIO where
+  fail = lift0 . fail
 
 instance Output SIO where
   ePutStr = lift0 . ePutStr

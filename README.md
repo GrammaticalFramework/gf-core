@@ -2,8 +2,6 @@
 
 # Grammatical Framework (GF)
 
-[![Build Status](https://travis-ci.org/GrammaticalFramework/gf-core.svg?branch=master)](https://travis-ci.org/GrammaticalFramework/gf-core)
-
 The Grammatical Framework is a grammar formalism based on type theory.
 It consists of:
 
@@ -32,13 +30,16 @@ GF particularly addresses four aspects of grammars:
 
 ## Compilation and installation
 
-The simplest way of installing GF is with the command:
+The simplest way of installing GF from source is with the command:
 ```
 cabal install
 ```
+or:
+```
+stack install
+```
 
-For more details, see the [download page](http://www.grammaticalframework.org/download/index.html)
-and [developers manual](http://www.grammaticalframework.org/doc/gf-developers.html).
+For more information, including links to precompiled binaries, see the [download page](http://www.grammaticalframework.org/download/index.html).
 
 ## About this repository
 

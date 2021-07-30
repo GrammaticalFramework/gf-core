@@ -27,6 +27,10 @@ instance Predef Int where
 
 instance Predef Bool where
   toValue = boolV
+  fromValue v = case v of
+    VCApp (mn,i) [] | mn == cPredef && i == cPTrue -> return True
+    VCApp (mn,i) [] | mn == cPredef && i == cPFalse -> return False
+    _ -> verror "Bool" v
 
 instance Predef String where
   toValue = string

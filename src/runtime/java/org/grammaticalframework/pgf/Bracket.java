@@ -14,18 +14,18 @@ public class Bracket {
 	 * where they all will have the same id */
 	public final int fid;
 
-	public final int lindex;
+	public final String ann;
 	
 	/** The children of the bracket. Every element is either a string
 	 * if this is a leaf in the parse tree, or a {@link Bracket} object.
 	 */
 	public final Object[] children;
 
-	public Bracket(String cat, String fun, int fid, int lindex, Object[] children) {
+	public Bracket(String cat, String fun, int fid, String ann, Object[] children) {
 		this.cat = cat;
 		this.fun = fun;
 		this.fid = fid;
-		this.lindex = lindex;
+		this.ann = ann;
 		this.children = children;
 	}
 }

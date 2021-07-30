@@ -19,7 +19,7 @@ public class NercLiteralCallback implements LiteralCallback {
 		this.sentence = sentence;
 	}
 
-	public CallbackResult match(int lin_idx, int offset) {
+	public CallbackResult match(String ann, int offset) {
 		StringBuilder sbuilder = new StringBuilder();
 
 		int i = 0;
@@ -83,7 +83,7 @@ public class NercLiteralCallback implements LiteralCallback {
 		return null;
 	}
 	
-	public Iterator<TokenProb> predict(int lin_idx, String prefix) {
+	public Iterator<TokenProb> predict(String ann, String prefix) {
 		return Collections.<TokenProb>emptyList().iterator();
 	}
 }

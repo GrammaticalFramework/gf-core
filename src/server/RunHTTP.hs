@@ -5,7 +5,7 @@ import CGI(CGIResult(..),CGIRequest(..),Input(..),
                             Headers,HeaderName(..))
 import CGI(runCGIT)
 import Network.Shed.Httpd(initServer,Request(..),Response(..))
-import qualified Data.ByteString.Lazy.Char8 as BS(pack,unpack)
+import qualified Data.ByteString.Lazy.Char8 as BS(pack,unpack,empty)
 import qualified Data.Map as M(fromList)
 import URLEncoding(decodeQuery)
 
@@ -25,7 +25,9 @@ httpResp (hdrs,r) = Response code (map name hdrs) (body r)
     name (HeaderName n,v) = (n,v)
 
 cgiReq :: String -> Request -> CGIRequest
-cgiReq root (Request method uri hdrs body) = CGIRequest vars inputs body'
+cgiReq root (Request method uri hdrs body)
+  | method == "POST" = CGIRequest vars (map input (decodeQuery body)) BS.empty
+  | otherwise        = CGIRequest vars (map input (decodeQuery qs  )) BS.empty -- assumes method=="GET"
   where
     vars = M.fromList [("REQUEST_METHOD",method),
                        ("REQUEST_URI",show uri),
@@ -37,15 +39,6 @@ cgiReq root (Request method uri hdrs body) = CGIRequest vars inputs body'
            '?':s -> s
            s -> s
     al = maybe "" id $ lookup "Accept-Language" hdrs
---  inputs = map input $ queryToArguments $ fixplus qs  -- assumes method=="GET"
-    inputs = map input $ decodeQuery qs  -- assumes method=="GET"
-    body' = BS.pack body
 
     input (name,val) = (name,Input (BS.pack val) Nothing plaintext)
     plaintext = ContentType "text" "plain" []
-{-
-    fixplus = concatMap decode
-      where
-        decode '+' = "%20" -- httpd-shed bug workaround
-        decode c   = [c]
--}

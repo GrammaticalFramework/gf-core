@@ -1,5 +1,6 @@
 -- | Source locations
 module GF.Infra.Location where
+import Prelude hiding ((<>))
 import GF.Text.Pretty
 
 -- ** Source locations

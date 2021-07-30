@@ -50,6 +50,7 @@ mainGFI opts files = do
 
 shell opts files = flip evalStateT (emptyGFEnv opts) $
                    do mapStateT runSIO $ importInEnv opts files
+                      modify $ \ gfenv0 -> gfenv0 {history = [unwords ("i":files)]}
                       loop
 
 #ifdef SERVER_MODE
@@ -96,7 +97,7 @@ timeIt act =
 
 -- | Optionally show how much CPU time was used to run an IO action
 optionallyShowCPUTime :: (Monad m,MonadSIO m) => Options -> m a -> m a
-optionallyShowCPUTime opts act 
+optionallyShowCPUTime opts act
   | not (verbAtLeast opts Normal) = act
   | otherwise = do (dt,r) <- timeIt act
                    liftSIO $ putStrLnFlush $ show (dt `div` 1000000000) ++ " msec"
@@ -349,7 +350,7 @@ wordCompletion gfenv (left,right) = do
                            s            = reverse rs
                            prefix       = reverse rprefix
                        in case (optLang opts, optType opts) of
-                            (Just lang,Just cat) -> let compls = [t | (t,_,_,_) <- complete lang cat s prefix]
+                            (Just lang,Just cat) -> let compls = [t | ParseOk res <- [complete lang cat s prefix], (t,_,_,_) <- res]
                                                     in ret (length prefix) (map Haskeline.simpleCompletion compls)
                             _                    -> ret 0 []
            Nothing  -> ret 0 []
@@ -411,7 +412,7 @@ wc_type = cmd_name
     option x y (c  :cs)
       | isIdent c       = option x y cs
       | otherwise       = cmd x cs
-      
+
     optValue x y ('"':cs) = str x y cs
     optValue x y cs       = cmd x cs
 
@@ -429,9 +430,9 @@ wc_type = cmd_name
       where
         x1 = take (length x - length y - d) x
         x2 = takeWhile (\c -> isIdent c || isSpace c || c == '-' || c == '=' || c == '"') x1
-        
+
         cmd = case [x | (x,cs) <- RP.readP_to_S pCommand x2, all isSpace cs] of
-	        [x] -> Just x
+                [x] -> Just x
                 _   -> Nothing
 
     isIdent c = c == '_' || c == '\'' || isAlphaNum c

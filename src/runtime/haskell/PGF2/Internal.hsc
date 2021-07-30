@@ -2,7 +2,7 @@
 
 module PGF2.Internal(-- * Access the internal structures
                      FId,isPredefFId,
-                     FunId,SeqId,Token,Production(..),PArg(..),Symbol(..),Literal(..),
+                     FunId,SeqId,LIndex,Token,Production(..),PArg(..),Symbol(..),Literal(..),
                      globalFlags, abstrFlags, concrFlags,
                      concrTotalCats, concrCategories, concrProductions,
                      concrTotalFuns, concrFunction,
@@ -42,7 +42,8 @@ import Control.Exception(Exception,throwIO)
 import Control.Monad(foldM,when)
 import qualified Data.Map as Map
 
-type Token = String
+type Token  = String
+type LIndex = Int
 data Symbol
   = SymCat {-# UNPACK #-} !Int {-# UNPACK #-} !LIndex
   | SymLit {-# UNPACK #-} !Int {-# UNPACK #-} !LIndex
@@ -60,7 +61,7 @@ data Production
   = PApply  {-# UNPACK #-} !FunId [PArg]
   | PCoerce {-# UNPACK #-} !FId
   deriving (Eq,Ord,Show)
-data PArg = PArg [(FId,FId)] {-# UNPACK #-} !FId deriving (Eq,Ord,Show)
+
 type FunId = Int
 type SeqId = Int
 data Literal =
@@ -229,10 +230,6 @@ concrProductions c fid = unsafePerformIO $ do
           fid  <- peekFId c_ccat
           return (PArg [(fid,fid) | fid <- hypos] fid)
 
-peekFId c_ccat = do
-  c_fid <- (#peek PgfCCat, fid) c_ccat
-  return (fromIntegral (c_fid :: CInt))
-
 concrTotalFuns :: Concr -> FunId
 concrTotalFuns c = unsafePerformIO $ do
   c_cncfuns <- (#peek PgfConcr, cncfuns) (concr c)
@@ -319,8 +316,6 @@ concrSequence c seqid = unsafePerformIO $ do
       prefixes <- peekSequence (deRef peekUtf8CString) (#size GuString*) c_prefixes
       forms <- peekForms (len-1) (ptr `plusPtr` (#size PgfAlternative))
       return ((form,prefixes):forms)
-
-deRef peekValue ptr = peek ptr >>= peekValue
 
 fidString, fidInt, fidFloat, fidVar, fidStart :: FId
 fidString = (-1)

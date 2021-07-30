@@ -5,6 +5,7 @@
 #include <gu/mem.h>
 #include <gu/map.h>
 #include <gu/file.h>
+#include <gu/utf8.h>
 #include <pgf/pgf.h>
 #include <pgf/linearizer.h>
 
@@ -1307,8 +1308,8 @@ static PyObject*
 Concr_printName(ConcrObject* self, PyObject *args)
 {
 	GuString id;
-    if (!PyArg_ParseTuple(args, "s", &id))
-        return NULL;
+	if (!PyArg_ParseTuple(args, "s", &id))
+		return NULL;
 
 	GuString name = pgf_print_name(self->concr, id);
 	if (name == NULL)
@@ -1346,9 +1347,42 @@ typedef struct {
 	GuFinalizer fin;
 } PyPgfLiteralCallback;
 
+#if PY_MAJOR_VERSION >= 3
+static size_t
+utf8_to_unicode_offset(GuString sentence, size_t offset)
+{
+	const uint8_t* start = (uint8_t*) sentence;
+	const uint8_t* end   = start+offset;
+
+	size_t chars = 0;
+	while (start < end) {
+		gu_utf8_decode(&start);
+		chars++;
+	}
+	
+	return chars;
+}
+
+static size_t
+unicode_to_utf8_offset(GuString sentence, size_t chars)
+{
+	const uint8_t* start = (uint8_t*) sentence;
+	const uint8_t* end   = start;
+
+	while (chars > 0) {
+		GuUCS ucs = gu_utf8_decode(&end);
+		if (ucs == 0)
+			break;
+		chars--;
+	}
+
+	return (end-start);
+}
+#endif
+
 static PgfExprProb*
 pypgf_literal_callback_match(PgfLiteralCallback* self, PgfConcr* concr,
-                             size_t lin_idx,
+                             GuString ann,
                              GuString sentence, size_t* poffset,
                              GuPool *out_pool)
 {
@@ -1356,10 +1390,18 @@ pypgf_literal_callback_match(PgfLiteralCallback* self, PgfConcr* concr,
 		gu_container(self, PyPgfLiteralCallback, callback);
 
 	PyObject* result =
-		PyObject_CallFunction(callback->pycallback, "ii",
-		                      lin_idx, *poffset);
-	if (result == NULL)
+		PyObject_CallFunction(callback->pycallback, "si",
+		                      ann,
+#if PY_MAJOR_VERSION >= 3
+		                      utf8_to_unicode_offset(sentence, *poffset)
+#else
+		                      *poffset
+#endif
+		                     );
+	if (result == NULL) {
+		PyErr_Print();
 		return NULL;
+	}
 
 	if (result == Py_None) {
 		Py_DECREF(result);
@@ -1369,40 +1411,17 @@ pypgf_literal_callback_match(PgfLiteralCallback* self, PgfConcr* concr,
 	PgfExprProb* ep = gu_new(PgfExprProb, out_pool);
 
 	ExprObject* pyexpr;
+#if PY_MAJOR_VERSION >= 3
+	int chars;
+	if (!PyArg_ParseTuple(result, "Ofi", &pyexpr, &ep->prob, &chars))
+	    return NULL;
+	*poffset = unicode_to_utf8_offset(sentence, chars);
+#else
 	if (!PyArg_ParseTuple(result, "Ofi", &pyexpr, &ep->prob, poffset))
 	    return NULL;
+#endif
 
-	ep->expr = pyexpr->expr;
-
-	{
-		// This is an uggly hack. We first show the expression ep->expr
-		// and then we read it back but in out_pool. The whole purpose
-		// of this is to copy the expression from the temporary pool
-		// that was created in the Java binding to the parser pool.
-		// There should be a real copying function or even better
-		// there must be a way to avoid copying at all.
-
-		GuPool* tmp_pool = gu_local_pool();
-
-		GuExn* err = gu_exn(tmp_pool);
-		GuStringBuf* sbuf = gu_new_string_buf(tmp_pool);
-		GuOut* out = gu_string_buf_out(sbuf);
-
-		pgf_print_expr(ep->expr, NULL, 0, out, err);
-
-		GuIn* in = gu_data_in((uint8_t*) gu_string_buf_data(sbuf),
-		                      gu_string_buf_length(sbuf),
-		                      tmp_pool);
-
-		ep->expr = pgf_read_expr(in, out_pool, tmp_pool, err);
-		if (!gu_ok(err) || gu_variant_is_null(ep->expr)) {
-			PyErr_SetString(PGFError, "The expression cannot be parsed");
-			gu_pool_free(tmp_pool);
-			return NULL;
-		}
-
-		gu_pool_free(tmp_pool);
-	}
+	ep->expr = pgf_clone_expr(pyexpr->expr, out_pool);
 
 	Py_DECREF(result);
 
@@ -1411,7 +1430,7 @@ pypgf_literal_callback_match(PgfLiteralCallback* self, PgfConcr* concr,
 
 static GuEnum*
 pypgf_literal_callback_predict(PgfLiteralCallback* self, PgfConcr* concr,
-	                           size_t lin_idx,
+	                           GuString ann,
 	                           GuString prefix,
 	                           GuPool *out_pool)
 {
@@ -1490,7 +1509,7 @@ Concr_parse(ConcrObject* self, PyObject *args, PyObject *keywds)
 	int max_count = -1;
 	double heuristics = -1;
 	PyObject* py_callbacks = NULL;
-    if (!PyArg_ParseTupleAndKeywords(args, keywds, "s|OidO!", kwlist,
+	if (!PyArg_ParseTupleAndKeywords(args, keywds, "s|OidO!", kwlist,
                                      &sentence, &start, &max_count,
                                      &heuristics,
                                      &PyList_Type, &py_callbacks))
@@ -1586,10 +1605,10 @@ Concr_complete(ConcrObject* self, PyObject *args, PyObject *keywds)
 	PyObject* start = NULL;
 	GuString prefix = "";
 	int max_count = -1;
-    if (!PyArg_ParseTupleAndKeywords(args, keywds, "s|Osi", kwlist,
-                                     &sentence, &start,
-                                     &prefix, &max_count))
-        return NULL;
+	if (!PyArg_ParseTupleAndKeywords(args, keywds, "s|Osi", kwlist,
+	                                 &sentence, &start,
+	                                 &prefix, &max_count))
+		return NULL;
 
 	IterObject* pyres = (IterObject*) 
 		pgf_IterType.tp_alloc(&pgf_IterType, 0);
@@ -1681,9 +1700,9 @@ Concr_lookupSentence(ConcrObject* self, PyObject *args, PyObject *keywds)
 	const char *sentence = NULL;
 	PyObject* start = NULL;
 	int max_count = -1;
-    if (!PyArg_ParseTupleAndKeywords(args, keywds, "s|O", kwlist,
-                                     &sentence, &start, &max_count))
-        return NULL;
+	if (!PyArg_ParseTupleAndKeywords(args, keywds, "s|O", kwlist,
+	                                 &sentence, &start, &max_count))
+		return NULL;
 
 	IterObject* pyres = (IterObject*) 
 		pgf_IterType.tp_alloc(&pgf_IterType, 0);
@@ -1934,7 +1953,7 @@ typedef struct {
 	PyObject_HEAD
 	PyObject* cat;
 	int fid;
-	int lindex;
+	PyObject* ann;
 	PyObject* fun;
 	PyObject* children;
 } BracketObject;
@@ -2009,8 +2028,8 @@ static PyMemberDef Bracket_members[] = {
      "the abstract function for this bracket"},
     {"fid", T_INT, offsetof(BracketObject, fid), 0,
      "an id which identifies this bracket in the bracketed string. If there are discontinuous phrases this id will be shared for all brackets belonging to the same phrase."},
-    {"lindex", T_INT, offsetof(BracketObject, lindex), 0,
-     "the constituent index"},
+    {"ann", T_OBJECT_EX, offsetof(BracketObject, ann), 0,
+     "the analysis of the constituent"},
     {"children", T_OBJECT_EX, offsetof(BracketObject, children), 0,
      "a list with the children of this bracket"},
     {NULL}  /* Sentinel */
@@ -2059,6 +2078,58 @@ static PyTypeObject pgf_BracketType = {
 };
 
 typedef struct {
+	PyObject_HEAD
+} BINDObject;
+
+static PyObject *
+BIND_repr(BINDObject *self)
+{
+	return PyString_FromString("&+");
+}
+
+static PyTypeObject pgf_BINDType = {
+    PyVarObject_HEAD_INIT(NULL, 0)
+    //0,                       /*ob_size*/
+    "pgf.BIND",                /*tp_name*/
+    sizeof(BINDObject),        /*tp_basicsize*/
+    0,                         /*tp_itemsize*/
+    0,                         /*tp_dealloc*/
+    0,                         /*tp_print*/
+    0,                         /*tp_getattr*/
+    0,                         /*tp_setattr*/
+    0,                         /*tp_compare*/
+    0,                         /*tp_repr*/
+    0,                         /*tp_as_number*/
+    0,                         /*tp_as_sequence*/
+    0,                         /*tp_as_mapping*/
+    0,                         /*tp_hash */
+    0,                         /*tp_call*/
+    (reprfunc) BIND_repr,      /*tp_str*/
+    0,                         /*tp_getattro*/
+    0,                         /*tp_setattro*/
+    0,                         /*tp_as_buffer*/
+    Py_TPFLAGS_DEFAULT | Py_TPFLAGS_BASETYPE, /*tp_flags*/
+    "a marker for BIND in a bracketed string", /*tp_doc*/
+    0,		                   /*tp_traverse */
+    0,		                   /*tp_clear */
+    0,		                   /*tp_richcompare */
+    0,		                   /*tp_weaklistoffset */
+    0,		                   /*tp_iter */
+    0,		                   /*tp_iternext */
+    0,                         /*tp_methods */
+    0,                         /*tp_members */
+    0,                         /*tp_getset */
+    0,                         /*tp_base */
+    0,                         /*tp_dict */
+    0,                         /*tp_descr_get */
+    0,                         /*tp_descr_set */
+    0,                         /*tp_dictoffset */
+    0,                         /*tp_init */
+    0,                         /*tp_alloc */
+    0,                         /*tp_new */
+};
+
+typedef struct {
 	PgfLinFuncs* funcs;
 	GuBuf* stack;
 	PyObject* list;
@@ -2075,7 +2146,7 @@ pgf_bracket_lzn_symbol_token(PgfLinFuncs** funcs, PgfToken tok)
 }
 
 static void
-pgf_bracket_lzn_begin_phrase(PgfLinFuncs** funcs, PgfCId cat, int fid, size_t lindex, PgfCId fun)
+pgf_bracket_lzn_begin_phrase(PgfLinFuncs** funcs, PgfCId cat, int fid, GuString ann, PgfCId fun)
 {
 	PgfBracketLznState* state = gu_container(funcs, PgfBracketLznState, funcs);
 	
@@ -2084,7 +2155,7 @@ pgf_bracket_lzn_begin_phrase(PgfLinFuncs** funcs, PgfCId cat, int fid, size_t li
 }
 
 static void
-pgf_bracket_lzn_end_phrase(PgfLinFuncs** funcs, PgfCId cat, int fid, size_t lindex, PgfCId fun)
+pgf_bracket_lzn_end_phrase(PgfLinFuncs** funcs, PgfCId cat, int fid, GuString ann, PgfCId fun)
 {
 	PgfBracketLznState* state = gu_container(funcs, PgfBracketLznState, funcs);
 
@@ -2096,7 +2167,7 @@ pgf_bracket_lzn_end_phrase(PgfLinFuncs** funcs, PgfCId cat, int fid, size_t lind
 		if (bracket != NULL) {
 			bracket->cat = PyString_FromString(cat);
 			bracket->fid = fid;
-			bracket->lindex = lindex;
+			bracket->ann = PyString_FromString(ann);
 			bracket->fun = PyString_FromString(fun);
 			bracket->children = state->list;
 			PyList_Append(parent, (PyObject*) bracket);
@@ -2110,6 +2181,16 @@ pgf_bracket_lzn_end_phrase(PgfLinFuncs** funcs, PgfCId cat, int fid, size_t lind
 }
 
 static void
+pgf_bracket_lzn_symbol_bind(PgfLinFuncs** funcs)
+{
+	PgfBracketLznState* state = gu_container(funcs, PgfBracketLznState, funcs);
+
+	PyObject* bind = pgf_BINDType.tp_alloc(&pgf_BINDType, 0);
+	PyList_Append(state->list, bind);
+	Py_DECREF(bind);
+}
+
+static void
 pgf_bracket_lzn_symbol_meta(PgfLinFuncs** funcs, PgfMetaId meta_id)
 {
 	pgf_bracket_lzn_symbol_token(funcs, "?");
@@ -2120,7 +2201,7 @@ static PgfLinFuncs pgf_bracket_lin_funcs = {
 	.begin_phrase  = pgf_bracket_lzn_begin_phrase,
 	.end_phrase    = pgf_bracket_lzn_end_phrase,
 	.symbol_ne     = NULL,
-	.symbol_bind   = NULL,
+	.symbol_bind   = pgf_bracket_lzn_symbol_bind,
 	.symbol_capit  = NULL,
 	.symbol_meta   = pgf_bracket_lzn_symbol_meta
 };
@@ -2349,8 +2430,8 @@ pypgf_collect_morpho(PgfMorphoCallback* self,
 static PyObject*
 Concr_lookupMorpho(ConcrObject* self, PyObject *args) {
 	GuString sent;
-    if (!PyArg_ParseTuple(args, "s", &sent))
-        return NULL;
+	if (!PyArg_ParseTuple(args, "s", &sent))
+		return NULL;
 
 	GuPool *tmp_pool = gu_local_pool();
 	GuExn* err = gu_exn(tmp_pool);
@@ -2373,6 +2454,129 @@ Concr_lookupMorpho(ConcrObject* self, PyObject *args) {
 	gu_pool_free(tmp_pool);
 
     return analyses;
+}
+
+#define PGF_MORPHOCALLBACK_NAME "pgf.MorphoCallback"
+
+static void
+pypgf_morphocallback_destructor(PyObject *capsule)
+{
+	PyMorphoCallback* callback =
+		PyCapsule_GetPointer(capsule, PGF_MORPHOCALLBACK_NAME);
+	Py_XDECREF(callback->analyses);
+}
+
+static PyObject*
+Iter_fetch_cohort(IterObject* self)
+{
+	PgfCohortRange range =
+		gu_next(self->res, PgfCohortRange, self->pool);
+	if (range.buf == NULL)
+		return NULL;
+
+	PyObject* py_start = PyLong_FromSize_t(range.start.pos);
+	if (py_start == NULL)
+		return NULL;
+	PyObject* py_end = PyLong_FromSize_t(range.end.pos);
+	if (py_end == NULL) {
+		Py_DECREF(py_start);
+		return NULL;
+	}
+
+	PyMorphoCallback* callback =
+		PyCapsule_GetPointer(PyTuple_GetItem(self->container, 0),
+		                     PGF_MORPHOCALLBACK_NAME);
+
+	PyObject* py_slice =
+		PySlice_New(py_start, py_end, NULL);
+	if (py_slice == NULL) {
+		Py_DECREF(py_start);
+		Py_DECREF(py_end);
+		return NULL;
+	}
+
+	PyObject* py_w = 
+		PyObject_GetItem(PyTuple_GetItem(self->container, 1), py_slice);
+
+	PyObject* res =
+		PyTuple_Pack(4, py_start, py_w, callback->analyses, py_end);
+
+	Py_DECREF(callback->analyses);
+	callback->analyses = PyList_New(0);
+
+	Py_DECREF(py_w);
+	Py_DECREF(py_slice);
+	Py_DECREF(py_end);
+	Py_DECREF(py_start);
+
+	return res;
+}
+
+static PyObject*
+Concr_lookupCohorts(ConcrObject* self, PyObject *args)
+{
+	PyObject* py_sent = NULL;
+	if (!PyArg_ParseTuple(args, "U", &py_sent))
+		return NULL;
+
+	IterObject* pyres = (IterObject*)
+		pgf_IterType.tp_alloc(&pgf_IterType, 0);
+	if (pyres == NULL)
+		return NULL;
+
+	pyres->pool   = gu_new_pool();
+	pyres->source = (PyObject*) self->grammar;
+	Py_XINCREF(pyres->source);
+
+	PyMorphoCallback* callback = gu_new(PyMorphoCallback,pyres->pool);
+	callback->fn.callback = pypgf_collect_morpho;
+	callback->analyses    = PyList_New(0);
+	PyObject* capsule =
+		PyCapsule_New(callback, PGF_MORPHOCALLBACK_NAME,
+		              pypgf_morphocallback_destructor);
+	if (capsule == NULL) {
+		Py_DECREF(pyres);
+		return NULL;
+	}
+	
+#if PY_MAJOR_VERSION >= 3
+	PyObject* bytes = PyUnicode_AsUTF8String(py_sent);
+	if (!bytes)
+		return NULL;
+	GuString sent = PyBytes_AsString(bytes);
+	if (!sent) {
+		Py_DECREF(bytes);
+		return NULL;
+	}
+#else
+	GuString sent = PyString_AsString(py_sent);
+	if (!sent)
+		return NULL;
+#endif
+
+
+	pyres->container =
+#if PY_MAJOR_VERSION >= 3
+		PyTuple_Pack(3, capsule, py_sent, bytes);
+	Py_DECREF(bytes);
+#else
+		PyTuple_Pack(2, capsule, py_sent);
+#endif
+	pyres->max_count = -1;
+	pyres->counter   = 0;
+	pyres->fetch     = Iter_fetch_cohort;
+
+	Py_DECREF(capsule);
+
+	GuExn* err = gu_new_exn(pyres->pool);
+	pyres->res = pgf_lookup_cohorts(self->concr, sent,
+                                    &callback->fn, pyres->pool, err);
+	if (pyres->res == NULL) {
+		Py_DECREF(pyres);
+		return NULL;
+	}
+
+	return (PyObject*) pyres;
 }
 
 static PyObject*
@@ -2445,9 +2649,9 @@ Concr_fullFormLexicon(ConcrObject* self, PyObject *args)
 static PyObject*
 Concr_load(ConcrObject* self, PyObject *args)
 {
-    const char *fpath;
-    if (!PyArg_ParseTuple(args, "s", &fpath))
-        return NULL;
+	const char *fpath;
+	if (!PyArg_ParseTuple(args, "s", &fpath))
+		return NULL;
 
 	GuPool* tmp_pool = gu_local_pool();
 
@@ -2517,7 +2721,7 @@ static PyMethodDef Concr_methods[] = {
     {"parse", (PyCFunction)Concr_parse, METH_VARARGS | METH_KEYWORDS,
      "Parses a string and returns an iterator over the abstract trees for this sentence\n\n"
      "Named arguments:\n"
-     "- sentence (string) or tokens (list of strings)\n"
+     "- sentence (string)\n"
      "- cat (string); OPTIONAL, default: the startcat of the grammar\n"
      "- n (int), max. trees; OPTIONAL, default: extract all trees\n"
      "- heuristics (double >= 0.0); OPTIONAL, default: taken from the flags in the grammar\n"
@@ -2559,6 +2763,9 @@ static PyMethodDef Concr_methods[] = {
     },
     {"lookupMorpho", (PyCFunction)Concr_lookupMorpho, METH_VARARGS,
      "Looks up a word in the lexicon of the grammar"
+    },
+    {"lookupCohorts", (PyCFunction)Concr_lookupCohorts, METH_VARARGS,
+     "Takes a sentence and returns all matches for lexical items from the grammar in that sentence"
     },
     {"fullFormLexicon", (PyCFunction)Concr_fullFormLexicon, METH_VARARGS,
      "Enumerates all words in the lexicon (useful for extracting full form lexicons)"
@@ -2850,8 +3057,8 @@ static PyObject*
 PGF_functionsByCat(PGFObject* self, PyObject *args)
 {
 	PgfCId catname;
-    if (!PyArg_ParseTuple(args, "s", &catname))
-        return NULL;
+	if (!PyArg_ParseTuple(args, "s", &catname))
+		return NULL;
 
 	PyObject* functions = PyList_New(0);
 	if (functions == NULL) {
@@ -2907,9 +3114,9 @@ PGF_generateAll(PGFObject* self, PyObject *args, PyObject *keywds)
 
 	PyObject* start = NULL;
 	int max_count = -1;
-    if (!PyArg_ParseTupleAndKeywords(args, keywds, "O|i", kwlist,
-                                     &start, &max_count))
-        return NULL;
+	if (!PyArg_ParseTupleAndKeywords(args, keywds, "O|i", kwlist,
+	                                 &start, &max_count))
+		return NULL;
 
 	IterObject* pyres = (IterObject*)
 		pgf_IterType.tp_alloc(&pgf_IterType, 0);
@@ -3171,12 +3378,12 @@ static PyObject*
 PGF_embed(PGFObject* self, PyObject *args)
 {
 	PgfCId modname;
-    if (!PyArg_ParseTuple(args, "s", &modname))
-        return NULL;
+	if (!PyArg_ParseTuple(args, "s", &modname))
+		return NULL;
 
-    PyObject *m = PyImport_AddModule(modname);
-    if (m == NULL)
-        return NULL;
+	PyObject *m = PyImport_AddModule(modname);
+	if (m == NULL)
+		return NULL;
 
 	GuPool* tmp_pool = gu_local_pool();
 
@@ -3304,9 +3511,9 @@ static PyTypeObject pgf_PGFType = {
 static PGFObject*
 pgf_readPGF(PyObject *self, PyObject *args)
 {
-    const char *fpath;
-    if (!PyArg_ParseTuple(args, "s", &fpath))
-        return NULL;
+	const char *fpath;
+	if (!PyArg_ParseTuple(args, "s", &fpath))
+		return NULL;
 
 	PGFObject* py_pgf = (PGFObject*) pgf_PGFType.tp_alloc(&pgf_PGFType, 0);
 	py_pgf->pool = gu_new_pool();
@@ -3337,9 +3544,9 @@ pgf_readPGF(PyObject *self, PyObject *args)
 static ExprObject*
 pgf_readExpr(PyObject *self, PyObject *args) {
 	Py_ssize_t len;
-    const uint8_t *buf;
-    if (!PyArg_ParseTuple(args, "s#", &buf, &len))
-        return NULL;
+	const uint8_t *buf;
+	if (!PyArg_ParseTuple(args, "s#", &buf, &len))
+		return NULL;
 
 	ExprObject* pyexpr = (ExprObject*) pgf_ExprType.tp_alloc(&pgf_ExprType, 0);
 	if (pyexpr == NULL)
@@ -3367,9 +3574,9 @@ pgf_readExpr(PyObject *self, PyObject *args) {
 static TypeObject*
 pgf_readType(PyObject *self, PyObject *args) {
 	Py_ssize_t len;
-    const uint8_t *buf;
-    if (!PyArg_ParseTuple(args, "s#", &buf, &len))
-        return NULL;
+	const uint8_t *buf;
+	if (!PyArg_ParseTuple(args, "s#", &buf, &len))
+		return NULL;
 
 	TypeObject* pytype = (TypeObject*) pgf_TypeType.tp_alloc(&pgf_TypeType, 0);
 	if (pytype == NULL)
@@ -3424,20 +3631,23 @@ MOD_INIT(pgf)
 {
     PyObject *m;
 
-    if (PyType_Ready(&pgf_PGFType) < 0)
-        return MOD_ERROR_VAL;
+	if (PyType_Ready(&pgf_PGFType) < 0)
+		return MOD_ERROR_VAL;
 
-    if (PyType_Ready(&pgf_ConcrType) < 0)
-        return MOD_ERROR_VAL;
+	if (PyType_Ready(&pgf_ConcrType) < 0)
+		return MOD_ERROR_VAL;
 
-    if (PyType_Ready(&pgf_BracketType) < 0)
-        return MOD_ERROR_VAL;
+	if (PyType_Ready(&pgf_BracketType) < 0)
+		return MOD_ERROR_VAL;
 
-    if (PyType_Ready(&pgf_ExprType) < 0)
-        return MOD_ERROR_VAL;
+	if (PyType_Ready(&pgf_BINDType) < 0)
+		return MOD_ERROR_VAL;
 
-    if (PyType_Ready(&pgf_TypeType) < 0)
-        return MOD_ERROR_VAL;
+	if (PyType_Ready(&pgf_ExprType) < 0)
+		return MOD_ERROR_VAL;
+
+	if (PyType_Ready(&pgf_TypeType) < 0)
+		return MOD_ERROR_VAL;
 
 	if (PyType_Ready(&pgf_IterType) < 0)
 		return MOD_ERROR_VAL;
@@ -3467,10 +3677,20 @@ MOD_INIT(pgf)
     PyModule_AddObject(m, "Type", (PyObject *) &pgf_TypeType);
     Py_INCREF(&pgf_TypeType);
 
+    PyModule_AddObject(m, "PGF", (PyObject *) &pgf_PGFType);
     Py_INCREF(&pgf_PGFType);
+	
+    PyModule_AddObject(m, "Concr", (PyObject *) &pgf_ConcrType);
     Py_INCREF(&pgf_ConcrType);
+
+    PyModule_AddObject(m, "Iter", (PyObject *) &pgf_IterType);
     Py_INCREF(&pgf_IterType);
+
+    PyModule_AddObject(m, "Bracket", (PyObject *) &pgf_BracketType);
     Py_INCREF(&pgf_BracketType);
+
+    PyModule_AddObject(m, "BIND", (PyObject *) &pgf_BINDType);
+    Py_INCREF(&pgf_BINDType);
 
 	return MOD_SUCCESS_VAL(m);
 }

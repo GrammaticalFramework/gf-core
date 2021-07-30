@@ -2,8 +2,8 @@
 -- |
 -- Module      : SRG
 --
--- Representation of, conversion to, and utilities for 
--- printing of a general Speech Recognition Grammar. 
+-- Representation of, conversion to, and utilities for
+-- printing of a general Speech Recognition Grammar.
 --
 -- FIXME: remove \/ warn \/ fail if there are int \/ string literal
 -- categories in the grammar
@@ -34,20 +34,20 @@ import qualified Data.Set as Set
 --import Debug.Trace
 
 data SRG = SRG { srgName :: String    -- ^ grammar name
-		 , srgStartCat :: Cat     -- ^ start category name
-                 , srgExternalCats :: Set Cat
-                 , srgLanguage :: Maybe String -- ^ The language for which the grammar 
-                                                   --   is intended, e.g. en-UK
-	         , srgRules :: [SRGRule] 
-	       }
-	 deriving (Eq,Show)
+               , srgStartCat :: Cat     -- ^ start category name
+               , srgExternalCats :: Set Cat
+               , srgLanguage :: Maybe String -- ^ The language for which the grammar
+                                             --   is intended, e.g. en-UK
+               , srgRules :: [SRGRule]
+               }
+        deriving (Eq,Show)
 
 data SRGRule = SRGRule Cat [SRGAlt]
-	     deriving (Eq,Show)
+        deriving (Eq,Show)
 
 -- | maybe a probability, a rule name and an EBNF right-hand side
 data SRGAlt = SRGAlt (Maybe Double) CFTerm SRGItem
-	      deriving (Eq,Show)
+        deriving (Eq,Show)
 
 type SRGItem = RE SRGSymbol
 
@@ -70,11 +70,11 @@ makeSRG opts = mkSRG cfgToSRG preprocess
     where
       cfgToSRG cfg = [cfRulesToSRGRule rs | (_,rs) <- allRulesGrouped cfg]
       preprocess =   maybeTransform opts CFGMergeIdentical mergeIdentical
-                   . maybeTransform opts CFGNoLR removeLeftRecursion 
+                   . maybeTransform opts CFGNoLR removeLeftRecursion
                    . maybeTransform opts CFGRegular makeRegular
                    . maybeTransform opts CFGTopDownFilter topDownFilter
                    . maybeTransform opts CFGBottomUpFilter bottomUpFilter
-                   . maybeTransform opts CFGRemoveCycles removeCycles 
+                   . maybeTransform opts CFGRemoveCycles removeCycles
                    . maybeTransform opts CFGStartCatOnly purgeExternalCats
 
 setDefaultCFGTransform :: Options -> CFGTransform -> Bool -> Options
@@ -89,7 +89,7 @@ stats g = "Categories: " ++ show (countCats g)
           ++ ", External categories: " ++ show (Set.size (cfgExternalCats g))
           ++ ", Rules: " ++ show (countRules g)
 -}
-makeNonRecursiveSRG :: Options 
+makeNonRecursiveSRG :: Options
                     -> PGF
                     -> Concr
                     -> SRG
@@ -111,20 +111,20 @@ mkSRG mkRules preprocess pgf cnc =
 	  srgRules = mkRules cfg }
     where cfg = renameCats (concreteName cnc) $ preprocess $ pgfToCFG pgf cnc
 
--- | Renames all external cats C to C_cat, and all internal cats C_X (where X is any string), 
+-- | Renames all external cats C to C_cat, and all internal cats C_X (where X is any string),
 --   to C_N where N is an integer.
 renameCats :: String -> CFG -> CFG
 renameCats prefix cfg = mapCFGCats renameCat cfg
   where renameCat c | isExternal c = c ++ "_cat"
                     | otherwise = Map.findWithDefault (badCat c) c names
-        isExternal c = c `Set.member` cfgExternalCats cfg        
+        isExternal c = c `Set.member` cfgExternalCats cfg
         catsByPrefix = buildMultiMap [(takeWhile (/='_') cat, cat) | cat <- allCats' cfg, not (isExternal cat)]
         names = Map.fromList [(c,pref++"_"++show i) | (pref,cs) <- catsByPrefix, (c,i) <- zip cs [1..]]
         badCat c = error ("GF.Speech.SRG.renameCats: " ++ c ++ "\n" ++ prCFG cfg)
 
 cfRulesToSRGRule :: [CFRule] -> SRGRule
 cfRulesToSRGRule rs@(r:_) = SRGRule (ruleLhs r) rhs
-    where 
+    where
       alts = [((n,Nothing),mkSRGSymbols 0 ss) | Rule c ss n <- rs]
       rhs = [SRGAlt p n (srgItem sss) | ((n,p),sss) <- buildMultiMap alts ]
 
@@ -147,7 +147,7 @@ srgItem = unionRE . map mergeItems . sortGroupBy (compareBy filterCats)
 -- non-optimizing version:
 --srgItem = unionRE . map seqRE
 
--- | Merges a list of right-hand sides which all have the same 
+-- | Merges a list of right-hand sides which all have the same
 -- sequence of non-terminals.
 mergeItems :: [[SRGSymbol]] -> SRGItem
 mergeItems = minimizeRE . ungroupTokens . minimizeRE . unionRE . map seqRE . map groupTokens
@@ -168,16 +168,16 @@ ungroupTokens = joinRE . mapRE (symbol (RESymbol . NonTerminal) (REConcat . map 
 
 prSRG :: Options -> SRG -> String
 prSRG opts srg = prProductions $ map prRule $ ext ++ int
-    where 
+    where
       sisr = flag optSISR opts
       (ext,int) = partition (isExternalCat srg . srgLHSCat) (srgRules srg)
       prRule (SRGRule c alts) = (c,unwords (intersperse "|" (concatMap prAlt alts)))
-      prAlt (SRGAlt _ t rhs) = 
-          -- FIXME: hack: we high-jack the --sisr flag to add 
+      prAlt (SRGAlt _ t rhs) =
+          -- FIXME: hack: we high-jack the --sisr flag to add
           -- a simple lambda calculus format for semantic interpretation
           -- Maybe the --sisr flag should be renamed.
           case sisr of
-            Just _  -> 
+            Just _  ->
                 -- copy tags to each part of a top-level union,
                 -- to get simpler output
                 case rhs of

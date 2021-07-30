@@ -3,9 +3,9 @@ package org.grammaticalframework.pgf;
 import java.util.Iterator;
 
 public interface LiteralCallback {
-	public CallbackResult match(int lin_idx, int start_offset);
+	public CallbackResult match(String ann, int start_offset);
 
-	public Iterator<TokenProb> predict(int lin_idx, String prefix);
+	public Iterator<TokenProb> predict(String ann, String prefix);
 
 	public static class CallbackResult {
 		private ExprProb ep;

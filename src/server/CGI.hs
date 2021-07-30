@@ -4,7 +4,7 @@ import Network.CGI as C(
        CGI,ContentType(..),Accept(..),Language(..),
        getVarWithDefault,readInput,negotiate,requestAcceptLanguage,getInput,
        setHeader,output,outputFPS,outputError,
-       handleErrors,catchCGI,throwCGI,
+       handleErrors,
        liftIO)
 import Network.CGI.Protocol as C(CGIResult(..),CGIRequest(..),Input(..),
                                  Headers,HeaderName(..))

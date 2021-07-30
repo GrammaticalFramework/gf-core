@@ -6,11 +6,12 @@
 
 static PgfExprProb*
 pgf_match_string_lit(PgfLiteralCallback* self, PgfConcr* concr,
-                     size_t lin_idx,
+                     GuString ann,
                      GuString sentence, size_t* poffset,
                      GuPool *out_pool)
 {
-	gu_assert(lin_idx == 0);
+	if (strcmp(ann,"s") != 0)
+		return NULL;
 
 	const uint8_t* buf = (uint8_t*) (sentence + *poffset);
 	const uint8_t* p   = buf;
@@ -51,7 +52,7 @@ pgf_predict_empty_next(GuEnum* self, void* to, GuPool* pool)
 
 static GuEnum*
 pgf_predict_empty(PgfLiteralCallback* self, PgfConcr* concr,
-	              size_t lin_idx,
+	              GuString ann,
 	              GuString prefix,
 	              GuPool *out_pool)
 {
@@ -67,11 +68,12 @@ static PgfLiteralCallback pgf_string_literal_callback =
 
 static PgfExprProb*
 pgf_match_int_lit(PgfLiteralCallback* self, PgfConcr* concr,
-                  size_t lin_idx,
+                  GuString ann,
                   GuString sentence, size_t* poffset,
                   GuPool *out_pool)
 {
-	gu_assert(lin_idx == 0);
+	if (strcmp(ann,"s") != 0)
+		return NULL;
 
 	const uint8_t* buf = (uint8_t*) (sentence + *poffset);
 	const uint8_t* p   = buf;
@@ -121,11 +123,12 @@ static PgfLiteralCallback pgf_int_literal_callback =
 
 static PgfExprProb*
 pgf_match_float_lit(PgfLiteralCallback* self, PgfConcr* concr,
-                    size_t lin_idx,
+                    GuString ann,
                     GuString sentence, size_t* poffset,
                     GuPool *out_pool)
 {
-	gu_assert(lin_idx == 0);
+	if (strcmp(ann,"s") != 0)
+		return NULL;
 
 	const uint8_t* buf = (uint8_t*) (sentence + *poffset);
 	const uint8_t* p   = buf;
@@ -226,11 +229,11 @@ pgf_match_name_morpho_callback(PgfMorphoCallback* self_,
 
 static PgfExprProb*
 pgf_match_name_lit(PgfLiteralCallback* self, PgfConcr* concr,
-                   size_t lin_idx,
+                   GuString ann,
                    GuString sentence, size_t* poffset,
                    GuPool *out_pool)
 {
-	if (lin_idx != 0)
+	if (strcmp(ann,"s") != 0)
 		return NULL;
 
 	GuPool* tmp_pool = gu_local_pool();
@@ -349,7 +352,7 @@ pgf_match_unknown_morpho_callback(PgfMorphoCallback* self_,
 
 static PgfExprProb*
 pgf_match_unknown_lit(PgfLiteralCallback* self, PgfConcr* concr,
-                      size_t lin_idx,
+                      GuString ann,
                       GuString sentence, size_t* poffset,
                       GuPool *out_pool)
 {

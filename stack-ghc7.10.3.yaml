@@ -1,1 +1,19 @@
 resolver: lts-6.35 # ghc 7.10.3
+
+extra-deps:
+- happy-1.19.9
+- alex-3.2.4
+- transformers-compat-0.6.5
+- directory-1.2.3.0
+- process-1.2.3.0@sha256:ee08707f1c806ad4a628c5997d8eb6e66d2ae924283548277d85a66341d57322,1806
+
+allow-newer: true
+
+flags:
+  transformers-compat:
+    four: true
+#   gf:
+#     c-runtime: true
+#
+# extra-lib-dirs:
+#   - /usr/local/lib

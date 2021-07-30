@@ -5,7 +5,7 @@
 -- Stability   : (stable)
 -- Portability : (portable)
 --
--- > CVS $Date: 2005/05/30 18:39:44 $ 
+-- > CVS $Date: 2005/05/30 18:39:44 $
 -- > CVS $Author: aarne $
 -- > CVS $Revision: 1.19 $
 --
@@ -23,9 +23,9 @@
 -----------------------------------------------------------------------------
 
 module GF.Compile.Rename (
-	       renameSourceTerm,
-	       renameModule
-	      ) where
+     renameSourceTerm,
+     renameModule
+    ) where
 
 import GF.Infra.Ident
 import GF.Infra.CheckM
@@ -39,6 +39,7 @@ import GF.Data.Operations
 
 import Control.Monad
 import Data.List (nub,(\\))
+import qualified Data.List as L
 import qualified Data.Map as Map
 import Data.Maybe(mapMaybe)
 import GF.Text.Pretty
@@ -67,7 +68,7 @@ renameIdentTerm env = accumulateError (renameIdentTerm' env)
 
 -- Fails immediately on error, makes it possible to try other possibilities
 renameIdentTerm' :: Status -> Term -> Check Term
-renameIdentTerm' env@(act,imps) t0 = 
+renameIdentTerm' env@(act,imps) t0 =
   case t0 of
     Vr c -> ident predefAbs c
     Cn c -> ident (\_ s -> checkError s) c
@@ -84,8 +85,8 @@ renameIdentTerm' env@(act,imps) t0 =
     _ -> return t0
   where
     opens   = [st  | (OSimple _,st) <- imps]
-    qualifs = [(m, st) | (OQualif m _, st) <- imps] ++ 
-              [(m, st) | (OQualif _ m, st) <- imps] ++ 
+    qualifs = [(m, st) | (OQualif m _, st) <- imps] ++
+              [(m, st) | (OQualif _ m, st) <- imps] ++
               [(m, st) | (OSimple m, st) <- imps] -- qualif is always possible
 
     -- this facility is mainly for BWC with GF1: you need not import PredefAbs
@@ -93,7 +94,7 @@ renameIdentTerm' env@(act,imps) t0 =
       | isPredefCat c = return (Q (cPredefAbs,c))
       | otherwise     = checkError s
 
-    ident alt c = 
+    ident alt c =
       case Map.lookup c act of
         Just f -> return (f c)
         _      -> case mapMaybe (Map.lookup c) opens of
@@ -105,7 +106,26 @@ renameIdentTerm' env@(act,imps) t0 =
                               ts@(t:_) -> do checkWarn ("atomic term" <+> ppTerm Qualified 0 t0 $$
                                                         "conflict" <+> hsep (punctuate ',' (map (ppTerm Qualified 0) ts)) $$
                                                         "given" <+> fsep (punctuate ',' (map fst qualifs)))
-                                             return t
+                                             return (bestTerm ts) -- Heuristic for resource grammar. Returns t for all others.
+       where
+        -- Hotfix for https://github.com/GrammaticalFramework/gf-core/issues/56
+        -- Real bug is probably somewhere deeper in recognising excluded functions. /IL 2020-06-06
+        notFromCommonModule :: Term -> Bool
+        notFromCommonModule term =
+          let t = render $ ppTerm Qualified 0 term :: String
+           in not $ any (\moduleName -> moduleName `L.isPrefixOf` t)
+                        ["CommonX", "ConstructX", "ExtendFunctor"
+                        ,"MarkHTMLX", "ParamX", "TenseX", "TextX"]
+
+        -- If one of the terms comes from the common modules,
+        -- we choose the other one, because that's defined in the grammar.
+        bestTerm :: [Term] -> Term
+        bestTerm [] = error "constant not found" -- not reached: bestTerm is only called for case ts@(t:_)
+        bestTerm ts@(t:_) =
+          let notCommon = [t | t <- ts, notFromCommonModule t]
+           in case notCommon of
+                []    -> t -- All terms are from common modules, return first of original list
+                (u:_) -> u -- ≥1 terms are not from common modules, return first of those
 
 info2status :: Maybe ModuleName -> Ident -> Info -> StatusInfo
 info2status mq c i = case i of
@@ -137,7 +157,7 @@ modInfo2status (o,mo) = (o,tree2status o (jments mo))
 self2status :: ModuleName -> ModuleInfo -> StatusMap
 self2status c m = Map.mapWithKey (info2status (Just c)) (jments m)
 
-  
+
 renameInfo :: FilePath -> Status -> Module -> Ident -> Info -> Check Info
 renameInfo cwd status (m,mi) i info =
   case info of
@@ -188,7 +208,7 @@ renameTerm env vars = ren vars where
     Abs b x t    -> liftM  (Abs b x) (ren (x:vs) t)
     Prod bt x a b -> liftM2 (Prod bt x) (ren vs a) (ren (x:vs) b)
     Typed a b  -> liftM2 Typed (ren vs a) (ren vs b)
-    Vr x      
+    Vr x
       | elem x vs -> return trm
       | otherwise -> renid trm
     Cn _   -> renid trm
@@ -199,7 +219,7 @@ renameTerm env vars = ren vars where
       i' <- case i of
         TTyped ty -> liftM TTyped $ ren vs ty -- the only annotation in source
         _ -> return i
-      liftM (T i') $ mapM (renCase vs) cs  
+      liftM (T i') $ mapM (renCase vs) cs
 
     Let (x,(m,a)) b -> do
       m' <- case m of
@@ -209,7 +229,7 @@ renameTerm env vars = ren vars where
       b' <- ren (x:vs) b
       return $ Let (x,(m',a')) b'
 
-    P t@(Vr r) l                                               -- Here we have $r.l$ and this is ambiguous it could be either 
+    P t@(Vr r) l                                               -- Here we have $r.l$ and this is ambiguous it could be either
                                                                -- record projection from variable or constant $r$ or qualified expression with module $r$
       | elem r vs -> return trm                                -- try var proj first ..
       | otherwise -> checks [ renid' (Q (MN r,label2ident l))      -- .. and qualified expression second.
@@ -236,7 +256,7 @@ renamePattern :: Status -> Patt -> Check (Patt,[Ident])
 renamePattern env patt =
     do r@(p',vs) <- renp patt
        let dupl = vs \\ nub vs
-       unless (null dupl) $ checkError (hang ("[C.4.13] Pattern is not linear:") 4
+       unless (null dupl) $ checkError (hang ("[C.4.13] Pattern is not linear. All variable names on the left-hand side must be distinct.") 4
                                              patt)
        return r
   where
@@ -311,7 +331,7 @@ renamePattern env patt =
 renameContext :: Status -> Context -> Check Context
 renameContext b = renc [] where
   renc vs cont = case cont of
-    (bt,x,t) : xts 
+    (bt,x,t) : xts
       | isWildIdent x -> do
           t'   <- ren vs t
           xts' <- renc vs xts

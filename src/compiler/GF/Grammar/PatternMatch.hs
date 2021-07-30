@@ -5,18 +5,19 @@
 -- Stability   : (stable)
 -- Portability : (portable)
 --
--- > CVS $Date: 2005/10/12 12:38:29 $ 
+-- > CVS $Date: 2005/10/12 12:38:29 $
 -- > CVS $Author: aarne $
 -- > CVS $Revision: 1.7 $
 --
 -- pattern matching for both concrete and abstract syntax. AR -- 16\/6\/2003
 -----------------------------------------------------------------------------
 
-module GF.Grammar.PatternMatch (matchPattern,
-		     testOvershadow, 
-		     findMatch,
-                     measurePatt
-		    ) where
+module GF.Grammar.PatternMatch (
+                                matchPattern,
+                                testOvershadow,
+                                findMatch,
+                                measurePatt
+                               ) where
 
 import GF.Data.Operations
 import GF.Grammar.Grammar
@@ -30,7 +31,7 @@ import GF.Text.Pretty
 --import Debug.Trace
 
 matchPattern :: ErrorMonad m => [(Patt,rhs)] -> Term -> m (rhs, Substitution)
-matchPattern pts term = 
+matchPattern pts term =
   if not (isInConstantForm term)
     then raise (render ("variables occur in" <+> pp term))
   else do
@@ -61,52 +62,55 @@ testOvershadow pts vs = do
 findMatch :: ErrorMonad m => [([Patt],rhs)] -> [Term] -> m (rhs, Substitution)
 findMatch cases terms = case cases of
    [] -> raise (render ("no applicable case for" <+> hsep (punctuate ',' terms)))
-   (patts,_):_ | length patts /= length terms -> 
-       raise (render ("wrong number of args for patterns :" <+> hsep patts <+> 
+   (patts,_):_ | length patts /= length terms ->
+       raise (render ("wrong number of args for patterns :" <+> hsep patts <+>
                     "cannot take" <+> hsep terms))
    (patts,val):cc -> case mapM tryMatch (zip patts terms) of
        Ok substs -> return (val, concat substs)
        _         -> findMatch cc terms
 
 tryMatch :: (Patt, Term) -> Err [(Ident, Term)]
-tryMatch (p,t) = do 
+tryMatch (p,t) = do
   t' <- termForm t
   trym p t'
  where
-
-  isInConstantFormt = True -- tested already in matchPattern
   trym p t' =
     case (p,t') of
 --    (_,(x,Typed e ty,y)) -> trym p (x,e,y) -- Add this? /TH 2013-09-05
       (_,(x,Empty,y)) -> trym p (x,K [],y)   -- because "" = [""] = []
-      (PW, _) | isInConstantFormt -> return [] -- optimization with wildcard
-      (PV x,  _) | isInConstantFormt -> return [(x,t)]
+      (PW, _) -> return [] -- optimization with wildcard
+      (PV x,([],K s,[])) -> return [(x,words2term (words s))]
+      (PV x,  _) -> return [(x,t)]
       (PString s, ([],K i,[])) | s==i -> return []
       (PInt s, ([],EInt i,[])) | s==i -> return []
       (PFloat s,([],EFloat i,[])) | s==i -> return [] --- rounding?
-      (PC p pp, ([], Con f, tt)) | 
+      (PC p pp, ([], Con f, tt)) |
             p `eqStrIdent` f && length pp == length tt ->
          do matches <- mapM tryMatch (zip pp tt)
             return (concat matches)
 
-      (PP (q,p) pp, ([], QC (r,f), tt)) | 
+      (PP (q,p) pp, ([], QC (r,f), tt)) |
             -- q `eqStrIdent` r &&  --- not for inherited AR 10/10/2005
             p `eqStrIdent` f && length pp == length tt ->
          do matches <- mapM tryMatch (zip pp tt)
             return (concat matches)
       ---- hack for AppPredef bug
-      (PP (q,p) pp, ([], Q (r,f), tt)) | 
-            -- q `eqStrIdent` r && --- 
+      (PP (q,p) pp, ([], Q (r,f), tt)) |
+            -- q `eqStrIdent` r && ---
             p `eqStrIdent` f && length pp == length tt ->
          do matches <- mapM tryMatch (zip pp tt)
             return (concat matches)
 
       (PR r, ([],R r',[])) |
             all (`elem` map fst r') (map fst r) ->
-         do matches <- mapM tryMatch 
+         do matches <- mapM tryMatch
                             [(p,snd a) | (l,p) <- r, let Just a = lookup l r']
             return (concat matches)
       (PT _ p',_) -> trym p' t'
+
+      (PAs x p',([],K s,[])) -> do
+         subst <- trym p' t'
+         return $ (x,words2term (words s)) : subst
 
       (PAs x p',_) -> do
          subst <- trym p' t'
@@ -122,7 +126,7 @@ tryMatch (p,t) = do
       (PMSeq mp1 mp2, ([],K s, [])) -> matchPMSeq mp1 mp2 s
 
       (PRep p1, ([],K s, [])) -> checks [
-         trym (foldr (const (PSeq p1)) (PString "") 
+         trym (foldr (const (PSeq p1)) (PString "")
            [1..n]) t' | n <- [0 .. length s]
         ] >>
         return []
@@ -131,6 +135,11 @@ tryMatch (p,t) = do
       (PChars cs, ([],K [c], [])) | elem c cs -> return []
 
       _ -> raise (render ("no match in case expr for" <+> t))
+
+  words2term []     = Empty
+  words2term [w]    = K w
+  words2term (w:ws) = C (K w) (words2term ws)
+
 
 matchPMSeq (m1,p1) (m2,p2) s = matchPSeq' m1 p1 m2 p2 s
 --matchPSeq p1 p2 s = matchPSeq' (0,maxBound::Int) p1 (0,maxBound::Int) p2 s

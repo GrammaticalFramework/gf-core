@@ -73,8 +73,8 @@ import GF.Infra.Location
 
 import GF.Data.Operations
 
-import PGF2(LIndex, BindType(..))
-import PGF2.Internal(FId, FunId, SeqId, Symbol)
+import PGF2(BindType(..))
+import PGF2.Internal(FId, FunId, SeqId, LIndex, Symbol)
 
 import Data.Array.IArray(Array)
 import Data.Array.Unboxed(UArray)

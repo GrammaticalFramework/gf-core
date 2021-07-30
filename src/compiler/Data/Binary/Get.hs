@@ -101,6 +101,10 @@ import GHC.Word
 --import GHC.Int
 #endif
 
+-- Control.Monad.Fail import will become redundant in GHC 8.8+
+import qualified Control.Monad.Fail as Fail
+
+
 -- | The parse state
 data S = S {-# UNPACK #-} !B.ByteString  -- current chunk
            L.ByteString                  -- the rest of the input
@@ -126,6 +130,11 @@ instance Monad Get where
                              (a, s') -> unGet (k a) s')
     {-# INLINE (>>=) #-}
 
+#if !(MIN_VERSION_base(4,13,0))
+    fail      = failDesc
+#endif
+
+instance Fail.MonadFail Get where
     fail      = failDesc
 
 instance MonadFix Get where
@@ -414,7 +423,7 @@ readN n f = fmap f $ getBytes n
 getPtr :: Storable a => Int -> Get a
 getPtr n = do
     (fp,o,_) <- readN n B.toForeignPtr
-    return . B.inlinePerformIO $ withForeignPtr fp $ \p -> peek (castPtr $ p `plusPtr` o)
+    return . B.accursedUnutterablePerformIO $ withForeignPtr fp $ \p -> peek (castPtr $ p `plusPtr` o)
 {- INLINE getPtr -}
 
 ------------------------------------------------------------------------

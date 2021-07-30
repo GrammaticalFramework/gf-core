@@ -5,22 +5,23 @@
 -- Stability   : (stable)
 -- Portability : (portable)
 --
--- > CVS $Date: 2005/04/21 16:22:32 $ 
+-- > CVS $Date: 2005/04/21 16:22:32 $
 -- > CVS $Author: bringert $
 -- > CVS $Revision: 1.7 $
 --
 -- (Description of the module)
 -----------------------------------------------------------------------------
 
-module GF.Grammar.Values (-- ** Values used in TC type checking
-	       Val(..), Env,
-	       -- ** Annotated tree used in editing
+module GF.Grammar.Values (
+               -- ** Values used in TC type checking
+               Val(..), Env,
+               -- ** Annotated tree used in editing
                Binds, Constraints, MetaSubst,
-	       -- ** For TC
-	       valAbsInt, valAbsFloat, valAbsString, vType,
-	       isPredefCat,
-	       eType, 
-	      ) where
+               -- ** For TC
+               valAbsInt, valAbsFloat, valAbsString, vType,
+               isPredefCat,
+               eType,
+              ) where
 
 import GF.Infra.Ident
 import GF.Grammar.Grammar

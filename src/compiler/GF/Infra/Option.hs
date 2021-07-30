@@ -2,13 +2,13 @@ module GF.Infra.Option
     (
      -- ** Command line options
      -- *** Option types
-     Options, 
-     Flags(..), 
-     Mode(..), Phase(..), Verbosity(..), 
-     OutputFormat(..), 
+     Options,
+     Flags(..),
+     Mode(..), Phase(..), Verbosity(..),
+     OutputFormat(..),
      SISRFormat(..), Optimization(..), CFGTransform(..), HaskellOption(..),
      Dump(..), Pass(..), Recomp(..),
-     outputFormatsExpl, 
+     outputFormatsExpl,
      -- *** Option parsing
      parseOptions, parseModuleOptions, fixRelativeLibPaths,
      -- *** Option pretty-printing
@@ -42,8 +42,10 @@ import GF.Data.Operations(Err,ErrorMonad(..),liftErr)
 import Data.Set (Set)
 import qualified Data.Set as Set
 
+import qualified Control.Monad.Fail as Fail
+
 usageHeader :: String
-usageHeader = unlines 
+usageHeader = unlines
  ["Usage: gf [OPTIONS] [FILE [...]]",
   "",
   "How each FILE is handled depends on the file name suffix:",
@@ -85,8 +87,10 @@ data Phase = Preproc | Convert | Compile | Link
 data OutputFormat = FmtPGFPretty
                   | FmtCanonicalGF
                   | FmtCanonicalJson
+                  | FmtJavaScript
                   | FmtJSON
-                  | FmtHaskell 
+                  | FmtPython
+                  | FmtHaskell
                   | FmtJava
                   | FmtBNF
                   | FmtEBNF
@@ -94,37 +98,42 @@ data OutputFormat = FmtPGFPretty
                   | FmtNoLR
                   | FmtSRGS_XML
                   | FmtSRGS_XML_NonRec
-                  | FmtSRGS_ABNF 
+                  | FmtSRGS_ABNF
                   | FmtSRGS_ABNF_NonRec
-                  | FmtJSGF 
-                  | FmtGSL 
+                  | FmtJSGF
+                  | FmtGSL
                   | FmtVoiceXML
                   | FmtSLF
                   | FmtRegExp
                   | FmtFA
   deriving (Eq,Ord)
 
-data SISRFormat = 
+data SISRFormat =
     -- | SISR Working draft 1 April 2003
     --   <http://www.w3.org/TR/2003/WD-semantic-interpretation-20030401/>
-    SISR_WD20030401    
+    SISR_WD20030401
   | SISR_1_0
  deriving (Show,Eq,Ord)
 
 data Optimization = OptStem | OptCSE | OptExpand | OptParametrize
   deriving (Show,Eq,Ord)
 
-data CFGTransform = CFGNoLR 
+data CFGTransform = CFGNoLR
                   | CFGRegular
-                  | CFGTopDownFilter 
-                  | CFGBottomUpFilter 
+                  | CFGTopDownFilter
+                  | CFGBottomUpFilter
                   | CFGStartCatOnly
                   | CFGMergeIdentical
                   | CFGRemoveCycles
   deriving (Show,Eq,Ord)
 
-data HaskellOption = HaskellNoPrefix | HaskellGADT | HaskellLexical
-                   | HaskellConcrete | HaskellVariants
+data HaskellOption = HaskellNoPrefix
+                   | HaskellGADT
+                   | HaskellLexical
+                   | HaskellConcrete
+                   | HaskellVariants
+                   | HaskellData
+                   | HaskellPGF2
   deriving (Show,Eq,Ord)
 
 data Warning = WarnMissingLincat
@@ -188,7 +197,7 @@ instance Show Options where
 parseOptions :: ErrorMonad err =>
                 [String]                   -- ^ list of string arguments
              -> err (Options, [FilePath])
-parseOptions args 
+parseOptions args
   | not (null errs) = errors errs
   | otherwise       = do opts <- concatOptions `fmap` liftErr (sequence optss)
                          return (opts, files)
@@ -200,7 +209,7 @@ parseModuleOptions :: ErrorMonad err =>
                    -> err Options
 parseModuleOptions args = do
   (opts,nonopts) <- parseOptions args
-  if null nonopts 
+  if null nonopts
     then return opts
     else errors $ map ("Non-option among module options: " ++) nonopts
 
@@ -272,7 +281,7 @@ defaultFlags = Flags {
       optOptimizations   = Set.fromList [OptStem,OptCSE,OptExpand,OptParametrize],
       optOptimizePGF     = False,
       optSplitPGF        = False,
-      optCFGTransforms   = Set.fromList [CFGRemoveCycles, CFGBottomUpFilter, 
+      optCFGTransforms   = Set.fromList [CFGRemoveCycles, CFGBottomUpFilter,
                                          CFGTopDownFilter, CFGMergeIdentical],
       optLibraryPath     = [],
       optStartCat        = Nothing,
@@ -292,7 +301,7 @@ defaultFlags = Flags {
 -- | Option descriptions
 {-# NOINLINE optDescr #-}
 optDescr :: [OptDescr (Err Options)]
-optDescr = 
+optDescr =
     [
      Option ['?','h'] ["help"] (NoArg (mode ModeHelp)) "Show help message.",
      Option ['V'] ["version"] (NoArg (mode ModeVersion)) "Display GF version number.",
@@ -316,44 +325,44 @@ optDescr =
 --   Option ['t'] ["trace"] (NoArg (trace True)) "Trace computations",
 --   Option [] ["no-trace"] (NoArg (trace False)) "Don't trace computations",
      Option [] ["gfo-dir"] (ReqArg gfoDir "DIR") "Directory to put .gfo files in (default = '.').",
-     Option ['f'] ["output-format"] (ReqArg outFmt "FMT") 
+     Option ['f'] ["output-format"] (ReqArg outFmt "FMT")
         (unlines ["Output format. FMT can be one of:",
                   "Canonical GF grammar: canonical_gf, canonical_json, (and haskell with option --haskell=concrete)",
                   "Multiple concrete: pgf (default), json, js, pgf_pretty, prolog, python, ...", -- gar,
                   "Single concrete only: bnf, ebnf, fa, gsl, jsgf, regexp, slf, srgs_xml, srgs_abnf, vxml, ....", -- cf, lbnf,
                   "Abstract only: haskell, ..."]), -- prolog_abs,
-     Option [] ["sisr"] (ReqArg sisrFmt "FMT") 
+     Option [] ["sisr"] (ReqArg sisrFmt "FMT")
         (unlines ["Include SISR tags in generated speech recognition grammars.",
                   "FMT can be one of: old, 1.0"]),
-     Option [] ["haskell"] (ReqArg hsOption "OPTION") 
-            ("Turn on an optional feature when generating Haskell data types. OPTION = " 
+     Option [] ["haskell"] (ReqArg hsOption "OPTION")
+            ("Turn on an optional feature when generating Haskell data types. OPTION = "
              ++ concat (intersperse " | " (map fst haskellOptionNames))),
-     Option [] ["lexical"] (ReqArg lexicalCat "CAT[,CAT[...]]") 
+     Option [] ["lexical"] (ReqArg lexicalCat "CAT[,CAT[...]]")
             "Treat CAT as a lexical category.",
-     Option [] ["literal"] (ReqArg literalCat "CAT[,CAT[...]]") 
+     Option [] ["literal"] (ReqArg literalCat "CAT[,CAT[...]]")
             "Treat CAT as a literal category.",
-     Option ['D'] ["output-dir"] (ReqArg outDir "DIR") 
+     Option ['D'] ["output-dir"] (ReqArg outDir "DIR")
            "Save output files (other than .gfo files) in DIR.",
-     Option [] ["gf-lib-path"] (ReqArg gfLibPath "DIR") 
+     Option [] ["gf-lib-path"] (ReqArg gfLibPath "DIR")
            "Overrides the value of GF_LIB_PATH.",
-     Option [] ["src","force-recomp"] (NoArg (recomp AlwaysRecomp)) 
+     Option [] ["src","force-recomp"] (NoArg (recomp AlwaysRecomp))
                  "Always recompile from source.",
-     Option [] ["gfo","recomp-if-newer"] (NoArg (recomp RecompIfNewer)) 
+     Option [] ["recomp-if-newer"] (NoArg (recomp RecompIfNewer))
                  "(default) Recompile from source if the source is newer than the .gfo file.",
-     Option [] ["gfo","no-recomp"] (NoArg (recomp NeverRecomp)) 
+     Option [] ["gfo","no-recomp"] (NoArg (recomp NeverRecomp))
                  "Never recompile from source, if there is already .gfo file.",
      Option [] ["retain"] (NoArg (set $ \o -> o { optRetainResource = True })) "Retain opers.",
      Option [] ["probs"] (ReqArg probsFile "file.probs") "Read probabilities from file.",
-     Option ['n'] ["name"] (ReqArg name "NAME") 
+     Option ['n'] ["name"] (ReqArg name "NAME")
            (unlines ["Use NAME as the name of the output. This is used in the output file names, ",
                      "with suffixes depending on the formats, and, when relevant, ",
                      "internally in the output."]),
      Option ['i'] [] (ReqArg addLibDir "DIR") "Add DIR to the library search path.",
      Option [] ["path"] (ReqArg setLibPath "DIR:DIR:...") "Set the library search path.",
-     Option [] ["preproc"] (ReqArg preproc "CMD") 
+     Option [] ["preproc"] (ReqArg preproc "CMD")
                  (unlines ["Use CMD to preprocess input files.",
                            "Multiple preprocessors can be used by giving this option multiple times."]),
-     Option [] ["coding"] (ReqArg coding "ENCODING") 
+     Option [] ["coding"] (ReqArg coding "ENCODING")
                 ("Character encoding of the source grammar, ENCODING = utf8, latin1, cp1251, ..."),
      Option [] ["startcat"] (ReqArg startcat "CAT") "Grammar start category.",
      Option [] ["language"] (ReqArg language "LANG") "Set the speech language flag to LANG in the generated grammar.",
@@ -361,7 +370,7 @@ optDescr =
      Option [] ["unlexer"] (ReqArg unlexer "UNLEXER") "Use unlexer UNLEXER.",
      Option [] ["pmcfg"] (NoArg (pmcfg True)) "Generate PMCFG (default).",
      Option [] ["no-pmcfg"] (NoArg (pmcfg False)) "Don't generate PMCFG (useful for libraries).",
-     Option [] ["optimize"] (ReqArg optimize "OPT") 
+     Option [] ["optimize"] (ReqArg optimize "OPT")
                 "Select an optimization package. OPT = all | values | parametrize | none",
      Option [] ["optimize-pgf"] (NoArg (optimize_pgf True))
                 "Enable or disable global grammar optimization. This could significantly reduce the size of the final PGF file",
@@ -436,7 +445,7 @@ optDescr =
        optimize    x = case lookup x optimizationPackages of
                          Just p  -> set $ \o -> o { optOptimizations = p }
                          Nothing -> fail $ "Unknown optimization package: " ++ x
-                         
+
        optimize_pgf x = set $ \o -> o { optOptimizePGF = x }
        splitPGF x = set $ \o -> o { optSplitPGF = x }
 
@@ -460,7 +469,7 @@ outputFormats :: [(String,OutputFormat)]
 outputFormats = map fst outputFormatsExpl
 
 outputFormatsExpl :: [((String,OutputFormat),String)]
-outputFormatsExpl = 
+outputFormatsExpl =
     [(("pgf_pretty",   FmtPGFPretty),"human-readable pgf"),
      (("canonical_gf", FmtCanonicalGF),"Canonical GF source files"),
      (("canonical_json", FmtCanonicalJson),"Canonical JSON source files"),
@@ -490,11 +499,11 @@ instance Read OutputFormat where
     readsPrec = lookupReadsPrec outputFormats
 
 optimizationPackages :: [(String, Set Optimization)]
-optimizationPackages = 
+optimizationPackages =
     [("all",         Set.fromList [OptStem,OptCSE,OptExpand,OptParametrize]),
      ("values",      Set.fromList [OptStem,OptCSE,OptExpand]),
      ("noexpand",    Set.fromList [OptStem,OptCSE]),
-     
+
      -- deprecated
      ("all_subs",    Set.fromList [OptStem,OptCSE,OptExpand,OptParametrize]),
      ("parametrize", Set.fromList [OptStem,OptCSE,OptExpand,OptParametrize]),
@@ -502,7 +511,7 @@ optimizationPackages =
     ]
 
 cfgTransformNames :: [(String, CFGTransform)]
-cfgTransformNames = 
+cfgTransformNames =
     [("nolr",         CFGNoLR),
      ("regular",      CFGRegular),
      ("topdown",      CFGTopDownFilter),
@@ -517,7 +526,9 @@ haskellOptionNames =
      ("gadt",     HaskellGADT),
      ("lexical",  HaskellLexical),
      ("concrete", HaskellConcrete),
-     ("variants", HaskellVariants)]
+     ("variants", HaskellVariants),
+     ("data",     HaskellData),
+     ("pgf2",     HaskellPGF2)]
 
 -- | This is for bacward compatibility. Since GHC 6.12 we
 -- started using the native Unicode support in GHC but it
@@ -534,7 +545,7 @@ lookupShow xs z = fromMaybe "lookupShow" $ lookup z [(y,x) | (x,y) <- xs]
 lookupReadsPrec :: [(String,a)] -> Int -> ReadS a
 lookupReadsPrec xs _ s = [(z,rest) | (x,rest) <- lex s, (y,z) <- xs, y == x]
 
-onOff :: Monad m => (Bool -> m a) -> Bool -> ArgDescr (m a)
+onOff :: Fail.MonadFail m => (Bool -> m a) -> Bool -> ArgDescr (m a)
 onOff f def = OptArg g "[on,off]"
   where g ma = maybe (return def) readOnOff ma >>= f
         readOnOff x = case map toLower x of
@@ -542,8 +553,8 @@ onOff f def = OptArg g "[on,off]"
                         "off" -> return False
                         _     -> fail $ "Expected [on,off], got: " ++ show x
 
-readOutputFormat :: Monad m => String -> m OutputFormat
-readOutputFormat s = 
+readOutputFormat :: Fail.MonadFail m => String -> m OutputFormat
+readOutputFormat s =
     maybe (fail $ "Unknown output format: " ++ show s) return $ lookup s outputFormats
 
 -- FIXME: this is a copy of the function in GF.Devel.UseIO.
@@ -555,7 +566,7 @@ splitInModuleSearchPath s = case break isPathSep s of
     isPathSep :: Char -> Bool
     isPathSep c = c == ':' || c == ';'
 
--- 
+--
 -- * Convenience functions for checking options
 --
 
@@ -577,7 +588,7 @@ isLiteralCat opts c = Set.member c (flag optLiteralCats opts)
 isLexicalCat :: Options -> String -> Bool
 isLexicalCat opts c = Set.member c (flag optLexicalCats opts)
 
--- 
+--
 -- * Convenience functions for setting options
 --
 
@@ -608,8 +619,8 @@ readMaybe s = case reads s of
 
 toEnumBounded :: (Bounded a, Enum a, Ord a) => Int -> Maybe a
 toEnumBounded i = let mi = minBound
-                      ma = maxBound `asTypeOf` mi                      
-                   in if i >= fromEnum mi && i <= fromEnum ma 
+                      ma = maxBound `asTypeOf` mi
+                   in if i >= fromEnum mi && i <= fromEnum ma
                         then Just (toEnum i `asTypeOf` mi)
                         else Nothing
 

@@ -90,6 +90,9 @@ pgf_category_context(PgfPGF *gr, PgfCId catname);
 PGF_API_DECL prob_t
 pgf_category_prob(PgfPGF* pgf, PgfCId catname);
 
+PGF_API GuString*
+pgf_category_fields(PgfConcr* concr, PgfCId catname, size_t *n_lins);
+
 PGF_API_DECL void
 pgf_iter_functions(PgfPGF* pgf, GuMapItor* itor, GuExn* err);
 
@@ -163,8 +166,8 @@ pgf_lookup_morpho(PgfConcr *concr, GuString sentence,
                   PgfMorphoCallback* callback, GuExn* err);
 
 typedef struct {
-	size_t pos;
-	GuString ptr;
+	size_t pos;       // position in Unicode characters
+	GuString ptr;     // pointer into the string
 } PgfCohortSpot;
 
 typedef struct {
@@ -202,6 +205,12 @@ pgf_parse_with_heuristics(PgfConcr* concr, PgfType* typ,
                           PgfCallbacksMap* callbacks,
                           GuExn* err,
                           GuPool* pool, GuPool* out_pool);
+
+typedef struct {
+	size_t   start;
+	size_t   end;
+	GuString field;
+} PgfParseRange;
 
 typedef struct PgfOracleCallback PgfOracleCallback;
 
@@ -243,11 +252,11 @@ typedef struct PgfLiteralCallback PgfLiteralCallback;
 
 struct PgfLiteralCallback {
 	PgfExprProb* (*match)(PgfLiteralCallback* self, PgfConcr* concr,
-	                      size_t lin_idx,
+	                      GuString ann,
 	                      GuString sentence, size_t* poffset,
 	                      GuPool *out_pool);
     GuEnum*    (*predict)(PgfLiteralCallback* self, PgfConcr* concr,
-	                      size_t lin_idx,
+	                      GuString ann,
 	                      GuString prefix,
 	                      GuPool *out_pool);
 };
