@@ -15,6 +15,12 @@ instructions inside.
 ==Atom==
 [language-gf https://atom.io/packages/language-gf], by John J. Camilleri
 
+==Visual Studio Code==
+
+[Grammatical Framework Language Server https://marketplace.visualstudio.com/items?itemName=anka-213.gf-vscode] by Andreas Källberg.
+
+This provides syntax highlighting and a client for the Grammatical Framework language server. Follow the installation instructions in the link.
+
 ==Eclipse==
 
 [GF Eclipse Plugin https://github.com/GrammaticalFramework/gf-eclipse-plugin/], by John J. Camilleri

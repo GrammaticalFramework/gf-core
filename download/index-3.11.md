@@ -1,8 +1,9 @@
 ---
 title: Grammatical Framework Download and Installation
-...
+date: 25 July 2021
+---
 
-**GF 3.11** was released on ... December 2020.
+**GF 3.11** was released on 25 July 2021.
 
 What's new? See the [release notes](release-3.11.html).
 
@@ -24,22 +25,25 @@ Binary packages are available for Debian/Ubuntu, macOS, and Windows and include:
 
 Unlike in previous versions, the binaries **do not** include the RGL.
 
-[Binary packages on GitHub](https://github.com/GrammaticalFramework/gf-core/releases/tag/RELEASE-3.11)
+[Binary packages on GitHub](https://github.com/GrammaticalFramework/gf-core/releases/tag/3.11)
 
 #### Debian/Ubuntu
 
+There are two versions: `gf-3.11-ubuntu-18.04.deb` for Ubuntu 18.04 (Cosmic), and `gf-3.11-ubuntu-20.04.deb` for Ubuntu 20.04 (Focal).
+
 To install the package use:
+
 ```
-sudo dpkg -i gf_3.11.deb
+sudo apt-get install ./gf-3.11-ubuntu-*.deb
 ```
 
-The Ubuntu `.deb` packages should work on Ubuntu 16.04, 18.04 and similar Linux distributions.
+<!-- The Ubuntu `.deb` packages should work on Ubuntu 16.04, 18.04 and similar Linux distributions. -->
 
 #### macOS
 
 To install the package, just double-click it and follow the installer instructions.
 
-The packages should work on at least 10.13 (High Sierra) and 10.14 (Mojave).
+The packages should work on at least Catalina and Big Sur.
 
 #### Windows
 
@@ -49,7 +53,7 @@ You will probably need to update the `PATH` environment variable to include your
 
 For more information, see [Using GF on Windows](https://www.grammaticalframework.org/~inari/gf-windows.html) (latest updated for Windows 10).
 
-## Installing the latest Hackage release (macOS, Linux, and WSL2 on Windows)
+<!--## Installing the latest Hackage release (macOS, Linux, and WSL2 on Windows)
 
 [GF is on Hackage](http://hackage.haskell.org/package/gf), so under
 normal circumstances the procedure is fairly simple:
@@ -89,7 +93,7 @@ Here is one way to do this:
 **GHC version**
 
 The GF source code has been updated to compile with GHC versions 7.10 through to 8.8.
-
+-->
 ## Installing from the latest developer source code
 
 If you haven't already, clone the repository with:
@@ -116,7 +120,7 @@ or, if you're a Stack user:
 stack install
 ```
 
-The above notes for installing from source apply also in these cases.
+<!--The above notes for installing from source apply also in these cases.-->
 For more info on working with the GF source code, see the
 [GF Developers Guide](../doc/gf-developers.html).
 

@@ -1,6 +1,6 @@
 GF Developers Guide
 
-2018-07-26
+2021-07-15
 
 %!options(html): --toc
 
@@ -15,387 +15,286 @@ you are a GF user who just wants to download and install GF
 == Setting up your system for building GF ==
 
 To build GF from source you need to install some tools on your
-system: the //Haskell Platform//, //Git// and the //Haskeline library//.
+system: the Haskell build tool //Stack//, the version control software //Git// and the //Haskeline// library.
 
-**On Linux** the best option is to install the tools via the standard
-software distribution channels, i.e. by using the //Software Center//
-in Ubuntu or the corresponding tool in other popular Linux distributions.
-Or, from a Terminal window, the following command should be enough:
+%**On Linux** the best option is to install the tools via the standard
+%software distribution channels, i.e. by using the //Software Center//
+%in Ubuntu or the corresponding tool in other popular Linux distributions.
 
-- On Ubuntu: ``sudo apt-get install haskell-platform git libghc6-haskeline-dev``
-- On Fedora: ``sudo dnf install haskell-platform git ghc-haskeline-devel``
+%**On Mac OS and Windows**, the tools can be downloaded from their respective
+%web sites, as described below.
+
+=== Stack ===
+The primary installation method is via //Stack//.
+(You can also use Cabal, but we recommend Stack to those who are new to Haskell.)
+
+To install Stack:
+
+- **On Linux and Mac OS**, do either
+
+    ``$ curl -sSL https://get.haskellstack.org/ | sh``
+
+  or
+
+    ``$ wget -qO- https://get.haskellstack.org/ | sh``
 
 
-**On Mac OS and Windows**, the tools can be downloaded from their respective
-web sites, as described below.
+- **On other operating systems**, see the [installation guide https://docs.haskellstack.org/en/stable/install_and_upgrade].
 
-=== The Haskell Platform ===
 
-GF is written in Haskell, so first of all you need
-the //Haskell Platform//, e.g. version 8.0.2 or 7.10.3. Downloads
-and installation instructions are available from here:
+%If you already have Stack installed, upgrade it to the latest version by running: ``stack upgrade``
 
-    http://hackage.haskell.org/platform/
-
-Once you have installed the Haskell Platform, open a terminal
-(Command Prompt on Windows) and try to execute the following command:
-```
-$ ghc --version
-```
-This command should show you which version of GHC you have. If the installation
-of the Haskell Platform	 was successful you should see a message like:
-
-```
-The Glorious Glasgow Haskell Compilation System, version 8.0.2
-```
-
-Other required tools included in the Haskell Platform are
-[Cabal http://www.haskell.org/cabal/],
-[Alex http://www.haskell.org/alex/]
-and
-[Happy http://www.haskell.org/happy/].
 
 === Git ===
 
-To get the GF source code, you also need //Git//.
-//Git// is a distributed version control system, see
-https://git-scm.com/downloads for more information.
+To get the GF source code, you also need //Git//, a distributed version control system.
 
-=== The haskeline library ===
+- **On Linux**, the best option is to install the tools via the standard
+software distribution channels:
+
+  - On Ubuntu: ``sudo apt-get install git-all``
+  - On Fedora: ``sudo dnf install git-all``
+
+
+- **On other operating systems**, see
+https://git-scm.com/book/en/v2/Getting-Started-Installing-Git for installation.
+
+
+
+=== Haskeline ===
 
 GF uses //haskeline// to enable command line editing in the GF shell.
-This should work automatically on Mac OS and Windows, but on Linux one
-extra step is needed to make sure the C libraries (terminfo)
-required by //haskeline// are installed.  Here is one way to do this:
 
-- On Ubuntu: ``sudo apt-get install libghc-haskeline-dev``
-- On Fedora: ``sudo dnf install ghc-haskeline-devel``
+- **On Mac OS and Windows**, this should work automatically.
 
+- **On Linux**, an extra step is needed to make sure the C libraries (terminfo)
+required by //haskeline// are installed:
 
-== Getting the source ==
-
-Once you have all tools in place you can get the GF source code. If you
-just want to compile and use GF then it is enough to have read-only
-access. It is also possible to make changes in the source code but if you
-want these changes to be applied back to the main source repository you will
-have to send the changes to us.  If you plan to work continuously on
-GF then you should consider getting read-write access.
-
-=== Read-only access ===
-
-==== Getting a fresh copy for read-only access ====
-
-Anyone can get the latest development version of GF by running:
-
-```
-$ git clone https://github.com/GrammaticalFramework/gf-core.git
-$ git clone https://github.com/GrammaticalFramework/gf-rgl.git
-```
-
-This will create directories ``gf-core`` and ``gf-rgl`` in the current directory.
+  - On Ubuntu: ``sudo apt-get install libghc-haskeline-dev``
+  - On Fedora: ``sudo dnf install ghc-haskeline-devel``
 
 
-==== Updating your copy ====
+== Getting the source ==[getting-source]
 
-To get all new patches from each repo:
-```
-$ git pull
-```
-This can be done anywhere in your local repository.
+Once you have all tools in place you can get the GF source code from
+[GitHub https://github.com/GrammaticalFramework/]:
+
+- https://github.com/GrammaticalFramework/gf-core for the GF compiler
+- https://github.com/GrammaticalFramework/gf-rgl for the Resource Grammar Library
 
 
-==== Recording local changes ====[record]
+=== Read-only access: clone the main repository ===
 
-Since every copy is a repository, you can have local version control
-of your changes.
-
-If you have added files, you first need to tell your local repository to
-keep them under revision control:
+If you only want to compile and use GF, you can just clone the repositories as follows:
 
 ```
-$ git add file1 file2 ...
+  $ git clone https://github.com/GrammaticalFramework/gf-core.git
+  $ git clone https://github.com/GrammaticalFramework/gf-rgl.git
 ```
 
-To record changes, use:
+To get new updates, run the following anywhere in your local copy of the repository:
 
 ```
-$ git commit file1 file2 ...
+  $ git pull
 ```
 
-This creates a patch against the previous version and stores it in your
-local repository. You can record any number of changes before
-pushing them to the main repo. In fact, you don't have to push them at
-all if you want to keep the changes only in your local repo.
+=== Contribute your changes: fork the main repository ===
 
-Instead of enumerating all modified files on the command line,
-you can use the flag ``-a`` to automatically record //all// modified
-files. You still need to use ``git add`` to add new files.
+If you want the possibility to contribute your changes,
+you should create your own fork, do your changes there,
+and then send a pull request to the main repository.
 
-
-=== Read-write access ===
-
-If you are a member of the GF project on GitHub, you can push your
-changes directly to the GF git repository on GitHub.
++ **Creating and cloning a fork  —**
+See GitHub documentation for instructions how to [create your own fork https://docs.github.com/en/get-started/quickstart/fork-a-repo]
+of the repository. Once you've done it, clone the fork to your local computer.
 
 ```
-$ git push
+  $ git clone https://github.com/<YOUR_USERNAME>/gf-core.git
 ```
 
-It is also possible for anyone else to contribute by
++ **Updating your copy —**
+Once you have cloned your fork, you need to set up the main repository as a remote:
 
-- creating a fork of the GF repository on GitHub,
-- working with local clone of the fork (obtained with ``git clone``),
-- pushing changes to the fork,
-- and finally sending a pull request.
+```
+  $ git remote add upstream https://github.com/GrammaticalFramework/gf-core.git
+```
+
+Then you can get the latest updates by running the following:
+
+```
+  $ git pull upstream master
+```
+
++ **Recording local changes —**
+See Git tutorial on how to [record and push your changes https://git-scm.com/book/en/v2/Git-Basics-Recording-Changes-to-the-Repository] to your fork.
+
++ **Pull request —**
+When you want to contribute your changes to the main gf-core repository,
+[create a pull request https://docs.github.com/en/github/collaborating-with-pull-requests/proposing-changes-to-your-work-with-pull-requests/creating-a-pull-request]
+from your fork.
 
 
 
-== Compilation from source with Cabal ==
+If you want to contribute to the RGL as well, do the same process for the RGL repository.
 
-The build system of GF is based on //Cabal//, which is part of the
-Haskell Platform, so no extra steps are needed to install it. In the simplest
-case, all you need to do to compile and install GF, after downloading the
-source code as described above, is
+
+== Compilation from source ==
+
+By now you should have installed Stack and Haskeline, and cloned the Git repository on your own computer, in a directory called ``gf-core``.
+
+=== Primary recommendation: use Stack ===
+
+Open a terminal, go to the top directory (``gf-core``), and type the following command.
+
+```
+$ stack install
+```
+
+It will install GF and all necessary tools and libraries to do that.
+
+
+=== Alternative: use Cabal ===
+You can also install GF using Cabal, if you prefer Cabal to Stack. In that case, you may need to install some prerequisites yourself.
+
+The actual installation process is similar to Stack: open a terminal, go to the top directory (``gf-core``), and type the following command.
 
 ```
 $ cabal install
 ```
 
-This will automatically download any additional Haskell libraries needed to
-build GF. If this is the first time you use Cabal, you might need to run
-``cabal update`` first, to update the list of available libraries.
+//The old (potentially outdated) instructions for Cabal are moved to a [separate page ../doc/gf-developers-old-cabal.html]. If you run into trouble with ``cabal install``, you may want to take a look.//
 
-If you want more control, the process can also be split up into the usual
-//configure//, //build// and //install// steps.
+== Compiling GF with C runtime system support ==
 
-=== Configure ===
-
-During the configuration phase Cabal will check that you have all
-necessary tools and libraries needed for GF. The configuration is
-started by the command:
-
-```
-$ cabal configure
-```
-
-If you don't see any error message from the above command then you
-have everything that is needed for GF. You can also add the option
-``-v`` to see more details about the configuration.
-
-You can use ``cabal configure --help`` to get a list of configuration options.
-
-=== Build ===
-
-The build phase does two things. First it builds the GF compiler from
-the Haskell source code and after that it builds the GF Resource Grammar
-Library using the already build compiler.  The simplest command is:
-
-```
-$ cabal build
-```
-
-Again you can add the option ``-v`` if you want to see more details.
-
-==== Parallel builds ====
-
-If you have Cabal>=1.20 you can enable parallel compilation by using
-
-```
-$ cabal build -j
-```
-
-or by putting a line
-```
-jobs: $ncpus
-```
-in your ``.cabal/config`` file. Cabal
-will pass this option to GHC when building the GF compiler, if you
-have GHC>=7.8.
-
-Cabal also passes ``-j`` to GF to enable parallel compilation of the
-Resource Grammar Library. This is done unconditionally to avoid
-causing problems for developers with Cabal<1.20. You can disable this
-by editing the last few lines in ``WebSetup.hs``.
-
-
-==== Partial builds ====
-
-**NOTE**: The following doesn't work with recent versions of ``cabal``.
-%% // TH 2015-06-22
-
-Sometimes you just want to work on the GF compiler and don't want to
-recompile the resource library after each change. In this case use
-this extended command:
-
-```
-$ cabal build rgl-none
-```
-
-The resource library could also be compiled in two modes: with present
-tense only and with all tenses. By default it is compiled with all
-tenses. If you want to use the library with only present tense you can
-compile it in this special mode with the command:
-
-```
-$ cabal build present
-```
-
-You could also control which languages you want to be recompiled by
-adding the option ``langs=list``. For example the following command
-will compile only the English and the Swedish language:
-
-```
-$ cabal build langs=Eng,Swe
-```
-
-=== Install ===
-
-After you have compiled GF you need to install the executable and libraries
-to make the system usable.
-
-```
-$ cabal copy
-$ cabal register
-```
-
-This command installs the GF compiler for a single user, in the standard
-place used by Cabal.
-On Linux and Mac this could be ``$HOME/.cabal/bin``.
-On Mac it could also be ``$HOME/Library/Haskell/bin``.
-On Windows this is ``C:\Program Files\Haskell\bin``.
-
-The compiled GF Resource Grammar Library will be installed
-under the same prefix, e.g. in
-``$HOME/.cabal/share/gf-3.3.3/lib`` on Linux and
-in ``C:\Program Files\Haskell\gf-3.3.3\lib`` on Windows.
-
-If you want to install in some other place then use the ``--prefix``
-option during the configuration phase.
-
-=== Clean ===
-
-Sometimes you want to clean up the compilation and start again from clean
-sources. Use the clean command for this purpose:
-
-```
-$ cabal clean
-```
-
-
-%=== SDist ===
-%
-%You can use the command:
-%
-%% This does *NOT* include everything that is needed // TH 2012-08-06
-%```
-%$ cabal sdist
-%```
-%
-%to prepare archive with all source codes needed to compile GF.
-
-=== Known problems with Cabal ===
-
-Some versions of Cabal (at least version 1.16) seem to have a bug that can
-cause the following error:
-
-```
-Configuring gf-3.x...
-setup: Distribution/Simple/PackageIndex.hs:124:8-13: Assertion failed
-```
-
-The exact cause of this problem is unclear, but it seems to happen
-during the configure phase if the same version of GF is already installed,
-so a workaround is to remove the existing installation with
-
-```
-ghc-pkg unregister gf
-```
-
-You can check with ``ghc-pkg list gf`` that it is gone.
-
-== Compilation with make ==
-
-If you feel more comfortable with Makefiles then there is a thin Makefile
-wrapper arround Cabal for you. If you just type:
-```
-$ make
-```
-the configuration phase will be run automatically if needed and after that
-the sources will be compiled.
-
-%% cabal build rgl-none does not work with recent versions of Cabal
-%If you don't want to compile the resource library
-%every time then you can use:
-%```
-%$ make gf
-%```
-
-For installation use:
-```
-$ make install
-```
-For cleaning:
-```
-$ make clean
-```
-%and to build source distribution archive run:
-%```
-%$ make sdist
-%```
-
-== Compiling GF with C run-time system support ==
-
-The C run-time system is a separate implementation of the PGF run-time services.
+The C runtime system is a separate implementation of the PGF runtime services.
 It makes it possible to work with very large, ambiguous grammars, using
-probabilistic models to obtain probable parses. The C run-time system might
-also be easier to use than the Haskell run-time system on certain platforms,
+probabilistic models to obtain probable parses. The C runtime system might
+also be easier to use than the Haskell runtime system on certain platforms,
 e.g. Android and iOS.
 
-To install the C run-time system, go to the ``src/runtime/c`` directory
-%and follow the instructions in the ``INSTALL`` file.
-and use the ``install.sh`` script:
+To install the C runtime system, go to the ``src/runtime/c`` directory.
+
+- **On Linux and Mac OS —**
+  You should have autoconf, automake, libtool and make.
+  If you are missing some of them, follow the
+  instructions in the [INSTALL https://github.com/GrammaticalFramework/gf-core/blob/master/src/runtime/c/INSTALL] file.
+
+  Once you have the required libraries, the easiest way to install the C runtime is to use the ``install.sh`` script. Just type
+
+  ``$ bash install.sh``
+
+  This will install the C header files and libraries need to write C programs
+  that use PGF grammars.
+
+%  If this doesn't work for you, follow the manual instructions in the [INSTALL https://github.com/GrammaticalFramework/gf-core/blob/master/src/runtime/c/INSTALL] file under your operating system.
+
+- **On other operating systems —** Follow the instructions in the
+[INSTALL https://github.com/GrammaticalFramework/gf-core/blob/master/src/runtime/c/INSTALL] file under your operating system.
+
+
+
+Depending on what you want to do with the C runtime, you can follow one or more of the following steps.
+
+=== Use the C runtime from another programming language ===[bindings]
+
+% **If you just want to use the C runtime from Python, Java, or Haskell, you don't need to change your GF installation.**
+
+- **What —**
+This is the most common use case for the C runtime: compile
+your GF grammars into PGF with the standard GF executable,
+and manipulate the PGFs from another programming language,
+using the bindings to the C runtime.
+
+
+- **How —**
+The Python, Java and Haskell bindings are found in the
+``src/runtime/{python,java,haskell-bind}`` directories,
+respecively. Compile them by following the instructions
+in the ``INSTALL`` or ``README`` files in those directories.
+
+The Python library can also be installed from PyPI using ``pip install pgf``.
+
+
+//If you are on Mac and get an error about ``clang`` version, you can try some of [these solutions https://stackoverflow.com/questions/63972113/big-sur-clang-invalid-version-error-due-to-macosx-deployment-target]—but be careful before removing any existing installations.//
+
+
+=== Use GF shell with C runtime support ===
+
+- **What —**
+If you want to use the GF shell with C runtime functionalities, then you need to (re)compile GF with special flags.
+
+The GF shell can be started with ``gf -cshell`` or ``gf -crun`` to use
+the C run-time system instead of the Haskell run-time system.
+Only limited functionality is available when running the shell in these
+modes (use the ``help`` command in the shell for details).
+
+(Re)compiling your GF with these flags will also give you
+Haskell bindings to the C runtime, as a library called ``PGF2``,
+but if you want Python or Java bindings, you need to do [the previous step #bindings].
+
+% ``PGF2``: a module to import in Haskell programs, providing a binding to the C run-time system.
+
+- **How —**
+If you use cabal, run the following command:
+
 ```
-bash setup.sh configure
-bash setup.sh build
-bash setup.sh install
+cabal install -fc-runtime
 ```
-This will install
-the C header files and libraries need to write C programs that use PGF grammars.
-Some example C programs are included in the ``utils`` subdirectory, e.g.
-``pgf-translate.c``.
 
-When the C run-time system is installed, you can install GF with C run-time
-support by doing
+from the top directory (``gf-core``).
+
+If you use stack, uncomment the following lines in the ``stack.yaml`` file:
 
 ```
-cabal install -fserver -fc-runtime
+flags:
+   gf:
+     c-runtime: true
+extra-lib-dirs:
+   - /usr/local/lib
 ```
-from the top directory. This give you three new things:
-
-- ``PGF2``: a module to import in Haskell programs, providing a binding to
-   the C run-time system.
-
-- The GF shell can be started with ``gf -cshell`` or ``gf -crun`` to use
-  the C run-time system instead of the Haskell run-time system.
-  Only limited functionality is available when running the shell in these
-  modes (use the ``help`` command in the shell for details).
-
-- ``gf -server`` mode is extended with new requests to call the C run-time
-   system, e.g. ``c-parse``, ``c-linearize`` and ``c-translate``.
+and then run ``stack install`` from the top directory (``gf-core``).
 
 
-=== Python and Java bindings ===
+//If you get an "``error while loading shared libraries``" when trying to run GF with C runtime, remember to declare your ``LD_LIBRARY_PATH``.//
+//Add ``export LD_LIBRARY_PATH="/usr/local/lib"`` to either your ``.bashrc`` or ``.profile``. You should now be able to start GF with C runtime.//
 
-The C run-time system can also be used from Python and Java. Python and Java
-bindings are found in the ``src/runtime/python`` and ``src/runtime/java``
-directories, respecively. Compile them by following the instructions in
-the ``INSTALL`` files in those directories.
 
-The Python library can also be installed from PyPI using `pip install pgf`.
+=== Use GF server mode with C runtime ===
+
+- **What —**
+With this feature, ``gf -server`` mode is extended with new requests to call the C run-time
+system, e.g. ``c-parse``, ``c-linearize`` and ``c-translate``.
+
+- **How —**
+If you use cabal, run the following command:
+
+```
+cabal install -fc-runtime -fserver
+```
+from the top directory.
+
+If you use stack, add the following lines in the ``stack.yaml`` file:
+
+```
+flags:
+   gf:
+     c-runtime: true
+     server: true
+extra-lib-dirs:
+   - /usr/local/lib
+```
+
+and then run ``stack install``, also from the top directory.
+
+
 
 == Compilation of RGL ==
 
 As of 2018-07-26, the RGL is distributed separately from the GF compiler and runtimes.
+
+To get the source, follow the previous instructions on [how to clone a repository with Git #getting-source].
+
+After cloning the RGL, you should have a directory named ``gf-rgl`` on your computer.
 
 === Simple ===
 To install the RGL, you can use the following commands from within the ``gf-rgl`` repository:
@@ -418,103 +317,68 @@ If you do not have Haskell installed, you can use the simple build script ``Setu
 
 == Creating binary distribution packages ==
 
-=== Creating .deb packages for Ubuntu ===
+The binaries are generated with Github Actions. More details can be viewed here:
 
-This was tested on Ubuntu 14.04 for the release of GF 3.6, and the
-resulting ``.deb`` packages appears to work on Ubuntu 12.04, 13.10 and 14.04.
-For the release of GF 3.7, we generated ``.deb`` packages on Ubuntu 15.04 and
-tested them on Ubuntu 12.04 and 14.04.
+https://github.com/GrammaticalFramework/gf-core/actions/workflows/build-binary-packages.yml
 
-Under Ubuntu, Haskell executables are statically linked against other Haskell
-libraries, so the .deb packages are fairly self-contained.
 
-==== Preparations ====
+== Running the test suite ==
+
+The GF test suite is run with one of the following commands from the top directory:
 
 ```
-sudo apt-get install dpkg-dev debhelper
+  $ cabal test
 ```
 
-==== Creating the package ====
-
-Make sure the ``debian/changelog`` starts with an entry that describes the
-version you are building. Then run
+or
 
 ```
-make deb
+  $ stack test
 ```
 
-If get error messages about missing dependencies
-(e.g. ``autoconf``, ``automake``, ``libtool-bin``, ``python-dev``,
-``java-sdk``, ``txt2tags``)
-use ``apt-get intall`` to install them, then try again.
-
-
-=== Creating OS X Installer packages ===
-
-Run
-
-```
-make pkg
-```
-
-=== Creating binary tar distributions ===
-
-Run
-
-```
-make bintar
-```
-
-=== Creating .rpm packages for Fedora ===
-
-This is possible, but the procedure has not been automated.
-It involves using the cabal-rpm tool,
-
-```
-sudo dnf install cabal-rpm
-```
-
-and following the Fedora guide
-[How to create an RPM package http://fedoraproject.org/wiki/How_to_create_an_RPM_package].
-
-Under Fedora, Haskell executables are dynamically linked against other Haskell
-libraries, so ``.rpm`` packages for all Haskell libraries that GF depends on
-are required. Most of them are already available in the Fedora distribution,
-but a few of them might have to be built and distributed along with
-the GF ``.rpm`` package.
-When building ``.rpm`` packages for GF 3.4, we also had to build ``.rpm``s for
-``fst`` and ``httpd-shed``.
-
-== Running the testsuite ==
-
-**NOTE:** The test suite has not been maintained recently, so expect many
-tests to fail.
-%% // TH 2012-08-06
-
-GF has testsuite. It is run with the following command:
-```
-$ cabal test
-```
 The testsuite architecture for GF is very simple but still very flexible.
 GF by itself is an interpreter and could execute commands in batch mode.
 This is everything that we need to organize a testsuite. The root of the
-testsuite is the testsuite/ directory. It contains subdirectories which
-themself contain GF batch files (with extension .gfs). The above command
-searches the subdirectories of the testsuite/ directory for files with extension
-.gfs and when it finds one it is executed with the GF interpreter.
-The output of the script is stored in file with extension .out and is compared
-with the content of the corresponding file with extension .gold, if there is one.
-If the contents are identical the command reports that the test was passed successfully.
-Otherwise the test had failed.
+testsuite is the ``testsuite/`` directory. It contains subdirectories
+which themselves contain GF batch files (with extension ``.gfs``).
+The above command searches the subdirectories of the ``testsuite/`` directory
+for files with extension ``.gfs`` and when it finds one, it is executed with
+the GF interpreter. The output of the script is stored in file with extension ``.out``
+and is compared with the content of the corresponding file with extension ``.gold``, if there is one.
 
-Every time when you make some changes to GF that have to be tested, instead of
-writing the commands by hand in the GF shell, add them to one .gfs file in the testsuite
-and run the test. In this way you can use the same test later and we will be sure
-that we will not incidentaly break your code later.
+Every time when you make some changes to GF that have to be tested,
+instead of writing the commands by hand in the GF shell, add them to one ``.gfs``
+file in the testsuite subdirectory where its ``.gf`` file resides and run the test.
+In this way you can use the same test later and we will be sure that we will not
+accidentally break your code later.
 
-If you don't want to run the whole testsuite you can write the path to the subdirectory
-in which you are interested. For example:
+**Test Outcome - Passed:** If the contents of the files with the ``.out`` extension
+are identical to their correspondingly-named files with the extension ``.gold``,
+the command will report that the tests passed successfully, e.g.
+
 ```
-$ cabal test testsuite/compiler
+ Running 1 test suites...
+ Test suite gf-tests: RUNNING...
+ Test suite gf-tests: PASS
+ 1 of 1 test suites (1 of 1 test cases) passed.
 ```
-will run only the testsuite for the compiler.
+
+**Test Outcome - Failed:**  If there is a contents mismatch between the files
+with the ``.out`` extension and their corresponding files with the extension ``.gold``,
+the test diagnostics will show a fail and the areas that failed. e.g.
+
+```
+  testsuite/compiler/compute/Records.gfs: OK
+  testsuite/compiler/compute/Variants.gfs: FAIL
+  testsuite/compiler/params/params.gfs: OK
+  Test suite gf-tests: FAIL
+  0 of 1 test suites (0 of 1 test cases) passed.
+```
+
+The fail results overview is available in gf-tests.html which shows 4 columns:
+
++ __Results__ - only areas that fail will appear. (Note: There are 3 failures in the gf-tests.html which are labelled as (expected). These failures should be ignored.)
++ __Input__ - which is the test written in the .gfs file
++ __Gold__ - the expected output from running the test set out in the .gfs file. This column refers to the contents from the .gold extension files.
++ __Output__ - This column refers to the contents from the .out extension files which are generated as test output.
+After fixing the areas which fail, rerun the test command. Repeat the entire process of fix-and-test until the test suite passes before  submitting a pull request to include your changes.

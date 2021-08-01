@@ -30,11 +30,12 @@ import Debug.Trace(trace)
 normalForm :: GlobalEnv -> L Ident -> Term -> Term
 normalForm (GE gr rv opts _) loc = err (bugloc loc) id . nfx (GE gr rv opts loc)
 
+nfx :: GlobalEnv -> Term -> Err Term
 nfx env@(GE _ _ _ loc) t = do
   v <- eval env [] t
-  case value2term loc [] v of
-    Left i  -> fail ("variable #"++show i++" is out of scope")
-    Right t -> return t
+  return (value2term loc [] v)
+    -- Old value2term error message:
+    -- Left i  -> fail ("variable #"++show i++" is out of scope")
 
 eval :: GlobalEnv -> Env -> Term -> Err Value
 eval (GE gr rvs opts loc) env t = ($ (map snd env)) # value cenv t
@@ -288,9 +289,9 @@ glue env (v1,v2) = glu v1 v2
           (v1,v2) -> if flag optPlusAsBind (opts env)
                        then VC v1 (VC (VApp BIND []) v2)
                        else let loc  = gloc env
-                                vt v = case value2term loc (local env) v of
-                                         Left i  -> Error ('#':show i)
-                                         Right t -> t
+                                vt v = value2term loc (local env) v
+                                        -- Old value2term error message:
+                                        --  Left i  -> Error ('#':show i)
                                 originalMsg = render $ ppL loc (hang "unsupported token gluing" 4
                                                                (Glue (vt v1) (vt v2)))
                                 term = render $ pp  $ Glue (vt v1) (vt v2)
@@ -355,9 +356,9 @@ select env vv =
       (v1,v2) -> ok2 VS v1 v2
 
 match loc cs v =
-  case value2term loc [] v of
-    Left i  -> bad ("variable #"++show i++" is out of scope")
-    Right t -> err bad return (matchPattern cs t)
+  err bad return (matchPattern cs (value2term loc [] v))
+    -- Old value2term error message:
+    -- Left i  -> bad ("variable #"++show i++" is out of scope")
   where
     bad = fail . ("In pattern matching: "++)
 
@@ -383,9 +384,8 @@ valueTable env i cs =
     wild = case i of TWild _ -> True; _ -> False
 
     convertv cs' vty =
-      case value2term (gloc env) [] vty of
-        Left i    -> fail ("variable #"++show i++" is out of scope")
-        Right pty -> convert' cs' =<< paramValues'' env pty
+      convert' cs' =<< paramValues'' env (value2term (gloc env) [] vty)
+        -- Old value2term error message: Left i    -> fail ("variable #"++show i++" is out of scope")
 
     convert cs' ty = convert' cs' =<< paramValues' env ty
 
@@ -492,58 +492,60 @@ vtrace loc arg res = trace (render (hang (pv arg) 4 ("->"<+>pv res))) res
     pf (_,VString n) = pp n
     pf (_,v) = ppV v
     pa (_,v) = ppV v
-    ppV v = case value2term' True loc [] v of
-              Left i  -> "variable #" <> pp i <+> "is out of scope"
-              Right t -> ppTerm Unqualified 10 t
+    ppV v = ppTerm Unqualified 10 (value2term' True loc [] v)
+              -- Old value2term error message:
+              -- Left i  -> "variable #" <> pp i <+> "is out of scope"
 
 -- | Convert a value back to a term
-value2term :: GLocation -> [Ident] -> Value -> Either Int Term
+value2term :: GLocation -> [Ident] -> Value -> Term
 value2term = value2term' False
+
+value2term' :: Bool -> p -> [Ident] -> Value -> Term
 value2term' stop loc xs v0 =
   case v0 of
-    VApp pre vs    -> liftM (foldl App (Q (cPredef,predefName pre))) (mapM v2t vs)
-    VCApp f vs     -> liftM  (foldl App (QC f))   (mapM v2t vs)
-    VGen j vs      -> liftM2 (foldl App) (var j)  (mapM v2t vs)
-    VMeta j env vs -> liftM  (foldl App (Meta j)) (mapM v2t vs)
-    VProd bt v x f -> liftM2 (Prod bt x) (v2t v) (v2t' x f)
-    VAbs  bt   x f -> liftM  (Abs  bt x)         (v2t' x f)
-    VInt n         -> return (EInt n)
-    VFloat f       -> return (EFloat f)
-    VString s      -> return (if null s then Empty else K s)
-    VSort s        -> return (Sort s)
-    VImplArg v     -> liftM  ImplArg (v2t v)
-    VTblType p res -> liftM2 Table (v2t p) (v2t res)
-    VRecType rs    -> liftM  RecType (mapM (\(l,v) -> fmap ((,) l) (v2t v)) rs)
-    VRec as        -> liftM  R       (mapM (\(l,v) -> v2t v >>= \t -> return (l,(Nothing,t))) as)
-    VV t _ vs      -> liftM  (V t)   (mapM v2t vs)
-    VT wild v cs   -> v2t v >>= \t -> liftM (T ((if wild then TWild else TTyped) t)) (mapM nfcase cs)
-    VFV vs         -> liftM  FV (mapM v2t vs)
-    VC v1 v2       -> liftM2 C (v2t v1) (v2t v2)
-    VS v1 v2       -> liftM2 S (v2t v1) (v2t v2)
-    VP v l         -> v2t v >>= \t -> return (P t l)
-    VPatt p        -> return (EPatt p)
-    VPattType v    -> v2t v >>= return . EPattType
-    VAlts v vvs    -> liftM2 Alts (v2t v) (mapM (\(x,y) -> liftM2 (,) (v2t x) (v2t y)) vvs)
-    VStrs vs       -> liftM  Strs (mapM v2t vs)
+    VApp pre vs    -> applyMany (Q (cPredef,predefName pre)) vs
+    VCApp f vs     -> applyMany (QC f)                       vs
+    VGen j vs      -> applyMany (var j)                      vs
+    VMeta j env vs -> applyMany (Meta j)                     vs
+    VProd bt v x f -> Prod bt x (v2t v)  (v2t' x f)
+    VAbs  bt   x f -> Abs  bt x          (v2t' x f)
+    VInt n         -> EInt n
+    VFloat f       -> EFloat f
+    VString s      -> if null s then Empty else K s
+    VSort s        -> Sort s
+    VImplArg v     -> ImplArg (v2t v)
+    VTblType p res -> Table (v2t p) (v2t res)
+    VRecType rs    -> RecType [(l, v2t v) | (l,v) <- rs]
+    VRec as        -> R       [(l, (Nothing, v2t v)) | (l,v) <- as]
+    VV t _ vs      -> V t     (map v2t vs)
+    VT wild v cs   -> T ((if wild then TWild else TTyped) (v2t v)) (map nfcase cs)
+    VFV vs         -> FV (map v2t vs)
+    VC v1 v2       -> C (v2t v1) (v2t v2)
+    VS v1 v2       -> S (v2t v1) (v2t v2)
+    VP v l         -> P (v2t v) l
+    VPatt p        -> EPatt p
+    VPattType v    -> EPattType $ v2t v
+    VAlts v vvs    -> Alts (v2t v) [(v2t x, v2t y) | (x,y) <- vvs]
+    VStrs vs       -> Strs (map v2t vs)
 --  VGlue v1 v2    -> Glue (v2t v1) (v2t v2)
 --  VExtR v1 v2    -> ExtR (v2t v1) (v2t v2)
-    VError err     -> return (Error err)
-
+    VError err     -> Error err
   where
+    applyMany f vs = foldl App f (map v2t vs)
     v2t = v2txs xs
     v2txs = value2term' stop loc
     v2t' x f = v2txs (x:xs) (bind f (gen xs))
 
     var j
-      | j<length xs = Right (Vr (reverse xs !! j))
-      | otherwise   = Left  j
+      | j<length xs = Vr (reverse xs !! j)
+      | otherwise   = error ("variable #"++show j++" is out of scope")
 
 
     pushs xs e = foldr push e xs
     push x (env,xs) = ((x,gen xs):env,x:xs)
     gen xs = VGen (length xs) []
 
-    nfcase (p,f) = liftM ((,) p) (v2txs xs' (bind f env'))
+    nfcase (p,f) = (,) p (v2txs xs' (bind f env'))
       where (env',xs') = pushs (pattVars p) ([],xs)
 
     bind (Bind f) x = if stop
