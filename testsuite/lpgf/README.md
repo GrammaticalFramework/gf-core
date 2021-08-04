@@ -1,25 +1,24 @@
 # LPGF testsuite & benchmark
 
-## Test
+## Testsuite
 
 LPGF must be equivalent to PGF in terms of linearisation output.
 
 Possible exceptions:
 - No handling of variants (design choice)
-- Rendering of missing fucntions
+- Rendering of missing functions
+
+**N.B.**
+Phrasebook doesn't compile with RGL after 1131058b68c204a8d1312d2e2a610748eb8032cb
 
 ### Running
 
 ```
-stack build --test --bench --no-run-tests --no-run-benchmarks
-stack test gf:test:lpgf # all LPGF tests
-stack test gf:test:lpgf --test-arguments="unittests/Params" # specific grammar
-stack test gf:test:lpgf --test-arguments="foods/Foods Fre Ger" # specific grammar and languages
-```
-
-```
-stack build --test --bench --no-run-tests --no-run-benchmarks && DEBUG=1 stack test gf:test:lpgf --test-arguments="foods/Foods Fre Ger"
-stack build --test --bench --no-run-tests --no-run-benchmarks && DEBUG=1 stack test gf:test:lpgf --test-arguments="phrasebook/Phrasebook Bul"
+stack build --work-dir .stack-work-test --test --no-run-tests
+stack test  --work-dir .stack-work-test gf:test:lpgf # all LPGF tests
+stack test  --work-dir .stack-work-test gf:test:lpgf --test-arguments="unittests/Params" # specific grammar
+stack test  --work-dir .stack-work-test gf:test:lpgf --test-arguments="foods/Foods Fre Ger" # specific grammar and languages
+stack test  --work-dir .stack-work-test gf:test:lpgf --test-arguments="phrasebook/Phrasebook"
 ```
 
 Set environment variable `DEBUG=1` to enable dumping of intermediate formats.
@@ -49,21 +48,21 @@ Run each command separately so that memory measurements are isolated.
 The `+RTS -T -RTS` is so that GHC can report its own memory usage.
 
 ```
-stack build --test --bench --no-run-tests --no-run-benchmarks &&
-stack bench --benchmark-arguments "compile pgf  testsuite/lpgf/foods/Foods*.gf +RTS -T -RTS" &&
-stack bench --benchmark-arguments "compile lpgf testsuite/lpgf/foods/Foods*.gf +RTS -T -RTS" &&
-stack bench --benchmark-arguments "run pgf  Foods.pgf  testsuite/lpgf/foods/Foods-all.trees +RTS -T -RTS" &&
-stack bench --benchmark-arguments "run pgf2 Foods.pgf  testsuite/lpgf/foods/Foods-all.trees +RTS -T -RTS" &&
-stack bench --benchmark-arguments "run lpgf Foods.lpgf testsuite/lpgf/foods/Foods-all.trees +RTS -T -RTS"
+stack build --work-dir .stack-work-bench --bench --no-run-benchmarks &&
+stack bench --work-dir .stack-work-bench --benchmark-arguments "compile pgf  testsuite/lpgf/foods/Foods*.gf +RTS -T -RTS" &&
+stack bench --work-dir .stack-work-bench --benchmark-arguments "compile lpgf testsuite/lpgf/foods/Foods*.gf +RTS -T -RTS" &&
+stack bench --work-dir .stack-work-bench --benchmark-arguments "run pgf  Foods.pgf  testsuite/lpgf/foods/Foods-all.trees +RTS -T -RTS" &&
+stack bench --work-dir .stack-work-bench --benchmark-arguments "run pgf2 Foods.pgf  testsuite/lpgf/foods/Foods-all.trees +RTS -T -RTS" &&
+stack bench --work-dir .stack-work-bench --benchmark-arguments "run lpgf Foods.lpgf testsuite/lpgf/foods/Foods-all.trees +RTS -T -RTS"
 ```
 
 ```
-stack build --test --bench --no-run-tests --no-run-benchmarks &&
-stack bench --benchmark-arguments "compile pgf  testsuite/lpgf/phrasebook/Phrasebook*.gf +RTS -T -RTS" &&
-stack bench --benchmark-arguments "compile lpgf testsuite/lpgf/phrasebook/Phrasebook*.gf +RTS -T -RTS" &&
-stack bench --benchmark-arguments "run pgf  Phrasebook.pgf  testsuite/lpgf/phrasebook/Phrasebook-10000.trees +RTS -T -RTS" &&
-stack bench --benchmark-arguments "run pgf2 Phrasebook.pgf  testsuite/lpgf/phrasebook/Phrasebook-10000.trees +RTS -T -RTS" &&
-stack bench --benchmark-arguments "run lpgf Phrasebook.lpgf testsuite/lpgf/phrasebook/Phrasebook-10000.trees +RTS -T -RTS"
+stack build --work-dir .stack-work-bench --bench --no-run-benchmarks &&
+stack bench --work-dir .stack-work-bench --benchmark-arguments "compile pgf  testsuite/lpgf/phrasebook/Phrasebook*.gf +RTS -T -RTS" &&
+stack bench --work-dir .stack-work-bench --benchmark-arguments "compile lpgf testsuite/lpgf/phrasebook/Phrasebook*.gf +RTS -T -RTS" &&
+stack bench --work-dir .stack-work-bench --benchmark-arguments "run pgf  Phrasebook.pgf  testsuite/lpgf/phrasebook/Phrasebook-10000.trees +RTS -T -RTS" &&
+stack bench --work-dir .stack-work-bench --benchmark-arguments "run pgf2 Phrasebook.pgf  testsuite/lpgf/phrasebook/Phrasebook-10000.trees +RTS -T -RTS" &&
+stack bench --work-dir .stack-work-bench --benchmark-arguments "run lpgf Phrasebook.lpgf testsuite/lpgf/phrasebook/Phrasebook-10000.trees +RTS -T -RTS"
 ```
 
 ## Profiling

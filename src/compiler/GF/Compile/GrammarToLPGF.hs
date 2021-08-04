@@ -71,25 +71,10 @@ mkConcrete debug (C.Abstract _ _ _ funs) (C.Concrete modId absModId flags params
 
     lindefs :: [C.LinDef]
     lindefs =
-      [ C.LinDef funId varIds linValue'
+      [ C.LinDef funId varIds linValue
       | (C.LinDef funId varIds linValue) <- lindefs0
       , let Right linType = lookupLinType funId
-      , let linValue' = cleanupRecordFields linValue linType
       ]
-
-    -- Filter out record fields from definitions which don't appear in lincat.
-    -- Workaround for https://github.com/GrammaticalFramework/gf-core/issues/101
-    cleanupRecordFields :: C.LinValue -> C.LinType -> C.LinValue
-    cleanupRecordFields (C.RecordValue rrvs) (C.RecordType rrs) =
-      let defnFields = Map.fromList [ (lid, lt) | (C.RecordRow lid lt) <- rrs ]
-      in C.RecordValue
-          [ C.RecordRow lid lv'
-          | C.RecordRow lid lv <- rrvs
-          , Map.member lid defnFields
-          , let Just lt = Map.lookup lid defnFields
-          , let lv' = cleanupRecordFields lv lt
-          ]
-    cleanupRecordFields lv _ = lv
 
     -- Builds maps for lookups
 
@@ -102,14 +87,9 @@ mkConcrete debug (C.Abstract _ _ _ funs) (C.Concrete modId absModId flags params
     funMap :: Map.Map C.FunId C.FunDef
     funMap = Map.fromList [ (fid,d) | d@(C.FunDef fid _) <- funs ]
 
-    -- | Lookup paramdef, providing dummy fallback when not found
-    -- Workaround for https://github.com/GrammaticalFramework/gf-core/issues/100
+    -- | Lookup paramdef
     lookupParamDef :: C.ParamId -> Either String C.ParamDef
-    lookupParamDef pid = case Map.lookup pid paramValueMap of
-      Just d -> Right d
-      Nothing ->
-        -- Left $ printf "Cannot find param definition: %s" (show pid)
-        Right $ C.ParamDef (C.ParamId (C.Unqual (rawIdentS "DUMMY"))) [C.Param pid []]
+    lookupParamDef pid = m2e (printf "Cannot find param definition: %s" (show pid)) (Map.lookup pid paramValueMap)
 
     -- | Lookup lintype for a function
     lookupLinType :: C.FunId -> Either String C.LinType
@@ -181,9 +161,8 @@ mkConcrete debug (C.Abstract _ _ _ funs) (C.Concrete modId absModId flags params
             x -> Left $ printf "Unknown predef function: %s" x
 
           C.RecordValue rrvs -> do
-            let rrvs' = sortRecordRows rrvs
-            ts <- sequence [ val2lin lv | C.RecordRow lid lv <- rrvs' ]
-            return (L.Tuple (map fst ts), Just $ C.RecordType [ C.RecordRow lid lt | (C.RecordRow lid _, (_, Just lt)) <- zip rrvs' ts])
+            ts <- sequence [ val2lin lv | C.RecordRow lid lv <- rrvs ]
+            return (L.Tuple (map fst ts), Just $ C.RecordType [ C.RecordRow lid lt | (C.RecordRow lid _, (_, Just lt)) <- zip rrvs ts])
 
           C.TableValue lt trvs -> do
             -- group the rows by "left-most" value
@@ -325,22 +304,6 @@ inlineParamAliases defs = if null aliases then defs else map rp' pdefs
     rp''' pid = case L.find (\(C.ParamAliasDef p _) -> p == pid) aliases of
       Just (C.ParamAliasDef _ (C.ParamType (C.ParamTypeId p))) -> p
       _ -> pid
-
--- | Always put 's' reocord field first, then sort alphabetically.
--- Workaround for https://github.com/GrammaticalFramework/gf-core/issues/102
--- Based on GF.Granmar.Macros.sortRec
-sortRecordRows :: [C.RecordRowValue] -> [C.RecordRowValue]
-sortRecordRows = L.sortBy ordLabel
-  where
-    ordLabel (C.RecordRow (C.LabelId l1) _) (C.RecordRow (C.LabelId l2) _) =
-      case (showRawIdent l1, showRawIdent l2) of
-        ("s",_) -> LT
-        (_,"s") -> GT
-        (s1,s2) -> compare s1 s2
-
--- sortRecord :: C.LinValue -> C.LinValue
--- sortRecord (C.RecordValue rrvs) = C.RecordValue (sortRecordRows rrvs)
--- sortRecord lv = lv
 
 isParamAliasDef :: C.ParamDef -> Bool
 isParamAliasDef (C.ParamAliasDef _ _) = True
