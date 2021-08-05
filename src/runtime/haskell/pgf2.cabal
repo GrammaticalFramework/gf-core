@@ -25,5 +25,10 @@ library
 
   extra-libraries:     pgf
   cc-options:          -std=c99
-  default-language:    Haskell2010
   c-sources:           utils.c
+
+test-suite basic
+  type:       exitcode-stdio-1.0
+  main-is:    tests/basic.hs
+  default-language:    Haskell2010
+  build-depends: base, HUnit, pgf2
