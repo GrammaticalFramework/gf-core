@@ -39,12 +39,22 @@
 
 typedef struct PgfPGF PgfPGF;
 
+typedef enum {
+    PGF_EXN_NONE,
+    PGF_EXN_SYSTEM_ERROR,
+    PGF_EXN_PGF_ERROR
+}  PgfExnType;
+
 typedef struct {
-    const char *type;
+    PgfExnType type;
+    int code;
     const char *msg;
 } PgfExn;
 
 PGF_API_DECL
 PgfPGF *pgf_read(const char* fpath, PgfExn* err);
+
+PGF_API_DECL
+void pgf_free(PgfPGF *pgf);
 
 #endif // PGF_H_

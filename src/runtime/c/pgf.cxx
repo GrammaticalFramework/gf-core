@@ -1,10 +1,20 @@
 #include "data.h"
 #include "reader.h"
 
+static void
+pgf_exn_clear(PgfExn* err)
+{
+    err->type = PGF_EXN_NONE;
+    err->code = 0;
+    err->msg  = NULL;
+}
+
 PGF_API
 PgfPGF *pgf_read(const char* fpath, PgfExn* err)
 {
     PgfPGF *pgf = NULL;
+
+    pgf_exn_clear(err);
 
     try {
         std::string fpath_n = fpath;
@@ -30,11 +40,11 @@ PgfPGF *pgf_read(const char* fpath, PgfExn* err)
 
         return pgf;
     } catch (std::system_error& e) {
-        err->type = "system_error";
-        err->msg  = NULL;
+        err->type = PGF_EXN_SYSTEM_ERROR;
+        err->code = e.code().value();
     } catch (pgf_error& e) {
-        err->type = "pgf_error";
-        err->msg  = e.what();
+        err->type = PGF_EXN_PGF_ERROR;
+        err->msg  = strdup(e.what());
     }
 
     if (pgf != NULL)
@@ -48,4 +58,10 @@ void PgfPGF::set_root() {
     root->major_version = major_version;
     root->minor_version = minor_version;
     DB::set_root(root);
+}
+
+PGF_API
+void pgf_free(PgfPGF *pgf)
+{
+    delete pgf;
 }
