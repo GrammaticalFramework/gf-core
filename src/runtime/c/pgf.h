@@ -39,6 +39,22 @@
 
 typedef struct PgfPGF PgfPGF;
 
+/* All functions that may fail take a reference to a PgfExn structure.
+ * It is used as follows:
+ * 
+ * - If everything went fine, the field type will be equal to
+ * PGF_EXN_NONE and all other fields will be zeroed.
+ *
+ * - If the exception was caused by external factors such as an error
+ * from a system call, then type will be PGF_EXN_SYSTEM_ERROR and
+ * the field code will contain the value of errno from the C runtime.
+ *
+ * - If the exception was caused by factors related to the GF runtime
+ * itself, then the error type is PGF_EXN_PGF_ERROR, and the field
+ * msg will contain a newly allocated string which must be freed from
+ * the caller.
+ */
+
 typedef enum {
     PGF_EXN_NONE,
     PGF_EXN_SYSTEM_ERROR,
