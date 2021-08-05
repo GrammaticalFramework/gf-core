@@ -17,7 +17,7 @@ module PGF2 (-- * PGF
              PGF,readPGF
             ) where
 
-import Control.Exception(Exception,throwIO)
+import Control.Exception(Exception,throwIO,mask_)
 import PGF2.FFI
 
 import Foreign
@@ -30,7 +30,8 @@ import qualified Data.Map as Map
 readPGF :: FilePath -> IO PGF
 readPGF fpath =
   withCString fpath $ \c_fpath ->
-  allocaBytes (#size PgfExn) $ \c_exn -> do
+  allocaBytes (#size PgfExn) $ \c_exn ->
+  mask_ $ do
     c_pgf <- pgf_read c_fpath c_exn
     ex_type <- (#peek PgfExn, type) c_exn :: IO (#type PgfExnType)
     if ex_type == (#const PGF_EXN_NONE)
@@ -41,6 +42,7 @@ readPGF fpath =
                      ioError (errnoToIOError "readPGF" (Errno errno) Nothing (Just fpath))
              else do c_msg <- (#peek PgfExn, msg) c_exn
                      msg <- peekCString c_msg
+                     free c_msg
                      throwIO (PGFError msg)
 
 -----------------------------------------------------------------------
