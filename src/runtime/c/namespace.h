@@ -111,30 +111,42 @@ public:
                     if (right->right == 0) {
                         return new_node(value,0,right);
                     } else {
+                        Namespace<V> new_left =
+                            new_node(value);
                         return new_node(right->value,
-                                        new_node(value),
+                                        new_left,
                                         right->right);
                     }
                 } else {
                     if (right->right == 0) {
+                        Namespace<V> new_left =
+                            new_node(value);
+                        Namespace<V> new_right =
+                            new_node(right->value);
                         return new_node(right->left->value,
-                                        new_node(value),
-                                        new_node(right->value));
+                                        new_left,
+                                        new_right);
                     } else {
                         if (right->left->sz < 2 * right->right->sz) {
+                            Namespace<V> new_left =
+                                new_node(value,
+                                         0,
+                                         right->left);
                             return new_node(right->value,
-                                            new_node(value,
-                                                     0,
-                                                     right->left),
+                                            new_left,
                                             right->right);
                         } else {
+                            Namespace<V> new_left =
+                                new_node(value,
+                                         0,
+                                         right->left->left);
+                            Namespace<V> new_right =
+                                new_node(right->value,
+                                         right->left->right,
+                                         right->right);
                             return new_node(right->left->value,
-                                            new_node(value,
-                                                     0,
-                                                     right->left->left),
-                                            new_node(right->value,
-                                                     right->left->right,
-                                                     right->right));
+                                            new_left,
+                                            new_right);
                         }
                     }
                 }
@@ -144,20 +156,28 @@ public:
                 return new_node(value,left,0);
             } else {
                 if (right->sz > 3*left->sz) {
-                    if (right->left->sz < 2*right->right->sz)
+                    if (right->left->sz < 2*right->right->sz) {
+                        Namespace<V> new_left =
+                            new_node(value,
+                                     left,
+                                     right->left);
                         return new_node(right->value,
-                                        new_node(value,
-                                                 left,
-                                                 right->left),
+                                        new_left,
                                         right->right);
-                    else
+                    } else {
+                        Namespace<V> new_left =
+                            new_node(value,
+                                     left,
+                                     right->left->left);
+                        Namespace<V> new_right =
+                            new_node(right->value,
+                                     right->left->right,
+                                     right->right);
                         return new_node(right->left->value,
-                                        new_node(value,
-                                                 left,
-                                                 right->left->left),
-                                        new_node(right->value,
-                                                 right->left->right,
-                                                 right->right));
+                                        new_left,
+                                        new_right
+                                        );
+                    }
                 } else {
                     return new_node(value,left,right);
                 }
