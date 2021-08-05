@@ -189,7 +189,7 @@ PgfLiteral PgfReader::read_literal()
     switch (tag) {
 	case PgfLiteralStr::tag: {
 		ref<PgfLiteralStr> lit_str =
-            read_name<PgfLiteralStr>(&PgfLiteralStr::val);
+            read_text<PgfLiteralStr>(&PgfLiteralStr::val);
         lit = ref<PgfLiteralStr>::tagged(lit_str);
 		break;
 	}
