@@ -395,6 +395,14 @@ ref<PgfAbsCat> PgfReader::read_abscat()
 {
     ref<PgfAbsCat> abscat = read_name<PgfAbsCat>(&PgfAbsCat::name);
     abscat->context = read_vector<PgfHypo>(&PgfReader::read_hypo);
+
+    // for now we just read the set of functions per category and ignore them
+    size_t n_funs = read_len();
+    for (size_t i = 0; i < n_funs; i++) {
+        read_double();
+        read_name();
+    }
+
     abscat->prob    = - log(read_double());
     return abscat;
 }
