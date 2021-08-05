@@ -14,10 +14,17 @@
 -------------------------------------------------
 
 module PGF2 (-- * PGF
-             PGF,readPGF
+             PGF,readPGF,
+
+             -- * Abstract syntax
+             AbsName,abstractName,
+
+             -- * Concrete syntax
+             ConcName
             ) where
 
-import Control.Exception(Exception,throwIO,mask_)
+import Control.Exception(Exception,throwIO,mask_,bracket)
+import System.IO.Unsafe(unsafePerformIO)
 import PGF2.FFI
 
 import Foreign
@@ -26,6 +33,9 @@ import Data.Typeable
 import qualified Data.Map as Map
 
 #include <pgf.h>
+
+type AbsName  = String -- ^ Name of abstract syntax
+type ConcName = String -- ^ Name of concrete syntax
 
 readPGF :: FilePath -> IO PGF
 readPGF fpath =
@@ -44,6 +54,15 @@ readPGF fpath =
                      msg <- peekCString c_msg
                      free c_msg
                      throwIO (PGFError msg)
+
+-- | The abstract language name is the name of the top-level
+-- abstract module
+abstractName :: PGF -> AbsName
+abstractName p =
+  unsafePerformIO $
+  withForeignPtr (a_pgf p) $ \c_pgf ->
+  bracket (pgf_abstract_name c_pgf) free $ \c_text ->
+    peekText c_text
 
 -----------------------------------------------------------------------
 -- Exceptions

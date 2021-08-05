@@ -37,6 +37,12 @@
 
 #endif
 
+/* A generic structure to store text. The last field is variable length */
+typedef struct {
+    size_t size;
+    char text[];
+} PgfText;
+
 typedef struct PgfPGF PgfPGF;
 
 /* All functions that may fail take a reference to a PgfExn structure.

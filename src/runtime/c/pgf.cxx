@@ -65,3 +65,9 @@ void pgf_free(PgfPGF *pgf)
 {
     delete pgf;
 }
+
+PGF_API
+PgfText *pgf_abstract_name(PgfPGF* pgf)
+{
+	return textdup(&(*pgf->abstract.name));
+}
