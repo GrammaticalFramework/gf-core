@@ -403,7 +403,7 @@ ref<PgfAbsCat> PgfReader::read_abscat()
         read_name();
     }
 
-    abscat->prob    = - log(read_double());
+    abscat->prob  = - log(read_double());
     return abscat;
 }
 
