@@ -4,6 +4,7 @@
 #include <stdint.h>
 #include <string.h>
 #include <sys/types.h>
+#include <assert.h>
 #include <iostream>
 #include <exception>
 #include <stdexcept>
@@ -11,6 +12,7 @@
 #include "pgf.h"
 #include "db.h"
 #include "text.h"
+#include "vector.h"
 #include "namespace.h"
 #include "expr.h"
 
@@ -21,7 +23,7 @@ public:
         this->msg = msg;
     }
 
-    const char *what() const throw ()
+    virtual const char *what() const throw ()
     {
     	return msg;
     }
@@ -35,9 +37,76 @@ struct PGF_INTERNAL_DECL PgfFlag {
     PgfText name;
 };
 
+// PgfPatt
+
+typedef variant PgfPatt;
+
+struct PgfPattApp {
+    static const uint8_t tag = 0;
+
+	ref<PgfText> ctor;
+    PgfVector<PgfPatt> args;
+};
+
+struct PgfPattVar {
+    static const uint8_t tag = 1;
+
+	PgfText name;
+};
+
+struct PgfPattAs {
+    static const uint8_t tag = 2;
+
+	PgfPatt patt;
+	PgfText name;
+};
+
+struct PgfPattWild {
+    static const uint8_t tag = 3;
+};
+
+struct PgfPattLit {
+    static const uint8_t tag = 4;
+
+	PgfLiteral lit;
+};
+
+struct PgfPattImplArg {
+    static const uint8_t tag = 5;
+
+	PgfPatt patt;
+};
+
+struct PgfPattTilde {
+    static const uint8_t tag = 6;
+
+	PgfExpr expr;
+};
+
 typedef struct {
-	ref<char> name;
+	PgfExpr body;
+	PgfVector<PgfPatt> patts;
+} PgfEquation;
+
+struct PGF_INTERNAL_DECL PgfAbsFun {
+    ref<PgfType> type;
+	int arity;
+    ref<PgfVector<ref<PgfEquation>>> defns;
+    PgfExprProb ep;
+    PgfText name;
+};
+
+typedef struct {
+	ref<PgfVector<PgfHypo>> context;
+	prob_t prob;
+    PgfText name;
+} PgfAbsCat;
+
+typedef struct {
+	ref<PgfText> name;
     Namespace<PgfFlag> aflags;
+    Namespace<PgfAbsFun> funs;
+    Namespace<PgfAbsCat> cats;
 } PgfAbstr;
 
 struct PGF_INTERNAL_DECL PgfPGFRoot {

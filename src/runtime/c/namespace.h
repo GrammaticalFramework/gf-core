@@ -182,13 +182,13 @@ Namespace<V> namespace_insert(Namespace<V> map, ref<V> value) {
         return Node<V>::new_node(value);
 
     int cmp = textcmp(value->name,map->value->name);
-    if (cmp < 0)
-        return Node<V>::balanceL(map->value,
-                                 namespace_insert(map->left, value),map->right);
-    else if (cmp > 0)
-        return Node<V>::balanceR(map->value,
-                                 map->left, namespace_insert(map->right, value));
-    else
+    if (cmp < 0) {
+        Namespace<V> left = namespace_insert(map->left, value);
+        return Node<V>::balanceL(map->value,left,map->right);
+    } else if (cmp > 0) {
+        Namespace<V> right = namespace_insert(map->right, value);
+        return Node<V>::balanceR(map->value, map->left, right);
+    } else
         return Node<V>::new_node(value,map->left,map->right);
 }
 

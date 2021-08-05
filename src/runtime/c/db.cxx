@@ -6,8 +6,8 @@
 
 #include "data.h"
 
-thread_local unsigned char* current_base;
-thread_local DB* current_db;
+unsigned char* current_base;
+DB* current_db;
 
 #ifndef DEFAULT_TOP_PAD
 #define DEFAULT_TOP_PAD        (0)
@@ -267,7 +267,7 @@ struct malloc_state
     /* Bitmap of bins */
     unsigned int binmap[BINMAPSIZE];
     /* Reference to the root object */
-    size_t root_offset;
+    moffset root_offset;
 };
 
 DB::DB(const char* pathname) {
@@ -309,12 +309,12 @@ DB::~DB() {
     close(fd);
 }
 
-moffset DB::get_root_offset() {
+moffset DB::get_root_internal() {
     return ms->root_offset;
 }
 
-void DB::set_root_offset(moffset root) {
-    ms->root_offset = root;
+void DB::set_root_internal(moffset root_offset) {
+    ms->root_offset = root_offset;
 }
 
 void
@@ -448,7 +448,7 @@ static void malloc_consolidate(malloc_state *ms)
 }
 
 moffset
-DB::malloc(size_t bytes)
+DB::malloc_internal(size_t bytes)
 {
     unsigned int idx;                 /* associated bin index */
     mbin* bin;                        /* associated bin */
@@ -819,7 +819,7 @@ DB::malloc(size_t bytes)
 }
 
 void
-DB::free(moffset o)
+DB::free_internal(moffset o)
 {
     size_t size;                 /* its size */
     moffset *fb;                 /* associated fastbin */

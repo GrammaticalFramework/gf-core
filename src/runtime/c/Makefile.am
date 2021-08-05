@@ -17,8 +17,7 @@ libpgf_la_SOURCES = \
 	reader.h \
 	data.h \
 	expr.h \
-	namespace.h \
-	variant.h
+	namespace.h
 
 libpgf_la_LDFLAGS = "-no-undefined"
 

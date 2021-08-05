@@ -16,7 +16,7 @@ PgfPGF *pgf_read(const char* fpath, PgfExn* err)
 
         pgf = new PgfPGF(fpath_n.c_str());
 
-        if (pgf->db.get_root<PgfPGFRoot>() == 0) {
+        if (DB::get_root<PgfPGFRoot>() == 0) {
             std::ifstream in(fpath, std::ios::binary);
             if (in.fail()) {
                 throw std::system_error(errno, std::generic_category());
@@ -44,8 +44,8 @@ PgfPGF *pgf_read(const char* fpath, PgfExn* err)
 }
 
 void PgfPGF::set_root() {
-    ref<PgfPGFRoot> root = db.malloc<PgfPGFRoot>();
+    ref<PgfPGFRoot> root = DB::malloc<PgfPGFRoot>();
     root->major_version = major_version;
     root->minor_version = minor_version;
-    db.set_root(root);
+    DB::set_root(root);
 }
