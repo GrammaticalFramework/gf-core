@@ -65,9 +65,9 @@ public:
 
     ref<PgfAbsFun> read_absfun();
     ref<PgfAbsCat> read_abscat();
-    void read_abstract(PgfAbstr* abstract);
+    void read_abstract(ref<PgfAbstr> abstract);
 
-    void read_pgf(PgfPGFRoot* pgf);
+    ref<PgfPGFRoot> read_pgf();
 
 private:
     std::istream *in;

@@ -120,13 +120,9 @@ struct PGF_INTERNAL_DECL PgfPGFRoot {
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wattributes"
 
-struct PgfPGF : public PgfPGFRoot {
-    DB db;
-
-    PGF_INTERNAL_DECL PgfPGF(const char* fpath) : db(fpath) {};
+struct PgfPGF : DB {
+    PGF_INTERNAL_DECL PgfPGF(const char* fpath) : DB(fpath) {};
     PGF_INTERNAL_DECL ~PgfPGF() {};
-
-    PGF_INTERNAL_DECL void set_root();
 };
 
 #pragma GCC diagnostic pop

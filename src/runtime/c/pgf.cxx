@@ -33,9 +33,11 @@ PgfPGF *pgf_read(const char* fpath, PgfExn* err)
             }
 
             PgfReader rdr(&in);
-            rdr.read_pgf(pgf);
+            ref<PgfPGFRoot> pgf_root = rdr.read_pgf();
 
-            pgf->set_root();
+            pgf->set_root(pgf_root);
+
+            DB::sync();
         }
 
         return pgf;
@@ -53,13 +55,6 @@ PgfPGF *pgf_read(const char* fpath, PgfExn* err)
     return NULL;
 }
 
-void PgfPGF::set_root() {
-    ref<PgfPGFRoot> root = DB::malloc<PgfPGFRoot>();
-    root->major_version = major_version;
-    root->minor_version = minor_version;
-    DB::set_root(root);
-}
-
 PGF_API
 void pgf_free(PgfPGF *pgf)
 {
@@ -69,5 +64,5 @@ void pgf_free(PgfPGF *pgf)
 PGF_API
 PgfText *pgf_abstract_name(PgfPGF* pgf)
 {
-	return textdup(&(*pgf->abstract.name));
+	return textdup(&(*pgf->get_root<PgfPGFRoot>()->abstract.name));
 }

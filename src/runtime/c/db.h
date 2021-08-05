@@ -86,6 +86,8 @@ public:
         current_db->set_root_internal(root.offset);
     }
 
+    static void sync();
+
 private:
     void init_state(size_t size);
 

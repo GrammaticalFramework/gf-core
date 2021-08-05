@@ -309,6 +309,16 @@ DB::~DB() {
     close(fd);
 }
 
+void DB::sync()
+{
+    size_t size =
+        current_db->ms->top + size + sizeof(size_t);
+
+    int res = msync((void *) current_db->ms, size, MS_SYNC | MS_INVALIDATE);
+    if (res != 0)
+        throw std::system_error(errno, std::generic_category());
+}
+
 moffset DB::get_root_internal() {
     return ms->root_offset;
 }

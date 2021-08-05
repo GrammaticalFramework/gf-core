@@ -407,7 +407,7 @@ ref<PgfAbsCat> PgfReader::read_abscat()
     return abscat;
 }
 
-void PgfReader::read_abstract(PgfAbstr* abstract)
+void PgfReader::read_abstract(ref<PgfAbstr> abstract)
 {
     abstract->name = read_name();
 	abstract->aflags = read_namespace<PgfFlag>(&PgfReader::read_flag);
@@ -415,12 +415,16 @@ void PgfReader::read_abstract(PgfAbstr* abstract)
     abstract->cats = read_namespace<PgfAbsCat>(&PgfReader::read_abscat);
 }
 
-void PgfReader::read_pgf(PgfPGFRoot *pgf)
+ref<PgfPGFRoot> PgfReader::read_pgf()
 {
+    ref<PgfPGFRoot> pgf = DB::malloc<PgfPGFRoot>();
+
     pgf->major_version = read_u16be();
     pgf->minor_version = read_u16be();
 
     pgf->gflags = read_namespace<PgfFlag>(&PgfReader::read_flag);
 
-    read_abstract(&pgf->abstract);
+    read_abstract(ref<PgfAbstr>::from_ptr(&pgf->abstract));
+
+    return pgf;
 }
