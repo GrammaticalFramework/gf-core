@@ -1,3 +1,4 @@
+#include <fcntl.h>
 #include "data.h"
 #include "reader.h"
 
@@ -10,21 +11,14 @@ pgf_exn_clear(PgfExn* err)
 }
 
 PGF_API
-PgfPGF *pgf_read(const char* fpath, PgfExn* err)
+PgfPGF *pgf_read_pgf(const char* fpath, PgfExn* err)
 {
     PgfPGF *pgf = NULL;
 
     pgf_exn_clear(err);
 
     try {
-        std::string fpath_n = fpath;
-        size_t len = fpath_n.length();
-        if (len > 4 && fpath_n.substr(len-4) == ".pgf")
-            fpath_n[len-3] = 'n';
-        else if (!(len > 4 && fpath_n.substr(len-4) == ".ngf"))
-            fpath_n += ".ngf";
-
-        pgf = new PgfPGF(fpath_n.c_str());
+        pgf = new PgfPGF(NULL, 0, 0);
 
         if (DB::get_root<PgfPGFRoot>() == 0) {
             std::ifstream in(fpath, std::ios::binary);
@@ -38,6 +32,80 @@ PgfPGF *pgf_read(const char* fpath, PgfExn* err)
             pgf->set_root(pgf_root);
 
             DB::sync();
+        }
+
+        return pgf;
+    } catch (std::system_error& e) {
+        err->type = PGF_EXN_SYSTEM_ERROR;
+        err->code = e.code().value();
+    } catch (pgf_error& e) {
+        err->type = PGF_EXN_PGF_ERROR;
+        err->msg  = strdup(e.what());
+    }
+
+    if (pgf != NULL)
+        delete pgf;
+
+    return NULL;
+}
+
+PGF_API
+PgfPGF *pgf_boot_ngf(const char* pgf_path, const char* ngf_path, PgfExn* err)
+{
+    PgfPGF *pgf = NULL;
+
+    pgf_exn_clear(err);
+
+    try {
+        pgf = new PgfPGF(ngf_path, O_CREAT | O_EXCL | O_RDWR, S_IRUSR | S_IWUSR);
+
+        std::ifstream in(pgf_path, std::ios::binary);
+        if (in.fail()) {
+            throw std::system_error(errno, std::generic_category());
+        }
+
+        PgfReader rdr(&in);
+        ref<PgfPGFRoot> pgf_root = rdr.read_pgf();
+
+        pgf->set_root(pgf_root);
+
+        DB::sync();
+
+        return pgf;
+    } catch (std::system_error& e) {
+        err->type = PGF_EXN_SYSTEM_ERROR;
+        err->code = e.code().value();
+    } catch (pgf_error& e) {
+        err->type = PGF_EXN_PGF_ERROR;
+        err->msg  = strdup(e.what());
+    }
+
+    if (pgf != NULL)
+        delete pgf;
+
+    return NULL;
+}
+
+PGF_API
+PgfPGF *pgf_read_ngf(const char *fpath, PgfExn* err)
+{
+    PgfPGF *pgf = NULL;
+
+    pgf_exn_clear(err);
+
+    try {
+        pgf = new PgfPGF(fpath, O_CREAT | O_RDWR, S_IRUSR | S_IWUSR);
+
+        if (DB::get_root<PgfPGFRoot>() == 0) {
+            ref<PgfPGFRoot> pgf = DB::malloc<PgfPGFRoot>();
+            pgf->major_version = 2;
+            pgf->minor_version = 0;
+            pgf->gflags = 0;
+            pgf->abstract.name = DB::malloc<PgfText>();
+            pgf->abstract.name->size = 0;
+            pgf->abstract.aflags = 0;
+            pgf->abstract.funs = 0;
+            pgf->abstract.cats = 0;
         }
 
         return pgf;

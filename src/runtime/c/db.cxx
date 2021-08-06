@@ -270,26 +270,35 @@ struct malloc_state
     moffset root_offset;
 };
 
-DB::DB(const char* pathname) {
-    fd = open(pathname, O_CREAT | O_RDWR, S_IRUSR | S_IWUSR);
-    if (fd < 0)
-        throw std::system_error(errno, std::generic_category());
-
-    size_t file_size = lseek(fd, 0, SEEK_END);
-
-    if (file_size == ((off_t) -1))
-        throw std::system_error(errno, std::generic_category());
-
+DB::DB(const char* pathname, int flags, int mode) {
+    size_t file_size;
     bool is_new = false;
-    if (file_size == 0) {
+
+    if (pathname == NULL) {
+        fd = -1;
         file_size = getpagesize();
-        if (ftruncate(fd, file_size) < 0)
+        is_new    = true;
+    } else {
+        fd = open(pathname, flags, mode);
+        if (fd < 0)
             throw std::system_error(errno, std::generic_category());
-        is_new = true;
+
+        file_size = lseek(fd, 0, SEEK_END);
+        if (file_size == ((off_t) -1))
+            throw std::system_error(errno, std::generic_category());
+
+        is_new = false;
+        if (file_size == 0) {
+            file_size = getpagesize();
+            if (ftruncate(fd, file_size) < 0)
+                throw std::system_error(errno, std::generic_category());
+            is_new = true;
+        }
     }
 
+    int mflags = (fd < 0) ? (MAP_PRIVATE | MAP_ANONYMOUS) : MAP_SHARED;
     ms = (malloc_state*)
-        mmap(NULL, file_size, PROT_READ | PROT_WRITE, MAP_SHARED, fd, 0);
+        mmap(NULL, file_size, PROT_READ | PROT_WRITE, mflags, fd, 0);
     if (ms == MAP_FAILED)
         throw std::system_error(errno, std::generic_category());
 
@@ -306,7 +315,9 @@ DB::~DB() {
         ms->top + size + sizeof(size_t);
 
     munmap(ms,size);
-    close(fd);
+
+    if (fd >= 0)
+        close(fd);
 }
 
 void DB::sync()
@@ -803,8 +814,10 @@ DB::malloc_internal(size_t bytes)
             size_t new_size =
                 old_size + alloc_size;
 
-            if (ftruncate(fd, new_size) < 0)
-                throw std::system_error(errno, std::generic_category());
+            if (fd >= 0) {
+                if (ftruncate(fd, new_size) < 0)
+                    throw std::system_error(errno, std::generic_category());
+            }
 
             malloc_state* new_ms =
                 (malloc_state*) mremap(ms, old_size, new_size, MREMAP_MAYMOVE);

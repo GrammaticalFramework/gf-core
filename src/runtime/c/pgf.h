@@ -80,9 +80,25 @@ typedef struct {
     const char *msg;
 } PgfExn;
 
+/* Reads a PGF file and keeps it in memory. */
 PGF_API_DECL
-PgfPGF *pgf_read(const char* fpath, PgfExn* err);
+PgfPGF *pgf_read_pgf(const char* fpath, PgfExn* err);
 
+/* Reads a PGF file and stores the unpacked data in an NGF file
+ * ready to be shared with other process, or used for quick startup.
+ * The NGF file is platform dependent and should not be copied
+ * between machines. */
+PGF_API_DECL
+PgfPGF *pgf_boot_ngf(const char* pgf_path, const char* ngf_path, PgfExn* err);
+
+/* Tries to read the grammar from an already booted NGF file.
+ * If the file does not exist then a new one is created, and the
+ * grammar is set to be empty. It can later be populated with
+ * rules dynamically. */
+PGF_API_DECL
+PgfPGF *pgf_read_ngf(const char* fpath, PgfExn* err);
+
+/* Release the grammar when it is no longer needed. */
 PGF_API_DECL
 void pgf_free(PgfPGF *pgf);
 

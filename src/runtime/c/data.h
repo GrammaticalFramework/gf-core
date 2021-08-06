@@ -121,7 +121,8 @@ struct PGF_INTERNAL_DECL PgfPGFRoot {
 #pragma GCC diagnostic ignored "-Wattributes"
 
 struct PgfPGF : DB {
-    PGF_INTERNAL_DECL PgfPGF(const char* fpath) : DB(fpath) {};
+    PGF_INTERNAL_DECL PgfPGF(const char* fpath, int flags, int mode)
+                         : DB(fpath, flags, mode) {};
     PGF_INTERNAL_DECL ~PgfPGF() {};
 };
 

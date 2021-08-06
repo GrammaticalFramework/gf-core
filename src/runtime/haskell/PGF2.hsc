@@ -14,7 +14,7 @@
 -------------------------------------------------
 
 module PGF2 (-- * PGF
-             PGF,readPGF,
+             PGF,readPGF,bootNGF,readNGF,
 
              -- * Abstract syntax
              AbsName,abstractName,
@@ -48,7 +48,44 @@ readPGF fpath =
   withCString fpath $ \c_fpath ->
   allocaBytes (#size PgfExn) $ \c_exn ->
   mask_ $ do
-    c_pgf <- pgf_read c_fpath c_exn
+    c_pgf <- pgf_read_pgf c_fpath c_exn
+    ex_type <- (#peek PgfExn, type) c_exn :: IO (#type PgfExnType)
+    if ex_type == (#const PGF_EXN_NONE)
+      then do fptr <- newForeignPtr pgf_free_fptr c_pgf
+              return (PGF fptr Map.empty)
+      else if ex_type == (#const PGF_EXN_SYSTEM_ERROR)
+             then do errno <- (#peek PgfExn, code) c_exn
+                     ioError (errnoToIOError "readPGF" (Errno errno) Nothing (Just fpath))
+             else do c_msg <- (#peek PgfExn, msg) c_exn
+                     msg <- peekCString c_msg
+                     free c_msg
+                     throwIO (PGFError msg)
+
+bootNGF :: FilePath -> FilePath -> IO PGF
+bootNGF pgf_path ngf_path =
+  withCString pgf_path $ \c_pgf_path ->
+  withCString ngf_path $ \c_ngf_path ->
+  allocaBytes (#size PgfExn) $ \c_exn ->
+  mask_ $ do
+    c_pgf <- pgf_boot_ngf c_pgf_path c_ngf_path c_exn
+    ex_type <- (#peek PgfExn, type) c_exn :: IO (#type PgfExnType)
+    if ex_type == (#const PGF_EXN_NONE)
+      then do fptr <- newForeignPtr pgf_free_fptr c_pgf
+              return (PGF fptr Map.empty)
+      else if ex_type == (#const PGF_EXN_SYSTEM_ERROR)
+             then do errno <- (#peek PgfExn, code) c_exn
+                     ioError (errnoToIOError "bootNGF" (Errno errno) Nothing (Just pgf_path))
+             else do c_msg <- (#peek PgfExn, msg) c_exn
+                     msg <- peekCString c_msg
+                     free c_msg
+                     throwIO (PGFError msg)
+
+readNGF :: FilePath -> IO PGF
+readNGF fpath =
+  withCString fpath $ \c_fpath ->
+  allocaBytes (#size PgfExn) $ \c_exn ->
+  mask_ $ do
+    c_pgf <- pgf_read_ngf c_fpath c_exn
     ex_type <- (#peek PgfExn, type) c_exn :: IO (#type PgfExnType)
     if ex_type == (#const PGF_EXN_NONE)
       then do fptr <- newForeignPtr pgf_free_fptr c_pgf

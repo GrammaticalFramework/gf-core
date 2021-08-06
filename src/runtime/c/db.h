@@ -63,7 +63,7 @@ private:
     friend class PgfReader;
 
 public:
-    DB(const char* pathname);
+    DB(const char* pathname, int flags, int mode);
     ~DB();
 
     template<class A>

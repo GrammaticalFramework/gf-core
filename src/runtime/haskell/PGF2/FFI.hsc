@@ -31,8 +31,14 @@ foreign import ccall unsafe "pgf_utf8_decode"
 foreign import ccall unsafe "pgf_utf8_encode"
   pgf_utf8_encode :: Word32 -> Ptr CString -> IO ()
 
-foreign import ccall "pgf_read"
-  pgf_read :: CString -> Ptr PgfExn -> IO (Ptr PgfPGF)
+foreign import ccall "pgf_read_pgf"
+  pgf_read_pgf :: CString -> Ptr PgfExn -> IO (Ptr PgfPGF)
+
+foreign import ccall "pgf_boot_ngf"
+  pgf_boot_ngf :: CString -> CString -> Ptr PgfExn -> IO (Ptr PgfPGF)
+
+foreign import ccall "pgf_read_ngf"
+  pgf_read_ngf :: CString -> Ptr PgfExn -> IO (Ptr PgfPGF)
 
 foreign import ccall "&pgf_free"
   pgf_free_fptr :: FinalizerPtr PgfPGF
