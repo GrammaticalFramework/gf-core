@@ -18,6 +18,10 @@ module PGF2 (-- * PGF
 
              -- * Abstract syntax
              AbsName,abstractName,
+             -- ** Categories
+             Cat,categories,
+             -- ** Functions
+             Fun, functions, functionsByCat,
 
              -- * Concrete syntax
              ConcName
@@ -25,12 +29,14 @@ module PGF2 (-- * PGF
 
 import Control.Exception(Exception,throwIO,mask_,bracket)
 import System.IO.Unsafe(unsafePerformIO)
+import PGF2.Expr
 import PGF2.FFI
 
 import Foreign
 import Foreign.C
 import Data.Typeable
 import qualified Data.Map as Map
+import Data.IORef
 
 #include <pgf.h>
 
@@ -60,9 +66,67 @@ readPGF fpath =
 abstractName :: PGF -> AbsName
 abstractName p =
   unsafePerformIO $
-  withForeignPtr (a_pgf p) $ \c_pgf ->
-  bracket (pgf_abstract_name c_pgf) free $ \c_text ->
+  withForeignPtr (a_pgf p) $ \p_pgf ->
+  bracket (pgf_abstract_name p_pgf) free $ \c_text ->
     peekText c_text
+
+-- | List of all functions defined in the abstract syntax
+categories :: PGF -> [Fun]
+categories p =
+  unsafePerformIO $ do
+    ref <- newIORef []
+    (allocaBytes (#size PgfItor) $ \itor ->
+     bracket (wrapItorCallback (getCategories ref)) freeHaskellFunPtr $ \fptr ->
+     withForeignPtr (a_pgf p) $ \p_pgf -> do
+      (#poke PgfItor, fn) itor fptr
+      pgf_iter_categories p_pgf itor
+      cs <- readIORef ref
+      return (reverse cs))
+  where
+    getCategories :: IORef [String] -> ItorCallback
+    getCategories ref itor key = do
+      names <- readIORef ref
+      name  <- peekText key
+      writeIORef ref $ (name : names)
+
+-- | List of all functions defined in the abstract syntax
+functions :: PGF -> [Fun]
+functions p =
+  unsafePerformIO $ do
+    ref <- newIORef []
+    (allocaBytes (#size PgfItor) $ \itor ->
+     bracket (wrapItorCallback (getFunctions ref)) freeHaskellFunPtr $ \fptr ->
+     withForeignPtr (a_pgf p) $ \p_pgf -> do
+      (#poke PgfItor, fn) itor fptr
+      pgf_iter_functions p_pgf itor
+      fs <- readIORef ref
+      return (reverse fs))
+  where
+    getFunctions :: IORef [String] -> ItorCallback
+    getFunctions ref itor key = do
+      names <- readIORef ref
+      name  <- peekText key
+      writeIORef ref $ (name : names)
+
+-- | List of all functions defined in the abstract syntax
+functionsByCat :: PGF -> Cat -> [Fun]
+functionsByCat p cat =
+  unsafePerformIO $ do
+    ref <- newIORef []
+    (withText cat $ \c_cat ->
+     allocaBytes (#size PgfItor) $ \itor ->
+     bracket (wrapItorCallback (getFunctions ref)) freeHaskellFunPtr $ \fptr ->
+     withForeignPtr (a_pgf p) $ \p_pgf -> do
+      (#poke PgfItor, fn) itor fptr
+      pgf_iter_functions_by_cat p_pgf c_cat itor
+      fs <- readIORef ref
+      return (reverse fs))
+  where
+    getFunctions :: IORef [String] -> ItorCallback
+    getFunctions ref itor key = do
+      names <- readIORef ref
+      name  <- peekText key
+      writeIORef ref $ (name : names)
 
 -----------------------------------------------------------------------
 -- Exceptions

@@ -2,7 +2,7 @@
 #define TEXT_H
 
 PGF_INTERNAL_DECL
-int textcmp(PgfText &t1, PgfText &t2);
+int textcmp(PgfText *t1, PgfText *t2);
 
 PGF_INTERNAL_DECL
 PgfText* textdup(PgfText *t1);

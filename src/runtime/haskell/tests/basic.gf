@@ -1,8 +1,10 @@
 abstract basic = {
 
-cat N ;
+cat N; S ;
 
-fun Z : N ;
-    S : N -> N ;
+fun z : N ;
+    s : N -> N ;
+
+fun c : N -> S ;
 
 }

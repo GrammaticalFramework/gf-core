@@ -43,6 +43,13 @@ typedef struct {
     char text[];
 } PgfText;
 
+/* A generic structure to pass a callback for iteration over a collection */
+typedef struct PgfItor PgfItor;
+
+struct PgfItor {
+	void (*fn)(PgfItor* self, PgfText* key, void *value);
+};
+
 typedef struct PgfPGF PgfPGF;
 
 /* All functions that may fail take a reference to a PgfExn structure.
@@ -78,5 +85,17 @@ PgfPGF *pgf_read(const char* fpath, PgfExn* err);
 
 PGF_API_DECL
 void pgf_free(PgfPGF *pgf);
+
+PGF_API_DECL
+PgfText *pgf_abstract_name(PgfPGF* pgf);
+
+PGF_API_DECL
+void pgf_iter_categories(PgfPGF* pgf, PgfItor* itor);
+
+PGF_API_DECL
+void pgf_iter_functions(PgfPGF* pgf, PgfItor* itor);
+
+PGF_API
+void pgf_iter_functions_by_cat(PgfPGF* pgf, PgfText* cat, PgfItor* itor);
 
 #endif // PGF_H_

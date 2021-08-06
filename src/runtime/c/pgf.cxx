@@ -66,3 +66,40 @@ PgfText *pgf_abstract_name(PgfPGF* pgf)
 {
 	return textdup(&(*pgf->get_root<PgfPGFRoot>()->abstract.name));
 }
+
+PGF_API
+void pgf_iter_categories(PgfPGF* pgf, PgfItor* itor)
+{
+	namespace_iter(pgf->get_root<PgfPGFRoot>()->abstract.cats, itor);
+}
+
+PGF_API
+void pgf_iter_functions(PgfPGF* pgf, PgfItor* itor)
+{
+    namespace_iter(pgf->get_root<PgfPGFRoot>()->abstract.funs, itor);
+}
+
+struct PgfItorHelper : PgfItor
+{
+    PgfText *cat;
+    PgfItor *itor;
+};
+
+static
+void iter_by_cat_helper(PgfItor* itor, PgfText* key, void* value)
+{
+    PgfItorHelper* helper = (PgfItorHelper*) itor;
+    PgfAbsFun* absfun = (PgfAbsFun*) value;
+    if (textcmp(helper->cat, &absfun->type->name) == 0)
+        helper->itor->fn(helper->itor, key, value);
+}
+
+PGF_API
+void pgf_iter_functions_by_cat(PgfPGF* pgf, PgfText* cat, PgfItor* itor)
+{
+    PgfItorHelper helper;
+    helper.fn   = iter_by_cat_helper;
+    helper.cat  = cat;
+    helper.itor = itor;
+    namespace_iter(pgf->get_root<PgfPGFRoot>()->abstract.funs, &helper);
+}

@@ -187,21 +187,24 @@ public:
 };
 
 template <class V>
-Namespace<V> namespace_empty() {
+Namespace<V> namespace_empty()
+{
     return 0;
 }
 
 template <class V>
-Namespace<V> namespace_singleton(ref<V> value) {
+Namespace<V> namespace_singleton(ref<V> value)
+{
     return Node<V>::new_node(value);
 }
 
 template <class V>
-Namespace<V> namespace_insert(Namespace<V> map, ref<V> value) {
+Namespace<V> namespace_insert(Namespace<V> map, ref<V> value)
+{
     if (map == 0)
         return Node<V>::new_node(value);
 
-    int cmp = textcmp(value->name,map->value->name);
+    int cmp = textcmp(&value->name,&map->value->name);
     if (cmp < 0) {
         Namespace<V> left = namespace_insert(map->left, value);
         return Node<V>::balanceL(map->value,left,map->right);
@@ -213,7 +216,8 @@ Namespace<V> namespace_insert(Namespace<V> map, ref<V> value) {
 }
 
 template <class V>
-ref<V> namespace_lookup(Namespace<V> map, const char *name) {
+ref<V> namespace_lookup(Namespace<V> map, const char *name)
+{
     while (map != 0) {
         int cmp = strcmp(name,map->value->name);
         if (cmp < 0)
@@ -227,9 +231,21 @@ ref<V> namespace_lookup(Namespace<V> map, const char *name) {
 }
 
 template <class V>
-size_t namespace_size(Namespace<V> map) {
+size_t namespace_size(Namespace<V> map)
+{
     if (map == 0)
         return 0;
     return map->sz;
+}
+
+template <class V>
+void namespace_iter(Namespace<V> map, PgfItor* itor)
+{
+    if (map == 0)
+        return;
+
+    namespace_iter(map->left, itor);
+    itor->fn(itor, &map->value->name, &(*map->value));
+    namespace_iter(map->right, itor);
 }
 #endif
