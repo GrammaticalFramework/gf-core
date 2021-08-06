@@ -43,6 +43,7 @@ import Data.IORef
 type AbsName  = String -- ^ Name of abstract syntax
 type ConcName = String -- ^ Name of concrete syntax
 
+-- | Reads a PGF file and keeps it in memory.
 readPGF :: FilePath -> IO PGF
 readPGF fpath =
   withCString fpath $ \c_fpath ->
@@ -61,6 +62,10 @@ readPGF fpath =
                      free c_msg
                      throwIO (PGFError msg)
 
+-- | Reads a PGF file and stores the unpacked data in an NGF file
+-- ready to be shared with other process, or used for quick startup.
+-- The NGF file is platform dependent and should not be copied
+-- between machines.
 bootNGF :: FilePath -> FilePath -> IO PGF
 bootNGF pgf_path ngf_path =
   withCString pgf_path $ \c_pgf_path ->
@@ -80,6 +85,10 @@ bootNGF pgf_path ngf_path =
                      free c_msg
                      throwIO (PGFError msg)
 
+-- | Tries to read the grammar from an already booted NGF file.
+-- If the file does not exist then a new one is created, and the
+-- grammar is set to be empty. It can later be populated with
+-- rules dynamically.
 readNGF :: FilePath -> IO PGF
 readNGF fpath =
   withCString fpath $ \c_fpath ->
