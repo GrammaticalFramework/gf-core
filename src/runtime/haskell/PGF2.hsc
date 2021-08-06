@@ -22,7 +22,10 @@ module PGF2 (-- * PGF
              Cat,categories,
              -- ** Functions
              Fun, functions, functionsByCat,
-
+             -- ** Expressions
+             Expr(..), Literal(..),
+             -- ** Types
+             Type(..), Hypo, BindType(..),
              -- * Concrete syntax
              ConcName
             ) where
