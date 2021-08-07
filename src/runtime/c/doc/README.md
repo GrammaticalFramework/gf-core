@@ -9,6 +9,6 @@ So, **Don't Panick!** and keep reading. This is a live document and will develop
 
 **TABLE OF CONTENTS**
 
-1. [DESIDERATA](DESIDERATA.md)
+1. [Desiderata](DESIDERATA.md)
 2. [Memory Model](memory_model.md)
 
