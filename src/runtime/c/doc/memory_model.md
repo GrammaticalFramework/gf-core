@@ -44,12 +44,15 @@ same file is mapped from several processes (if they all load the same grammar), 
 Last but not least using `MAP_FIXED` is considered a security risk.
 
 Since the start address of the mapping can change, using traditional memory pointers withing the mapped area is not possible. The only option is to use offsets
-relative to the beginning of the area. On other words, if normally we would have had a pointer `p`, now we have the offset `o` which is converted to a
-pointer by using `current_base+o`.
+relative to the beginning of the area. In other words, if normally we would have written `p->x`, now we have the offset `o` which we must use like this:
+```C++
+((A*) (current_base+o))->x
+```
 
-Writing explicitly the pointer arithmetics and the corresponding typecasts, each time when we dereference a pointer, is too tedious and verbose. Instead,
-we use the operator overloading in C++. There is the type `ref<A>` which wraps around a file offset to a data item of type `A`. The operators `->` and `*`
-are overloaded for that type and they do the necessary pointer arithmetics and type casts.
+Writing the explicit pointer arithmetics and typecasts, each time when we dereference a pointer, is not better than Vogon poetry and it
+becomes worse when using a chain of arrow operators. The solution is to use the operator overloading in C++. 
+There is the type `ref<A>` which wraps around a file offset to a data item of type `A`. The operators `->` and `*`
+are overloaded for the type and they do the necessary pointer arithmetics and type casts.
 
 This solves the problem with code readability but creates another problem. How do `->` and `*` know the address of the memory mapped area? Obviously,
 `current_base` must be a static variable and there must be a way to initialize that variable.
@@ -85,3 +88,39 @@ Note the flag `READER_SCOPE`. You can use either `READER_SCOPE` or `WRITER_SCOPE
 the single writer, multiple readers policy. The main problem is that a writer may have to enlarge the current file, which consequently may mean
 that the kernel should relocate the mapping area to a new address. If there are readers at the same time, they way break since they expect that the mapped
 area is at a particular location.
+
+# Developing Writers
+
+There is one important complication when developing procedures modifying the database. Every call to `DB::malloc` may potentially have to enlarge the mapped area
+which sometimes leads to changing `current_base`. That would not have been a problem if GCC was not sometimes caching variables in registers. Look at the following code:
+```C++
+p->r = foo();
+```
+Here `p` is a reference which is used to access another reference `r`. On the other hand, `foo()` is a procedure which directly or indirectly calls `DB::malloc`.
+GCC compiles assignments by first computing the address to modify, and then it evaluates the right hand side. This means that while `foo()` is beeing evaluated the address computed on the left-hand side is saved in a register or somewhere in the stack. But now, if it happens that the allocation in `foo()` has changed
+`current_base`, then the saved address is no longer valid.
+
+That first problem is solved by overloading the assignment operator for `ref<A>`:
+```C++
+ref<A>& operator= (const ref<A>& r) {
+    offset = r.offset;
+    return *this;
+}
+```
+On a first sight, nothing special happens here and it looks like the overloading is redundant. However, now the assignments are compiled in a very different way.
+The overloaded operator is inlined, so there is no real method call and we don't get any overhead. The real difference is that now, whatever is on the left-hand side of the assignment becomes the value of the `this` pointer, and `this` is always the last thing to be evaluated in a method call. This solves the problem.
+`foo()` is evaluated first and if it changes `current_base`, the change will be taken into account when computing the left-hand side of the assignment.
+    
+Unfortunately, this is not the only problem. A similar thing happens when the arguments of a function are calls to other functions. See this:
+```C++
+foo(p->r,bar(),q->r)
+```
+Where now `bar()` is the function that do allocation. The compiler is free to keep in a register the value of `current_base` that it needs for the evaluation of
+`p->r`, while it evaluates `bar()`. But if `current_base` has changed, then the saved value would be invalid while computing `q->r`. There doesn't seem to be
+a work around for this. The only solution is to:
+    
+**Never call a function that allocates as an argument to another function**
+    
+Instead we call allocating functions on a separate line and we save the result in a temporary variable.
+
+    
