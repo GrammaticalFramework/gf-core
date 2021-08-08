@@ -55,7 +55,8 @@ There is the type `ref<A>` which wraps around a file offset to a data item of ty
 are overloaded for the type and they do the necessary pointer arithmetics and type casts.
 
 This solves the problem with code readability but creates another problem. How do `->` and `*` know the address of the memory mapped area? Obviously,
-`current_base` must be a static variable and there must be a way to initialize that variable.
+`current_base` must be a global variable and there must be a way to initialize it. More specifically it must be thread local to allow different threads to
+work without collisions.
 
 A database (a memory mapped file) in the runtime is represented by the type `DB`. Before any of the data in the database is accessed, the database must
 be brought into scope. Bringing into scope means that `current_base` is initialized to point to the mapping area for that database. After that any dereferencing
@@ -124,3 +125,12 @@ a work around for this. The only solution is to:
 Instead we call allocating functions on a separate line and we save the result in a temporary variable.
 
     
+# Thread Local Variables
+
+A final remark is the compilation of thread local variables. When a thread local variable is compiled in a position dependent code, i.e. in executables, it is
+compiled efficiently by using the fs register which points to the thread local segment. Unfortunately, that is not the case by default for shared
+libraries like our runtime. In that case, GCC applies the global-dynamic model which means that access to a thread local variable is internally implemented 
+with a call to the function ´__tls_get_addr´. Since `current_base` is used all the time, this adds overhead.
+
+The solution is to define the variable with the attribute `__attribute__((tls_model("initial-exec")))` which says that it should be treated as if it is defined
+in an executable. This removes the overhead, but adds the limitation that the runtime should not be loaded with `dlopen`.
