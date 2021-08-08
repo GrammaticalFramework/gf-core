@@ -2,7 +2,7 @@
 #include <Python.h>
 #include "structmember.h"
 
-#include <pgf.h>
+#include <pgf/pgf.h>
 
 #if PY_MAJOR_VERSION >= 3
 	#define PyIntObject                  PyLongObject
@@ -3521,7 +3521,7 @@ pgf_readPGF(PyObject *self, PyObject *args)
 		return NULL;
     } else if (err.type == PGF_EXN_PGF_ERROR) {
         PyErr_SetString(PGFError, err.msg);
-        free(err.msg);
+        free((char*) err.msg);
 		Py_DECREF(py_pgf);
 		return NULL;
 	}

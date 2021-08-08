@@ -9,7 +9,7 @@ import Foreign.Ptr
 import Foreign.ForeignPtr
 import qualified Data.Map as Map
 
-#include <pgf.h>
+#include <pgf/pgf.h>
 
 -- | An abstract data type representing multilingual grammar
 -- in Portable Grammar Format.

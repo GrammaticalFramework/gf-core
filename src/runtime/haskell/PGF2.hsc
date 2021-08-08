@@ -41,7 +41,7 @@ import Data.Typeable
 import qualified Data.Map as Map
 import Data.IORef
 
-#include <pgf.h>
+#include <pgf/pgf.h>
 
 type AbsName  = String -- ^ Name of abstract syntax
 type ConcName = String -- ^ Name of concrete syntax
