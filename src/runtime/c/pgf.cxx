@@ -131,7 +131,7 @@ PgfPGF *pgf_read_ngf(const char *fpath, PgfExn* err)
     if (pgf != NULL) {
         delete pgf;
         if (is_new)
-            remove(ngf_path);
+            remove(fpath);
     }
 
     return NULL;
