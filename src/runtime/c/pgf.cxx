@@ -84,8 +84,10 @@ PgfPGF *pgf_boot_ngf(const char* pgf_path, const char* ngf_path, PgfExn* err)
         err->msg  = strdup(e.what());
     }
 
-    if (pgf != NULL)
+    if (pgf != NULL) {
         delete pgf;
+        remove(ngf_path);
+    }
 
     return NULL;
 }
@@ -97,10 +99,13 @@ PgfPGF *pgf_read_ngf(const char *fpath, PgfExn* err)
 
     pgf_exn_clear(err);
 
+    bool is_new = false;
     try {
         pgf = new PgfPGF(fpath, O_CREAT | O_RDWR, S_IRUSR | S_IWUSR);
 
         if (DB::get_root<PgfPGFRoot>() == 0) {
+            is_new = true;
+
             DB_scope scope(pgf, WRITER_SCOPE);
 
             ref<PgfPGFRoot> root = DB::malloc<PgfPGFRoot>();
@@ -123,8 +128,11 @@ PgfPGF *pgf_read_ngf(const char *fpath, PgfExn* err)
         err->msg  = strdup(e.what());
     }
 
-    if (pgf != NULL)
+    if (pgf != NULL) {
         delete pgf;
+        if (is_new)
+            remove(ngf_path);
+    }
 
     return NULL;
 }
