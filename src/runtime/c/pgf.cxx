@@ -103,20 +103,22 @@ PgfPGF *pgf_read_ngf(const char *fpath, PgfExn* err)
     try {
         pgf = new PgfPGF(fpath, O_CREAT | O_RDWR, S_IRUSR | S_IWUSR);
 
-        if (DB::get_root<PgfPGFRoot>() == 0) {
-            is_new = true;
-
+        {
             DB_scope scope(pgf, WRITER_SCOPE);
 
-            ref<PgfPGFRoot> root = DB::malloc<PgfPGFRoot>();
-            root->major_version = 2;
-            root->minor_version = 0;
-            root->gflags = 0;
-            root->abstract.name = DB::malloc<PgfText>();
-            root->abstract.name->size = 0;
-            root->abstract.aflags = 0;
-            root->abstract.funs = 0;
-            root->abstract.cats = 0;
+            if (DB::get_root<PgfPGFRoot>() == 0) {
+                is_new = true;
+                ref<PgfPGFRoot> root = DB::malloc<PgfPGFRoot>();
+                root->major_version = 2;
+                root->minor_version = 0;
+                root->gflags = 0;
+                root->abstract.name = DB::malloc<PgfText>();
+                root->abstract.name->size = 0;
+                root->abstract.aflags = 0;
+                root->abstract.funs = 0;
+                root->abstract.cats = 0;
+                DB::set_root<PgfPGFRoot>(root);
+            }
         }
 
         return pgf;
