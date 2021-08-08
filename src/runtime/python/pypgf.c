@@ -2,12 +2,7 @@
 #include <Python.h>
 #include "structmember.h"
 
-#include <gu/mem.h>
-#include <gu/map.h>
-#include <gu/file.h>
-#include <gu/utf8.h>
-#include <pgf/pgf.h>
-#include <pgf/linearizer.h>
+#include <pgf.h>
 
 #if PY_MAJOR_VERSION >= 3
 	#define PyIntObject                  PyLongObject
@@ -42,10 +37,9 @@ static PyObject* TypeError;
 
 typedef struct {
     PyObject_HEAD
-    GuPool* pool;
     PgfPGF* pgf;
 } PGFObject;
-
+#if 0
 typedef struct {
 	PyObject_HEAD
 	PyObject* master;
@@ -2820,15 +2814,14 @@ static PyTypeObject pgf_ConcrType = {
     0,                         /*tp_alloc */
     (newfunc)Concr_new,        /*tp_new */
 };
-
+#endif
 static void
 PGF_dealloc(PGFObject* self)
 {
-	if (self->pool != NULL)
-		gu_pool_free(self->pool);
+    pgf_free(self->pgf);
     Py_TYPE(self)->tp_free((PyObject*)self);
 }
-
+#if 0
 typedef struct {
 	GuMapItor fn;
 	PGFObject* grammar;
@@ -2843,11 +2836,11 @@ pgf_collect_langs_seq(GuMapItor* fn, const void* key, void* value, GuExn* err)
     
 	gu_buf_push((GuBuf*) clo->collection, PgfConcr*, concr);
 }
-
+#endif
 static PyObject *
 PGF_repr(PGFObject *self)
 {
-	GuPool* tmp_pool = gu_local_pool();
+/*	GuPool* tmp_pool = gu_local_pool();
 
 	GuExn* err = gu_exn(tmp_pool);
 	GuStringBuf* sbuf = gu_new_string_buf(tmp_pool);
@@ -2866,9 +2859,10 @@ PGF_repr(PGFObject *self)
 	                                             gu_string_buf_length(sbuf));
 
 	gu_pool_free(tmp_pool);
-	return pystr;
+	return pystr;*/
+    return NULL;
 }
-
+#if 0
 static PyObject*
 PGF_getAbstractName(PGFObject *self, void *closure)
 {
@@ -3403,9 +3397,9 @@ PGF_embed(PGFObject* self, PyObject *args)
 	Py_INCREF(m);
     return m;
 }
-
+#endif
 static PyGetSetDef PGF_getseters[] = {
-    {"abstractName", 
+/*    {"abstractName", 
      (getter)PGF_getAbstractName, NULL,
      "the abstract syntax name",
      NULL},
@@ -3424,7 +3418,7 @@ static PyGetSetDef PGF_getseters[] = {
     {"functions", 
      (getter)PGF_getFunctions, NULL,
      "a list containing all functions in the grammar",
-     NULL},
+     NULL},*/
     {NULL}  /* Sentinel */
 };
 
@@ -3433,7 +3427,7 @@ static PyMemberDef PGF_members[] = {
 };
 
 static PyMethodDef PGF_methods[] = {
-    {"functionsByCat", (PyCFunction)PGF_functionsByCat, METH_VARARGS,
+/*    {"functionsByCat", (PyCFunction)PGF_functionsByCat, METH_VARARGS,
      "Returns the list of functions for a given category"
     },
     {"functionType", (PyCFunction)PGF_functionType, METH_VARARGS,
@@ -3462,7 +3456,7 @@ static PyMethodDef PGF_methods[] = {
      "contains one Python object for every abstract function in the grammar. "
      "The module can be imported to make it easier to construct abstract "
      "syntax trees."
-    },
+    },*/
     {NULL}  /* Sentinel */
 };
 
@@ -3516,31 +3510,25 @@ pgf_readPGF(PyObject *self, PyObject *args)
 		return NULL;
 
 	PGFObject* py_pgf = (PGFObject*) pgf_PGFType.tp_alloc(&pgf_PGFType, 0);
-	py_pgf->pool = gu_new_pool();
-
-	GuPool* tmp_pool = gu_local_pool();
-
-	// Create an exception frame that catches all errors.
-	GuExn* err = gu_new_exn(tmp_pool);
 
 	// Read the PGF grammar.
-	py_pgf->pgf = pgf_read(fpath, py_pgf->pool, err);
-	if (!gu_ok(err)) {
-		if (gu_exn_caught(err, GuErrno)) {
-			errno = *((GuErrno*) gu_exn_caught_data(err));
-			PyErr_SetFromErrnoWithFilename(PyExc_IOError, fpath);
-		} else {
-			PyErr_SetString(PGFError, "The grammar cannot be loaded");
-		}
+    PgfExn err;
+	py_pgf->pgf = pgf_read_pgf(fpath, &err);
+    if (err.type == PGF_EXN_SYSTEM_ERROR) {
+        errno = err.code;
+        PyErr_SetFromErrnoWithFilename(PyExc_IOError, fpath);
 		Py_DECREF(py_pgf);
-		gu_pool_free(tmp_pool);
+		return NULL;
+    } else if (err.type == PGF_EXN_PGF_ERROR) {
+        PyErr_SetString(PGFError, err.msg);
+        free(err.msg);
+		Py_DECREF(py_pgf);
 		return NULL;
 	}
 
-	gu_pool_free(tmp_pool);
 	return py_pgf;
 }
-
+#if 0
 static ExprObject*
 pgf_readExpr(PyObject *self, PyObject *args) {
 	Py_ssize_t len;
@@ -3600,14 +3588,16 @@ pgf_readType(PyObject *self, PyObject *args) {
 	gu_pool_free(tmp_pool);
     return pytype;
 }
+#endif
 
 static PyMethodDef module_methods[] = {
     {"readPGF",  (void*)pgf_readPGF,  METH_VARARGS,
      "Reads a PGF file in memory"},
-    {"readExpr", (void*)pgf_readExpr, METH_VARARGS,
+/*    {"readExpr", (void*)pgf_readExpr, METH_VARARGS,
      "Parses a string as an abstract tree"},
     {"readType", (void*)pgf_readType, METH_VARARGS,
      "Parses a string as an abstract type"},
+ */
     {NULL, NULL, 0, NULL}        /* Sentinel */
 };
 
@@ -3633,7 +3623,7 @@ MOD_INIT(pgf)
 
 	if (PyType_Ready(&pgf_PGFType) < 0)
 		return MOD_ERROR_VAL;
-
+/*
 	if (PyType_Ready(&pgf_ConcrType) < 0)
 		return MOD_ERROR_VAL;
 
@@ -3651,16 +3641,16 @@ MOD_INIT(pgf)
 
 	if (PyType_Ready(&pgf_IterType) < 0)
 		return MOD_ERROR_VAL;
-
+*/
 	MOD_DEF(m, "pgf", "The Runtime for Portable Grammar Format in Python",
 	        module_methods);
     if (m == NULL)
         return MOD_ERROR_VAL;
-        
+
     PGFError = PyErr_NewException("pgf.PGFError", NULL, NULL);
     PyModule_AddObject(m, "PGFError", PGFError);
     Py_INCREF(PGFError);
-    
+
     PyObject *dict = PyDict_New();
     PyDict_SetItemString(dict, "token", PyString_FromString("")); 
     ParseError = PyErr_NewException("pgf.ParseError", NULL, dict);
@@ -3670,7 +3660,7 @@ MOD_INIT(pgf)
     TypeError = PyErr_NewException("pgf.TypeError", NULL, NULL);
     PyModule_AddObject(m, "TypeError", TypeError);
     Py_INCREF(TypeError);
-
+/*
     PyModule_AddObject(m, "Expr", (PyObject *) &pgf_ExprType);
     Py_INCREF(&pgf_ExprType);
 
@@ -3691,6 +3681,6 @@ MOD_INIT(pgf)
 
     PyModule_AddObject(m, "BIND", (PyObject *) &pgf_BINDType);
     Py_INCREF(&pgf_BINDType);
-
+*/
 	return MOD_SUCCESS_VAL(m);
 }

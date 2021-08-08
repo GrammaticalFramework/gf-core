@@ -13,7 +13,7 @@ pgf_module = Extension('pgf',
                        extra_compile_args = ['-std=c99'],
                        include_dirs = includes,
                        library_dirs = libraries,
-                       libraries = ['gu', 'pgf'])
+                       libraries = ['pgf'])
 
 setup (name = 'pgf',
        version = '1.0',
