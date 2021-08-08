@@ -20,18 +20,18 @@ PgfPGF *pgf_read_pgf(const char* fpath, PgfExn* err)
     try {
         pgf = new PgfPGF(NULL, 0, 0);
 
-        if (DB::get_root<PgfPGFRoot>() == 0) {
-            std::ifstream in(fpath, std::ios::binary);
-            if (in.fail()) {
-                throw std::system_error(errno, std::generic_category());
-            }
+        std::ifstream in(fpath, std::ios::binary);
+        if (in.fail()) {
+            throw std::system_error(errno, std::generic_category());
+        }
+
+        {
+            DB_scope scope(pgf, WRITER_SCOPE);
 
             PgfReader rdr(&in);
             ref<PgfPGFRoot> pgf_root = rdr.read_pgf();
 
             pgf->set_root(pgf_root);
-
-            DB::sync();
         }
 
         return pgf;
@@ -64,12 +64,16 @@ PgfPGF *pgf_boot_ngf(const char* pgf_path, const char* ngf_path, PgfExn* err)
             throw std::system_error(errno, std::generic_category());
         }
 
-        PgfReader rdr(&in);
-        ref<PgfPGFRoot> pgf_root = rdr.read_pgf();
+        {
+            DB_scope scope(pgf, WRITER_SCOPE);
 
-        pgf->set_root(pgf_root);
+            PgfReader rdr(&in);
+            ref<PgfPGFRoot> pgf_root = rdr.read_pgf();
 
-        DB::sync();
+            pgf->set_root(pgf_root);
+
+            DB::sync();
+        }
 
         return pgf;
     } catch (std::system_error& e) {
@@ -97,15 +101,17 @@ PgfPGF *pgf_read_ngf(const char *fpath, PgfExn* err)
         pgf = new PgfPGF(fpath, O_CREAT | O_RDWR, S_IRUSR | S_IWUSR);
 
         if (DB::get_root<PgfPGFRoot>() == 0) {
-            ref<PgfPGFRoot> pgf = DB::malloc<PgfPGFRoot>();
-            pgf->major_version = 2;
-            pgf->minor_version = 0;
-            pgf->gflags = 0;
-            pgf->abstract.name = DB::malloc<PgfText>();
-            pgf->abstract.name->size = 0;
-            pgf->abstract.aflags = 0;
-            pgf->abstract.funs = 0;
-            pgf->abstract.cats = 0;
+            DB_scope scope(pgf, WRITER_SCOPE);
+
+            ref<PgfPGFRoot> root = DB::malloc<PgfPGFRoot>();
+            root->major_version = 2;
+            root->minor_version = 0;
+            root->gflags = 0;
+            root->abstract.name = DB::malloc<PgfText>();
+            root->abstract.name->size = 0;
+            root->abstract.aflags = 0;
+            root->abstract.funs = 0;
+            root->abstract.cats = 0;
         }
 
         return pgf;
@@ -132,18 +138,24 @@ void pgf_free(PgfPGF *pgf)
 PGF_API
 PgfText *pgf_abstract_name(PgfPGF* pgf)
 {
-	return textdup(&(*pgf->get_root<PgfPGFRoot>()->abstract.name));
+    DB_scope scope(pgf, READER_SCOPE);
+
+    return textdup(&(*pgf->get_root<PgfPGFRoot>()->abstract.name));
 }
 
 PGF_API
 void pgf_iter_categories(PgfPGF* pgf, PgfItor* itor)
 {
-	namespace_iter(pgf->get_root<PgfPGFRoot>()->abstract.cats, itor);
+    DB_scope scope(pgf, READER_SCOPE);
+
+    namespace_iter(pgf->get_root<PgfPGFRoot>()->abstract.cats, itor);
 }
 
 PGF_API
 void pgf_iter_functions(PgfPGF* pgf, PgfItor* itor)
 {
+    DB_scope scope(pgf, READER_SCOPE);
+
     namespace_iter(pgf->get_root<PgfPGFRoot>()->abstract.funs, itor);
 }
 
@@ -165,6 +177,8 @@ void iter_by_cat_helper(PgfItor* itor, PgfText* key, void* value)
 PGF_API
 void pgf_iter_functions_by_cat(PgfPGF* pgf, PgfText* cat, PgfItor* itor)
 {
+    DB_scope scope(pgf, READER_SCOPE);
+
     PgfItorHelper helper;
     helper.fn   = iter_by_cat_helper;
     helper.cat  = cat;

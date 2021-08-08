@@ -6,8 +6,9 @@
 
 #include "data.h"
 
-unsigned char* current_base;
-DB* current_db;
+PGF_INTERNAL __thread unsigned char* current_base __attribute__((tls_model("initial-exec"))) = NULL;
+PGF_INTERNAL __thread DB* current_db __attribute__((tls_model("initial-exec"))) = NULL;
+PGF_INTERNAL __thread DB_scope *last_db_scope __attribute__((tls_model("initial-exec"))) = NULL;
 
 #ifndef DEFAULT_TOP_PAD
 #define DEFAULT_TOP_PAD        (0)
@@ -274,8 +275,10 @@ DB::DB(const char* pathname, int flags, int mode) {
     size_t file_size;
     bool is_new = false;
 
+    fd = -1;
+    ms = NULL;
+
     if (pathname == NULL) {
-        fd = -1;
         file_size = getpagesize();
         is_new    = true;
     } else {
@@ -306,18 +309,24 @@ DB::DB(const char* pathname, int flags, int mode) {
         init_state(file_size);
     }
 
-    current_base = (unsigned char*) ms;
-    current_db   = this;
+    int res = pthread_rwlock_init(&rwlock, NULL);
+    if (res != 0) {
+        throw std::system_error(res, std::generic_category());
+    }
 }
 
 DB::~DB() {
-    size_t size =
-        ms->top + size + sizeof(size_t);
+    if (ms != NULL) {
+        size_t size =
+            ms->top + size + sizeof(size_t);
 
-    munmap(ms,size);
+        munmap(ms,size);
+    }
 
     if (fd >= 0)
         close(fd);
+
+    pthread_rwlock_destroy(&rwlock);
 }
 
 void DB::sync()
@@ -931,4 +940,38 @@ DB::free_internal(moffset o)
                 malloc_consolidate(ms);
         }
     }
+}
+
+
+DB_scope::DB_scope(DB *db, DB_scope_mode tp)
+{
+    int res =
+        (tp == READER_SCOPE) ? pthread_rwlock_rdlock(&db->rwlock)
+                             : pthread_rwlock_wrlock(&db->rwlock);
+    if (res != 0)
+        throw std::system_error(res, std::generic_category());
+
+    save_db       = current_db;
+    current_db    = db;
+    current_base  = (unsigned char*) current_db->ms;
+
+    next_scope    = last_db_scope;
+    last_db_scope = this;
+}
+
+DB_scope::~DB_scope()
+{
+    int res = pthread_rwlock_unlock(&current_db->rwlock);
+
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wterminate"
+    if (res != 0)
+        throw std::system_error(res, std::generic_category());
+#pragma GCC diagnostic pop
+
+    current_db    = save_db;
+    current_base  = current_db ? (unsigned char*) current_db->ms
+                               : NULL;
+
+    last_db_scope = next_scope;
 }

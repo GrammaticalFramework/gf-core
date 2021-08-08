@@ -3,8 +3,8 @@
 
 class DB;
 
-extern PGF_INTERNAL_DECL unsigned char* current_base;
-extern PGF_INTERNAL_DECL DB* current_db;
+extern PGF_INTERNAL_DECL __thread unsigned char* current_base __attribute__((tls_model("initial-exec")));
+extern PGF_INTERNAL_DECL __thread DB*            current_db   __attribute__((tls_model("initial-exec")));
 
 typedef size_t moffset;
 
@@ -60,6 +60,8 @@ private:
     int fd;
     malloc_state* ms;
 
+    pthread_rwlock_t rwlock;
+
     friend class PgfReader;
 
 public:
@@ -98,6 +100,22 @@ private:
     void set_root_internal(moffset root_offset);
 
     unsigned char* relocate(unsigned char* ptr);
+
+    friend class DB_scope;
 };
+
+enum DB_scope_mode {READER_SCOPE, WRITER_SCOPE};
+
+class PGF_INTERNAL_DECL DB_scope {
+public:
+    DB_scope(DB *db, DB_scope_mode type);
+    ~DB_scope();
+
+private:
+    DB* save_db;
+    DB_scope* next_scope;
+};
+
+extern PGF_INTERNAL_DECL thread_local DB_scope *last_db_scope;
 
 #endif
