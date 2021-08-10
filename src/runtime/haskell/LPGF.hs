@@ -154,7 +154,7 @@ eval cxt t = case t of
   Projection t u ->
     case (eval cxt t, eval cxt u) of
       (Missing f, _) -> Missing f
-      (Tuple vs, Missing _) -> vs !! 0 -- imitate PGF behaviour
+      (Tuple vs, Missing _) | not (null vs) -> vs !! 0 -- cannot know how deep to unpack; this gives best results with current testsuite
       (_, Missing f) -> Missing f
       (Tuple vs, Ix i) -> vs !! (i-1)
       (t', tv@(Tuple _)) -> eval cxt $ foldl Projection t' (flattenTuple tv)
