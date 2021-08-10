@@ -22,6 +22,7 @@ module PGF2 (-- * PGF
              Cat,categories,
              -- ** Functions
              Fun, functions, functionsByCat,
+             functionType,
              -- ** Expressions
              Expr(..), Literal(..),
              -- ** Types
@@ -52,15 +53,18 @@ readPGF fpath =
   withCString fpath $ \c_fpath ->
   allocaBytes (#size PgfExn) $ \c_exn ->
   mask_ $ do
-    c_pgf <- pgf_read_pgf c_fpath c_exn
+    u <- mkUnmarshaller
+    c_pgf <- pgf_read_pgf c_fpath u c_exn
     ex_type <- (#peek PgfExn, type) c_exn :: IO (#type PgfExnType)
     if ex_type == (#const PGF_EXN_NONE)
       then do fptr <- newForeignPtr pgf_free_fptr c_pgf
               return (PGF fptr Map.empty)
       else if ex_type == (#const PGF_EXN_SYSTEM_ERROR)
-             then do errno <- (#peek PgfExn, code) c_exn
+             then do freeUnmarshaller u
+                     errno <- (#peek PgfExn, code) c_exn
                      ioError (errnoToIOError "readPGF" (Errno errno) Nothing (Just fpath))
-             else do c_msg <- (#peek PgfExn, msg) c_exn
+             else do freeUnmarshaller u
+                     c_msg <- (#peek PgfExn, msg) c_exn
                      msg <- peekCString c_msg
                      free c_msg
                      throwIO (PGFError msg)
@@ -75,15 +79,18 @@ bootNGF pgf_path ngf_path =
   withCString ngf_path $ \c_ngf_path ->
   allocaBytes (#size PgfExn) $ \c_exn ->
   mask_ $ do
-    c_pgf <- pgf_boot_ngf c_pgf_path c_ngf_path c_exn
+    u <- mkUnmarshaller
+    c_pgf <- pgf_boot_ngf c_pgf_path c_ngf_path u c_exn
     ex_type <- (#peek PgfExn, type) c_exn :: IO (#type PgfExnType)
     if ex_type == (#const PGF_EXN_NONE)
       then do fptr <- newForeignPtr pgf_free_fptr c_pgf
               return (PGF fptr Map.empty)
       else if ex_type == (#const PGF_EXN_SYSTEM_ERROR)
-             then do errno <- (#peek PgfExn, code) c_exn
+             then do freeUnmarshaller u
+                     errno <- (#peek PgfExn, code) c_exn
                      ioError (errnoToIOError "bootNGF" (Errno errno) Nothing (Just pgf_path))
-             else do c_msg <- (#peek PgfExn, msg) c_exn
+             else do freeUnmarshaller u
+                     c_msg <- (#peek PgfExn, msg) c_exn
                      msg <- peekCString c_msg
                      free c_msg
                      throwIO (PGFError msg)
@@ -97,15 +104,18 @@ readNGF fpath =
   withCString fpath $ \c_fpath ->
   allocaBytes (#size PgfExn) $ \c_exn ->
   mask_ $ do
-    c_pgf <- pgf_read_ngf c_fpath c_exn
+    u <- mkUnmarshaller
+    c_pgf <- pgf_read_ngf c_fpath u c_exn
     ex_type <- (#peek PgfExn, type) c_exn :: IO (#type PgfExnType)
     if ex_type == (#const PGF_EXN_NONE)
       then do fptr <- newForeignPtr pgf_free_fptr c_pgf
               return (PGF fptr Map.empty)
       else if ex_type == (#const PGF_EXN_SYSTEM_ERROR)
-             then do errno <- (#peek PgfExn, code) c_exn
+             then do freeUnmarshaller u
+                     errno <- (#peek PgfExn, code) c_exn
                      ioError (errnoToIOError "readPGF" (Errno errno) Nothing (Just fpath))
-             else do c_msg <- (#peek PgfExn, msg) c_exn
+             else do freeUnmarshaller u
+                     c_msg <- (#peek PgfExn, msg) c_exn
                      msg <- peekCString c_msg
                      free c_msg
                      throwIO (PGFError msg)
@@ -118,6 +128,19 @@ abstractName p =
   withForeignPtr (a_pgf p) $ \p_pgf ->
   bracket (pgf_abstract_name p_pgf) free $ \c_text ->
     peekText c_text
+
+-- | The type of a function
+functionType :: PGF -> Fun -> Maybe Type
+functionType p fn =
+  unsafePerformIO $
+  withForeignPtr (a_pgf p) $ \p_pgf ->
+  withText fn $ \c_fn -> do
+    c_typ <- pgf_function_type p_pgf c_fn
+    if c_typ == castPtrToStablePtr nullPtr
+      then return Nothing
+      else do typ <- deRefStablePtr c_typ
+              freeStablePtr c_typ
+              return (Just typ)
 
 -- | List of all functions defined in the abstract syntax
 categories :: PGF -> [Fun]

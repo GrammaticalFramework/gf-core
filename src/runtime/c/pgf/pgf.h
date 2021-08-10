@@ -37,6 +37,9 @@
 
 #endif
 
+#include<stdint.h>
+#include <sys/types.h>
+
 /* A generic structure to store text. The last field is variable length */
 typedef struct {
     size_t size;
@@ -48,6 +51,49 @@ typedef struct PgfItor PgfItor;
 
 struct PgfItor {
 	void (*fn)(PgfItor* self, PgfText* key, void *value);
+};
+
+typedef enum {
+	PGF_BIND_TYPE_EXPLICIT,
+	PGF_BIND_TYPE_IMPLICIT
+} PgfBindType;
+
+typedef int PgfMetaId;
+
+typedef struct {
+    PgfBindType bind_type;
+	PgfText *cid;
+	uintptr_t type;
+} PgfTypeHypo;
+
+/* This structure tells the runtime how to create abstract syntax
+ * expressions in the heap of the host language. For instance,
+ * when used from Haskell the runtime will create values of
+ * an algebraic data type which can be garbage collected
+ * when not needed. Similarly in Python the expressions are
+ * normal Python objects. From the point of view of the runtime,
+ * each node is a value of type uintptr_t. For Haskell that would
+ * actually be a stable pointer, while for Python that would be
+ * a PyObject pointer.
+ */
+typedef struct PgfUnmarshaller PgfUnmarshaller;
+struct PgfUnmarshaller {
+    uintptr_t (*eabs)(PgfBindType btype, PgfText *name, uintptr_t body);
+    uintptr_t (*eapp)(uintptr_t fun, uintptr_t arg);
+    uintptr_t (*elit)(uintptr_t lit);
+    uintptr_t (*emeta)(PgfMetaId meta);
+    uintptr_t (*efun)(PgfText *name);
+    uintptr_t (*evar)(int index);
+    uintptr_t (*etyped)(uintptr_t expr, uintptr_t typ);
+    uintptr_t (*eimplarg)(uintptr_t expr);
+    uintptr_t (*lint)(int v);
+    uintptr_t (*lflt)(double v);
+    uintptr_t (*lstr)(PgfText *v);
+    uintptr_t (*dtyp)(int n_hypos, PgfTypeHypo *hypos,
+                      PgfText *cat,
+                      int n_exprs, uintptr_t *exprs);
+    void (*free_ref)(uintptr_t x);
+    void (*free_me)(PgfUnmarshaller *unmarshaller);
 };
 
 typedef struct PgfPGF PgfPGF;
@@ -82,21 +128,27 @@ typedef struct {
 
 /* Reads a PGF file and keeps it in memory. */
 PGF_API_DECL
-PgfPGF *pgf_read_pgf(const char* fpath, PgfExn* err);
+PgfPGF *pgf_read_pgf(const char* fpath,
+                     PgfUnmarshaller *unmarshaller,
+                     PgfExn* err);
 
 /* Reads a PGF file and stores the unpacked data in an NGF file
  * ready to be shared with other process, or used for quick startup.
  * The NGF file is platform dependent and should not be copied
  * between machines. */
 PGF_API_DECL
-PgfPGF *pgf_boot_ngf(const char* pgf_path, const char* ngf_path, PgfExn* err);
+PgfPGF *pgf_boot_ngf(const char* pgf_path, const char* ngf_path,
+                     PgfUnmarshaller *unmarshaller,
+                     PgfExn* err);
 
 /* Tries to read the grammar from an already booted NGF file.
  * If the file does not exist then a new one is created, and the
  * grammar is set to be empty. It can later be populated with
  * rules dynamically. */
 PGF_API_DECL
-PgfPGF *pgf_read_ngf(const char* fpath, PgfExn* err);
+PgfPGF *pgf_read_ngf(const char* fpath,
+                     PgfUnmarshaller *unmarshaller,
+                     PgfExn* err);
 
 /* Release the grammar when it is no longer needed. */
 PGF_API_DECL

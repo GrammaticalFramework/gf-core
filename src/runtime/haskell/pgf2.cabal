@@ -25,6 +25,7 @@ library
 
   extra-libraries:     pgf
   cc-options:          -std=c99
+  c-sources:           utils.c
 
 test-suite basic
   type:       exitcode-stdio-1.0

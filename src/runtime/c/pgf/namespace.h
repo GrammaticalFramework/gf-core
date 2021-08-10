@@ -216,10 +216,10 @@ Namespace<V> namespace_insert(Namespace<V> map, ref<V> value)
 }
 
 template <class V>
-ref<V> namespace_lookup(Namespace<V> map, const char *name)
+ref<V> namespace_lookup(Namespace<V> map, PgfText *name)
 {
     while (map != 0) {
-        int cmp = strcmp(name,map->value->name);
+        int cmp = textcmp(name,&map->value->name);
         if (cmp < 0)
             map = map->left;
         else if (cmp > 0)
@@ -227,7 +227,7 @@ ref<V> namespace_lookup(Namespace<V> map, const char *name)
         else
             return map->value;
     }
-    return NULL;
+    return 0;
 }
 
 template <class V>

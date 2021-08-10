@@ -7,13 +7,6 @@ typedef variant PgfExpr;
 struct PgfHypo;
 struct PgfType;
 
-typedef int PgfMetaId;
-
-typedef enum {
-	PGF_BIND_TYPE_EXPLICIT,
-	PGF_BIND_TYPE_IMPLICIT
-} PgfBindType;
-
 /// A literal for an abstract syntax tree
 typedef variant PgfLiteral;
 
@@ -105,5 +98,14 @@ typedef struct {
 	prob_t prob;
 	PgfExpr expr;
 } PgfExprProb;
+
+PGF_INTERNAL_DECL
+uintptr_t pgf_unmarshall_literal(PgfUnmarshaller *u, PgfLiteral l);
+
+PGF_INTERNAL_DECL
+uintptr_t pgf_unmarshall_expr(PgfUnmarshaller *u, PgfExpr e);
+
+PGF_INTERNAL_DECL
+uintptr_t pgf_unmarshall_type(PgfUnmarshaller *u, PgfType *tp);
 
 #endif /* EXPR_H_ */

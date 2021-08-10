@@ -1,9 +1,7 @@
 #ifndef PGF_DATA_H_
 #define PGF_DATA_H_
 
-#include <stdint.h>
 #include <string.h>
-#include <sys/types.h>
 #include <assert.h>
 #include <iostream>
 #include <exception>
@@ -121,9 +119,15 @@ struct PGF_INTERNAL_DECL PgfPGFRoot {
 #pragma GCC diagnostic ignored "-Wattributes"
 
 struct PgfPGF : DB {
-    PGF_INTERNAL_DECL PgfPGF(const char* fpath, int flags, int mode)
-                         : DB(fpath, flags, mode) {};
-    PGF_INTERNAL_DECL ~PgfPGF() {};
+    PGF_INTERNAL_DECL PgfPGF(const char* fpath, int flags, int mode,
+                             PgfUnmarshaller *unmarshaller)
+                         : DB(fpath, flags, mode)
+    { u = unmarshaller; };
+
+    PGF_INTERNAL_DECL ~PgfPGF()
+    { u->free_me(u); };
+
+    PgfUnmarshaller *u;
 };
 
 #pragma GCC diagnostic pop

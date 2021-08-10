@@ -11,14 +11,16 @@ pgf_exn_clear(PgfExn* err)
 }
 
 PGF_API
-PgfPGF *pgf_read_pgf(const char* fpath, PgfExn* err)
+PgfPGF *pgf_read_pgf(const char* fpath,
+                     PgfUnmarshaller *unmarshaller,
+                     PgfExn* err)
 {
     PgfPGF *pgf = NULL;
 
     pgf_exn_clear(err);
 
     try {
-        pgf = new PgfPGF(NULL, 0, 0);
+        pgf = new PgfPGF(NULL, 0, 0, unmarshaller);
 
         std::ifstream in(fpath, std::ios::binary);
         if (in.fail()) {
@@ -50,14 +52,16 @@ PgfPGF *pgf_read_pgf(const char* fpath, PgfExn* err)
 }
 
 PGF_API
-PgfPGF *pgf_boot_ngf(const char* pgf_path, const char* ngf_path, PgfExn* err)
+PgfPGF *pgf_boot_ngf(const char* pgf_path, const char* ngf_path,
+                     PgfUnmarshaller *unmarshaller,
+                     PgfExn* err)
 {
     PgfPGF *pgf = NULL;
 
     pgf_exn_clear(err);
 
     try {
-        pgf = new PgfPGF(ngf_path, O_CREAT | O_EXCL | O_RDWR, S_IRUSR | S_IWUSR);
+        pgf = new PgfPGF(ngf_path, O_CREAT | O_EXCL | O_RDWR, S_IRUSR | S_IWUSR, unmarshaller);
 
         std::ifstream in(pgf_path, std::ios::binary);
         if (in.fail()) {
@@ -93,7 +97,9 @@ PgfPGF *pgf_boot_ngf(const char* pgf_path, const char* ngf_path, PgfExn* err)
 }
 
 PGF_API
-PgfPGF *pgf_read_ngf(const char *fpath, PgfExn* err)
+PgfPGF *pgf_read_ngf(const char *fpath,
+                     PgfUnmarshaller *unmarshaller,
+                     PgfExn* err)
 {
     PgfPGF *pgf = NULL;
 
@@ -101,7 +107,7 @@ PgfPGF *pgf_read_ngf(const char *fpath, PgfExn* err)
 
     bool is_new = false;
     try {
-        pgf = new PgfPGF(fpath, O_CREAT | O_RDWR, S_IRUSR | S_IWUSR);
+        pgf = new PgfPGF(fpath, O_CREAT | O_RDWR, S_IRUSR | S_IWUSR, unmarshaller);
 
         {
             DB_scope scope(pgf, WRITER_SCOPE);
@@ -194,4 +200,17 @@ void pgf_iter_functions_by_cat(PgfPGF* pgf, PgfText* cat, PgfItor* itor)
     helper.cat  = cat;
     helper.itor = itor;
     namespace_iter(pgf->get_root<PgfPGFRoot>()->abstract.funs, &helper);
+}
+
+PGF_API uintptr_t
+pgf_function_type(PgfPGF* pgf, PgfText *funname)
+{
+    DB_scope scope(pgf, READER_SCOPE);
+
+    ref<PgfAbsFun> absfun =
+        namespace_lookup(pgf->get_root<PgfPGFRoot>()->abstract.funs, funname);
+	if (absfun == 0)
+		return 0;
+
+	return pgf_unmarshall_type(pgf->u, absfun->type);
 }

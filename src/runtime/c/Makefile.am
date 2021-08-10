@@ -16,6 +16,7 @@ libpgf_la_SOURCES = \
 	pgf/reader.cxx \
 	pgf/reader.h \
 	pgf/data.h \
+	pgf/expr.cxx \
 	pgf/expr.h \
 	pgf/namespace.h
 
