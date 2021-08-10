@@ -13,6 +13,10 @@ Phrasebook doesn't compile with RGL after 1131058b68c204a8d1312d2e2a610748eb8032
 
 ### Running
 
+Because Stack insists on rebuilding things all the time, I use separate `.stack-work` folders for testing and benchmarking.
+
+Assumes treebank in same folder with same abstract name as grammar, e.g. `unittests/Params.treebank`
+
 ```
 stack build --work-dir .stack-work-test --test --no-run-tests
 stack test  --work-dir .stack-work-test gf:test:lpgf # all LPGF tests
@@ -21,7 +25,9 @@ stack test  --work-dir .stack-work-test gf:test:lpgf --test-arguments="foods/Foo
 stack test  --work-dir .stack-work-test gf:test:lpgf --test-arguments="phrasebook/Phrasebook"
 ```
 
-Set environment variable `DEBUG=1` to enable dumping of intermediate formats.
+Set environment variable `DEBUG=1` to enable dumping of intermediate formats into `DEBUG/` folder.
+
+---
 
 ## Benchmark
 
