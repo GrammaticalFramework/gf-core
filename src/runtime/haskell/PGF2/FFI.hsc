@@ -49,6 +49,12 @@ foreign import ccall "&pgf_free"
 foreign import ccall "pgf_abstract_name"
   pgf_abstract_name :: Ptr PgfPGF -> IO (Ptr PgfText)
 
+foreign import ccall "pgf/expr.h pgf_read_expr"
+  pgf_read_expr :: Ptr PgfText -> Ptr PgfUnmarshaller -> IO (StablePtr Expr)
+
+foreign import ccall "pgf/expr.h pgf_read_type"
+  pgf_read_type :: Ptr PgfText -> Ptr PgfUnmarshaller -> IO (StablePtr Type)
+
 type ItorCallback = Ptr PgfItor -> Ptr PgfText -> IO ()
 
 foreign import ccall "wrapper"

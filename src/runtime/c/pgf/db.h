@@ -12,7 +12,7 @@ typedef moffset variant;
 
 struct malloc_state;
 
-template<class A> class ref {
+template<class A> class PGF_INTERNAL_DECL ref {
 private:
     moffset offset;
 

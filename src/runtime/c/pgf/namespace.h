@@ -10,7 +10,7 @@ template <class V>
 using Namespace = ref<Node<V>>;
 
 template <class V>
-class Node {
+class PGF_INTERNAL_DECL Node {
 public:
     size_t sz;
     ref<V> value;

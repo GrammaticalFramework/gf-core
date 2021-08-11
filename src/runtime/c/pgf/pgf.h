@@ -166,4 +166,10 @@ void pgf_iter_functions(PgfPGF* pgf, PgfItor* itor);
 PGF_API
 void pgf_iter_functions_by_cat(PgfPGF* pgf, PgfText* cat, PgfItor* itor);
 
+PGF_API uintptr_t
+pgf_read_expr(PgfText *input, PgfUnmarshaller *u);
+
+PGF_API uintptr_t
+pgf_read_type(PgfText *input, PgfUnmarshaller *u);
+
 #endif // PGF_H_

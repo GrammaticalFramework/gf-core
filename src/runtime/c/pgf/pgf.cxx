@@ -214,3 +214,27 @@ pgf_function_type(PgfPGF* pgf, PgfText *funname)
 
 	return pgf_unmarshall_type(pgf->u, absfun->type);
 }
+
+PGF_API uintptr_t
+pgf_read_expr(PgfText *input, PgfUnmarshaller *u)
+{
+    PgfExprParser parser(input, u);
+    uintptr_t res = parser.parse_expr();
+    if (!parser.eof()) {
+        u->free_ref(res);
+        return 0;
+    }
+    return res;
+}
+
+PGF_API uintptr_t
+pgf_read_type(PgfText *input, PgfUnmarshaller *u)
+{
+    PgfExprParser parser(input, u);
+    uintptr_t res = parser.parse_type();
+    if (!parser.eof()) {
+        u->free_ref(res);
+        return 0;
+    }
+    return res;
+}

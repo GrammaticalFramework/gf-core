@@ -10,4 +10,7 @@ PgfText* textdup(PgfText *t1);
 PGF_API uint32_t
 pgf_utf8_decode(const uint8_t** src_inout);
 
+PGF_API void
+pgf_utf8_encode(uint32_t ucs, uint8_t** buf);
+
 #endif

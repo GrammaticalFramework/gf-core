@@ -25,8 +25,10 @@ module PGF2 (-- * PGF
              functionType,
              -- ** Expressions
              Expr(..), Literal(..),
+             readExpr,
              -- ** Types
              Type(..), Hypo, BindType(..),
+             readType,
              -- * Concrete syntax
              ConcName
             ) where
@@ -199,6 +201,33 @@ functionsByCat p cat =
       names <- readIORef ref
       name  <- peekText key
       writeIORef ref $ (name : names)
+
+-----------------------------------------------------------------------
+-- Expressions & types
+
+-- | parses a 'String' as an expression
+readExpr :: String -> Maybe Expr
+readExpr str =
+  unsafePerformIO $
+  withText str $ \c_str ->
+  bracket mkUnmarshaller freeUnmarshaller $ \u -> do
+    c_expr <- pgf_read_expr c_str u
+    if c_expr == castPtrToStablePtr nullPtr
+      then return Nothing
+      else do expr <- deRefStablePtr c_expr
+              return (Just expr)
+
+-- | parses a 'String' as a type
+readType :: String -> Maybe Type
+readType str =
+  unsafePerformIO $
+  withText str $ \c_str ->
+  bracket mkUnmarshaller freeUnmarshaller $ \u -> do
+    c_type <- pgf_read_type c_str u
+    if c_type == castPtrToStablePtr nullPtr
+      then return Nothing
+      else do tp <- deRefStablePtr c_type
+              return (Just tp)
 
 -----------------------------------------------------------------------
 -- Exceptions

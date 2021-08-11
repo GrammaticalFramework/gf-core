@@ -39,43 +39,43 @@ struct PGF_INTERNAL_DECL PgfFlag {
 
 typedef variant PgfPatt;
 
-struct PgfPattApp {
+struct PGF_INTERNAL_DECL PgfPattApp {
     static const uint8_t tag = 0;
 
 	ref<PgfText> ctor;
     PgfVector<PgfPatt> args;
 };
 
-struct PgfPattVar {
+struct PGF_INTERNAL_DECL PgfPattVar {
     static const uint8_t tag = 1;
 
 	PgfText name;
 };
 
-struct PgfPattAs {
+struct PGF_INTERNAL_DECL PgfPattAs {
     static const uint8_t tag = 2;
 
 	PgfPatt patt;
 	PgfText name;
 };
 
-struct PgfPattWild {
+struct PGF_INTERNAL_DECL PgfPattWild {
     static const uint8_t tag = 3;
 };
 
-struct PgfPattLit {
+struct PGF_INTERNAL_DECL PgfPattLit {
     static const uint8_t tag = 4;
 
 	PgfLiteral lit;
 };
 
-struct PgfPattImplArg {
+struct PGF_INTERNAL_DECL PgfPattImplArg {
     static const uint8_t tag = 5;
 
 	PgfPatt patt;
 };
 
-struct PgfPattTilde {
+struct PGF_INTERNAL_DECL PgfPattTilde {
     static const uint8_t tag = 6;
 
 	PgfExpr expr;
