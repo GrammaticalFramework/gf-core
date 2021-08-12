@@ -15,6 +15,8 @@ tested-with: GHC==7.10.3, GHC==8.0.2, GHC==8.10.4
 
 data-dir: src
 extra-source-files:
+  README.md
+  CHANGELOG.md
   WebSetup.hs
   doc/Logos/gf0.png
 data-files:
