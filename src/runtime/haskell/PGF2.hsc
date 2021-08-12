@@ -70,11 +70,9 @@ readPGF fpath =
       then do fptr <- newForeignPtr pgf_free_fptr c_pgf
               return (PGF fptr Map.empty)
       else if ex_type == (#const PGF_EXN_SYSTEM_ERROR)
-             then do freeUnmarshaller u
-                     errno <- (#peek PgfExn, code) c_exn
+             then do errno <- (#peek PgfExn, code) c_exn
                      ioError (errnoToIOError "readPGF" (Errno errno) Nothing (Just fpath))
-             else do freeUnmarshaller u
-                     c_msg <- (#peek PgfExn, msg) c_exn
+             else do c_msg <- (#peek PgfExn, msg) c_exn
                      msg <- peekCString c_msg
                      free c_msg
                      throwIO (PGFError msg)
@@ -96,11 +94,9 @@ bootNGF pgf_path ngf_path =
       then do fptr <- newForeignPtr pgf_free_fptr c_pgf
               return (PGF fptr Map.empty)
       else if ex_type == (#const PGF_EXN_SYSTEM_ERROR)
-             then do freeUnmarshaller u
-                     errno <- (#peek PgfExn, code) c_exn
+             then do errno <- (#peek PgfExn, code) c_exn
                      ioError (errnoToIOError "bootNGF" (Errno errno) Nothing (Just pgf_path))
-             else do freeUnmarshaller u
-                     c_msg <- (#peek PgfExn, msg) c_exn
+             else do c_msg <- (#peek PgfExn, msg) c_exn
                      msg <- peekCString c_msg
                      free c_msg
                      throwIO (PGFError msg)
@@ -121,11 +117,9 @@ readNGF fpath =
       then do fptr <- newForeignPtr pgf_free_fptr c_pgf
               return (PGF fptr Map.empty)
       else if ex_type == (#const PGF_EXN_SYSTEM_ERROR)
-             then do freeUnmarshaller u
-                     errno <- (#peek PgfExn, code) c_exn
+             then do errno <- (#peek PgfExn, code) c_exn
                      ioError (errnoToIOError "readPGF" (Errno errno) Nothing (Just fpath))
-             else do freeUnmarshaller u
-                     c_msg <- (#peek PgfExn, msg) c_exn
+             else do c_msg <- (#peek PgfExn, msg) c_exn
                      msg <- peekCString c_msg
                      free c_msg
                      throwIO (PGFError msg)
