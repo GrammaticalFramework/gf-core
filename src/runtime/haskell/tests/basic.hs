@@ -1,10 +1,14 @@
+import Control.Exception
 import Test.HUnit
 import PGF2
 
 main = do
+  x  <- testLoadFailure "non-existing.pgf"
+  x  <- testLoadFailure "tests/basic.gf"
   gr <- readPGF "tests/basic.pgf"
   runTestTTAndExit $
-    TestList [TestCase (assertEqual "abstract names" "basic" (abstractName gr))
+    TestList [TestCase (assertBool  "loading failure handled" x)
+             ,TestCase (assertEqual "abstract names" "basic" (abstractName gr))
              ,TestCase (assertEqual "abstract categories" ["Float","Int","N","P","S","String"] (categories gr))
              ,TestCase (assertEqual "abstract functions" ["c","ind","s","z"] (functions gr))
              ,TestCase (assertEqual "abstract functions by cat 1" ["s","z"] (functionsByCat gr "N"))
@@ -22,6 +26,12 @@ main = do
              ,TestCase (assertEqual "function is constructor 3"  True  (functionIsConstructor gr "c"))
              ,TestCase (assertEqual "function is constructor 4"  False (functionIsConstructor gr "ind"))
              ]
+
+testLoadFailure fpath = do
+  res <- try (readPGF fpath)
+  case res :: Either SomeException PGF of
+    Left  _ -> return True
+    Right _ -> return False
 
 eqJust (Just x) (Just y) = x == y
 eqJust _        _        = False
