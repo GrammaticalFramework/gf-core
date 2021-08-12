@@ -275,7 +275,7 @@ mkUnmarshaller = do
           bt  <- fmap unmarshalBindType ((#peek PgfTypeHypo, bind_type) p_hypo)
           cid <- (#peek PgfTypeHypo, cid) p_hypo >>= peekText
           ty  <- (#peek PgfTypeHypo, type) p_hypo >>= deRefStablePtr
-          hs  <- peekExprs (n_hypos-1) (p_hypo `plusPtr` (#size PgfTypeHypo))
+          hs  <- peekHypos (n_hypos-1) (p_hypo `plusPtr` (#size PgfTypeHypo))
           return ((bt,cid,ty):hs)
 
         peekExprs 0       p_expr = return []
