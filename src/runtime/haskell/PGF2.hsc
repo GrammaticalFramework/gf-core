@@ -37,9 +37,13 @@ module PGF2 (-- * PGF
              readType,
              mkType, unType,
              mkHypo, mkDepHypo, mkImplHypo,
+
              -- * Concrete syntax
-             ConcName
-            ) where
+             ConcName,
+
+             -- * Exceptions
+             PGFError(..)
+             ) where
 
 import Control.Exception(Exception,throwIO,mask_,bracket)
 import System.IO.Unsafe(unsafePerformIO)
