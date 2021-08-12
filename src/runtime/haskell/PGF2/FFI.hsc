@@ -63,6 +63,9 @@ foreign import ccall "wrapper"
 foreign import ccall "pgf_iter_categories"
   pgf_iter_categories :: Ptr PgfPGF -> Ptr PgfItor -> IO ()
 
+foreign import ccall "pgf_start_cat"
+  pgf_start_cat :: Ptr PgfPGF -> IO (StablePtr Type)
+
 foreign import ccall "pgf/pgf.h pgf_category_context"
   pgf_category_context :: Ptr PgfPGF -> Ptr PgfText -> Ptr CSize -> IO (Ptr PgfTypeHypo)
 

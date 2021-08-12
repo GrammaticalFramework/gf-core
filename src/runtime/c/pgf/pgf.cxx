@@ -161,11 +161,45 @@ PgfText *pgf_abstract_name(PgfPGF* pgf)
 }
 
 PGF_API
-void pgf_iter_categories(PgfPGF* pgf, PgfItor* itor)
+void pgf_iter_categories(PgfPGF *pgf, PgfItor *itor)
 {
     DB_scope scope(pgf, READER_SCOPE);
 
     namespace_iter(pgf->get_root<PgfPGFRoot>()->abstract.cats, itor);
+}
+
+PGF_API
+uintptr_t pgf_start_cat(PgfPGF *pgf)
+{
+    DB_scope scope(pgf, READER_SCOPE);
+
+    PgfText *startcat = (PgfText *)
+        alloca(sizeof(PgfText)+9);
+    startcat->size = 8;
+    strcpy(startcat->text, "startcat");
+
+	ref<PgfFlag> flag =
+		namespace_lookup(pgf->get_root<PgfPGFRoot>()->abstract.aflags, startcat);
+
+	if (flag != 0) {
+		switch (ref<PgfLiteral>::get_tag(flag->value)) {
+		case PgfLiteralStr::tag: {
+			auto lstr = ref<PgfLiteralStr>::untagged(flag->value);
+
+            uintptr_t type = pgf_read_type(&lstr->val, pgf->u);
+			if (type == 0)
+				break;
+			return type;
+		}
+		}
+	}
+
+    PgfText *s = (PgfText *)
+        alloca(sizeof(PgfText)+2);
+    s->size = 1;
+    s->text[0] = 'S';
+    s->text[1] = 0;
+	return pgf->u->dtyp(0,NULL,s,0,NULL);
 }
 
 PGF_API

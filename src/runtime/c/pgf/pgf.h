@@ -157,10 +157,13 @@ PGF_API_DECL
 void pgf_free(PgfPGF *pgf);
 
 PGF_API_DECL
-PgfText *pgf_abstract_name(PgfPGF* pgf);
+PgfText *pgf_abstract_name(PgfPGF *pgf);
 
 PGF_API_DECL
-void pgf_iter_categories(PgfPGF* pgf, PgfItor* itor);
+void pgf_iter_categories(PgfPGF *pgf, PgfItor *itor);
+
+PGF_API_DECL
+uintptr_t pgf_start_cat(PgfPGF *pgf);
 
 PGF_API_DECL PgfTypeHypo*
 pgf_category_context(PgfPGF *pgf, PgfText *catname, size_t *n_hypos);

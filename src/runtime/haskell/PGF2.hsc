@@ -33,7 +33,7 @@ module PGF2 (-- * PGF
              mkFloat,  unFloat,
              mkMeta,   unMeta,
              -- ** Types
-             Type(..), Hypo, BindType(..),
+             Type(..), Hypo, BindType(..), startCat,
              readType,
              mkType, unType,
              mkHypo, mkDepHypo, mkImplHypo,
@@ -138,6 +138,20 @@ abstractName p =
   withForeignPtr (a_pgf p) $ \p_pgf ->
   bracket (pgf_abstract_name p_pgf) free $ \c_text ->
     peekText c_text
+
+-- | The start category is defined in the grammar with
+-- the \'startcat\' flag. This is usually the sentence category
+-- but it is not necessary. Despite that there is a start category
+-- defined you can parse with any category. The start category
+-- definition is just for convenience.
+startCat :: PGF -> Type
+startCat p =
+  unsafePerformIO $
+  withForeignPtr (a_pgf p) $ \c_pgf -> do
+    c_typ <- pgf_start_cat c_pgf
+    typ <- deRefStablePtr c_typ
+    freeStablePtr c_typ
+    return typ
 
 -- | The type of a function
 functionType :: PGF -> Fun -> Maybe Type

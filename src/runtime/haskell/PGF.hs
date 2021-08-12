@@ -3,7 +3,7 @@ module PGF ( PGF2.PGF, readPGF
 
            , CId, mkCId, wildCId, showCId, readCId
 
-           , categories
+           , PGF2.categories, PGF2.categoryContext, PGF2.startCat
            , functions, functionsByCat
 
            , PGF2.Expr(..), PGF2.Literal(..), Tree
