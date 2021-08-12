@@ -181,7 +181,7 @@ functionProb p fun =
          return (realToFrac c_prob)
 
 -- | List of all functions defined in the abstract syntax
-categories :: PGF -> [Fun]
+categories :: PGF -> [Cat]
 categories p =
   unsafePerformIO $ do
     ref <- newIORef []
