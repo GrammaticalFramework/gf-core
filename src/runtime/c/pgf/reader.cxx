@@ -281,7 +281,7 @@ PgfExpr PgfReader::read_expr()
 		throw pgf_error("Unknown expression tag");
 	}
 
-    return 0;
+    return expr;
 }
 
 void PgfReader::read_hypo(ref<PgfHypo> hypo)
