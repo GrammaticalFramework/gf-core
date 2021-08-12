@@ -1,0 +1,30 @@
+name: Build majestic runtime
+
+on: push
+
+jobs:
+
+  ubuntu:
+    name: Build on Ubuntu
+    runs-on: ubuntu-20.04
+
+    steps:
+    - uses: actions/checkout@v2
+
+    - name: Install build tools
+      run: |
+        apt-get update
+        apt-get install -y \
+          autoconf \
+          automake \
+          autotools-dev \
+          g++ \
+          libtool \
+          make
+
+    - name: Build package
+      working-directory: ./src/runtime/c
+      run: |
+        autoreconf -i
+        ./configure
+        make
