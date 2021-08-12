@@ -316,7 +316,7 @@ DB::DB(const char* pathname, int flags, int mode) {
 DB::~DB() {
     if (ms != NULL) {
         size_t size =
-            ms->top + size + sizeof(size_t);
+            ms->top + chunksize(ptr(ms,ms->top)) + sizeof(size_t);
 
         munmap(ms,size);
     }
@@ -329,10 +329,11 @@ DB::~DB() {
 
 void DB::sync()
 {
+    malloc_state *ms = current_db->ms;
     size_t size =
-        current_db->ms->top + size + sizeof(size_t);
+        ms->top + chunksize(ptr(ms,ms->top)) + sizeof(size_t);
 
-    int res = msync((void *) current_db->ms, size, MS_SYNC | MS_INVALIDATE);
+    int res = msync((void *) ms, size, MS_SYNC | MS_INVALIDATE);
     if (res != 0)
         throw std::system_error(errno, std::generic_category());
 }
