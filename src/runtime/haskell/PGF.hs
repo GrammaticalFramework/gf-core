@@ -7,6 +7,14 @@ module PGF ( PGF2.PGF, readPGF
            , functions, functionsByCat
 
            , PGF2.Expr(..), PGF2.Literal(..), Tree
+           , PGF2.readExpr
+           , PGF2.mkAbs,    PGF2.unAbs
+           , PGF2.mkApp,    PGF2.unApp, PGF2.unapply
+           , PGF2.mkStr,    PGF2.unStr
+           , PGF2.mkInt,    PGF2.unInt
+           , PGF2.mkDouble, PGF2.unDouble
+           , PGF2.mkFloat,  PGF2.unFloat
+           , PGF2.mkMeta,   PGF2.unMeta
 
            , PGF2.Type, PGF2.Hypo
            ) where

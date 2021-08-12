@@ -24,8 +24,14 @@ module PGF2 (-- * PGF
              Fun, functions, functionsByCat,
              functionType, functionIsConstructor, functionProb,
              -- ** Expressions
-             Expr(..), Literal(..),
-             readExpr,
+             Expr(..), Literal(..), readExpr,
+             mkAbs,    unAbs,
+             mkApp,    unApp, unapply,
+             mkStr,    unStr,
+             mkInt,    unInt,
+             mkDouble, unDouble,
+             mkFloat,  unFloat,
+             mkMeta,   unMeta,
              -- ** Types
              Type(..), Hypo, BindType(..),
              readType,
