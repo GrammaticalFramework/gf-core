@@ -16,7 +16,9 @@ module PGF ( PGF2.PGF, readPGF
            , PGF2.mkFloat,  PGF2.unFloat
            , PGF2.mkMeta,   PGF2.unMeta
 
-           , PGF2.Type, PGF2.Hypo
+           , PGF2.Type(..), PGF2.Hypo
+           , PGF2.mkType, PGF2.unType
+           , PGF2.mkHypo, PGF2.mkDepHypo, PGF2.mkImplHypo
            ) where
 
 import qualified PGF2 as PGF2

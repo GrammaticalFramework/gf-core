@@ -10,6 +10,10 @@ module PGF2.Expr(Var, Cat, Fun,
                  mkDouble, unDouble,
                  mkFloat,  unFloat,
                  mkMeta,   unMeta,
+
+                 mkType, unType,
+                 mkHypo, mkDepHypo, mkImplHypo
+
                 ) where
 
 type Var = String -- ^ Name of syntactic category
@@ -147,3 +151,26 @@ unMeta (EMeta i)     = Just i
 unMeta (ETyped e ty) = unMeta e
 unMeta (EImplArg e)  = unMeta e
 unMeta _             = Nothing
+
+
+-- | creates a type from list of hypothesises, category and 
+-- list of arguments for the category. The operation 
+-- @mkType [h_1,...,h_n] C [e_1,...,e_m]@ will create 
+-- @h_1 -> ... -> h_n -> C e_1 ... e_m@
+mkType :: [Hypo] -> Cat -> [Expr] -> Type
+mkType hyps cat args = DTyp hyps cat args
+
+-- | creates hypothesis for non-dependent type i.e. A
+mkHypo :: Type -> Hypo
+mkHypo ty = (Explicit,"_",ty)
+
+-- | creates hypothesis for dependent type i.e. (x : A)
+mkDepHypo :: Var -> Type -> Hypo
+mkDepHypo x ty = (Explicit,x,ty)
+
+-- | creates hypothesis for dependent type with implicit argument i.e. ({x} : A)
+mkImplHypo :: Var -> Type -> Hypo
+mkImplHypo x ty = (Implicit,x,ty)
+
+unType :: Type -> ([Hypo], Cat, [Expr])
+unType (DTyp hyps cat es) = (hyps, cat, es)

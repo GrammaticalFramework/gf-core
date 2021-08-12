@@ -35,6 +35,8 @@ module PGF2 (-- * PGF
              -- ** Types
              Type(..), Hypo, BindType(..),
              readType,
+             mkType, unType,
+             mkHypo, mkDepHypo, mkImplHypo,
              -- * Concrete syntax
              ConcName
             ) where
