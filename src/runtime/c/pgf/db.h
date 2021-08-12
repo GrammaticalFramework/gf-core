@@ -25,7 +25,9 @@ public:
     A* operator->() const { return (A*) (current_base+offset); }
     operator A*()   const { return (A*) (current_base+offset); }
     bool operator ==(ref<A>& other) const { return offset==other->offset; }
+    bool operator !=(ref<A>& other) const { return offset!=other->offset; }
     bool operator ==(moffset other_offset) const { return offset==other_offset; }
+    bool operator !=(moffset other_offset) const { return offset!=other_offset; }
 
     ref<A>& operator= (const ref<A>& r) {
         offset = r.offset;
@@ -50,9 +52,6 @@ public:
     uint8_t get_tag(variant v) {
         return (v & (2*sizeof(size_t) - 1));
     }
-
-    static
-    ref<A> null() { return 0; }
 };
 
 class PGF_INTERNAL_DECL DB {
