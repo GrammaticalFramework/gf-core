@@ -19,10 +19,10 @@ module PGF2 (-- * PGF
              -- * Abstract syntax
              AbsName,abstractName,
              -- ** Categories
-             Cat,categories,categoryContext,
+             Cat,categories,categoryContext,categoryProb,
              -- ** Functions
              Fun, functions, functionsByCat,
-             functionType,
+             functionType, functionIsConstructor, functionProb,
              -- ** Expressions
              Expr(..), Literal(..),
              readExpr,
@@ -144,6 +144,22 @@ functionType p fn =
               freeStablePtr c_typ
               return (Just typ)
 
+functionIsConstructor :: PGF -> Fun -> Bool
+functionIsConstructor p fun =
+  unsafePerformIO $
+  withText fun $ \c_fun ->
+  withForeignPtr (a_pgf p) $ \c_pgf ->
+      do res <- pgf_function_is_constructor c_pgf c_fun
+         return (res /= 0)
+
+functionProb :: PGF -> Fun -> Float
+functionProb p fun =
+  unsafePerformIO $
+  withText fun $ \c_fun ->
+  withForeignPtr (a_pgf p) $ \c_pgf ->
+      do c_prob <- pgf_function_prob c_pgf c_fun
+         return (realToFrac c_prob)
+
 -- | List of all functions defined in the abstract syntax
 categories :: PGF -> [Fun]
 categories p =
@@ -190,6 +206,14 @@ categoryContext p cat =
                        hs <- peekHypos (plusPtr c_hypo (#size PgfTypeHypo)) (i+1) n
                        return ((bt,cat,ty) : hs)
       | otherwise = return []
+
+categoryProb :: PGF -> Cat -> Float
+categoryProb p cat =
+  unsafePerformIO $
+  withText cat $ \c_cat ->
+  withForeignPtr (a_pgf p) $ \c_pgf ->
+      do c_prob <- pgf_category_prob c_pgf c_cat
+         return (realToFrac c_prob)
 
 -- | List of all functions defined in the abstract syntax
 functions :: PGF -> [Fun]

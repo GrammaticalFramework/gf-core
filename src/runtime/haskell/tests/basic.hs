@@ -17,6 +17,10 @@ main = do
              ,TestCase (assertEqual "category context 1"  [] (categoryContext gr "S"))
              ,TestCase (assertEqual "category context 1"  [(Explicit,"_",DTyp [] "N" [])] (categoryContext gr "P"))
              ,TestCase (assertEqual "category context 1"  [] (categoryContext gr "X")) -- no such category
+             ,TestCase (assertEqual "function is constructor 1"  True  (functionIsConstructor gr "s"))
+             ,TestCase (assertEqual "function is constructor 2"  True  (functionIsConstructor gr "z"))
+             ,TestCase (assertEqual "function is constructor 3"  True  (functionIsConstructor gr "c"))
+             ,TestCase (assertEqual "function is constructor 4"  False (functionIsConstructor gr "ind"))
              ]
 
 eqJust (Just x) (Just y) = x == y

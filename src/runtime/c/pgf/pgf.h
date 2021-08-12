@@ -96,6 +96,8 @@ struct PgfUnmarshaller {
     void (*free_me)(PgfUnmarshaller *unmarshaller);
 };
 
+typedef float prob_t;
+
 typedef struct PgfPGF PgfPGF;
 
 /* All functions that may fail take a reference to a PgfExn structure.
@@ -163,16 +165,28 @@ void pgf_iter_categories(PgfPGF* pgf, PgfItor* itor);
 PGF_API_DECL PgfTypeHypo*
 pgf_category_context(PgfPGF *pgf, PgfText *catname, size_t *n_hypos);
 
+PGF_API_DECL prob_t
+pgf_category_prob(PgfPGF* pgf, PgfText *catname);
+
 PGF_API_DECL
-void pgf_iter_functions(PgfPGF* pgf, PgfItor* itor);
+void pgf_iter_functions(PgfPGF *pgf, PgfItor *itor);
 
-PGF_API
-void pgf_iter_functions_by_cat(PgfPGF* pgf, PgfText* cat, PgfItor* itor);
+PGF_API_DECL
+void pgf_iter_functions_by_cat(PgfPGF *pgf, PgfText *cat, PgfItor *itor);
 
-PGF_API uintptr_t
-pgf_read_expr(PgfText *input, PgfUnmarshaller *u);
+PGF_API_DECL
+uintptr_t pgf_function_type(PgfPGF *pgf, PgfText *funname);
 
-PGF_API uintptr_t
-pgf_read_type(PgfText *input, PgfUnmarshaller *u);
+PGF_API_DECL
+int pgf_function_is_constructor(PgfPGF *pgf, PgfText *funname);
+
+PGF_API_DECL
+prob_t pgf_function_prob(PgfPGF *pgf, PgfText *funname);
+
+PGF_API_DECL
+uintptr_t pgf_read_expr(PgfText *input, PgfUnmarshaller *u);
+
+PGF_API_DECL
+uintptr_t pgf_read_type(PgfText *input, PgfUnmarshaller *u);
 
 #endif // PGF_H_

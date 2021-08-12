@@ -1,4 +1,5 @@
 #include <fcntl.h>
+#include <math.h>
 #include "data.h"
 #include "reader.h"
 
@@ -167,8 +168,8 @@ void pgf_iter_categories(PgfPGF* pgf, PgfItor* itor)
     namespace_iter(pgf->get_root<PgfPGFRoot>()->abstract.cats, itor);
 }
 
-PGF_API PgfTypeHypo*
-pgf_category_context(PgfPGF *pgf, PgfText *catname, size_t *n_hypos)
+PGF_API
+PgfTypeHypo *pgf_category_context(PgfPGF *pgf, PgfText *catname, size_t *n_hypos)
 {
     DB_scope scope(pgf, READER_SCOPE);
 
@@ -192,7 +193,21 @@ pgf_category_context(PgfPGF *pgf, PgfText *catname, size_t *n_hypos)
 }
 
 PGF_API
-void pgf_iter_functions(PgfPGF* pgf, PgfItor* itor)
+prob_t pgf_category_prob(PgfPGF *pgf, PgfText *catname)
+{
+    DB_scope scope(pgf, READER_SCOPE);
+
+    ref<PgfAbsCat> abscat =
+        namespace_lookup(pgf->get_root<PgfPGFRoot>()->abstract.cats, catname);
+	if (abscat == 0) {
+		return 0;
+    }
+
+    return abscat->prob;
+}
+
+PGF_API
+void pgf_iter_functions(PgfPGF *pgf, PgfItor *itor)
 {
     DB_scope scope(pgf, READER_SCOPE);
 
@@ -206,7 +221,7 @@ struct PgfItorHelper : PgfItor
 };
 
 static
-void iter_by_cat_helper(PgfItor* itor, PgfText* key, void* value)
+void iter_by_cat_helper(PgfItor *itor, PgfText *key, void *value)
 {
     PgfItorHelper* helper = (PgfItorHelper*) itor;
     PgfAbsFun* absfun = (PgfAbsFun*) value;
@@ -215,7 +230,7 @@ void iter_by_cat_helper(PgfItor* itor, PgfText* key, void* value)
 }
 
 PGF_API
-void pgf_iter_functions_by_cat(PgfPGF* pgf, PgfText* cat, PgfItor* itor)
+void pgf_iter_functions_by_cat(PgfPGF *pgf, PgfText *cat, PgfItor *itor)
 {
     DB_scope scope(pgf, READER_SCOPE);
 
@@ -226,8 +241,8 @@ void pgf_iter_functions_by_cat(PgfPGF* pgf, PgfText* cat, PgfItor* itor)
     namespace_iter(pgf->get_root<PgfPGFRoot>()->abstract.funs, &helper);
 }
 
-PGF_API uintptr_t
-pgf_function_type(PgfPGF* pgf, PgfText *funname)
+PGF_API
+uintptr_t pgf_function_type(PgfPGF *pgf, PgfText *funname)
 {
     DB_scope scope(pgf, READER_SCOPE);
 
@@ -237,6 +252,32 @@ pgf_function_type(PgfPGF* pgf, PgfText *funname)
 		return 0;
 
 	return pgf_unmarshall_type(pgf->u, absfun->type);
+}
+
+PGF_API
+int pgf_function_is_constructor(PgfPGF *pgf, PgfText *funname)
+{
+    DB_scope scope(pgf, READER_SCOPE);
+
+    ref<PgfAbsFun> absfun =
+        namespace_lookup(pgf->get_root<PgfPGFRoot>()->abstract.funs, funname);
+	if (absfun == 0)
+		return false;
+
+	return (absfun->defns == 0);
+}
+
+PGF_API
+prob_t pgf_function_prob(PgfPGF *pgf, PgfText *funname)
+{
+    DB_scope scope(pgf, READER_SCOPE);
+
+    ref<PgfAbsFun> absfun =
+        namespace_lookup(pgf->get_root<PgfPGFRoot>()->abstract.funs, funname);
+	if (absfun == 0)
+		return INFINITY;
+
+	return absfun->ep.prob;
 }
 
 PGF_API uintptr_t

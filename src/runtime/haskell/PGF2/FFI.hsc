@@ -66,6 +66,9 @@ foreign import ccall "pgf_iter_categories"
 foreign import ccall "pgf/pgf.h pgf_category_context"
   pgf_category_context :: Ptr PgfPGF -> Ptr PgfText -> Ptr CSize -> IO (Ptr PgfTypeHypo)
 
+foreign import ccall "pgf/pgf.h pgf_category_prob"
+  pgf_category_prob :: Ptr PgfPGF -> Ptr PgfText -> IO (#type prob_t)
+
 foreign import ccall "pgf_iter_functions"
   pgf_iter_functions :: Ptr PgfPGF -> Ptr PgfItor -> IO ()
 
@@ -75,6 +78,11 @@ foreign import ccall "pgf_iter_functions_by_cat"
 foreign import ccall "pgf/pgf.h pgf_function_type"
    pgf_function_type :: Ptr PgfPGF -> Ptr PgfText -> IO (StablePtr Type)
 
+foreign import ccall "pgf/expr.h pgf_function_is_constructor"
+   pgf_function_is_constructor :: Ptr PgfPGF -> Ptr PgfText -> IO (#type int)
+
+foreign import ccall "pgf/expr.h pgf_function_is_constructor"
+   pgf_function_prob :: Ptr PgfPGF -> Ptr PgfText -> IO (#type prob_t)
 
 peekText :: Ptr PgfText -> IO String
 peekText ptr =
