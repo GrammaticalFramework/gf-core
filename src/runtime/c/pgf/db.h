@@ -1,6 +1,8 @@
 #ifndef DB_H
 #define DB_H
 
+#define MALLOC_ALIGN_MASK (2*sizeof(size_t) - 1)
+
 class DB;
 
 extern PGF_INTERNAL_DECL __thread unsigned char* current_base __attribute__((tls_model("initial-exec")));
@@ -39,18 +41,18 @@ public:
 
     static
     variant tagged(ref<A> ref) {
-        assert(A::tag < 2*sizeof(size_t));
+        assert(A::tag < MALLOC_ALIGN_MASK + 1);
         return (ref.offset | A::tag);
     }
 
     static
     ref<A> untagged(variant v) {
-        return (v & ~(2*sizeof(size_t) - 1));
+        return (v & ~MALLOC_ALIGN_MASK);
     }
 
     static
     uint8_t get_tag(variant v) {
-        return (v & (2*sizeof(size_t) - 1));
+        return (v & MALLOC_ALIGN_MASK);
     }
 };
 

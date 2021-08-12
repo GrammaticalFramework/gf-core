@@ -153,8 +153,6 @@ typedef struct mchunk mbin;
 
 #define MIN_CHUNK_SIZE (offsetof(mchunk, fd_nextsize))
 
-#define MALLOC_ALIGN_MASK (2*sizeof(size_t) - 1)
-
 /* The smallest size we can malloc is an aligned minimal chunk */
 #define MINSIZE  \
   (unsigned long)(((MIN_CHUNK_SIZE+MALLOC_ALIGN_MASK) & ~MALLOC_ALIGN_MASK))
@@ -356,10 +354,12 @@ DB::init_state(size_t size)
         ms->fastbins[i] = 0;
     }
 
-    mchunk* top_chunk =
-        mem2chunk(((char*) ms) + sizeof(*ms) + sizeof(size_t));
+    size_t sz = (sizeof(*ms) + sizeof(size_t));
+    sz = (sz & ~MALLOC_ALIGN_MASK) + MALLOC_ALIGN_MASK + 1;
+
+    mchunk* top_chunk = mem2chunk(((char*) ms) + sz);
     ms->top = ofs(ms,top_chunk);
-    set_head(top_chunk, (size - sizeof(*ms)) | PREV_INUSE);
+    set_head(top_chunk, (size - (sz - sizeof(size_t))) | PREV_INUSE);
 
     ms->last_remainder = 0;
 
