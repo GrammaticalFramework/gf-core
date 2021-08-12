@@ -287,6 +287,7 @@ readExpr str =
     if c_expr == castPtrToStablePtr nullPtr
       then return Nothing
       else do expr <- deRefStablePtr c_expr
+              freeStablePtr c_expr
               return (Just expr)
 
 -- | parses a 'String' as a type
@@ -295,11 +296,12 @@ readType str =
   unsafePerformIO $
   withText str $ \c_str ->
   bracket mkUnmarshaller freeUnmarshaller $ \u -> do
-    c_type <- pgf_read_type c_str u
-    if c_type == castPtrToStablePtr nullPtr
+    c_ty <- pgf_read_type c_str u
+    if c_ty == castPtrToStablePtr nullPtr
       then return Nothing
-      else do tp <- deRefStablePtr c_type
-              return (Just tp)
+      else do ty <- deRefStablePtr c_ty
+              freeStablePtr c_ty
+              return (Just ty)
 
 -----------------------------------------------------------------------
 -- Exceptions
