@@ -19,7 +19,7 @@ module PGF2 (-- * PGF
              -- * Abstract syntax
              AbsName,abstractName,
              -- ** Categories
-             Cat,categories,
+             Cat,categories,categoryContext,
              -- ** Functions
              Fun, functions, functionsByCat,
              functionType,
@@ -162,6 +162,34 @@ categories p =
       names <- readIORef ref
       name  <- peekText key
       writeIORef ref $ (name : names)
+
+categoryContext :: PGF -> Cat -> [Hypo]
+categoryContext p cat =
+  unsafePerformIO $
+  withText cat $ \c_cat ->
+  alloca $ \p_n_hypos ->
+  withForeignPtr (a_pgf p) $ \c_pgf ->
+  mask_ $ do
+    c_hypos <- pgf_category_context c_pgf c_cat p_n_hypos
+    if c_hypos == nullPtr
+      then return []
+      else do n_hypos <- peek p_n_hypos
+              hypos <- peekHypos c_hypos 0 n_hypos
+              free c_hypos
+              return hypos
+  where
+    peekHypos :: Ptr PgfTypeHypo -> CSize -> CSize -> IO [Hypo]
+    peekHypos c_hypo i n
+      | i < n     = do c_cat <- (#peek PgfTypeHypo, cid) c_hypo
+                       cat <- peekText c_cat
+                       free c_cat
+                       c_ty <- (#peek PgfTypeHypo, type) c_hypo
+                       ty <- deRefStablePtr c_ty
+                       freeStablePtr c_ty
+                       bt  <- fmap unmarshalBindType ((#peek PgfTypeHypo, bind_type) c_hypo)
+                       hs <- peekHypos (plusPtr c_hypo (#size PgfTypeHypo)) (i+1) n
+                       return ((bt,cat,ty) : hs)
+      | otherwise = return []
 
 -- | List of all functions defined in the abstract syntax
 functions :: PGF -> [Fun]

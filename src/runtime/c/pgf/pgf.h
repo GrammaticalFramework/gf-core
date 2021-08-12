@@ -160,6 +160,9 @@ PgfText *pgf_abstract_name(PgfPGF* pgf);
 PGF_API_DECL
 void pgf_iter_categories(PgfPGF* pgf, PgfItor* itor);
 
+PGF_API_DECL PgfTypeHypo*
+pgf_category_context(PgfPGF *pgf, PgfText *catname, size_t *n_hypos);
+
 PGF_API_DECL
 void pgf_iter_functions(PgfPGF* pgf, PgfItor* itor);
 

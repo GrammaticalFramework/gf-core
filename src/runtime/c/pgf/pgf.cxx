@@ -167,6 +167,30 @@ void pgf_iter_categories(PgfPGF* pgf, PgfItor* itor)
     namespace_iter(pgf->get_root<PgfPGFRoot>()->abstract.cats, itor);
 }
 
+PGF_API PgfTypeHypo*
+pgf_category_context(PgfPGF *pgf, PgfText *catname, size_t *n_hypos)
+{
+    DB_scope scope(pgf, READER_SCOPE);
+
+    ref<PgfAbsCat> abscat =
+        namespace_lookup(pgf->get_root<PgfPGFRoot>()->abstract.cats, catname);
+	if (abscat == 0) {
+        *n_hypos = 0;
+		return NULL;
+    }
+
+    PgfTypeHypo *hypos = (PgfTypeHypo *)
+        malloc(abscat->context->len * sizeof(PgfTypeHypo));
+    for (size_t i = 0; i < abscat->context->len; i++) {
+        hypos[i].bind_type = abscat->context->data[i].bind_type;
+        hypos[i].cid = textdup(abscat->context->data[i].cid);
+        hypos[i].type = pgf_unmarshall_type(pgf->u, abscat->context->data[i].type);
+    }
+
+    *n_hypos = abscat->context->len;
+    return hypos;
+}
+
 PGF_API
 void pgf_iter_functions(PgfPGF* pgf, PgfItor* itor)
 {

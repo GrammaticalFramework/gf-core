@@ -7,4 +7,7 @@ fun z : N ;
 
 fun c : N -> S ;
 
+cat P N ;
+fun ind : P z -> ((x:N) -> P x -> P (s x)) -> ((x : N) -> P x) ;
+
 }
