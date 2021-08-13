@@ -11,20 +11,32 @@ jobs:
     steps:
     - uses: actions/checkout@v2
 
-    - name: Install build tools
-      run: |
-        sudo apt-get update
-        sudo apt-get install -y \
-          autoconf \
-          automake \
-          autotools-dev \
-          g++ \
-          libtool \
-          make
+    # All these are already available in GitHub runner
+    # - name: Install build tools
+    #   run: |
+    #     sudo apt-get update
+    #     sudo apt-get install -y \
+    #       autoconf \
+    #       automake \
+    #       libtool \
+    #       make \
+    #       g++
 
-    - name: Build package
+    - name: Build runtime
       working-directory: ./src/runtime/c
       run: |
         autoreconf -i
         ./configure
         make
+        make install
+
+    - name: Setup Haskell
+      uses: haskell/actions/setup@v1
+      # with:
+      #   ghc-version: '8.6'
+      #   cabal-version: '2.4.1.0'
+
+    - name: Run testsuite
+      working-directory: ./src/runtime/haskell
+      run: |
+        cabal test
