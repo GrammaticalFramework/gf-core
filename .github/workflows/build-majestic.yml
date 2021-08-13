@@ -39,4 +39,4 @@ jobs:
     - name: Run testsuite
       working-directory: ./src/runtime/haskell
       run: |
-        cabal test
+        cabal test --extra-lib-dirs=/usr/local/lib
