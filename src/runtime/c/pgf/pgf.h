@@ -77,7 +77,6 @@ typedef struct {
  * a PyObject pointer.
  */
 #ifdef __cplusplus
-typedef struct PgfUnmarshaller PgfUnmarshaller;
 struct PgfUnmarshaller {
     virtual uintptr_t eabs(PgfBindType btype, PgfText *name, uintptr_t body)=0;
     virtual uintptr_t eapp(uintptr_t fun, uintptr_t arg)=0;
@@ -95,6 +94,12 @@ struct PgfUnmarshaller {
                            int n_exprs, uintptr_t *exprs)=0;
     virtual void free_ref(uintptr_t x)=0;
     virtual void free_me()=0;
+};
+
+struct PgfMarshaller {
+    virtual uintptr_t match_lit(PgfUnmarshaller *u, uintptr_t lit)=0;
+    virtual uintptr_t match_expr(PgfUnmarshaller *u, uintptr_t expr)=0;
+    virtual uintptr_t match_type(PgfUnmarshaller *u, uintptr_t *ty)=0;
 };
 #else
 typedef struct PgfUnmarshaller PgfUnmarshaller;
@@ -121,7 +126,19 @@ struct PgfUnmarshallerVtbl {
 struct PgfUnmarshaller {
     PgfUnmarshallerVtbl *vtbl;
 };
+
+typedef struct PgfMarshaller PgfMarshaller;
+typedef struct PgfMarshallerVtbl PgfMarshallerVtbl;
+struct PgfMarshallerVtbl {
+    uintptr_t (*match_lit)(PgfUnmarshaller *u, uintptr_t lit);
+    uintptr_t (*match_expr)(PgfUnmarshaller *u, uintptr_t expr);
+    uintptr_t (*match_type)(PgfUnmarshaller *u, uintptr_t *ty);
+};
+struct PgfMarshaller {
+    PgfMarshallerVtbl *vtbl;
+};
 #endif
+
 typedef float prob_t;
 
 typedef struct PgfPGF PgfPGF;
