@@ -125,7 +125,7 @@ struct PgfPGF : DB {
     { u = unmarshaller; };
 
     PGF_INTERNAL_DECL ~PgfPGF()
-    { u->free_me(u); };
+    { u->free_me(); };
 
     PgfUnmarshaller *u;
 };

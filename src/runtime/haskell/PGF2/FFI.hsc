@@ -138,147 +138,137 @@ withText s fn =
 
 type CBindType = (#type PgfBindType)
 
-type EAbsUnmarshaller = (#type PgfBindType) -> Ptr PgfText -> StablePtr Expr -> IO (StablePtr Expr)
+type EAbsFun = Ptr PgfUnmarshaller -> (#type PgfBindType) -> Ptr PgfText -> StablePtr Expr -> IO (StablePtr Expr)
 
 foreign import ccall "wrapper"
-  wrapEAbsUnmarshaller :: EAbsUnmarshaller -> IO (FunPtr EAbsUnmarshaller)
+  wrapEAbsFun :: EAbsFun -> IO (FunPtr EAbsFun)
 
-type EAppUnmarshaller = StablePtr Expr -> StablePtr Expr -> IO (StablePtr Expr)
-
-foreign import ccall "wrapper"
-  wrapEAppUnmarshaller :: EAppUnmarshaller -> IO (FunPtr EAppUnmarshaller)
-
-type ELitUnmarshaller = StablePtr Literal -> IO (StablePtr Expr)
+type EAppFun = Ptr PgfUnmarshaller -> StablePtr Expr -> StablePtr Expr -> IO (StablePtr Expr)
 
 foreign import ccall "wrapper"
-  wrapELitUnmarshaller :: ELitUnmarshaller -> IO (FunPtr ELitUnmarshaller)
+  wrapEAppFun :: EAppFun -> IO (FunPtr EAppFun)
 
-type EMetaUnmarshaller = (#type PgfMetaId) -> IO (StablePtr Expr)
-
-foreign import ccall "wrapper"
-  wrapEMetaUnmarshaller :: EMetaUnmarshaller -> IO (FunPtr EMetaUnmarshaller)
-
-type EFunUnmarshaller = Ptr PgfText -> IO (StablePtr Expr)
+type ELitFun = Ptr PgfUnmarshaller -> StablePtr Literal -> IO (StablePtr Expr)
 
 foreign import ccall "wrapper"
-  wrapEFunUnmarshaller :: EFunUnmarshaller -> IO (FunPtr EFunUnmarshaller)
+  wrapELitFun :: ELitFun -> IO (FunPtr ELitFun)
 
-type EVarUnmarshaller = CInt -> IO (StablePtr Expr)
-
-foreign import ccall "wrapper"
-  wrapEVarUnmarshaller :: EVarUnmarshaller -> IO (FunPtr EVarUnmarshaller)
-
-type ETypedUnmarshaller = StablePtr Expr -> StablePtr Type -> IO (StablePtr Expr)
+type EMetaFun = Ptr PgfUnmarshaller -> (#type PgfMetaId) -> IO (StablePtr Expr)
 
 foreign import ccall "wrapper"
-  wrapETypedUnmarshaller :: ETypedUnmarshaller -> IO (FunPtr ETypedUnmarshaller)
+  wrapEMetaFun :: EMetaFun -> IO (FunPtr EMetaFun)
 
-type EImplArgUnmarshaller = StablePtr Expr -> IO (StablePtr Expr)
-
-foreign import ccall "wrapper"
-  wrapEImplArgUnmarshaller :: EImplArgUnmarshaller -> IO (FunPtr EImplArgUnmarshaller)
-
-type LIntUnmarshaller = CInt -> IO (StablePtr Literal)
+type EFunFun = Ptr PgfUnmarshaller -> Ptr PgfText -> IO (StablePtr Expr)
 
 foreign import ccall "wrapper"
-  wrapLIntUnmarshaller :: LIntUnmarshaller -> IO (FunPtr LIntUnmarshaller)
+  wrapEFunFun :: EFunFun -> IO (FunPtr EFunFun)
 
-type LFltUnmarshaller = CDouble -> IO (StablePtr Literal)
-
-foreign import ccall "wrapper"
-  wrapLFltUnmarshaller :: LFltUnmarshaller -> IO (FunPtr LFltUnmarshaller)
-
-type LStrUnmarshaller = Ptr PgfText -> IO (StablePtr Literal)
+type EVarFun = Ptr PgfUnmarshaller -> CInt -> IO (StablePtr Expr)
 
 foreign import ccall "wrapper"
-  wrapLStrUnmarshaller :: LStrUnmarshaller -> IO (FunPtr LStrUnmarshaller)
+  wrapEVarFun :: EVarFun -> IO (FunPtr EVarFun)
 
-type TypeUnmarshaller = CInt -> Ptr PgfTypeHypo -> Ptr PgfText -> CInt -> Ptr (StablePtr Expr) -> IO (StablePtr Type)
+type ETypedFun = Ptr PgfUnmarshaller -> StablePtr Expr -> StablePtr Type -> IO (StablePtr Expr)
 
 foreign import ccall "wrapper"
-  wrapTypeUnmarshaller :: TypeUnmarshaller -> IO (FunPtr TypeUnmarshaller)
+  wrapETypedFun :: ETypedFun -> IO (FunPtr ETypedFun)
 
-foreign import ccall "&hs_free_stable_ptr" hs_free_stable_ptr :: FunPtr (StablePtr a -> IO ())
+type EImplArgFun = Ptr PgfUnmarshaller -> StablePtr Expr -> IO (StablePtr Expr)
+
+foreign import ccall "wrapper"
+  wrapEImplArgFun :: EImplArgFun -> IO (FunPtr EImplArgFun)
+
+type LIntFun = Ptr PgfUnmarshaller -> CInt -> IO (StablePtr Literal)
+
+foreign import ccall "wrapper"
+  wrapLIntFun :: LIntFun -> IO (FunPtr LIntFun)
+
+type LFltFun = Ptr PgfUnmarshaller -> CDouble -> IO (StablePtr Literal)
+
+foreign import ccall "wrapper"
+  wrapLFltFun :: LFltFun -> IO (FunPtr LFltFun)
+
+type LStrFun = Ptr PgfUnmarshaller -> Ptr PgfText -> IO (StablePtr Literal)
+
+foreign import ccall "wrapper"
+  wrapLStrFun :: LStrFun -> IO (FunPtr LStrFun)
+
+type DTypFun = Ptr PgfUnmarshaller -> CInt -> Ptr PgfTypeHypo -> Ptr PgfText -> CInt -> Ptr (StablePtr Expr) -> IO (StablePtr Type)
+
+foreign import ccall "wrapper"
+  wrapTypeFun :: DTypFun -> IO (FunPtr DTypFun)
+
+foreign import ccall "&hs_free_reference" hs_free_reference :: FunPtr (Ptr PgfUnmarshaller -> StablePtr a -> IO ())
 
 foreign import ccall "&hs_free_unmarshaller" hs_free_unmarshaller :: FunPtr (Ptr PgfUnmarshaller -> IO ())
 
 foreign import ccall "hs_free_unmarshaller" freeUnmarshaller :: Ptr PgfUnmarshaller -> IO ()
 
 mkUnmarshaller = do
-  eabs    <- wrapEAbsUnmarshaller     unmarshalEAbs
-  eapp    <- wrapEAppUnmarshaller     unmarshalEApp
-  elit    <- wrapELitUnmarshaller     unmarshalELit
-  emeta   <- wrapEMetaUnmarshaller    unmarshalEMeta
-  efun    <- wrapEFunUnmarshaller     unmarshalEFun
-  evar    <- wrapEVarUnmarshaller     unmarshalEVar
-  etyped  <- wrapETypedUnmarshaller   unmarshalETyped
-  eimplarg<- wrapEImplArgUnmarshaller unmarshalEImplArg
-  lint    <- wrapLIntUnmarshaller     unmarshalLInt
-  lflt    <- wrapLFltUnmarshaller     unmarshalLFlt
-  lstr    <- wrapLStrUnmarshaller     unmarshalLStr
-  dtyp    <- wrapTypeUnmarshaller     unmarshalType
+  vtbl <- mallocBytes (#size PgfUnmarshallerVtbl)
+  wrapEAbsFun     unmarshalEAbs     >>= (#poke PgfUnmarshallerVtbl, eabs)     vtbl
+  wrapEAppFun     unmarshalEApp     >>= (#poke PgfUnmarshallerVtbl, eapp)     vtbl
+  wrapELitFun     unmarshalELit     >>= (#poke PgfUnmarshallerVtbl, elit)     vtbl
+  wrapEMetaFun    unmarshalEMeta    >>= (#poke PgfUnmarshallerVtbl, emeta)    vtbl
+  wrapEFunFun     unmarshalEFun     >>= (#poke PgfUnmarshallerVtbl, efun)     vtbl
+  wrapEVarFun     unmarshalEVar     >>= (#poke PgfUnmarshallerVtbl, evar)     vtbl
+  wrapETypedFun   unmarshalETyped   >>= (#poke PgfUnmarshallerVtbl, etyped)   vtbl
+  wrapEImplArgFun unmarshalEImplArg >>= (#poke PgfUnmarshallerVtbl, eimplarg) vtbl
+  wrapLIntFun     unmarshalLInt     >>= (#poke PgfUnmarshallerVtbl, lint)     vtbl
+  wrapLFltFun     unmarshalLFlt     >>= (#poke PgfUnmarshallerVtbl, lflt)     vtbl
+  wrapLStrFun     unmarshalLStr     >>= (#poke PgfUnmarshallerVtbl, lstr)     vtbl
+  wrapTypeFun     unmarshalType     >>= (#poke PgfUnmarshallerVtbl, dtyp)     vtbl
+  (#poke PgfUnmarshallerVtbl, free_ref) vtbl hs_free_reference
+  (#poke PgfUnmarshallerVtbl, free_me)  vtbl hs_free_unmarshaller
   ptr <- mallocBytes (#size PgfUnmarshaller)
-  (#poke PgfUnmarshaller, eabs)     ptr eabs
-  (#poke PgfUnmarshaller, eapp)     ptr eapp
-  (#poke PgfUnmarshaller, elit)     ptr elit
-  (#poke PgfUnmarshaller, emeta)    ptr emeta
-  (#poke PgfUnmarshaller, efun)     ptr efun
-  (#poke PgfUnmarshaller, evar)     ptr evar
-  (#poke PgfUnmarshaller, etyped)   ptr etyped
-  (#poke PgfUnmarshaller, eimplarg) ptr eimplarg
-  (#poke PgfUnmarshaller, lint)     ptr lint
-  (#poke PgfUnmarshaller, lflt)     ptr lflt
-  (#poke PgfUnmarshaller, lstr)     ptr lstr
-  (#poke PgfUnmarshaller, dtyp)     ptr dtyp
-  (#poke PgfUnmarshaller, free_ref) ptr hs_free_stable_ptr
-  (#poke PgfUnmarshaller, free_me)  ptr hs_free_unmarshaller
+  (#poke PgfUnmarshaller, vtbl) ptr vtbl
   return ptr
   where
-    unmarshalEAbs c_btype c_var c_body = do
+    unmarshalEAbs this c_btype c_var c_body = do
       let btype = unmarshalBindType c_btype
       var <- peekText c_var
       body <- deRefStablePtr c_body
       newStablePtr (EAbs btype var body)
 
-    unmarshalEApp c_fun c_arg = do
+    unmarshalEApp this c_fun c_arg = do
       fun <- deRefStablePtr c_fun
       arg <- deRefStablePtr c_arg
       newStablePtr (EApp fun arg)
 
-    unmarshalELit c_lit = do
+    unmarshalELit this c_lit = do
       lit <- deRefStablePtr c_lit
       newStablePtr (ELit lit)
 
-    unmarshalEMeta c_metaid = do
+    unmarshalEMeta this c_metaid = do
       newStablePtr (EMeta (fromIntegral c_metaid))
 
-    unmarshalEFun c_name = do
+    unmarshalEFun this c_name = do
       name <- peekText c_name
       newStablePtr (EFun name)
 
-    unmarshalEVar c_var = do
+    unmarshalEVar this c_var = do
       newStablePtr (EVar (fromIntegral c_var))
 
-    unmarshalETyped c_expr c_typ = do
+    unmarshalETyped this c_expr c_typ = do
       expr <- deRefStablePtr c_expr
       typ  <- deRefStablePtr c_typ
       newStablePtr (ETyped expr typ)
 
-    unmarshalEImplArg c_expr = do
+    unmarshalEImplArg this c_expr = do
       expr <- deRefStablePtr c_expr
       newStablePtr (EImplArg expr)
 
-    unmarshalLInt c_v = do
+    unmarshalLInt this c_v = do
       newStablePtr (LInt (fromIntegral c_v))
 
-    unmarshalLFlt c_v = do
+    unmarshalLFlt this c_v = do
       newStablePtr (LFlt (realToFrac c_v))
 
-    unmarshalLStr c_v = do
+    unmarshalLStr this c_v = do
       s <- peekText c_v
       newStablePtr (LStr s)
 
-    unmarshalType n_hypos hypos c_cat n_exprs exprs = do
+    unmarshalType this n_hypos hypos c_cat n_exprs exprs = do
       hypos <- peekHypos n_hypos hypos
       cat <- peekText c_cat
       exprs <- peekExprs n_exprs exprs

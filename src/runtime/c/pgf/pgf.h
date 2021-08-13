@@ -76,26 +76,52 @@ typedef struct {
  * actually be a stable pointer, while for Python that would be
  * a PyObject pointer.
  */
+#ifdef __cplusplus
 typedef struct PgfUnmarshaller PgfUnmarshaller;
 struct PgfUnmarshaller {
-    uintptr_t (*eabs)(PgfBindType btype, PgfText *name, uintptr_t body);
-    uintptr_t (*eapp)(uintptr_t fun, uintptr_t arg);
-    uintptr_t (*elit)(uintptr_t lit);
-    uintptr_t (*emeta)(PgfMetaId meta);
-    uintptr_t (*efun)(PgfText *name);
-    uintptr_t (*evar)(int index);
-    uintptr_t (*etyped)(uintptr_t expr, uintptr_t typ);
-    uintptr_t (*eimplarg)(uintptr_t expr);
-    uintptr_t (*lint)(int v);
-    uintptr_t (*lflt)(double v);
-    uintptr_t (*lstr)(PgfText *v);
-    uintptr_t (*dtyp)(int n_hypos, PgfTypeHypo *hypos,
+    virtual uintptr_t eabs(PgfBindType btype, PgfText *name, uintptr_t body)=0;
+    virtual uintptr_t eapp(uintptr_t fun, uintptr_t arg)=0;
+    virtual uintptr_t elit(uintptr_t lit)=0;
+    virtual uintptr_t emeta(PgfMetaId meta)=0;
+    virtual uintptr_t efun(PgfText *name)=0;
+    virtual uintptr_t evar(int index)=0;
+    virtual uintptr_t etyped(uintptr_t expr, uintptr_t typ)=0;
+    virtual uintptr_t eimplarg(uintptr_t expr)=0;
+    virtual uintptr_t lint(int v)=0;
+    virtual uintptr_t lflt(double v)=0;
+    virtual uintptr_t lstr(PgfText *v)=0;
+    virtual uintptr_t dtyp(int n_hypos, PgfTypeHypo *hypos,
+                           PgfText *cat,
+                           int n_exprs, uintptr_t *exprs)=0;
+    virtual void free_ref(uintptr_t x)=0;
+    virtual void free_me()=0;
+};
+#else
+typedef struct PgfUnmarshaller PgfUnmarshaller;
+typedef struct PgfUnmarshallerVtbl PgfUnmarshallerVtbl;
+struct PgfUnmarshallerVtbl {
+    uintptr_t (*eabs)(PgfUnmarshaller *this, PgfBindType btype, PgfText *name, uintptr_t body);
+    uintptr_t (*eapp)(PgfUnmarshaller *this, uintptr_t fun, uintptr_t arg);
+    uintptr_t (*elit)(PgfUnmarshaller *this, uintptr_t lit);
+    uintptr_t (*emeta)(PgfUnmarshaller *this, PgfMetaId meta);
+    uintptr_t (*efun)(PgfUnmarshaller *this, PgfText *name);
+    uintptr_t (*evar)(PgfUnmarshaller *this, int index);
+    uintptr_t (*etyped)(PgfUnmarshaller *this, uintptr_t expr, uintptr_t typ);
+    uintptr_t (*eimplarg)(PgfUnmarshaller *this, uintptr_t expr);
+    uintptr_t (*lint)(PgfUnmarshaller *this, int v);
+    uintptr_t (*lflt)(PgfUnmarshaller *this, double v);
+    uintptr_t (*lstr)(PgfUnmarshaller *this, PgfText *v);
+    uintptr_t (*dtyp)(PgfUnmarshaller *this,
+                      int n_hypos, PgfTypeHypo *hypos,
                       PgfText *cat,
                       int n_exprs, uintptr_t *exprs);
-    void (*free_ref)(uintptr_t x);
-    void (*free_me)(PgfUnmarshaller *unmarshaller);
+    void (*free_ref)(PgfUnmarshaller *this, uintptr_t x);
+    void (*free_me)(PgfUnmarshaller *this);
 };
-
+struct PgfUnmarshaller {
+    PgfUnmarshallerVtbl *vtbl;
+};
+#endif
 typedef float prob_t;
 
 typedef struct PgfPGF PgfPGF;
