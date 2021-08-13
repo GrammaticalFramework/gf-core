@@ -30,7 +30,7 @@ library
     PGF2.Expr,
     PGF2.Type
   build-depends:
-    base >= 4.3 && < 4.15,
+    base >= 4.3 && < 4.16,
     containers,
     pretty,
     array,
