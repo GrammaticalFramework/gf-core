@@ -1,17 +1,17 @@
 #include "pgf/data.h"
 
 PGF_INTERNAL
-hobject pgf_unmarshall_literal(PgfBridge *b, PgfLiteral l)
+uintptr_t pgf_unmarshall_literal(PgfUnmarshaller *u, PgfLiteral l)
 {
     switch (ref<PgfLiteral>::get_tag(l)) {
     case PgfLiteralInt::tag: {
-        return b->lint(ref<PgfLiteralInt>::untagged(l)->val);
+        return u->lint(ref<PgfLiteralInt>::untagged(l)->val);
     }
     case PgfLiteralFlt::tag: {
-        return b->lflt(ref<PgfLiteralInt>::untagged(l)->val);
+        return u->lflt(ref<PgfLiteralInt>::untagged(l)->val);
     }
     case PgfLiteralStr::tag: {
-        return b->lstr(&ref<PgfLiteralStr>::untagged(l)->val);
+        return u->lstr(&ref<PgfLiteralStr>::untagged(l)->val);
     }
 	default:
 		throw pgf_error("Unknown literal tag");
@@ -19,55 +19,55 @@ hobject pgf_unmarshall_literal(PgfBridge *b, PgfLiteral l)
 }
 
 PGF_INTERNAL
-hobject pgf_unmarshall_expr(PgfBridge *b, PgfExpr e)
+uintptr_t pgf_unmarshall_expr(PgfUnmarshaller *u, PgfExpr e)
 {
     switch (ref<PgfExpr>::get_tag(e)) {
     case PgfExprAbs::tag: {
         auto eabs = ref<PgfExprAbs>::untagged(e);
-        hobject body = pgf_unmarshall_expr(b,eabs->body);
-        hobject res = b->eabs(eabs->bind_type,&eabs->name,body);
-        b->free_ref(body);
+        uintptr_t body = pgf_unmarshall_expr(u,eabs->body);
+        uintptr_t res = u->eabs(eabs->bind_type,&eabs->name,body);
+        u->free_ref(body);
         return res;
     }
     case PgfExprApp::tag: {
         auto eapp = ref<PgfExprApp>::untagged(e);
-        hobject fun = pgf_unmarshall_expr(b,eapp->fun);
-        hobject arg = pgf_unmarshall_expr(b,eapp->arg);
-        hobject res = b->eapp(fun,arg);
-        b->free_ref(arg);
-        b->free_ref(fun);
+        uintptr_t fun = pgf_unmarshall_expr(u,eapp->fun);
+        uintptr_t arg = pgf_unmarshall_expr(u,eapp->arg);
+        uintptr_t res = u->eapp(fun,arg);
+        u->free_ref(arg);
+        u->free_ref(fun);
         return res;
     }
     case PgfExprLit::tag: {
         auto elit = ref<PgfExprLit>::untagged(e);
-        hobject lit = pgf_unmarshall_literal(b,elit->lit);
-        hobject res = b->elit(lit);
-        b->free_ref(lit);
+        uintptr_t lit = pgf_unmarshall_literal(u,elit->lit);
+        uintptr_t res = u->elit(lit);
+        u->free_ref(lit);
         return res;
     }
     case PgfExprMeta::tag: {
-        return b->emeta(ref<PgfExprMeta>::untagged(e)->id);
+        return u->emeta(ref<PgfExprMeta>::untagged(e)->id);
     }
 	case PgfExprFun::tag: {
-        return b->efun(&ref<PgfExprFun>::untagged(e)->name);
+        return u->efun(&ref<PgfExprFun>::untagged(e)->name);
     }
 	case PgfExprVar::tag: {
-        return b->evar(ref<PgfExprVar>::untagged(e)->var);
+        return u->evar(ref<PgfExprVar>::untagged(e)->var);
 	}
 	case PgfExprTyped::tag: {
         auto etyped = ref<PgfExprTyped>::untagged(e);
-        hobject expr = pgf_unmarshall_expr(b,etyped->expr);
-        hobject type = pgf_unmarshall_type(b,etyped->type);
-        hobject res = b->etyped(expr,type);
-        b->free_ref(type);
-        b->free_ref(expr);
+        uintptr_t expr = pgf_unmarshall_expr(u,etyped->expr);
+        uintptr_t type = pgf_unmarshall_type(u,etyped->type);
+        uintptr_t res = u->etyped(expr,type);
+        u->free_ref(type);
+        u->free_ref(expr);
         return res;
 	}
 	case PgfExprImplArg::tag: {
         auto eimpl = ref<PgfExprImplArg>::untagged(e);
-        hobject expr = pgf_unmarshall_expr(b,eimpl->expr);
-        hobject res = b->eimplarg(expr);
-        b->free_ref(expr);
+        uintptr_t expr = pgf_unmarshall_expr(u,eimpl->expr);
+        uintptr_t res = u->eimplarg(expr);
+        u->free_ref(expr);
         return res;
 	}
 	default:
@@ -76,43 +76,43 @@ hobject pgf_unmarshall_expr(PgfBridge *b, PgfExpr e)
 }
 
 PGF_INTERNAL
-hobject pgf_unmarshall_type(PgfBridge *b, PgfType *tp)
+uintptr_t pgf_unmarshall_type(PgfUnmarshaller *u, PgfType *tp)
 {
     PgfTypeHypo *hypos = (PgfTypeHypo *)
         alloca(tp->hypos->len * sizeof(PgfTypeHypo));
     for (size_t i = 0; i < tp->hypos->len; i++) {
         hypos[i].bind_type = tp->hypos->data[i].bind_type;
         hypos[i].cid = &(*tp->hypos->data[i].cid);
-        hypos[i].type = pgf_unmarshall_type(b, tp->hypos->data[i].type);
+        hypos[i].type = pgf_unmarshall_type(u, tp->hypos->data[i].type);
     }
 
-    hobject *exprs = (hobject *)
-        alloca(tp->exprs->len * sizeof(hobject));
+    uintptr_t *exprs = (uintptr_t *)
+        alloca(tp->exprs->len * sizeof(uintptr_t));
     for (size_t i = 0; i < tp->exprs->len; i++) {
-        exprs[i] = pgf_unmarshall_expr(b, tp->exprs->data[i]);
+        exprs[i] = pgf_unmarshall_expr(u, tp->exprs->data[i]);
     }
 
-    hobject res = b->dtyp(tp->hypos->len, hypos,
+    uintptr_t res = u->dtyp(tp->hypos->len, hypos,
                             &tp->name,
                             tp->exprs->len, exprs);
 
     for (size_t i = 0; i < tp->hypos->len; i++) {
-        b->free_ref(hypos[i].type);
+        u->free_ref(hypos[i].type);
     }
 
     for (size_t i = 0; i < tp->exprs->len; i++) {
-        b->free_ref(exprs[i]);
+        u->free_ref(exprs[i]);
     }
 
     return res;
 }
 
-PgfExprParser::PgfExprParser(PgfText *input, PgfBridge *bridge)
+PgfExprParser::PgfExprParser(PgfText *input, PgfUnmarshaller *unmarshaller)
 {
     inp = input;
     pos = (const char*) &inp->text;
 	ch  = ' ';
-    b   = bridge;
+    u   = unmarshaller;
     token_value = NULL;
 
 	token();
@@ -358,49 +358,49 @@ bool PgfExprParser::lookahead(int ch)
 	return (this->ch == ch);
 }
 
-hobject PgfExprParser::parse_term()
+uintptr_t PgfExprParser::parse_term()
 {
 	switch (token_tag) {
 	case PGF_TOKEN_LPAR: {
 		token();
-		hobject expr = parse_expr();
+		uintptr_t expr = parse_expr();
 		if (token_tag == PGF_TOKEN_RPAR) {
 			token();
 			return expr;
 		} else {
             if (expr != 0)
-                b->free_ref(expr);
+                u->free_ref(expr);
 			return 0;
 		}
 	}
 	case PGF_TOKEN_LTRIANGLE: {
 		token();
-		hobject expr = parse_expr();
+		uintptr_t expr = parse_expr();
 		if (expr == 0)
 			return 0;
 
 		if (token_tag != PGF_TOKEN_COLON) {
-            b->free_ref(expr);
+            u->free_ref(expr);
 			return 0;
 		}
 		token();
 
-		hobject type = parse_type();
+		uintptr_t type = parse_type();
 		if (type == 0) {
-            b->free_ref(expr);
+            u->free_ref(expr);
 			return 0;
         }
 
 		if (token_tag != PGF_TOKEN_RTRIANGLE) {
-            b->free_ref(expr);
-            b->free_ref(type);
+            u->free_ref(expr);
+            u->free_ref(type);
 			return 0;
 		}
 		token();
 
-		hobject e = b->etyped(expr,type);
-        b->free_ref(expr);
-        b->free_ref(type);
+		uintptr_t e = u->etyped(expr,type);
+        u->free_ref(expr);
+        u->free_ref(type);
         return e;
 	}
 	case PGF_TOKEN_QUESTION: {
@@ -411,33 +411,33 @@ hobject PgfExprParser::parse_term()
 			id = atoi((const char*) &token_value->text);
 			token();
 		}
-		return b->emeta(id);
+		return u->emeta(id);
 	}
 	case PGF_TOKEN_IDENT: {
-        hobject e = b->efun(token_value);
+        uintptr_t e = u->efun(token_value);
 		token();
         return e;
 	}
 	case PGF_TOKEN_INT: {
 		int n = atoi((const char*) &token_value->text);
-        uint32_t lit = b->lint(n);
-        uint32_t e = b->elit(lit);
-        b->free_ref(lit);
+        uint32_t lit = u->lint(n);
+        uint32_t e = u->elit(lit);
+        u->free_ref(lit);
 		token();
 		return e;
 	}
 	case PGF_TOKEN_STR: {
-        uint32_t lit = b->lstr(token_value);
-        uint32_t e = b->elit(lit);
-        b->free_ref(lit);
+        uint32_t lit = u->lstr(token_value);
+        uint32_t e = u->elit(lit);
+        u->free_ref(lit);
 		token();
 		return e;
 	}
 	case PGF_TOKEN_FLT: {
 		double d = atof((const char*) &token_value->text);
-        uint32_t lit = b->lflt(d);
-        uint32_t e = b->elit(lit);
-        b->free_ref(lit);
+        uint32_t lit = u->lflt(d);
+        uint32_t e = u->elit(lit);
+        u->free_ref(lit);
 		token();
 		return e;
 	}
@@ -446,9 +446,9 @@ hobject PgfExprParser::parse_term()
 	}
 }
 
-hobject PgfExprParser::parse_arg()
+uintptr_t PgfExprParser::parse_arg()
 {
-	hobject arg;
+	uintptr_t arg;
 
 	if (token_tag == PGF_TOKEN_LCURLY) {
 		token();
@@ -458,13 +458,13 @@ hobject PgfExprParser::parse_arg()
 			return 0;
 
 		if (token_tag != PGF_TOKEN_RCURLY) {
-            b->free_ref(arg);
+            u->free_ref(arg);
 			return 0;
 		}
 		token();
 
-		hobject e = b->eimplarg(arg);
-        b->free_ref(arg);
+		uintptr_t e = u->eimplarg(arg);
+        u->free_ref(arg);
         arg = e;
 	} else {
 		arg = parse_term();
@@ -553,9 +553,9 @@ PgfBind *PgfExprParser::parse_binds(PgfBind *next)
 	return next;
 }
 
-hobject PgfExprParser::parse_expr()
+uintptr_t PgfExprParser::parse_expr()
 {
-    hobject expr;
+    uintptr_t expr;
 
 	if (token_tag == PGF_TOKEN_LAMBDA) {
 		token();
@@ -574,8 +574,8 @@ hobject PgfExprParser::parse_expr()
 			goto error;
 
 		while (bs != NULL) {
-            hobject abs_expr = b->eabs(bs->bind_type, &bs->var, expr);
-            b->free_ref(expr);
+            uintptr_t abs_expr = u->eabs(bs->bind_type, &bs->var, expr);
+            u->free_ref(expr);
             expr = abs_expr;
 
             PgfBind *tmp = bs;
@@ -606,11 +606,11 @@ error:
 		       token_tag != PGF_TOKEN_COMMA &&
 		       token_tag != PGF_TOKEN_SEMI &&
 		       token_tag != PGF_TOKEN_UNKNOWN) {
-			hobject arg = parse_arg();
+			uintptr_t arg = parse_arg();
 			if (arg == 0)
 				return expr;
 
-            expr = b->eapp(expr, arg);
+            expr = u->eapp(expr, arg);
 		}
 
 		return expr;
@@ -666,9 +666,9 @@ bool PgfExprParser::parse_hypos(size_t *n_hypos, PgfTypeHypo **hypos)
 	return true;
 }
 
-hobject PgfExprParser::parse_type()
+uintptr_t PgfExprParser::parse_type()
 {
-    hobject type = 0;
+    uintptr_t type = 0;
 
     size_t n_hypos = 0;
     PgfTypeHypo *hypos = NULL;
@@ -676,7 +676,7 @@ hobject PgfExprParser::parse_type()
     PgfText *cat = NULL;
 
     size_t n_args = 0;
-    hobject *args = NULL;
+    uintptr_t *args = NULL;
 
 	for (;;) {
 		if (token_tag == PGF_TOKEN_LPAR) {
@@ -708,7 +708,7 @@ hobject PgfExprParser::parse_type()
 
             size_t n_end = n_hypos;
 
-			hobject type = parse_type();
+			uintptr_t type = parse_type();
 			if (type == 0)
 				goto exit;
 
@@ -734,11 +734,11 @@ hobject PgfExprParser::parse_type()
                    token_tag != PGF_TOKEN_RPAR &&
                    token_tag != PGF_TOKEN_RTRIANGLE &&
                    token_tag != PGF_TOKEN_RARROW) {
-                hobject arg = parse_arg();
+                uintptr_t arg = parse_arg();
                 if (arg == 0)
                     break;
 
-                args = (hobject*) realloc(args, sizeof(hobject)*(n_args+1));
+                args = (uintptr_t*) realloc(args, sizeof(uintptr_t)*(n_args+1));
                 args[n_args++] = arg;
             }
 
@@ -749,11 +749,11 @@ hobject PgfExprParser::parse_type()
             PgfTypeHypo *bt = &hypos[n_hypos];
             bt->bind_type = PGF_BIND_TYPE_EXPLICIT;
             bt->cid  = textdup(&wildcard);
-            bt->type = b->dtyp(0,NULL,cat,n_args,args);
+            bt->type = u->dtyp(0,NULL,cat,n_args,args);
             n_hypos++;
 
             while (n_args > 0) {
-                b->free_ref(args[--n_args]);
+                u->free_ref(args[--n_args]);
             }
 
             free(args); args = NULL;
@@ -765,12 +765,12 @@ hobject PgfExprParser::parse_type()
         }
 	}
 
-	type = b->dtyp(n_hypos,hypos,cat,n_args,args);
+	type = u->dtyp(n_hypos,hypos,cat,n_args,args);
 
 exit:
     while (n_hypos > 0) {
         PgfTypeHypo *hypo = &hypos[--n_hypos];
-        b->free_ref(hypo->type);
+        u->free_ref(hypo->type);
         free(hypo->cid);
     }
     free(hypos);
@@ -778,134 +778,9 @@ exit:
     free(cat);
 
     while (n_args > 0) {
-        b->free_ref(args[--n_args]);
+        u->free_ref(args[--n_args]);
     }
     free(args);
 
     return type;
 }
-
-PgfExprPrinter::PgfExprPrinter(PgfBridge *bridge)
-{
-    b = bridge;
-}
-
-void PgfExprPrinter::put_lit(hobject lit)
-{
-    b->match_lit(this, lit);
-}
-
-void PgfExprPrinter::put_expr(hobject expr)
-{
-    b->match_expr(this, expr);
-}
-
-void PgfExprPrinter::put_type(hobject ty)
-{
-    b->match_type(this, ty);
-}
-
-void PgfExprPrinter::put_str(const char* s)
-{
-    printf("%s",s);
-}
-
-void PgfExprPrinter::put_text(PgfText *text)
-{
-    printf("%s",text->text);
-}
-
-hobject PgfExprPrinter::eabs(PgfBindType btype, PgfText *name, hobject body)
-{
-    put_str("\\");
-    if (btype == PGF_BIND_TYPE_IMPLICIT)
-        put_str("{");
-    put_text(name);
-    if (btype == PGF_BIND_TYPE_IMPLICIT)
-        put_str("}");
-    put_str(" -> ");
-    put_expr(body);
-    return 0;
-}
-
-hobject PgfExprPrinter::eapp(hobject fun, hobject arg)
-{
-    put_expr(fun);
-    put_str(" ");
-    put_expr(arg);
-    return 0;
-}
-
-hobject PgfExprPrinter::elit(hobject lit)
-{
-    return 0;
-}
-
-hobject PgfExprPrinter::emeta(PgfMetaId meta)
-{
-    return 0;
-}
-
-hobject PgfExprPrinter::efun(PgfText *name)
-{
-    put_text(name);
-    return 0;
-}
-
-hobject PgfExprPrinter::evar(int index)
-{
-    return 0;
-}
-
-hobject PgfExprPrinter::etyped(hobject expr, hobject typ)
-{
-    return 0;
-}
-
-hobject PgfExprPrinter::eimplarg(hobject expr)
-{
-    return 0;
-}
-
-hobject PgfExprPrinter::lint(int v)
-{
-    return 0;
-}
-
-hobject PgfExprPrinter::lflt(double v)
-{
-    return 0;
-}
-
-hobject PgfExprPrinter::lstr(PgfText *v)
-{
-    return 0;
-}
-
-hobject PgfExprPrinter::dtyp(int n_hypos, PgfTypeHypo *hypos,
-                             PgfText *cat,
-                             int n_exprs, hobject *exprs)
-{
-    return 0;
-}
-
-void PgfExprPrinter::match_lit(PgfBridge *bridge, hobject lit)
-{
-}
-
-void PgfExprPrinter::match_expr(PgfBridge *bridge, hobject expr)
-{
-}
-
-void PgfExprPrinter::match_type(PgfBridge *bridge, hobject type)
-{
-}
-
-void PgfExprPrinter::free_ref(hobject x)
-{
-}
-
-void PgfExprPrinter::free_me()
-{
-}
-
