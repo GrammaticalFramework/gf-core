@@ -28,7 +28,7 @@ jobs:
         autoreconf -i
         ./configure
         make
-        make install
+        sudo make install
 
     - name: Setup Haskell
       uses: haskell/actions/setup@v1
