@@ -99,7 +99,7 @@ struct PgfUnmarshaller {
 struct PgfMarshaller {
     virtual uintptr_t match_lit(PgfUnmarshaller *u, uintptr_t lit)=0;
     virtual uintptr_t match_expr(PgfUnmarshaller *u, uintptr_t expr)=0;
-    virtual uintptr_t match_type(PgfUnmarshaller *u, uintptr_t *ty)=0;
+    virtual uintptr_t match_type(PgfUnmarshaller *u, uintptr_t ty)=0;
 };
 #else
 typedef struct PgfUnmarshaller PgfUnmarshaller;
@@ -132,7 +132,7 @@ typedef struct PgfMarshallerVtbl PgfMarshallerVtbl;
 struct PgfMarshallerVtbl {
     uintptr_t (*match_lit)(PgfUnmarshaller *u, uintptr_t lit);
     uintptr_t (*match_expr)(PgfUnmarshaller *u, uintptr_t expr);
-    uintptr_t (*match_type)(PgfUnmarshaller *u, uintptr_t *ty);
+    uintptr_t (*match_type)(PgfUnmarshaller *u, uintptr_t ty);
 };
 struct PgfMarshaller {
     PgfMarshallerVtbl *vtbl;
