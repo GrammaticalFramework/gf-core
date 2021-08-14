@@ -50,10 +50,10 @@ foreign import ccall "&pgf_free"
 foreign import ccall "pgf_abstract_name"
   pgf_abstract_name :: Ptr PgfPGF -> IO (Ptr PgfText)
 
-foreign import ccall "pgf/expr.h pgf_read_expr"
+foreign import ccall "pgf_read_expr"
   pgf_read_expr :: Ptr PgfText -> Ptr PgfUnmarshaller -> IO (StablePtr Expr)
 
-foreign import ccall "pgf/expr.h pgf_read_type"
+foreign import ccall "pgf_read_type"
   pgf_read_type :: Ptr PgfText -> Ptr PgfUnmarshaller -> IO (StablePtr Type)
 
 type ItorCallback = Ptr PgfItor -> Ptr PgfText -> IO ()
@@ -273,7 +273,7 @@ mkMarshaller = do
                      callLStrFun fun u c_s
         LInt n -> do fun <- (#peek PgfUnmarshallerVtbl, lint) vtbl
                      callLIntFun fun u (fromIntegral n)
-        LFlt d -> do fun <- (#peek PgfUnmarshallerVtbl, lint) vtbl
+        LFlt d -> do fun <- (#peek PgfUnmarshallerVtbl, lflt) vtbl
                      callLFltFun fun u (realToFrac d)
 
     matchExpr this u c_expr = do
