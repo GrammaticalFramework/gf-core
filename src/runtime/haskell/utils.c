@@ -29,7 +29,7 @@ void hs_free_unmarshaller(PgfUnmarshaller *unmarshaller)
     free(unmarshaller);
 }
 
-void hs_free_reference(void *self, uintptr_t ref)
+void hs_free_reference(PgfUnmarshaller *self, uintptr_t ref)
 {
     hs_free_stable_ptr((HsStablePtr) ref);
 }

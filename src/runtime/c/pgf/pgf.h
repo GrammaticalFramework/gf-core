@@ -135,7 +135,6 @@ struct PgfMarshallerVtbl {
     uintptr_t (*match_lit)(PgfUnmarshaller *u, uintptr_t lit);
     uintptr_t (*match_expr)(PgfUnmarshaller *u, uintptr_t expr);
     uintptr_t (*match_type)(PgfUnmarshaller *u, uintptr_t ty);
-    void (*free_ref)(PgfUnmarshaller *this, uintptr_t x);
     void (*free_me)(PgfUnmarshaller *this);
 };
 struct PgfMarshaller {

@@ -7,6 +7,7 @@ import Foreign
 import Foreign.C
 import Foreign.Ptr
 import qualified Data.Map as Map
+import Control.Exception(bracket,mask_)
 
 import PGF2.Expr
 
@@ -274,8 +275,8 @@ mkMarshaller = do
       vtbl <- (#peek PgfUnmarshaller, vtbl) u
       lit <- deRefStablePtr c_lit
       case lit of
-        LStr s -> do fun <- (#peek PgfUnmarshallerVtbl, lstr) vtbl
-                     c_s <- newText s
+        LStr s -> withText s $ \c_s -> do
+                     fun <- (#peek PgfUnmarshallerVtbl, lstr) vtbl
                      callLStrFun fun u c_s
         LInt n -> do fun <- (#peek PgfUnmarshallerVtbl, lint) vtbl
                      callLIntFun fun u (fromIntegral n)
@@ -286,29 +287,29 @@ mkMarshaller = do
       vtbl <- (#peek PgfUnmarshaller, vtbl) u
       expr <- deRefStablePtr c_expr
       case expr of
-        EAbs bt var e-> do c_e <- newStablePtr e
+        EAbs bt var e-> withText var $ \c_var ->
+                        bracket (newStablePtr e) freeStablePtr $ \c_e -> do
                            fun <- (#peek PgfUnmarshallerVtbl, eabs) vtbl
-                           c_var <- newText var
                            callEAbsFun fun u (marshalBindType bt) c_var c_e
-        EApp fun arg -> do c_fun <- newStablePtr fun
-                           c_arg <- newStablePtr arg
+        EApp fun arg -> bracket (newStablePtr fun) freeStablePtr $ \c_fun ->
+                        bracket (newStablePtr arg) freeStablePtr $ \c_arg -> do
                            fun <- (#peek PgfUnmarshallerVtbl, eapp) vtbl
                            callEAppFun fun u c_fun c_arg
-        ELit lit     -> do c_lit <- newStablePtr lit
+        ELit lit     -> bracket (newStablePtr lit) freeStablePtr $ \c_lit -> do
                            fun <- (#peek PgfUnmarshallerVtbl, elit) vtbl
                            callELitFun fun u c_lit
         EMeta id     -> do fun <- (#peek PgfUnmarshallerVtbl, emeta) vtbl
                            callEMetaFun fun u (fromIntegral id)
-        EFun name    -> do fun <- (#peek PgfUnmarshallerVtbl, efun) vtbl
-                           c_name <- newText name
+        EFun name    -> withText name $ \c_name -> do
+                           fun <- (#peek PgfUnmarshallerVtbl, efun) vtbl
                            callEFunFun fun u c_name
         EVar index   -> do fun <- (#peek PgfUnmarshallerVtbl, evar) vtbl
                            callEVarFun fun u (fromIntegral index)
-        ETyped e ty  -> do c_e  <- newStablePtr e
-                           c_ty <- newStablePtr ty
+        ETyped e ty  -> bracket (newStablePtr e)  freeStablePtr $ \c_e  ->
+                        bracket (newStablePtr ty) freeStablePtr $ \c_ty -> do
                            fun <- (#peek PgfUnmarshallerVtbl, etyped) vtbl
                            callETypedFun fun u c_e c_ty
-        EImplArg arg -> do c_arg <- newStablePtr arg
+        EImplArg arg -> bracket (newStablePtr arg) freeStablePtr $ \c_arg -> do
                            fun <- (#peek PgfUnmarshallerVtbl, eimplarg) vtbl
                            callEImplArgFun fun u c_arg
 
@@ -316,18 +317,23 @@ mkMarshaller = do
       vtbl <- (#peek PgfUnmarshaller, vtbl) u
       ty   <- deRefStablePtr c_ty
       case ty of
-        DTyp hypos cat es -> do fun <- (#peek PgfUnmarshallerVtbl, dtyp) vtbl
-                                let n_hypos = length hypos
-                                c_hypos <- mallocBytes (n_hypos * (#size PgfTypeHypo))
-                                marshalHypos c_hypos hypos
-                                c_cat <- newText cat
-                                c_es <- mapM newStablePtr es >>= newArray
-                                callDTypFun fun u
-                                            (fromIntegral n_hypos)
-                                            c_hypos
-                                            c_cat
-                                            (fromIntegral (length es))
-                                            c_es
+        DTyp hypos cat es -> let n_hypos = length hypos
+                             in allocaBytes (n_hypos * (#size PgfTypeHypo)) $ \c_hypos ->
+                                withText cat $ \c_cat ->
+                                mask_ $ do
+                                  marshalHypos c_hypos hypos
+                                  c_es <- mapM newStablePtr es
+                                  res <- withArray c_es $ \c_exprs -> do
+                                           fun <- (#peek PgfUnmarshallerVtbl, dtyp) vtbl
+                                           callDTypFun fun u
+                                                       (fromIntegral n_hypos)
+                                                       c_hypos
+                                                       c_cat
+                                                       (fromIntegral (length es))
+                                                       c_exprs
+                                  mapM_ freeStablePtr c_es
+                                  freeHypos c_hypos n_hypos
+                                  return res
       where
         marshalHypos _   []               = return ()
         marshalHypos ptr ((bt,var,ty):hs) = do
@@ -335,6 +341,12 @@ mkMarshaller = do
           newText var     >>= (#poke PgfTypeHypo, cid)  ptr
           newStablePtr ty >>= (#poke PgfTypeHypo, type) ptr
           marshalHypos (ptr `plusPtr` (#size PgfTypeHypo)) hs
+
+        freeHypos ptr 0 = return ()
+        freeHypos ptr n = do
+          (#peek PgfTypeHypo, cid)  ptr >>= free
+          (#peek PgfTypeHypo, type) ptr >>= freeStablePtr
+          freeHypos (ptr `plusPtr` (#size PgfTypeHypo)) (n-1)
 
 mkUnmarshaller = do
   vtbl <- mallocBytes (#size PgfUnmarshallerVtbl)
