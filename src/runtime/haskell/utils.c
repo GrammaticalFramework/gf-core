@@ -2,6 +2,15 @@
 #include <pgf/pgf.h>
 #include <stdlib.h>
 
+void hs_free_marshaller(PgfMarshaller *marshaller)
+{
+    hs_free_fun_ptr((HsFunPtr) marshaller->vtbl->match_lit);
+    hs_free_fun_ptr((HsFunPtr) marshaller->vtbl->match_expr);
+    hs_free_fun_ptr((HsFunPtr) marshaller->vtbl->match_type);
+    free(marshaller->vtbl);
+    free(marshaller);
+}
+
 void hs_free_unmarshaller(PgfUnmarshaller *unmarshaller)
 {
     hs_free_fun_ptr((HsFunPtr) unmarshaller->vtbl->eabs);
@@ -20,7 +29,7 @@ void hs_free_unmarshaller(PgfUnmarshaller *unmarshaller)
     free(unmarshaller);
 }
 
-void hs_free_reference(PgfUnmarshaller *unmarshaller, uintptr_t ref)
+void hs_free_reference(void *self, uintptr_t ref)
 {
     hs_free_stable_ptr((HsStablePtr) ref);
 }

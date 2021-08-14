@@ -244,9 +244,13 @@ foreign import ccall "dynamic"
 foreign import ccall "wrapper"
   wrapDTypFun :: DTypFun -> IO (FunPtr DTypFun)
 
-foreign import ccall "&hs_free_reference" hs_free_reference :: FunPtr (Ptr PgfUnmarshaller -> StablePtr a -> IO ())
+foreign import ccall "&hs_free_reference" hs_free_reference :: FunPtr (Ptr a -> StablePtr a -> IO ())
 
-foreign import ccall "&hs_free_unmarshaller" hs_free_unmarshaller :: FunPtr (Ptr PgfUnmarshaller -> IO ())
+foreign import ccall "&hs_free_marshaller" hs_free_marshaller :: FinalizerPtr PgfMarshaller
+
+foreign import ccall "hs_free_marshaller" freeMarshaller :: Ptr PgfMarshaller -> IO ()
+
+foreign import ccall "&hs_free_unmarshaller" hs_free_unmarshaller :: FinalizerPtr PgfUnmarshaller
 
 foreign import ccall "hs_free_unmarshaller" freeUnmarshaller :: Ptr PgfUnmarshaller -> IO ()
 
@@ -260,6 +264,8 @@ mkMarshaller = do
   wrapMatchFun matchLit  >>= (#poke PgfMarshallerVtbl, match_lit)  vtbl
   wrapMatchFun matchExpr >>= (#poke PgfMarshallerVtbl, match_expr) vtbl
   wrapMatchFun matchType >>= (#poke PgfMarshallerVtbl, match_type) vtbl
+  (#poke PgfMarshallerVtbl, free_ref) vtbl hs_free_reference
+  (#poke PgfMarshallerVtbl, free_me)  vtbl hs_free_marshaller
   ptr <- mallocBytes (#size PgfMarshaller)
   (#poke PgfMarshaller, vtbl) ptr vtbl
   return ptr
