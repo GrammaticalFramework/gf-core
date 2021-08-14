@@ -265,7 +265,6 @@ mkMarshaller = do
   wrapMatchFun matchLit  >>= (#poke PgfMarshallerVtbl, match_lit)  vtbl
   wrapMatchFun matchExpr >>= (#poke PgfMarshallerVtbl, match_expr) vtbl
   wrapMatchFun matchType >>= (#poke PgfMarshallerVtbl, match_type) vtbl
-  (#poke PgfMarshallerVtbl, free_ref) vtbl hs_free_reference
   (#poke PgfMarshallerVtbl, free_me)  vtbl hs_free_marshaller
   ptr <- mallocBytes (#size PgfMarshaller)
   (#poke PgfMarshaller, vtbl) ptr vtbl
