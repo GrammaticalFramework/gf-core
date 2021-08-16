@@ -53,10 +53,11 @@ You will probably need to update the `PATH` environment variable to include your
 
 For more information, see [Using GF on Windows](https://www.grammaticalframework.org/~inari/gf-windows.html) (latest updated for Windows 10).
 
-<!--## Installing the latest Hackage release (macOS, Linux, and WSL2 on Windows)
+## Installing the latest Hackage release (macOS, Linux, and WSL2 on Windows)
 
 [GF is on Hackage](http://hackage.haskell.org/package/gf), so under
-normal circumstances the procedure is fairly simple:
+normal circumstances the procedure is fairly simple.
+If you already have a version of GHC between 7.10 and 8.10, go directly to point 4.
 
 1.  Install ghcup https://www.haskell.org/ghcup/
 2.  `ghcup install ghc 8.10.4`
@@ -92,8 +93,8 @@ Here is one way to do this:
 
 **GHC version**
 
-The GF source code has been updated to compile with GHC versions 7.10 through to 8.8.
--->
+The GF source code has been updated to compile with GHC versions 7.10 through to 8.10.
+
 ## Installing from the latest developer source code
 
 If you haven't already, clone the repository with:
