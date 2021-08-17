@@ -53,27 +53,39 @@ You will probably need to update the `PATH` environment variable to include your
 
 For more information, see [Using GF on Windows](https://www.grammaticalframework.org/~inari/gf-windows.html) (latest updated for Windows 10).
 
-## Installing the latest Hackage release (macOS, Linux, and WSL2 on Windows)
+## Installing from Hackage
+
+_Instructions applicable for macOS, Linux, and WSL2 on Windows._
 
 [GF is on Hackage](http://hackage.haskell.org/package/gf), so under
-normal circumstances the procedure is fairly simple.
-If you already have a version of GHC between 7.10 and 8.10, go directly to point 4.
+normal circumstances the procedure is fairly simple:
 
-1.  Install ghcup https://www.haskell.org/ghcup/
-2.  `ghcup install ghc 8.10.4`
-3.  `ghcup set ghc 8.10.4`
-4.  `cabal update`
-5.  On Linux: install some C libraries from your Linux distribution (see note below)
-6.  `cabal install gf-3.11`
-
-You can also download the source code release from [GitHub](https://github.com/GrammaticalFramework/gf-core/releases),
-and follow the instructions below under **Installing from the latest developer source code**.
+```
+cabal update
+cabal install gf-3.11
+```
 
 ### Notes
 
+**GHC version**
+
+The GF source code is known to be compilable with GHC versions 7.10 through to 8.10.
+
+**Obtaining Haskell**
+
+There are various ways of obtaining Haskell, including:
+
+- ghcup
+    1.  Install from https://www.haskell.org/ghcup/
+    2.  `ghcup install ghc 8.10.4`
+    3.  `ghcup set ghc 8.10.4`
+- Haskell Platform https://www.haskell.org/platform/
+- Stack https://haskellstack.org/
+
+
 **Installation location**
 
-The above steps installs GF for a single user.
+The above steps install GF for a single user.
 The executables are put in `$HOME/.cabal/bin` (or on macOS in `$HOME/Library/Haskell/bin`),
 so you might want to add this directory to your path (in `.bash_profile` or similar):
 
@@ -85,32 +97,34 @@ PATH=$HOME/.cabal/bin:$PATH
 
 GF uses [`haskeline`](http://hackage.haskell.org/package/haskeline), which
 on Linux depends on some non-Haskell libraries that won't be installed
-automatically by cabal, and therefore need to be installed manually.
+automatically by Cabal, and therefore need to be installed manually.
 Here is one way to do this:
 
 - On Ubuntu: `sudo apt-get install libghc-haskeline-dev`
 - On Fedora: `sudo dnf install ghc-haskeline-devel`
 
-**GHC version**
+## Installing from source code
 
-The GF source code has been updated to compile with GHC versions 7.10 through to 8.10.
+**Obtaining**
 
-## Installing from the latest developer source code
+To obtain the source code for the **release**,
+download it from [GitHub](https://github.com/GrammaticalFramework/gf-core/releases).
 
-If you haven't already, clone the repository with:
+Alternatively, to obtain the **latest version** of the source code:
 
+1. If you haven't already, clone the repository with:
 ```
 git clone https://github.com/GrammaticalFramework/gf-core.git
 ```
-
-If you've already cloned the repository previously, update with:
-
+2. If you've already cloned the repository previously, update with:
 ```
 git pull
 ```
 
-Then install with:
 
+**Installing**
+
+You can then install with:
 ```
 cabal install
 ```
