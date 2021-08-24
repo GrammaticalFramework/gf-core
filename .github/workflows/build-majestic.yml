@@ -51,5 +51,7 @@ jobs:
 
     - name: Run Python testsuite
       working-directory: ./src/runtime/python
+      env:
+        LD_LIBRARY_PATH: /usr/local/lib
       run: |
         python test.py
