@@ -9,11 +9,17 @@
 
 ## Installation
 
-```
-$ python setup.py build
-$ sudo python setup.py install
+```sh
+python setup.py build
+sudo python setup.py install
 ```
 
 ## Usage
 
-See `examples/`.
+See: https://www.grammaticalframework.org/doc/runtime-api.html#python
+
+## Running tests
+
+```sh
+python test.py
+```
