@@ -75,15 +75,25 @@ typedef struct {
 	PgfType type;
 } PgfTypeHypo;
 
-/* This structure tells the runtime how to create abstract syntax
- * expressions in the heap of the host language. For instance,
- * when used from Haskell the runtime will create values of
- * an algebraic data type which can be garbage collected
- * when not needed. Similarly in Python the expressions are
- * normal Python objects. From the point of view of the runtime,
- * each node is a value of type uintptr_t. For Haskell that would
- * actually be a stable pointer, while for Python that would be
+/* The PgfUnmarshaller structure tells the runtime how to create
+ * abstract syntax expressions and types in the heap of
+ * the host language. For instance, when used from Haskell the runtime
+ * will create values of an algebraic data type which can be
+ * garbage collected when not needed. Similarly in Python
+ * the expressions are normal objects. From the point of view of
+ * the runtime, each node is a value of type object. For Haskell that
+ * would actually be a stable pointer, while for Python that would be
  * a PyObject pointer.
+ *
+ * The unmarshaller also has the method free_ref which lets the
+ * runtime to release the object when it is not needed anymore.
+ *
+ * The runtime also needs a way to pattern match on expressions
+ * and types. The PgfMarshaller structure allows just that.
+ * The methods match_lit, match_expr, match_type do pattern matching
+ * and depending on the kind of literal, expression or type they call
+ * a different method from the unmarshaller that is passed as
+ * an argument.
  */
 #ifdef __cplusplus
 struct PgfUnmarshaller {
