@@ -22,7 +22,7 @@ jobs:
     #       make \
     #       g++
 
-    - name: Build runtime
+    - name: Build C runtime
       working-directory: ./src/runtime/c
       run: |
         autoreconf -i
@@ -36,9 +36,22 @@ jobs:
       #   ghc-version: '8.6'
       #   cabal-version: '2.4.1.0'
 
-    - name: Run testsuite
+    - name: Run Haskell testsuite
       working-directory: ./src/runtime/haskell
       env:
         LD_LIBRARY_PATH: /usr/local/lib
       run: |
         cabal test --extra-lib-dirs=/usr/local/lib
+
+    - name: Install Python bindings
+      working-directory: ./src/runtime/python
+      run: |
+        python setup.py build
+        sudo python setup.py install
+
+    - name: Run Python testsuite
+      working-directory: ./src/runtime/python
+      env:
+        LD_LIBRARY_PATH: /usr/local/lib
+      run: |
+        python test.py

@@ -16,7 +16,7 @@ pgf_module = Extension('pgf',
                        libraries = ['pgf'])
 
 setup (name = 'pgf',
-       version = '1.0',
+       version = '2.0',
        description = 'Python bindings to the Grammatical Framework\'s PGF runtime',
        long_description="""\
 Grammatical Framework (GF) is a programming language for multilingual grammar applications.
