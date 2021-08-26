@@ -169,4 +169,6 @@ public:
     bool eof();
 };
 
+PGF_INTERNAL_DECL extern PgfText wildcard;
+
 #endif /* EXPR_H_ */

@@ -24,7 +24,7 @@ module PGF2 (-- * PGF
              Fun, functions, functionsByCat,
              functionType, functionIsConstructor, functionProb,
              -- ** Expressions
-             Expr(..), Literal(..), readExpr,
+             Expr(..), Literal(..), showExpr, readExpr,
              mkAbs,    unAbs,
              mkApp,    unApp, unapply,
              mkStr,    unStr,
@@ -34,7 +34,7 @@ module PGF2 (-- * PGF
              mkMeta,   unMeta,
              -- ** Types
              Type(..), Hypo, BindType(..), startCat,
-             readType,
+             readType, showType,
              mkType, unType,
              mkHypo, mkDepHypo, mkImplHypo,
 
@@ -277,6 +277,33 @@ functionsByCat p cat =
 -----------------------------------------------------------------------
 -- Expressions & types
 
+-- | renders an expression as a 'String'. The list
+-- of identifiers is the list of all free variables
+-- in the expression in order reverse to the order
+-- of binding.
+showExpr :: [Var] -> Expr -> String
+showExpr scope e =
+  unsafePerformIO $
+  bracket mkMarshaller freeMarshaller $ \m ->
+  bracket (newPrintCtxt scope) freePrintCtxt $ \pctxt ->
+  bracket (newStablePtr e) freeStablePtr $ \c_e ->
+  bracket (pgf_print_expr c_e pctxt 1 m) free $ \c_text ->
+    peekText c_text
+
+newPrintCtxt :: [Var] -> IO (Ptr PgfPrintContext)
+newPrintCtxt []     = return nullPtr
+newPrintCtxt (x:xs) = do
+  pctxt <- newTextEx (#offset PgfPrintContext, name) x
+  newPrintCtxt xs >>= (#poke PgfPrintContext, next) pctxt
+  return pctxt
+
+freePrintCtxt :: Ptr PgfPrintContext -> IO ()
+freePrintCtxt pctxt
+  | pctxt == nullPtr = return ()
+  | otherwise        = do
+      (#peek PgfPrintContext, next) pctxt >>= freePrintCtxt
+      free pctxt
+
 -- | parses a 'String' as an expression
 readExpr :: String -> Maybe Expr
 readExpr str =
@@ -289,6 +316,19 @@ readExpr str =
       else do expr <- deRefStablePtr c_expr
               freeStablePtr c_expr
               return (Just expr)
+
+-- | renders a type as a 'String'. The list
+-- of identifiers is the list of all free variables
+-- in the type in order reverse to the order
+-- of binding.
+showType :: [Var] -> Type -> String
+showType scope ty =
+  unsafePerformIO $
+  bracket mkMarshaller freeMarshaller $ \m ->
+  bracket (newPrintCtxt scope) freePrintCtxt $ \pctxt ->
+  bracket (newStablePtr ty) freeStablePtr $ \c_ty ->
+  bracket (pgf_print_type c_ty pctxt 0 m) free $ \c_text ->
+    peekText c_text
 
 -- | parses a 'String' as a type
 readType :: String -> Maybe Type

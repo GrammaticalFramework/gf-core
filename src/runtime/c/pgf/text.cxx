@@ -19,9 +19,9 @@ int textcmp(PgfText *t1, PgfText *t2)
 PGF_INTERNAL
 PgfText* textdup(PgfText *t1)
 {
-    PgfText *t2 = (PgfText *) malloc(sizeof(PgfText) + t1->size + 1);
-    t2->size = t1->size;
-    memcpy(t2->text, t1->text, t1->size+1);
+    size_t size = sizeof(PgfText)+t1->size+1;
+    PgfText *t2 = (PgfText *) malloc(size);
+    memcpy(t2, t1, size);
     return t2;
 }
 

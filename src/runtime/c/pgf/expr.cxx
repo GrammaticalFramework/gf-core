@@ -473,7 +473,7 @@ uintptr_t PgfExprParser::parse_arg()
 	return arg;
 }
 
-PgfText wildcard = {size: 1, text: {'_','0'}};
+PGF_INTERNAL PgfText wildcard = {size: 1, text: {'_','0'}};
 
 PgfBind *PgfExprParser::parse_bind(PgfBind *next)
 {

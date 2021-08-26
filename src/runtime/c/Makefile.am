@@ -15,6 +15,8 @@ libpgf_la_SOURCES = \
 	pgf/pgf.cxx \
 	pgf/reader.cxx \
 	pgf/reader.h \
+	pgf/printer.cxx \
+	pgf/printer.h \
 	pgf/data.h \
 	pgf/expr.cxx \
 	pgf/expr.h \

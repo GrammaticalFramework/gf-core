@@ -25,6 +25,7 @@ data PgfExn
 data PgfText
 data PgfItor
 data PgfPGF
+data PgfPrintContext
 data PgfConcr
 data PgfTypeHypo
 data PgfMarshaller
@@ -51,8 +52,14 @@ foreign import ccall "&pgf_free"
 foreign import ccall "pgf_abstract_name"
   pgf_abstract_name :: Ptr PgfPGF -> IO (Ptr PgfText)
 
+foreign import ccall "pgf_print_expr"
+  pgf_print_expr :: StablePtr Expr -> Ptr PgfPrintContext -> CInt -> Ptr PgfMarshaller -> IO (Ptr PgfText)
+
 foreign import ccall "pgf_read_expr"
   pgf_read_expr :: Ptr PgfText -> Ptr PgfUnmarshaller -> IO (StablePtr Expr)
+
+foreign import ccall "pgf_print_type"
+  pgf_print_type :: StablePtr Type -> Ptr PgfPrintContext -> CInt -> Ptr PgfMarshaller -> IO (Ptr PgfText)
 
 foreign import ccall "pgf_read_type"
   pgf_read_type :: Ptr PgfText -> Ptr PgfUnmarshaller -> IO (StablePtr Type)
@@ -104,6 +111,16 @@ peekText ptr =
         else do x <- pgf_utf8_decode pptr
                 cs <- decode pptr end
                 return (((toEnum . fromEnum) x) : cs)
+
+newTextEx :: Int -> String -> IO (Ptr a)
+newTextEx offs s = do
+  ptr <- mallocBytes (offs + (#size PgfText) + size + 1)
+  let ptext = ptr `plusPtr` offs
+  (#poke PgfText, size) ptext (fromIntegral size :: CSize)
+  pokeUtf8CString s (ptext `plusPtr` (#const offsetof(PgfText, text)))
+  return ptr
+  where
+    size = utf8Length s
 
 newText :: String -> IO (Ptr PgfText)
 newText s = do

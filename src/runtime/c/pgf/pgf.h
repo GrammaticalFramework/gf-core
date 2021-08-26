@@ -232,8 +232,25 @@ int pgf_function_is_constructor(PgfPGF *pgf, PgfText *funname);
 PGF_API_DECL
 prob_t pgf_function_prob(PgfPGF *pgf, PgfText *funname);
 
+typedef struct PgfPrintContext PgfPrintContext;
+
+struct PgfPrintContext {
+	PgfPrintContext* next;
+	PgfText name;
+};
+
+PGF_API_DECL
+PgfText *pgf_print_expr(uintptr_t e,
+                        PgfPrintContext *ctxt, int prio,
+                        PgfMarshaller *m);
+
 PGF_API_DECL
 uintptr_t pgf_read_expr(PgfText *input, PgfUnmarshaller *u);
+
+PGF_API_DECL
+PgfText *pgf_print_type(uintptr_t ty,
+                        PgfPrintContext *ctxt, int prio,
+                        PgfMarshaller *m);
 
 PGF_API_DECL
 uintptr_t pgf_read_type(PgfText *input, PgfUnmarshaller *u);

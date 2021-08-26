@@ -2,6 +2,7 @@
 #include <math.h>
 #include "data.h"
 #include "reader.h"
+#include "printer.h"
 
 static void
 pgf_exn_clear(PgfExn* err)
@@ -314,6 +315,16 @@ prob_t pgf_function_prob(PgfPGF *pgf, PgfText *funname)
 	return absfun->ep.prob;
 }
 
+PGF_API
+PgfText *pgf_print_expr(uintptr_t e,
+                        PgfPrintContext *ctxt, int prio,
+                        PgfMarshaller *m)
+{
+    PgfPrinter printer(ctxt,prio,m);
+    m->match_expr(&printer, e);
+    return printer.get_text();
+}
+
 PGF_API uintptr_t
 pgf_read_expr(PgfText *input, PgfUnmarshaller *u)
 {
@@ -324,6 +335,16 @@ pgf_read_expr(PgfText *input, PgfUnmarshaller *u)
         return 0;
     }
     return res;
+}
+
+PGF_API
+PgfText *pgf_print_type(uintptr_t ty,
+                        PgfPrintContext *ctxt, int prio,
+                        PgfMarshaller *m)
+{
+    PgfPrinter printer(ctxt,prio,m);
+    m->match_type(&printer, ty);
+    return printer.get_text();
 }
 
 PGF_API uintptr_t
