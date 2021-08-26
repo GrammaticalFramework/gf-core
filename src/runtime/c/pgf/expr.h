@@ -93,7 +93,7 @@ typedef struct {
 	PgfExpr expr;
 } PgfExprProb;
 
-struct PgfDBMarshaller : public PgfMarshaller {
+struct PGF_INTERNAL_DECL PgfDBMarshaller : public PgfMarshaller {
     virtual object match_lit(PgfUnmarshaller *u, PgfLiteral l);
     virtual object match_expr(PgfUnmarshaller *u, PgfExpr e);
     virtual object match_type(PgfUnmarshaller *u, PgfType ty);
