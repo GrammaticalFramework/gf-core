@@ -8,6 +8,7 @@ import Foreign.C
 import Foreign.Ptr
 import qualified Data.Map as Map
 import Control.Exception(bracket,mask_)
+import System.IO.Unsafe(unsafePerformIO)
 
 import PGF2.Expr
 
@@ -38,13 +39,13 @@ foreign import ccall unsafe "pgf_utf8_encode"
   pgf_utf8_encode :: Word32 -> Ptr CString -> IO ()
 
 foreign import ccall "pgf_read_pgf"
-  pgf_read_pgf :: CString -> Ptr PgfUnmarshaller -> Ptr PgfExn -> IO (Ptr PgfPGF)
+  pgf_read_pgf :: CString -> Ptr PgfExn -> IO (Ptr PgfPGF)
 
 foreign import ccall "pgf_boot_ngf"
-  pgf_boot_ngf :: CString -> CString -> Ptr PgfUnmarshaller -> Ptr PgfExn -> IO (Ptr PgfPGF)
+  pgf_boot_ngf :: CString -> CString -> Ptr PgfExn -> IO (Ptr PgfPGF)
 
 foreign import ccall "pgf_read_ngf"
-  pgf_read_ngf :: CString -> Ptr PgfUnmarshaller -> Ptr PgfExn -> IO (Ptr PgfPGF)
+  pgf_read_ngf :: CString -> Ptr PgfExn -> IO (Ptr PgfPGF)
 
 foreign import ccall "&pgf_free"
   pgf_free_fptr :: FinalizerPtr PgfPGF
@@ -73,10 +74,10 @@ foreign import ccall "pgf_iter_categories"
   pgf_iter_categories :: Ptr PgfPGF -> Ptr PgfItor -> IO ()
 
 foreign import ccall "pgf_start_cat"
-  pgf_start_cat :: Ptr PgfPGF -> IO (StablePtr Type)
+  pgf_start_cat :: Ptr PgfPGF -> Ptr PgfUnmarshaller -> IO (StablePtr Type)
 
 foreign import ccall "pgf/pgf.h pgf_category_context"
-  pgf_category_context :: Ptr PgfPGF -> Ptr PgfText -> Ptr CSize -> IO (Ptr PgfTypeHypo)
+  pgf_category_context :: Ptr PgfPGF -> Ptr PgfText -> Ptr CSize -> Ptr PgfUnmarshaller -> IO (Ptr PgfTypeHypo)
 
 foreign import ccall "pgf/pgf.h pgf_category_prob"
   pgf_category_prob :: Ptr PgfPGF -> Ptr PgfText -> IO (#type prob_t)
@@ -88,7 +89,7 @@ foreign import ccall "pgf_iter_functions_by_cat"
   pgf_iter_functions_by_cat :: Ptr PgfPGF -> Ptr PgfText -> Ptr PgfItor -> IO ()
 
 foreign import ccall "pgf/pgf.h pgf_function_type"
-   pgf_function_type :: Ptr PgfPGF -> Ptr PgfText -> IO (StablePtr Type)
+   pgf_function_type :: Ptr PgfPGF -> Ptr PgfText -> Ptr PgfUnmarshaller -> IO (StablePtr Type)
 
 foreign import ccall "pgf/expr.h pgf_function_is_constructor"
    pgf_function_is_constructor :: Ptr PgfPGF -> Ptr PgfText -> IO (#type int)
@@ -266,26 +267,22 @@ foreign import ccall "&hs_free_reference" hs_free_reference :: FunPtr (Ptr a -> 
 
 foreign import ccall "&hs_free_marshaller" hs_free_marshaller :: FinalizerPtr PgfMarshaller
 
-foreign import ccall "hs_free_marshaller" freeMarshaller :: Ptr PgfMarshaller -> IO ()
-
 foreign import ccall "&hs_free_unmarshaller" hs_free_unmarshaller :: FinalizerPtr PgfUnmarshaller
-
-foreign import ccall "hs_free_unmarshaller" freeUnmarshaller :: Ptr PgfUnmarshaller -> IO ()
 
 type MatchFun a = Ptr PgfMarshaller -> Ptr PgfUnmarshaller -> StablePtr a -> IO (StablePtr a)
 
 foreign import ccall "wrapper"
   wrapMatchFun :: MatchFun a -> IO (FunPtr (MatchFun a))
 
-mkMarshaller = do
+{-# NOINLINE marshaller #-}
+marshaller = unsafePerformIO $ do
   vtbl <- mallocBytes (#size PgfMarshallerVtbl)
   wrapMatchFun matchLit  >>= (#poke PgfMarshallerVtbl, match_lit)  vtbl
   wrapMatchFun matchExpr >>= (#poke PgfMarshallerVtbl, match_expr) vtbl
   wrapMatchFun matchType >>= (#poke PgfMarshallerVtbl, match_type) vtbl
-  (#poke PgfMarshallerVtbl, free_me)  vtbl hs_free_marshaller
   ptr <- mallocBytes (#size PgfMarshaller)
   (#poke PgfMarshaller, vtbl) ptr vtbl
-  return ptr
+  newForeignPtr hs_free_marshaller ptr
   where
     matchLit this u c_lit = do
       vtbl <- (#peek PgfUnmarshaller, vtbl) u
@@ -364,7 +361,8 @@ mkMarshaller = do
           (#peek PgfTypeHypo, type) ptr >>= freeStablePtr
           freeHypos (ptr `plusPtr` (#size PgfTypeHypo)) (n-1)
 
-mkUnmarshaller = do
+{-# NOINLINE unmarshaller #-}
+unmarshaller = unsafePerformIO $ do
   vtbl <- mallocBytes (#size PgfUnmarshallerVtbl)
   wrapEAbsFun     unmarshalEAbs     >>= (#poke PgfUnmarshallerVtbl, eabs)     vtbl
   wrapEAppFun     unmarshalEApp     >>= (#poke PgfUnmarshallerVtbl, eapp)     vtbl
@@ -379,10 +377,9 @@ mkUnmarshaller = do
   wrapLStrFun     unmarshalLStr     >>= (#poke PgfUnmarshallerVtbl, lstr)     vtbl
   wrapDTypFun     unmarshalDTyp     >>= (#poke PgfUnmarshallerVtbl, dtyp)     vtbl
   (#poke PgfUnmarshallerVtbl, free_ref) vtbl hs_free_reference
-  (#poke PgfUnmarshallerVtbl, free_me)  vtbl hs_free_unmarshaller
   ptr <- mallocBytes (#size PgfUnmarshaller)
   (#poke PgfUnmarshaller, vtbl) ptr vtbl
-  return ptr
+  newForeignPtr hs_free_unmarshaller ptr
   where
     unmarshalEAbs this c_btype c_var c_body = do
       let btype = unmarshalBindType c_btype

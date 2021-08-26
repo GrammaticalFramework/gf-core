@@ -67,8 +67,7 @@ readPGF fpath =
   withCString fpath $ \c_fpath ->
   allocaBytes (#size PgfExn) $ \c_exn ->
   mask_ $ do
-    u <- mkUnmarshaller
-    c_pgf <- pgf_read_pgf c_fpath u c_exn
+    c_pgf <- pgf_read_pgf c_fpath c_exn
     ex_type <- (#peek PgfExn, type) c_exn :: IO (#type PgfExnType)
     if ex_type == (#const PGF_EXN_NONE)
       then do fptr <- newForeignPtr pgf_free_fptr c_pgf
@@ -91,8 +90,7 @@ bootNGF pgf_path ngf_path =
   withCString ngf_path $ \c_ngf_path ->
   allocaBytes (#size PgfExn) $ \c_exn ->
   mask_ $ do
-    u <- mkUnmarshaller
-    c_pgf <- pgf_boot_ngf c_pgf_path c_ngf_path u c_exn
+    c_pgf <- pgf_boot_ngf c_pgf_path c_ngf_path c_exn
     ex_type <- (#peek PgfExn, type) c_exn :: IO (#type PgfExnType)
     if ex_type == (#const PGF_EXN_NONE)
       then do fptr <- newForeignPtr pgf_free_fptr c_pgf
@@ -114,8 +112,7 @@ readNGF fpath =
   withCString fpath $ \c_fpath ->
   allocaBytes (#size PgfExn) $ \c_exn ->
   mask_ $ do
-    u <- mkUnmarshaller
-    c_pgf <- pgf_read_ngf c_fpath u c_exn
+    c_pgf <- pgf_read_ngf c_fpath c_exn
     ex_type <- (#peek PgfExn, type) c_exn :: IO (#type PgfExnType)
     if ex_type == (#const PGF_EXN_NONE)
       then do fptr <- newForeignPtr pgf_free_fptr c_pgf
@@ -145,8 +142,9 @@ abstractName p =
 startCat :: PGF -> Type
 startCat p =
   unsafePerformIO $
+  withForeignPtr unmarshaller $ \u ->
   withForeignPtr (a_pgf p) $ \c_pgf -> do
-    c_typ <- pgf_start_cat c_pgf
+    c_typ <- pgf_start_cat c_pgf u
     typ <- deRefStablePtr c_typ
     freeStablePtr c_typ
     return typ
@@ -155,9 +153,10 @@ startCat p =
 functionType :: PGF -> Fun -> Maybe Type
 functionType p fn =
   unsafePerformIO $
+  withForeignPtr unmarshaller $ \u ->
   withForeignPtr (a_pgf p) $ \p_pgf ->
   withText fn $ \c_fn -> do
-    c_typ <- pgf_function_type p_pgf c_fn
+    c_typ <- pgf_function_type p_pgf c_fn u
     if c_typ == castPtrToStablePtr nullPtr
       then return Nothing
       else do typ <- deRefStablePtr c_typ
@@ -204,9 +203,10 @@ categoryContext p cat =
   unsafePerformIO $
   withText cat $ \c_cat ->
   alloca $ \p_n_hypos ->
+  withForeignPtr unmarshaller $ \u ->
   withForeignPtr (a_pgf p) $ \c_pgf ->
   mask_ $ do
-    c_hypos <- pgf_category_context c_pgf c_cat p_n_hypos
+    c_hypos <- pgf_category_context c_pgf c_cat p_n_hypos u
     if c_hypos == nullPtr
       then return []
       else do n_hypos <- peek p_n_hypos
@@ -284,7 +284,7 @@ functionsByCat p cat =
 showExpr :: [Var] -> Expr -> String
 showExpr scope e =
   unsafePerformIO $
-  bracket mkMarshaller freeMarshaller $ \m ->
+  withForeignPtr marshaller $ \m ->
   bracket (newPrintCtxt scope) freePrintCtxt $ \pctxt ->
   bracket (newStablePtr e) freeStablePtr $ \c_e ->
   bracket (pgf_print_expr c_e pctxt 1 m) free $ \c_text ->
@@ -309,7 +309,7 @@ readExpr :: String -> Maybe Expr
 readExpr str =
   unsafePerformIO $
   withText str $ \c_str ->
-  bracket mkUnmarshaller freeUnmarshaller $ \u -> do
+  withForeignPtr unmarshaller $ \u -> do
     c_expr <- pgf_read_expr c_str u
     if c_expr == castPtrToStablePtr nullPtr
       then return Nothing
@@ -324,7 +324,7 @@ readExpr str =
 showType :: [Var] -> Type -> String
 showType scope ty =
   unsafePerformIO $
-  bracket mkMarshaller freeMarshaller $ \m ->
+  withForeignPtr marshaller $ \m ->
   bracket (newPrintCtxt scope) freePrintCtxt $ \pctxt ->
   bracket (newStablePtr ty) freeStablePtr $ \c_ty ->
   bracket (pgf_print_type c_ty pctxt 0 m) free $ \c_text ->
@@ -335,7 +335,7 @@ readType :: String -> Maybe Type
 readType str =
   unsafePerformIO $
   withText str $ \c_str ->
-  bracket mkUnmarshaller freeUnmarshaller $ \u -> do
+  withForeignPtr unmarshaller $ \u -> do
     c_ty <- pgf_read_type c_str u
     if c_ty == castPtrToStablePtr nullPtr
       then return Nothing

@@ -60,7 +60,6 @@ public:
                            PgfText *cat,
                            int n_exprs, uintptr_t *exprs);
     virtual void free_ref(uintptr_t x);
-    virtual void free_me();
 };
 
 #endif

@@ -3513,7 +3513,7 @@ pgf_readPGF(PyObject *self, PyObject *args)
 
 	// Read the PGF grammar.
     PgfExn err;
-	py_pgf->pgf = pgf_read_pgf(fpath, NULL/*TO BE FIXED*/, &err);
+	py_pgf->pgf = pgf_read_pgf(fpath, &err);
     if (err.type == PGF_EXN_SYSTEM_ERROR) {
         errno = err.code;
         PyErr_SetFromErrnoWithFilename(PyExc_IOError, fpath);

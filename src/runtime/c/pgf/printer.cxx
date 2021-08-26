@@ -356,7 +356,3 @@ uintptr_t PgfPrinter::dtyp(int n_hypos, PgfTypeHypo *hypos,
 void PgfPrinter::free_ref(uintptr_t x)
 {
 }
-
-void PgfPrinter::free_me()
-{
-}

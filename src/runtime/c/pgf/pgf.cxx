@@ -14,7 +14,6 @@ pgf_exn_clear(PgfExn* err)
 
 PGF_API
 PgfPGF *pgf_read_pgf(const char* fpath,
-                     PgfUnmarshaller *unmarshaller,
                      PgfExn* err)
 {
     PgfPGF *pgf = NULL;
@@ -22,7 +21,7 @@ PgfPGF *pgf_read_pgf(const char* fpath,
     pgf_exn_clear(err);
 
     try {
-        pgf = new PgfPGF(NULL, 0, 0, unmarshaller);
+        pgf = new PgfPGF(NULL, 0, 0);
 
         std::ifstream in(fpath, std::ios::binary);
         if (in.fail()) {
@@ -55,7 +54,6 @@ PgfPGF *pgf_read_pgf(const char* fpath,
 
 PGF_API
 PgfPGF *pgf_boot_ngf(const char* pgf_path, const char* ngf_path,
-                     PgfUnmarshaller *unmarshaller,
                      PgfExn* err)
 {
     PgfPGF *pgf = NULL;
@@ -63,7 +61,7 @@ PgfPGF *pgf_boot_ngf(const char* pgf_path, const char* ngf_path,
     pgf_exn_clear(err);
 
     try {
-        pgf = new PgfPGF(ngf_path, O_CREAT | O_EXCL | O_RDWR, S_IRUSR | S_IWUSR, unmarshaller);
+        pgf = new PgfPGF(ngf_path, O_CREAT | O_EXCL | O_RDWR, S_IRUSR | S_IWUSR);
 
         std::ifstream in(pgf_path, std::ios::binary);
         if (in.fail()) {
@@ -100,7 +98,6 @@ PgfPGF *pgf_boot_ngf(const char* pgf_path, const char* ngf_path,
 
 PGF_API
 PgfPGF *pgf_read_ngf(const char *fpath,
-                     PgfUnmarshaller *unmarshaller,
                      PgfExn* err)
 {
     PgfPGF *pgf = NULL;
@@ -109,7 +106,7 @@ PgfPGF *pgf_read_ngf(const char *fpath,
 
     bool is_new = false;
     try {
-        pgf = new PgfPGF(fpath, O_CREAT | O_RDWR, S_IRUSR | S_IWUSR, unmarshaller);
+        pgf = new PgfPGF(fpath, O_CREAT | O_RDWR, S_IRUSR | S_IWUSR);
 
         {
             DB_scope scope(pgf, WRITER_SCOPE);
@@ -170,7 +167,7 @@ void pgf_iter_categories(PgfPGF *pgf, PgfItor *itor)
 }
 
 PGF_API
-uintptr_t pgf_start_cat(PgfPGF *pgf)
+uintptr_t pgf_start_cat(PgfPGF *pgf, PgfUnmarshaller *u)
 {
     DB_scope scope(pgf, READER_SCOPE);
 
@@ -187,7 +184,7 @@ uintptr_t pgf_start_cat(PgfPGF *pgf)
 		case PgfLiteralStr::tag: {
 			auto lstr = ref<PgfLiteralStr>::untagged(flag->value);
 
-            uintptr_t type = pgf_read_type(&lstr->val, pgf->u);
+            uintptr_t type = pgf_read_type(&lstr->val, u);
 			if (type == 0)
 				break;
 			return type;
@@ -200,11 +197,11 @@ uintptr_t pgf_start_cat(PgfPGF *pgf)
     s->size = 1;
     s->text[0] = 'S';
     s->text[1] = 0;
-	return pgf->u->dtyp(0,NULL,s,0,NULL);
+	return u->dtyp(0,NULL,s,0,NULL);
 }
 
 PGF_API
-PgfTypeHypo *pgf_category_context(PgfPGF *pgf, PgfText *catname, size_t *n_hypos)
+PgfTypeHypo *pgf_category_context(PgfPGF *pgf, PgfText *catname, size_t *n_hypos, PgfUnmarshaller *u)
 {
     DB_scope scope(pgf, READER_SCOPE);
 
@@ -220,7 +217,7 @@ PgfTypeHypo *pgf_category_context(PgfPGF *pgf, PgfText *catname, size_t *n_hypos
     for (size_t i = 0; i < abscat->context->len; i++) {
         hypos[i].bind_type = abscat->context->data[i].bind_type;
         hypos[i].cid = textdup(abscat->context->data[i].cid);
-        hypos[i].type = pgf_unmarshall_type(pgf->u, abscat->context->data[i].type);
+        hypos[i].type = pgf_unmarshall_type(u, abscat->context->data[i].type);
     }
 
     *n_hypos = abscat->context->len;
@@ -277,7 +274,7 @@ void pgf_iter_functions_by_cat(PgfPGF *pgf, PgfText *cat, PgfItor *itor)
 }
 
 PGF_API
-uintptr_t pgf_function_type(PgfPGF *pgf, PgfText *funname)
+uintptr_t pgf_function_type(PgfPGF *pgf, PgfText *funname, PgfUnmarshaller *u)
 {
     DB_scope scope(pgf, READER_SCOPE);
 
@@ -286,7 +283,7 @@ uintptr_t pgf_function_type(PgfPGF *pgf, PgfText *funname)
 	if (absfun == 0)
 		return 0;
 
-	return pgf_unmarshall_type(pgf->u, absfun->type);
+	return pgf_unmarshall_type(u, absfun->type);
 }
 
 PGF_API

@@ -93,15 +93,12 @@ struct PgfUnmarshaller {
                            PgfText *cat,
                            int n_exprs, uintptr_t *exprs)=0;
     virtual void free_ref(uintptr_t x)=0;
-    virtual void free_me()=0;
 };
 
 struct PgfMarshaller {
     virtual uintptr_t match_lit(PgfUnmarshaller *u, uintptr_t lit)=0;
     virtual uintptr_t match_expr(PgfUnmarshaller *u, uintptr_t expr)=0;
     virtual uintptr_t match_type(PgfUnmarshaller *u, uintptr_t ty)=0;
-    virtual void free_ref(uintptr_t x)=0;
-    virtual void free_me()=0;
 };
 #else
 typedef struct PgfUnmarshaller PgfUnmarshaller;
@@ -123,7 +120,6 @@ struct PgfUnmarshallerVtbl {
                       PgfText *cat,
                       int n_exprs, uintptr_t *exprs);
     void (*free_ref)(PgfUnmarshaller *this, uintptr_t x);
-    void (*free_me)(PgfUnmarshaller *this);
 };
 struct PgfUnmarshaller {
     PgfUnmarshallerVtbl *vtbl;
@@ -135,7 +131,6 @@ struct PgfMarshallerVtbl {
     uintptr_t (*match_lit)(PgfUnmarshaller *u, uintptr_t lit);
     uintptr_t (*match_expr)(PgfUnmarshaller *u, uintptr_t expr);
     uintptr_t (*match_type)(PgfUnmarshaller *u, uintptr_t ty);
-    void (*free_me)(PgfUnmarshaller *this);
 };
 struct PgfMarshaller {
     PgfMarshallerVtbl *vtbl;
@@ -177,7 +172,6 @@ typedef struct {
 /* Reads a PGF file and keeps it in memory. */
 PGF_API_DECL
 PgfPGF *pgf_read_pgf(const char* fpath,
-                     PgfUnmarshaller *unmarshaller,
                      PgfExn* err);
 
 /* Reads a PGF file and stores the unpacked data in an NGF file
@@ -186,7 +180,6 @@ PgfPGF *pgf_read_pgf(const char* fpath,
  * between machines. */
 PGF_API_DECL
 PgfPGF *pgf_boot_ngf(const char* pgf_path, const char* ngf_path,
-                     PgfUnmarshaller *unmarshaller,
                      PgfExn* err);
 
 /* Tries to read the grammar from an already booted NGF file.
@@ -195,7 +188,6 @@ PgfPGF *pgf_boot_ngf(const char* pgf_path, const char* ngf_path,
  * rules dynamically. */
 PGF_API_DECL
 PgfPGF *pgf_read_ngf(const char* fpath,
-                     PgfUnmarshaller *unmarshaller,
                      PgfExn* err);
 
 /* Release the grammar when it is no longer needed. */
@@ -209,13 +201,13 @@ PGF_API_DECL
 void pgf_iter_categories(PgfPGF *pgf, PgfItor *itor);
 
 PGF_API_DECL
-uintptr_t pgf_start_cat(PgfPGF *pgf);
+uintptr_t pgf_start_cat(PgfPGF *pgf, PgfUnmarshaller *u);
 
-PGF_API_DECL PgfTypeHypo*
-pgf_category_context(PgfPGF *pgf, PgfText *catname, size_t *n_hypos);
+PGF_API_DECL
+PgfTypeHypo *pgf_category_context(PgfPGF *pgf, PgfText *catname, size_t *n_hypos, PgfUnmarshaller *u);
 
-PGF_API_DECL prob_t
-pgf_category_prob(PgfPGF* pgf, PgfText *catname);
+PGF_API_DECL
+prob_t pgf_category_prob(PgfPGF* pgf, PgfText *catname);
 
 PGF_API_DECL
 void pgf_iter_functions(PgfPGF *pgf, PgfItor *itor);
@@ -224,7 +216,7 @@ PGF_API_DECL
 void pgf_iter_functions_by_cat(PgfPGF *pgf, PgfText *cat, PgfItor *itor);
 
 PGF_API_DECL
-uintptr_t pgf_function_type(PgfPGF *pgf, PgfText *funname);
+uintptr_t pgf_function_type(PgfPGF *pgf, PgfText *funname, PgfUnmarshaller *u);
 
 PGF_API_DECL
 int pgf_function_is_constructor(PgfPGF *pgf, PgfText *funname);
