@@ -99,14 +99,13 @@ typedef struct {
 	PgfExpr expr;
 } PgfExprProb;
 
-PGF_INTERNAL_DECL
-uintptr_t pgf_unmarshall_literal(PgfUnmarshaller *u, PgfLiteral l);
+struct PgfDBMarshaller : public PgfMarshaller {
+    virtual uintptr_t match_lit(PgfUnmarshaller *u, uintptr_t l);
+    virtual uintptr_t match_expr(PgfUnmarshaller *u, uintptr_t e);
+    virtual uintptr_t match_type(PgfUnmarshaller *u, uintptr_t tp);
+};
 
-PGF_INTERNAL_DECL
-uintptr_t pgf_unmarshall_expr(PgfUnmarshaller *u, PgfExpr e);
-
-PGF_INTERNAL_DECL
-uintptr_t pgf_unmarshall_type(PgfUnmarshaller *u, PgfType *tp);
+extern PGF_INTERNAL_DECL PgfDBMarshaller db_marshaller;
 
 typedef struct PgfBind {
     PgfBindType bind_type;

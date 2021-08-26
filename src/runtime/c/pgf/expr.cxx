@@ -1,7 +1,9 @@
 #include "pgf/data.h"
 
 PGF_INTERNAL
-uintptr_t pgf_unmarshall_literal(PgfUnmarshaller *u, PgfLiteral l)
+PgfDBMarshaller db_marshaller;
+
+uintptr_t PgfDBMarshaller::match_lit(PgfUnmarshaller *u, uintptr_t l)
 {
     switch (ref<PgfLiteral>::get_tag(l)) {
     case PgfLiteralInt::tag: {
@@ -18,21 +20,20 @@ uintptr_t pgf_unmarshall_literal(PgfUnmarshaller *u, PgfLiteral l)
     }
 }
 
-PGF_INTERNAL
-uintptr_t pgf_unmarshall_expr(PgfUnmarshaller *u, PgfExpr e)
+uintptr_t PgfDBMarshaller::match_expr(PgfUnmarshaller *u, uintptr_t e)
 {
     switch (ref<PgfExpr>::get_tag(e)) {
     case PgfExprAbs::tag: {
         auto eabs = ref<PgfExprAbs>::untagged(e);
-        uintptr_t body = pgf_unmarshall_expr(u,eabs->body);
+        uintptr_t body = match_expr(u,eabs->body);
         uintptr_t res = u->eabs(eabs->bind_type,&eabs->name,body);
         u->free_ref(body);
         return res;
     }
     case PgfExprApp::tag: {
         auto eapp = ref<PgfExprApp>::untagged(e);
-        uintptr_t fun = pgf_unmarshall_expr(u,eapp->fun);
-        uintptr_t arg = pgf_unmarshall_expr(u,eapp->arg);
+        uintptr_t fun = match_expr(u,eapp->fun);
+        uintptr_t arg = match_expr(u,eapp->arg);
         uintptr_t res = u->eapp(fun,arg);
         u->free_ref(arg);
         u->free_ref(fun);
@@ -40,7 +41,7 @@ uintptr_t pgf_unmarshall_expr(PgfUnmarshaller *u, PgfExpr e)
     }
     case PgfExprLit::tag: {
         auto elit = ref<PgfExprLit>::untagged(e);
-        uintptr_t lit = pgf_unmarshall_literal(u,elit->lit);
+        uintptr_t lit = match_lit(u,elit->lit);
         uintptr_t res = u->elit(lit);
         u->free_ref(lit);
         return res;
@@ -56,8 +57,8 @@ uintptr_t pgf_unmarshall_expr(PgfUnmarshaller *u, PgfExpr e)
 	}
 	case PgfExprTyped::tag: {
         auto etyped = ref<PgfExprTyped>::untagged(e);
-        uintptr_t expr = pgf_unmarshall_expr(u,etyped->expr);
-        uintptr_t type = pgf_unmarshall_type(u,etyped->type);
+        uintptr_t expr = match_expr(u,etyped->expr);
+        uintptr_t type = match_type(u,(uintptr_t) &(*etyped->type));
         uintptr_t res = u->etyped(expr,type);
         u->free_ref(type);
         u->free_ref(expr);
@@ -65,7 +66,7 @@ uintptr_t pgf_unmarshall_expr(PgfUnmarshaller *u, PgfExpr e)
 	}
 	case PgfExprImplArg::tag: {
         auto eimpl = ref<PgfExprImplArg>::untagged(e);
-        uintptr_t expr = pgf_unmarshall_expr(u,eimpl->expr);
+        uintptr_t expr = match_expr(u,eimpl->expr);
         uintptr_t res = u->eimplarg(expr);
         u->free_ref(expr);
         return res;
@@ -76,20 +77,22 @@ uintptr_t pgf_unmarshall_expr(PgfUnmarshaller *u, PgfExpr e)
 }
 
 PGF_INTERNAL
-uintptr_t pgf_unmarshall_type(PgfUnmarshaller *u, PgfType *tp)
+uintptr_t PgfDBMarshaller::match_type(PgfUnmarshaller *u, uintptr_t ty)
 {
+    PgfType *tp = (PgfType *) ty;
+
     PgfTypeHypo *hypos = (PgfTypeHypo *)
         alloca(tp->hypos->len * sizeof(PgfTypeHypo));
     for (size_t i = 0; i < tp->hypos->len; i++) {
         hypos[i].bind_type = tp->hypos->data[i].bind_type;
         hypos[i].cid = &(*tp->hypos->data[i].cid);
-        hypos[i].type = pgf_unmarshall_type(u, tp->hypos->data[i].type);
+        hypos[i].type = match_type(u, (uintptr_t) &(*tp->hypos->data[i].type));
     }
 
     uintptr_t *exprs = (uintptr_t *)
         alloca(tp->exprs->len * sizeof(uintptr_t));
     for (size_t i = 0; i < tp->exprs->len; i++) {
-        exprs[i] = pgf_unmarshall_expr(u, tp->exprs->data[i]);
+        exprs[i] = match_expr(u, tp->exprs->data[i]);
     }
 
     uintptr_t res = u->dtyp(tp->hypos->len, hypos,
