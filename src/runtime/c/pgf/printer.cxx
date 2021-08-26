@@ -121,7 +121,7 @@ void PgfPrinter::pop_variable()
     free(tmp);
 }
 
-uintptr_t PgfPrinter::eabs(PgfBindType btype, PgfText *name, uintptr_t body)
+PgfExpr PgfPrinter::eabs(PgfBindType btype, PgfText *name, PgfExpr body)
 {
     bool p = (prio > 1);
     if (p) puts("(");
@@ -159,7 +159,7 @@ uintptr_t PgfPrinter::eabs(PgfBindType btype, PgfText *name, uintptr_t body)
     return 0;
 }
 
-uintptr_t PgfPrinter::eapp(uintptr_t fun, uintptr_t arg)
+PgfExpr PgfPrinter::eapp(PgfExpr fun, PgfExpr arg)
 {
     flush_lambdas();
 
@@ -179,13 +179,13 @@ uintptr_t PgfPrinter::eapp(uintptr_t fun, uintptr_t arg)
     return 0;
 }
 
-uintptr_t PgfPrinter::elit(uintptr_t lit)
+PgfExpr PgfPrinter::elit(PgfLiteral lit)
 {
     flush_lambdas();
     return m->match_lit(this, lit);
 }
 
-uintptr_t PgfPrinter::emeta(PgfMetaId meta)
+PgfExpr PgfPrinter::emeta(PgfMetaId meta)
 {
     flush_lambdas();
 
@@ -198,7 +198,7 @@ uintptr_t PgfPrinter::emeta(PgfMetaId meta)
     return 0;
 }
 
-uintptr_t PgfPrinter::efun(PgfText *name)
+PgfExpr PgfPrinter::efun(PgfText *name)
 {
     flush_lambdas();
 
@@ -206,7 +206,7 @@ uintptr_t PgfPrinter::efun(PgfText *name)
     return 0;
 }
 
-uintptr_t PgfPrinter::evar(int index)
+PgfExpr PgfPrinter::evar(int index)
 {
     flush_lambdas();
 
@@ -224,7 +224,7 @@ uintptr_t PgfPrinter::evar(int index)
     return 0;
 }
 
-uintptr_t PgfPrinter::etyped(uintptr_t expr, uintptr_t ty)
+PgfExpr PgfPrinter::etyped(PgfExpr expr, PgfType ty)
 {
     flush_lambdas();
 
@@ -238,7 +238,7 @@ uintptr_t PgfPrinter::etyped(uintptr_t expr, uintptr_t ty)
     return 0;
 }
 
-uintptr_t PgfPrinter::eimplarg(uintptr_t expr)
+PgfExpr PgfPrinter::eimplarg(PgfExpr expr)
 {
     flush_lambdas();
 
@@ -249,19 +249,19 @@ uintptr_t PgfPrinter::eimplarg(uintptr_t expr)
     return 0;
 }
 
-uintptr_t PgfPrinter::lint(int v)
+PgfLiteral PgfPrinter::lint(int v)
 {
     nprintf(16, "%d", v);
     return 0;
 }
 
-uintptr_t PgfPrinter::lflt(double v)
+PgfLiteral PgfPrinter::lflt(double v)
 {
     nprintf(16,"%lg",v);
     return 0;
 }
 
-uintptr_t PgfPrinter::lstr(PgfText *v)
+PgfLiteral PgfPrinter::lstr(PgfText *v)
 {
     PgfText *charbuf = (PgfText *) alloca(sizeof(PgfText)+7);
 
@@ -305,9 +305,9 @@ uintptr_t PgfPrinter::lstr(PgfText *v)
     return 0;
 }
 
-uintptr_t PgfPrinter::dtyp(int n_hypos, PgfTypeHypo *hypos,
-                           PgfText *cat,
-                           int n_exprs, uintptr_t *exprs)
+PgfType PgfPrinter::dtyp(int n_hypos, PgfTypeHypo *hypos,
+                         PgfText *cat,
+                         int n_exprs, PgfExpr *exprs)
 {
     bool p = (prio > 0 && n_hypos > 0) ||
              (prio > 3 && n_exprs > 0);
@@ -353,6 +353,6 @@ uintptr_t PgfPrinter::dtyp(int n_hypos, PgfTypeHypo *hypos,
     return 0;
 }
 
-void PgfPrinter::free_ref(uintptr_t x)
+void PgfPrinter::free_ref(object x)
 {
 }

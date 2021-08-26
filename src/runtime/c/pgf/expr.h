@@ -1,14 +1,8 @@
 #ifndef EXPR_H_
 #define EXPR_H_
 
-/// An abstract syntax tree
-typedef variant PgfExpr;
-
 struct PgfHypo;
-struct PgfType;
-
-/// A literal for an abstract syntax tree
-typedef variant PgfLiteral;
+struct PgfDTyp;
 
 struct PGF_INTERNAL_DECL PgfLiteralStr {
     static const uint8_t tag = 0;
@@ -31,10 +25,10 @@ struct PGF_INTERNAL_DECL PgfLiteralFlt {
 struct PGF_INTERNAL_DECL PgfHypo {
 	PgfBindType bind_type;
 	ref<PgfText> cid;
-	ref<PgfType> type;
+	ref<PgfDTyp> type;
 };
 
-struct PGF_INTERNAL_DECL PgfType {
+struct PGF_INTERNAL_DECL PgfDTyp {
 	ref<PgfVector<PgfHypo>> hypos;
     ref<PgfVector<PgfExpr>> exprs;
 	PgfText name;
@@ -83,7 +77,7 @@ struct PGF_INTERNAL_DECL PgfExprTyped {
     static const uint8_t tag = 6;
 
 	PgfExpr expr;
-	ref<PgfType> type;
+	ref<PgfDTyp> type;
 };
 
 struct PGF_INTERNAL_DECL PgfExprImplArg {
@@ -100,9 +94,9 @@ typedef struct {
 } PgfExprProb;
 
 struct PgfDBMarshaller : public PgfMarshaller {
-    virtual uintptr_t match_lit(PgfUnmarshaller *u, uintptr_t l);
-    virtual uintptr_t match_expr(PgfUnmarshaller *u, uintptr_t e);
-    virtual uintptr_t match_type(PgfUnmarshaller *u, uintptr_t tp);
+    virtual object match_lit(PgfUnmarshaller *u, PgfLiteral l);
+    virtual object match_expr(PgfUnmarshaller *u, PgfExpr e);
+    virtual object match_type(PgfUnmarshaller *u, PgfType ty);
 };
 
 extern PGF_INTERNAL_DECL PgfDBMarshaller db_marshaller;
@@ -158,12 +152,12 @@ public:
     PgfBind *parse_binds(PgfBind *next);
 
 
-    uintptr_t parse_arg();
-    uintptr_t parse_term();
-    uintptr_t parse_expr();
+    PgfExpr parse_arg();
+    PgfExpr parse_term();
+    PgfExpr parse_expr();
 
     bool parse_hypos(size_t *n_hypos, PgfTypeHypo **hypos);
-    uintptr_t parse_type();
+    PgfType parse_type();
 
     bool eof();
 };

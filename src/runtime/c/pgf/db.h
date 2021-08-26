@@ -8,28 +8,24 @@ class DB;
 extern PGF_INTERNAL_DECL __thread unsigned char* current_base __attribute__((tls_model("initial-exec")));
 extern PGF_INTERNAL_DECL __thread DB*            current_db   __attribute__((tls_model("initial-exec")));
 
-typedef size_t moffset;
-
-typedef moffset variant;
-
 struct malloc_state;
 
 template<class A> class PGF_INTERNAL_DECL ref {
 private:
-    moffset offset;
+    object offset;
 
     friend class DB;
 
 public:
     ref<A>() { }
-    ref<A>(moffset o) { offset = o; }
+    ref<A>(object o) { offset = o; }
 
     A* operator->() const { return (A*) (current_base+offset); }
     operator A*()   const { return (A*) (current_base+offset); }
     bool operator ==(ref<A>& other) const { return offset==other->offset; }
     bool operator !=(ref<A>& other) const { return offset!=other->offset; }
-    bool operator ==(moffset other_offset) const { return offset==other_offset; }
-    bool operator !=(moffset other_offset) const { return offset!=other_offset; }
+    bool operator ==(object other_offset) const { return offset==other_offset; }
+    bool operator !=(object other_offset) const { return offset!=other_offset; }
 
     ref<A>& operator= (const ref<A>& r) {
         offset = r.offset;
@@ -39,19 +35,21 @@ public:
     static
     ref<A> from_ptr(A *ptr) { return (((uint8_t*) ptr) - current_base); }
 
+    object as_object() { return offset; }
+
     static
-    variant tagged(ref<A> ref) {
+    object tagged(ref<A> ref) {
         assert(A::tag < MALLOC_ALIGN_MASK + 1);
         return (ref.offset | A::tag);
     }
 
     static
-    ref<A> untagged(variant v) {
+    ref<A> untagged(object v) {
         return (v & ~MALLOC_ALIGN_MASK);
     }
 
     static
-    uint8_t get_tag(variant v) {
+    uint8_t get_tag(object v) {
         return (v & MALLOC_ALIGN_MASK);
     }
 };
@@ -94,11 +92,11 @@ public:
 private:
     void init_state(size_t size);
 
-    moffset malloc_internal(size_t bytes);
-    void free_internal(moffset o);
+    object malloc_internal(size_t bytes);
+    void free_internal(object o);
 
-    moffset get_root_internal();
-    void set_root_internal(moffset root_offset);
+    object get_root_internal();
+    void set_root_internal(object root_offset);
 
     unsigned char* relocate(unsigned char* ptr);
 

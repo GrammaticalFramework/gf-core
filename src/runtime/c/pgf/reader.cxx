@@ -82,10 +82,10 @@ uint64_t PgfReader::read_uint()
 	return u;
 }
 
-moffset PgfReader::read_name_internal(size_t struct_size)
+object PgfReader::read_name_internal(size_t struct_size)
 {
     size_t size = read_len();
-	moffset offs = current_db->malloc_internal(struct_size+sizeof(PgfText)+size+1);
+	object offs = current_db->malloc_internal(struct_size+sizeof(PgfText)+size+1);
     PgfText* ptext = (PgfText*) (current_base+offs+struct_size);
     ptext->size = size;
 
@@ -102,7 +102,7 @@ moffset PgfReader::read_name_internal(size_t struct_size)
 	return offs;
 }
 
-moffset PgfReader::read_text_internal(size_t struct_size)
+object PgfReader::read_text_internal(size_t struct_size)
 {
     size_t len  = read_len();
 
@@ -139,7 +139,7 @@ moffset PgfReader::read_text_internal(size_t struct_size)
     size_t size = p-buf;
 	*p++ = 0;
 
-	moffset offs = current_db->malloc_internal(struct_size+sizeof(PgfText)+size+1);
+	object offs = current_db->malloc_internal(struct_size+sizeof(PgfText)+size+1);
     PgfText* ptext = (PgfText*) (current_base+offs+struct_size);
     ptext->size = size;
 	memcpy(ptext->text, buf, size+1);
@@ -291,11 +291,11 @@ void PgfReader::read_hypo(ref<PgfHypo> hypo)
 	hypo->type = read_type();
 }
 
-ref<PgfType> PgfReader::read_type()
+ref<PgfDTyp> PgfReader::read_type()
 {
     ref<PgfVector<PgfHypo>> hypos =
         read_vector<PgfHypo>(&PgfReader::read_hypo);
-    ref<PgfType> tp = read_name<PgfType>(&PgfType::name);
+    ref<PgfDTyp> tp = read_name<PgfDTyp>(&PgfDTyp::name);
     tp->hypos = hypos;
     tp->exprs =
         read_vector<PgfExpr>(&PgfReader::read_expr);

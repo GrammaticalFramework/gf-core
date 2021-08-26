@@ -54,7 +54,7 @@ public:
     void read_expr(ref<PgfExpr> r) { *r = read_expr(); };
 
     void read_hypo(ref<PgfHypo> hypo);
-    ref<PgfType> read_type();
+    ref<PgfDTyp> read_type();
 
     ref<PgfFlag> read_flag();
 
@@ -72,8 +72,8 @@ public:
 private:
     std::istream *in;
 
-    moffset read_name_internal(size_t struct_size);
-    moffset read_text_internal(size_t struct_size);
+    object read_name_internal(size_t struct_size);
+    object read_text_internal(size_t struct_size);
 };
 
 #endif

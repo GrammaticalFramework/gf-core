@@ -167,7 +167,7 @@ void pgf_iter_categories(PgfPGF *pgf, PgfItor *itor)
 }
 
 PGF_API
-uintptr_t pgf_start_cat(PgfPGF *pgf, PgfUnmarshaller *u)
+PgfType pgf_start_cat(PgfPGF *pgf, PgfUnmarshaller *u)
 {
     DB_scope scope(pgf, READER_SCOPE);
 
@@ -184,7 +184,7 @@ uintptr_t pgf_start_cat(PgfPGF *pgf, PgfUnmarshaller *u)
 		case PgfLiteralStr::tag: {
 			auto lstr = ref<PgfLiteralStr>::untagged(flag->value);
 
-            uintptr_t type = pgf_read_type(&lstr->val, u);
+            PgfType type = pgf_read_type(&lstr->val, u);
 			if (type == 0)
 				break;
 			return type;
@@ -217,7 +217,7 @@ PgfTypeHypo *pgf_category_context(PgfPGF *pgf, PgfText *catname, size_t *n_hypos
     for (size_t i = 0; i < abscat->context->len; i++) {
         hypos[i].bind_type = abscat->context->data[i].bind_type;
         hypos[i].cid = textdup(abscat->context->data[i].cid);
-        hypos[i].type = db_marshaller.match_type(u, (uintptr_t) &(*abscat->context->data[i].type));
+        hypos[i].type = db_marshaller.match_type(u, abscat->context->data[i].type.as_object());
     }
 
     *n_hypos = abscat->context->len;
@@ -274,7 +274,7 @@ void pgf_iter_functions_by_cat(PgfPGF *pgf, PgfText *cat, PgfItor *itor)
 }
 
 PGF_API
-uintptr_t pgf_function_type(PgfPGF *pgf, PgfText *funname, PgfUnmarshaller *u)
+PgfType pgf_function_type(PgfPGF *pgf, PgfText *funname, PgfUnmarshaller *u)
 {
     DB_scope scope(pgf, READER_SCOPE);
 
@@ -283,7 +283,7 @@ uintptr_t pgf_function_type(PgfPGF *pgf, PgfText *funname, PgfUnmarshaller *u)
 	if (absfun == 0)
 		return 0;
 
-	return db_marshaller.match_type(u, (uintptr_t) &(*absfun->type));
+	return db_marshaller.match_type(u, absfun->type.as_object());
 }
 
 PGF_API
@@ -313,7 +313,7 @@ prob_t pgf_function_prob(PgfPGF *pgf, PgfText *funname)
 }
 
 PGF_API
-PgfText *pgf_print_expr(uintptr_t e,
+PgfText *pgf_print_expr(PgfExpr e,
                         PgfPrintContext *ctxt, int prio,
                         PgfMarshaller *m)
 {
@@ -322,11 +322,11 @@ PgfText *pgf_print_expr(uintptr_t e,
     return printer.get_text();
 }
 
-PGF_API uintptr_t
+PGF_API PgfExpr
 pgf_read_expr(PgfText *input, PgfUnmarshaller *u)
 {
     PgfExprParser parser(input, u);
-    uintptr_t res = parser.parse_expr();
+    PgfExpr res = parser.parse_expr();
     if (!parser.eof()) {
         u->free_ref(res);
         return 0;
@@ -335,7 +335,7 @@ pgf_read_expr(PgfText *input, PgfUnmarshaller *u)
 }
 
 PGF_API
-PgfText *pgf_print_type(uintptr_t ty,
+PgfText *pgf_print_type(PgfType ty,
                         PgfPrintContext *ctxt, int prio,
                         PgfMarshaller *m)
 {
@@ -344,11 +344,11 @@ PgfText *pgf_print_type(uintptr_t ty,
     return printer.get_text();
 }
 
-PGF_API uintptr_t
-pgf_read_type(PgfText *input, PgfUnmarshaller *u)
+PGF_API
+PgfType pgf_read_type(PgfText *input, PgfUnmarshaller *u)
 {
     PgfExprParser parser(input, u);
-    uintptr_t res = parser.parse_type();
+    PgfType res = parser.parse_type();
     if (!parser.eof()) {
         u->free_ref(res);
         return 0;

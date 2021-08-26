@@ -45,21 +45,21 @@ public:
 
     PgfText *get_text();
 
-    virtual uintptr_t eabs(PgfBindType btype, PgfText *name, uintptr_t body);
-    virtual uintptr_t eapp(uintptr_t fun, uintptr_t arg);
-    virtual uintptr_t elit(uintptr_t lit);
-    virtual uintptr_t emeta(PgfMetaId meta);
-    virtual uintptr_t efun(PgfText *name);
-    virtual uintptr_t evar(int index);
-    virtual uintptr_t etyped(uintptr_t expr, uintptr_t typ);
-    virtual uintptr_t eimplarg(uintptr_t expr);
-    virtual uintptr_t lint(int v);
-    virtual uintptr_t lflt(double v);
-    virtual uintptr_t lstr(PgfText *v);
-    virtual uintptr_t dtyp(int n_hypos, PgfTypeHypo *hypos,
-                           PgfText *cat,
-                           int n_exprs, uintptr_t *exprs);
-    virtual void free_ref(uintptr_t x);
+    virtual PgfExpr eabs(PgfBindType btype, PgfText *name, PgfExpr body);
+    virtual PgfExpr eapp(PgfExpr fun, PgfExpr arg);
+    virtual PgfExpr elit(PgfLiteral lit);
+    virtual PgfExpr emeta(PgfMetaId meta);
+    virtual PgfExpr efun(PgfText *name);
+    virtual PgfExpr evar(int index);
+    virtual PgfExpr etyped(PgfExpr expr, PgfType typ);
+    virtual PgfExpr eimplarg(PgfExpr expr);
+    virtual PgfLiteral lint(int v);
+    virtual PgfLiteral lflt(double v);
+    virtual PgfLiteral lstr(PgfText *v);
+    virtual PgfType dtyp(int n_hypos, PgfTypeHypo *hypos,
+                         PgfText *cat,
+                         int n_exprs, PgfExpr *exprs);
+    virtual void free_ref(object x);
 };
 
 #endif

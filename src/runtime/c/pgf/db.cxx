@@ -21,12 +21,12 @@ struct mchunk {
   size_t mchunk_prev_size;  /* Size of previous chunk (if free).  */
   size_t mchunk_size;       /* Size in bytes, including overhead. */
 
-  moffset fd;               /* double links -- used only if free. */
-  moffset bk;
+  object fd;               /* double links -- used only if free. */
+  object bk;
 
   /* Only used for large blocks: pointer to next larger size.     */
-  moffset fd_nextsize;      /* double links -- used only if free. */
-  moffset bk_nextsize;
+  object fd_nextsize;      /* double links -- used only if free. */
+  object bk_nextsize;
 };
 
 #define POOL_ALIGNMENT (2 * sizeof(size_t) < __alignof__ (long double) \
@@ -256,17 +256,17 @@ struct malloc_state
     /* Set if the fastbin chunks contain recently inserted free blocks.  */
     bool have_fastchunks;
     /* Fastbins */
-    moffset fastbins[NFASTBINS];
+    object fastbins[NFASTBINS];
     /* Base of the topmost chunk -- not otherwise kept in a bin */
-    moffset top;
+    object top;
     /* The remainder from the most recent split of a small request */
-    moffset last_remainder;
+    object last_remainder;
     /* Normal bins packed as described above */
-    moffset bins[NBINS * 2 - 2];
+    object bins[NBINS * 2 - 2];
     /* Bitmap of bins */
     unsigned int binmap[BINMAPSIZE];
     /* Reference to the root object */
-    moffset root_offset;
+    object root_offset;
 };
 
 DB::DB(const char* pathname, int flags, int mode) {
@@ -338,11 +338,11 @@ void DB::sync()
         throw std::system_error(errno, std::generic_category());
 }
 
-moffset DB::get_root_internal() {
+object DB::get_root_internal() {
     return ms->root_offset;
 }
 
-void DB::set_root_internal(moffset root_offset) {
+void DB::set_root_internal(object root_offset) {
     ms->root_offset = root_offset;
 }
 
@@ -410,8 +410,8 @@ unlink_chunk (malloc_state* ms, mchunk* p)
 */
 static void malloc_consolidate(malloc_state *ms)
 {
-  moffset* fb;                 /* current fastbin being consolidated */
-  moffset* maxfb;              /* last fastbin (for loop control) */
+  object* fb;                 /* current fastbin being consolidated */
+  object* maxfb;              /* last fastbin (for loop control) */
   mchunk*  p;                  /* current chunk being consolidated */
   mchunk*  nextp;              /* next chunk to consolidate */
   mchunk*  unsorted_bin;       /* bin header */
@@ -478,7 +478,7 @@ static void malloc_consolidate(malloc_state *ms)
   } while (fb++ != maxfb);
 }
 
-moffset
+object
 DB::malloc_internal(size_t bytes)
 {
     unsigned int idx;                 /* associated bin index */
@@ -520,7 +520,7 @@ DB::malloc_internal(size_t bytes)
         bin = bin_at (ms, idx);
         if ((victim = ptr(ms,last(bin))) != bin)
         {
-            moffset bck = victim->bk;
+            object bck = victim->bk;
             set_inuse_bit_at_offset (victim, nb);
             bin->bk = bck;
             ptr(ms,bck)->fd = ofs(ms,bin);
@@ -852,10 +852,10 @@ DB::malloc_internal(size_t bytes)
 }
 
 void
-DB::free_internal(moffset o)
+DB::free_internal(object o)
 {
     size_t size;                 /* its size */
-    moffset *fb;                 /* associated fastbin */
+    object *fb;                  /* associated fastbin */
     mchunk *nextchunk;           /* next contiguous chunk */
     size_t nextsize;             /* its size */
     int nextinuse;               /* true if nextchunk is used */

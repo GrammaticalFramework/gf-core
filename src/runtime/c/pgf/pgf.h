@@ -53,6 +53,15 @@ struct PgfItor {
 	void (*fn)(PgfItor* self, PgfText* key, void *value);
 };
 
+typedef uintptr_t object;
+
+/// An abstract syntax tree
+typedef object PgfExpr;
+
+/// A literal for an abstract syntax tree
+typedef object PgfLiteral;
+typedef object PgfType;
+
 typedef enum {
 	PGF_BIND_TYPE_EXPLICIT,
 	PGF_BIND_TYPE_IMPLICIT
@@ -63,7 +72,7 @@ typedef int PgfMetaId;
 typedef struct {
     PgfBindType bind_type;
 	PgfText *cid;
-	uintptr_t type;
+	PgfType type;
 } PgfTypeHypo;
 
 /* This structure tells the runtime how to create abstract syntax
@@ -78,48 +87,48 @@ typedef struct {
  */
 #ifdef __cplusplus
 struct PgfUnmarshaller {
-    virtual uintptr_t eabs(PgfBindType btype, PgfText *name, uintptr_t body)=0;
-    virtual uintptr_t eapp(uintptr_t fun, uintptr_t arg)=0;
-    virtual uintptr_t elit(uintptr_t lit)=0;
-    virtual uintptr_t emeta(PgfMetaId meta)=0;
-    virtual uintptr_t efun(PgfText *name)=0;
-    virtual uintptr_t evar(int index)=0;
-    virtual uintptr_t etyped(uintptr_t expr, uintptr_t typ)=0;
-    virtual uintptr_t eimplarg(uintptr_t expr)=0;
-    virtual uintptr_t lint(int v)=0;
-    virtual uintptr_t lflt(double v)=0;
-    virtual uintptr_t lstr(PgfText *v)=0;
-    virtual uintptr_t dtyp(int n_hypos, PgfTypeHypo *hypos,
-                           PgfText *cat,
-                           int n_exprs, uintptr_t *exprs)=0;
-    virtual void free_ref(uintptr_t x)=0;
+    virtual PgfExpr eabs(PgfBindType btype, PgfText *name, PgfExpr body)=0;
+    virtual PgfExpr eapp(PgfExpr fun, PgfExpr arg)=0;
+    virtual PgfExpr elit(PgfLiteral lit)=0;
+    virtual PgfExpr emeta(PgfMetaId meta)=0;
+    virtual PgfExpr efun(PgfText *name)=0;
+    virtual PgfExpr evar(int index)=0;
+    virtual PgfExpr etyped(PgfExpr expr, PgfType typ)=0;
+    virtual PgfExpr eimplarg(PgfExpr expr)=0;
+    virtual PgfLiteral lint(int v)=0;
+    virtual PgfLiteral lflt(double v)=0;
+    virtual PgfLiteral lstr(PgfText *v)=0;
+    virtual PgfType dtyp(int n_hypos, PgfTypeHypo *hypos,
+                         PgfText *cat,
+                         int n_exprs, PgfExpr *exprs)=0;
+    virtual void free_ref(object x)=0;
 };
 
 struct PgfMarshaller {
-    virtual uintptr_t match_lit(PgfUnmarshaller *u, uintptr_t lit)=0;
-    virtual uintptr_t match_expr(PgfUnmarshaller *u, uintptr_t expr)=0;
-    virtual uintptr_t match_type(PgfUnmarshaller *u, uintptr_t ty)=0;
+    virtual object match_lit(PgfUnmarshaller *u, PgfLiteral lit)=0;
+    virtual object match_expr(PgfUnmarshaller *u, PgfExpr expr)=0;
+    virtual object match_type(PgfUnmarshaller *u, PgfType ty)=0;
 };
 #else
 typedef struct PgfUnmarshaller PgfUnmarshaller;
 typedef struct PgfUnmarshallerVtbl PgfUnmarshallerVtbl;
 struct PgfUnmarshallerVtbl {
-    uintptr_t (*eabs)(PgfUnmarshaller *this, PgfBindType btype, PgfText *name, uintptr_t body);
-    uintptr_t (*eapp)(PgfUnmarshaller *this, uintptr_t fun, uintptr_t arg);
-    uintptr_t (*elit)(PgfUnmarshaller *this, uintptr_t lit);
-    uintptr_t (*emeta)(PgfUnmarshaller *this, PgfMetaId meta);
-    uintptr_t (*efun)(PgfUnmarshaller *this, PgfText *name);
-    uintptr_t (*evar)(PgfUnmarshaller *this, int index);
-    uintptr_t (*etyped)(PgfUnmarshaller *this, uintptr_t expr, uintptr_t typ);
-    uintptr_t (*eimplarg)(PgfUnmarshaller *this, uintptr_t expr);
-    uintptr_t (*lint)(PgfUnmarshaller *this, int v);
-    uintptr_t (*lflt)(PgfUnmarshaller *this, double v);
-    uintptr_t (*lstr)(PgfUnmarshaller *this, PgfText *v);
-    uintptr_t (*dtyp)(PgfUnmarshaller *this,
-                      int n_hypos, PgfTypeHypo *hypos,
-                      PgfText *cat,
-                      int n_exprs, uintptr_t *exprs);
-    void (*free_ref)(PgfUnmarshaller *this, uintptr_t x);
+    PgfExpr (*eabs)(PgfUnmarshaller *this, PgfBindType btype, PgfText *name, PgfExpr body);
+    PgfExpr (*eapp)(PgfUnmarshaller *this, PgfExpr fun, PgfExpr arg);
+    PgfExpr (*elit)(PgfUnmarshaller *this, PgfLiteral lit);
+    PgfExpr (*emeta)(PgfUnmarshaller *this, PgfMetaId meta);
+    PgfExpr (*efun)(PgfUnmarshaller *this, PgfText *name);
+    PgfExpr (*evar)(PgfUnmarshaller *this, int index);
+    PgfExpr (*etyped)(PgfUnmarshaller *this, PgfExpr expr, PgfType typ);
+    PgfExpr (*eimplarg)(PgfUnmarshaller *this, PgfExpr expr);
+    PgfLiteral (*lint)(PgfUnmarshaller *this, int v);
+    PgfLiteral (*lflt)(PgfUnmarshaller *this, double v);
+    PgfLiteral (*lstr)(PgfUnmarshaller *this, PgfText *v);
+    PgfType (*dtyp)(PgfUnmarshaller *this,
+                    int n_hypos, PgfTypeHypo *hypos,
+                    PgfText *cat,
+                    int n_exprs, PgfExpr *exprs);
+    void (*free_ref)(PgfUnmarshaller *this, object x);
 };
 struct PgfUnmarshaller {
     PgfUnmarshallerVtbl *vtbl;
@@ -128,9 +137,9 @@ struct PgfUnmarshaller {
 typedef struct PgfMarshaller PgfMarshaller;
 typedef struct PgfMarshallerVtbl PgfMarshallerVtbl;
 struct PgfMarshallerVtbl {
-    uintptr_t (*match_lit)(PgfUnmarshaller *u, uintptr_t lit);
-    uintptr_t (*match_expr)(PgfUnmarshaller *u, uintptr_t expr);
-    uintptr_t (*match_type)(PgfUnmarshaller *u, uintptr_t ty);
+    object (*match_lit)(PgfUnmarshaller *u, PgfLiteral lit);
+    object (*match_expr)(PgfUnmarshaller *u, PgfExpr expr);
+    object (*match_type)(PgfUnmarshaller *u, PgfType ty);
 };
 struct PgfMarshaller {
     PgfMarshallerVtbl *vtbl;
@@ -201,7 +210,7 @@ PGF_API_DECL
 void pgf_iter_categories(PgfPGF *pgf, PgfItor *itor);
 
 PGF_API_DECL
-uintptr_t pgf_start_cat(PgfPGF *pgf, PgfUnmarshaller *u);
+PgfType pgf_start_cat(PgfPGF *pgf, PgfUnmarshaller *u);
 
 PGF_API_DECL
 PgfTypeHypo *pgf_category_context(PgfPGF *pgf, PgfText *catname, size_t *n_hypos, PgfUnmarshaller *u);
@@ -216,7 +225,7 @@ PGF_API_DECL
 void pgf_iter_functions_by_cat(PgfPGF *pgf, PgfText *cat, PgfItor *itor);
 
 PGF_API_DECL
-uintptr_t pgf_function_type(PgfPGF *pgf, PgfText *funname, PgfUnmarshaller *u);
+PgfType pgf_function_type(PgfPGF *pgf, PgfText *funname, PgfUnmarshaller *u);
 
 PGF_API_DECL
 int pgf_function_is_constructor(PgfPGF *pgf, PgfText *funname);
@@ -232,19 +241,19 @@ struct PgfPrintContext {
 };
 
 PGF_API_DECL
-PgfText *pgf_print_expr(uintptr_t e,
+PgfText *pgf_print_expr(PgfExpr e,
                         PgfPrintContext *ctxt, int prio,
                         PgfMarshaller *m);
 
 PGF_API_DECL
-uintptr_t pgf_read_expr(PgfText *input, PgfUnmarshaller *u);
+PgfExpr pgf_read_expr(PgfText *input, PgfUnmarshaller *u);
 
 PGF_API_DECL
-PgfText *pgf_print_type(uintptr_t ty,
+PgfText *pgf_print_type(PgfType ty,
                         PgfPrintContext *ctxt, int prio,
                         PgfMarshaller *m);
 
 PGF_API_DECL
-uintptr_t pgf_read_type(PgfText *input, PgfUnmarshaller *u);
+PgfType pgf_read_type(PgfText *input, PgfUnmarshaller *u);
 
 #endif // PGF_H_

@@ -37,7 +37,7 @@ struct PGF_INTERNAL_DECL PgfFlag {
 
 // PgfPatt
 
-typedef variant PgfPatt;
+typedef object PgfPatt;
 
 struct PGF_INTERNAL_DECL PgfPattApp {
     static const uint8_t tag = 0;
@@ -87,7 +87,7 @@ typedef struct {
 } PgfEquation;
 
 struct PGF_INTERNAL_DECL PgfAbsFun {
-    ref<PgfType> type;
+    ref<PgfDTyp> type;
 	int arity;
     ref<PgfVector<ref<PgfEquation>>> defns;
     PgfExprProb ep;
