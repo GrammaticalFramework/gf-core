@@ -74,6 +74,7 @@ stack bench --work-dir .stack-work-bench --benchmark-arguments "run lpgf Phraseb
 ## Profiling
 
 ```
+stack build --work-dir .stack-work-profile --profile --bench --no-run-benchmarks &&
 stack bench --work-dir .stack-work-profile --profile --benchmark-arguments "compile lpgf testsuite/lpgf/phrasebook/PhrasebookFre.gf +RTS -T -p -h -RTS"
 ```
 
@@ -81,8 +82,18 @@ Produced files:
 - `lpgf-bench.prof` - total time and memory allocation (`-p`)
 - `lpgf-bench.hp` - heap profile (`-h`)
 
+Open heap profile graph on-the-fly:
 ```
 stack exec -- hp2ps -c lpgf-bench.hp && open lpgf-bench.ps
+```
+
+Convert and copy timestamped files into `PROF/`:
+```
+TS="$(date +%Y-%m-%d_%H%M)" &&
+stack exec -- hp2ps -c lpgf-bench.hp &&
+mv lpgf-bench.prof PROF/$TS.prof &&
+mv lpgf-bench.ps PROF/$TS.ps &&
+mv lpgf-bench.hs PROF/$TS.hp
 ```
 
 **Resources**
