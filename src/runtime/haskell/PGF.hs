@@ -7,7 +7,7 @@ module PGF ( PGF2.PGF, readPGF
            , functions, functionsByCat
 
            , PGF2.Expr(..), PGF2.Literal(..), Tree
-           , PGF2.readExpr
+           , PGF2.readExpr, PGF2.showExpr
            , PGF2.mkAbs,    PGF2.unAbs
            , PGF2.mkApp,    PGF2.unApp, PGF2.unapply
            , PGF2.mkStr,    PGF2.unStr
@@ -15,8 +15,10 @@ module PGF ( PGF2.PGF, readPGF
            , PGF2.mkDouble, PGF2.unDouble
            , PGF2.mkFloat,  PGF2.unFloat
            , PGF2.mkMeta,   PGF2.unMeta
+           , PGF2.exprSize, PGF2.exprFunctions
 
            , PGF2.Type(..), PGF2.Hypo
+           , PGF2.readType, PGF2.showType
            , PGF2.mkType, PGF2.unType
            , PGF2.mkHypo, PGF2.mkDepHypo, PGF2.mkImplHypo
 

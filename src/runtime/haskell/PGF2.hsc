@@ -32,6 +32,8 @@ module PGF2 (-- * PGF
              mkDouble, unDouble,
              mkFloat,  unFloat,
              mkMeta,   unMeta,
+             -- extra
+             exprSize, exprFunctions,
              -- ** Types
              Type(..), Hypo, BindType(..), startCat,
              readType, showType,
