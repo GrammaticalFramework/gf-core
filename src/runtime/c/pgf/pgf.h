@@ -75,6 +75,25 @@ typedef struct {
 	PgfType type;
 } PgfTypeHypo;
 
+/* Arbitrary size integers are represented as an array of uintmax_t
+ * values. Each value in the array is at most LINT_BASE-1 big.
+ * LINT_BASE itself is always 10 ^ LINT_BASE_LOG. */
+#if __WORDSIZE == 8
+#define LINT_BASE 100
+#define LINT_BASE_LOG 2
+#elif __WORDSIZE == 16
+#define LINT_BASE 10000
+#define LINT_BASE_LOG 4
+#elif __WORDSIZE == 32
+#define LINT_BASE 1000000000
+#define LINT_BASE_LOG 9
+#elif __WORDSIZE == 64
+#define LINT_BASE 10000000000000000000
+#define LINT_BASE_LOG 19
+#else
+#error "Platforms with the current __WORDSIZE are not supported yet"
+#endif
+
 /* The PgfUnmarshaller structure tells the runtime how to create
  * abstract syntax expressions and types in the heap of
  * the host language. For instance, when used from Haskell the runtime
@@ -105,7 +124,7 @@ struct PgfUnmarshaller {
     virtual PgfExpr evar(int index)=0;
     virtual PgfExpr etyped(PgfExpr expr, PgfType typ)=0;
     virtual PgfExpr eimplarg(PgfExpr expr)=0;
-    virtual PgfLiteral lint(int v)=0;
+    virtual PgfLiteral lint(size_t size, uintmax_t *v)=0;
     virtual PgfLiteral lflt(double v)=0;
     virtual PgfLiteral lstr(PgfText *v)=0;
     virtual PgfType dtyp(int n_hypos, PgfTypeHypo *hypos,

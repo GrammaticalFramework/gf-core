@@ -13,7 +13,8 @@ struct PGF_INTERNAL_DECL PgfLiteralStr {
 struct PGF_INTERNAL_DECL PgfLiteralInt {
     static const uint8_t tag = 1;
 
-	int val;
+    size_t size;
+	uintmax_t val[];
 } ;
 
 struct PGF_INTERNAL_DECL PgfLiteralFlt {

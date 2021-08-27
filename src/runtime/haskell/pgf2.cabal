@@ -30,6 +30,8 @@ library
     PGF2.Expr,
     PGF2.Type
   build-depends:
+    integer-gmp,
+    ghc-prim,
     base >= 4.3 && < 4.16,
     containers,
     pretty,
@@ -48,4 +50,5 @@ test-suite basic
   build-depends:
     base,
     HUnit,
+    random,
     pgf2

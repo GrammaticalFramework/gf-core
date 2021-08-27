@@ -53,7 +53,7 @@ public:
     virtual PgfExpr evar(int index);
     virtual PgfExpr etyped(PgfExpr expr, PgfType typ);
     virtual PgfExpr eimplarg(PgfExpr expr);
-    virtual PgfLiteral lint(int v);
+    virtual PgfLiteral lint(size_t size, uintmax_t *v);
     virtual PgfLiteral lflt(double v);
     virtual PgfLiteral lstr(PgfText *v);
     virtual PgfType dtyp(int n_hypos, PgfTypeHypo *hypos,

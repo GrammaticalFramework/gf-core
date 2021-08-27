@@ -2,6 +2,9 @@
 
 module PGF2.FFI where
 
+import GHC.Exts
+import GHC.Prim
+import GHC.Integer.Logarithms
 import Data.Word
 import Foreign
 import Foreign.C
@@ -231,7 +234,7 @@ foreign import ccall "dynamic"
 foreign import ccall "wrapper"
   wrapEImplArgFun :: EImplArgFun -> IO (FunPtr EImplArgFun)
 
-type LIntFun = Ptr PgfUnmarshaller -> CInt -> IO (StablePtr Literal)
+type LIntFun = Ptr PgfUnmarshaller -> (#type size_t) -> Ptr (#type uintmax_t) -> IO (StablePtr Literal)
 
 foreign import ccall "dynamic"
   callLIntFun :: FunPtr LIntFun -> LIntFun
@@ -291,10 +294,21 @@ marshaller = unsafePerformIO $ do
         LStr s -> withText s $ \c_s -> do
                      fun <- (#peek PgfUnmarshallerVtbl, lstr) vtbl
                      callLStrFun fun u c_s
-        LInt n -> do fun <- (#peek PgfUnmarshallerVtbl, lint) vtbl
-                     callLIntFun fun u (fromIntegral n)
+        LInt n -> let abs_n = abs n
+                      size  = I## (integerLogBase## (#const LINT_BASE) abs_n +## 1##)
+                  in allocaArray size $ \c_v -> do
+                       pokeValue c_v (c_v `plusPtr` ((#size uintmax_t) * (size - 1)))
+                                 (fromIntegral (signum n)) abs_n
+                       fun <- (#peek PgfUnmarshallerVtbl, lint) vtbl
+                       callLIntFun fun u (fromIntegral size) c_v
         LFlt d -> do fun <- (#peek PgfUnmarshallerVtbl, lflt) vtbl
                      callLFltFun fun u (realToFrac d)
+      where
+        pokeValue c_v p sign abs_n
+          | c_v == p  = poke p (sign * fromIntegral abs_n)
+          | otherwise = do let (q,r) = quotRem abs_n (#const LINT_BASE)
+                           poke p (fromIntegral r)
+                           pokeValue c_v (p `plusPtr` (- #size uintmax_t)) sign q
 
     matchExpr this u c_expr = do
       vtbl <- (#peek PgfUnmarshaller, vtbl) u
@@ -415,8 +429,22 @@ unmarshaller = unsafePerformIO $ do
       expr <- deRefStablePtr c_expr
       newStablePtr (EImplArg expr)
 
-    unmarshalLInt this c_v = do
-      newStablePtr (LInt (fromIntegral c_v))
+    unmarshalLInt this c_size c_v = do
+      n <- if c_size == 0
+             then return 0
+             else do v     <- peek (castPtr c_v :: Ptr (#type intmax_t))
+                     abs_n <- peekValue (c_size-1)
+                                        (c_v `plusPtr` (#size uintmax_t))
+                                        (fromIntegral (abs v))
+                     return (fromIntegral (signum v) * abs_n)
+      newStablePtr (LInt n)
+      where
+        peekValue 0      c_v value = return value
+        peekValue c_size c_v value = do
+          v <- peek (castPtr c_v :: Ptr (#type uintmax_t))
+          peekValue (c_size-1)
+                    (c_v `plusPtr` (#size uintmax_t))
+                    (value*(#const LINT_BASE)+fromIntegral v)
 
     unmarshalLFlt this c_v = do
       newStablePtr (LFlt (realToFrac c_v))

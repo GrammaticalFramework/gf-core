@@ -249,15 +249,25 @@ PgfExpr PgfPrinter::eimplarg(PgfExpr expr)
     return 0;
 }
 
-PgfLiteral PgfPrinter::lint(int v)
+#define xstr(s) str(s)
+#define str(s) #s
+
+PgfLiteral PgfPrinter::lint(size_t size, uintmax_t *v)
 {
-    nprintf(16, "%d", v);
+    if (size == 0)
+        puts("0");
+    else {
+        nprintf(32, "%jd", v[0]);
+        for (size_t i = 1; i < size; i++) {
+            nprintf(32, "%0" xstr(LINT_BASE_LOG) "ju", v[i]);
+        }
+    }
     return 0;
 }
 
 PgfLiteral PgfPrinter::lflt(double v)
 {
-    nprintf(16,"%lg",v);
+    nprintf(32,"%lg",v);
     return 0;
 }
 

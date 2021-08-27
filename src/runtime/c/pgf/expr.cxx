@@ -7,10 +7,11 @@ PgfLiteral PgfDBMarshaller::match_lit(PgfUnmarshaller *u, PgfLiteral l)
 {
     switch (ref<PgfLiteral>::get_tag(l)) {
     case PgfLiteralInt::tag: {
-        return u->lint(ref<PgfLiteralInt>::untagged(l)->val);
+        auto lint = ref<PgfLiteralInt>::untagged(l);
+        return u->lint(lint->size, lint->val);
     }
     case PgfLiteralFlt::tag: {
-        return u->lflt(ref<PgfLiteralInt>::untagged(l)->val);
+        return u->lflt(ref<PgfLiteralFlt>::untagged(l)->val);
     }
     case PgfLiteralStr::tag: {
         return u->lstr(&ref<PgfLiteralStr>::untagged(l)->val);
@@ -285,7 +286,10 @@ void PgfExprParser::token()
 		if (ch == '>') {
 			ch = getc();
 			token_tag = PGF_TOKEN_RARROW;
-		}
+		} else if (isdigit(ch)) {
+            putc('-');
+            goto digit;
+        }
 		break;
 	case ',':
 		ch = getc();
@@ -329,10 +333,11 @@ void PgfExprParser::token()
 			} while (pgf_is_ident_rest(ch));
 			token_tag = PGF_TOKEN_IDENT;
 		} else if (isdigit(ch)) {
-			while (isdigit(ch)) {
+digit:
+			do {
 				putc(ch);
 				ch = getc();
-			}
+			} while (isdigit(ch));
 
 			if (ch == '.') {
 				putc(ch);
@@ -422,8 +427,23 @@ PgfExpr PgfExprParser::parse_term()
         return e;
 	}
 	case PGF_TOKEN_INT: {
-		int n = atoi((const char*) &token_value->text);
-        PgfLiteral lit = u->lint(n);
+        size_t size = (token_value->size + LINT_BASE_LOG - 1)/LINT_BASE_LOG;
+        uintmax_t *value = (uintmax_t *) alloca(size*sizeof(uintmax_t));
+        char *p = token_value->text + token_value->size;
+        for (size_t i = size; i > 0; i--) {
+            char tmp = *p; *p = 0;
+
+            char *s = p - LINT_BASE_LOG;
+            if (s < token_value->text)
+                s = token_value->text;
+            value[i-1] = (uintmax_t)
+                (s == token_value->text) ? strtoll(s, NULL, 10)
+                                         : strtoull(s, NULL, 10);
+
+            *p = tmp;
+            p  = s;
+        }
+        PgfLiteral lit = u->lint(size, value);
         PgfExpr e = u->elit(lit);
         u->free_ref(lit);
 		token();

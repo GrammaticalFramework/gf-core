@@ -29,7 +29,7 @@ data BindType =
 
 data Literal =
    LStr String                      -- ^ string constant
- | LInt Int                         -- ^ integer constant
+ | LInt Integer                     -- ^ integer constant
  | LFlt Double                      -- ^ floating point constant
  deriving (Eq,Ord,Show)
 
@@ -117,11 +117,11 @@ unStr (EImplArg e)    = unStr e
 unStr _               = Nothing
 
 -- | Constructs an expression from integer literal
-mkInt :: Int -> Expr
+mkInt :: Integer -> Expr
 mkInt i = ELit (LInt i)
 
 -- | Decomposes an expression into integer literal
-unInt :: Expr -> Maybe Int
+unInt :: Expr -> Maybe Integer
 unInt (ELit (LInt i)) = Just i
 unInt (ETyped e ty)   = unInt e
 unInt (EImplArg e)    = unInt e

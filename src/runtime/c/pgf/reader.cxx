@@ -195,8 +195,9 @@ PgfLiteral PgfReader::read_literal()
 	}
 	case PgfLiteralInt::tag: {
 		ref<PgfLiteralInt> lit_int =
-			DB::malloc<PgfLiteralInt>(tag);
-		lit_int->val = read_int();
+			DB::malloc<PgfLiteralInt>(sizeof(PgfLiteralInt)+sizeof(uintmax_t));
+        lit_int->size   = 1;
+		lit_int->val[0] = read_int();
         lit = ref<PgfLiteralInt>::tagged(lit_int);
 		break;
 	}

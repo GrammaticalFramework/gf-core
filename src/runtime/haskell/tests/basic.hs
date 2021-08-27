@@ -1,3 +1,4 @@
+import System.Random
 import Control.Exception
 import Test.HUnit
 import PGF2
@@ -6,6 +7,11 @@ main = do
   x  <- testLoadFailure "non-existing.pgf"
   y  <- testLoadFailure "tests/basic.gf"
   gr <- readPGF "tests/basic.pgf"
+
+  g <- newStdGen
+  let limit = 10 ^ 100
+      ns    = take 5000 (randomRs (-limit,limit) g)
+
   runTestTTAndExit $
     TestList [TestCase (assertBool  "missing file" x)
              ,TestCase (assertBool  "frong file format" y)
@@ -59,6 +65,8 @@ main = do
              ,TestCase (assertEqual "fresh variables 1" "\\v,v1->v1" (showExpr [] (EAbs Explicit "v" (EAbs Explicit "v" (EVar 0)))))
              ,TestCase (assertEqual "fresh variables 2" "\\v,v1->v" (showExpr [] (EAbs Explicit "v" (EAbs Explicit "v" (EVar 1)))))
              ,TestCase (assertEqual "fresh variables 3" "\\v,v1,v2->v1" (showExpr [] (EAbs Explicit "v" (EAbs Explicit "v" (EAbs Explicit "v" (EVar 1))))))
+             ,TestCase (assertBool "large integer 1" (null [n | n <- ns, showExpr [] (ELit (LInt n)) /= show n]))
+             ,TestCase (assertBool "large integer 2" (null [n | n <- ns, readExpr (show n) /= Just (ELit (LInt n))]))
              ]
 
 testLoadFailure fpath = do
