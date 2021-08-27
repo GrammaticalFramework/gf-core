@@ -108,6 +108,12 @@ typedef struct PgfBind {
     PgfText var;
 } PgfBind;
 
+PGF_INTERNAL_DECL bool
+pgf_is_ident_first(uint32_t ucs);
+
+PGF_INTERNAL_DECL bool
+pgf_is_ident_rest(uint32_t ucs);
+
 class PGF_INTERNAL_DECL PgfExprParser {
     enum PGF_TOKEN_TAG {
         PGF_TOKEN_LPAR,

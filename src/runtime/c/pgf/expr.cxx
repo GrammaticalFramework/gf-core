@@ -160,7 +160,7 @@ bool PgfExprParser::eof()
     return (token_tag == PGF_TOKEN_EOF);
 }
 
-static bool
+PGF_INTERNAL bool
 pgf_is_ident_first(uint32_t ucs)
 {
 	return (ucs == '_') ||
@@ -169,7 +169,7 @@ pgf_is_ident_first(uint32_t ucs)
            (ucs >= 192 && ucs <= 255 && ucs != 247 && ucs != 215);
 }
 
-static bool
+PGF_INTERNAL bool
 pgf_is_ident_rest(uint32_t ucs)
 {
 	return (ucs == '_') ||
@@ -210,6 +210,9 @@ void PgfExprParser::str_char()
             break;
         case '"':
             putc('\"');
+            break;
+        case '\'':
+            putc('\'');
             break;
         case 'n':
             putc('\n');

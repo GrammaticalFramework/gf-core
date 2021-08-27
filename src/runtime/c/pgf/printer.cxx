@@ -209,14 +209,71 @@ PgfExpr PgfPrinter::efun(PgfText *name)
 {
     flush_lambdas();
 
-    puts(name);
+    bool normal_name = true;
+    
+    const uint8_t* start = (uint8_t*) name->text;
+    const uint8_t* end   = start + name->size;
+
+    const uint8_t* s = start;
+    while (s < end) {
+        uint32_t ucs = pgf_utf8_decode(&s);
+
+        if (!((s == (uint8_t*) start)
+                  ? pgf_is_ident_first(ucs)
+                  : pgf_is_ident_rest (ucs))) {
+            normal_name = false;
+            break;
+        }
+    }
+
+    if (normal_name) {
+        puts(name);
+    } else {
+        PgfText *charbuf = (PgfText *) alloca(sizeof(PgfText)+7);
+
+        puts("'");
+        while (start < end) {
+            const uint8_t* s = start;
+            uint32_t ucs = pgf_utf8_decode(&s);
+
+            switch (ucs) {
+            case '\\':
+                puts("\\\\");
+                break;
+            case '\'':
+                puts("\\'");
+                break;
+            case '\n':
+                puts("\\n");
+                break;
+            case '\r':
+                puts("\\r");
+                break;
+            case '\b':
+                puts("\\b");
+                break;
+            case '\t':
+                puts("\\t");
+                break;
+            case '\0':
+                puts("\\0");
+                break;
+            default:
+                charbuf->size = s-start;
+                memcpy(charbuf->text, start, charbuf->size);
+                charbuf->text[charbuf->size] = 0;
+                puts(charbuf);
+            }
+            start = s;
+        }
+        puts("'");
+    }
+
     return 0;
 }
 
 PgfExpr PgfPrinter::evar(int index)
 {
-    flush_lambdas();
-
     PgfPrintContext *var = ctxt;
     for (int i = 0; i < index; i++) {
         if (var == NULL)
@@ -224,9 +281,10 @@ PgfExpr PgfPrinter::evar(int index)
         var = var->next;
     }
     if (var == NULL) {
+        flush_lambdas();
         nprintf(4, "#%d", index);
     } else {
-        puts(&var->name);
+        efun(&var->name);
     }
     return 0;
 }
@@ -353,7 +411,7 @@ PgfType PgfPrinter::dtyp(int n_hypos, PgfTypeHypo *hypos,
         puts(" -> ");
     }
 
-    puts(cat);
+    efun(cat);
 
     for (int i = 0; i < n_exprs; i++) {
         puts(" ");

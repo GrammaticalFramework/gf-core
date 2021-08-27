@@ -67,6 +67,10 @@ main = do
              ,TestCase (assertEqual "fresh variables 3" "\\v,v1,v2->v1" (showExpr [] (EAbs Explicit "v" (EAbs Explicit "v" (EAbs Explicit "v" (EVar 1))))))
              ,TestCase (assertBool "large integer 1" (null [n | n <- ns, showExpr [] (ELit (LInt n)) /= show n]))
              ,TestCase (assertBool "large integer 2" (null [n | n <- ns, readExpr (show n) /= Just (ELit (LInt n))]))
+             ,TestCase (assertEqual "unicode names 1" (Just "'абв'") (fmap (showExpr []) (readExpr "'абв'")))
+             ,TestCase (assertEqual "unicode names 2" (Just "ab") (fmap (showExpr []) (readExpr "'ab'")))
+             ,TestCase (assertEqual "unicode names 3" (Just "a'b") (fmap (showExpr []) (readExpr "'a\\'b'")))
+             ,TestCase (assertEqual "unicode names 4" (Just "'а\\'б'") (fmap (showExpr []) (readExpr "'а\\'б'")))
              ]
 
 testLoadFailure fpath = do
