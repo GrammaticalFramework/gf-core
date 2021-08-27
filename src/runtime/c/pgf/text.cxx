@@ -21,7 +21,8 @@ PgfText* textdup(PgfText *t1)
 {
     size_t size = sizeof(PgfText)+t1->size+1;
     PgfText *t2 = (PgfText *) malloc(size);
-    memcpy(t2, t1, size);
+    if (t2 != NULL)
+        memcpy(t2, t1, size);
     return t2;
 }
 
