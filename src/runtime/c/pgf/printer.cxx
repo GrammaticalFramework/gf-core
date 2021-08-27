@@ -47,19 +47,26 @@ void PgfPrinter::puts(const char *s)
 
 void PgfPrinter::nprintf(size_t buf_size, const char *format, ...)
 {
-    if (res) {
-        size_t size = res->size+buf_size;
-        res = (PgfText *) realloc(res, sizeof(PgfText)+size+1);
-    } else {
-        res = (PgfText *) malloc(sizeof(PgfText)+buf_size+1);
-        res->size = 0;
-    }
+again: {
+        if (res) {
+            size_t size = res->size+buf_size;
+            res = (PgfText *) realloc(res, sizeof(PgfText)+size+1);
+        } else {
+            res = (PgfText *) malloc(sizeof(PgfText)+buf_size+1);
+            res->size = 0;
+        }
 
-    va_list ap;
-    va_start(ap, format);
-    res->size +=
-        vsnprintf(res->text+res->size, buf_size, format, ap);
-    va_end(ap);
+        va_list ap;
+        va_start(ap, format);
+        size_t out =
+            vsnprintf(res->text+res->size, buf_size, format, ap);
+        va_end(ap);
+        if (out >= buf_size) {
+            buf_size = out+1;
+            goto again;
+        }
+        res->size += out;
+    }
 }
 
 PgfText *PgfPrinter::get_text()
@@ -192,7 +199,7 @@ PgfExpr PgfPrinter::emeta(PgfMetaId meta)
     if (meta == 0) {
         puts("?");
     } else {
-        nprintf(16, "?%d", meta);
+        nprintf(4, "?%d", meta);
     }
 
     return 0;
@@ -217,7 +224,7 @@ PgfExpr PgfPrinter::evar(int index)
         var = var->next;
     }
     if (var == NULL) {
-        nprintf(16, "#%d", index);
+        nprintf(4, "#%d", index);
     } else {
         puts(&var->name);
     }
@@ -257,9 +264,9 @@ PgfLiteral PgfPrinter::lint(size_t size, uintmax_t *v)
     if (size == 0)
         puts("0");
     else {
-        nprintf(32, "%jd", v[0]);
+        nprintf(LINT_BASE_LOG+2, "%jd", v[0]);
         for (size_t i = 1; i < size; i++) {
-            nprintf(32, "%0" xstr(LINT_BASE_LOG) "ju", v[i]);
+            nprintf(LINT_BASE_LOG+1, "%0" xstr(LINT_BASE_LOG) "ju", v[i]);
         }
     }
     return 0;

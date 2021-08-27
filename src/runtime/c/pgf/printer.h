@@ -41,6 +41,9 @@ public:
 
     void puts(PgfText *s);
     void puts(const char *s);
+
+    // buf_size is the expected buffer size. If larger is needed,
+    // it will be allocated automatically.
     void nprintf(size_t buf_size, const char *format, ...) __attribute__ ((format (printf, 3, 4)));
 
     PgfText *get_text();
