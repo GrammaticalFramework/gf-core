@@ -62,4 +62,9 @@ def test_readNGF_PGF():
 
 def test_readNGF(NGF):
     pgf.readNGF("./basic.ngf")
-    # TODO assert load worked
+    # TODO assert read actually worked
+
+# abstract expressions
+
+def test_abstractName(PGF):
+    assert PGF.abstractName == "basic"
