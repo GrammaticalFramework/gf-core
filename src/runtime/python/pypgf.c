@@ -39,7 +39,7 @@ typedef struct {
     PyObject_HEAD
     PgfPGF* pgf;
 } PGFObject;
-// #if 0
+
 // typedef struct {
 //     PyObject_HEAD
 //     PyObject* master;
@@ -2814,20 +2814,20 @@ typedef struct {
 //     0,                         /*tp_alloc */
 //     (newfunc)Concr_new,        /*tp_new */
 // };
-// #endif
+
 static void
 PGF_dealloc(PGFObject* self)
 {
     pgf_free(self->pgf);
     Py_TYPE(self)->tp_free((PyObject*)self);
 }
-// #if 0
-// typedef struct {
-//     GuMapItor fn;
-//     PGFObject* grammar;
-//     void* collection;
-// } PyPGFClosure;
-//
+
+typedef struct {
+    PgfItor fn;
+    PGFObject* grammar;
+    void* collection;
+} PyPGFClosure;
+
 // static void
 // pgf_collect_langs_seq(GuMapItor* fn, const void* key, void* value, GuExn* err)
 // {
@@ -2836,7 +2836,7 @@ PGF_dealloc(PGFObject* self)
 //
 //     gu_buf_push((GuBuf*) clo->collection, PgfConcr*, concr);
 // }
-// #endif
+
 static PyObject*
 PGF_repr(PGFObject *self)
 {
@@ -2869,7 +2869,7 @@ PGF_getAbstractName(PGFObject *self, void *closure)
     PgfText* txt = pgf_abstract_name(self->pgf);
     return PyString_FromString(txt->text);
 }
-// #if 0
+
 // static void
 // pgf_collect_langs_dict(GuMapItor* fn, const void* key, void* value, GuExn* err)
 // {
@@ -2956,31 +2956,55 @@ PGF_getAbstractName(PGFObject *self, void *closure)
 // end:
 //     Py_XDECREF(py_name);
 // }
-//
-// static PyObject*
-// PGF_getCategories(PGFObject *self, void *closure)
-// {
-//     PyObject* categories = PyList_New(0);
-//     if (categories == NULL)
-//         return NULL;
-//
-//     GuPool* tmp_pool = gu_local_pool();
-//
-//     // Create an exception frame that catches all errors.
-//     GuExn* err = gu_new_exn(tmp_pool);
-//
-//     PyPGFClosure clo = { { pgf_collect_cats }, self, categories };
-//     pgf_iter_categories(self->pgf, &clo.fn, err);
-//     if (!gu_ok(err)) {
-//         Py_DECREF(categories);
-//         gu_pool_free(tmp_pool);
-//         return NULL;
-//     }
-//
-//     gu_pool_free(tmp_pool);
-//     return categories;
-// }
-//
+
+static void
+pgf_collect_cats(PgfItor* fn, PgfText* key, void* value)
+{
+    PgfText* name = key;
+    PyPGFClosure* clo = (PyPGFClosure*) fn;
+
+    PyObject* py_name = NULL;
+
+    py_name = PyString_FromString(name->text);
+    if (py_name == NULL) {
+        // gu_raise(err, PgfExn);
+        goto end;
+    }
+
+    if (PyList_Append((PyObject*) clo->collection, py_name) != 0) {
+        // gu_raise(err, PgfExn);
+        goto end;
+    }
+
+end:
+    Py_XDECREF(py_name);
+}
+
+static PyObject*
+PGF_getCategories(PGFObject *self, void *closure)
+{
+    PyObject* categories = PyList_New(0);
+    if (categories == NULL)
+        return NULL;
+
+    // GuPool* tmp_pool = gu_local_pool();
+    //
+    // Create an exception frame that catches all errors.
+    // GuExn* err = gu_new_exn(tmp_pool);
+
+    PyPGFClosure clo = { { pgf_collect_cats }, self, categories };
+    pgf_iter_categories(self->pgf, &clo.fn);
+
+    // if (!gu_ok(err)) {
+    //     Py_DECREF(categories);
+    //     gu_pool_free(tmp_pool);
+    //     return NULL;
+    // }
+    //
+    // gu_pool_free(tmp_pool);
+    return categories;
+}
+
 // static TypeObject*
 // PGF_getStartCat(PGFObject *self, void *closure)
 // {
@@ -3000,54 +3024,54 @@ PGF_getAbstractName(PGFObject *self, void *closure)
 //
 //     return pytype;
 // }
-//
-// static void
-// pgf_collect_funs(GuMapItor* fn, const void* key, void* value, GuExn* err)
-// {
-//     PgfCId name = (PgfCId) key;
-//     PyPGFClosure* clo = (PyPGFClosure*) fn;
-//
-//     PyObject* py_name = NULL;
-//
-//     py_name = PyString_FromString(name);
-//     if (py_name == NULL) {
-//         gu_raise(err, PgfExn);
-//         goto end;
-//     }
-//
-//     if (PyList_Append((PyObject*) clo->collection, py_name) != 0) {
-//         gu_raise(err, PgfExn);
-//         goto end;
-//     }
-//
-// end:
-//     Py_XDECREF(py_name);
-// }
-//
-// static PyObject*
-// PGF_getFunctions(PGFObject *self, void *closure)
-// {
-//     PyObject* functions = PyList_New(0);
-//     if (functions == NULL)
-//         return NULL;
-//
-//     GuPool* tmp_pool = gu_local_pool();
-//
-//     // Create an exception frame that catches all errors.
-//     GuExn* err = gu_new_exn(tmp_pool);
-//
-//     PyPGFClosure clo = { { pgf_collect_funs }, self, functions };
-//     pgf_iter_functions(self->pgf, &clo.fn, err);
-//     if (!gu_ok(err)) {
-//         Py_DECREF(functions);
-//         gu_pool_free(tmp_pool);
-//         return NULL;
-//     }
-//
-//     gu_pool_free(tmp_pool);
-//     return functions;
-// }
-//
+
+static void
+pgf_collect_funs(PgfItor* fn, const void* key, void* value)
+{
+    PgfText* name = key;
+    PyPGFClosure* clo = (PyPGFClosure*) fn;
+
+    PyObject* py_name = NULL;
+
+    py_name = PyString_FromString(name->text);
+    if (py_name == NULL) {
+        // gu_raise(err, PgfExn);
+        goto end;
+    }
+
+    if (PyList_Append((PyObject*) clo->collection, py_name) != 0) {
+        // gu_raise(err, PgfExn);
+        goto end;
+    }
+
+end:
+    Py_XDECREF(py_name);
+}
+
+static PyObject*
+PGF_getFunctions(PGFObject *self, void *closure)
+{
+    PyObject* functions = PyList_New(0);
+    if (functions == NULL)
+        return NULL;
+
+    // GuPool* tmp_pool = gu_local_pool();
+
+    // Create an exception frame that catches all errors.
+    // GuExn* err = gu_new_exn(tmp_pool);
+
+    PyPGFClosure clo = { { pgf_collect_funs }, self, functions };
+    pgf_iter_functions(self->pgf, &clo.fn);
+    // if (!gu_ok(err)) {
+    //     Py_DECREF(functions);
+    //     gu_pool_free(tmp_pool);
+    //     return NULL;
+    // }
+    //
+    // gu_pool_free(tmp_pool);
+    return functions;
+}
+
 // static PyObject*
 // PGF_functionsByCat(PGFObject* self, PyObject *args)
 // {
@@ -3398,7 +3422,7 @@ PGF_getAbstractName(PGFObject *self, void *closure)
 //     Py_INCREF(m);
 //     return m;
 // }
-// #endif
+
 static PyGetSetDef PGF_getseters[] = {
     {"abstractName",
      (getter)PGF_getAbstractName, NULL,
@@ -3408,18 +3432,18 @@ static PyGetSetDef PGF_getseters[] = {
     //  (getter)PGF_getLanguages, NULL,
     //  "a map containing all concrete languages in the grammar",
     //  NULL},
-    // {"categories",
-    //  (getter)PGF_getCategories, NULL,
-    //  "a list containing all categories in the grammar",
-    //  NULL},
+    {"categories",
+     (getter)PGF_getCategories, NULL,
+     "a list containing all categories in the grammar",
+     NULL},
     // {"startCat",
     //  (getter)PGF_getStartCat, NULL,
     //  "the start category for the grammar",
     //  NULL},
-    // {"functions",
-    //  (getter)PGF_getFunctions, NULL,
-    //  "a list containing all functions in the grammar",
-    //  NULL},
+    {"functions",
+     (getter)PGF_getFunctions, NULL,
+     "a list containing all functions in the grammar",
+     NULL},
     {NULL}  /* Sentinel */
 };
 
@@ -3585,7 +3609,6 @@ pgf_readNGF(PyObject *self, PyObject *args)
     return py_pgf;
 }
 
-// #if 0
 // static ExprObject*
 // pgf_readExpr(PyObject *self, PyObject *args) {
 //     Py_ssize_t len;
@@ -3645,7 +3668,6 @@ pgf_readNGF(PyObject *self, PyObject *args)
 //     gu_pool_free(tmp_pool);
 //     return pytype;
 // }
-// #endif
 
 static PyMethodDef module_methods[] = {
     {"readPGF",  (void*)pgf_readPGF,  METH_VARARGS,

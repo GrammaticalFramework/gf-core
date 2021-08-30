@@ -68,3 +68,10 @@ def test_readNGF(NGF):
 
 def test_abstractName(PGF):
     assert PGF.abstractName == "basic"
+
+def test_categories(PGF):
+    assert PGF.categories == ["Float","Int","N","P","S","String"]
+
+def test_functions(PGF):
+    assert PGF.functions == ["c","ind","s","z"]
+
