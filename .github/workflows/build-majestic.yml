@@ -54,4 +54,5 @@ jobs:
       env:
         LD_LIBRARY_PATH: /usr/local/lib
       run: |
-        python test.py
+        pip install pytest
+        pytest
