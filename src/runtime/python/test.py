@@ -6,9 +6,10 @@ import sys
 
 sys.stdout.write("loading...")
 sys.stdout.flush();
-# gr = pgf.readPGF("../../../treebanks/PennTreebank/ParseEngAbs.pgf")
-gr = pgf.readPGF("../haskell/tests/basic.pgf")
-sys.stdout.write("\n")
+gr1 = pgf.readPGF("../haskell/tests/basic.pgf")
+gr2 = pgf.bootNGF("../haskell/tests/basic.pgf", "./basic.ngf")
+gr3 = pgf.readNGF("./basic.ngf")
+sys.stdout.write("done")
 
 # source_lang = gr.languages["ParseEng"]
 # target_lang = gr.languages["ParseBul"]
