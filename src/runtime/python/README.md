@@ -21,5 +21,7 @@ See: https://www.grammaticalframework.org/doc/runtime-api.html#python
 ## Running tests
 
 ```sh
-python test.py
+pytest
 ```
+
+Requires: `pip install pytest`
