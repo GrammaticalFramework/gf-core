@@ -3026,7 +3026,7 @@ PGF_getCategories(PGFObject *self, void *closure)
 // }
 
 static void
-pgf_collect_funs(PgfItor* fn, const void* key, void* value)
+pgf_collect_funs(PgfItor* fn, PgfText* key, void* value)
 {
     PgfText* name = key;
     PyPGFClosure* clo = (PyPGFClosure*) fn;
@@ -3072,35 +3072,41 @@ PGF_getFunctions(PGFObject *self, void *closure)
     return functions;
 }
 
-// static PyObject*
-// PGF_functionsByCat(PGFObject* self, PyObject *args)
-// {
-//     PgfCId catname;
-//     if (!PyArg_ParseTuple(args, "s", &catname))
-//         return NULL;
-//
-//     PyObject* functions = PyList_New(0);
-//     if (functions == NULL) {
-//         return NULL;
-//     }
-//
-//     GuPool *tmp_pool = gu_local_pool();
-//
-//     // Create an exception frame that catches all errors.
-//     GuExn* err = gu_new_exn(tmp_pool);
-//
-//     PyPGFClosure clo = { { pgf_collect_funs }, self, functions };
-//     pgf_iter_functions_by_cat(self->pgf, catname, &clo.fn, err);
-//     if (!gu_ok(err)) {
-//         Py_DECREF(functions);
-//         gu_pool_free(tmp_pool);
-//         return NULL;
-//     }
-//
-//     gu_pool_free(tmp_pool);
-//     return functions;
-// }
-//
+static PyObject*
+PGF_functionsByCat(PGFObject* self, PyObject *args)
+{
+    const char* c;
+    if (!PyArg_ParseTuple(args, "s", &c))
+        return NULL;
+
+    const size_t s = strlen(c);
+
+    PgfText* catname = (PgfText*) alloca(sizeof(PgfText)+s);
+    strcpy(catname->text, c);
+    catname->size = s;
+
+    PyObject* functions = PyList_New(0);
+    if (functions == NULL) {
+        return NULL;
+    }
+
+    // GuPool *tmp_pool = gu_local_pool();
+
+    // Create an exception frame that catches all errors.
+    // GuExn* err = gu_new_exn(tmp_pool);
+
+    PyPGFClosure clo = { { pgf_collect_funs }, self, functions };
+    pgf_iter_functions_by_cat(self->pgf, catname, &clo.fn);
+    // if (!gu_ok(err)) {
+    //     Py_DECREF(functions);
+    //     gu_pool_free(tmp_pool);
+    //     return NULL;
+    // }
+    //
+    // gu_pool_free(tmp_pool);
+    return functions;
+}
+
 // static TypeObject*
 // PGF_functionType(PGFObject* self, PyObject *args)
 // {
@@ -3452,9 +3458,9 @@ static PyMemberDef PGF_members[] = {
 };
 
 static PyMethodDef PGF_methods[] = {
-    // {"functionsByCat", (PyCFunction)PGF_functionsByCat, METH_VARARGS,
-    //  "Returns the list of functions for a given category"
-    // },
+    {"functionsByCat", (PyCFunction)PGF_functionsByCat, METH_VARARGS,
+     "Returns the list of functions for a given category"
+    },
     // {"functionType", (PyCFunction)PGF_functionType, METH_VARARGS,
     //  "Returns the type of a function"
     // },

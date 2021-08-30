@@ -75,3 +75,11 @@ def test_categories(PGF):
 def test_functions(PGF):
     assert PGF.functions == ["c","ind","s","z"]
 
+def test_functionsByCat_1(PGF):
+    assert PGF.functionsByCat("N") == ["s","z"]
+
+def test_functionsByCat_2(PGF):
+    assert PGF.functionsByCat("S") == ["c"]
+
+def test_functionsByCat_non_existant(PGF):
+    assert PGF.functionsByCat("X") == []
