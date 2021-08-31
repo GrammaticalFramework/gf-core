@@ -89,7 +89,72 @@ uses code implemented in Haskell to pattern match on the different algebraic con
 
 # Marshaller and Unmarshaller
 
+The marshaller and the unmarshaller are the two key data structures which bridge together the different representation realms for abstract expressions and types. The structures have two equivalent definitions, one in C++:
+```C++
+struct PgfMarshaller {
+    virtual object match_lit(PgfUnmarshaller *u, PgfLiteral lit)=0;
+    virtual object match_expr(PgfUnmarshaller *u, PgfExpr expr)=0;
+    virtual object match_type(PgfUnmarshaller *u, PgfType ty)=0;
+};
 
+struct PgfUnmarshaller {
+    virtual PgfExpr eabs(PgfBindType btype, PgfText *name, PgfExpr body)=0;
+    virtual PgfExpr eapp(PgfExpr fun, PgfExpr arg)=0;
+    virtual PgfExpr elit(PgfLiteral lit)=0;
+    virtual PgfExpr emeta(PgfMetaId meta)=0;
+    virtual PgfExpr efun(PgfText *name)=0;
+    virtual PgfExpr evar(int index)=0;
+    virtual PgfExpr etyped(PgfExpr expr, PgfType typ)=0;
+    virtual PgfExpr eimplarg(PgfExpr expr)=0;
+    virtual PgfLiteral lint(size_t size, uintmax_t *v)=0;
+    virtual PgfLiteral lflt(double v)=0;
+    virtual PgfLiteral lstr(PgfText *v)=0;
+    virtual PgfType dtyp(int n_hypos, PgfTypeHypo *hypos,
+                         PgfText *cat,
+                         int n_exprs, PgfExpr *exprs)=0;
+    virtual void free_ref(object x)=0;
+};
+```
+and one in C:
+```C
+typedef struct PgfMarshaller PgfMarshaller;
+typedef struct PgfMarshallerVtbl PgfMarshallerVtbl;
+struct PgfMarshallerVtbl {
+    object (*match_lit)(PgfUnmarshaller *u, PgfLiteral lit);
+    object (*match_expr)(PgfUnmarshaller *u, PgfExpr expr);
+    object (*match_type)(PgfUnmarshaller *u, PgfType ty);
+};
+struct PgfMarshaller {
+    PgfMarshallerVtbl *vtbl;
+};
+
+typedef struct PgfUnmarshaller PgfUnmarshaller;
+typedef struct PgfUnmarshallerVtbl PgfUnmarshallerVtbl;
+struct PgfUnmarshallerVtbl {
+    PgfExpr (*eabs)(PgfUnmarshaller *this, PgfBindType btype, PgfText *name, PgfExpr body);
+    PgfExpr (*eapp)(PgfUnmarshaller *this, PgfExpr fun, PgfExpr arg);
+    PgfExpr (*elit)(PgfUnmarshaller *this, PgfLiteral lit);
+    PgfExpr (*emeta)(PgfUnmarshaller *this, PgfMetaId meta);
+    PgfExpr (*efun)(PgfUnmarshaller *this, PgfText *name);
+    PgfExpr (*evar)(PgfUnmarshaller *this, int index);
+    PgfExpr (*etyped)(PgfUnmarshaller *this, PgfExpr expr, PgfType typ);
+    PgfExpr (*eimplarg)(PgfUnmarshaller *this, PgfExpr expr);
+    PgfLiteral (*lint)(PgfUnmarshaller *this, size_t size, uintmax_t *v);
+    PgfLiteral (*lflt)(PgfUnmarshaller *this, double v);
+    PgfLiteral (*lstr)(PgfUnmarshaller *this, PgfText *v);
+    PgfType (*dtyp)(PgfUnmarshaller *this,
+                    int n_hypos, PgfTypeHypo *hypos,
+                    PgfText *cat,
+                    int n_exprs, PgfExpr *exprs);
+    void (*free_ref)(PgfUnmarshaller *this, object x);
+};
+struct PgfUnmarshaller {
+    PgfUnmarshallerVtbl *vtbl;
+};
+```
+Which one you will get, depends on whether you import `pgf/pgf.h` from C or C++.
+
+As we can see, most of the arguments for the different methods are of type `PgfExpr`, `PgfType` or `PgfLiteral`. These are all just type synonyms for the type `object`, which on the other hand is nothing else but a number with enough bits to hold an address if necessary. The interpretation of the number depends on the realm in which the object lives. The following table shows the interpretations for four languages as well as the one used internally in the .ngf files:
 |          | PgfExpr        | PgfLiteral        | PgfType        |
 |----------|----------------|-------------------|----------------|
 | Haskell  | StablePtr Expr | StablePtr Literal | StablePtr Type |
@@ -97,3 +162,31 @@ uses code implemented in Haskell to pattern match on the different algebraic con
 | Java     | jobject        | jobject           | jobject        |
 | .NET     | GCHandle       | GCHandle          | GCHandle       |
 | internal | file offset    | file offset       | file offset    |
+
+The marshaller is the structure that lets the runtime to pattern match on an expression. When one of the match methods is executed, it checks the kind of expr, literal or type and calls the corresponding method from the unmarshaller which it gets as an argument. The method on the other hand gets as arguments the corresponding sub-expressions and attributes.
+
+Generally the role of an unmarshaller is to construct things. For example, the variable `unmarshaller` in `PGF2.FFI` is an object which can construct new expressions in the Haskell heap from the already created children. Function `readExpr`, for instance, passes that one to the runtime to instruct it that the result must be in the Haskell realm.
+
+Constructing objects is not the only use of an unmarshaller. The implementation of `showExpr` passes to `pgf_print_expr` an abstract expression in Haskell and the `marshaller` defined in PGF2.FFI. That marshaller knows how to pattern match on Haskell expressions and calls the right methods from whatever unmarhaller is given to it. What it will get in that particular case is a special unmarshaller which does not produce new representations of abstract expressions, but generates a string.
+
+
+# Literals
+
+Finally, we should have a few remarks about how values of the literal types `String`, `Int` and `Float` are represented in the runtime.
+
+`String` is represented as the structure:
+```C
+typedef struct {
+    size_t size;
+    char text[];
+} PgfText;
+```
+Here the first field is the size of the string in number of bytes. The second field is the string itself, encoded in UTF-8. Just like in most modern languages, the string may contain the zero character and that is not an indication for end of string. This means that functions like `strlen` and `strcat` should never be used when working with PgfText. Despite that the text is not zero terminated, the runtime always allocates one more last byte for the text content and sets it to zero. That last byte is not included when calculating the field `size`. The purpose is that with that last zero byte the GDB debugger knows how to show the string properly. Most of the time, this doesn't incur any memory overhead either since `malloc` always allocates memory in size divisible by the size of two machine words. The consequence is that usually there are some byte left unused at the end of every string anyway.
+
+`Int` is like the integers in Haskell and Python and can have arbitrarily many digits. In the runtime, the value is represented as an array of `uintmax_t` values. Each of these values contains as many decimal digits as it is possible to fit in `uintmax_t`. For example on a 64-bit machine, 
+the maximal value that fits is 18446744073709551616. However, the left-most digit here is at most 1, this means that if we want to represend an arbitrary sequence of digits, the maximal length of the sequence must be at most 19. Similarly on a 32-bit machine each value in the array will store 9 decimal digits. Finally the sign of the number is stored as the sign of the first number in the array which is always threated as `intmax_t`.
+
+Just to have an example, the number -774763251095801167872 is represented as the array {-77, 4763251095801167872}. Note that this representation is not at all suitable for implementing arithmetics with integers, but is very simple to use for us since the runtime only needs to to parse and linearize numbers.
+
+`Float` is trivial and is just represented as the type `double` in C/C++. This can also be seen in the type of the method `lflt` in the unmarshaller.
+
