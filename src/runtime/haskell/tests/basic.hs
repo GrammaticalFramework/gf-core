@@ -1,4 +1,5 @@
 import System.Random
+import System.Directory
 import Control.Exception
 import Test.HUnit
 import PGF2
@@ -68,6 +69,9 @@ main = do
       ,TestCase (assertEqual "unicode names 3" (Just "a'b") (fmap (showExpr []) (readExpr "'a\\'b'")))
       ,TestCase (assertEqual "unicode names 4" (Just "'а\\'б'") (fmap (showExpr []) (readExpr "'а\\'б'")))
       ]
+
+  removeFile "tests/basic.ngf" `catch` \e -> do
+    print (e :: SomeException)
 
   gr1 <- readPGF "tests/basic.pgf"
   gr2 <- bootNGF "tests/basic.pgf" "tests/basic.ngf"

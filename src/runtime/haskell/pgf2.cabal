@@ -51,4 +51,5 @@ test-suite basic
     base,
     HUnit,
     random,
+    directory,
     pgf2
