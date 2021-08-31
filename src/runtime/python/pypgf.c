@@ -23,7 +23,6 @@
 
 #if PY_MAJOR_VERSION >= 3
     #define PyString_Check               PyUnicode_Check
-    #define PyString_FromString          PyUnicode_FromString
     #define PyString_FromStringAndSize   PyUnicode_FromStringAndSize
     #define PyString_FromFormat          PyUnicode_FromFormat
     #define PyString_Concat(ps,s)        {PyObject* tmp = *(ps); *(ps) = PyUnicode_Concat(tmp,s); Py_DECREF(tmp);}
@@ -2867,7 +2866,7 @@ static PyObject*
 PGF_getAbstractName(PGFObject *self, void *closure)
 {
     PgfText* txt = pgf_abstract_name(self->pgf);
-    return PyString_FromString(txt->text);
+    return PyString_FromStringAndSize(txt->text, txt->size);
 }
 
 // static void
@@ -2965,7 +2964,7 @@ pgf_collect_cats(PgfItor* fn, PgfText* key, void* value, PgfExn *err)
 
     PyObject* py_name = NULL;
 
-    py_name = PyString_FromString(name->text);
+    py_name = PyString_FromStringAndSize(name->text, name->size);
     if (py_name == NULL) {
         err->type = PGF_EXN_OTHER_ERROR;
         goto end;
@@ -3026,7 +3025,7 @@ pgf_collect_funs(PgfItor* fn, PgfText* key, void* value, PgfExn *err)
 
     PyObject* py_name = NULL;
 
-    py_name = PyString_FromString(name->text);
+    py_name = PyString_FromStringAndSize(name->text, name->size);
     if (py_name == NULL) {
         err->type = PGF_EXN_OTHER_ERROR;
         goto end;
@@ -3720,7 +3719,7 @@ MOD_INIT(pgf)
     Py_INCREF(PGFError);
 
     PyObject *dict = PyDict_New();
-    PyDict_SetItemString(dict, "token", PyString_FromString(""));
+    PyDict_SetItemString(dict, "token", PyString_FromStringAndSize("", 0));
     ParseError = PyErr_NewException("pgf.ParseError", NULL, dict);
     PyModule_AddObject(m, "ParseError", ParseError);
     Py_INCREF(ParseError);
