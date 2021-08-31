@@ -280,7 +280,8 @@ readExpr :: String -> Maybe Expr
 readExpr str =
   unsafePerformIO $
   withText str $ \c_str ->
-  withForeignPtr unmarshaller $ \u -> do
+  withForeignPtr unmarshaller $ \u ->
+  mask_ $ do
     c_expr <- pgf_read_expr c_str u
     if c_expr == castPtrToStablePtr nullPtr
       then return Nothing
