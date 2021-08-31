@@ -2987,21 +2987,9 @@ PGF_getCategories(PGFObject *self, void *closure)
     if (categories == NULL)
         return NULL;
 
-    // GuPool* tmp_pool = gu_local_pool();
-    //
-    // Create an exception frame that catches all errors.
-    // GuExn* err = gu_new_exn(tmp_pool);
-
     PyPGFClosure clo = { { pgf_collect_cats }, self, categories };
     pgf_iter_categories(self->pgf, &clo.fn);
 
-    // if (!gu_ok(err)) {
-    //     Py_DECREF(categories);
-    //     gu_pool_free(tmp_pool);
-    //     return NULL;
-    // }
-    //
-    // gu_pool_free(tmp_pool);
     return categories;
 }
 
@@ -3055,20 +3043,9 @@ PGF_getFunctions(PGFObject *self, void *closure)
     if (functions == NULL)
         return NULL;
 
-    // GuPool* tmp_pool = gu_local_pool();
-
-    // Create an exception frame that catches all errors.
-    // GuExn* err = gu_new_exn(tmp_pool);
-
     PyPGFClosure clo = { { pgf_collect_funs }, self, functions };
     pgf_iter_functions(self->pgf, &clo.fn);
-    // if (!gu_ok(err)) {
-    //     Py_DECREF(functions);
-    //     gu_pool_free(tmp_pool);
-    //     return NULL;
-    // }
-    //
-    // gu_pool_free(tmp_pool);
+
     return functions;
 }
 
@@ -3090,20 +3067,9 @@ PGF_functionsByCat(PGFObject* self, PyObject *args)
         return NULL;
     }
 
-    // GuPool *tmp_pool = gu_local_pool();
-
-    // Create an exception frame that catches all errors.
-    // GuExn* err = gu_new_exn(tmp_pool);
-
     PyPGFClosure clo = { { pgf_collect_funs }, self, functions };
     pgf_iter_functions_by_cat(self->pgf, catname, &clo.fn);
-    // if (!gu_ok(err)) {
-    //     Py_DECREF(functions);
-    //     gu_pool_free(tmp_pool);
-    //     return NULL;
-    // }
-    //
-    // gu_pool_free(tmp_pool);
+
     return functions;
 }
 
