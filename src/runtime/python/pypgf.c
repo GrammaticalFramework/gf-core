@@ -2991,13 +2991,6 @@ PGF_getCategories(PGFObject *self, void *closure)
     PyPGFClosure clo = { { pgf_collect_cats }, self, categories };
     pgf_iter_categories(self->pgf, &clo.fn, &err);
 
-    // if (!gu_ok(err)) {
-    //     Py_DECREF(categories);
-    //     gu_pool_free(tmp_pool);
-    //     return NULL;
-    // }
-    //
-    // gu_pool_free(tmp_pool);
     return categories;
 }
 
@@ -3061,6 +3054,7 @@ PGF_getFunctions(PGFObject *self, void *closure)
     // }
     //
     // gu_pool_free(tmp_pool);
+
     return functions;
 }
 
@@ -3092,6 +3086,7 @@ PGF_functionsByCat(PGFObject* self, PyObject *args)
     // }
     //
     // gu_pool_free(tmp_pool);
+
     return functions;
 }
 
