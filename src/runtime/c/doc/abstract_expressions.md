@@ -186,7 +186,7 @@ Here the first field is the size of the string in number of bytes. The second fi
 `Int` is like the integers in Haskell and Python and can have arbitrarily many digits. In the runtime, the value is represented as an array of `uintmax_t` values. Each of these values contains as many decimal digits as it is possible to fit in `uintmax_t`. For example on a 64-bit machine, 
 the maximal value that fits is 18446744073709551616. However, the left-most digit here is at most 1, this means that if we want to represend an arbitrary sequence of digits, the maximal length of the sequence must be at most 19. Similarly on a 32-bit machine each value in the array will store 9 decimal digits. Finally the sign of the number is stored as the sign of the first number in the array which is always threated as `intmax_t`.
 
-Just to have an example, the number -774763251095801167872 is represented as the array {-77, 4763251095801167872}. Note that this representation is not at all suitable for implementing arithmetics with integers, but is very simple to use for us since the runtime only needs to to parse and linearize numbers.
+Just to have an example, the number `-774763251095801167872` is represented as the array `{-77, 4763251095801167872}`. Note that this representation is not at all suitable for implementing arithmetics with integers, but is very simple to use for us since the runtime only needs to to parse and linearize numbers.
 
 `Float` is trivial and is just represented as the type `double` in C/C++. This can also be seen in the type of the method `lflt` in the unmarshaller.
 
