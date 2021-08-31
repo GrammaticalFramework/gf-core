@@ -2967,12 +2967,12 @@ pgf_collect_cats(PgfItor* fn, PgfText* key, void* value, PgfExn *err)
 
     py_name = PyString_FromString(name->text);
     if (py_name == NULL) {
-        // gu_raise(err, PgfExn);
+        err->type = PGF_EXN_OTHER_ERROR;
         goto end;
     }
 
     if (PyList_Append((PyObject*) clo->collection, py_name) != 0) {
-        // gu_raise(err, PgfExn);
+        err->type = PGF_EXN_OTHER_ERROR;
         goto end;
     }
 
@@ -2990,6 +2990,10 @@ PGF_getCategories(PGFObject *self, void *closure)
     PgfExn err;
     PyPGFClosure clo = { { pgf_collect_cats }, self, categories };
     pgf_iter_categories(self->pgf, &clo.fn, &err);
+    if (err.type != PGF_EXN_NONE) {
+        Py_DECREF(categories);
+        return NULL;
+    }
 
     return categories;
 }
@@ -3024,12 +3028,12 @@ pgf_collect_funs(PgfItor* fn, PgfText* key, void* value, PgfExn *err)
 
     py_name = PyString_FromString(name->text);
     if (py_name == NULL) {
-        // gu_raise(err, PgfExn);
+        err->type = PGF_EXN_OTHER_ERROR;
         goto end;
     }
 
     if (PyList_Append((PyObject*) clo->collection, py_name) != 0) {
-        // gu_raise(err, PgfExn);
+        err->type = PGF_EXN_OTHER_ERROR;
         goto end;
     }
 
@@ -3047,13 +3051,10 @@ PGF_getFunctions(PGFObject *self, void *closure)
     PgfExn err;
     PyPGFClosure clo = { { pgf_collect_funs }, self, functions };
     pgf_iter_functions(self->pgf, &clo.fn, &err);
-    // if (!gu_ok(err)) {
-    //     Py_DECREF(functions);
-    //     gu_pool_free(tmp_pool);
-    //     return NULL;
-    // }
-    //
-    // gu_pool_free(tmp_pool);
+    if (err.type != PGF_EXN_NONE) {
+        Py_DECREF(functions);
+        return NULL;
+    }
 
     return functions;
 }
@@ -3079,13 +3080,10 @@ PGF_functionsByCat(PGFObject* self, PyObject *args)
     PgfExn err;
     PyPGFClosure clo = { { pgf_collect_funs }, self, functions };
     pgf_iter_functions_by_cat(self->pgf, catname, &clo.fn, &err);
-    // if (!gu_ok(err)) {
-    //     Py_DECREF(functions);
-    //     gu_pool_free(tmp_pool);
-    //     return NULL;
-    // }
-    //
-    // gu_pool_free(tmp_pool);
+    if (err.type != PGF_EXN_NONE) {
+        Py_DECREF(functions);
+        return NULL;
+    }
 
     return functions;
 }
