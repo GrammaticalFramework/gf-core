@@ -183,7 +183,7 @@ struct PgfUnmarshallerVtbl {
     PgfExpr (*evar)(PgfUnmarshaller *this, int index);
     PgfExpr (*etyped)(PgfUnmarshaller *this, PgfExpr expr, PgfType typ);
     PgfExpr (*eimplarg)(PgfUnmarshaller *this, PgfExpr expr);
-    PgfLiteral (*lint)(PgfUnmarshaller *this, int v);
+    PgfLiteral (*lint)(PgfUnmarshaller *this, size_t size, uintmax_t *v);
     PgfLiteral (*lflt)(PgfUnmarshaller *this, double v);
     PgfLiteral (*lstr)(PgfUnmarshaller *this, PgfText *v);
     PgfType (*dtyp)(PgfUnmarshaller *this,
