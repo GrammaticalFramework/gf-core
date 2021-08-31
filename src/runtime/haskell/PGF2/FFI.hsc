@@ -6,11 +6,12 @@ import GHC.Exts
 import GHC.Prim
 import GHC.Integer.Logarithms
 import Data.Word
+import Data.Typeable
 import Foreign
 import Foreign.C
 import Foreign.Ptr
 import qualified Data.Map as Map
-import Control.Exception(bracket,mask_)
+import Control.Exception(Exception,bracket,mask_,throwIO)
 import System.IO.Unsafe(unsafePerformIO)
 
 import PGF2.Expr
@@ -100,6 +101,9 @@ foreign import ccall "pgf/expr.h pgf_function_is_constructor"
 foreign import ccall "pgf/expr.h pgf_function_is_constructor"
    pgf_function_prob :: Ptr PgfPGF -> Ptr PgfText -> IO (#type prob_t)
 
+-----------------------------------------------------------------------
+-- Texts
+
 peekText :: Ptr PgfText -> IO String
 peekText ptr =
   alloca $ \pptr -> do
@@ -167,6 +171,32 @@ utf8Length s = count 0 s
       where
         ucs = fromEnum x
 
+-----------------------------------------------------------------------
+-- Exceptions
+
+newtype PGFError = PGFError String
+     deriving (Show, Typeable)
+
+instance Exception PGFError
+
+withPgfExn fpath f =
+  allocaBytes (#size PgfExn) $ \c_exn -> do
+    res <- f c_exn
+    ex_type <- (#peek PgfExn, type) c_exn :: IO (#type PgfExnType)
+    case ex_type of
+      (#const PGF_EXN_NONE)         -> return res
+      (#const PGF_EXN_SYSTEM_ERROR) -> do
+         errno <- (#peek PgfExn, code) c_exn
+         ioError (errnoToIOError "readPGF" (Errno errno) Nothing (Just fpath))
+      (#const PGF_EXN_PGF_ERROR) -> do
+         c_msg <- (#peek PgfExn, msg) c_exn
+         msg <- peekCString c_msg
+         free c_msg
+         throwIO (PGFError msg)
+      _ -> throwIO (PGFError "An unidentified error occurred")
+
+-----------------------------------------------------------------------
+-- Marshalling
 
 type CBindType = (#type PgfBindType)
 

@@ -47,14 +47,13 @@ module PGF2 (-- * PGF
              PGFError(..)
              ) where
 
-import Control.Exception(Exception,throwIO,mask_,bracket)
+import Control.Exception(mask_,bracket)
 import System.IO.Unsafe(unsafePerformIO)
 import PGF2.Expr
 import PGF2.FFI
 
 import Foreign
 import Foreign.C
-import Data.Typeable
 import qualified Data.Map as Map
 import Data.IORef
 
@@ -67,20 +66,10 @@ type ConcName = String -- ^ Name of concrete syntax
 readPGF :: FilePath -> IO PGF
 readPGF fpath =
   withCString fpath $ \c_fpath ->
-  allocaBytes (#size PgfExn) $ \c_exn ->
   mask_ $ do
-    c_pgf <- pgf_read_pgf c_fpath c_exn
-    ex_type <- (#peek PgfExn, type) c_exn :: IO (#type PgfExnType)
-    if ex_type == (#const PGF_EXN_NONE)
-      then do fptr <- newForeignPtr pgf_free_fptr c_pgf
-              return (PGF fptr Map.empty)
-      else if ex_type == (#const PGF_EXN_SYSTEM_ERROR)
-             then do errno <- (#peek PgfExn, code) c_exn
-                     ioError (errnoToIOError "readPGF" (Errno errno) Nothing (Just fpath))
-             else do c_msg <- (#peek PgfExn, msg) c_exn
-                     msg <- peekCString c_msg
-                     free c_msg
-                     throwIO (PGFError msg)
+    c_pgf <- withPgfExn fpath (pgf_read_pgf c_fpath)
+    fptr <- newForeignPtr pgf_free_fptr c_pgf
+    return (PGF fptr Map.empty)
 
 -- | Reads a PGF file and stores the unpacked data in an NGF file
 -- ready to be shared with other process, or used for quick startup.
@@ -90,20 +79,10 @@ bootNGF :: FilePath -> FilePath -> IO PGF
 bootNGF pgf_path ngf_path =
   withCString pgf_path $ \c_pgf_path ->
   withCString ngf_path $ \c_ngf_path ->
-  allocaBytes (#size PgfExn) $ \c_exn ->
   mask_ $ do
-    c_pgf <- pgf_boot_ngf c_pgf_path c_ngf_path c_exn
-    ex_type <- (#peek PgfExn, type) c_exn :: IO (#type PgfExnType)
-    if ex_type == (#const PGF_EXN_NONE)
-      then do fptr <- newForeignPtr pgf_free_fptr c_pgf
-              return (PGF fptr Map.empty)
-      else if ex_type == (#const PGF_EXN_SYSTEM_ERROR)
-             then do errno <- (#peek PgfExn, code) c_exn
-                     ioError (errnoToIOError "bootNGF" (Errno errno) Nothing (Just pgf_path))
-             else do c_msg <- (#peek PgfExn, msg) c_exn
-                     msg <- peekCString c_msg
-                     free c_msg
-                     throwIO (PGFError msg)
+    c_pgf <- withPgfExn pgf_path (pgf_boot_ngf c_pgf_path c_ngf_path)
+    fptr <- newForeignPtr pgf_free_fptr c_pgf
+    return (PGF fptr Map.empty)
 
 -- | Tries to read the grammar from an already booted NGF file.
 -- If the file does not exist then a new one is created, and the
@@ -112,20 +91,10 @@ bootNGF pgf_path ngf_path =
 readNGF :: FilePath -> IO PGF
 readNGF fpath =
   withCString fpath $ \c_fpath ->
-  allocaBytes (#size PgfExn) $ \c_exn ->
   mask_ $ do
-    c_pgf <- pgf_read_ngf c_fpath c_exn
-    ex_type <- (#peek PgfExn, type) c_exn :: IO (#type PgfExnType)
-    if ex_type == (#const PGF_EXN_NONE)
-      then do fptr <- newForeignPtr pgf_free_fptr c_pgf
-              return (PGF fptr Map.empty)
-      else if ex_type == (#const PGF_EXN_SYSTEM_ERROR)
-             then do errno <- (#peek PgfExn, code) c_exn
-                     ioError (errnoToIOError "readPGF" (Errno errno) Nothing (Just fpath))
-             else do c_msg <- (#peek PgfExn, msg) c_exn
-                     msg <- peekCString c_msg
-                     free c_msg
-                     throwIO (PGFError msg)
+    c_pgf <- withPgfExn fpath (pgf_read_ngf c_fpath)
+    fptr <- newForeignPtr pgf_free_fptr c_pgf
+    return (PGF fptr Map.empty)
 
 -- | The abstract language name is the name of the top-level
 -- abstract module
@@ -187,11 +156,10 @@ categories p =
   unsafePerformIO $ do
     ref <- newIORef []
     (allocaBytes (#size PgfItor) $ \itor ->
-     allocaBytes (#size PgfExn) $ \c_exn ->
      bracket (wrapItorCallback (getCategories ref)) freeHaskellFunPtr $ \fptr ->
      withForeignPtr (a_pgf p) $ \p_pgf -> do
       (#poke PgfItor, fn) itor fptr
-      pgf_iter_categories p_pgf itor c_exn
+      withPgfExn "" (pgf_iter_categories p_pgf itor)
       cs <- readIORef ref
       return (reverse cs))
   where
@@ -244,11 +212,10 @@ functions p =
   unsafePerformIO $ do
     ref <- newIORef []
     (allocaBytes (#size PgfItor) $ \itor ->
-     allocaBytes (#size PgfExn) $ \c_exn ->
      bracket (wrapItorCallback (getFunctions ref)) freeHaskellFunPtr $ \fptr ->
      withForeignPtr (a_pgf p) $ \p_pgf -> do
       (#poke PgfItor, fn) itor fptr
-      pgf_iter_functions p_pgf itor c_exn
+      withPgfExn "" (pgf_iter_functions p_pgf itor)
       fs <- readIORef ref
       return (reverse fs))
   where
@@ -265,11 +232,10 @@ functionsByCat p cat =
     ref <- newIORef []
     (withText cat $ \c_cat ->
      allocaBytes (#size PgfItor) $ \itor ->
-     allocaBytes (#size PgfExn) $ \c_exn ->
      bracket (wrapItorCallback (getFunctions ref)) freeHaskellFunPtr $ \fptr ->
      withForeignPtr (a_pgf p) $ \p_pgf -> do
       (#poke PgfItor, fn) itor fptr
-      pgf_iter_functions_by_cat p_pgf c_cat itor c_exn
+      withPgfExn "" (pgf_iter_functions_by_cat p_pgf c_cat itor)
       fs <- readIORef ref
       return (reverse fs))
   where
@@ -347,12 +313,4 @@ readType str =
       else do ty <- deRefStablePtr c_ty
               freeStablePtr c_ty
               return (Just ty)
-
------------------------------------------------------------------------
--- Exceptions
-
-newtype PGFError = PGFError String
-     deriving (Show, Typeable)
-
-instance Exception PGFError
 
