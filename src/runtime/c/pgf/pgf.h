@@ -46,11 +46,41 @@ typedef struct {
     char text[];
 } PgfText;
 
+/* All functions that may fail take a reference to a PgfExn structure.
+ * It is used as follows:
+ * 
+ * - If everything went fine, the field type will be equal to
+ * PGF_EXN_NONE and all other fields will be zeroed.
+ *
+ * - If the exception was caused by external factors such as an error
+ * from a system call, then type will be PGF_EXN_SYSTEM_ERROR and
+ * the field code will contain the value of errno from the C runtime.
+ *
+ * - If the exception was caused by factors related to the GF runtime
+ * itself, then the error type is PGF_EXN_PGF_ERROR, and the field
+ * msg will contain a newly allocated string which must be freed from
+ * the caller.
+ */
+
+typedef enum {
+    PGF_EXN_NONE,
+    PGF_EXN_SYSTEM_ERROR,
+    PGF_EXN_PGF_ERROR,
+    PGF_EXN_OTHER_ERROR
+}  PgfExnType;
+
+typedef struct {
+    PgfExnType type;
+    int code;
+    const char *msg;
+} PgfExn;
+
 /* A generic structure to pass a callback for iteration over a collection */
 typedef struct PgfItor PgfItor;
 
 struct PgfItor {
-	void (*fn)(PgfItor* self, PgfText* key, void *value);
+	void (*fn)(PgfItor* self, PgfText* key, void *value,
+		       PgfExn *err);
 };
 
 typedef uintptr_t object;
@@ -179,34 +209,6 @@ typedef float prob_t;
 
 typedef struct PgfPGF PgfPGF;
 
-/* All functions that may fail take a reference to a PgfExn structure.
- * It is used as follows:
- * 
- * - If everything went fine, the field type will be equal to
- * PGF_EXN_NONE and all other fields will be zeroed.
- *
- * - If the exception was caused by external factors such as an error
- * from a system call, then type will be PGF_EXN_SYSTEM_ERROR and
- * the field code will contain the value of errno from the C runtime.
- *
- * - If the exception was caused by factors related to the GF runtime
- * itself, then the error type is PGF_EXN_PGF_ERROR, and the field
- * msg will contain a newly allocated string which must be freed from
- * the caller.
- */
-
-typedef enum {
-    PGF_EXN_NONE,
-    PGF_EXN_SYSTEM_ERROR,
-    PGF_EXN_PGF_ERROR
-}  PgfExnType;
-
-typedef struct {
-    PgfExnType type;
-    int code;
-    const char *msg;
-} PgfExn;
-
 /* Reads a PGF file and keeps it in memory. */
 PGF_API_DECL
 PgfPGF *pgf_read_pgf(const char* fpath,
@@ -236,7 +238,7 @@ PGF_API_DECL
 PgfText *pgf_abstract_name(PgfPGF *pgf);
 
 PGF_API_DECL
-void pgf_iter_categories(PgfPGF *pgf, PgfItor *itor);
+void pgf_iter_categories(PgfPGF *pgf, PgfItor *itor, PgfExn *err);
 
 PGF_API_DECL
 PgfType pgf_start_cat(PgfPGF *pgf, PgfUnmarshaller *u);
@@ -248,10 +250,10 @@ PGF_API_DECL
 prob_t pgf_category_prob(PgfPGF* pgf, PgfText *catname);
 
 PGF_API_DECL
-void pgf_iter_functions(PgfPGF *pgf, PgfItor *itor);
+void pgf_iter_functions(PgfPGF *pgf, PgfItor *itor, PgfExn *err);
 
 PGF_API_DECL
-void pgf_iter_functions_by_cat(PgfPGF *pgf, PgfText *cat, PgfItor *itor);
+void pgf_iter_functions_by_cat(PgfPGF *pgf, PgfText *cat, PgfItor *itor, PgfExn *err);
 
 PGF_API_DECL
 PgfType pgf_function_type(PgfPGF *pgf, PgfText *funname, PgfUnmarshaller *u);

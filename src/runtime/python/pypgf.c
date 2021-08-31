@@ -2958,7 +2958,7 @@ PGF_getAbstractName(PGFObject *self, void *closure)
 // }
 
 static void
-pgf_collect_cats(PgfItor* fn, PgfText* key, void* value)
+pgf_collect_cats(PgfItor* fn, PgfText* key, void* value, PgfExn *err)
 {
     PgfText* name = key;
     PyPGFClosure* clo = (PyPGFClosure*) fn;
@@ -2987,13 +2987,9 @@ PGF_getCategories(PGFObject *self, void *closure)
     if (categories == NULL)
         return NULL;
 
-    // GuPool* tmp_pool = gu_local_pool();
-    //
-    // Create an exception frame that catches all errors.
-    // GuExn* err = gu_new_exn(tmp_pool);
-
+    PgfExn err;
     PyPGFClosure clo = { { pgf_collect_cats }, self, categories };
-    pgf_iter_categories(self->pgf, &clo.fn);
+    pgf_iter_categories(self->pgf, &clo.fn, &err);
 
     // if (!gu_ok(err)) {
     //     Py_DECREF(categories);
@@ -3026,7 +3022,7 @@ PGF_getCategories(PGFObject *self, void *closure)
 // }
 
 static void
-pgf_collect_funs(PgfItor* fn, PgfText* key, void* value)
+pgf_collect_funs(PgfItor* fn, PgfText* key, void* value, PgfExn *err)
 {
     PgfText* name = key;
     PyPGFClosure* clo = (PyPGFClosure*) fn;
@@ -3055,13 +3051,9 @@ PGF_getFunctions(PGFObject *self, void *closure)
     if (functions == NULL)
         return NULL;
 
-    // GuPool* tmp_pool = gu_local_pool();
-
-    // Create an exception frame that catches all errors.
-    // GuExn* err = gu_new_exn(tmp_pool);
-
+    PgfExn err;
     PyPGFClosure clo = { { pgf_collect_funs }, self, functions };
-    pgf_iter_functions(self->pgf, &clo.fn);
+    pgf_iter_functions(self->pgf, &clo.fn, &err);
     // if (!gu_ok(err)) {
     //     Py_DECREF(functions);
     //     gu_pool_free(tmp_pool);
@@ -3090,13 +3082,9 @@ PGF_functionsByCat(PGFObject* self, PyObject *args)
         return NULL;
     }
 
-    // GuPool *tmp_pool = gu_local_pool();
-
-    // Create an exception frame that catches all errors.
-    // GuExn* err = gu_new_exn(tmp_pool);
-
+    PgfExn err;
     PyPGFClosure clo = { { pgf_collect_funs }, self, functions };
-    pgf_iter_functions_by_cat(self->pgf, catname, &clo.fn);
+    pgf_iter_functions_by_cat(self->pgf, catname, &clo.fn, &err);
     // if (!gu_ok(err)) {
     //     Py_DECREF(functions);
     //     gu_pool_free(tmp_pool);

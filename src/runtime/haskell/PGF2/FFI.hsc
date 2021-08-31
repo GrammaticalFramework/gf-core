@@ -68,13 +68,13 @@ foreign import ccall "pgf_print_type"
 foreign import ccall "pgf_read_type"
   pgf_read_type :: Ptr PgfText -> Ptr PgfUnmarshaller -> IO (StablePtr Type)
 
-type ItorCallback = Ptr PgfItor -> Ptr PgfText -> IO ()
+type ItorCallback = Ptr PgfItor -> Ptr PgfText -> Ptr PgfExn -> IO ()
 
 foreign import ccall "wrapper"
   wrapItorCallback :: ItorCallback -> IO (FunPtr ItorCallback)
 
 foreign import ccall "pgf_iter_categories"
-  pgf_iter_categories :: Ptr PgfPGF -> Ptr PgfItor -> IO ()
+  pgf_iter_categories :: Ptr PgfPGF -> Ptr PgfItor -> Ptr PgfExn -> IO ()
 
 foreign import ccall "pgf_start_cat"
   pgf_start_cat :: Ptr PgfPGF -> Ptr PgfUnmarshaller -> IO (StablePtr Type)
@@ -86,10 +86,10 @@ foreign import ccall "pgf/pgf.h pgf_category_prob"
   pgf_category_prob :: Ptr PgfPGF -> Ptr PgfText -> IO (#type prob_t)
 
 foreign import ccall "pgf_iter_functions"
-  pgf_iter_functions :: Ptr PgfPGF -> Ptr PgfItor -> IO ()
+  pgf_iter_functions :: Ptr PgfPGF -> Ptr PgfItor -> Ptr PgfExn -> IO ()
 
 foreign import ccall "pgf_iter_functions_by_cat"
-  pgf_iter_functions_by_cat :: Ptr PgfPGF -> Ptr PgfText -> Ptr PgfItor -> IO ()
+  pgf_iter_functions_by_cat :: Ptr PgfPGF -> Ptr PgfText -> Ptr PgfItor -> Ptr PgfExn -> IO ()
 
 foreign import ccall "pgf/pgf.h pgf_function_type"
    pgf_function_type :: Ptr PgfPGF -> Ptr PgfText -> Ptr PgfUnmarshaller -> IO (StablePtr Type)

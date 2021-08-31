@@ -159,11 +159,12 @@ PgfText *pgf_abstract_name(PgfPGF* pgf)
 }
 
 PGF_API
-void pgf_iter_categories(PgfPGF *pgf, PgfItor *itor)
+void pgf_iter_categories(PgfPGF *pgf, PgfItor *itor, PgfExn *err)
 {
     DB_scope scope(pgf, READER_SCOPE);
 
-    namespace_iter(pgf->get_root<PgfPGFRoot>()->abstract.cats, itor);
+    err->type = PGF_EXN_NONE;
+    namespace_iter(pgf->get_root<PgfPGFRoot>()->abstract.cats, itor, err);
 }
 
 PGF_API
@@ -239,11 +240,12 @@ prob_t pgf_category_prob(PgfPGF *pgf, PgfText *catname)
 }
 
 PGF_API
-void pgf_iter_functions(PgfPGF *pgf, PgfItor *itor)
+void pgf_iter_functions(PgfPGF *pgf, PgfItor *itor, PgfExn *err)
 {
     DB_scope scope(pgf, READER_SCOPE);
 
-    namespace_iter(pgf->get_root<PgfPGFRoot>()->abstract.funs, itor);
+    err->type = PGF_EXN_NONE;
+    namespace_iter(pgf->get_root<PgfPGFRoot>()->abstract.funs, itor, err);
 }
 
 struct PgfItorHelper : PgfItor
@@ -253,16 +255,17 @@ struct PgfItorHelper : PgfItor
 };
 
 static
-void iter_by_cat_helper(PgfItor *itor, PgfText *key, void *value)
+void iter_by_cat_helper(PgfItor *itor, PgfText *key, void *value,
+		                PgfExn *err)
 {
     PgfItorHelper* helper = (PgfItorHelper*) itor;
     PgfAbsFun* absfun = (PgfAbsFun*) value;
     if (textcmp(helper->cat, &absfun->type->name) == 0)
-        helper->itor->fn(helper->itor, key, value);
+        helper->itor->fn(helper->itor, key, value, err);
 }
 
 PGF_API
-void pgf_iter_functions_by_cat(PgfPGF *pgf, PgfText *cat, PgfItor *itor)
+void pgf_iter_functions_by_cat(PgfPGF *pgf, PgfText *cat, PgfItor *itor, PgfExn *err)
 {
     DB_scope scope(pgf, READER_SCOPE);
 
@@ -270,7 +273,9 @@ void pgf_iter_functions_by_cat(PgfPGF *pgf, PgfText *cat, PgfItor *itor)
     helper.fn   = iter_by_cat_helper;
     helper.cat  = cat;
     helper.itor = itor;
-    namespace_iter(pgf->get_root<PgfPGFRoot>()->abstract.funs, &helper);
+
+    err->type = PGF_EXN_NONE;
+    namespace_iter(pgf->get_root<PgfPGFRoot>()->abstract.funs, &helper, err);
 }
 
 PGF_API

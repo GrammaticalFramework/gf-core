@@ -239,13 +239,21 @@ size_t namespace_size(Namespace<V> map)
 }
 
 template <class V>
-void namespace_iter(Namespace<V> map, PgfItor* itor)
+void namespace_iter(Namespace<V> map, PgfItor* itor, PgfExn *err)
 {
     if (map == 0)
         return;
 
-    namespace_iter(map->left, itor);
-    itor->fn(itor, &map->value->name, &(*map->value));
-    namespace_iter(map->right, itor);
+    namespace_iter(map->left, itor, err);
+    if (err->type != PGF_EXN_NONE)
+        return;
+
+    itor->fn(itor, &map->value->name, &(*map->value), err);
+    if (err->type != PGF_EXN_NONE)
+        return;
+
+    namespace_iter(map->right, itor, err);
+    if (err->type != PGF_EXN_NONE)
+        return;
 }
 #endif

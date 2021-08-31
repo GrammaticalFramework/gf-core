@@ -187,15 +187,16 @@ categories p =
   unsafePerformIO $ do
     ref <- newIORef []
     (allocaBytes (#size PgfItor) $ \itor ->
+     allocaBytes (#size PgfExn) $ \c_exn ->
      bracket (wrapItorCallback (getCategories ref)) freeHaskellFunPtr $ \fptr ->
      withForeignPtr (a_pgf p) $ \p_pgf -> do
       (#poke PgfItor, fn) itor fptr
-      pgf_iter_categories p_pgf itor
+      pgf_iter_categories p_pgf itor c_exn
       cs <- readIORef ref
       return (reverse cs))
   where
     getCategories :: IORef [String] -> ItorCallback
-    getCategories ref itor key = do
+    getCategories ref itor key exn = do
       names <- readIORef ref
       name  <- peekText key
       writeIORef ref $ (name : names)
@@ -243,15 +244,16 @@ functions p =
   unsafePerformIO $ do
     ref <- newIORef []
     (allocaBytes (#size PgfItor) $ \itor ->
+     allocaBytes (#size PgfExn) $ \c_exn ->
      bracket (wrapItorCallback (getFunctions ref)) freeHaskellFunPtr $ \fptr ->
      withForeignPtr (a_pgf p) $ \p_pgf -> do
       (#poke PgfItor, fn) itor fptr
-      pgf_iter_functions p_pgf itor
+      pgf_iter_functions p_pgf itor c_exn
       fs <- readIORef ref
       return (reverse fs))
   where
     getFunctions :: IORef [String] -> ItorCallback
-    getFunctions ref itor key = do
+    getFunctions ref itor key exn = do
       names <- readIORef ref
       name  <- peekText key
       writeIORef ref $ (name : names)
@@ -263,15 +265,16 @@ functionsByCat p cat =
     ref <- newIORef []
     (withText cat $ \c_cat ->
      allocaBytes (#size PgfItor) $ \itor ->
+     allocaBytes (#size PgfExn) $ \c_exn ->
      bracket (wrapItorCallback (getFunctions ref)) freeHaskellFunPtr $ \fptr ->
      withForeignPtr (a_pgf p) $ \p_pgf -> do
       (#poke PgfItor, fn) itor fptr
-      pgf_iter_functions_by_cat p_pgf c_cat itor
+      pgf_iter_functions_by_cat p_pgf c_cat itor c_exn
       fs <- readIORef ref
       return (reverse fs))
   where
     getFunctions :: IORef [String] -> ItorCallback
-    getFunctions ref itor key = do
+    getFunctions ref itor key exn = do
       names <- readIORef ref
       name  <- peekText key
       writeIORef ref $ (name : names)
