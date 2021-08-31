@@ -2866,7 +2866,9 @@ static PyObject*
 PGF_getAbstractName(PGFObject *self, void *closure)
 {
     PgfText* txt = pgf_abstract_name(self->pgf);
-    return PyString_FromStringAndSize(txt->text, txt->size);
+    PyObject *name = PyString_FromStringAndSize(txt->text, txt->size);
+    free(txt);
+    return name;
 }
 
 // static void
@@ -2967,16 +2969,13 @@ pgf_collect_cats(PgfItor* fn, PgfText* key, void* value, PgfExn *err)
     py_name = PyString_FromStringAndSize(name->text, name->size);
     if (py_name == NULL) {
         err->type = PGF_EXN_OTHER_ERROR;
-        goto end;
+        return;
     }
 
     if (PyList_Append((PyObject*) clo->collection, py_name) != 0) {
         err->type = PGF_EXN_OTHER_ERROR;
-        goto end;
+        Py_DECREF(py_name);
     }
-
-end:
-    Py_XDECREF(py_name);
 }
 
 static PyObject*
@@ -3028,16 +3027,12 @@ pgf_collect_funs(PgfItor* fn, PgfText* key, void* value, PgfExn *err)
     py_name = PyString_FromStringAndSize(name->text, name->size);
     if (py_name == NULL) {
         err->type = PGF_EXN_OTHER_ERROR;
-        goto end;
     }
 
     if (PyList_Append((PyObject*) clo->collection, py_name) != 0) {
         err->type = PGF_EXN_OTHER_ERROR;
-        goto end;
+        Py_DECREF(py_name);
     }
-
-end:
-    Py_XDECREF(py_name);
 }
 
 static PyObject*
@@ -3061,15 +3056,14 @@ PGF_getFunctions(PGFObject *self, void *closure)
 static PyObject*
 PGF_functionsByCat(PGFObject* self, PyObject *args)
 {
-    const char* c;
-    if (!PyArg_ParseTuple(args, "s", &c))
+    const char* s;
+    Py_ssize_t size;
+    if (!PyArg_ParseTuple(args, "s#", &s, &size))
         return NULL;
 
-    const size_t s = strlen(c);
-
-    PgfText* catname = (PgfText*) alloca(sizeof(PgfText)+s);
-    strcpy(catname->text, c);
-    catname->size = s;
+    PgfText* catname = (PgfText*) alloca(sizeof(PgfText)+size+1);
+    memcpy(catname->text, s, size+1);
+    catname->size = size;
 
     PyObject* functions = PyList_New(0);
     if (functions == NULL) {
