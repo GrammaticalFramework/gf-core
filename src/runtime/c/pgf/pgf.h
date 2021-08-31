@@ -60,6 +60,9 @@ typedef struct {
  * itself, then the error type is PGF_EXN_PGF_ERROR, and the field
  * msg will contain a newly allocated string which must be freed from
  * the caller.
+ *
+ * - If another unidentified error occurred then type will be
+ * PGF_EXN_OTHER_ERROR.
  */
 
 typedef enum {
