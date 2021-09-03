@@ -97,7 +97,7 @@ object PgfReader::read_name_internal(size_t struct_size)
     if (in->fail())
         throw std::system_error(errno, std::generic_category());
 
-    ptext->text[size+1] = 0;
+    ptext->text[size] = 0;
 
 	return offs;
 }
