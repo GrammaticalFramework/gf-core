@@ -83,3 +83,32 @@ def test_functionsByCat_2(PGF):
 
 def test_functionsByCat_non_existant(PGF):
     assert PGF.functionsByCat("X") == []
+
+def test_readType_invalid():
+    with pytest.raises(pgf.PGFError):
+        pgf.readType("->")
+
+def test_readType_equality_1():
+    assert pgf.readType("A") == pgf.readType("A")
+
+def test_readType_equality_2():
+    assert pgf.readType("A -> B") == pgf.readType("A->B")
+
+def test_readType_inequality_1():
+    assert pgf.readType("A") != pgf.readType("B")
+
+def test_readType_inequality_2():
+    assert pgf.readType("A -> B") != pgf.readType("B->B")
+
+def test_functionType_1(PGF):
+    assert PGF.functionType("z") == pgf.readType("N")
+
+def test_functionType_2(PGF):
+    assert PGF.functionType("s") == pgf.readType("N->N")
+
+def test_functionType_3(PGF):
+    assert PGF.functionType("c") == pgf.readType("N -> S")
+
+def test_startCat(PGF):
+    with pytest.raises(pgf.PGFError):
+        PGF.startCat()
