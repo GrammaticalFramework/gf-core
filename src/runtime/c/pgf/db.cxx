@@ -412,10 +412,10 @@ static void malloc_consolidate(malloc_state *ms)
 {
   object* fb;                 /* current fastbin being consolidated */
   object* maxfb;              /* last fastbin (for loop control) */
-  mchunk*  p;                  /* current chunk being consolidated */
-  mchunk*  nextp;              /* next chunk to consolidate */
-  mchunk*  unsorted_bin;       /* bin header */
-  mchunk*  first_unsorted;     /* chunk to link to */
+  mchunk*  p;                 /* current chunk being consolidated */
+  object   next_fb;           /* next chunk to consolidate */
+  mchunk*  unsorted_bin;      /* bin header */
+  mchunk*  first_unsorted;    /* chunk to link to */
   /* These have same use as in free() */
   mchunk*  nextchunk;
   size_t   size;
@@ -435,11 +435,11 @@ static void malloc_consolidate(malloc_state *ms)
   maxfb = &ms->fastbins[NFASTBINS - 1];
   fb    = &ms->fastbins[0];
   do {
-    p   = ptr(ms,*fb);
-    *fb = 0;
-    if (p != NULL) {
-      do {
-        nextp = ptr(ms,p->fd);
+    if (*fb != 0) {
+      p   = ptr(ms,*fb);
+      *fb = 0;
+      for (;;) {
+        next_fb = p->fd;
         /* Slightly streamlined version of consolidation code in free() */
         size = chunksize(p);
         nextchunk = chunk_at_offset(p, size);
@@ -473,7 +473,11 @@ static void malloc_consolidate(malloc_state *ms)
           set_head(p, size | PREV_INUSE);
           ms->top = ofs(ms,p);
         }
-      } while ((p = nextp) != 0);
+
+        if (next_fb == 0)
+            break;
+        p = ptr(ms,next_fb);
+      }
     }
   } while (fb++ != maxfb);
 }
@@ -863,8 +867,8 @@ DB::free_internal(object o)
     mchunk* bck;                 /* misc temp for linking */
     mchunk* fwd;                 /* misc temp for linking */
 
-    mchunk* p = ptr(ms,o);
-    size = chunksize (p);
+    mchunk* p = mem2chunk(ptr(ms,o));
+    size = chunksize(p);
 
 
     /*
