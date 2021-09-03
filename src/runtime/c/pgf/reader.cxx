@@ -154,7 +154,9 @@ Namespace<V> PgfReader::read_namespace(ref<V> (PgfReader::*read_value)())
     Namespace<V> nmsp = 0;
     for (size_t i = 0; i < len; i++) {
         ref<V> value = (this->*read_value)();
-        nmsp = namespace_insert(nmsp, value);
+        Namespace<V> new_nmsp = namespace_insert(nmsp, value);
+        namespace_release(nmsp);
+        nmsp = new_nmsp;
     }
     return nmsp;
 }
