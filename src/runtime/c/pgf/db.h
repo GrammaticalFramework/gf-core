@@ -78,6 +78,11 @@ public:
     }
 
     template<class A>
+    static void free(ref<A> o) {
+        return current_db->free_internal(o.as_object());
+    }
+
+    template<class A>
     static ref<A> get_root() {
         return current_db->get_root_internal();
     }
