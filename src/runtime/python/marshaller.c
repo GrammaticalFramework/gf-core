@@ -53,33 +53,36 @@ PgfExpr eimplarg(PgfUnmarshaller *this, PgfExpr expr)
 
 PgfLiteral lint(PgfUnmarshaller *this, size_t size, uintmax_t *v)
 {
-    return 0;
+    PyObject *i = PyLong_FromUnsignedLong(*v);
+    return (PgfLiteral) i;
 }
 
 PgfLiteral lflt(PgfUnmarshaller *this, double v)
 {
-    return 0;
+    PyObject *d = PyFloat_FromDouble(v);
+    return (PgfLiteral) d;
 }
 
 PgfLiteral lstr(PgfUnmarshaller *this, PgfText *v)
 {
-    return 0;
+    PyObject *s = PyUnicode_FromStringAndSize(v->text, v->size);
+    return (PgfLiteral) s;
 }
 
 PgfType dtyp(PgfUnmarshaller *this, int n_hypos, PgfTypeHypo *hypos, PgfText *cat, int n_exprs, PgfExpr *exprs)
 {
-    PgfText* catname = (PgfText*) malloc(sizeof(PgfText)+cat->size+1);
+    PgfText *catname = (PgfText*) malloc(sizeof(PgfText)+cat->size+1);
     memcpy(catname->text, cat->text, cat->size+1);
     catname->size = cat->size;
 
-    TypeObject* pytype = (TypeObject*) pgf_TypeType.tp_alloc(&pgf_TypeType, 0);
+    TypeObject *pytype = (TypeObject*) pgf_TypeType.tp_alloc(&pgf_TypeType, 0);
     pytype->cat = catname;
     return (PgfType) pytype;
 }
 
 void free_ref(PgfUnmarshaller *this, object x)
 {
-    return;
+    Py_XDECREF(x);
 }
 
 static PgfUnmarshallerVtbl unmarshallervtbl =

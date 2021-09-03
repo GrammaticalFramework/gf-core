@@ -856,7 +856,7 @@ Type_richcompare(TypeObject *t1, TypeObject *t2, int op)
     } else if (op == Py_NE) {
         if (cmp) Py_RETURN_FALSE; else Py_RETURN_TRUE;
     } else {
-        PyErr_SetString(PyExc_TypeError, "the operation is not supported");
+        PyErr_SetString(PyExc_TypeError, "comparison operation not supported");
         return NULL;
     }
 }
