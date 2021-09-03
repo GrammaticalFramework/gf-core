@@ -41,6 +41,9 @@ public:
     };
 
     template<class V>
+    Namespace<V> read_namespace(ref<V> (PgfReader::*read_value)(), size_t len);
+
+    template<class V>
     Namespace<V> read_namespace(ref<V> (PgfReader::*read_value)());
 
     template <class C, class V>

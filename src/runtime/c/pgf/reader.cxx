@@ -148,17 +148,24 @@ object PgfReader::read_text_internal(size_t struct_size)
 }
 
 template<class V>
+Namespace<V> PgfReader::read_namespace(ref<V> (PgfReader::*read_value)(), size_t len)
+{
+    if (len == 0)
+        return 0;
+
+    size_t half = len/2;
+    Namespace<V> left  = read_namespace(read_value, half);
+    ref<V> value = (this->*read_value)();
+    Namespace<V> right = read_namespace(read_value, len-half-1);
+
+    return Node<V>::new_node(value, left, right);
+}
+
+template<class V>
 Namespace<V> PgfReader::read_namespace(ref<V> (PgfReader::*read_value)())
 {
     size_t len = read_len();
-    Namespace<V> nmsp = 0;
-    for (size_t i = 0; i < len; i++) {
-        ref<V> value = (this->*read_value)();
-        Namespace<V> new_nmsp = namespace_insert(nmsp, value);
-        namespace_release(nmsp);
-        nmsp = new_nmsp;
-    }
-    return nmsp;
+    return read_namespace(read_value, len);
 }
 
 template <class C, class V>
