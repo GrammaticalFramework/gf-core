@@ -15,7 +15,7 @@ def test_readPGF_GF():
     with pytest.raises(pgf.PGFError):
         pgf.readPGF("../haskell/tests/basic.gf")
 
-@pytest.mark.skip(reason="Bug in runtime")
+@pytest.mark.skip(reason="Unhandled case in runtime")
 def test_readPGF_NGF(NGF):
     with pytest.raises(pgf.PGFError):
         pgf.readPGF("./basic.ngf")
@@ -34,7 +34,7 @@ def test_bootNGF_GF():
     with pytest.raises(pgf.PGFError):
         pgf.bootNGF("../haskell/tests/basic.gf", "./abc.ngf")
 
-@pytest.mark.skip(reason="Bug in runtime")
+@pytest.mark.skip(reason="Unhandled case in runtime")
 def test_bootNGF_NGF(NGF):
     with pytest.raises(pgf.PGFError):
         pgf.bootNGF("./basic.ngf", "./abc.ngf")
@@ -45,17 +45,17 @@ def test_bootNGF_existing(NGF):
 
 # readNGF
 
-@pytest.mark.skip(reason="Bug in runtime")
+@pytest.mark.skip(reason="Unhandled case in runtime")
 def test_readNGF_non_existant():
     with pytest.raises(FileNotFoundError):
         pgf.readNGF("./abc.ngf")
 
-@pytest.mark.skip(reason="Bug in runtime")
+@pytest.mark.skip(reason="Unhandled case in runtime")
 def test_readNGF_GF():
     with pytest.raises(pgf.PGFError):
         pgf.readNGF("../haskell/tests/basic.gf")
 
-@pytest.mark.skip(reason="Bug in runtime")
+@pytest.mark.skip(reason="Unhandled case in runtime")
 def test_readNGF_PGF():
     with pytest.raises(pgf.PGFError):
         pgf.readNGF("../haskell/tests/basic.pgf")
@@ -83,3 +83,32 @@ def test_functionsByCat_2(PGF):
 
 def test_functionsByCat_non_existant(PGF):
     assert PGF.functionsByCat("X") == []
+
+def test_readType_invalid():
+    with pytest.raises(pgf.PGFError):
+        pgf.readType("->")
+
+def test_readType_equality_1():
+    assert pgf.readType("A") == pgf.readType("A")
+
+def test_readType_equality_2():
+    assert pgf.readType("A -> B") == pgf.readType("A->B")
+
+def test_readType_inequality_1():
+    assert pgf.readType("A") != pgf.readType("B")
+
+def test_readType_inequality_2():
+    assert pgf.readType("A -> B") != pgf.readType("B->B")
+
+def test_functionType_1(PGF):
+    assert PGF.functionType("z") == pgf.readType("N")
+
+def test_functionType_2(PGF):
+    assert PGF.functionType("s") == pgf.readType("N->N")
+
+def test_functionType_3(PGF):
+    assert PGF.functionType("c") == pgf.readType("N -> S")
+
+def test_startCat(PGF):
+    with pytest.raises(pgf.PGFError):
+        PGF.startCat()
