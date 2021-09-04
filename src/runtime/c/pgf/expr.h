@@ -100,7 +100,27 @@ struct PGF_INTERNAL_DECL PgfDBMarshaller : public PgfMarshaller {
     virtual object match_type(PgfUnmarshaller *u, PgfType ty);
 };
 
-extern PGF_INTERNAL_DECL PgfDBMarshaller db_marshaller;
+struct PGF_INTERNAL_DECL PgfDBUnmarshaller : public PgfUnmarshaller {
+    PgfMarshaller *m;
+
+    PgfDBUnmarshaller(PgfMarshaller *marshaller) { m = marshaller; }
+
+    virtual PgfExpr eabs(PgfBindType bind_type, PgfText *name, PgfExpr body);
+    virtual PgfExpr eapp(PgfExpr fun, PgfExpr arg);
+    virtual PgfExpr elit(PgfLiteral lit);
+    virtual PgfExpr emeta(PgfMetaId meta_id);
+    virtual PgfExpr efun(PgfText *name);
+    virtual PgfExpr evar(int index);
+    virtual PgfExpr etyped(PgfExpr expr, PgfType ty);
+    virtual PgfExpr eimplarg(PgfExpr expr);
+    virtual PgfLiteral lint(size_t size, uintmax_t *val);
+    virtual PgfLiteral lflt(double val);
+    virtual PgfLiteral lstr(PgfText *val);
+    virtual PgfType dtyp(int n_hypos, PgfTypeHypo *hypos,
+                         PgfText *cat,
+                         int n_exprs, PgfExpr *exprs);
+    virtual void free_ref(object x);
+};
 
 typedef struct PgfBind {
     PgfBindType bind_type;

@@ -213,12 +213,14 @@ PgfTypeHypo *pgf_category_context(PgfPGF *pgf, PgfText *catname, size_t *n_hypos
 		return NULL;
     }
 
+    PgfDBMarshaller m;
+
     PgfTypeHypo *hypos = (PgfTypeHypo *)
         malloc(abscat->context->len * sizeof(PgfTypeHypo));
     for (size_t i = 0; i < abscat->context->len; i++) {
         hypos[i].bind_type = abscat->context->data[i].bind_type;
         hypos[i].cid = textdup(abscat->context->data[i].cid);
-        hypos[i].type = db_marshaller.match_type(u, abscat->context->data[i].type.as_object());
+        hypos[i].type = m.match_type(u, abscat->context->data[i].type.as_object());
     }
 
     *n_hypos = abscat->context->len;
@@ -288,7 +290,7 @@ PgfType pgf_function_type(PgfPGF *pgf, PgfText *funname, PgfUnmarshaller *u)
 	if (absfun == 0)
 		return 0;
 
-	return db_marshaller.match_type(u, absfun->type.as_object());
+	return PgfDBMarshaller().match_type(u, absfun->type.as_object());
 }
 
 PGF_API
