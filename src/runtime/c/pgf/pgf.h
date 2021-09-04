@@ -290,4 +290,9 @@ PgfText *pgf_print_type(PgfType ty,
 PGF_API_DECL
 PgfType pgf_read_type(PgfText *input, PgfUnmarshaller *u);
 
+PGF_API_DECL
+void pgf_create_function(PgfPGF *pgf, PgfText *name,
+                         PgfType ty, prob_t prob,
+                         PgfMarshaller *m);
+
 #endif // PGF_H_

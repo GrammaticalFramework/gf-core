@@ -362,3 +362,29 @@ PgfType pgf_read_type(PgfText *input, PgfUnmarshaller *u)
     }
     return res;
 }
+
+PGF_API
+void pgf_create_function(PgfPGF *pgf, PgfText *name,
+                         PgfType ty, prob_t prob,
+                         PgfMarshaller *m)
+{
+    DB_scope scope(pgf, WRITER_SCOPE);
+
+    PgfDBUnmarshaller u(m);
+
+    ref<PgfPGFRoot> root = pgf->get_root<PgfPGFRoot>();
+    ref<PgfAbsFun> absfun = DB::malloc<PgfAbsFun>(sizeof(PgfAbsFun)+name->size+1);
+    absfun->type  = m->match_type(&u, ty);
+    absfun->arity = 0;
+    absfun->defns = 0;
+    absfun->ep.prob = prob;
+    ref<PgfExprFun> efun =
+        ref<PgfExprFun>::from_ptr((PgfExprFun*) &absfun->name);
+    absfun->ep.expr = ref<PgfExprFun>::tagged(efun);
+    memcpy(&absfun->name, name, sizeof(PgfText)+name->size+1);
+    
+    Namespace<PgfAbsFun> nmsp =
+        namespace_insert(root->abstract.funs, absfun);
+    namespace_release(root->abstract.funs);
+    root->abstract.funs = nmsp;
+}

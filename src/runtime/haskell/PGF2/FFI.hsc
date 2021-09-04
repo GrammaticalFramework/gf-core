@@ -101,6 +101,10 @@ foreign import ccall "pgf/expr.h pgf_function_is_constructor"
 foreign import ccall "pgf/expr.h pgf_function_is_constructor"
    pgf_function_prob :: Ptr PgfPGF -> Ptr PgfText -> IO (#type prob_t)
 
+foreign import ccall "pgf_create_function"
+   pgf_create_function :: Ptr PgfPGF -> Ptr PgfText -> StablePtr Type -> (#type prob_t) -> Ptr PgfMarshaller -> IO ()
+
+
 -----------------------------------------------------------------------
 -- Texts
 

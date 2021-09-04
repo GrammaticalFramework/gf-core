@@ -40,6 +40,8 @@ module PGF2 (-- * PGF
              mkType, unType,
              mkHypo, mkDepHypo, mkImplHypo,
 
+             createFunction,
+
              -- * Concrete syntax
              ConcName,
 
@@ -315,3 +317,10 @@ readType str =
               freeStablePtr c_ty
               return (Just ty)
 
+createFunction :: PGF -> Fun -> Type -> Float -> IO ()
+createFunction p name ty prob =
+  withForeignPtr (a_pgf p) $ \p_pgf ->
+  withText name $ \c_name ->
+  bracket (newStablePtr ty) freeStablePtr $ \c_ty ->
+  withForeignPtr marshaller $ \m -> do
+    pgf_create_function p_pgf c_name c_ty prob m
