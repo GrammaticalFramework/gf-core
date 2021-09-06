@@ -120,5 +120,6 @@ def test_functionType_wrong(PGF):
     assert PGF.functionType("c") != pgf.readType("N -> S -> X")
 
 def test_startCat(PGF):
-    with pytest.raises(pgf.PGFError):
-        PGF.startCat()
+    # with pytest.raises(pgf.PGFError):
+    #     PGF.startCat
+    assert PGF.startCat == pgf.readType("S")

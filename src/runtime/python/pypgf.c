@@ -1875,24 +1875,16 @@ PGF_getCategories(PGFObject *self, void *closure)
     return categories;
 }
 
-static TypeObject*
+static TypeObject *
 PGF_getStartCat(PGFObject *self, void *closure)
 {
-    TypeObject* pytype = (TypeObject*) pgf_TypeType.tp_alloc(&pgf_TypeType, 0);
-    if (pytype == NULL)
-        return NULL;
-
-    // // pytype->pool = gu_new_pool();
-    // pytype->type = pgf_start_cat(self->pgf, /*pytype->pool,*/ &unmarshaller);
-    // pytype->master = NULL;
-    //
-    // if (pytype->type == NULL) {
+    PgfType type = pgf_start_cat(self->pgf, &unmarshaller);
+    if (type == 0) {
         PyErr_SetString(PGFError, "The start category cannot be found");
-        // Py_DECREF(pytype);
         return NULL;
-    // }
-    //
-    // return pytype;
+    }
+
+    return (TypeObject *)type;
 }
 
 static void
