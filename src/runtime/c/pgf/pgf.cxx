@@ -13,15 +13,16 @@ pgf_exn_clear(PgfExn* err)
 }
 
 PGF_API
-PgfPGF *pgf_read_pgf(const char* fpath,
-                     PgfExn* err)
+PgfDB *pgf_read_pgf(const char* fpath,
+                    PgfRevision *revision,
+                    PgfExn* err)
 {
-    PgfPGF *pgf = NULL;
+    PgfDB *db = NULL;
 
     pgf_exn_clear(err);
 
     try {
-        pgf = new PgfPGF(NULL, 0, 0);
+        db = new PgfDB(NULL, 0, 0);
 
         std::ifstream in(fpath, std::ios::binary);
         if (in.fail()) {
@@ -29,15 +30,16 @@ PgfPGF *pgf_read_pgf(const char* fpath,
         }
 
         {
-            DB_scope scope(pgf, WRITER_SCOPE);
+            DB_scope scope(db, WRITER_SCOPE);
 
             PgfReader rdr(&in);
-            ref<PgfPGFRoot> pgf_root = rdr.read_pgf();
+            ref<PgfPGF> pgf = rdr.read_pgf();
 
-            pgf->set_root(pgf_root);
+            PgfDB::set_root(pgf);
+            *revision = pgf.as_object();
         }
 
-        return pgf;
+        return db;
     } catch (std::system_error& e) {
         err->type = PGF_EXN_SYSTEM_ERROR;
         err->code = e.code().value();
@@ -46,22 +48,23 @@ PgfPGF *pgf_read_pgf(const char* fpath,
         err->msg  = strdup(e.what());
     }
 
-    if (pgf != NULL)
-        delete pgf;
+    if (db != NULL)
+        delete db;
 
     return NULL;
 }
 
 PGF_API
-PgfPGF *pgf_boot_ngf(const char* pgf_path, const char* ngf_path,
-                     PgfExn* err)
+PgfDB *pgf_boot_ngf(const char* pgf_path, const char* ngf_path,
+                    PgfRevision *revision,
+                    PgfExn* err)
 {
-    PgfPGF *pgf = NULL;
+    PgfDB *db = NULL;
 
     pgf_exn_clear(err);
 
     try {
-        pgf = new PgfPGF(ngf_path, O_CREAT | O_EXCL | O_RDWR, S_IRUSR | S_IWUSR);
+        db = new PgfDB(ngf_path, O_CREAT | O_EXCL | O_RDWR, S_IRUSR | S_IWUSR);
 
         std::ifstream in(pgf_path, std::ios::binary);
         if (in.fail()) {
@@ -69,17 +72,18 @@ PgfPGF *pgf_boot_ngf(const char* pgf_path, const char* ngf_path,
         }
 
         {
-            DB_scope scope(pgf, WRITER_SCOPE);
+            DB_scope scope(db, WRITER_SCOPE);
 
             PgfReader rdr(&in);
-            ref<PgfPGFRoot> pgf_root = rdr.read_pgf();
+            ref<PgfPGF> pgf = rdr.read_pgf();
 
-            pgf->set_root(pgf_root);
+            db->set_root<PgfPGF>(pgf);
+            *revision = pgf.as_object();
 
-            DB::sync();
+            PgfDB::sync();
         }
 
-        return pgf;
+        return db;
     } catch (std::system_error& e) {
         err->type = PGF_EXN_SYSTEM_ERROR;
         err->code = e.code().value();
@@ -88,8 +92,8 @@ PgfPGF *pgf_boot_ngf(const char* pgf_path, const char* ngf_path,
         err->msg  = strdup(e.what());
     }
 
-    if (pgf != NULL) {
-        delete pgf;
+    if (db != NULL) {
+        delete db;
         remove(ngf_path);
     }
 
@@ -97,36 +101,40 @@ PgfPGF *pgf_boot_ngf(const char* pgf_path, const char* ngf_path,
 }
 
 PGF_API
-PgfPGF *pgf_read_ngf(const char *fpath,
+PgfDB *pgf_read_ngf(const char *fpath,
+                     PgfRevision *revision,
                      PgfExn* err)
 {
-    PgfPGF *pgf = NULL;
+    PgfDB *db = NULL;
 
     pgf_exn_clear(err);
 
     bool is_new = false;
     try {
-        pgf = new PgfPGF(fpath, O_CREAT | O_RDWR, S_IRUSR | S_IWUSR);
+        db = new PgfDB(fpath, O_CREAT | O_RDWR, S_IRUSR | S_IWUSR);
 
         {
-            DB_scope scope(pgf, WRITER_SCOPE);
+            DB_scope scope(db, WRITER_SCOPE);
 
-            if (DB::get_root<PgfPGFRoot>() == 0) {
+            if (PgfDB::get_root<PgfPGF>() == 0) {
                 is_new = true;
-                ref<PgfPGFRoot> root = DB::malloc<PgfPGFRoot>();
-                root->major_version = 2;
-                root->minor_version = 0;
-                root->gflags = 0;
-                root->abstract.name = DB::malloc<PgfText>();
-                root->abstract.name->size = 0;
-                root->abstract.aflags = 0;
-                root->abstract.funs = 0;
-                root->abstract.cats = 0;
-                DB::set_root<PgfPGFRoot>(root);
+                ref<PgfPGF> pgf = PgfDB::malloc<PgfPGF>();
+                pgf->major_version = 2;
+                pgf->minor_version = 0;
+                pgf->gflags = 0;
+                pgf->abstract.name = PgfDB::malloc<PgfText>();
+                pgf->abstract.name->size = 0;
+                pgf->abstract.aflags = 0;
+                pgf->abstract.funs = 0;
+                pgf->abstract.cats = 0;
+                PgfDB::set_root<PgfPGF>(pgf);
+                *revision = pgf.as_object();
+            } else {
+                *revision = PgfDB::get_root<PgfPGF>().as_object();
             }
         }
 
-        return pgf;
+        return db;
     } catch (std::system_error& e) {
         err->type = PGF_EXN_SYSTEM_ERROR;
         err->code = e.code().value();
@@ -135,8 +143,8 @@ PgfPGF *pgf_read_ngf(const char *fpath,
         err->msg  = strdup(e.what());
     }
 
-    if (pgf != NULL) {
-        delete pgf;
+    if (db != NULL) {
+        delete db;
         if (is_new)
             remove(fpath);
     }
@@ -145,32 +153,42 @@ PgfPGF *pgf_read_ngf(const char *fpath,
 }
 
 PGF_API
-void pgf_free(PgfPGF *pgf)
+void pgf_free(PgfDB *db)
 {
-    delete pgf;
+    delete db;
+}
+
+PGF_API_DECL
+void pgf_free_revision(PgfDB *pgf, PgfRevision revision)
+{
 }
 
 PGF_API
-PgfText *pgf_abstract_name(PgfPGF* pgf)
+PgfText *pgf_abstract_name(PgfDB *db, PgfRevision revision)
 {
-    DB_scope scope(pgf, READER_SCOPE);
+    DB_scope scope(db, READER_SCOPE);
+    ref<PgfPGF> pgf = revision;
 
-    return textdup(&(*pgf->get_root<PgfPGFRoot>()->abstract.name));
+    return textdup(&(*pgf->abstract.name));
 }
 
 PGF_API
-void pgf_iter_categories(PgfPGF *pgf, PgfItor *itor, PgfExn *err)
+void pgf_iter_categories(PgfDB *db, PgfRevision revision,
+                         PgfItor *itor, PgfExn *err)
 {
-    DB_scope scope(pgf, READER_SCOPE);
+    DB_scope scope(db, READER_SCOPE);
+    ref<PgfPGF> pgf = revision;
 
     err->type = PGF_EXN_NONE;
-    namespace_iter(pgf->get_root<PgfPGFRoot>()->abstract.cats, itor, err);
+    namespace_iter(pgf->abstract.cats, itor, err);
 }
 
 PGF_API
-PgfType pgf_start_cat(PgfPGF *pgf, PgfUnmarshaller *u)
+PgfType pgf_start_cat(PgfDB *db, PgfRevision revision,
+                      PgfUnmarshaller *u)
 {
-    DB_scope scope(pgf, READER_SCOPE);
+    DB_scope scope(db, READER_SCOPE);
+    ref<PgfPGF> pgf = revision;
 
     PgfText *startcat = (PgfText *)
         alloca(sizeof(PgfText)+9);
@@ -178,7 +196,7 @@ PgfType pgf_start_cat(PgfPGF *pgf, PgfUnmarshaller *u)
     strcpy(startcat->text, "startcat");
 
 	ref<PgfFlag> flag =
-		namespace_lookup(pgf->get_root<PgfPGFRoot>()->abstract.aflags, startcat);
+		namespace_lookup(pgf->abstract.aflags, startcat);
 
 	if (flag != 0) {
 		switch (ref<PgfLiteral>::get_tag(flag->value)) {
@@ -202,12 +220,14 @@ PgfType pgf_start_cat(PgfPGF *pgf, PgfUnmarshaller *u)
 }
 
 PGF_API
-PgfTypeHypo *pgf_category_context(PgfPGF *pgf, PgfText *catname, size_t *n_hypos, PgfUnmarshaller *u)
+PgfTypeHypo *pgf_category_context(PgfDB *db, PgfRevision revision,
+                                  PgfText *catname, size_t *n_hypos, PgfUnmarshaller *u)
 {
-    DB_scope scope(pgf, READER_SCOPE);
+    DB_scope scope(db, READER_SCOPE);
+    ref<PgfPGF> pgf = revision;
 
     ref<PgfAbsCat> abscat =
-        namespace_lookup(pgf->get_root<PgfPGFRoot>()->abstract.cats, catname);
+        namespace_lookup(pgf->abstract.cats, catname);
 	if (abscat == 0) {
         *n_hypos = 0;
 		return NULL;
@@ -228,12 +248,14 @@ PgfTypeHypo *pgf_category_context(PgfPGF *pgf, PgfText *catname, size_t *n_hypos
 }
 
 PGF_API
-prob_t pgf_category_prob(PgfPGF *pgf, PgfText *catname)
+prob_t pgf_category_prob(PgfDB *db, PgfRevision revision,
+                         PgfText *catname)
 {
-    DB_scope scope(pgf, READER_SCOPE);
+    DB_scope scope(db, READER_SCOPE);
+    ref<PgfPGF> pgf = revision;
 
     ref<PgfAbsCat> abscat =
-        namespace_lookup(pgf->get_root<PgfPGFRoot>()->abstract.cats, catname);
+        namespace_lookup(pgf->abstract.cats, catname);
 	if (abscat == 0) {
 		return 0;
     }
@@ -242,12 +264,14 @@ prob_t pgf_category_prob(PgfPGF *pgf, PgfText *catname)
 }
 
 PGF_API
-void pgf_iter_functions(PgfPGF *pgf, PgfItor *itor, PgfExn *err)
+void pgf_iter_functions(PgfDB *db, PgfRevision revision,
+                        PgfItor *itor, PgfExn *err)
 {
-    DB_scope scope(pgf, READER_SCOPE);
+    DB_scope scope(db, READER_SCOPE);
+    ref<PgfPGF> pgf = revision;
 
     err->type = PGF_EXN_NONE;
-    namespace_iter(pgf->get_root<PgfPGFRoot>()->abstract.funs, itor, err);
+    namespace_iter(pgf->abstract.funs, itor, err);
 }
 
 struct PgfItorHelper : PgfItor
@@ -267,9 +291,11 @@ void iter_by_cat_helper(PgfItor *itor, PgfText *key, void *value,
 }
 
 PGF_API
-void pgf_iter_functions_by_cat(PgfPGF *pgf, PgfText *cat, PgfItor *itor, PgfExn *err)
+void pgf_iter_functions_by_cat(PgfDB *db, PgfRevision revision,
+                               PgfText *cat, PgfItor *itor, PgfExn *err)
 {
-    DB_scope scope(pgf, READER_SCOPE);
+    DB_scope scope(db, READER_SCOPE);
+    ref<PgfPGF> pgf = revision;
 
     PgfItorHelper helper;
     helper.fn   = iter_by_cat_helper;
@@ -277,16 +303,18 @@ void pgf_iter_functions_by_cat(PgfPGF *pgf, PgfText *cat, PgfItor *itor, PgfExn 
     helper.itor = itor;
 
     err->type = PGF_EXN_NONE;
-    namespace_iter(pgf->get_root<PgfPGFRoot>()->abstract.funs, &helper, err);
+    namespace_iter(pgf->abstract.funs, &helper, err);
 }
 
 PGF_API
-PgfType pgf_function_type(PgfPGF *pgf, PgfText *funname, PgfUnmarshaller *u)
+PgfType pgf_function_type(PgfDB *db, PgfRevision revision,
+                          PgfText *funname, PgfUnmarshaller *u)
 {
-    DB_scope scope(pgf, READER_SCOPE);
+    DB_scope scope(db, READER_SCOPE);
+    ref<PgfPGF> pgf = revision;
 
     ref<PgfAbsFun> absfun =
-        namespace_lookup(pgf->get_root<PgfPGFRoot>()->abstract.funs, funname);
+        namespace_lookup(pgf->abstract.funs, funname);
 	if (absfun == 0)
 		return 0;
 
@@ -294,12 +322,14 @@ PgfType pgf_function_type(PgfPGF *pgf, PgfText *funname, PgfUnmarshaller *u)
 }
 
 PGF_API
-int pgf_function_is_constructor(PgfPGF *pgf, PgfText *funname)
+int pgf_function_is_constructor(PgfDB *db, PgfRevision revision,
+                                PgfText *funname)
 {
-    DB_scope scope(pgf, READER_SCOPE);
+    DB_scope scope(db, READER_SCOPE);
+    ref<PgfPGF> pgf = revision;
 
     ref<PgfAbsFun> absfun =
-        namespace_lookup(pgf->get_root<PgfPGFRoot>()->abstract.funs, funname);
+        namespace_lookup(pgf->abstract.funs, funname);
 	if (absfun == 0)
 		return false;
 
@@ -307,12 +337,14 @@ int pgf_function_is_constructor(PgfPGF *pgf, PgfText *funname)
 }
 
 PGF_API
-prob_t pgf_function_prob(PgfPGF *pgf, PgfText *funname)
+prob_t pgf_function_prob(PgfDB *db, PgfRevision revision,
+                         PgfText *funname)
 {
-    DB_scope scope(pgf, READER_SCOPE);
+    DB_scope scope(db, READER_SCOPE);
+    ref<PgfPGF> pgf = revision;
 
     ref<PgfAbsFun> absfun =
-        namespace_lookup(pgf->get_root<PgfPGFRoot>()->abstract.funs, funname);
+        namespace_lookup(pgf->abstract.funs, funname);
 	if (absfun == 0)
 		return INFINITY;
 
@@ -364,16 +396,18 @@ PgfType pgf_read_type(PgfText *input, PgfUnmarshaller *u)
 }
 
 PGF_API
-void pgf_create_function(PgfPGF *pgf, PgfText *name,
+void pgf_create_function(PgfDB *db, PgfRevision revision,
+                         PgfText *name,
                          PgfType ty, prob_t prob,
-                         PgfMarshaller *m)
+                         PgfMarshaller *m,
+                         PgfExn *err)
 {
-    DB_scope scope(pgf, WRITER_SCOPE);
+    DB_scope scope(db, WRITER_SCOPE);
 
     PgfDBUnmarshaller u(m);
 
-    ref<PgfPGFRoot> root = pgf->get_root<PgfPGFRoot>();
-    ref<PgfAbsFun> absfun = DB::malloc<PgfAbsFun>(sizeof(PgfAbsFun)+name->size+1);
+    ref<PgfPGF> pgf = revision;
+    ref<PgfAbsFun> absfun = PgfDB::malloc<PgfAbsFun>(sizeof(PgfAbsFun)+name->size+1);
     absfun->type  = m->match_type(&u, ty);
     absfun->arity = 0;
     absfun->defns = 0;
@@ -384,7 +418,7 @@ void pgf_create_function(PgfPGF *pgf, PgfText *name,
     memcpy(&absfun->name, name, sizeof(PgfText)+name->size+1);
     
     Namespace<PgfAbsFun> nmsp =
-        namespace_insert(root->abstract.funs, absfun);
-    namespace_release(root->abstract.funs);
-    root->abstract.funs = nmsp;
+        namespace_insert(pgf->abstract.funs, absfun);
+    namespace_release(pgf->abstract.funs);
+    pgf->abstract.funs = nmsp;
 }

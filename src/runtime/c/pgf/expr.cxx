@@ -111,7 +111,7 @@ PgfType PgfDBMarshaller::match_type(PgfUnmarshaller *u, PgfType ty)
 PgfExpr PgfDBUnmarshaller::eabs(PgfBindType bind_type, PgfText *name, PgfExpr body)
 {
     ref<PgfExprAbs> eabs =
-        DB::malloc<PgfExprAbs>(sizeof(PgfExprAbs)+name->size+1);
+        PgfDB::malloc<PgfExprAbs>(sizeof(PgfExprAbs)+name->size+1);
     eabs->bind_type = bind_type;
     eabs->body = m->match_expr(this, body);
     memcpy(&eabs->name, name, sizeof(PgfText)+name->size+1);
@@ -120,7 +120,7 @@ PgfExpr PgfDBUnmarshaller::eabs(PgfBindType bind_type, PgfText *name, PgfExpr bo
 
 PgfExpr PgfDBUnmarshaller::eapp(PgfExpr fun, PgfExpr arg)
 {
-    ref<PgfExprApp> eapp = DB::malloc<PgfExprApp>();
+    ref<PgfExprApp> eapp = PgfDB::malloc<PgfExprApp>();
     eapp->fun = m->match_expr(this, fun);
 	eapp->arg = m->match_expr(this, arg);
     return ref<PgfExprApp>::tagged(eapp);
@@ -128,14 +128,14 @@ PgfExpr PgfDBUnmarshaller::eapp(PgfExpr fun, PgfExpr arg)
 
 PgfExpr PgfDBUnmarshaller::elit(PgfLiteral lit)
 {
-    ref<PgfExprLit> elit = DB::malloc<PgfExprLit>();
+    ref<PgfExprLit> elit = PgfDB::malloc<PgfExprLit>();
     elit->lit = m->match_lit(this, lit);
     return ref<PgfExprLit>::tagged(elit);
 }
 
 PgfExpr PgfDBUnmarshaller::emeta(PgfMetaId meta_id)
 {
-    ref<PgfExprMeta> emeta = DB::malloc<PgfExprMeta>();
+    ref<PgfExprMeta> emeta = PgfDB::malloc<PgfExprMeta>();
 	emeta->id = meta_id;
 	return ref<PgfExprMeta>::tagged(emeta);
 }
@@ -143,21 +143,21 @@ PgfExpr PgfDBUnmarshaller::emeta(PgfMetaId meta_id)
 PgfExpr PgfDBUnmarshaller::efun(PgfText *name)
 {
     ref<PgfExprFun> efun =
-        DB::malloc<PgfExprFun>(sizeof(PgfExprFun)+name->size+1);
+        PgfDB::malloc<PgfExprFun>(sizeof(PgfExprFun)+name->size+1);
     memcpy(&efun->name, name, sizeof(PgfText)+name->size+1);
     return ref<PgfExprFun>::tagged(efun);
 }
 
 PgfExpr PgfDBUnmarshaller::evar(int index)
 {
-    ref<PgfExprVar> evar = DB::malloc<PgfExprVar>();
+    ref<PgfExprVar> evar = PgfDB::malloc<PgfExprVar>();
     evar->var = index;
     return ref<PgfExprVar>::tagged(evar);
 }
 
 PgfExpr PgfDBUnmarshaller::etyped(PgfExpr expr, PgfType ty)
 {
-    ref<PgfExprTyped> etyped = DB::malloc<PgfExprTyped>();
+    ref<PgfExprTyped> etyped = PgfDB::malloc<PgfExprTyped>();
     etyped->expr = m->match_expr(this, expr);
     etyped->type = m->match_type(this, ty);
     return ref<PgfExprTyped>::tagged(etyped);
@@ -173,7 +173,7 @@ PgfExpr PgfDBUnmarshaller::eimplarg(PgfExpr expr)
 PgfLiteral PgfDBUnmarshaller::lint(size_t size, uintmax_t *val)
 {
     ref<PgfLiteralInt> lit_int =
-        DB::malloc<PgfLiteralInt>(sizeof(PgfLiteralInt)+size*sizeof(uintmax_t));
+        PgfDB::malloc<PgfLiteralInt>(sizeof(PgfLiteralInt)+size*sizeof(uintmax_t));
     lit_int->size = size;
     memcpy(&lit_int->val, val, size*sizeof(uintmax_t));
     return ref<PgfLiteralInt>::tagged(lit_int);
@@ -181,7 +181,7 @@ PgfLiteral PgfDBUnmarshaller::lint(size_t size, uintmax_t *val)
 
 PgfLiteral PgfDBUnmarshaller::lflt(double val)
 {
-    ref<PgfLiteralFlt> lit_flt = DB::malloc<PgfLiteralFlt>();
+    ref<PgfLiteralFlt> lit_flt = PgfDB::malloc<PgfLiteralFlt>();
     lit_flt->val = val;
     return ref<PgfLiteralFlt>::tagged(lit_flt);
 }
@@ -189,7 +189,7 @@ PgfLiteral PgfDBUnmarshaller::lflt(double val)
 PgfLiteral PgfDBUnmarshaller::lstr(PgfText *val)
 {
     ref<PgfLiteralStr> lit_str =
-        DB::malloc<PgfLiteralStr>(sizeof(PgfLiteralStr)+val->size+1);
+        PgfDB::malloc<PgfLiteralStr>(sizeof(PgfLiteralStr)+val->size+1);
     memcpy(&lit_str->val, val, sizeof(PgfText)+val->size+1);
     return ref<PgfLiteralStr>::tagged(lit_str);
 }
@@ -199,13 +199,13 @@ PgfType PgfDBUnmarshaller::dtyp(int n_hypos, PgfTypeHypo *hypos,
                                 int n_exprs, PgfExpr *exprs)
 {
     ref<PgfDTyp> ty =
-        DB::malloc<PgfDTyp>(sizeof(PgfDTyp)+cat->size+1);
+        PgfDB::malloc<PgfDTyp>(sizeof(PgfDTyp)+cat->size+1);
     memcpy(&ty->name, cat, sizeof(PgfText)+cat->size+1);
     ty->hypos = vector_new<PgfHypo>(n_hypos);
     for (size_t i = 0; i < n_hypos; i++) {
         ref<PgfHypo> hypo = vector_elem(ty->hypos,i);
         hypo->bind_type = hypos[i].bind_type;
-        hypo->cid = DB::malloc<PgfText>(sizeof(PgfText)+hypos[i].cid->size+1);
+        hypo->cid = PgfDB::malloc<PgfText>(sizeof(PgfText)+hypos[i].cid->size+1);
         memcpy(&hypo->cid->text, hypos[i].cid, sizeof(PgfText)+hypos[i].cid->size+1);
         hypo->type = m->match_type(this, hypos[i].type);
     }
@@ -219,7 +219,7 @@ PgfType PgfDBUnmarshaller::dtyp(int n_hypos, PgfTypeHypo *hypos,
 
 void PgfDBUnmarshaller::free_ref(object x)
 {
-    DB::free(ref<void>::untagged(x));
+    PgfDB::free(ref<void>::untagged(x));
 }
 
 PgfExprParser::PgfExprParser(PgfText *input, PgfUnmarshaller *unmarshaller)

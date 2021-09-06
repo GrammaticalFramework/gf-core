@@ -3,10 +3,10 @@
 
 #define MALLOC_ALIGN_MASK (2*sizeof(size_t) - 1)
 
-class DB;
+class PgfDB;
 
 extern PGF_INTERNAL_DECL __thread unsigned char* current_base __attribute__((tls_model("initial-exec")));
-extern PGF_INTERNAL_DECL __thread DB*            current_db   __attribute__((tls_model("initial-exec")));
+extern PGF_INTERNAL_DECL __thread PgfDB*         current_db   __attribute__((tls_model("initial-exec")));
 
 struct malloc_state;
 
@@ -14,7 +14,7 @@ template<class A> class PGF_INTERNAL_DECL ref {
 private:
     object offset;
 
-    friend class DB;
+    friend class PgfDB;
 
 public:
     ref<A>() { }
@@ -54,7 +54,7 @@ public:
     }
 };
 
-class PGF_INTERNAL_DECL DB {
+class PgfDB {
 private:
     int fd;
     malloc_state* ms;
@@ -64,8 +64,8 @@ private:
     friend class PgfReader;
 
 public:
-    DB(const char* pathname, int flags, int mode);
-    ~DB();
+    PgfDB(const char* pathname, int flags, int mode);
+    ~PgfDB();
 
     template<class A>
     static ref<A> malloc() {
@@ -112,11 +112,11 @@ enum DB_scope_mode {READER_SCOPE, WRITER_SCOPE};
 
 class PGF_INTERNAL_DECL DB_scope {
 public:
-    DB_scope(DB *db, DB_scope_mode type);
+    DB_scope(PgfDB *db, DB_scope_mode type);
     ~DB_scope();
 
 private:
-    DB* save_db;
+    PgfDB* save_db;
     DB_scope* next_scope;
 };
 

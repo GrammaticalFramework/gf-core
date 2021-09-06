@@ -204,7 +204,7 @@ PgfLiteral PgfReader::read_literal()
 	}
 	case PgfLiteralInt::tag: {
 		ref<PgfLiteralInt> lit_int =
-			DB::malloc<PgfLiteralInt>(sizeof(PgfLiteralInt)+sizeof(uintmax_t));
+			PgfDB::malloc<PgfLiteralInt>(sizeof(PgfLiteralInt)+sizeof(uintmax_t));
         lit_int->size   = 1;
 		lit_int->val[0] = read_int();
         lit = ref<PgfLiteralInt>::tagged(lit_int);
@@ -245,20 +245,20 @@ PgfExpr PgfReader::read_expr()
 		break;
 	}
 	case PgfExprApp::tag: {
-        ref<PgfExprApp> eapp = DB::malloc<PgfExprApp>();
+        ref<PgfExprApp> eapp = PgfDB::malloc<PgfExprApp>();
 		eapp->fun = read_expr();
 		eapp->arg = read_expr();
         expr = ref<PgfExprApp>::tagged(eapp);
 		break;
 	}
 	case PgfExprLit::tag: {
-        ref<PgfExprLit> elit = DB::malloc<PgfExprLit>();
+        ref<PgfExprLit> elit = PgfDB::malloc<PgfExprLit>();
 		elit->lit = read_literal();
 		expr = ref<PgfExprLit>::tagged(elit);
 		break;
 	}
 	case PgfExprMeta::tag: {
-		ref<PgfExprMeta> emeta = DB::malloc<PgfExprMeta>();
+		ref<PgfExprMeta> emeta = PgfDB::malloc<PgfExprMeta>();
 		emeta->id = read_int();
 		expr = ref<PgfExprMeta>::tagged(emeta);
 		break;
@@ -269,13 +269,13 @@ PgfExpr PgfReader::read_expr()
 		break;
 	}
 	case PgfExprVar::tag: {
-        ref<PgfExprVar> evar = DB::malloc<PgfExprVar>();
+        ref<PgfExprVar> evar = PgfDB::malloc<PgfExprVar>();
 		evar->var = read_int();
         expr = ref<PgfExprVar>::tagged(evar);
 		break;
 	}
 	case PgfExprTyped::tag: {
-        ref<PgfExprTyped> etyped = DB::malloc<PgfExprTyped>();
+        ref<PgfExprTyped> etyped = PgfDB::malloc<PgfExprTyped>();
 		etyped->expr = read_expr();
 		etyped->type = read_type();
         expr = ref<PgfExprTyped>::tagged(etyped);
@@ -339,24 +339,24 @@ PgfPatt PgfReader::read_patt()
 		break;
 	}
 	case PgfPattWild::tag: {
-		ref<PgfPattWild> pwild = DB::malloc<PgfPattWild>();
+		ref<PgfPattWild> pwild = PgfDB::malloc<PgfPattWild>();
         patt = ref<PgfPattWild>::tagged(pwild);
 		break;
 	}
 	case PgfPattLit::tag: {
-        ref<PgfPattLit> plit = DB::malloc<PgfPattLit>();
+        ref<PgfPattLit> plit = PgfDB::malloc<PgfPattLit>();
 		plit->lit = read_literal();
         patt = ref<PgfPattLit>::tagged(plit);
 		break;
 	}
 	case PgfPattImplArg::tag: {
-        ref<PgfPattImplArg> pimpl = DB::malloc<PgfPattImplArg>();
+        ref<PgfPattImplArg> pimpl = PgfDB::malloc<PgfPattImplArg>();
 		pimpl->patt = read_patt();
         patt = ref<PgfPattImplArg>::tagged(pimpl);
 		break;
 	}
 	case PgfPattTilde::tag: {
-        ref<PgfPattTilde> ptilde = DB::malloc<PgfPattTilde>();
+        ref<PgfPattTilde> ptilde = PgfDB::malloc<PgfPattTilde>();
 		ptilde->expr = read_expr();
         patt = ref<PgfPattTilde>::tagged(ptilde);
 		break;
@@ -425,9 +425,9 @@ void PgfReader::read_abstract(ref<PgfAbstr> abstract)
     abstract->cats = read_namespace<PgfAbsCat>(&PgfReader::read_abscat);
 }
 
-ref<PgfPGFRoot> PgfReader::read_pgf()
+ref<PgfPGF> PgfReader::read_pgf()
 {
-    ref<PgfPGFRoot> pgf = DB::malloc<PgfPGFRoot>();
+    ref<PgfPGF> pgf = PgfDB::malloc<PgfPGF>();
 
     pgf->major_version = read_u16be();
     pgf->minor_version = read_u16be();

@@ -339,7 +339,7 @@ void namespace_release(Namespace<V> node)
     if (!(--node->ref_count)) {
         namespace_release(node->left);
         namespace_release(node->right);
-        DB::free(node);
+        PgfDB::free(node);
     }
 }
 
