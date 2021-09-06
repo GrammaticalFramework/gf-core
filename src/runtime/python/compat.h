@@ -18,7 +18,7 @@
     // #define PyInt_AsUnsignedLongLongMask PyLong_AsUnsignedLongLongMask
 
     #define PyStringObject               PyUnicodeObject
-    // #define PyString_Check               PyUnicode_Check
+    #define PyString_Check               PyUnicode_Check
     #define PyString_FromStringAndSize   PyUnicode_FromStringAndSize
     // #define PyString_FromFormat          PyUnicode_FromFormat
     // #define PyString_Concat(ps,s)        {PyObject* tmp = *(ps); *(ps) = PyUnicode_Concat(tmp,s); Py_DECREF(tmp);}

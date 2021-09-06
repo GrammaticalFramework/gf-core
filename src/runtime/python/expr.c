@@ -2,7 +2,9 @@
 #include <Python.h>
 #include <stdbool.h>
 
+#include "./compat.h"
 #include "./expr.h"
+#include "./marshaller.h"
 
 // static ExprObject*
 // Expr_new(PyTypeObject *type, PyObject *args, PyObject *kwds)
@@ -810,24 +812,10 @@
 // }
 
 static PyObject *
-Type_repr(TypeObject *self)
+Type_str(TypeObject *self)
 {
-    // GuPool* tmp_pool = gu_local_pool();
-    //
-    // GuExn* err = gu_exn(tmp_pool);
-    // GuStringBuf* sbuf = gu_new_string_buf(tmp_pool);
-    // GuOut* out = gu_string_buf_out(sbuf);
-    //
-    // pgf_print_type(self->type, NULL, 0, out, err);
-    //
-    // PyObject* pystr = PyString_FromStringAndSize(gu_string_buf_data(sbuf),
-    //                                              gu_string_buf_length(sbuf));
-    //
-    // gu_pool_free(tmp_pool);
-    // return pystr;
-
-    PyErr_SetString(PyExc_TypeError, "Type_repr: not implemented");
-    Py_RETURN_NOTIMPLEMENTED;
+    PgfText *s = pgf_print_type((PgfType) &self, NULL, 0, &marshaller);
+    return PyString_FromStringAndSize(s->text, s->size);
 }
 
 static PyObject *
@@ -1061,7 +1049,7 @@ PyTypeObject pgf_TypeType = {
     0,                         /*tp_as_mapping*/
     0,                         /*tp_hash */
     0,                         /*tp_call*/
-    (reprfunc) Type_repr,      /*tp_str*/
+    (reprfunc) Type_str,       /*tp_str*/
     0,                         /*tp_getattro*/
     0,                         /*tp_setattro*/
     0,                         /*tp_as_buffer*/

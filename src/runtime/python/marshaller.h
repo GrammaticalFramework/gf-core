@@ -8,4 +8,6 @@
 
 extern PgfUnmarshaller unmarshaller;
 
+extern PgfMarshaller marshaller;
+
 #endif // PYPGF_MARSHALLER_H_

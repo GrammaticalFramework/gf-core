@@ -67,7 +67,7 @@ PgfLiteral lflt(PgfUnmarshaller *this, double v)
 
 PgfLiteral lstr(PgfUnmarshaller *this, PgfText *v)
 {
-    PyObject *s = PyUnicode_FromStringAndSize(v->text, v->size);
+    PyObject *s = PyString_FromStringAndSize(v->text, v->size);
     return (PgfLiteral) s;
 }
 
@@ -97,7 +97,7 @@ void free_ref(PgfUnmarshaller *this, object x)
     Py_XDECREF(x);
 }
 
-static PgfUnmarshallerVtbl unmarshallervtbl =
+static PgfUnmarshallerVtbl unmarshallerVtbl =
 {
     eabs,
     eapp,
@@ -115,4 +115,49 @@ static PgfUnmarshallerVtbl unmarshallervtbl =
 };
 
 /* static */
-PgfUnmarshaller unmarshaller = { &unmarshallervtbl };
+PgfUnmarshaller unmarshaller = { &unmarshallerVtbl };
+
+// ----------------------------------------------------------------------------
+
+object match_lit(PgfUnmarshaller *u, PgfLiteral lit)
+{
+    if (PyString_Check(lit)) {
+        // PgfText t = {
+        //     PyUnicode_GetLength((PyObject*) lit),
+        //     lit,
+        // };
+        // return lstr(u, &lit);
+        return 0;
+    }
+    else if (PyLong_Check(lit)) {
+
+        return lint(u, 1, (uintmax_t *)lit);
+    }
+    else if (PyFloat_Check(lit)) {
+        return lflt(u, *(double *)lit);
+    }
+    else {
+        PyErr_SetString(PyExc_TypeError, "Unable to match on literal");
+        return 0;
+    }
+}
+
+object match_expr(PgfUnmarshaller *u, PgfExpr expr)
+{
+    return 0;
+}
+
+object match_type(PgfUnmarshaller *u, PgfType ty)
+{
+    return 0;
+}
+
+static PgfMarshallerVtbl marshallerVtbl =
+{
+    match_lit,
+    match_expr,
+    match_type
+};
+
+/* static */
+PgfMarshaller marshaller = { &marshallerVtbl };
