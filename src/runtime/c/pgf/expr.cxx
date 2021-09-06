@@ -206,12 +206,12 @@ PgfType PgfDBUnmarshaller::dtyp(int n_hypos, PgfTypeHypo *hypos,
         ref<PgfHypo> hypo = vector_elem(ty->hypos,i);
         hypo->bind_type = hypos[i].bind_type;
         hypo->cid = PgfDB::malloc<PgfText>(sizeof(PgfText)+hypos[i].cid->size+1);
-        memcpy(&hypo->cid->text, hypos[i].cid, sizeof(PgfText)+hypos[i].cid->size+1);
+        memcpy(hypo->cid, hypos[i].cid, sizeof(PgfText)+hypos[i].cid->size+1);
         hypo->type = m->match_type(this, hypos[i].type);
     }
     ty->exprs = vector_new<PgfExpr>(n_exprs);
     for (size_t i = 0; i < n_exprs; i++) {
-        vector_elem(ty->exprs,i) = exprs[i];
+        vector_elem(ty->exprs,i) = m->match_expr(this, exprs[i]);
     }
 
     return ty.as_object();
