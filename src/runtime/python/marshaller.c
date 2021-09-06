@@ -15,46 +15,58 @@
 
 PgfExpr eabs(PgfUnmarshaller *this, PgfBindType btype, PgfText *name, PgfExpr body)
 {
+    PyErr_SetString(PyExc_NotImplementedError, "eabs not implemented");
     return 0;
 }
 
 PgfExpr eapp(PgfUnmarshaller *this, PgfExpr fun, PgfExpr arg)
 {
+    PyErr_SetString(PyExc_NotImplementedError, "eapp not implemented");
     return 0;
 }
 
 PgfExpr elit(PgfUnmarshaller *this, PgfLiteral lit)
 {
+    PyErr_SetString(PyExc_NotImplementedError, "elit not implemented");
     return 0;
 }
 
 PgfExpr emeta(PgfUnmarshaller *this, PgfMetaId meta)
 {
+    PyErr_SetString(PyExc_NotImplementedError, "emeta not implemented");
     return 0;
 }
 
 PgfExpr efun(PgfUnmarshaller *this, PgfText *name)
 {
+    PyErr_SetString(PyExc_NotImplementedError, "efun not implemented");
     return 0;
 }
 
 PgfExpr evar(PgfUnmarshaller *this, int index)
 {
+    PyErr_SetString(PyExc_NotImplementedError, "evar not implemented");
     return 0;
 }
 
 PgfExpr etyped(PgfUnmarshaller *this, PgfExpr expr, PgfType typ)
 {
+    PyErr_SetString(PyExc_NotImplementedError, "etyped not implemented");
     return 0;
 }
 
 PgfExpr eimplarg(PgfUnmarshaller *this, PgfExpr expr)
 {
+    PyErr_SetString(PyExc_NotImplementedError, "eimplarg not implemented");
     return 0;
 }
 
 PgfLiteral lint(PgfUnmarshaller *this, size_t size, uintmax_t *v)
 {
+    if (size > 1) {
+        PyErr_SetString(PyExc_NotImplementedError, "multi-part integers not implemented"); // TODO
+        return 0;
+    }
     PyObject *i = PyLong_FromUnsignedLong(*v);
     return (PgfLiteral) i;
 }
@@ -89,6 +101,11 @@ PgfType dtyp(PgfUnmarshaller *this, int n_hypos, PgfTypeHypo *hypos, PgfText *ca
     pytype->cat = PyString_FromStringAndSize(cat->text, cat->size);
 
     pytype->exprs = PyList_New(0);
+    for (int i = 0; i < n_exprs; i++) {
+        // TODO
+        // PgfExpr *expr = exprs + i;
+    }
+
     return (PgfType) pytype;
 }
 
@@ -119,37 +136,67 @@ PgfUnmarshaller unmarshaller = { &unmarshallerVtbl };
 
 // ----------------------------------------------------------------------------
 
+static PgfText *
+PyString_AsPgfText(PyObject *pystr)
+{
+    if (!PyString_Check(pystr)) {
+        PyErr_SetString(PyExc_TypeError, "input to PyString_AsPgfText is not a string");
+        return NULL;
+    }
+    size_t size = PyUnicode_GetLength(pystr);
+    PgfText *ptext = (PgfText *)PyMem_Malloc(sizeof(PgfText)+size+1);
+    memcpy(ptext->text, pystr, size+1);
+    ptext->size = size;
+    // Py_INCREF(ptext);
+    return ptext;
+}
+
+// ----------------------------------------------------------------------------
+
 object match_lit(PgfUnmarshaller *u, PgfLiteral lit)
 {
-    if (PyString_Check(lit)) {
-        // PgfText t = {
-        //     PyUnicode_GetLength((PyObject*) lit),
-        //     lit,
-        // };
-        // return lstr(u, &lit);
-        return 0;
-    }
-    else if (PyLong_Check(lit)) {
+    PyObject *pyobj = (PyObject *)lit;
 
-        return lint(u, 1, (uintmax_t *)lit);
+    if (PyLong_Check(pyobj)) {
+        uintmax_t i = PyLong_AsUnsignedLong(pyobj);
+        size_t size = 1; // TODO
+        return u->vtbl->lint(NULL, size, &i);
     }
-    else if (PyFloat_Check(lit)) {
-        return lflt(u, *(double *)lit);
+    else if (PyFloat_Check(pyobj)) {
+        double d = PyFloat_AsDouble(pyobj);
+        return u->vtbl->lflt(NULL, d);
+    }
+    else if (PyString_Check(pyobj)) {
+        PgfText *t = PyString_AsPgfText(pyobj);
+        return u->vtbl->lstr(NULL, t);
     }
     else {
-        PyErr_SetString(PyExc_TypeError, "Unable to match on literal");
+        PyErr_SetString(PyExc_TypeError, "unable to match on literal");
         return 0;
     }
 }
 
 object match_expr(PgfUnmarshaller *u, PgfExpr expr)
 {
+    PyErr_SetString(PyExc_NotImplementedError, "match_expr not implemented");
     return 0;
 }
 
 object match_type(PgfUnmarshaller *u, PgfType ty)
 {
-    return 0;
+    TypeObject *type = (TypeObject *)ty;
+
+    PySys_WriteStdout(">%s<\n", PyUnicode_AS_DATA(type->cat));
+
+    int n_hypos = 0; //PyList_Size(type->hypos);
+    PgfTypeHypo *hypos = NULL; // TODO
+
+    PgfText *cat = PyString_AsPgfText(type->cat);
+
+    int n_exprs = 0; //PyList_Size(type->exprs);
+    PgfExpr *exprs = NULL; // TODO
+
+    return u->vtbl->dtyp(NULL, n_hypos, hypos, cat, n_exprs, exprs);
 }
 
 static PgfMarshallerVtbl marshallerVtbl =

@@ -1880,7 +1880,7 @@ PGF_getStartCat(PGFObject *self, void *closure)
 {
     PgfType type = pgf_start_cat(self->pgf, &unmarshaller);
     if (type == 0) {
-        PyErr_SetString(PGFError, "The start category cannot be found");
+        PyErr_SetString(PGFError, "start category cannot be found");
         return NULL;
     }
 
@@ -1924,19 +1924,19 @@ PGF_getFunctions(PGFObject *self, void *closure)
     return functions;
 }
 
-static PyObject*
-PGF_functionsByCat(PGFObject* self, PyObject *args)
+static PyObject *
+PGF_functionsByCat(PGFObject *self, PyObject *args)
 {
-    const char* s;
+    const char *s;
     Py_ssize_t size;
     if (!PyArg_ParseTuple(args, "s#", &s, &size))
         return NULL;
 
-    PgfText* catname = (PgfText*) alloca(sizeof(PgfText)+size+1);
+    PgfText *catname = (PgfText *)PyMem_Malloc(sizeof(PgfText)+size+1);
     memcpy(catname->text, s, size+1);
     catname->size = size;
 
-    PyObject* functions = PyList_New(0);
+    PyObject *functions = PyList_New(0);
     if (functions == NULL) {
         return NULL;
     }
@@ -1944,6 +1944,7 @@ PGF_functionsByCat(PGFObject* self, PyObject *args)
     PgfExn err;
     PyPGFClosure clo = { { pgf_collect_funs }, self, functions };
     pgf_iter_functions_by_cat(self->pgf, catname, &clo.fn, &err);
+    PyMem_Free(catname);
     if (err.type != PGF_EXN_NONE) {
         Py_DECREF(functions);
         return NULL;
@@ -1960,13 +1961,14 @@ PGF_functionType(PGFObject *self, PyObject *args)
     if (!PyArg_ParseTuple(args, "s#", &s, &size))
         return NULL;
 
-    PgfText *funname = (PgfText *)alloca(sizeof(PgfText)+size+1);
+    PgfText *funname = (PgfText *)PyMem_Malloc(sizeof(PgfText)+size+1);
     memcpy(funname->text, s, size+1);
     funname->size = size;
 
     PgfType type = pgf_function_type(self->pgf, funname, &unmarshaller);
+    PyMem_Free(funname);
     if (type == 0) {
-        PyErr_Format(PyExc_KeyError, "Function '%s' is not defined", funname->text);
+        PyErr_Format(PyExc_KeyError, "function '%s' is not defined", s);
         return NULL;
     }
 
@@ -2494,13 +2496,14 @@ pgf_readType(PyObject *self, PyObject *args)
     if (!PyArg_ParseTuple(args, "s#", &s, &size))
         return NULL;
 
-    PgfText *input = (PgfText *)alloca(sizeof(PgfText)+size+1);
+    PgfText *input = (PgfText *)PyMem_Malloc(sizeof(PgfText)+size+1);
     memcpy(input->text, s, size+1);
     input->size = size;
 
     PgfType type = pgf_read_type(input, &unmarshaller);
+    PyMem_Free(input);
     if (type == 0) {
-        PyErr_SetString(PGFError, "The type cannot be parsed");
+        PyErr_SetString(PGFError, "type cannot be parsed");
         return NULL;
     }
 
