@@ -108,8 +108,11 @@ foreign import ccall "pgf/expr.h pgf_function_is_constructor"
 foreign import ccall "pgf_function_prob"
    pgf_function_prob :: Ptr PgfDB -> Ptr PgfRevision -> Ptr PgfText -> IO (#type prob_t)
 
+foreign import ccall "pgf_clone_revision"
+   pgf_clone_revision :: Ptr PgfDB -> Ptr PgfRevision -> Ptr PgfExn -> IO (Ptr PgfRevision)
+
 foreign import ccall "pgf_create_function"
-   pgf_create_function :: Ptr PgfDB -> Ptr PgfRevision -> Ptr PgfText -> StablePtr Type -> (#type prob_t) -> Ptr PgfMarshaller -> IO ()
+   pgf_create_function :: Ptr PgfDB -> Ptr PgfRevision -> Ptr PgfText -> StablePtr Type -> (#type prob_t) -> Ptr PgfMarshaller -> Ptr PgfExn -> IO ()
 
 
 -----------------------------------------------------------------------

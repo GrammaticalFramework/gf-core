@@ -74,11 +74,8 @@ main = do
     print (e :: SomeException)
 
   gr1 <- readPGF "tests/basic.pgf"
-  print (abstractName gr1)
   gr2 <- bootNGF "tests/basic.pgf" "tests/basic.ngf"
-  print (abstractName gr2)
   gr3 <- readNGF "tests/basic.ngf"
-  print (abstractName gr3)
 
   rp1 <- testLoadFailure (readPGF "non-existing.pgf")
   rp2 <- testLoadFailure (readPGF "tests/basic.gf")

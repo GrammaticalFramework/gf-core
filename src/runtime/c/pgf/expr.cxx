@@ -211,7 +211,7 @@ PgfType PgfDBUnmarshaller::dtyp(int n_hypos, PgfTypeHypo *hypos,
     }
     ty->exprs = vector_new<PgfExpr>(n_exprs);
     for (size_t i = 0; i < n_exprs; i++) {
-        vector_elem(ty->exprs,i) = m->match_expr(this, exprs[i]);
+        *vector_elem(ty->exprs,i) = m->match_expr(this, exprs[i]);
     }
 
     return ty.as_object();

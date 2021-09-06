@@ -179,7 +179,7 @@ void pgf_iter_categories(PgfDB *db, PgfRevision revision,
     DB_scope scope(db, READER_SCOPE);
     ref<PgfPGF> pgf = revision;
 
-    err->type = PGF_EXN_NONE;
+    pgf_exn_clear(err);
     namespace_iter(pgf->abstract.cats, itor, err);
 }
 
@@ -270,7 +270,7 @@ void pgf_iter_functions(PgfDB *db, PgfRevision revision,
     DB_scope scope(db, READER_SCOPE);
     ref<PgfPGF> pgf = revision;
 
-    err->type = PGF_EXN_NONE;
+    pgf_exn_clear(err);
     namespace_iter(pgf->abstract.funs, itor, err);
 }
 
@@ -302,7 +302,7 @@ void pgf_iter_functions_by_cat(PgfDB *db, PgfRevision revision,
     helper.cat  = cat;
     helper.itor = itor;
 
-    err->type = PGF_EXN_NONE;
+    pgf_exn_clear(err);
     namespace_iter(pgf->abstract.funs, &helper, err);
 }
 
@@ -395,6 +395,53 @@ PgfType pgf_read_type(PgfText *input, PgfUnmarshaller *u)
     return res;
 }
 
+PGF_API_DECL
+PgfRevision pgf_clone_revision(PgfDB *db, PgfRevision revision,
+                               PgfExn *err)
+{
+    DB_scope scope(db, WRITER_SCOPE);
+
+    pgf_exn_clear(err);
+
+    try {
+        ref<PgfPGF> pgf = revision;
+
+        ref<PgfPGF> new_pgf = PgfDB::malloc<PgfPGF>();
+        new_pgf->major_version = pgf->major_version;
+        new_pgf->minor_version = pgf->minor_version;
+
+        new_pgf->gflags = pgf->gflags;
+        if (pgf->gflags != 0)
+            pgf->gflags->ref_count++;
+
+        new_pgf->abstract.name =
+            PgfDB::malloc<PgfText>(sizeof(PgfText)+pgf->abstract.name->size+1);
+        memcpy(new_pgf->abstract.name, pgf->abstract.name, sizeof(PgfText)+pgf->abstract.name->size+1);
+
+        new_pgf->abstract.aflags = pgf->abstract.aflags;
+        if (pgf->abstract.aflags != 0)
+            pgf->abstract.aflags->ref_count++;
+
+        new_pgf->abstract.funs = pgf->abstract.funs;
+        if (pgf->abstract.funs != 0)
+            pgf->abstract.funs->ref_count++;
+
+        new_pgf->abstract.cats = pgf->abstract.cats;
+        if (pgf->abstract.cats != 0)
+            pgf->abstract.cats->ref_count++;
+
+        return new_pgf.as_object();
+    } catch (std::system_error& e) {
+        err->type = PGF_EXN_SYSTEM_ERROR;
+        err->code = e.code().value();
+    } catch (pgf_error& e) {
+        err->type = PGF_EXN_PGF_ERROR;
+        err->msg  = strdup(e.what());
+    }
+
+    return 0;
+}
+
 PGF_API
 void pgf_create_function(PgfDB *db, PgfRevision revision,
                          PgfText *name,
@@ -404,21 +451,31 @@ void pgf_create_function(PgfDB *db, PgfRevision revision,
 {
     DB_scope scope(db, WRITER_SCOPE);
 
-    PgfDBUnmarshaller u(m);
+    pgf_exn_clear(err);
 
-    ref<PgfPGF> pgf = revision;
-    ref<PgfAbsFun> absfun = PgfDB::malloc<PgfAbsFun>(sizeof(PgfAbsFun)+name->size+1);
-    absfun->type  = m->match_type(&u, ty);
-    absfun->arity = 0;
-    absfun->defns = 0;
-    absfun->ep.prob = prob;
-    ref<PgfExprFun> efun =
-        ref<PgfExprFun>::from_ptr((PgfExprFun*) &absfun->name);
-    absfun->ep.expr = ref<PgfExprFun>::tagged(efun);
-    memcpy(&absfun->name, name, sizeof(PgfText)+name->size+1);
-    
-    Namespace<PgfAbsFun> nmsp =
-        namespace_insert(pgf->abstract.funs, absfun);
-    namespace_release(pgf->abstract.funs);
-    pgf->abstract.funs = nmsp;
+    try {
+        PgfDBUnmarshaller u(m);
+
+        ref<PgfPGF> pgf = revision;
+        ref<PgfAbsFun> absfun = PgfDB::malloc<PgfAbsFun>(sizeof(PgfAbsFun)+name->size+1);
+        absfun->type  = m->match_type(&u, ty);
+        absfun->arity = 0;
+        absfun->defns = 0;
+        absfun->ep.prob = prob;
+        ref<PgfExprFun> efun =
+            ref<PgfExprFun>::from_ptr((PgfExprFun*) &absfun->name);
+        absfun->ep.expr = ref<PgfExprFun>::tagged(efun);
+        memcpy(&absfun->name, name, sizeof(PgfText)+name->size+1);
+        
+        Namespace<PgfAbsFun> nmsp =
+            namespace_insert(pgf->abstract.funs, absfun);
+        namespace_release(pgf->abstract.funs);
+        pgf->abstract.funs = nmsp;
+    } catch (std::system_error& e) {
+        err->type = PGF_EXN_SYSTEM_ERROR;
+        err->code = e.code().value();
+    } catch (pgf_error& e) {
+        err->type = PGF_EXN_PGF_ERROR;
+        err->msg  = strdup(e.what());
+    }
 }

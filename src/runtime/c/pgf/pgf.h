@@ -309,6 +309,10 @@ PGF_API_DECL
 PgfType pgf_read_type(PgfText *input, PgfUnmarshaller *u);
 
 PGF_API_DECL
+PgfRevision pgf_clone_revision(PgfDB *db, PgfRevision revision,
+                               PgfExn *err);
+
+PGF_API_DECL
 void pgf_create_function(PgfDB *db, PgfRevision revision,
                          PgfText *name,
                          PgfType ty, prob_t prob,

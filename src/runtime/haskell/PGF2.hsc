@@ -40,8 +40,6 @@ module PGF2 (-- * PGF
              mkType, unType,
              mkHypo, mkDepHypo, mkImplHypo,
 
-             createFunction,
-
              -- * Concrete syntax
              ConcName,
 
@@ -49,13 +47,13 @@ module PGF2 (-- * PGF
              PGFError(..)
              ) where
 
-import Control.Exception(mask_,bracket)
-import System.IO.Unsafe(unsafePerformIO)
 import PGF2.Expr
 import PGF2.FFI
 
 import Foreign
 import Foreign.C
+import Control.Exception(mask_,bracket)
+import System.IO.Unsafe(unsafePerformIO)
 import qualified Foreign.Concurrent as C
 import qualified Data.Map as Map
 import Data.IORef
@@ -336,12 +334,3 @@ readType str =
       else do ty <- deRefStablePtr c_ty
               freeStablePtr c_ty
               return (Just ty)
-
-createFunction :: PGF -> Fun -> Type -> Float -> IO ()
-createFunction p name ty prob =
-  withForeignPtr (a_db p) $ \c_db ->
-  withForeignPtr (revision p) $ \c_revision ->
-  withText name $ \c_name ->
-  bracket (newStablePtr ty) freeStablePtr $ \c_ty ->
-  withForeignPtr marshaller $ \m -> do
-    pgf_create_function c_db c_revision c_name c_ty prob m
