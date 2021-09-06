@@ -107,26 +107,12 @@ typedef struct {
     Namespace<PgfAbsCat> cats;
 } PgfAbstr;
 
-struct PGF_INTERNAL_DECL PgfPGFRoot {
+typedef struct PGF_INTERNAL_DECL {
 	uint16_t major_version;
 	uint16_t minor_version;
 	Namespace<PgfFlag> gflags;
 	PgfAbstr abstract;
 	//PgfConcrs* concretes;
-};
-
-#pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Wattributes"
-
-struct PgfPGF : DB {
-    PGF_INTERNAL_DECL PgfPGF(const char* fpath, int flags, int mode)
-                         : DB(fpath, flags, mode)
-    { };
-
-    PGF_INTERNAL_DECL ~PgfPGF()
-    { };
-};
-
-#pragma GCC diagnostic pop
+} PgfPGF;
 
 #endif

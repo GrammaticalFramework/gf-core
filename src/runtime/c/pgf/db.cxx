@@ -7,7 +7,7 @@
 #include "data.h"
 
 PGF_INTERNAL __thread unsigned char* current_base __attribute__((tls_model("initial-exec"))) = NULL;
-PGF_INTERNAL __thread DB* current_db __attribute__((tls_model("initial-exec"))) = NULL;
+PGF_INTERNAL __thread PgfDB* current_db __attribute__((tls_model("initial-exec"))) = NULL;
 PGF_INTERNAL __thread DB_scope *last_db_scope __attribute__((tls_model("initial-exec"))) = NULL;
 
 #ifndef DEFAULT_TOP_PAD
@@ -269,7 +269,7 @@ struct malloc_state
     object root_offset;
 };
 
-DB::DB(const char* pathname, int flags, int mode) {
+PgfDB::PgfDB(const char* pathname, int flags, int mode) {
     size_t file_size;
     bool is_new = false;
 
@@ -313,7 +313,7 @@ DB::DB(const char* pathname, int flags, int mode) {
     }
 }
 
-DB::~DB() {
+PgfDB::~PgfDB() {
     if (ms != NULL) {
         size_t size =
             ms->top + chunksize(ptr(ms,ms->top)) + sizeof(size_t);
@@ -327,7 +327,7 @@ DB::~DB() {
     pthread_rwlock_destroy(&rwlock);
 }
 
-void DB::sync()
+void PgfDB::sync()
 {
     malloc_state *ms = current_db->ms;
     size_t size =
@@ -338,16 +338,16 @@ void DB::sync()
         throw std::system_error(errno, std::generic_category());
 }
 
-object DB::get_root_internal() {
+object PgfDB::get_root_internal() {
     return ms->root_offset;
 }
 
-void DB::set_root_internal(object root_offset) {
+void PgfDB::set_root_internal(object root_offset) {
     ms->root_offset = root_offset;
 }
 
 void
-DB::init_state(size_t size)
+PgfDB::init_state(size_t size)
 {
     /* Init fastbins */
     ms->have_fastchunks = false;
@@ -483,7 +483,7 @@ static void malloc_consolidate(malloc_state *ms)
 }
 
 object
-DB::malloc_internal(size_t bytes)
+PgfDB::malloc_internal(size_t bytes)
 {
     unsigned int idx;                 /* associated bin index */
     mbin* bin;                        /* associated bin */
@@ -856,7 +856,7 @@ DB::malloc_internal(size_t bytes)
 }
 
 void
-DB::free_internal(object o)
+PgfDB::free_internal(object o)
 {
     size_t size;                 /* its size */
     object *fb;                  /* associated fastbin */
@@ -948,7 +948,7 @@ DB::free_internal(object o)
 }
 
 
-DB_scope::DB_scope(DB *db, DB_scope_mode tp)
+DB_scope::DB_scope(PgfDB *db, DB_scope_mode tp)
 {
     int res =
         (tp == READER_SCOPE) ? pthread_rwlock_rdlock(&db->rwlock)

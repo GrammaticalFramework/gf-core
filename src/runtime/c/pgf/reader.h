@@ -70,7 +70,7 @@ public:
     ref<PgfAbsCat> read_abscat();
     void read_abstract(ref<PgfAbstr> abstract);
 
-    ref<PgfPGFRoot> read_pgf();
+    ref<PgfPGF> read_pgf();
 
 private:
     std::istream *in;

@@ -40,8 +40,6 @@ module PGF2 (-- * PGF
              mkType, unType,
              mkHypo, mkDepHypo, mkImplHypo,
 
-             createFunction,
-
              -- * Concrete syntax
              ConcName,
 
@@ -49,13 +47,14 @@ module PGF2 (-- * PGF
              PGFError(..)
              ) where
 
-import Control.Exception(mask_,bracket)
-import System.IO.Unsafe(unsafePerformIO)
 import PGF2.Expr
 import PGF2.FFI
 
 import Foreign
 import Foreign.C
+import Control.Exception(mask_,bracket)
+import System.IO.Unsafe(unsafePerformIO)
+import qualified Foreign.Concurrent as C
 import qualified Data.Map as Map
 import Data.IORef
 
@@ -68,10 +67,13 @@ type ConcName = String -- ^ Name of concrete syntax
 readPGF :: FilePath -> IO PGF
 readPGF fpath =
   withCString fpath $ \c_fpath ->
+  alloca $ \p_revision ->
   mask_ $ do
-    c_pgf <- withPgfExn fpath (pgf_read_pgf c_fpath)
-    fptr <- newForeignPtr pgf_free_fptr c_pgf
-    return (PGF fptr Map.empty)
+    c_pgf <- withPgfExn fpath (pgf_read_pgf c_fpath p_revision)
+    c_revision <- peek p_revision
+    fptr1 <- newForeignPtr pgf_free_fptr c_pgf
+    fptr2 <- C.newForeignPtr c_revision (withForeignPtr fptr1 (\c_db -> pgf_free_revision c_db c_revision))
+    return (PGF fptr1 fptr2 Map.empty)
 
 -- | Reads a PGF file and stores the unpacked data in an NGF file
 -- ready to be shared with other process, or used for quick startup.
@@ -81,10 +83,13 @@ bootNGF :: FilePath -> FilePath -> IO PGF
 bootNGF pgf_path ngf_path =
   withCString pgf_path $ \c_pgf_path ->
   withCString ngf_path $ \c_ngf_path ->
+  alloca $ \p_revision ->
   mask_ $ do
-    c_pgf <- withPgfExn pgf_path (pgf_boot_ngf c_pgf_path c_ngf_path)
-    fptr <- newForeignPtr pgf_free_fptr c_pgf
-    return (PGF fptr Map.empty)
+    c_pgf <- withPgfExn pgf_path (pgf_boot_ngf c_pgf_path c_ngf_path p_revision)
+    c_revision <- peek p_revision
+    fptr1 <- newForeignPtr pgf_free_fptr c_pgf
+    fptr2 <- C.newForeignPtr c_revision (withForeignPtr fptr1 (\c_db -> pgf_free_revision c_db c_revision))
+    return (PGF fptr1 fptr2 Map.empty)
 
 -- | Tries to read the grammar from an already booted NGF file.
 -- If the file does not exist then a new one is created, and the
@@ -93,18 +98,22 @@ bootNGF pgf_path ngf_path =
 readNGF :: FilePath -> IO PGF
 readNGF fpath =
   withCString fpath $ \c_fpath ->
+  alloca $ \p_revision ->
   mask_ $ do
-    c_pgf <- withPgfExn fpath (pgf_read_ngf c_fpath)
-    fptr <- newForeignPtr pgf_free_fptr c_pgf
-    return (PGF fptr Map.empty)
+    c_db <- withPgfExn fpath (pgf_read_ngf c_fpath p_revision)
+    c_revision <- peek p_revision
+    fptr1 <- newForeignPtr pgf_free_fptr c_db
+    fptr2 <- C.newForeignPtr c_revision (withForeignPtr fptr1 (\c_db -> pgf_free_revision c_db c_revision))
+    return (PGF fptr1 fptr2 Map.empty)
 
 -- | The abstract language name is the name of the top-level
 -- abstract module
 abstractName :: PGF -> AbsName
 abstractName p =
   unsafePerformIO $
-  withForeignPtr (a_pgf p) $ \p_pgf ->
-  bracket (pgf_abstract_name p_pgf) free $ \c_text ->
+  withForeignPtr (a_db p) $ \c_db ->
+  withForeignPtr (revision p) $ \c_revision ->
+  bracket (pgf_abstract_name c_db c_revision) free $ \c_text ->
     peekText c_text
 
 -- | The start category is defined in the grammar with
@@ -116,8 +125,9 @@ startCat :: PGF -> Type
 startCat p =
   unsafePerformIO $
   withForeignPtr unmarshaller $ \u ->
-  withForeignPtr (a_pgf p) $ \c_pgf -> do
-    c_typ <- pgf_start_cat c_pgf u
+  withForeignPtr (a_db p) $ \c_db ->
+  withForeignPtr (revision p) $ \c_revision -> do
+    c_typ <- pgf_start_cat c_db c_revision u
     typ <- deRefStablePtr c_typ
     freeStablePtr c_typ
     return typ
@@ -127,9 +137,10 @@ functionType :: PGF -> Fun -> Maybe Type
 functionType p fn =
   unsafePerformIO $
   withForeignPtr unmarshaller $ \u ->
-  withForeignPtr (a_pgf p) $ \p_pgf ->
+  withForeignPtr (a_db p) $ \c_db ->
+  withForeignPtr (revision p) $ \c_revision ->
   withText fn $ \c_fn -> do
-    c_typ <- pgf_function_type p_pgf c_fn u
+    c_typ <- pgf_function_type c_db c_revision c_fn u
     if c_typ == castPtrToStablePtr nullPtr
       then return Nothing
       else do typ <- deRefStablePtr c_typ
@@ -140,16 +151,18 @@ functionIsConstructor :: PGF -> Fun -> Bool
 functionIsConstructor p fun =
   unsafePerformIO $
   withText fun $ \c_fun ->
-  withForeignPtr (a_pgf p) $ \c_pgf ->
-      do res <- pgf_function_is_constructor c_pgf c_fun
+  withForeignPtr (a_db p) $ \c_db ->
+  withForeignPtr (revision p) $ \c_revision ->
+      do res <- pgf_function_is_constructor c_db c_revision c_fun
          return (res /= 0)
 
 functionProb :: PGF -> Fun -> Float
 functionProb p fun =
   unsafePerformIO $
   withText fun $ \c_fun ->
-  withForeignPtr (a_pgf p) $ \c_pgf ->
-      do c_prob <- pgf_function_prob c_pgf c_fun
+  withForeignPtr (a_db p) $ \c_db ->
+  withForeignPtr (revision p) $ \c_revision ->
+      do c_prob <- pgf_function_prob c_db c_revision c_fun
          return (realToFrac c_prob)
 
 -- | List of all functions defined in the abstract syntax
@@ -159,9 +172,10 @@ categories p =
     ref <- newIORef []
     (allocaBytes (#size PgfItor) $ \itor ->
      bracket (wrapItorCallback (getCategories ref)) freeHaskellFunPtr $ \fptr ->
-     withForeignPtr (a_pgf p) $ \p_pgf -> do
+     withForeignPtr (a_db p) $ \c_db ->
+     withForeignPtr (revision p) $ \c_revision -> do
       (#poke PgfItor, fn) itor fptr
-      withPgfExn "" (pgf_iter_categories p_pgf itor)
+      withPgfExn "" (pgf_iter_categories c_db c_revision itor)
       cs <- readIORef ref
       return (reverse cs))
   where
@@ -177,9 +191,10 @@ categoryContext p cat =
   withText cat $ \c_cat ->
   alloca $ \p_n_hypos ->
   withForeignPtr unmarshaller $ \u ->
-  withForeignPtr (a_pgf p) $ \c_pgf ->
+  withForeignPtr (a_db p) $ \c_db ->
+  withForeignPtr (revision p) $ \c_revision ->
   mask_ $ do
-    c_hypos <- pgf_category_context c_pgf c_cat p_n_hypos u
+    c_hypos <- pgf_category_context c_db c_revision c_cat p_n_hypos u
     if c_hypos == nullPtr
       then return []
       else do n_hypos <- peek p_n_hypos
@@ -204,8 +219,9 @@ categoryProb :: PGF -> Cat -> Float
 categoryProb p cat =
   unsafePerformIO $
   withText cat $ \c_cat ->
-  withForeignPtr (a_pgf p) $ \c_pgf ->
-      do c_prob <- pgf_category_prob c_pgf c_cat
+  withForeignPtr (a_db p) $ \c_db ->
+  withForeignPtr (revision p) $ \c_revision ->
+      do c_prob <- pgf_category_prob c_db c_revision c_cat
          return (realToFrac c_prob)
 
 -- | List of all functions defined in the abstract syntax
@@ -215,9 +231,10 @@ functions p =
     ref <- newIORef []
     (allocaBytes (#size PgfItor) $ \itor ->
      bracket (wrapItorCallback (getFunctions ref)) freeHaskellFunPtr $ \fptr ->
-     withForeignPtr (a_pgf p) $ \p_pgf -> do
+     withForeignPtr (a_db p) $ \c_db ->
+     withForeignPtr (revision p) $ \c_revision -> do
       (#poke PgfItor, fn) itor fptr
-      withPgfExn "" (pgf_iter_functions p_pgf itor)
+      withPgfExn "" (pgf_iter_functions c_db c_revision itor)
       fs <- readIORef ref
       return (reverse fs))
   where
@@ -235,9 +252,10 @@ functionsByCat p cat =
     (withText cat $ \c_cat ->
      allocaBytes (#size PgfItor) $ \itor ->
      bracket (wrapItorCallback (getFunctions ref)) freeHaskellFunPtr $ \fptr ->
-     withForeignPtr (a_pgf p) $ \p_pgf -> do
+     withForeignPtr (a_db p) $ \c_db ->
+     withForeignPtr (revision p) $ \c_revision -> do
       (#poke PgfItor, fn) itor fptr
-      withPgfExn "" (pgf_iter_functions_by_cat p_pgf c_cat itor)
+      withPgfExn "" (pgf_iter_functions_by_cat c_db c_revision c_cat itor)
       fs <- readIORef ref
       return (reverse fs))
   where
@@ -316,11 +334,3 @@ readType str =
       else do ty <- deRefStablePtr c_ty
               freeStablePtr c_ty
               return (Just ty)
-
-createFunction :: PGF -> Fun -> Type -> Float -> IO ()
-createFunction p name ty prob =
-  withForeignPtr (a_pgf p) $ \p_pgf ->
-  withText name $ \c_name ->
-  bracket (newStablePtr ty) freeStablePtr $ \c_ty ->
-  withForeignPtr marshaller $ \m -> do
-    pgf_create_function p_pgf c_name c_ty prob m

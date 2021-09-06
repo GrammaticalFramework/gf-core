@@ -15,7 +15,8 @@ static PyObject *PGFError;
 
 typedef struct {
     PyObject_HEAD
-    PgfPGF *pgf;
+    PgfDB *db;
+    PgfRevision revision;
 } PGFObject;
 
 // typedef struct IterObject {
@@ -1719,7 +1720,7 @@ typedef struct {
 static void
 PGF_dealloc(PGFObject* self)
 {
-    pgf_free(self->pgf);
+    pgf_free(self->db);
     Py_TYPE(self)->tp_free((PyObject*)self);
 }
 
@@ -1767,7 +1768,7 @@ PGF_repr(PGFObject *self)
 static PyObject*
 PGF_getAbstractName(PGFObject *self, void *closure)
 {
-    PgfText* txt = pgf_abstract_name(self->pgf);
+    PgfText* txt = pgf_abstract_name(self->db, self->revision);
     PyObject *name = PyString_FromStringAndSize(txt->text, txt->size);
     free(txt);
     return name;
@@ -1866,7 +1867,7 @@ PGF_getCategories(PGFObject *self, void *closure)
 
     PgfExn err;
     PyPGFClosure clo = { { pgf_collect_cats }, self, categories };
-    pgf_iter_categories(self->pgf, &clo.fn, &err);
+    pgf_iter_categories(self->db, self->revision, &clo.fn, &err);
     if (err.type != PGF_EXN_NONE) {
         Py_DECREF(categories);
         return NULL;
@@ -1878,7 +1879,7 @@ PGF_getCategories(PGFObject *self, void *closure)
 static TypeObject *
 PGF_getStartCat(PGFObject *self, void *closure)
 {
-    PgfType type = pgf_start_cat(self->pgf, &unmarshaller);
+    PgfType type = pgf_start_cat(self->db, self->revision, &unmarshaller);
     if (type == 0) {
         PyErr_SetString(PGFError, "start category cannot be found");
         return NULL;
@@ -1915,7 +1916,7 @@ PGF_getFunctions(PGFObject *self, void *closure)
 
     PgfExn err;
     PyPGFClosure clo = { { pgf_collect_funs }, self, functions };
-    pgf_iter_functions(self->pgf, &clo.fn, &err);
+    pgf_iter_functions(self->db, self->revision, &clo.fn, &err);
     if (err.type != PGF_EXN_NONE) {
         Py_DECREF(functions);
         return NULL;
@@ -1943,7 +1944,7 @@ PGF_functionsByCat(PGFObject *self, PyObject *args)
 
     PgfExn err;
     PyPGFClosure clo = { { pgf_collect_funs }, self, functions };
-    pgf_iter_functions_by_cat(self->pgf, catname, &clo.fn, &err);
+    pgf_iter_functions_by_cat(self->db, self->revision, catname, &clo.fn, &err);
     PyMem_Free(catname);
     if (err.type != PGF_EXN_NONE) {
         Py_DECREF(functions);
@@ -1965,7 +1966,7 @@ PGF_functionType(PGFObject *self, PyObject *args)
     memcpy(funname->text, s, size+1);
     funname->size = size;
 
-    PgfType type = pgf_function_type(self->pgf, funname, &unmarshaller);
+    PgfType type = pgf_function_type(self->db, self->revision, funname, &unmarshaller);
     PyMem_Free(funname);
     if (type == 0) {
         PyErr_Format(PyExc_KeyError, "function '%s' is not defined", s);
@@ -2387,7 +2388,7 @@ pgf_readPGF(PyObject *self, PyObject *args)
 
     // Read the PGF grammar.
     PgfExn err;
-    py_pgf->pgf = pgf_read_pgf(fpath, &err);
+    py_pgf->db = pgf_read_pgf(fpath, &py_pgf->revision, &err);
     if (err.type == PGF_EXN_SYSTEM_ERROR) {
         errno = err.code;
         PyErr_SetFromErrnoWithFilename(PyExc_IOError, fpath);
@@ -2415,7 +2416,7 @@ pgf_bootNGF(PyObject *self, PyObject *args)
 
     // Read the PGF grammar.
     PgfExn err;
-    py_pgf->pgf = pgf_boot_ngf(fpath, npath, &err);
+    py_pgf->db = pgf_boot_ngf(fpath, npath, &py_pgf->revision, &err);
     if (err.type == PGF_EXN_SYSTEM_ERROR) {
         errno = err.code;
         PyErr_SetFromErrnoWithFilename(PyExc_IOError, npath);
@@ -2442,7 +2443,7 @@ pgf_readNGF(PyObject *self, PyObject *args)
 
     // Read the NGF grammar.
     PgfExn err;
-    py_pgf->pgf = pgf_read_ngf(fpath, &err);
+    py_pgf->db = pgf_read_ngf(fpath, &py_pgf->revision, &err);
     if (err.type == PGF_EXN_SYSTEM_ERROR) {
         errno = err.code;
         PyErr_SetFromErrnoWithFilename(PyExc_IOError, fpath);

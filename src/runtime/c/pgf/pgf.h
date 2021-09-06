@@ -210,62 +210,80 @@ struct PgfMarshaller {
 
 typedef float prob_t;
 
-typedef struct PgfPGF PgfPGF;
+typedef struct PgfDB PgfDB;
+typedef object PgfRevision;
 
-/* Reads a PGF file and keeps it in memory. */
+/* Reads a PGF file and builds the database in memory.
+ * If successful, *revision will contain the initial revision of
+ * the grammar. */
 PGF_API_DECL
-PgfPGF *pgf_read_pgf(const char* fpath,
-                     PgfExn* err);
+PgfDB *pgf_read_pgf(const char* fpath, PgfRevision *revision,
+                    PgfExn* err);
 
 /* Reads a PGF file and stores the unpacked data in an NGF file
- * ready to be shared with other process, or used for quick startup.
+ * ready to be shared with other process, or used for quick re-start.
  * The NGF file is platform dependent and should not be copied
  * between machines. */
 PGF_API_DECL
-PgfPGF *pgf_boot_ngf(const char* pgf_path, const char* ngf_path,
-                     PgfExn* err);
+PgfDB *pgf_boot_ngf(const char* pgf_path, const char* ngf_path,
+                    PgfRevision *revision,
+                    PgfExn* err);
 
 /* Tries to read the grammar from an already booted NGF file.
  * If the file does not exist then a new one is created, and the
  * grammar is set to be empty. It can later be populated with
- * rules dynamically. */
+ * rules dynamically. The default grammar revision is stored
+ * in *revision. */
 PGF_API_DECL
-PgfPGF *pgf_read_ngf(const char* fpath,
-                     PgfExn* err);
+PgfDB *pgf_read_ngf(const char* fpath,
+                    PgfRevision *revision,
+                    PgfExn* err);
 
-/* Release the grammar when it is no longer needed. */
+/* Release the database when it is no longer needed. */
 PGF_API_DECL
-void pgf_free(PgfPGF *pgf);
-
-PGF_API_DECL
-PgfText *pgf_abstract_name(PgfPGF *pgf);
-
-PGF_API_DECL
-void pgf_iter_categories(PgfPGF *pgf, PgfItor *itor, PgfExn *err);
+void pgf_free(PgfDB *pgf);
 
 PGF_API_DECL
-PgfType pgf_start_cat(PgfPGF *pgf, PgfUnmarshaller *u);
+void pgf_free_revision(PgfDB *pgf, PgfRevision revision);
 
 PGF_API_DECL
-PgfTypeHypo *pgf_category_context(PgfPGF *pgf, PgfText *catname, size_t *n_hypos, PgfUnmarshaller *u);
+PgfText *pgf_abstract_name(PgfDB *db, PgfRevision revision);
 
 PGF_API_DECL
-prob_t pgf_category_prob(PgfPGF* pgf, PgfText *catname);
+void pgf_iter_categories(PgfDB *db, PgfRevision revision,
+                         PgfItor *itor, PgfExn *err);
 
 PGF_API_DECL
-void pgf_iter_functions(PgfPGF *pgf, PgfItor *itor, PgfExn *err);
+PgfType pgf_start_cat(PgfDB *db, PgfRevision revision,
+                      PgfUnmarshaller *u);
 
 PGF_API_DECL
-void pgf_iter_functions_by_cat(PgfPGF *pgf, PgfText *cat, PgfItor *itor, PgfExn *err);
+PgfTypeHypo *pgf_category_context(PgfDB *db, PgfRevision revision,
+                                  PgfText *catname, size_t *n_hypos, PgfUnmarshaller *u);
 
 PGF_API_DECL
-PgfType pgf_function_type(PgfPGF *pgf, PgfText *funname, PgfUnmarshaller *u);
+prob_t pgf_category_prob(PgfDB *db, PgfRevision revision,
+                         PgfText *catname);
 
 PGF_API_DECL
-int pgf_function_is_constructor(PgfPGF *pgf, PgfText *funname);
+void pgf_iter_functions(PgfDB *db, PgfRevision revision,
+                        PgfItor *itor, PgfExn *err);
 
 PGF_API_DECL
-prob_t pgf_function_prob(PgfPGF *pgf, PgfText *funname);
+void pgf_iter_functions_by_cat(PgfDB *db, PgfRevision revision,
+                               PgfText *cat, PgfItor *itor, PgfExn *err);
+
+PGF_API_DECL
+PgfType pgf_function_type(PgfDB *db, PgfRevision revision,
+                          PgfText *funname, PgfUnmarshaller *u);
+
+PGF_API_DECL
+int pgf_function_is_constructor(PgfDB *db, PgfRevision revision,
+                                PgfText *funname);
+
+PGF_API_DECL
+prob_t pgf_function_prob(PgfDB *db, PgfRevision revision,
+                         PgfText *funname);
 
 typedef struct PgfPrintContext PgfPrintContext;
 
@@ -291,8 +309,14 @@ PGF_API_DECL
 PgfType pgf_read_type(PgfText *input, PgfUnmarshaller *u);
 
 PGF_API_DECL
-void pgf_create_function(PgfPGF *pgf, PgfText *name,
+PgfRevision pgf_clone_revision(PgfDB *db, PgfRevision revision,
+                               PgfExn *err);
+
+PGF_API_DECL
+void pgf_create_function(PgfDB *db, PgfRevision revision,
+                         PgfText *name,
                          PgfType ty, prob_t prob,
-                         PgfMarshaller *m);
+                         PgfMarshaller *m,
+                         PgfExn *err);
 
 #endif // PGF_H_
