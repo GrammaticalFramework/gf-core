@@ -2,7 +2,7 @@
 #include <Python.h>
 #include <stdbool.h>
 
-#include "expr.h"
+#include "./expr.h"
 
 // static ExprObject*
 // Expr_new(PyTypeObject *type, PyObject *args, PyObject *kwds)
@@ -665,36 +665,28 @@
 
 // ----------------------------------------------------------------------------
 
-static TypeObject*
-Type_new(PyTypeObject *type, PyObject *args, PyObject *kwds)
-{
-    TypeObject* self = (TypeObject *)type->tp_alloc(type, 0);
-    if (self != NULL) {
-        self->master = NULL;
-        // self->pool   = NULL;
-        // self->type   = NULL;
-        self->cat = NULL;
-    }
+// static TypeObject*
+// Type_new(PyTypeObject *type, PyObject *args, PyObject *kwds)
+// {
+//     TypeObject* self = (TypeObject *)type->tp_alloc(type, 0);
+//     if (self != NULL) {
+//         self->hypos = NULL;
+//         self->cat = NULL;
+//         self->exprs = NULL;
+//     }
+//
+//     return self;
+// }
 
-    return self;
-}
+// static void
+// Type_dealloc(TypeObject *self)
+// {
+//     Py_TYPE(self)->tp_free((PyObject*)self);
+// }
 
-static void
-Type_dealloc(TypeObject* self)
-{
-    if (self->master != NULL) {
-        Py_DECREF(self->master);
-    }
-    // if (self->pool != NULL) {
-    //     gu_pool_free(self->pool);
-    // }
-
-    Py_TYPE(self)->tp_free((PyObject*)self);
-}
-
-static int
-Type_init(TypeObject *self, PyObject *args, PyObject *kwds)
-{
+// static int
+// Type_init(TypeObject *self, PyObject *args, PyObject *kwds)
+// {
 //     PyObject* py_hypos;
 //     const char* catname_s;
 //     PyObject* py_exprs;
@@ -813,9 +805,9 @@ Type_init(TypeObject *self, PyObject *args, PyObject *kwds)
 //
 //         self->type->exprs[i] = ((ExprObject*) obj)->expr;
 //     }
-
-    return 0;
-}
+//
+//     return 0;
+// }
 
 static PyObject *
 Type_repr(TypeObject *self)
@@ -835,29 +827,43 @@ Type_repr(TypeObject *self)
     // return pystr;
 
     PyErr_SetString(PyExc_TypeError, "Type_repr: not implemented");
-    return NULL;
-}
-
-bool pgfTextEqual(PgfText *t1, PgfText *t2) {
-    if (t1->size != t2->size) return false;
-    for (size_t i = 0; i < t1->size; i++) {
-        if (t1->text[i] != t2->text[i]) return false;
-    }
-    return true;
+    Py_RETURN_NOTIMPLEMENTED;
 }
 
 static PyObject *
 Type_richcompare(TypeObject *t1, TypeObject *t2, int op)
 {
-    bool cmp = pgfTextEqual(t1->cat, t2->cat);
+    bool same = false;
+    if (PyString_Compare(t1->cat, t2->cat) != 0) goto done;
+
+    if (PyList_Size(t1->hypos) != PyList_Size(t2->hypos)) goto done;
+    for (Py_ssize_t n = 0; n < PyList_Size(t1->hypos); n++) {
+        PyObject *h1 = PyList_GetItem(t1->hypos, n);
+        PyObject *h2 = PyList_GetItem(t2->hypos, n);
+        if (PyTuple_GetItem(h1, 0) != PyTuple_GetItem(h2, 0)) goto done;
+        if (PyString_Compare(PyTuple_GetItem(h1, 1), PyTuple_GetItem(h2, 1)) != 0) goto done;
+        TypeObject *ht1 = (TypeObject *)PyTuple_GetItem(h1, 2);
+        TypeObject *ht2 = (TypeObject *)PyTuple_GetItem(h2, 2);
+        if (Type_richcompare(ht1, ht2, Py_EQ) != Py_True) goto done;
+    }
+
+    if (PyList_Size(t1->exprs) != PyList_Size(t2->exprs)) goto done;
+    // for (Py_ssize_t n = 0; n < PyList_Size(t1->exprs); n++) {
+    //     ExprObject *e1 = PyList_GetItem(t1->exprs, n);
+    //     ExprObject *e2 = PyList_GetItem(t2->exprs, n);
+    //     if (Expr_richcompare(e1, e2, Py_EQ) != Py_True) goto done; // TODO
+    // }
+
+    same = true;
+done:
 
     if (op == Py_EQ) {
-        if (cmp) Py_RETURN_TRUE;  else Py_RETURN_FALSE;
+        if (same) Py_RETURN_TRUE;  else Py_RETURN_FALSE;
     } else if (op == Py_NE) {
-        if (cmp) Py_RETURN_FALSE; else Py_RETURN_TRUE;
+        if (same) Py_RETURN_FALSE; else Py_RETURN_TRUE;
     } else {
         PyErr_SetString(PyExc_TypeError, "comparison operation not supported");
-        return NULL;
+        Py_RETURN_NOTIMPLEMENTED;
     }
 }
 
@@ -1044,7 +1050,7 @@ PyTypeObject pgf_TypeType = {
     "pgf.Type",                /*tp_name*/
     sizeof(TypeObject),        /*tp_basicsize*/
     0,                         /*tp_itemsize*/
-    (destructor) Type_dealloc, /*tp_dealloc*/
+    0, //(destructor) Type_dealloc, /*tp_dealloc*/
     0,                         /*tp_print*/
     0,                         /*tp_getattr*/
     0,                         /*tp_setattr*/
@@ -1075,7 +1081,7 @@ PyTypeObject pgf_TypeType = {
     0,                         /*tp_descr_get */
     0,                         /*tp_descr_set */
     0,                         /*tp_dictoffset */
-    (initproc) Type_init,      /*tp_init */
+    0, //(initproc) Type_init,      /*tp_init */
     0,                         /*tp_alloc */
-    (newfunc) Type_new,        /*tp_new */
+    0, //(newfunc) Type_new,        /*tp_new */
 };

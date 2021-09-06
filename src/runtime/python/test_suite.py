@@ -94,6 +94,9 @@ def test_readType_equality_1():
 def test_readType_equality_2():
     assert pgf.readType("A -> B") == pgf.readType("A->B")
 
+def test_readType_equality_3():
+    assert pgf.readType("A -> B -> C") == pgf.readType("A->B   ->   C")
+
 def test_readType_inequality_1():
     assert pgf.readType("A") != pgf.readType("B")
 
@@ -108,6 +111,13 @@ def test_functionType_2(PGF):
 
 def test_functionType_3(PGF):
     assert PGF.functionType("c") == pgf.readType("N -> S")
+
+def test_functionType_non_existant(PGF):
+    with pytest.raises(KeyError):
+        assert PGF.functionType("cbx")
+
+def test_functionType_wrong(PGF):
+    assert PGF.functionType("c") != pgf.readType("N -> S -> X")
 
 def test_startCat(PGF):
     with pytest.raises(pgf.PGFError):

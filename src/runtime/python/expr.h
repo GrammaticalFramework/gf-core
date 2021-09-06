@@ -6,12 +6,13 @@
 
 #include <pgf/pgf.h>
 
+#include "./compat.h"
+
 typedef struct {
     PyObject_HEAD
-    PyObject* master;
-    // GuPool* pool;
-    // PgfType* type;
-    PgfText *cat;
+    PyObject *hypos; // PyListObject of PyTupleObject: (bind_type: int, cid: string, type: TypeObject)
+    PyObject *cat;   // PyStringObject
+    PyObject *exprs; // PyListObject of ExprObject
 } TypeObject;
 
 extern PyTypeObject pgf_TypeType;

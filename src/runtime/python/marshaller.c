@@ -1,7 +1,9 @@
-// #define PY_SSIZE_T_CLEAN
-// #include <Python.h>
+#define PY_SSIZE_T_CLEAN
+#include <Python.h>
 
 #include <pgf/pgf.h>
+
+#include "./compat.h"
 #include "./expr.h"
 
 /* The PgfUnmarshaller structure tells the runtime how to create
@@ -71,12 +73,22 @@ PgfLiteral lstr(PgfUnmarshaller *this, PgfText *v)
 
 PgfType dtyp(PgfUnmarshaller *this, int n_hypos, PgfTypeHypo *hypos, PgfText *cat, int n_exprs, PgfExpr *exprs)
 {
-    PgfText *catname = (PgfText*) malloc(sizeof(PgfText)+cat->size+1);
-    memcpy(catname->text, cat->text, cat->size+1);
-    catname->size = cat->size;
+    TypeObject *pytype = (TypeObject *)pgf_TypeType.tp_alloc(&pgf_TypeType, 0);
 
-    TypeObject *pytype = (TypeObject*) pgf_TypeType.tp_alloc(&pgf_TypeType, 0);
-    pytype->cat = catname;
+    pytype->hypos = PyList_New(0);
+    for (int i = 0; i < n_hypos; i++) {
+        PgfTypeHypo *hypo = hypos + i;
+        PyObject *tup = PyTuple_New(3);
+        PyTuple_SetItem(tup, 0, PyLong_FromLong(hypo->bind_type == PGF_BIND_TYPE_EXPLICIT ? 0 : 1)); // TODO
+        PyTuple_SetItem(tup, 1, PyString_FromStringAndSize(hypo->cid->text, hypo->cid->size));
+        PyTuple_SetItem(tup, 2, (PyObject *)hypo->type);
+        Py_INCREF(hypo->type);
+        PyList_Append(pytype->hypos, tup);
+    }
+
+    pytype->cat = PyString_FromStringAndSize(cat->text, cat->size);
+
+    pytype->exprs = PyList_New(0);
     return (PgfType) pytype;
 }
 
