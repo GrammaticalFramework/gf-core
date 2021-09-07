@@ -62,7 +62,7 @@ foreign import ccall "pgf_free_revision"
   pgf_free_revision :: Ptr PgfDB -> Ptr PgfRevision -> IO ()
 
 foreign import ccall "pgf_abstract_name"
-  pgf_abstract_name :: Ptr PgfDB -> Ptr PgfRevision -> IO (Ptr PgfText)
+  pgf_abstract_name :: Ptr PgfDB -> Ptr PgfRevision -> Ptr PgfExn -> IO (Ptr PgfText)
 
 foreign import ccall "pgf_print_expr"
   pgf_print_expr :: StablePtr Expr -> Ptr PgfPrintContext -> CInt -> Ptr PgfMarshaller -> IO (Ptr PgfText)
@@ -85,13 +85,13 @@ foreign import ccall "pgf_iter_categories"
   pgf_iter_categories :: Ptr PgfDB -> Ptr PgfRevision -> Ptr PgfItor -> Ptr PgfExn -> IO ()
 
 foreign import ccall "pgf_start_cat"
-  pgf_start_cat :: Ptr PgfDB -> Ptr PgfRevision -> Ptr PgfUnmarshaller -> IO (StablePtr Type)
+  pgf_start_cat :: Ptr PgfDB -> Ptr PgfRevision -> Ptr PgfUnmarshaller -> Ptr PgfExn -> IO (StablePtr Type)
 
 foreign import ccall "pgf/pgf.h pgf_category_context"
-  pgf_category_context :: Ptr PgfDB -> Ptr PgfRevision -> Ptr PgfText -> Ptr CSize -> Ptr PgfUnmarshaller -> IO (Ptr PgfTypeHypo)
+  pgf_category_context :: Ptr PgfDB -> Ptr PgfRevision -> Ptr PgfText -> Ptr CSize -> Ptr PgfUnmarshaller -> Ptr PgfExn -> IO (Ptr PgfTypeHypo)
 
 foreign import ccall "pgf/pgf.h pgf_category_prob"
-  pgf_category_prob :: Ptr PgfDB -> Ptr PgfRevision -> Ptr PgfText -> IO (#type prob_t)
+  pgf_category_prob :: Ptr PgfDB -> Ptr PgfRevision -> Ptr PgfText -> Ptr PgfExn -> IO (#type prob_t)
 
 foreign import ccall "pgf_iter_functions"
   pgf_iter_functions :: Ptr PgfDB -> Ptr PgfRevision -> Ptr PgfItor -> Ptr PgfExn -> IO ()
@@ -99,14 +99,14 @@ foreign import ccall "pgf_iter_functions"
 foreign import ccall "pgf_iter_functions_by_cat"
   pgf_iter_functions_by_cat :: Ptr PgfDB -> Ptr PgfRevision -> Ptr PgfText -> Ptr PgfItor -> Ptr PgfExn -> IO ()
 
-foreign import ccall "pgf/pgf.h pgf_function_type"
-   pgf_function_type :: Ptr PgfDB -> Ptr PgfRevision -> Ptr PgfText -> Ptr PgfUnmarshaller -> IO (StablePtr Type)
+foreign import ccall "pgf_function_type"
+   pgf_function_type :: Ptr PgfDB -> Ptr PgfRevision -> Ptr PgfText -> Ptr PgfUnmarshaller -> Ptr PgfExn -> IO (StablePtr Type)
 
-foreign import ccall "pgf/expr.h pgf_function_is_constructor"
-   pgf_function_is_constructor :: Ptr PgfDB -> Ptr PgfRevision -> Ptr PgfText -> IO (#type int)
+foreign import ccall "pgf_function_is_constructor"
+   pgf_function_is_constructor :: Ptr PgfDB -> Ptr PgfRevision -> Ptr PgfText -> Ptr PgfExn -> IO (#type int)
 
 foreign import ccall "pgf_function_prob"
-   pgf_function_prob :: Ptr PgfDB -> Ptr PgfRevision -> Ptr PgfText -> IO (#type prob_t)
+   pgf_function_prob :: Ptr PgfDB -> Ptr PgfRevision -> Ptr PgfText -> Ptr PgfExn -> IO (#type prob_t)
 
 foreign import ccall "pgf_clone_revision"
    pgf_clone_revision :: Ptr PgfDB -> Ptr PgfRevision -> Ptr PgfExn -> IO (Ptr PgfRevision)

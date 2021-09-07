@@ -248,7 +248,8 @@ PGF_API_DECL
 void pgf_free_revision(PgfDB *pgf, PgfRevision revision);
 
 PGF_API_DECL
-PgfText *pgf_abstract_name(PgfDB *db, PgfRevision revision);
+PgfText *pgf_abstract_name(PgfDB *db, PgfRevision revision,
+                           PgfExn* err);
 
 PGF_API_DECL
 void pgf_iter_categories(PgfDB *db, PgfRevision revision,
@@ -256,15 +257,18 @@ void pgf_iter_categories(PgfDB *db, PgfRevision revision,
 
 PGF_API_DECL
 PgfType pgf_start_cat(PgfDB *db, PgfRevision revision,
-                      PgfUnmarshaller *u);
+                      PgfUnmarshaller *u,
+                      PgfExn* err);
 
 PGF_API_DECL
 PgfTypeHypo *pgf_category_context(PgfDB *db, PgfRevision revision,
-                                  PgfText *catname, size_t *n_hypos, PgfUnmarshaller *u);
+                                  PgfText *catname, size_t *n_hypos, PgfUnmarshaller *u,
+                                  PgfExn* err);
 
 PGF_API_DECL
 prob_t pgf_category_prob(PgfDB *db, PgfRevision revision,
-                         PgfText *catname);
+                         PgfText *catname,
+                         PgfExn* err);
 
 PGF_API_DECL
 void pgf_iter_functions(PgfDB *db, PgfRevision revision,
@@ -276,15 +280,18 @@ void pgf_iter_functions_by_cat(PgfDB *db, PgfRevision revision,
 
 PGF_API_DECL
 PgfType pgf_function_type(PgfDB *db, PgfRevision revision,
-                          PgfText *funname, PgfUnmarshaller *u);
+                          PgfText *funname, PgfUnmarshaller *u,
+                          PgfExn* err);
 
 PGF_API_DECL
 int pgf_function_is_constructor(PgfDB *db, PgfRevision revision,
-                                PgfText *funname);
+                                PgfText *funname,
+                                PgfExn* err);
 
 PGF_API_DECL
 prob_t pgf_function_prob(PgfDB *db, PgfRevision revision,
-                         PgfText *funname);
+                         PgfText *funname,
+                         PgfExn* err);
 
 typedef struct PgfPrintContext PgfPrintContext;
 

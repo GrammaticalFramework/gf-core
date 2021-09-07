@@ -113,7 +113,7 @@ abstractName p =
   unsafePerformIO $
   withForeignPtr (a_db p) $ \c_db ->
   withForeignPtr (revision p) $ \c_revision ->
-  bracket (pgf_abstract_name c_db c_revision) free $ \c_text ->
+  bracket (withPgfExn (pgf_abstract_name c_db c_revision)) free $ \c_text ->
     peekText c_text
 
 -- | The start category is defined in the grammar with
@@ -127,7 +127,7 @@ startCat p =
   withForeignPtr unmarshaller $ \u ->
   withForeignPtr (a_db p) $ \c_db ->
   withForeignPtr (revision p) $ \c_revision -> do
-    c_typ <- pgf_start_cat c_db c_revision u
+    c_typ <- withPgfExn (pgf_start_cat c_db c_revision u)
     typ <- deRefStablePtr c_typ
     freeStablePtr c_typ
     return typ
@@ -140,7 +140,7 @@ functionType p fn =
   withForeignPtr (a_db p) $ \c_db ->
   withForeignPtr (revision p) $ \c_revision ->
   withText fn $ \c_fn -> do
-    c_typ <- pgf_function_type c_db c_revision c_fn u
+    c_typ <- withPgfExn (pgf_function_type c_db c_revision c_fn u)
     if c_typ == castPtrToStablePtr nullPtr
       then return Nothing
       else do typ <- deRefStablePtr c_typ
@@ -153,7 +153,7 @@ functionIsConstructor p fun =
   withText fun $ \c_fun ->
   withForeignPtr (a_db p) $ \c_db ->
   withForeignPtr (revision p) $ \c_revision ->
-      do res <- pgf_function_is_constructor c_db c_revision c_fun
+      do res <- withPgfExn (pgf_function_is_constructor c_db c_revision c_fun)
          return (res /= 0)
 
 functionProb :: PGF -> Fun -> Float
@@ -162,8 +162,7 @@ functionProb p fun =
   withText fun $ \c_fun ->
   withForeignPtr (a_db p) $ \c_db ->
   withForeignPtr (revision p) $ \c_revision ->
-      do c_prob <- pgf_function_prob c_db c_revision c_fun
-         return (realToFrac c_prob)
+      withPgfExn (pgf_function_prob c_db c_revision c_fun)
 
 -- | List of all functions defined in the abstract syntax
 categories :: PGF -> [Cat]
@@ -194,7 +193,7 @@ categoryContext p cat =
   withForeignPtr (a_db p) $ \c_db ->
   withForeignPtr (revision p) $ \c_revision ->
   mask_ $ do
-    c_hypos <- pgf_category_context c_db c_revision c_cat p_n_hypos u
+    c_hypos <- withPgfExn (pgf_category_context c_db c_revision c_cat p_n_hypos u)
     if c_hypos == nullPtr
       then return []
       else do n_hypos <- peek p_n_hypos
@@ -221,8 +220,7 @@ categoryProb p cat =
   withText cat $ \c_cat ->
   withForeignPtr (a_db p) $ \c_db ->
   withForeignPtr (revision p) $ \c_revision ->
-      do c_prob <- pgf_category_prob c_db c_revision c_cat
-         return (realToFrac c_prob)
+      withPgfExn (pgf_category_prob c_db c_revision c_cat)
 
 -- | List of all functions defined in the abstract syntax
 functions :: PGF -> [Fun]

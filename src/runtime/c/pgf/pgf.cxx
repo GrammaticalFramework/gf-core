@@ -12,6 +12,21 @@ pgf_exn_clear(PgfExn* err)
     err->msg  = NULL;
 }
 
+#define PGF_API_BEGIN \
+    pgf_exn_clear(err); \
+\
+    try \
+
+#define PGF_API_END \
+    catch (pgf_systemerror& e) { \
+        err->type = PGF_EXN_SYSTEM_ERROR; \
+        err->code = e.code(); \
+        err->msg  = e.filepath(); \
+    } catch (pgf_error& e) { \
+        err->type = PGF_EXN_PGF_ERROR; \
+        err->msg  = strdup(e.what()); \
+    }
+
 PGF_API
 PgfDB *pgf_read_pgf(const char* fpath,
                     PgfRevision *revision,
@@ -19,9 +34,7 @@ PgfDB *pgf_read_pgf(const char* fpath,
 {
     PgfDB *db = NULL;
 
-    pgf_exn_clear(err);
-
-    try {
+    PGF_API_BEGIN {
         db = new PgfDB(NULL, 0, 0);
         std::ifstream in(fpath, std::ios::binary);
         if (in.fail()) {
@@ -39,14 +52,7 @@ PgfDB *pgf_read_pgf(const char* fpath,
         }
 
         return db;
-    } catch (pgf_systemerror& e) {
-        err->type = PGF_EXN_SYSTEM_ERROR;
-        err->code = e.code();
-        err->msg  = e.filepath();
-    } catch (pgf_error& e) {
-        err->type = PGF_EXN_PGF_ERROR;
-        err->msg  = strdup(e.what());
-    }
+    } PGF_API_END
 
 end:
     if (db != NULL)
@@ -62,9 +68,7 @@ PgfDB *pgf_boot_ngf(const char* pgf_path, const char* ngf_path,
 {
     PgfDB *db = NULL;
 
-    pgf_exn_clear(err);
-
-    try {
+    PGF_API_BEGIN {
         db = new PgfDB(ngf_path, O_CREAT | O_EXCL | O_RDWR, S_IRUSR | S_IWUSR);
 
         std::ifstream in(pgf_path, std::ios::binary);
@@ -85,14 +89,7 @@ PgfDB *pgf_boot_ngf(const char* pgf_path, const char* ngf_path,
         }
 
         return db;
-    } catch (pgf_systemerror& e) {
-        err->type = PGF_EXN_SYSTEM_ERROR;
-        err->code = e.code();
-        err->msg  = e.filepath();
-    } catch (pgf_error& e) {
-        err->type = PGF_EXN_PGF_ERROR;
-        err->msg  = strdup(e.what());
-    }
+    } PGF_API_END
 
     if (db != NULL) {
         delete db;
@@ -109,10 +106,8 @@ PgfDB *pgf_read_ngf(const char *fpath,
 {
     PgfDB *db = NULL;
 
-    pgf_exn_clear(err);
-
     bool is_new = false;
-    try {
+    PGF_API_BEGIN {
         db = new PgfDB(fpath, O_CREAT | O_RDWR, S_IRUSR | S_IWUSR);
 
         {
@@ -137,14 +132,7 @@ PgfDB *pgf_read_ngf(const char *fpath,
         }
 
         return db;
-    } catch (pgf_systemerror& e) {
-        err->type = PGF_EXN_SYSTEM_ERROR;
-        err->code = e.code();
-        err->msg  = e.filepath();
-    } catch (pgf_error& e) {
-        err->type = PGF_EXN_PGF_ERROR;
-        err->msg  = strdup(e.what());
-    }
+    } PGF_API_END
 
     if (db != NULL) {
         delete db;
@@ -167,114 +155,138 @@ void pgf_free_revision(PgfDB *pgf, PgfRevision revision)
 }
 
 PGF_API
-PgfText *pgf_abstract_name(PgfDB *db, PgfRevision revision)
+PgfText *pgf_abstract_name(PgfDB *db, PgfRevision revision,
+                           PgfExn *err)
 {
-    DB_scope scope(db, READER_SCOPE);
-    ref<PgfPGF> pgf = revision;
+    PGF_API_BEGIN {
+        DB_scope scope(db, READER_SCOPE);
+        ref<PgfPGF> pgf = revision;
 
-    return textdup(&(*pgf->abstract.name));
+        return textdup(&(*pgf->abstract.name));
+    } PGF_API_END
+
+    return NULL;
 }
 
 PGF_API
 void pgf_iter_categories(PgfDB *db, PgfRevision revision,
                          PgfItor *itor, PgfExn *err)
 {
-    DB_scope scope(db, READER_SCOPE);
-    ref<PgfPGF> pgf = revision;
-
-    pgf_exn_clear(err);
-    namespace_iter(pgf->abstract.cats, itor, err);
+    PGF_API_BEGIN {
+        DB_scope scope(db, READER_SCOPE);
+        ref<PgfPGF> pgf = revision;
+    
+        namespace_iter(pgf->abstract.cats, itor, err);
+    } PGF_API_END
 }
 
 PGF_API
 PgfType pgf_start_cat(PgfDB *db, PgfRevision revision,
-                      PgfUnmarshaller *u)
+                      PgfUnmarshaller *u,
+                      PgfExn *err)
 {
-    DB_scope scope(db, READER_SCOPE);
-    ref<PgfPGF> pgf = revision;
+    PGF_API_BEGIN {
+        DB_scope scope(db, READER_SCOPE);
+        ref<PgfPGF> pgf = revision;
 
-    PgfText *startcat = (PgfText *)
-        alloca(sizeof(PgfText)+9);
-    startcat->size = 8;
-    strcpy(startcat->text, "startcat");
+        PgfText *startcat = (PgfText *)
+            alloca(sizeof(PgfText)+9);
+        startcat->size = 8;
+        strcpy(startcat->text, "startcat");
 
-	ref<PgfFlag> flag =
-		namespace_lookup(pgf->abstract.aflags, startcat);
+        ref<PgfFlag> flag =
+            namespace_lookup(pgf->abstract.aflags, startcat);
 
-	if (flag != 0) {
-		switch (ref<PgfLiteral>::get_tag(flag->value)) {
-		case PgfLiteralStr::tag: {
-			auto lstr = ref<PgfLiteralStr>::untagged(flag->value);
+        if (flag != 0) {
+            switch (ref<PgfLiteral>::get_tag(flag->value)) {
+            case PgfLiteralStr::tag: {
+                auto lstr = ref<PgfLiteralStr>::untagged(flag->value);
 
-            PgfType type = pgf_read_type(&lstr->val, u);
-			if (type == 0)
-				break;
-			return type;
-		}
-		}
-	}
+                PgfType type = pgf_read_type(&lstr->val, u);
+                if (type == 0)
+                    break;
+                return type;
+            }
+            }
+        }
 
-    PgfText *s = (PgfText *)
-        alloca(sizeof(PgfText)+2);
-    s->size = 1;
-    s->text[0] = 'S';
-    s->text[1] = 0;
-	return u->dtyp(0,NULL,s,0,NULL);
+        PgfText *s = (PgfText *)
+            alloca(sizeof(PgfText)+2);
+        s->size = 1;
+        s->text[0] = 'S';
+        s->text[1] = 0;
+        return u->dtyp(0,NULL,s,0,NULL);
+    } PGF_API_END
+
+    return 0;
 }
 
 PGF_API
 PgfTypeHypo *pgf_category_context(PgfDB *db, PgfRevision revision,
-                                  PgfText *catname, size_t *n_hypos, PgfUnmarshaller *u)
+                                  PgfText *catname, size_t *n_hypos, PgfUnmarshaller *u,
+                                  PgfExn *err)
 {
-    DB_scope scope(db, READER_SCOPE);
-    ref<PgfPGF> pgf = revision;
+    PGF_API_BEGIN {
+        DB_scope scope(db, READER_SCOPE);
+        ref<PgfPGF> pgf = revision;
 
-    ref<PgfAbsCat> abscat =
-        namespace_lookup(pgf->abstract.cats, catname);
-	if (abscat == 0) {
-        *n_hypos = 0;
-		return NULL;
-    }
+        ref<PgfAbsCat> abscat =
+            namespace_lookup(pgf->abstract.cats, catname);
+        if (abscat == 0) {
+            *n_hypos = 0;
+            return NULL;
+        }
 
-    PgfDBMarshaller m;
+        PgfDBMarshaller m;
 
-    PgfTypeHypo *hypos = (PgfTypeHypo *)
-        malloc(abscat->context->len * sizeof(PgfTypeHypo));
-    for (size_t i = 0; i < abscat->context->len; i++) {
-        hypos[i].bind_type = abscat->context->data[i].bind_type;
-        hypos[i].cid = textdup(abscat->context->data[i].cid);
-        hypos[i].type = m.match_type(u, abscat->context->data[i].type.as_object());
-    }
+        PgfTypeHypo *hypos = (PgfTypeHypo *)
+            malloc(abscat->context->len * sizeof(PgfTypeHypo));
+        for (size_t i = 0; i < abscat->context->len; i++) {
+            hypos[i].bind_type = abscat->context->data[i].bind_type;
+            hypos[i].cid = textdup(abscat->context->data[i].cid);
+            hypos[i].type = m.match_type(u, abscat->context->data[i].type.as_object());
+        }
 
-    *n_hypos = abscat->context->len;
-    return hypos;
+        *n_hypos = abscat->context->len;
+        return hypos;
+    } PGF_API_END
+
+    *n_hypos = 0;
+    return NULL;
 }
 
 PGF_API
 prob_t pgf_category_prob(PgfDB *db, PgfRevision revision,
-                         PgfText *catname)
+                         PgfText *catname,
+                         PgfExn *err)
 {
-    DB_scope scope(db, READER_SCOPE);
-    ref<PgfPGF> pgf = revision;
+    PGF_API_BEGIN {
+        DB_scope scope(db, READER_SCOPE);
+        ref<PgfPGF> pgf = revision;
 
-    ref<PgfAbsCat> abscat =
-        namespace_lookup(pgf->abstract.cats, catname);
-	if (abscat == 0) {
-		return 0;
-    }
+        ref<PgfAbsCat> abscat =
+            namespace_lookup(pgf->abstract.cats, catname);
+        if (abscat == 0) {
+            return 0;
+        }
 
-    return abscat->prob;
+        return abscat->prob;
+    } PGF_API_END
+
+    return INFINITY;
 }
 
 PGF_API
 void pgf_iter_functions(PgfDB *db, PgfRevision revision,
                         PgfItor *itor, PgfExn *err)
 {
-    DB_scope scope(db, READER_SCOPE);
-    ref<PgfPGF> pgf = revision;
+    PGF_API_BEGIN {
+        DB_scope scope(db, READER_SCOPE);
+        ref<PgfPGF> pgf = revision;
 
-    pgf_exn_clear(err);
-    namespace_iter(pgf->abstract.funs, itor, err);
+        pgf_exn_clear(err);
+        namespace_iter(pgf->abstract.funs, itor, err);
+    } PGF_API_END
 }
 
 struct PgfItorHelper : PgfItor
@@ -297,61 +309,77 @@ PGF_API
 void pgf_iter_functions_by_cat(PgfDB *db, PgfRevision revision,
                                PgfText *cat, PgfItor *itor, PgfExn *err)
 {
-    DB_scope scope(db, READER_SCOPE);
-    ref<PgfPGF> pgf = revision;
+    PGF_API_BEGIN {
+        DB_scope scope(db, READER_SCOPE);
+        ref<PgfPGF> pgf = revision;
 
-    PgfItorHelper helper;
-    helper.fn   = iter_by_cat_helper;
-    helper.cat  = cat;
-    helper.itor = itor;
+        PgfItorHelper helper;
+        helper.fn   = iter_by_cat_helper;
+        helper.cat  = cat;
+        helper.itor = itor;
 
-    pgf_exn_clear(err);
-    namespace_iter(pgf->abstract.funs, &helper, err);
+        namespace_iter(pgf->abstract.funs, &helper, err);
+    } PGF_API_END
 }
 
 PGF_API
 PgfType pgf_function_type(PgfDB *db, PgfRevision revision,
-                          PgfText *funname, PgfUnmarshaller *u)
+                          PgfText *funname, PgfUnmarshaller *u,
+                          PgfExn *err)
 {
-    DB_scope scope(db, READER_SCOPE);
-    ref<PgfPGF> pgf = revision;
+    PGF_API_BEGIN {
+        DB_scope scope(db, READER_SCOPE);
+        ref<PgfPGF> pgf = revision;
 
-    ref<PgfAbsFun> absfun =
-        namespace_lookup(pgf->abstract.funs, funname);
-	if (absfun == 0)
-		return 0;
+        ref<PgfAbsFun> absfun =
+            namespace_lookup(pgf->abstract.funs, funname);
+        if (absfun == 0)
+            return 0;
 
-	return PgfDBMarshaller().match_type(u, absfun->type.as_object());
+        return PgfDBMarshaller().match_type(u, absfun->type.as_object());
+    } PGF_API_END
+
+    return 0;
 }
 
 PGF_API
 int pgf_function_is_constructor(PgfDB *db, PgfRevision revision,
-                                PgfText *funname)
+                                PgfText *funname,
+                                PgfExn *err)
 {
-    DB_scope scope(db, READER_SCOPE);
-    ref<PgfPGF> pgf = revision;
+    PGF_API_BEGIN {
+        DB_scope scope(db, READER_SCOPE);
+        ref<PgfPGF> pgf = revision;
 
-    ref<PgfAbsFun> absfun =
-        namespace_lookup(pgf->abstract.funs, funname);
-	if (absfun == 0)
-		return false;
+        ref<PgfAbsFun> absfun =
+            namespace_lookup(pgf->abstract.funs, funname);
+        if (absfun == 0)
+            return false;
 
-	return (absfun->defns == 0);
+        return (absfun->defns == 0);
+    } PGF_API_END
+
+    return false;
 }
 
 PGF_API
 prob_t pgf_function_prob(PgfDB *db, PgfRevision revision,
-                         PgfText *funname)
+                         PgfText *funname,
+                         PgfExn *err)
 {
-    DB_scope scope(db, READER_SCOPE);
-    ref<PgfPGF> pgf = revision;
+    PGF_API_BEGIN {
+        DB_scope scope(db, READER_SCOPE);
+        ref<PgfPGF> pgf = revision;
 
-    ref<PgfAbsFun> absfun =
-        namespace_lookup(pgf->abstract.funs, funname);
-	if (absfun == 0)
-		return INFINITY;
+        ref<PgfAbsFun> absfun =
+            namespace_lookup(pgf->abstract.funs, funname);
+        if (absfun == 0)
+            return INFINITY;
 
-	return absfun->ep.prob;
+        return absfun->ep.prob;
+    } PGF_API_END
+
+    return INFINITY;
 }
 
 PGF_API
