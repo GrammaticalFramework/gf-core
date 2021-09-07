@@ -2,7 +2,6 @@
 #include <sys/mman.h>
 #include <unistd.h>
 #include <fcntl.h>
-#include <system_error>
 
 #include "data.h"
 
@@ -270,30 +269,33 @@ struct malloc_state
 };
 
 PGF_INTERNAL
-PgfDB::PgfDB(const char* pathname, int flags, int mode) {
+PgfDB::PgfDB(const char* filepath, int flags, int mode) {
     size_t file_size;
     bool is_new = false;
 
     fd = -1;
     ms = NULL;
 
-    if (pathname == NULL) {
+    if (filepath == NULL) {
+        this->filepath = NULL;
         file_size = getpagesize();
         is_new    = true;
     } else {
-        fd = open(pathname, flags, mode);
+        fd = open(filepath, flags, mode);
         if (fd < 0)
-            throw std::system_error(errno, std::generic_category());
+            throw pgf_systemerror(errno, filepath);
+
+        this->filepath = strdup(filepath);
 
         file_size = lseek(fd, 0, SEEK_END);
         if (file_size == ((off_t) -1))
-            throw std::system_error(errno, std::generic_category());
+            throw pgf_systemerror(errno, filepath);
 
         is_new = false;
         if (file_size == 0) {
             file_size = getpagesize();
             if (ftruncate(fd, file_size) < 0)
-                throw std::system_error(errno, std::generic_category());
+                throw pgf_systemerror(errno, filepath);
             is_new = true;
         }
     }
@@ -302,7 +304,7 @@ PgfDB::PgfDB(const char* pathname, int flags, int mode) {
     ms = (malloc_state*)
         mmap(NULL, file_size, PROT_READ | PROT_WRITE, mflags, fd, 0);
     if (ms == MAP_FAILED)
-        throw std::system_error(errno, std::generic_category());
+        throw pgf_systemerror(errno, filepath);
 
     if (is_new) {
         init_state(file_size);
@@ -310,7 +312,7 @@ PgfDB::PgfDB(const char* pathname, int flags, int mode) {
 
     int res = pthread_rwlock_init(&rwlock, NULL);
     if (res != 0) {
-        throw std::system_error(res, std::generic_category());
+        throw pgf_systemerror(errno);
     }
 }
 
@@ -327,6 +329,8 @@ PgfDB::~PgfDB() {
         close(fd);
 
     pthread_rwlock_destroy(&rwlock);
+
+    ::free((void*) filepath);
 }
 
 PGF_INTERNAL
@@ -338,7 +342,7 @@ void PgfDB::sync()
 
     int res = msync((void *) ms, size, MS_SYNC | MS_INVALIDATE);
     if (res != 0)
-        throw std::system_error(errno, std::generic_category());
+        throw pgf_systemerror(errno);
 }
 
 PGF_INTERNAL
@@ -837,13 +841,13 @@ object PgfDB::malloc_internal(size_t bytes)
 
             if (fd >= 0) {
                 if (ftruncate(fd, new_size) < 0)
-                    throw std::system_error(errno, std::generic_category());
+                    throw pgf_systemerror(errno, filepath);
             }
 
             malloc_state* new_ms =
                 (malloc_state*) mremap(ms, old_size, new_size, MREMAP_MAYMOVE);
             if (new_ms == MAP_FAILED)
-                throw std::system_error(errno, std::generic_category());
+                throw pgf_systemerror(errno);
 
             ms = new_ms;
             current_base = (unsigned char*) ms;
@@ -961,7 +965,7 @@ DB_scope::DB_scope(PgfDB *db, DB_scope_mode tp)
         (tp == READER_SCOPE) ? pthread_rwlock_rdlock(&db->rwlock)
                              : pthread_rwlock_wrlock(&db->rwlock);
     if (res != 0)
-        throw std::system_error(res, std::generic_category());
+        throw pgf_systemerror(res);
 
     save_db       = current_db;
     current_db    = db;
@@ -978,7 +982,7 @@ DB_scope::~DB_scope()
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wterminate"
     if (res != 0)
-        throw std::system_error(res, std::generic_category());
+        throw pgf_systemerror(res);
 #pragma GCC diagnostic pop
 
     current_db    = save_db;

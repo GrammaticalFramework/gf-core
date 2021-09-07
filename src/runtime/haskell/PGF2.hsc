@@ -69,7 +69,7 @@ readPGF fpath =
   withCString fpath $ \c_fpath ->
   alloca $ \p_revision ->
   mask_ $ do
-    c_pgf <- withPgfExn fpath (pgf_read_pgf c_fpath p_revision)
+    c_pgf <- withPgfExn (pgf_read_pgf c_fpath p_revision)
     c_revision <- peek p_revision
     fptr1 <- newForeignPtr pgf_free_fptr c_pgf
     fptr2 <- C.newForeignPtr c_revision (withForeignPtr fptr1 (\c_db -> pgf_free_revision c_db c_revision))
@@ -85,7 +85,7 @@ bootNGF pgf_path ngf_path =
   withCString ngf_path $ \c_ngf_path ->
   alloca $ \p_revision ->
   mask_ $ do
-    c_pgf <- withPgfExn pgf_path (pgf_boot_ngf c_pgf_path c_ngf_path p_revision)
+    c_pgf <- withPgfExn (pgf_boot_ngf c_pgf_path c_ngf_path p_revision)
     c_revision <- peek p_revision
     fptr1 <- newForeignPtr pgf_free_fptr c_pgf
     fptr2 <- C.newForeignPtr c_revision (withForeignPtr fptr1 (\c_db -> pgf_free_revision c_db c_revision))
@@ -100,7 +100,7 @@ readNGF fpath =
   withCString fpath $ \c_fpath ->
   alloca $ \p_revision ->
   mask_ $ do
-    c_db <- withPgfExn fpath (pgf_read_ngf c_fpath p_revision)
+    c_db <- withPgfExn (pgf_read_ngf c_fpath p_revision)
     c_revision <- peek p_revision
     fptr1 <- newForeignPtr pgf_free_fptr c_db
     fptr2 <- C.newForeignPtr c_revision (withForeignPtr fptr1 (\c_db -> pgf_free_revision c_db c_revision))
@@ -175,7 +175,7 @@ categories p =
      withForeignPtr (a_db p) $ \c_db ->
      withForeignPtr (revision p) $ \c_revision -> do
       (#poke PgfItor, fn) itor fptr
-      withPgfExn "" (pgf_iter_categories c_db c_revision itor)
+      withPgfExn (pgf_iter_categories c_db c_revision itor)
       cs <- readIORef ref
       return (reverse cs))
   where
@@ -234,7 +234,7 @@ functions p =
      withForeignPtr (a_db p) $ \c_db ->
      withForeignPtr (revision p) $ \c_revision -> do
       (#poke PgfItor, fn) itor fptr
-      withPgfExn "" (pgf_iter_functions c_db c_revision itor)
+      withPgfExn (pgf_iter_functions c_db c_revision itor)
       fs <- readIORef ref
       return (reverse fs))
   where
@@ -255,7 +255,7 @@ functionsByCat p cat =
      withForeignPtr (a_db p) $ \c_db ->
      withForeignPtr (revision p) $ \c_revision -> do
       (#poke PgfItor, fn) itor fptr
-      withPgfExn "" (pgf_iter_functions_by_cat c_db c_revision c_cat itor)
+      withPgfExn (pgf_iter_functions_by_cat c_db c_revision c_cat itor)
       fs <- readIORef ref
       return (reverse fs))
   where

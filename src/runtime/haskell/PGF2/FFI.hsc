@@ -193,7 +193,7 @@ newtype PGFError = PGFError String
 
 instance Exception PGFError
 
-withPgfExn fpath f =
+withPgfExn f =
   allocaBytes (#size PgfExn) $ \c_exn -> do
     res <- f c_exn
     ex_type <- (#peek PgfExn, type) c_exn :: IO (#type PgfExnType)
@@ -201,7 +201,11 @@ withPgfExn fpath f =
       (#const PGF_EXN_NONE)         -> return res
       (#const PGF_EXN_SYSTEM_ERROR) -> do
          errno <- (#peek PgfExn, code) c_exn
-         ioError (errnoToIOError "readPGF" (Errno errno) Nothing (Just fpath))
+         c_msg <- (#peek PgfExn, msg) c_exn
+         mb_fpath <- if c_msg == nullPtr
+                       then return Nothing
+                       else fmap Just (peekCString c_msg)
+         ioError (errnoToIOError "readPGF" (Errno errno) Nothing mb_fpath)
       (#const PGF_EXN_PGF_ERROR) -> do
          c_msg <- (#peek PgfExn, msg) c_exn
          msg <- peekCString c_msg

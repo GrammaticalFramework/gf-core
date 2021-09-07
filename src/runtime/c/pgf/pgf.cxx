@@ -23,16 +23,15 @@ PgfDB *pgf_read_pgf(const char* fpath,
 
     try {
         db = new PgfDB(NULL, 0, 0);
-
         std::ifstream in(fpath, std::ios::binary);
         if (in.fail()) {
-            throw std::system_error(errno, std::generic_category());
+            throw pgf_systemerror(errno, fpath);
         }
 
         {
             DB_scope scope(db, WRITER_SCOPE);
 
-            PgfReader rdr(&in);
+            PgfReader rdr(&in, fpath);
             ref<PgfPGF> pgf = rdr.read_pgf();
 
             PgfDB::set_root(pgf);
@@ -40,14 +39,16 @@ PgfDB *pgf_read_pgf(const char* fpath,
         }
 
         return db;
-    } catch (std::system_error& e) {
+    } catch (pgf_systemerror& e) {
         err->type = PGF_EXN_SYSTEM_ERROR;
-        err->code = e.code().value();
+        err->code = e.code();
+        err->msg  = e.filepath();
     } catch (pgf_error& e) {
         err->type = PGF_EXN_PGF_ERROR;
         err->msg  = strdup(e.what());
     }
 
+end:
     if (db != NULL)
         delete db;
 
@@ -68,13 +69,13 @@ PgfDB *pgf_boot_ngf(const char* pgf_path, const char* ngf_path,
 
         std::ifstream in(pgf_path, std::ios::binary);
         if (in.fail()) {
-            throw std::system_error(errno, std::generic_category());
+            throw pgf_systemerror(errno, pgf_path);
         }
 
         {
             DB_scope scope(db, WRITER_SCOPE);
 
-            PgfReader rdr(&in);
+            PgfReader rdr(&in, pgf_path);
             ref<PgfPGF> pgf = rdr.read_pgf();
 
             db->set_root<PgfPGF>(pgf);
@@ -84,9 +85,10 @@ PgfDB *pgf_boot_ngf(const char* pgf_path, const char* ngf_path,
         }
 
         return db;
-    } catch (std::system_error& e) {
+    } catch (pgf_systemerror& e) {
         err->type = PGF_EXN_SYSTEM_ERROR;
-        err->code = e.code().value();
+        err->code = e.code();
+        err->msg  = e.filepath();
     } catch (pgf_error& e) {
         err->type = PGF_EXN_PGF_ERROR;
         err->msg  = strdup(e.what());
@@ -135,9 +137,10 @@ PgfDB *pgf_read_ngf(const char *fpath,
         }
 
         return db;
-    } catch (std::system_error& e) {
+    } catch (pgf_systemerror& e) {
         err->type = PGF_EXN_SYSTEM_ERROR;
-        err->code = e.code().value();
+        err->code = e.code();
+        err->msg  = e.filepath();
     } catch (pgf_error& e) {
         err->type = PGF_EXN_PGF_ERROR;
         err->msg  = strdup(e.what());
@@ -431,9 +434,10 @@ PgfRevision pgf_clone_revision(PgfDB *db, PgfRevision revision,
             pgf->abstract.cats->ref_count++;
 
         return new_pgf.as_object();
-    } catch (std::system_error& e) {
+    } catch (pgf_systemerror& e) {
         err->type = PGF_EXN_SYSTEM_ERROR;
-        err->code = e.code().value();
+        err->code = e.code();
+        err->msg  = e.filepath();
     } catch (pgf_error& e) {
         err->type = PGF_EXN_PGF_ERROR;
         err->msg  = strdup(e.what());
@@ -471,9 +475,10 @@ void pgf_create_function(PgfDB *db, PgfRevision revision,
             namespace_insert(pgf->abstract.funs, absfun);
         namespace_release(pgf->abstract.funs);
         pgf->abstract.funs = nmsp;
-    } catch (std::system_error& e) {
+    } catch (pgf_systemerror& e) {
         err->type = PGF_EXN_SYSTEM_ERROR;
-        err->code = e.code().value();
+        err->code = e.code();
+        err->msg  = e.filepath();
     } catch (pgf_error& e) {
         err->type = PGF_EXN_PGF_ERROR;
         err->msg  = strdup(e.what());

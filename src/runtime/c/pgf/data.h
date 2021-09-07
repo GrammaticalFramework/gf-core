@@ -30,6 +30,35 @@ private:
     const char *msg;
 };
 
+class PGF_INTERNAL_DECL pgf_systemerror : public std::runtime_error {
+public:
+    pgf_systemerror(int code) : std::runtime_error("pgf_systemerror")
+    {
+        this->m_code     = code;
+        this->m_filepath = NULL;
+    }
+
+    pgf_systemerror(int code, const char *filepath) : std::runtime_error("pgf_systemerror")
+    {
+        this->m_code     = code;
+        this->m_filepath = filepath;
+    }
+
+    virtual int code() const
+    {
+        return m_code;
+    }
+
+    const char *filepath() const
+    {
+        return m_filepath;
+    }
+
+private:
+    int m_code;
+    const char *m_filepath;
+};
+
 struct PGF_INTERNAL_DECL PgfFlag {
     PgfLiteral value;
     PgfText name;

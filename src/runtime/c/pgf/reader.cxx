@@ -3,9 +3,10 @@
 #include <math.h>
 #include <string.h>
 
-PgfReader::PgfReader(std::istream *in)
+PgfReader::PgfReader(std::istream *in, const char *filepath)
 {
     this->in = in;
+    this->filepath = filepath;
 }
 
 uint8_t PgfReader::read_uint8()
@@ -15,7 +16,7 @@ uint8_t PgfReader::read_uint8()
     if (in->eof())
         throw pgf_error("reached end of file while reading a grammar");
     if (in->fail())
-        throw std::system_error(errno, std::generic_category());
+        throw pgf_systemerror(errno, filepath);
 
 	return b;
 }
@@ -27,7 +28,7 @@ uint16_t PgfReader::read_u16be()
     if (in->eof())
         throw pgf_error("reached end of file while reading a grammar");
     if (in->fail())
-        throw std::system_error(errno, std::generic_category());
+        throw pgf_systemerror(errno, filepath);
 
 	return (((uint16_t) buf[0]) << 8 | buf[1]);
 }
@@ -39,7 +40,7 @@ uint64_t PgfReader::read_u64be()
     if (in->eof())
         throw pgf_error("reached end of file while reading a grammar");
     if (in->fail())
-        throw std::system_error(errno, std::generic_category());
+        throw pgf_systemerror(errno, filepath);
 
 	return (((uint64_t) buf[0]) << 56 |
             ((uint64_t) buf[1]) << 48 |
@@ -95,7 +96,7 @@ object PgfReader::read_name_internal(size_t struct_size)
     if (in->eof())
         throw pgf_error("utf8 decoding error");
     if (in->fail())
-        throw std::system_error(errno, std::generic_category());
+        throw pgf_systemerror(errno, filepath);
 
     ptext->text[size] = 0;
 
@@ -131,7 +132,7 @@ object PgfReader::read_text_internal(size_t struct_size)
         if (in->eof())
             throw pgf_error("utf8 decoding error");
         if (in->fail())
-            throw std::system_error(errno, std::generic_category());
+            throw pgf_systemerror(errno, filepath);
 
         p += len;
 	}

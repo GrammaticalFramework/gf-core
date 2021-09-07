@@ -42,7 +42,7 @@ modifyPGF :: PGF -> Transaction a -> IO PGF
 modifyPGF p (Transaction f) =
   withForeignPtr (a_db p) $ \c_db ->
   withForeignPtr (revision p) $ \c_revision ->
-  withPgfExn "" $ \c_exn -> do
+  withPgfExn $ \c_exn -> do
     c_revision <- pgf_clone_revision c_db c_revision c_exn
     ex_type <- (#peek PgfExn, type) c_exn
     if (ex_type :: (#type PgfExnType)) == (#const PGF_EXN_NONE)

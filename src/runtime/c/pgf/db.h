@@ -57,6 +57,7 @@ public:
 class PgfDB {
 private:
     int fd;
+    const char *filepath;
     malloc_state* ms;
 
     pthread_rwlock_t rwlock;
@@ -64,7 +65,7 @@ private:
     friend class PgfReader;
 
 public:
-    PGF_INTERNAL_DECL PgfDB(const char* pathname, int flags, int mode);
+    PGF_INTERNAL_DECL PgfDB(const char* filepath, int flags, int mode);
     PGF_INTERNAL_DECL ~PgfDB();
 
     template<class A>

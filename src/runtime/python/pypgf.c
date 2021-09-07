@@ -2391,7 +2391,7 @@ pgf_readPGF(PyObject *self, PyObject *args)
     py_pgf->db = pgf_read_pgf(fpath, &py_pgf->revision, &err);
     if (err.type == PGF_EXN_SYSTEM_ERROR) {
         errno = err.code;
-        PyErr_SetFromErrnoWithFilename(PyExc_IOError, fpath);
+        PyErr_SetFromErrnoWithFilename(PyExc_IOError, err.msg);
         Py_DECREF(py_pgf);
         return NULL;
     } else if (err.type == PGF_EXN_PGF_ERROR) {
@@ -2419,7 +2419,7 @@ pgf_bootNGF(PyObject *self, PyObject *args)
     py_pgf->db = pgf_boot_ngf(fpath, npath, &py_pgf->revision, &err);
     if (err.type == PGF_EXN_SYSTEM_ERROR) {
         errno = err.code;
-        PyErr_SetFromErrnoWithFilename(PyExc_IOError, npath);
+        PyErr_SetFromErrnoWithFilename(PyExc_IOError, err.msg);
         Py_DECREF(py_pgf);
         return NULL;
     } else if (err.type == PGF_EXN_PGF_ERROR) {
@@ -2446,7 +2446,7 @@ pgf_readNGF(PyObject *self, PyObject *args)
     py_pgf->db = pgf_read_ngf(fpath, &py_pgf->revision, &err);
     if (err.type == PGF_EXN_SYSTEM_ERROR) {
         errno = err.code;
-        PyErr_SetFromErrnoWithFilename(PyExc_IOError, fpath);
+        PyErr_SetFromErrnoWithFilename(PyExc_IOError, err.msg);
         Py_DECREF(py_pgf);
         return NULL;
     } else if (err.type == PGF_EXN_PGF_ERROR) {
