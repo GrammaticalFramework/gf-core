@@ -24,6 +24,10 @@ instance Functor Transaction where
 
 instance Applicative Transaction where
   pure x = Transaction $ \c_db c_revision c_exn -> return x
+  f <*> g = do
+    f <- f
+    g <- g
+    return (f g)
 
 instance Monad Transaction where
   (Transaction f) >>= g = Transaction $ \c_db c_revision c_exn -> do
