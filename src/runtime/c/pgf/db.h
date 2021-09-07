@@ -64,8 +64,8 @@ private:
     friend class PgfReader;
 
 public:
-    PgfDB(const char* pathname, int flags, int mode);
-    ~PgfDB();
+    PGF_INTERNAL_DECL PgfDB(const char* pathname, int flags, int mode);
+    PGF_INTERNAL_DECL ~PgfDB();
 
     template<class A>
     static ref<A> malloc() {
@@ -92,18 +92,18 @@ public:
         current_db->set_root_internal(root.offset);
     }
 
-    static void sync();
+    PGF_INTERNAL_DECL static void sync();
 
 private:
-    void init_state(size_t size);
+    PGF_INTERNAL_DECL void init_state(size_t size);
 
-    object malloc_internal(size_t bytes);
-    void free_internal(object o);
+    PGF_INTERNAL_DECL object malloc_internal(size_t bytes);
+    PGF_INTERNAL_DECL void free_internal(object o);
 
-    object get_root_internal();
-    void set_root_internal(object root_offset);
+    PGF_INTERNAL_DECL object get_root_internal();
+    PGF_INTERNAL_DECL void set_root_internal(object root_offset);
 
-    unsigned char* relocate(unsigned char* ptr);
+    PGF_INTERNAL_DECL unsigned char* relocate(unsigned char* ptr);
 
     friend class DB_scope;
 };
