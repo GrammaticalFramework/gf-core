@@ -814,7 +814,7 @@
 static PyObject *
 Type_str(TypeObject *self)
 {
-    PgfText *s = pgf_print_type((PgfType) &self, NULL, 0, &marshaller);
+    PgfText *s = pgf_print_type((PgfType) &self, NULL, 1, &marshaller);
     return PyString_FromStringAndSize(s->text, s->size);
 }
 
