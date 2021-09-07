@@ -269,6 +269,7 @@ struct malloc_state
     object root_offset;
 };
 
+PGF_INTERNAL
 PgfDB::PgfDB(const char* pathname, int flags, int mode) {
     size_t file_size;
     bool is_new = false;
@@ -313,6 +314,7 @@ PgfDB::PgfDB(const char* pathname, int flags, int mode) {
     }
 }
 
+PGF_INTERNAL
 PgfDB::~PgfDB() {
     if (ms != NULL) {
         size_t size =
@@ -327,6 +329,7 @@ PgfDB::~PgfDB() {
     pthread_rwlock_destroy(&rwlock);
 }
 
+PGF_INTERNAL
 void PgfDB::sync()
 {
     malloc_state *ms = current_db->ms;
@@ -338,16 +341,20 @@ void PgfDB::sync()
         throw std::system_error(errno, std::generic_category());
 }
 
-object PgfDB::get_root_internal() {
+PGF_INTERNAL
+object PgfDB::get_root_internal()
+{
     return ms->root_offset;
 }
 
-void PgfDB::set_root_internal(object root_offset) {
+PGF_INTERNAL
+void PgfDB::set_root_internal(object root_offset)
+{
     ms->root_offset = root_offset;
 }
 
-void
-PgfDB::init_state(size_t size)
+PGF_INTERNAL
+void PgfDB::init_state(size_t size)
 {
     /* Init fastbins */
     ms->have_fastchunks = false;
@@ -482,8 +489,8 @@ static void malloc_consolidate(malloc_state *ms)
   } while (fb++ != maxfb);
 }
 
-object
-PgfDB::malloc_internal(size_t bytes)
+PGF_INTERNAL
+object PgfDB::malloc_internal(size_t bytes)
 {
     unsigned int idx;                 /* associated bin index */
     mbin* bin;                        /* associated bin */
@@ -855,8 +862,8 @@ PgfDB::malloc_internal(size_t bytes)
     }
 }
 
-void
-PgfDB::free_internal(object o)
+PGF_INTERNAL
+void PgfDB::free_internal(object o)
 {
     size_t size;                 /* its size */
     object *fb;                  /* associated fastbin */
