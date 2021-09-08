@@ -108,11 +108,13 @@ foreign import ccall "pgf_function_is_constructor"
 foreign import ccall "pgf_function_prob"
    pgf_function_prob :: Ptr PgfDB -> Ptr PgfRevision -> Ptr PgfText -> Ptr PgfExn -> IO (#type prob_t)
 
-foreign import ccall "pgf_clone_revision"
-   pgf_clone_revision :: Ptr PgfDB -> Ptr PgfRevision -> Ptr PgfExn -> IO (Ptr PgfRevision)
+foreign import ccall pgf_clone_revision :: Ptr PgfDB -> Ptr PgfRevision -> Ptr PgfText -> Ptr PgfExn -> IO (Ptr PgfRevision)
 
-foreign import ccall "pgf_create_function"
-   pgf_create_function :: Ptr PgfDB -> Ptr PgfRevision -> Ptr PgfText -> StablePtr Type -> (#type prob_t) -> Ptr PgfMarshaller -> Ptr PgfExn -> IO ()
+foreign import ccall pgf_commit_revision :: Ptr PgfDB -> Ptr PgfRevision -> Ptr PgfExn -> IO ()
+
+foreign import ccall pgf_checkout_revision :: Ptr PgfDB -> Ptr PgfText -> Ptr PgfExn -> IO (Ptr PgfRevision)
+
+foreign import ccall pgf_create_function :: Ptr PgfDB -> Ptr PgfRevision -> Ptr PgfText -> StablePtr Type -> (#type prob_t) -> Ptr PgfMarshaller -> Ptr PgfExn -> IO ()
 
 
 -----------------------------------------------------------------------
@@ -198,7 +200,7 @@ withPgfExn f =
     res <- f c_exn
     ex_type <- (#peek PgfExn, type) c_exn :: IO (#type PgfExnType)
     case ex_type of
-      (#const PGF_EXN_NONE)         -> return res
+      (#const PGF_EXN_NONE) -> return res
       (#const PGF_EXN_SYSTEM_ERROR) -> do
          errno <- (#peek PgfExn, code) c_exn
          c_msg <- (#peek PgfExn, msg) c_exn

@@ -83,23 +83,11 @@ public:
         return current_db->free_internal(o.as_object());
     }
 
-    template<class A>
-    static ref<A> get_root() {
-        return current_db->get_root_internal();
-    }
-
-    template<class A>
-    static void set_root(ref<A> root) {
-        current_db->set_root_internal(root.offset);
-    }
-
-    template<class A>
-    static ref<A> safe_object2ref(object o) {
-        if (!current_db->is_valid_object(o, sizeof(A)))
-            throw pgf_error("Invalid database object");
-        return o;
-    }
-
+    static PGF_INTERNAL_DECL ref<PgfPGF> get_revision(PgfText *name);
+    static PGF_INTERNAL_DECL void set_revision(ref<PgfPGF> pgf);
+    static PGF_INTERNAL_DECL ref<PgfPGF> revision2pgf(PgfRevision revision);
+    static PGF_INTERNAL_DECL void link_transient_revision(ref<PgfPGF> pgf);
+    static PGF_INTERNAL_DECL void unlink_transient_revision(ref<PgfPGF> pgf);
 
     PGF_INTERNAL_DECL static void sync();
 
@@ -111,8 +99,6 @@ private:
 
     PGF_INTERNAL_DECL object get_root_internal();
     PGF_INTERNAL_DECL void set_root_internal(object root_offset);
-
-    PGF_INTERNAL_DECL bool is_valid_object(object o, size_t bytes);
 
     PGF_INTERNAL_DECL unsigned char* relocate(unsigned char* ptr);
 

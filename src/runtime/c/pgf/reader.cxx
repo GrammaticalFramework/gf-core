@@ -428,7 +428,7 @@ void PgfReader::read_abstract(ref<PgfAbstr> abstract)
 
 ref<PgfPGF> PgfReader::read_pgf()
 {
-    ref<PgfPGF> pgf = PgfDB::malloc<PgfPGF>();
+    ref<PgfPGF> pgf = PgfDB::malloc<PgfPGF>(sizeof(PgfPGF)+master.size+1);
 
     pgf->major_version = read_u16be();
     pgf->minor_version = read_u16be();
@@ -436,6 +436,11 @@ ref<PgfPGF> PgfReader::read_pgf()
     pgf->gflags = read_namespace<PgfFlag>(&PgfReader::read_flag);
 
     read_abstract(ref<PgfAbstr>::from_ptr(&pgf->abstract));
+
+    pgf->prev = 0;
+    pgf->next = 0;
+
+    memcpy(&pgf->name, &master, sizeof(PgfText)+master.size+1);
 
     return pgf;
 }

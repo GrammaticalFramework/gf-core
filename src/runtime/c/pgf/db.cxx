@@ -250,7 +250,7 @@ typedef struct mchunk mbin;
  */
 #define FASTBIN_CONSOLIDATION_THRESHOLD  (65536UL)
 
-struct malloc_state
+struct PGF_INTERNAL_DECL malloc_state
 {
     /* Set if the fastbin chunks contain recently inserted free blocks.  */
     bool have_fastchunks;
@@ -264,8 +264,14 @@ struct malloc_state
     object bins[NBINS * 2 - 2];
     /* Bitmap of bins */
     unsigned int binmap[BINMAPSIZE];
-    /* Reference to the root object */
-    object root_offset;
+
+    /* The namespace of all persistant grammar revisions */
+    Namespace<PgfPGF> revisions;
+
+    /* A reference to the first transient revision in
+     * a double-linked list.
+     */
+    ref<PgfPGF> transient_revisions;
 };
 
 PGF_INTERNAL
@@ -346,15 +352,17 @@ void PgfDB::sync()
 }
 
 PGF_INTERNAL
-object PgfDB::get_root_internal()
+ref<PgfPGF> PgfDB::get_revision(PgfText *name)
 {
-    return ms->root_offset;
+    return namespace_lookup(current_db->ms->revisions, name);
 }
 
 PGF_INTERNAL
-void PgfDB::set_root_internal(object root_offset)
+void PgfDB::set_revision(ref<PgfPGF> pgf)
 {
-    ms->root_offset = root_offset;
+    Namespace<PgfPGF> nmsp = namespace_insert(current_db->ms->revisions, pgf);
+    namespace_release(current_db->ms->revisions);
+    current_db->ms->revisions = nmsp;
 }
 
 PGF_INTERNAL
@@ -383,7 +391,8 @@ void PgfDB::init_state(size_t size)
 
     memset(ms->binmap, 0, sizeof(ms->binmap));
 
-    ms->root_offset = 0;
+    ms->revisions = 0;
+    ms->transient_revisions = 0;
 }
 
 /* Take a chunk off a bin list.  */
@@ -958,12 +967,41 @@ void PgfDB::free_internal(object o)
     }
 }
 
-bool PgfDB::is_valid_object(object o, size_t bytes)
+PGF_INTERNAL
+ref<PgfPGF> PgfDB::revision2pgf(PgfRevision revision)
 {
-    if (o <= sizeof(*ms) || o >= ms->top)
-        return false;
-    mchunk *chunk = mem2chunk(ptr(ms,o));
-    return (chunksize(chunk) == request2size(bytes));
+    if (revision <= sizeof(*current_db->ms) || revision >= current_db->ms->top)
+        throw pgf_error("Invalid revision");
+
+    mchunk *chunk = mem2chunk(ptr(current_db->ms,revision));
+    if (chunksize(chunk) < sizeof(PgfPGF))
+        throw pgf_error("Invalid revision");
+
+    ref<PgfPGF> pgf = revision;
+    if (chunksize(chunk) != request2size(sizeof(PgfPGF)+pgf->name.size+1))
+        throw pgf_error("Invalid revision");
+
+    return pgf;
+}
+
+PGF_INTERNAL
+void PgfDB::link_transient_revision(ref<PgfPGF> pgf)
+{
+    pgf->next = current_db->ms->transient_revisions;
+    if (current_db->ms->transient_revisions == 0)
+        current_db->ms->transient_revisions->prev = pgf;
+    current_db->ms->transient_revisions = pgf;
+}
+
+PGF_INTERNAL
+void PgfDB::unlink_transient_revision(ref<PgfPGF> pgf)
+{
+    if (pgf->next != 0)
+        pgf->next->prev = pgf->prev;
+    if (pgf->prev != 0)
+        pgf->prev->next = pgf->next;
+    else
+        current_db->ms->transient_revisions = pgf->next;
 }
 
 DB_scope::DB_scope(PgfDB *db, DB_scope_mode tp)

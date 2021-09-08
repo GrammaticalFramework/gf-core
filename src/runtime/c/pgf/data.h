@@ -54,6 +54,8 @@ private:
     const char *m_filepath;
 };
 
+class PgfPGF;
+
 #include "db.h"
 #include "text.h"
 #include "vector.h"
@@ -137,12 +139,23 @@ typedef struct {
     Namespace<PgfAbsCat> cats;
 } PgfAbstr;
 
-typedef struct PGF_INTERNAL_DECL {
+struct PGF_INTERNAL_DECL PgfPGF {
 	uint16_t major_version;
 	uint16_t minor_version;
 	Namespace<PgfFlag> gflags;
 	PgfAbstr abstract;
 	//PgfConcrs* concretes;
-} PgfPGF;
+
+    // If the revision is transient, then it is in a double-linked list
+    // with all other transient revisions.
+    ref<PgfPGF> prev, next;
+
+    // The name lets the user to find a particular revision in
+    // the database.
+    PgfText name;
+};
+
+extern PGF_INTERNAL_DECL
+PgfText master;
 
 #endif

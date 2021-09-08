@@ -1,6 +1,8 @@
 module PGF2.Transactions
           ( Transaction
           , modifyPGF
+          , branchPGF
+          , checkoutPGF
           , createFunction
           ) where
 
@@ -10,7 +12,7 @@ import PGF2.Expr
 import Foreign
 import Foreign.C
 import qualified Foreign.Concurrent as C
-import Control.Exception(bracket)
+import Control.Exception
 
 #include <pgf/pgf.h>
 
@@ -38,18 +40,69 @@ instance Monad Transaction where
              Transaction g -> g c_db c_revision c_exn
       else return undefined
 
+{- | @modifyPGF gr t@ updates the grammar @gr@ by performing the
+   transaction @t@. The changes are applied to the new grammar
+   returned by the function, while any further operations with @gr@
+   will still work with the old grammar. The newly created grammar
+   also replaces the corresponding branch. In the example:
+   
+   > do gr <- readPGF "my_grammar.pgf"
+   >    Just ty = readType "S"
+   >    gr1 <- modifyPGF gr (createFunction "foo" ty)
+   >    gr2 <- checkoutPGF gr "master"
+   >    print (functionType gr2 "foo")
+
+   both @gr1@ and @gr2@ will refer to the new grammar which contains
+   the new function @foo@.
+-}
 modifyPGF :: PGF -> Transaction a -> IO PGF
-modifyPGF p (Transaction f) =
+modifyPGF = branchPGF_ nullPtr
+
+{- | @branchPGF gr branch_name t@ is similar to @modifyPGF gr t@,
+   except that it stores the result as a branch with the given name.
+-}
+branchPGF :: PGF -> String -> Transaction a -> IO PGF
+branchPGF p name t =
+  withText name $ \c_name ->
+    branchPGF_ c_name p t
+
+branchPGF_ :: Ptr PgfText -> PGF -> Transaction a -> IO PGF
+branchPGF_ c_name p (Transaction f) =
   withForeignPtr (a_db p) $ \c_db ->
   withForeignPtr (revision p) $ \c_revision ->
-  withPgfExn $ \c_exn -> do
-    c_revision <- pgf_clone_revision c_db c_revision c_exn
+  withPgfExn $ \c_exn ->
+  mask $ \restore -> do
+    c_revision <- pgf_clone_revision c_db c_revision c_name c_exn
     ex_type <- (#peek PgfExn, type) c_exn
     if (ex_type :: (#type PgfExnType)) == (#const PGF_EXN_NONE)
-      then do f c_db c_revision c_exn
-              fptr2 <- C.newForeignPtr c_revision (withForeignPtr (a_db p) (\c_db -> pgf_free_revision c_db c_revision))
-              return (PGF (a_db p) fptr2 (langs p))
+      then do ((restore (f c_db c_revision c_exn))
+               `catch`
+               (\e -> do
+                    pgf_free_revision c_db c_revision
+                    throwIO (e :: SomeException)))
+              ex_type <- (#peek PgfExn, type) c_exn
+              if (ex_type :: (#type PgfExnType)) == (#const PGF_EXN_NONE)
+                then do pgf_commit_revision c_db c_revision c_exn
+                        ex_type <- (#peek PgfExn, type) c_exn
+                        if (ex_type :: (#type PgfExnType)) == (#const PGF_EXN_NONE)
+                          then do fptr2 <- C.newForeignPtr c_revision (withForeignPtr (a_db p) (\c_db -> pgf_free_revision c_db c_revision))
+                                  return (PGF (a_db p) fptr2 (langs p))
+                          else do pgf_free_revision c_db c_revision
+                                  return p
+                else do pgf_free_revision c_db c_revision
+                        return p
       else return p
+
+{- | Retrieves the branch with the given name -}
+checkoutPGF :: PGF -> String -> IO (Maybe PGF)
+checkoutPGF p name =
+  withForeignPtr (a_db p) $ \c_db ->
+  withText name $ \c_name -> do
+    c_revision <- withPgfExn (pgf_checkout_revision c_db c_name)
+    if c_revision == nullPtr
+      then return Nothing
+      else do fptr2 <- C.newForeignPtr c_revision (withForeignPtr (a_db p) (\c_db -> pgf_free_revision c_db c_revision))
+              return (Just (PGF (a_db p) fptr2 (langs p)))
 
 createFunction :: Fun -> Type -> Float -> Transaction ()
 createFunction name ty prob = Transaction $ \c_db c_revision c_exn ->
