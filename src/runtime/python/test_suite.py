@@ -136,6 +136,15 @@ def test_readExpr_invalid():
 def test_readExpr_equality_int():
     assert pgf.readExpr("123") == pgf.readExpr("123")
 
+def test_readExpr_equality_int_neg():
+    assert pgf.readExpr("-123") == pgf.readExpr("-123")
+
+# def test_readExpr_equality_int_big():
+#     assert pgf.readExpr("774763251095801167872") == pgf.readExpr("774763251095801167872")
+
+# def test_readExpr_equality_int_big_neg():
+#     assert pgf.readExpr("-774763251095801167872") == pgf.readExpr("-774763251095801167872")
+
 def test_readExpr_inequality_int():
     assert pgf.readExpr("123") != pgf.readExpr("456")
 

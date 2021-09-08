@@ -79,11 +79,12 @@ PgfExpr eimplarg(PgfUnmarshaller *this, PgfExpr expr)
 
 PgfLiteral lint(PgfUnmarshaller *this, size_t size, uintmax_t *v)
 {
+    intmax_t *v0 = (intmax_t *)v;
     if (size > 1) {
         PyErr_SetString(PyExc_NotImplementedError, "multi-part integers not implemented"); // TODO
         Py_RETURN_NOTIMPLEMENTED;
     }
-    PyObject *i = PyLong_FromUnsignedLong(*v);
+    PyObject *i = PyLong_FromLong(*v0);
     return (PgfLiteral) i;
 }
 
