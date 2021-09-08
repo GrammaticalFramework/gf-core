@@ -8,11 +8,6 @@
 #include <stdexcept>
 
 #include "pgf.h"
-#include "db.h"
-#include "text.h"
-#include "vector.h"
-#include "namespace.h"
-#include "expr.h"
 
 class PGF_INTERNAL_DECL pgf_error : public std::runtime_error {
 public:
@@ -58,6 +53,12 @@ private:
     int m_code;
     const char *m_filepath;
 };
+
+#include "db.h"
+#include "text.h"
+#include "vector.h"
+#include "namespace.h"
+#include "expr.h"
 
 struct PGF_INTERNAL_DECL PgfFlag {
     PgfLiteral value;

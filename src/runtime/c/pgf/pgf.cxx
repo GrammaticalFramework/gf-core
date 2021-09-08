@@ -160,7 +160,7 @@ PgfText *pgf_abstract_name(PgfDB *db, PgfRevision revision,
 {
     PGF_API_BEGIN {
         DB_scope scope(db, READER_SCOPE);
-        ref<PgfPGF> pgf = revision;
+        ref<PgfPGF> pgf = PgfDB::safe_object2ref<PgfPGF>(revision);
 
         return textdup(&(*pgf->abstract.name));
     } PGF_API_END
@@ -174,7 +174,7 @@ void pgf_iter_categories(PgfDB *db, PgfRevision revision,
 {
     PGF_API_BEGIN {
         DB_scope scope(db, READER_SCOPE);
-        ref<PgfPGF> pgf = revision;
+        ref<PgfPGF> pgf = PgfDB::safe_object2ref<PgfPGF>(revision);
     
         namespace_iter(pgf->abstract.cats, itor, err);
     } PGF_API_END
@@ -187,7 +187,7 @@ PgfType pgf_start_cat(PgfDB *db, PgfRevision revision,
 {
     PGF_API_BEGIN {
         DB_scope scope(db, READER_SCOPE);
-        ref<PgfPGF> pgf = revision;
+        ref<PgfPGF> pgf = PgfDB::safe_object2ref<PgfPGF>(revision);
 
         PgfText *startcat = (PgfText *)
             alloca(sizeof(PgfText)+9);
@@ -228,7 +228,7 @@ PgfTypeHypo *pgf_category_context(PgfDB *db, PgfRevision revision,
 {
     PGF_API_BEGIN {
         DB_scope scope(db, READER_SCOPE);
-        ref<PgfPGF> pgf = revision;
+        ref<PgfPGF> pgf = PgfDB::safe_object2ref<PgfPGF>(revision);
 
         ref<PgfAbsCat> abscat =
             namespace_lookup(pgf->abstract.cats, catname);
@@ -262,7 +262,7 @@ prob_t pgf_category_prob(PgfDB *db, PgfRevision revision,
 {
     PGF_API_BEGIN {
         DB_scope scope(db, READER_SCOPE);
-        ref<PgfPGF> pgf = revision;
+        ref<PgfPGF> pgf = PgfDB::safe_object2ref<PgfPGF>(revision);
 
         ref<PgfAbsCat> abscat =
             namespace_lookup(pgf->abstract.cats, catname);
@@ -282,7 +282,7 @@ void pgf_iter_functions(PgfDB *db, PgfRevision revision,
 {
     PGF_API_BEGIN {
         DB_scope scope(db, READER_SCOPE);
-        ref<PgfPGF> pgf = revision;
+        ref<PgfPGF> pgf = PgfDB::safe_object2ref<PgfPGF>(revision);
 
         pgf_exn_clear(err);
         namespace_iter(pgf->abstract.funs, itor, err);
@@ -311,7 +311,7 @@ void pgf_iter_functions_by_cat(PgfDB *db, PgfRevision revision,
 {
     PGF_API_BEGIN {
         DB_scope scope(db, READER_SCOPE);
-        ref<PgfPGF> pgf = revision;
+        ref<PgfPGF> pgf = PgfDB::safe_object2ref<PgfPGF>(revision);
 
         PgfItorHelper helper;
         helper.fn   = iter_by_cat_helper;
@@ -329,7 +329,7 @@ PgfType pgf_function_type(PgfDB *db, PgfRevision revision,
 {
     PGF_API_BEGIN {
         DB_scope scope(db, READER_SCOPE);
-        ref<PgfPGF> pgf = revision;
+        ref<PgfPGF> pgf = PgfDB::safe_object2ref<PgfPGF>(revision);
 
         ref<PgfAbsFun> absfun =
             namespace_lookup(pgf->abstract.funs, funname);
@@ -349,7 +349,7 @@ int pgf_function_is_constructor(PgfDB *db, PgfRevision revision,
 {
     PGF_API_BEGIN {
         DB_scope scope(db, READER_SCOPE);
-        ref<PgfPGF> pgf = revision;
+        ref<PgfPGF> pgf = PgfDB::safe_object2ref<PgfPGF>(revision);
 
         ref<PgfAbsFun> absfun =
             namespace_lookup(pgf->abstract.funs, funname);
@@ -369,7 +369,7 @@ prob_t pgf_function_prob(PgfDB *db, PgfRevision revision,
 {
     PGF_API_BEGIN {
         DB_scope scope(db, READER_SCOPE);
-        ref<PgfPGF> pgf = revision;
+        ref<PgfPGF> pgf = PgfDB::safe_object2ref<PgfPGF>(revision);
 
         ref<PgfAbsFun> absfun =
             namespace_lookup(pgf->abstract.funs, funname);
@@ -435,7 +435,7 @@ PgfRevision pgf_clone_revision(PgfDB *db, PgfRevision revision,
     pgf_exn_clear(err);
 
     try {
-        ref<PgfPGF> pgf = revision;
+        ref<PgfPGF> pgf = PgfDB::safe_object2ref<PgfPGF>(revision);
 
         ref<PgfPGF> new_pgf = PgfDB::malloc<PgfPGF>();
         new_pgf->major_version = pgf->major_version;
@@ -488,7 +488,7 @@ void pgf_create_function(PgfDB *db, PgfRevision revision,
     try {
         PgfDBUnmarshaller u(m);
 
-        ref<PgfPGF> pgf = revision;
+        ref<PgfPGF> pgf = PgfDB::safe_object2ref<PgfPGF>(revision);
         ref<PgfAbsFun> absfun = PgfDB::malloc<PgfAbsFun>(sizeof(PgfAbsFun)+name->size+1);
         absfun->type  = m->match_type(&u, ty);
         absfun->arity = 0;

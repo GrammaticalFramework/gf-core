@@ -958,6 +958,13 @@ void PgfDB::free_internal(object o)
     }
 }
 
+bool PgfDB::is_valid_object(object o, size_t bytes)
+{
+    if (o <= sizeof(*ms) || o >= ms->top)
+        return false;
+    mchunk *chunk = mem2chunk(ptr(ms,o));
+    return (chunksize(chunk) == request2size(bytes));
+}
 
 DB_scope::DB_scope(PgfDB *db, DB_scope_mode tp)
 {

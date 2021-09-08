@@ -93,6 +93,14 @@ public:
         current_db->set_root_internal(root.offset);
     }
 
+    template<class A>
+    static ref<A> safe_object2ref(object o) {
+        if (!current_db->is_valid_object(o, sizeof(A)))
+            throw pgf_error("Invalid database object");
+        return o;
+    }
+
+
     PGF_INTERNAL_DECL static void sync();
 
 private:
@@ -103,6 +111,8 @@ private:
 
     PGF_INTERNAL_DECL object get_root_internal();
     PGF_INTERNAL_DECL void set_root_internal(object root_offset);
+
+    PGF_INTERNAL_DECL bool is_valid_object(object o, size_t bytes);
 
     PGF_INTERNAL_DECL unsigned char* relocate(unsigned char* ptr);
 
