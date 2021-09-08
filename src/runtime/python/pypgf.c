@@ -1768,9 +1768,15 @@ PGF_repr(PGFObject *self)
 static PyObject*
 PGF_getAbstractName(PGFObject *self, void *closure)
 {
-    PgfText* txt = pgf_abstract_name(self->db, self->revision);
+    PgfExn err;
+    PgfText* txt = pgf_abstract_name(self->db, self->revision, &err);
+
+    if (err.type != PGF_EXN_NONE) {
+        PyErr_SetString(PGFError, err.msg);
+        return NULL;
+    }
+
     PyObject *name = PyString_FromStringAndSize(txt->text, txt->size);
-    free(txt);
     return name;
 }
 
@@ -1879,9 +1885,15 @@ PGF_getCategories(PGFObject *self, void *closure)
 static TypeObject *
 PGF_getStartCat(PGFObject *self, void *closure)
 {
-    PgfType type = pgf_start_cat(self->db, self->revision, &unmarshaller);
+    PgfExn err;
+    PgfType type = pgf_start_cat(self->db, self->revision, &unmarshaller, &err);
+
     if (type == 0) {
         PyErr_SetString(PGFError, "start category cannot be found");
+        return NULL;
+    }
+    else if (err.type != PGF_EXN_NONE) {
+        PyErr_SetString(PGFError, err.msg);
         return NULL;
     }
 
@@ -1966,10 +1978,15 @@ PGF_functionType(PGFObject *self, PyObject *args)
     memcpy(funname->text, s, size+1);
     funname->size = size;
 
-    PgfType type = pgf_function_type(self->db, self->revision, funname, &unmarshaller);
+    PgfExn err;
+    PgfType type = pgf_function_type(self->db, self->revision, funname, &unmarshaller, &err);
     PyMem_Free(funname);
     if (type == 0) {
         PyErr_Format(PyExc_KeyError, "function '%s' is not defined", s);
+        return NULL;
+    }
+    else if (err.type != PGF_EXN_NONE) {
+        PyErr_SetString(PGFError, err.msg);
         return NULL;
     }
 

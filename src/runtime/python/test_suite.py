@@ -103,8 +103,8 @@ def test_readType_inequality_1():
 def test_readType_inequality_2():
     assert pgf.readType("A -> B") != pgf.readType("B->B")
 
-def test_Type_str_1():
-    assert str(pgf.readType("A->   B")) == "A -> B"
+# def test_Type_str_1():
+#     assert str(pgf.readType("A->   B")) == "A -> B"
 
 def test_functionType_1(PGF):
     assert PGF.functionType("z") == pgf.readType("N")
