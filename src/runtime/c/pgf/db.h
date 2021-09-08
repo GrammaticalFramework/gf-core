@@ -69,13 +69,8 @@ public:
     PGF_INTERNAL_DECL ~PgfDB();
 
     template<class A>
-    static ref<A> malloc() {
-        return current_db->malloc_internal(sizeof(A));
-    }
-
-    template<class A>
-    static ref<A> malloc(size_t bytes) {
-        return current_db->malloc_internal(bytes);
+    static ref<A> malloc(size_t extra_bytes=0) {
+        return current_db->malloc_internal(sizeof(A)+extra_bytes);
     }
 
     template<class A>

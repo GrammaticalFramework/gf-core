@@ -205,7 +205,7 @@ PgfLiteral PgfReader::read_literal()
 	}
 	case PgfLiteralInt::tag: {
 		ref<PgfLiteralInt> lit_int =
-			PgfDB::malloc<PgfLiteralInt>(sizeof(PgfLiteralInt)+sizeof(uintmax_t));
+			PgfDB::malloc<PgfLiteralInt>(sizeof(uintmax_t));
         lit_int->size   = 1;
 		lit_int->val[0] = read_int();
         lit = ref<PgfLiteralInt>::tagged(lit_int);
@@ -428,7 +428,7 @@ void PgfReader::read_abstract(ref<PgfAbstr> abstract)
 
 ref<PgfPGF> PgfReader::read_pgf()
 {
-    ref<PgfPGF> pgf = PgfDB::malloc<PgfPGF>(sizeof(PgfPGF)+master.size+1);
+    ref<PgfPGF> pgf = PgfDB::malloc<PgfPGF>(master.size+1);
 
     pgf->major_version = read_u16be();
     pgf->minor_version = read_u16be();

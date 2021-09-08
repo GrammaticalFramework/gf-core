@@ -118,7 +118,7 @@ PgfDB *pgf_read_ngf(const char *fpath,
 
             if (PgfDB::get_revision(&master) == 0) {
                 is_new = true;
-                ref<PgfPGF> pgf = PgfDB::malloc<PgfPGF>(sizeof(PgfPGF)+master.size+1);
+                ref<PgfPGF> pgf = PgfDB::malloc<PgfPGF>(master.size+1);
                 pgf->major_version = 2;
                 pgf->minor_version = 0;
                 pgf->gflags = 0;
@@ -445,7 +445,7 @@ PgfRevision pgf_clone_revision(PgfDB *db, PgfRevision revision,
         size_t name_size =
             (name == NULL) ? pgf->name.size : name->size;
 
-        ref<PgfPGF> new_pgf = PgfDB::malloc<PgfPGF>(sizeof(PgfPGF)+name_size+1);
+        ref<PgfPGF> new_pgf = PgfDB::malloc<PgfPGF>(name_size+1);
         new_pgf->major_version = pgf->major_version;
         new_pgf->minor_version = pgf->minor_version;
 
@@ -454,7 +454,7 @@ PgfRevision pgf_clone_revision(PgfDB *db, PgfRevision revision,
             pgf->gflags->ref_count++;
 
         new_pgf->abstract.name =
-            PgfDB::malloc<PgfText>(sizeof(PgfText)+pgf->abstract.name->size+1);
+            PgfDB::malloc<PgfText>(pgf->abstract.name->size+1);
         memcpy(new_pgf->abstract.name, pgf->abstract.name, sizeof(PgfText)+pgf->abstract.name->size+1);
 
         new_pgf->abstract.aflags = pgf->abstract.aflags;
@@ -524,7 +524,7 @@ void pgf_create_function(PgfDB *db, PgfRevision revision,
         PgfDBUnmarshaller u(m);
 
         ref<PgfPGF> pgf = PgfDB::revision2pgf(revision);
-        ref<PgfAbsFun> absfun = PgfDB::malloc<PgfAbsFun>(sizeof(PgfAbsFun)+name->size+1);
+        ref<PgfAbsFun> absfun = PgfDB::malloc<PgfAbsFun>(name->size+1);
         absfun->type  = m->match_type(&u, ty);
         absfun->arity = 0;
         absfun->defns = 0;

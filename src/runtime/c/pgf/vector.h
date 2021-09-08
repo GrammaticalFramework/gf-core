@@ -10,7 +10,7 @@ struct PgfVector {
 template <class A> inline
 ref<PgfVector<A>> vector_new(size_t len)
 {
-    ref<PgfVector<A>> res = PgfDB::malloc<PgfVector<A>>(sizeof(PgfVector<A>)+len*sizeof(A));
+    ref<PgfVector<A>> res = PgfDB::malloc<PgfVector<A>>(len*sizeof(A));
     res->len = len;
     return res;
 }
@@ -18,7 +18,8 @@ ref<PgfVector<A>> vector_new(size_t len)
 template <class C, class A> inline
 ref<C> vector_new(PgfVector<A> C::* field, size_t len)
 {
-    ref<C> res = PgfDB::malloc<C>(((size_t) &(((C*) NULL)->*field))+sizeof(PgfVector<A>)+len*sizeof(A));
+    ptrdiff_t offset = (ptrdiff_t) &(((C*) NULL)->*field);
+    ref<C> res = PgfDB::malloc<PgfVector<A>>(offset+len*sizeof(A)).as_object()-offset;
     (res->*field).len = len;
     return res;
 }

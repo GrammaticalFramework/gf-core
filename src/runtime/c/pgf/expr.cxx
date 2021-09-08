@@ -111,7 +111,7 @@ PgfType PgfDBMarshaller::match_type(PgfUnmarshaller *u, PgfType ty)
 PgfExpr PgfDBUnmarshaller::eabs(PgfBindType bind_type, PgfText *name, PgfExpr body)
 {
     ref<PgfExprAbs> eabs =
-        PgfDB::malloc<PgfExprAbs>(sizeof(PgfExprAbs)+name->size+1);
+        PgfDB::malloc<PgfExprAbs>(name->size+1);
     eabs->bind_type = bind_type;
     eabs->body = m->match_expr(this, body);
     memcpy(&eabs->name, name, sizeof(PgfText)+name->size+1);
@@ -143,7 +143,7 @@ PgfExpr PgfDBUnmarshaller::emeta(PgfMetaId meta_id)
 PgfExpr PgfDBUnmarshaller::efun(PgfText *name)
 {
     ref<PgfExprFun> efun =
-        PgfDB::malloc<PgfExprFun>(sizeof(PgfExprFun)+name->size+1);
+        PgfDB::malloc<PgfExprFun>(name->size+1);
     memcpy(&efun->name, name, sizeof(PgfText)+name->size+1);
     return ref<PgfExprFun>::tagged(efun);
 }
@@ -173,7 +173,7 @@ PgfExpr PgfDBUnmarshaller::eimplarg(PgfExpr expr)
 PgfLiteral PgfDBUnmarshaller::lint(size_t size, uintmax_t *val)
 {
     ref<PgfLiteralInt> lit_int =
-        PgfDB::malloc<PgfLiteralInt>(sizeof(PgfLiteralInt)+size*sizeof(uintmax_t));
+        PgfDB::malloc<PgfLiteralInt>(size*sizeof(uintmax_t));
     lit_int->size = size;
     memcpy(&lit_int->val, val, size*sizeof(uintmax_t));
     return ref<PgfLiteralInt>::tagged(lit_int);
@@ -189,7 +189,7 @@ PgfLiteral PgfDBUnmarshaller::lflt(double val)
 PgfLiteral PgfDBUnmarshaller::lstr(PgfText *val)
 {
     ref<PgfLiteralStr> lit_str =
-        PgfDB::malloc<PgfLiteralStr>(sizeof(PgfLiteralStr)+val->size+1);
+        PgfDB::malloc<PgfLiteralStr>(val->size+1);
     memcpy(&lit_str->val, val, sizeof(PgfText)+val->size+1);
     return ref<PgfLiteralStr>::tagged(lit_str);
 }
@@ -199,13 +199,13 @@ PgfType PgfDBUnmarshaller::dtyp(int n_hypos, PgfTypeHypo *hypos,
                                 int n_exprs, PgfExpr *exprs)
 {
     ref<PgfDTyp> ty =
-        PgfDB::malloc<PgfDTyp>(sizeof(PgfDTyp)+cat->size+1);
+        PgfDB::malloc<PgfDTyp>(cat->size+1);
     memcpy(&ty->name, cat, sizeof(PgfText)+cat->size+1);
     ty->hypos = vector_new<PgfHypo>(n_hypos);
     for (size_t i = 0; i < n_hypos; i++) {
         ref<PgfHypo> hypo = vector_elem(ty->hypos,i);
         hypo->bind_type = hypos[i].bind_type;
-        hypo->cid = PgfDB::malloc<PgfText>(sizeof(PgfText)+hypos[i].cid->size+1);
+        hypo->cid = PgfDB::malloc<PgfText>(hypos[i].cid->size+1);
         memcpy(hypo->cid, hypos[i].cid, sizeof(PgfText)+hypos[i].cid->size+1);
         hypo->type = m->match_type(this, hypos[i].type);
     }
