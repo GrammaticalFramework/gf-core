@@ -64,7 +64,7 @@ def test_readNGF(NGF):
     pgf.readNGF("./basic.ngf")
     # TODO assert read actually worked
 
-# abstract expressions
+# abstract syntax
 
 def test_abstractName(PGF):
     assert PGF.abstractName == "basic"
@@ -83,6 +83,8 @@ def test_functionsByCat_2(PGF):
 
 def test_functionsByCat_non_existant(PGF):
     assert PGF.functionsByCat("X") == []
+
+# types
 
 def test_readType_invalid():
     with pytest.raises(pgf.PGFError):
@@ -103,7 +105,7 @@ def test_readType_inequality_1():
 def test_readType_inequality_2():
     assert pgf.readType("A -> B") != pgf.readType("B->B")
 
-# def test_Type_str_1():
+# def test_readType_str():
 #     assert str(pgf.readType("A->   B")) == "A -> B"
 
 def test_functionType_1(PGF):
@@ -123,6 +125,31 @@ def test_functionType_wrong(PGF):
     assert PGF.functionType("c") != pgf.readType("N -> S -> X")
 
 def test_startCat(PGF):
-    # with pytest.raises(pgf.PGFError):
-    #     PGF.startCat
     assert PGF.startCat == pgf.readType("S")
+
+# expressions
+
+def test_readExpr_invalid():
+    with pytest.raises(pgf.PGFError):
+        pgf.readExpr("->")
+
+def test_readExpr_equality_int():
+    assert pgf.readExpr("123") == pgf.readExpr("123")
+
+def test_readExpr_inequality_int():
+    assert pgf.readExpr("123") != pgf.readExpr("456")
+
+def test_readExpr_equality_float():
+    assert pgf.readExpr("3.142") == pgf.readExpr("3.142")
+
+def test_readExpr_inequality_float():
+    assert pgf.readExpr("3.142") != pgf.readExpr("3")
+
+def test_readExpr_equality_string():
+    assert pgf.readExpr("\"abc\"") == pgf.readExpr("\"abc\"")
+
+def test_readExpr_inequality_string():
+    assert pgf.readExpr("\"abc\"") != pgf.readExpr("\"def\"")
+
+# def test_readExpr_str_int():
+#     assert str(pgf.readExpr("123")) == "123"

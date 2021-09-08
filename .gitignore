@@ -5,6 +5,7 @@
 *.jar
 *.gfo
 *.pgf
+*.ngf
 debian/.debhelper
 debian/debhelper-build-stamp
 debian/gf
@@ -46,6 +47,8 @@ src/runtime/c/sg/.dirstamp
 src/runtime/c/stamp-h1
 src/runtime/java/.libs/
 src/runtime/python/build/
+src/runtime/python/__pycache__/
+src/runtime/python/.pytest_cache/
 .cabal-sandbox
 cabal.sandbox.config
 .stack-work
