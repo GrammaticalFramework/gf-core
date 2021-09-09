@@ -342,4 +342,9 @@ void pgf_create_function(PgfDB *db, PgfRevision revision,
                          PgfMarshaller *m,
                          PgfExn *err);
 
+PGF_API_DECL
+void pgf_drop_function(PgfDB *db, PgfRevision revision,
+                       PgfText *name,
+                       PgfExn *err);
+
 #endif // PGF_H_
