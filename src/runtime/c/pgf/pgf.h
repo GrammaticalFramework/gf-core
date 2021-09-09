@@ -324,7 +324,7 @@ PgfRevision pgf_clone_revision(PgfDB *db, PgfRevision revision,
                                PgfText *name,
                                PgfExn *err);
 
-PGF_API
+PGF_API_DECL
 void pgf_commit_revision(PgfDB *db, PgfRevision revision,
                          PgfExn *err);
 
