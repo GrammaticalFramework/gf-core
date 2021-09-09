@@ -12,6 +12,8 @@ main = do
   Just gr4 <- checkoutPGF gr1 "master"
   Just gr5 <- checkoutPGF gr1 "bar_branch"
 
+  gr6 <- modifyPGF gr1 (dropFunction "ind")
+
   runTestTTAndExit $
     TestList $
       [TestCase (assertEqual "original functions" ["c","ind","s","z"] (functions gr1))
@@ -19,6 +21,7 @@ main = do
       ,TestCase (assertEqual "branched functions" ["bar","c","ind","s","z"] (functions gr3))
       ,TestCase (assertEqual "checked-out extended functions" ["c","foo","ind","s","z"] (functions gr4))
       ,TestCase (assertEqual "checked-out branched functions" ["bar","c","ind","s","z"] (functions gr5))
+      ,TestCase (assertEqual "reduced functions" ["c","s","z"] (functions gr6))
       ,TestCase (assertEqual "old function type" Nothing   (functionType gr1 "foo"))
       ,TestCase (assertEqual "new function type" (Just ty) (functionType gr2 "foo"))
       ,TestCase (assertEqual "old function prob" (-log 0)  (functionProb gr1 "foo"))

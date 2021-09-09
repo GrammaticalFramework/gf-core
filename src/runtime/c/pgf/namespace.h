@@ -287,7 +287,87 @@ Namespace<V> namespace_insert(Namespace<V> map, ref<V> value)
         return Node<V>::new_node(value,map->left,map->right);
     }
 }
-    
+
+template <class V>
+Namespace<V> namespace_delete(Namespace<V> map, PgfText* name)
+{
+    if (map == 0)
+        return 0;
+
+    int cmp = textcmp(name,&map->value->name);
+    if (cmp < 0) {
+        Namespace<V> left = namespace_delete(map->left, name);
+        if (left == map->left)
+            return map;
+        Namespace<V> node = Node<V>::balanceR(map->value,left,map->right);
+        namespace_release(left);
+        return node;
+    } else if (cmp > 0) {
+        Namespace<V> right = namespace_delete(map->right, name);
+        if (right == map->right)
+            return map;
+        Namespace<V> node  = Node<V>::balanceL(map->value,map->left,right);
+        namespace_release(right);
+        return node;
+    } else {
+        if (map->left == 0) {
+            if (map->right != 0)
+                map->right->ref_count++;
+            return map->right;
+        } else if (map->right == 0) {
+            if (map->left != 0)
+                map->left->ref_count++;
+            return map->left;
+        } else if (map->left->sz > map->right->sz) {
+            ref<V> value;
+            Namespace<V> new_left = namespace_pop_last(map->left, &value);
+            Namespace<V> node = Node<V>::balanceR(value, new_left, map->right);
+            namespace_release(new_left);
+            return node;
+        } else {
+            ref<V> value;
+            Namespace<V> new_right = namespace_pop_first(map->right, &value);
+            Namespace<V> node = Node<V>::balanceL(value, map->left, new_right);
+            namespace_release(new_right);
+            return node;
+        }
+    }
+}
+
+template <class V>
+Namespace<V> namespace_pop_first(Namespace<V> map, ref<V> *res)
+{
+    if (map == 0) {
+        return 0;
+    } else if (map->left == 0) {
+        *res = map->value;
+        if (map->right != 0)
+            map->right->ref_count++;
+        return map->right;
+    } else {
+        Namespace<V> new_left = namespace_pop_first(map->left, res);
+        Namespace<V> node = Node<V>::balanceR(map->value, new_left, map->right);
+        namespace_release(new_left);
+        return node;
+    }
+}
+
+template <class V>
+Namespace<V> namespace_pop_last(Namespace<V> map, ref<V> *res)
+{
+    if (map == 0) {
+        return 0;
+    } else if (map->right == 0) {
+        *res = map->value;
+        if (map->left != 0)
+            map->left->ref_count++;
+        return map->left;
+    } else {
+        Namespace<V> new_right = namespace_pop_last(map->right, res);
+        return Node<V>::balanceR(map->value, map->left, new_right);
+    }
+}
+
 template <class V>
 ref<V> namespace_lookup(Namespace<V> map, PgfText *name)
 {

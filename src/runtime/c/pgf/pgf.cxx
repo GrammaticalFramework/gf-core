@@ -534,9 +534,26 @@ void pgf_create_function(PgfDB *db, PgfRevision revision,
         absfun->ep.expr = ref<PgfExprFun>::tagged(efun);
         memcpy(&absfun->name, name, sizeof(PgfText)+name->size+1);
         
-        Namespace<PgfAbsFun> nmsp =
+        Namespace<PgfAbsFun> funs =
             namespace_insert(pgf->abstract.funs, absfun);
         namespace_release(pgf->abstract.funs);
-        pgf->abstract.funs = nmsp;
+        pgf->abstract.funs = funs;
+    } PGF_API_END
+}
+
+PGF_API
+void pgf_drop_function(PgfDB *db, PgfRevision revision,
+                       PgfText *name,
+                       PgfExn *err)
+{
+    PGF_API_BEGIN {
+        DB_scope scope(db, WRITER_SCOPE);
+
+        ref<PgfPGF> pgf = PgfDB::revision2pgf(revision);
+
+        Namespace<PgfAbsFun> funs =
+            namespace_delete(pgf->abstract.funs, name);
+        namespace_release(pgf->abstract.funs);
+        pgf->abstract.funs = funs;
     } PGF_API_END
 }

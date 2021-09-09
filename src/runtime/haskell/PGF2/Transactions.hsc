@@ -4,6 +4,7 @@ module PGF2.Transactions
           , branchPGF
           , checkoutPGF
           , createFunction
+          , dropFunction
           ) where
 
 import PGF2.FFI
@@ -110,3 +111,8 @@ createFunction name ty prob = Transaction $ \c_db c_revision c_exn ->
   bracket (newStablePtr ty) freeStablePtr $ \c_ty ->
   withForeignPtr marshaller $ \m -> do
     pgf_create_function c_db c_revision c_name c_ty prob m c_exn
+
+dropFunction :: Fun -> Transaction ()
+dropFunction name = Transaction $ \c_db c_revision c_exn ->
+  withText name $ \c_name -> do
+    pgf_drop_function c_db c_revision c_name c_exn

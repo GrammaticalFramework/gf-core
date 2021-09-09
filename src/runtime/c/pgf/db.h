@@ -22,8 +22,8 @@ public:
 
     A* operator->() const { return (A*) (current_base+offset); }
     operator A*()   const { return (A*) (current_base+offset); }
-    bool operator ==(ref<A>& other) const { return offset==other->offset; }
-    bool operator !=(ref<A>& other) const { return offset!=other->offset; }
+    bool operator ==(ref<A>& other) const { return offset==other.as_object(); }
+    bool operator !=(ref<A>& other) const { return offset!=other.as_object(); }
     bool operator ==(object other_offset) const { return offset==other_offset; }
     bool operator !=(object other_offset) const { return offset!=other_offset; }
 
