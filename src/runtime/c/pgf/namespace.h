@@ -287,7 +287,7 @@ Namespace<V> namespace_insert(Namespace<V> map, ref<V> value)
         return Node<V>::new_node(value,map->left,map->right);
     }
 }
-
+    
 template <class V>
 ref<V> namespace_lookup(Namespace<V> map, PgfText *name)
 {

@@ -247,6 +247,9 @@ void pgf_free(PgfDB *pgf);
 PGF_API_DECL
 void pgf_free_revision(PgfDB *pgf, PgfRevision revision);
 
+/* Returns a newly allocated text which contains the abstract name of
+ * the grammar. The text must be released with a call to free.
+ */
 PGF_API_DECL
 PgfText *pgf_abstract_name(PgfDB *db, PgfRevision revision,
                            PgfExn* err);
