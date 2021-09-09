@@ -16,58 +16,75 @@
 PgfExpr eabs(PgfUnmarshaller *this, PgfBindType btype, PgfText *name, PgfExpr body)
 {
     PyErr_SetString(PyExc_NotImplementedError, "eabs not implemented");
-    return 0;
+    Py_RETURN_NOTIMPLEMENTED;
 }
 
 PgfExpr eapp(PgfUnmarshaller *this, PgfExpr fun, PgfExpr arg)
 {
     PyErr_SetString(PyExc_NotImplementedError, "eapp not implemented");
-    return 0;
+    Py_RETURN_NOTIMPLEMENTED;
 }
 
 PgfExpr elit(PgfUnmarshaller *this, PgfLiteral lit)
 {
-    PyErr_SetString(PyExc_NotImplementedError, "elit not implemented");
-    return 0;
+    ExprLitObject *pyexpr = (ExprLitObject *)pgf_ExprLitType.tp_alloc(&pgf_ExprLitType, 0);
+
+    PyObject *pyobj = (PyObject *)lit;
+    pyexpr->value = pyobj;
+
+    if (PyLong_Check(pyobj)) {
+        pyexpr->type = 0;
+    } else if (PyFloat_Check(pyobj)) {
+        pyexpr->type = 1;
+    } else if (PyString_Check(pyobj)) {
+        pyexpr->type = 2;
+    } else {
+        PyErr_SetString(PyExc_TypeError, "unable to unmarshall literal");
+        return 0;
+    }
+
+    Py_INCREF(pyobj);
+    return (PgfExpr) pyexpr;
 }
 
 PgfExpr emeta(PgfUnmarshaller *this, PgfMetaId meta)
 {
     PyErr_SetString(PyExc_NotImplementedError, "emeta not implemented");
-    return 0;
+    Py_RETURN_NOTIMPLEMENTED;
 }
 
 PgfExpr efun(PgfUnmarshaller *this, PgfText *name)
 {
     PyErr_SetString(PyExc_NotImplementedError, "efun not implemented");
-    return 0;
+    Py_RETURN_NOTIMPLEMENTED;
 }
 
 PgfExpr evar(PgfUnmarshaller *this, int index)
 {
     PyErr_SetString(PyExc_NotImplementedError, "evar not implemented");
-    return 0;
+    Py_RETURN_NOTIMPLEMENTED;
 }
 
 PgfExpr etyped(PgfUnmarshaller *this, PgfExpr expr, PgfType typ)
 {
     PyErr_SetString(PyExc_NotImplementedError, "etyped not implemented");
-    return 0;
+    Py_RETURN_NOTIMPLEMENTED;
 }
 
 PgfExpr eimplarg(PgfUnmarshaller *this, PgfExpr expr)
 {
     PyErr_SetString(PyExc_NotImplementedError, "eimplarg not implemented");
-    return 0;
+    Py_RETURN_NOTIMPLEMENTED;
 }
 
 PgfLiteral lint(PgfUnmarshaller *this, size_t size, uintmax_t *v)
 {
+    intmax_t *v0 = (intmax_t *)v;
     if (size > 1) {
         PyErr_SetString(PyExc_NotImplementedError, "multi-part integers not implemented"); // TODO
-        return 0;
+        Py_RETURN_NOTIMPLEMENTED;
     }
-    PyObject *i = PyLong_FromUnsignedLong(*v);
+    PyObject *i = PyLong_FromLong(*v0);
     return (PgfLiteral) i;
 }
 
@@ -160,17 +177,14 @@ object match_lit(PgfUnmarshaller *u, PgfLiteral lit)
     if (PyLong_Check(pyobj)) {
         uintmax_t i = PyLong_AsUnsignedLong(pyobj);
         size_t size = 1; // TODO
-        return u->vtbl->lint(NULL, size, &i);
-    }
-    else if (PyFloat_Check(pyobj)) {
+        return u->vtbl->lint(u, size, &i);
+    } else if (PyFloat_Check(pyobj)) {
         double d = PyFloat_AsDouble(pyobj);
-        return u->vtbl->lflt(NULL, d);
-    }
-    else if (PyString_Check(pyobj)) {
+        return u->vtbl->lflt(u, d);
+    } else if (PyString_Check(pyobj)) {
         PgfText *t = PyString_AsPgfText(pyobj);
-        return u->vtbl->lstr(NULL, t);
-    }
-    else {
+        return u->vtbl->lstr(u, t);
+    } else {
         PyErr_SetString(PyExc_TypeError, "unable to match on literal");
         return 0;
     }
@@ -179,14 +193,14 @@ object match_lit(PgfUnmarshaller *u, PgfLiteral lit)
 object match_expr(PgfUnmarshaller *u, PgfExpr expr)
 {
     PyErr_SetString(PyExc_NotImplementedError, "match_expr not implemented");
-    return 0;
+    Py_RETURN_NOTIMPLEMENTED;
 }
 
 object match_type(PgfUnmarshaller *u, PgfType ty)
 {
     TypeObject *type = (TypeObject *)ty;
 
-    PySys_WriteStdout(">%s<\n", PyUnicode_AS_DATA(type->cat));
+    // PySys_WriteStdout(">%s<\n", PyUnicode_AS_DATA(type->cat));
 
     int n_hypos = 0; //PyList_Size(type->hypos);
     PgfTypeHypo *hypos = NULL; // TODO
@@ -196,7 +210,7 @@ object match_type(PgfUnmarshaller *u, PgfType ty)
     int n_exprs = 0; //PyList_Size(type->exprs);
     PgfExpr *exprs = NULL; // TODO
 
-    return u->vtbl->dtyp(NULL, n_hypos, hypos, cat, n_exprs, exprs);
+    return u->vtbl->dtyp(u, n_hypos, hypos, cat, n_exprs, exprs);
 }
 
 static PgfMarshallerVtbl marshallerVtbl =

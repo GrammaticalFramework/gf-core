@@ -17,11 +17,18 @@ typedef struct {
 
 extern PyTypeObject pgf_TypeType;
 
-// typedef struct {
-//     PyObject_HEAD
-//     PyObject* master;
-//     GuPool* pool;
-//     PgfExpr expr;
-// } ExprObject;
+typedef struct {
+    PyObject_HEAD
+} ExprObject;
+
+typedef struct {
+    PyObject_HEAD
+    int type;   // 0 = int, 1 = float, 2 = str
+    PyObject *value; // depends on type
+} ExprLitObject;
+
+extern PyTypeObject pgf_ExprType;
+
+extern PyTypeObject pgf_ExprLitType;
 
 #endif // PYPGF_EXPR_H_

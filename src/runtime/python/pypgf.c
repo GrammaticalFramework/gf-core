@@ -1740,7 +1740,7 @@ typedef struct {
 // }
 
 static PyObject*
-PGF_repr(PGFObject *self)
+PGF_str(PGFObject *self)
 {
     // GuPool* tmp_pool = gu_local_pool();
     //
@@ -2370,7 +2370,7 @@ static PyTypeObject pgf_PGFType = {
     0,                         /*tp_as_mapping*/
     0,                         /*tp_hash */
     0,                         /*tp_call*/
-    (reprfunc) PGF_repr,       /*tp_str*/
+    (reprfunc) PGF_str,        /*tp_str*/
     0,                         /*tp_getattro*/
     0,                         /*tp_setattro*/
     0,                         /*tp_as_buffer*/
@@ -2477,35 +2477,27 @@ pgf_readNGF(PyObject *self, PyObject *args)
     return py_pgf;
 }
 
-// static ExprObject*
-// pgf_readExpr(PyObject *self, PyObject *args) {
-//     Py_ssize_t len;
-//     const uint8_t *buf;
-//     if (!PyArg_ParseTuple(args, "s#", &buf, &len))
-//         return NULL;
-//
-//     ExprObject* pyexpr = (ExprObject*) pgf_ExprType.tp_alloc(&pgf_ExprType, 0);
-//     if (pyexpr == NULL)
-//         return NULL;
-//
-//     GuPool* tmp_pool = gu_local_pool();
-//     GuIn* in = gu_data_in(buf, len, tmp_pool);
-//     GuExn* err = gu_new_exn(tmp_pool);
-//
-//     pyexpr->pool = gu_new_pool();
-//     pyexpr->expr = pgf_read_expr(in, pyexpr->pool, tmp_pool, err);
-//     pyexpr->master = NULL;
-//
-//     if (!gu_ok(err) || gu_variant_is_null(pyexpr->expr)) {
-//         PyErr_SetString(PGFError, "The expression cannot be parsed");
-//         Py_DECREF(pyexpr);
-//         gu_pool_free(tmp_pool);
-//         return NULL;
-//     }
-//
-//     gu_pool_free(tmp_pool);
-//     return pyexpr;
-// }
+static ExprObject*
+pgf_readExpr(PyObject *self, PyObject *args)
+{
+    const char *s;
+    Py_ssize_t size;
+    if (!PyArg_ParseTuple(args, "s#", &s, &size))
+        return NULL;
+
+    PgfText *input = (PgfText *)PyMem_Malloc(sizeof(PgfText)+size+1);
+    memcpy(input->text, s, size+1);
+    input->size = size;
+
+    PgfExpr expr = pgf_read_expr(input, &unmarshaller);
+    PyMem_Free(input);
+    if (expr == 0) {
+        PyErr_SetString(PGFError, "expression cannot be parsed");
+        return NULL;
+    }
+
+    return (ExprObject *)expr;
+}
 
 static TypeObject *
 pgf_readType(PyObject *self, PyObject *args)
@@ -2536,8 +2528,8 @@ static PyMethodDef module_methods[] = {
      "Reads a PGF file into memory and stores the unpacked data in an NGF file"},
     {"readNGF",  (void*)pgf_readNGF,  METH_VARARGS,
      "Reads an NGF file into memory"},
-    // {"readExpr", (void*)pgf_readExpr, METH_VARARGS,
-    //  "Parses a string as an abstract tree"},
+    {"readExpr", (void*)pgf_readExpr, METH_VARARGS,
+     "Parses a string as an abstract tree"},
     {"readType", (void*)pgf_readType, METH_VARARGS,
      "Parses a string as an abstract type"},
     {NULL, NULL, 0, NULL}        /* Sentinel */
@@ -2565,6 +2557,7 @@ MOD_INIT(pgf)
 
     if (PyType_Ready(&pgf_PGFType) < 0)
         return MOD_ERROR_VAL;
+
     // if (PyType_Ready(&pgf_ConcrType) < 0)
     //     return MOD_ERROR_VAL;
     //
@@ -2573,9 +2566,12 @@ MOD_INIT(pgf)
     //
     // if (PyType_Ready(&pgf_BINDType) < 0)
     //     return MOD_ERROR_VAL;
-    //
-    // if (PyType_Ready(&pgf_ExprType) < 0)
-    //     return MOD_ERROR_VAL;
+
+    if (PyType_Ready(&pgf_ExprType) < 0)
+        return MOD_ERROR_VAL;
+
+    if (PyType_Ready(&pgf_ExprLitType) < 0)
+        return MOD_ERROR_VAL;
 
     if (PyType_Ready(&pgf_TypeType) < 0)
         return MOD_ERROR_VAL;
@@ -2602,8 +2598,11 @@ MOD_INIT(pgf)
     // PyModule_AddObject(m, "TypeError", TypeError);
     // Py_INCREF(TypeError);
 
-    // PyModule_AddObject(m, "Expr", (PyObject *) &pgf_ExprType);
-    // Py_INCREF(&pgf_ExprType);
+    PyModule_AddObject(m, "Expr", (PyObject *) &pgf_ExprType);
+    Py_INCREF(&pgf_ExprType);
+
+    PyModule_AddObject(m, "ExprLit", (PyObject *) &pgf_ExprLitType);
+    Py_INCREF(&pgf_ExprType);
 
     PyModule_AddObject(m, "Type", (PyObject *) &pgf_TypeType);
     Py_INCREF(&pgf_TypeType);
