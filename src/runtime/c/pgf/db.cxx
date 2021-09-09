@@ -988,7 +988,7 @@ PGF_INTERNAL
 void PgfDB::link_transient_revision(ref<PgfPGF> pgf)
 {
     pgf->next = current_db->ms->transient_revisions;
-    if (current_db->ms->transient_revisions == 0)
+    if (current_db->ms->transient_revisions != 0)
         current_db->ms->transient_revisions->prev = pgf;
     current_db->ms->transient_revisions = pgf;
 }

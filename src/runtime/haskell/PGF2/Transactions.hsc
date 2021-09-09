@@ -5,6 +5,8 @@ module PGF2.Transactions
           , checkoutPGF
           , createFunction
           , dropFunction
+          , createCategory
+          , dropCategory
           ) where
 
 import PGF2.FFI
@@ -116,3 +118,15 @@ dropFunction :: Fun -> Transaction ()
 dropFunction name = Transaction $ \c_db c_revision c_exn ->
   withText name $ \c_name -> do
     pgf_drop_function c_db c_revision c_name c_exn
+
+createCategory :: Fun -> [Hypo] -> Float -> Transaction ()
+createCategory name hypos prob = Transaction $ \c_db c_revision c_exn ->
+  withText name $ \c_name ->
+  withHypos hypos $ \n_hypos c_hypos ->
+  withForeignPtr marshaller $ \m -> do
+    pgf_create_category c_db c_revision c_name n_hypos c_hypos prob m c_exn
+
+dropCategory :: Cat -> Transaction ()
+dropCategory name = Transaction $ \c_db c_revision c_exn ->
+  withText name $ \c_name -> do
+    pgf_drop_category c_db c_revision c_name c_exn

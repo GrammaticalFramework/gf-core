@@ -164,9 +164,9 @@ struct PgfUnmarshaller {
     virtual PgfLiteral lint(size_t size, uintmax_t *v)=0;
     virtual PgfLiteral lflt(double v)=0;
     virtual PgfLiteral lstr(PgfText *v)=0;
-    virtual PgfType dtyp(int n_hypos, PgfTypeHypo *hypos,
+    virtual PgfType dtyp(size_t n_hypos, PgfTypeHypo *hypos,
                          PgfText *cat,
-                         int n_exprs, PgfExpr *exprs)=0;
+                         size_t n_exprs, PgfExpr *exprs)=0;
     virtual void free_ref(object x)=0;
 };
 
@@ -203,9 +203,9 @@ struct PgfUnmarshaller {
 typedef struct PgfMarshaller PgfMarshaller;
 typedef struct PgfMarshallerVtbl PgfMarshallerVtbl;
 struct PgfMarshallerVtbl {
-    object (*match_lit)(PgfUnmarshaller *u, PgfLiteral lit);
-    object (*match_expr)(PgfUnmarshaller *u, PgfExpr expr);
-    object (*match_type)(PgfUnmarshaller *u, PgfType ty);
+    object (*match_lit)(PgfMarshaller *this, PgfUnmarshaller *u, PgfLiteral lit);
+    object (*match_expr)(PgfMarshaller *this, PgfUnmarshaller *u, PgfExpr expr);
+    object (*match_type)(PgfMarshaller *this, PgfUnmarshaller *u, PgfType ty);
 };
 struct PgfMarshaller {
     PgfMarshallerVtbl *vtbl;
@@ -344,6 +344,18 @@ void pgf_create_function(PgfDB *db, PgfRevision revision,
 
 PGF_API_DECL
 void pgf_drop_function(PgfDB *db, PgfRevision revision,
+                       PgfText *name,
+                       PgfExn *err);
+
+PGF_API_DECL
+void pgf_create_category(PgfDB *db, PgfRevision revision,
+                         PgfText *name,
+                         size_t n_hypos, PgfTypeHypo *context, prob_t prob,
+                         PgfMarshaller *m,
+                         PgfExn *err);
+
+PGF_API_DECL
+void pgf_drop_category(PgfDB *db, PgfRevision revision,
                        PgfText *name,
                        PgfExn *err);
 

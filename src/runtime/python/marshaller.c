@@ -167,7 +167,7 @@ PyString_AsPgfText(PyObject *pystr)
 
 // ----------------------------------------------------------------------------
 
-object match_lit(PgfUnmarshaller *u, PgfLiteral lit)
+object match_lit(PgfMarshaller *this, PgfUnmarshaller *u, PgfLiteral lit)
 {
     PyObject *pyobj = (PyObject *)lit;
 
@@ -187,13 +187,13 @@ object match_lit(PgfUnmarshaller *u, PgfLiteral lit)
     }
 }
 
-object match_expr(PgfUnmarshaller *u, PgfExpr expr)
+object match_expr(PgfMarshaller *this, PgfUnmarshaller *u, PgfExpr expr)
 {
     PyErr_SetString(PyExc_NotImplementedError, "match_expr not implemented");
     Py_RETURN_NOTIMPLEMENTED;
 }
 
-object match_type(PgfUnmarshaller *u, PgfType ty)
+object match_type(PgfMarshaller *this, PgfUnmarshaller *u, PgfType ty)
 {
     // PySys_WriteStdout(">match_type<\n");
 
