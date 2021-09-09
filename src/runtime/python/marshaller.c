@@ -166,7 +166,7 @@ PyUnicode_AsPgfText(PyObject *pystr)
     PgfText *ptext = (PgfText *)PyMem_Malloc(sizeof(PgfText)+size+1);
     memcpy(ptext->text, enc, size+1);
     ptext->size = size;
-    // Py_INCREF(ptext);
+    Py_INCREF(ptext); // ?
     return ptext;
 }
 
@@ -203,8 +203,19 @@ object match_type(PgfMarshaller *this, PgfUnmarshaller *u, PgfType ty)
 {
     TypeObject *type = (TypeObject *)ty;
 
-    int n_hypos = 0; //PyList_Size(type->hypos);
-    PgfTypeHypo *hypos = NULL; // TODO
+    int n_hypos = PyList_Size(type->hypos);
+    PgfTypeHypo *hypos;
+    if (n_hypos > 0) {
+        PyObject *hytup = (PyObject *)PyList_GetItem(type->hypos, 0);
+        PgfTypeHypo hypo;
+        hypo.bind_type = PyLong_AsLong(PyTuple_GetItem(hytup, 0)) == 0 ? PGF_BIND_TYPE_EXPLICIT : PGF_BIND_TYPE_IMPLICIT;
+        hypo.cid = PyUnicode_AsPgfText(PyTuple_GetItem(hytup, 1));
+        hypo.type = (PgfType) PyTuple_GetItem(hytup, 2);
+        hypos = &hypo;
+        Py_INCREF(hypos); // ?
+    } else {
+        hypos = NULL;
+    }
 
     PgfText *cat = PyUnicode_AsPgfText(type->cat);
     if (cat == NULL) {
@@ -216,6 +227,7 @@ object match_type(PgfMarshaller *this, PgfUnmarshaller *u, PgfType ty)
     if (n_exprs > 0) {
         exprs = (PgfExpr *)PyList_GetItem(type->exprs, 0);
         // TODO lay out others in memory in some way?
+        Py_INCREF(exprs); // ?
     } else {
         exprs = NULL;
     }
