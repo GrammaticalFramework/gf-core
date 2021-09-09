@@ -130,7 +130,10 @@ ExprLit_richcompare(ExprLitObject *t1, ExprLitObject *t2, int op)
     if (t1->type != t2->type) goto done;
 
     if (t1->type == 0) {
-        if (PyLong_AsLong(t1->value) != PyLong_AsLong(t2->value)) goto done;
+        int o1, o2;
+        int l1 = PyLong_AsLongAndOverflow(t1->value, &o1);
+        int l2 = PyLong_AsLongAndOverflow(t2->value, &o2);
+        if (!(l1 == l2 && o1 == o2)) goto done;
     } else if (t1->type == 1) {
         if (PyFloat_AsDouble(t1->value) != PyFloat_AsDouble(t2->value)) goto done;
     } else if (t1->type == 2) {
