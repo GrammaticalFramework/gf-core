@@ -380,9 +380,9 @@ PgfLiteral PgfPrinter::lstr(PgfText *v)
     return 0;
 }
 
-PgfType PgfPrinter::dtyp(int n_hypos, PgfTypeHypo *hypos,
+PgfType PgfPrinter::dtyp(size_t n_hypos, PgfTypeHypo *hypos,
                          PgfText *cat,
-                         int n_exprs, PgfExpr *exprs)
+                         size_t n_exprs, PgfExpr *exprs)
 {
     bool p = (prio > 0 && n_hypos > 0) ||
              (prio > 3 && n_exprs > 0);

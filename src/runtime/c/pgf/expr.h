@@ -116,9 +116,9 @@ struct PGF_INTERNAL_DECL PgfDBUnmarshaller : public PgfUnmarshaller {
     virtual PgfLiteral lint(size_t size, uintmax_t *val);
     virtual PgfLiteral lflt(double val);
     virtual PgfLiteral lstr(PgfText *val);
-    virtual PgfType dtyp(int n_hypos, PgfTypeHypo *hypos,
+    virtual PgfType dtyp(size_t n_hypos, PgfTypeHypo *hypos,
                          PgfText *cat,
-                         int n_exprs, PgfExpr *exprs);
+                         size_t n_exprs, PgfExpr *exprs);
     virtual void free_ref(object x);
 };
 

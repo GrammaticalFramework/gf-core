@@ -194,9 +194,9 @@ PgfLiteral PgfDBUnmarshaller::lstr(PgfText *val)
     return ref<PgfLiteralStr>::tagged(lit_str);
 }
 
-PgfType PgfDBUnmarshaller::dtyp(int n_hypos, PgfTypeHypo *hypos,
+PgfType PgfDBUnmarshaller::dtyp(size_t n_hypos, PgfTypeHypo *hypos,
                                 PgfText *cat,
-                                int n_exprs, PgfExpr *exprs)
+                                size_t n_exprs, PgfExpr *exprs)
 {
     ref<PgfDTyp> ty =
         PgfDB::malloc<PgfDTyp>(cat->size+1);
@@ -205,8 +205,7 @@ PgfType PgfDBUnmarshaller::dtyp(int n_hypos, PgfTypeHypo *hypos,
     for (size_t i = 0; i < n_hypos; i++) {
         ref<PgfHypo> hypo = vector_elem(ty->hypos,i);
         hypo->bind_type = hypos[i].bind_type;
-        hypo->cid = PgfDB::malloc<PgfText>(hypos[i].cid->size+1);
-        memcpy(hypo->cid, hypos[i].cid, sizeof(PgfText)+hypos[i].cid->size+1);
+        hypo->cid = textdup_db(hypos[i].cid);
         hypo->type = m->match_type(this, hypos[i].type);
     }
     ty->exprs = vector_new<PgfExpr>(n_exprs);

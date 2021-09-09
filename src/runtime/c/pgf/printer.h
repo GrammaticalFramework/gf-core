@@ -61,9 +61,9 @@ public:
     virtual PgfLiteral lint(size_t size, uintmax_t *v);
     virtual PgfLiteral lflt(double v);
     virtual PgfLiteral lstr(PgfText *v);
-    virtual PgfType dtyp(int n_hypos, PgfTypeHypo *hypos,
+    virtual PgfType dtyp(size_t n_hypos, PgfTypeHypo *hypos,
                          PgfText *cat,
-                         int n_exprs, PgfExpr *exprs);
+                         size_t n_exprs, PgfExpr *exprs);
     virtual void free_ref(object x);
 };
 

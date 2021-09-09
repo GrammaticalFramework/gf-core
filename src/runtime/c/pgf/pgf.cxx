@@ -453,9 +453,7 @@ PgfRevision pgf_clone_revision(PgfDB *db, PgfRevision revision,
         if (pgf->gflags != 0)
             pgf->gflags->ref_count++;
 
-        new_pgf->abstract.name =
-            PgfDB::malloc<PgfText>(pgf->abstract.name->size+1);
-        memcpy(new_pgf->abstract.name, pgf->abstract.name, sizeof(PgfText)+pgf->abstract.name->size+1);
+        new_pgf->abstract.name = textdup_db(&(*pgf->abstract.name));
 
         new_pgf->abstract.aflags = pgf->abstract.aflags;
         if (pgf->abstract.aflags != 0)
@@ -495,7 +493,8 @@ void pgf_commit_revision(PgfDB *db, PgfRevision revision,
         PgfDB::unlink_transient_revision(new_pgf);
         PgfDB::set_revision(new_pgf);
 
-        PgfDB::link_transient_revision(old_pgf);
+        if (old_pgf != 0)
+            PgfDB::link_transient_revision(old_pgf);
     } PGF_API_END
 }
 
@@ -555,5 +554,53 @@ void pgf_drop_function(PgfDB *db, PgfRevision revision,
             namespace_delete(pgf->abstract.funs, name);
         namespace_release(pgf->abstract.funs);
         pgf->abstract.funs = funs;
+    } PGF_API_END
+}
+
+PGF_API
+void pgf_create_category(PgfDB *db, PgfRevision revision,
+                         PgfText *name,
+                         size_t n_hypos, PgfTypeHypo *context, prob_t prob,
+                         PgfMarshaller *m,
+                         PgfExn *err)
+{
+    PGF_API_BEGIN {
+        DB_scope scope(db, WRITER_SCOPE);
+
+        PgfDBUnmarshaller u(m);
+
+        ref<PgfPGF> pgf = PgfDB::revision2pgf(revision);
+        ref<PgfAbsCat> abscat = PgfDB::malloc<PgfAbsCat>(name->size+1);
+        abscat->context = vector_new<PgfHypo>(n_hypos);
+        abscat->prob    = prob;
+        memcpy(&abscat->name, name, sizeof(PgfText)+name->size+1);
+
+        for (size_t i = 0; i < n_hypos; i++) {
+            vector_elem(abscat->context, i)->bind_type = context[i].bind_type;
+            vector_elem(abscat->context, i)->cid = textdup_db(context[i].cid);
+            vector_elem(abscat->context, i)->type = m->match_type(&u, context[i].type);
+        }
+
+        Namespace<PgfAbsCat> cats =
+            namespace_insert(pgf->abstract.cats, abscat);
+        namespace_release(pgf->abstract.cats);
+        pgf->abstract.cats = cats;
+    } PGF_API_END
+}
+
+PGF_API
+void pgf_drop_category(PgfDB *db, PgfRevision revision,
+                       PgfText *name,
+                       PgfExn *err)
+{
+    PGF_API_BEGIN {
+        DB_scope scope(db, WRITER_SCOPE);
+
+        ref<PgfPGF> pgf = PgfDB::revision2pgf(revision);
+
+        Namespace<PgfAbsCat> cats =
+            namespace_delete(pgf->abstract.cats, name);
+        namespace_release(pgf->abstract.cats);
+        pgf->abstract.cats = cats;
     } PGF_API_END
 }

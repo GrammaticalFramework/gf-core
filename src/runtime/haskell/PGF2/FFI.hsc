@@ -118,6 +118,10 @@ foreign import ccall pgf_create_function :: Ptr PgfDB -> Ptr PgfRevision -> Ptr 
 
 foreign import ccall pgf_drop_function :: Ptr PgfDB -> Ptr PgfRevision -> Ptr PgfText -> Ptr PgfExn -> IO ()
 
+foreign import ccall pgf_create_category :: Ptr PgfDB -> Ptr PgfRevision -> Ptr PgfText -> CSize -> Ptr PgfTypeHypo -> (#type prob_t) -> Ptr PgfMarshaller -> Ptr PgfExn -> IO ()
+
+foreign import ccall pgf_drop_category :: Ptr PgfDB -> Ptr PgfRevision -> Ptr PgfText -> Ptr PgfExn -> IO ()
+
 
 -----------------------------------------------------------------------
 -- Texts
@@ -310,7 +314,7 @@ foreign import ccall "dynamic"
 foreign import ccall "wrapper"
   wrapLStrFun :: LStrFun -> IO (FunPtr LStrFun)
 
-type DTypFun = Ptr PgfUnmarshaller -> CInt -> Ptr PgfTypeHypo -> Ptr PgfText -> CInt -> Ptr (StablePtr Expr) -> IO (StablePtr Type)
+type DTypFun = Ptr PgfUnmarshaller -> CSize -> Ptr PgfTypeHypo -> Ptr PgfText -> CSize -> Ptr (StablePtr Expr) -> IO (StablePtr Type)
 
 foreign import ccall "dynamic"
   callDTypFun :: FunPtr DTypFun -> DTypFun
@@ -397,21 +401,19 @@ marshaller = unsafePerformIO $ do
       ty   <- deRefStablePtr c_ty
       case ty of
         DTyp hypos cat es -> let n_hypos = length hypos
-                             in allocaBytes (n_hypos * (#size PgfTypeHypo)) $ \c_hypos ->
+                             in withHypos hypos $ \n_hypos c_hypos ->
                                 withText cat $ \c_cat ->
                                 mask_ $ do
-                                  marshalHypos c_hypos hypos
                                   c_es <- mapM newStablePtr es
                                   res <- withArray c_es $ \c_exprs -> do
                                            fun <- (#peek PgfUnmarshallerVtbl, dtyp) vtbl
                                            callDTypFun fun u
-                                                       (fromIntegral n_hypos)
+                                                       n_hypos
                                                        c_hypos
                                                        c_cat
                                                        (fromIntegral (length es))
                                                        c_exprs
                                   mapM_ freeStablePtr c_es
-                                  freeHypos c_hypos n_hypos
                                   return res
       where
         marshalHypos _   []               = return ()
@@ -533,3 +535,26 @@ marshalBindType Implicit = (#const PGF_BIND_TYPE_IMPLICIT)
 unmarshalBindType :: (#type PgfBindType) -> BindType
 unmarshalBindType (#const PGF_BIND_TYPE_EXPLICIT) = Explicit
 unmarshalBindType (#const PGF_BIND_TYPE_IMPLICIT) = Implicit
+
+withHypos hypos f =
+  let n_hypos = length hypos
+  in allocaBytes (n_hypos * (#size PgfTypeHypo)) $ \c_hypos ->
+     mask_ $ do
+       marshalHypos c_hypos hypos
+       res <- f (fromIntegral n_hypos :: CSize) c_hypos
+       freeHypos n_hypos c_hypos
+       return res
+  where
+    marshalHypos _   []               = return ()
+    marshalHypos ptr ((bt,var,ty):hs) = do
+      (#poke PgfTypeHypo, bind_type) ptr (marshalBindType bt)
+      newText var     >>= (#poke PgfTypeHypo, cid)  ptr
+      newStablePtr ty >>= (#poke PgfTypeHypo, type) ptr
+      marshalHypos (ptr `plusPtr` (#size PgfTypeHypo)) hs
+
+    freeHypos 0 ptr = return ()
+    freeHypos n ptr = do
+      (#peek PgfTypeHypo, cid)  ptr >>= free
+      (#peek PgfTypeHypo, type) ptr >>= freeStablePtr
+      freeHypos (n-1) (ptr `plusPtr` (#size PgfTypeHypo))
+
