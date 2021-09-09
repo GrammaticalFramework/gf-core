@@ -9,8 +9,10 @@
 static PyObject *
 Expr_str(ExprObject *self)
 {
-    PgfText *s = pgf_print_expr((PgfExpr) &self, NULL, 1, &marshaller);
-    return PyString_FromStringAndSize(s->text, s->size);
+    PgfText *s = pgf_print_expr((PgfExpr) self, NULL, 1, &marshaller);
+    PyObject *str = PyString_FromStringAndSize(s->text, s->size);
+    free(s);
+    return str;
 }
 
 static PyObject *
@@ -204,8 +206,10 @@ PyTypeObject pgf_ExprLitType = {
 static PyObject *
 Type_str(TypeObject *self)
 {
-    PgfText *s = pgf_print_type((PgfType) &self, NULL, 1, &marshaller);
-    return PyString_FromStringAndSize(s->text, s->size);
+    PgfText *s = pgf_print_type((PgfType) self, NULL, 1, &marshaller);
+    PyObject *str = PyString_FromStringAndSize(s->text, s->size);
+    free(s);
+    return str;
 }
 
 static PyObject *
