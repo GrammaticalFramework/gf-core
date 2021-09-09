@@ -80,12 +80,22 @@ PgfExpr eimplarg(PgfUnmarshaller *this, PgfExpr expr)
 PgfLiteral lint(PgfUnmarshaller *this, size_t size, uintmax_t *v)
 {
     intmax_t *v0 = (intmax_t *)v;
-    if (size > 1) {
-        PyErr_SetString(PyExc_NotImplementedError, "multi-part integers not implemented"); // TODO
-        Py_RETURN_NOTIMPLEMENTED;
+    if (size == 0) {
+        return (PgfLiteral) 0;
+    } else if (size > 1) {
+        // TODO: string concatenation works but probably not optimal
+        PyObject *sb = PyString_FromFormat("%ld", *v0);
+        for (size_t n = 1; n < size; n++) {
+            uintmax_t *vn = v + n;
+            PyObject *t = PyString_FromFormat("%lu", *vn);
+            sb = PyString_Concat(sb, t);
+        }
+        PyObject *i = PyLong_FromUnicodeObject(sb, 10);
+        return (PgfLiteral) i;
+    } else {
+        PyObject *i = PyLong_FromLong(*v0);
+        return (PgfLiteral) i;
     }
-    PyObject *i = PyLong_FromLong(*v0);
-    return (PgfLiteral) i;
 }
 
 PgfLiteral lflt(PgfUnmarshaller *this, double v)

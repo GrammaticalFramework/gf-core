@@ -20,8 +20,9 @@
     #define PyStringObject               PyUnicodeObject
     #define PyString_Check               PyUnicode_Check
     #define PyString_FromStringAndSize   PyUnicode_FromStringAndSize
-    // #define PyString_FromFormat          PyUnicode_FromFormat
+    #define PyString_FromFormat          PyUnicode_FromFormat
     // #define PyString_Concat(ps,s)        {PyObject* tmp = *(ps); *(ps) = PyUnicode_Concat(tmp,s); Py_DECREF(tmp);}
+    #define PyString_Concat              PyUnicode_Concat
     #define PyString_Compare             PyUnicode_Compare
 #endif
 
