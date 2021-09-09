@@ -56,6 +56,9 @@ typedef struct {
  * from a system call, then type will be PGF_EXN_SYSTEM_ERROR and
  * the field code will contain the value of errno from the C runtime.
  * The field msg will be NULL or it may contain a file name.
+ * The file name will be the same string that was passed when the API
+ * function was called. This means that the string does not have to
+ * be freed from the error handling code.
  *
  * - If the exception was caused by factors related to the GF runtime
  * itself, then the error type is PGF_EXN_PGF_ERROR, and the field
@@ -247,6 +250,9 @@ void pgf_free(PgfDB *pgf);
 PGF_API_DECL
 void pgf_free_revision(PgfDB *pgf, PgfRevision revision);
 
+/* Returns a newly allocated text which contains the abstract name of
+ * the grammar. The text must be released with a call to free.
+ */
 PGF_API_DECL
 PgfText *pgf_abstract_name(PgfDB *db, PgfRevision revision,
                            PgfExn* err);
@@ -321,7 +327,7 @@ PgfRevision pgf_clone_revision(PgfDB *db, PgfRevision revision,
                                PgfText *name,
                                PgfExn *err);
 
-PGF_API
+PGF_API_DECL
 void pgf_commit_revision(PgfDB *db, PgfRevision revision,
                          PgfExn *err);
 

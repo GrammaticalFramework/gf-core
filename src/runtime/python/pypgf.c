@@ -1777,6 +1777,7 @@ PGF_getAbstractName(PGFObject *self, void *closure)
     }
 
     PyObject *name = PyString_FromStringAndSize(txt->text, txt->size);
+    free(txt);
     return name;
 }
 
