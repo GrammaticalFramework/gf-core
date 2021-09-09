@@ -28,21 +28,8 @@ PgfExpr eapp(PgfUnmarshaller *this, PgfExpr fun, PgfExpr arg)
 PgfExpr elit(PgfUnmarshaller *this, PgfLiteral lit)
 {
     ExprLitObject *pyexpr = (ExprLitObject *)pgf_ExprLitType.tp_alloc(&pgf_ExprLitType, 0);
-
     PyObject *pyobj = (PyObject *)lit;
     pyexpr->value = pyobj;
-
-    if (PyLong_Check(pyobj)) {
-        pyexpr->type = 0;
-    } else if (PyFloat_Check(pyobj)) {
-        pyexpr->type = 1;
-    } else if (PyString_Check(pyobj)) {
-        pyexpr->type = 2;
-    } else {
-        PyErr_SetString(PyExc_TypeError, "unable to unmarshall literal");
-        return 0;
-    }
-
     Py_INCREF(pyobj);
     return (PgfExpr) pyexpr;
 }
@@ -208,6 +195,8 @@ object match_expr(PgfUnmarshaller *u, PgfExpr expr)
 
 object match_type(PgfUnmarshaller *u, PgfType ty)
 {
+    // PySys_WriteStdout(">match_type<\n");
+
     TypeObject *type = (TypeObject *)ty;
 
     // PySys_WriteStdout(">%s<\n", PyUnicode_AS_DATA(type->cat));

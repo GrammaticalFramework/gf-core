@@ -23,8 +23,7 @@ typedef struct {
 
 typedef struct {
     PyObject_HEAD
-    int type;   // 0 = int, 1 = float, 2 = str
-    PyObject *value; // depends on type
+    PyObject *value;
 } ExprLitObject;
 
 extern PyTypeObject pgf_ExprType;

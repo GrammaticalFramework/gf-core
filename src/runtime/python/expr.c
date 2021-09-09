@@ -129,16 +129,17 @@ static PyObject *
 ExprLit_richcompare(ExprLitObject *t1, ExprLitObject *t2, int op)
 {
     bool same = false;
-    if (t1->type != t2->type) goto done;
-
-    if (t1->type == 0) {
+    if (PyLong_Check(t1->value)) {
+        if (!PyLong_Check(t2->value)) goto done;
         int o1, o2;
         int l1 = PyLong_AsLongAndOverflow(t1->value, &o1);
         int l2 = PyLong_AsLongAndOverflow(t2->value, &o2);
         if (!(l1 == l2 && o1 == o2)) goto done;
-    } else if (t1->type == 1) {
+    } else if (PyFloat_Check(t1->value)) {
+        if (!PyFloat_Check(t2->value)) goto done;
         if (PyFloat_AsDouble(t1->value) != PyFloat_AsDouble(t2->value)) goto done;
-    } else if (t1->type == 2) {
+    } else if (PyString_Check(t1->value)) {
+        if (!PyString_Check(t2->value)) goto done;
         if (PyString_Compare(t1->value, t2->value) != 0) goto done;
     } else {
         PyErr_SetString(PyExc_TypeError, "unknown literal type");
