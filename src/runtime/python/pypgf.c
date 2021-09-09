@@ -9,6 +9,21 @@
 
 static PyObject *PGFError;
 
+static
+PgfExnType handleError(PgfExn err)
+{
+    if (err.type == PGF_EXN_SYSTEM_ERROR) {
+        errno = err.code;
+        PyErr_SetFromErrnoWithFilename(PyExc_IOError, err.msg);
+    } else if (err.type == PGF_EXN_PGF_ERROR) {
+        PyErr_SetString(PGFError, err.msg);
+        free((char*) err.msg);
+    } else if (err.type == PGF_EXN_OTHER_ERROR) {
+        PyErr_SetString(PGFError, "an unknown error occured");
+    }
+    return err.type;
+}
+
 // static PyObject* ParseError;
 
 // static PyObject* TypeError;
@@ -1771,8 +1786,7 @@ PGF_getAbstractName(PGFObject *self, void *closure)
     PgfExn err;
     PgfText* txt = pgf_abstract_name(self->db, self->revision, &err);
 
-    if (err.type != PGF_EXN_NONE) {
-        PyErr_SetString(PGFError, err.msg);
+    if (handleError(err) != PGF_EXN_NONE) {
         return NULL;
     }
 
@@ -1851,16 +1865,16 @@ pgf_collect_cats(PgfItor* fn, PgfText* key, void* value, PgfExn *err)
     PgfText* name = key;
     PyPGFClosure* clo = (PyPGFClosure*) fn;
 
-    PyObject* py_name = NULL;
-
-    py_name = PyString_FromStringAndSize(name->text, name->size);
+    PyObject* py_name = PyString_FromStringAndSize(name->text, name->size);
     if (py_name == NULL) {
         err->type = PGF_EXN_OTHER_ERROR;
+        err->msg = "unable to create string from category";
         return;
     }
 
     if (PyList_Append((PyObject*) clo->collection, py_name) != 0) {
         err->type = PGF_EXN_OTHER_ERROR;
+        err->msg = "unable append category to list";
         Py_DECREF(py_name);
     }
 }
@@ -1875,7 +1889,7 @@ PGF_getCategories(PGFObject *self, void *closure)
     PgfExn err;
     PyPGFClosure clo = { { pgf_collect_cats }, self, categories };
     pgf_iter_categories(self->db, self->revision, &clo.fn, &err);
-    if (err.type != PGF_EXN_NONE) {
+    if (handleError(err) != PGF_EXN_NONE) {
         Py_DECREF(categories);
         return NULL;
     }
@@ -1893,8 +1907,7 @@ PGF_getStartCat(PGFObject *self, void *closure)
         PyErr_SetString(PGFError, "start category cannot be found");
         return NULL;
     }
-    else if (err.type != PGF_EXN_NONE) {
-        PyErr_SetString(PGFError, err.msg);
+    else if (handleError(err) != PGF_EXN_NONE) {
         return NULL;
     }
 
@@ -1907,15 +1920,15 @@ pgf_collect_funs(PgfItor* fn, PgfText* key, void* value, PgfExn *err)
     PgfText* name = key;
     PyPGFClosure* clo = (PyPGFClosure*) fn;
 
-    PyObject* py_name = NULL;
-
-    py_name = PyString_FromStringAndSize(name->text, name->size);
+    PyObject* py_name = PyString_FromStringAndSize(name->text, name->size);
     if (py_name == NULL) {
         err->type = PGF_EXN_OTHER_ERROR;
+        err->msg = "unable to create string from function";
     }
 
     if (PyList_Append((PyObject*) clo->collection, py_name) != 0) {
         err->type = PGF_EXN_OTHER_ERROR;
+        err->msg = "unable append function to list";
         Py_DECREF(py_name);
     }
 }
@@ -1930,7 +1943,7 @@ PGF_getFunctions(PGFObject *self, void *closure)
     PgfExn err;
     PyPGFClosure clo = { { pgf_collect_funs }, self, functions };
     pgf_iter_functions(self->db, self->revision, &clo.fn, &err);
-    if (err.type != PGF_EXN_NONE) {
+    if (handleError(err) != PGF_EXN_NONE) {
         Py_DECREF(functions);
         return NULL;
     }
@@ -1959,7 +1972,7 @@ PGF_functionsByCat(PGFObject *self, PyObject *args)
     PyPGFClosure clo = { { pgf_collect_funs }, self, functions };
     pgf_iter_functions_by_cat(self->db, self->revision, catname, &clo.fn, &err);
     PyMem_Free(catname);
-    if (err.type != PGF_EXN_NONE) {
+    if (handleError(err) != PGF_EXN_NONE) {
         Py_DECREF(functions);
         return NULL;
     }
@@ -1986,8 +1999,7 @@ PGF_functionType(PGFObject *self, PyObject *args)
         PyErr_Format(PyExc_KeyError, "function '%s' is not defined", s);
         return NULL;
     }
-    else if (err.type != PGF_EXN_NONE) {
-        PyErr_SetString(PGFError, err.msg);
+    else if (handleError(err) != PGF_EXN_NONE) {
         return NULL;
     }
 
@@ -2407,14 +2419,7 @@ pgf_readPGF(PyObject *self, PyObject *args)
     // Read the PGF grammar.
     PgfExn err;
     py_pgf->db = pgf_read_pgf(fpath, &py_pgf->revision, &err);
-    if (err.type == PGF_EXN_SYSTEM_ERROR) {
-        errno = err.code;
-        PyErr_SetFromErrnoWithFilename(PyExc_IOError, err.msg);
-        Py_DECREF(py_pgf);
-        return NULL;
-    } else if (err.type == PGF_EXN_PGF_ERROR) {
-        PyErr_SetString(PGFError, err.msg);
-        free((char*) err.msg);
+    if (handleError(err) != PGF_EXN_NONE) {
         Py_DECREF(py_pgf);
         return NULL;
     }
@@ -2435,14 +2440,7 @@ pgf_bootNGF(PyObject *self, PyObject *args)
     // Read the PGF grammar.
     PgfExn err;
     py_pgf->db = pgf_boot_ngf(fpath, npath, &py_pgf->revision, &err);
-    if (err.type == PGF_EXN_SYSTEM_ERROR) {
-        errno = err.code;
-        PyErr_SetFromErrnoWithFilename(PyExc_IOError, err.msg);
-        Py_DECREF(py_pgf);
-        return NULL;
-    } else if (err.type == PGF_EXN_PGF_ERROR) {
-        PyErr_SetString(PGFError, err.msg);
-        free((char*) err.msg);
+    if (handleError(err) != PGF_EXN_NONE) {
         Py_DECREF(py_pgf);
         return NULL;
     }
@@ -2453,7 +2451,7 @@ pgf_bootNGF(PyObject *self, PyObject *args)
 static PGFObject*
 pgf_readNGF(PyObject *self, PyObject *args)
 {
-    const char *fpath;
+const char *fpath;
     if (!PyArg_ParseTuple(args, "s", &fpath))
         return NULL;
 
@@ -2462,14 +2460,7 @@ pgf_readNGF(PyObject *self, PyObject *args)
     // Read the NGF grammar.
     PgfExn err;
     py_pgf->db = pgf_read_ngf(fpath, &py_pgf->revision, &err);
-    if (err.type == PGF_EXN_SYSTEM_ERROR) {
-        errno = err.code;
-        PyErr_SetFromErrnoWithFilename(PyExc_IOError, err.msg);
-        Py_DECREF(py_pgf);
-        return NULL;
-    } else if (err.type == PGF_EXN_PGF_ERROR) {
-        PyErr_SetString(PGFError, err.msg);
-        free((char*) err.msg);
+    if (handleError(err) != PGF_EXN_NONE) {
         Py_DECREF(py_pgf);
         return NULL;
     }
