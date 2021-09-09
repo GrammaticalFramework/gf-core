@@ -203,9 +203,9 @@ struct PgfUnmarshaller {
 typedef struct PgfMarshaller PgfMarshaller;
 typedef struct PgfMarshallerVtbl PgfMarshallerVtbl;
 struct PgfMarshallerVtbl {
-    object (*match_lit)(PgfUnmarshaller *u, PgfLiteral lit);
-    object (*match_expr)(PgfUnmarshaller *u, PgfExpr expr);
-    object (*match_type)(PgfUnmarshaller *u, PgfType ty);
+    object (*match_lit)(PgfMarshaller *this, PgfUnmarshaller *u, PgfLiteral lit);
+    object (*match_expr)(PgfMarshaller *this, PgfUnmarshaller *u, PgfExpr expr);
+    object (*match_type)(PgfMarshaller *this, PgfUnmarshaller *u, PgfType ty);
 };
 struct PgfMarshaller {
     PgfMarshallerVtbl *vtbl;
