@@ -56,6 +56,9 @@ typedef struct {
  * from a system call, then type will be PGF_EXN_SYSTEM_ERROR and
  * the field code will contain the value of errno from the C runtime.
  * The field msg will be NULL or it may contain a file name.
+ * The file name will be the same string that was passed when the API
+ * function was called. This means that the string does not have to
+ * be freed from the error handling code.
  *
  * - If the exception was caused by factors related to the GF runtime
  * itself, then the error type is PGF_EXN_PGF_ERROR, and the field
