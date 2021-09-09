@@ -1790,7 +1790,7 @@ PGF_getAbstractName(PGFObject *self, void *closure)
         return NULL;
     }
 
-    PyObject *name = PyString_FromStringAndSize(txt->text, txt->size);
+    PyObject *name = PyUnicode_FromStringAndSize(txt->text, txt->size);
     free(txt);
     return name;
 }
@@ -1865,7 +1865,7 @@ pgf_collect_cats(PgfItor* fn, PgfText* key, void* value, PgfExn *err)
     PgfText* name = key;
     PyPGFClosure* clo = (PyPGFClosure*) fn;
 
-    PyObject* py_name = PyString_FromStringAndSize(name->text, name->size);
+    PyObject* py_name = PyUnicode_FromStringAndSize(name->text, name->size);
     if (py_name == NULL) {
         err->type = PGF_EXN_OTHER_ERROR;
         err->msg = "unable to create string from category";
@@ -1920,7 +1920,7 @@ pgf_collect_funs(PgfItor* fn, PgfText* key, void* value, PgfExn *err)
     PgfText* name = key;
     PyPGFClosure* clo = (PyPGFClosure*) fn;
 
-    PyObject* py_name = PyString_FromStringAndSize(name->text, name->size);
+    PyObject* py_name = PyUnicode_FromStringAndSize(name->text, name->size);
     if (py_name == NULL) {
         err->type = PGF_EXN_OTHER_ERROR;
         err->msg = "unable to create string from function";

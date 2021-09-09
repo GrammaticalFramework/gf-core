@@ -10,7 +10,7 @@ static PyObject *
 Expr_str(ExprObject *self)
 {
     PgfText *s = pgf_print_expr((PgfExpr) self, NULL, 1, &marshaller);
-    PyObject *str = PyString_FromStringAndSize(s->text, s->size);
+    PyObject *str = PyUnicode_FromStringAndSize(s->text, s->size);
     free(s);
     return str;
 }
@@ -138,9 +138,9 @@ ExprLit_richcompare(ExprLitObject *t1, ExprLitObject *t2, int op)
     } else if (PyFloat_Check(t1->value)) {
         if (!PyFloat_Check(t2->value)) goto done;
         if (PyFloat_AsDouble(t1->value) != PyFloat_AsDouble(t2->value)) goto done;
-    } else if (PyString_Check(t1->value)) {
-        if (!PyString_Check(t2->value)) goto done;
-        if (PyString_Compare(t1->value, t2->value) != 0) goto done;
+    } else if (PyUnicode_Check(t1->value)) {
+        if (!PyUnicode_Check(t2->value)) goto done;
+        if (PyUnicode_Compare(t1->value, t2->value) != 0) goto done;
     } else {
         PyErr_SetString(PyExc_TypeError, "unknown literal type");
         return NULL;
@@ -208,7 +208,7 @@ static PyObject *
 Type_str(TypeObject *self)
 {
     PgfText *s = pgf_print_type((PgfType) self, NULL, 1, &marshaller);
-    PyObject *str = PyString_FromStringAndSize(s->text, s->size);
+    PyObject *str = PyUnicode_FromStringAndSize(s->text, s->size);
     free(s);
     return str;
 }
@@ -217,14 +217,14 @@ static PyObject *
 Type_richcompare(TypeObject *t1, TypeObject *t2, int op)
 {
     bool same = false;
-    if (PyString_Compare(t1->cat, t2->cat) != 0) goto done;
+    if (PyUnicode_Compare(t1->cat, t2->cat) != 0) goto done;
 
     if (PyList_Size(t1->hypos) != PyList_Size(t2->hypos)) goto done;
     for (Py_ssize_t n = 0; n < PyList_Size(t1->hypos); n++) {
         PyObject *h1 = PyList_GetItem(t1->hypos, n);
         PyObject *h2 = PyList_GetItem(t2->hypos, n);
         if (PyTuple_GetItem(h1, 0) != PyTuple_GetItem(h2, 0)) goto done;
-        if (PyString_Compare(PyTuple_GetItem(h1, 1), PyTuple_GetItem(h2, 1)) != 0) goto done;
+        if (PyUnicode_Compare(PyTuple_GetItem(h1, 1), PyTuple_GetItem(h2, 1)) != 0) goto done;
         TypeObject *ht1 = (TypeObject *)PyTuple_GetItem(h1, 2);
         TypeObject *ht2 = (TypeObject *)PyTuple_GetItem(h2, 2);
         if (Type_richcompare(ht1, ht2, Py_EQ) != Py_True) goto done;

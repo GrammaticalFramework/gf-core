@@ -71,11 +71,11 @@ PgfLiteral lint(PgfUnmarshaller *this, size_t size, uintmax_t *v)
         return (PgfLiteral) 0;
     } else if (size > 1) {
         // TODO: string concatenation works but probably not optimal
-        PyObject *sb = PyString_FromFormat("%ld", *v0);
+        PyObject *sb = PyUnicode_FromFormat("%ld", *v0);
         for (size_t n = 1; n < size; n++) {
             uintmax_t *vn = v + n;
-            PyObject *t = PyString_FromFormat("%lu", *vn);
-            sb = PyString_Concat(sb, t);
+            PyObject *t = PyUnicode_FromFormat("%lu", *vn);
+            sb = PyUnicode_Concat(sb, t);
         }
         PyObject *i = PyLong_FromUnicodeObject(sb, 10);
         return (PgfLiteral) i;
@@ -93,7 +93,7 @@ PgfLiteral lflt(PgfUnmarshaller *this, double v)
 
 PgfLiteral lstr(PgfUnmarshaller *this, PgfText *v)
 {
-    PyObject *s = PyString_FromStringAndSize(v->text, v->size);
+    PyObject *s = PyUnicode_FromStringAndSize(v->text, v->size);
     return (PgfLiteral) s;
 }
 
@@ -106,13 +106,13 @@ PgfType dtyp(PgfUnmarshaller *this, int n_hypos, PgfTypeHypo *hypos, PgfText *ca
         PgfTypeHypo *hypo = hypos + i;
         PyObject *tup = PyTuple_New(3);
         PyTuple_SetItem(tup, 0, PyLong_FromLong(hypo->bind_type == PGF_BIND_TYPE_EXPLICIT ? 0 : 1)); // TODO
-        PyTuple_SetItem(tup, 1, PyString_FromStringAndSize(hypo->cid->text, hypo->cid->size));
+        PyTuple_SetItem(tup, 1, PyUnicode_FromStringAndSize(hypo->cid->text, hypo->cid->size));
         PyTuple_SetItem(tup, 2, (PyObject *)hypo->type);
         Py_INCREF(hypo->type);
         PyList_Append(pytype->hypos, tup);
     }
 
-    pytype->cat = PyString_FromStringAndSize(cat->text, cat->size);
+    pytype->cat = PyUnicode_FromStringAndSize(cat->text, cat->size);
 
     pytype->exprs = PyList_New(0);
     for (int i = 0; i < n_exprs; i++) {
@@ -151,15 +151,20 @@ PgfUnmarshaller unmarshaller = { &unmarshallerVtbl };
 // ----------------------------------------------------------------------------
 
 static PgfText *
-PyString_AsPgfText(PyObject *pystr)
+PyUnicode_AsPgfText(PyObject *pystr)
 {
-    if (!PyString_Check(pystr)) {
-        PyErr_SetString(PyExc_TypeError, "input to PyString_AsPgfText is not a string");
+    if (!PyUnicode_Check(pystr)) {
+        PyErr_SetString(PyExc_TypeError, "input to PyUnicode_AsPgfText is not a string");
         return NULL;
     }
-    size_t size = PyUnicode_GetLength(pystr);
+    if (PyUnicode_READY(pystr) != 0) {
+        return NULL;
+    }
+
+    Py_ssize_t size;
+    const char * enc = PyUnicode_AsUTF8AndSize(pystr, &size);
     PgfText *ptext = (PgfText *)PyMem_Malloc(sizeof(PgfText)+size+1);
-    memcpy(ptext->text, pystr, size+1);
+    memcpy(ptext->text, enc, size+1);
     ptext->size = size;
     // Py_INCREF(ptext);
     return ptext;
@@ -172,14 +177,15 @@ object match_lit(PgfMarshaller *this, PgfUnmarshaller *u, PgfLiteral lit)
     PyObject *pyobj = (PyObject *)lit;
 
     if (PyLong_Check(pyobj)) {
+        // TODO
         uintmax_t i = PyLong_AsUnsignedLong(pyobj);
-        size_t size = 1; // TODO
+        size_t size = 1;
         return u->vtbl->lint(u, size, &i);
     } else if (PyFloat_Check(pyobj)) {
         double d = PyFloat_AsDouble(pyobj);
         return u->vtbl->lflt(u, d);
-    } else if (PyString_Check(pyobj)) {
-        PgfText *t = PyString_AsPgfText(pyobj);
+    } else if (PyUnicode_Check(pyobj)) {
+        PgfText *t = PyUnicode_AsPgfText(pyobj);
         return u->vtbl->lstr(u, t);
     } else {
         PyErr_SetString(PyExc_TypeError, "unable to match on literal");
@@ -195,19 +201,24 @@ object match_expr(PgfMarshaller *this, PgfUnmarshaller *u, PgfExpr expr)
 
 object match_type(PgfMarshaller *this, PgfUnmarshaller *u, PgfType ty)
 {
-    // PySys_WriteStdout(">match_type<\n");
-
     TypeObject *type = (TypeObject *)ty;
-
-    // PySys_WriteStdout(">%s<\n", PyUnicode_AS_DATA(type->cat));
 
     int n_hypos = 0; //PyList_Size(type->hypos);
     PgfTypeHypo *hypos = NULL; // TODO
 
-    PgfText *cat = PyString_AsPgfText(type->cat);
+    PgfText *cat = PyUnicode_AsPgfText(type->cat);
+    if (cat == NULL) {
+        return 0;
+    }
 
-    int n_exprs = 0; //PyList_Size(type->exprs);
-    PgfExpr *exprs = NULL; // TODO
+    int n_exprs = PyList_Size(type->exprs);
+    PgfExpr *exprs;
+    if (n_exprs > 0) {
+        exprs = (PgfExpr *)PyList_GetItem(type->exprs, 0);
+        // TODO lay out others in memory in some way?
+    } else {
+        exprs = NULL;
+    }
 
     return u->vtbl->dtyp(u, n_hypos, hypos, cat, n_exprs, exprs);
 }

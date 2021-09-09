@@ -1,7 +1,7 @@
 #ifndef PYPGF_COMPAT_H_
 #define PYPGF_COMPAT_H_
 
-#if PY_MAJOR_VERSION >= 3
+// #if PY_MAJOR_VERSION >= 3
     // #define PyIntObject                  PyLongObject
     // #define PyInt_Type                   PyLong_Type
     // #define PyInt_Check(op)              PyLong_Check(op)
@@ -17,13 +17,13 @@
     // #define PyInt_AsUnsignedLongMask     PyLong_AsUnsignedLongMask
     // #define PyInt_AsUnsignedLongLongMask PyLong_AsUnsignedLongLongMask
 
-    #define PyStringObject               PyUnicodeObject
-    #define PyString_Check               PyUnicode_Check
-    #define PyString_FromStringAndSize   PyUnicode_FromStringAndSize
-    #define PyString_FromFormat          PyUnicode_FromFormat
+    // #define PyStringObject               PyUnicodeObject
+    // #define PyString_Check               PyUnicode_Check
+    // #define PyString_FromStringAndSize   PyUnicode_FromStringAndSize
+    // #define PyString_FromFormat          PyUnicode_FromFormat
     // #define PyString_Concat(ps,s)        {PyObject* tmp = *(ps); *(ps) = PyUnicode_Concat(tmp,s); Py_DECREF(tmp);}
-    #define PyString_Concat              PyUnicode_Concat
-    #define PyString_Compare             PyUnicode_Compare
-#endif
+    // #define PyString_Concat              PyUnicode_Concat
+    // #define PyString_Compare             PyUnicode_Compare
+// #endif
 
 #endif // PYPGF_COMPAT_H_
