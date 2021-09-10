@@ -312,13 +312,22 @@ PgfDB::PgfDB(const char* filepath, int flags, int mode) {
     if (ms == MAP_FAILED)
         throw pgf_systemerror(errno, filepath);
 
-    if (is_new) {
-        init_state(file_size);
-    }
-
     int res = pthread_rwlock_init(&rwlock, NULL);
     if (res != 0) {
         throw pgf_systemerror(errno);
+    }
+
+    if (is_new) {
+        init_state(file_size);
+    } else {
+        // We must make sure that left-over transient revisions are
+        // released. This may happen if a client process was killed
+        // or if the garbadge collector has not managed to run
+        // pgf_release_revision() before the process ended.
+
+        while (ms->transient_revisions != 0) {
+            pgf_free_revision(this, ms->transient_revisions.as_object());
+        }
     }
 }
 
@@ -994,14 +1003,18 @@ void PgfDB::link_transient_revision(ref<PgfPGF> pgf)
 }
 
 PGF_INTERNAL
-void PgfDB::unlink_transient_revision(ref<PgfPGF> pgf)
+bool PgfDB::unlink_transient_revision(ref<PgfPGF> pgf)
 {
     if (pgf->next != 0)
         pgf->next->prev = pgf->prev;
     if (pgf->prev != 0)
         pgf->prev->next = pgf->next;
-    else
+    else if (current_db->ms->transient_revisions == pgf)
         current_db->ms->transient_revisions = pgf->next;
+    else
+        return false;
+
+    return true;
 }
 
 DB_scope::DB_scope(PgfDB *db, DB_scope_mode tp)

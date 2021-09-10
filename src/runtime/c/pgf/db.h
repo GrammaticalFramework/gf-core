@@ -82,7 +82,7 @@ public:
     static PGF_INTERNAL_DECL void set_revision(ref<PgfPGF> pgf);
     static PGF_INTERNAL_DECL ref<PgfPGF> revision2pgf(PgfRevision revision);
     static PGF_INTERNAL_DECL void link_transient_revision(ref<PgfPGF> pgf);
-    static PGF_INTERNAL_DECL void unlink_transient_revision(ref<PgfPGF> pgf);
+    static PGF_INTERNAL_DECL bool unlink_transient_revision(ref<PgfPGF> pgf);
 
     PGF_INTERNAL_DECL static void sync();
 

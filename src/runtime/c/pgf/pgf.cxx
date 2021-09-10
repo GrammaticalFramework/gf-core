@@ -156,8 +156,23 @@ void pgf_free(PgfDB *db)
 }
 
 PGF_API_DECL
-void pgf_free_revision(PgfDB *pgf, PgfRevision revision)
+void pgf_free_revision(PgfDB *db, PgfRevision revision)
 {
+    try {
+        DB_scope scope(db, READER_SCOPE);
+        ref<PgfPGF> pgf = PgfDB::revision2pgf(revision);
+
+        if (PgfDB::unlink_transient_revision(pgf)) {
+            namespace_release(pgf->gflags);
+            PgfDB::free(pgf->abstract.name);
+            namespace_release(pgf->abstract.aflags);
+            namespace_release(pgf->abstract.funs);
+            namespace_release(pgf->abstract.cats);
+            PgfDB::free(pgf);
+        }
+    } catch (std::runtime_error& e) {
+        // silently ignore and hope for the best
+    }
 }
 
 PGF_API
