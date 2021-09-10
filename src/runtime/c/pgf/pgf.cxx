@@ -28,7 +28,7 @@ pgf_exn_clear(PgfExn* err)
     }
 
 PGF_INTERNAL
-PgfText master = {size: 6, text: {'m','a','s','t','e','r','0'}};
+PgfText master = {size: 6, text: {'m','a','s','t','e','r',0}};
 
 PGF_API
 PgfDB *pgf_read_pgf(const char* fpath,
