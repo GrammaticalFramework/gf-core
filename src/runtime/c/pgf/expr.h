@@ -87,6 +87,52 @@ struct PGF_INTERNAL_DECL PgfExprImplArg {
 	PgfExpr expr;
 };
 
+// PgfPatt
+
+typedef object PgfPatt;
+
+struct PGF_INTERNAL_DECL PgfPattApp {
+    static const uint8_t tag = 0;
+
+	ref<PgfText> ctor;
+    PgfVector<PgfPatt> args;
+};
+
+struct PGF_INTERNAL_DECL PgfPattVar {
+    static const uint8_t tag = 1;
+
+	PgfText name;
+};
+
+struct PGF_INTERNAL_DECL PgfPattAs {
+    static const uint8_t tag = 2;
+
+	PgfPatt patt;
+	PgfText name;
+};
+
+struct PGF_INTERNAL_DECL PgfPattWild {
+    static const uint8_t tag = 3;
+};
+
+struct PGF_INTERNAL_DECL PgfPattLit {
+    static const uint8_t tag = 4;
+
+	PgfLiteral lit;
+};
+
+struct PGF_INTERNAL_DECL PgfPattImplArg {
+    static const uint8_t tag = 5;
+
+	PgfPatt patt;
+};
+
+struct PGF_INTERNAL_DECL PgfPattTilde {
+    static const uint8_t tag = 6;
+
+	PgfExpr expr;
+};
+
 typedef float prob_t;
 
 typedef struct {
@@ -190,5 +236,24 @@ public:
 };
 
 PGF_INTERNAL_DECL extern PgfText wildcard;
+
+/* The following functions release the memory in the database,
+ * allocated for values of the corresponding types.
+ */
+
+PGF_INTERNAL_DECL
+void pgf_literal_free(PgfLiteral literal);
+
+PGF_INTERNAL_DECL
+void pgf_expr_free(PgfExpr expr);
+
+PGF_INTERNAL_DECL
+void pgf_context_free(ref<PgfVector<PgfHypo>> hypos);
+
+PGF_INTERNAL_DECL
+void pgf_type_free(ref<PgfDTyp> dtyp);
+
+PGF_INTERNAL_DECL
+void pgf_patt_free(PgfPatt patt);
 
 #endif /* EXPR_H_ */

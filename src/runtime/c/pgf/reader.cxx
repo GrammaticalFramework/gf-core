@@ -227,6 +227,7 @@ PgfLiteral PgfReader::read_literal()
 ref<PgfFlag> PgfReader::read_flag()
 {
     ref<PgfFlag> flag = read_name(&PgfFlag::name);
+    flag->ref_count = 1;
     flag->value = read_literal();
     return flag;
 }
@@ -380,6 +381,7 @@ ref<PgfAbsFun> PgfReader::read_absfun()
 {
     ref<PgfAbsFun> absfun =
         read_name<PgfAbsFun>(&PgfAbsFun::name);
+    absfun->ref_count = 1;
     ref<PgfExprFun> efun =
         ref<PgfExprFun>::from_ptr((PgfExprFun*) &absfun->name);
     absfun->ep.expr = ref<PgfExprFun>::tagged(efun);
@@ -405,6 +407,7 @@ ref<PgfAbsFun> PgfReader::read_absfun()
 ref<PgfAbsCat> PgfReader::read_abscat()
 {
     ref<PgfAbsCat> abscat = read_name<PgfAbsCat>(&PgfAbsCat::name);
+    abscat->ref_count = 1;
     abscat->context = read_vector<PgfHypo>(&PgfReader::read_hypo);
 
     // for now we just read the set of functions per category and ignore them
@@ -430,6 +433,7 @@ ref<PgfPGF> PgfReader::read_pgf()
 {
     ref<PgfPGF> pgf = PgfDB::malloc<PgfPGF>(master.size+1);
 
+    pgf->ref_count = 1;
     pgf->major_version = read_u16be();
     pgf->minor_version = read_u16be();
 

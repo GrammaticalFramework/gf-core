@@ -1,6 +1,8 @@
 import Test.HUnit
 import PGF2
 import PGF2.Transactions
+import System.Mem
+import System.Exit (exitSuccess, exitFailure)
 
 main = do
   gr1 <- readPGF "tests/basic.pgf"
@@ -16,7 +18,7 @@ main = do
 
   gr6 <- modifyPGF gr1 (dropFunction "ind" >> dropCategory "S")
 
-  runTestTTAndExit $
+  c <- runTestTT $
     TestList $
       [TestCase (assertEqual "original functions" ["c","ind","s","z"] (functions gr1))
       ,TestCase (assertEqual "extended functions" ["c","foo","ind","s","z"] (functions gr2))
@@ -35,3 +37,9 @@ main = do
       ,TestCase (assertEqual "old function prob" (-log 0)  (functionProb gr1 "foo"))
       ,TestCase (assertEqual "new function prob" pi        (functionProb gr2 "foo"))
       ]
+  
+  performMajorGC
+
+  if (errors c == 0) && (failures c == 0)
+    then exitSuccess
+    else exitFailure

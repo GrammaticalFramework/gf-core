@@ -116,9 +116,11 @@ PgfDB *pgf_read_ngf(const char *fpath,
         {
             DB_scope scope(db, WRITER_SCOPE);
 
-            if (PgfDB::get_revision(&master) == 0) {
+            ref<PgfPGF> pgf = PgfDB::get_revision(&master);
+            if (pgf == 0) {
                 is_new = true;
-                ref<PgfPGF> pgf = PgfDB::malloc<PgfPGF>(master.size+1);
+                pgf = PgfDB::malloc<PgfPGF>(master.size+1);
+                pgf->ref_count = 1;
                 pgf->major_version = 2;
                 pgf->minor_version = 0;
                 pgf->gflags = 0;
@@ -131,10 +133,10 @@ PgfDB *pgf_read_ngf(const char *fpath,
                 pgf->next = 0;
                 memcpy(&pgf->name, &master, sizeof(PgfText)+master.size+1);
                 PgfDB::set_revision(pgf);
-                *revision = pgf.as_object();
             } else {
-                *revision = PgfDB::get_revision(&master).as_object();
+                Node<PgfPGF>::add_value_ref(pgf);
             }
+            *revision = pgf.as_object();
         }
 
         return db;
@@ -159,15 +161,20 @@ PGF_API_DECL
 void pgf_free_revision(PgfDB *db, PgfRevision revision)
 {
     try {
-        DB_scope scope(db, READER_SCOPE);
+        DB_scope scope(db, WRITER_SCOPE);
         ref<PgfPGF> pgf = PgfDB::revision2pgf(revision);
 
-        if (PgfDB::unlink_transient_revision(pgf)) {
-            namespace_release(pgf->gflags);
-            PgfDB::free(pgf->abstract.name);
-            namespace_release(pgf->abstract.aflags);
-            namespace_release(pgf->abstract.funs);
-            namespace_release(pgf->abstract.cats);
+        if (pgf->ref_count == 1 && PgfDB::is_persistant_revision(pgf)) {
+            // Someone is trying to release the last reference count
+            // to a persistant revision. Mostly likely this is an
+            // error in the reference counting for one of the clients.
+            // The best that we can do is to ignore the request.
+            return;
+        }
+
+        if (!(--pgf->ref_count)) {
+            PgfDB::unlink_transient_revision(pgf);
+            PgfPGF::release(pgf);
             PgfDB::free(pgf);
         }
     } catch (std::runtime_error& e) {
@@ -461,26 +468,27 @@ PgfRevision pgf_clone_revision(PgfDB *db, PgfRevision revision,
             (name == NULL) ? pgf->name.size : name->size;
 
         ref<PgfPGF> new_pgf = PgfDB::malloc<PgfPGF>(name_size+1);
+        new_pgf->ref_count = 1;
         new_pgf->major_version = pgf->major_version;
         new_pgf->minor_version = pgf->minor_version;
 
         new_pgf->gflags = pgf->gflags;
         if (pgf->gflags != 0)
-            pgf->gflags->ref_count++;
+            Node<PgfFlag>::add_node_ref(pgf->gflags);
 
         new_pgf->abstract.name = textdup_db(&(*pgf->abstract.name));
 
         new_pgf->abstract.aflags = pgf->abstract.aflags;
         if (pgf->abstract.aflags != 0)
-            pgf->abstract.aflags->ref_count++;
+            Node<PgfFlag>::add_node_ref(pgf->abstract.aflags);
 
         new_pgf->abstract.funs = pgf->abstract.funs;
         if (pgf->abstract.funs != 0)
-            pgf->abstract.funs->ref_count++;
+            Node<PgfAbsFun>::add_node_ref(pgf->abstract.funs);
 
         new_pgf->abstract.cats = pgf->abstract.cats;
         if (pgf->abstract.cats != 0)
-            pgf->abstract.cats->ref_count++;
+            Node<PgfAbsCat>::add_node_ref(pgf->abstract.cats);
 
         new_pgf->prev = 0;
         new_pgf->next = 0;
@@ -519,7 +527,9 @@ PgfRevision pgf_checkout_revision(PgfDB *db, PgfText *name,
 {
     PGF_API_BEGIN {
         DB_scope scope(db, WRITER_SCOPE);
-        return PgfDB::get_revision(name).as_object();
+        ref<PgfPGF> pgf = PgfDB::get_revision(name);
+        Node<PgfPGF>::add_value_ref(pgf);
+        return pgf.as_object();
     } PGF_API_END
 
     return 0;
@@ -539,6 +549,7 @@ void pgf_create_function(PgfDB *db, PgfRevision revision,
 
         ref<PgfPGF> pgf = PgfDB::revision2pgf(revision);
         ref<PgfAbsFun> absfun = PgfDB::malloc<PgfAbsFun>(name->size+1);
+        absfun->ref_count = 1;
         absfun->type  = m->match_type(&u, ty);
         absfun->arity = 0;
         absfun->defns = 0;
@@ -586,6 +597,7 @@ void pgf_create_category(PgfDB *db, PgfRevision revision,
 
         ref<PgfPGF> pgf = PgfDB::revision2pgf(revision);
         ref<PgfAbsCat> abscat = PgfDB::malloc<PgfAbsCat>(name->size+1);
+        abscat->ref_count = 1;
         abscat->context = vector_new<PgfHypo>(n_hypos);
         abscat->prob    = prob;
         memcpy(&abscat->name, name, sizeof(PgfText)+name->size+1);

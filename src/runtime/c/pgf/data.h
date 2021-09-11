@@ -63,54 +63,11 @@ class PgfPGF;
 #include "expr.h"
 
 struct PGF_INTERNAL_DECL PgfFlag {
+    size_t ref_count;
     PgfLiteral value;
     PgfText name;
-};
 
-// PgfPatt
-
-typedef object PgfPatt;
-
-struct PGF_INTERNAL_DECL PgfPattApp {
-    static const uint8_t tag = 0;
-
-	ref<PgfText> ctor;
-    PgfVector<PgfPatt> args;
-};
-
-struct PGF_INTERNAL_DECL PgfPattVar {
-    static const uint8_t tag = 1;
-
-	PgfText name;
-};
-
-struct PGF_INTERNAL_DECL PgfPattAs {
-    static const uint8_t tag = 2;
-
-	PgfPatt patt;
-	PgfText name;
-};
-
-struct PGF_INTERNAL_DECL PgfPattWild {
-    static const uint8_t tag = 3;
-};
-
-struct PGF_INTERNAL_DECL PgfPattLit {
-    static const uint8_t tag = 4;
-
-	PgfLiteral lit;
-};
-
-struct PGF_INTERNAL_DECL PgfPattImplArg {
-    static const uint8_t tag = 5;
-
-	PgfPatt patt;
-};
-
-struct PGF_INTERNAL_DECL PgfPattTilde {
-    static const uint8_t tag = 6;
-
-	PgfExpr expr;
+    static void release(ref<PgfFlag> pgf);
 };
 
 typedef struct {
@@ -119,18 +76,26 @@ typedef struct {
 } PgfEquation;
 
 struct PGF_INTERNAL_DECL PgfAbsFun {
+    size_t ref_count;
+
     ref<PgfDTyp> type;
 	int arity;
     ref<PgfVector<ref<PgfEquation>>> defns;
     PgfExprProb ep;
     PgfText name;
+
+    static void release(ref<PgfAbsFun> cat);
 };
 
-typedef struct {
+struct PGF_INTERNAL_DECL PgfAbsCat {
+    size_t ref_count;
+
 	ref<PgfVector<PgfHypo>> context;
 	prob_t prob;
     PgfText name;
-} PgfAbsCat;
+
+    static void release(ref<PgfAbsCat> cat);
+};
 
 typedef struct {
 	ref<PgfText> name;
@@ -140,6 +105,8 @@ typedef struct {
 } PgfAbstr;
 
 struct PGF_INTERNAL_DECL PgfPGF {
+    size_t ref_count;
+
 	uint16_t major_version;
 	uint16_t minor_version;
 	Namespace<PgfFlag> gflags;
@@ -153,6 +120,8 @@ struct PGF_INTERNAL_DECL PgfPGF {
     // The name lets the user to find a particular revision in
     // the database.
     PgfText name;
+
+    static void release(ref<PgfPGF> pgf);
 };
 
 extern PGF_INTERNAL_DECL

@@ -920,3 +920,153 @@ exit:
 
     return type;
 }
+
+
+PGF_INTERNAL
+void pgf_literal_free(PgfLiteral literal)
+{
+    switch (ref<PgfLiteral>::get_tag(literal)) {
+    case PgfLiteralInt::tag: {
+        PgfDB::free(ref<PgfLiteralInt>::untagged(literal));
+        break;
+    }
+    case PgfLiteralFlt::tag: {
+        PgfDB::free(ref<PgfLiteralFlt>::untagged(literal));
+        break;
+    }
+    case PgfLiteralStr::tag: {
+        PgfDB::free(ref<PgfLiteralStr>::untagged(literal));
+        break;
+    }
+	default:
+		throw pgf_error("Unknown literal tag");
+    }
+}
+
+PGF_INTERNAL
+void pgf_expr_free(PgfExpr expr)
+{
+    switch (ref<PgfExpr>::get_tag(expr)) {
+    case PgfExprAbs::tag: {
+        auto eabs = ref<PgfExprAbs>::untagged(expr);
+        pgf_expr_free(eabs->body);
+        PgfDB::free(eabs);
+        break;
+    }
+    case PgfExprApp::tag: {
+        auto eapp = ref<PgfExprApp>::untagged(expr);
+        pgf_expr_free(eapp->fun);
+        pgf_expr_free(eapp->arg);
+        PgfDB::free(eapp);
+        break;
+    }
+    case PgfExprLit::tag: {
+        auto elit = ref<PgfExprLit>::untagged(expr);
+        pgf_literal_free(elit->lit);
+        PgfDB::free(elit);
+        break;
+    }
+    case PgfExprMeta::tag: {
+        PgfDB::free(ref<PgfExprMeta>::untagged(expr));
+        break;
+    }
+	case PgfExprFun::tag: {
+        PgfDB::free(ref<PgfExprFun>::untagged(expr));
+        break;
+    }
+	case PgfExprVar::tag: {
+        PgfDB::free(ref<PgfExprVar>::untagged(expr));
+        break;
+	}
+	case PgfExprTyped::tag: {
+        auto etyped = ref<PgfExprTyped>::untagged(expr);
+        pgf_expr_free(etyped->expr);
+        pgf_type_free(etyped->type);
+        PgfDB::free(etyped);
+        break;
+	}
+	case PgfExprImplArg::tag: {
+        auto eimpl = ref<PgfExprImplArg>::untagged(expr);
+        pgf_expr_free(eimpl->expr);
+        PgfDB::free(eimpl);
+        break;
+	}
+	default:
+		throw pgf_error("Unknown expression tag");
+    }
+}
+
+PGF_INTERNAL
+void pgf_context_free(ref<PgfVector<PgfHypo>> hypos)
+{
+    for (size_t i = 0; i < hypos->len; i++) {
+        PgfDB::free(vector_elem(hypos, i)->cid);
+        pgf_type_free(vector_elem(hypos, i)->type);
+    }
+
+    PgfDB::free(hypos);
+}
+
+PGF_INTERNAL
+void pgf_type_free(ref<PgfDTyp> dtyp)
+{
+    pgf_context_free(dtyp->hypos);
+
+    for (size_t i = 0; i < dtyp->exprs->len; i++) {
+        pgf_expr_free(*vector_elem(dtyp->exprs, i));
+    }
+    PgfDB::free(dtyp->exprs);
+
+    PgfDB::free(dtyp);
+}
+
+PGF_INTERNAL
+void pgf_patt_free(PgfPatt patt)
+{
+    switch (ref<PgfPatt>::get_tag(patt)) {
+    case PgfPattApp::tag: {
+        auto papp = ref<PgfPattApp>::untagged(patt);
+        PgfDB::free(papp->ctor);
+        for (size_t i = 0; i < papp->args.len; i++) {
+            PgfPatt patt = *vector_elem(ref<PgfVector<PgfPatt>>::from_ptr(&papp->args), i);
+            pgf_patt_free(patt);
+        }
+        PgfDB::free(papp);
+        break;
+    }
+	case PgfPattVar::tag: {
+        PgfDB::free(ref<PgfPattVar>::untagged(patt));
+        break;
+	}
+	case PgfPattAs::tag: {
+        auto pas = ref<PgfPattAs>::untagged(patt);
+        pgf_patt_free(pas->patt);
+        PgfDB::free(pas);
+        break;
+	}
+	case PgfPattWild::tag: {
+        PgfDB::free(ref<PgfPattWild>::untagged(patt));
+        break;
+	}
+    case PgfPattLit::tag: {
+        auto plit = ref<PgfPattLit>::untagged(patt);
+        pgf_literal_free(plit->lit);
+        PgfDB::free(plit);
+        break;
+    }
+	case PgfPattImplArg::tag: {
+        auto pimpl = ref<PgfPattImplArg>::untagged(patt);
+        pgf_patt_free(pimpl->patt);
+        PgfDB::free(pimpl);
+        break;
+	}
+	case PgfPattTilde::tag: {
+        auto ptilde = ref<PgfPattTilde>::untagged(patt);
+        pgf_patt_free(ptilde->expr);
+        PgfDB::free(ptilde);
+        break;
+	}
+	default:
+		throw pgf_error("Unknown pattern tag");
+    }
+}

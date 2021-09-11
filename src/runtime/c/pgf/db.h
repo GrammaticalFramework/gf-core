@@ -5,8 +5,8 @@
 
 class PgfDB;
 
-extern PGF_INTERNAL_DECL __thread unsigned char* current_base __attribute__((tls_model("initial-exec")));
-extern PGF_INTERNAL_DECL __thread PgfDB*         current_db   __attribute__((tls_model("initial-exec")));
+extern PGF_INTERNAL_DECL unsigned char* current_base;
+extern PGF_INTERNAL_DECL PgfDB*         current_db;
 
 struct malloc_state;
 
@@ -75,14 +75,15 @@ public:
 
     template<class A>
     static void free(ref<A> o) {
-        return current_db->free_internal(o.as_object());
+        current_db->free_internal(o.as_object());
     }
 
     static PGF_INTERNAL_DECL ref<PgfPGF> get_revision(PgfText *name);
     static PGF_INTERNAL_DECL void set_revision(ref<PgfPGF> pgf);
     static PGF_INTERNAL_DECL ref<PgfPGF> revision2pgf(PgfRevision revision);
+    static PGF_INTERNAL_DECL bool is_persistant_revision(ref<PgfPGF> pgf);
     static PGF_INTERNAL_DECL void link_transient_revision(ref<PgfPGF> pgf);
-    static PGF_INTERNAL_DECL bool unlink_transient_revision(ref<PgfPGF> pgf);
+    static PGF_INTERNAL_DECL void unlink_transient_revision(ref<PgfPGF> pgf);
 
     PGF_INTERNAL_DECL static void sync();
 
@@ -91,11 +92,6 @@ private:
 
     PGF_INTERNAL_DECL object malloc_internal(size_t bytes);
     PGF_INTERNAL_DECL void free_internal(object o);
-
-    PGF_INTERNAL_DECL object get_root_internal();
-    PGF_INTERNAL_DECL void set_root_internal(object root_offset);
-
-    PGF_INTERNAL_DECL unsigned char* relocate(unsigned char* ptr);
 
     friend class DB_scope;
 };
@@ -112,6 +108,6 @@ private:
     DB_scope* next_scope;
 };
 
-extern PGF_INTERNAL_DECL thread_local DB_scope *last_db_scope;
+extern PGF_INTERNAL_DECL DB_scope *last_db_scope;
 
 #endif

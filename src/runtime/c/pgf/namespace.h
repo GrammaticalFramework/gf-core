@@ -3,6 +3,19 @@
 
 #include "db.h"
 
+// #define DEBUG_NAMESPACE
+
+/* Namespace<V> expects that the class V contains:
+ *
+ * - A member 'size_t ref_count' which keeps track of the number of
+ * references to the particular object.
+ * - A member 'PgfText name' which contains the name of the object.
+ * - A method:
+ *      static void release(ref<V> object)
+ * which is executed when ref_count becomes zero. After that the memory
+ * for the object is released as well.
+ */
+
 template <class V>
 class Node;
 
@@ -29,6 +42,10 @@ public:
         node->value     = value;
         node->left      = 0;
         node->right     = 0;
+
+#ifdef DEBUG_NAMESPACE
+        printf("new     node %6ld %s\n", node.as_object(), node->value->name.text);
+#endif
         return node;
     }
 
@@ -41,7 +58,29 @@ public:
         node->value     = value;
         node->left      = left;
         node->right     = right;
+
+#ifdef DEBUG_NAMESPACE
+        printf("new     node %6ld %s(%ld,%ld)\n", node.as_object(), node->value->name.text, left.as_object(), right.as_object());
+#endif
         return node;
+    }
+
+    static
+    void add_node_ref(ref<Node> node)
+    {
+        node->ref_count++;
+#ifdef DEBUG_NAMESPACE
+        printf("add_ref node %6ld %s (ref_count=%ld)\n", node.as_object(), node->value->name.text, node->ref_count);
+#endif
+    }
+
+    static
+    void add_value_ref(ref<V> value)
+    {
+        value->ref_count++;
+#ifdef DEBUG_NAMESPACE
+        printf("add_ref value %5ld %s (ref_count=%ld)\n", value.as_object(), value->name.text, value->ref_count);
+#endif
     }
 
     static
@@ -49,13 +88,18 @@ public:
     {
         if (right == 0) {
             if (left == 0) {
+                value->ref_count++;
                 return new_node(value);
             } else {
                 if (left->left == 0) {
                     if (left->right == 0) {
-                        left->ref_count++;
+                        add_value_ref(value);
+                        add_node_ref(left);
                         return new_node(value,left,0);
                     } else {
+                        add_value_ref(value);
+                        add_value_ref(left->value);
+                        add_value_ref(left->right->value);
                         Namespace<V> new_left  = new_node(left->value);
                         Namespace<V> new_right = new_node(value);
                         return new_node(left->right->value,
@@ -64,15 +108,19 @@ public:
                     }
                 } else {
                     if (left->right == 0) {
+                        add_value_ref(value);
                         Namespace<V> new_right = new_node(value);
-                        left->left->ref_count++;
+                        add_value_ref(left->value);
+                        add_node_ref(left->left);
                         return new_node(left->value,
                                         left->left,
                                         new_right);
                     } else {
                         if (left->right->sz < 2 * left->left->sz) {
-                            left->left->ref_count++;
-                            left->right->ref_count++;
+                            add_value_ref(value);
+                            add_value_ref(left->value);
+                            add_node_ref(left->left);
+                            add_node_ref(left->right);
                             Namespace<V> new_right =
                                 new_node(value,
                                          left->right,
@@ -81,11 +129,14 @@ public:
                                             left->left,
                                             new_right);
                         } else {
-                            left->left->ref_count++;
+                            add_value_ref(value);
+                            add_value_ref(left->value);
+                            add_value_ref(left->right->value);
+                            add_node_ref(left->left);
                             if (left->right->left != 0)
-                                left->right->left->ref_count++;
+                                add_node_ref(left->right->left);
                             if (left->right->right != 0)
-                                left->right->right->ref_count++;
+                                add_node_ref(left->right->right);
                             Namespace<V> new_left  =
                                 new_node(left->value,
                                          left->left,
@@ -103,14 +154,17 @@ public:
             }
         } else {
             if (left == 0) {
-                right->ref_count++;
+                add_value_ref(value);
+                add_node_ref(right);
                 return new_node(value,0,right);
             } else {
                 if (left->sz > 3*right->sz) {
                     if (left->right->sz < 2*left->left->sz) {
-                        left->left->ref_count++;
-                        left->right->ref_count++;
-                        right->ref_count++;
+                        add_value_ref(value);
+                        add_value_ref(left->value);
+                        add_node_ref(left->left);
+                        add_node_ref(left->right);
+                        add_node_ref(right);
                         Namespace<V> new_right =
                             new_node(value,
                                      left->right,
@@ -119,12 +173,15 @@ public:
                                         left->left,
                                         new_right);
                     } else {
-                        left->left->ref_count++;
+                        add_value_ref(value);
+                        add_value_ref(left->value);
+                        add_value_ref(left->right->value);
+                        add_node_ref(left->left);
                         if (left->right->left != 0)
-                            left->right->left->ref_count++;
+                            add_node_ref(left->right->left);
                         if (left->right->right != 0)
-                            left->right->right->ref_count++;
-                        right->ref_count++;
+                            add_node_ref(left->right->right);
+                        add_node_ref(right);
                         Namespace<V> new_left =
                             new_node(left->value,
                                      left->left,
@@ -138,8 +195,9 @@ public:
                                         new_right);
                     }
                 } else {
-                    left->ref_count++;
-                    right->ref_count++;
+                    add_value_ref(value);
+                    add_node_ref(left);
+                    add_node_ref(right);
                     return new_node(value,left,right);
                 }
             }
@@ -151,14 +209,18 @@ public:
     {
         if (left == 0) {
             if (right == 0) {
+                add_value_ref(value);
                 return new_node(value);
             } else {
                 if (right->left == 0) {
                     if (right->right == 0) {
-                        right->ref_count++;
+                        add_value_ref(value);
+                        add_node_ref(right);
                         return new_node(value,0,right);
                     } else {
-                        right->right->ref_count++;
+                        add_value_ref(value);
+                        add_value_ref(right->value);
+                        add_node_ref(right->right);
                         Namespace<V> new_left =
                             new_node(value);
                         return new_node(right->value,
@@ -167,6 +229,9 @@ public:
                     }
                 } else {
                     if (right->right == 0) {
+                        add_value_ref(value);
+                        add_value_ref(right->value);
+                        add_value_ref(right->left->value);
                         Namespace<V> new_left =
                             new_node(value);
                         Namespace<V> new_right =
@@ -176,8 +241,10 @@ public:
                                         new_right);
                     } else {
                         if (right->left->sz < 2 * right->right->sz) {
-                            right->left->ref_count++;
-                            right->right->ref_count++;
+                            add_value_ref(value);
+                            add_value_ref(right->value);
+                            add_node_ref(right->left);
+                            add_node_ref(right->right);
                             Namespace<V> new_left =
                                 new_node(value,
                                          0,
@@ -186,11 +253,14 @@ public:
                                             new_left,
                                             right->right);
                         } else {
+                            add_value_ref(value);
+                            add_value_ref(right->value);
+                            add_value_ref(right->left->value);
                             if (right->left->left != 0)
-                                right->left->left->ref_count++;
+                                add_node_ref(right->left->left);
                             if (right->left->right != 0)
-                                right->left->right->ref_count++;
-                            right->right->ref_count++;
+                                add_node_ref(right->left->right);
+                            add_node_ref(right->right);
                             Namespace<V> new_left =
                                 new_node(value,
                                          0,
@@ -208,14 +278,17 @@ public:
             }
         } else {
             if (right == 0) {
-                left->ref_count++;
+                add_value_ref(value);
+                add_node_ref(left);
                 return new_node(value,left,0);
             } else {
                 if (right->sz > 3*left->sz) {
                     if (right->left->sz < 2*right->right->sz) {
-                        left->ref_count++;
-                        right->left->ref_count++;
-                        right->right->ref_count++;
+                        add_value_ref(value);
+                        add_value_ref(right->value);
+                        add_node_ref(left);
+                        add_node_ref(right->left);
+                        add_node_ref(right->right);
                         Namespace<V> new_left =
                             new_node(value,
                                      left,
@@ -224,12 +297,15 @@ public:
                                         new_left,
                                         right->right);
                     } else {
-                        left->ref_count++;
+                        add_value_ref(value);
+                        add_value_ref(right->value);
+                        add_value_ref(right->left->value);
+                        add_node_ref(left);
                         if (right->left->left != 0)
-                            right->left->left->ref_count++;
+                            add_node_ref(right->left->left);
                         if (right->left->right != 0)
-                            right->left->right->ref_count++;
-                        right->right->ref_count++;
+                            add_node_ref(right->left->right);
+                        add_node_ref(right->right);
                         Namespace<V> new_left =
                             new_node(value,
                                      left,
@@ -243,8 +319,9 @@ public:
                                         new_right);
                     }
                 } else {
-                    left->ref_count++;
-                    right->ref_count++;
+                    add_value_ref(value);
+                    add_node_ref(left);
+                    add_node_ref(right);
                     return new_node(value,left,right);
                 }
             }
@@ -416,9 +493,23 @@ void namespace_release(Namespace<V> node)
     if (node == 0)
         return;
 
+#ifdef DEBUG_NAMESPACE
+    printf("release node %6ld %s (ref_count=%ld)\n", node.as_object(), node->value->name.text, node->ref_count-1);
+#endif
+
     if (!(--node->ref_count)) {
         namespace_release(node->left);
         namespace_release(node->right);
+
+#ifdef DEBUG_NAMESPACE
+        printf("release value %5ld %s (ref_count=%ld)\n", node->value.as_object(), node->value->name.text, node->value->ref_count-1);
+#endif
+
+        if (!(--node->value->ref_count)) {
+            V::release(node->value);
+            PgfDB::free(node->value);
+        }
+
         PgfDB::free(node);
     }
 }

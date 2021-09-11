@@ -5,9 +5,9 @@
 
 #include "data.h"
 
-PGF_INTERNAL __thread unsigned char* current_base __attribute__((tls_model("initial-exec"))) = NULL;
-PGF_INTERNAL __thread PgfDB* current_db __attribute__((tls_model("initial-exec"))) = NULL;
-PGF_INTERNAL __thread DB_scope *last_db_scope __attribute__((tls_model("initial-exec"))) = NULL;
+PGF_INTERNAL unsigned char* current_base = NULL;
+PGF_INTERNAL PgfDB* current_db = NULL;
+PGF_INTERNAL DB_scope *last_db_scope = NULL;
 
 #ifndef DEFAULT_TOP_PAD
 #define DEFAULT_TOP_PAD        (0)
@@ -369,6 +369,7 @@ ref<PgfPGF> PgfDB::get_revision(PgfText *name)
 PGF_INTERNAL
 void PgfDB::set_revision(ref<PgfPGF> pgf)
 {
+    pgf->ref_count++;
     Namespace<PgfPGF> nmsp = namespace_insert(current_db->ms->revisions, pgf);
     namespace_release(current_db->ms->revisions);
     current_db->ms->revisions = nmsp;
@@ -994,6 +995,13 @@ ref<PgfPGF> PgfDB::revision2pgf(PgfRevision revision)
 }
 
 PGF_INTERNAL
+bool PgfDB::is_persistant_revision(ref<PgfPGF> pgf)
+{
+    return (pgf->prev == 0 && pgf->next == 0 &&
+            current_db->ms->transient_revisions != pgf);
+}
+
+PGF_INTERNAL
 void PgfDB::link_transient_revision(ref<PgfPGF> pgf)
 {
     pgf->next = current_db->ms->transient_revisions;
@@ -1003,7 +1011,7 @@ void PgfDB::link_transient_revision(ref<PgfPGF> pgf)
 }
 
 PGF_INTERNAL
-bool PgfDB::unlink_transient_revision(ref<PgfPGF> pgf)
+void PgfDB::unlink_transient_revision(ref<PgfPGF> pgf)
 {
     if (pgf->next != 0)
         pgf->next->prev = pgf->prev;
@@ -1011,10 +1019,6 @@ bool PgfDB::unlink_transient_revision(ref<PgfPGF> pgf)
         pgf->prev->next = pgf->next;
     else if (current_db->ms->transient_revisions == pgf)
         current_db->ms->transient_revisions = pgf->next;
-    else
-        return false;
-
-    return true;
 }
 
 DB_scope::DB_scope(PgfDB *db, DB_scope_mode tp)
