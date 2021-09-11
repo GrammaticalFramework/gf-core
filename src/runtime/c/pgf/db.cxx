@@ -349,18 +349,6 @@ PgfDB::~PgfDB() {
 }
 
 PGF_INTERNAL
-void PgfDB::sync()
-{
-    malloc_state *ms = current_db->ms;
-    size_t size =
-        ms->top + chunksize(ptr(ms,ms->top)) + sizeof(size_t);
-
-    int res = msync((void *) ms, size, MS_SYNC | MS_INVALIDATE);
-    if (res != 0)
-        throw pgf_systemerror(errno);
-}
-
-PGF_INTERNAL
 ref<PgfPGF> PgfDB::get_revision(PgfText *name)
 {
     return namespace_lookup(current_db->ms->revisions, name);
@@ -1021,13 +1009,15 @@ void PgfDB::unlink_transient_revision(ref<PgfPGF> pgf)
         current_db->ms->transient_revisions = pgf->next;
 }
 
-DB_scope::DB_scope(PgfDB *db, DB_scope_mode tp)
+DB_scope::DB_scope(PgfDB *db, DB_scope_mode m)
 {
     int res =
-        (tp == READER_SCOPE) ? pthread_rwlock_rdlock(&db->rwlock)
-                             : pthread_rwlock_wrlock(&db->rwlock);
+        (m == READER_SCOPE) ? pthread_rwlock_rdlock(&db->rwlock)
+                            : pthread_rwlock_wrlock(&db->rwlock);
     if (res != 0)
         throw pgf_systemerror(res);
+
+    mode          = m;
 
     save_db       = current_db;
     current_db    = db;
@@ -1039,17 +1029,29 @@ DB_scope::DB_scope(PgfDB *db, DB_scope_mode tp)
 
 DB_scope::~DB_scope()
 {
-    int res = pthread_rwlock_unlock(&current_db->rwlock);
-
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wterminate"
+    int res;
+
+    if (mode == WRITER_SCOPE) {
+        malloc_state *ms = current_db->ms;
+        size_t size =
+            ms->top + chunksize(ptr(ms,ms->top)) + sizeof(size_t);
+
+        res = msync((void *) ms, size, MS_SYNC | MS_INVALIDATE);
+        if (res != 0)
+            throw pgf_systemerror(errno);
+    }
+
+    res = pthread_rwlock_unlock(&current_db->rwlock);
     if (res != 0)
         throw pgf_systemerror(res);
-#pragma GCC diagnostic pop
 
     current_db    = save_db;
     current_base  = current_db ? (unsigned char*) current_db->ms
                                : NULL;
 
     last_db_scope = next_scope;
+
+#pragma GCC diagnostic pop
 }

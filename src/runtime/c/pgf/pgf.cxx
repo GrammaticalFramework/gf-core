@@ -87,8 +87,6 @@ PgfDB *pgf_boot_ngf(const char* pgf_path, const char* ngf_path,
 
             PgfDB::set_revision(pgf);
             *revision = pgf.as_object();
-
-            PgfDB::sync();
         }
 
         return db;
