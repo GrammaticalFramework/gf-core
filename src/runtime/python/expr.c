@@ -207,7 +207,7 @@ PyTypeObject pgf_ExprLitType = {
 static PyObject *
 Type_str(TypeObject *self)
 {
-    PgfText *s = pgf_print_type((PgfType) self, NULL, 1, &marshaller);
+    PgfText *s = pgf_print_type((PgfType) self, NULL, 0, &marshaller);
     PyObject *str = PyUnicode_FromStringAndSize(s->text, s->size);
     free(s);
     return str;

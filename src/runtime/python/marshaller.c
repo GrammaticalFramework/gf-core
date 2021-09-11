@@ -101,23 +101,21 @@ PgfType dtyp(PgfUnmarshaller *this, int n_hypos, PgfTypeHypo *hypos, PgfText *ca
 {
     TypeObject *pytype = (TypeObject *)pgf_TypeType.tp_alloc(&pgf_TypeType, 0);
 
-    pytype->hypos = PyList_New(0);
+    pytype->hypos = PyList_New(n_hypos);
     for (int i = 0; i < n_hypos; i++) {
-        PgfTypeHypo *hypo = hypos + i;
         PyObject *tup = PyTuple_New(3);
-        PyTuple_SetItem(tup, 0, PyLong_FromLong(hypo->bind_type == PGF_BIND_TYPE_EXPLICIT ? 0 : 1)); // TODO
-        PyTuple_SetItem(tup, 1, PyUnicode_FromStringAndSize(hypo->cid->text, hypo->cid->size));
-        PyTuple_SetItem(tup, 2, (PyObject *)hypo->type);
-        Py_INCREF(hypo->type);
-        PyList_Append(pytype->hypos, tup);
+        PyTuple_SetItem(tup, 0, PyLong_FromLong(hypos[i].bind_type));
+        PyTuple_SetItem(tup, 1, PyUnicode_FromStringAndSize(hypos[i].cid->text, hypos[i].cid->size));
+        PyTuple_SetItem(tup, 2, (PyObject *)hypos[i].type);
+        Py_INCREF(hypos[i].type);
+        PyList_SetItem(pytype->hypos, i, tup);
     }
 
     pytype->cat = PyUnicode_FromStringAndSize(cat->text, cat->size);
 
-    pytype->exprs = PyList_New(0);
+    pytype->exprs = PyList_New(n_exprs);
     for (int i = 0; i < n_exprs; i++) {
-        // TODO
-        // PgfExpr *expr = exprs + i;
+        PyList_SetItem(pytype->exprs, i, exprs[i]);
     }
 
     return (PgfType) pytype;
@@ -163,10 +161,9 @@ PyUnicode_AsPgfText(PyObject *pystr)
 
     Py_ssize_t size;
     const char * enc = PyUnicode_AsUTF8AndSize(pystr, &size);
-    PgfText *ptext = (PgfText *)PyMem_Malloc(sizeof(PgfText)+size+1);
+    PgfText *ptext = malloc(sizeof(PgfText)+size+1);
     memcpy(ptext->text, enc, size+1);
     ptext->size = size;
-    Py_INCREF(ptext); // ?
     return ptext;
 }
 
@@ -203,18 +200,14 @@ object match_type(PgfMarshaller *this, PgfUnmarshaller *u, PgfType ty)
 {
     TypeObject *type = (TypeObject *)ty;
 
-    int n_hypos = PyList_Size(type->hypos);
-    PgfTypeHypo *hypos;
-    if (n_hypos > 0) {
-        PyObject *hytup = (PyObject *)PyList_GetItem(type->hypos, 0);
-        PgfTypeHypo hypo;
-        hypo.bind_type = PyLong_AsLong(PyTuple_GetItem(hytup, 0)) == 0 ? PGF_BIND_TYPE_EXPLICIT : PGF_BIND_TYPE_IMPLICIT;
-        hypo.cid = PyUnicode_AsPgfText(PyTuple_GetItem(hytup, 1));
-        hypo.type = (PgfType) PyTuple_GetItem(hytup, 2);
-        hypos = &hypo;
-        Py_INCREF(hypos); // ?
-    } else {
-        hypos = NULL;
+    size_t n_hypos = PyList_Size(type->hypos);
+    PgfTypeHypo *hypos = alloca(sizeof(PgfTypeHypo)*n_hypos);
+    for (size_t i = 0; i < n_hypos; i++) {
+        PyObject *hytup = (PyObject *)PyList_GetItem(type->hypos, i);
+        hypos[i].bind_type = PyLong_AsLong(PyTuple_GetItem(hytup, 0));
+        hypos[i].cid = PyUnicode_AsPgfText(PyTuple_GetItem(hytup, 1));
+        hypos[i].type = (PgfType) PyTuple_GetItem(hytup, 2);
+        Py_INCREF(hypos[i].type);
     }
 
     PgfText *cat = PyUnicode_AsPgfText(type->cat);
@@ -222,17 +215,27 @@ object match_type(PgfMarshaller *this, PgfUnmarshaller *u, PgfType ty)
         return 0;
     }
 
-    int n_exprs = PyList_Size(type->exprs);
-    PgfExpr *exprs;
-    if (n_exprs > 0) {
-        exprs = (PgfExpr *)PyList_GetItem(type->exprs, 0);
-        // TODO lay out others in memory in some way?
-        Py_INCREF(exprs); // ?
-    } else {
-        exprs = NULL;
+    size_t n_exprs = PyList_Size(type->exprs);
+    PgfExpr *exprs = alloca(sizeof(PgfExpr)*n_exprs);
+    for (size_t i = 0; i < n_exprs; i++) {
+        exprs[i] = (PgfExpr *)PyList_GetItem(type->exprs, i);
+        Py_INCREF(exprs[i]);
     }
 
-    return u->vtbl->dtyp(u, n_hypos, hypos, cat, n_exprs, exprs);
+    object res = u->vtbl->dtyp(u, n_hypos, hypos, cat, n_exprs, exprs);
+
+    for (size_t i = 0; i < n_exprs; i++) {
+        Py_DECREF(exprs[i]);
+    }
+
+    for (size_t i = 0; i < n_hypos; i++) {
+        free(hypos[i].cid);
+        Py_DECREF(hypos[i].type);
+    }
+
+    free(cat);
+
+    return res;
 }
 
 static PgfMarshallerVtbl marshallerVtbl =
