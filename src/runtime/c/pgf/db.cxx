@@ -5,9 +5,9 @@
 
 #include "data.h"
 
-PGF_INTERNAL unsigned char* current_base = NULL;
-PGF_INTERNAL PgfDB* current_db = NULL;
-PGF_INTERNAL DB_scope *last_db_scope = NULL;
+PGF_INTERNAL __thread unsigned char* current_base __attribute__((tls_model("initial-exec"))) = NULL;
+PGF_INTERNAL __thread PgfDB* current_db __attribute__((tls_model("initial-exec"))) = NULL;
+PGF_INTERNAL __thread DB_scope *last_db_scope __attribute__((tls_model("initial-exec"))) = NULL;
 
 #ifndef DEFAULT_TOP_PAD
 #define DEFAULT_TOP_PAD        (0)

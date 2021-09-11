@@ -5,8 +5,8 @@
 
 class PgfDB;
 
-extern PGF_INTERNAL_DECL unsigned char* current_base;
-extern PGF_INTERNAL_DECL PgfDB*         current_db;
+extern PGF_INTERNAL_DECL __thread unsigned char* current_base __attribute__((tls_model("initial-exec")));
+extern PGF_INTERNAL_DECL __thread PgfDB*         current_db   __attribute__((tls_model("initial-exec")));
 
 struct malloc_state;
 
@@ -108,6 +108,6 @@ private:
     DB_scope* next_scope;
 };
 
-extern PGF_INTERNAL_DECL DB_scope *last_db_scope;
+extern PGF_INTERNAL_DECL thread_local DB_scope *last_db_scope __attribute__((tls_model("initial-exec")));
 
 #endif
