@@ -629,3 +629,95 @@ void pgf_drop_category(PgfDB *db, PgfRevision revision,
         pgf->abstract.cats = cats;
     } PGF_API_END
 }
+
+PGF_API
+PgfLiteral pgf_get_global_flag(PgfDB *db, PgfRevision revision,
+                               PgfText *name,
+                               PgfUnmarshaller *u,
+                               PgfExn *err)
+{
+    PGF_API_BEGIN {
+        DB_scope scope(db, READER_SCOPE);
+
+        ref<PgfPGF> pgf = PgfDB::revision2pgf(revision);
+
+        ref<PgfFlag> flag =
+            namespace_lookup(pgf->gflags, name);
+        if (flag != 0) {
+            return PgfDBMarshaller().match_lit(u, flag->value);
+        }
+    } PGF_API_END
+
+    return 0;
+}
+
+PGF_API
+void pgf_set_global_flag(PgfDB *db, PgfRevision revision,
+                         PgfText *name,
+                         PgfLiteral value,
+                         PgfMarshaller *m,
+                         PgfExn *err)
+{
+    PGF_API_BEGIN {
+        DB_scope scope(db, WRITER_SCOPE);
+
+        PgfDBUnmarshaller u(m);
+
+        ref<PgfPGF> pgf = PgfDB::revision2pgf(revision);
+
+        ref<PgfFlag> flag = PgfDB::malloc<PgfFlag>(name->size+1);
+        flag->ref_count = 1;
+        memcpy(&flag->name, name, sizeof(PgfText)+name->size+1);
+        flag->value = m->match_lit(&u, value);
+        Namespace<PgfFlag> gflags =
+            namespace_insert(pgf->gflags, flag);
+        namespace_release(pgf->gflags);
+        pgf->gflags = gflags;
+    } PGF_API_END
+}
+
+PGF_API
+PgfLiteral pgf_get_abstract_flag(PgfDB *db, PgfRevision revision,
+                                 PgfText *name,
+                                 PgfUnmarshaller *u,
+                                 PgfExn *err)
+{
+    PGF_API_BEGIN {
+        DB_scope scope(db, READER_SCOPE);
+
+        ref<PgfPGF> pgf = PgfDB::revision2pgf(revision);
+
+        ref<PgfFlag> flag =
+            namespace_lookup(pgf->abstract.aflags, name);
+        if (flag != 0) {
+            return PgfDBMarshaller().match_lit(u, flag->value);
+        }
+    } PGF_API_END
+
+    return 0;
+}
+
+PGF_API
+void pgf_set_abstract_flag(PgfDB *db, PgfRevision revision,
+                           PgfText *name,
+                           PgfLiteral value,
+                           PgfMarshaller *m,
+                           PgfExn *err)
+{
+    PGF_API_BEGIN {
+        DB_scope scope(db, WRITER_SCOPE);
+
+        PgfDBUnmarshaller u(m);
+
+        ref<PgfPGF> pgf = PgfDB::revision2pgf(revision);
+
+        ref<PgfFlag> flag = PgfDB::malloc<PgfFlag>(name->size+1);
+        flag->ref_count = 1;
+        memcpy(&flag->name, name, sizeof(PgfText)+name->size+1);
+        flag->value = m->match_lit(&u, value);
+        Namespace<PgfFlag> aflags =
+            namespace_insert(pgf->abstract.aflags, flag);
+        namespace_release(pgf->abstract.aflags);
+        pgf->abstract.aflags = aflags;
+    } PGF_API_END
+}

@@ -17,7 +17,7 @@ module PGF2 (-- * PGF
              PGF,readPGF,bootNGF,readNGF,
 
              -- * Abstract syntax
-             AbsName,abstractName,
+             AbsName,abstractName,globalFlag,abstractFlag,
              -- ** Categories
              Cat,categories,categoryContext,categoryProb,
              -- ** Functions
@@ -262,6 +262,34 @@ functionsByCat p cat =
       names <- readIORef ref
       name  <- peekText key
       writeIORef ref $ (name : names)
+
+globalFlag :: PGF -> String -> Maybe Literal
+globalFlag p name =
+  unsafePerformIO $
+  withText name $ \c_name ->
+  withForeignPtr (a_db p) $ \c_db ->
+  withForeignPtr (revision p) $ \c_revision ->
+  withForeignPtr unmarshaller $ \u -> do
+    c_lit <- withPgfExn (pgf_get_global_flag c_db c_revision c_name u)
+    if c_lit == castPtrToStablePtr nullPtr
+      then return Nothing
+      else do lit <- deRefStablePtr c_lit
+              freeStablePtr c_lit
+              return (Just lit)
+
+abstractFlag :: PGF -> String -> Maybe Literal
+abstractFlag p name =
+  unsafePerformIO $
+  withText name $ \c_name ->
+  withForeignPtr (a_db p) $ \c_db ->
+  withForeignPtr (revision p) $ \c_revision ->
+  withForeignPtr unmarshaller $ \u -> do
+    c_lit <- withPgfExn (pgf_get_abstract_flag c_db c_revision c_name u)
+    if c_lit == castPtrToStablePtr nullPtr
+      then return Nothing
+      else do lit <- deRefStablePtr c_lit
+              freeStablePtr c_lit
+              return (Just lit)
 
 -----------------------------------------------------------------------
 -- Expressions & types

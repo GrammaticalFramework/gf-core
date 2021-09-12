@@ -7,6 +7,8 @@ module PGF2.Transactions
           , dropFunction
           , createCategory
           , dropCategory
+          , setGlobalFlag
+          , setAbstractFlag
           ) where
 
 import PGF2.FFI
@@ -130,3 +132,17 @@ dropCategory :: Cat -> Transaction ()
 dropCategory name = Transaction $ \c_db c_revision c_exn ->
   withText name $ \c_name -> do
     pgf_drop_category c_db c_revision c_name c_exn
+
+setGlobalFlag :: String -> Literal -> Transaction ()
+setGlobalFlag name value = Transaction $ \c_db c_revision c_exn ->
+  withText name $ \c_name ->
+  bracket (newStablePtr value) freeStablePtr $ \c_value ->
+  withForeignPtr marshaller $ \m ->
+    pgf_set_global_flag c_db c_revision c_name c_value m c_exn
+
+setAbstractFlag :: String -> Literal -> Transaction ()
+setAbstractFlag name value = Transaction $ \c_db c_revision c_exn ->
+  withText name $ \c_name ->
+  bracket (newStablePtr value) freeStablePtr $ \c_value ->
+  withForeignPtr marshaller $ \m ->
+    pgf_set_abstract_flag c_db c_revision c_name c_value m c_exn

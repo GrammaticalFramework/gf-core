@@ -122,6 +122,13 @@ foreign import ccall pgf_create_category :: Ptr PgfDB -> Ptr PgfRevision -> Ptr 
 
 foreign import ccall pgf_drop_category :: Ptr PgfDB -> Ptr PgfRevision -> Ptr PgfText -> Ptr PgfExn -> IO ()
 
+foreign import ccall pgf_get_global_flag :: Ptr PgfDB -> Ptr PgfRevision -> Ptr PgfText -> Ptr PgfUnmarshaller -> Ptr PgfExn -> IO (StablePtr Literal)
+
+foreign import ccall pgf_set_global_flag :: Ptr PgfDB -> Ptr PgfRevision -> Ptr PgfText -> StablePtr Literal -> Ptr PgfMarshaller -> Ptr PgfExn -> IO ()
+
+foreign import ccall pgf_get_abstract_flag :: Ptr PgfDB -> Ptr PgfRevision -> Ptr PgfText -> Ptr PgfUnmarshaller -> Ptr PgfExn -> IO (StablePtr Literal)
+
+foreign import ccall pgf_set_abstract_flag :: Ptr PgfDB -> Ptr PgfRevision -> Ptr PgfText -> StablePtr Literal -> Ptr PgfMarshaller -> Ptr PgfExn -> IO ()
 
 -----------------------------------------------------------------------
 -- Texts

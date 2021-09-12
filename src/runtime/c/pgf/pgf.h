@@ -362,4 +362,27 @@ void pgf_drop_category(PgfDB *db, PgfRevision revision,
                        PgfText *name,
                        PgfExn *err);
 
+PGF_API_DECL
+PgfLiteral pgf_get_global_flag(PgfDB *db, PgfRevision revision,
+                               PgfText *name,
+                               PgfUnmarshaller *u,
+                               PgfExn *err);
+PGF_API_DECL
+void pgf_set_global_flag(PgfDB *db, PgfRevision revision,
+                         PgfText *name,
+                         PgfLiteral value,
+                         PgfMarshaller *m,
+                         PgfExn *err);
+PGF_API_DECL
+PgfLiteral pgf_get_abstract_flag(PgfDB *db, PgfRevision revision,
+                                 PgfText *name,
+                                 PgfUnmarshaller *u,
+                                 PgfExn *err);
+PGF_API_DECL
+void pgf_set_abstract_flag(PgfDB *db, PgfRevision revision,
+                           PgfText *name,
+                           PgfLiteral value,
+                           PgfMarshaller *m,
+                           PgfExn *err);
+
 #endif // PGF_H_
