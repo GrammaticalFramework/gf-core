@@ -40,6 +40,9 @@
 #include<stdint.h>
 #include <sys/types.h>
 
+#define PGF_MAJOR_VERSION 2
+#define PGF_MINOR_VERSION 1
+
 /* A generic structure to store text. The last field is variable length */
 typedef struct {
     size_t size;

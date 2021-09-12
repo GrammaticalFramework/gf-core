@@ -119,8 +119,8 @@ PgfDB *pgf_read_ngf(const char *fpath,
                 is_new = true;
                 pgf = PgfDB::malloc<PgfPGF>(master.size+1);
                 pgf->ref_count = 1;
-                pgf->major_version = 2;
-                pgf->minor_version = 0;
+                pgf->major_version = PGF_MAJOR_VERSION;
+                pgf->minor_version = PGF_MINOR_VERSION;
                 pgf->gflags = 0;
                 pgf->abstract.name = PgfDB::malloc<PgfText>();
                 pgf->abstract.name->size = 0;

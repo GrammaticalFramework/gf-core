@@ -437,6 +437,11 @@ ref<PgfPGF> PgfReader::read_pgf()
     pgf->major_version = read_u16be();
     pgf->minor_version = read_u16be();
 
+    if (pgf->major_version != PGF_MAJOR_VERSION ||
+        pgf->minor_version != PGF_MINOR_VERSION) {
+        throw pgf_error("Unsupported format version");
+    }
+
     pgf->gflags = read_namespace<PgfFlag>(&PgfReader::read_flag);
 
     read_abstract(ref<PgfAbstr>::from_ptr(&pgf->abstract));
