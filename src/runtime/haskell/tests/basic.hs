@@ -79,29 +79,27 @@ main = do
 
   rp1 <- testLoadFailure (readPGF "non-existing.pgf")
   rp2 <- testLoadFailure (readPGF "tests/basic.gf")
-  -- rp3 <- testLoadFailure (readPGF "tests/basic.ngf")
+  rp3 <- testLoadFailure (readPGF "tests/basic.ngf")
 
   bn1 <- testLoadFailure (bootNGF "non-existing.pgf" "non-existing.ngf")
   bn2 <- testLoadFailure (bootNGF "tests/basic.gf" "tests/basic.ngf")
   bn3 <- testLoadFailure (bootNGF "tests/basic.ngf" "tests/basic.pgf")
 
-  -- rn1 <- testLoadFailure (readNGF "non-existing.ngf")
-  -- rn2 <- testLoadFailure (readNGF "tests/basic.gf")
-  -- rn3 <- testLoadFailure (readNGF "tests/basic.pgf")
+  rn2 <- testLoadFailure (readNGF "tests/basic.gf")
+  rn3 <- testLoadFailure (readNGF "tests/basic.pgf")
 
   runTestTTAndExit $
     TestList $
       [TestCase (assertBool "missing file" rp1)
       ,TestCase (assertBool "wrong file format (GF)" rp2)
-      -- ,TestCase (assertBool "wrong file format (NGF)" rp3)
+      ,TestCase (assertBool "wrong file format (NGF)" rp3)
 
       ,TestCase (assertBool "missing file" bn1)
       ,TestCase (assertBool "wrong file format (GF)" bn2)
       ,TestCase (assertBool "wrong file format (NGF)" bn3)
 
-      -- ,TestCase (assertBool "missing file" rn1)
-      -- ,TestCase (assertBool "wrong file format (GF)" rn2)
-      -- ,TestCase (assertBool "wrong file format (PGF)" rn3)
+      ,TestCase (assertBool "wrong file format (GF)" rn2)
+      ,TestCase (assertBool "wrong file format (PGF)" rn3)
       ]
       ++ grammarTests gr1
       ++ grammarTests gr2

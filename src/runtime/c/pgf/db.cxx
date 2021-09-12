@@ -250,8 +250,16 @@ typedef struct mchunk mbin;
  */
 #define FASTBIN_CONSOLIDATION_THRESHOLD  (65536UL)
 
+static char slovo[5] = {'S','L','O','V','O'};
+
 struct PGF_INTERNAL_DECL malloc_state
 {
+    /* Each .ngf file starts with 'SLOVO' as in:
+     *    "V načaloto be slovoto" (In the beginning was the word)
+     * In this way we detect an attempt to read a non .ngf file.
+     */
+    char sign[5];
+
     /* Set if the fastbin chunks contain recently inserted free blocks.  */
     bool have_fastchunks;
     /* Fastbins */
@@ -320,6 +328,9 @@ PgfDB::PgfDB(const char* filepath, int flags, int mode) {
     if (is_new) {
         init_state(file_size);
     } else {
+        if (strncmp(ms->sign, slovo, sizeof(ms->sign)) != 0)
+            throw pgf_error("Invalid file content");
+
         // We must make sure that left-over transient revisions are
         // released. This may happen if a client process was killed
         // or if the garbadge collector has not managed to run
@@ -366,6 +377,8 @@ void PgfDB::set_revision(ref<PgfPGF> pgf)
 PGF_INTERNAL
 void PgfDB::init_state(size_t size)
 {
+    memcpy(ms->sign, slovo, sizeof(ms->sign));
+
     /* Init fastbins */
     ms->have_fastchunks = false;
     for (int i = 0; i < NFASTBINS; ++i) {
