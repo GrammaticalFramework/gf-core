@@ -98,7 +98,7 @@ def test_categoryContext_3(PGF):
     assert tup[2] == pgf.readType("N")
 
 def test_categoryContext_4(PGF):
-    assert PGF.categoryContext("X") == []
+    assert PGF.categoryContext("X") == None
 
 def test_functionIsConstructor_1(PGF):
     assert PGF.functionIsConstructor("s") == True

@@ -1917,6 +1917,10 @@ PGF_categoryContext(PGFObject *self, PyObject *args)
         return NULL;
     }
 
+    if (hypos == NULL) {
+        Py_RETURN_NONE;
+    }
+
     PyObject *contexts = PyList_New(n_hypos);
     if (contexts == NULL) {
         return NULL;
