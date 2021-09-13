@@ -125,6 +125,29 @@ PyTypeObject pgf_ExprType = {
 
 // ----------------------------------------------------------------------------
 
+static ExprLitObject *
+ExprLit_new(PyTypeObject *subtype, PyObject *args, PyObject *kwds)
+{
+    ExprLitObject* self = (ExprLitObject *)subtype->tp_alloc(subtype, 0);
+    return self;
+}
+
+static int
+ExprLit_init(ExprLitObject *self, PyObject *args, PyObject *kwds)
+{
+    PyObject* lit = NULL;
+    if (!PyArg_ParseTuple(args, "O", &lit)) {
+        return -1;
+    }
+    if (PyLong_Check(lit) || PyFloat_Check(lit) || PyUnicode_Check(lit)) {
+        self->value = lit;
+        return 0;
+    } else {
+        PyErr_SetString(PyExc_TypeError, "invalid argument in ExprLit_init");
+        return -1;
+    }
+}
+
 static PyObject *
 ExprLit_richcompare(ExprLitObject *t1, ExprLitObject *t2, int op)
 {
@@ -197,9 +220,9 @@ PyTypeObject pgf_ExprLitType = {
     0,                         /*tp_descr_get */
     0,                         /*tp_descr_set */
     0,                         /*tp_dictoffset */
-    0, //(initproc)Expr_init,       /*tp_init */
+    (initproc) ExprLit_init,   /*tp_init */
     0,                         /*tp_alloc */
-    0, //(newfunc) Expr_new,        /*tp_new */
+    (newfunc) ExprLit_new,     /*tp_new */
 };
 
 // ----------------------------------------------------------------------------
