@@ -1,6 +1,6 @@
 #define PY_SSIZE_T_CLEAN
 #include <Python.h>
-#include "structmember.h"
+#include <structmember.h>
 
 #include <pgf/pgf.h>
 #include "./compat.h"
@@ -2047,6 +2047,28 @@ PGF_functionType(PGFObject *self, PyObject *args)
     return (TypeObject *)type;
 }
 
+static PyObject *
+PGF_functionIsConstructor(PGFObject *self, PyObject *args)
+{
+    const char *s;
+    Py_ssize_t size;
+    if (!PyArg_ParseTuple(args, "s#", &s, &size))
+        return NULL;
+
+    PgfText *funname = (PgfText *)PyMem_Malloc(sizeof(PgfText)+size+1);
+    memcpy(funname->text, s, size+1);
+    funname->size = size;
+
+    PgfExn err;
+    int isCon = pgf_function_is_constructor(self->db, self->revision, funname, &err);
+    PyMem_Free(funname);
+    if (handleError(err) != PGF_EXN_NONE) {
+        return NULL;
+    }
+
+    return PyBool_FromLong(isCon);
+}
+
 // static IterObject*
 // PGF_generateAll(PGFObject* self, PyObject *args, PyObject *keywds)
 // {
@@ -2381,6 +2403,9 @@ static PyMethodDef PGF_methods[] = {
     },
     {"functionType", (PyCFunction)PGF_functionType, METH_VARARGS,
      "Returns the type of a function"
+    },
+    {"functionIsConstructor", (PyCFunction)PGF_functionIsConstructor, METH_VARARGS,
+     "Checks whether a function is a constructor"
     },
     // {"generateAll", (PyCFunction)PGF_generateAll, METH_VARARGS | METH_KEYWORDS,
     //  "Generates abstract syntax trees of given category in decreasing probability order"

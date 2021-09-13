@@ -1,11 +1,9 @@
 #define PY_SSIZE_T_CLEAN
 #include <Python.h>
-
 #include <math.h>
 #include <stdbool.h>
 
 #include <pgf/pgf.h>
-
 #include "./compat.h"
 #include "./expr.h"
 

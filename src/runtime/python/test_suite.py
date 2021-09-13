@@ -100,6 +100,18 @@ def test_categoryContext_3(PGF):
 def test_categoryContext_4(PGF):
     assert PGF.categoryContext("X") == []
 
+def test_functionIsConstructor_1(PGF):
+    assert PGF.functionIsConstructor("s") == True
+
+def test_functionIsConstructor_2(PGF):
+    assert PGF.functionIsConstructor("z") == True
+
+def test_functionIsConstructor_3(PGF):
+    assert PGF.functionIsConstructor("c") == True
+
+def test_functionIsConstructor_4(PGF):
+    assert PGF.functionIsConstructor("ind") == False
+
 # types
 
 def test_readType_invalid():
