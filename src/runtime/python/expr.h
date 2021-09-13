@@ -26,8 +26,15 @@ typedef struct {
     PyObject *value;
 } ExprLitObject;
 
+typedef struct {
+    PyObject_HEAD
+    PyObject *index;
+} ExprMetaObject;
+
 extern PyTypeObject pgf_ExprType;
 
 extern PyTypeObject pgf_ExprLitType;
+
+extern PyTypeObject pgf_ExprMetaType;
 
 #endif // PYPGF_EXPR_H_

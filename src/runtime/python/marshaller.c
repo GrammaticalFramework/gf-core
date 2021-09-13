@@ -37,8 +37,9 @@ PgfExpr elit(PgfUnmarshaller *this, PgfLiteral lit)
 
 PgfExpr emeta(PgfUnmarshaller *this, PgfMetaId meta)
 {
-    PyErr_SetString(PyExc_NotImplementedError, "emeta not implemented");
-    return 0;
+    ExprMetaObject *pyexpr = (ExprMetaObject *)pgf_ExprMetaType.tp_alloc(&pgf_ExprMetaType, 0);
+    pyexpr->index = PyLong_FromLong(meta);
+    return (PgfExpr) pyexpr;
 }
 
 PgfExpr efun(PgfUnmarshaller *this, PgfText *name)
