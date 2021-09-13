@@ -9,7 +9,7 @@
 static PyObject *
 Expr_str(ExprObject *self)
 {
-    PgfText *s = pgf_print_expr((PgfExpr) self, NULL, 1, &marshaller);
+    PgfText *s = pgf_print_expr((PgfExpr) self, NULL, 0, &marshaller);
     PyObject *str = PyUnicode_FromStringAndSize(s->text, s->size);
     free(s);
     return str;

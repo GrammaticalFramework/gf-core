@@ -16,13 +16,13 @@
 PgfExpr eabs(PgfUnmarshaller *this, PgfBindType btype, PgfText *name, PgfExpr body)
 {
     PyErr_SetString(PyExc_NotImplementedError, "eabs not implemented");
-    Py_RETURN_NOTIMPLEMENTED;
+    return 0;
 }
 
 PgfExpr eapp(PgfUnmarshaller *this, PgfExpr fun, PgfExpr arg)
 {
     PyErr_SetString(PyExc_NotImplementedError, "eapp not implemented");
-    Py_RETURN_NOTIMPLEMENTED;
+    return 0;
 }
 
 PgfExpr elit(PgfUnmarshaller *this, PgfLiteral lit)
@@ -37,31 +37,31 @@ PgfExpr elit(PgfUnmarshaller *this, PgfLiteral lit)
 PgfExpr emeta(PgfUnmarshaller *this, PgfMetaId meta)
 {
     PyErr_SetString(PyExc_NotImplementedError, "emeta not implemented");
-    Py_RETURN_NOTIMPLEMENTED;
+    return 0;
 }
 
 PgfExpr efun(PgfUnmarshaller *this, PgfText *name)
 {
     PyErr_SetString(PyExc_NotImplementedError, "efun not implemented");
-    Py_RETURN_NOTIMPLEMENTED;
+    return 0;
 }
 
 PgfExpr evar(PgfUnmarshaller *this, int index)
 {
     PyErr_SetString(PyExc_NotImplementedError, "evar not implemented");
-    Py_RETURN_NOTIMPLEMENTED;
+    return 0;
 }
 
 PgfExpr etyped(PgfUnmarshaller *this, PgfExpr expr, PgfType typ)
 {
     PyErr_SetString(PyExc_NotImplementedError, "etyped not implemented");
-    Py_RETURN_NOTIMPLEMENTED;
+    return 0;
 }
 
 PgfExpr eimplarg(PgfUnmarshaller *this, PgfExpr expr)
 {
     PyErr_SetString(PyExc_NotImplementedError, "eimplarg not implemented");
-    Py_RETURN_NOTIMPLEMENTED;
+    return 0;
 }
 
 PgfLiteral lint(PgfUnmarshaller *this, size_t size, uintmax_t *v)
@@ -115,7 +115,7 @@ PgfType dtyp(PgfUnmarshaller *this, int n_hypos, PgfTypeHypo *hypos, PgfText *ca
 
     pytype->exprs = PyList_New(n_exprs);
     for (int i = 0; i < n_exprs; i++) {
-        PyList_SetItem(pytype->exprs, i, exprs[i]);
+        PyList_SetItem(pytype->exprs, i, (PyObject *)exprs[i]);
     }
 
     return (PgfType) pytype;
@@ -175,7 +175,7 @@ object match_lit(PgfMarshaller *this, PgfUnmarshaller *u, PgfLiteral lit)
 
     if (PyLong_Check(pyobj)) {
         // TODO
-        uintmax_t i = PyLong_AsUnsignedLong(pyobj);
+        uintmax_t i = PyLong_AsLong(pyobj);
         size_t size = 1;
         return u->vtbl->lint(u, size, &i);
     } else if (PyFloat_Check(pyobj)) {
@@ -190,19 +190,25 @@ object match_lit(PgfMarshaller *this, PgfUnmarshaller *u, PgfLiteral lit)
     }
 }
 
-object match_expr(PgfMarshaller *this, PgfUnmarshaller *u, PgfExpr expr)
+object match_expr(PgfMarshaller *this, PgfUnmarshaller *u, PgfExpr ex)
 {
-    PyErr_SetString(PyExc_NotImplementedError, "match_expr not implemented");
-    Py_RETURN_NOTIMPLEMENTED;
+    ExprObject *expr = (ExprObject *)ex;
+
+    if (expr->ob_base.ob_type == &pgf_ExprLitType) {
+        ExprLitObject *elit= (ExprLitObject *)expr;
+        return this->vtbl->match_lit(this, u, (PgfLiteral) elit->value);
+    } else {
+        return 0;
+    }
 }
 
 object match_type(PgfMarshaller *this, PgfUnmarshaller *u, PgfType ty)
 {
     TypeObject *type = (TypeObject *)ty;
 
-    size_t n_hypos = PyList_Size(type->hypos);
+    Py_ssize_t n_hypos = PyList_Size(type->hypos);
     PgfTypeHypo *hypos = alloca(sizeof(PgfTypeHypo)*n_hypos);
-    for (size_t i = 0; i < n_hypos; i++) {
+    for (Py_ssize_t i = 0; i < n_hypos; i++) {
         PyObject *hytup = (PyObject *)PyList_GetItem(type->hypos, i);
         hypos[i].bind_type = PyLong_AsLong(PyTuple_GetItem(hytup, 0));
         hypos[i].cid = PyUnicode_AsPgfText(PyTuple_GetItem(hytup, 1));
@@ -215,24 +221,22 @@ object match_type(PgfMarshaller *this, PgfUnmarshaller *u, PgfType ty)
         return 0;
     }
 
-    size_t n_exprs = PyList_Size(type->exprs);
+    Py_ssize_t n_exprs = PyList_Size(type->exprs);
     PgfExpr *exprs = alloca(sizeof(PgfExpr)*n_exprs);
-    for (size_t i = 0; i < n_exprs; i++) {
-        exprs[i] = (PgfExpr *)PyList_GetItem(type->exprs, i);
+    for (Py_ssize_t i = 0; i < n_exprs; i++) {
+        exprs[i] = (PgfExpr)PyList_GetItem(type->exprs, i);
         Py_INCREF(exprs[i]);
     }
 
     object res = u->vtbl->dtyp(u, n_hypos, hypos, cat, n_exprs, exprs);
 
-    for (size_t i = 0; i < n_exprs; i++) {
+    for (Py_ssize_t i = 0; i < n_exprs; i++) {
         Py_DECREF(exprs[i]);
     }
-
-    for (size_t i = 0; i < n_hypos; i++) {
+    for (Py_ssize_t i = 0; i < n_hypos; i++) {
         free(hypos[i].cid);
         Py_DECREF(hypos[i].type);
     }
-
     free(cat);
 
     return res;

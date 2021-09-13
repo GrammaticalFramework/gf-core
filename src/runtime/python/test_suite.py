@@ -105,7 +105,7 @@ def test_readType_inequality_2():
     assert pgf.readType("A -> B") != pgf.readType("B->B")
 
 def test_readType_str():
-    assert str(pgf.readType("A->   BÄ")) == "A -> BÄ"
+    assert str(pgf.readType("A->   BÄ->C")) == "A -> BÄ -> C"
 
 def test_functionType_1(PGF):
     assert PGF.functionType("z") == pgf.readType("N")
@@ -159,5 +159,20 @@ def test_readExpr_equality_string():
 def test_readExpr_inequality_string():
     assert pgf.readExpr("\"abc\"") != pgf.readExpr("\"def\"")
 
-# def test_readExpr_str_int():
-#     assert str(pgf.readExpr("123")) == "123"
+def test_readExpr_str_int():
+    assert str(pgf.readExpr("123")) == "123"
+
+def test_readExpr_str_int_neg():
+    assert str(pgf.readExpr("-123")) == "-123"
+
+# def test_readExpr_str_int_big():
+#     assert str(pgf.readExpr("774763251095801167872")) == "774763251095801167872"
+#
+# def test_readExpr_str_int_big_neg():
+#     assert str(pgf.readExpr("-774763251095801167872")) == "-774763251095801167872"
+
+def test_readExpr_str_float():
+    assert str(pgf.readExpr("3.142")) == "3.142"
+
+def test_readExpr_str_string():
+    assert str(pgf.readExpr("\"açġħ\"")) == "\"açġħ\""
