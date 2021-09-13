@@ -21,7 +21,7 @@ import Data.Maybe(fromMaybe)
 --------------------------
 
 cf2pgf :: Options -> FilePath -> ParamCFG -> Map.Map Fun Double -> PGF
-cf2pgf opts fpath cf probs = 
+cf2pgf opts fpath cf probs = error "TODO: cf2pgf" {-
  build (let abstr = cf2abstr cf probs
         in newPGF [] aname abstr [(cname, cf2concr opts abstr cf)])
  where
@@ -134,3 +134,4 @@ mkRuleName rule =
   case ruleName rule of
 	CFObj n _ -> n
 	_         -> "_"
+-}

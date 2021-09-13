@@ -22,7 +22,8 @@ import GF.Infra.Option
 import GF.Infra.UseIO(MonadIO(..))
 import GF.Grammar.Grammar
 
-import PGF2.Internal(Literal(..),Symbol(..))
+import PGF2(Literal(..))
+import PGF2.Internal(Symbol(..))
 
 -- Please change this every time when the GFO format is changed
 gfoVersion = "GF04"

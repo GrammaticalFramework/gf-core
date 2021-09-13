@@ -8,7 +8,7 @@ import Data.Ratio (denominator, numerator)
 import GF.Grammar.Canonical
 import Control.Monad (guard)
 import GF.Infra.Ident (RawIdent,showRawIdent,rawIdentS)
-
+import PGF(Literal(..))
 
 encodeJSON :: FilePath -> Grammar -> IO ()
 encodeJSON fpath g = writeFile fpath (encode g)
@@ -171,13 +171,13 @@ instance JSON LinValue where
     <|>        do vs <- readJSON o :: Result [LinValue]
                   return (foldr1 ConcatValue vs)
 
-instance JSON LinLiteral where
+instance JSON Literal where
   -- basic values (Str, Float, Int) are encoded as JSON strings/numbers:
-  showJSON (StrConstant   s) = showJSON s
-  showJSON (FloatConstant f) = showJSON f
-  showJSON (IntConstant   n) = showJSON n
+  showJSON (LStr s) = showJSON s
+  showJSON (LFlt f) = showJSON f
+  showJSON (LInt n) = showJSON n
 
-  readJSON = readBasicJSON StrConstant IntConstant FloatConstant
+  readJSON = readBasicJSON LStr LInt LFlt
 
 instance JSON LinPattern where
   -- wildcards and patterns without arguments are encoded as strings:
@@ -261,15 +261,6 @@ instance JSON Flags where
   readJSON obj = Flags <$> mapM fromRow (assocsJSObject obj)
     where fromRow (lbl, jsvalue) = do value <- readJSON jsvalue
                                       return (rawIdentS lbl, value)
-
-instance JSON FlagValue where
-  -- flag values are encoded as basic JSON types:
-  showJSON (Str s) = showJSON s
-  showJSON (Int i) = showJSON i
-  showJSON (Flt f) = showJSON f
-
-  readJSON = readBasicJSON Str Int Flt
-
 
 --------------------------------------------------------------------------------
 -- ** Convenience functions

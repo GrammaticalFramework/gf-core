@@ -4,7 +4,8 @@ module GF.Compile.GenerateBC(generateByteCode) where
 import GF.Grammar
 import GF.Grammar.Lookup(lookupAbsDef,lookupFunType)
 import GF.Data.Operations
-import PGF2.Internal(CodeLabel,Instr(..),IVal(..),TailInfo(..),Literal(..))
+import PGF2(Literal(..))
+import PGF2.Internal(CodeLabel,Instr(..),IVal(..),TailInfo(..))
 import qualified Data.Map as Map
 import Data.List(nub,mapAccumL)
 import Data.Maybe(fromMaybe)

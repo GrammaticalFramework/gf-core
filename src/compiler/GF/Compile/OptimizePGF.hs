@@ -20,7 +20,7 @@ type ConcrData = ([(FId,[FunId])],          -- ^ Lindefs
                   [(Cat,FId,FId,[String])]) -- ^ Concrete categories
 
 optimizePGF :: Cat -> ConcrData -> ConcrData
-optimizePGF startCat = topDownFilter startCat . bottomUpFilter
+optimizePGF startCat = error "TODO: optimizePGF" {- topDownFilter startCat . bottomUpFilter
 
 catString = "String"
 catInt    = "Int"
@@ -187,3 +187,4 @@ filterProductions prods0 hoc0 prods
 
     accumHOC hoc (PApply funid args) = List.foldl' (\hoc (PArg hypos _) -> List.foldl' (\hoc fid -> IntSet.insert fid hoc) hoc (map snd hypos)) hoc args
     accumHOC hoc _                   = hoc
+-}

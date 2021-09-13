@@ -25,7 +25,7 @@ toBNF f pgf cnc = prCFG $ f $ pgfToCFG pgf cnc
 type Profile = [Int]
 
 pgfToCFG :: PGF -> Concr -> CFG
-pgfToCFG pgf cnc = mkCFG start_cat extCats (startRules ++ concatMap ruleToCFRule rules)
+pgfToCFG pgf cnc = error "TODO: pgfToCFG" {- mkCFG start_cat extCats (startRules ++ concatMap ruleToCFRule rules)
   where
     (_,start_cat,_) = unType (startCat pgf)
 
@@ -116,3 +116,4 @@ pgfToCFG pgf cnc = mkCFG start_cat extCats (startRules ++ concatMap ruleToCFRule
     ruleToCFRule (c,PCoerce c') =
         [Rule (fcatToCat c l) [NonTerminal (fcatToCat c' l)] (CFRes 0)
            | l <- [0..catLinArity c-1]]
+-}

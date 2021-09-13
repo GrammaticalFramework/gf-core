@@ -11,7 +11,7 @@ module PGF2.Expr(Var, Cat, Fun,
                  mkFloat,  unFloat,
                  mkMeta,   unMeta,
 
-                 exprSize, exprFunctions,
+                 exprSize, exprFunctions, exprSubstitute,
 
                  mkType, unType,
                  mkHypo, mkDepHypo, mkImplHypo
@@ -168,6 +168,15 @@ exprFunctions (ETyped e ty)= exprFunctions e
 exprFunctions (EImplArg e) = exprFunctions e
 exprFunctions (EFun f)     = [f]
 exprFunctions _            = []
+
+exprSubstitute :: Expr -> [Expr] -> Expr
+exprSubstitute (EAbs bt x e) vs = EAbs bt x (exprSubstitute e vs)
+exprSubstitute (EApp e1 e2)  vs = EApp (exprSubstitute e1 vs) (exprSubstitute e2 vs)
+exprSubstitute (EMeta i)     vs = vs !! i
+exprSubstitute (ETyped e ty) vs = ETyped (exprSubstitute e vs) ty
+exprSubstitute (EImplArg e)  vs = EImplArg (exprSubstitute e vs)
+exprSubstitute e             vs = e
+
 
 -- | creates a type from list of hypothesises, category and 
 -- list of arguments for the category. The operation 

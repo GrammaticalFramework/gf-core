@@ -19,7 +19,7 @@ import GF.Compile.Compute.Predef(predef)
 import GF.Compile.Compute.Value(Predefined(..))
 import GF.Infra.Ident(ModuleName(..),Ident,ident2raw,rawIdentS,showIdent,isWildIdent)
 import GF.Infra.Option(Options,optionsPGF)
-import PGF2.Internal(Literal(..))
+import PGF2(Literal(..))
 import GF.Compile.Compute.Concrete(GlobalEnv,normalForm,resourceValues)
 import GF.Grammar.Canonical as C
 import System.FilePath ((</>), (<.>))
@@ -193,11 +193,11 @@ convert' gr vs = ppT
         Cn x -> VarValue (gId x) -- hmm
         Con c -> ParamConstant (Param (gId c) [])
         Sort k -> VarValue (gId k)
-        EInt n -> LiteralValue (IntConstant n)
+        EInt n -> LiteralValue (LInt n)
         Q (m,n) -> if m==cPredef then ppPredef n else VarValue (gQId m n)
         QC (m,n) -> ParamConstant (Param (gQId m n) [])
-        K s -> LiteralValue (StrConstant s)
-        Empty -> LiteralValue (StrConstant "")
+        K s -> LiteralValue (LStr s)
+        Empty -> LiteralValue (LStr "")
         FV ts -> VariantValue (map ppT ts)
         Alts t' vs -> alts vs (ppT t')
         _ -> error $ "convert' ppT: " ++ show t
@@ -265,8 +265,8 @@ convert' gr vs = ppT
 concatValue :: LinValue -> LinValue -> LinValue
 concatValue v1 v2 =
   case (v1,v2) of
-    (LiteralValue (StrConstant ""),_) -> v2
-    (_,LiteralValue (StrConstant "")) -> v1
+    (LiteralValue (LStr ""),_) -> v2
+    (_,LiteralValue (LStr "")) -> v1
     _ -> ConcatValue v1 v2
 
 -- | Smart constructor for projections
@@ -429,11 +429,5 @@ unqual n = Unqual (ident2raw n)
 
 convFlags :: G.Grammar -> ModuleName -> Flags
 convFlags gr mn =
-  Flags [(rawIdentS n,convLit v) |
+  Flags [(rawIdentS n,v) |
          (n,v)<-err (const []) (optionsPGF.mflags) (lookupModule gr mn)]
-  where
-    convLit l =
-      case l of
-        LStr s -> Str s
-        LInt i -> C.Int i
-        LFlt d -> Flt d

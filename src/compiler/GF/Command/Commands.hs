@@ -6,7 +6,6 @@ module GF.Command.Commands (
 import Prelude hiding (putStrLn,(<>))
 
 import PGF2
-import PGF2.Internal(writePGF)
 
 import GF.Compile.Export
 import GF.Compile.ToAPI
@@ -666,7 +665,7 @@ pgfCommands = Map.fromList [
          [e] -> case unApp e of
                   Just (id, []) -> case functionType pgf id of
                                      Just ty -> do putStrLn (showFun pgf id ty)
-                                                   putStrLn ("Probability: "++show (treeProbability pgf e))
+                                                   putStrLn ("Probability: "++show (exprProbability pgf e))
                                                    return void
                                      Nothing -> case categoryContext pgf id of
                                                   Just hypos -> do putStrLn ("cat "++id++if null hypos then "" else ' ':showContext [] hypos)
@@ -682,7 +681,7 @@ pgfCommands = Map.fromList [
                                      Left err     -> error err
                                      Right (e,ty) -> do putStrLn ("Expression:  "++showExpr [] e)
                                                         putStrLn ("Type:        "++showType [] ty)
-                                                        putStrLn ("Probability: "++show (treeProbability pgf e))
+                                                        putStrLn ("Probability: "++show (exprProbability pgf e))
                                                         return void
          _           -> do putStrLn "a single identifier or expression is expected from the command"
                            return void,
@@ -800,8 +799,8 @@ pgfCommands = Map.fromList [
 
    showFun pgf id ty = kwd++" "++ id ++ " : " ++ showType [] ty
                        where
-                         kwd | functionIsDataCon pgf id = "data"
-                             | otherwise                = "fun"
+                         kwd | functionIsConstructor pgf id = "data"
+                             | otherwise                    = "fun"
 
    morphos pgf opts s =
      [(s,lookupMorpho concr s) | concr <- optLangs pgf opts]

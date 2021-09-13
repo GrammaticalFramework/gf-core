@@ -4,7 +4,7 @@ module GF.Compile.Compute.Predef(predef,predefName,delta) where
 
 import qualified Data.Map as Map
 import Data.Array(array,(!))
-import Data.List (isInfixOf)
+import Data.List (isInfixOf,genericTake,genericDrop,genericLength)
 import Data.Char (isUpper,toLower,toUpper)
 import Control.Monad(ap)
 
@@ -20,7 +20,7 @@ class Predef a where
   toValue :: a -> Value
   fromValue :: Value -> Err a
 
-instance Predef Int where
+instance Predef Integer where
   toValue = VInt
   fromValue (VInt i) = return i
   fromValue v = verror "Int" v
@@ -87,8 +87,8 @@ predefList =
 
 delta f vs =
     case f of
-      Drop    -> fromNonExist vs NonExist (ap2 (drop::Int->String->String))
-      Take    -> fromNonExist vs NonExist (ap2 (take::Int->String->String))
+      Drop    -> fromNonExist vs NonExist (ap2 (genericDrop::Integer->String->String))
+      Take    -> fromNonExist vs NonExist (ap2 (genericTake::Integer->String->String))
       Tk      -> fromNonExist vs NonExist (ap2 tk)
       Dp      -> fromNonExist vs NonExist (ap2 dp)
       EqStr   -> fromNonExist vs PFalse   (ap2 ((==)::String->String->Bool))
@@ -97,10 +97,10 @@ delta f vs =
       ToUpper -> fromNonExist vs NonExist (ap1 (map toUpper))
       ToLower -> fromNonExist vs NonExist (ap1 (map toLower))
       IsUpper -> fromNonExist vs PFalse   (ap1 (all' isUpper))
-      Length  -> fromNonExist vs (0::Int) (ap1 (length::String->Int))
-      Plus    -> ap2 ((+)::Int->Int->Int)
-      EqInt   -> ap2 ((==)::Int->Int->Bool)
-      LessInt -> ap2 ((<)::Int->Int->Bool)
+      Length  -> fromNonExist vs (0::Integer) (ap1 (genericLength::String->Integer))
+      Plus    -> ap2 ((+)::Integer->Integer->Integer)
+      EqInt   -> ap2 ((==)::Integer->Integer->Bool)
+      LessInt -> ap2 ((<)::Integer->Integer->Bool)
     {- -- | Show | Read | ToStr | MapStr | EqVal -}
       Error   -> ap1 VError
       Trace   -> ap2 vtrace
@@ -139,8 +139,12 @@ delta f vs =
 --  unimpl id = bug $ "unimplemented predefined function: "++showIdent id
 --  problem id vs = bug $ "unexpected arguments: Predef."++showIdent id++" "++show vs
 
-    tk i s = take (max 0 (length s - i)) s :: String
-    dp i s = drop (max 0 (length s - i)) s :: String
+    tk :: Integer -> String -> String
+    tk i s = genericTake (max 0 (genericLength s - i)) s
+
+    dp :: Integer -> String -> String
+    dp i s = genericDrop (max 0 (genericLength s - i)) s
+
     occur s t = isInfixOf (s::String) (t::String)
     occurs s t = any (`elem` (t::String)) (s::String)
     all' = all :: (a->Bool) -> [a] -> Bool

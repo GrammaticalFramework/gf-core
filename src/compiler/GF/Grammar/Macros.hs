@@ -216,7 +216,7 @@ typeTok   = Sort cTok
 typeStrs  = Sort cStrs
 
 typeString, typeFloat, typeInt :: Type
-typeInts :: Int -> Type
+typeInts :: Integer -> Type
 typePBool :: Type
 typeError :: Type
 
@@ -227,7 +227,7 @@ typeInts i = App (cnPredef cInts) (EInt i)
 typePBool = cnPredef cPBool
 typeError = cnPredef cErrorType
 
-isTypeInts :: Type -> Maybe Int
+isTypeInts :: Type -> Maybe Integer
 isTypeInts (App c (EInt i)) | c == cnPredef cInts = Just i
 isTypeInts _                                      = Nothing
 
@@ -324,7 +324,7 @@ freshAsTerm s = Vr (varX (readIntArg s))
 string2term :: String -> Term
 string2term = K
 
-int2term :: Int -> Term
+int2term :: Integer -> Term
 int2term = EInt
 
 float2term :: Double -> Term

@@ -25,7 +25,7 @@ data BNFCRule = BNFCRule {
                  ruleName :: CFTerm }
               | BNFCCoercions {
                  coerCat :: Cat,
-                 coerNum :: Int }
+                 coerNum :: Integer }
               | BNFCTerminator {
                  termNonEmpty :: Bool,
                  termCat :: Cat,

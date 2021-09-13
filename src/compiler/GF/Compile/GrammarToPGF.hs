@@ -30,7 +30,7 @@ import GHC.Prim
 import GHC.Base(getTag)
 
 grammar2PGF :: Options -> SourceGrammar -> ModuleName -> Map.Map PGF2.Fun Double -> IO PGF
-grammar2PGF opts gr am probs = do
+grammar2PGF opts gr am probs = error "TODO: grammar2PGF" {-do
   cnc_infos <- getConcreteInfos gr am
   return $
     build (let gflags   = if flag optSplitPGF opts 
@@ -445,3 +445,4 @@ compareCaseInsensitive (x:xs) (y:ys) =
                               EQ -> compare x y
                               x  -> x
                       x  -> x
+-}

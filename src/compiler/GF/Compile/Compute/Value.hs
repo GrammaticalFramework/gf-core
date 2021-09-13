@@ -14,7 +14,7 @@ data Value
 -- -- | VClosure Env Term -- used in Typecheck.ConcreteNew
   | VAbs BindType Ident Binding -- used in Compute.Concrete
   | VProd BindType Value Ident Binding -- used in Compute.Concrete
-  | VInt Int
+  | VInt Integer
   | VFloat Double
   | VString String
   | VSort Ident

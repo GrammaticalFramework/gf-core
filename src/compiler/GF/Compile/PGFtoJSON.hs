@@ -6,8 +6,8 @@ import Text.JSON
 import qualified Data.Map as Map
 
 pgf2json :: PGF -> String
-pgf2json pgf =
-  encode $ makeObj
+pgf2json pgf = error "TODO: pgf2json"
+{-  encode $ makeObj
     [ ("abstract", abstract2json pgf)
     , ("concretes", makeObj $ map concrete2json
                                 (Map.toList (languages pgf)))
@@ -108,3 +108,4 @@ new f xs =
     [ ("type", showJSON f)
     , ("args", showJSON xs)
     ]
+-}

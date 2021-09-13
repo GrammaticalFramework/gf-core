@@ -35,7 +35,7 @@ import GF.Infra.Ident
 import GF.Infra.GetOpt
 import GF.Grammar.Predef
 import System.FilePath
-import PGF2.Internal(Literal(..))
+import PGF2(Literal(..))
 
 import GF.Data.Operations(Err,ErrorMonad(..),liftErr)
 

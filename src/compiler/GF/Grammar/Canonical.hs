@@ -9,9 +9,11 @@
 
 {-# LANGUAGE DeriveTraversable #-}
 module GF.Grammar.Canonical where
+
 import Prelude hiding ((<>))
 import GF.Text.Pretty
 import GF.Infra.Ident (RawIdent)
+import PGF(Literal(..))
 
 -- | A Complete grammar
 data Grammar = Grammar Abstract [Concrete] deriving Show
@@ -58,7 +60,7 @@ newtype ParamType = ParamTypeId ParamId deriving (Eq,Ord,Show)
 
 -- | Linearization value, RHS of @lin@
 data LinValue = ConcatValue LinValue LinValue
-              | LiteralValue LinLiteral
+              | LiteralValue Literal
               | ErrorValue String
               | ParamConstant ParamValue
               | PredefValue PredefId
@@ -73,11 +75,6 @@ data LinValue = ConcatValue LinValue LinValue
               | Selection LinValue LinValue
               | CommentedValue String LinValue
               deriving (Eq,Ord,Show)
-
-data LinLiteral = FloatConstant Float
-                | IntConstant Int
-                | StrConstant String
-                deriving (Eq,Ord,Show)
 
 data LinPattern = ParamPattern ParamPattern
                 | RecordPattern [RecordRow LinPattern]
@@ -120,9 +117,8 @@ newtype FunId = FunId Id  deriving (Eq,Show)
 
 data VarId = Anonymous | VarId Id  deriving Show
 
-newtype Flags = Flags [(FlagName,FlagValue)] deriving Show
+newtype Flags = Flags [(FlagName,Literal)] deriving Show
 type FlagName = Id
-data FlagValue = Str String | Int Int | Flt Double deriving Show
 
 
 -- *** Identifiers
@@ -243,13 +239,13 @@ instance PPA LinValue where
              VarValue v -> pp v
              _ -> parens lv
 
-instance Pretty LinLiteral where pp = ppA
+instance Pretty Literal where pp = ppA
 
-instance PPA LinLiteral where
+instance PPA Literal where
   ppA l = case l of
-            FloatConstant f -> pp f
-            IntConstant n -> pp n
-            StrConstant s -> doubleQuotes s -- hmm
+            LFlt f -> pp f
+            LInt n -> pp n
+            LStr s -> doubleQuotes s -- hmm
 
 instance RhsSeparator LinValue where rhsSep _ = pp "="
 
@@ -297,11 +293,6 @@ instance Pretty Flags where
   pp (Flags flags) = "flags" <+> vcat (map ppFlag flags)
     where
       ppFlag (name,value) = name <+> "=" <+> value <>";"
-
-instance Pretty FlagValue where
-  pp (Str s) = pp s
-  pp (Int i) = pp i
-  pp (Flt d) = pp d
 
 --------------------------------------------------------------------------------
 -- | Pretty print atomically (i.e. wrap it in parentheses if necessary)

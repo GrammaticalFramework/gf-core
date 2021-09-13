@@ -91,7 +91,7 @@ branchPGF_ c_name p (Transaction f) =
                         ex_type <- (#peek PgfExn, type) c_exn
                         if (ex_type :: (#type PgfExnType)) == (#const PGF_EXN_NONE)
                           then do fptr2 <- C.newForeignPtr c_revision (withForeignPtr (a_db p) (\c_db -> pgf_free_revision c_db c_revision))
-                                  return (PGF (a_db p) fptr2 (langs p))
+                                  return (PGF (a_db p) fptr2 (languages p))
                           else do pgf_free_revision c_db c_revision
                                   return p
                 else do pgf_free_revision c_db c_revision
@@ -107,7 +107,7 @@ checkoutPGF p name =
     if c_revision == nullPtr
       then return Nothing
       else do fptr2 <- C.newForeignPtr c_revision (withForeignPtr (a_db p) (\c_db -> pgf_free_revision c_db c_revision))
-              return (Just (PGF (a_db p) fptr2 (langs p)))
+              return (Just (PGF (a_db p) fptr2 (languages p)))
 
 createFunction :: Fun -> Type -> Float -> Transaction ()
 createFunction name ty prob = Transaction $ \c_db c_revision c_exn ->

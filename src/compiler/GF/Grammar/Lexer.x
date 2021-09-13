@@ -130,7 +130,7 @@ data Token
  | T_separator
  | T_nonempty
  | T_String  String          -- string literals
- | T_Integer Int             -- integer literals
+ | T_Integer Integer         -- integer literals
  | T_Double  Double          -- double precision float literals
  | T_Ident   Ident
  | T_EOF

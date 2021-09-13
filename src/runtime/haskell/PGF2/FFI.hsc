@@ -18,11 +18,14 @@ import PGF2.Expr
 
 #include <pgf/pgf.h>
 
+type AbsName  = String -- ^ Name of abstract syntax
+type ConcName = String -- ^ Name of concrete syntax
+
 -- | An abstract data type representing multilingual grammar
 -- in Portable Grammar Format.
 data PGF = PGF { a_db     :: ForeignPtr PgfDB
                , revision :: ForeignPtr PgfRevision
-               , langs    :: Map.Map String Concr
+               , languages:: Map.Map ConcName Concr
                }
 data Concr = Concr {c_pgf :: ForeignPtr PgfDB, concr :: Ptr PgfConcr}
 

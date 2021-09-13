@@ -1,5 +1,7 @@
 -- | Translate concrete syntax to Haskell
 module GF.Compile.ConcreteToHaskell(concretes2haskell,concrete2haskell) where
+
+import PGF2(Literal(..))
 import Data.List(isPrefixOf,sort,sortOn)
 import qualified Data.Map as M
 import qualified Data.Set as S
@@ -181,9 +183,9 @@ concrete2haskell opts
 
         ppL l =
           case l of
-            FloatConstant x -> pure (lit x)
-            IntConstant n -> pure (lit n)
-            StrConstant s -> pure (token s)
+            LFlt x -> pure (lit x)
+            LInt n -> pure (lit n)
+            LStr s -> pure (token s)
 
         pId p@(ParamId s) =
           if "to_R_" `isPrefixOf` unqual s then toIdent p else gId p -- !! a hack

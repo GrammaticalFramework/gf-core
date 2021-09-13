@@ -1,7 +1,7 @@
 module GF.Compiler (mainGFC, linkGrammars, writeGrammar, writeOutputs) where
 
 import PGF2
-import PGF2.Internal(unionPGF,writePGF,writeConcr)
+import PGF2.Internal(unionPGF,writeConcr)
 import GF.Compile as S(batchCompile,link,srcAbsName)
 import GF.CompileInParallel as P(parallelBatchCompile)
 import GF.Compile.Export
