@@ -83,6 +83,23 @@ def test_functionsByCat_2(PGF):
 def test_functionsByCat_non_existant(PGF):
     assert PGF.functionsByCat("X") == []
 
+def test_categoryContext_1(PGF):
+    assert PGF.categoryContext("N") == []
+
+def test_categoryContext_2(PGF):
+    assert PGF.categoryContext("S") == []
+
+def test_categoryContext_3(PGF):
+    cxt = PGF.categoryContext("P")
+    assert len(cxt) == 1
+    tup = cxt[0]
+    assert tup[0] == 0 # explicit
+    assert tup[1] == "_" # cid
+    assert tup[2] == pgf.readType("N")
+
+def test_categoryContext_4(PGF):
+    assert PGF.categoryContext("X") == []
+
 # types
 
 def test_readType_invalid():

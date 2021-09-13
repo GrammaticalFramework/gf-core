@@ -1897,6 +1897,47 @@ PGF_getCategories(PGFObject *self, void *closure)
     return categories;
 }
 
+static PyObject*
+PGF_categoryContext(PGFObject *self, PyObject *args)
+{
+    const char *s;
+    Py_ssize_t size;
+    if (!PyArg_ParseTuple(args, "s#", &s, &size))
+        return NULL;
+
+    PgfText *catname = (PgfText *)PyMem_Malloc(sizeof(PgfText)+size+1);
+    memcpy(catname->text, s, size+1);
+    catname->size = size;
+
+    PgfExn err;
+    size_t n_hypos;
+    PgfTypeHypo *hypos = pgf_category_context(self->db, self->revision, catname, &n_hypos, &unmarshaller, &err);
+    PyMem_Free(catname);
+    if (handleError(err) != PGF_EXN_NONE) {
+        return NULL;
+    }
+
+    PyObject *contexts = PyList_New(n_hypos);
+    if (contexts == NULL) {
+        return NULL;
+    }
+
+    for (size_t i = 0; i < n_hypos; i++) {
+        PyObject *tup = PyTuple_New(3);
+        PyTuple_SetItem(tup, 0, PyLong_FromLong(hypos[i].bind_type));
+        PyTuple_SetItem(tup, 1, PyUnicode_FromStringAndSize(hypos[i].cid->text, hypos[i].cid->size));
+        PyTuple_SetItem(tup, 2, (PyObject *)hypos[i].type);
+        Py_INCREF(hypos[i].type);
+        PyList_SetItem(contexts, i, tup);
+    }
+    if (PyErr_Occurred()) {
+        Py_DECREF(contexts);
+        return NULL;
+    }
+
+    return contexts;
+}
+
 static TypeObject *
 PGF_getStartCat(PGFObject *self, void *closure)
 {
@@ -2332,6 +2373,9 @@ static PyMemberDef PGF_members[] = {
 };
 
 static PyMethodDef PGF_methods[] = {
+    {"categoryContext", (PyCFunction)PGF_categoryContext, METH_VARARGS,
+     "Returns the context for a given category"
+    },
     {"functionsByCat", (PyCFunction)PGF_functionsByCat, METH_VARARGS,
      "Returns the list of functions for a given category"
     },
