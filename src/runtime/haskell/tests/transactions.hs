@@ -28,16 +28,16 @@ main = do
       ,TestCase (assertEqual "original categories" ["Float","Int","N","P","S","String"] (categories gr1))
       ,TestCase (assertEqual "extended categories" ["Float","Int","N","P","Q","S","String"] (categories gr2))
       ,TestCase (assertEqual "branched categories" ["Float","Int","N","P","R","S","String"] (categories gr3))
-      ,TestCase (assertEqual "Q context" [(Explicit,"x",ty)] (categoryContext gr2 "Q"))
-      ,TestCase (assertEqual "R context" [(Explicit,"x",ty)] (categoryContext gr3 "R"))
+      ,TestCase (assertEqual "Q context" (Just [(Explicit,"x",ty)]) (categoryContext gr2 "Q"))
+      ,TestCase (assertEqual "R context" (Just [(Explicit,"x",ty)]) (categoryContext gr3 "R"))
       ,TestCase (assertEqual "reduced functions" ["c","s","z"] (functions gr6))
       ,TestCase (assertEqual "reduced categories" ["Float","Int","N","P","String"] (categories gr6))
       ,TestCase (assertEqual "old function type" Nothing   (functionType gr1 "foo"))
       ,TestCase (assertEqual "new function type" (Just ty) (functionType gr2 "foo"))
-      ,TestCase (assertEqual "old function prob" (-log 0)  (functionProb gr1 "foo"))
-      ,TestCase (assertEqual "new function prob" pi        (functionProb gr2 "foo"))
+      ,TestCase (assertEqual "old function prob" (-log 0)  (functionProbability gr1 "foo"))
+      ,TestCase (assertEqual "new function prob" pi        (functionProbability gr2 "foo"))
       ]
-  
+
   performMajorGC
 
   if (errors c == 0) && (failures c == 0)
