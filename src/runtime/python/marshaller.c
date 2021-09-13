@@ -154,7 +154,7 @@ PgfUnmarshaller unmarshaller = { &unmarshallerVtbl };
 
 // ----------------------------------------------------------------------------
 
-static PgfText *
+PgfText *
 PyUnicode_AsPgfText(PyObject *pystr)
 {
     if (!PyUnicode_Check(pystr)) {
@@ -166,7 +166,7 @@ PyUnicode_AsPgfText(PyObject *pystr)
     }
 
     Py_ssize_t size;
-    const char * enc = PyUnicode_AsUTF8AndSize(pystr, &size);
+    const char *enc = PyUnicode_AsUTF8AndSize(pystr, &size);
     PgfText *ptext = malloc(sizeof(PgfText)+size+1);
     memcpy(ptext->text, enc, size+1);
     ptext->size = size;

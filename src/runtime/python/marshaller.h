@@ -6,6 +6,8 @@
 
 #include <pgf/pgf.h>
 
+PgfText *PyUnicode_AsPgfText(PyObject *pystr);
+
 extern PgfUnmarshaller unmarshaller;
 
 extern PgfMarshaller marshaller;

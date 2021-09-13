@@ -2541,7 +2541,7 @@ const char *fpath;
     return py_pgf;
 }
 
-static ExprObject*
+static ExprObject *
 pgf_readExpr(PyObject *self, PyObject *args)
 {
     const char *s;
@@ -2561,6 +2561,36 @@ pgf_readExpr(PyObject *self, PyObject *args)
     }
 
     return (ExprObject *)expr;
+}
+
+static PyObject *
+pgf_showExpr(PyObject *self, PyObject *args)
+{
+    PyObject *pylist;
+    PyObject *pyexpr;
+    if (!PyArg_ParseTuple(args, "O!O!", &PyList_Type, &pylist, &pgf_ExprType, &pyexpr))
+        return NULL;
+
+    PgfPrintContext *ctxt = NULL;
+    for (Py_ssize_t i = PyList_Size(pylist); i > 0 ; i--) {
+        PyObject *item = PyList_GetItem(pylist, i-1);
+        if (!PyUnicode_Check(item)) {
+            PyErr_SetString(PyExc_TypeError, "invalid variable argument in showExpr");
+            return NULL;
+        }
+        PgfText *input = PyUnicode_AsPgfText(item);
+
+        // TODO a better way to copy into this->name?
+        PgfPrintContext *this = (PgfPrintContext *)PyMem_Malloc(sizeof(PgfPrintContext *) + sizeof(PgfText) + input->size + 1);
+        this->next = ctxt;
+        memcpy(&this->name, input, sizeof(PgfText) + input->size + 1);
+        ctxt = this;
+    }
+
+    PgfText *s = pgf_print_expr((PgfExpr) pyexpr, ctxt, 0, &marshaller);
+    PyObject *str = PyUnicode_FromStringAndSize(s->text, s->size);
+    free(s);
+    return str;
 }
 
 static TypeObject *
@@ -2594,6 +2624,8 @@ static PyMethodDef module_methods[] = {
      "Reads an NGF file into memory"},
     {"readExpr", (void*)pgf_readExpr, METH_VARARGS,
      "Parses a string as an abstract tree"},
+    {"showExpr", (void*)pgf_showExpr, METH_VARARGS,
+     "Renders an expression as a string"},
     {"readType", (void*)pgf_readType, METH_VARARGS,
      "Parses a string as an abstract type"},
     {NULL, NULL, 0, NULL}        /* Sentinel */
