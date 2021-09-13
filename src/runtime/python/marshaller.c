@@ -1,6 +1,9 @@
 #define PY_SSIZE_T_CLEAN
 #include <Python.h>
 
+#include <math.h>
+#include <stdbool.h>
+
 #include <pgf/pgf.h>
 
 #include "./compat.h"
@@ -67,20 +70,23 @@ PgfExpr eimplarg(PgfUnmarshaller *this, PgfExpr expr)
 PgfLiteral lint(PgfUnmarshaller *this, size_t size, uintmax_t *v)
 {
     intmax_t *v0 = (intmax_t *)v;
+    PyObject *i = PyLong_FromLong(*v0);
+
     if (size == 0) {
         return (PgfLiteral) 0;
-    } else if (size > 1) {
-        // TODO: string concatenation works but probably not optimal
-        PyObject *sb = PyUnicode_FromFormat("%ld", *v0);
-        for (size_t n = 1; n < size; n++) {
-            uintmax_t *vn = v + n;
-            PyObject *t = PyUnicode_FromFormat("%lu", *vn);
-            sb = PyUnicode_Concat(sb, t);
-        }
-        PyObject *i = PyLong_FromUnicodeObject(sb, 10);
-        return (PgfLiteral) i;
     } else {
-        PyObject *i = PyLong_FromLong(*v0);
+        PyObject *intShifter = PyLong_FromUnsignedLong(pow(10, floor(log10(ULONG_MAX))));
+        for (int n = 1; n < size; n++) {
+            i = PyNumber_Multiply(i, intShifter);
+            if (*v0 >= 0) {
+                i = PyNumber_Add(i, PyLong_FromUnsignedLong(v[n]));
+            } else {
+                i = PyNumber_Subtract(i, PyLong_FromUnsignedLong(v[n]));
+            }
+        }
+        if (PyErr_Occurred()) {
+            return 0;
+        }
         return (PgfLiteral) i;
     }
 }
@@ -123,7 +129,7 @@ PgfType dtyp(PgfUnmarshaller *this, int n_hypos, PgfTypeHypo *hypos, PgfText *ca
 
 void free_ref(PgfUnmarshaller *this, object x)
 {
-    Py_XDECREF(x);
+    // Py_XDECREF(x);
 }
 
 static PgfUnmarshallerVtbl unmarshallerVtbl =
@@ -174,10 +180,36 @@ object match_lit(PgfMarshaller *this, PgfUnmarshaller *u, PgfLiteral lit)
     PyObject *pyobj = (PyObject *)lit;
 
     if (PyLong_Check(pyobj)) {
-        // TODO
-        uintmax_t i = PyLong_AsLong(pyobj);
+        PyObject *intShifter = PyLong_FromUnsignedLong(pow(10, floor(log10(ULONG_MAX))));
+
+        // determine size
         size_t size = 1;
-        return u->vtbl->lint(u, size, &i);
+        PyObject *x = PyNumber_Absolute(PyNumber_Long(pyobj)); // make a copy, ignore sign
+        while (PyObject_RichCompareBool(x, intShifter, Py_GE) == 1) {
+            size++;
+            x = PyNumber_FloorDivide(x, intShifter);
+        }
+
+        // chop up into chunks, always positive
+        bool isPos = PyObject_RichCompareBool(pyobj, PyLong_FromLong(0), Py_GE) == 1;
+        x = PyNumber_Absolute(PyNumber_Long(pyobj)); // make a copy, ignore sign
+        uintmax_t *i = malloc(sizeof(uintmax_t)*size);
+        for (int n = size-1; n > 0; n--) {
+            PyObject *rem = PyNumber_Remainder(x, intShifter);
+            i[n] = PyLong_AsUnsignedLong(rem);
+            x = PyNumber_FloorDivide(x, intShifter);
+        }
+
+        // first chunk, re-applying polarity
+        if (isPos)
+            i[0] = PyLong_AsLong(x);
+        else
+            i[0] = PyLong_AsLong(PyNumber_Negative(x));
+
+        if (PyErr_Occurred()) {
+            return 0;
+        }
+        return u->vtbl->lint(u, size, i);
     } else if (PyFloat_Check(pyobj)) {
         double d = PyFloat_AsDouble(pyobj);
         return u->vtbl->lflt(u, d);
@@ -194,7 +226,7 @@ object match_expr(PgfMarshaller *this, PgfUnmarshaller *u, PgfExpr ex)
 {
     ExprObject *expr = (ExprObject *)ex;
 
-    if (expr->ob_base.ob_type == &pgf_ExprLitType) {
+    if (expr->ob_base.ob_type == &pgf_ExprLitType) { // use PyObject_IsInstance ?
         ExprLitObject *elit= (ExprLitObject *)expr;
         return this->vtbl->match_lit(this, u, (PgfLiteral) elit->value);
     } else {

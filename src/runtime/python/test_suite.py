@@ -165,11 +165,17 @@ def test_readExpr_str_int():
 def test_readExpr_str_int_neg():
     assert str(pgf.readExpr("-123")) == "-123"
 
-# def test_readExpr_str_int_big():
-#     assert str(pgf.readExpr("774763251095801167872")) == "774763251095801167872"
-#
-# def test_readExpr_str_int_big_neg():
-#     assert str(pgf.readExpr("-774763251095801167872")) == "-774763251095801167872"
+def test_readExpr_str_int_big_2():
+    assert str(pgf.readExpr("774763251095801167872")) == "774763251095801167872"
+
+def test_readExpr_str_int_big_3():
+    assert str(pgf.readExpr("7747632510958011678729003251095801167999")) == "7747632510958011678729003251095801167999"
+
+def test_readExpr_str_int_big_2_neg():
+    assert str(pgf.readExpr("-774763251095801167872")) == "-774763251095801167872"
+
+def test_readExpr_str_int_big_3_neg():
+    assert str(pgf.readExpr("-7747632510958011678729003251095801167999")) == "-7747632510958011678729003251095801167999"
 
 def test_readExpr_str_float():
     assert str(pgf.readExpr("3.142")) == "3.142"
