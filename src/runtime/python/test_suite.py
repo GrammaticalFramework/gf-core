@@ -1,3 +1,4 @@
+import os
 import pytest
 import pgf
 
@@ -15,7 +16,6 @@ def test_readPGF_GF():
     with pytest.raises(pgf.PGFError):
         pgf.readPGF("../haskell/tests/basic.gf")
 
-@pytest.mark.skip(reason="Unhandled case in runtime")
 def test_readPGF_NGF(NGF):
     with pytest.raises(pgf.PGFError):
         pgf.readPGF("./basic.ngf")
@@ -24,7 +24,9 @@ def test_readPGF_NGF(NGF):
 
 @pytest.fixture(scope="module")
 def NGF():
-    return pgf.bootNGF("../haskell/tests/basic.pgf", "./basic.ngf")
+    ngf = pgf.bootNGF("../haskell/tests/basic.pgf", "./basic.ngf")
+    yield ngf
+    os.remove("./basic.ngf")
 
 def test_bootNGF_non_existant():
     with pytest.raises(FileNotFoundError):
@@ -34,35 +36,32 @@ def test_bootNGF_GF():
     with pytest.raises(pgf.PGFError):
         pgf.bootNGF("../haskell/tests/basic.gf", "./abc.ngf")
 
-@pytest.mark.skip(reason="Unhandled case in runtime")
 def test_bootNGF_NGF(NGF):
     with pytest.raises(pgf.PGFError):
         pgf.bootNGF("./basic.ngf", "./abc.ngf")
 
 def test_bootNGF_existing(NGF):
     with pytest.raises(FileExistsError):
-        pgf.bootNGF("../haskell/tests/basicp.gf", "./basic.ngf")
+        pgf.bootNGF("../haskell/tests/basic.pgf", "./basic.ngf")
 
 # readNGF
 
-@pytest.mark.skip(reason="Unhandled case in runtime")
 def test_readNGF_non_existant():
-    with pytest.raises(FileNotFoundError):
-        pgf.readNGF("./abc.ngf")
+    PGF = pgf.readNGF("./abc.ngf") # create empty grammar
+    assert PGF.categories == []
+    os.remove("./abc.ngf") # cleanup
 
-@pytest.mark.skip(reason="Unhandled case in runtime")
 def test_readNGF_GF():
     with pytest.raises(pgf.PGFError):
         pgf.readNGF("../haskell/tests/basic.gf")
 
-@pytest.mark.skip(reason="Unhandled case in runtime")
 def test_readNGF_PGF():
     with pytest.raises(pgf.PGFError):
         pgf.readNGF("../haskell/tests/basic.pgf")
 
 def test_readNGF(NGF):
-    pgf.readNGF("./basic.ngf")
-    # TODO assert read actually worked
+    PGF = pgf.readNGF("./basic.ngf")
+    assert len(PGF.categories) > 0
 
 # abstract syntax
 
