@@ -74,7 +74,7 @@ PgfLiteral lint(PgfUnmarshaller *this, size_t size, uintmax_t *v)
         return (PgfLiteral) 0;
     } else {
         PyObject *intShifter = PyLong_FromUnsignedLong(pow(10, floor(log10(ULONG_MAX))));
-        for (int n = 1; n < size; n++) {
+        for (size_t n = 1; n < size; n++) {
             i = PyNumber_Multiply(i, intShifter);
             if (*v0 >= 0) {
                 i = PyNumber_Add(i, PyLong_FromUnsignedLong(v[n]));
