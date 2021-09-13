@@ -242,10 +242,10 @@ ExprMeta_init(ExprMetaObject *self, PyObject *args, PyObject *kwds)
         return -1;
     }
     if (lit == NULL) {
-        self->index = PyLong_FromLong(0);
+        self->id = PyLong_FromLong(0);
         return 0;
     } else if (PyLong_Check(lit)) {
-        self->index = lit;
+        self->id = lit;
         return 0;
     } else {
         PyErr_SetString(PyExc_TypeError, "invalid argument in ExprMeta_init");
@@ -257,7 +257,7 @@ static PyObject *
 ExprMeta_richcompare(ExprMetaObject *t1, ExprMetaObject *t2, int op)
 {
     bool same = false;
-    if (PyObject_RichCompareBool(t1->index, t2->index, Py_EQ) != 1) goto done;
+    if (PyObject_RichCompareBool(t1->id, t2->id, Py_EQ) != 1) goto done;
 
     same = true;
 done:
@@ -313,6 +313,96 @@ PyTypeObject pgf_ExprMetaType = {
     (initproc) ExprMeta_init,  /*tp_init */
     0,                         /*tp_alloc */
     (newfunc) ExprMeta_new,     /*tp_new */
+};
+
+// ----------------------------------------------------------------------------
+
+static ExprVarObject *
+ExprVar_new(PyTypeObject *subtype, PyObject *args, PyObject *kwds)
+{
+    ExprVarObject* self = (ExprVarObject *)subtype->tp_alloc(subtype, 0);
+    return self;
+}
+
+static int
+ExprVar_init(ExprVarObject *self, PyObject *args, PyObject *kwds)
+{
+    PyObject* lit = NULL;
+    if (!PyArg_ParseTuple(args, "|O", &lit)) {
+        return -1;
+    }
+    if (lit == NULL) {
+        self->index = PyLong_FromLong(0);
+        return 0;
+    } else if (PyLong_Check(lit)) {
+        self->index = lit;
+        return 0;
+    } else {
+        PyErr_SetString(PyExc_TypeError, "invalid argument in ExprVar_init");
+        return -1;
+    }
+}
+
+static PyObject *
+ExprVar_richcompare(ExprVarObject *t1, ExprVarObject *t2, int op)
+{
+    bool same = false;
+    if (PyObject_RichCompareBool(t1->index, t2->index, Py_EQ) != 1) goto done;
+
+    same = true;
+done:
+
+    if (op == Py_EQ) {
+        if (same) Py_RETURN_TRUE;  else Py_RETURN_FALSE;
+    } else if (op == Py_NE) {
+        if (same) Py_RETURN_FALSE; else Py_RETURN_TRUE;
+    } else {
+        PyErr_SetString(PyExc_TypeError, "comparison operation not supported");
+        Py_RETURN_NOTIMPLEMENTED;
+    }
+}
+
+/* static */
+PyTypeObject pgf_ExprVarType = {
+    PyVarObject_HEAD_INIT(NULL, 0)
+    //0,                         /*ob_size*/
+    "pgf.ExprVar",                /*tp_name*/
+    sizeof(ExprVarObject),        /*tp_basicsize*/
+    0,                         /*tp_itemsize*/
+    0, //(destructor)Expr_dealloc,  /*tp_dealloc*/
+    0,                         /*tp_print*/
+    0,                         /*tp_getattr*/
+    0,                         /*tp_setattr*/
+    0,                         /*tp_compare*/
+    0,                         /*tp_repr*/
+    0,                         /*tp_as_number*/
+    0,                         /*tp_as_sequence*/
+    0,                         /*tp_as_mapping*/
+    0, //(hashfunc) Expr_hash,      /*tp_hash */
+    0, //(ternaryfunc) Expr_call,   /*tp_call*/
+    0, //(reprfunc) Expr_str,      /*tp_str*/
+    0, //(getattrofunc) Expr_getattro,/*tp_getattro*/
+    0,                         /*tp_setattro*/
+    0,                         /*tp_as_buffer*/
+    Py_TPFLAGS_DEFAULT | Py_TPFLAGS_BASETYPE, /*tp_flags*/
+    "variable",                 /*tp_doc*/
+    0,                           /*tp_traverse */
+    0,                           /*tp_clear */
+    (richcmpfunc) ExprVar_richcompare, /*tp_richcompare */
+    0,                           /*tp_weaklistoffset */
+    0,                           /*tp_iter */
+    0,                           /*tp_iternext */
+    0, //Expr_methods,              /*tp_methods */
+    0,                         /*tp_members */
+    0, //Expr_getseters,            /*tp_getset */
+    &pgf_ExprType,             /*tp_base */
+    0,                         /*tp_dict */
+    0,                         /*tp_descr_get */
+    0,                         /*tp_descr_set */
+    0,                         /*tp_dictoffset */
+    (initproc) ExprVar_init,   /*tp_init */
+    0,                         /*tp_alloc */
+    (newfunc) ExprVar_new,     /*tp_new */
 };
 
 // ----------------------------------------------------------------------------

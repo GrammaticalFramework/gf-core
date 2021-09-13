@@ -2636,6 +2636,9 @@ MOD_INIT(pgf)
     if (PyType_Ready(&pgf_ExprMetaType) < 0)
         return MOD_ERROR_VAL;
 
+    if (PyType_Ready(&pgf_ExprVarType) < 0)
+        return MOD_ERROR_VAL;
+
     if (PyType_Ready(&pgf_TypeType) < 0)
         return MOD_ERROR_VAL;
 
@@ -2669,6 +2672,9 @@ MOD_INIT(pgf)
 
     PyModule_AddObject(m, "ExprMeta", (PyObject *) &pgf_ExprMetaType);
     Py_INCREF(&pgf_ExprMetaType);
+
+    PyModule_AddObject(m, "ExprVar", (PyObject *) &pgf_ExprVarType);
+    Py_INCREF(&pgf_ExprVarType);
 
     PyModule_AddObject(m, "Type", (PyObject *) &pgf_TypeType);
     Py_INCREF(&pgf_TypeType);

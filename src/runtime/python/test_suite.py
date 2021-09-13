@@ -227,6 +227,19 @@ def test_readExpr_lstr_str():
       # ,TestCase (assertEqual "show expression 6" "z" (showExpr ["z","y","x"] (EVar 0)))
       # ,TestCase (assertEqual "show expression 7" "y" (showExpr ["z","y","x"] (EVar 1)))
 
+# def test_readExpr_evar_equality_1():
+#     assert pgf.readExpr("#0") == pgf.ExprVar()
+#     assert pgf.readExpr("#0") == pgf.ExprVar(0)
+
+# def test_readExpr_evar_equality_2():
+#     assert pgf.readExpr("#42") == pgf.ExprVar(42)
+
+def test_readExpr_evar_str_1():
+    assert str(pgf.ExprVar(0)) == "#0"
+
+def test_readExpr_evar_str_2():
+    assert str(pgf.ExprVar(42)) == "#42"
+
 # expressions: lambda abstractions
 
       # ,TestCase (assertEqual "show expression 8" "\\w->w" (showExpr ["z","y","x"] (EAbs Explicit "w" (EVar 0))))
@@ -246,6 +259,12 @@ def test_readExpr_emeta_1():
 
 def test_readExpr_emeta_2():
     assert pgf.readExpr("?42") == pgf.ExprMeta(42)
+
+def test_readExpr_emeta_str_1():
+    assert str(pgf.readExpr("?")) == "?"
+
+def test_readExpr_emeta_str_2():
+    assert str(pgf.readExpr("?42")) == "?42"
 
 # expressions: typed expressions
 

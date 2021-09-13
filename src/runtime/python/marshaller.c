@@ -38,7 +38,7 @@ PgfExpr elit(PgfUnmarshaller *this, PgfLiteral lit)
 PgfExpr emeta(PgfUnmarshaller *this, PgfMetaId meta)
 {
     ExprMetaObject *pyexpr = (ExprMetaObject *)pgf_ExprMetaType.tp_alloc(&pgf_ExprMetaType, 0);
-    pyexpr->index = PyLong_FromLong(meta);
+    pyexpr->id = PyLong_FromLong(meta);
     return (PgfExpr) pyexpr;
 }
 
@@ -50,8 +50,9 @@ PgfExpr efun(PgfUnmarshaller *this, PgfText *name)
 
 PgfExpr evar(PgfUnmarshaller *this, int index)
 {
-    PyErr_SetString(PyExc_NotImplementedError, "evar not implemented");
-    return 0;
+    ExprVarObject *pyexpr = (ExprVarObject *)pgf_ExprVarType.tp_alloc(&pgf_ExprVarType, 0);
+    pyexpr->index = PyLong_FromLong(index);
+    return (PgfExpr) pyexpr;
 }
 
 PgfExpr etyped(PgfUnmarshaller *this, PgfExpr expr, PgfType typ)
@@ -221,14 +222,21 @@ object match_lit(PgfMarshaller *this, PgfUnmarshaller *u, PgfLiteral lit)
     }
 }
 
-object match_expr(PgfMarshaller *this, PgfUnmarshaller *u, PgfExpr ex)
+object match_expr(PgfMarshaller *this, PgfUnmarshaller *u, PgfExpr expr)
 {
-    ExprObject *expr = (ExprObject *)ex;
+    PyObject *pyobj = (PyObject *)expr;
 
-    if (expr->ob_base.ob_type == &pgf_ExprLitType) { // use PyObject_IsInstance ?
-        ExprLitObject *elit= (ExprLitObject *)expr;
+    if (PyObject_TypeCheck(pyobj, &pgf_ExprLitType)) {
+        ExprLitObject *elit = (ExprLitObject *)expr;
         return this->vtbl->match_lit(this, u, (PgfLiteral) elit->value);
+    } else if (PyObject_TypeCheck(pyobj, &pgf_ExprMetaType)) {
+        ExprMetaObject *emeta = (ExprMetaObject *)expr;
+        return u->vtbl->emeta(u, (PgfMetaId) PyLong_AsLong(emeta->id));
+    } else if (PyObject_TypeCheck(pyobj, &pgf_ExprVarType)) {
+        ExprVarObject *evar = (ExprVarObject *)expr;
+        return u->vtbl->evar(u, PyLong_AsLong(evar->index));
     } else {
+        PyErr_SetString(PyExc_TypeError, "unable to match on expression");
         return 0;
     }
 }
