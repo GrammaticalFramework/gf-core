@@ -8,6 +8,8 @@
 
 PgfText *PyUnicode_AsPgfText(PyObject *pystr);
 
+PyObject *PyUnicode_FromPgfText(PgfText *text);
+
 extern PgfUnmarshaller unmarshaller;
 
 extern PgfMarshaller marshaller;
