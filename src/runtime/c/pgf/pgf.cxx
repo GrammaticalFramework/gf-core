@@ -418,8 +418,8 @@ PgfText *pgf_print_expr(PgfExpr e,
     return printer.get_text();
 }
 
-PGF_API PgfExpr
-pgf_read_expr(PgfText *input, PgfUnmarshaller *u)
+PGF_API
+PgfExpr pgf_read_expr(PgfText *input, PgfUnmarshaller *u)
 {
     PgfExprParser parser(input, u);
     PgfExpr res = parser.parse_expr();
@@ -428,6 +428,15 @@ pgf_read_expr(PgfText *input, PgfUnmarshaller *u)
         return 0;
     }
     return res;
+}
+
+PGF_API
+PgfExpr pgf_read_expr_ex(PgfText *input, const char **end_pos, PgfUnmarshaller *u)
+{
+    PgfExprParser parser(input, u);
+    PgfExpr expr = parser.parse_expr();
+    *end_pos = parser.get_token_pos();
+    return expr;
 }
 
 PGF_API

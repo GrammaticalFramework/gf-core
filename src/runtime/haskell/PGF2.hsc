@@ -27,7 +27,7 @@ module PGF2 (-- * PGF
              functionType, functionIsConstructor, functionProbability,
 
              -- ** Expressions
-             Expr(..), Literal(..), showExpr, readExpr, pExpr, pIdent,
+             Expr(..), Literal(..), showExpr, readExpr,
              mkAbs,    unAbs,
              mkApp,    unApp, unapply,
              mkStr,    unStr,
@@ -891,12 +891,6 @@ readExpr str =
       else do expr <- deRefStablePtr c_expr
               freeStablePtr c_expr
               return (Just expr)
-
-pIdent :: ReadS String
-pIdent = error "TODO: pIdent"
-
-pExpr :: ReadS Expr
-pExpr = error "TODO: pExpr"
 
 -- | renders a type as a 'String'. The list
 -- of identifiers is the list of all free variables

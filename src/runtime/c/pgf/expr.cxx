@@ -227,6 +227,7 @@ PgfExprParser::PgfExprParser(PgfText *input, PgfUnmarshaller *unmarshaller)
     pos = (const char*) &inp->text;
 	ch  = ' ';
     u   = unmarshaller;
+    token_pos = NULL;
     token_value = NULL;
 
 	token();
@@ -347,15 +348,17 @@ void PgfExprParser::str_char()
 
 void PgfExprParser::token()
 {
-	while (isspace(ch)) {
-		ch = getc();
-	}
-
     if (token_value != NULL)
         free(token_value);
 
 	token_tag   = PGF_TOKEN_UNKNOWN;
+    token_pos   = pos;
 	token_value = NULL;
+
+	while (isspace(ch)) {
+        token_pos   = pos;
+		ch = getc();
+	}
 
 	switch (ch) {
 	case EOF:
@@ -920,7 +923,6 @@ exit:
 
     return type;
 }
-
 
 PGF_INTERNAL
 void pgf_literal_free(PgfLiteral literal)

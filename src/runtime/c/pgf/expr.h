@@ -207,7 +207,7 @@ class PGF_INTERNAL_DECL PgfExprParser {
 	PGF_TOKEN_TAG token_tag;
 	PgfText *token_value;
     PgfText *inp;
-    const char *pos;
+    const char *token_pos, *pos;
     uint32_t ch;
 
     uint32_t getc();
@@ -224,7 +224,6 @@ public:
     PgfBind *parse_bind(PgfBind *next);
     PgfBind *parse_binds(PgfBind *next);
 
-
     PgfExpr parse_arg();
     PgfExpr parse_term();
     PgfExpr parse_expr();
@@ -233,6 +232,8 @@ public:
     PgfType parse_type();
 
     bool eof();
+
+    const char *get_token_pos() { return token_pos; }
 };
 
 PGF_INTERNAL_DECL extern PgfText wildcard;

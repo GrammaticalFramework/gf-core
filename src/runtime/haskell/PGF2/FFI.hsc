@@ -73,6 +73,8 @@ foreign import ccall "pgf_print_expr"
 foreign import ccall "pgf_read_expr"
   pgf_read_expr :: Ptr PgfText -> Ptr PgfUnmarshaller -> IO (StablePtr Expr)
 
+foreign import ccall pgf_read_expr_ex :: Ptr PgfText -> Ptr CString -> Ptr PgfUnmarshaller -> IO (StablePtr Expr)
+
 foreign import ccall "pgf_print_type"
   pgf_print_type :: StablePtr Type -> Ptr PgfPrintContext -> CInt -> Ptr PgfMarshaller -> IO (Ptr PgfText)
 
@@ -137,20 +139,10 @@ foreign import ccall pgf_set_abstract_flag :: Ptr PgfDB -> Ptr PgfRevision -> Pt
 -- Texts
 
 peekText :: Ptr PgfText -> IO String
-peekText ptr =
-  alloca $ \pptr -> do
-    size <- ((#peek PgfText, size) ptr) :: IO CSize
-    let c_text = castPtr ptr `plusPtr` (#offset PgfText, text)
-    poke pptr c_text
-    decode pptr (c_text `plusPtr` fromIntegral size)
-  where
-    decode pptr end = do
-      ptr <- peek pptr
-      if ptr >= end
-        then return []
-        else do x <- pgf_utf8_decode pptr
-                cs <- decode pptr end
-                return (((toEnum . fromEnum) x) : cs)
+peekText ptr = do
+  size <- ((#peek PgfText, size) ptr) :: IO CSize
+  let c_text = castPtr ptr `plusPtr` (#offset PgfText, text)
+  peekUtf8CString c_text (c_text `plusPtr` fromIntegral size)
 
 newTextEx :: Int -> String -> IO (Ptr a)
 newTextEx offs s = do
@@ -179,6 +171,19 @@ withText s fn =
     fn ptr
   where
     size = utf8Length s
+
+peekUtf8CString c_start c_end =
+  alloca $ \pptr -> do
+    poke pptr c_start
+    decode pptr c_end
+  where
+    decode pptr end = do
+      ptr <- peek pptr
+      if ptr >= end
+        then return []
+        else do x <- pgf_utf8_decode pptr
+                cs <- decode pptr end
+                return (((toEnum . fromEnum) x) : cs)
 
 pokeUtf8CString s ptr =
   alloca $ \pptr ->
