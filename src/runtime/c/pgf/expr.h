@@ -236,6 +236,37 @@ public:
     const char *get_token_pos() { return token_pos; }
 };
 
+class PGF_INTERNAL_DECL PgfExprProbEstimator : public PgfUnmarshaller {
+    PgfPGF *pgf;
+    PgfMarshaller *m;
+    prob_t prob;
+
+public:
+    PgfExprProbEstimator(PgfPGF *pgf, PgfMarshaller *marshaller) {
+        this->pgf = pgf;
+        this->m = marshaller;
+        this->prob = 0;
+    }
+
+    virtual PgfExpr eabs(PgfBindType bind_type, PgfText *name, PgfExpr body);
+    virtual PgfExpr eapp(PgfExpr fun, PgfExpr arg);
+    virtual PgfExpr elit(PgfLiteral lit);
+    virtual PgfExpr emeta(PgfMetaId meta_id);
+    virtual PgfExpr efun(PgfText *name);
+    virtual PgfExpr evar(int index);
+    virtual PgfExpr etyped(PgfExpr expr, PgfType ty);
+    virtual PgfExpr eimplarg(PgfExpr expr);
+    virtual PgfLiteral lint(size_t size, uintmax_t *val);
+    virtual PgfLiteral lflt(double val);
+    virtual PgfLiteral lstr(PgfText *val);
+    virtual PgfType dtyp(size_t n_hypos, PgfTypeHypo *hypos,
+                         PgfText *cat,
+                         size_t n_exprs, PgfExpr *exprs);
+    virtual void free_ref(object x);
+
+    prob_t get_prob() { return prob; };
+};
+
 PGF_INTERNAL_DECL extern PgfText wildcard;
 
 /* The following functions release the memory in the database,

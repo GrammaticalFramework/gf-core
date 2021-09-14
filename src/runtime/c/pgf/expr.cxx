@@ -1,4 +1,5 @@
 #include "pgf/data.h"
+#include <math.h>
 
 PgfLiteral PgfDBMarshaller::match_lit(PgfUnmarshaller *u, PgfLiteral l)
 {
@@ -922,6 +923,84 @@ exit:
     free(args);
 
     return type;
+}
+
+PgfExpr PgfExprProbEstimator::eabs(PgfBindType bind_type, PgfText *name, PgfExpr body)
+{
+    m->match_type(this, body);
+    return 0;
+}
+
+PgfExpr PgfExprProbEstimator::eapp(PgfExpr fun, PgfExpr arg)
+{
+    m->match_type(this, fun);
+    m->match_type(this, arg);
+    return 0;
+}
+
+PgfExpr PgfExprProbEstimator::elit(PgfLiteral lit)
+{
+    return 0;
+}
+
+PgfExpr PgfExprProbEstimator::emeta(PgfMetaId meta_id)
+{
+    return 0;
+}
+
+PgfExpr PgfExprProbEstimator::efun(PgfText *name)
+{
+    ref<PgfAbsFun> absfun =
+        namespace_lookup(pgf->abstract.funs, name);
+    if (absfun == 0)
+        prob = INFINITY;
+    else
+        prob += absfun->ep.prob;
+
+    return 0;
+}
+
+PgfExpr PgfExprProbEstimator::evar(int index)
+{
+    return 0;
+}
+
+PgfExpr PgfExprProbEstimator::etyped(PgfExpr expr, PgfType ty)
+{
+    m->match_type(this, expr);
+    return 0;
+}
+
+PgfExpr PgfExprProbEstimator::eimplarg(PgfExpr expr)
+{
+    m->match_type(this, expr);
+    return 0;
+}
+
+PgfLiteral PgfExprProbEstimator::lint(size_t size, uintmax_t *val)
+{
+    return 0;
+}
+
+PgfLiteral PgfExprProbEstimator::lflt(double val)
+{
+    return 0;
+}
+
+PgfLiteral PgfExprProbEstimator::lstr(PgfText *val)
+{
+    return 0;
+}
+
+PgfType PgfExprProbEstimator::dtyp(size_t n_hypos, PgfTypeHypo *hypos,
+                                   PgfText *cat,
+                                   size_t n_exprs, PgfExpr *exprs)
+{
+    return 0;
+}
+
+void PgfExprProbEstimator::free_ref(object x)
+{
 }
 
 PGF_INTERNAL

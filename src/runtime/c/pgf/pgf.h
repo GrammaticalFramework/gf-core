@@ -321,6 +321,12 @@ PGF_API_DECL
 PgfExpr pgf_read_expr_ex(PgfText *input, const char **end_pos, PgfUnmarshaller *u);
 
 PGF_API_DECL
+prob_t pgf_expr_prob(PgfDB *db, PgfRevision revision,
+                     PgfExpr e,
+                     PgfMarshaller *m,
+                     PgfExn *err);
+
+PGF_API_DECL
 PgfText *pgf_print_type(PgfType ty,
                         PgfPrintContext *ctxt, int prio,
                         PgfMarshaller *m);

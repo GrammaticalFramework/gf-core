@@ -440,6 +440,24 @@ PgfExpr pgf_read_expr_ex(PgfText *input, const char **end_pos, PgfUnmarshaller *
 }
 
 PGF_API
+prob_t pgf_expr_prob(PgfDB *db, PgfRevision revision,
+                     PgfExpr e,
+                     PgfMarshaller *m,
+                     PgfExn *err)
+{
+    PGF_API_BEGIN {
+        DB_scope scope(db, READER_SCOPE);
+        ref<PgfPGF> pgf = PgfDB::revision2pgf(revision);
+
+        PgfExprProbEstimator estimator(pgf, m);
+        m->match_expr(&estimator, e);
+        return estimator.get_prob();
+    } PGF_API_END
+
+    return 0;
+}
+
+PGF_API
 PgfText *pgf_print_type(PgfType ty,
                         PgfPrintContext *ctxt, int prio,
                         PgfMarshaller *m)

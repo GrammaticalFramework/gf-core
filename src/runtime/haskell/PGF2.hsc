@@ -213,7 +213,13 @@ functionProbability p fun =
       withPgfExn (pgf_function_prob c_db c_revision c_fun)
 
 exprProbability :: PGF -> Expr -> Float
-exprProbability = error "TODO: exprProbability"
+exprProbability p e =
+  unsafePerformIO $
+  withForeignPtr (a_db p) $ \c_db ->
+  withForeignPtr (revision p) $ \c_revision ->
+  bracket (newStablePtr e) freeStablePtr $ \c_e ->
+  withForeignPtr marshaller $ \m ->
+    withPgfExn (pgf_expr_prob c_db c_revision c_e m)
 
 checkExpr :: PGF -> Expr -> Type -> Either String Expr
 checkExpr = error "TODO: checkExpr"

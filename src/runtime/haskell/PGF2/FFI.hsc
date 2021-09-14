@@ -113,6 +113,8 @@ foreign import ccall "pgf_function_is_constructor"
 foreign import ccall "pgf_function_prob"
    pgf_function_prob :: Ptr PgfDB -> Ptr PgfRevision -> Ptr PgfText -> Ptr PgfExn -> IO (#type prob_t)
 
+foreign import ccall pgf_expr_prob :: Ptr PgfDB -> Ptr PgfRevision -> StablePtr Expr -> Ptr PgfMarshaller -> Ptr PgfExn -> IO (#type prob_t)
+
 foreign import ccall pgf_clone_revision :: Ptr PgfDB -> Ptr PgfRevision -> Ptr PgfText -> Ptr PgfExn -> IO (Ptr PgfRevision)
 
 foreign import ccall pgf_commit_revision :: Ptr PgfDB -> Ptr PgfRevision -> Ptr PgfExn -> IO ()
