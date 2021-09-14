@@ -28,13 +28,20 @@ typedef struct {
 
 typedef struct {
     PyObject_HEAD
-    PyObject *index;
+    PyObject *id;
 } ExprMetaObject;
+
+typedef struct {
+    PyObject_HEAD
+    PyObject *index;
+} ExprVarObject;
 
 extern PyTypeObject pgf_ExprType;
 
 extern PyTypeObject pgf_ExprLitType;
 
 extern PyTypeObject pgf_ExprMetaType;
+
+extern PyTypeObject pgf_ExprVarType;
 
 #endif // PYPGF_EXPR_H_

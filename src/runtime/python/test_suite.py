@@ -98,7 +98,7 @@ def test_categoryContext_3(PGF):
     assert tup[2] == pgf.readType("N")
 
 def test_categoryContext_4(PGF):
-    assert PGF.categoryContext("X") == []
+    assert PGF.categoryContext("X") == None
 
 def test_functionIsConstructor_1(PGF):
     assert PGF.functionIsConstructor("s") == True
@@ -222,10 +222,30 @@ def test_readExpr_lstr_str():
 
 # expressions: variables
 
-      # ,TestCase (assertEqual "show expression 4" "x" (showExpr ["x"] (EVar 0)))
-      # ,TestCase (assertEqual "show expression 5" "#1" (showExpr ["x"] (EVar 1)))
-      # ,TestCase (assertEqual "show expression 6" "z" (showExpr ["z","y","x"] (EVar 0)))
-      # ,TestCase (assertEqual "show expression 7" "y" (showExpr ["z","y","x"] (EVar 1)))
+# def test_readExpr_evar_equality_1():
+#     assert pgf.readExpr("#0") == pgf.ExprVar()
+#     assert pgf.readExpr("#0") == pgf.ExprVar(0)
+
+# def test_readExpr_evar_equality_2():
+#     assert pgf.readExpr("#42") == pgf.ExprVar(42)
+
+def test_readExpr_evar_str_1():
+    assert str(pgf.ExprVar(0)) == "#0"
+
+def test_readExpr_evar_str_2():
+    assert str(pgf.ExprVar(42)) == "#42"
+
+def test_showExpr_evar_1():
+    assert pgf.showExpr(["x"], pgf.ExprVar(0)) == "x"
+
+def test_showExpr_evar_2():
+    assert pgf.showExpr(["x"], pgf.ExprVar(1)) == "#1"
+
+def test_showExpr_evar_3():
+    assert pgf.showExpr(["z", "y", "x"], pgf.ExprVar(0)) == "z"
+
+def test_showExpr_evar_4():
+    assert pgf.showExpr(["z", "y", "x"], pgf.ExprVar(1)) == "y"
 
 # expressions: lambda abstractions
 
@@ -246,6 +266,12 @@ def test_readExpr_emeta_1():
 
 def test_readExpr_emeta_2():
     assert pgf.readExpr("?42") == pgf.ExprMeta(42)
+
+def test_readExpr_emeta_str_1():
+    assert str(pgf.readExpr("?")) == "?"
+
+def test_readExpr_emeta_str_2():
+    assert str(pgf.readExpr("?42")) == "?42"
 
 # expressions: typed expressions
 

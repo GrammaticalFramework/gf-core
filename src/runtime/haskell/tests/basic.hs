@@ -21,10 +21,10 @@ main = do
       ,TestCase (assertBool  "type of z" (eqJust (readType "N")    (functionType gr "z")))
       ,TestCase (assertBool  "type of s" (eqJust (readType "N->N") (functionType gr "s")))
       ,TestCase (assertBool  "type of c" (eqJust (readType "N->S") (functionType gr "c")))
-      ,TestCase (assertEqual "category context 1"  [] (categoryContext gr "N"))
-      ,TestCase (assertEqual "category context 2"  [] (categoryContext gr "S"))
-      ,TestCase (assertEqual "category context 3"  [(Explicit,"_",DTyp [] "N" [])] (categoryContext gr "P"))
-      ,TestCase (assertEqual "category context 4"  [] (categoryContext gr "X")) -- no such category
+      ,TestCase (assertEqual "category context 1"  (Just []) (categoryContext gr "N"))
+      ,TestCase (assertEqual "category context 2"  (Just []) (categoryContext gr "S"))
+      ,TestCase (assertEqual "category context 3"  (Just [(Explicit,"_",DTyp [] "N" [])]) (categoryContext gr "P"))
+      ,TestCase (assertEqual "category context 4"  Nothing (categoryContext gr "X")) -- no such category
       ,TestCase (assertEqual "function is constructor 1"  True  (functionIsConstructor gr "s"))
       ,TestCase (assertEqual "function is constructor 2"  True  (functionIsConstructor gr "z"))
       ,TestCase (assertEqual "function is constructor 3"  True  (functionIsConstructor gr "c"))
