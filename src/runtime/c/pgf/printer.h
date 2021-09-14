@@ -50,7 +50,7 @@ public:
 
     PgfText *get_text();
 
-    void hypo(PgfTypeHypo *hypo);
+    void hypo(PgfTypeHypo *hypo, int prio);
 
     virtual PgfExpr eabs(PgfBindType btype, PgfText *name, PgfExpr body);
     virtual PgfExpr eapp(PgfExpr fun, PgfExpr arg);

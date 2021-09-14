@@ -380,23 +380,24 @@ PgfLiteral PgfPrinter::lstr(PgfText *v)
     return 0;
 }
 
-void PgfPrinter::hypo(PgfTypeHypo *hypo)
+void PgfPrinter::hypo(PgfTypeHypo *hypo, int prio)
 {
     if (textcmp(hypo->cid, &wildcard) == 0) {
-        prio = 1;
+        this->prio = prio;
         m->match_type(this, hypo->type);
     } else {
-        push_variable(hypo->cid);
-
         puts("(");
         if (hypo->bind_type == PGF_BIND_TYPE_IMPLICIT)
             puts("{");
-        puts(&ctxt->name);
+        puts(hypo->cid);
         if (hypo->bind_type == PGF_BIND_TYPE_IMPLICIT)
             puts("}");
         puts(" : ");
+        this->prio = 0;
         m->match_type(this, hypo->type);
         puts(")");
+
+        push_variable(hypo->cid);
     }
 }
 
@@ -411,7 +412,7 @@ PgfType PgfPrinter::dtyp(size_t n_hypos, PgfTypeHypo *hypos,
     PgfPrintContext *save_ctxt = ctxt;
 
     for (int i = 0; i < n_hypos; i++) {
-        hypo(&hypos[i]);
+        hypo(&hypos[i],1);
         puts(" -> ");
     }
 

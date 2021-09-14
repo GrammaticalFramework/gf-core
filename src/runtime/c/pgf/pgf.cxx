@@ -476,7 +476,7 @@ PgfText *pgf_print_context(size_t n_hypos, PgfTypeHypo *hypos,
     for (size_t i = 0; i < n_hypos; i++) {
         if (i > 0)
             printer.puts(" ");
-        printer.hypo(&hypos[i]);
+        printer.hypo(&hypos[i],4);
     }
     return printer.get_text();
 }
