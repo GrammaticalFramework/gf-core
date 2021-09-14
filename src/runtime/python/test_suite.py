@@ -216,6 +216,9 @@ def test_readExpr_lstr_str():
 
 # expressions: functions
 
+def test_readExpr_efun_equality_1():
+    assert pgf.readExpr("f") == pgf.ExprFun("f")
+
       # ,TestCase (assertEqual "show expression 1" "f x y" (showExpr [] (EApp (EApp (EFun "f") (EFun "x")) (EFun "y"))))
       # ,TestCase (assertEqual "show expression 2" "f (g x)" (showExpr [] (EApp (EFun "f") (EApp (EFun "g") (EFun "x")))))
       # ,TestCase (assertEqual "show expression 3" "f {g x}" (showExpr [] (EApp (EFun "f") (EImplArg (EApp (EFun "g") (EFun "x"))))))

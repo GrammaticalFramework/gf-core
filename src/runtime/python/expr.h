@@ -11,7 +11,7 @@
 typedef struct {
     PyObject_HEAD
     PyObject *hypos; // PyListObject of PyTupleObject: (bind_type: int, cid: string, type: TypeObject)
-    PyObject *cat;   // PyStringObject
+    PyObject *cat;   // PyUnicodeObject
     PyObject *exprs; // PyListObject of ExprObject
 } TypeObject;
 
@@ -23,20 +23,27 @@ typedef struct {
 
 typedef struct {
     PyObject_HEAD
-    PyObject *value;
+    PyObject *fun; // PyUnicodeObject
+} ExprFunObject;
+
+typedef struct {
+    PyObject_HEAD
+    PyObject *value; // PyLongObject | PyFloatObject | PyUnicodeObject
 } ExprLitObject;
 
 typedef struct {
     PyObject_HEAD
-    PyObject *id;
+    PyObject *id; // PyLongObject
 } ExprMetaObject;
 
 typedef struct {
     PyObject_HEAD
-    PyObject *index;
+    PyObject *index; // PyLongObject
 } ExprVarObject;
 
 extern PyTypeObject pgf_ExprType;
+
+extern PyTypeObject pgf_ExprFunType;
 
 extern PyTypeObject pgf_ExprLitType;
 
