@@ -23,8 +23,14 @@ typedef struct {
 
 typedef struct {
     PyObject_HEAD
-    PyObject *fun; // PyUnicodeObject
+    PyObject *name; // PyUnicodeObject
 } ExprFunObject;
+
+typedef struct {
+    PyObject_HEAD
+    ExprObject *e1; // ExprObject
+    ExprObject *e2; // ExprObject
+} ExprAppObject;
 
 typedef struct {
     PyObject_HEAD
@@ -44,6 +50,8 @@ typedef struct {
 extern PyTypeObject pgf_ExprType;
 
 extern PyTypeObject pgf_ExprFunType;
+
+extern PyTypeObject pgf_ExprAppType;
 
 extern PyTypeObject pgf_ExprLitType;
 

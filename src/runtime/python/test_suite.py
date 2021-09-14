@@ -219,8 +219,24 @@ def test_readExpr_lstr_str():
 def test_readExpr_efun_equality_1():
     assert pgf.readExpr("f") == pgf.ExprFun("f")
 
-      # ,TestCase (assertEqual "show expression 1" "f x y" (showExpr [] (EApp (EApp (EFun "f") (EFun "x")) (EFun "y"))))
-      # ,TestCase (assertEqual "show expression 2" "f (g x)" (showExpr [] (EApp (EFun "f") (EApp (EFun "g") (EFun "x")))))
+def test_readExpr_efun_equality_2():
+    assert pgf.readExpr("f x y") == pgf.ExprApp(
+        pgf.ExprApp(
+            pgf.ExprFun("f"),
+            pgf.ExprFun("x")
+        ),
+        pgf.ExprFun("y")
+    )
+
+def test_readExpr_efun_equality_3():
+    assert pgf.readExpr("f (g x)") == pgf.ExprApp(
+        pgf.ExprFun("f"),
+        pgf.ExprApp(
+            pgf.ExprFun("g"),
+            pgf.ExprFun("x")
+        )
+    )
+
       # ,TestCase (assertEqual "show expression 3" "f {g x}" (showExpr [] (EApp (EFun "f") (EImplArg (EApp (EFun "g") (EFun "x"))))))
 
 # expressions: variables

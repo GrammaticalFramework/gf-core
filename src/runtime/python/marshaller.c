@@ -51,8 +51,12 @@ PgfExpr eabs(PgfUnmarshaller *this, PgfBindType btype, PgfText *name, PgfExpr bo
 
 PgfExpr eapp(PgfUnmarshaller *this, PgfExpr fun, PgfExpr arg)
 {
-    PyErr_SetString(PyExc_NotImplementedError, "eapp not implemented");
-    return 0;
+    ExprAppObject *pyexpr = (ExprAppObject *)pgf_ExprAppType.tp_alloc(&pgf_ExprAppType, 0);
+    pyexpr->e1 = (ExprObject *)fun;
+    pyexpr->e2 = (ExprObject *)arg;
+    // Py_INCREF(fun);
+    // Py_INCREF(arg);
+    return (PgfExpr) pyexpr;
 }
 
 PgfExpr elit(PgfUnmarshaller *this, PgfLiteral lit)
@@ -75,7 +79,7 @@ PgfExpr efun(PgfUnmarshaller *this, PgfText *name)
 {
     ExprFunObject *pyexpr = (ExprFunObject *)pgf_ExprFunType.tp_alloc(&pgf_ExprFunType, 0);
     PyObject *pyobj = PyUnicode_FromPgfText(name);
-    pyexpr->fun = pyobj;
+    pyexpr->name = pyobj;
     Py_INCREF(pyobj);
     return (PgfExpr) pyexpr;
 }
@@ -237,13 +241,23 @@ object match_expr(PgfMarshaller *this, PgfUnmarshaller *u, PgfExpr expr)
 {
     PyObject *pyobj = (PyObject *)expr;
 
+    if (PyObject_TypeCheck(pyobj, &pgf_ExprFunType)) {
+        ExprFunObject *efun = (ExprFunObject *)expr;
+        return u->vtbl->efun(u, PyUnicode_AsPgfText(efun->name));
+    } else
+    if (PyObject_TypeCheck(pyobj, &pgf_ExprAppType)) {
+        ExprAppObject *eapp = (ExprAppObject *)expr;
+        return u->vtbl->eapp(u, (PgfExpr) eapp->e1, (PgfExpr) eapp->e2); // TODO check
+    } else
     if (PyObject_TypeCheck(pyobj, &pgf_ExprLitType)) {
         ExprLitObject *elit = (ExprLitObject *)expr;
         return this->vtbl->match_lit(this, u, (PgfLiteral) elit->value);
-    } else if (PyObject_TypeCheck(pyobj, &pgf_ExprMetaType)) {
+    } else
+    if (PyObject_TypeCheck(pyobj, &pgf_ExprMetaType)) {
         ExprMetaObject *emeta = (ExprMetaObject *)expr;
         return u->vtbl->emeta(u, (PgfMetaId) PyLong_AsLong(emeta->id));
-    } else if (PyObject_TypeCheck(pyobj, &pgf_ExprVarType)) {
+    } else
+    if (PyObject_TypeCheck(pyobj, &pgf_ExprVarType)) {
         ExprVarObject *evar = (ExprVarObject *)expr;
         return u->vtbl->evar(u, PyLong_AsLong(evar->index));
     } else {

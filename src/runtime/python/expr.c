@@ -139,7 +139,7 @@ ExprFun_init(ExprFunObject *self, PyObject *args, PyObject *kwds)
     if (!PyArg_ParseTuple(args, "U", &lit)) {
         return -1;
     }
-    self->fun = lit;
+    self->name = lit;
     return 0;
 }
 
@@ -147,7 +147,7 @@ static PyObject *
 ExprFun_richcompare(ExprFunObject *t1, ExprFunObject *t2, int op)
 {
     bool same = false;
-    if (PyUnicode_Compare(t1->fun, t2->fun) != 0) goto done;
+    if (PyUnicode_Compare(t1->name, t2->name) != 0) goto done;
 
     same = true;
 done:
@@ -203,6 +203,92 @@ PyTypeObject pgf_ExprFunType = {
     (initproc) ExprFun_init,   /*tp_init */
     0,                         /*tp_alloc */
     (newfunc) ExprFun_new,     /*tp_new */
+};
+
+// ----------------------------------------------------------------------------
+
+static ExprAppObject *
+ExprApp_new(PyTypeObject *subtype, PyObject *args, PyObject *kwds)
+{
+    ExprAppObject* self = (ExprAppObject *)subtype->tp_alloc(subtype, 0);
+    return self;
+}
+
+static int
+ExprApp_init(ExprAppObject *self, PyObject *args, PyObject *kwds)
+{
+    PyObject* e1 = NULL;
+    PyObject* e2 = NULL;
+    if (!PyArg_ParseTuple(args, "O!O!", &pgf_ExprType, &e1, &pgf_ExprType, &e2)) {
+        return -1;
+    }
+
+    self->e1 = (ExprObject *)e1;
+    self->e2 = (ExprObject *)e2;
+    return 0;
+}
+
+static PyObject *
+ExprApp_richcompare(ExprAppObject *t1, ExprAppObject *t2, int op)
+{
+    bool same = false;
+
+    // TODO
+
+    same = true;
+// done:
+
+    if (op == Py_EQ) {
+        if (same) Py_RETURN_TRUE;  else Py_RETURN_FALSE;
+    } else if (op == Py_NE) {
+        if (same) Py_RETURN_FALSE; else Py_RETURN_TRUE;
+    } else {
+        PyErr_SetString(PyExc_TypeError, "comparison operation not supported");
+        Py_RETURN_NOTIMPLEMENTED;
+    }
+}
+
+/* static */
+PyTypeObject pgf_ExprAppType = {
+    PyVarObject_HEAD_INIT(NULL, 0)
+    //0,                         /*ob_size*/
+    "pgf.ExprApp",                /*tp_name*/
+    sizeof(ExprAppObject),        /*tp_basicsize*/
+    0,                         /*tp_itemsize*/
+    0, //(destructor)Expr_dealloc,  /*tp_dealloc*/
+    0,                         /*tp_print*/
+    0,                         /*tp_getattr*/
+    0,                         /*tp_setattr*/
+    0,                         /*tp_compare*/
+    0,                         /*tp_repr*/
+    0,                         /*tp_as_number*/
+    0,                         /*tp_as_sequence*/
+    0,                         /*tp_as_mapping*/
+    0, //(hashfunc) Expr_hash,      /*tp_hash */
+    0, //(ternaryfunc) Expr_call,   /*tp_call*/
+    0, //(reprfunc) Expr_str,      /*tp_str*/
+    0, //(getattrofunc) Expr_getattro,/*tp_getattro*/
+    0,                         /*tp_setattro*/
+    0,                         /*tp_as_buffer*/
+    Py_TPFLAGS_DEFAULT | Py_TPFLAGS_BASETYPE, /*tp_flags*/
+    "application",    /*tp_doc*/
+    0,                           /*tp_traverse */
+    0,                           /*tp_clear */
+    (richcmpfunc) ExprApp_richcompare, /*tp_richcompare */
+    0,                           /*tp_weaklistoffset */
+    0,                           /*tp_iter */
+    0,                           /*tp_iternext */
+    0, //Expr_methods,              /*tp_methods */
+    0,                         /*tp_members */
+    0, //Expr_getseters,            /*tp_getset */
+    &pgf_ExprType,             /*tp_base */
+    0,                         /*tp_dict */
+    0,                         /*tp_descr_get */
+    0,                         /*tp_descr_set */
+    0,                         /*tp_dictoffset */
+    (initproc) ExprApp_init,   /*tp_init */
+    0,                         /*tp_alloc */
+    (newfunc) ExprApp_new,     /*tp_new */
 };
 
 // ----------------------------------------------------------------------------

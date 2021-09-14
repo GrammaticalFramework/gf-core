@@ -2669,6 +2669,9 @@ MOD_INIT(pgf)
     if (PyType_Ready(&pgf_ExprFunType) < 0)
         return MOD_ERROR_VAL;
 
+    if (PyType_Ready(&pgf_ExprAppType) < 0)
+        return MOD_ERROR_VAL;
+
     if (PyType_Ready(&pgf_ExprLitType) < 0)
         return MOD_ERROR_VAL;
 
@@ -2708,6 +2711,9 @@ MOD_INIT(pgf)
 
     PyModule_AddObject(m, "ExprFun", (PyObject *) &pgf_ExprFunType);
     Py_INCREF(&pgf_ExprFunType);
+
+    PyModule_AddObject(m, "ExprApp", (PyObject *) &pgf_ExprAppType);
+    Py_INCREF(&pgf_ExprAppType);
 
     PyModule_AddObject(m, "ExprLit", (PyObject *) &pgf_ExprLitType);
     Py_INCREF(&pgf_ExprLitType);
