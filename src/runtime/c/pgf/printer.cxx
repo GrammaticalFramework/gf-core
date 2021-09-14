@@ -380,6 +380,26 @@ PgfLiteral PgfPrinter::lstr(PgfText *v)
     return 0;
 }
 
+void PgfPrinter::hypo(PgfTypeHypo *hypo)
+{
+    if (textcmp(hypo->cid, &wildcard) == 0) {
+        prio = 1;
+        m->match_type(this, hypo->type);
+    } else {
+        push_variable(hypo->cid);
+
+        puts("(");
+        if (hypo->bind_type == PGF_BIND_TYPE_IMPLICIT)
+            puts("{");
+        puts(&ctxt->name);
+        if (hypo->bind_type == PGF_BIND_TYPE_IMPLICIT)
+            puts("}");
+        puts(" : ");
+        m->match_type(this, hypo->type);
+        puts(")");
+    }
+}
+
 PgfType PgfPrinter::dtyp(size_t n_hypos, PgfTypeHypo *hypos,
                          PgfText *cat,
                          size_t n_exprs, PgfExpr *exprs)
@@ -391,23 +411,7 @@ PgfType PgfPrinter::dtyp(size_t n_hypos, PgfTypeHypo *hypos,
     PgfPrintContext *save_ctxt = ctxt;
 
     for (int i = 0; i < n_hypos; i++) {
-        if (textcmp(hypos[i].cid, &wildcard) == 0) {
-            prio = 1;
-            m->match_type(this, hypos[i].type);
-        } else {
-            push_variable(hypos[i].cid);
-
-            puts("(");
-            if (hypos[i].bind_type == PGF_BIND_TYPE_IMPLICIT)
-                puts("{");
-            puts(&ctxt->name);
-            if (hypos[i].bind_type == PGF_BIND_TYPE_IMPLICIT)
-                puts("}");
-            puts(" : ");
-            m->match_type(this, hypos[i].type);
-            puts(")");
-        }
-
+        hypo(&hypos[i]);
         puts(" -> ");
     }
 

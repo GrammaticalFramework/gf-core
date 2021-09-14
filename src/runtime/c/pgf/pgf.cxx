@@ -468,6 +468,20 @@ PgfText *pgf_print_type(PgfType ty,
 }
 
 PGF_API
+PgfText *pgf_print_context(size_t n_hypos, PgfTypeHypo *hypos,
+                           PgfPrintContext *ctxt, int prio,
+                           PgfMarshaller *m)
+{
+    PgfPrinter printer(ctxt,prio,m);
+    for (size_t i = 0; i < n_hypos; i++) {
+        if (i > 0)
+            printer.puts(" ");
+        printer.hypo(&hypos[i]);
+    }
+    return printer.get_text();
+}
+
+PGF_API
 PgfType pgf_read_type(PgfText *input, PgfUnmarshaller *u)
 {
     PgfExprParser parser(input, u);

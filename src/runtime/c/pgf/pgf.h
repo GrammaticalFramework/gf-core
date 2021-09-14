@@ -332,6 +332,11 @@ PgfText *pgf_print_type(PgfType ty,
                         PgfMarshaller *m);
 
 PGF_API_DECL
+PgfText *pgf_print_context(size_t n_hypos, PgfTypeHypo *hypos,
+                           PgfPrintContext *ctxt, int prio,
+                           PgfMarshaller *m);
+
+PGF_API_DECL
 PgfType pgf_read_type(PgfText *input, PgfUnmarshaller *u);
 
 PGF_API_DECL

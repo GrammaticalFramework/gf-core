@@ -78,6 +78,8 @@ foreign import ccall pgf_read_expr_ex :: Ptr PgfText -> Ptr CString -> Ptr PgfUn
 foreign import ccall "pgf_print_type"
   pgf_print_type :: StablePtr Type -> Ptr PgfPrintContext -> CInt -> Ptr PgfMarshaller -> IO (Ptr PgfText)
 
+foreign import ccall pgf_print_context :: CSize -> Ptr PgfTypeHypo -> Ptr PgfPrintContext -> CInt -> Ptr PgfMarshaller -> IO (Ptr PgfText)
+
 foreign import ccall "pgf_read_type"
   pgf_read_type :: Ptr PgfText -> Ptr PgfUnmarshaller -> IO (StablePtr Type)
 

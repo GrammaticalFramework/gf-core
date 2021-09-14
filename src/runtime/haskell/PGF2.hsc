@@ -912,7 +912,13 @@ showType scope ty =
     peekText c_text
 
 showContext :: [Var] -> [(BindType,Var,Type)] -> String
-showContext = error "TODO: showContext"
+showContext scope hypos =
+  unsafePerformIO $
+  withHypos hypos $ \n_hypos c_hypos ->
+  bracket (newPrintCtxt scope) freePrintCtxt $ \pctxt ->
+  withForeignPtr marshaller $ \m ->
+  bracket (pgf_print_context n_hypos c_hypos pctxt 0 m) free $ \c_text ->
+    peekText c_text
 
 -- | parses a 'String' as a type
 readType :: String -> Maybe Type
