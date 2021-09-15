@@ -23,8 +23,10 @@ typedef struct {
 
 typedef struct {
     PyObject_HEAD
-    PyObject *name; // PyUnicodeObject
-} ExprFunObject;
+    PyObject *bindType; // PyLongObject
+    PyObject *var;      // PyUnicodeObject
+    ExprObject *expr;
+} ExprAbsObject;
 
 typedef struct {
     PyObject_HEAD
@@ -44,19 +46,33 @@ typedef struct {
 
 typedef struct {
     PyObject_HEAD
+    PyObject *name; // PyUnicodeObject
+} ExprFunObject;
+
+typedef struct {
+    PyObject_HEAD
     PyObject *index; // PyLongObject
 } ExprVarObject;
 
+typedef struct {
+    PyObject_HEAD
+    ExprObject *expr;
+    TypeObject *type;
+} ExprTypedObject;
+
+typedef struct {
+    PyObject_HEAD
+    ExprObject *expr;
+} ExprImplArgObject;
+
 extern PyTypeObject pgf_ExprType;
-
-extern PyTypeObject pgf_ExprFunType;
-
+extern PyTypeObject pgf_ExprAbsType;
 extern PyTypeObject pgf_ExprAppType;
-
 extern PyTypeObject pgf_ExprLitType;
-
 extern PyTypeObject pgf_ExprMetaType;
-
+extern PyTypeObject pgf_ExprFunType;
 extern PyTypeObject pgf_ExprVarType;
+extern PyTypeObject pgf_ExprTypedType;
+extern PyTypeObject pgf_ExprImplArgType;
 
 #endif // PYPGF_EXPR_H_

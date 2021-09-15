@@ -45,8 +45,12 @@ PyUnicode_FromPgfText(PgfText *text)
 
 PgfExpr eabs(PgfUnmarshaller *this, PgfBindType btype, PgfText *name, PgfExpr body)
 {
-    PyErr_SetString(PyExc_NotImplementedError, "eabs not implemented");
-    return 0;
+    ExprAbsObject *pyexpr = (ExprAbsObject *)pgf_ExprAbsType.tp_alloc(&pgf_ExprAbsType, 0);
+    pyexpr->bindType = PyLong_FromLong(btype);
+    pyexpr->var = PyUnicode_FromPgfText(name);
+    pyexpr->expr = (ExprObject *)body;
+    // Py_INCREF(body);
+    return (PgfExpr) pyexpr;
 }
 
 PgfExpr eapp(PgfUnmarshaller *this, PgfExpr fun, PgfExpr arg)
@@ -93,14 +97,20 @@ PgfExpr evar(PgfUnmarshaller *this, int index)
 
 PgfExpr etyped(PgfUnmarshaller *this, PgfExpr expr, PgfType typ)
 {
-    PyErr_SetString(PyExc_NotImplementedError, "etyped not implemented");
-    return 0;
+    ExprTypedObject *pyexpr = (ExprTypedObject *)pgf_ExprTypedType.tp_alloc(&pgf_ExprTypedType, 0);
+    pyexpr->expr = (ExprObject *)expr;
+    pyexpr->type = (TypeObject *)typ;
+    // Py_INCREF(expr);
+    // Py_INCREF(typ);
+    return (PgfExpr) pyexpr;
 }
 
 PgfExpr eimplarg(PgfUnmarshaller *this, PgfExpr expr)
 {
-    PyErr_SetString(PyExc_NotImplementedError, "eimplarg not implemented");
-    return 0;
+    ExprImplArgObject *pyexpr = (ExprImplArgObject *)pgf_ExprImplArgType.tp_alloc(&pgf_ExprImplArgType, 0);
+    pyexpr->expr = (ExprObject *)expr;
+    // Py_INCREF(expr);
+    return (PgfExpr) pyexpr;
 }
 
 PgfLiteral lint(PgfUnmarshaller *this, size_t size, uintmax_t *v)
@@ -241,13 +251,13 @@ object match_expr(PgfMarshaller *this, PgfUnmarshaller *u, PgfExpr expr)
 {
     PyObject *pyobj = (PyObject *)expr;
 
-    if (PyObject_TypeCheck(pyobj, &pgf_ExprFunType)) {
-        ExprFunObject *efun = (ExprFunObject *)expr;
-        return u->vtbl->efun(u, PyUnicode_AsPgfText(efun->name));
+    if (PyObject_TypeCheck(pyobj, &pgf_ExprAbsType)) {
+        ExprAbsObject *eabs = (ExprAbsObject *)expr;
+        return u->vtbl->eabs(u, PyLong_AsLong(eabs->bindType), PyUnicode_AsPgfText(eabs->var), (PgfExpr) eabs->expr);
     } else
     if (PyObject_TypeCheck(pyobj, &pgf_ExprAppType)) {
         ExprAppObject *eapp = (ExprAppObject *)expr;
-        return u->vtbl->eapp(u, (PgfExpr) eapp->e1, (PgfExpr) eapp->e2); // TODO check
+        return u->vtbl->eapp(u, (PgfExpr) eapp->e1, (PgfExpr) eapp->e2);
     } else
     if (PyObject_TypeCheck(pyobj, &pgf_ExprLitType)) {
         ExprLitObject *elit = (ExprLitObject *)expr;
@@ -257,9 +267,21 @@ object match_expr(PgfMarshaller *this, PgfUnmarshaller *u, PgfExpr expr)
         ExprMetaObject *emeta = (ExprMetaObject *)expr;
         return u->vtbl->emeta(u, (PgfMetaId) PyLong_AsLong(emeta->id));
     } else
+    if (PyObject_TypeCheck(pyobj, &pgf_ExprFunType)) {
+        ExprFunObject *efun = (ExprFunObject *)expr;
+        return u->vtbl->efun(u, PyUnicode_AsPgfText(efun->name));
+    } else
     if (PyObject_TypeCheck(pyobj, &pgf_ExprVarType)) {
         ExprVarObject *evar = (ExprVarObject *)expr;
         return u->vtbl->evar(u, PyLong_AsLong(evar->index));
+    } else
+    if (PyObject_TypeCheck(pyobj, &pgf_ExprTypedType)) {
+        ExprTypedObject *etyped = (ExprTypedObject *)expr;
+        return u->vtbl->etyped(u, (PgfExpr) etyped->expr, (PgfType) etyped->type);
+    } else
+    if (PyObject_TypeCheck(pyobj, &pgf_ExprImplArgType)) {
+        ExprImplArgObject *eimplarg = (ExprImplArgObject *)expr;
+        return u->vtbl->eimplarg(u, (PgfExpr) eimplarg->expr);
     } else {
         PyErr_SetString(PyExc_TypeError, "unable to match on expression");
         return 0;
