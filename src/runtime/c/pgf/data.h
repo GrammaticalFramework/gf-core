@@ -3,7 +3,6 @@
 
 #include <string.h>
 #include <assert.h>
-#include <iostream>
 #include <exception>
 #include <stdexcept>
 

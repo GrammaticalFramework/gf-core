@@ -3,7 +3,7 @@
 #include <math.h>
 #include <string.h>
 
-PgfReader::PgfReader(std::istream *in, const char *filepath)
+PgfReader::PgfReader(FILE *in, const char *filepath)
 {
     this->in = in;
     this->filepath = filepath;
@@ -12,11 +12,11 @@ PgfReader::PgfReader(std::istream *in, const char *filepath)
 uint8_t PgfReader::read_uint8()
 {
     uint8_t b;
-    in->read((char*) &b, sizeof(b));
-    if (in->eof())
+    size_t n_bytes = fread((char*) &b, sizeof(b), 1, in);
+    if (feof(in))
         throw pgf_error("reached end of file while reading a grammar");
-    if (in->fail())
-        throw pgf_systemerror(errno, filepath);
+    if (ferror(in))
+        throw pgf_systemerror(ferror(in), filepath);
 
 	return b;
 }
@@ -24,11 +24,11 @@ uint8_t PgfReader::read_uint8()
 uint16_t PgfReader::read_u16be()
 {
     uint8_t buf[2];
-    in->read((char*) &buf, sizeof(buf));
-    if (in->eof())
+    size_t n_bytes = fread((char*) &buf, sizeof(buf), 1, in);
+    if (feof(in))
         throw pgf_error("reached end of file while reading a grammar");
-    if (in->fail())
-        throw pgf_systemerror(errno, filepath);
+    if (ferror(in))
+        throw pgf_systemerror(ferror(in), filepath);
 
 	return (((uint16_t) buf[0]) << 8 | buf[1]);
 }
@@ -36,11 +36,11 @@ uint16_t PgfReader::read_u16be()
 uint64_t PgfReader::read_u64be()
 {
     uint8_t buf[8];
-    in->read((char*) &buf, sizeof(buf));
-    if (in->eof())
+    size_t n_bytes = fread((char*) &buf, sizeof(buf), 1, in);
+    if (feof(in))
         throw pgf_error("reached end of file while reading a grammar");
-    if (in->fail())
-        throw pgf_systemerror(errno, filepath);
+    if (ferror(in))
+        throw pgf_systemerror(ferror(in), filepath);
 
 	return (((uint64_t) buf[0]) << 56 |
             ((uint64_t) buf[1]) << 48 |
@@ -92,11 +92,11 @@ object PgfReader::read_name_internal(size_t struct_size)
 
     // If reading the extra bytes causes EOF, it is an encoding
     // error, not a legitimate end of character stream.
-    in->read(ptext->text, size);
-    if (in->eof())
+    fread(ptext->text, size, 1, in);
+    if (feof(in))
         throw pgf_error("utf8 decoding error");
-    if (in->fail())
-        throw pgf_systemerror(errno, filepath);
+    if (ferror(in))
+        throw pgf_systemerror(ferror(in), filepath);
 
     ptext->text[size] = 0;
 
@@ -128,11 +128,11 @@ object PgfReader::read_text_internal(size_t struct_size)
                    );
         // If reading the extra bytes causes EOF, it is an encoding
         // error, not a legitimate end of character stream.
-        in->read(p, len);
-        if (in->eof())
+        fread(p, len, 1, in);
+        if (feof(in))
             throw pgf_error("utf8 decoding error");
-        if (in->fail())
-            throw pgf_systemerror(errno, filepath);
+        if (ferror(in))
+            throw pgf_systemerror(ferror(in), filepath);
 
         p += len;
 	}

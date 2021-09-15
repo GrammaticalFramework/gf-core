@@ -36,18 +36,19 @@ PgfDB *pgf_read_pgf(const char* fpath,
                     PgfExn* err)
 {
     PgfDB *db = NULL;
+    FILE *in = NULL;
 
     PGF_API_BEGIN {
         db = new PgfDB(NULL, 0, 0);
-        std::ifstream in(fpath, std::ios::binary);
-        if (in.fail()) {
+        in = fopen(fpath, "rb");
+        if (!in) {
             throw pgf_systemerror(errno, fpath);
         }
 
         {
             DB_scope scope(db, WRITER_SCOPE);
 
-            PgfReader rdr(&in, fpath);
+            PgfReader rdr(in, fpath);
             ref<PgfPGF> pgf = rdr.read_pgf();
 
             PgfDB::set_revision(pgf);
@@ -58,6 +59,9 @@ PgfDB *pgf_read_pgf(const char* fpath,
     } PGF_API_END
 
 end:
+    if (in != NULL)
+        fclose(in);
+
     if (db != NULL)
         delete db;
 
@@ -70,19 +74,20 @@ PgfDB *pgf_boot_ngf(const char* pgf_path, const char* ngf_path,
                     PgfExn* err)
 {
     PgfDB *db = NULL;
+    FILE *in = NULL;
 
     PGF_API_BEGIN {
         db = new PgfDB(ngf_path, O_CREAT | O_EXCL | O_RDWR, S_IRUSR | S_IWUSR);
 
-        std::ifstream in(pgf_path, std::ios::binary);
-        if (in.fail()) {
+        in = fopen(pgf_path, "rb");
+        if (!in) {
             throw pgf_systemerror(errno, pgf_path);
         }
 
         {
             DB_scope scope(db, WRITER_SCOPE);
 
-            PgfReader rdr(&in, pgf_path);
+            PgfReader rdr(in, pgf_path);
             ref<PgfPGF> pgf = rdr.read_pgf();
 
             PgfDB::set_revision(pgf);
@@ -91,6 +96,9 @@ PgfDB *pgf_boot_ngf(const char* pgf_path, const char* ngf_path,
 
         return db;
     } PGF_API_END
+
+    if (in != NULL)
+        fclose(in);
 
     if (db != NULL) {
         delete db;
