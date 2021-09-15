@@ -2,6 +2,7 @@
 #include <math.h>
 #include "data.h"
 #include "reader.h"
+#include "writer.h"
 #include "printer.h"
 
 static void
@@ -155,6 +156,33 @@ PgfDB *pgf_read_ngf(const char *fpath,
     }
 
     return NULL;
+}
+
+PGF_API
+void pgf_write_pgf(const char* fpath,
+                   PgfDB *db, PgfRevision revision,
+                   PgfExn* err)
+{
+    FILE *out = NULL;
+
+    PGF_API_BEGIN {
+        out = fopen(fpath, "wb");
+        if (!out) {
+            throw pgf_systemerror(errno, fpath);
+        }
+
+        {
+            DB_scope scope(db, READER_SCOPE);
+            ref<PgfPGF> pgf = PgfDB::revision2pgf(revision);
+
+            PgfWriter wtr(out, fpath);
+            wtr.write_pgf(pgf);
+        }
+    } PGF_API_END
+
+end:
+    if (out != NULL)
+        fclose(out);
 }
 
 PGF_API

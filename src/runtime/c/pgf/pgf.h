@@ -246,6 +246,11 @@ PgfDB *pgf_read_ngf(const char* fpath,
                     PgfRevision *revision,
                     PgfExn* err);
 
+PGF_API_DECL
+void pgf_write_pgf(const char* fpath,
+                   PgfDB *db, PgfRevision revision,
+                   PgfExn* err);
+
 /* Release the database when it is no longer needed. */
 PGF_API_DECL
 void pgf_free(PgfDB *pgf);

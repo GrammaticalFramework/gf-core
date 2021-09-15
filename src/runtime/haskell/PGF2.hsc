@@ -149,7 +149,11 @@ readNGF fpath =
     return (PGF fptr1 fptr2 Map.empty)
 
 writePGF :: FilePath -> PGF -> IO ()
-writePGF = error "TODO: writePGF"
+writePGF fpath p =
+  withCString fpath $ \c_fpath ->
+  withForeignPtr (a_db p) $ \c_db ->
+  withForeignPtr (revision p) $ \c_revision ->
+    withPgfExn (pgf_write_pgf c_fpath c_db c_revision)
 
 showPGF :: PGF -> String
 showPGF = error "TODO: showPGF"
