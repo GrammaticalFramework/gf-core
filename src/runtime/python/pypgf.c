@@ -2666,7 +2666,7 @@ MOD_INIT(pgf)
     if (PyType_Ready(&pgf_ExprType) < 0)
         return MOD_ERROR_VAL;
 
-    if (PyType_Ready(&pgf_ExprFunType) < 0)
+    if (PyType_Ready(&pgf_ExprAbsType) < 0)
         return MOD_ERROR_VAL;
 
     if (PyType_Ready(&pgf_ExprAppType) < 0)
@@ -2678,7 +2678,16 @@ MOD_INIT(pgf)
     if (PyType_Ready(&pgf_ExprMetaType) < 0)
         return MOD_ERROR_VAL;
 
+    if (PyType_Ready(&pgf_ExprFunType) < 0)
+        return MOD_ERROR_VAL;
+
     if (PyType_Ready(&pgf_ExprVarType) < 0)
+        return MOD_ERROR_VAL;
+
+    if (PyType_Ready(&pgf_ExprTypedType) < 0)
+        return MOD_ERROR_VAL;
+
+    if (PyType_Ready(&pgf_ExprImplArgType) < 0)
         return MOD_ERROR_VAL;
 
     if (PyType_Ready(&pgf_TypeType) < 0)
@@ -2709,8 +2718,8 @@ MOD_INIT(pgf)
     PyModule_AddObject(m, "Expr", (PyObject *) &pgf_ExprType);
     Py_INCREF(&pgf_ExprType);
 
-    PyModule_AddObject(m, "ExprFun", (PyObject *) &pgf_ExprFunType);
-    Py_INCREF(&pgf_ExprFunType);
+    PyModule_AddObject(m, "ExprAbs", (PyObject *) &pgf_ExprAbsType);
+    Py_INCREF(&pgf_ExprAbsType);
 
     PyModule_AddObject(m, "ExprApp", (PyObject *) &pgf_ExprAppType);
     Py_INCREF(&pgf_ExprAppType);
@@ -2721,8 +2730,17 @@ MOD_INIT(pgf)
     PyModule_AddObject(m, "ExprMeta", (PyObject *) &pgf_ExprMetaType);
     Py_INCREF(&pgf_ExprMetaType);
 
+    PyModule_AddObject(m, "ExprFun", (PyObject *) &pgf_ExprFunType);
+    Py_INCREF(&pgf_ExprFunType);
+
     PyModule_AddObject(m, "ExprVar", (PyObject *) &pgf_ExprVarType);
     Py_INCREF(&pgf_ExprVarType);
+
+    PyModule_AddObject(m, "ExprTyped", (PyObject *) &pgf_ExprTypedType);
+    Py_INCREF(&pgf_ExprTypedType);
+
+    PyModule_AddObject(m, "ExprImplArg", (PyObject *) &pgf_ExprImplArgType);
+    Py_INCREF(&pgf_ExprImplArgType);
 
     PyModule_AddObject(m, "Type", (PyObject *) &pgf_TypeType);
     Py_INCREF(&pgf_TypeType);

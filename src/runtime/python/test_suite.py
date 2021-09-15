@@ -220,24 +220,39 @@ def test_readExpr_efun_equality_1():
     assert pgf.readExpr("f") == pgf.ExprFun("f")
 
 def test_readExpr_efun_equality_2():
-    assert pgf.readExpr("f x y") == pgf.ExprApp(
+    assert \
+        pgf.readExpr("f x y") == \
         pgf.ExprApp(
-            pgf.ExprFun("f"),
-            pgf.ExprFun("x")
-        ),
-        pgf.ExprFun("y")
-    )
+            pgf.ExprApp(
+                pgf.ExprFun("f"),
+                pgf.ExprFun("x")
+            ),
+            pgf.ExprFun("y")
+        )
 
 def test_readExpr_efun_equality_3():
-    assert pgf.readExpr("f (g x)") == pgf.ExprApp(
-        pgf.ExprFun("f"),
+    assert \
+        pgf.readExpr("f (g x)") == \
         pgf.ExprApp(
-            pgf.ExprFun("g"),
-            pgf.ExprFun("x")
+            pgf.ExprFun("f"),
+            pgf.ExprApp(
+                pgf.ExprFun("g"),
+                pgf.ExprFun("x")
+            )
         )
-    )
 
-      # ,TestCase (assertEqual "show expression 3" "f {g x}" (showExpr [] (EApp (EFun "f") (EImplArg (EApp (EFun "g") (EFun "x"))))))
+def test_readExpr_efun_equality_4():
+    assert \
+        pgf.readExpr("f {g x}") == \
+        pgf.ExprApp(
+            pgf.ExprFun("f"),
+            pgf.ExprImplArg(
+                pgf.ExprApp(
+                    pgf.ExprFun("g"),
+                    pgf.ExprFun("x")
+                )
+            )
+        )
 
 # expressions: variables
 
@@ -293,5 +308,11 @@ def test_readExpr_emeta_str_2():
     assert str(pgf.readExpr("?42")) == "?42"
 
 # expressions: typed expressions
+
+def test_readExpr_emeta_equality():
+    assert pgf.readExpr("<z : N>") == pgf.ExprTyped(pgf.ExprFun("z"), pgf.readType("N"))
+
+def test_readExpr_emeta_str():
+    assert str(pgf.readExpr("<z : N>")) == "<z : N>"
 
       # ,TestCase (assertEqual "show expression 18" "<z : N>" (showExpr [] (ETyped (EFun "z") (DTyp [] "N" []))))
