@@ -118,31 +118,13 @@ PgfDB *pgf_read_ngf(const char *fpath,
 
     bool is_new = false;
     PGF_API_BEGIN {
-        db = new PgfDB(fpath, O_CREAT | O_RDWR, S_IRUSR | S_IWUSR);
+        db = new PgfDB(fpath, O_RDWR, 0);
 
         {
             DB_scope scope(db, WRITER_SCOPE);
 
             ref<PgfPGF> pgf = PgfDB::get_revision(&master);
-            if (pgf == 0) {
-                is_new = true;
-                pgf = PgfDB::malloc<PgfPGF>(master.size+1);
-                pgf->ref_count = 1;
-                pgf->major_version = PGF_MAJOR_VERSION;
-                pgf->minor_version = PGF_MINOR_VERSION;
-                pgf->gflags = 0;
-                pgf->abstract.name = PgfDB::malloc<PgfText>();
-                pgf->abstract.name->size = 0;
-                pgf->abstract.aflags = 0;
-                pgf->abstract.funs = 0;
-                pgf->abstract.cats = 0;
-                pgf->prev = 0;
-                pgf->next = 0;
-                memcpy(&pgf->name, &master, sizeof(PgfText)+master.size+1);
-                PgfDB::set_revision(pgf);
-            } else {
-                Node<PgfPGF>::add_value_ref(pgf);
-            }
+            Node<PgfPGF>::add_value_ref(pgf);
             *revision = pgf.as_object();
         }
 
@@ -152,6 +134,49 @@ PgfDB *pgf_read_ngf(const char *fpath,
     if (db != NULL) {
         delete db;
         if (is_new)
+            remove(fpath);
+    }
+
+    return NULL;
+}
+
+PGF_API
+PgfDB *pgf_new_ngf(PgfText *abstract_name,
+                   const char *fpath,
+                   PgfRevision *revision,
+                   PgfExn* err)
+{
+    PgfDB *db = NULL;
+
+    PGF_API_BEGIN {
+        db = new PgfDB(fpath, O_CREAT | O_EXCL | O_RDWR, S_IRUSR | S_IWUSR);
+
+        {
+            DB_scope scope(db, WRITER_SCOPE);
+
+            ref<PgfPGF> pgf = PgfDB::malloc<PgfPGF>(master.size+1);
+            pgf->ref_count = 1;
+            pgf->major_version = PGF_MAJOR_VERSION;
+            pgf->minor_version = PGF_MINOR_VERSION;
+            pgf->gflags = 0;
+            pgf->abstract.name = PgfDB::malloc<PgfText>(abstract_name->size+1);
+            memcpy(&(*pgf->abstract.name), abstract_name, sizeof(PgfText)+abstract_name->size+1);
+            pgf->abstract.aflags = 0;
+            pgf->abstract.funs = 0;
+            pgf->abstract.cats = 0;
+            pgf->prev = 0;
+            pgf->next = 0;
+            memcpy(&pgf->name, &master, sizeof(PgfText)+master.size+1);
+            PgfDB::set_revision(pgf);
+            *revision = pgf.as_object();
+        }
+
+        return db;
+    } PGF_API_END
+
+    if (db != NULL) {
+        delete db;
+        if (fpath != NULL)
             remove(fpath);
     }
 

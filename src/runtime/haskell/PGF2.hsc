@@ -14,7 +14,7 @@
 -------------------------------------------------
 
 module PGF2 (-- * PGF
-             PGF,readPGF,bootNGF,readNGF,writePGF,showPGF,
+             PGF,readPGF,bootNGF,readNGF,newNGF,writePGF,showPGF,
 
              -- * Abstract syntax
              AbsName,abstractName,globalFlag,abstractFlag,
@@ -101,6 +101,7 @@ import qualified Data.Map as Map
 import Data.IORef
 import Data.List(intersperse,groupBy)
 import Data.Char(isUpper,isSpace,isPunctuation)
+import Data.Maybe(maybe)
 import Text.PrettyPrint
 
 #include <pgf/pgf.h>
@@ -133,16 +134,30 @@ bootNGF pgf_path ngf_path =
     fptr2 <- C.newForeignPtr c_revision (withForeignPtr fptr1 (\c_db -> pgf_free_revision c_db c_revision))
     return (PGF fptr1 fptr2 Map.empty)
 
--- | Tries to read the grammar from an already booted NGF file.
--- If the file does not exist then a new one is created, and the
--- grammar is set to be empty. It can later be populated with
--- rules dynamically.
+-- | Reads the grammar from an already booted NGF file.
+-- The function fails if the file does not exist.
 readNGF :: FilePath -> IO PGF
 readNGF fpath =
   withCString fpath $ \c_fpath ->
   alloca $ \p_revision ->
   mask_ $ do
     c_db <- withPgfExn (pgf_read_ngf c_fpath p_revision)
+    c_revision <- peek p_revision
+    fptr1 <- newForeignPtr pgf_free_fptr c_db
+    fptr2 <- C.newForeignPtr c_revision (withForeignPtr fptr1 (\c_db -> pgf_free_revision c_db c_revision))
+    return (PGF fptr1 fptr2 Map.empty)
+
+-- | Creates a new NGF file with a grammar with the given abstract_name.
+-- Aside from the name, the grammar is otherwise empty but can be later
+-- populated with new functions and categories. If fpath is Nothing then
+-- the file is not stored on the disk but only in memory.
+newNGF :: AbsName -> Maybe FilePath -> IO PGF
+newNGF abs_name mb_fpath =
+  withText abs_name $ \c_abs_name ->
+  maybe (\f -> f nullPtr) withCString mb_fpath $ \c_fpath ->
+  alloca $ \p_revision ->
+  mask_ $ do
+    c_db <- withPgfExn (pgf_new_ngf c_abs_name c_fpath p_revision)
     c_revision <- peek p_revision
     fptr1 <- newForeignPtr pgf_free_fptr c_db
     fptr2 <- C.newForeignPtr c_revision (withForeignPtr fptr1 (\c_db -> pgf_free_revision c_db c_revision))

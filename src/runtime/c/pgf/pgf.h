@@ -237,14 +237,22 @@ PgfDB *pgf_boot_ngf(const char* pgf_path, const char* ngf_path,
                     PgfExn* err);
 
 /* Tries to read the grammar from an already booted NGF file.
- * If the file does not exist then a new one is created, and the
- * grammar is set to be empty. It can later be populated with
- * rules dynamically. The default grammar revision is stored
- * in *revision. */
+ * The function fails if the file does not exist. The default grammar
+ * revision is stored in *revision. */
 PGF_API_DECL
 PgfDB *pgf_read_ngf(const char* fpath,
                     PgfRevision *revision,
                     PgfExn* err);
+
+/* Creates a new NGF file with a grammar with the given abstract_name.
+ * Aside from the name, the grammar is otherwise empty but can be later
+ * populated with new functions and categories. If fpath is NULL then
+ * the file is not stored on the disk but only in memory. */
+PGF_API
+PgfDB *pgf_new_ngf(PgfText *abstract_name,
+                   const char *fpath,
+                   PgfRevision *revision,
+                   PgfExn* err);
 
 PGF_API_DECL
 void pgf_write_pgf(const char* fpath,

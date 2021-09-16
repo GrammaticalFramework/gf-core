@@ -58,6 +58,8 @@ foreign import ccall "pgf_boot_ngf"
 foreign import ccall "pgf_read_ngf"
   pgf_read_ngf :: CString -> Ptr (Ptr PgfRevision) -> Ptr PgfExn -> IO (Ptr PgfDB)
 
+foreign import ccall pgf_new_ngf :: Ptr PgfText -> CString -> Ptr (Ptr PgfRevision) -> Ptr PgfExn -> IO (Ptr PgfDB)
+
 foreign import ccall pgf_write_pgf :: CString -> Ptr PgfDB -> Ptr PgfRevision -> Ptr PgfExn -> IO ()
 
 foreign import ccall "&pgf_free"
