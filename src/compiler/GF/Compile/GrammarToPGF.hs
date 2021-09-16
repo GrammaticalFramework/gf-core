@@ -1,4 +1,4 @@
-{-# LANGUAGE ImplicitParams, BangPatterns, FlexibleContexts, MagicHash #-}
+{-# LANGUAGE BangPatterns, FlexibleContexts, MagicHash #-}
 module GF.Compile.GrammarToPGF (grammar2PGF) where
 
 import GF.Compile.GeneratePMCFG
@@ -6,7 +6,7 @@ import GF.Compile.GenerateBC
 import GF.Compile.OptimizePGF
 
 import PGF2 hiding (mkType)
-import PGF2.Internal
+import PGF2.Transactions
 import GF.Grammar.Predef
 import GF.Grammar.Grammar hiding (Production)
 import qualified GF.Grammar.Lookup as Look
@@ -30,7 +30,9 @@ import GHC.Prim
 import GHC.Base(getTag)
 
 grammar2PGF :: Options -> SourceGrammar -> ModuleName -> Map.Map PGF2.Fun Double -> IO PGF
-grammar2PGF opts gr am probs = error "TODO: grammar2PGF" {-do
+grammar2PGF opts gr am probs = do
+  gr <- mkAbstr am probs
+  return gr {-do
   cnc_infos <- getConcreteInfos gr am
   return $
     build (let gflags   = if flag optSplitPGF opts 
@@ -38,13 +40,18 @@ grammar2PGF opts gr am probs = error "TODO: grammar2PGF" {-do
                             else []
                (an,abs) = mkAbstr am probs
                cncs     = map (mkConcr opts abs) cnc_infos
-           in newPGF gflags an abs cncs)
+           in newPGF gflags an abs cncs)-}
   where
     cenv = resourceValues opts gr
     aflags = err (const noOptions) mflags (lookupModule gr am)
 
-    mkAbstr :: (?builder :: Builder s) => ModuleName -> Map.Map PGF2.Fun Double -> (AbsName, B s AbstrInfo)
-    mkAbstr am probs = (mi2i am, newAbstr flags cats funs)
+    mkAbstr :: ModuleName -> Map.Map PGF2.Fun Double -> IO PGF
+    mkAbstr am probs = do
+      gr <- newNGF (mi2i am) Nothing
+      modifyPGF gr $ do
+        sequence_ [setAbstractFlag name value | (name,value) <- flags]
+        sequence_ [createCategory c ctxt p | (c,ctxt,p) <- cats]
+        sequence_ [createFunction f ty p | (f,ty,_,_,p) <- funs]
       where
         adefs =
             [((cPredefAbs,c), AbsCat (Just (L NoLoc []))) | c <- [cFloat,cInt,cString]] ++ 
@@ -74,7 +81,7 @@ grammar2PGF opts gr am probs = error "TODO: grammar2PGF" {-do
                 deflt = case length [f | (f,Nothing) <- pfs] of
                           0 -> 0
                           n -> max 0 ((1 - sum [d | (f,Just d) <- pfs]) / fromIntegral n)
-
+{-
     mkConcr opts abs (cm,ex_seqs,cdefs) =
       let cflags = err (const noOptions) mflags (lookupModule gr cm)
           ciCmp | flag optCaseSensitive cflags = compare
@@ -125,34 +132,34 @@ grammar2PGF opts gr am probs = error "TODO: grammar2PGF" {-do
           (seqs,info)  <- addPMCFG opts gr cenv Nothing am cm seqs id info
           (seqs,infos) <- addMissingPMCFGs cm seqs is
           return (seqs, ((m,id), info) : infos)
-
+-}
 i2i :: Ident -> String
 i2i = showIdent
 
 mi2i :: ModuleName -> String
 mi2i (MN i) = i2i i
 
-mkType :: (?builder :: Builder s) => [Ident] -> A.Type -> B s PGF2.Type
+mkType :: [Ident] -> A.Type -> PGF2.Type
 mkType scope t =
   case GM.typeForm t of
     (hyps,(_,cat),args) -> let (scope',hyps') = mkContext scope hyps
-                           in dTyp hyps' (i2i cat) (map (mkExp scope') args)
+                           in DTyp hyps' (i2i cat) (map (mkExp scope') args)
 
-mkExp :: (?builder :: Builder s) => [Ident] -> A.Term -> B s Expr
+mkExp :: [Ident] -> A.Term -> Expr
 mkExp scope t =
   case t of
-    Q (_,c)  -> eFun (i2i c)
-    QC (_,c) -> eFun (i2i c)
+    Q (_,c)  -> EFun (i2i c)
+    QC (_,c) -> EFun (i2i c)
     Vr x     -> case lookup x (zip scope [0..]) of
-                  Just i  -> eVar  i
-                  Nothing -> eMeta 0
-    Abs b x t-> eAbs b (i2i x) (mkExp (x:scope) t)
-    App t1 t2-> eApp (mkExp scope t1) (mkExp scope t2)
-    EInt i   -> eLit (LInt (fromIntegral i))
-    EFloat f -> eLit (LFlt f)
-    K s      -> eLit (LStr s)
-    Meta i   -> eMeta i
-    _        -> eMeta 0
+                  Just i  -> EVar  i
+                  Nothing -> EMeta 0
+    Abs b x t-> EAbs b (i2i x) (mkExp (x:scope) t)
+    App t1 t2-> EApp (mkExp scope t1) (mkExp scope t2)
+    EInt i   -> ELit (LInt (fromIntegral i))
+    EFloat f -> ELit (LFlt f)
+    K s      -> ELit (LStr s)
+    Meta i   -> EMeta i
+    _        -> EMeta 0
 {-
 mkPatt scope p = 
   case p of
@@ -169,11 +176,12 @@ mkPatt scope p =
                    in (scope',C.PImplArg p')
     A.PTilde t  -> (  scope,C.PTilde (mkExp scope t))
 -}
-mkContext :: (?builder :: Builder s) => [Ident] -> A.Context -> ([Ident],[B s PGF2.Hypo])
+
+mkContext :: [Ident] -> A.Context -> ([Ident],[PGF2.Hypo])
 mkContext scope hyps = mapAccumL (\scope (bt,x,ty) -> let ty' = mkType scope ty
                                                       in if x == identW
-                                                           then (  scope,hypo bt (i2i x) ty')
-                                                           else (x:scope,hypo bt (i2i x) ty')) scope hyps 
+                                                           then (  scope,(bt,i2i x,ty'))
+                                                           else (x:scope,(bt,i2i x,ty'))) scope hyps 
 
 mkDef gr arity (Just eqs) = generateByteCode gr arity eqs
 mkDef gr arity Nothing    = []
@@ -182,7 +190,7 @@ mkArity (Just a) _        ty = a   -- known arity, i.e. defined function
 mkArity Nothing  (Just _) ty = 0   -- defined function with no arity - must be an axiom
 mkArity Nothing  _        ty = let (ctxt, _, _) = GM.typeForm ty  -- constructor
                                in length ctxt
-
+{-
 genCncCats gr am cm cdefs = mkCncCats 0 cdefs
   where
     mkCncCats index []                                                = (index,[])
