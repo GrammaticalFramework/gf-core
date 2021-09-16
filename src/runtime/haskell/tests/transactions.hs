@@ -8,9 +8,9 @@ main = do
   gr1 <- readPGF "tests/basic.pgf"
   let Just ty = readType "(N -> N) -> P (s z)"
 
-  gr2 <- modifyPGF gr1              (createFunction "foo" ty pi >>
+  gr2 <- modifyPGF gr1              (createFunction "foo" ty 0 pi >>
                                      createCategory "Q" [(Explicit,"x",ty)] pi)
-  gr3 <- branchPGF gr1 "bar_branch" (createFunction "bar" ty pi >>
+  gr3 <- branchPGF gr1 "bar_branch" (createFunction "bar" ty 0 pi >>
                                      createCategory "R" [(Explicit,"x",ty)] pi)
 
   Just gr4 <- checkoutPGF gr1 "master"
