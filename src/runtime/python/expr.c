@@ -28,18 +28,16 @@ Type_richcompare(TypeObject *t1, TypeObject *t2, int op)
     for (Py_ssize_t n = 0; n < PyList_Size(t1->hypos); n++) {
         PyObject *h1 = PyList_GetItem(t1->hypos, n);
         PyObject *h2 = PyList_GetItem(t2->hypos, n);
-        if (PyTuple_GetItem(h1, 0) != PyTuple_GetItem(h2, 0)) goto done;
-        if (PyUnicode_Compare(PyTuple_GetItem(h1, 1), PyTuple_GetItem(h2, 1)) != 0) goto done;
-        TypeObject *ht1 = (TypeObject *)PyTuple_GetItem(h1, 2);
-        TypeObject *ht2 = (TypeObject *)PyTuple_GetItem(h2, 2);
-        if (Type_richcompare(ht1, ht2, Py_EQ) != Py_True) goto done;
+        if (!PyObject_RichCompareBool(h1, h2, Py_EQ))
+            goto done;
     }
 
     if (PyList_Size(t1->exprs) != PyList_Size(t2->exprs)) goto done;
     for (Py_ssize_t n = 0; n < PyList_Size(t1->exprs); n++) {
-        ExprObject *e1 = (ExprObject *)PyList_GetItem(t1->exprs, n);
-        ExprObject *e2 = (ExprObject *)PyList_GetItem(t2->exprs, n);
-        if (Expr_richcompare(e1, e2, Py_EQ) != Py_True) goto done;
+        PyObject *e1 = PyList_GetItem(t1->exprs, n);
+        PyObject *e2 = PyList_GetItem(t2->exprs, n);
+        if (!PyObject_RichCompareBool(e1, e2, Py_EQ))
+            goto done;
     }
 
     same = true;
@@ -359,8 +357,8 @@ static PyObject *
 ExprApp_richcompare(ExprAppObject *e1, ExprAppObject *e2, int op)
 {
     bool same = false;
-    if (Expr_richcompare(e1->e1, e2->e1, Py_EQ) != Py_True) goto done;
-    if (Expr_richcompare(e1->e2, e2->e2, Py_EQ) != Py_True) goto done;
+    if (!PyObject_RichCompareBool((PyObject*)e1->e1, (PyObject*)e2->e1, Py_EQ)) goto done;
+    if (!PyObject_RichCompareBool((PyObject*)e1->e2, (PyObject*)e2->e2, Py_EQ)) goto done;
 
     same = true;
 done:
