@@ -249,9 +249,9 @@ static PyObject *
 ExprAbs_richcompare(ExprAbsObject *e1, ExprAbsObject *e2, int op)
 {
     bool same = false;
-    if (PyObject_RichCompare(e1->bindType, e2->bindType, Py_EQ) != Py_True) goto done;
+    if (!PyObject_RichCompareBool(e1->bindType, e2->bindType, Py_EQ)) goto done;
     if (PyUnicode_Compare(e1->var, e2->var) != 0) goto done;
-    if (Expr_richcompare(e1->expr, e2->expr, Py_EQ) != Py_True) goto done;
+    if (!PyObject_RichCompareBool((PyObject*)e1->expr, (PyObject*)e2->expr, Py_EQ)) goto done;
 
     same = true;
 done:
