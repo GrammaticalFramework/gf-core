@@ -3,7 +3,6 @@
 #include <structmember.h>
 
 #include <pgf/pgf.h>
-#include "./compat.h"
 #include "./expr.h"
 #include "./marshaller.h"
 
@@ -2524,7 +2523,7 @@ pgf_bootNGF(PyObject *self, PyObject *args)
 static PGFObject*
 pgf_readNGF(PyObject *self, PyObject *args)
 {
-const char *fpath;
+    const char *fpath;
     if (!PyArg_ParseTuple(args, "s", &fpath))
         return NULL;
 

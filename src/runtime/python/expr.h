@@ -6,8 +6,6 @@
 
 #include <pgf/pgf.h>
 
-#include "./compat.h"
-
 typedef struct {
     PyObject_HEAD
     PyObject *hypos; // PyListObject of PyTupleObject: (bind_type: int, cid: string, type: TypeObject)

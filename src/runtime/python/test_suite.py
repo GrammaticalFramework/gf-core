@@ -282,14 +282,37 @@ def test_showExpr_evar_4():
 
 # expressions: lambda abstractions
 
-      # ,TestCase (assertEqual "show expression 8" "\\w->w" (showExpr ["z","y","x"] (EAbs Explicit "w" (EVar 0))))
-      # ,TestCase (assertEqual "show expression 9" "\\v,w->z" (showExpr ["z","y","x"] (EAbs Explicit "v" (EAbs Explicit "w" (EVar 2)))))
-      # ,TestCase (assertEqual "show expression 10" "\\v,{w}->z" (showExpr ["z","y","x"] (EAbs Explicit "v" (EAbs Implicit "w" (EVar 2)))))
-      # ,TestCase (assertEqual "show expression 11" "\\v,{w},z->z" (showExpr ["y","x"] (EAbs Explicit "v" (EAbs Implicit "w" (EAbs Explicit "z" (EVar 0))))))
-      # ,TestCase (assertEqual "show expression 12" "\\v,{w,z}->v" (showExpr ["y","x"] (EAbs Explicit "v" (EAbs Implicit "w" (EAbs Implicit "z" (EVar 2))))))
-      # ,TestCase (assertEqual "show expression 13" "\\v,{w,z},t->v" (showExpr ["y","x"] (EAbs Explicit "v" (EAbs Implicit "w" (EAbs Implicit "z" (EAbs Explicit "t" (EVar 3)))))))
-      # ,TestCase (assertEqual "show expression 14" "\\u,v,{w,z},t->v" (showExpr ["y","x"] (EAbs Explicit "u" (EAbs Explicit "v" (EAbs Implicit "w" (EAbs Implicit "z" (EAbs Explicit "t" (EVar 3))))))))
-      # ,TestCase (assertEqual "show expression 15" "f (\\x->x)" (showExpr [] (EApp (EFun "f") (EAbs Explicit "x" (EVar 0)))))
+def test_showExpr_eabs_1():
+    expr = pgf.ExprAbs(0, "w", pgf.ExprVar(0))
+    assert pgf.showExpr(["z", "y", "x"], expr) == "\\w->w"
+
+def test_showExpr_eabs_2():
+    expr = pgf.ExprAbs(0, "v", pgf.ExprAbs(0, "w", pgf.ExprVar(2)))
+    assert pgf.showExpr(["z", "y", "x"], expr) == "\\v,w->z"
+
+def test_showExpr_eabs_3():
+    expr = pgf.ExprAbs(0, "v", pgf.ExprAbs(1, "w", pgf.ExprVar(2)))
+    assert pgf.showExpr(["z", "y", "x"], expr) == "\\v,{w}->z"
+
+def test_showExpr_eabs_4():
+    expr = pgf.ExprAbs(0, "v", pgf.ExprAbs(1, "w", pgf.ExprAbs(0, "z", pgf.ExprVar(0))))
+    assert pgf.showExpr(["y", "x"], expr) == "\\v,{w},z->z"
+
+def test_showExpr_eabs_5():
+    expr = pgf.ExprAbs(0, "v", pgf.ExprAbs(1, "w", pgf.ExprAbs(1, "z", pgf.ExprVar(2))))
+    assert pgf.showExpr(["y", "x"], expr) == "\\v,{w,z}->v"
+
+def test_showExpr_eabs_6():
+    expr = pgf.ExprAbs(0, "v", pgf.ExprAbs(1, "w", pgf.ExprAbs(1, "z", pgf.ExprAbs(0, "t", pgf.ExprVar(3)))))
+    assert pgf.showExpr(["y", "x"], expr) == "\\v,{w,z},t->v"
+
+def test_showExpr_eabs_7():
+    expr = pgf.ExprAbs(0, "u", pgf.ExprAbs(0, "v", pgf.ExprAbs(1, "w", pgf.ExprAbs(1, "z", pgf.ExprAbs(0, "t", pgf.ExprVar(3))))))
+    assert pgf.showExpr(["y", "x"], expr) == "\\u,v,{w,z},t->v"
+
+def test_showExpr_eabs_8():
+    expr = pgf.ExprApp(pgf.ExprFun("f"), pgf.ExprAbs(0, "x", pgf.ExprVar(0)))
+    assert pgf.showExpr([], expr) == "f (\\x->x)"
 
 # expressions: meta variables
 
@@ -313,5 +336,3 @@ def test_readExpr_emeta_equality():
 
 def test_readExpr_emeta_str():
     assert str(pgf.readExpr("<z : N>")) == "<z : N>"
-
-      # ,TestCase (assertEqual "show expression 18" "<z : N>" (showExpr [] (ETyped (EFun "z") (DTyp [] "N" []))))

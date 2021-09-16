@@ -2,7 +2,7 @@
 #include <Python.h>
 #include <stdbool.h>
 
-#include "./compat.h"
+#include <pgf/pgf.h>
 #include "./expr.h"
 #include "./marshaller.h"
 
@@ -245,6 +245,9 @@ ExprAbs_init(ExprAbsObject *self, PyObject *args, PyObject *kwds)
     self->bindType = bindType;
     self->var = var;
     self->expr = expr;
+    Py_INCREF(bindType);
+    Py_INCREF(var);
+    Py_INCREF(expr);
     return 0;
 }
 
@@ -331,9 +334,10 @@ ExprApp_init(ExprAppObject *self, PyObject *args, PyObject *kwds)
     if (!PyArg_ParseTuple(args, "O!O!", &pgf_ExprType, &e1, &pgf_ExprType, &e2)) {
         return -1;
     }
-
     self->e1 = (ExprObject *)e1;
     self->e2 = (ExprObject *)e2;
+    Py_INCREF(e1);
+    Py_INCREF(e2);
     return 0;
 }
 
@@ -420,6 +424,7 @@ ExprLit_init(ExprLitObject *self, PyObject *args, PyObject *kwds)
     }
     if (PyLong_Check(lit) || PyFloat_Check(lit) || PyUnicode_Check(lit)) {
         self->value = lit;
+        Py_INCREF(lit);
         return 0;
     } else {
         PyErr_SetString(PyExc_TypeError, "invalid argument in ExprLit_init");
@@ -528,6 +533,7 @@ ExprMeta_init(ExprMetaObject *self, PyObject *args, PyObject *kwds)
         return 0;
     } else if (PyLong_Check(lit)) {
         self->id = lit;
+        Py_INCREF(lit);
         return 0;
     } else {
         PyErr_SetString(PyExc_TypeError, "invalid argument in ExprMeta_init");
@@ -616,6 +622,7 @@ ExprFun_init(ExprFunObject *self, PyObject *args, PyObject *kwds)
         return -1;
     }
     self->name = lit;
+    Py_INCREF(lit);
     return 0;
 }
 
@@ -704,6 +711,7 @@ ExprVar_init(ExprVarObject *self, PyObject *args, PyObject *kwds)
         return 0;
     } else if (PyLong_Check(lit)) {
         self->index = lit;
+        Py_INCREF(lit);
         return 0;
     } else {
         PyErr_SetString(PyExc_TypeError, "invalid argument in ExprVar_init");
@@ -794,6 +802,8 @@ ExprTyped_init(ExprTypedObject *self, PyObject *args, PyObject *kwds)
     }
     self->expr = expr;
     self->type = type;
+    Py_INCREF(expr);
+    Py_INCREF(type);
     return 0;
 }
 
@@ -879,6 +889,7 @@ ExprImplArg_init(ExprImplArgObject *self, PyObject *args, PyObject *kwds)
         return -1;
     }
     self->expr = expr;
+    Py_INCREF(expr);
     return 0;
 }
 

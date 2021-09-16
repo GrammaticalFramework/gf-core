@@ -4,8 +4,8 @@
 #include <stdbool.h>
 
 #include <pgf/pgf.h>
-#include "./compat.h"
 #include "./expr.h"
+#include "./marshaller.h"
 
 // ----------------------------------------------------------------------------
 
