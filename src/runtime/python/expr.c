@@ -133,27 +133,6 @@ Expr_str(ExprObject *self)
     return str;
 }
 
-// static
-PyObject *
-Expr_richcompare(ExprObject *e1, ExprObject *e2, int op)
-{
-    bool same = false;
-
-    // TODO
-
-    // same = true;
-// done:
-
-    if (op == Py_EQ) {
-        if (same) Py_RETURN_TRUE;  else Py_RETURN_FALSE;
-    } else if (op == Py_NE) {
-        if (same) Py_RETURN_FALSE; else Py_RETURN_TRUE;
-    } else {
-        PyErr_SetString(PyExc_TypeError, "comparison operation not supported");
-        Py_RETURN_NOTIMPLEMENTED;
-    }
-}
-
 static PyMethodDef Expr_methods[] = {
 //     {"unpack", (PyCFunction)Expr_unpack, METH_VARARGS,
 //      "Decomposes an expression into its components"
@@ -223,12 +202,12 @@ PyTypeObject pgf_ExprType = {
     0,                         /*tp_as_buffer*/
     Py_TPFLAGS_DEFAULT | Py_TPFLAGS_BASETYPE, /*tp_flags*/
     "abstract syntax tree",    /*tp_doc*/
-    0,                           /*tp_traverse */
-    0,                           /*tp_clear */
-    (richcmpfunc) Expr_richcompare, /*tp_richcompare */
-    0,                           /*tp_weaklistoffset */
-    0,                           /*tp_iter */
-    0,                           /*tp_iternext */
+    0,                         /*tp_traverse */
+    0,                         /*tp_clear */
+    0,                         /*tp_richcompare */
+    0,                         /*tp_weaklistoffset */
+    0,                         /*tp_iter */
+    0,                         /*tp_iternext */
     Expr_methods,              /*tp_methods */
     0,                         /*tp_members */
     Expr_getseters,            /*tp_getset */
@@ -806,8 +785,8 @@ static PyObject *
 ExprTyped_richcompare(ExprTypedObject *e1, ExprTypedObject *e2, int op)
 {
     bool same = false;
-    if (Expr_richcompare(e1->expr, e2->expr, Py_EQ) != Py_True) goto done;
-    if (Type_richcompare(e1->type, e2->type, Py_EQ) != Py_True) goto done;
+    if (!PyObject_RichCompareBool((PyObject*)e1->expr, (PyObject*)e2->expr, Py_EQ)) goto done;
+    if (!PyObject_RichCompareBool((PyObject*)e1->type, (PyObject*)e2->type, Py_EQ)) goto done;
 
     same = true;
 done:
@@ -889,7 +868,7 @@ static PyObject *
 ExprImplArg_richcompare(ExprImplArgObject *e1, ExprImplArgObject *e2, int op)
 {
     bool same = false;
-    if (Expr_richcompare(e1->expr, e2->expr, Py_EQ) != Py_True) goto done;
+    if (!PyObject_RichCompareBool((PyObject*)e1->expr, (PyObject*)e2->expr, Py_EQ)) goto done;
 
     same = true;
 done:
