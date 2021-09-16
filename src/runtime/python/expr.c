@@ -19,9 +19,12 @@ Type_str(TypeObject *self)
 
 // static
 PyObject *
-Type_richcompare(TypeObject *t1, TypeObject *t2, int op)
+Type_richcompare(TypeObject *t1, PyObject *p2, int op)
 {
     bool same = false;
+    if (!PyObject_TypeCheck(p2, &pgf_TypeType)) goto done;
+    TypeObject *t2 = (TypeObject *)p2;
+
     if (PyUnicode_Compare(t1->cat, t2->cat) != 0) goto done;
 
     if (PyList_Size(t1->hypos) != PyList_Size(t2->hypos)) goto done;
@@ -246,9 +249,11 @@ ExprAbs_init(ExprAbsObject *self, PyObject *args, PyObject *kwds)
 }
 
 static PyObject *
-ExprAbs_richcompare(ExprAbsObject *e1, ExprAbsObject *e2, int op)
+ExprAbs_richcompare(ExprAbsObject *e1, PyObject *p2, int op)
 {
     bool same = false;
+    if (!PyObject_TypeCheck(p2, &pgf_ExprAbsType)) goto done;
+    ExprAbsObject *e2 = (ExprAbsObject *)p2;
     if (!PyObject_RichCompareBool(e1->bindType, e2->bindType, Py_EQ)) goto done;
     if (PyUnicode_Compare(e1->var, e2->var) != 0) goto done;
     if (!PyObject_RichCompareBool((PyObject*)e1->expr, (PyObject*)e2->expr, Py_EQ)) goto done;
@@ -333,9 +338,11 @@ ExprApp_init(ExprAppObject *self, PyObject *args, PyObject *kwds)
 }
 
 static PyObject *
-ExprApp_richcompare(ExprAppObject *e1, ExprAppObject *e2, int op)
+ExprApp_richcompare(ExprAppObject *e1, PyObject *p2, int op)
 {
     bool same = false;
+    if (!PyObject_TypeCheck(p2, &pgf_ExprAppType)) goto done;
+    ExprAppObject *e2 = (ExprAppObject *)p2;
     if (!PyObject_RichCompareBool((PyObject*)e1->e1, (PyObject*)e2->e1, Py_EQ)) goto done;
     if (!PyObject_RichCompareBool((PyObject*)e1->e2, (PyObject*)e2->e2, Py_EQ)) goto done;
 
@@ -421,9 +428,12 @@ ExprLit_init(ExprLitObject *self, PyObject *args, PyObject *kwds)
 }
 
 static PyObject *
-ExprLit_richcompare(ExprLitObject *e1, ExprLitObject *e2, int op)
+ExprLit_richcompare(ExprLitObject *e1, PyObject *p2, int op)
 {
     bool same = false;
+    if (!PyObject_TypeCheck(p2, &pgf_ExprLitType)) goto done;
+    ExprLitObject *e2 = (ExprLitObject *)p2;
+
     if (PyLong_Check(e1->value)) {
         if (!PyLong_Check(e2->value)) goto done;
         int o1, o2;
@@ -526,10 +536,12 @@ ExprMeta_init(ExprMetaObject *self, PyObject *args, PyObject *kwds)
 }
 
 static PyObject *
-ExprMeta_richcompare(ExprMetaObject *e1, ExprMetaObject *e2, int op)
+ExprMeta_richcompare(ExprMetaObject *e1, PyObject *p2, int op)
 {
     bool same = false;
-    if (PyObject_RichCompare(e1->id, e2->id, Py_EQ) != Py_True) goto done;
+    if (!PyObject_TypeCheck(p2, &pgf_ExprMetaType)) goto done;
+    ExprMetaObject *e2 = (ExprMetaObject *)p2;
+    if (!PyObject_RichCompareBool(e1->id, e2->id, Py_EQ)) goto done;
 
     same = true;
 done:
@@ -608,9 +620,11 @@ ExprFun_init(ExprFunObject *self, PyObject *args, PyObject *kwds)
 }
 
 static PyObject *
-ExprFun_richcompare(ExprFunObject *e1, ExprFunObject *e2, int op)
+ExprFun_richcompare(ExprFunObject *e1, PyObject *p2, int op)
 {
     bool same = false;
+    if (!PyObject_TypeCheck(p2, &pgf_ExprFunType)) goto done;
+    ExprFunObject *e2 = (ExprFunObject *)p2;
     if (PyUnicode_Compare(e1->name, e2->name) != 0) goto done;
 
     same = true;
@@ -698,10 +712,12 @@ ExprVar_init(ExprVarObject *self, PyObject *args, PyObject *kwds)
 }
 
 static PyObject *
-ExprVar_richcompare(ExprVarObject *e1, ExprVarObject *e2, int op)
+ExprVar_richcompare(ExprVarObject *e1, PyObject *p2, int op)
 {
     bool same = false;
-    if (PyObject_RichCompare(e1->index, e2->index, Py_EQ) != Py_True) goto done;
+    if (!PyObject_TypeCheck(p2, &pgf_ExprVarType)) goto done;
+    ExprVarObject *e2 = (ExprVarObject *)p2;
+    if (!PyObject_RichCompareBool(e1->index, e2->index, Py_EQ)) goto done;
 
     same = true;
 done:
@@ -782,9 +798,11 @@ ExprTyped_init(ExprTypedObject *self, PyObject *args, PyObject *kwds)
 }
 
 static PyObject *
-ExprTyped_richcompare(ExprTypedObject *e1, ExprTypedObject *e2, int op)
+ExprTyped_richcompare(ExprTypedObject *e1, PyObject *p2, int op)
 {
     bool same = false;
+    if (!PyObject_TypeCheck(p2, &pgf_ExprTypedType)) goto done;
+    ExprTypedObject *e2 = (ExprTypedObject *)p2;
     if (!PyObject_RichCompareBool((PyObject*)e1->expr, (PyObject*)e2->expr, Py_EQ)) goto done;
     if (!PyObject_RichCompareBool((PyObject*)e1->type, (PyObject*)e2->type, Py_EQ)) goto done;
 
@@ -865,9 +883,11 @@ ExprImplArg_init(ExprImplArgObject *self, PyObject *args, PyObject *kwds)
 }
 
 static PyObject *
-ExprImplArg_richcompare(ExprImplArgObject *e1, ExprImplArgObject *e2, int op)
+ExprImplArg_richcompare(ExprImplArgObject *e1, PyObject *p2, int op)
 {
     bool same = false;
+    if (!PyObject_TypeCheck(p2, &pgf_ExprImplArgType)) goto done;
+    ExprImplArgObject *e2 = (ExprImplArgObject *)p2;
     if (!PyObject_RichCompareBool((PyObject*)e1->expr, (PyObject*)e2->expr, Py_EQ)) goto done;
 
     same = true;
