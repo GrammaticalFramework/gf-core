@@ -47,9 +47,8 @@ def test_bootNGF_existing(NGF):
 # readNGF
 
 def test_readNGF_non_existant():
-    PGF = pgf.readNGF("./abc.ngf") # create empty grammar
-    assert PGF.categories == []
-    os.remove("./abc.ngf") # cleanup
+    with pytest.raises(FileNotFoundError):
+        pgf.readNGF("./abc.ngf") # create empty grammar
 
 def test_readNGF_GF():
     with pytest.raises(pgf.PGFError):
