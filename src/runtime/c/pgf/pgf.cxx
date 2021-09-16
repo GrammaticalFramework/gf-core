@@ -638,7 +638,7 @@ PgfRevision pgf_checkout_revision(PgfDB *db, PgfText *name,
 PGF_API
 void pgf_create_function(PgfDB *db, PgfRevision revision,
                          PgfText *name,
-                         PgfType ty, prob_t prob,
+                         PgfType ty, size_t arity, prob_t prob,
                          PgfMarshaller *m,
                          PgfExn *err)
 {
@@ -651,7 +651,7 @@ void pgf_create_function(PgfDB *db, PgfRevision revision,
         ref<PgfAbsFun> absfun = PgfDB::malloc<PgfAbsFun>(name->size+1);
         absfun->ref_count = 1;
         absfun->type  = m->match_type(&u, ty);
-        absfun->arity = 0;
+        absfun->arity = arity;
         absfun->defns = 0;
         absfun->ep.prob = prob;
         ref<PgfExprFun> efun =

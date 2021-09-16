@@ -51,7 +51,7 @@ grammar2PGF opts gr am probs = do
       modifyPGF gr $ do
         sequence_ [setAbstractFlag name value | (name,value) <- flags]
         sequence_ [createCategory c ctxt p | (c,ctxt,p) <- cats]
-        sequence_ [createFunction f ty p | (f,ty,_,_,p) <- funs]
+        sequence_ [createFunction f ty arity p | (f,ty,arity,_,p) <- funs]
       where
         adefs =
             [((cPredefAbs,c), AbsCat (Just (L NoLoc []))) | c <- [cFloat,cInt,cString]] ++ 

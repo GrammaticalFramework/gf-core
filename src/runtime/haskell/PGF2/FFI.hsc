@@ -127,7 +127,7 @@ foreign import ccall pgf_commit_revision :: Ptr PgfDB -> Ptr PgfRevision -> Ptr 
 
 foreign import ccall pgf_checkout_revision :: Ptr PgfDB -> Ptr PgfText -> Ptr PgfExn -> IO (Ptr PgfRevision)
 
-foreign import ccall pgf_create_function :: Ptr PgfDB -> Ptr PgfRevision -> Ptr PgfText -> StablePtr Type -> (#type prob_t) -> Ptr PgfMarshaller -> Ptr PgfExn -> IO ()
+foreign import ccall pgf_create_function :: Ptr PgfDB -> Ptr PgfRevision -> Ptr PgfText -> StablePtr Type -> CSize -> (#type prob_t) -> Ptr PgfMarshaller -> Ptr PgfExn -> IO ()
 
 foreign import ccall pgf_drop_function :: Ptr PgfDB -> Ptr PgfRevision -> Ptr PgfText -> Ptr PgfExn -> IO ()
 

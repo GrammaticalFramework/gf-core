@@ -368,7 +368,7 @@ PgfRevision pgf_checkout_revision(PgfDB *db, PgfText *name,
 PGF_API_DECL
 void pgf_create_function(PgfDB *db, PgfRevision revision,
                          PgfText *name,
-                         PgfType ty, prob_t prob,
+                         PgfType ty, size_t arity, prob_t prob,
                          PgfMarshaller *m,
                          PgfExn *err);
 

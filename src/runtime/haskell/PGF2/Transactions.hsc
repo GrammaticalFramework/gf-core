@@ -109,12 +109,12 @@ checkoutPGF p name =
       else do fptr2 <- C.newForeignPtr c_revision (withForeignPtr (a_db p) (\c_db -> pgf_free_revision c_db c_revision))
               return (Just (PGF (a_db p) fptr2 (languages p)))
 
-createFunction :: Fun -> Type -> Float -> Transaction ()
-createFunction name ty prob = Transaction $ \c_db c_revision c_exn ->
+createFunction :: Fun -> Type -> Int -> Float -> Transaction ()
+createFunction name ty arity prob = Transaction $ \c_db c_revision c_exn ->
   withText name $ \c_name ->
   bracket (newStablePtr ty) freeStablePtr $ \c_ty ->
   withForeignPtr marshaller $ \m -> do
-    pgf_create_function c_db c_revision c_name c_ty prob m c_exn
+    pgf_create_function c_db c_revision c_name c_ty (fromIntegral arity) prob m c_exn
 
 dropFunction :: Fun -> Transaction ()
 dropFunction name = Transaction $ \c_db c_revision c_exn ->
