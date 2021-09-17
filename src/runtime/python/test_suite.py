@@ -155,40 +155,40 @@ def test_startCat(PGF):
     assert PGF.startCat == pgf.readType("S")
 
 def test_showType_1(PGF):
-    assert pgf.showType([], pgf.Type([], "N", [])) == "N"
-    # ,TestCase (assertEqual "show type 1" "N" (showType [] (DTyp [] "N" [])))
+    type = pgf.Type([], "N", [])
+    assert pgf.showType([], type) == "N"
 
 def test_showType_2(PGF):
-    assert pgf.showType([], pgf.Type([pgf.mkHypo(pgf.Type([], "N", []))], "N", [])) == "N -> N"
-    # ,TestCase (assertEqual "show type 2" "N -> N"        (showType [] (DTyp [(Explicit,"_",DTyp [] "N" [])] "N" [])))
+    type = pgf.Type([pgf.mkHypo(pgf.Type([], "N", []))], "N", [])
+    assert pgf.showType([], type) == "N -> N"
 
 def test_showType_3(PGF):
-    assert pgf.showType([], pgf.Type([pgf.mkHypo(pgf.Type([pgf.mkHypo(pgf.Type([], "N", []))], "N", []))], "N", [])) == "(N -> N) -> N"
-    # ,TestCase (assertEqual "show type 3" "(N -> N) -> N" (showType [] (DTyp [(Explicit,"_",DTyp [(Explicit,"_",DTyp [] "N" [])] "N" [])] "N" [])))
+    type = pgf.Type([pgf.mkHypo(pgf.Type([pgf.mkHypo(pgf.Type([], "N", []))], "N", []))], "N", [])
+    assert pgf.showType([], type) == "(N -> N) -> N"
 
-# def test_showType_4(PGF):
-#     assert pgf.showType([], pgf.Type([], "N", [])) == "(x : N) -> P x"
-#     # ,TestCase (assertEqual "show type 4" "(x : N) -> P x" (showType [] (DTyp [(Explicit,"x",DTyp [] "N" [])] "P" [EVar 0])))
-#
-# def test_showType_5(PGF):
-#     assert pgf.showType([], pgf.Type([], "N", [])) == "(f : N -> N) -> P (f z)"
-#     # ,TestCase (assertEqual "show type 5" "(f : N -> N) -> P (f z)" (showType [] (DTyp [(Explicit,"f",DTyp [(Explicit,"_",DTyp [] "N" [])] "N" [])] "P" [EApp (EVar 0) (EFun "z")])))
-#
-# def test_showType_6(PGF):
-#     assert pgf.showType([], pgf.Type([], "N", [])) == "(f : N -> N) -> P (f n)"
-#     # ,TestCase (assertEqual "show type 6" "(f : N -> N) -> P (f n)" (showType ["n"] (DTyp [(Explicit,"f",DTyp [(Explicit,"_",DTyp [] "N" [])] "N" [])] "P" [EApp (EVar 0) (EVar 1)])))
-#
-# def test_showType_7(PGF):
-#     assert pgf.showType([], pgf.Type([], "N", [])) == "({f} : N -> N) -> P (f n)"
-#     # ,TestCase (assertEqual "show type 7" "({f} : N -> N) -> P (f n)" (showType ["n"] (DTyp [(Implicit,"f",DTyp [(Explicit,"_",DTyp [] "N" [])] "N" [])] "P" [EApp (EVar 0) (EVar 1)])))
-#
-# def test_showType_8(PGF):
-#     assert pgf.showType([], pgf.Type([], "N", [])) == "(x : N) -> P x -> S"
-#     # ,TestCase (assertEqual "show type 8" "(x : N) -> P x -> S" (showType [] (DTyp [(Explicit,"x",DTyp [] "N" []),(Explicit,"_",DTyp [] "P" [EVar 0])] "S" [])))
-#
-# def test_showType_9(PGF):
-#     assert pgf.showType([], pgf.Type([], "N", [])) == "(x : N) -> (y : P x) -> S"
-#     # ,TestCase (assertEqual "show type 9" "(x : N) -> (y : P x) -> S" (showType [] (DTyp [(Explicit,"x",DTyp [] "N" []),(Explicit,"y",DTyp [] "P" [EVar 0])] "S" [])))
+def test_showType_4(PGF):
+    type = pgf.Type([pgf.mkDepHypo("x", pgf.Type([], "N", []))], "P", [pgf.ExprVar(0)])
+    assert pgf.showType([], type) == "(x : N) -> P x"
+
+def test_showType_5(PGF):
+    type = pgf.Type([pgf.mkDepHypo("f", pgf.Type([pgf.mkHypo(pgf.Type([], "N", []))], "N", []))], "P", [pgf.ExprApp(pgf.ExprVar(0), pgf.ExprFun("z"))])
+    assert pgf.showType([], type) == "(f : N -> N) -> P (f z)"
+
+def test_showType_6(PGF):
+    type = pgf.Type([pgf.mkDepHypo("f", pgf.Type([pgf.mkHypo(pgf.Type([], "N", []))], "N", []))], "P", [pgf.ExprApp(pgf.ExprVar(0), pgf.ExprVar(1))])
+    assert pgf.showType(["n"], type) == "(f : N -> N) -> P (f n)"
+
+def test_showType_7(PGF):
+    type = pgf.Type([pgf.mkImplHypo("f", pgf.Type([pgf.mkHypo(pgf.Type([], "N", []))], "N", []))], "P", [pgf.ExprApp(pgf.ExprVar(0), pgf.ExprVar(1))])
+    assert pgf.showType(["n"], type) == "({f} : N -> N) -> P (f n)"
+
+def test_showType_8(PGF):
+    type = pgf.Type([pgf.mkDepHypo("x", pgf.Type([], "N", [])), pgf.mkHypo(pgf.Type([], "P", [pgf.ExprVar(0)]))], "S", [])
+    assert pgf.showType(["n"], type) == "(x : N) -> P x -> S"
+
+def test_showType_9(PGF):
+    type = pgf.Type([pgf.mkDepHypo("x", pgf.Type([], "N", [])), pgf.mkDepHypo("y", pgf.Type([], "P", [pgf.ExprVar(0)]))], "S", [])
+    assert pgf.showType(["n"], type) == "(x : N) -> (y : P x) -> S"
 
 # expressions
 
@@ -295,6 +295,20 @@ def test_readExpr_efun_equality_4():
             )
         )
 
+def test_readExpr_efun_str_unicode_1():
+    assert str(pgf.readExpr("'абв'")) == "'абв'"
+
+@pytest.mark.skip(reason="failing")
+def test_readExpr_efun_str_unicode_2():
+    assert str(pgf.readExpr("'аb'")) == "аb"
+
+@pytest.mark.skip(reason="failing")
+def test_readExpr_efun_str_unicode_3():
+    assert str(pgf.readExpr("'а\\'b'")) == "а'b"
+
+def test_readExpr_efun_str_unicode_4():
+    assert str(pgf.readExpr("'а\\'б'")) == "'а\\'б'"
+
 # expressions: variables
 
 # def test_readExpr_evar_equality_1():
@@ -355,6 +369,18 @@ def test_showExpr_eabs_7():
 def test_showExpr_eabs_8():
     expr = pgf.ExprApp(pgf.ExprFun("f"), pgf.ExprAbs(pgf.BIND_TYPE_EXPLICIT, "x", pgf.ExprVar(0)))
     assert pgf.showExpr([], expr) == "f (\\x->x)"
+
+def test_showExpr_eabs_freshvars_1():
+    expr = pgf.ExprAbs(pgf.BIND_TYPE_EXPLICIT, "v", pgf.ExprAbs(pgf.BIND_TYPE_EXPLICIT, "v", pgf.ExprVar(0)))
+    assert pgf.showExpr([], expr) == "\\v,v1->v1"
+
+def test_showExpr_eabs_freshvars_2():
+    expr = pgf.ExprAbs(pgf.BIND_TYPE_EXPLICIT, "v", pgf.ExprAbs(pgf.BIND_TYPE_EXPLICIT, "v", pgf.ExprVar(1)))
+    assert pgf.showExpr([], expr) == "\\v,v1->v"
+
+def test_showExpr_eabs_freshvars_3():
+    expr = pgf.ExprAbs(pgf.BIND_TYPE_EXPLICIT, "v", pgf.ExprAbs(pgf.BIND_TYPE_EXPLICIT, "v", pgf.ExprAbs(pgf.BIND_TYPE_EXPLICIT, "v", pgf.ExprVar(1))))
+    assert pgf.showExpr([], expr) == "\\v,v1,v2->v1"
 
 # expressions: meta variables
 

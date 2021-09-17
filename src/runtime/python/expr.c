@@ -26,11 +26,23 @@ Type_init(TypeObject *self, PyObject *args, PyObject *kwds)
     }
 
     for (Py_ssize_t i = 0; i < PyList_Size(hypos); i++) {
-        if (!PyObject_TypeCheck(PyList_GetItem(hypos, i), &PyTuple_Type)) {
-            PyErr_SetString(PyExc_TypeError, "invalid hypo in Type_init");
+        PyObject *tup = PyList_GetItem(hypos, i);
+        if (!PyObject_TypeCheck(tup, &PyTuple_Type)) {
+            PyErr_SetString(PyExc_TypeError, "invalid hypo in Type_init: not a tuple");
             return -1;
         }
-        // TODO check tuple elements
+        if (!PyLong_Check(PyTuple_GetItem(tup, 0))) {
+            PyErr_SetString(PyExc_TypeError, "invalid hypo in Type_init: bind type not an integer");
+            return -1;
+        }
+        if (!PyUnicode_Check(PyTuple_GetItem(tup, 1))) {
+            PyErr_SetString(PyExc_TypeError, "invalid hypo in Type_init: variable not a string");
+            return -1;
+        }
+        if (!PyObject_TypeCheck(PyTuple_GetItem(tup, 2), &pgf_TypeType)) {
+            PyErr_SetString(PyExc_TypeError, "invalid hypo in Type_init: type not a type");
+            return -1;
+        }
         // Py_INCREF(&hypos[i]);
     }
     for (Py_ssize_t i = 0; i < PyList_Size(exprs); i++) {

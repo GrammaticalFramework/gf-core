@@ -2678,6 +2678,24 @@ pgf_mkDepHypo(PyObject *self, PyObject *args)
     return tup;
 }
 
+static PyObject *
+pgf_mkImplHypo(PyObject *self, PyObject *args)
+{
+    PyObject *var;
+    PyObject *type;
+    if (!PyArg_ParseTuple(args, "UO!", &var, &pgf_TypeType, &type))
+        return NULL;
+
+    PyObject *tup = PyTuple_New(3);
+    PyTuple_SetItem(tup, 0, PyLong_FromLong(1)); // implicit
+    PyTuple_SetItem(tup, 1, var);
+    PyTuple_SetItem(tup, 2, type);
+    Py_INCREF(var);
+    Py_INCREF(type);
+
+    return tup;
+}
+
 static PyMethodDef module_methods[] = {
     {"readPGF",  (void*)pgf_readPGF,  METH_VARARGS,
      "Reads a PGF file into memory"},
@@ -2698,6 +2716,8 @@ static PyMethodDef module_methods[] = {
      "Creates hypothesis for non-dependent type i.e. A"},
     {"mkDepHypo", (void*)pgf_mkDepHypo, METH_VARARGS,
      "Creates hypothesis for dependent type i.e. (x : A)"},
+    {"mkImplHypo", (void*)pgf_mkImplHypo, METH_VARARGS,
+     "Creates hypothesis for dependent type with implicit argument i.e. ({x} : A)"},
     {NULL, NULL, 0, NULL}        /* Sentinel */
 };
 
