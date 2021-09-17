@@ -39,6 +39,8 @@ importGrammar pgf0 opts files =
                       return pgf0
     ".pgf" -> do
       mapM readPGF files >>= foldM ioUnionPGF pgf0
+    ".ngf" -> do
+      mapM readNGF files >>= foldM ioUnionPGF pgf0
     ext -> die $ "Unknown filename extension: " ++ show ext
 
 ioUnionPGF :: Maybe PGF -> PGF -> IO (Maybe PGF)

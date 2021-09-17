@@ -25,6 +25,8 @@ import qualified Data.Map as Map
 import qualified Data.IntMap as IntMap
 import Data.Array.IArray
 import Data.Maybe(fromMaybe)
+import System.FilePath
+import System.Directory
 
 import GHC.Prim
 import GHC.Base(getTag)
@@ -47,7 +49,20 @@ grammar2PGF opts gr am probs = do
 
     mkAbstr :: ModuleName -> Map.Map PGF2.Fun Double -> IO PGF
     mkAbstr am probs = do
-      gr <- newNGF (mi2i am) Nothing
+      let abs_name = mi2i am
+      mb_ngf_path <-
+         if snd (flag optLinkTargets opts)
+           then do let fname = maybe id (</>)
+                                     (flag optOutputDir opts)
+                                     (fromMaybe abs_name (flag optName opts)<.>"ngf")
+                   exists <- doesFileExist fname
+                   if exists
+                     then removeFile fname
+                     else return ()
+                   putStr ("(Boot image "++fname++") ")
+                   return (Just fname)
+           else do return Nothing
+      gr <- newNGF abs_name mb_ngf_path
       modifyPGF gr $ do
         sequence_ [setAbstractFlag name value | (name,value) <- flags]
         sequence_ [createCategory c ctxt p | (c,ctxt,p) <- cats]

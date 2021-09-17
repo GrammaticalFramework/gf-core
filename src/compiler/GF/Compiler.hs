@@ -157,7 +157,11 @@ writeOutputs opts pgf = do
 -- A split PGF file is output if the @-split-pgf@ option is used.
 writeGrammar :: Options -> PGF -> IOE ()
 writeGrammar opts pgf =
-  if flag optSplitPGF opts then writeSplitPGF else writeNormalPGF
+  if fst (flag optLinkTargets opts)
+    then if flag optSplitPGF opts
+           then writeSplitPGF
+           else writeNormalPGF
+    else return ()
   where
     writeNormalPGF =
        do let outfile = outputPath opts (grammarName opts pgf <.> "pgf")
