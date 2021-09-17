@@ -48,7 +48,7 @@ def test_bootNGF_existing(NGF):
 
 def test_readNGF_non_existant():
     with pytest.raises(FileNotFoundError):
-        pgf.readNGF("./abc.ngf") # create empty grammar
+        pgf.readNGF("./abc.ngf")
 
 def test_readNGF_GF():
     with pytest.raises(pgf.PGFError):
@@ -61,6 +61,21 @@ def test_readNGF_PGF():
 def test_readNGF(NGF):
     PGF = pgf.readNGF("./basic.ngf")
     assert len(PGF.categories) > 0
+
+# newNGF
+
+def test_newNGF_file(NGF):
+    PGF = pgf.newNGF("empty", "./empty.ngf")
+    assert len(PGF.categories) == 0
+    os.remove("./empty.ngf") # cleanup
+
+def test_newNGF_memory(NGF):
+    PGF = pgf.newNGF("empty")
+    assert len(PGF.categories) == 0
+
+def test_newNGF_existing(NGF):
+    with pytest.raises(FileExistsError):
+        pgf.newNGF("empty", "./basic.ngf")
 
 # abstract syntax
 

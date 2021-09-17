@@ -2540,6 +2540,33 @@ pgf_readNGF(PyObject *self, PyObject *args)
     return py_pgf;
 }
 
+static PGFObject*
+pgf_newNGF(PyObject *self, PyObject *args)
+{
+    const char *s;
+    Py_ssize_t size;
+    const char *fpath = NULL;
+    if (!PyArg_ParseTuple(args, "s#|s", &s, &size, &fpath))
+        return NULL;
+
+    PgfText *absname = (PgfText *)PyMem_Malloc(sizeof(PgfText)+size+1);
+    memcpy(absname->text, s, size+1);
+    absname->size = size;
+
+    PGFObject* py_pgf = (PGFObject*) pgf_PGFType.tp_alloc(&pgf_PGFType, 0);
+
+    // Read the NGF grammar.
+    PgfExn err;
+    py_pgf->db = pgf_new_ngf(absname, fpath, &py_pgf->revision, &err);
+    PyMem_Free(absname);
+    if (handleError(err) != PGF_EXN_NONE) {
+        Py_DECREF(py_pgf);
+        return NULL;
+    }
+
+    return py_pgf;
+}
+
 static ExprObject *
 pgf_readExpr(PyObject *self, PyObject *args)
 {
@@ -2703,6 +2730,9 @@ static PyMethodDef module_methods[] = {
      "Reads a PGF file into memory and stores the unpacked data in an NGF file"},
     {"readNGF",  (void*)pgf_readNGF,  METH_VARARGS,
      "Reads an NGF file into memory"},
+    {"newNGF",   (void*)pgf_newNGF,  METH_VARARGS,
+     "Creates a new NGF file with the given name"},
+
     {"readExpr", (void*)pgf_readExpr, METH_VARARGS,
      "Parses a string as an abstract tree"},
     {"showExpr", (void*)pgf_showExpr, METH_VARARGS,
