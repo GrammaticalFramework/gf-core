@@ -2614,6 +2614,70 @@ pgf_readType(PyObject *self, PyObject *args)
     return (TypeObject *)type;
 }
 
+static PyObject *
+pgf_showType(PyObject *self, PyObject *args)
+{
+    PyObject *pylist;
+    PyObject *pytype;
+    if (!PyArg_ParseTuple(args, "O!O!", &PyList_Type, &pylist, &pgf_TypeType, &pytype))
+        return NULL;
+
+    PgfPrintContext *ctxt = NULL;
+    for (Py_ssize_t i = PyList_Size(pylist); i > 0 ; i--) {
+        PyObject *item = PyList_GetItem(pylist, i-1);
+        if (!PyUnicode_Check(item)) {
+            PyErr_SetString(PyExc_TypeError, "invalid variable argument in showType");
+            return NULL;
+        }
+        PgfText *input = PyUnicode_AsPgfText(item);
+
+        // TODO a better way to copy into this->name?
+        PgfPrintContext *this = (PgfPrintContext *)PyMem_Malloc(sizeof(PgfPrintContext *) + sizeof(PgfText) + input->size + 1);
+        this->next = ctxt;
+        memcpy(&this->name, input, sizeof(PgfText) + input->size + 1);
+        ctxt = this;
+    }
+
+    PgfText *s = pgf_print_type((PgfType) pytype, ctxt, 0, &marshaller);
+    PyObject *str = PyUnicode_FromStringAndSize(s->text, s->size);
+    free(s);
+    return str;
+}
+
+static PyObject *
+pgf_mkHypo(PyObject *self, PyObject *args)
+{
+    PyObject *type;
+    if (!PyArg_ParseTuple(args, "O!", &pgf_TypeType, &type))
+        return NULL;
+
+    PyObject *tup = PyTuple_New(3);
+    PyTuple_SetItem(tup, 0, PyLong_FromLong(0)); // explicit
+    PyTuple_SetItem(tup, 1, PyUnicode_FromStringAndSize("_", 1));
+    PyTuple_SetItem(tup, 2, type);
+    Py_INCREF(type);
+
+    return tup;
+}
+
+static PyObject *
+pgf_mkDepHypo(PyObject *self, PyObject *args)
+{
+    PyObject *var;
+    PyObject *type;
+    if (!PyArg_ParseTuple(args, "UO!", &var, &pgf_TypeType, &type))
+        return NULL;
+
+    PyObject *tup = PyTuple_New(3);
+    PyTuple_SetItem(tup, 0, PyLong_FromLong(0)); // explicit
+    PyTuple_SetItem(tup, 1, var);
+    PyTuple_SetItem(tup, 2, type);
+    Py_INCREF(var);
+    Py_INCREF(type);
+
+    return tup;
+}
+
 static PyMethodDef module_methods[] = {
     {"readPGF",  (void*)pgf_readPGF,  METH_VARARGS,
      "Reads a PGF file into memory"},
@@ -2627,6 +2691,13 @@ static PyMethodDef module_methods[] = {
      "Renders an expression as a string"},
     {"readType", (void*)pgf_readType, METH_VARARGS,
      "Parses a string as an abstract type"},
+    {"showType", (void*)pgf_showType, METH_VARARGS,
+     "Renders a type as a string"},
+
+    {"mkHypo", (void*)pgf_mkHypo, METH_VARARGS,
+     "Creates hypothesis for non-dependent type i.e. A"},
+    {"mkDepHypo", (void*)pgf_mkDepHypo, METH_VARARGS,
+     "Creates hypothesis for dependent type i.e. (x : A)"},
     {NULL, NULL, 0, NULL}        /* Sentinel */
 };
 
@@ -2695,8 +2766,7 @@ MOD_INIT(pgf)
     // if (PyType_Ready(&pgf_IterType) < 0)
     //     return MOD_ERROR_VAL;
 
-    MOD_DEF(m, "pgf", "The Runtime for Portable Grammar Format in Python",
-            module_methods);
+    MOD_DEF(m, "pgf", "The Runtime for Portable Grammar Format in Python", module_methods);
     if (m == NULL)
         return MOD_ERROR_VAL;
 
@@ -2758,6 +2828,10 @@ MOD_INIT(pgf)
     //
     // PyModule_AddObject(m, "BIND", (PyObject *) &pgf_BINDType);
     // Py_INCREF(&pgf_BINDType);
+
+    PyModule_AddIntConstant(m, "BIND_TYPE_EXPLICIT", 0);
+
+    PyModule_AddIntConstant(m, "BIND_TYPE_IMPLICIT", 1);
 
     return MOD_SUCCESS_VAL(m);
 }
