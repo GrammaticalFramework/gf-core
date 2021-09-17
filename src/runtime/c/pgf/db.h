@@ -85,6 +85,8 @@ public:
     static PGF_INTERNAL_DECL void link_transient_revision(ref<PgfPGF> pgf);
     static PGF_INTERNAL_DECL void unlink_transient_revision(ref<PgfPGF> pgf);
 
+    static PGF_INTERNAL_DECL void sync();
+
 private:
     PGF_INTERNAL_DECL void init_state(size_t size);
 
@@ -102,7 +104,6 @@ public:
     ~DB_scope();
 
 private:
-    DB_scope_mode mode;
     PgfDB* save_db;
     DB_scope* next_scope;
 };

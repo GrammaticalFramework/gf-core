@@ -93,6 +93,8 @@ PgfDB *pgf_boot_ngf(const char* pgf_path, const char* ngf_path,
 
             PgfDB::set_revision(pgf);
             *revision = pgf.as_object();
+
+            PgfDB::sync();
         }
 
         return db;
@@ -169,6 +171,8 @@ PgfDB *pgf_new_ngf(PgfText *abstract_name,
             memcpy(&pgf->name, &master, sizeof(PgfText)+master.size+1);
             PgfDB::set_revision(pgf);
             *revision = pgf.as_object();
+
+            PgfDB::sync();
         }
 
         return db;
@@ -618,6 +622,8 @@ void pgf_commit_revision(PgfDB *db, PgfRevision revision,
 
         if (old_pgf != 0)
             PgfDB::link_transient_revision(old_pgf);
+
+        PgfDB::sync();
     } PGF_API_END
 }
 

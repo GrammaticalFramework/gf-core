@@ -1022,6 +1022,18 @@ void PgfDB::unlink_transient_revision(ref<PgfPGF> pgf)
         current_db->ms->transient_revisions = pgf->next;
 }
 
+PGF_INTERNAL
+void PgfDB::sync()
+{
+    malloc_state *ms = current_db->ms;
+    size_t size =
+        ms->top + chunksize(ptr(ms,ms->top)) + sizeof(size_t);
+
+    int res = msync((void *) ms, size, MS_SYNC | MS_INVALIDATE);
+    if (res != 0)
+        throw pgf_systemerror(errno);
+}
+
 DB_scope::DB_scope(PgfDB *db, DB_scope_mode m)
 {
     int res =
@@ -1029,8 +1041,6 @@ DB_scope::DB_scope(PgfDB *db, DB_scope_mode m)
                             : pthread_rwlock_wrlock(&db->rwlock);
     if (res != 0)
         throw pgf_systemerror(res);
-
-    mode          = m;
 
     save_db       = current_db;
     current_db    = db;
@@ -1044,19 +1054,7 @@ DB_scope::~DB_scope()
 {
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wterminate"
-    int res;
-
-    if (mode == WRITER_SCOPE) {
-        malloc_state *ms = current_db->ms;
-        size_t size =
-            ms->top + chunksize(ptr(ms,ms->top)) + sizeof(size_t);
-
-        res = msync((void *) ms, size, MS_SYNC | MS_INVALIDATE);
-        if (res != 0)
-            throw pgf_systemerror(errno);
-    }
-
-    res = pthread_rwlock_unlock(&current_db->rwlock);
+    int res = pthread_rwlock_unlock(&current_db->rwlock);
     if (res != 0)
         throw pgf_systemerror(res);
 
