@@ -219,12 +219,15 @@ utf8Length s = count 0 s
 -----------------------------------------------------------------------
 -- Exceptions
 
-newtype PGFError = PGFError String
-     deriving (Show, Typeable)
+data PGFError = PGFError String String
+     deriving Typeable
+
+instance Show PGFError where
+  show (PGFError loc msg) = loc++": "++msg
 
 instance Exception PGFError
 
-withPgfExn f =
+withPgfExn loc f =
   allocaBytes (#size PgfExn) $ \c_exn -> do
     res <- f c_exn
     ex_type <- (#peek PgfExn, type) c_exn :: IO (#type PgfExnType)
@@ -236,13 +239,13 @@ withPgfExn f =
          mb_fpath <- if c_msg == nullPtr
                        then return Nothing
                        else fmap Just (peekCString c_msg)
-         ioError (errnoToIOError "readPGF" (Errno errno) Nothing mb_fpath)
+         ioError (errnoToIOError loc (Errno errno) Nothing mb_fpath)
       (#const PGF_EXN_PGF_ERROR) -> do
          c_msg <- (#peek PgfExn, msg) c_exn
          msg <- peekCString c_msg
          free c_msg
-         throwIO (PGFError msg)
-      _ -> throwIO (PGFError "An unidentified error occurred")
+         throwIO (PGFError loc msg)
+      _ -> throwIO (PGFError loc "An unidentified error occurred")
 
 -----------------------------------------------------------------------
 -- Marshalling

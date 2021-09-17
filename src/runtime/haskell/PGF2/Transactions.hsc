@@ -75,7 +75,7 @@ branchPGF_ :: Ptr PgfText -> PGF -> Transaction a -> IO PGF
 branchPGF_ c_name p (Transaction f) =
   withForeignPtr (a_db p) $ \c_db ->
   withForeignPtr (revision p) $ \c_revision ->
-  withPgfExn $ \c_exn ->
+  withPgfExn "branchPGF" $ \c_exn ->
   mask $ \restore -> do
     c_revision <- pgf_clone_revision c_db c_revision c_name c_exn
     ex_type <- (#peek PgfExn, type) c_exn
@@ -103,7 +103,7 @@ checkoutPGF :: PGF -> String -> IO (Maybe PGF)
 checkoutPGF p name =
   withForeignPtr (a_db p) $ \c_db ->
   withText name $ \c_name -> do
-    c_revision <- withPgfExn (pgf_checkout_revision c_db c_name)
+    c_revision <- withPgfExn "checkoutPGF" (pgf_checkout_revision c_db c_name)
     if c_revision == nullPtr
       then return Nothing
       else do fptr2 <- C.newForeignPtr c_revision (withForeignPtr (a_db p) (\c_db -> pgf_free_revision c_db c_revision))
