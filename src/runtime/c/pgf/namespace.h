@@ -359,8 +359,10 @@ Namespace<V> namespace_insert(Namespace<V> map, ref<V> value)
         namespace_release(right);
         return node;
     } else {
-        map->left->ref_count++;
-        map->right->ref_count++;
+        if (map->left != 0)
+            map->left->ref_count++;
+        if (map->right != 0)
+            map->right->ref_count++;
         return Node<V>::new_node(value,map->left,map->right);
     }
 }
