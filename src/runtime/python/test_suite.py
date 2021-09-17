@@ -154,6 +154,42 @@ def test_functionType_wrong(PGF):
 def test_startCat(PGF):
     assert PGF.startCat == pgf.readType("S")
 
+def test_showType_1(PGF):
+    assert pgf.showType([], pgf.Type([], "N", [])) == "N"
+    # ,TestCase (assertEqual "show type 1" "N" (showType [] (DTyp [] "N" [])))
+
+def test_showType_2(PGF):
+    assert pgf.showType([], pgf.Type([pgf.mkHypo(pgf.Type([], "N", []))], "N", [])) == "N -> N"
+    # ,TestCase (assertEqual "show type 2" "N -> N"        (showType [] (DTyp [(Explicit,"_",DTyp [] "N" [])] "N" [])))
+
+def test_showType_3(PGF):
+    assert pgf.showType([], pgf.Type([pgf.mkHypo(pgf.Type([pgf.mkHypo(pgf.Type([], "N", []))], "N", []))], "N", [])) == "(N -> N) -> N"
+    # ,TestCase (assertEqual "show type 3" "(N -> N) -> N" (showType [] (DTyp [(Explicit,"_",DTyp [(Explicit,"_",DTyp [] "N" [])] "N" [])] "N" [])))
+
+# def test_showType_4(PGF):
+#     assert pgf.showType([], pgf.Type([], "N", [])) == "(x : N) -> P x"
+#     # ,TestCase (assertEqual "show type 4" "(x : N) -> P x" (showType [] (DTyp [(Explicit,"x",DTyp [] "N" [])] "P" [EVar 0])))
+#
+# def test_showType_5(PGF):
+#     assert pgf.showType([], pgf.Type([], "N", [])) == "(f : N -> N) -> P (f z)"
+#     # ,TestCase (assertEqual "show type 5" "(f : N -> N) -> P (f z)" (showType [] (DTyp [(Explicit,"f",DTyp [(Explicit,"_",DTyp [] "N" [])] "N" [])] "P" [EApp (EVar 0) (EFun "z")])))
+#
+# def test_showType_6(PGF):
+#     assert pgf.showType([], pgf.Type([], "N", [])) == "(f : N -> N) -> P (f n)"
+#     # ,TestCase (assertEqual "show type 6" "(f : N -> N) -> P (f n)" (showType ["n"] (DTyp [(Explicit,"f",DTyp [(Explicit,"_",DTyp [] "N" [])] "N" [])] "P" [EApp (EVar 0) (EVar 1)])))
+#
+# def test_showType_7(PGF):
+#     assert pgf.showType([], pgf.Type([], "N", [])) == "({f} : N -> N) -> P (f n)"
+#     # ,TestCase (assertEqual "show type 7" "({f} : N -> N) -> P (f n)" (showType ["n"] (DTyp [(Implicit,"f",DTyp [(Explicit,"_",DTyp [] "N" [])] "N" [])] "P" [EApp (EVar 0) (EVar 1)])))
+#
+# def test_showType_8(PGF):
+#     assert pgf.showType([], pgf.Type([], "N", [])) == "(x : N) -> P x -> S"
+#     # ,TestCase (assertEqual "show type 8" "(x : N) -> P x -> S" (showType [] (DTyp [(Explicit,"x",DTyp [] "N" []),(Explicit,"_",DTyp [] "P" [EVar 0])] "S" [])))
+#
+# def test_showType_9(PGF):
+#     assert pgf.showType([], pgf.Type([], "N", [])) == "(x : N) -> (y : P x) -> S"
+#     # ,TestCase (assertEqual "show type 9" "(x : N) -> (y : P x) -> S" (showType [] (DTyp [(Explicit,"x",DTyp [] "N" []),(Explicit,"y",DTyp [] "P" [EVar 0])] "S" [])))
+
 # expressions
 
 def test_readExpr_invalid():
@@ -210,8 +246,14 @@ def test_readExpr_lint_str_big3_neg():
 def test_readExpr_lflt_str():
     assert str(pgf.readExpr("3.142")) == "3.142"
 
-def test_readExpr_lstr_str():
+def test_readExpr_lstr_str_unicode():
     assert str(pgf.readExpr("\"açġħ\"")) == "\"açġħ\""
+
+def test_readExpr_lstr_null():
+    assert str(pgf.ExprLit("ab\0c")) == "\"ab\\0c\""
+
+def test_readExpr_lstr_newline():
+    assert str(pgf.ExprLit("ab\nc")) == "\"ab\\nc\""
 
 # expressions: functions
 
@@ -283,35 +325,35 @@ def test_showExpr_evar_4():
 # expressions: lambda abstractions
 
 def test_showExpr_eabs_1():
-    expr = pgf.ExprAbs(0, "w", pgf.ExprVar(0))
+    expr = pgf.ExprAbs(pgf.BIND_TYPE_EXPLICIT, "w", pgf.ExprVar(0))
     assert pgf.showExpr(["z", "y", "x"], expr) == "\\w->w"
 
 def test_showExpr_eabs_2():
-    expr = pgf.ExprAbs(0, "v", pgf.ExprAbs(0, "w", pgf.ExprVar(2)))
+    expr = pgf.ExprAbs(pgf.BIND_TYPE_EXPLICIT, "v", pgf.ExprAbs(pgf.BIND_TYPE_EXPLICIT, "w", pgf.ExprVar(2)))
     assert pgf.showExpr(["z", "y", "x"], expr) == "\\v,w->z"
 
 def test_showExpr_eabs_3():
-    expr = pgf.ExprAbs(0, "v", pgf.ExprAbs(1, "w", pgf.ExprVar(2)))
+    expr = pgf.ExprAbs(pgf.BIND_TYPE_EXPLICIT, "v", pgf.ExprAbs(pgf.BIND_TYPE_IMPLICIT, "w", pgf.ExprVar(2)))
     assert pgf.showExpr(["z", "y", "x"], expr) == "\\v,{w}->z"
 
 def test_showExpr_eabs_4():
-    expr = pgf.ExprAbs(0, "v", pgf.ExprAbs(1, "w", pgf.ExprAbs(0, "z", pgf.ExprVar(0))))
+    expr = pgf.ExprAbs(pgf.BIND_TYPE_EXPLICIT, "v", pgf.ExprAbs(pgf.BIND_TYPE_IMPLICIT, "w", pgf.ExprAbs(pgf.BIND_TYPE_EXPLICIT, "z", pgf.ExprVar(0))))
     assert pgf.showExpr(["y", "x"], expr) == "\\v,{w},z->z"
 
 def test_showExpr_eabs_5():
-    expr = pgf.ExprAbs(0, "v", pgf.ExprAbs(1, "w", pgf.ExprAbs(1, "z", pgf.ExprVar(2))))
+    expr = pgf.ExprAbs(pgf.BIND_TYPE_EXPLICIT, "v", pgf.ExprAbs(pgf.BIND_TYPE_IMPLICIT, "w", pgf.ExprAbs(pgf.BIND_TYPE_IMPLICIT, "z", pgf.ExprVar(2))))
     assert pgf.showExpr(["y", "x"], expr) == "\\v,{w,z}->v"
 
 def test_showExpr_eabs_6():
-    expr = pgf.ExprAbs(0, "v", pgf.ExprAbs(1, "w", pgf.ExprAbs(1, "z", pgf.ExprAbs(0, "t", pgf.ExprVar(3)))))
+    expr = pgf.ExprAbs(pgf.BIND_TYPE_EXPLICIT, "v", pgf.ExprAbs(pgf.BIND_TYPE_IMPLICIT, "w", pgf.ExprAbs(pgf.BIND_TYPE_IMPLICIT, "z", pgf.ExprAbs(pgf.BIND_TYPE_EXPLICIT, "t", pgf.ExprVar(3)))))
     assert pgf.showExpr(["y", "x"], expr) == "\\v,{w,z},t->v"
 
 def test_showExpr_eabs_7():
-    expr = pgf.ExprAbs(0, "u", pgf.ExprAbs(0, "v", pgf.ExprAbs(1, "w", pgf.ExprAbs(1, "z", pgf.ExprAbs(0, "t", pgf.ExprVar(3))))))
+    expr = pgf.ExprAbs(pgf.BIND_TYPE_EXPLICIT, "u", pgf.ExprAbs(pgf.BIND_TYPE_EXPLICIT, "v", pgf.ExprAbs(pgf.BIND_TYPE_IMPLICIT, "w", pgf.ExprAbs(pgf.BIND_TYPE_IMPLICIT, "z", pgf.ExprAbs(pgf.BIND_TYPE_EXPLICIT, "t", pgf.ExprVar(3))))))
     assert pgf.showExpr(["y", "x"], expr) == "\\u,v,{w,z},t->v"
 
 def test_showExpr_eabs_8():
-    expr = pgf.ExprApp(pgf.ExprFun("f"), pgf.ExprAbs(0, "x", pgf.ExprVar(0)))
+    expr = pgf.ExprApp(pgf.ExprFun("f"), pgf.ExprAbs(pgf.BIND_TYPE_EXPLICIT, "x", pgf.ExprVar(0)))
     assert pgf.showExpr([], expr) == "f (\\x->x)"
 
 # expressions: meta variables

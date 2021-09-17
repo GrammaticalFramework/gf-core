@@ -8,6 +8,48 @@
 
 // ----------------------------------------------------------------------------
 
+static TypeObject *
+Type_new(PyTypeObject *subtype, PyObject *args, PyObject *kwds)
+{
+    TypeObject* self = (TypeObject *)subtype->tp_alloc(subtype, 0);
+    return self;
+}
+
+static int
+Type_init(TypeObject *self, PyObject *args, PyObject *kwds)
+{
+    PyObject* hypos;
+    PyObject* cat;
+    PyObject* exprs;
+    if (!PyArg_ParseTuple(args, "O!UO!", &PyList_Type, &hypos, &cat, &PyList_Type, &exprs)) {
+        return -1;
+    }
+
+    for (Py_ssize_t i = 0; i < PyList_Size(hypos); i++) {
+        if (!PyObject_TypeCheck(PyList_GetItem(hypos, i), &PyTuple_Type)) {
+            PyErr_SetString(PyExc_TypeError, "invalid hypo in Type_init");
+            return -1;
+        }
+        // TODO check tuple elements
+        // Py_INCREF(&hypos[i]);
+    }
+    for (Py_ssize_t i = 0; i < PyList_Size(exprs); i++) {
+        if (!PyObject_TypeCheck(PyList_GetItem(exprs, i), &pgf_ExprType)) {
+            PyErr_SetString(PyExc_TypeError, "invalid expression in Type_init");
+            return -1;
+        }
+        // Py_INCREF(&exprs[i]);
+    }
+    self->hypos = hypos;
+    self->cat = cat;
+    self->exprs = exprs;
+    Py_INCREF(hypos);
+    // Py_INCREF(cat);
+    Py_INCREF(exprs);
+
+    return 0;
+}
+
 static PyObject *
 Type_str(TypeObject *self)
 {
@@ -17,8 +59,7 @@ Type_str(TypeObject *self)
     return str;
 }
 
-// static
-PyObject *
+static PyObject *
 Type_richcompare(TypeObject *t1, PyObject *p2, int op)
 {
     bool same = false;
@@ -120,9 +161,9 @@ PyTypeObject pgf_TypeType = {
     0,                         /*tp_descr_get */
     0,                         /*tp_descr_set */
     0,                         /*tp_dictoffset */
-    0, //(initproc) Type_init,      /*tp_init */
+    (initproc) Type_init,      /*tp_init */
     0,                         /*tp_alloc */
-    0, //(newfunc) Type_new,        /*tp_new */
+    (newfunc) Type_new,        /*tp_new */
 };
 
 // ----------------------------------------------------------------------------
