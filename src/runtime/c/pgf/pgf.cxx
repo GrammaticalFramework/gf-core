@@ -49,7 +49,7 @@ PgfDB *pgf_read_pgf(const char* fpath,
         {
             DB_scope scope(db, WRITER_SCOPE);
 
-            PgfReader rdr(in, fpath);
+            PgfReader rdr(in);
             ref<PgfPGF> pgf = rdr.read_pgf();
 
             PgfDB::set_revision(pgf);
@@ -88,7 +88,7 @@ PgfDB *pgf_boot_ngf(const char* pgf_path, const char* ngf_path,
         {
             DB_scope scope(db, WRITER_SCOPE);
 
-            PgfReader rdr(in, pgf_path);
+            PgfReader rdr(in);
             ref<PgfPGF> pgf = rdr.read_pgf();
 
             PgfDB::set_revision(pgf);
@@ -200,7 +200,7 @@ void pgf_write_pgf(const char* fpath,
             DB_scope scope(db, READER_SCOPE);
             ref<PgfPGF> pgf = PgfDB::revision2pgf(revision);
 
-            PgfWriter wtr(out, fpath);
+            PgfWriter wtr(out);
             wtr.write_pgf(pgf);
         }
     } PGF_API_END

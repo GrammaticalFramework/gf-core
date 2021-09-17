@@ -3,10 +3,9 @@
 #include <math.h>
 #include <string.h>
 
-PgfReader::PgfReader(FILE *in, const char *filepath)
+PgfReader::PgfReader(FILE *in)
 {
     this->in = in;
-    this->filepath = filepath;
 }
 
 uint8_t PgfReader::read_uint8()
@@ -14,9 +13,9 @@ uint8_t PgfReader::read_uint8()
     uint8_t b;
     size_t n_bytes = fread((char*) &b, sizeof(b), 1, in);
     if (feof(in))
-        throw pgf_error("reached end of file while reading a grammar");
+        throw pgf_error("reached end of file while reading the grammar");
     if (ferror(in))
-        throw pgf_systemerror(ferror(in), filepath);
+        throw pgf_error("an error occured while reading the grammar");
 
 	return b;
 }
@@ -28,7 +27,7 @@ uint16_t PgfReader::read_u16be()
     if (feof(in))
         throw pgf_error("reached end of file while reading a grammar");
     if (ferror(in))
-        throw pgf_systemerror(ferror(in), filepath);
+        throw pgf_error("an error occured while reading the grammar");
 
 	return (((uint16_t) buf[0]) << 8 | buf[1]);
 }
@@ -40,7 +39,7 @@ uint64_t PgfReader::read_u64be()
     if (feof(in))
         throw pgf_error("reached end of file while reading a grammar");
     if (ferror(in))
-        throw pgf_systemerror(ferror(in), filepath);
+        throw pgf_error("an error occured while reading the grammar");
 
 	return (((uint64_t) buf[0]) << 56 |
             ((uint64_t) buf[1]) << 48 |
@@ -96,7 +95,7 @@ object PgfReader::read_name_internal(size_t struct_size)
     if (feof(in))
         throw pgf_error("utf8 decoding error");
     if (ferror(in))
-        throw pgf_systemerror(ferror(in), filepath);
+        throw pgf_error("an error occured while reading the grammar");
 
     ptext->text[size] = 0;
 
@@ -132,7 +131,7 @@ object PgfReader::read_text_internal(size_t struct_size)
         if (feof(in))
             throw pgf_error("utf8 decoding error");
         if (ferror(in))
-            throw pgf_systemerror(ferror(in), filepath);
+            throw pgf_error("an error occured while reading the grammar");
 
         p += len;
 	}

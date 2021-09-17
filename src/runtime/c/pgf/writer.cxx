@@ -2,10 +2,9 @@
 #include "data.h"
 #include "writer.h"
 
-PgfWriter::PgfWriter(FILE *out, const char *filepath)
+PgfWriter::PgfWriter(FILE *out)
 {
     this->out = out;
-    this->filepath = filepath;
     this->abstract = 0;
 }
 
@@ -13,7 +12,7 @@ void PgfWriter::write_uint8(uint8_t b)
 {
     size_t n_items = fwrite(&b, sizeof(b), 1, out);
     if (ferror(out))
-        throw pgf_systemerror(ferror(out), filepath);
+        throw pgf_error("an error occured while writing out the grammar");
     if (n_items != 1)
         throw pgf_error("couldn't write to the output file");
 }
@@ -26,7 +25,7 @@ void PgfWriter::write_u16be(uint16_t u)
 
     size_t n_items = fwrite(&buf, sizeof(buf), 1, out);
     if (ferror(out))
-        throw pgf_systemerror(ferror(out), filepath);
+        throw pgf_error("an error occured while writing out the grammar");
     if (n_items != 1)
         throw pgf_error("couldn't write to the output file");
 }
@@ -45,7 +44,7 @@ void PgfWriter::write_u64be(uint64_t u)
 
     size_t n_items = fwrite(&buf, sizeof(buf), 1, out);
     if (ferror(out))
-        throw pgf_systemerror(ferror(out), filepath);
+        throw pgf_error("an error occured while writing out the grammar");
     if (n_items != 1)
         throw pgf_error("couldn't write to the output file");
 }
@@ -90,7 +89,7 @@ void PgfWriter::write_uint(uint64_t u)
 		if (u == 0) {
             size_t n_items = fwrite(&b, sizeof(b), 1, out);
             if (ferror(out))
-                throw pgf_systemerror(ferror(out), filepath);
+                throw pgf_error("an error occured while writing out the grammar");
             if (n_items != 1)
                 throw pgf_error("couldn't write to the output file");
 
@@ -100,7 +99,7 @@ void PgfWriter::write_uint(uint64_t u)
 
             size_t n_items = fwrite(&b, sizeof(b), 1, out);
             if (ferror(out))
-                throw pgf_systemerror(ferror(out), filepath);
+                throw pgf_error("an error occured while writing out the grammar");
             if (n_items != 1)
                 throw pgf_error("couldn't write to the output file");
 		}
@@ -112,7 +111,7 @@ void PgfWriter::write_name(PgfText *text)
 	write_len(text->size);
     size_t n_items = fwrite(&text->text, text->size, 1, out);
     if (ferror(out))
-        throw pgf_systemerror(ferror(out), filepath);
+        throw pgf_error("an error occured while writing out the grammar");
     if (n_items != 1)
         throw pgf_error("couldn't write to the output file");
 }
@@ -128,7 +127,7 @@ void PgfWriter::write_text(PgfText *text)
 	write_len(len);
     size_t n_items = fwrite(&text->text, text->size, 1, out);
     if (ferror(out))
-        throw pgf_systemerror(ferror(out), filepath);
+        throw pgf_error("an error occured while writing out the grammar");
     if (n_items != 1)
         throw pgf_error("couldn't write to the output file");
 }

@@ -4,7 +4,7 @@
 class PGF_INTERNAL_DECL PgfWriter
 {
 public:
-    PgfWriter(FILE *out, const char *filepath);
+    PgfWriter(FILE *out);
 
     void write_uint8(uint8_t b);
     void write_u16be(uint16_t u);
@@ -49,7 +49,6 @@ private:
     void write_namespace_helper(Namespace<V> nmsp, void (PgfWriter::*write_value)(ref<V>));
 
     FILE *out;
-    const char* filepath;
     ref<PgfAbstr> abstract;
 };
 

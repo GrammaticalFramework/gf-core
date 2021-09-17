@@ -8,7 +8,7 @@
 class PGF_INTERNAL_DECL PgfReader
 {
 public:
-    PgfReader(FILE *in, const char *filepath);
+    PgfReader(FILE *in);
 
     uint8_t read_uint8();
     uint16_t read_u16be();
@@ -72,7 +72,6 @@ public:
 
 private:
     FILE *in;
-    const char* filepath;
 
     object read_name_internal(size_t struct_size);
     object read_text_internal(size_t struct_size);
