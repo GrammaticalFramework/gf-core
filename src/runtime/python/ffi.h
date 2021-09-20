@@ -6,6 +6,15 @@
 
 #include <pgf/pgf.h>
 
+typedef struct {
+    PyObject_HEAD
+    PgfDB *db;
+    PgfRevision revision;
+} PGFObject;
+
+extern PyObject *PGFError;
+PgfExnType handleError(PgfExn err);
+
 PgfText *PyUnicode_AsPgfText(PyObject *pystr);
 PyObject *PyUnicode_FromPgfText(PgfText *text);
 

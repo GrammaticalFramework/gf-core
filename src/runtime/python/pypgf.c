@@ -4,34 +4,12 @@
 
 #include <pgf/pgf.h>
 #include "./expr.h"
-#include "./marshaller.h"
-
-static PyObject *PGFError;
-
-static
-PgfExnType handleError(PgfExn err)
-{
-    if (err.type == PGF_EXN_SYSTEM_ERROR) {
-        errno = err.code;
-        PyErr_SetFromErrnoWithFilename(PyExc_IOError, err.msg);
-    } else if (err.type == PGF_EXN_PGF_ERROR) {
-        PyErr_SetString(PGFError, err.msg);
-        free((char*) err.msg);
-    } else if (err.type == PGF_EXN_OTHER_ERROR) {
-        PyErr_SetString(PGFError, "an unknown error occured");
-    }
-    return err.type;
-}
+#include "./ffi.h"
+#include "./transactions.h"
 
 // static PyObject* ParseError;
 
 // static PyObject* TypeError;
-
-typedef struct {
-    PyObject_HEAD
-    PgfDB *db;
-    PgfRevision revision;
-} PGFObject;
 
 // typedef struct IterObject {
 //     PyObject_HEAD
@@ -1753,9 +1731,9 @@ typedef struct {
 //     gu_buf_push((GuBuf*) clo->collection, PgfConcr*, concr);
 // }
 
-static PyObject*
-PGF_str(PGFObject *self)
-{
+// static PyObject*
+// PGF_str(PGFObject *self)
+// {
     // GuPool* tmp_pool = gu_local_pool();
     //
     // GuExn* err = gu_exn(tmp_pool);
@@ -1776,8 +1754,8 @@ PGF_str(PGFObject *self)
     //
     // gu_pool_free(tmp_pool);
     // return pystr;
-    return NULL;
-}
+//     return NULL;
+// }
 
 static PyObject*
 PGF_getAbstractName(PGFObject *self, void *closure)
@@ -2410,6 +2388,21 @@ static PyMethodDef PGF_methods[] = {
     {"functionIsConstructor", (PyCFunction)PGF_functionIsConstructor, METH_VARARGS,
      "Checks whether a function is a constructor"
     },
+
+
+    {"createFunction", (PyCFunction)PGF_createFunction, METH_VARARGS,
+     "Create function"
+    },
+    {"dropFunction", (PyCFunction)PGF_dropFunction, METH_VARARGS,
+     "Drop function"
+    },
+    {"createCategory", (PyCFunction)PGF_createCategory, METH_VARARGS,
+     "Create category"
+    },
+    {"dropCategory", (PyCFunction)PGF_dropCategory, METH_VARARGS,
+     "Drop category"
+    },
+
     // {"generateAll", (PyCFunction)PGF_generateAll, METH_VARARGS | METH_KEYWORDS,
     //  "Generates abstract syntax trees of given category in decreasing probability order"
     // },
@@ -2454,7 +2447,7 @@ static PyTypeObject pgf_PGFType = {
     0,                         /*tp_as_mapping*/
     0,                         /*tp_hash */
     0,                         /*tp_call*/
-    (reprfunc) PGF_str,        /*tp_str*/
+    0, // (reprfunc) PGF_str,        /*tp_str*/
     0,                         /*tp_getattro*/
     0,                         /*tp_setattro*/
     0,                         /*tp_as_buffer*/
@@ -2478,6 +2471,8 @@ static PyTypeObject pgf_PGFType = {
     0,                         /*tp_alloc */
     0,                         /*tp_new */
 };
+
+// ----------------------------------------------------------------------------
 
 static PGFObject*
 pgf_readPGF(PyObject *self, PyObject *args)

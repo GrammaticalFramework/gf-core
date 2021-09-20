@@ -4,7 +4,7 @@
 
 #include <pgf/pgf.h>
 #include "./expr.h"
-#include "./marshaller.h"
+#include "./ffi.h"
 
 // ----------------------------------------------------------------------------
 

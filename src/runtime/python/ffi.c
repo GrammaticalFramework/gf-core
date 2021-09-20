@@ -5,7 +5,25 @@
 
 #include <pgf/pgf.h>
 #include "./expr.h"
-#include "./marshaller.h"
+#include "./ffi.h"
+
+/* static */
+PyObject *PGFError;
+
+/* static */
+PgfExnType handleError(PgfExn err)
+{
+    if (err.type == PGF_EXN_SYSTEM_ERROR) {
+        errno = err.code;
+        PyErr_SetFromErrnoWithFilename(PyExc_IOError, err.msg);
+    } else if (err.type == PGF_EXN_PGF_ERROR) {
+        PyErr_SetString(PGFError, err.msg);
+        free((char*) err.msg);
+    } else if (err.type == PGF_EXN_OTHER_ERROR) {
+        PyErr_SetString(PGFError, "an unknown error occured");
+    }
+    return err.type;
+}
 
 // ----------------------------------------------------------------------------
 
