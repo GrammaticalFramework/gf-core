@@ -16,6 +16,13 @@ def gr2(gr1):
     assert t.commit()
     return gr1
 
+@pytest.fixture(scope="module")
+def gr3(gr1):
+    with gr1.newTransaction() as t:
+        t.createFunction("bar", ty, 0, prob),
+        # t.createCategory("R", [(BIND_TYPE_EXPLICIT, "x", ty)], prob)
+    return gr1
+
 # gr1
 
 def test_original_functions(gr1):
@@ -48,3 +55,11 @@ def test_extended_function_type(gr2):
 
 # def test_extended_function_prob(gr2):
 #     assert gr2.functionProbability("foo") == prob
+
+# gr3
+
+# def test_branched_functions(gr3):
+#     assert gr3.functions == ["bar", "c", "ind", "s", "z"]
+#
+# def test_branched_function_type(gr3):
+#     assert gr3.functionType("bar") == ty

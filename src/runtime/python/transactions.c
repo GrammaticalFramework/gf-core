@@ -1,6 +1,6 @@
 #define PY_SSIZE_T_CLEAN
 #include <Python.h>
-// #include <stdbool.h>
+#include <structmember.h>
 
 #include <pgf/pgf.h>
 #include "./expr.h"
@@ -137,6 +137,40 @@ Transaction_dropCategory(TransactionObject *self, PyObject *args)
 
 // ----------------------------------------------------------------------------
 
+static PyObject *
+Transaction_enter(TransactionObject *self, PyObject *Py_UNUSED(ignored))
+{
+    Py_RETURN_TRUE;
+}
+
+static PyObject *
+Transaction_exit(TransactionObject *self, PyObject *const *args, Py_ssize_t nargs)
+{
+    // PyObject *exc_type = Py_None;
+    // PyObject *exc_value = Py_None;
+    // PyObject *exc_tb = Py_None;
+
+    // if (!_PyArg_CheckPositional("__exit__", nargs, 0, 3)) {
+    //     Py_RETURN_FALSE;
+    // }
+    if (nargs < 1) {
+        goto skip_optional;
+    }
+    // exc_type = args[0];
+    // if (nargs < 2) {
+    //     goto skip_optional;
+    // }
+    // exc_value = args[1];
+    // if (nargs < 3) {
+    //     goto skip_optional;
+    // }
+    // exc_tb = args[2];
+skip_optional:
+    // TODO check exception
+
+    return Transaction_commit(self, NULL);
+}
+
 // static void
 // Transaction_dealloc(PGFObject* self)
 // {
@@ -147,13 +181,21 @@ static PyGetSetDef Transaction_getseters[] = {
     {NULL}  /* Sentinel */
 };
 
-// static PyMemberDef Transaction_members[] = {
-//     {NULL}  /* Sentinel */
-// };
+static PyMemberDef Transaction_members[] = {
+    {NULL}  /* Sentinel */
+};
 
 static PyMethodDef Transaction_methods[] = {
     {"commit", (PyCFunction)Transaction_commit, METH_VARARGS,
      "Commit transaction"
+    },
+
+    {"__enter__", (PyCFunction)Transaction_enter, METH_NOARGS,
+     ""
+    },
+
+    {"__exit__", (PyCFunction)(void(*)(void))Transaction_exit, METH_FASTCALL,
+     ""
     },
 
     {"createFunction", (PyCFunction)Transaction_createFunction, METH_VARARGS,
@@ -175,7 +217,7 @@ PyTypeObject pgf_TransactionType = {
     PyVarObject_HEAD_INIT(NULL, 0)
     //0,                         /*ob_size*/
     "pgf.Transaction",                 /*tp_name*/
-    sizeof(PGFObject),         /*tp_basicsize*/
+    sizeof(TransactionObject),         /*tp_basicsize*/
     0,                         /*tp_itemsize*/
     0, //(destructor)Transaction_dealloc,   /*tp_dealloc*/
     0,                         /*tp_print*/
@@ -193,7 +235,7 @@ PyTypeObject pgf_TransactionType = {
     0,                         /*tp_setattro*/
     0,                         /*tp_as_buffer*/
     Py_TPFLAGS_DEFAULT | Py_TPFLAGS_BASETYPE, /*tp_flags*/
-    "PGF transaction",              /*tp_doc*/
+    "Transaction object",              /*tp_doc*/
     0,                           /*tp_traverse */
     0,                           /*tp_clear */
     0,                           /*tp_richcompare */
@@ -201,7 +243,7 @@ PyTypeObject pgf_TransactionType = {
     0,                           /*tp_iter */
     0,                           /*tp_iternext */
     Transaction_methods,               /*tp_methods */
-    0, //Transaction_members,               /*tp_members */
+    Transaction_members,               /*tp_members */
     Transaction_getseters,             /*tp_getset */
     0,                         /*tp_base */
     0,                         /*tp_dict */
