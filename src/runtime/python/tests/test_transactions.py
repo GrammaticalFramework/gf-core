@@ -18,7 +18,7 @@ def gr2(gr1):
 
 @pytest.fixture(scope="module")
 def gr3(gr1):
-    with gr1.newTransaction() as t:
+    with gr1.newTransaction("bar_branch") as t:
         t.createFunction("bar", ty, 0, prob),
         # t.createCategory("R", [(BIND_TYPE_EXPLICIT, "x", ty)], prob)
     return gr1

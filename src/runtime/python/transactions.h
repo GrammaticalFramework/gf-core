@@ -12,24 +12,9 @@ typedef struct {
     PgfRevision revision; // transient branch
 } TransactionObject;
 
-extern PyTypeObject pgf_TransactionType;
+PyTypeObject pgf_TransactionType;
 
 TransactionObject *
 PGF_newTransaction(PGFObject *self, PyObject *args);
-
-PyObject *
-Transaction_commit(TransactionObject *self, PyObject *args);
-
-PyObject *
-Transaction_createFunction(TransactionObject *self, PyObject *args);
-
-PyObject *
-Transaction_dropFunction(TransactionObject *self, PyObject *args);
-
-PyObject *
-Transaction_createCategory(TransactionObject *self, PyObject *args);
-
-PyObject *
-Transaction_dropCategory(TransactionObject *self, PyObject *args);
 
 #endif // PYPGF_TRANSACTIONS_H_

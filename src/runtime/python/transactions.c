@@ -11,10 +11,22 @@ TransactionObject *
 PGF_newTransaction(PGFObject *self, PyObject *args)
 {
     PgfText *name = NULL;
-    // PgfText *name = PyUnicode_AsPgfText(PyUnicode_FromString("transient"));
+    const char *s = NULL;
+    Py_ssize_t size;
+    if (!PyArg_ParseTuple(args, "|s#", &s, &size))
+        return NULL;
+
+    if (s != NULL) {
+        name = (PgfText *)PyMem_Malloc(sizeof(PgfText)+size+1);
+        memcpy(name->text, s, size+1);
+        name->size = size;
+    }
 
     PgfExn err;
     PgfRevision rev = pgf_clone_revision(self->db, self->revision, name, &err);
+    if (name != NULL) {
+        PyMem_Free(name);
+    }
     if (handleError(err) != PGF_EXN_NONE) {
         return NULL;
     }
@@ -26,7 +38,7 @@ PGF_newTransaction(PGFObject *self, PyObject *args)
     return trans;
 }
 
-PyObject *
+static PyObject *
 Transaction_commit(TransactionObject *self, PyObject *args)
 {
     PgfExn err;
@@ -40,7 +52,7 @@ Transaction_commit(TransactionObject *self, PyObject *args)
     Py_RETURN_TRUE;
 }
 
-PyObject *
+static PyObject *
 Transaction_createFunction(TransactionObject *self, PyObject *args)
 {
     const char *s;
@@ -65,7 +77,7 @@ Transaction_createFunction(TransactionObject *self, PyObject *args)
     Py_RETURN_NONE;
 }
 
-PyObject *
+static PyObject *
 Transaction_dropFunction(TransactionObject *self, PyObject *args)
 {
     const char *s;
@@ -87,7 +99,7 @@ Transaction_dropFunction(TransactionObject *self, PyObject *args)
     Py_RETURN_NONE;
 }
 
-PyObject *
+static PyObject *
 Transaction_createCategory(TransactionObject *self, PyObject *args)
 {
     const char *s;
@@ -113,7 +125,7 @@ Transaction_createCategory(TransactionObject *self, PyObject *args)
     Py_RETURN_NONE;
 }
 
-PyObject *
+static PyObject *
 Transaction_dropCategory(TransactionObject *self, PyObject *args)
 {
     const char *s;
@@ -134,8 +146,6 @@ Transaction_dropCategory(TransactionObject *self, PyObject *args)
 
     Py_RETURN_NONE;
 }
-
-// ----------------------------------------------------------------------------
 
 static PyObject *
 Transaction_enter(TransactionObject *self, PyObject *Py_UNUSED(ignored))

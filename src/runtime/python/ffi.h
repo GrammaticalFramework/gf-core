@@ -12,13 +12,13 @@ typedef struct {
     PgfRevision revision;
 } PGFObject;
 
-extern PyObject *PGFError;
+PyObject *PGFError;
 PgfExnType handleError(PgfExn err);
 
 PgfText *PyUnicode_AsPgfText(PyObject *pystr);
 PyObject *PyUnicode_FromPgfText(PgfText *text);
 
-extern PgfUnmarshaller unmarshaller;
-extern PgfMarshaller marshaller;
+PgfUnmarshaller unmarshaller;
+PgfMarshaller marshaller;
 
 #endif // PYPGF_FFI_H_
