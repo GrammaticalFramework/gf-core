@@ -18,7 +18,9 @@ def gr2(gr1):
     return gr1
 
 @pytest.fixture(scope="module")
-def gr3(gr1):
+def gr3():
+    # TODO how to avoid reloading from file?
+    gr1 = readPGF("../haskell/tests/basic.pgf")
     with gr1.newTransaction("bar_branch") as t:
         t.createFunction("bar", ty, 0, prob),
         t.createCategory("R", [(BIND_TYPE_EXPLICIT, "x", ty)], prob)
@@ -62,8 +64,8 @@ def test_extended_function_prob(gr2):
 
 # gr3
 
-# def test_branched_functions(gr3):
-#     assert gr3.functions == ["bar", "c", "ind", "s", "z"]
-#
-# def test_branched_function_type(gr3):
-#     assert gr3.functionType("bar") == ty
+def test_branched_functions(gr3):
+    assert gr3.functions == ["bar", "c", "ind", "s", "z"]
+
+def test_branched_function_type(gr3):
+    assert gr3.functionType("bar") == ty

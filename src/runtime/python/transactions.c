@@ -47,6 +47,7 @@ Transaction_commit(TransactionObject *self, PyObject *args)
         return NULL;
     }
 
+    pgf_free_revision(self->pgf->db, self->pgf->revision);
     self->pgf->revision = self->revision;
 
     Py_RETURN_TRUE;
@@ -156,10 +157,10 @@ Transaction_dropCategory(TransactionObject *self, PyObject *args)
     Py_RETURN_NONE;
 }
 
-static PyObject *
+static TransactionObject *
 Transaction_enter(TransactionObject *self, PyObject *Py_UNUSED(ignored))
 {
-    Py_RETURN_TRUE;
+    return self;
 }
 
 static PyObject *

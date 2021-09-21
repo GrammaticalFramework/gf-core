@@ -330,6 +330,8 @@ static PyGetSetDef PGF_getseters[] = {
 };
 
 static PyMemberDef PGF_members[] = {
+    // {"revision", T_PYSSIZET, offsetof(PGFObject, revision), READONLY,
+    //  "the revision number of this PGF"},
     {NULL}  /* Sentinel */
 };
 
