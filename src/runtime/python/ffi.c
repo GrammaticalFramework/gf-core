@@ -323,7 +323,8 @@ match_type(PgfMarshaller *this, PgfUnmarshaller *u, PgfType ty)
     TypeObject *type = (TypeObject *)ty;
 
     Py_ssize_t n_hypos = PyList_Size(type->hypos);
-    PgfTypeHypo *hypos = alloca(sizeof(PgfTypeHypo)*n_hypos);
+    PgfTypeHypo hypos[n_hypos];
+    // PgfTypeHypo *hypos = alloca(sizeof(PgfTypeHypo)*n_hypos);
     for (Py_ssize_t i = 0; i < n_hypos; i++) {
         PyObject *hytup = (PyObject *)PyList_GetItem(type->hypos, i);
         hypos[i].bind_type = PyLong_AsLong(PyTuple_GetItem(hytup, 0));
@@ -338,7 +339,8 @@ match_type(PgfMarshaller *this, PgfUnmarshaller *u, PgfType ty)
     }
 
     Py_ssize_t n_exprs = PyList_Size(type->exprs);
-    PgfExpr *exprs = alloca(sizeof(PgfExpr)*n_exprs);
+    PgfExpr exprs[n_exprs];
+    // PgfExpr *exprs = alloca(sizeof(PgfExpr)*n_exprs);
     for (Py_ssize_t i = 0; i < n_exprs; i++) {
         exprs[i] = (PgfExpr)PyList_GetItem(type->exprs, i);
         Py_INCREF(exprs[i]);

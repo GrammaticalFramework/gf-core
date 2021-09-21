@@ -104,16 +104,25 @@ Transaction_createCategory(TransactionObject *self, PyObject *args)
 {
     const char *s;
     Py_ssize_t size;
+    PyObject *hypos;
     float prob = 0.0;
-    if (!PyArg_ParseTuple(args, "s#f", &s, &size, prob))
+    if (!PyArg_ParseTuple(args, "s#O!f", &s, &size, &PyList_Type, &hypos, prob))
         return NULL;
 
     PgfText *catname = (PgfText *)PyMem_Malloc(sizeof(PgfText)+size+1);
     memcpy(catname->text, s, size+1);
     catname->size = size;
 
-    Py_ssize_t n_hypos = 0;
-    PgfTypeHypo *context = NULL;
+    Py_ssize_t n_hypos = PyList_Size(hypos);
+    PgfTypeHypo context[n_hypos];
+    // PgfTypeHypo *context = alloca(sizeof(PgfTypeHypo)*n_hypos);
+    for (Py_ssize_t i = 0; i < n_hypos; i++) {
+        PyObject *hytup = (PyObject *)PyList_GetItem(hypos, i);
+        context[i].bind_type = PyLong_AsLong(PyTuple_GetItem(hytup, 0));
+        context[i].cid = PyUnicode_AsPgfText(PyTuple_GetItem(hytup, 1));
+        context[i].type = (PgfType) PyTuple_GetItem(hytup, 2);
+        Py_INCREF(context[i].type);
+    }
 
     PgfExn err;
     pgf_create_category(self->pgf->db, self->revision, catname, n_hypos, context, prob, &marshaller, &err);
