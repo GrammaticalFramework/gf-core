@@ -1710,16 +1710,16 @@
 // };
 
 static void
-PGF_dealloc(PGFObject* self)
+PGF_dealloc(PGFObject *self)
 {
     pgf_free(self->db);
-    Py_TYPE(self)->tp_free((PyObject*)self);
+    Py_TYPE(self)->tp_free((PyObject *)self);
 }
 
 typedef struct {
     PgfItor fn;
-    PGFObject* grammar;
-    void* collection;
+    PGFObject *grammar;
+    void *collection;
 } PyPGFClosure;
 
 // static void
@@ -1757,11 +1757,11 @@ typedef struct {
 //     return NULL;
 // }
 
-static PyObject*
+static PyObject *
 PGF_getAbstractName(PGFObject *self, void *closure)
 {
     PgfExn err;
-    PgfText* txt = pgf_abstract_name(self->db, self->revision, &err);
+    PgfText *txt = pgf_abstract_name(self->db, self->revision, &err);
 
     if (handleError(err) != PGF_EXN_NONE) {
         return NULL;
@@ -1837,12 +1837,12 @@ PGF_getAbstractName(PGFObject *self, void *closure)
 // }
 
 static void
-pgf_collect_cats(PgfItor* fn, PgfText* key, void* value, PgfExn *err)
+pgf_collect_cats(PgfItor *fn, PgfText *key, void *value, PgfExn *err)
 {
-    PgfText* name = key;
-    PyPGFClosure* clo = (PyPGFClosure*) fn;
+    PgfText *name = key;
+    PyPGFClosure *clo = (PyPGFClosure*) fn;
 
-    PyObject* py_name = PyUnicode_FromStringAndSize(name->text, name->size);
+    PyObject *py_name = PyUnicode_FromStringAndSize(name->text, name->size);
     if (py_name == NULL) {
         err->type = PGF_EXN_OTHER_ERROR;
         err->msg = "unable to create string from category";
@@ -1856,10 +1856,10 @@ pgf_collect_cats(PgfItor* fn, PgfText* key, void* value, PgfExn *err)
     }
 }
 
-static PyObject*
+static PyObject *
 PGF_getCategories(PGFObject *self, void *closure)
 {
-    PyObject* categories = PyList_New(0);
+    PyObject *categories = PyList_New(0);
     if (categories == NULL)
         return NULL;
 
@@ -1874,7 +1874,7 @@ PGF_getCategories(PGFObject *self, void *closure)
     return categories;
 }
 
-static PyObject*
+static PyObject *
 PGF_categoryContext(PGFObject *self, PyObject *args)
 {
     const char *s;
@@ -1937,12 +1937,12 @@ PGF_getStartCat(PGFObject *self, void *closure)
 }
 
 static void
-pgf_collect_funs(PgfItor* fn, PgfText* key, void* value, PgfExn *err)
+pgf_collect_funs(PgfItor *fn, PgfText *key, void *value, PgfExn *err)
 {
-    PgfText* name = key;
-    PyPGFClosure* clo = (PyPGFClosure*) fn;
+    PgfText *name = key;
+    PyPGFClosure *clo = (PyPGFClosure*) fn;
 
-    PyObject* py_name = PyUnicode_FromStringAndSize(name->text, name->size);
+    PyObject *py_name = PyUnicode_FromStringAndSize(name->text, name->size);
     if (py_name == NULL) {
         err->type = PGF_EXN_OTHER_ERROR;
         err->msg = "unable to create string from function";
@@ -1955,10 +1955,10 @@ pgf_collect_funs(PgfItor* fn, PgfText* key, void* value, PgfExn *err)
     }
 }
 
-static PyObject*
+static PyObject *
 PGF_getFunctions(PGFObject *self, void *closure)
 {
-    PyObject* functions = PyList_New(0);
+    PyObject *functions = PyList_New(0);
     if (functions == NULL)
         return NULL;
 
@@ -2389,18 +2389,8 @@ static PyMethodDef PGF_methods[] = {
      "Checks whether a function is a constructor"
     },
 
-
-    {"createFunction", (PyCFunction)PGF_createFunction, METH_VARARGS,
-     "Create function"
-    },
-    {"dropFunction", (PyCFunction)PGF_dropFunction, METH_VARARGS,
-     "Drop function"
-    },
-    {"createCategory", (PyCFunction)PGF_createCategory, METH_VARARGS,
-     "Create category"
-    },
-    {"dropCategory", (PyCFunction)PGF_dropCategory, METH_VARARGS,
-     "Drop category"
+    {"newTransaction", (PyCFunction)PGF_newTransaction, METH_VARARGS,
+     "Create new transaction"
     },
 
     // {"generateAll", (PyCFunction)PGF_generateAll, METH_VARARGS | METH_KEYWORDS,
@@ -2474,14 +2464,14 @@ static PyTypeObject pgf_PGFType = {
 
 // ----------------------------------------------------------------------------
 
-static PGFObject*
+static PGFObject *
 pgf_readPGF(PyObject *self, PyObject *args)
 {
     const char *fpath;
     if (!PyArg_ParseTuple(args, "s", &fpath))
         return NULL;
 
-    PGFObject* py_pgf = (PGFObject*) pgf_PGFType.tp_alloc(&pgf_PGFType, 0);
+    PGFObject *py_pgf = (PGFObject *)pgf_PGFType.tp_alloc(&pgf_PGFType, 0);
 
     // Read the PGF grammar.
     PgfExn err;
@@ -2494,7 +2484,7 @@ pgf_readPGF(PyObject *self, PyObject *args)
     return py_pgf;
 }
 
-static PGFObject*
+static PGFObject *
 pgf_bootNGF(PyObject *self, PyObject *args)
 {
     const char *fpath; // pgf
@@ -2502,7 +2492,7 @@ pgf_bootNGF(PyObject *self, PyObject *args)
     if (!PyArg_ParseTuple(args, "ss", &fpath, &npath))
         return NULL;
 
-    PGFObject* py_pgf = (PGFObject*) pgf_PGFType.tp_alloc(&pgf_PGFType, 0);
+    PGFObject *py_pgf = (PGFObject *)pgf_PGFType.tp_alloc(&pgf_PGFType, 0);
 
     // Read the PGF grammar.
     PgfExn err;
@@ -2515,14 +2505,14 @@ pgf_bootNGF(PyObject *self, PyObject *args)
     return py_pgf;
 }
 
-static PGFObject*
+static PGFObject *
 pgf_readNGF(PyObject *self, PyObject *args)
 {
     const char *fpath;
     if (!PyArg_ParseTuple(args, "s", &fpath))
         return NULL;
 
-    PGFObject* py_pgf = (PGFObject*) pgf_PGFType.tp_alloc(&pgf_PGFType, 0);
+    PGFObject *py_pgf = (PGFObject *)pgf_PGFType.tp_alloc(&pgf_PGFType, 0);
 
     // Read the NGF grammar.
     PgfExn err;
@@ -2535,7 +2525,7 @@ pgf_readNGF(PyObject *self, PyObject *args)
     return py_pgf;
 }
 
-static PGFObject*
+static PGFObject *
 pgf_newNGF(PyObject *self, PyObject *args)
 {
     const char *s;
@@ -2548,7 +2538,7 @@ pgf_newNGF(PyObject *self, PyObject *args)
     memcpy(absname->text, s, size+1);
     absname->size = size;
 
-    PGFObject* py_pgf = (PGFObject*) pgf_PGFType.tp_alloc(&pgf_PGFType, 0);
+    PGFObject *py_pgf = (PGFObject *)pgf_PGFType.tp_alloc(&pgf_PGFType, 0);
 
     // Read the NGF grammar.
     PgfExn err;
@@ -2769,7 +2759,13 @@ MOD_INIT(pgf)
     if (PyType_Ready(&pgf_PGFType) < 0)
         return MOD_ERROR_VAL;
 
+    if (PyType_Ready(&pgf_TransactionType) < 0)
+        return MOD_ERROR_VAL;
+
     // if (PyType_Ready(&pgf_ConcrType) < 0)
+    //     return MOD_ERROR_VAL;
+    //
+    // if (PyType_Ready(&pgf_IterType) < 0)
     //     return MOD_ERROR_VAL;
     //
     // if (PyType_Ready(&pgf_BracketType) < 0)
@@ -2808,9 +2804,6 @@ MOD_INIT(pgf)
     if (PyType_Ready(&pgf_TypeType) < 0)
         return MOD_ERROR_VAL;
 
-    // if (PyType_Ready(&pgf_IterType) < 0)
-    //     return MOD_ERROR_VAL;
-
     MOD_DEF(m, "pgf", "The Runtime for Portable Grammar Format in Python", module_methods);
     if (m == NULL)
         return MOD_ERROR_VAL;
@@ -2828,6 +2821,24 @@ MOD_INIT(pgf)
     // TypeError = PyErr_NewException("pgf.TypeError", NULL, NULL);
     // PyModule_AddObject(m, "TypeError", TypeError);
     // Py_INCREF(TypeError);
+
+    PyModule_AddObject(m, "PGF", (PyObject *) &pgf_PGFType);
+    Py_INCREF(&pgf_PGFType);
+
+    PyModule_AddObject(m, "Transaction", (PyObject *) &pgf_TransactionType);
+    Py_INCREF(&pgf_TransactionType);
+
+    // PyModule_AddObject(m, "Concr", (PyObject *) &pgf_ConcrType);
+    // Py_INCREF(&pgf_ConcrType);
+    //
+    // PyModule_AddObject(m, "Iter", (PyObject *) &pgf_IterType);
+    // Py_INCREF(&pgf_IterType);
+    //
+    // PyModule_AddObject(m, "Bracket", (PyObject *) &pgf_BracketType);
+    // Py_INCREF(&pgf_BracketType);
+    //
+    // PyModule_AddObject(m, "BIND", (PyObject *) &pgf_BINDType);
+    // Py_INCREF(&pgf_BINDType);
 
     PyModule_AddObject(m, "Expr", (PyObject *) &pgf_ExprType);
     Py_INCREF(&pgf_ExprType);
@@ -2858,21 +2869,6 @@ MOD_INIT(pgf)
 
     PyModule_AddObject(m, "Type", (PyObject *) &pgf_TypeType);
     Py_INCREF(&pgf_TypeType);
-
-    PyModule_AddObject(m, "PGF", (PyObject *) &pgf_PGFType);
-    Py_INCREF(&pgf_PGFType);
-
-    // PyModule_AddObject(m, "Concr", (PyObject *) &pgf_ConcrType);
-    // Py_INCREF(&pgf_ConcrType);
-    //
-    // PyModule_AddObject(m, "Iter", (PyObject *) &pgf_IterType);
-    // Py_INCREF(&pgf_IterType);
-    //
-    // PyModule_AddObject(m, "Bracket", (PyObject *) &pgf_BracketType);
-    // Py_INCREF(&pgf_BracketType);
-    //
-    // PyModule_AddObject(m, "BIND", (PyObject *) &pgf_BINDType);
-    // Py_INCREF(&pgf_BINDType);
 
     PyModule_AddIntConstant(m, "BIND_TYPE_EXPLICIT", 0);
 

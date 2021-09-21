@@ -6,33 +6,30 @@
 
 #include <pgf/pgf.h>
 
-// typedef struct {
-//     PyObject_HEAD
-//     PyObject *thing;
-// } TransactionObject;
+typedef struct {
+    PyObject_HEAD
+    PGFObject *pgf; // original reference, gets updated on commit
+    PgfRevision revision; // transient branch
+} TransactionObject;
 
-// modifyPGF
-//
-// branchPGF
-//
-// checkoutPGF
+extern PyTypeObject pgf_TransactionType;
 
-PyObject *
-PGF_createFunction(PGFObject *self, PyObject *args);
+TransactionObject *
+PGF_newTransaction(PGFObject *self, PyObject *args);
 
 PyObject *
-PGF_dropFunction(PGFObject *self, PyObject *args);
+Transaction_commit(TransactionObject *self, PyObject *args);
 
 PyObject *
-PGF_createCategory(PGFObject *self, PyObject *args);
+Transaction_createFunction(TransactionObject *self, PyObject *args);
 
 PyObject *
-PGF_dropCategory(PGFObject *self, PyObject *args);
+Transaction_dropFunction(TransactionObject *self, PyObject *args);
 
-// setGlobalFlag
-//
-// setAbstractFlag
+PyObject *
+Transaction_createCategory(TransactionObject *self, PyObject *args);
 
-
+PyObject *
+Transaction_dropCategory(TransactionObject *self, PyObject *args);
 
 #endif // PYPGF_TRANSACTIONS_H_
