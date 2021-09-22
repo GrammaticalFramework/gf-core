@@ -8,12 +8,17 @@ license-file: LICENSE
 category: Natural Language Processing, Compiler
 synopsis: Grammatical Framework
 description: GF, Grammatical Framework, is a programming language for multilingual grammar applications
+maintainer: John J. Camilleri <john@digitalgrammars.com>
 homepage: https://www.grammaticalframework.org/
 bug-reports: https://github.com/GrammaticalFramework/gf-core/issues
 tested-with: GHC==7.10.3, GHC==8.0.2, GHC==8.10.4
 
 data-dir: src
-extra-source-files: WebSetup.hs
+extra-source-files:
+  README.md
+  CHANGELOG.md
+  WebSetup.hs
+  doc/Logos/gf0.png
 data-files:
   www/*.html
   www/*.css
@@ -106,7 +111,7 @@ library
 --ghc-options: -fwarn-unused-imports
 --if impl(ghc>=7.8)
 --  ghc-options: +RTS -A20M -RTS
-  ghc-prof-options: -fprof-auto
+  -- ghc-prof-options: -fprof-auto
 
   exposed-modules:
     PGF
@@ -370,7 +375,7 @@ executable gf
     if impl(ghc<7.8)
       ghc-options: -with-rtsopts=-K64M
 
-  ghc-prof-options: -auto-all
+  -- ghc-prof-options: -auto-all
 
   if impl(ghc>=8.2)
     ghc-options: -fhide-source-paths
