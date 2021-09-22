@@ -23,11 +23,11 @@ type ConcName = String -- ^ Name of concrete syntax
 
 -- | An abstract data type representing multilingual grammar
 -- in Portable Grammar Format.
-data PGF = PGF { a_db     :: ForeignPtr PgfDB
+data PGF = PGF { a_db     :: Ptr PgfDB
                , revision :: ForeignPtr PgfRevision
                , languages:: Map.Map ConcName Concr
                }
-data Concr = Concr {c_pgf :: ForeignPtr PgfDB, concr :: Ptr PgfConcr}
+data Concr = Concr {c_pgf :: Ptr PgfDB, concr :: Ptr PgfConcr}
 
 ------------------------------------------------------------------
 -- libpgf API
@@ -61,9 +61,6 @@ foreign import ccall "pgf_read_ngf"
 foreign import ccall pgf_new_ngf :: Ptr PgfText -> CString -> Ptr (Ptr PgfRevision) -> Ptr PgfExn -> IO (Ptr PgfDB)
 
 foreign import ccall pgf_write_pgf :: CString -> Ptr PgfDB -> Ptr PgfRevision -> Ptr PgfExn -> IO ()
-
-foreign import ccall "&pgf_free"
-  pgf_free_fptr :: FinalizerPtr PgfDB
 
 foreign import ccall "pgf_free_revision"
   pgf_free_revision :: Ptr PgfDB -> Ptr PgfRevision -> IO ()

@@ -65,6 +65,10 @@ private:
     friend class PgfReader;
 
 public:
+    // Here we count to how many revisions the client has access.
+    // When the count is zero we release the database.
+    int ref_count;
+
     PGF_INTERNAL_DECL PgfDB(const char* filepath, int flags, int mode);
     PGF_INTERNAL_DECL ~PgfDB();
 

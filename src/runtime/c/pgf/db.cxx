@@ -289,6 +289,7 @@ PgfDB::PgfDB(const char* filepath, int flags, int mode) {
 
     fd = -1;
     ms = NULL;
+    ref_count = 0;
 
     if (filepath == NULL) {
         this->filepath = NULL;

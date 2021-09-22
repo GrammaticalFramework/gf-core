@@ -259,10 +259,8 @@ void pgf_write_pgf(const char* fpath,
                    PgfDB *db, PgfRevision revision,
                    PgfExn* err);
 
-/* Release the database when it is no longer needed. */
-PGF_API_DECL
-void pgf_free(PgfDB *pgf);
-
+/* Release a revision. If this is the last revision for the given
+ * database, then the database is released as well. */
 PGF_API_DECL
 void pgf_free_revision(PgfDB *pgf, PgfRevision revision);
 
