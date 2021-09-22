@@ -91,7 +91,7 @@ Transaction_dropFunction(TransactionObject *self, PyObject *args)
     fname->size = size;
 
     PgfExn err;
-    pgf_drop_category(self->pgf->db, self->revision, fname, &err);
+    pgf_drop_function(self->pgf->db, self->revision, fname, &err);
     PyMem_Free(fname);
     if (handleError(err) != PGF_EXN_NONE) {
         return NULL;
@@ -115,8 +115,8 @@ Transaction_createCategory(TransactionObject *self, PyObject *args)
     catname->size = size;
 
     Py_ssize_t n_hypos = PyList_Size(hypos);
-    PgfTypeHypo context[n_hypos];
-    // PgfTypeHypo *context = alloca(sizeof(PgfTypeHypo)*n_hypos);
+    // PgfTypeHypo context[n_hypos];
+    PgfTypeHypo *context = alloca(sizeof(PgfTypeHypo)*n_hypos);
     for (Py_ssize_t i = 0; i < n_hypos; i++) {
         PyObject *hytup = (PyObject *)PyList_GetItem(hypos, i);
         context[i].bind_type = PyLong_AsLong(PyTuple_GetItem(hytup, 0));
@@ -148,7 +148,7 @@ Transaction_dropCategory(TransactionObject *self, PyObject *args)
     catname->size = size;
 
     PgfExn err;
-    pgf_drop_function(self->pgf->db, self->revision, catname, &err);
+    pgf_drop_category(self->pgf->db, self->revision, catname, &err);
     PyMem_Free(catname);
     if (handleError(err) != PGF_EXN_NONE) {
         return NULL;
