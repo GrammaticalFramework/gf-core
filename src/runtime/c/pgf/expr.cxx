@@ -815,7 +815,7 @@ PgfType PgfExprParser::parse_type()
     PgfText *cat = NULL;
 
     size_t n_args = 0;
-    PgfType *args = NULL;
+    PgfExpr *args = NULL;
 
 	for (;;) {
 		if (token_tag == PGF_TOKEN_LPAR) {
