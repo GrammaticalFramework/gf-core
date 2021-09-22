@@ -23,19 +23,19 @@ import Data.Maybe(fromMaybe,isNothing)
 import qualified Control.Monad.Fail as Fail
 
 checkLType :: GlobalEnv -> Term -> Type -> Check (Term, Type)
-checkLType ge t ty = runTcM $ do
+checkLType ge t ty = error "TODO: checkLType" {- runTcM $ do
   vty <- liftErr (eval ge [] ty)
   (t,_) <- tcRho ge [] t (Just vty)
   t <- zonkTerm t
-  return (t,ty)
+  return (t,ty) -}
 
 inferLType :: GlobalEnv -> Term -> Check (Term, Type)
-inferLType ge t = runTcM $ do
+inferLType ge t = error "TODO: inferLType" {- runTcM $ do
   (t,ty) <- inferSigma ge [] t
   t  <- zonkTerm t
   ty <- zonkTerm =<< tc_value2term (geLoc ge) [] ty
-  return (t,ty)
-
+  return (t,ty) -}
+{-
 inferSigma :: GlobalEnv -> Scope -> Term -> TcM (Term,Sigma)
 inferSigma ge scope t = do                                      -- GEN1
   (t,ty) <- tcRho ge scope t Nothing
@@ -800,3 +800,4 @@ runTcA g f = TcM (\ms msgs -> case f of
                                                  [(x,ms,msgs)] -> TcOk x ms msgs
                                                  rs            -> unTcM (g xs) ms msgs
                                 TcSingle f                     -> f ms msgs)
+-}

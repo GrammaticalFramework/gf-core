@@ -2,6 +2,10 @@
 {-# LANGUAGE TypeSynonymInstances, FlexibleInstances #-}
 module GF.Compile.Compute.Predef(predef,predefName,delta) where
 
+predef = undefined
+predefName = undefined
+delta = undefined
+{-
 import qualified Data.Map as Map
 import Data.Array(array,(!))
 import Data.List (isInfixOf,genericTake,genericDrop,genericLength)
@@ -173,4 +177,5 @@ swap (x,y) = (y,x)
 bug msg = ppbug msg
 ppbug doc = error $ render $
                     hang "Internal error in Compute.Predef:" 4 doc
+-}
 -}

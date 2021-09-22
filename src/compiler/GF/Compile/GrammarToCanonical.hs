@@ -16,7 +16,7 @@ import GF.Grammar.Macros(typeForm,collectOp,collectPattOp,composSafeOp,mkAbs,mkA
 import GF.Grammar.Lockfield(isLockLabel)
 import GF.Grammar.Predef(cPredef,cInts)
 import GF.Compile.Compute.Predef(predef)
-import GF.Compile.Compute.Value(Predefined(..))
+-- import GF.Compile.Compute.Value(Predefined(..))
 import GF.Infra.Ident(ModuleName(..),Ident,ident2raw,rawIdentS,showIdent,isWildIdent)
 import GF.Infra.Option(Options,optionsPGF)
 import PGF2(Literal(..))
@@ -204,7 +204,7 @@ convert' gr vs = ppT
 
     ppCase (p,t) = TableRow (ppP p) (ppTv (patVars p++vs) t)
 
-    ppPredef n =
+    ppPredef n = error "TODO: ppPredef" {-
       case predef n of
         Ok BIND       -> p "BIND"
         Ok SOFT_BIND  -> p "SOFT_BIND"
@@ -214,7 +214,7 @@ convert' gr vs = ppT
         _ -> VarValue (gQId cPredef n) -- hmm
       where
        p = PredefValue . PredefId . rawIdentS
-
+-}
     ppP p =
       case p of
         PC c ps -> ParamPattern (Param (gId c) (map ppP ps))
