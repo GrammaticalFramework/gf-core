@@ -326,7 +326,7 @@ match_type(PgfMarshaller *this, PgfUnmarshaller *u, PgfType ty)
     PgfTypeHypo hypos[n_hypos];
     // PgfTypeHypo *hypos = alloca(sizeof(PgfTypeHypo)*n_hypos);
     for (Py_ssize_t i = 0; i < n_hypos; i++) {
-        PyObject *hytup = (PyObject *)PyList_GetItem(type->hypos, i);
+        PyObject *hytup = PyList_GetItem(type->hypos, i);
         hypos[i].bind_type = PyLong_AsLong(PyTuple_GetItem(hytup, 0));
         hypos[i].cid = PyUnicode_AsPgfText(PyTuple_GetItem(hytup, 1));
         hypos[i].type = (PgfType) PyTuple_GetItem(hytup, 2);

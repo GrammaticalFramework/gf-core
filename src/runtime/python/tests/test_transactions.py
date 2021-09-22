@@ -7,24 +7,25 @@ prob = math.pi
 
 @pytest.fixture(scope="module")
 def gr1():
-    return readPGF("../haskell/tests/basic.pgf")
+    gr = readPGF("../haskell/tests/basic.pgf")
+    yield gr
 
 @pytest.fixture(scope="module")
-def gr2(gr1):
-    t = gr1.newTransaction()
-    t.createFunction("foo", ty, 0, prob),
+def gr2():
+    gr = readPGF("../haskell/tests/basic.pgf")
+    t = gr.newTransaction()
+    t.createFunction("foo", ty, 0, prob)
     t.createCategory("Q", [(BIND_TYPE_EXPLICIT, "x", ty)], prob)
-    assert t.commit()
-    return gr1
+    t.commit()
+    yield gr
 
 @pytest.fixture(scope="module")
 def gr3():
-    # TODO how to avoid reloading from file?
-    gr1 = readPGF("../haskell/tests/basic.pgf")
-    with gr1.newTransaction("bar_branch") as t:
-        t.createFunction("bar", ty, 0, prob),
+    gr = readPGF("../haskell/tests/basic.pgf")
+    with gr.newTransaction("bar_branch") as t:
+        t.createFunction("bar", ty, 0, prob)
         t.createCategory("R", [(BIND_TYPE_EXPLICIT, "x", ty)], prob)
-    return gr1
+    yield gr
 
 # gr1
 
@@ -66,6 +67,12 @@ def test_extended_function_prob(gr2):
 
 def test_branched_functions(gr3):
     assert gr3.functions == ["bar", "c", "ind", "s", "z"]
+
+def test_branched_categories(gr3):
+    assert gr3.categories == ["Float","Int","N","P","R","S","String"]
+
+def test_extended_category_context(gr3):
+    assert gr3.categoryContext("R") == [(BIND_TYPE_EXPLICIT, "x", ty)]
 
 def test_branched_function_type(gr3):
     assert gr3.functionType("bar") == ty
