@@ -73,41 +73,39 @@ branchPGF p name t =
 
 branchPGF_ :: Ptr PgfText -> PGF -> Transaction a -> IO PGF
 branchPGF_ c_name p (Transaction f) =
-  withForeignPtr (a_db p) $ \c_db ->
   withForeignPtr (revision p) $ \c_revision ->
   withPgfExn "branchPGF" $ \c_exn ->
   mask $ \restore -> do
-    c_revision <- pgf_clone_revision c_db c_revision c_name c_exn
+    c_revision <- pgf_clone_revision (a_db p) c_revision c_name c_exn
     ex_type <- (#peek PgfExn, type) c_exn
     if (ex_type :: (#type PgfExnType)) == (#const PGF_EXN_NONE)
-      then do ((restore (f c_db c_revision c_exn))
+      then do ((restore (f (a_db p) c_revision c_exn))
                `catch`
                (\e -> do
-                    pgf_free_revision c_db c_revision
+                    pgf_free_revision (a_db p) c_revision
                     throwIO (e :: SomeException)))
               ex_type <- (#peek PgfExn, type) c_exn
               if (ex_type :: (#type PgfExnType)) == (#const PGF_EXN_NONE)
-                then do pgf_commit_revision c_db c_revision c_exn
+                then do pgf_commit_revision (a_db p) c_revision c_exn
                         ex_type <- (#peek PgfExn, type) c_exn
                         if (ex_type :: (#type PgfExnType)) == (#const PGF_EXN_NONE)
-                          then do fptr2 <- C.newForeignPtr c_revision (withForeignPtr (a_db p) (\c_db -> pgf_free_revision c_db c_revision))
-                                  return (PGF (a_db p) fptr2 (languages p))
-                          else do pgf_free_revision c_db c_revision
+                          then do fptr <- C.newForeignPtr c_revision (pgf_free_revision (a_db p) c_revision)
+                                  return (PGF (a_db p) fptr (languages p))
+                          else do pgf_free_revision (a_db p) c_revision
                                   return p
-                else do pgf_free_revision c_db c_revision
+                else do pgf_free_revision (a_db p) c_revision
                         return p
       else return p
 
 {- | Retrieves the branch with the given name -}
 checkoutPGF :: PGF -> String -> IO (Maybe PGF)
 checkoutPGF p name =
-  withForeignPtr (a_db p) $ \c_db ->
   withText name $ \c_name -> do
-    c_revision <- withPgfExn "checkoutPGF" (pgf_checkout_revision c_db c_name)
+    c_revision <- withPgfExn "checkoutPGF" (pgf_checkout_revision (a_db p) c_name)
     if c_revision == nullPtr
       then return Nothing
-      else do fptr2 <- C.newForeignPtr c_revision (withForeignPtr (a_db p) (\c_db -> pgf_free_revision c_db c_revision))
-              return (Just (PGF (a_db p) fptr2 (languages p)))
+      else do fptr <- C.newForeignPtr c_revision (pgf_free_revision (a_db p) c_revision)
+              return (Just (PGF (a_db p) fptr (languages p)))
 
 createFunction :: Fun -> Type -> Int -> Float -> Transaction ()
 createFunction name ty arity prob = Transaction $ \c_db c_revision c_exn ->

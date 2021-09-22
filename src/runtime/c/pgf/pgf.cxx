@@ -56,6 +56,7 @@ PgfDB *pgf_read_pgf(const char* fpath,
             *revision = pgf.as_object();
         }
 
+        db->ref_count++;
         return db;
     } PGF_API_END
 
@@ -97,6 +98,7 @@ PgfDB *pgf_boot_ngf(const char* pgf_path, const char* ngf_path,
             PgfDB::sync();
         }
 
+        db->ref_count++;
         return db;
     } PGF_API_END
 
@@ -130,6 +132,7 @@ PgfDB *pgf_read_ngf(const char *fpath,
             *revision = pgf.as_object();
         }
 
+        db->ref_count++;
         return db;
     } PGF_API_END
 
@@ -175,6 +178,7 @@ PgfDB *pgf_new_ngf(PgfText *abstract_name,
             PgfDB::sync();
         }
 
+        db->ref_count++;
         return db;
     } PGF_API_END
 
@@ -214,12 +218,6 @@ end:
         fclose(out);
 }
 
-PGF_API
-void pgf_free(PgfDB *db)
-{
-    delete db;
-}
-
 PGF_API_DECL
 void pgf_free_revision(PgfDB *db, PgfRevision revision)
 {
@@ -240,9 +238,14 @@ void pgf_free_revision(PgfDB *db, PgfRevision revision)
             PgfPGF::release(pgf);
             PgfDB::free(pgf);
         }
+
+        db->ref_count--;
     } catch (std::runtime_error& e) {
         // silently ignore and hope for the best
     }
+
+    if (!db->ref_count)
+        delete db;
 }
 
 PGF_API
@@ -601,6 +604,7 @@ PgfRevision pgf_clone_revision(PgfDB *db, PgfRevision revision,
         memcpy(&new_pgf->name, ((name == NULL) ? &pgf->name : name),
                    sizeof(PgfText)+name_size+1);
 
+        db->ref_count++;
         return new_pgf.as_object();
     } PGF_API_END
 
@@ -635,6 +639,7 @@ PgfRevision pgf_checkout_revision(PgfDB *db, PgfText *name,
         DB_scope scope(db, WRITER_SCOPE);
         ref<PgfPGF> pgf = PgfDB::get_revision(name);
         Node<PgfPGF>::add_value_ref(pgf);
+        db->ref_count++;
         return pgf.as_object();
     } PGF_API_END
 

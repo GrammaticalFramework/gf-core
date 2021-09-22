@@ -638,8 +638,7 @@ PgfBind *PgfExprParser::parse_bind(PgfBind *next)
         PgfBind *bind = (PgfBind *) malloc(sizeof(PgfBind)+var->size+1);
         bind->bind_type = bind_type;
         bind->next      = last;
-        bind->var.size  = var->size;
-        memcpy(bind->var.text, var->text, var->size+1);
+        memcpy(&bind->var, var, sizeof(PgfText)+var->size+1);
         last = bind;
 
         token();
@@ -816,7 +815,7 @@ PgfType PgfExprParser::parse_type()
     PgfText *cat = NULL;
 
     size_t n_args = 0;
-    PgfType *args = NULL;
+    PgfExpr *args = NULL;
 
 	for (;;) {
 		if (token_tag == PGF_TOKEN_LPAR) {
@@ -908,10 +907,14 @@ PgfType PgfExprParser::parse_type()
 	type = u->dtyp(n_hypos,hypos,cat,n_args,args);
 
 exit:
+    PgfType last_type = 0;
     while (n_hypos > 0) {
         PgfTypeHypo *hypo = &hypos[--n_hypos];
-        u->free_ref(hypo->type);
         free(hypo->cid);
+        if (hypo->type != last_type) {
+            u->free_ref(hypo->type);
+            last_type = hypo->type;
+        }
     }
     free(hypos);
 

@@ -1,4 +1,4 @@
-![GF Logo](doc/Logos/gf1.svg)
+![GF Logo](https://www.grammaticalframework.org/doc/Logos/gf1.svg)
 
 # Grammatical Framework (GF)
 
@@ -39,7 +39,7 @@ or:
 stack install
 ```
 
-For more information, including links to precompiled binaries, see the [download page](http://www.grammaticalframework.org/download/index.html).
+For more information, including links to precompiled binaries, see the [download page](https://www.grammaticalframework.org/download/index.html).
 
 ## About this repository
 
