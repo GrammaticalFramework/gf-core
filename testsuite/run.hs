@@ -6,13 +6,17 @@ import System.Process(readProcess)
 import System.Directory(doesFileExist,getDirectoryContents)
 import System.FilePath((</>),(<.>),takeExtension)
 import System.Exit(exitSuccess,exitFailure)
+import System.Environment
 
 type TestResult = (FilePath, RunResult)
 type RunResult = (String, (String, String, String)) -- (message, (input commands, gold output, actual output))
 
 main :: IO ()
 main =
-   do res <- walk "testsuite"
+   do args <- getArgs
+      res <- case args of
+               []   -> walk "testsuite"
+               args -> fmap concat $ mapM walk args
       let cnt = length res
           (good,bad) = partition ((=="OK").fst.snd) res
           ok = length good + length (filter ((=="FAIL (expected)").fst.snd) bad)
@@ -27,22 +31,20 @@ main =
 
 -- | Recurse through files in path, running a test for all .gfs files
 walk :: FilePath -> IO [TestResult]
-walk path = fmap concat . mapM (walkFile . (path </>)) =<< ls path
-  where
-    walkFile :: FilePath -> IO [TestResult]
-    walkFile fpath = do
-      exists <- doesFileExist fpath
-      if exists
-        then if takeExtension fpath == ".gfs"
-               then do let in_file   = fpath
-                           gold_file = fpath <.> ".gold"
-                           out_file  = fpath <.> ".out"
-                       putStr $ in_file++": "; hFlush stdout
-                       res <- runTest in_file out_file gold_file
-                       putStrLn $ fst res
-                       return [(in_file,res)]
-               else return []
-        else walk fpath
+walk fpath = do
+  exists <- doesFileExist fpath
+  if exists
+    then if takeExtension fpath == ".gfs"
+           then do let in_file   = fpath
+                       gold_file = fpath <.> ".gold"
+                       out_file  = fpath <.> ".out"
+                   putStr $ in_file++": "; hFlush stdout
+                   res <- runTest in_file out_file gold_file
+                   putStrLn $ fst res
+                   return [(in_file,res)]
+           else return []
+    else do files <- filter (`notElem` [".",".."]) `fmap` getDirectoryContents fpath
+            fmap concat $ mapM (walk . (fpath </>)) files
 
 -- | Run an individual test
 runTest :: FilePath -> FilePath -> FilePath -> IO RunResult
@@ -101,10 +103,6 @@ defaultGF = "gf"<.>exeExtension
     exeExtension = case buildPlatform of
       Platform arch Windows -> "exe"
       _ -> ""
-
--- | List files, excluding "." and ".."
-ls :: FilePath -> IO [String]
-ls path = filter (`notElem` [".",".."]) `fmap` getDirectoryContents path
 
 -- | Avoid failures caused by Win32/Unix text file incompatibility
 compatReadFile :: FilePath -> IO String
