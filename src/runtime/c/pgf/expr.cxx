@@ -638,8 +638,7 @@ PgfBind *PgfExprParser::parse_bind(PgfBind *next)
         PgfBind *bind = (PgfBind *) malloc(sizeof(PgfBind)+var->size+1);
         bind->bind_type = bind_type;
         bind->next      = last;
-        bind->var.size  = var->size;
-        memcpy(bind->var.text, var->text, var->size+1);
+        memcpy(&bind->var, var, sizeof(PgfText)+var->size+1);
         last = bind;
 
         token();
