@@ -812,9 +812,6 @@ PgfType PgfExprParser::parse_type()
     size_t n_hypos = 0;
     PgfTypeHypo *hypos = NULL;
 
-    size_t n_types = 0;
-    PgfType *types = NULL;
-
     PgfText *cat = NULL;
 
     size_t n_args = 0;
@@ -853,9 +850,6 @@ PgfType PgfExprParser::parse_type()
 			PgfType type = parse_type();
 			if (type == 0)
 				goto exit;
-
-            types = (PgfType*) realloc(types, sizeof(PgfType)*(n_types+1));
-            types[n_types++] = type;
 
 			if (token_tag != PGF_TOKEN_RPAR)
 				goto exit;
@@ -897,9 +891,6 @@ PgfType PgfExprParser::parse_type()
             bt->type = u->dtyp(0,NULL,cat,n_args,args);
             n_hypos++;
 
-            types = (PgfType*) realloc(types, sizeof(PgfType)*(n_types+1));
-            types[n_types++] = bt->type;
-
             while (n_args > 0) {
                 u->free_ref(args[--n_args]);
             }
@@ -916,17 +907,16 @@ PgfType PgfExprParser::parse_type()
 	type = u->dtyp(n_hypos,hypos,cat,n_args,args);
 
 exit:
+    PgfType last_type = 0;
     while (n_hypos > 0) {
         PgfTypeHypo *hypo = &hypos[--n_hypos];
         free(hypo->cid);
+        if (hypo->type != last_type) {
+            u->free_ref(hypo->type);
+            last_type = hypo->type;
+        }
     }
     free(hypos);
-
-    while (n_types > 0) {
-        PgfType type = types[--n_types];
-        u->free_ref(type);
-    }
-    free(types);
 
     free(cat);
 
