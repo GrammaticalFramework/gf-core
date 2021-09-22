@@ -927,14 +927,14 @@ exit:
 
 PgfExpr PgfExprProbEstimator::eabs(PgfBindType bind_type, PgfText *name, PgfExpr body)
 {
-    m->match_type(this, body);
+    m->match_expr(this, body);
     return 0;
 }
 
 PgfExpr PgfExprProbEstimator::eapp(PgfExpr fun, PgfExpr arg)
 {
-    m->match_type(this, fun);
-    m->match_type(this, arg);
+    m->match_expr(this, fun);
+    m->match_expr(this, arg);
     return 0;
 }
 
@@ -967,13 +967,13 @@ PgfExpr PgfExprProbEstimator::evar(int index)
 
 PgfExpr PgfExprProbEstimator::etyped(PgfExpr expr, PgfType ty)
 {
-    m->match_type(this, expr);
+    m->match_expr(this, expr);
     return 0;
 }
 
 PgfExpr PgfExprProbEstimator::eimplarg(PgfExpr expr)
 {
-    m->match_type(this, expr);
+    m->match_expr(this, expr);
     return 0;
 }
 
