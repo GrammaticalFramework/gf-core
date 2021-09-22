@@ -5,9 +5,29 @@
 
 #include <pgf/pgf.h>
 #include "./expr.h"
-#include "./marshaller.h"
+#include "./ffi.h"
 
 // ----------------------------------------------------------------------------
+// errors
+
+PyObject *PGFError;
+
+PgfExnType handleError(PgfExn err)
+{
+    if (err.type == PGF_EXN_SYSTEM_ERROR) {
+        errno = err.code;
+        PyErr_SetFromErrnoWithFilename(PyExc_IOError, err.msg);
+    } else if (err.type == PGF_EXN_PGF_ERROR) {
+        PyErr_SetString(PGFError, err.msg);
+        free((char*) err.msg);
+    } else if (err.type == PGF_EXN_OTHER_ERROR) {
+        PyErr_SetString(PGFError, "an unknown error occured");
+    }
+    return err.type;
+}
+
+// ----------------------------------------------------------------------------
+// string conversions
 
 PgfText *
 PyUnicode_AsPgfText(PyObject *pystr)
@@ -35,15 +55,10 @@ PyUnicode_FromPgfText(PgfText *text)
 }
 
 // ----------------------------------------------------------------------------
+// unmarshaller
 
-/* The PgfUnmarshaller structure tells the runtime how to create
- * abstract syntax expressions and types in the heap of the host language.
- * In Python the expressions are normal objects.
- * From the point of view of the runtime, each node is a value of type object.
- * For Python that would be a PyObject pointer.
- */
-
-PgfExpr eabs(PgfUnmarshaller *this, PgfBindType btype, PgfText *name, PgfExpr body)
+static PgfExpr
+eabs(PgfUnmarshaller *this, PgfBindType btype, PgfText *name, PgfExpr body)
 {
     ExprAbsObject *pyexpr = (ExprAbsObject *)pgf_ExprAbsType.tp_alloc(&pgf_ExprAbsType, 0);
     pyexpr->bindType = PyLong_FromLong(btype);
@@ -53,7 +68,8 @@ PgfExpr eabs(PgfUnmarshaller *this, PgfBindType btype, PgfText *name, PgfExpr bo
     return (PgfExpr) pyexpr;
 }
 
-PgfExpr eapp(PgfUnmarshaller *this, PgfExpr fun, PgfExpr arg)
+static PgfExpr
+eapp(PgfUnmarshaller *this, PgfExpr fun, PgfExpr arg)
 {
     ExprAppObject *pyexpr = (ExprAppObject *)pgf_ExprAppType.tp_alloc(&pgf_ExprAppType, 0);
     pyexpr->e1 = (ExprObject *)fun;
@@ -63,7 +79,8 @@ PgfExpr eapp(PgfUnmarshaller *this, PgfExpr fun, PgfExpr arg)
     return (PgfExpr) pyexpr;
 }
 
-PgfExpr elit(PgfUnmarshaller *this, PgfLiteral lit)
+static PgfExpr
+elit(PgfUnmarshaller *this, PgfLiteral lit)
 {
     ExprLitObject *pyexpr = (ExprLitObject *)pgf_ExprLitType.tp_alloc(&pgf_ExprLitType, 0);
     PyObject *pyobj = (PyObject *)lit;
@@ -72,14 +89,16 @@ PgfExpr elit(PgfUnmarshaller *this, PgfLiteral lit)
     return (PgfExpr) pyexpr;
 }
 
-PgfExpr emeta(PgfUnmarshaller *this, PgfMetaId meta)
+static PgfExpr
+emeta(PgfUnmarshaller *this, PgfMetaId meta)
 {
     ExprMetaObject *pyexpr = (ExprMetaObject *)pgf_ExprMetaType.tp_alloc(&pgf_ExprMetaType, 0);
     pyexpr->id = PyLong_FromLong(meta);
     return (PgfExpr) pyexpr;
 }
 
-PgfExpr efun(PgfUnmarshaller *this, PgfText *name)
+static PgfExpr
+efun(PgfUnmarshaller *this, PgfText *name)
 {
     ExprFunObject *pyexpr = (ExprFunObject *)pgf_ExprFunType.tp_alloc(&pgf_ExprFunType, 0);
     PyObject *pyobj = PyUnicode_FromPgfText(name);
@@ -88,14 +107,16 @@ PgfExpr efun(PgfUnmarshaller *this, PgfText *name)
     return (PgfExpr) pyexpr;
 }
 
-PgfExpr evar(PgfUnmarshaller *this, int index)
+static PgfExpr
+evar(PgfUnmarshaller *this, int index)
 {
     ExprVarObject *pyexpr = (ExprVarObject *)pgf_ExprVarType.tp_alloc(&pgf_ExprVarType, 0);
     pyexpr->index = PyLong_FromLong(index);
     return (PgfExpr) pyexpr;
 }
 
-PgfExpr etyped(PgfUnmarshaller *this, PgfExpr expr, PgfType typ)
+static PgfExpr
+etyped(PgfUnmarshaller *this, PgfExpr expr, PgfType typ)
 {
     ExprTypedObject *pyexpr = (ExprTypedObject *)pgf_ExprTypedType.tp_alloc(&pgf_ExprTypedType, 0);
     pyexpr->expr = (ExprObject *)expr;
@@ -105,7 +126,8 @@ PgfExpr etyped(PgfUnmarshaller *this, PgfExpr expr, PgfType typ)
     return (PgfExpr) pyexpr;
 }
 
-PgfExpr eimplarg(PgfUnmarshaller *this, PgfExpr expr)
+static PgfExpr
+eimplarg(PgfUnmarshaller *this, PgfExpr expr)
 {
     ExprImplArgObject *pyexpr = (ExprImplArgObject *)pgf_ExprImplArgType.tp_alloc(&pgf_ExprImplArgType, 0);
     pyexpr->expr = (ExprObject *)expr;
@@ -113,7 +135,8 @@ PgfExpr eimplarg(PgfUnmarshaller *this, PgfExpr expr)
     return (PgfExpr) pyexpr;
 }
 
-PgfLiteral lint(PgfUnmarshaller *this, size_t size, uintmax_t *v)
+static PgfLiteral
+lint(PgfUnmarshaller *this, size_t size, uintmax_t *v)
 {
     intmax_t *v0 = (intmax_t *)v;
     PyObject *i = PyLong_FromLong(*v0);
@@ -137,19 +160,22 @@ PgfLiteral lint(PgfUnmarshaller *this, size_t size, uintmax_t *v)
     }
 }
 
-PgfLiteral lflt(PgfUnmarshaller *this, double v)
+static PgfLiteral
+lflt(PgfUnmarshaller *this, double v)
 {
     PyObject *d = PyFloat_FromDouble(v);
     return (PgfLiteral) d;
 }
 
-PgfLiteral lstr(PgfUnmarshaller *this, PgfText *v)
+static PgfLiteral
+lstr(PgfUnmarshaller *this, PgfText *v)
 {
     PyObject *s = PyUnicode_FromStringAndSize(v->text, v->size);
     return (PgfLiteral) s;
 }
 
-PgfType dtyp(PgfUnmarshaller *this, int n_hypos, PgfTypeHypo *hypos, PgfText *cat, int n_exprs, PgfExpr *exprs)
+static PgfType
+dtyp(PgfUnmarshaller *this, int n_hypos, PgfTypeHypo *hypos, PgfText *cat, int n_exprs, PgfExpr *exprs)
 {
     TypeObject *pytype = (TypeObject *)pgf_TypeType.tp_alloc(&pgf_TypeType, 0);
 
@@ -173,7 +199,8 @@ PgfType dtyp(PgfUnmarshaller *this, int n_hypos, PgfTypeHypo *hypos, PgfText *ca
     return (PgfType) pytype;
 }
 
-void free_ref(PgfUnmarshaller *this, object x)
+static void
+free_ref(PgfUnmarshaller *this, object x)
 {
     // Py_XDECREF(x);
 }
@@ -195,12 +222,13 @@ static PgfUnmarshallerVtbl unmarshallerVtbl =
     free_ref
 };
 
-/* static */
 PgfUnmarshaller unmarshaller = { &unmarshallerVtbl };
 
 // ----------------------------------------------------------------------------
+// marshaller
 
-object match_lit(PgfMarshaller *this, PgfUnmarshaller *u, PgfLiteral lit)
+static object
+match_lit(PgfMarshaller *this, PgfUnmarshaller *u, PgfLiteral lit)
 {
     PyObject *pyobj = (PyObject *)lit;
 
@@ -247,7 +275,8 @@ object match_lit(PgfMarshaller *this, PgfUnmarshaller *u, PgfLiteral lit)
     }
 }
 
-object match_expr(PgfMarshaller *this, PgfUnmarshaller *u, PgfExpr expr)
+static object
+match_expr(PgfMarshaller *this, PgfUnmarshaller *u, PgfExpr expr)
 {
     PyObject *pyobj = (PyObject *)expr;
 
@@ -288,12 +317,14 @@ object match_expr(PgfMarshaller *this, PgfUnmarshaller *u, PgfExpr expr)
     }
 }
 
-object match_type(PgfMarshaller *this, PgfUnmarshaller *u, PgfType ty)
+static object
+match_type(PgfMarshaller *this, PgfUnmarshaller *u, PgfType ty)
 {
     TypeObject *type = (TypeObject *)ty;
 
     Py_ssize_t n_hypos = PyList_Size(type->hypos);
-    PgfTypeHypo *hypos = alloca(sizeof(PgfTypeHypo)*n_hypos);
+    PgfTypeHypo hypos[n_hypos];
+    // PgfTypeHypo *hypos = alloca(sizeof(PgfTypeHypo)*n_hypos);
     for (Py_ssize_t i = 0; i < n_hypos; i++) {
         PyObject *hytup = (PyObject *)PyList_GetItem(type->hypos, i);
         hypos[i].bind_type = PyLong_AsLong(PyTuple_GetItem(hytup, 0));
@@ -308,7 +339,8 @@ object match_type(PgfMarshaller *this, PgfUnmarshaller *u, PgfType ty)
     }
 
     Py_ssize_t n_exprs = PyList_Size(type->exprs);
-    PgfExpr *exprs = alloca(sizeof(PgfExpr)*n_exprs);
+    PgfExpr exprs[n_exprs];
+    // PgfExpr *exprs = alloca(sizeof(PgfExpr)*n_exprs);
     for (Py_ssize_t i = 0; i < n_exprs; i++) {
         exprs[i] = (PgfExpr)PyList_GetItem(type->exprs, i);
         Py_INCREF(exprs[i]);
@@ -335,5 +367,4 @@ static PgfMarshallerVtbl marshallerVtbl =
     match_type
 };
 
-/* static */
 PgfMarshaller marshaller = { &marshallerVtbl };

@@ -10,7 +10,12 @@ if libraries==['']:
 
 pgf_module = Extension(
     'pgf',
-    sources = ['pypgf.c', 'marshaller.c', 'expr.c'],
+    sources = [
+        'pypgf.c',
+        'expr.c',
+        'ffi.c',
+        'transactions.c'
+    ],
     extra_compile_args = ['-std=c99', '-Werror', '-Wno-error=unused-variable', '-Wno-comment'],
     include_dirs = includes,
     library_dirs = libraries,

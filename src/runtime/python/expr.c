@@ -4,9 +4,10 @@
 
 #include <pgf/pgf.h>
 #include "./expr.h"
-#include "./marshaller.h"
+#include "./ffi.h"
 
 // ----------------------------------------------------------------------------
+// types
 
 static TypeObject *
 Type_new(PyTypeObject *subtype, PyObject *args, PyObject *kwds)
@@ -135,7 +136,6 @@ static PyGetSetDef Type_getseters[] = {
     {NULL}  /* Sentinel */
 };
 
-/* static */
 PyTypeObject pgf_TypeType = {
     PyVarObject_HEAD_INIT(NULL, 0)
     //0,                         /*ob_size*/
@@ -179,6 +179,7 @@ PyTypeObject pgf_TypeType = {
 };
 
 // ----------------------------------------------------------------------------
+// expressions
 
 static PyObject *
 Expr_str(ExprObject *self)
@@ -234,7 +235,6 @@ static PyGetSetDef Expr_getseters[] = {
     {NULL}  /* Sentinel */
 };
 
-/* static */
 PyTypeObject pgf_ExprType = {
     PyVarObject_HEAD_INIT(NULL, 0)
     //0,                         /*ob_size*/
@@ -327,7 +327,6 @@ done:
     }
 }
 
-/* static */
 PyTypeObject pgf_ExprAbsType = {
     PyVarObject_HEAD_INIT(NULL, 0)
     //0,                         /*ob_size*/
@@ -416,7 +415,6 @@ done:
     }
 }
 
-/* static */
 PyTypeObject pgf_ExprAppType = {
     PyVarObject_HEAD_INIT(NULL, 0)
     //0,                         /*ob_size*/
@@ -522,7 +520,6 @@ done:
     }
 }
 
-/* static */
 PyTypeObject pgf_ExprLitType = {
     PyVarObject_HEAD_INIT(NULL, 0)
     //0,                         /*ob_size*/
@@ -615,7 +612,6 @@ done:
     }
 }
 
-/* static */
 PyTypeObject pgf_ExprMetaType = {
     PyVarObject_HEAD_INIT(NULL, 0)
     //0,                         /*ob_size*/
@@ -700,7 +696,6 @@ done:
     }
 }
 
-/* static */
 PyTypeObject pgf_ExprFunType = {
     PyVarObject_HEAD_INIT(NULL, 0)
     //0,                         /*ob_size*/
@@ -793,7 +788,6 @@ done:
     }
 }
 
-/* static */
 PyTypeObject pgf_ExprVarType = {
     PyVarObject_HEAD_INIT(NULL, 0)
     //0,                         /*ob_size*/
@@ -882,7 +876,6 @@ done:
     }
 }
 
-/* static */
 PyTypeObject pgf_ExprTypedType = {
     PyVarObject_HEAD_INIT(NULL, 0)
     //0,                         /*ob_size*/
@@ -967,7 +960,6 @@ done:
     }
 }
 
-/* static */
 PyTypeObject pgf_ExprImplArgType = {
     PyVarObject_HEAD_INIT(NULL, 0)
     //0,                         /*ob_size*/
