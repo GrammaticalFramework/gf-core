@@ -27,7 +27,7 @@ PgfExnType handleError(PgfExn err)
 }
 
 // ----------------------------------------------------------------------------
-// string conversions
+// conversions
 
 PgfText *
 PyUnicode_AsPgfText(PyObject *pystr)
@@ -53,6 +53,51 @@ PyUnicode_FromPgfText(PgfText *text)
 {
     return PyUnicode_FromStringAndSize(text->text, text->size);
 }
+
+PgfTypeHypo *
+PyList_AsHypos(PyObject *pylist, Py_ssize_t *n_hypos)
+{
+    if (!PyList_Check(pylist)) {
+        PyErr_SetString(PyExc_TypeError, "PyList_AsHypos: must be a list");
+        return NULL;
+    }
+    Py_ssize_t n = PyList_Size(pylist);
+    *n_hypos = n;
+    PgfTypeHypo *hypos = PyMem_Malloc(sizeof(PgfTypeHypo)*n);
+
+    for (Py_ssize_t i = 0; i < n; i++) {
+        PyObject *hytup = PyList_GetItem(pylist, i);
+        if (!PyTuple_Check(hytup)) {
+            PyErr_SetString(PyExc_TypeError, "PyList_AsHypos: item must be a tuple");
+            return NULL;
+        }
+
+        PyObject *t0 = PyTuple_GetItem(hytup, 0);
+        if (!PyLong_Check(t0)) {
+            PyErr_SetString(PyExc_TypeError, "PyList_AsHypos: first element must be an integer");
+            return NULL;
+        }
+        hypos[i].bind_type = PyLong_AsLong(t0);
+
+        PyObject *t1 = PyTuple_GetItem(hytup, 1);
+        if (!PyUnicode_Check(t1)) {
+            PyErr_SetString(PyExc_TypeError, "PyList_AsHypos: second element must be a string");
+            return NULL;
+        }
+        hypos[i].cid = PyUnicode_AsPgfText(t1);
+
+        PyObject *t2 = PyTuple_GetItem(hytup, 2);
+        if (!PyObject_TypeCheck(t2, &pgf_TypeType)) {
+            PyErr_SetString(PyExc_TypeError, "PyList_AsHypos: third element must be a Type");
+            return NULL;
+        }
+        hypos[i].type = (PgfType) t2;
+        Py_INCREF(hypos[i].type);
+    }
+
+    return hypos;
+}
+
 
 // ----------------------------------------------------------------------------
 // unmarshaller
@@ -322,16 +367,10 @@ match_type(PgfMarshaller *this, PgfUnmarshaller *u, PgfType ty)
 {
     TypeObject *type = (TypeObject *)ty;
 
-    Py_ssize_t n_hypos = PyList_Size(type->hypos);
-    PgfTypeHypo hypos[n_hypos];
-    // PgfTypeHypo *hypos = alloca(sizeof(PgfTypeHypo)*n_hypos);
-    for (Py_ssize_t i = 0; i < n_hypos; i++) {
-        PyObject *hytup = (PyObject *)PyList_GetItem(type->hypos, i);
-        hypos[i].bind_type = PyLong_AsLong(PyTuple_GetItem(hytup, 0));
-        hypos[i].cid = PyUnicode_AsPgfText(PyTuple_GetItem(hytup, 1));
-        hypos[i].type = (PgfType) PyTuple_GetItem(hytup, 2);
-        Py_INCREF(hypos[i].type);
-    }
+    Py_ssize_t n_hypos;
+    PgfTypeHypo *hypos = PyList_AsHypos(type->hypos, &n_hypos);
+    if (PyErr_Occurred())
+        return 0;
 
     PgfText *cat = PyUnicode_AsPgfText(type->cat);
     if (cat == NULL) {
@@ -340,7 +379,6 @@ match_type(PgfMarshaller *this, PgfUnmarshaller *u, PgfType ty)
 
     Py_ssize_t n_exprs = PyList_Size(type->exprs);
     PgfExpr exprs[n_exprs];
-    // PgfExpr *exprs = alloca(sizeof(PgfExpr)*n_exprs);
     for (Py_ssize_t i = 0; i < n_exprs; i++) {
         exprs[i] = (PgfExpr)PyList_GetItem(type->exprs, i);
         Py_INCREF(exprs[i]);

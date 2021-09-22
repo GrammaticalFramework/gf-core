@@ -49,8 +49,9 @@ Transaction_commit(TransactionObject *self, PyObject *args)
 
     pgf_free_revision(self->pgf->db, self->pgf->revision);
     self->pgf->revision = self->revision;
+    Py_INCREF(self->pgf->db);
 
-    Py_RETURN_TRUE;
+    Py_RETURN_NONE;
 }
 
 static PyObject *
@@ -107,23 +108,24 @@ Transaction_createCategory(TransactionObject *self, PyObject *args)
     Py_ssize_t size;
     PyObject *hypos;
     float prob = 0.0;
-    if (!PyArg_ParseTuple(args, "s#O!f", &s, &size, &PyList_Type, &hypos, prob))
+    // if (!PyArg_ParseTuple(args, "s#O!f", &s, &size, &PyList_Type, &hypos, prob)) // segfaults in Python 3.8 but not 3.7
+    //     return NULL;
+    if (!PyArg_ParseTuple(args, "s#Of", &s, &size, &hypos, prob))
         return NULL;
+    if (!PyObject_TypeCheck(hypos, &PyList_Type)) {
+        PyErr_SetString(PyExc_TypeError, "hypos must be a list");
+        return NULL;
+    }
+    // Py_INCREF(hypos);
 
     PgfText *catname = (PgfText *)PyMem_Malloc(sizeof(PgfText)+size+1);
     memcpy(catname->text, s, size+1);
     catname->size = size;
 
-    Py_ssize_t n_hypos = PyList_Size(hypos);
-    // PgfTypeHypo context[n_hypos];
-    PgfTypeHypo *context = alloca(sizeof(PgfTypeHypo)*n_hypos);
-    for (Py_ssize_t i = 0; i < n_hypos; i++) {
-        PyObject *hytup = (PyObject *)PyList_GetItem(hypos, i);
-        context[i].bind_type = PyLong_AsLong(PyTuple_GetItem(hytup, 0));
-        context[i].cid = PyUnicode_AsPgfText(PyTuple_GetItem(hytup, 1));
-        context[i].type = (PgfType) PyTuple_GetItem(hytup, 2);
-        Py_INCREF(context[i].type);
-    }
+    Py_ssize_t n_hypos;
+    PgfTypeHypo *context = PyList_AsHypos(hypos, &n_hypos);
+    if (PyErr_Occurred())
+        return NULL;
 
     PgfExn err;
     pgf_create_category(self->pgf->db, self->revision, catname, n_hypos, context, prob, &marshaller, &err);
@@ -160,35 +162,51 @@ Transaction_dropCategory(TransactionObject *self, PyObject *args)
 static TransactionObject *
 Transaction_enter(TransactionObject *self, PyObject *Py_UNUSED(ignored))
 {
+    Py_INCREF(self);
     return self;
 }
 
 static PyObject *
+Transaction_exit_impl(TransactionObject *self, PyObject *exc_type, PyObject *exc_value, PyObject *exc_tb)
+{
+    if (exc_type == Py_None && exc_value == Py_None && exc_tb == Py_None) {
+        return Transaction_commit(self, NULL);
+    } else {
+        PyErr_SetObject(exc_type, exc_value);
+        return NULL;
+    }
+}
+
+// cpython/Modules/_multiprocessing/clinic/semaphore.c.h
+// cpython/Modules/_sqlite/connection.c
+static PyObject *
 Transaction_exit(TransactionObject *self, PyObject *const *args, Py_ssize_t nargs)
 {
-    // PyObject *exc_type = Py_None;
-    // PyObject *exc_value = Py_None;
-    // PyObject *exc_tb = Py_None;
+    PyObject *return_value = NULL;
+    PyObject *exc_type = Py_None;
+    PyObject *exc_value = Py_None;
+    PyObject *exc_tb = Py_None;
 
-    // if (!_PyArg_CheckPositional("__exit__", nargs, 0, 3)) {
-    //     Py_RETURN_FALSE;
-    // }
+    if (nargs < 0 || nargs > 3) {
+        goto exit;
+    }
     if (nargs < 1) {
         goto skip_optional;
     }
-    // exc_type = args[0];
-    // if (nargs < 2) {
-    //     goto skip_optional;
-    // }
-    // exc_value = args[1];
-    // if (nargs < 3) {
-    //     goto skip_optional;
-    // }
-    // exc_tb = args[2];
+    exc_type = args[0];
+    if (nargs < 2) {
+        goto skip_optional;
+    }
+    exc_value = args[1];
+    if (nargs < 3) {
+        goto skip_optional;
+    }
+    exc_tb = args[2];
 skip_optional:
-    // TODO check exception
+    return_value = Transaction_exit_impl(self, exc_type, exc_value, exc_tb);
 
-    return Transaction_commit(self, NULL);
+exit:
+    return return_value;
 }
 
 // static void

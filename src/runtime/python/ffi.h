@@ -18,6 +18,8 @@ PgfExnType handleError(PgfExn err);
 PgfText *PyUnicode_AsPgfText(PyObject *pystr);
 PyObject *PyUnicode_FromPgfText(PgfText *text);
 
+PgfTypeHypo *PyList_AsHypos(PyObject *pylist, Py_ssize_t *n_hypos);
+
 PgfUnmarshaller unmarshaller;
 PgfMarshaller marshaller;
 
