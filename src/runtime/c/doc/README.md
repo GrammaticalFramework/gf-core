@@ -12,3 +12,4 @@ So, **Don't Panic!** and keep reading. This is a live document and will develop 
 1. [Desiderata](DESIDERATA.md)
 2. [Memory Model](memory_model.md)
 3. [Abstract Expressions](abstract_expressions.md)
+3. [Transactions](transactions.md)
