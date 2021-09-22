@@ -65,6 +65,6 @@ bintar:
 
 # Make a source tar.gz distribution using git to make sure that everything is included.
 # We put the distribution in dist/ so it is removed on `make clean`
-sdist:
-	test -d dist || mkdir dist
-	git archive --format=tar.gz --output=dist/gf-${VERSION}.tar.gz HEAD
+# sdist:
+# 	test -d dist || mkdir dist
+# 	git archive --format=tar.gz --output=dist/gf-${VERSION}.tar.gz HEAD

@@ -1,2 +1,12 @@
 i -retain testsuite/compiler/compute/Variants.gf
 cc hello
+cc <\x -> x++x : Str -> Str> ("a"|"b")
+cc <\x -> x : Str -> Str> ("a"|"b")
+cc <\x -> "c" : Str -> Str> ("a"|"b")
+cc <let x = ("a"|"b") in x++x : Str>
+cc <let x = ("a"|"b") in x : Str>
+cc <let x = ("a"|"b") in "c" : Str>
+cc <\x -> x.p1++x.p1 : Str*Str -> Str> <"a"|"b","c">
+cc <\x -> x.p1 : Str*Str -> Str> <"a"|"b","c">
+cc <\x -> x.p2++x.p2 : Str*Str -> Str> <"a"|"b","c">
+cc <\x -> x.p2 : Str*Str -> Str> <"a"|"b","c">

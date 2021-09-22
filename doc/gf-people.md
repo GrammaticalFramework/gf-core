@@ -7,7 +7,6 @@ title: "Grammatical Framework: Authors and Acknowledgements"
 The current maintainers of GF are
 
 [Krasimir Angelov](http://www.chalmers.se/cse/EN/organization/divisions/computing-science/people/angelov-krasimir),
-[Thomas Hallgren](http://www.cse.chalmers.se/~hallgren/),
 [Aarne Ranta](http://www.cse.chalmers.se/~aarne/),
 [John J. Camilleri](http://johnjcamilleri.com), and
 [Inari Listenmaa](https://inariksit.github.io/).
@@ -22,6 +21,7 @@ and
 
 The following people have contributed code to some of the versions:
 
+- [Thomas Hallgren](http://www.cse.chalmers.se/~hallgren/) (University of Gothenburg)
 - Grégoire Détrez (University of Gothenburg)
 - Ramona Enache (University of Gothenburg)
 - [Björn Bringert](http://www.cse.chalmers.se/alumni/bringert) (University of Gothenburg)
