@@ -114,3 +114,5 @@ The solution is that we count on the database clients to correctly report when a
 
 
 ## Atomicity
+
+The transactions serve two goals. First they make it possible to isolate readers from seeing unfinished changes from writers. The second is to ensure atomicity. A database change should be either completely done or not done at all. The use of transient revisions ensures the isolation but the atomicity is only partly taken care of.
