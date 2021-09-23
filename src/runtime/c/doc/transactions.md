@@ -25,12 +25,12 @@ main = do
   gr <- readNGF "Example.ngf"
   print (functionType gr "f")
   gr2 <- modifyPGF gr $ do
-           <... do all updates here by using t ...>
+           -- do all updates here
   print (functionType gr2 "f")
 ```
 Here `modifyPGF` allows us to do updates but the updates are performed on a freshly created clone of the grammar `gr`. The original grammar is never ever modified. After the changes the variable `gr2` is a reference to the new revision. While the transaction is in progress we cannot see from the currently changing revision, and therefore all read-only operations can remain pure. Only after the transaction is complete then we get to use `gr2` which would not change anymore.
 
-Note also that above I used `functionType` with its usual pure type:
+Note also that above `functionType` is used with its usual pure type:
 ```Haskell
 functionType :: PGF -> Fun -> Type
 ```
@@ -39,7 +39,7 @@ This is safe since the API never exposes database revisions which are not comple
 main = do
   gr <- readNGF "Example.ngf"
   gr2 <- modifyPGF gr $ do
-           <... do all updates here by using t ...>
+           -- do all updates here
   print (functionType gr "f", functionType gr2 "f")
 ```
 The last line prints the type of function `"f"` in both the old and the new revision. Both are still available.
