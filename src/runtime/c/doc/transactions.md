@@ -9,7 +9,7 @@ The database model of the runtime is specifically designed to be friendly toward
 main = do
   gr <- readNGF "Example.ngf"
   functionType gr "f" >>= print
-  <... modify the grammar gr ...>
+  -- modify the grammar gr
   functionType gr "f" >>= print
 ```
 Here we ask for the type of a function before and after an arbitrary update in the grammar `gr`. Obviously if we allow that then `functionType` would have to be in the IO monad, e.g.:
