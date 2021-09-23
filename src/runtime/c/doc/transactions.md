@@ -93,7 +93,7 @@ Here `pgf_clone_revision` makes a copy of an existing revision and if `name` is 
 
 Persistent revisions can never be updated. Instead you clone it to create a new transient revision. That one is updated and finally it replaces the existing persistent revision.
 
-Our design for transactions may sound unusual but it is just another way to present the copy-on-write strategy. There instead of transaction logs, each change to the data is written in a new place and the result is made available only after all changes are in place. This is for instance what the LMDB (Lightning Memory-Mapped Database) does and it has also served as an inspiration for us.
+Our design for transactions may sound unusual but it is just another way to present the copy-on-write strategy. There instead of transaction logs, each change to the data is written in a new place and the result is made available only after all changes are in place. This is for instance what the [LMDB](http://www.lmdb.tech/doc/) (Lightning Memory-Mapped Database) does and it has also served as an inspiration for us.
 
 ## Functional Data Structures
 
@@ -115,4 +115,13 @@ The solution is that we count on the database clients to correctly report when a
 
 ## Atomicity
 
-The transactions serve two goals. First they make it possible to isolate readers from seeing unfinished changes from writers. The second is to ensure atomicity. A database change should be either completely done or not done at all. The use of transient revisions ensures the isolation but the atomicity is only partly taken care of.
+The transactions serve two goals. First they make it possible to isolate readers from seeing unfinished changes from writers. Second, they ensure atomicity. A database change should be either completely done or not done at all. The use of transient revisions ensures the isolation but the atomicity is only partly taken care of.
+
+Think about what happens when a writer starts updating a transient revision. All the data is allocated in a memory mapped file. From the point of view of the runtime, all changes happen in memory. When all is done, the runtime calls `msync` which tells the kernel to flush all dirty pages to disk. The problem is that the kernel is also free to flush pages at any time. For instance, if there is not enough memory, it may decide to swap out pages earlier and reuse the released physical space to swap in other virtual pages. This would be fine if the transaction eventually succeeds. However, if this doesn't happen then the image in the file is already changed.
+
+We can avoid the situation by calling [mlock](https://man7.org/linux/man-pages/man2/mlock.2.html) and telling the kernel that certain pages should not be swapped out. The question is which pages to lock. We can lock them all, but this is too much. That would mean that as soon as a page is touched it will never leave the physical memory. Instead, it would have been nice to tell the kernel -- feel free to swap out clean pages but, as soon as they get dirty, keep them in memory until further notice. Unfortunately there is no way to do that directly.
+
+The work around is to first use [mprotect](https://man7.org/linux/man-pages/man2/mprotect.2.html) and keep all pages as read-only. Any attempt to change a page will cause segmentation fault which we can capture. If the change happens during a transaction then we can immediate lock the page and add it to the list of modified pages. On successful transaction we sync all modified pages. If an attempt to change a page happens outside of a transaction, then this is either a bug in the runtime or the client is trying to change an address which it should not change. In any case this prevents unintended changes in the data.
+
+
+**TODO: atomicity is not implemented yet**
