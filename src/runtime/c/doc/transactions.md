@@ -77,6 +77,40 @@ branchPGF :: PGF -> String -> Transaction a -> IO PGF
 Here we start with an existing revision, apply a transaction and store the result in a new branch with the given name.
 
 # Implementation
-## Persistent Data Structures
+
+The low-level API for transactions consists of only four functions:
+```C
+PgfRevision pgf_clone_revision(PgfDB *db, PgfRevision revision,
+                               PgfText *name,
+                               PgfExn *err);
+
+void pgf_free_revision(PgfDB *pgf, PgfRevision revision);
+
+void pgf_commit_revision(PgfDB *db, PgfRevision revision,
+                         PgfExn *err);
+```
+Here `pgf_clone_revision` makes a copy of an existing revision and if `name` is not `NULL` changes its name. The new revision is transient and exists only until it is released with `pgf_free_revision`. Transient revisions can be updated with the API for adding functions and categories. To make a revision persistent, call `pgf_commit_revision`. After the revision is made persistent it will stay in the database even after you call `pgf_free_revision`. Moreover, it will replace the last persistent revision with the same name. The old revision will then become transient and will exist only until all clients call `pgf_free_revision` for it.
+
+Persistent revisions can never be updated. Instead you clone it to create a new transient revision. That one is updated and finally it replaces the existing persistent revision.
+
+Our design for transactions may sound unusual but it is just another way to present the copy-on-write strategy. There instead of transaction logs, each change to the data is written in a new place and the result is made available only after all changes are in place. This is for instance what the LMDB (Lightning Memory-Mapped Database) does and it has also served as an inspiration for us.
+
+## Functional Data Structures
+
+From an imperative point of view, it may sound wasteful that a new copy of the grammar is created for each transaction. Functional programmers on the other hand know that with a functional data structure, you can make a copy which shares as much of the data with the original as possible. Each new version copies only those bits that are different from the old one. For example the main data structure that we use to represent the abstract syntax of a grammar is a size-balanced binary tree as described by:
+
+- Stephen Adams, "Efficient sets: a balancing act", Journal of Functional Programming 3(4):553-562, October 1993, http://www.swiss.ai.mit.edu/~adams/BB/.
+
+- J. Nievergelt and E.M. Reingold, "Binary search trees of bounded balance", SIAM journal of computing 2(1), March 1973.
+
+
 ## Garbage Collection
+
+We use reference counting to keep track of which objects should be kept alive. For instance, `pgf_free_revision` knows that a transient revision should be removed only when its reference count reaches zero. This means that there is no process or thread using it. The function also checks whether the revision is persistent. Persistent revisions are never removed since they can always be retrieved with `checkoutPGF`.
+
+Clients are supposed to correctly use `pgf_free_revision` to indicate that they don't need a revision any more. Unfortunetely, this is not always possible to guarantee. For example many languages with garbage collection will call `pgf_free_revision` from a finalizer method. In some languages, however, the finalizer is not guaranteed to be executed if the process terminates before the garbage collection is done. Haskell is one of those languages. Even in languages with reference counting like Python, the process may get killed by the operating system and then the finalizer may still not be executed.
+
+The solution is that we count on the database clients to correctly report when a revision is not needed. However, on a fresh database restart we explictly clean all left over transient revisions. This means that even if a client is killed or if it does not correctly release its revisions, the worst that can happen is a memory leak until the next restart.
+
+
 ## Atomicity
