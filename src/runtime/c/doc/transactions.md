@@ -62,9 +62,19 @@ with gr.transaction() as t:
   # do all updates here by using t
 print(functionType(gr,"f"))
 ```
-Here the first call to `functionType` returns the old type of "f", while the second call retrives the type after the updates.
+Here the first call to `functionType` returns the old type of "f", while the second call retrives the type after the updates. The transaction itself is initiated by the `with` statement. Inside the with statement `gr` will still refer to the old revision since the new one is not complete yet. If the `with` statement is finished without exceptions then `gr` is updated to point to the new one. If an exception occurs then the new revision is discarded, which corresponds to a transaction rollback. Inside the `with` block, the object `t` of type `Transaction` provides methods for modifying the data.
 
 # Branches
+
+Since the database already supports revisions, it is a simple step to support branches as well. A branch is just a revision with a name. When you open a database with `readNGF`, the runtime looks up and returns the revision (the branch) with name `master`. There might be other branches as well. You can retrieve a specific branch by calling:
+```Haskell
+checkoutPGF :: PGF -> String -> IO (Maybe PGF)
+```
+Here the string is the branch name. New branches can be created by using:
+```Haskell
+branchPGF :: PGF -> String -> Transaction a -> IO PGF
+```
+Here we start with an existing revision, apply a transaction and store the result in a new branch with the given name.
 
 # Implementation
 ## Persistent Data Structures
