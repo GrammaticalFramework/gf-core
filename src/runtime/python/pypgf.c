@@ -125,7 +125,7 @@ PGF_categoryContext(PGFObject *self, PyObject *args)
     PgfExn err;
     size_t n_hypos;
     PgfTypeHypo *hypos = pgf_category_context(self->db, self->revision, catname, &n_hypos, &unmarshaller, &err);
-    PyMem_RawFree(catname);
+    FreePgfText(catname);
     if (handleError(err) != PGF_EXN_NONE) {
         return NULL;
     }
@@ -205,14 +205,14 @@ PGF_functionsByCat(PGFObject *self, PyObject *args)
 
     PyObject *functions = PyList_New(0);
     if (functions == NULL) {
-        PyMem_RawFree(catname);
+        FreePgfText(catname);
         return NULL;
     }
 
     PgfExn err;
     PyPGFClosure clo = { { _collect_funs }, self, functions };
     pgf_iter_functions_by_cat(self->db, self->revision, catname, &clo.fn, &err);
-    PyMem_RawFree(catname);
+    FreePgfText(catname);
     if (handleError(err) != PGF_EXN_NONE) {
         Py_DECREF(functions);
         return NULL;
@@ -233,7 +233,7 @@ PGF_functionType(PGFObject *self, PyObject *args)
 
     PgfExn err;
     PgfType type = pgf_function_type(self->db, self->revision, funname, &unmarshaller, &err);
-    PyMem_RawFree(funname);
+    FreePgfText(funname);
     if (type == 0) {
         PyErr_Format(PyExc_KeyError, "function '%s' is not defined", s);
         return NULL;
@@ -257,7 +257,7 @@ PGF_functionIsConstructor(PGFObject *self, PyObject *args)
 
     PgfExn err;
     int isCon = pgf_function_is_constructor(self->db, self->revision, funname, &err);
-    PyMem_RawFree(funname);
+    FreePgfText(funname);
     if (handleError(err) != PGF_EXN_NONE) {
         return NULL;
     }
@@ -277,7 +277,7 @@ PGF_functionProbability(PGFObject *self, PyObject *args)
 
     PgfExn err;
     prob_t prob = pgf_function_prob(self->db, self->revision, funname, &err);
-    PyMem_RawFree(funname);
+    FreePgfText(funname);
     if (handleError(err) != PGF_EXN_NONE) {
         return NULL;
     }
@@ -460,7 +460,7 @@ pgf_newNGF(PyObject *self, PyObject *args)
     // Read the NGF grammar.
     PgfExn err;
     py_pgf->db = pgf_new_ngf(absname, fpath, &py_pgf->revision, &err);
-    PyMem_RawFree(absname);
+    FreePgfText(absname);
     if (handleError(err) != PGF_EXN_NONE) {
         Py_DECREF(py_pgf);
         return NULL;
@@ -480,7 +480,7 @@ pgf_readExpr(PyObject *self, PyObject *args)
     PgfText *input = CString_AsPgfText(s, size);
 
     PgfExpr expr = pgf_read_expr(input, &unmarshaller);
-    PyMem_RawFree(input);
+    FreePgfText(input);
     if (expr == 0) {
         PyErr_SetString(PGFError, "expression cannot be parsed");
         return NULL;
@@ -501,7 +501,7 @@ pgf_showExpr(PyObject *self, PyObject *args)
     PgfText *s = pgf_print_expr((PgfExpr) expr, ctxt, 0, &marshaller);
     FreePgfPrintContext(ctxt);
     PyObject *str = PyUnicode_FromStringAndSize(s->text, s->size);
-    PyMem_RawFree(s);
+    FreePgfText(s);
     return str;
 }
 
@@ -516,7 +516,7 @@ pgf_readType(PyObject *self, PyObject *args)
     PgfText *input = CString_AsPgfText(s, size);
 
     PgfType type = pgf_read_type(input, &unmarshaller);
-    PyMem_RawFree(input);
+    FreePgfText(input);
     if (type == 0) {
         PyErr_SetString(PGFError, "type cannot be parsed");
         return NULL;
@@ -537,7 +537,7 @@ pgf_showType(PyObject *self, PyObject *args)
     PgfText *s = pgf_print_type((PgfType) type, ctxt, 0, &marshaller);
     FreePgfPrintContext(ctxt);
     PyObject *str = PyUnicode_FromStringAndSize(s->text, s->size);
-    PyMem_RawFree(s);
+    FreePgfText(s);
     return str;
 }
 
@@ -686,40 +686,40 @@ MOD_INIT(pgf)
     Py_INCREF(PGFError);
 
     PyModule_AddObject(m, "PGF", (PyObject *) &pgf_PGFType);
-    Py_INCREF(&pgf_PGFType);
+    // Py_INCREF(&pgf_PGFType);
 
     PyModule_AddObject(m, "Transaction", (PyObject *) &pgf_TransactionType);
-    Py_INCREF(&pgf_TransactionType);
+    // Py_INCREF(&pgf_TransactionType);
 
     PyModule_AddObject(m, "Expr", (PyObject *) &pgf_ExprType);
-    Py_INCREF(&pgf_ExprType);
+    // Py_INCREF(&pgf_ExprType);
 
     PyModule_AddObject(m, "ExprAbs", (PyObject *) &pgf_ExprAbsType);
-    Py_INCREF(&pgf_ExprAbsType);
+    // Py_INCREF(&pgf_ExprAbsType);
 
     PyModule_AddObject(m, "ExprApp", (PyObject *) &pgf_ExprAppType);
-    Py_INCREF(&pgf_ExprAppType);
+    // Py_INCREF(&pgf_ExprAppType);
 
     PyModule_AddObject(m, "ExprLit", (PyObject *) &pgf_ExprLitType);
-    Py_INCREF(&pgf_ExprLitType);
+    // Py_INCREF(&pgf_ExprLitType);
 
     PyModule_AddObject(m, "ExprMeta", (PyObject *) &pgf_ExprMetaType);
-    Py_INCREF(&pgf_ExprMetaType);
+    // Py_INCREF(&pgf_ExprMetaType);
 
     PyModule_AddObject(m, "ExprFun", (PyObject *) &pgf_ExprFunType);
-    Py_INCREF(&pgf_ExprFunType);
+    // Py_INCREF(&pgf_ExprFunType);
 
     PyModule_AddObject(m, "ExprVar", (PyObject *) &pgf_ExprVarType);
-    Py_INCREF(&pgf_ExprVarType);
+    // Py_INCREF(&pgf_ExprVarType);
 
     PyModule_AddObject(m, "ExprTyped", (PyObject *) &pgf_ExprTypedType);
-    Py_INCREF(&pgf_ExprTypedType);
+    // Py_INCREF(&pgf_ExprTypedType);
 
     PyModule_AddObject(m, "ExprImplArg", (PyObject *) &pgf_ExprImplArgType);
-    Py_INCREF(&pgf_ExprImplArgType);
+    // Py_INCREF(&pgf_ExprImplArgType);
 
     PyModule_AddObject(m, "Type", (PyObject *) &pgf_TypeType);
-    Py_INCREF(&pgf_TypeType);
+    // Py_INCREF(&pgf_TypeType);
 
     PyModule_AddIntConstant(m, "BIND_TYPE_EXPLICIT", 0);
 

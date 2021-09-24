@@ -19,7 +19,7 @@ PGF_checkoutBranch(PGFObject *self, PyObject *args)
 
     PgfExn err;
     PgfRevision rev = pgf_checkout_revision(self->db, name, &err);
-    PyMem_RawFree(name);
+    FreePgfText(name);
     if (handleError(err) != PGF_EXN_NONE) {
         return NULL;
     }
@@ -50,7 +50,7 @@ PGF_newTransaction(PGFObject *self, PyObject *args)
     PgfExn err;
     PgfRevision rev = pgf_clone_revision(self->db, self->revision, name, &err);
     if (name != NULL) {
-        PyMem_RawFree(name);
+        FreePgfText(name);
     }
     if (handleError(err) != PGF_EXN_NONE) {
         return NULL;
@@ -62,6 +62,8 @@ PGF_newTransaction(PGFObject *self, PyObject *args)
 
     return trans;
 }
+
+// ----------------------------------------------------------------------------
 
 static PyObject *
 Transaction_commit(TransactionObject *self, PyObject *args)
@@ -94,7 +96,7 @@ Transaction_createFunction(TransactionObject *self, PyObject *args)
 
     PgfExn err;
     pgf_create_function(self->pgf->db, self->revision, funname, (PgfType) type, arity, prob, &marshaller, &err);
-    PyMem_RawFree(funname);
+    FreePgfText(funname);
     if (handleError(err) != PGF_EXN_NONE) {
         return NULL;
     }
@@ -114,7 +116,7 @@ Transaction_dropFunction(TransactionObject *self, PyObject *args)
 
     PgfExn err;
     pgf_drop_function(self->pgf->db, self->revision, funname, &err);
-    PyMem_RawFree(funname);
+    FreePgfText(funname);
     if (handleError(err) != PGF_EXN_NONE) {
         return NULL;
     }
@@ -143,13 +145,13 @@ Transaction_createCategory(TransactionObject *self, PyObject *args)
     Py_ssize_t n_hypos;
     PgfTypeHypo *context = PyList_AsHypos(hypos, &n_hypos);
     if (PyErr_Occurred()) {
-        PyMem_RawFree(catname);
+        FreePgfText(catname);
         return NULL;
     }
 
     PgfExn err;
     pgf_create_category(self->pgf->db, self->revision, catname, n_hypos, context, prob, &marshaller, &err);
-    PyMem_RawFree(catname);
+    FreePgfText(catname);
     if (handleError(err) != PGF_EXN_NONE) {
         return NULL;
     }
@@ -169,7 +171,7 @@ Transaction_dropCategory(TransactionObject *self, PyObject *args)
 
     PgfExn err;
     pgf_drop_category(self->pgf->db, self->revision, catname, &err);
-    PyMem_RawFree(catname);
+    FreePgfText(catname);
     if (handleError(err) != PGF_EXN_NONE) {
         return NULL;
     }

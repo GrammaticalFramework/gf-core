@@ -28,8 +28,6 @@ PgfExnType handleError(PgfExn err)
 
 // ----------------------------------------------------------------------------
 // conversions
-//
-// You have to remember to call PyMem_Free on these things!
 
 PgfText *
 CString_AsPgfText(const char *s, size_t size) {
@@ -152,6 +150,15 @@ PyList_AsPgfPrintContext(PyObject *pylist)
     }
 
     return ctxt;
+}
+
+// ----------------------------------------------------------------------------
+// freers
+
+void
+FreePgfText(PgfText *txt)
+{
+    PyMem_RawFree(txt);
 }
 
 void
