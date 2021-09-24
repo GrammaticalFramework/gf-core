@@ -120,14 +120,12 @@ PGF_categoryContext(PGFObject *self, PyObject *args)
     if (!PyArg_ParseTuple(args, "s#", &s, &size))
         return NULL;
 
-    PgfText *catname = (PgfText *)PyMem_Malloc(sizeof(PgfText)+size+1);
-    memcpy(catname->text, s, size+1);
-    catname->size = size;
+    PgfText *catname = CString_AsPgfText(s, size);
 
     PgfExn err;
     size_t n_hypos;
     PgfTypeHypo *hypos = pgf_category_context(self->db, self->revision, catname, &n_hypos, &unmarshaller, &err);
-    PyMem_Free(catname);
+    PyMem_RawFree(catname);
     if (handleError(err) != PGF_EXN_NONE) {
         return NULL;
     }
@@ -136,23 +134,7 @@ PGF_categoryContext(PGFObject *self, PyObject *args)
         Py_RETURN_NONE;
     }
 
-    PyObject *contexts = PyList_New(n_hypos);
-    if (contexts == NULL) {
-        return NULL;
-    }
-
-    for (size_t i = 0; i < n_hypos; i++) {
-        PyObject *tup = PyTuple_New(3);
-        PyTuple_SetItem(tup, 0, PyLong_FromLong(hypos[i].bind_type));
-        PyTuple_SetItem(tup, 1, PyUnicode_FromStringAndSize(hypos[i].cid->text, hypos[i].cid->size));
-        PyTuple_SetItem(tup, 2, (PyObject *)hypos[i].type);
-        Py_INCREF(hypos[i].type);
-        PyList_SetItem(contexts, i, tup);
-    }
-    if (PyErr_Occurred()) {
-        Py_DECREF(contexts);
-        return NULL;
-    }
+    PyObject *contexts = PyList_FromHypos(hypos, n_hypos);
 
     return contexts;
 }
@@ -219,19 +201,18 @@ PGF_functionsByCat(PGFObject *self, PyObject *args)
     if (!PyArg_ParseTuple(args, "s#", &s, &size))
         return NULL;
 
-    PgfText *catname = (PgfText *)PyMem_Malloc(sizeof(PgfText)+size+1);
-    memcpy(catname->text, s, size+1);
-    catname->size = size;
+    PgfText *catname = CString_AsPgfText(s, size);
 
     PyObject *functions = PyList_New(0);
     if (functions == NULL) {
+        PyMem_RawFree(catname);
         return NULL;
     }
 
     PgfExn err;
     PyPGFClosure clo = { { _collect_funs }, self, functions };
     pgf_iter_functions_by_cat(self->db, self->revision, catname, &clo.fn, &err);
-    PyMem_Free(catname);
+    PyMem_RawFree(catname);
     if (handleError(err) != PGF_EXN_NONE) {
         Py_DECREF(functions);
         return NULL;
@@ -248,13 +229,11 @@ PGF_functionType(PGFObject *self, PyObject *args)
     if (!PyArg_ParseTuple(args, "s#", &s, &size))
         return NULL;
 
-    PgfText *funname = (PgfText *)PyMem_Malloc(sizeof(PgfText)+size+1);
-    memcpy(funname->text, s, size+1);
-    funname->size = size;
+    PgfText *funname = CString_AsPgfText(s, size);
 
     PgfExn err;
     PgfType type = pgf_function_type(self->db, self->revision, funname, &unmarshaller, &err);
-    PyMem_Free(funname);
+    PyMem_RawFree(funname);
     if (type == 0) {
         PyErr_Format(PyExc_KeyError, "function '%s' is not defined", s);
         return NULL;
@@ -274,13 +253,11 @@ PGF_functionIsConstructor(PGFObject *self, PyObject *args)
     if (!PyArg_ParseTuple(args, "s#", &s, &size))
         return NULL;
 
-    PgfText *funname = (PgfText *)PyMem_Malloc(sizeof(PgfText)+size+1);
-    memcpy(funname->text, s, size+1);
-    funname->size = size;
+    PgfText *funname = CString_AsPgfText(s, size);
 
     PgfExn err;
     int isCon = pgf_function_is_constructor(self->db, self->revision, funname, &err);
-    PyMem_Free(funname);
+    PyMem_RawFree(funname);
     if (handleError(err) != PGF_EXN_NONE) {
         return NULL;
     }
@@ -296,13 +273,11 @@ PGF_functionProbability(PGFObject *self, PyObject *args)
     if (!PyArg_ParseTuple(args, "s#", &s, &size))
         return NULL;
 
-    PgfText *funname = (PgfText *)PyMem_Malloc(sizeof(PgfText)+size+1);
-    memcpy(funname->text, s, size+1);
-    funname->size = size;
+    PgfText *funname = CString_AsPgfText(s, size);
 
     PgfExn err;
     prob_t prob = pgf_function_prob(self->db, self->revision, funname, &err);
-    PyMem_Free(funname);
+    PyMem_RawFree(funname);
     if (handleError(err) != PGF_EXN_NONE) {
         return NULL;
     }
@@ -353,6 +328,9 @@ static PyMethodDef PGF_methods[] = {
      "Returns the probability of a function"
     },
 
+    {"checkoutBranch", (PyCFunction)PGF_checkoutBranch, METH_VARARGS,
+     "Switch to a branch"
+    },
     {"newTransaction", (PyCFunction)PGF_newTransaction, METH_VARARGS,
      "Create new transaction"
     },
@@ -475,16 +453,14 @@ pgf_newNGF(PyObject *self, PyObject *args)
     if (!PyArg_ParseTuple(args, "s#|s", &s, &size, &fpath))
         return NULL;
 
-    PgfText *absname = (PgfText *)PyMem_Malloc(sizeof(PgfText)+size+1);
-    memcpy(absname->text, s, size+1);
-    absname->size = size;
+    PgfText *absname = CString_AsPgfText(s, size);
 
     PGFObject *py_pgf = (PGFObject *)pgf_PGFType.tp_alloc(&pgf_PGFType, 0);
 
     // Read the NGF grammar.
     PgfExn err;
     py_pgf->db = pgf_new_ngf(absname, fpath, &py_pgf->revision, &err);
-    PyMem_Free(absname);
+    PyMem_RawFree(absname);
     if (handleError(err) != PGF_EXN_NONE) {
         Py_DECREF(py_pgf);
         return NULL;
@@ -501,12 +477,10 @@ pgf_readExpr(PyObject *self, PyObject *args)
     if (!PyArg_ParseTuple(args, "s#", &s, &size))
         return NULL;
 
-    PgfText *input = (PgfText *)PyMem_Malloc(sizeof(PgfText)+size+1);
-    memcpy(input->text, s, size+1);
-    input->size = size;
+    PgfText *input = CString_AsPgfText(s, size);
 
     PgfExpr expr = pgf_read_expr(input, &unmarshaller);
-    PyMem_Free(input);
+    PyMem_RawFree(input);
     if (expr == 0) {
         PyErr_SetString(PGFError, "expression cannot be parsed");
         return NULL;
@@ -519,29 +493,15 @@ static PyObject *
 pgf_showExpr(PyObject *self, PyObject *args)
 {
     PyObject *pylist;
-    PyObject *pyexpr;
-    if (!PyArg_ParseTuple(args, "O!O!", &PyList_Type, &pylist, &pgf_ExprType, &pyexpr))
+    ExprObject *expr;
+    if (!PyArg_ParseTuple(args, "O!O!", &PyList_Type, &pylist, &pgf_ExprType, &expr))
         return NULL;
 
-    PgfPrintContext *ctxt = NULL;
-    for (Py_ssize_t i = PyList_Size(pylist); i > 0 ; i--) {
-        PyObject *item = PyList_GetItem(pylist, i-1);
-        if (!PyUnicode_Check(item)) {
-            PyErr_SetString(PyExc_TypeError, "invalid variable argument in showExpr");
-            return NULL;
-        }
-        PgfText *input = PyUnicode_AsPgfText(item);
-
-        // TODO a better way to copy into this->name?
-        PgfPrintContext *this = (PgfPrintContext *)PyMem_Malloc(sizeof(PgfPrintContext *) + sizeof(PgfText) + input->size + 1);
-        this->next = ctxt;
-        memcpy(&this->name, input, sizeof(PgfText) + input->size + 1);
-        ctxt = this;
-    }
-
-    PgfText *s = pgf_print_expr((PgfExpr) pyexpr, ctxt, 0, &marshaller);
+    PgfPrintContext *ctxt = PyList_AsPgfPrintContext(pylist);
+    PgfText *s = pgf_print_expr((PgfExpr) expr, ctxt, 0, &marshaller);
+    FreePgfPrintContext(ctxt);
     PyObject *str = PyUnicode_FromStringAndSize(s->text, s->size);
-    free(s);
+    PyMem_RawFree(s);
     return str;
 }
 
@@ -553,12 +513,10 @@ pgf_readType(PyObject *self, PyObject *args)
     if (!PyArg_ParseTuple(args, "s#", &s, &size))
         return NULL;
 
-    PgfText *input = (PgfText *)PyMem_Malloc(sizeof(PgfText)+size+1);
-    memcpy(input->text, s, size+1);
-    input->size = size;
+    PgfText *input = CString_AsPgfText(s, size);
 
     PgfType type = pgf_read_type(input, &unmarshaller);
-    PyMem_Free(input);
+    PyMem_RawFree(input);
     if (type == 0) {
         PyErr_SetString(PGFError, "type cannot be parsed");
         return NULL;
@@ -571,29 +529,15 @@ static PyObject *
 pgf_showType(PyObject *self, PyObject *args)
 {
     PyObject *pylist;
-    PyObject *pytype;
-    if (!PyArg_ParseTuple(args, "O!O!", &PyList_Type, &pylist, &pgf_TypeType, &pytype))
+    TypeObject *type;
+    if (!PyArg_ParseTuple(args, "O!O!", &PyList_Type, &pylist, &pgf_TypeType, &type))
         return NULL;
 
-    PgfPrintContext *ctxt = NULL;
-    for (Py_ssize_t i = PyList_Size(pylist); i > 0 ; i--) {
-        PyObject *item = PyList_GetItem(pylist, i-1);
-        if (!PyUnicode_Check(item)) {
-            PyErr_SetString(PyExc_TypeError, "invalid variable argument in showType");
-            return NULL;
-        }
-        PgfText *input = PyUnicode_AsPgfText(item);
-
-        // TODO a better way to copy into this->name?
-        PgfPrintContext *this = (PgfPrintContext *)PyMem_Malloc(sizeof(PgfPrintContext *) + sizeof(PgfText) + input->size + 1);
-        this->next = ctxt;
-        memcpy(&this->name, input, sizeof(PgfText) + input->size + 1);
-        ctxt = this;
-    }
-
-    PgfText *s = pgf_print_type((PgfType) pytype, ctxt, 0, &marshaller);
+    PgfPrintContext *ctxt = PyList_AsPgfPrintContext(pylist);
+    PgfText *s = pgf_print_type((PgfType) type, ctxt, 0, &marshaller);
+    FreePgfPrintContext(ctxt);
     PyObject *str = PyUnicode_FromStringAndSize(s->text, s->size);
-    free(s);
+    PyMem_RawFree(s);
     return str;
 }
 

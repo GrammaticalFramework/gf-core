@@ -14,6 +14,9 @@ typedef struct {
 
 PyTypeObject pgf_TransactionType;
 
+PyObject *
+PGF_checkoutBranch(PGFObject *self, PyObject *args);
+
 TransactionObject *
 PGF_newTransaction(PGFObject *self, PyObject *args);
 
