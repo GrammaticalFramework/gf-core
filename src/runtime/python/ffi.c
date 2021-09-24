@@ -19,7 +19,7 @@ PgfExnType handleError(PgfExn err)
         PyErr_SetFromErrnoWithFilename(PyExc_IOError, err.msg);
     } else if (err.type == PGF_EXN_PGF_ERROR) {
         PyErr_SetString(PGFError, err.msg);
-        free((char*) err.msg);
+        free((char *)err.msg);
     } else if (err.type == PGF_EXN_OTHER_ERROR) {
         PyErr_SetString(PGFError, "an unknown error occured");
     }
@@ -452,7 +452,7 @@ match_type(PgfMarshaller *this, PgfUnmarshaller *u, PgfType ty)
         free(hypos[i].cid);
         Py_DECREF(hypos[i].type);
     }
-    free(cat);
+    FreePgfText(cat);
 
     return res;
 }

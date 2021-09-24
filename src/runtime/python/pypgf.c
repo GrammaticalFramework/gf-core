@@ -306,8 +306,6 @@ static PyGetSetDef PGF_getseters[] = {
 };
 
 static PyMemberDef PGF_members[] = {
-    // {"revision", T_PYSSIZET, offsetof(PGFObject, revision), READONLY,
-    //  "the revision number of this PGF"},
     {NULL}  /* Sentinel */
 };
 
@@ -392,7 +390,6 @@ pgf_readPGF(PyObject *self, PyObject *args)
 
     PGFObject *py_pgf = (PGFObject *)pgf_PGFType.tp_alloc(&pgf_PGFType, 0);
 
-    // Read the PGF grammar.
     PgfExn err;
     py_pgf->db = pgf_read_pgf(fpath, &py_pgf->revision, &err);
     if (handleError(err) != PGF_EXN_NONE) {
@@ -413,7 +410,6 @@ pgf_bootNGF(PyObject *self, PyObject *args)
 
     PGFObject *py_pgf = (PGFObject *)pgf_PGFType.tp_alloc(&pgf_PGFType, 0);
 
-    // Read the PGF grammar.
     PgfExn err;
     py_pgf->db = pgf_boot_ngf(fpath, npath, &py_pgf->revision, &err);
     if (handleError(err) != PGF_EXN_NONE) {
@@ -433,7 +429,6 @@ pgf_readNGF(PyObject *self, PyObject *args)
 
     PGFObject *py_pgf = (PGFObject *)pgf_PGFType.tp_alloc(&pgf_PGFType, 0);
 
-    // Read the NGF grammar.
     PgfExn err;
     py_pgf->db = pgf_read_ngf(fpath, &py_pgf->revision, &err);
     if (handleError(err) != PGF_EXN_NONE) {
@@ -457,7 +452,6 @@ pgf_newNGF(PyObject *self, PyObject *args)
 
     PGFObject *py_pgf = (PGFObject *)pgf_PGFType.tp_alloc(&pgf_PGFType, 0);
 
-    // Read the NGF grammar.
     PgfExn err;
     py_pgf->db = pgf_new_ngf(absname, fpath, &py_pgf->revision, &err);
     FreePgfText(absname);

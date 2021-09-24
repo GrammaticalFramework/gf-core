@@ -205,6 +205,16 @@ def test_showType_9(PGF):
     type = Type([mkDepHypo("x", Type([], "N", [])), mkDepHypo("y", Type([], "P", [ExprVar(0)]))], "S", [])
     assert showType(["n"], type) == "(x : N) -> (y : P x) -> S"
 
+def test_Type_getters():
+    h0 = mkDepHypo("x", Type([], "N", []))
+    e0 = ExprVar(0)
+    type = Type([h0], "N", [e0])
+    assert type.hypos == [h0]
+    assert type.cat == "N"
+    assert type.exprs == [e0]
+    with pytest.raises(AttributeError):
+        type.fake
+
 # expressions
 
 def test_readExpr_invalid():
@@ -270,6 +280,13 @@ def test_readExpr_lstr_null():
 def test_readExpr_lstr_newline():
     assert str(ExprLit("ab\nc")) == "\"ab\\nc\""
 
+def test_ExprLit_getters():
+    assert ExprLit(123).value == 123
+    assert ExprLit("123").value == "123"
+    assert ExprLit(1.23).value == 1.23
+    with pytest.raises(AttributeError):
+        ExprLit(1.23).fake
+
 # expressions: functions
 
 def test_readExpr_efun_equality_1():
@@ -324,6 +341,21 @@ def test_readExpr_efun_str_unicode_3():
 def test_readExpr_efun_str_unicode_4():
     assert str(readExpr("'а\\'б'")) == "'а\\'б'"
 
+def test_ExprApp_getters():
+    e1 = ExprFun("f")
+    e2 = ExprFun("x")
+    expr = ExprApp(e1, e2)
+    assert expr.e1 == e1
+    assert expr.e2 ==  e2
+    with pytest.raises(AttributeError):
+        expr.fake
+
+def test_ExprFun_getters():
+    expr = ExprFun("f")
+    assert expr.name == "f"
+    with pytest.raises(AttributeError):
+        expr.fake
+
 # expressions: variables
 
 # def test_readExpr_evar_equality_1():
@@ -350,6 +382,12 @@ def test_showExpr_evar_3():
 
 def test_showExpr_evar_4():
     assert showExpr(["z", "y", "x"], ExprVar(1)) == "y"
+
+def test_ExprVar_getters():
+    expr = ExprVar(456)
+    assert expr.index == 456
+    with pytest.raises(AttributeError):
+        expr.fake
 
 # expressions: lambda abstractions
 
@@ -397,6 +435,15 @@ def test_showExpr_eabs_freshvars_3():
     expr = ExprAbs(BIND_TYPE_EXPLICIT, "v", ExprAbs(BIND_TYPE_EXPLICIT, "v", ExprAbs(BIND_TYPE_EXPLICIT, "v", ExprVar(1))))
     assert showExpr([], expr) == "\\v,v1,v2->v1"
 
+def test_ExprAbs_getters():
+    e0 = ExprAbs(BIND_TYPE_EXPLICIT, "v", ExprVar(1))
+    expr = ExprAbs(BIND_TYPE_EXPLICIT, "v", e0)
+    assert expr.bindType == BIND_TYPE_EXPLICIT
+    assert expr.var == "v"
+    assert expr.expr == e0
+    with pytest.raises(AttributeError):
+        expr.fake
+
 # expressions: meta variables
 
 def test_readExpr_emeta_1():
@@ -412,6 +459,12 @@ def test_readExpr_emeta_str_1():
 def test_readExpr_emeta_str_2():
     assert str(readExpr("?42")) == "?42"
 
+def test_ExprMeta_getters():
+    expr = ExprMeta(123)
+    assert expr.id == 123
+    with pytest.raises(AttributeError):
+        expr.fake
+
 # expressions: typed expressions
 
 def test_readExpr_emeta_equality():
@@ -419,3 +472,19 @@ def test_readExpr_emeta_equality():
 
 def test_readExpr_emeta_str():
     assert str(readExpr("<z : N>")) == "<z : N>"
+
+def test_ExprTyped_getters():
+    e = ExprFun("z")
+    ty = readType("N")
+    expr = ExprTyped(e, ty)
+    assert expr.expr == e
+    assert expr.type == ty
+    with pytest.raises(AttributeError):
+        expr.fake
+
+def test_ExprImplArg_getters():
+    e = ExprFun("z")
+    expr = ExprImplArg(e)
+    assert expr.expr == e
+    with pytest.raises(AttributeError):
+        expr.fake
