@@ -6,7 +6,7 @@ import Control.Monad
 import Control.Monad.ST
 import Control.Applicative
 
-import GF.Grammar.Grammar(MetaId,Term,Label)
+import GF.Grammar.Grammar(MetaId,Term,Label,QIdent)
 import PGF2(BindType)
 import GF.Infra.Ident(Ident)
 
@@ -19,11 +19,14 @@ type Thunk s = STRef s (ThunkState s)
 type Env s = [(Ident,Thunk s)]
 
 data Value s
-  = VApp Ident [Thunk s]
+  = VApp QIdent [Thunk s]
   | VMeta (Thunk s) (Env s) [Thunk s]
   | VGen  {-# UNPACK #-} !Int [Thunk s]
   | VClosure (Env s) Term
   | VR [(Label, Thunk s)]
   | VP (Value s) Label
+  | VSort Ident
+  | VInt Integer
+  | VFlt Double
   | VStr String
   | VC [Value s]
