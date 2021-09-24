@@ -1,1 +1,8 @@
 param_table.P2 param_table.Q1
+"p1"
+"p2"
+"p2"
+"p2"
+variants {"p2q1"; "p2q2"}
+"p2q1"
+"p2q1"

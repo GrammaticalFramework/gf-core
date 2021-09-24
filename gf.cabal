@@ -110,7 +110,6 @@ executable gf
     GF.Compile.CFGtoPGF
     GF.Compile.CheckGrammar
     GF.Compile.Compute.Predef
-    GF.Compile.Compute.Value
     GF.Compile.Compute.Concrete
     GF.Compile.ExampleBased
     GF.Compile.Export

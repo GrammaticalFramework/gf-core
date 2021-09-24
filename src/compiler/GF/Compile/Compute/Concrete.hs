@@ -13,7 +13,6 @@ import GF.Grammar.Lookup(lookupResDef,allParamValues)
 import GF.Grammar.Predef(cPredef,cErrorType,cTok,cStr,cTrace,cPBool)
 import GF.Grammar.PatternMatch(matchPattern,measurePatt)
 import GF.Grammar.Lockfield(isLockLabel,lockRecType) --unlockRecord,lockLabel
-import GF.Compile.Compute.Value hiding (Error)
 import GF.Compile.Compute.Predef(predef,predefName,delta)
 import GF.Data.Str(Str,glueStr,str2strings,str,sstr,plusStr,strTok)
 import GF.Data.Operations(Err(..),err,errIn,maybeErr,mapPairsM)
@@ -32,6 +31,32 @@ normalForm gr loc t =
   case runEvalM gr (eval [] t [] >>= value2term 0) of
     [t] -> t
     ts  -> FV ts
+
+
+data ThunkState s
+  = Unevaluated (Env s) Term
+  | Evaluated (Value s)
+  | Unbound {-# UNPACK #-} !MetaId
+
+type Thunk s = STRef s (ThunkState s)
+type Env s = [(Ident,Thunk s)]
+
+data Value s
+  = VApp QIdent [Thunk s]
+  | VMeta (Thunk s) (Env s) [Thunk s]
+  | VGen  {-# UNPACK #-} !Int [Thunk s]
+  | VClosure (Env s) Term
+  | VR [(Label, Thunk s)]
+  | VP (Value s) Label
+  | VT TInfo [Case]
+  | VV Type [Thunk s]
+  | VS (Value s) (Value s)
+  | VSort Ident
+  | VInt Integer
+  | VFlt Double
+  | VStr String
+  | VC [Value s]
+
 
 eval env (Vr x)         vs  = case lookup x env of
                                 Just tnk -> force tnk vs
@@ -57,6 +82,16 @@ eval env (P t lbl)      vs  = do v <- eval env t []
                                               Nothing  -> error ("Missing value for label "++show lbl)
                                               Just tnk -> force tnk vs
                                    v     -> return (VP v lbl)
+eval env (T i cs)       vs  = return (VT i cs)
+eval env (V ty ts)      vs  = do tnks <- mapM (newThunk env) ts
+                                 return (VV ty tnks)
+eval env (S t1 t2)      vs  = do v1   <- eval env t1 []
+                                 tnk2 <- newThunk env t2
+                                 case v1 of
+                                   VT _ cs -> do (env,t) <- patternMatch env cs tnk2
+                                                 eval env t vs
+                                   v1      -> do v2 <- force tnk2 []
+                                                 return (VS v1 v2)
 eval env (Let (x,(_,t1)) t2) vs = do tnk <- newThunk env t1
                                      eval ((x,tnk):env) t2 vs
 eval env (Q q)               vs = do t <- lookupGlobal q
@@ -78,6 +113,28 @@ apply (VMeta m env vs0)             vs  = return (VMeta m env (vs0++vs))
 apply (VGen i  vs0)                 vs  = return (VGen i (vs0++vs))
 apply (VClosure env (Abs b x t)) (v:vs) = eval ((x,v):env) t vs
 
+patternMatch env []         tnk = error "No matching pattern found"
+patternMatch env ((p,t):cs) tnk = do
+  res <- match env p tnk
+  case res of
+    Nothing  -> patternMatch env cs tnk
+    Just env -> return (env,t)
+  where
+    match env (PP q ps) tnk = do v <- force tnk []
+                                 case v of
+                                   VApp r tnks | q == r -> match' env ps tnks
+                                   _                    -> return Nothing
+    match env (PV v)    tnk = return (Just ((v,tnk):env))
+    match env PW        tnk = return (Just env)
+    match env (PAs v p) tnk = match ((v,tnk):env) p tnk
+
+    match' env []     []         =
+      return (Just env)
+    match' env (p:ps) (tnk:tnks) = do
+      res <- match env p tnk
+      case res of
+        Nothing  -> return Nothing
+        Just env -> match' env ps tnks
 
 value2term i (VApp q tnks) =
   foldM (\e1 tnk -> fmap (App e1) (force tnk [] >>= value2term i)) (QC q) tnks
@@ -99,6 +156,9 @@ value2term i (VR as) = do
 value2term i (VP v lbl) = do
   t <- value2term i v
   return (P t lbl)
+value2term i (VT ti cs) = return (T ti cs)
+value2term i (VV ty tnks) = do ts <- mapM (\tnk -> force tnk [] >>= value2term i) tnks
+                               return (V ty ts)
 value2term i (VSort s) = return (Sort s)
 value2term i (VStr tok) = return (K tok)
 value2term i (VInt n) = return (EInt n)

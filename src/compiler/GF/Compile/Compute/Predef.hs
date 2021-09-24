@@ -14,7 +14,6 @@ import Control.Monad(ap)
 
 import GF.Data.Utilities (apBoth) --mapSnd
 
-import GF.Compile.Compute.Value
 import GF.Infra.Ident (Ident,showIdent) --,varX
 import GF.Data.Operations(Err) -- ,err
 import GF.Grammar.Predef
