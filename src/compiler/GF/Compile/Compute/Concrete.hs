@@ -1,4 +1,4 @@
-{-# LANGUAGE RankNTypes #-}
+{-# LANGUAGE RankNTypes, CPP #-}
 
 -- | Functions for computing the values of terms in the concrete syntax, in
 -- | preparation for PMCFG generation.
@@ -13,6 +13,7 @@ import GF.Grammar.Lookup(lookupResDef,allParamValues)
 import GF.Grammar.Predef(cPredef,cErrorType,cTok,cStr,cTrace,cPBool)
 import GF.Grammar.PatternMatch(matchPattern,measurePatt)
 import GF.Grammar.Lockfield(isLockLabel,lockRecType) --unlockRecord,lockLabel
+import GF.Grammar.Printer
 import GF.Compile.Compute.Predef(predef,predefName,delta)
 import GF.Data.Str(Str,glueStr,str2strings,str,sstr,plusStr,strTok)
 import GF.Data.Operations(Err(..),err,errIn,maybeErr,mapPairsM)
@@ -22,15 +23,18 @@ import Data.STRef
 import Control.Monad
 import Control.Monad.ST
 import Control.Applicative
+import qualified Control.Monad.Fail as Fail
 import qualified Data.Map as Map
+import GF.Text.Pretty
 
 -- * Main entry points
 
 normalForm :: Grammar -> L Ident -> Term -> Term
 normalForm gr loc t =
   case runEvalM gr (eval [] t [] >>= value2term 0) of
-    [t] -> t
-    ts  -> FV ts
+    Left msg  -> error (render (ppL loc msg))
+    Right [t] -> t
+    Right ts  -> FV ts
 
 
 data ThunkState s
@@ -62,7 +66,7 @@ data Value s
 
 eval env (Vr x)         vs  = case lookup x env of
                                 Just tnk -> force tnk vs
-                                Nothing  -> error "Unknown variable"
+                                Nothing  -> evalError ("Variable" <+> pp x <+> "is not in scope")
 eval env (Sort s)       []  = return (VSort s)
 eval env (EInt n)       []  = return (VInt n)
 eval env (EFloat d)     []  = return (VFlt d)
@@ -84,7 +88,8 @@ eval env (R as)         []  = do as <- mapM (\(lbl,(_,t)) -> fmap ((,) lbl) (new
 eval env (P t lbl)      vs  = do v <- eval env t []
                                  case v of
                                    VR as -> case lookup lbl as of
-                                              Nothing  -> error ("Missing value for label "++show lbl)
+                                              Nothing  -> evalError ("Missing value for label" <+> pp lbl $$
+                                                                     "in record" <+> pp t)
                                               Just tnk -> force tnk vs
                                    v     -> return (VP v lbl vs)
 eval env (Table t1 t2)  []  = do v1 <- eval env t1 []
@@ -113,8 +118,8 @@ eval env (C t1 t2)      []  = do v1 <- eval env t1 []
                                    (v1,    VC vs2) -> return (VC ([v1]++vs2))
                                    (v1,    v2    ) -> return (VC [v1,v2])
 eval env (FV ts)        vs  = msum [eval env t vs | t <- ts]
-eval env (Error msg)    vs  = error msg
-eval env t              vs  = error (show t)
+eval env (Error msg)    vs  = fail msg
+eval env t              vs  = evalError ("Cannot reduce term" <+> pp t)
 
 apply v                             []  = return v
 apply (VApp f  vs0)                 vs  = return (VApp f (vs0++vs))
@@ -122,7 +127,7 @@ apply (VMeta m env vs0)             vs  = return (VMeta m env (vs0++vs))
 apply (VGen i  vs0)                 vs  = return (VGen i (vs0++vs))
 apply (VClosure env (Abs b x t)) (v:vs) = eval ((x,v):env) t vs
 
-patternMatch env []         tnk = error "No matching pattern found"
+patternMatch env []         tnk = fail "No matching pattern found"
 patternMatch env ((p,t):cs) tnk = do
   res <- match env p tnk
   case res of
@@ -167,7 +172,7 @@ patternMatch env ((p,t):cs) tnk = do
                        case res of
                          Nothing  -> return Nothing
                          Just env -> matchRec env pas as
-        Nothing  -> error ("Missing value for label "++show lbl)
+        Nothing  -> evalError ("Missing value for label" <+> pp lbl)
 
 value2term i (VApp q tnks) =
   foldM (\e1 tnk -> fmap (App e1) (force tnk [] >>= value2term i)) (QC q) tnks
@@ -216,8 +221,8 @@ value2term i (VC vs) = do
 -- * Evaluation monad
 
 type MetaThunks s = Map.Map MetaId (Thunk s)
-
-newtype EvalM s a = EvalM (forall r . Grammar -> (a -> MetaThunks s -> r -> ST s r) -> MetaThunks s -> r -> ST s r)
+type Cont s r = MetaThunks s -> r -> ST s (Either Doc r)
+newtype EvalM s a = EvalM (forall r . Grammar -> (a -> Cont s r) -> Cont s r)
 
 instance Functor (EvalM s) where
   fmap f (EvalM g) = EvalM (\gr k -> g gr (k . f))
@@ -229,25 +234,39 @@ instance Applicative (EvalM s) where
 instance Monad (EvalM s) where
   (EvalM f) >>= g = EvalM (\gr k -> f gr (\x -> case g x of
                                                   EvalM g -> g gr k))
+#if !(MIN_VERSION_base(4,13,0))
+  -- Monad(fail) will be removed in GHC 8.8+
+  fail = Fail.fail
+#endif
 
+instance Fail.MonadFail (EvalM s) where
+  fail msg = EvalM (\gr k _ r -> return (Left (pp msg)))
 
 instance Alternative (EvalM s) where
-  empty = EvalM (\gr k _ -> return)
-  (EvalM f) <|> (EvalM g) = EvalM (\gr k mt r -> f gr k mt r >>= \r -> g gr k mt r)
+  empty = EvalM (\gr k _ r -> return (Right r))
+  (EvalM f) <|> (EvalM g) = EvalM $ \gr k mt r -> do
+     res <- f gr k mt r
+     case res of
+       Left msg -> return (Left msg)
+       Right r  -> g gr k mt r
 
 instance MonadPlus (EvalM s) where
 
+runEvalM :: Grammar -> (forall s . EvalM s a) -> Either Doc [a]
+runEvalM gr f =
+  case runST (case f of
+                EvalM f -> f gr (\x mt xs -> return (Right (x:xs))) Map.empty []) of
+    Left msg -> Left msg
+    Right xs -> Right (reverse xs)
 
-runEvalM :: Grammar -> (forall s . EvalM s a) -> [a]
-runEvalM gr f = reverse $
-                runST (case f of
-                         EvalM f -> f gr (\x mt xs -> return (x:xs)) Map.empty [])
-
+evalError :: Doc -> EvalM s a
+evalError msg = EvalM (\gr k _ r -> return (Left msg))
+  
 lookupGlobal :: QIdent -> EvalM s Term
 lookupGlobal q = EvalM $ \gr k mt r -> do
   case lookupResDef gr q of
     Ok t    -> k t mt r
-    Bad msg -> error msg
+    Bad msg -> return (Left (pp msg))
 
 newThunk env t = EvalM $ \gr k mt r -> do
  tnk <- newSTRef (Unevaluated env t)
