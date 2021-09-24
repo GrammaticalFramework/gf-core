@@ -22,14 +22,14 @@ import qualified Data.IntMap as IntMap
 import Data.Maybe(fromMaybe,isNothing)
 import qualified Control.Monad.Fail as Fail
 
-checkLType :: GlobalEnv -> Term -> Type -> Check (Term, Type)
+checkLType :: Grammar -> Term -> Type -> Check (Term, Type)
 checkLType ge t ty = error "TODO: checkLType" {- runTcM $ do
   vty <- liftErr (eval ge [] ty)
   (t,_) <- tcRho ge [] t (Just vty)
   t <- zonkTerm t
   return (t,ty) -}
 
-inferLType :: GlobalEnv -> Term -> Check (Term, Type)
+inferLType :: Grammar -> Term -> Check (Term, Type)
 inferLType ge t = error "TODO: inferLType" {- runTcM $ do
   (t,ty) <- inferSigma ge [] t
   t  <- zonkTerm t

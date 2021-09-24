@@ -20,7 +20,7 @@ import GF.Compile.Compute.Predef(predef)
 import GF.Infra.Ident(ModuleName(..),Ident,ident2raw,rawIdentS,showIdent,isWildIdent)
 import GF.Infra.Option(Options,optionsPGF)
 import PGF2(Literal(..))
-import GF.Compile.Compute.Concrete(GlobalEnv,normalForm,resourceValues)
+import GF.Compile.Compute.Concrete(normalForm)
 import GF.Grammar.Canonical as C
 import System.FilePath ((</>), (<.>))
 import qualified Debug.Trace as T
@@ -64,22 +64,21 @@ abstract2canonical absname gr =
 -- the named abstract syntax in given the grammar.
 concretes2canonical :: Options -> ModuleName -> G.Grammar -> [(FilePath, Concrete)]
 concretes2canonical opts absname gr =
-  [(cncname,concrete2canonical gr cenv absname cnc cncmod)
-     | let cenv = resourceValues opts gr,
-       cnc<-allConcretes gr absname,
+  [(cncname,concrete2canonical gr absname cnc cncmod)
+     | cnc<-allConcretes gr absname,
        let cncname = "canonical" </> render cnc <.> "gf"
            Ok cncmod = lookupModule gr cnc
   ]
 
 -- | Generate Canonical GF for the given concrete module.
-concrete2canonical :: G.Grammar -> GlobalEnv -> ModuleName -> ModuleName -> ModuleInfo -> Concrete
-concrete2canonical gr cenv absname cnc modinfo =
+concrete2canonical :: G.Grammar -> ModuleName -> ModuleName -> ModuleInfo -> Concrete
+concrete2canonical gr absname cnc modinfo =
   Concrete (modId cnc) (modId absname) (convFlags gr cnc)
       (neededParamTypes S.empty (params defs))
       [lincat | (_,Left lincat) <- defs]
       [lin | (_,Right lin) <- defs]
   where
-    defs = concatMap (toCanonical gr absname cenv) .
+    defs = concatMap (toCanonical gr absname) .
            M.toList $
            jments modinfo
 
@@ -92,8 +91,8 @@ concrete2canonical gr cenv absname cnc modinfo =
         else let ((got,need),def) = paramType gr q
              in def++neededParamTypes (S.union got have) (S.toList need++qs)
 
--- toCanonical :: G.Grammar -> ModuleName -> GlobalEnv -> (Ident, Info) -> [(S.Set QIdent, Either LincatDef LinDef)]
-toCanonical gr absname cenv (name,jment) =
+-- toCanonical :: G.Grammar -> ModuleName -> (Ident, Info) -> [(S.Set QIdent, Either LincatDef LinDef)]
+toCanonical gr absname (name,jment) =
   case jment of
     CncCat (Just (L loc typ)) _ _ pprn _ ->
         [(pts,Left (LincatDef (gId name) (convType ntyp)))]
@@ -112,11 +111,11 @@ toCanonical gr absname cenv (name,jment) =
         args = map snd params
 
     AnyInd _ m  -> case lookupOrigInfo gr (m,name) of
-                     Ok (m,jment) -> toCanonical gr absname cenv (name,jment)
+                     Ok (m,jment) -> toCanonical gr absname (name,jment)
                      _ -> []
     _ -> []
   where
-    nf loc = normalForm cenv (L loc name)
+    nf loc = normalForm gr (L loc name)
 
     unAbs 0 t = t
     unAbs n (Abs _ _ t) = unAbs (n-1) t

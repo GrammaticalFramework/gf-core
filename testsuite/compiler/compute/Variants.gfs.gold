@@ -2,10 +2,10 @@ variants {"hello"; "hello" ++ "hello"}
 variants {"a" ++ "a"; "b" ++ "b"}
 variants {"a"; "b"}
 "c"
-variants {"a"; "b"} ++ variants {"a"; "b"}
+variants {"a" ++ "a"; "b" ++ "b"}
 variants {"a"; "b"}
 "c"
-variants {"a"; "b"} ++ variants {"a"; "b"}
+variants {"a" ++ "a"; "b" ++ "b"}
 variants {"a"; "b"}
 "c" ++ "c"
 "c"

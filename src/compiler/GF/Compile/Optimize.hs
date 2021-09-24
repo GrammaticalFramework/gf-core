@@ -21,7 +21,7 @@ import GF.Grammar.Printer
 import GF.Grammar.Macros
 import GF.Grammar.Lookup
 import GF.Grammar.Predef
-import GF.Compile.Compute.Concrete(GlobalEnv,normalForm,resourceValues)
+import GF.Compile.Compute.Concrete(normalForm)
 import GF.Data.Operations
 import GF.Infra.Option
 
@@ -43,14 +43,12 @@ optimizeModule opts sgr m@(name,mi)
  where
    oopts = opts `addOptions` mflags mi
 
-   resenv = resourceValues oopts sgr
-
    updateEvalInfo mi (i,info) = do
-     info <- evalInfo oopts resenv sgr (name,mi) i info
+     info <- evalInfo oopts sgr (name,mi) i info
      return (mi{jments=Map.insert i info (jments mi)})
 
-evalInfo :: Options -> GlobalEnv -> SourceGrammar -> SourceModule -> Ident -> Info -> Err Info
-evalInfo opts resenv sgr m c info = do
+evalInfo :: Options -> SourceGrammar -> SourceModule -> Ident -> Info -> Err Info
+evalInfo opts sgr m c info = do
 
  (if verbAtLeast opts Verbose then trace (" " ++ showIdent c) else id) return ()
 
@@ -77,7 +75,7 @@ evalInfo opts resenv sgr m c info = do
         return (Just (L loc (factor param c 0 re)))
       _ -> return pre   -- indirection
 
-    let ppr' = fmap (evalPrintname resenv c) ppr
+    let ppr' = fmap (evalPrintname sgr c) ppr
 
     return (CncCat ptyp pde' pre' ppr' mpmcfg)
 
@@ -87,7 +85,7 @@ evalInfo opts resenv sgr m c info = do
       Just (L loc de) -> do de <- partEval opts gr (cont,val) de
                             return (Just (L loc (factor param c 0 de)))
       Nothing -> return pde
-    let ppr' = fmap (evalPrintname resenv c) ppr
+    let ppr' = fmap (evalPrintname sgr c) ppr
     return $ CncFun mt pde' ppr' mpmcfg -- only cat in type actually needed
 {-
   ResOper pty pde
@@ -192,8 +190,8 @@ mkLinReference gr typ =
        _ | Just _ <- isTypeInts typ -> Bad "no string"
        _ -> Bad (render ("linearization type field cannot be" <+> typ))
 
-evalPrintname :: GlobalEnv -> Ident -> L Term -> L Term
-evalPrintname resenv c (L loc pr) = L loc (normalForm resenv (L loc c) pr)
+evalPrintname :: Grammar -> Ident -> L Term -> L Term
+evalPrintname gr c (L loc pr) = L loc (normalForm gr (L loc c) pr)
 
 -- do even more: factor parametric branches
 

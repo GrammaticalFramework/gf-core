@@ -44,7 +44,6 @@ grammar2PGF opts gr am probs = do
                cncs     = map (mkConcr opts abs) cnc_infos
            in newPGF gflags an abs cncs)-}
   where
-    cenv = resourceValues opts gr
     aflags = err (const noOptions) mflags (lookupModule gr am)
 
     mkAbstr :: ModuleName -> Map.Map PGF2.Fun Double -> IO PGF

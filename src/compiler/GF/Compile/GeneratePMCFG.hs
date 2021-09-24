@@ -10,7 +10,7 @@
 -----------------------------------------------------------------------------
 
 module GF.Compile.GeneratePMCFG
-    (generatePMCFG, pgfCncCat, addPMCFG, resourceValues
+    (generatePMCFG, pgfCncCat, addPMCFG
     ) where
 
 import qualified PGF2 as PGF2
@@ -26,7 +26,7 @@ import GF.Data.BacktrackM
 import GF.Data.Operations
 import GF.Infra.UseIO (ePutStr,ePutStrLn) -- IOE,
 import GF.Data.Utilities (updateNthM) --updateNth
-import GF.Compile.Compute.Concrete(normalForm,resourceValues)
+import GF.Compile.Compute.Concrete(normalForm)
 import qualified Data.Map as Map
 import qualified Data.Set as Set
 import qualified Data.List as List
@@ -49,11 +49,10 @@ import qualified Control.Monad.Fail as Fail
 
 --generatePMCFG :: Options -> SourceGrammar -> Maybe FilePath -> SourceModule -> IOE SourceModule
 generatePMCFG opts sgr opath cmo@(cm,cmi) = do
-  (seqs,js) <- mapAccumWithKeyM (addPMCFG opts gr cenv opath am cm) Map.empty (jments cmi)
+  (seqs,js) <- mapAccumWithKeyM (addPMCFG opts gr opath am cm) Map.empty (jments cmi)
   when (verbAtLeast opts Verbose) $ ePutStrLn ""
   return (cm,cmi{mseqs = Just (mkSetArray seqs), jments = js})
   where
-    cenv = resourceValues opts gr
     gr = prependModule sgr cmo
     MTConcrete am = mtype cmi
 
@@ -69,14 +68,14 @@ mapAccumWithKeyM f a m = do let xs = Map.toAscList m
                                    return (a,(k,y):kys)
 
 
---addPMCFG :: Options -> SourceGrammar -> GlobalEnv -> Maybe FilePath -> Ident -> Ident -> SeqSet -> Ident -> Info -> IOE (SeqSet, Info)
-addPMCFG opts gr cenv opath am cm seqs id (CncFun mty@(Just (cat,cont,val)) mlin@(Just (L loc term)) mprn Nothing) = do
+--addPMCFG :: Options -> SourceGrammar -> Maybe FilePath -> Ident -> Ident -> SeqSet -> Ident -> Info -> IOE (SeqSet, Info)
+addPMCFG opts gr opath am cm seqs id (CncFun mty@(Just (cat,cont,val)) mlin@(Just (L loc term)) mprn Nothing) = do
 --when (verbAtLeast opts Verbose) $ ePutStr ("\n+ "++showIdent id++" ...")
   let pres  = protoFCat gr res val
       pargs = [protoFCat gr (snd $ catSkeleton ty) lincat | ((_,_,ty),(_,_,lincat)) <- zip ctxt cont]
 
       pmcfgEnv0   = emptyPMCFGEnv
-  b             <- convert opts gr cenv (floc opath loc id) term (cont,val) pargs
+  b             <- convert opts gr (floc opath loc id) term (cont,val) pargs
   let (seqs1,b1) = addSequencesB seqs b
       pmcfgEnv1  = foldBM addRule
                           pmcfgEnv0
@@ -104,18 +103,18 @@ addPMCFG opts gr cenv opath am cm seqs id (CncFun mty@(Just (cat,cont,val)) mlin
           newArgs  = map getFIds newArgs'
       in addFunction env0 newCat fun newArgs
 
-addPMCFG opts gr cenv opath am cm seqs id (CncCat mty@(Just (L _ lincat)) 
-                                                  mdef@(Just (L loc1 def))
-                                                  mref@(Just (L loc2 ref))
-                                                  mprn
-                                                  Nothing) = do
+addPMCFG opts gr opath am cm seqs id (CncCat mty@(Just (L _ lincat)) 
+                                             mdef@(Just (L loc1 def))
+                                             mref@(Just (L loc2 ref))
+                                             mprn
+                                             Nothing) = do
   let pcat = protoFCat gr (am,id) lincat
       pvar = protoFCat gr (MN identW,cVar) typeStr
 
       pmcfgEnv0  = emptyPMCFGEnv
 
   let lincont    = [(Explicit, varStr, typeStr)]
-  b             <- convert opts gr cenv (floc opath loc1 id) def (lincont,lincat) [pvar]
+  b             <- convert opts gr (floc opath loc1 id) def (lincont,lincat) [pvar]
   let (seqs1,b1) = addSequencesB seqs b
       pmcfgEnv1  = foldBM addLindef
                           pmcfgEnv0
@@ -123,7 +122,7 @@ addPMCFG opts gr cenv opath am cm seqs id (CncCat mty@(Just (L _ lincat))
                           (pcat,[pvar])
 
   let lincont    = [(Explicit, varStr, lincat)]
-  b             <- convert opts gr cenv (floc opath loc2 id) ref (lincont,typeStr) [pcat]
+  b             <- convert opts gr (floc opath loc2 id) ref (lincont,typeStr) [pcat]
   let (seqs2,b2) = addSequencesB seqs1 b
       pmcfgEnv2  = foldBM addLinref
                           pmcfgEnv1
@@ -145,12 +144,12 @@ addPMCFG opts gr cenv opath am cm seqs id (CncCat mty@(Just (L _ lincat))
           !fun     = mkArray lins
       in addFunction env0 fidVar fun [newArg]
 
-addPMCFG opts gr cenv opath am cm seqs id info = return (seqs, info)
+addPMCFG opts gr opath am cm seqs id info = return (seqs, info)
 
 floc opath loc id = maybe (L loc id) (\path->L (External path loc) id) opath
 
-convert opts gr cenv loc term ty@(_,val) pargs =
-  case normalForm cenv loc (etaExpand ty term) of
+convert opts gr loc term ty@(_,val) pargs =
+  case normalForm gr loc (etaExpand ty term) of
     Error s -> fail $ render $ ppL loc ("Predef.error: "++s)
     term    -> return $ runCnvMonad gr (convertTerm opts CNil val term) (pargs,[])
   where
