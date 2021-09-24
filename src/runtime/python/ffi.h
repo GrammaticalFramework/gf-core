@@ -15,10 +15,16 @@ typedef struct {
 PyObject *PGFError;
 PgfExnType handleError(PgfExn err);
 
+PgfText *CString_AsPgfText(const char *s, size_t size);
+
 PgfText *PyUnicode_AsPgfText(PyObject *pystr);
 PyObject *PyUnicode_FromPgfText(PgfText *text);
 
 PgfTypeHypo *PyList_AsHypos(PyObject *pylist, Py_ssize_t *n_hypos);
+PyObject *PyList_FromHypos(PgfTypeHypo *hypos, const size_t n_hypos);
+
+PgfPrintContext *PyList_AsPgfPrintContext(PyObject *pylist);
+void FreePgfPrintContext(PgfPrintContext *ctxt);
 
 PgfUnmarshaller unmarshaller;
 PgfMarshaller marshaller;

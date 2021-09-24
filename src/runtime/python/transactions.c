@@ -15,9 +15,7 @@ PGF_checkoutBranch(PGFObject *self, PyObject *args)
     if (!PyArg_ParseTuple(args, "s#", &s, &size))
         return NULL;
 
-    PgfText *name = (PgfText *)PyMem_RawMalloc(sizeof(PgfText)+size+1);
-    memcpy(name->text, s, size+1);
-    name->size = size;
+    PgfText *name = CString_AsPgfText(s, size);
 
     PgfExn err;
     PgfRevision rev = pgf_checkout_revision(self->db, name, &err);
@@ -46,15 +44,13 @@ PGF_newTransaction(PGFObject *self, PyObject *args)
         return NULL;
 
     if (s != NULL) {
-        name = (PgfText *)PyMem_Malloc(sizeof(PgfText)+size+1);
-        memcpy(name->text, s, size+1);
-        name->size = size;
+        name = CString_AsPgfText(s, size);
     }
 
     PgfExn err;
     PgfRevision rev = pgf_clone_revision(self->db, self->revision, name, &err);
     if (name != NULL) {
-        PyMem_Free(name);
+        PyMem_RawFree(name);
     }
     if (handleError(err) != PGF_EXN_NONE) {
         return NULL;
@@ -94,13 +90,11 @@ Transaction_createFunction(TransactionObject *self, PyObject *args)
     if (!PyArg_ParseTuple(args, "s#O!nf", &s, &size, &pgf_TypeType, &type, &arity, &prob))
         return NULL;
 
-    PgfText *fname = (PgfText *)PyMem_Malloc(sizeof(PgfText)+size+1);
-    memcpy(fname->text, s, size+1);
-    fname->size = size;
+    PgfText *funname = CString_AsPgfText(s, size);
 
     PgfExn err;
-    pgf_create_function(self->pgf->db, self->revision, fname, (PgfType) type, arity, prob, &marshaller, &err);
-    PyMem_Free(fname);
+    pgf_create_function(self->pgf->db, self->revision, funname, (PgfType) type, arity, prob, &marshaller, &err);
+    PyMem_RawFree(funname);
     if (handleError(err) != PGF_EXN_NONE) {
         return NULL;
     }
@@ -116,13 +110,11 @@ Transaction_dropFunction(TransactionObject *self, PyObject *args)
     if (!PyArg_ParseTuple(args, "s#", &s, &size))
         return NULL;
 
-    PgfText *fname = (PgfText *)PyMem_Malloc(sizeof(PgfText)+size+1);
-    memcpy(fname->text, s, size+1);
-    fname->size = size;
+    PgfText *funname = CString_AsPgfText(s, size);
 
     PgfExn err;
-    pgf_drop_function(self->pgf->db, self->revision, fname, &err);
-    PyMem_Free(fname);
+    pgf_drop_function(self->pgf->db, self->revision, funname, &err);
+    PyMem_RawFree(funname);
     if (handleError(err) != PGF_EXN_NONE) {
         return NULL;
     }
@@ -145,20 +137,19 @@ Transaction_createCategory(TransactionObject *self, PyObject *args)
         PyErr_SetString(PyExc_TypeError, "hypos must be a list");
         return NULL;
     }
-    // Py_INCREF(hypos);
 
-    PgfText *catname = (PgfText *)PyMem_Malloc(sizeof(PgfText)+size+1);
-    memcpy(catname->text, s, size+1);
-    catname->size = size;
+    PgfText *catname = CString_AsPgfText(s, size);
 
     Py_ssize_t n_hypos;
     PgfTypeHypo *context = PyList_AsHypos(hypos, &n_hypos);
-    if (PyErr_Occurred())
+    if (PyErr_Occurred()) {
+        PyMem_RawFree(catname);
         return NULL;
+    }
 
     PgfExn err;
     pgf_create_category(self->pgf->db, self->revision, catname, n_hypos, context, prob, &marshaller, &err);
-    PyMem_Free(catname);
+    PyMem_RawFree(catname);
     if (handleError(err) != PGF_EXN_NONE) {
         return NULL;
     }
@@ -174,13 +165,11 @@ Transaction_dropCategory(TransactionObject *self, PyObject *args)
     if (!PyArg_ParseTuple(args, "s#", &s, &size))
         return NULL;
 
-    PgfText *catname = (PgfText *)PyMem_Malloc(sizeof(PgfText)+size+1);
-    memcpy(catname->text, s, size+1);
-    catname->size = size;
+    PgfText *catname = CString_AsPgfText(s, size);
 
     PgfExn err;
     pgf_drop_category(self->pgf->db, self->revision, catname, &err);
-    PyMem_Free(catname);
+    PyMem_RawFree(catname);
     if (handleError(err) != PGF_EXN_NONE) {
         return NULL;
     }

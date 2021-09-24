@@ -28,6 +28,16 @@ PgfExnType handleError(PgfExn err)
 
 // ----------------------------------------------------------------------------
 // conversions
+//
+// You have to remember to call PyMem_Free on these things!
+
+PgfText *
+CString_AsPgfText(const char *s, size_t size) {
+    PgfText *txt = (PgfText *)PyMem_RawMalloc(sizeof(PgfText)+size+1);
+    memcpy(txt->text, s, size+1);
+    txt->size = size;
+    return txt;
+}
 
 PgfText *
 PyUnicode_AsPgfText(PyObject *pystr)
@@ -42,7 +52,7 @@ PyUnicode_AsPgfText(PyObject *pystr)
 
     Py_ssize_t size;
     const char *enc = PyUnicode_AsUTF8AndSize(pystr, &size);
-    PgfText *ptext = malloc(sizeof(PgfText)+size+1);
+    PgfText *ptext = PyMem_RawMalloc(sizeof(PgfText)+size+1);
     memcpy(ptext->text, enc, size+1);
     ptext->size = size;
     return ptext;
@@ -63,7 +73,7 @@ PyList_AsHypos(PyObject *pylist, Py_ssize_t *n_hypos)
     }
     Py_ssize_t n = PyList_Size(pylist);
     *n_hypos = n;
-    PgfTypeHypo *hypos = PyMem_Malloc(sizeof(PgfTypeHypo)*n);
+    PgfTypeHypo *hypos = PyMem_RawMalloc(sizeof(PgfTypeHypo)*n);
 
     for (Py_ssize_t i = 0; i < n; i++) {
         PyObject *tup = PyList_GetItem(pylist, i);
@@ -98,6 +108,59 @@ PyList_AsHypos(PyObject *pylist, Py_ssize_t *n_hypos)
     return hypos;
 }
 
+PyObject *
+PyList_FromHypos(PgfTypeHypo *hypos, const size_t n_hypos)
+{
+    PyObject *pylist = PyList_New(n_hypos);
+    if (pylist == NULL) {
+        return NULL;
+    }
+
+    for (size_t i = 0; i < n_hypos; i++) {
+        PyObject *tup = PyTuple_New(3);
+        PyTuple_SetItem(tup, 0, PyLong_FromLong(hypos[i].bind_type));
+        PyTuple_SetItem(tup, 1, PyUnicode_FromStringAndSize(hypos[i].cid->text, hypos[i].cid->size));
+        PyTuple_SetItem(tup, 2, (PyObject *)hypos[i].type);
+        Py_INCREF(hypos[i].type);
+        PyList_SetItem(pylist, i, tup);
+    }
+    if (PyErr_Occurred()) {
+        Py_DECREF(pylist);
+        return NULL;
+    }
+
+    return pylist;
+}
+
+PgfPrintContext *
+PyList_AsPgfPrintContext(PyObject *pylist)
+{
+    PgfPrintContext *ctxt = NULL;
+    for (Py_ssize_t i = PyList_Size(pylist); i > 0 ; i--) {
+        PyObject *item = PyList_GetItem(pylist, i-1);
+        if (!PyUnicode_Check(item)) {
+            PyErr_SetString(PyExc_TypeError, "variable argument in context must be a string");
+            return NULL;
+        }
+        PgfText *input = PyUnicode_AsPgfText(item);
+
+        // TODO a better way to copy into this->name?
+        PgfPrintContext *this = (PgfPrintContext *)PyMem_RawMalloc(sizeof(PgfPrintContext *) + sizeof(PgfText) + input->size + 1);
+        this->next = ctxt;
+        memcpy(&this->name, input, sizeof(PgfText)+input->size+1);
+        ctxt = this;
+    }
+
+    return ctxt;
+}
+
+void
+FreePgfPrintContext(PgfPrintContext *ctxt)
+{
+    if (ctxt == NULL) return;
+    FreePgfPrintContext(ctxt->next);
+    PyMem_RawFree(ctxt);
+}
 
 // ----------------------------------------------------------------------------
 // unmarshaller
@@ -224,18 +287,8 @@ dtyp(PgfUnmarshaller *this, int n_hypos, PgfTypeHypo *hypos, PgfText *cat, int n
 {
     TypeObject *pytype = (TypeObject *)pgf_TypeType.tp_alloc(&pgf_TypeType, 0);
 
-    pytype->hypos = PyList_New(n_hypos);
-    for (int i = 0; i < n_hypos; i++) {
-        PyObject *tup = PyTuple_New(3);
-        PyTuple_SetItem(tup, 0, PyLong_FromLong(hypos[i].bind_type));
-        PyTuple_SetItem(tup, 1, PyUnicode_FromStringAndSize(hypos[i].cid->text, hypos[i].cid->size));
-        PyTuple_SetItem(tup, 2, (PyObject *)hypos[i].type);
-        Py_INCREF(hypos[i].type);
-        PyList_SetItem(pytype->hypos, i, tup);
-    }
-
+    pytype->hypos = PyList_FromHypos(hypos, n_hypos);
     pytype->cat = PyUnicode_FromStringAndSize(cat->text, cat->size);
-
     pytype->exprs = PyList_New(n_exprs);
     for (int i = 0; i < n_exprs; i++) {
         PyList_SetItem(pytype->exprs, i, (PyObject *)exprs[i]);
@@ -290,7 +343,7 @@ match_lit(PgfMarshaller *this, PgfUnmarshaller *u, PgfLiteral lit)
         // chop up into chunks, always positive
         bool isPos = PyObject_RichCompareBool(pyobj, PyLong_FromLong(0), Py_GE) == 1;
         x = PyNumber_Absolute(PyNumber_Long(pyobj)); // make a copy, ignore sign
-        uintmax_t *i = malloc(sizeof(uintmax_t)*size);
+        uintmax_t *i = PyMem_RawMalloc(sizeof(uintmax_t)*size); // TODO when does this get freed?
         for (int n = size-1; n > 0; n--) {
             PyObject *rem = PyNumber_Remainder(x, intShifter);
             i[n] = PyLong_AsUnsignedLong(rem);
