@@ -1,4 +1,4 @@
-i -retain testsuite/compiler/compute/Variants.gf
+i -retain testsuite/compiler/compute/variant.gf
 cc hello
 cc <\x -> x++x : Str -> Str> ("a"|"b")
 cc <\x -> x : Str -> Str> ("a"|"b")

@@ -1,4 +1,4 @@
-resource Records = {
+resource record = {
 
 param P = A;
 

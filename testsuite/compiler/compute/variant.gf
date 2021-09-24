@@ -1,4 +1,4 @@
-resource Variants = {
+resource variant = {
   oper
     hello = r.f "hello";
     r = { f:Str->Str = (id|dup) };
