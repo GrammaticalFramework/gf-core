@@ -1,4 +1,4 @@
-i -retain testsuite/compiler/compute/record.gfs
+i -retain testsuite/compiler/compute/record.gf
 cc hello
 cc {x="x"; y="y"}.x
 cc {x="x"; y="y"}.y
