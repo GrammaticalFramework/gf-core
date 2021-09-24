@@ -7,6 +7,35 @@
 #include "./ffi.h"
 #include "./transactions.h"
 
+PyObject *
+PGF_checkoutBranch(PGFObject *self, PyObject *args)
+{
+    const char *s = NULL;
+    Py_ssize_t size;
+    if (!PyArg_ParseTuple(args, "s#", &s, &size))
+        return NULL;
+
+    PgfText *name = (PgfText *)PyMem_RawMalloc(sizeof(PgfText)+size+1);
+    memcpy(name->text, s, size+1);
+    name->size = size;
+
+    PgfExn err;
+    PgfRevision rev = pgf_checkout_revision(self->db, name, &err);
+    PyMem_RawFree(name);
+    if (handleError(err) != PGF_EXN_NONE) {
+        return NULL;
+    }
+    if (rev == 0) {
+        // is this possible?
+        PyErr_SetString(PyExc_KeyError, "unknown branch name");
+        return NULL;
+    }
+
+    self->revision = rev;
+
+    Py_RETURN_TRUE;
+}
+
 TransactionObject *
 PGF_newTransaction(PGFObject *self, PyObject *args)
 {
@@ -49,7 +78,7 @@ Transaction_commit(TransactionObject *self, PyObject *args)
 
     pgf_free_revision(self->pgf->db, self->pgf->revision);
     self->pgf->revision = self->revision;
-    Py_INCREF(self->pgf->db);
+    Py_INCREF(self->pgf);
 
     Py_RETURN_NONE;
 }

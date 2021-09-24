@@ -58,7 +58,7 @@ PgfTypeHypo *
 PyList_AsHypos(PyObject *pylist, Py_ssize_t *n_hypos)
 {
     if (!PyList_Check(pylist)) {
-        PyErr_SetString(PyExc_TypeError, "PyList_AsHypos: must be a list");
+        PyErr_SetString(PyExc_TypeError, "hypos must be a list");
         return NULL;
     }
     Py_ssize_t n = PyList_Size(pylist);
@@ -66,29 +66,29 @@ PyList_AsHypos(PyObject *pylist, Py_ssize_t *n_hypos)
     PgfTypeHypo *hypos = PyMem_Malloc(sizeof(PgfTypeHypo)*n);
 
     for (Py_ssize_t i = 0; i < n; i++) {
-        PyObject *hytup = PyList_GetItem(pylist, i);
-        if (!PyTuple_Check(hytup)) {
-            PyErr_SetString(PyExc_TypeError, "PyList_AsHypos: item must be a tuple");
+        PyObject *tup = PyList_GetItem(pylist, i);
+        if (!PyTuple_Check(tup)) {
+            PyErr_SetString(PyExc_TypeError, "hypo must be a tuple");
             return NULL;
         }
 
-        PyObject *t0 = PyTuple_GetItem(hytup, 0);
+        PyObject *t0 = PyTuple_GetItem(tup, 0);
         if (!PyLong_Check(t0)) {
-            PyErr_SetString(PyExc_TypeError, "PyList_AsHypos: first element must be an integer");
+            PyErr_SetString(PyExc_TypeError, "first element of hypo must be an integer");
             return NULL;
         }
         hypos[i].bind_type = PyLong_AsLong(t0);
 
-        PyObject *t1 = PyTuple_GetItem(hytup, 1);
+        PyObject *t1 = PyTuple_GetItem(tup, 1);
         if (!PyUnicode_Check(t1)) {
-            PyErr_SetString(PyExc_TypeError, "PyList_AsHypos: second element must be a string");
+            PyErr_SetString(PyExc_TypeError, "second element of hypo must be a string");
             return NULL;
         }
         hypos[i].cid = PyUnicode_AsPgfText(t1);
 
-        PyObject *t2 = PyTuple_GetItem(hytup, 2);
+        PyObject *t2 = PyTuple_GetItem(tup, 2);
         if (!PyObject_TypeCheck(t2, &pgf_TypeType)) {
-            PyErr_SetString(PyExc_TypeError, "PyList_AsHypos: third element must be a Type");
+            PyErr_SetString(PyExc_TypeError, "third element of hypo must be a Type");
             return NULL;
         }
         hypos[i].type = (PgfType) t2;
@@ -247,7 +247,6 @@ dtyp(PgfUnmarshaller *this, int n_hypos, PgfTypeHypo *hypos, PgfText *cat, int n
 static void
 free_ref(PgfUnmarshaller *this, object x)
 {
-    // Py_XDECREF(x);
 }
 
 static PgfUnmarshallerVtbl unmarshallerVtbl =

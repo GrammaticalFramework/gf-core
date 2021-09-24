@@ -353,6 +353,9 @@ static PyMethodDef PGF_methods[] = {
      "Returns the probability of a function"
     },
 
+    {"checkoutBranch", (PyCFunction)PGF_checkoutBranch, METH_VARARGS,
+     "Switch to a branch"
+    },
     {"newTransaction", (PyCFunction)PGF_newTransaction, METH_VARARGS,
      "Create new transaction"
     },
