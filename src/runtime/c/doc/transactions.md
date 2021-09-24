@@ -1,6 +1,6 @@
 # Transactions
 
-The .ngf files that the runtime creates are actual databases which are used to get quick access to the grammars. Like in any database, we also make it possible to dynamically change the data. In our case this means that we can add and remove functions and categories at any time. Moreover, any changes happen in transactions which ensure that changes are not visible until the transaction is commited. The rest of the document describes how the transactions are implemented.
+The `.ngf` files that the runtime creates are actual databases which are used to get quick access to the grammars. Like in any database, we also make it possible to dynamically change the data. In our case this means that we can add and remove functions and categories at any time. Moreover, any changes happen in transactions which ensure that changes are not visible until the transaction is commited. The rest of the document describes how the transactions are implemented.
 
 # Databases and Functional Languages
 
@@ -13,13 +13,14 @@ main = do
   functionType gr "f" >>= print
 ```
 Here we ask for the type of a function before and after an arbitrary update in the grammar `gr`. Obviously if we allow that then `functionType` would have to be in the IO monad, e.g.:
+
 ```Haskell
 functionType :: PGF -> Fun -> IO Type
 ```
 
-Although this is a possible way to go, it would mean that the programmer would have to do all grammar related work in the IO. This is not nice and against the spirit of functional programming. Moreover, all previous implementations of the runtime have assumed that most operations are pure. If we go along that path then this will cause a majour breaking change.
+Although this is a possible way to go, it would mean that the programmer would have to do all grammar related work in the IO. This is not nice and against the spirit of functional programming. Moreover, all previous implementations of the runtime have assumed that most operations are pure. If we go along that path then this will cause a major breaking change.
 
-Fortunately there is an alternative. Read-only operations remain pure functions, but then any update should create a new revision of the database rather than modifying the existing one. Compare this example with the previous:
+Fortunately there is an alternative. Read-only operations remain pure functions, but any update should create a new revision of the database rather than modifying the existing one. Compare this example with the previous:
 ```Haskell
 main = do
   gr <- readNGF "Example.ngf"
@@ -28,7 +29,7 @@ main = do
            -- do all updates here
   print (functionType gr2 "f")
 ```
-Here `modifyPGF` allows us to do updates but the updates are performed on a freshly created clone of the grammar `gr`. The original grammar is never ever modified. After the changes the variable `gr2` is a reference to the new revision. While the transaction is in progress we cannot see from the currently changing revision, and therefore all read-only operations can remain pure. Only after the transaction is complete then we get to use `gr2` which would not change anymore.
+Here `modifyPGF` allows us to do updates but the updates are performed on a freshly created clone of the grammar `gr`. The original grammar is never ever modified. After the changes the variable `gr2` is a reference to the new revision. While the transaction is in progress we cannot see the currently changing revision, and therefore all read-only operations can remain pure. Only after the transaction is complete do we get to use `gr2`, which will not change anymore.
 
 Note also that above `functionType` is used with its usual pure type:
 ```Haskell
@@ -66,7 +67,7 @@ Here the first call to `functionType` returns the old type of "f", while the sec
 
 # Branches
 
-Since the database already supports revisions, it is a simple step to support branches as well. A branch is just a revision with a name. When you open a database with `readNGF`, the runtime looks up and returns the revision (the branch) with name `master`. There might be other branches as well. You can retrieve a specific branch by calling:
+Since the database already supports revisions, it is a simple step to support branches as well. A branch is just a revision with a name. When you open a database with `readNGF`, the runtime looks up and returns the revision (branch) with name `master`. There might be other branches as well. You can retrieve a specific branch by calling:
 ```Haskell
 checkoutPGF :: PGF -> String -> IO (Maybe PGF)
 ```
@@ -88,12 +89,15 @@ void pgf_free_revision(PgfDB *pgf, PgfRevision revision);
 
 void pgf_commit_revision(PgfDB *db, PgfRevision revision,
                          PgfExn *err);
+
+PgfRevision pgf_checkout_revision(PgfDB *db, PgfText *name,
+                                  PgfExn *err);
 ```
-Here `pgf_clone_revision` makes a copy of an existing revision and if `name` is not `NULL` changes its name. The new revision is transient and exists only until it is released with `pgf_free_revision`. Transient revisions can be updated with the API for adding functions and categories. To make a revision persistent, call `pgf_commit_revision`. After the revision is made persistent it will stay in the database even after you call `pgf_free_revision`. Moreover, it will replace the last persistent revision with the same name. The old revision will then become transient and will exist only until all clients call `pgf_free_revision` for it.
+Here `pgf_clone_revision` makes a copy of an existing revision and — if `name` is not `NULL` — changes its name. The new revision is transient and exists only until it is released with `pgf_free_revision`. Transient revisions can be updated with the API for adding functions and categories. To make a revision persistent, call `pgf_commit_revision`. After the revision is made persistent it will stay in the database even after you call `pgf_free_revision`. Moreover, it will replace the last persistent revision with the same name. The old revision will then become transient and will exist only until all clients call `pgf_free_revision` for it.
 
 Persistent revisions can never be updated. Instead you clone it to create a new transient revision. That one is updated and finally it replaces the existing persistent revision.
 
-Our design for transactions may sound unusual but it is just another way to present the copy-on-write strategy. There instead of transaction logs, each change to the data is written in a new place and the result is made available only after all changes are in place. This is for instance what the [LMDB](http://www.lmdb.tech/doc/) (Lightning Memory-Mapped Database) does and it has also served as an inspiration for us.
+This design for transactions may sound unusual but it is just another way to present the copy-on-write strategy. There instead of transaction logs, each change to the data is written in a new place and the result is made available only after all changes are in place. This is for instance what the [LMDB](http://www.lmdb.tech/doc/) (Lightning Memory-Mapped Database) does and it has also served as an inspiration for us.
 
 ## Functional Data Structures
 
@@ -108,7 +112,7 @@ From an imperative point of view, it may sound wasteful that a new copy of the g
 
 We use reference counting to keep track of which objects should be kept alive. For instance, `pgf_free_revision` knows that a transient revision should be removed only when its reference count reaches zero. This means that there is no process or thread using it. The function also checks whether the revision is persistent. Persistent revisions are never removed since they can always be retrieved with `checkoutPGF`.
 
-Clients are supposed to correctly use `pgf_free_revision` to indicate that they don't need a revision any more. Unfortunetely, this is not always possible to guarantee. For example many languages with garbage collection will call `pgf_free_revision` from a finalizer method. In some languages, however, the finalizer is not guaranteed to be executed if the process terminates before the garbage collection is done. Haskell is one of those languages. Even in languages with reference counting like Python, the process may get killed by the operating system and then the finalizer may still not be executed.
+Clients are supposed to correctly use `pgf_free_revision` to indicate that they don't need a revision any more. Unfortunately, this is not always possible to guarantee. For example many languages with garbage collection will call `pgf_free_revision` from a finalizer method. In some languages, however, the finalizer is not guaranteed to be executed if the process terminates before the garbage collection is done. Haskell is one of those languages. Even in languages with reference counting like Python, the process may get killed by the operating system and then the finalizer may still not be executed.
 
 The solution is that we count on the database clients to correctly report when a revision is not needed. However, on a fresh database restart we explictly clean all left over transient revisions. This means that even if a client is killed or if it does not correctly release its revisions, the worst that can happen is a memory leak until the next restart.
 
@@ -121,7 +125,7 @@ Think about what happens when a writer starts updating a transient revision. All
 
 We can avoid the situation by calling [mlock](https://man7.org/linux/man-pages/man2/mlock.2.html) and telling the kernel that certain pages should not be swapped out. The question is which pages to lock. We can lock them all, but this is too much. That would mean that as soon as a page is touched it will never leave the physical memory. Instead, it would have been nice to tell the kernel -- feel free to swap out clean pages but, as soon as they get dirty, keep them in memory until further notice. Unfortunately there is no way to do that directly.
 
-The work around is to first use [mprotect](https://man7.org/linux/man-pages/man2/mprotect.2.html) and keep all pages as read-only. Any attempt to change a page will cause segmentation fault which we can capture. If the change happens during a transaction then we can immediate lock the page and add it to the list of modified pages. On successful transaction we sync all modified pages. If an attempt to change a page happens outside of a transaction, then this is either a bug in the runtime or the client is trying to change an address which it should not change. In any case this prevents unintended changes in the data.
+The work around is to first use [mprotect](https://man7.org/linux/man-pages/man2/mprotect.2.html) and keep all pages as read-only. Any attempt to change a page will cause segmentation fault which we can capture. If the change happens during a transaction then we can immediate lock the page and add it to the list of modified pages. When a transaction is successful we sync all modified pages. If an attempt to change a page happens outside of a transaction, then this is either a bug in the runtime or the client is trying to change an address which it should not change. In any case this prevents unintended changes in the data.
 
 
 **TODO: atomicity is not implemented yet**
