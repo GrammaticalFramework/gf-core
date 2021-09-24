@@ -13,7 +13,8 @@
 static void
 PGF_dealloc(PGFObject *self)
 {
-    pgf_free_revision(self->db, self->revision);
+    if (self->db != NULL && self->revision != 0)
+        pgf_free_revision(self->db, self->revision);
     Py_TYPE(self)->tp_free((PyObject *)self);
 }
 
