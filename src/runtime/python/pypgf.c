@@ -83,13 +83,11 @@ _collect_cats(PgfItor *fn, PgfText *key, void *value, PgfExn *err)
     PyObject *py_name = PyUnicode_FromStringAndSize(name->text, name->size);
     if (py_name == NULL) {
         err->type = PGF_EXN_OTHER_ERROR;
-        err->msg = "unable to create string from category";
         return;
     }
 
     if (PyList_Append((PyObject*) clo->collection, py_name) != 0) {
         err->type = PGF_EXN_OTHER_ERROR;
-        err->msg = "unable append category to list";
         Py_DECREF(py_name);
     }
 }
@@ -165,12 +163,11 @@ _collect_funs(PgfItor *fn, PgfText *key, void *value, PgfExn *err)
     PyObject *py_name = PyUnicode_FromStringAndSize(name->text, name->size);
     if (py_name == NULL) {
         err->type = PGF_EXN_OTHER_ERROR;
-        err->msg = "unable to create string from function";
+        return;
     }
 
     if (PyList_Append((PyObject*) clo->collection, py_name) != 0) {
         err->type = PGF_EXN_OTHER_ERROR;
-        err->msg = "unable append function to list";
         Py_DECREF(py_name);
     }
 }

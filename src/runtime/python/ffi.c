@@ -20,8 +20,6 @@ PgfExnType handleError(PgfExn err)
     } else if (err.type == PGF_EXN_PGF_ERROR) {
         PyErr_SetString(PGFError, err.msg);
         free((char *)err.msg);
-    } else if (err.type == PGF_EXN_OTHER_ERROR) {
-        PyErr_SetString(PGFError, "an unknown error occured");
     }
     return err.type;
 }
