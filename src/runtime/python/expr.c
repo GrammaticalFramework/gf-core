@@ -177,6 +177,23 @@ PyTypeObject pgf_TypeType = {
 // expressions
 
 static PyObject *
+Expr_new(PyTypeObject *subtype, PyObject *args, PyObject *kwds)
+{
+    Py_ssize_t tuple_size = PyTuple_Size(args);
+
+	if (tuple_size == 0) {
+        return pgf_ExprMetaType.tp_alloc(&pgf_ExprMetaType, 0);
+	} else if (tuple_size == 1) {
+		return pgf_ExprLitType.tp_alloc(&pgf_ExprLitType, 0);
+	} else if (tuple_size == 2) {
+		return pgf_ExprAppType.tp_alloc(&pgf_ExprAppType, 0);
+	} else {
+		PyErr_Format(PyExc_TypeError, "function takes 0, 1 or 2 arguments (%d given)", (int) tuple_size);
+		return NULL;
+	}
+}
+
+static PyObject *
 Expr_str(ExprObject *self)
 {
     PgfText *s = pgf_print_expr((PgfExpr) self, NULL, 0, &marshaller);
@@ -185,7 +202,40 @@ Expr_str(ExprObject *self)
     return str;
 }
 
+static PyObject*
+Expr_reduce_ex(ExprObject* self, PyObject *args)
+{
+	int protocol;
+	if (!PyArg_ParseTuple(args, "i", &protocol))
+		return NULL;
+
+	PyObject* myModule = PyImport_ImportModule("pgf");
+	if (myModule == NULL)
+		return NULL;
+	PyObject* py_readExpr = PyObject_GetAttrString(myModule, "readExpr");
+	Py_DECREF(myModule);
+	if (py_readExpr == NULL)
+		return NULL;
+
+	PyObject* py_str = Expr_str(self);
+	if (py_str == NULL) {
+		Py_DECREF(py_readExpr);
+		return NULL;
+	}
+
+	PyObject* py_tuple =
+		Py_BuildValue("O(O)", py_readExpr, py_str);
+
+	Py_DECREF(py_str);
+	Py_DECREF(py_readExpr);
+
+	return py_tuple;
+}
+
 static PyMethodDef Expr_methods[] = {
+    {"__reduce_ex__", (PyCFunction)Expr_reduce_ex, METH_VARARGS,
+     "This method allows for transparent pickling/unpickling of expressions."
+    },
     {NULL}  /* Sentinel */
 };
 
@@ -199,7 +249,7 @@ PyTypeObject pgf_ExprType = {
     "pgf.Expr",                /*tp_name*/
     sizeof(ExprObject),        /*tp_basicsize*/
     0,                         /*tp_itemsize*/
-    0, //(destructor)Expr_dealloc,  /*tp_dealloc*/
+    0,                         /*tp_dealloc*/
     0,                         /*tp_print*/
     0,                         /*tp_getattr*/
     0,                         /*tp_setattr*/
@@ -210,8 +260,8 @@ PyTypeObject pgf_ExprType = {
     0,                         /*tp_as_mapping*/
     0, //(hashfunc) Expr_hash,      /*tp_hash */
     0, //(ternaryfunc) Expr_call,   /*tp_call*/
-    (reprfunc) Expr_str,      /*tp_str*/
-    0, //(getattrofunc) Expr_getattro, /*tp_getattro*/
+    (reprfunc) Expr_str,       /*tp_str*/
+    0,                         /*tp_getattro*/
     0,                         /*tp_setattro*/
     0,                         /*tp_as_buffer*/
     Py_TPFLAGS_DEFAULT | Py_TPFLAGS_BASETYPE, /*tp_flags*/
@@ -230,9 +280,9 @@ PyTypeObject pgf_ExprType = {
     0,                         /*tp_descr_get */
     0,                         /*tp_descr_set */
     0,                         /*tp_dictoffset */
-    0, //(initproc)Expr_init,       /*tp_init */
+    0,                         /*tp_init */
     0,                         /*tp_alloc */
-    0, //(newfunc) Expr_new,        /*tp_new */
+    Expr_new,                  /*tp_new */
 };
 
 // ----------------------------------------------------------------------------
