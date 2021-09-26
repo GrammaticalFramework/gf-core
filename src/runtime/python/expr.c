@@ -194,12 +194,40 @@ Expr_new(PyTypeObject *subtype, PyObject *args, PyObject *kwds)
 }
 
 static PyObject *
+Expr_subclass_new(PyTypeObject *subtype, PyObject *args, PyObject *kwds)
+{
+    return subtype->tp_alloc(subtype, 0);
+}
+
+static PyObject *
 Expr_str(ExprObject *self)
 {
     PgfText *s = pgf_print_expr((PgfExpr) self, NULL, 0, &marshaller);
     PyObject *str = PyUnicode_FromStringAndSize(s->text, s->size);
     free(s);
     return str;
+}
+
+static ExprObject*
+Expr_call(ExprObject* self, PyObject* args, PyObject* kw)
+{
+	ExprObject *res = self; Py_INCREF(self);
+
+	size_t n_args = PyTuple_Size(args);
+	for (size_t i = 0; i < n_args; i++) {
+		PyObject* arg = PyTuple_GetItem(args, i);
+		if (arg->ob_type != &pgf_ExprType) {
+			PyErr_SetString(PyExc_TypeError, "the arguments must be expressions");
+			return NULL;
+		}
+
+        ExprAppObject *pyexpr = (ExprAppObject *)pgf_ExprAppType.tp_alloc(&pgf_ExprAppType, 0);
+        pyexpr->fun = res;
+        pyexpr->arg = (ExprObject *)arg; Py_INCREF(arg);
+        res = (ExprObject *) pyexpr;
+	}
+
+	return res;
 }
 
 static PyObject*
@@ -360,7 +388,7 @@ PyTypeObject pgf_ExprAbsType = {
     0,                         /*tp_as_sequence*/
     0,                         /*tp_as_mapping*/
     0,                         /*tp_hash */
-    0, //(ternaryfunc) Expr_call,   /*tp_call*/
+    (ternaryfunc) Expr_call,   /*tp_call*/
     0,                         /*tp_str*/
     0,                         /*tp_getattro*/
     0,                         /*tp_setattro*/
@@ -383,7 +411,7 @@ PyTypeObject pgf_ExprAbsType = {
     0,                         /*tp_dictoffset */
     (initproc) ExprAbs_init,   /*tp_init */
     0,                         /*tp_alloc */
-    0,                         /*tp_new */
+    Expr_subclass_new,         /*tp_new */
 };
 
 // ----------------------------------------------------------------------------
@@ -455,7 +483,7 @@ PyTypeObject pgf_ExprAppType = {
     0,                         /*tp_as_sequence*/
     0,                         /*tp_as_mapping*/
     0,                         /*tp_hash */
-    0, //(ternaryfunc) Expr_call,   /*tp_call*/
+    (ternaryfunc) Expr_call,   /*tp_call*/
     0,                         /*tp_str*/
     0,                         /*tp_getattro*/
     0,                         /*tp_setattro*/
@@ -478,7 +506,7 @@ PyTypeObject pgf_ExprAppType = {
     0,                         /*tp_dictoffset */
     (initproc) ExprApp_init,   /*tp_init */
     0,                         /*tp_alloc */
-    0,                         /*tp_new */
+    Expr_subclass_new,         /*tp_new */
 };
 
 // ----------------------------------------------------------------------------
@@ -588,7 +616,7 @@ PyTypeObject pgf_ExprLitType = {
     0,                         /*tp_dictoffset */
     (initproc) ExprLit_init,   /*tp_init */
     0,                         /*tp_alloc */
-    0,                         /*tp_new */
+    Expr_subclass_new,         /*tp_new */
 };
 
 // ----------------------------------------------------------------------------
@@ -664,7 +692,7 @@ PyTypeObject pgf_ExprMetaType = {
     0,                         /*tp_as_sequence*/
     0,                         /*tp_as_mapping*/
     0,                         /*tp_hash */
-    0, //(ternaryfunc) Expr_call,   /*tp_call*/
+    (ternaryfunc) Expr_call,   /*tp_call*/
     0,                         /*tp_str*/
     0,                         /*tp_getattro*/
     0,                         /*tp_setattro*/
@@ -687,7 +715,7 @@ PyTypeObject pgf_ExprMetaType = {
     0,                         /*tp_dictoffset */
     (initproc) ExprMeta_init,  /*tp_init */
     0,                         /*tp_alloc */
-    0,                         /*tp_new */
+    Expr_subclass_new,         /*tp_new */
 };
 
 // ----------------------------------------------------------------------------
@@ -753,7 +781,7 @@ PyTypeObject pgf_ExprFunType = {
     0,                         /*tp_as_sequence*/
     0,                         /*tp_as_mapping*/
     0,                         /*tp_hash */
-    0, //(ternaryfunc) Expr_call,   /*tp_call*/
+    (ternaryfunc) Expr_call,   /*tp_call*/
     0,                         /*tp_str*/
     0,                         /*tp_getattro*/
     0,                         /*tp_setattro*/
@@ -776,7 +804,7 @@ PyTypeObject pgf_ExprFunType = {
     0,                         /*tp_dictoffset */
     (initproc) ExprFun_init,   /*tp_init */
     0,                         /*tp_alloc */
-    0,                         /*tp_new */
+    Expr_subclass_new,         /*tp_new */
 };
 
 // ----------------------------------------------------------------------------
@@ -852,7 +880,7 @@ PyTypeObject pgf_ExprVarType = {
     0,                         /*tp_as_sequence*/
     0,                         /*tp_as_mapping*/
     0,                         /*tp_hash */
-    0, //(ternaryfunc) Expr_call,   /*tp_call*/
+    (ternaryfunc) Expr_call,   /*tp_call*/
     0,                         /*tp_str*/
     0,                         /*tp_getattro*/
     0,                         /*tp_setattro*/
@@ -875,7 +903,7 @@ PyTypeObject pgf_ExprVarType = {
     0,                         /*tp_dictoffset */
     (initproc) ExprVar_init,   /*tp_init */
     0,                         /*tp_alloc */
-    0,                         /*tp_new */
+    Expr_subclass_new,         /*tp_new */
 };
 
 // ----------------------------------------------------------------------------
@@ -947,7 +975,7 @@ PyTypeObject pgf_ExprTypedType = {
     0,                         /*tp_as_sequence*/
     0,                         /*tp_as_mapping*/
     0,                         /*tp_hash */
-    0, //(ternaryfunc) Expr_call,   /*tp_call*/
+    (ternaryfunc) Expr_call,   /*tp_call*/
     0,                         /*tp_str*/
     0,                         /*tp_getattro*/
     0,                         /*tp_setattro*/
@@ -968,9 +996,9 @@ PyTypeObject pgf_ExprTypedType = {
     0,                         /*tp_descr_get */
     0,                         /*tp_descr_set */
     0,                         /*tp_dictoffset */
-    (initproc) ExprTyped_init,   /*tp_init */
+    (initproc) ExprTyped_init, /*tp_init */
     0,                         /*tp_alloc */
-    0,                         /*tp_new */
+    Expr_subclass_new,         /*tp_new */
 };
 
 // ----------------------------------------------------------------------------
@@ -1059,5 +1087,5 @@ PyTypeObject pgf_ExprImplArgType = {
     0,                         /*tp_dictoffset */
     (initproc) ExprImplArg_init,   /*tp_init */
     0,                         /*tp_alloc */
-    0,                         /*tp_new */
+    Expr_subclass_new,         /*tp_new */
 };
