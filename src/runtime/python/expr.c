@@ -259,7 +259,7 @@ PyTypeObject pgf_ExprType = {
     0,                         /*tp_as_sequence*/
     0,                         /*tp_as_mapping*/
     0, //(hashfunc) Expr_hash,      /*tp_hash */
-    0, //(ternaryfunc) Expr_call,   /*tp_call*/
+    0,                         /*tp_call*/
     (reprfunc) Expr_str,       /*tp_str*/
     0,                         /*tp_getattro*/
     0,                         /*tp_setattro*/
@@ -286,13 +286,6 @@ PyTypeObject pgf_ExprType = {
 };
 
 // ----------------------------------------------------------------------------
-
-static ExprAbsObject *
-ExprAbs_new(PyTypeObject *subtype, PyObject *args, PyObject *kwds)
-{
-    ExprAbsObject* self = (ExprAbsObject *)subtype->tp_alloc(subtype, 0);
-    return self;
-}
 
 static int
 ExprAbs_init(ExprAbsObject *self, PyObject *args, PyObject *kwds)
@@ -366,23 +359,23 @@ PyTypeObject pgf_ExprAbsType = {
     0,                         /*tp_as_number*/
     0,                         /*tp_as_sequence*/
     0,                         /*tp_as_mapping*/
-    0, //(hashfunc) Expr_hash,      /*tp_hash */
+    0,                         /*tp_hash */
     0, //(ternaryfunc) Expr_call,   /*tp_call*/
-    0, //(reprfunc) Expr_str,      /*tp_str*/
-    0, //(getattrofunc) ExprAbs_getattro, /*tp_getattro*/
+    0,                         /*tp_str*/
+    0,                         /*tp_getattro*/
     0,                         /*tp_setattro*/
     0,                         /*tp_as_buffer*/
     Py_TPFLAGS_DEFAULT | Py_TPFLAGS_BASETYPE, /*tp_flags*/
-    "lambda abstraction",    /*tp_doc*/
-    0,                           /*tp_traverse */
-    0,                           /*tp_clear */
+    "lambda abstraction",      /*tp_doc*/
+    0,                         /*tp_traverse */
+    0,                         /*tp_clear */
     (richcmpfunc) ExprAbs_richcompare, /*tp_richcompare */
-    0,                           /*tp_weaklistoffset */
-    0,                           /*tp_iter */
-    0,                           /*tp_iternext */
-    0, //Expr_methods,              /*tp_methods */
+    0,                         /*tp_weaklistoffset */
+    0,                         /*tp_iter */
+    0,                         /*tp_iternext */
+    0,                         /*tp_methods */
     ExprAbs_members,           /*tp_members */
-    0, //Expr_getseters,            /*tp_getset */
+    0,                         /*tp_getset */
     &pgf_ExprType,             /*tp_base */
     0,                         /*tp_dict */
     0,                         /*tp_descr_get */
@@ -390,17 +383,10 @@ PyTypeObject pgf_ExprAbsType = {
     0,                         /*tp_dictoffset */
     (initproc) ExprAbs_init,   /*tp_init */
     0,                         /*tp_alloc */
-    (newfunc) ExprAbs_new,     /*tp_new */
+    0,                         /*tp_new */
 };
 
 // ----------------------------------------------------------------------------
-
-static ExprAppObject *
-ExprApp_new(PyTypeObject *subtype, PyObject *args, PyObject *kwds)
-{
-    ExprAppObject* self = (ExprAppObject *)subtype->tp_alloc(subtype, 0);
-    return self;
-}
 
 static int
 ExprApp_init(ExprAppObject *self, PyObject *args, PyObject *kwds)
@@ -456,8 +442,8 @@ static PyMemberDef ExprApp_members[] = {
 PyTypeObject pgf_ExprAppType = {
     PyVarObject_HEAD_INIT(NULL, 0)
     //0,                         /*ob_size*/
-    "pgf.ExprApp",                /*tp_name*/
-    sizeof(ExprAppObject),        /*tp_basicsize*/
+    "pgf.ExprApp",             /*tp_name*/
+    sizeof(ExprAppObject),     /*tp_basicsize*/
     0,                         /*tp_itemsize*/
     (destructor) ExprApp_dealloc,  /*tp_dealloc*/
     0,                         /*tp_print*/
@@ -468,23 +454,23 @@ PyTypeObject pgf_ExprAppType = {
     0,                         /*tp_as_number*/
     0,                         /*tp_as_sequence*/
     0,                         /*tp_as_mapping*/
-    0, //(hashfunc) Expr_hash,      /*tp_hash */
+    0,                         /*tp_hash */
     0, //(ternaryfunc) Expr_call,   /*tp_call*/
-    0, //(reprfunc) Expr_str,      /*tp_str*/
-    0, //(getattrofunc) ExprApp_getattro, /*tp_getattro*/
+    0,                         /*tp_str*/
+    0,                         /*tp_getattro*/
     0,                         /*tp_setattro*/
     0,                         /*tp_as_buffer*/
     Py_TPFLAGS_DEFAULT | Py_TPFLAGS_BASETYPE, /*tp_flags*/
-    "application",    /*tp_doc*/
-    0,                           /*tp_traverse */
-    0,                           /*tp_clear */
+    "application",             /*tp_doc*/
+    0,                         /*tp_traverse */
+    0,                         /*tp_clear */
     (richcmpfunc) ExprApp_richcompare, /*tp_richcompare */
-    0,                           /*tp_weaklistoffset */
-    0,                           /*tp_iter */
-    0,                           /*tp_iternext */
-    0, //Expr_methods,              /*tp_methods */
+    0,                         /*tp_weaklistoffset */
+    0,                         /*tp_iter */
+    0,                         /*tp_iternext */
+    0,                         /*tp_methods */
     ExprApp_members,           /*tp_members */
-    0, //Expr_getseters,            /*tp_getset */
+    0,                         /*tp_getset */
     &pgf_ExprType,             /*tp_base */
     0,                         /*tp_dict */
     0,                         /*tp_descr_get */
@@ -492,17 +478,10 @@ PyTypeObject pgf_ExprAppType = {
     0,                         /*tp_dictoffset */
     (initproc) ExprApp_init,   /*tp_init */
     0,                         /*tp_alloc */
-    (newfunc) ExprApp_new,     /*tp_new */
+    0,                         /*tp_new */
 };
 
 // ----------------------------------------------------------------------------
-
-static ExprLitObject *
-ExprLit_new(PyTypeObject *subtype, PyObject *args, PyObject *kwds)
-{
-    ExprLitObject* self = (ExprLitObject *)subtype->tp_alloc(subtype, 0);
-    return self;
-}
 
 static int
 ExprLit_init(ExprLitObject *self, PyObject *args, PyObject *kwds)
@@ -573,9 +552,9 @@ static PyMemberDef ExprLit_members[] = {
 PyTypeObject pgf_ExprLitType = {
     PyVarObject_HEAD_INIT(NULL, 0)
     //0,                         /*ob_size*/
-    "pgf.ExprLit",               /*tp_name*/
-    sizeof(ExprLitObject),       /*tp_basicsize*/
-    0,                           /*tp_itemsize*/
+    "pgf.ExprLit",             /*tp_name*/
+    sizeof(ExprLitObject),     /*tp_basicsize*/
+    0,                         /*tp_itemsize*/
     (destructor) ExprLit_dealloc,  /*tp_dealloc*/
     0,                         /*tp_print*/
     0,                         /*tp_getattr*/
@@ -585,20 +564,20 @@ PyTypeObject pgf_ExprLitType = {
     0,                         /*tp_as_number*/
     0,                         /*tp_as_sequence*/
     0,                         /*tp_as_mapping*/
-    0, //(hashfunc) Expr_hash,      /*tp_hash */
-    0, //(ternaryfunc) Expr_call,   /*tp_call*/
-    0, //(reprfunc) Expr_str,      /*tp_str*/
-    0, //(getattrofunc) ExprLit_getattro, /*tp_getattro*/
+    0,                         /*tp_hash */
+    0,                         /*tp_call*/
+    0,                         /*tp_str*/
+    0,                         /*tp_getattro*/
     0,                         /*tp_setattro*/
     0,                         /*tp_as_buffer*/
     Py_TPFLAGS_DEFAULT | Py_TPFLAGS_BASETYPE, /*tp_flags*/
-    "literal",    /*tp_doc*/
-    0,                           /*tp_traverse */
-    0,                           /*tp_clear */
+    "literal",                 /*tp_doc*/
+    0,                         /*tp_traverse */
+    0,                         /*tp_clear */
     (richcmpfunc) ExprLit_richcompare, /*tp_richcompare */
-    0,                           /*tp_weaklistoffset */
-    0,                           /*tp_iter */
-    0,                           /*tp_iternext */
+    0,                         /*tp_weaklistoffset */
+    0,                         /*tp_iter */
+    0,                         /*tp_iternext */
     0,                         /*tp_methods */
     ExprLit_members,           /*tp_members */
     0,                         /*tp_getset */
@@ -609,17 +588,10 @@ PyTypeObject pgf_ExprLitType = {
     0,                         /*tp_dictoffset */
     (initproc) ExprLit_init,   /*tp_init */
     0,                         /*tp_alloc */
-    (newfunc) ExprLit_new,     /*tp_new */
+    0,                         /*tp_new */
 };
 
 // ----------------------------------------------------------------------------
-
-static ExprMetaObject *
-ExprMeta_new(PyTypeObject *subtype, PyObject *args, PyObject *kwds)
-{
-    ExprMetaObject* self = (ExprMetaObject *)subtype->tp_alloc(subtype, 0);
-    return self;
-}
 
 static int
 ExprMeta_init(ExprMetaObject *self, PyObject *args, PyObject *kwds)
@@ -679,8 +651,8 @@ static PyMemberDef ExprMeta_members[] = {
 PyTypeObject pgf_ExprMetaType = {
     PyVarObject_HEAD_INIT(NULL, 0)
     //0,                         /*ob_size*/
-    "pgf.ExprMeta",                /*tp_name*/
-    sizeof(ExprMetaObject),        /*tp_basicsize*/
+    "pgf.ExprMeta",            /*tp_name*/
+    sizeof(ExprMetaObject),    /*tp_basicsize*/
     0,                         /*tp_itemsize*/
     (destructor) ExprMeta_dealloc,  /*tp_dealloc*/
     0,                         /*tp_print*/
@@ -691,23 +663,23 @@ PyTypeObject pgf_ExprMetaType = {
     0,                         /*tp_as_number*/
     0,                         /*tp_as_sequence*/
     0,                         /*tp_as_mapping*/
-    0, //(hashfunc) Expr_hash,      /*tp_hash */
+    0,                         /*tp_hash */
     0, //(ternaryfunc) Expr_call,   /*tp_call*/
-    0, //(reprfunc) Expr_str,      /*tp_str*/
-    0, //(getattrofunc) ExprMeta_getattro, /*tp_getattro*/
+    0,                         /*tp_str*/
+    0,                         /*tp_getattro*/
     0,                         /*tp_setattro*/
     0,                         /*tp_as_buffer*/
     Py_TPFLAGS_DEFAULT | Py_TPFLAGS_BASETYPE, /*tp_flags*/
-    "meta variable",    /*tp_doc*/
-    0,                           /*tp_traverse */
-    0,                           /*tp_clear */
+    "meta variable",           /*tp_doc*/
+    0,                         /*tp_traverse */
+    0,                         /*tp_clear */
     (richcmpfunc) ExprMeta_richcompare, /*tp_richcompare */
-    0,                           /*tp_weaklistoffset */
-    0,                           /*tp_iter */
-    0,                           /*tp_iternext */
-    0, //Expr_methods,              /*tp_methods */
+    0,                         /*tp_weaklistoffset */
+    0,                         /*tp_iter */
+    0,                         /*tp_iternext */
+    0,                         /*tp_methods */
     ExprMeta_members,          /*tp_members */
-    0, //Expr_getseters,            /*tp_getset */
+    0,                         /*tp_getset */
     &pgf_ExprType,             /*tp_base */
     0,                         /*tp_dict */
     0,                         /*tp_descr_get */
@@ -715,17 +687,10 @@ PyTypeObject pgf_ExprMetaType = {
     0,                         /*tp_dictoffset */
     (initproc) ExprMeta_init,  /*tp_init */
     0,                         /*tp_alloc */
-    (newfunc) ExprMeta_new,     /*tp_new */
+    0,                         /*tp_new */
 };
 
 // ----------------------------------------------------------------------------
-
-static ExprFunObject *
-ExprFun_new(PyTypeObject *subtype, PyObject *args, PyObject *kwds)
-{
-    ExprFunObject* self = (ExprFunObject *)subtype->tp_alloc(subtype, 0);
-    return self;
-}
 
 static int
 ExprFun_init(ExprFunObject *self, PyObject *args, PyObject *kwds)
@@ -775,8 +740,8 @@ static PyMemberDef ExprFun_members[] = {
 PyTypeObject pgf_ExprFunType = {
     PyVarObject_HEAD_INIT(NULL, 0)
     //0,                         /*ob_size*/
-    "pgf.ExprFun",                /*tp_name*/
-    sizeof(ExprFunObject),        /*tp_basicsize*/
+    "pgf.ExprFun",             /*tp_name*/
+    sizeof(ExprFunObject),     /*tp_basicsize*/
     0,                         /*tp_itemsize*/
     (destructor) ExprFun_dealloc,  /*tp_dealloc*/
     0,                         /*tp_print*/
@@ -787,23 +752,23 @@ PyTypeObject pgf_ExprFunType = {
     0,                         /*tp_as_number*/
     0,                         /*tp_as_sequence*/
     0,                         /*tp_as_mapping*/
-    0, //(hashfunc) Expr_hash,      /*tp_hash */
+    0,                         /*tp_hash */
     0, //(ternaryfunc) Expr_call,   /*tp_call*/
-    0, //(reprfunc) Expr_str,      /*tp_str*/
-    0, //(getattrofunc) ExprFun_getattro, /*tp_getattro*/
+    0,                         /*tp_str*/
+    0,                         /*tp_getattro*/
     0,                         /*tp_setattro*/
     0,                         /*tp_as_buffer*/
     Py_TPFLAGS_DEFAULT | Py_TPFLAGS_BASETYPE, /*tp_flags*/
     "function or data constructor",    /*tp_doc*/
-    0,                           /*tp_traverse */
-    0,                           /*tp_clear */
+    0,                         /*tp_traverse */
+    0,                         /*tp_clear */
     (richcmpfunc) ExprFun_richcompare, /*tp_richcompare */
-    0,                           /*tp_weaklistoffset */
-    0,                           /*tp_iter */
-    0,                           /*tp_iternext */
-    0, //Expr_methods,              /*tp_methods */
+    0,                         /*tp_weaklistoffset */
+    0,                         /*tp_iter */
+    0,                         /*tp_iternext */
+    0,                         /*tp_methods */
     ExprFun_members,           /*tp_members */
-    0, //Expr_getseters,            /*tp_getset */
+    0,                         /*tp_getset */
     &pgf_ExprType,             /*tp_base */
     0,                         /*tp_dict */
     0,                         /*tp_descr_get */
@@ -811,17 +776,10 @@ PyTypeObject pgf_ExprFunType = {
     0,                         /*tp_dictoffset */
     (initproc) ExprFun_init,   /*tp_init */
     0,                         /*tp_alloc */
-    (newfunc) ExprFun_new,     /*tp_new */
+    0,                         /*tp_new */
 };
 
 // ----------------------------------------------------------------------------
-
-static ExprVarObject *
-ExprVar_new(PyTypeObject *subtype, PyObject *args, PyObject *kwds)
-{
-    ExprVarObject* self = (ExprVarObject *)subtype->tp_alloc(subtype, 0);
-    return self;
-}
 
 static int
 ExprVar_init(ExprVarObject *self, PyObject *args, PyObject *kwds)
@@ -881,8 +839,8 @@ static PyMemberDef ExprVar_members[] = {
 PyTypeObject pgf_ExprVarType = {
     PyVarObject_HEAD_INIT(NULL, 0)
     //0,                         /*ob_size*/
-    "pgf.ExprVar",                /*tp_name*/
-    sizeof(ExprVarObject),        /*tp_basicsize*/
+    "pgf.ExprVar",             /*tp_name*/
+    sizeof(ExprVarObject),     /*tp_basicsize*/
     0,                         /*tp_itemsize*/
     (destructor) ExprVar_dealloc,  /*tp_dealloc*/
     0,                         /*tp_print*/
@@ -893,23 +851,23 @@ PyTypeObject pgf_ExprVarType = {
     0,                         /*tp_as_number*/
     0,                         /*tp_as_sequence*/
     0,                         /*tp_as_mapping*/
-    0, //(hashfunc) Expr_hash,      /*tp_hash */
+    0,                         /*tp_hash */
     0, //(ternaryfunc) Expr_call,   /*tp_call*/
-    0, //(reprfunc) Expr_str,      /*tp_str*/
-    0, //(getattrofunc) ExprVar_getattro, /*tp_getattro*/
+    0,                         /*tp_str*/
+    0,                         /*tp_getattro*/
     0,                         /*tp_setattro*/
     0,                         /*tp_as_buffer*/
     Py_TPFLAGS_DEFAULT | Py_TPFLAGS_BASETYPE, /*tp_flags*/
-    "variable",                 /*tp_doc*/
-    0,                           /*tp_traverse */
-    0,                           /*tp_clear */
+    "variable",                /*tp_doc*/
+    0,                         /*tp_traverse */
+    0,                         /*tp_clear */
     (richcmpfunc) ExprVar_richcompare, /*tp_richcompare */
-    0,                           /*tp_weaklistoffset */
-    0,                           /*tp_iter */
-    0,                           /*tp_iternext */
-    0, //Expr_methods,              /*tp_methods */
+    0,                         /*tp_weaklistoffset */
+    0,                         /*tp_iter */
+    0,                         /*tp_iternext */
+    0,                         /*tp_methods */
     ExprVar_members,           /*tp_members */
-    0, //Expr_getseters,            /*tp_getset */
+    0,                         /*tp_getset */
     &pgf_ExprType,             /*tp_base */
     0,                         /*tp_dict */
     0,                         /*tp_descr_get */
@@ -917,17 +875,10 @@ PyTypeObject pgf_ExprVarType = {
     0,                         /*tp_dictoffset */
     (initproc) ExprVar_init,   /*tp_init */
     0,                         /*tp_alloc */
-    (newfunc) ExprVar_new,     /*tp_new */
+    0,                         /*tp_new */
 };
 
 // ----------------------------------------------------------------------------
-
-static ExprTypedObject *
-ExprTyped_new(PyTypeObject *subtype, PyObject *args, PyObject *kwds)
-{
-    ExprTypedObject* self = (ExprTypedObject *)subtype->tp_alloc(subtype, 0);
-    return self;
-}
 
 static int
 ExprTyped_init(ExprTypedObject *self, PyObject *args, PyObject *kwds)
@@ -995,23 +946,23 @@ PyTypeObject pgf_ExprTypedType = {
     0,                         /*tp_as_number*/
     0,                         /*tp_as_sequence*/
     0,                         /*tp_as_mapping*/
-    0, //(hashfunc) Expr_hash,      /*tp_hash */
+    0,                         /*tp_hash */
     0, //(ternaryfunc) Expr_call,   /*tp_call*/
-    0, //(reprfunc) Expr_str,      /*tp_str*/
-    0, //(getattrofunc) ExprTyped_getattro, /*tp_getattro*/
+    0,                         /*tp_str*/
+    0,                         /*tp_getattro*/
     0,                         /*tp_setattro*/
     0,                         /*tp_as_buffer*/
     Py_TPFLAGS_DEFAULT | Py_TPFLAGS_BASETYPE, /*tp_flags*/
     "expression with local type signature", /*tp_doc*/
-    0,                           /*tp_traverse */
-    0,                           /*tp_clear */
+    0,                         /*tp_traverse */
+    0,                         /*tp_clear */
     (richcmpfunc) ExprTyped_richcompare, /*tp_richcompare */
-    0,                           /*tp_weaklistoffset */
-    0,                           /*tp_iter */
-    0,                           /*tp_iternext */
-    0, //Expr_methods,              /*tp_methods */
+    0,                         /*tp_weaklistoffset */
+    0,                         /*tp_iter */
+    0,                         /*tp_iternext */
+    0,                         /*tp_methods */
     ExprTyped_members,         /*tp_members */
-    0, //Expr_getseters,            /*tp_getset */
+    0,                         /*tp_getset */
     &pgf_ExprType,             /*tp_base */
     0,                         /*tp_dict */
     0,                         /*tp_descr_get */
@@ -1019,17 +970,10 @@ PyTypeObject pgf_ExprTypedType = {
     0,                         /*tp_dictoffset */
     (initproc) ExprTyped_init,   /*tp_init */
     0,                         /*tp_alloc */
-    (newfunc) ExprTyped_new,     /*tp_new */
+    0,                         /*tp_new */
 };
 
 // ----------------------------------------------------------------------------
-
-static ExprImplArgObject *
-ExprImplArg_new(PyTypeObject *subtype, PyObject *args, PyObject *kwds)
-{
-    ExprImplArgObject* self = (ExprImplArgObject *)subtype->tp_alloc(subtype, 0);
-    return self;
-}
 
 static int
 ExprImplArg_init(ExprImplArgObject *self, PyObject *args, PyObject *kwds)
@@ -1091,23 +1035,23 @@ PyTypeObject pgf_ExprImplArgType = {
     0,                         /*tp_as_number*/
     0,                         /*tp_as_sequence*/
     0,                         /*tp_as_mapping*/
-    0, //(hashfunc) Expr_hash,      /*tp_hash */
-    0, //(ternaryfunc) Expr_call,   /*tp_call*/
-    0, //(reprfunc) Expr_str,      /*tp_str*/
-    0, //(getattrofunc) ExprImplArg_getattro, /*tp_getattro*/
+    0,                         /*tp_hash */
+    0,                         /*tp_call*/
+    0,                         /*tp_str*/
+    0,                         /*tp_getattro*/
     0,                         /*tp_setattro*/
     0,                         /*tp_as_buffer*/
     Py_TPFLAGS_DEFAULT | Py_TPFLAGS_BASETYPE, /*tp_flags*/
     "implicit argument in expression", /*tp_doc*/
-    0,                           /*tp_traverse */
-    0,                           /*tp_clear */
+    0,                         /*tp_traverse */
+    0,                         /*tp_clear */
     (richcmpfunc) ExprImplArg_richcompare, /*tp_richcompare */
-    0,                           /*tp_weaklistoffset */
-    0,                           /*tp_iter */
-    0,                           /*tp_iternext */
-    0, //Expr_methods,              /*tp_methods */
+    0,                         /*tp_weaklistoffset */
+    0,                         /*tp_iter */
+    0,                         /*tp_iternext */
+    0,                         /*tp_methods */
     ExprImplArg_members,       /*tp_members */
-    0, //Expr_getseters,            /*tp_getset */
+    0,                         /*tp_getset */
     &pgf_ExprType,             /*tp_base */
     0,                         /*tp_dict */
     0,                         /*tp_descr_get */
@@ -1115,5 +1059,5 @@ PyTypeObject pgf_ExprImplArgType = {
     0,                         /*tp_dictoffset */
     (initproc) ExprImplArg_init,   /*tp_init */
     0,                         /*tp_alloc */
-    (newfunc) ExprImplArg_new,     /*tp_new */
+    0,                         /*tp_new */
 };
