@@ -9,7 +9,7 @@
 typedef struct {
     PyObject_HEAD
     PyObject *hypos; // PyListObject of PyTupleObject: (bind_type: int, cid: string, type: TypeObject)
-    PyObject *cat;   // PyUnicodeObject
+    PyObject *name;   // PyUnicodeObject
     PyObject *exprs; // PyListObject of ExprObject
 } TypeObject;
 
@@ -21,20 +21,20 @@ typedef struct {
 
 typedef struct {
     PyObject_HEAD
-    PyObject *bindType; // PyLongObject
-    PyObject *var;      // PyUnicodeObject
-    ExprObject *expr;
+    PyObject *bind_type; // PyLongObject
+    PyObject *name;      // PyUnicodeObject
+    ExprObject *body;
 } ExprAbsObject;
 
 typedef struct {
     PyObject_HEAD
-    ExprObject *e1; // ExprObject
-    ExprObject *e2; // ExprObject
+    ExprObject *fun; // ExprObject
+    ExprObject *arg; // ExprObject
 } ExprAppObject;
 
 typedef struct {
     PyObject_HEAD
-    PyObject *value; // PyLongObject | PyFloatObject | PyUnicodeObject
+    PyObject *lit; // PyLongObject | PyFloatObject | PyUnicodeObject
 } ExprLitObject;
 
 typedef struct {
@@ -49,7 +49,7 @@ typedef struct {
 
 typedef struct {
     PyObject_HEAD
-    PyObject *index; // PyLongObject
+    PyObject *var; // PyLongObject
 } ExprVarObject;
 
 typedef struct {

@@ -1,6 +1,7 @@
 #define PY_SSIZE_T_CLEAN
 #include <Python.h>
 #include <stdbool.h>
+#include <structmember.h>
 
 #include <pgf/pgf.h>
 #include "./expr.h"
@@ -20,9 +21,9 @@ static int
 Type_init(TypeObject *self, PyObject *args, PyObject *kwds)
 {
     PyObject* hypos;
-    PyObject* cat;
+    PyObject* name;
     PyObject* exprs;
-    if (!PyArg_ParseTuple(args, "O!UO!", &PyList_Type, &hypos, &cat, &PyList_Type, &exprs)) {
+    if (!PyArg_ParseTuple(args, "O!UO!", &PyList_Type, &hypos, &name, &PyList_Type, &exprs)) {
         return -1;
     }
 
@@ -54,10 +55,10 @@ Type_init(TypeObject *self, PyObject *args, PyObject *kwds)
         // Py_INCREF(&exprs[i]);
     }
     self->hypos = hypos;
-    self->cat = cat;
+    self->name = name;
     self->exprs = exprs;
     Py_INCREF(hypos);
-    // Py_INCREF(cat);
+    // Py_INCREF(name);
     Py_INCREF(exprs);
 
     return 0;
@@ -79,7 +80,7 @@ Type_richcompare(TypeObject *t1, PyObject *p2, int op)
     if (!PyObject_TypeCheck(p2, &pgf_TypeType)) goto done;
     TypeObject *t2 = (TypeObject *)p2;
 
-    if (PyUnicode_Compare(t1->cat, t2->cat) != 0) goto done;
+    if (PyUnicode_Compare(t1->name, t2->name) != 0) goto done;
 
     if (PyList_Size(t1->hypos) != PyList_Size(t2->hypos)) goto done;
     for (Py_ssize_t n = 0; n < PyList_Size(t1->hypos); n++) {
@@ -114,36 +115,12 @@ static PyMethodDef Type_methods[] = {
     {NULL}  /* Sentinel */
 };
 
-static PyObject *
-Type_getattro(TypeObject *self, PyObject *attr)
-{
-    if (PyUnicode_CompareWithASCIIString(attr, "hypos") == 0) {
-        return self->hypos;
-    } else if (PyUnicode_CompareWithASCIIString(attr, "cat") == 0) {
-        return self->cat;
-    } else if (PyUnicode_CompareWithASCIIString(attr, "exprs") == 0) {
-        return self->exprs;
-    } else {
-        PyErr_Format(PyExc_AttributeError, "'pgf.Type' object has no attribute '%U'", attr);
-        return NULL;
-    }
-}
-
-// static PyGetSetDef Type_getseters[] = {
-//     {"hypos",
-//      (getter)Type_getHypos, NULL,
-//      "list of hypotheses in the type signature",
-//      NULL},
-//     {"cat",
-//      (getter)Type_getCat, NULL,
-//      "name of the category",
-//      NULL},
-//     {"exprs",
-//      (getter)Type_getExprs, NULL,
-//      "list of indices for the category",
-//      NULL},
-//     {NULL}  /* Sentinel */
-// };
+static PyMemberDef Type_members[] = {
+    {"hypos", T_OBJECT_EX, offsetof(TypeObject, hypos), 0, "list of hypotheses in the type signature"},
+    {"cat", T_OBJECT_EX, offsetof(TypeObject, name), 0, "name of the category"},
+    {"exprs", T_OBJECT_EX, offsetof(TypeObject, exprs), 0, "list of indices for the category"},
+    {NULL}  /* Sentinel */
+};
 
 PyTypeObject pgf_TypeType = {
     PyVarObject_HEAD_INIT(NULL, 0)
@@ -163,7 +140,7 @@ PyTypeObject pgf_TypeType = {
     0,                         /*tp_hash */
     0,                         /*tp_call*/
     (reprfunc) Type_str,       /*tp_str*/
-    (getattrofunc) Type_getattro, /*tp_getattro*/
+    0, //(getattrofunc) Type_getattro, /*tp_getattro*/
     0,                         /*tp_setattro*/
     0,                         /*tp_as_buffer*/
     Py_TPFLAGS_DEFAULT | Py_TPFLAGS_BASETYPE, /*tp_flags*/
@@ -175,7 +152,7 @@ PyTypeObject pgf_TypeType = {
     0,                         /*tp_iter */
     0,                         /*tp_iternext */
     Type_methods,              /*tp_methods */
-    0,                         /*tp_members */
+    Type_members,              /*tp_members */
     0, //Type_getseters,            /*tp_getset */
     0,                         /*tp_base */
     0,                         /*tp_dict */
@@ -204,30 +181,6 @@ static PyMethodDef Expr_methods[] = {
 };
 
 static PyGetSetDef Expr_getseters[] = {
-//     {"fun",
-//      NULL, NULL,
-//      "this is the function in a function application",
-//      NULL},
-//     {"arg",
-//      NULL, NULL,
-//      "this is the argument in a function application",
-//      NULL},
-//     {"val",
-//      NULL, NULL,
-//      "this is the value of a literal",
-//      NULL},
-//     {"id",
-//      NULL, NULL,
-//      "this is the id of a meta variable",
-//      NULL},
-//     {"name",
-//      NULL, NULL,
-//      "this is the name of a function",
-//      NULL},
-//     {"index",
-//      NULL, NULL,
-//      "this is the de Bruijn index of a variable",
-//      NULL},
     {NULL}  /* Sentinel */
 };
 
@@ -285,18 +238,18 @@ ExprAbs_new(PyTypeObject *subtype, PyObject *args, PyObject *kwds)
 static int
 ExprAbs_init(ExprAbsObject *self, PyObject *args, PyObject *kwds)
 {
-    PyObject* bindType = NULL;
-    PyObject* var = NULL;
-    ExprObject* expr = NULL;
-    if (!PyArg_ParseTuple(args, "O!UO!", &PyLong_Type, &bindType, &var, &pgf_ExprType, &expr)) {
+    PyObject* bind_type = NULL;
+    PyObject* name = NULL;
+    ExprObject* body = NULL;
+    if (!PyArg_ParseTuple(args, "O!UO!", &PyLong_Type, &bind_type, &name, &pgf_ExprType, &body)) {
         return -1;
     }
-    self->bindType = bindType;
-    self->var = var;
-    self->expr = expr;
-    Py_INCREF(bindType);
-    Py_INCREF(var);
-    Py_INCREF(expr);
+    self->bind_type = bind_type;
+    self->name = name;
+    self->body = body;
+    Py_INCREF(bind_type);
+    Py_INCREF(name);
+    Py_INCREF(body);
     return 0;
 }
 
@@ -306,9 +259,9 @@ ExprAbs_richcompare(ExprAbsObject *e1, PyObject *p2, int op)
     bool same = false;
     if (!PyObject_TypeCheck(p2, &pgf_ExprAbsType)) goto done;
     ExprAbsObject *e2 = (ExprAbsObject *)p2;
-    if (!PyObject_RichCompareBool(e1->bindType, e2->bindType, Py_EQ)) goto done;
-    if (PyUnicode_Compare(e1->var, e2->var) != 0) goto done;
-    if (!PyObject_RichCompareBool((PyObject*)e1->expr, (PyObject*)e2->expr, Py_EQ)) goto done;
+    if (!PyObject_RichCompareBool(e1->bind_type, e2->bind_type, Py_EQ)) goto done;
+    if (PyUnicode_Compare(e1->name, e2->name) != 0) goto done;
+    if (!PyObject_RichCompareBool((PyObject*)e1->body, (PyObject*)e2->body, Py_EQ)) goto done;
 
     same = true;
 done:
@@ -323,20 +276,12 @@ done:
     }
 }
 
-static PyObject *
-ExprAbs_getattro(ExprAbsObject *self, PyObject *attr)
-{
-    if (PyUnicode_CompareWithASCIIString(attr, "bindType") == 0) {
-        return self->bindType;
-    } else if (PyUnicode_CompareWithASCIIString(attr, "var") == 0) {
-        return self->var;
-    } else if (PyUnicode_CompareWithASCIIString(attr, "expr") == 0) {
-        return (PyObject *)self->expr;
-    } else {
-        PyErr_Format(PyExc_AttributeError, "'pgf.ExprAbs' object has no attribute '%U'", attr);
-        return NULL;
-    }
-}
+static PyMemberDef ExprAbs_members[] = {
+    {"bind_type", T_OBJECT_EX, offsetof(ExprAbsObject, bind_type), 0, "bind type (explicit or implicit)"},
+    {"name", T_OBJECT_EX, offsetof(ExprAbsObject, name), 0, "name of the abstraction"},
+    {"body", T_OBJECT_EX, offsetof(ExprAbsObject, body), 0, "body of the abstraction"},
+    {NULL}  /* Sentinel */
+};
 
 PyTypeObject pgf_ExprAbsType = {
     PyVarObject_HEAD_INIT(NULL, 0)
@@ -356,7 +301,7 @@ PyTypeObject pgf_ExprAbsType = {
     0, //(hashfunc) Expr_hash,      /*tp_hash */
     0, //(ternaryfunc) Expr_call,   /*tp_call*/
     0, //(reprfunc) Expr_str,      /*tp_str*/
-    (getattrofunc) ExprAbs_getattro, /*tp_getattro*/
+    0, //(getattrofunc) ExprAbs_getattro, /*tp_getattro*/
     0,                         /*tp_setattro*/
     0,                         /*tp_as_buffer*/
     Py_TPFLAGS_DEFAULT | Py_TPFLAGS_BASETYPE, /*tp_flags*/
@@ -368,7 +313,7 @@ PyTypeObject pgf_ExprAbsType = {
     0,                           /*tp_iter */
     0,                           /*tp_iternext */
     0, //Expr_methods,              /*tp_methods */
-    0,                         /*tp_members */
+    ExprAbs_members,           /*tp_members */
     0, //Expr_getseters,            /*tp_getset */
     &pgf_ExprType,             /*tp_base */
     0,                         /*tp_dict */
@@ -392,15 +337,15 @@ ExprApp_new(PyTypeObject *subtype, PyObject *args, PyObject *kwds)
 static int
 ExprApp_init(ExprAppObject *self, PyObject *args, PyObject *kwds)
 {
-    PyObject* e1 = NULL;
-    PyObject* e2 = NULL;
-    if (!PyArg_ParseTuple(args, "O!O!", &pgf_ExprType, &e1, &pgf_ExprType, &e2)) {
+    PyObject* fun = NULL;
+    PyObject* arg = NULL;
+    if (!PyArg_ParseTuple(args, "O!O!", &pgf_ExprType, &fun, &pgf_ExprType, &arg)) {
         return -1;
     }
-    self->e1 = (ExprObject *)e1;
-    self->e2 = (ExprObject *)e2;
-    Py_INCREF(e1);
-    Py_INCREF(e2);
+    self->fun = (ExprObject *)fun;
+    self->arg = (ExprObject *)arg;
+    Py_INCREF(fun);
+    Py_INCREF(arg);
     return 0;
 }
 
@@ -410,8 +355,8 @@ ExprApp_richcompare(ExprAppObject *e1, PyObject *p2, int op)
     bool same = false;
     if (!PyObject_TypeCheck(p2, &pgf_ExprAppType)) goto done;
     ExprAppObject *e2 = (ExprAppObject *)p2;
-    if (!PyObject_RichCompareBool((PyObject*)e1->e1, (PyObject*)e2->e1, Py_EQ)) goto done;
-    if (!PyObject_RichCompareBool((PyObject*)e1->e2, (PyObject*)e2->e2, Py_EQ)) goto done;
+    if (!PyObject_RichCompareBool((PyObject*)e1->fun, (PyObject*)e2->fun, Py_EQ)) goto done;
+    if (!PyObject_RichCompareBool((PyObject*)e1->arg, (PyObject*)e2->arg, Py_EQ)) goto done;
 
     same = true;
 done:
@@ -426,18 +371,11 @@ done:
     }
 }
 
-static PyObject *
-ExprApp_getattro(ExprAppObject *self, PyObject *attr)
-{
-    if (PyUnicode_CompareWithASCIIString(attr, "e1") == 0) {
-        return (PyObject *)self->e1;
-    } else if (PyUnicode_CompareWithASCIIString(attr, "e2") == 0) {
-        return (PyObject *)self->e2;
-    } else {
-        PyErr_Format(PyExc_AttributeError, "'pgf.ExprApp' object has no attribute '%U'", attr);
-        return NULL;
-    }
-}
+static PyMemberDef ExprApp_members[] = {
+    {"fun", T_OBJECT_EX, offsetof(ExprAppObject, fun), 0, "the function in a function application"},
+    {"arg", T_OBJECT_EX, offsetof(ExprAppObject, arg), 0, "the argument in a function application"},
+    {NULL}  /* Sentinel */
+};
 
 PyTypeObject pgf_ExprAppType = {
     PyVarObject_HEAD_INIT(NULL, 0)
@@ -457,7 +395,7 @@ PyTypeObject pgf_ExprAppType = {
     0, //(hashfunc) Expr_hash,      /*tp_hash */
     0, //(ternaryfunc) Expr_call,   /*tp_call*/
     0, //(reprfunc) Expr_str,      /*tp_str*/
-    (getattrofunc) ExprApp_getattro, /*tp_getattro*/
+    0, //(getattrofunc) ExprApp_getattro, /*tp_getattro*/
     0,                         /*tp_setattro*/
     0,                         /*tp_as_buffer*/
     Py_TPFLAGS_DEFAULT | Py_TPFLAGS_BASETYPE, /*tp_flags*/
@@ -469,7 +407,7 @@ PyTypeObject pgf_ExprAppType = {
     0,                           /*tp_iter */
     0,                           /*tp_iternext */
     0, //Expr_methods,              /*tp_methods */
-    0,                         /*tp_members */
+    ExprApp_members,           /*tp_members */
     0, //Expr_getseters,            /*tp_getset */
     &pgf_ExprType,             /*tp_base */
     0,                         /*tp_dict */
@@ -498,7 +436,7 @@ ExprLit_init(ExprLitObject *self, PyObject *args, PyObject *kwds)
         return -1;
     }
     if (PyLong_Check(lit) || PyFloat_Check(lit) || PyUnicode_Check(lit)) {
-        self->value = lit;
+        self->lit = lit;
         Py_INCREF(lit);
         return 0;
     } else {
@@ -514,18 +452,18 @@ ExprLit_richcompare(ExprLitObject *e1, PyObject *p2, int op)
     if (!PyObject_TypeCheck(p2, &pgf_ExprLitType)) goto done;
     ExprLitObject *e2 = (ExprLitObject *)p2;
 
-    if (PyLong_Check(e1->value)) {
-        if (!PyLong_Check(e2->value)) goto done;
+    if (PyLong_Check(e1->lit)) {
+        if (!PyLong_Check(e2->lit)) goto done;
         int o1, o2;
-        int l1 = PyLong_AsLongAndOverflow(e1->value, &o1);
-        int l2 = PyLong_AsLongAndOverflow(e2->value, &o2);
+        int l1 = PyLong_AsLongAndOverflow(e1->lit, &o1);
+        int l2 = PyLong_AsLongAndOverflow(e2->lit, &o2);
         if (!(l1 == l2 && o1 == o2)) goto done;
-    } else if (PyFloat_Check(e1->value)) {
-        if (!PyFloat_Check(e2->value)) goto done;
-        if (PyFloat_AsDouble(e1->value) != PyFloat_AsDouble(e2->value)) goto done;
-    } else if (PyUnicode_Check(e1->value)) {
-        if (!PyUnicode_Check(e2->value)) goto done;
-        if (PyUnicode_Compare(e1->value, e2->value) != 0) goto done;
+    } else if (PyFloat_Check(e1->lit)) {
+        if (!PyFloat_Check(e2->lit)) goto done;
+        if (PyFloat_AsDouble(e1->lit) != PyFloat_AsDouble(e2->lit)) goto done;
+    } else if (PyUnicode_Check(e1->lit)) {
+        if (!PyUnicode_Check(e2->lit)) goto done;
+        if (PyUnicode_Compare(e1->lit, e2->lit) != 0) goto done;
     } else {
         PyErr_SetString(PyExc_TypeError, "unknown literal type");
         return NULL;
@@ -544,16 +482,10 @@ done:
     }
 }
 
-static PyObject *
-ExprLit_getattro(ExprLitObject *self, PyObject *attr)
-{
-    if (PyUnicode_CompareWithASCIIString(attr, "value") == 0) {
-        return self->value;
-    } else {
-        PyErr_Format(PyExc_AttributeError, "'pgf.ExprLit' object has no attribute '%U'", attr);
-        return NULL;
-    }
-}
+static PyMemberDef ExprLit_members[] = {
+    {"val", T_OBJECT_EX, offsetof(ExprLitObject, lit), 0, "the value of the literal"},
+    {NULL}  /* Sentinel */
+};
 
 PyTypeObject pgf_ExprLitType = {
     PyVarObject_HEAD_INIT(NULL, 0)
@@ -573,7 +505,7 @@ PyTypeObject pgf_ExprLitType = {
     0, //(hashfunc) Expr_hash,      /*tp_hash */
     0, //(ternaryfunc) Expr_call,   /*tp_call*/
     0, //(reprfunc) Expr_str,      /*tp_str*/
-    (getattrofunc) ExprLit_getattro, /*tp_getattro*/
+    0, //(getattrofunc) ExprLit_getattro, /*tp_getattro*/
     0,                         /*tp_setattro*/
     0,                         /*tp_as_buffer*/
     Py_TPFLAGS_DEFAULT | Py_TPFLAGS_BASETYPE, /*tp_flags*/
@@ -585,7 +517,7 @@ PyTypeObject pgf_ExprLitType = {
     0,                           /*tp_iter */
     0,                           /*tp_iternext */
     0,                         /*tp_methods */
-    0,                         /*tp_members */
+    ExprLit_members,           /*tp_members */
     0,                         /*tp_getset */
     &pgf_ExprType,             /*tp_base */
     0,                         /*tp_dict */
@@ -647,16 +579,10 @@ done:
     }
 }
 
-static PyObject *
-ExprMeta_getattro(ExprMetaObject *self, PyObject *attr)
-{
-    if (PyUnicode_CompareWithASCIIString(attr, "id") == 0) {
-        return (PyObject *)self->id;
-    } else {
-        PyErr_Format(PyExc_AttributeError, "'pgf.ExprMeta' object has no attribute '%U'", attr);
-        return NULL;
-    }
-}
+static PyMemberDef ExprMeta_members[] = {
+    {"id", T_OBJECT_EX, offsetof(ExprMetaObject, id), 0, "the id of a meta variable"},
+    {NULL}  /* Sentinel */
+};
 
 PyTypeObject pgf_ExprMetaType = {
     PyVarObject_HEAD_INIT(NULL, 0)
@@ -676,7 +602,7 @@ PyTypeObject pgf_ExprMetaType = {
     0, //(hashfunc) Expr_hash,      /*tp_hash */
     0, //(ternaryfunc) Expr_call,   /*tp_call*/
     0, //(reprfunc) Expr_str,      /*tp_str*/
-    (getattrofunc) ExprMeta_getattro, /*tp_getattro*/
+    0, //(getattrofunc) ExprMeta_getattro, /*tp_getattro*/
     0,                         /*tp_setattro*/
     0,                         /*tp_as_buffer*/
     Py_TPFLAGS_DEFAULT | Py_TPFLAGS_BASETYPE, /*tp_flags*/
@@ -688,7 +614,7 @@ PyTypeObject pgf_ExprMetaType = {
     0,                           /*tp_iter */
     0,                           /*tp_iternext */
     0, //Expr_methods,              /*tp_methods */
-    0,                         /*tp_members */
+    ExprMeta_members,          /*tp_members */
     0, //Expr_getseters,            /*tp_getset */
     &pgf_ExprType,             /*tp_base */
     0,                         /*tp_dict */
@@ -742,16 +668,10 @@ done:
     }
 }
 
-static PyObject *
-ExprFun_getattro(ExprFunObject *self, PyObject *attr)
-{
-    if (PyUnicode_CompareWithASCIIString(attr, "name") == 0) {
-        return (PyObject *)self->name;
-    } else {
-        PyErr_Format(PyExc_AttributeError, "'pgf.ExprFun' object has no attribute '%U'", attr);
-        return NULL;
-    }
-}
+static PyMemberDef ExprFun_members[] = {
+    {"name", T_OBJECT_EX, offsetof(ExprFunObject, name), 0, "the name of the function"},
+    {NULL}  /* Sentinel */
+};
 
 PyTypeObject pgf_ExprFunType = {
     PyVarObject_HEAD_INIT(NULL, 0)
@@ -771,7 +691,7 @@ PyTypeObject pgf_ExprFunType = {
     0, //(hashfunc) Expr_hash,      /*tp_hash */
     0, //(ternaryfunc) Expr_call,   /*tp_call*/
     0, //(reprfunc) Expr_str,      /*tp_str*/
-    (getattrofunc) ExprFun_getattro, /*tp_getattro*/
+    0, //(getattrofunc) ExprFun_getattro, /*tp_getattro*/
     0,                         /*tp_setattro*/
     0,                         /*tp_as_buffer*/
     Py_TPFLAGS_DEFAULT | Py_TPFLAGS_BASETYPE, /*tp_flags*/
@@ -783,7 +703,7 @@ PyTypeObject pgf_ExprFunType = {
     0,                           /*tp_iter */
     0,                           /*tp_iternext */
     0, //Expr_methods,              /*tp_methods */
-    0,                         /*tp_members */
+    ExprFun_members,           /*tp_members */
     0, //Expr_getseters,            /*tp_getset */
     &pgf_ExprType,             /*tp_base */
     0,                         /*tp_dict */
@@ -812,10 +732,10 @@ ExprVar_init(ExprVarObject *self, PyObject *args, PyObject *kwds)
         return -1;
     }
     if (lit == NULL) {
-        self->index = PyLong_FromLong(0);
+        self->var = PyLong_FromLong(0);
         return 0;
     } else if (PyLong_Check(lit)) {
-        self->index = lit;
+        self->var = lit;
         Py_INCREF(lit);
         return 0;
     } else {
@@ -830,7 +750,7 @@ ExprVar_richcompare(ExprVarObject *e1, PyObject *p2, int op)
     bool same = false;
     if (!PyObject_TypeCheck(p2, &pgf_ExprVarType)) goto done;
     ExprVarObject *e2 = (ExprVarObject *)p2;
-    if (!PyObject_RichCompareBool(e1->index, e2->index, Py_EQ)) goto done;
+    if (!PyObject_RichCompareBool(e1->var, e2->var, Py_EQ)) goto done;
 
     same = true;
 done:
@@ -845,16 +765,10 @@ done:
     }
 }
 
-static PyObject *
-ExprVar_getattro(ExprVarObject *self, PyObject *attr)
-{
-    if (PyUnicode_CompareWithASCIIString(attr, "index") == 0) {
-        return (PyObject *)self->index;
-    } else {
-        PyErr_Format(PyExc_AttributeError, "'pgf.ExprVar' object has no attribute '%U'", attr);
-        return NULL;
-    }
-}
+static PyMemberDef ExprVar_members[] = {
+    {"index", T_OBJECT_EX, offsetof(ExprVarObject, var), 0, "the de Bruijn index of a variable"},
+    {NULL}  /* Sentinel */
+};
 
 PyTypeObject pgf_ExprVarType = {
     PyVarObject_HEAD_INIT(NULL, 0)
@@ -874,7 +788,7 @@ PyTypeObject pgf_ExprVarType = {
     0, //(hashfunc) Expr_hash,      /*tp_hash */
     0, //(ternaryfunc) Expr_call,   /*tp_call*/
     0, //(reprfunc) Expr_str,      /*tp_str*/
-    (getattrofunc) ExprVar_getattro, /*tp_getattro*/
+    0, //(getattrofunc) ExprVar_getattro, /*tp_getattro*/
     0,                         /*tp_setattro*/
     0,                         /*tp_as_buffer*/
     Py_TPFLAGS_DEFAULT | Py_TPFLAGS_BASETYPE, /*tp_flags*/
@@ -886,7 +800,7 @@ PyTypeObject pgf_ExprVarType = {
     0,                           /*tp_iter */
     0,                           /*tp_iternext */
     0, //Expr_methods,              /*tp_methods */
-    0,                         /*tp_members */
+    ExprVar_members,           /*tp_members */
     0, //Expr_getseters,            /*tp_getset */
     &pgf_ExprType,             /*tp_base */
     0,                         /*tp_dict */
@@ -944,18 +858,11 @@ done:
     }
 }
 
-static PyObject *
-ExprTyped_getattro(ExprTypedObject *self, PyObject *attr)
-{
-    if (PyUnicode_CompareWithASCIIString(attr, "expr") == 0) {
-        return (PyObject *)self->expr;
-    } else if (PyUnicode_CompareWithASCIIString(attr, "type") == 0) {
-        return (PyObject *)self->type;
-    } else {
-        PyErr_Format(PyExc_AttributeError, "'pgf.ExprTyped' object has no attribute '%U'", attr);
-        return NULL;
-    }
-}
+static PyMemberDef ExprTyped_members[] = {
+    {"expr", T_OBJECT_EX, offsetof(ExprTypedObject, expr), 0, "the expression"},
+    {"type", T_OBJECT_EX, offsetof(ExprTypedObject, type), 0, "the type"},
+    {NULL}  /* Sentinel */
+};
 
 PyTypeObject pgf_ExprTypedType = {
     PyVarObject_HEAD_INIT(NULL, 0)
@@ -975,7 +882,7 @@ PyTypeObject pgf_ExprTypedType = {
     0, //(hashfunc) Expr_hash,      /*tp_hash */
     0, //(ternaryfunc) Expr_call,   /*tp_call*/
     0, //(reprfunc) Expr_str,      /*tp_str*/
-    (getattrofunc) ExprTyped_getattro, /*tp_getattro*/
+    0, //(getattrofunc) ExprTyped_getattro, /*tp_getattro*/
     0,                         /*tp_setattro*/
     0,                         /*tp_as_buffer*/
     Py_TPFLAGS_DEFAULT | Py_TPFLAGS_BASETYPE, /*tp_flags*/
@@ -987,7 +894,7 @@ PyTypeObject pgf_ExprTypedType = {
     0,                           /*tp_iter */
     0,                           /*tp_iternext */
     0, //Expr_methods,              /*tp_methods */
-    0,                         /*tp_members */
+    ExprTyped_members,         /*tp_members */
     0, //Expr_getseters,            /*tp_getset */
     &pgf_ExprType,             /*tp_base */
     0,                         /*tp_dict */
@@ -1041,16 +948,10 @@ done:
     }
 }
 
-static PyObject *
-ExprImplArg_getattro(ExprImplArgObject *self, PyObject *attr)
-{
-    if (PyUnicode_CompareWithASCIIString(attr, "expr") == 0) {
-        return (PyObject *)self->expr;
-    } else {
-        PyErr_Format(PyExc_AttributeError, "'pgf.ExprImplArg' object has no attribute '%U'", attr);
-        return NULL;
-    }
-}
+static PyMemberDef ExprImplArg_members[] = {
+    {"expr", T_OBJECT_EX, offsetof(ExprImplArgObject, expr), 0, "the inner expression"},
+    {NULL}  /* Sentinel */
+};
 
 PyTypeObject pgf_ExprImplArgType = {
     PyVarObject_HEAD_INIT(NULL, 0)
@@ -1070,7 +971,7 @@ PyTypeObject pgf_ExprImplArgType = {
     0, //(hashfunc) Expr_hash,      /*tp_hash */
     0, //(ternaryfunc) Expr_call,   /*tp_call*/
     0, //(reprfunc) Expr_str,      /*tp_str*/
-    (getattrofunc) ExprImplArg_getattro, /*tp_getattro*/
+    0, //(getattrofunc) ExprImplArg_getattro, /*tp_getattro*/
     0,                         /*tp_setattro*/
     0,                         /*tp_as_buffer*/
     Py_TPFLAGS_DEFAULT | Py_TPFLAGS_BASETYPE, /*tp_flags*/
@@ -1082,7 +983,7 @@ PyTypeObject pgf_ExprImplArgType = {
     0,                           /*tp_iter */
     0,                           /*tp_iternext */
     0, //Expr_methods,              /*tp_methods */
-    0,                         /*tp_members */
+    ExprImplArg_members,       /*tp_members */
     0, //Expr_getseters,            /*tp_getset */
     &pgf_ExprType,             /*tp_base */
     0,                         /*tp_dict */

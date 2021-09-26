@@ -174,9 +174,9 @@ static PgfExpr
 eabs(PgfUnmarshaller *this, PgfBindType btype, PgfText *name, PgfExpr body)
 {
     ExprAbsObject *pyexpr = (ExprAbsObject *)pgf_ExprAbsType.tp_alloc(&pgf_ExprAbsType, 0);
-    pyexpr->bindType = PyLong_FromLong(btype);
-    pyexpr->var = PyUnicode_FromPgfText(name);
-    pyexpr->expr = (ExprObject *)body;
+    pyexpr->bind_type = PyLong_FromLong(btype);
+    pyexpr->name = PyUnicode_FromPgfText(name);
+    pyexpr->body = (ExprObject *)body;
     // Py_INCREF(body);
     return (PgfExpr) pyexpr;
 }
@@ -185,8 +185,8 @@ static PgfExpr
 eapp(PgfUnmarshaller *this, PgfExpr fun, PgfExpr arg)
 {
     ExprAppObject *pyexpr = (ExprAppObject *)pgf_ExprAppType.tp_alloc(&pgf_ExprAppType, 0);
-    pyexpr->e1 = (ExprObject *)fun;
-    pyexpr->e2 = (ExprObject *)arg;
+    pyexpr->fun = (ExprObject *)fun;
+    pyexpr->arg = (ExprObject *)arg;
     // Py_INCREF(fun);
     // Py_INCREF(arg);
     return (PgfExpr) pyexpr;
@@ -197,7 +197,7 @@ elit(PgfUnmarshaller *this, PgfLiteral lit)
 {
     ExprLitObject *pyexpr = (ExprLitObject *)pgf_ExprLitType.tp_alloc(&pgf_ExprLitType, 0);
     PyObject *pyobj = (PyObject *)lit;
-    pyexpr->value = pyobj;
+    pyexpr->lit = pyobj;
     Py_INCREF(pyobj);
     return (PgfExpr) pyexpr;
 }
@@ -224,7 +224,7 @@ static PgfExpr
 evar(PgfUnmarshaller *this, int index)
 {
     ExprVarObject *pyexpr = (ExprVarObject *)pgf_ExprVarType.tp_alloc(&pgf_ExprVarType, 0);
-    pyexpr->index = PyLong_FromLong(index);
+    pyexpr->var = PyLong_FromLong(index);
     return (PgfExpr) pyexpr;
 }
 
@@ -293,7 +293,7 @@ dtyp(PgfUnmarshaller *this, int n_hypos, PgfTypeHypo *hypos, PgfText *cat, int n
     TypeObject *pytype = (TypeObject *)pgf_TypeType.tp_alloc(&pgf_TypeType, 0);
 
     pytype->hypos = PyList_FromHypos(hypos, n_hypos);
-    pytype->cat = PyUnicode_FromStringAndSize(cat->text, cat->size);
+    pytype->name = PyUnicode_FromStringAndSize(cat->text, cat->size);
     pytype->exprs = PyList_New(n_exprs);
     for (int i = 0; i < n_exprs; i++) {
         PyList_SetItem(pytype->exprs, i, (PyObject *)exprs[i]);
@@ -384,15 +384,15 @@ match_expr(PgfMarshaller *this, PgfUnmarshaller *u, PgfExpr expr)
 
     if (PyObject_TypeCheck(pyobj, &pgf_ExprAbsType)) {
         ExprAbsObject *eabs = (ExprAbsObject *)expr;
-        return u->vtbl->eabs(u, PyLong_AsLong(eabs->bindType), PyUnicode_AsPgfText(eabs->var), (PgfExpr) eabs->expr);
+        return u->vtbl->eabs(u, PyLong_AsLong(eabs->bind_type), PyUnicode_AsPgfText(eabs->name), (PgfExpr) eabs->body);
     } else
     if (PyObject_TypeCheck(pyobj, &pgf_ExprAppType)) {
         ExprAppObject *eapp = (ExprAppObject *)expr;
-        return u->vtbl->eapp(u, (PgfExpr) eapp->e1, (PgfExpr) eapp->e2);
+        return u->vtbl->eapp(u, (PgfExpr) eapp->fun, (PgfExpr) eapp->arg);
     } else
     if (PyObject_TypeCheck(pyobj, &pgf_ExprLitType)) {
         ExprLitObject *elit = (ExprLitObject *)expr;
-        return this->vtbl->match_lit(this, u, (PgfLiteral) elit->value);
+        return this->vtbl->match_lit(this, u, (PgfLiteral) elit->lit);
     } else
     if (PyObject_TypeCheck(pyobj, &pgf_ExprMetaType)) {
         ExprMetaObject *emeta = (ExprMetaObject *)expr;
@@ -404,7 +404,7 @@ match_expr(PgfMarshaller *this, PgfUnmarshaller *u, PgfExpr expr)
     } else
     if (PyObject_TypeCheck(pyobj, &pgf_ExprVarType)) {
         ExprVarObject *evar = (ExprVarObject *)expr;
-        return u->vtbl->evar(u, PyLong_AsLong(evar->index));
+        return u->vtbl->evar(u, PyLong_AsLong(evar->var));
     } else
     if (PyObject_TypeCheck(pyobj, &pgf_ExprTypedType)) {
         ExprTypedObject *etyped = (ExprTypedObject *)expr;
@@ -429,7 +429,7 @@ match_type(PgfMarshaller *this, PgfUnmarshaller *u, PgfType ty)
     if (PyErr_Occurred())
         return 0;
 
-    PgfText *cat = PyUnicode_AsPgfText(type->cat);
+    PgfText *cat = PyUnicode_AsPgfText(type->name);
     if (cat == NULL) {
         return 0;
     }

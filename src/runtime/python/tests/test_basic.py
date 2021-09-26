@@ -281,9 +281,9 @@ def test_readExpr_lstr_newline():
     assert str(ExprLit("ab\nc")) == "\"ab\\nc\""
 
 def test_ExprLit_getters():
-    assert ExprLit(123).value == 123
-    assert ExprLit("123").value == "123"
-    assert ExprLit(1.23).value == 1.23
+    assert ExprLit(123).val == 123
+    assert ExprLit("123").val == "123"
+    assert ExprLit(1.23).val == 1.23
     with pytest.raises(AttributeError):
         ExprLit(1.23).fake
 
@@ -345,8 +345,8 @@ def test_ExprApp_getters():
     e1 = ExprFun("f")
     e2 = ExprFun("x")
     expr = ExprApp(e1, e2)
-    assert expr.e1 == e1
-    assert expr.e2 ==  e2
+    assert expr.fun == e1
+    assert expr.arg == e2
     with pytest.raises(AttributeError):
         expr.fake
 
@@ -438,9 +438,9 @@ def test_showExpr_eabs_freshvars_3():
 def test_ExprAbs_getters():
     e0 = ExprAbs(BIND_TYPE_EXPLICIT, "v", ExprVar(1))
     expr = ExprAbs(BIND_TYPE_EXPLICIT, "v", e0)
-    assert expr.bindType == BIND_TYPE_EXPLICIT
-    assert expr.var == "v"
-    assert expr.expr == e0
+    assert expr.bind_type == BIND_TYPE_EXPLICIT
+    assert expr.name == "v"
+    assert expr.body == e0
     with pytest.raises(AttributeError):
         expr.fake
 
