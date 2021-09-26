@@ -15,7 +15,7 @@ PGF_dealloc(PGFObject *self)
 {
     if (self->db != NULL && self->revision != 0)
         pgf_free_revision(self->db, self->revision);
-    Py_TYPE(self)->tp_free((PyObject *)self);
+    Py_TYPE(self)->tp_free(self);
 }
 
 typedef struct {

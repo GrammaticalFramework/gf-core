@@ -65,6 +65,12 @@ PGF_newTransaction(PGFObject *self, PyObject *args)
 
 // ----------------------------------------------------------------------------
 
+static void
+Transaction_dealloc(TransactionObject *self)
+{
+    Py_TYPE(self)->tp_free(self);
+}
+
 static PyObject *
 Transaction_commit(TransactionObject *self, PyObject *args)
 {
@@ -229,12 +235,6 @@ exit:
     return return_value;
 }
 
-// static void
-// Transaction_dealloc(PGFObject* self)
-// {
-//     Py_TYPE(self)->tp_free((PyObject*)self);
-// }
-
 static PyGetSetDef Transaction_getseters[] = {
     {NULL}  /* Sentinel */
 };
@@ -277,7 +277,7 @@ PyTypeObject pgf_TransactionType = {
     "pgf.Transaction",                 /*tp_name*/
     sizeof(TransactionObject),         /*tp_basicsize*/
     0,                         /*tp_itemsize*/
-    0, //(destructor)Transaction_dealloc,   /*tp_dealloc*/
+    (destructor) Transaction_dealloc,   /*tp_dealloc*/
     0,                         /*tp_print*/
     0,                         /*tp_getattr*/
     0,                         /*tp_setattr*/

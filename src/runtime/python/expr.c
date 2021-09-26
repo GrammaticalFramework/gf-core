@@ -57,11 +57,20 @@ Type_init(TypeObject *self, PyObject *args, PyObject *kwds)
     self->hypos = hypos;
     self->name = name;
     self->exprs = exprs;
-    Py_INCREF(hypos);
-    // Py_INCREF(name);
-    Py_INCREF(exprs);
+    Py_INCREF(self->hypos);
+    Py_INCREF(self->name);
+    Py_INCREF(self->exprs);
 
     return 0;
+}
+
+static void
+Type_dealloc(TypeObject *self)
+{
+    Py_XDECREF(self->hypos);
+    Py_XDECREF(self->name);
+    Py_XDECREF(self->exprs);
+    Py_TYPE(self)->tp_free(self);
 }
 
 static PyObject *
@@ -128,7 +137,7 @@ PyTypeObject pgf_TypeType = {
     "pgf.Type",                /*tp_name*/
     sizeof(TypeObject),        /*tp_basicsize*/
     0,                         /*tp_itemsize*/
-    0, //(destructor) Type_dealloc, /*tp_dealloc*/
+    (destructor) Type_dealloc, /*tp_dealloc*/
     0,                         /*tp_print*/
     0,                         /*tp_getattr*/
     0,                         /*tp_setattr*/
@@ -247,10 +256,19 @@ ExprAbs_init(ExprAbsObject *self, PyObject *args, PyObject *kwds)
     self->bind_type = bind_type;
     self->name = name;
     self->body = body;
-    Py_INCREF(bind_type);
-    Py_INCREF(name);
-    Py_INCREF(body);
+    Py_INCREF(self->bind_type);
+    Py_INCREF(self->name);
+    Py_INCREF(self->body);
     return 0;
+}
+
+static void
+ExprAbs_dealloc(ExprAbsObject *self)
+{
+    Py_XDECREF(self->bind_type);
+    Py_XDECREF(self->name);
+    Py_XDECREF(self->body);
+    Py_TYPE(self)->tp_free(self);
 }
 
 static PyObject *
@@ -289,7 +307,7 @@ PyTypeObject pgf_ExprAbsType = {
     "pgf.ExprAbs",                /*tp_name*/
     sizeof(ExprAbsObject),        /*tp_basicsize*/
     0,                         /*tp_itemsize*/
-    0, //(destructor)Expr_dealloc,  /*tp_dealloc*/
+    (destructor) ExprAbs_dealloc,  /*tp_dealloc*/
     0,                         /*tp_print*/
     0,                         /*tp_getattr*/
     0,                         /*tp_setattr*/
@@ -344,9 +362,17 @@ ExprApp_init(ExprAppObject *self, PyObject *args, PyObject *kwds)
     }
     self->fun = (ExprObject *)fun;
     self->arg = (ExprObject *)arg;
-    Py_INCREF(fun);
-    Py_INCREF(arg);
+    Py_INCREF(self->fun);
+    Py_INCREF(self->arg);
     return 0;
+}
+
+static void
+ExprApp_dealloc(ExprAppObject *self)
+{
+    Py_XDECREF(self->fun);
+    Py_XDECREF(self->arg);
+    Py_TYPE(self)->tp_free(self);
 }
 
 static PyObject *
@@ -383,7 +409,7 @@ PyTypeObject pgf_ExprAppType = {
     "pgf.ExprApp",                /*tp_name*/
     sizeof(ExprAppObject),        /*tp_basicsize*/
     0,                         /*tp_itemsize*/
-    0, //(destructor)Expr_dealloc,  /*tp_dealloc*/
+    (destructor) ExprApp_dealloc,  /*tp_dealloc*/
     0,                         /*tp_print*/
     0,                         /*tp_getattr*/
     0,                         /*tp_setattr*/
@@ -437,12 +463,19 @@ ExprLit_init(ExprLitObject *self, PyObject *args, PyObject *kwds)
     }
     if (PyLong_Check(lit) || PyFloat_Check(lit) || PyUnicode_Check(lit)) {
         self->lit = lit;
-        Py_INCREF(lit);
+        Py_INCREF(self->lit);
         return 0;
     } else {
-        PyErr_SetString(PyExc_TypeError, "invalid argument in ExprLit_init");
+        PyErr_SetString(PyExc_TypeError, "a literal expression can be initialised with an integer, float, or string");
         return -1;
     }
+}
+
+static void
+ExprLit_dealloc(ExprLitObject *self)
+{
+    Py_XDECREF(self->lit);
+    Py_TYPE(self)->tp_free(self);
 }
 
 static PyObject *
@@ -493,7 +526,7 @@ PyTypeObject pgf_ExprLitType = {
     "pgf.ExprLit",               /*tp_name*/
     sizeof(ExprLitObject),       /*tp_basicsize*/
     0,                           /*tp_itemsize*/
-    0, //(destructor)Expr_dealloc,  /*tp_dealloc*/
+    (destructor) ExprLit_dealloc,  /*tp_dealloc*/
     0,                         /*tp_print*/
     0,                         /*tp_getattr*/
     0,                         /*tp_setattr*/
@@ -547,15 +580,24 @@ ExprMeta_init(ExprMetaObject *self, PyObject *args, PyObject *kwds)
     }
     if (lit == NULL) {
         self->id = PyLong_FromLong(0);
+        Py_INCREF(self->id);
         return 0;
     } else if (PyLong_Check(lit)) {
         self->id = lit;
-        Py_INCREF(lit);
+        Py_INCREF(self->id);
         return 0;
     } else {
-        PyErr_SetString(PyExc_TypeError, "invalid argument in ExprMeta_init");
+        // TODO check positive
+        PyErr_SetString(PyExc_TypeError, "a meta variable must be initialised with an integer");
         return -1;
     }
+}
+
+static void
+ExprMeta_dealloc(ExprMetaObject *self)
+{
+    Py_XDECREF(self->id);
+    Py_TYPE(self)->tp_free(self);
 }
 
 static PyObject *
@@ -590,7 +632,7 @@ PyTypeObject pgf_ExprMetaType = {
     "pgf.ExprMeta",                /*tp_name*/
     sizeof(ExprMetaObject),        /*tp_basicsize*/
     0,                         /*tp_itemsize*/
-    0, //(destructor)Expr_dealloc,  /*tp_dealloc*/
+    (destructor) ExprMeta_dealloc,  /*tp_dealloc*/
     0,                         /*tp_print*/
     0,                         /*tp_getattr*/
     0,                         /*tp_setattr*/
@@ -643,8 +685,15 @@ ExprFun_init(ExprFunObject *self, PyObject *args, PyObject *kwds)
         return -1;
     }
     self->name = lit;
-    Py_INCREF(lit);
+    Py_INCREF(self->name);
     return 0;
+}
+
+static void
+ExprFun_dealloc(ExprFunObject *self)
+{
+    Py_XDECREF(self->name);
+    Py_TYPE(self)->tp_free(self);
 }
 
 static PyObject *
@@ -679,7 +728,7 @@ PyTypeObject pgf_ExprFunType = {
     "pgf.ExprFun",                /*tp_name*/
     sizeof(ExprFunObject),        /*tp_basicsize*/
     0,                         /*tp_itemsize*/
-    0, //(destructor)Expr_dealloc,  /*tp_dealloc*/
+    (destructor) ExprFun_dealloc,  /*tp_dealloc*/
     0,                         /*tp_print*/
     0,                         /*tp_getattr*/
     0,                         /*tp_setattr*/
@@ -733,15 +782,24 @@ ExprVar_init(ExprVarObject *self, PyObject *args, PyObject *kwds)
     }
     if (lit == NULL) {
         self->var = PyLong_FromLong(0);
+        Py_INCREF(self->var);
         return 0;
     } else if (PyLong_Check(lit)) {
         self->var = lit;
-        Py_INCREF(lit);
+        Py_INCREF(self->var);
         return 0;
     } else {
-        PyErr_SetString(PyExc_TypeError, "invalid argument in ExprVar_init");
+        // TODO check positive
+        PyErr_SetString(PyExc_TypeError, "variable expression must be initialised with an integer");
         return -1;
     }
+}
+
+static void
+ExprVar_dealloc(ExprVarObject *self)
+{
+    Py_XDECREF(self->var);
+    Py_TYPE(self)->tp_free(self);
 }
 
 static PyObject *
@@ -776,7 +834,7 @@ PyTypeObject pgf_ExprVarType = {
     "pgf.ExprVar",                /*tp_name*/
     sizeof(ExprVarObject),        /*tp_basicsize*/
     0,                         /*tp_itemsize*/
-    0, //(destructor)Expr_dealloc,  /*tp_dealloc*/
+    (destructor) ExprVar_dealloc,  /*tp_dealloc*/
     0,                         /*tp_print*/
     0,                         /*tp_getattr*/
     0,                         /*tp_setattr*/
@@ -831,9 +889,17 @@ ExprTyped_init(ExprTypedObject *self, PyObject *args, PyObject *kwds)
     }
     self->expr = expr;
     self->type = type;
-    Py_INCREF(expr);
-    Py_INCREF(type);
+    Py_INCREF(self->expr);
+    Py_INCREF(self->type);
     return 0;
+}
+
+static void
+ExprTyped_dealloc(ExprTypedObject *self)
+{
+    Py_XDECREF(self->expr);
+    Py_XDECREF(self->type);
+    Py_TYPE(self)->tp_free(self);
 }
 
 static PyObject *
@@ -870,7 +936,7 @@ PyTypeObject pgf_ExprTypedType = {
     "pgf.ExprTyped",                /*tp_name*/
     sizeof(ExprTypedObject),        /*tp_basicsize*/
     0,                         /*tp_itemsize*/
-    0, //(destructor)Expr_dealloc,  /*tp_dealloc*/
+    (destructor) ExprTyped_dealloc,  /*tp_dealloc*/
     0,                         /*tp_print*/
     0,                         /*tp_getattr*/
     0,                         /*tp_setattr*/
@@ -923,8 +989,15 @@ ExprImplArg_init(ExprImplArgObject *self, PyObject *args, PyObject *kwds)
         return -1;
     }
     self->expr = expr;
-    Py_INCREF(expr);
+    Py_INCREF(self->expr);
     return 0;
+}
+
+static void
+ExprImplArg_dealloc(ExprImplArgObject *self)
+{
+    Py_XDECREF(self->expr);
+    Py_TYPE(self)->tp_free(self);
 }
 
 static PyObject *
@@ -959,7 +1032,7 @@ PyTypeObject pgf_ExprImplArgType = {
     "pgf.ExprImplArg",                /*tp_name*/
     sizeof(ExprImplArgObject),        /*tp_basicsize*/
     0,                         /*tp_itemsize*/
-    0, //(destructor)Expr_dealloc,  /*tp_dealloc*/
+    (destructor) ExprImplArg_dealloc,  /*tp_dealloc*/
     0,                         /*tp_print*/
     0,                         /*tp_getattr*/
     0,                         /*tp_setattr*/
