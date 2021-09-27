@@ -291,7 +291,11 @@ Expr_new(PyTypeObject *subtype, PyObject *args, PyObject *kwds)
 	} else if (tuple_size == 1) {
 		return pgf_ExprLitType.tp_alloc(&pgf_ExprLitType, 0);
 	} else if (tuple_size == 2) {
-		return pgf_ExprAppType.tp_alloc(&pgf_ExprAppType, 0);
+        PyObject* arg = PyTuple_GetItem(args, 1);
+        if (PyList_Check(arg) && PyList_Size(arg) == 0)
+            return pgf_ExprAppType.tp_alloc(&pgf_ExprFunType, 0);
+        else
+            return pgf_ExprAppType.tp_alloc(&pgf_ExprAppType, 0);
 	} else {
 		PyErr_Format(PyExc_TypeError, "function takes 0, 1 or 2 arguments (%d given)", (int) tuple_size);
 		return NULL;
@@ -663,14 +667,71 @@ ExprApp_init(ExprAppObject *self, PyObject *args, PyObject *kwds)
 {
     PyObject* fun = NULL;
     PyObject* arg = NULL;
-    if (!PyArg_ParseTuple(args, "O!O!", &pgf_ExprType, &fun, &pgf_ExprType, &arg)) {
+    if (!PyArg_ParseTuple(args, "OO", &fun, &arg)) {
         return -1;
     }
-    self->fun = (ExprObject *)fun;
-    self->arg = (ExprObject *)arg;
-    Py_INCREF(self->fun);
-    Py_INCREF(self->arg);
-    return 0;
+
+    if (PyObject_TypeCheck(fun, &pgf_ExprType) && PyObject_TypeCheck(arg, &pgf_ExprType)) {
+        self->fun = (ExprObject *)fun;
+        self->arg = (ExprObject *)arg;
+        Py_INCREF(self->fun);
+        Py_INCREF(self->arg);
+        return 0;
+    } else if (PyList_Check(arg)) {
+        if (PyUnicode_Check(fun)) {
+            ExprFunObject *fun_expr =
+                (ExprFunObject *) pgf_ExprFunType.tp_alloc(&pgf_ExprFunType, 0);
+            fun_expr->name = fun;
+            Py_INCREF(fun);
+            fun = (PyObject *) fun_expr;
+        } else if (PyObject_TypeCheck(fun, &pgf_ExprType)) {
+            Py_INCREF(fun);
+        } else {
+            PyErr_SetString(PyExc_TypeError, "argument 1 must be Expr or str");
+            return -1;
+        }
+
+        Py_ssize_t n_args = PyList_Size(arg);
+        if (n_args == 0) {
+            PyErr_SetString(PyExc_TypeError, "The list of arguments must be non-empty");
+            return -1;
+        }
+
+        for (Py_ssize_t i = 0; i < n_args-1; i++) {
+            PyObject *item = PyList_GetItem(arg, i);
+            if (!PyObject_TypeCheck(item, &pgf_ExprType)) {
+                PyErr_SetString(PyExc_TypeError, "The list of arguments must contain other expressions");
+                Py_DECREF(fun);
+                return -1;
+            }
+            ExprAppObject *app_expr =
+                (ExprAppObject *) pgf_ExprAppType.tp_alloc(&pgf_ExprAppType, 0);
+            if (app_expr == NULL) {
+                Py_DECREF(fun);
+                return -1;
+            }
+            app_expr->fun = (ExprObject *) fun;
+            app_expr->arg = (ExprObject *) item;
+            Py_INCREF(item);
+            fun = (PyObject *) app_expr;
+        }
+
+        arg = PyList_GetItem(arg, n_args-1);
+        if (!PyObject_TypeCheck(arg, &pgf_ExprType)) {
+            PyErr_SetString(PyExc_TypeError, "The list of arguments must contain other expressions");
+            Py_DECREF(fun);
+            return -1;
+        }
+        Py_INCREF(arg);
+
+        self->fun = (ExprObject *)fun;
+        self->arg = (ExprObject *)arg;
+
+        return 0;
+    }
+
+    PyErr_SetString(PyExc_TypeError, "The arguments must two expressions");
+    return -1;
 }
 
 static void
@@ -965,12 +1026,15 @@ PyTypeObject pgf_ExprMetaType = {
 static int
 ExprFun_init(ExprFunObject *self, PyObject *args, PyObject *kwds)
 {
-    PyObject* lit = NULL;
-    if (!PyArg_ParseTuple(args, "U", &lit)) {
+    PyObject* list = NULL;
+    if (!PyArg_ParseTuple(args, "U|O!", &self->name, &PyList_Type, &list)) {
         return -1;
     }
-    self->name = lit;
     Py_INCREF(self->name);
+    if (PyList_Size(list) != 0) {
+        PyErr_SetString(PyExc_TypeError, "The list of arguments must be empty");
+        return -1;
+    }
     return 0;
 }
 
