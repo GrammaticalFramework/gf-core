@@ -1031,7 +1031,7 @@ ExprFun_init(ExprFunObject *self, PyObject *args, PyObject *kwds)
         return -1;
     }
     Py_INCREF(self->name);
-    if (PyList_Size(list) != 0) {
+    if (list != NULL && PyList_Size(list) != 0) {
         PyErr_SetString(PyExc_TypeError, "The list of arguments must be empty");
         return -1;
     }
