@@ -15,7 +15,7 @@ def gr2(gr1):
     gr = gr1
     t = gr.newTransaction()
     t.createFunction("foo", ty, 0, prob)
-    t.createCategory("Q", [(BIND_TYPE_EXPLICIT, "x", ty)], prob)
+    t.createCategory("Q", [Hypo(BIND_TYPE_EXPLICIT, "x", ty)], prob)
     t.commit()
     yield gr
 
@@ -24,7 +24,7 @@ def gr3(gr1):
     gr = gr1
     with gr.newTransaction("bar_branch") as t:
         t.createFunction("bar", ty, 0, prob)
-        t.createCategory("R", [(BIND_TYPE_EXPLICIT, "x", ty)], prob)
+        t.createCategory("R", [Hypo(BIND_TYPE_EXPLICIT, "x", ty)], prob)
     yield gr
 
 @pytest.fixture(scope="function")
@@ -79,7 +79,7 @@ def test_extended_categories(gr2):
     assert gr2.categories == ["Float","Int","N","P","Q","S","String"]
 
 def test_extended_category_context(gr2):
-    assert gr2.categoryContext("Q") == [(BIND_TYPE_EXPLICIT, "x", ty)]
+    assert gr2.categoryContext("Q") == [Hypo(BIND_TYPE_EXPLICIT, "x", ty)]
 
 def test_extended_function_type(gr2):
     assert gr2.functionType("foo") == ty
@@ -98,7 +98,7 @@ def test_branched_categories(gr3):
     assert gr3.categories == ["Float","Int","N","P","R","S","String"]
 
 def test_branched_category_context(gr3):
-    assert gr3.categoryContext("R") == [(BIND_TYPE_EXPLICIT, "x", ty)]
+    assert gr3.categoryContext("R") == [Hypo(BIND_TYPE_EXPLICIT, "x", ty)]
 
 def test_branched_function_type(gr3):
     assert gr3.functionType("bar") == ty

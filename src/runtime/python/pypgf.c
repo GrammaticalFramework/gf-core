@@ -532,56 +532,56 @@ pgf_showType(PyObject *self, PyObject *args)
     return str;
 }
 
-static PyObject *
+static HypoObject *
 pgf_mkHypo(PyObject *self, PyObject *args)
 {
-    PyObject *type;
+    TypeObject *type;
     if (!PyArg_ParseTuple(args, "O!", &pgf_TypeType, &type))
         return NULL;
 
-    PyObject *tup = PyTuple_New(3);
-    PyTuple_SetItem(tup, 0, PyLong_FromLong(0)); // explicit
-    PyTuple_SetItem(tup, 1, PyUnicode_FromStringAndSize("_", 1));
-    PyTuple_SetItem(tup, 2, type);
-    Py_INCREF(type);
+    HypoObject *hypo = PyObject_New(HypoObject, &pgf_HypoType);
+    hypo->bind_type = PyLong_FromLong(0); // explicit
+    hypo->cid = PyUnicode_FromStringAndSize("_", 1);
+    hypo->type = type;
+    Py_INCREF(hypo->type);
 
-    return tup;
+    return hypo;
 }
 
-static PyObject *
+static HypoObject *
 pgf_mkDepHypo(PyObject *self, PyObject *args)
 {
     PyObject *var;
-    PyObject *type;
+    TypeObject *type;
     if (!PyArg_ParseTuple(args, "UO!", &var, &pgf_TypeType, &type))
         return NULL;
 
-    PyObject *tup = PyTuple_New(3);
-    PyTuple_SetItem(tup, 0, PyLong_FromLong(0)); // explicit
-    PyTuple_SetItem(tup, 1, var);
-    PyTuple_SetItem(tup, 2, type);
-    Py_INCREF(var);
-    Py_INCREF(type);
+    HypoObject *hypo = PyObject_New(HypoObject, &pgf_HypoType);
+    hypo->bind_type = PyLong_FromLong(0); // explicit
+    hypo->cid = var;
+    hypo->type = type;
+    Py_INCREF(hypo->cid);
+    Py_INCREF(hypo->type);
 
-    return tup;
+    return hypo;
 }
 
-static PyObject *
+static HypoObject *
 pgf_mkImplHypo(PyObject *self, PyObject *args)
 {
     PyObject *var;
-    PyObject *type;
+    TypeObject *type;
     if (!PyArg_ParseTuple(args, "UO!", &var, &pgf_TypeType, &type))
         return NULL;
 
-    PyObject *tup = PyTuple_New(3);
-    PyTuple_SetItem(tup, 0, PyLong_FromLong(1)); // implicit
-    PyTuple_SetItem(tup, 1, var);
-    PyTuple_SetItem(tup, 2, type);
-    Py_INCREF(var);
-    Py_INCREF(type);
+    HypoObject *hypo = PyObject_New(HypoObject, &pgf_HypoType);
+    hypo->bind_type = PyLong_FromLong(1); // implicit
+    hypo->cid = var;
+    hypo->type = type;
+    Py_INCREF(hypo->cid);
+    Py_INCREF(hypo->type);
 
-    return tup;
+    return hypo;
 }
 
 static PyMethodDef module_methods[] = {
@@ -668,6 +668,9 @@ MOD_INIT(pgf)
     if (PyType_Ready(&pgf_TypeType) < 0)
         return MOD_ERROR_VAL;
 
+    if (PyType_Ready(&pgf_HypoType) < 0)
+        return MOD_ERROR_VAL;
+
     MOD_DEF(m, "pgf", "The Runtime for Portable Grammar Format in Python", module_methods);
     if (m == NULL)
         return MOD_ERROR_VAL;
@@ -710,6 +713,9 @@ MOD_INIT(pgf)
     // Py_INCREF(&pgf_ExprImplArgType);
 
     PyModule_AddObject(m, "Type", (PyObject *) &pgf_TypeType);
+    // Py_INCREF(&pgf_TypeType);
+
+    PyModule_AddObject(m, "Hypo", (PyObject *) &pgf_HypoType);
     // Py_INCREF(&pgf_TypeType);
 
     PyModule_AddIntConstant(m, "BIND_TYPE_EXPLICIT", 0);
