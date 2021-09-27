@@ -361,7 +361,7 @@ prob_t pgf_category_prob(PgfDB *db, PgfRevision revision,
         ref<PgfAbsCat> abscat =
             namespace_lookup(pgf->abstract.cats, catname);
         if (abscat == 0) {
-            return 0;
+            return INFINITY;
         }
 
         return abscat->prob;
