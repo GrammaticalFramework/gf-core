@@ -94,7 +94,7 @@ Transaction_createFunction(TransactionObject *self, PyObject *args)
     Py_ssize_t size;
     TypeObject *type;
     Py_ssize_t arity = 0;
-    float prob = 0.0;
+    prob_t prob = 0.0;
     if (!PyArg_ParseTuple(args, "s#O!nf", &s, &size, &pgf_TypeType, &type, &arity, &prob))
         return NULL;
 
@@ -136,15 +136,9 @@ Transaction_createCategory(TransactionObject *self, PyObject *args)
     const char *s;
     Py_ssize_t size;
     PyObject *hypos;
-    float prob = 0.0;
-    // if (!PyArg_ParseTuple(args, "s#O!f", &s, &size, &PyList_Type, &hypos, prob)) // segfaults in Python 3.8 but not 3.7
-    //     return NULL;
-    if (!PyArg_ParseTuple(args, "s#Of", &s, &size, &hypos, prob))
+    prob_t prob = 0.0;
+    if (!PyArg_ParseTuple(args, "s#O!f", &s, &size, &PyList_Type, &hypos, &prob))
         return NULL;
-    if (!PyObject_TypeCheck(hypos, &PyList_Type)) {
-        PyErr_SetString(PyExc_TypeError, "hypos must be a list");
-        return NULL;
-    }
 
     PgfText *catname = CString_AsPgfText(s, size);
 
