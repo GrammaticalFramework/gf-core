@@ -345,6 +345,53 @@ Expr_call(ExprObject* self, PyObject* args, PyObject* kw)
 }
 
 static PyObject*
+Expr_unpack(ExprObject *self, PyObject *fargs)
+{
+    ExprObject *expr = self;
+	PyObject *args = PyList_New(0);
+
+	for (;;) {
+        if (PyObject_TypeCheck(expr, &pgf_ExprAbsType)) {
+            ExprAbsObject *eabs = (ExprAbsObject *) expr;
+            PyObject* res = 
+				Py_BuildValue("OOOO", eabs->bind_type, eabs->name, eabs->body, args);
+			Py_DECREF(args);
+            return res;
+        } else if (PyObject_TypeCheck(expr, &pgf_ExprAppType)) {
+            if (PyList_Insert(args, 0, (PyObject*) ((ExprAppObject *) expr)->arg) == -1) {
+				Py_DECREF(args);
+				return NULL;
+			}
+            expr = ((ExprAppObject *) expr)->fun;
+        } else if (PyObject_TypeCheck(expr, &pgf_ExprLitType)) {
+            PyObject* res = ((ExprLitObject *) expr)->lit;
+            Py_INCREF(res);
+            Py_DECREF(args);
+            return res;
+        } else if (PyObject_TypeCheck(expr, &pgf_ExprMetaType)) {
+            PyObject* res = Py_BuildValue("OO", Py_None, args);
+			Py_DECREF(args);
+			return res;
+        } else if (PyObject_TypeCheck(expr, &pgf_ExprFunType)) {
+			PyObject* res = Py_BuildValue("OO", ((ExprFunObject *) expr)->name, args);
+			Py_DECREF(args);
+			return res;
+        } else if (PyObject_TypeCheck(expr, &pgf_ExprVarType)) {
+			PyObject* res = Py_BuildValue("OO", ((ExprVarObject *) expr)->var, args);
+			Py_DECREF(args);
+			return res;
+        } else if (PyObject_TypeCheck(expr, &pgf_ExprTypedType)) {
+            expr = ((ExprTypedObject *) expr)->expr;
+        } else if (PyObject_TypeCheck(expr, &pgf_ExprImplArgType)) {
+            expr = ((ExprImplArgObject *) expr)->expr;
+        } else {
+            PyErr_SetString(PyExc_TypeError, "Unsupported kind of abstract expression");
+            return NULL;
+        }
+    }
+}
+
+static PyObject*
 Expr_visit(ExprObject* self, PyObject *args)
 {
 	PyObject* py_visitor = NULL;
@@ -450,6 +497,9 @@ Expr_reduce_ex(ExprObject* self, PyObject *args)
 }
 
 static PyMethodDef Expr_methods[] = {
+    {"unpack", (PyCFunction)Expr_unpack, METH_VARARGS,
+     "Decomposes an expression into its components"
+    },
     {"visit", (PyCFunction)Expr_visit, METH_VARARGS,
      "Implementation of the visitor pattern for abstract syntax trees. "
      "If e is an expression equal to f a1 .. an then "
