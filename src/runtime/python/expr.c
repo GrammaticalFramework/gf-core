@@ -125,9 +125,9 @@ static PyMethodDef Type_methods[] = {
 };
 
 static PyMemberDef Type_members[] = {
-    {"hypos", T_OBJECT_EX, offsetof(TypeObject, hypos), 0, "list of hypotheses in the type signature"},
-    {"cat", T_OBJECT_EX, offsetof(TypeObject, name), 0, "name of the category"},
-    {"exprs", T_OBJECT_EX, offsetof(TypeObject, exprs), 0, "list of indices for the category"},
+    {"hypos", T_OBJECT_EX, offsetof(TypeObject, hypos), READONLY, "list of hypotheses in the type signature"},
+    {"cat", T_OBJECT_EX, offsetof(TypeObject, name), READONLY, "name of the category"},
+    {"exprs", T_OBJECT_EX, offsetof(TypeObject, exprs), READONLY, "list of indices for the category"},
     {NULL}  /* Sentinel */
 };
 
@@ -446,9 +446,9 @@ done:
 }
 
 static PyMemberDef ExprAbs_members[] = {
-    {"bind_type", T_OBJECT_EX, offsetof(ExprAbsObject, bind_type), 0, "bind type (explicit or implicit)"},
-    {"name", T_OBJECT_EX, offsetof(ExprAbsObject, name), 0, "name of the abstraction"},
-    {"body", T_OBJECT_EX, offsetof(ExprAbsObject, body), 0, "body of the abstraction"},
+    {"bind_type", T_OBJECT_EX, offsetof(ExprAbsObject, bind_type), READONLY, "bind type (explicit or implicit)"},
+    {"name", T_OBJECT_EX, offsetof(ExprAbsObject, name), READONLY, "name of the abstraction"},
+    {"body", T_OBJECT_EX, offsetof(ExprAbsObject, body), READONLY, "body of the abstraction"},
     {NULL}  /* Sentinel */
 };
 
@@ -542,8 +542,8 @@ done:
 }
 
 static PyMemberDef ExprApp_members[] = {
-    {"fun", T_OBJECT_EX, offsetof(ExprAppObject, fun), 0, "the function in a function application"},
-    {"arg", T_OBJECT_EX, offsetof(ExprAppObject, arg), 0, "the argument in a function application"},
+    {"fun", T_OBJECT_EX, offsetof(ExprAppObject, fun), READONLY, "the function in a function application"},
+    {"arg", T_OBJECT_EX, offsetof(ExprAppObject, arg), READONLY, "the argument in a function application"},
     {NULL}  /* Sentinel */
 };
 
@@ -653,7 +653,7 @@ done:
 }
 
 static PyMemberDef ExprLit_members[] = {
-    {"val", T_OBJECT_EX, offsetof(ExprLitObject, lit), 0, "the value of the literal"},
+    {"val", T_OBJECT_EX, offsetof(ExprLitObject, lit), READONLY, "the value of the literal"},
     {NULL}  /* Sentinel */
 };
 
@@ -752,7 +752,7 @@ done:
 }
 
 static PyMemberDef ExprMeta_members[] = {
-    {"id", T_OBJECT_EX, offsetof(ExprMetaObject, id), 0, "the id of a meta variable"},
+    {"id", T_OBJECT_EX, offsetof(ExprMetaObject, id), READONLY, "the id of a meta variable"},
     {NULL}  /* Sentinel */
 };
 
@@ -841,7 +841,7 @@ done:
 }
 
 static PyMemberDef ExprFun_members[] = {
-    {"name", T_OBJECT_EX, offsetof(ExprFunObject, name), 0, "the name of the function"},
+    {"name", T_OBJECT_EX, offsetof(ExprFunObject, name), READONLY, "the name of the function"},
     {NULL}  /* Sentinel */
 };
 
@@ -940,7 +940,7 @@ done:
 }
 
 static PyMemberDef ExprVar_members[] = {
-    {"index", T_OBJECT_EX, offsetof(ExprVarObject, var), 0, "the de Bruijn index of a variable"},
+    {"index", T_OBJECT_EX, offsetof(ExprVarObject, var), READONLY, "the de Bruijn index of a variable"},
     {NULL}  /* Sentinel */
 };
 
@@ -1034,8 +1034,8 @@ done:
 }
 
 static PyMemberDef ExprTyped_members[] = {
-    {"expr", T_OBJECT_EX, offsetof(ExprTypedObject, expr), 0, "the expression"},
-    {"type", T_OBJECT_EX, offsetof(ExprTypedObject, type), 0, "the type"},
+    {"expr", T_OBJECT_EX, offsetof(ExprTypedObject, expr), READONLY, "the expression"},
+    {"type", T_OBJECT_EX, offsetof(ExprTypedObject, type), READONLY, "the type"},
     {NULL}  /* Sentinel */
 };
 
@@ -1124,7 +1124,7 @@ done:
 }
 
 static PyMemberDef ExprImplArg_members[] = {
-    {"expr", T_OBJECT_EX, offsetof(ExprImplArgObject, expr), 0, "the inner expression"},
+    {"expr", T_OBJECT_EX, offsetof(ExprImplArgObject, expr), READONLY, "the inner expression"},
     {NULL}  /* Sentinel */
 };
 
