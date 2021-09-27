@@ -100,7 +100,8 @@ PyList_FromHypos(PgfTypeHypo *hypos, const size_t n_hypos)
         hypo->bind_type = hypos[i].bind_type == 0 ? Py_True : Py_False;
         hypo->cid = PyUnicode_FromStringAndSize(hypos[i].cid->text, hypos[i].cid->size);
         hypo->type = (TypeObject *)hypos[i].type;
-        // Py_INCREF(hypo->type);
+        Py_INCREF(hypo->bind_type);
+        Py_INCREF(hypo->type);
         PyList_SetItem(pylist, i, (PyObject *)hypo);
     }
     if (PyErr_Occurred()) {
@@ -160,7 +161,8 @@ eabs(PgfUnmarshaller *this, PgfBindType btype, PgfText *name, PgfExpr body)
     pyexpr->bind_type = btype == 0 ? Py_True : Py_False;
     pyexpr->name = PyUnicode_FromPgfText(name);
     pyexpr->body = (ExprObject *)body;
-    // Py_INCREF(body);
+    Py_INCREF(pyexpr->bind_type);
+    Py_INCREF(body);
     return (PgfExpr) pyexpr;
 }
 
@@ -170,8 +172,8 @@ eapp(PgfUnmarshaller *this, PgfExpr fun, PgfExpr arg)
     ExprAppObject *pyexpr = (ExprAppObject *)pgf_ExprAppType.tp_alloc(&pgf_ExprAppType, 0);
     pyexpr->fun = (ExprObject *)fun;
     pyexpr->arg = (ExprObject *)arg;
-    // Py_INCREF(fun);
-    // Py_INCREF(arg);
+    Py_INCREF(fun);
+    Py_INCREF(arg);
     return (PgfExpr) pyexpr;
 }
 
@@ -197,9 +199,7 @@ static PgfExpr
 efun(PgfUnmarshaller *this, PgfText *name)
 {
     ExprFunObject *pyexpr = (ExprFunObject *)pgf_ExprFunType.tp_alloc(&pgf_ExprFunType, 0);
-    PyObject *pyobj = PyUnicode_FromPgfText(name);
-    pyexpr->name = pyobj;
-    Py_INCREF(pyobj);
+    pyexpr->name = PyUnicode_FromPgfText(name);
     return (PgfExpr) pyexpr;
 }
 
@@ -217,8 +217,8 @@ etyped(PgfUnmarshaller *this, PgfExpr expr, PgfType typ)
     ExprTypedObject *pyexpr = (ExprTypedObject *)pgf_ExprTypedType.tp_alloc(&pgf_ExprTypedType, 0);
     pyexpr->expr = (ExprObject *)expr;
     pyexpr->type = (TypeObject *)typ;
-    // Py_INCREF(expr);
-    // Py_INCREF(typ);
+    Py_INCREF(expr);
+    Py_INCREF(typ);
     return (PgfExpr) pyexpr;
 }
 
@@ -227,27 +227,32 @@ eimplarg(PgfUnmarshaller *this, PgfExpr expr)
 {
     ExprImplArgObject *pyexpr = (ExprImplArgObject *)pgf_ExprImplArgType.tp_alloc(&pgf_ExprImplArgType, 0);
     pyexpr->expr = (ExprObject *)expr;
-    // Py_INCREF(expr);
+    Py_INCREF(expr);
     return (PgfExpr) pyexpr;
 }
 
 static PgfLiteral
 lint(PgfUnmarshaller *this, size_t size, uintmax_t *v)
 {
-    intmax_t *v0 = (intmax_t *)v;
-    PyObject *i = PyLong_FromLong(*v0);
-
     if (size == 0) {
-        return (PgfLiteral) 0;
+        return (PgfLiteral) PyLong_FromLong(0);
     } else {
-        PyObject *intShifter = PyLong_FromUnsignedLong(pow(10, floor(log10(ULONG_MAX))));
+        intmax_t *v0 = (intmax_t *)v;
+        PyObject *i = PyLong_FromLong(*v0);
+        PyObject *intShifter = PyLong_FromUnsignedLong(LINT_BASE);
         for (size_t n = 1; n < size; n++) {
-            i = PyNumber_Multiply(i, intShifter);
+            PyObject *tmp = PyNumber_Multiply(i, intShifter);
+            Py_DECREF(i);
+            i = tmp;
+            PyObject *py_v = PyLong_FromUnsignedLong(v[n]);
             if (*v0 >= 0) {
-                i = PyNumber_Add(i, PyLong_FromUnsignedLong(v[n]));
+                tmp = PyNumber_Add(i, py_v);
             } else {
-                i = PyNumber_Subtract(i, PyLong_FromUnsignedLong(v[n]));
+                tmp = PyNumber_Subtract(i, py_v);
             }
+            Py_DECREF(py_v);
+            Py_DECREF(i);
+            i = tmp;
         }
         if (PyErr_Occurred()) {
             return 0;
@@ -279,7 +284,9 @@ dtyp(PgfUnmarshaller *this, int n_hypos, PgfTypeHypo *hypos, PgfText *cat, int n
     pytype->name = PyUnicode_FromStringAndSize(cat->text, cat->size);
     pytype->exprs = PyList_New(n_exprs);
     for (int i = 0; i < n_exprs; i++) {
-        PyList_SetItem(pytype->exprs, i, (PyObject *)exprs[i]);
+        PyObject *expr = (PyObject *)exprs[i];
+        PyList_SetItem(pytype->exprs, i, expr);
+        Py_INCREF(expr);
     }
 
     return (PgfType) pytype;
@@ -288,6 +295,7 @@ dtyp(PgfUnmarshaller *this, int n_hypos, PgfTypeHypo *hypos, PgfText *cat, int n
 static void
 free_ref(PgfUnmarshaller *this, object x)
 {
+    Py_XDECREF((PyObject *) x);
 }
 
 static PgfUnmarshallerVtbl unmarshallerVtbl =
