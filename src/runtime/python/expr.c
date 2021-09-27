@@ -166,27 +166,21 @@ PyTypeObject pgf_TypeType = {
 static HypoObject *
 Hypo_new(PyTypeObject *subtype, PyObject *args, PyObject *kwds)
 {
-    HypoObject* self = (HypoObject *)subtype->tp_alloc(subtype, 0);
+    HypoObject *self = (HypoObject *)subtype->tp_alloc(subtype, 0);
     return self;
 }
 
 static int
 Hypo_init(HypoObject *self, PyObject *args, PyObject *kwds)
 {
-    int bind_type;
-    PyObject* cid;
-    TypeObject* type;
-    if (!PyArg_ParseTuple(args, "iUO!", &bind_type, &cid, &pgf_TypeType, &type)) {
+    PyObject *bind_type;
+    PyObject *cid;
+    TypeObject *type;
+    if (!PyArg_ParseTuple(args, "O!UO!", &PyBool_Type, &bind_type, &cid, &pgf_TypeType, &type)) {
         return -1;
     }
 
-    if (bind_type == 0 || bind_type == 1) {
-        self->bind_type = PyLong_FromLong(bind_type);
-    } else {
-        PyErr_SetString(PyExc_TypeError, "invalid bind type in hypo initialisation");
-        return -1;
-    }
-
+    self->bind_type = bind_type;
     self->cid = cid;
     self->type = type;
     Py_INCREF(self->bind_type);
@@ -567,7 +561,7 @@ ExprAbs_init(ExprAbsObject *self, PyObject *args, PyObject *kwds)
     PyObject* bind_type = NULL;
     PyObject* name = NULL;
     ExprObject* body = NULL;
-    if (!PyArg_ParseTuple(args, "O!UO!", &PyLong_Type, &bind_type, &name, &pgf_ExprType, &body)) {
+    if (!PyArg_ParseTuple(args, "O!UO!", &PyBool_Type, &bind_type, &name, &pgf_ExprType, &body)) {
         return -1;
     }
     self->bind_type = bind_type;

@@ -619,9 +619,11 @@ pgf_mkHypo(PyObject *self, PyObject *args)
         return NULL;
 
     HypoObject *hypo = PyObject_New(HypoObject, &pgf_HypoType);
-    hypo->bind_type = PyLong_FromLong(0); // explicit
+    hypo->bind_type = Py_True; // explicit
     hypo->cid = PyUnicode_FromStringAndSize("_", 1);
     hypo->type = type;
+    Py_INCREF(hypo->bind_type);
+    Py_INCREF(hypo->cid);
     Py_INCREF(hypo->type);
 
     return hypo;
@@ -636,9 +638,10 @@ pgf_mkDepHypo(PyObject *self, PyObject *args)
         return NULL;
 
     HypoObject *hypo = PyObject_New(HypoObject, &pgf_HypoType);
-    hypo->bind_type = PyLong_FromLong(0); // explicit
+    hypo->bind_type = Py_True; // explicit
     hypo->cid = var;
     hypo->type = type;
+    Py_INCREF(hypo->bind_type);
     Py_INCREF(hypo->cid);
     Py_INCREF(hypo->type);
 
@@ -654,9 +657,10 @@ pgf_mkImplHypo(PyObject *self, PyObject *args)
         return NULL;
 
     HypoObject *hypo = PyObject_New(HypoObject, &pgf_HypoType);
-    hypo->bind_type = PyLong_FromLong(1); // implicit
+    hypo->bind_type = Py_False; // implicit
     hypo->cid = var;
     hypo->type = type;
+    Py_INCREF(hypo->bind_type);
     Py_INCREF(hypo->cid);
     Py_INCREF(hypo->type);
 
@@ -711,10 +715,18 @@ static PyMethodDef module_methods[] = {
     if (PyType_Ready(&type) < 0) \
         return MOD_ERROR_VAL;
 
-#define ADD_TYPE(desc, type) \
+#define ADD_TYPE(name, type) \
     Py_INCREF(&type); \
-    if (PyModule_AddObject(m, desc, (PyObject *)&type) < 0) { \
+    if (PyModule_AddObject(m, name, (PyObject *)&type) < 0) { \
         Py_DECREF(&type); \
+        Py_DECREF(m); \
+        return NULL; \
+    }
+
+#define ADD_TYPE_DIRECT(name, type) \
+    Py_INCREF(type); \
+    if (PyModule_AddObject(m, name, (PyObject *)type) < 0) { \
+        Py_DECREF(type); \
         Py_DECREF(m); \
         return NULL; \
     }
@@ -742,8 +754,7 @@ MOD_INIT(pgf)
         return MOD_ERROR_VAL;
 
     PGFError = PyErr_NewException("pgf.PGFError", NULL, NULL);
-    PyModule_AddObject(m, "PGFError", PGFError);
-    Py_INCREF(PGFError);
+    ADD_TYPE_DIRECT("PGFError", PGFError);
 
     ADD_TYPE("PGF", pgf_PGFType);
     ADD_TYPE("Transaction", pgf_TransactionType);
@@ -759,8 +770,8 @@ MOD_INIT(pgf)
     ADD_TYPE("Type", pgf_TypeType);
     ADD_TYPE("Hypo", pgf_HypoType);
 
-    PyModule_AddIntConstant(m, "BIND_TYPE_EXPLICIT", 0);
-    PyModule_AddIntConstant(m, "BIND_TYPE_IMPLICIT", 1);
+    ADD_TYPE_DIRECT("BIND_TYPE_EXPLICIT", Py_True);
+    ADD_TYPE_DIRECT("BIND_TYPE_IMPLICIT", Py_False);
 
     return MOD_SUCCESS_VAL(m);
 }

@@ -78,7 +78,7 @@ PyList_AsHypos(PyObject *pylist, Py_ssize_t *n_hypos)
             return NULL;
         }
         HypoObject *hypo = (HypoObject *)item;
-        hypos[i].bind_type = PyLong_AsLong(hypo->bind_type);
+        hypos[i].bind_type = hypo->bind_type == Py_True ? 0 : 1;
         hypos[i].cid = PyUnicode_AsPgfText(hypo->cid);
         hypos[i].type = (PgfType) hypo->type;
         Py_INCREF(hypos[i].type);
@@ -97,7 +97,7 @@ PyList_FromHypos(PgfTypeHypo *hypos, const size_t n_hypos)
 
     for (size_t i = 0; i < n_hypos; i++) {
         HypoObject *hypo = PyObject_New(HypoObject, &pgf_HypoType);
-        hypo->bind_type = PyLong_FromLong(hypos[i].bind_type);
+        hypo->bind_type = hypos[i].bind_type == 0 ? Py_True : Py_False;
         hypo->cid = PyUnicode_FromStringAndSize(hypos[i].cid->text, hypos[i].cid->size);
         hypo->type = (TypeObject *)hypos[i].type;
         // Py_INCREF(hypo->type);
@@ -157,7 +157,7 @@ static PgfExpr
 eabs(PgfUnmarshaller *this, PgfBindType btype, PgfText *name, PgfExpr body)
 {
     ExprAbsObject *pyexpr = (ExprAbsObject *)pgf_ExprAbsType.tp_alloc(&pgf_ExprAbsType, 0);
-    pyexpr->bind_type = PyLong_FromLong(btype);
+    pyexpr->bind_type = btype == 0 ? Py_True : Py_False;
     pyexpr->name = PyUnicode_FromPgfText(name);
     pyexpr->body = (ExprObject *)body;
     // Py_INCREF(body);
@@ -367,7 +367,8 @@ match_expr(PgfMarshaller *this, PgfUnmarshaller *u, PgfExpr expr)
 
     if (PyObject_TypeCheck(pyobj, &pgf_ExprAbsType)) {
         ExprAbsObject *eabs = (ExprAbsObject *)expr;
-        return u->vtbl->eabs(u, PyLong_AsLong(eabs->bind_type), PyUnicode_AsPgfText(eabs->name), (PgfExpr) eabs->body);
+        long bt = eabs->bind_type == Py_True ? 0 : 1;
+        return u->vtbl->eabs(u, bt, PyUnicode_AsPgfText(eabs->name), (PgfExpr) eabs->body);
     } else
     if (PyObject_TypeCheck(pyobj, &pgf_ExprAppType)) {
         ExprAppObject *eapp = (ExprAppObject *)expr;

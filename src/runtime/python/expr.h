@@ -17,7 +17,7 @@ PyTypeObject pgf_TypeType;
 
 typedef struct {
     PyObject_HEAD
-    PyObject *bind_type; // PyLongObject
+    PyObject *bind_type; // PyBool
     PyObject *cid;       // PyUnicodeObject
     TypeObject *type;
 } HypoObject;
@@ -30,7 +30,7 @@ typedef struct {
 
 typedef struct {
     PyObject_HEAD
-    PyObject *bind_type; // PyLongObject
+    PyObject *bind_type; // PyBool
     PyObject *name;      // PyUnicodeObject
     ExprObject *body;
 } ExprAbsObject;
