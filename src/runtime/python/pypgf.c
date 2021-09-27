@@ -295,7 +295,12 @@ PGF_categoryProbability(PGFObject *self, PyObject *args)
         return NULL;
     }
 
-    return PyFloat_FromDouble((double)prob);
+    double dprob = (double) prob;
+    if (dprob == INFINITY) {
+        PyErr_Format(PyExc_KeyError, "category '%s' is not defined", s);
+        return NULL;
+    }
+    return PyFloat_FromDouble(dprob);
 }
 
 static PyObject *
@@ -315,7 +320,12 @@ PGF_functionProbability(PGFObject *self, PyObject *args)
         return NULL;
     }
 
-    return PyFloat_FromDouble((double)prob);
+    double dprob = (double) prob;
+    if (dprob == INFINITY) {
+        PyErr_Format(PyExc_KeyError, "function '%s' is not defined", s);
+        return NULL;
+    }
+    return PyFloat_FromDouble(dprob);
 }
 
 static PyObject *
@@ -331,7 +341,8 @@ PGF_exprProbability(PGFObject *self, PyObject *args)
         return NULL;
     }
 
-    return PyFloat_FromDouble((double)prob);
+    double dprob = (double) prob;
+    return PyFloat_FromDouble(dprob);
 }
 
 static PyGetSetDef PGF_getseters[] = {

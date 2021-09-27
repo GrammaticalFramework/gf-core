@@ -66,19 +66,18 @@ def test_original_function_type(gr1):
         gr1.functionType("foo")
 
 def test_original_function_prob(gr1):
-    # with pytest.raises(KeyError):
-    #     gr1.functionProbability("foo")
-    assert gr1.functionProbability("foo") == float('inf')
+    with pytest.raises(KeyError):
+        gr1.functionProbability("foo")
+    # assert gr1.functionProbability("foo") == float('inf')
 
-@pytest.mark.skip(reason="failing")
 def test_original_category_prob(gr1):
-    # with pytest.raises(KeyError):
-    #     gr1.categoryProbability("Q")
-    assert gr1.categoryProbability("Q") == float('inf')
+    with pytest.raises(KeyError):
+        gr1.categoryProbability("Q")
+    # assert gr1.categoryProbability("Q") == float('inf')
 
 def test_original_expr_prob(gr1):
     # with pytest.raises(KeyError):
-    #     gr1.functionProbability("foo")
+    #     gr1.exprProbability(ExprFun("foo"))
     assert gr1.exprProbability(ExprFun("foo")) == float('inf')
 
 # gr2
