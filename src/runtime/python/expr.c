@@ -351,10 +351,6 @@ static PyMethodDef Expr_methods[] = {
     {NULL}  /* Sentinel */
 };
 
-static PyGetSetDef Expr_getseters[] = {
-    {NULL}  /* Sentinel */
-};
-
 PyTypeObject pgf_ExprType = {
     PyVarObject_HEAD_INIT(NULL, 0)
     //0,                         /*ob_size*/
@@ -386,7 +382,7 @@ PyTypeObject pgf_ExprType = {
     0,                         /*tp_iternext */
     Expr_methods,              /*tp_methods */
     0,                         /*tp_members */
-    Expr_getseters,            /*tp_getset */
+    0,                         /*tp_getset */
     0,                         /*tp_base */
     0,                         /*tp_dict */
     0,                         /*tp_descr_get */
