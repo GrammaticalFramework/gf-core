@@ -28,28 +28,15 @@ Type_init(TypeObject *self, PyObject *args, PyObject *kwds)
     }
 
     for (Py_ssize_t i = 0; i < PyList_Size(hypos); i++) {
-        PyObject *tup = PyList_GetItem(hypos, i);
-        if (!PyObject_TypeCheck(tup, &PyTuple_Type)) {
-            PyErr_SetString(PyExc_TypeError, "invalid hypo in Type_init: not a tuple");
-            return -1;
-        }
-        if (!PyLong_Check(PyTuple_GetItem(tup, 0))) {
-            PyErr_SetString(PyExc_TypeError, "invalid hypo in Type_init: bind type not an integer");
-            return -1;
-        }
-        if (!PyUnicode_Check(PyTuple_GetItem(tup, 1))) {
-            PyErr_SetString(PyExc_TypeError, "invalid hypo in Type_init: variable not a string");
-            return -1;
-        }
-        if (!PyObject_TypeCheck(PyTuple_GetItem(tup, 2), &pgf_TypeType)) {
-            PyErr_SetString(PyExc_TypeError, "invalid hypo in Type_init: type not a type");
+        if (!PyObject_TypeCheck(PyList_GetItem(hypos, i), &pgf_HypoType)) {
+            PyErr_SetString(PyExc_TypeError, "invalid hypo in Type initialisation");
             return -1;
         }
         // Py_INCREF(&hypos[i]);
     }
     for (Py_ssize_t i = 0; i < PyList_Size(exprs); i++) {
         if (!PyObject_TypeCheck(PyList_GetItem(exprs, i), &pgf_ExprType)) {
-            PyErr_SetString(PyExc_TypeError, "invalid expression in Type_init");
+            PyErr_SetString(PyExc_TypeError, "invalid expression in Type initialisation");
             return -1;
         }
         // Py_INCREF(&exprs[i]);
@@ -174,6 +161,124 @@ PyTypeObject pgf_TypeType = {
 };
 
 // ----------------------------------------------------------------------------
+// hypos
+
+static HypoObject *
+Hypo_new(PyTypeObject *subtype, PyObject *args, PyObject *kwds)
+{
+    HypoObject* self = (HypoObject *)subtype->tp_alloc(subtype, 0);
+    return self;
+}
+
+static int
+Hypo_init(HypoObject *self, PyObject *args, PyObject *kwds)
+{
+    int bind_type;
+    PyObject* cid;
+    TypeObject* type;
+    if (!PyArg_ParseTuple(args, "iUO!", &bind_type, &cid, &pgf_TypeType, &type)) {
+        return -1;
+    }
+
+    if (bind_type == 0 || bind_type == 1) {
+        self->bind_type = PyLong_FromLong(bind_type);
+    } else {
+        PyErr_SetString(PyExc_TypeError, "invalid bind type in hypo initialisation");
+        return -1;
+    }
+
+    self->cid = cid;
+    self->type = type;
+    Py_INCREF(self->bind_type);
+    Py_INCREF(self->cid);
+    Py_INCREF(self->type);
+
+    return 0;
+}
+
+static void
+Hypo_dealloc(HypoObject *self)
+{
+    Py_XDECREF(self->bind_type);
+    Py_XDECREF(self->cid);
+    Py_XDECREF(self->type);
+    Py_TYPE(self)->tp_free(self);
+}
+
+static PyObject *
+Hypo_richcompare(HypoObject *t1, PyObject *p2, int op)
+{
+    bool same = false;
+    if (!PyObject_TypeCheck(p2, &pgf_HypoType)) goto done;
+    HypoObject *t2 = (HypoObject *)p2;
+
+    if (!PyObject_RichCompareBool(t1->bind_type, t2->bind_type, Py_EQ)) goto done;
+    if (PyUnicode_Compare(t1->cid, t2->cid) != 0) goto done;
+    if (!PyObject_RichCompareBool((PyObject *)t1->type, (PyObject *)t2->type, Py_EQ)) goto done;
+
+    same = true;
+done:
+
+    if (op == Py_EQ) {
+        if (same) Py_RETURN_TRUE;  else Py_RETURN_FALSE;
+    } else if (op == Py_NE) {
+        if (same) Py_RETURN_FALSE; else Py_RETURN_TRUE;
+    } else {
+        PyErr_SetString(PyExc_TypeError, "comparison operation not supported");
+        Py_RETURN_NOTIMPLEMENTED;
+    }
+}
+
+static PyMemberDef Hypo_members[] = {
+    {"bind_type", T_OBJECT_EX, offsetof(HypoObject, bind_type), READONLY, "bind type (explicit or implicit)"},
+    {"cid", T_OBJECT_EX, offsetof(HypoObject, cid), READONLY, "category name"},
+    {"type", T_OBJECT_EX, offsetof(HypoObject, type), READONLY, "type"},
+    {NULL}  /* Sentinel */
+};
+
+PyTypeObject pgf_HypoType = {
+    PyVarObject_HEAD_INIT(NULL, 0)
+    //0,                         /*ob_size*/
+    "pgf.Hypo",                /*tp_name*/
+    sizeof(HypoObject),        /*tp_basicsize*/
+    0,                         /*tp_itemsize*/
+    (destructor) Hypo_dealloc, /*tp_dealloc*/
+    0,                         /*tp_print*/
+    0,                         /*tp_getattr*/
+    0,                         /*tp_setattr*/
+    0,                         /*tp_compare*/
+    0,                         /*tp_repr*/
+    0,                         /*tp_as_number*/
+    0,                         /*tp_as_sequence*/
+    0,                         /*tp_as_mapping*/
+    0,                         /*tp_hash */
+    0,                         /*tp_call*/
+    0,                         /*tp_str*/
+    0,                         /*tp_getattro*/
+    0,                         /*tp_setattro*/
+    0,                         /*tp_as_buffer*/
+    Py_TPFLAGS_DEFAULT | Py_TPFLAGS_BASETYPE, /*tp_flags*/
+    "hypothesis in a type",    /*tp_doc*/
+    0,                         /*tp_traverse */
+    0,                         /*tp_clear */
+    (richcmpfunc) Hypo_richcompare, /*tp_richcompare */
+    0,                         /*tp_weaklistoffset */
+    0,                         /*tp_iter */
+    0,                         /*tp_iternext */
+    0,                         /*tp_methods */
+    Hypo_members,              /*tp_members */
+    0,                         /*tp_getset */
+    0,                         /*tp_base */
+    0,                         /*tp_dict */
+    0,                         /*tp_descr_get */
+    0,                         /*tp_descr_set */
+    0,                         /*tp_dictoffset */
+    (initproc) Hypo_init,      /*tp_init */
+    0,                         /*tp_alloc */
+    (newfunc) Hypo_new,        /*tp_new */
+};
+
+// ----------------------------------------------------------------------------
 // expressions
 
 static PyObject *
@@ -252,7 +357,7 @@ Expr_unpack(ExprObject *self, PyObject *fargs)
 	for (;;) {
         if (PyObject_TypeCheck(expr, &pgf_ExprAbsType)) {
             ExprAbsObject *eabs = (ExprAbsObject *) expr;
-            PyObject* res = 
+            PyObject* res =
 				Py_BuildValue("OOOO", eabs->bind_type, eabs->name, eabs->body, args);
 			Py_DECREF(args);
             return res;

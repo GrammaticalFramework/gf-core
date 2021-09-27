@@ -18,6 +18,22 @@ PGF_dealloc(PGFObject *self)
     Py_TYPE(self)->tp_free(self);
 }
 
+static PyObject *
+PGF_writeToFile(PGFObject *self, PyObject *args)
+{
+    const char *fpath;
+    if (!PyArg_ParseTuple(args, "s", &fpath))
+        return NULL;
+
+    PgfExn err;
+    pgf_write_pgf(fpath, self->db, self->revision, &err);
+    if (handleError(err) != PGF_EXN_NONE) {
+        return NULL;
+    }
+
+    Py_RETURN_NONE;
+}
+
 typedef struct {
     PgfItor fn;
     PGFObject *grammar;
@@ -263,6 +279,26 @@ PGF_functionIsConstructor(PGFObject *self, PyObject *args)
 }
 
 static PyObject *
+PGF_categoryProbability(PGFObject *self, PyObject *args)
+{
+    const char *s;
+    Py_ssize_t size;
+    if (!PyArg_ParseTuple(args, "s#", &s, &size))
+        return NULL;
+
+    PgfText *catname = CString_AsPgfText(s, size);
+
+    PgfExn err;
+    prob_t prob = pgf_category_prob(self->db, self->revision, catname, &err);
+    FreePgfText(catname);
+    if (handleError(err) != PGF_EXN_NONE) {
+        return NULL;
+    }
+
+    return PyFloat_FromDouble((double)prob);
+}
+
+static PyObject *
 PGF_functionProbability(PGFObject *self, PyObject *args)
 {
     const char *s;
@@ -307,6 +343,9 @@ static PyMemberDef PGF_members[] = {
 };
 
 static PyMethodDef PGF_methods[] = {
+    {"writeToFile", (PyCFunction)PGF_writeToFile, METH_VARARGS,
+     "Writes PGF to file"},
+
     {"categoryContext", (PyCFunction)PGF_categoryContext, METH_VARARGS,
      "Returns the context for a given category"
     },
@@ -318,6 +357,9 @@ static PyMethodDef PGF_methods[] = {
     },
     {"functionIsConstructor", (PyCFunction)PGF_functionIsConstructor, METH_VARARGS,
      "Checks whether a function is a constructor"
+    },
+    {"categoryProbability", (PyCFunction)PGF_categoryProbability, METH_VARARGS,
+     "Returns the probability of a category"
     },
     {"functionProbability", (PyCFunction)PGF_functionProbability, METH_VARARGS,
      "Returns the probability of a function"
@@ -532,56 +574,56 @@ pgf_showType(PyObject *self, PyObject *args)
     return str;
 }
 
-static PyObject *
+static HypoObject *
 pgf_mkHypo(PyObject *self, PyObject *args)
 {
-    PyObject *type;
+    TypeObject *type;
     if (!PyArg_ParseTuple(args, "O!", &pgf_TypeType, &type))
         return NULL;
 
-    PyObject *tup = PyTuple_New(3);
-    PyTuple_SetItem(tup, 0, PyLong_FromLong(0)); // explicit
-    PyTuple_SetItem(tup, 1, PyUnicode_FromStringAndSize("_", 1));
-    PyTuple_SetItem(tup, 2, type);
-    Py_INCREF(type);
+    HypoObject *hypo = PyObject_New(HypoObject, &pgf_HypoType);
+    hypo->bind_type = PyLong_FromLong(0); // explicit
+    hypo->cid = PyUnicode_FromStringAndSize("_", 1);
+    hypo->type = type;
+    Py_INCREF(hypo->type);
 
-    return tup;
+    return hypo;
 }
 
-static PyObject *
+static HypoObject *
 pgf_mkDepHypo(PyObject *self, PyObject *args)
 {
     PyObject *var;
-    PyObject *type;
+    TypeObject *type;
     if (!PyArg_ParseTuple(args, "UO!", &var, &pgf_TypeType, &type))
         return NULL;
 
-    PyObject *tup = PyTuple_New(3);
-    PyTuple_SetItem(tup, 0, PyLong_FromLong(0)); // explicit
-    PyTuple_SetItem(tup, 1, var);
-    PyTuple_SetItem(tup, 2, type);
-    Py_INCREF(var);
-    Py_INCREF(type);
+    HypoObject *hypo = PyObject_New(HypoObject, &pgf_HypoType);
+    hypo->bind_type = PyLong_FromLong(0); // explicit
+    hypo->cid = var;
+    hypo->type = type;
+    Py_INCREF(hypo->cid);
+    Py_INCREF(hypo->type);
 
-    return tup;
+    return hypo;
 }
 
-static PyObject *
+static HypoObject *
 pgf_mkImplHypo(PyObject *self, PyObject *args)
 {
     PyObject *var;
-    PyObject *type;
+    TypeObject *type;
     if (!PyArg_ParseTuple(args, "UO!", &var, &pgf_TypeType, &type))
         return NULL;
 
-    PyObject *tup = PyTuple_New(3);
-    PyTuple_SetItem(tup, 0, PyLong_FromLong(1)); // implicit
-    PyTuple_SetItem(tup, 1, var);
-    PyTuple_SetItem(tup, 2, type);
-    Py_INCREF(var);
-    Py_INCREF(type);
+    HypoObject *hypo = PyObject_New(HypoObject, &pgf_HypoType);
+    hypo->bind_type = PyLong_FromLong(1); // implicit
+    hypo->cid = var;
+    hypo->type = type;
+    Py_INCREF(hypo->cid);
+    Py_INCREF(hypo->type);
 
-    return tup;
+    return hypo;
 }
 
 static PyMethodDef module_methods[] = {
@@ -668,6 +710,9 @@ MOD_INIT(pgf)
     if (PyType_Ready(&pgf_TypeType) < 0)
         return MOD_ERROR_VAL;
 
+    if (PyType_Ready(&pgf_HypoType) < 0)
+        return MOD_ERROR_VAL;
+
     MOD_DEF(m, "pgf", "The Runtime for Portable Grammar Format in Python", module_methods);
     if (m == NULL)
         return MOD_ERROR_VAL;
@@ -710,6 +755,9 @@ MOD_INIT(pgf)
     // Py_INCREF(&pgf_ExprImplArgType);
 
     PyModule_AddObject(m, "Type", (PyObject *) &pgf_TypeType);
+    // Py_INCREF(&pgf_TypeType);
+
+    PyModule_AddObject(m, "Hypo", (PyObject *) &pgf_HypoType);
     // Py_INCREF(&pgf_TypeType);
 
     PyModule_AddIntConstant(m, "BIND_TYPE_EXPLICIT", 0);

@@ -77,6 +77,12 @@ def test_newNGF_existing(NGF):
     with pytest.raises(FileExistsError):
         newNGF("empty", "./basic.ngf")
 
+# writePGF
+
+def test_writePGF(PGF):
+    PGF.writeToFile("./copy.pgf")
+    os.remove("./copy.pgf") # cleanup
+
 # abstract syntax
 
 def test_abstractName(PGF):
@@ -106,10 +112,11 @@ def test_categoryContext_2(PGF):
 def test_categoryContext_3(PGF):
     cxt = PGF.categoryContext("P")
     assert len(cxt) == 1
-    tup = cxt[0]
-    assert tup[0] == 0 # explicit
-    assert tup[1] == "_" # cid
-    assert tup[2] == readType("N")
+    hypo = cxt[0]
+    assert isinstance(hypo, Hypo)
+    assert hypo.bind_type == BIND_TYPE_EXPLICIT
+    assert hypo.cid == "_"
+    assert hypo.type == readType("N")
 
 def test_categoryContext_4(PGF):
     assert PGF.categoryContext("X") == None

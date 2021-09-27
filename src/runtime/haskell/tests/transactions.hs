@@ -36,6 +36,8 @@ main = do
       ,TestCase (assertEqual "new function type" (Just ty) (functionType gr2 "foo"))
       ,TestCase (assertEqual "old function prob" (-log 0)  (functionProbability gr1 "foo"))
       ,TestCase (assertEqual "new function prob" pi        (functionProbability gr2 "foo"))
+      ,TestCase (assertEqual "old category prob" (-log 0)  (categoryProbability gr1 "Q"))
+      ,TestCase (assertEqual "new category prob" pi        (categoryProbability gr2 "Q"))
       ]
 
   performMajorGC

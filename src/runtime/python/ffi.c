@@ -72,32 +72,15 @@ PyList_AsHypos(PyObject *pylist, Py_ssize_t *n_hypos)
     PgfTypeHypo *hypos = PyMem_RawMalloc(sizeof(PgfTypeHypo)*n);
 
     for (Py_ssize_t i = 0; i < n; i++) {
-        PyObject *tup = PyList_GetItem(pylist, i);
-        if (!PyTuple_Check(tup)) {
-            PyErr_SetString(PyExc_TypeError, "hypo must be a tuple");
+        PyObject *item = PyList_GetItem(pylist, i);
+        if (!PyObject_TypeCheck(item, &pgf_HypoType)) {
+            PyErr_SetString(PyExc_TypeError, "hypothesis must be of type Hypo");
             return NULL;
         }
-
-        PyObject *t0 = PyTuple_GetItem(tup, 0);
-        if (!PyLong_Check(t0)) {
-            PyErr_SetString(PyExc_TypeError, "first element of hypo must be an integer");
-            return NULL;
-        }
-        hypos[i].bind_type = PyLong_AsLong(t0);
-
-        PyObject *t1 = PyTuple_GetItem(tup, 1);
-        if (!PyUnicode_Check(t1)) {
-            PyErr_SetString(PyExc_TypeError, "second element of hypo must be a string");
-            return NULL;
-        }
-        hypos[i].cid = PyUnicode_AsPgfText(t1);
-
-        PyObject *t2 = PyTuple_GetItem(tup, 2);
-        if (!PyObject_TypeCheck(t2, &pgf_TypeType)) {
-            PyErr_SetString(PyExc_TypeError, "third element of hypo must be a Type");
-            return NULL;
-        }
-        hypos[i].type = (PgfType) t2;
+        HypoObject *hypo = (HypoObject *)item;
+        hypos[i].bind_type = PyLong_AsLong(hypo->bind_type);
+        hypos[i].cid = PyUnicode_AsPgfText(hypo->cid);
+        hypos[i].type = (PgfType) hypo->type;
         Py_INCREF(hypos[i].type);
     }
 
@@ -113,12 +96,12 @@ PyList_FromHypos(PgfTypeHypo *hypos, const size_t n_hypos)
     }
 
     for (size_t i = 0; i < n_hypos; i++) {
-        PyObject *tup = PyTuple_New(3);
-        PyTuple_SetItem(tup, 0, PyLong_FromLong(hypos[i].bind_type));
-        PyTuple_SetItem(tup, 1, PyUnicode_FromStringAndSize(hypos[i].cid->text, hypos[i].cid->size));
-        PyTuple_SetItem(tup, 2, (PyObject *)hypos[i].type);
-        Py_INCREF(hypos[i].type);
-        PyList_SetItem(pylist, i, tup);
+        HypoObject *hypo = PyObject_New(HypoObject, &pgf_HypoType);
+        hypo->bind_type = PyLong_FromLong(hypos[i].bind_type);
+        hypo->cid = PyUnicode_FromStringAndSize(hypos[i].cid->text, hypos[i].cid->size);
+        hypo->type = (TypeObject *)hypos[i].type;
+        // Py_INCREF(hypo->type);
+        PyList_SetItem(pylist, i, (PyObject *)hypo);
     }
     if (PyErr_Occurred()) {
         Py_DECREF(pylist);
