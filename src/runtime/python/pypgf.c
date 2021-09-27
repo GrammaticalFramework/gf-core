@@ -677,48 +677,35 @@ static PyMethodDef module_methods[] = {
               ob = Py_InitModule3(name, methods, doc);
 #endif
 
+#define TYPE_READY(type) \
+    if (PyType_Ready(&type) < 0) \
+        return MOD_ERROR_VAL;
+
+#define ADD_TYPE(desc, type) \
+    Py_INCREF(&type); \
+    if (PyModule_AddObject(m, desc, (PyObject *)&type) < 0) { \
+        Py_DECREF(&type); \
+        Py_DECREF(m); \
+        return NULL; \
+    }
+
 MOD_INIT(pgf)
 {
     PyObject *m;
 
-    if (PyType_Ready(&pgf_PGFType) < 0)
-        return MOD_ERROR_VAL;
-
-    if (PyType_Ready(&pgf_TransactionType) < 0)
-        return MOD_ERROR_VAL;
-
-    if (PyType_Ready(&pgf_ExprType) < 0)
-        return MOD_ERROR_VAL;
-
-    if (PyType_Ready(&pgf_ExprAbsType) < 0)
-        return MOD_ERROR_VAL;
-
-    if (PyType_Ready(&pgf_ExprAppType) < 0)
-        return MOD_ERROR_VAL;
-
-    if (PyType_Ready(&pgf_ExprLitType) < 0)
-        return MOD_ERROR_VAL;
-
-    if (PyType_Ready(&pgf_ExprMetaType) < 0)
-        return MOD_ERROR_VAL;
-
-    if (PyType_Ready(&pgf_ExprFunType) < 0)
-        return MOD_ERROR_VAL;
-
-    if (PyType_Ready(&pgf_ExprVarType) < 0)
-        return MOD_ERROR_VAL;
-
-    if (PyType_Ready(&pgf_ExprTypedType) < 0)
-        return MOD_ERROR_VAL;
-
-    if (PyType_Ready(&pgf_ExprImplArgType) < 0)
-        return MOD_ERROR_VAL;
-
-    if (PyType_Ready(&pgf_TypeType) < 0)
-        return MOD_ERROR_VAL;
-
-    if (PyType_Ready(&pgf_HypoType) < 0)
-        return MOD_ERROR_VAL;
+    TYPE_READY(pgf_PGFType);
+    TYPE_READY(pgf_TransactionType);
+    TYPE_READY(pgf_ExprType);
+    TYPE_READY(pgf_ExprAbsType);
+    TYPE_READY(pgf_ExprAppType);
+    TYPE_READY(pgf_ExprLitType);
+    TYPE_READY(pgf_ExprMetaType);
+    TYPE_READY(pgf_ExprFunType);
+    TYPE_READY(pgf_ExprVarType);
+    TYPE_READY(pgf_ExprTypedType);
+    TYPE_READY(pgf_ExprImplArgType);
+    TYPE_READY(pgf_TypeType);
+    TYPE_READY(pgf_HypoType);
 
     MOD_DEF(m, "pgf", "The Runtime for Portable Grammar Format in Python", module_methods);
     if (m == NULL)
@@ -728,47 +715,21 @@ MOD_INIT(pgf)
     PyModule_AddObject(m, "PGFError", PGFError);
     Py_INCREF(PGFError);
 
-    PyModule_AddObject(m, "PGF", (PyObject *) &pgf_PGFType);
-    // Py_INCREF(&pgf_PGFType);
-
-    PyModule_AddObject(m, "Transaction", (PyObject *) &pgf_TransactionType);
-    // Py_INCREF(&pgf_TransactionType);
-
-    PyModule_AddObject(m, "Expr", (PyObject *) &pgf_ExprType);
-    // Py_INCREF(&pgf_ExprType);
-
-    PyModule_AddObject(m, "ExprAbs", (PyObject *) &pgf_ExprAbsType);
-    // Py_INCREF(&pgf_ExprAbsType);
-
-    PyModule_AddObject(m, "ExprApp", (PyObject *) &pgf_ExprAppType);
-    // Py_INCREF(&pgf_ExprAppType);
-
-    PyModule_AddObject(m, "ExprLit", (PyObject *) &pgf_ExprLitType);
-    // Py_INCREF(&pgf_ExprLitType);
-
-    PyModule_AddObject(m, "ExprMeta", (PyObject *) &pgf_ExprMetaType);
-    // Py_INCREF(&pgf_ExprMetaType);
-
-    PyModule_AddObject(m, "ExprFun", (PyObject *) &pgf_ExprFunType);
-    // Py_INCREF(&pgf_ExprFunType);
-
-    PyModule_AddObject(m, "ExprVar", (PyObject *) &pgf_ExprVarType);
-    // Py_INCREF(&pgf_ExprVarType);
-
-    PyModule_AddObject(m, "ExprTyped", (PyObject *) &pgf_ExprTypedType);
-    // Py_INCREF(&pgf_ExprTypedType);
-
-    PyModule_AddObject(m, "ExprImplArg", (PyObject *) &pgf_ExprImplArgType);
-    // Py_INCREF(&pgf_ExprImplArgType);
-
-    PyModule_AddObject(m, "Type", (PyObject *) &pgf_TypeType);
-    // Py_INCREF(&pgf_TypeType);
-
-    PyModule_AddObject(m, "Hypo", (PyObject *) &pgf_HypoType);
-    // Py_INCREF(&pgf_TypeType);
+    ADD_TYPE("PGF", pgf_PGFType);
+    ADD_TYPE("Transaction", pgf_TransactionType);
+    ADD_TYPE("Expr", pgf_ExprType);
+    ADD_TYPE("ExprAbs", pgf_ExprAbsType);
+    ADD_TYPE("ExprApp", pgf_ExprAppType);
+    ADD_TYPE("ExprLit", pgf_ExprLitType);
+    ADD_TYPE("ExprMeta", pgf_ExprMetaType);
+    ADD_TYPE("ExprFun", pgf_ExprFunType);
+    ADD_TYPE("ExprVar", pgf_ExprVarType);
+    ADD_TYPE("ExprTyped", pgf_ExprTypedType);
+    ADD_TYPE("ExprImplArg", pgf_ExprImplArgType);
+    ADD_TYPE("Type", pgf_TypeType);
+    ADD_TYPE("Hypo", pgf_HypoType);
 
     PyModule_AddIntConstant(m, "BIND_TYPE_EXPLICIT", 0);
-
     PyModule_AddIntConstant(m, "BIND_TYPE_IMPLICIT", 1);
 
     return MOD_SUCCESS_VAL(m);
