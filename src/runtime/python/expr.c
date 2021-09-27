@@ -280,6 +280,9 @@ Expr_visit(ExprObject* self, PyObject *args)
                 if (PyObject_TypeCheck(arg, &pgf_ExprImplArgType)) {
                     arg = ((ExprImplArgObject *) arg)->expr;
                 }
+                if (PyObject_TypeCheck(arg, &pgf_ExprTypedType)) {
+                    arg = ((ExprTypedObject *) arg)->expr;
+                }
 
                 Py_INCREF(arg);
                 if (PyTuple_SetItem(method_args, i, (PyObject *) arg) == -1) {
@@ -300,7 +303,11 @@ Expr_visit(ExprObject* self, PyObject *args)
 				return NULL;
 			}
 
-			return PyObject_CallObject(method, method_args);
+			PyObject *res = PyObject_CallObject(method, method_args);
+
+            Py_DECREF(method_args);
+
+            return res;
 		}
 	}
 
