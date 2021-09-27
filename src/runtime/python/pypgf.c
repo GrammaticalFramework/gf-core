@@ -318,6 +318,22 @@ PGF_functionProbability(PGFObject *self, PyObject *args)
     return PyFloat_FromDouble((double)prob);
 }
 
+static PyObject *
+PGF_exprProbability(PGFObject *self, PyObject *args)
+{
+    ExprObject *expr;
+    if (!PyArg_ParseTuple(args, "O!", &pgf_ExprType, &expr))
+        return NULL;
+
+    PgfExn err;
+    prob_t prob = pgf_expr_prob(self->db, self->revision, (PgfExpr) expr, &marshaller, &err);
+    if (handleError(err) != PGF_EXN_NONE) {
+        return NULL;
+    }
+
+    return PyFloat_FromDouble((double)prob);
+}
+
 static PyGetSetDef PGF_getseters[] = {
     {"abstractName",
      (getter)PGF_getAbstractName, NULL,
@@ -363,6 +379,9 @@ static PyMethodDef PGF_methods[] = {
     },
     {"functionProbability", (PyCFunction)PGF_functionProbability, METH_VARARGS,
      "Returns the probability of a function"
+    },
+    {"exprProbability", (PyCFunction)PGF_exprProbability, METH_VARARGS,
+     "Returns the probability of an expression"
     },
 
     {"checkoutBranch", (PyCFunction)PGF_checkoutBranch, METH_VARARGS,

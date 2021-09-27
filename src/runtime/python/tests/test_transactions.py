@@ -76,6 +76,11 @@ def test_original_category_prob(gr1):
     #     gr1.categoryProbability("Q")
     assert gr1.categoryProbability("Q") == float('inf')
 
+def test_original_expr_prob(gr1):
+    # with pytest.raises(KeyError):
+    #     gr1.functionProbability("foo")
+    assert gr1.exprProbability(ExprFun("foo")) == float('inf')
+
 # gr2
 
 def test_extended_functions(gr2):
@@ -91,13 +96,13 @@ def test_extended_function_type(gr2):
     assert gr2.functionType("foo") == ty
 
 def test_extended_function_prob(gr2):
-    # TODO: can't we get higher precision?
-    # assert gr2.functionProbability("foo") == prob
     assert math.isclose(gr2.functionProbability("foo"), prob, rel_tol=1e-06)
 
-@pytest.mark.skip(reason="failing")
 def test_extended_category_prob(gr2):
-    assert gr2.categoryProbability("Q") == prob
+    assert math.isclose(gr2.categoryProbability("Q"), prob, rel_tol=1e-06)
+
+def test_extended_expr_prob(gr2):
+    assert math.isclose(gr2.exprProbability(ExprFun("foo")), prob, rel_tol=1e-06)
 
 # gr3
 
