@@ -128,7 +128,7 @@ typedef struct {
 #define LINT_BASE 1000000000
 #define LINT_BASE_LOG 9
 #elif __WORDSIZE == 64
-#define LINT_BASE 10000000000000000000
+#define LINT_BASE 10000000000000000000UL
 #define LINT_BASE_LOG 19
 #else
 #error "Platforms with the current __WORDSIZE are not supported yet"
