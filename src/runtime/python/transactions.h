@@ -14,10 +14,11 @@ typedef struct {
 
 PyTypeObject pgf_TransactionType;
 
-PyObject *
-PGF_checkoutBranch(PGFObject *self, PyObject *args);
+PyObject *PGF_checkoutBranch(PGFObject *self, PyObject *args);
 
-TransactionObject *
-PGF_newTransaction(PGFObject *self, PyObject *args);
+TransactionObject *PGF_newTransaction(PGFObject *self, PyObject *args);
+
+PyObject *PGF_getGlobalFlag(PGFObject *self, PyObject *args);
+PyObject *PGF_getAbstractFlag(PGFObject *self, PyObject *args);
 
 #endif // PYPGF_TRANSACTIONS_H_
