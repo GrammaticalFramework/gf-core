@@ -36,7 +36,7 @@ Type_init(TypeObject *self, PyObject *args, PyObject *kwds)
     }
     for (Py_ssize_t i = 0; i < PyList_Size(exprs); i++) {
         if (!PyObject_TypeCheck(PyList_GetItem(exprs, i), &pgf_ExprType)) {
-            PyErr_SetString(PyExc_TypeError, "invalid expression in Type_init");
+            PyErr_SetString(PyExc_TypeError, "invalid expression in Type initialisation");
             return -1;
         }
         // Py_INCREF(&exprs[i]);
@@ -353,7 +353,7 @@ Expr_unpack(ExprObject *self, PyObject *fargs)
 	for (;;) {
         if (PyObject_TypeCheck(expr, &pgf_ExprAbsType)) {
             ExprAbsObject *eabs = (ExprAbsObject *) expr;
-            PyObject* res = 
+            PyObject* res =
 				Py_BuildValue("OOOO", eabs->bind_type, eabs->name, eabs->body, args);
 			Py_DECREF(args);
             return res;

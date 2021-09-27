@@ -77,6 +77,12 @@ def test_newNGF_existing(NGF):
     with pytest.raises(FileExistsError):
         newNGF("empty", "./basic.ngf")
 
+# writePGF
+
+def test_writePGF(PGF):
+    PGF.writeToFile("./copy.pgf")
+    os.remove("./copy.pgf") # cleanup
+
 # abstract syntax
 
 def test_abstractName(PGF):

@@ -18,6 +18,22 @@ PGF_dealloc(PGFObject *self)
     Py_TYPE(self)->tp_free(self);
 }
 
+static PyObject *
+PGF_writeToFile(PGFObject *self, PyObject *args)
+{
+    const char *fpath;
+    if (!PyArg_ParseTuple(args, "s", &fpath))
+        return NULL;
+
+    PgfExn err;
+    pgf_write_pgf(fpath, self->db, self->revision, &err);
+    if (handleError(err) != PGF_EXN_NONE) {
+        return NULL;
+    }
+
+    Py_RETURN_NONE;
+}
+
 typedef struct {
     PgfItor fn;
     PGFObject *grammar;
@@ -263,6 +279,26 @@ PGF_functionIsConstructor(PGFObject *self, PyObject *args)
 }
 
 static PyObject *
+PGF_categoryProbability(PGFObject *self, PyObject *args)
+{
+    const char *s;
+    Py_ssize_t size;
+    if (!PyArg_ParseTuple(args, "s#", &s, &size))
+        return NULL;
+
+    PgfText *catname = CString_AsPgfText(s, size);
+
+    PgfExn err;
+    prob_t prob = pgf_category_prob(self->db, self->revision, catname, &err);
+    FreePgfText(catname);
+    if (handleError(err) != PGF_EXN_NONE) {
+        return NULL;
+    }
+
+    return PyFloat_FromDouble((double)prob);
+}
+
+static PyObject *
 PGF_functionProbability(PGFObject *self, PyObject *args)
 {
     const char *s;
@@ -307,6 +343,9 @@ static PyMemberDef PGF_members[] = {
 };
 
 static PyMethodDef PGF_methods[] = {
+    {"writeToFile", (PyCFunction)PGF_writeToFile, METH_VARARGS,
+     "Writes PGF to file"},
+
     {"categoryContext", (PyCFunction)PGF_categoryContext, METH_VARARGS,
      "Returns the context for a given category"
     },
@@ -318,6 +357,9 @@ static PyMethodDef PGF_methods[] = {
     },
     {"functionIsConstructor", (PyCFunction)PGF_functionIsConstructor, METH_VARARGS,
      "Checks whether a function is a constructor"
+    },
+    {"categoryProbability", (PyCFunction)PGF_categoryProbability, METH_VARARGS,
+     "Returns the probability of a category"
     },
     {"functionProbability", (PyCFunction)PGF_functionProbability, METH_VARARGS,
      "Returns the probability of a function"
