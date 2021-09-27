@@ -372,6 +372,13 @@ static PyMethodDef PGF_methods[] = {
      "Create new transaction"
     },
 
+    {"getGlobalFlag", (PyCFunction)PGF_getGlobalFlag, METH_VARARGS,
+     "Get the value of a global flag"
+    },
+    {"getAbstractFlag", (PyCFunction)PGF_getAbstractFlag, METH_VARARGS,
+     "Get the value of an abstract flag"
+    },
+
     {NULL}  /* Sentinel */
 };
 

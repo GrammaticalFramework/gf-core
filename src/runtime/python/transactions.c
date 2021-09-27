@@ -63,6 +63,53 @@ PGF_newTransaction(PGFObject *self, PyObject *args)
     return trans;
 }
 
+PyObject *
+PGF_getGlobalFlag(PGFObject *self, PyObject *args)
+{
+    const char *s;
+    Py_ssize_t size;
+    if (!PyArg_ParseTuple(args, "s#", &s, &size))
+        return NULL;
+
+    PgfText *flagname = CString_AsPgfText(s, size);
+
+    PgfExn err;
+    PgfLiteral lit = pgf_get_global_flag(self->db, self->revision, flagname, &unmarshaller, &err);
+    FreePgfText(flagname);
+    if (handleError(err) != PGF_EXN_NONE) {
+        return NULL;
+    } else if (lit == 0) {
+        PyErr_Format(PyExc_KeyError, "unknown global flag '%s'", s);
+        return NULL;
+    }
+
+    return (PyObject *)lit;
+}
+
+
+PyObject *
+PGF_getAbstractFlag(PGFObject *self, PyObject *args)
+{
+    const char *s;
+    Py_ssize_t size;
+    if (!PyArg_ParseTuple(args, "s#", &s, &size))
+        return NULL;
+
+    PgfText *flagname = CString_AsPgfText(s, size);
+
+    PgfExn err;
+    PgfLiteral lit = pgf_get_abstract_flag(self->db, self->revision, flagname, &unmarshaller, &err);
+    FreePgfText(flagname);
+    if (handleError(err) != PGF_EXN_NONE) {
+        return NULL;
+    } else if (lit == 0) {
+        PyErr_Format(PyExc_KeyError, "unknown abstract flag '%s'", s);
+        return NULL;
+    }
+
+    return (PyObject *)lit;
+}
+
 // ----------------------------------------------------------------------------
 
 static void
@@ -179,6 +226,56 @@ Transaction_dropCategory(TransactionObject *self, PyObject *args)
     Py_RETURN_NONE;
 }
 
+static PyObject *
+Transaction_setGlobalFlag(TransactionObject *self, PyObject *args)
+{
+    const char *s;
+    Py_ssize_t size;
+    PyObject *pyobj;
+    if (!PyArg_ParseTuple(args, "s#O", &s, &size, &pyobj))
+        return NULL;
+
+    PgfText *flagname = CString_AsPgfText(s, size);
+    if (!PyLong_Check(pyobj) && !PyFloat_Check(pyobj) && !PyUnicode_Check(pyobj)) {
+        PyErr_SetString(PyExc_TypeError, "flag value must be integer, float, or string");
+        return NULL;
+    }
+
+    PgfExn err;
+    pgf_set_global_flag(self->pgf->db, self->revision, flagname, (PgfLiteral) pyobj, &marshaller, &err);
+    FreePgfText(flagname);
+    if (handleError(err) != PGF_EXN_NONE) {
+        return NULL;
+    }
+
+    Py_RETURN_NONE;
+}
+
+static PyObject *
+Transaction_setAbstractFlag(TransactionObject *self, PyObject *args)
+{
+    const char *s;
+    Py_ssize_t size;
+    PyObject *pyobj;
+    if (!PyArg_ParseTuple(args, "s#O", &s, &size, &pyobj))
+        return NULL;
+
+    PgfText *flagname = CString_AsPgfText(s, size);
+    if (!PyLong_Check(pyobj) && !PyFloat_Check(pyobj) && !PyUnicode_Check(pyobj)) {
+        PyErr_SetString(PyExc_TypeError, "flag value must be integer, float, or string");
+        return NULL;
+    }
+
+    PgfExn err;
+    pgf_set_abstract_flag(self->pgf->db, self->revision, flagname, (PgfLiteral) pyobj, &marshaller, &err);
+    FreePgfText(flagname);
+    if (handleError(err) != PGF_EXN_NONE) {
+        return NULL;
+    }
+
+    Py_RETURN_NONE;
+}
+
 static TransactionObject *
 Transaction_enter(TransactionObject *self, PyObject *Py_UNUSED(ignored))
 {
@@ -242,13 +339,9 @@ static PyMethodDef Transaction_methods[] = {
      "Commit transaction"
     },
 
-    {"__enter__", (PyCFunction)Transaction_enter, METH_NOARGS,
-     ""
-    },
-
-    {"__exit__", (PyCFunction)(void(*)(void))Transaction_exit, METH_FASTCALL,
-     ""
-    },
+    // used in 'with'-syntax
+    {"__enter__", (PyCFunction)Transaction_enter, METH_NOARGS, ""},
+    {"__exit__", (PyCFunction)(void(*)(void))Transaction_exit, METH_FASTCALL, ""},
 
     {"createFunction", (PyCFunction)Transaction_createFunction, METH_VARARGS,
      "Create function"
@@ -261,6 +354,13 @@ static PyMethodDef Transaction_methods[] = {
     },
     {"dropCategory", (PyCFunction)Transaction_dropCategory, METH_VARARGS,
      "Drop category"
+    },
+
+    {"setGlobalFlag", (PyCFunction)Transaction_setGlobalFlag, METH_VARARGS,
+     "Set a global flag"
+    },
+    {"setAbstractFlag", (PyCFunction)Transaction_setAbstractFlag, METH_VARARGS,
+     "Set an abstract flag"
     },
     {NULL}  /* Sentinel */
 };

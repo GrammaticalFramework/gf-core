@@ -128,3 +128,53 @@ def test_reduced_functions(gr6):
 
 def test_reduced_categories(gr6):
     assert gr6.categories == ["Float","Int","N","P","String"]
+
+# flags
+
+def test_global_flag_int(gr1):
+    val = 12345
+    with pytest.raises(KeyError):
+        gr1.getGlobalFlag("intflag")
+    with gr1.newTransaction() as t:
+        t.setGlobalFlag("intflag", val)
+    assert gr1.getGlobalFlag("intflag") == val
+
+def test_global_flag_float(gr1):
+    val = math.e
+    with pytest.raises(KeyError):
+        gr1.getGlobalFlag("floatflag")
+    with gr1.newTransaction() as t:
+        t.setGlobalFlag("floatflag", val)
+    assert gr1.getGlobalFlag("floatflag") == val
+
+def test_global_flag_string(gr1):
+    val = "S"
+    with pytest.raises(KeyError):
+        gr1.getGlobalFlag("stringflag")
+    with gr1.newTransaction() as t:
+        t.setGlobalFlag("stringflag", val)
+    assert gr1.getGlobalFlag("stringflag") == val
+
+def test_abstract_flag_int(gr1):
+    val = -774763251095801167872
+    with pytest.raises(KeyError):
+        gr1.getAbstractFlag("intflag")
+    with gr1.newTransaction() as t:
+        t.setAbstractFlag("intflag", val)
+    assert gr1.getAbstractFlag("intflag") == val
+
+def test_abstract_flag_float(gr1):
+    val = 0.1e-8
+    with pytest.raises(KeyError):
+        gr1.getAbstractFlag("floatflag")
+    with gr1.newTransaction() as t:
+        t.setAbstractFlag("floatflag", val)
+    assert gr1.getAbstractFlag("floatflag") == val
+
+def test_abstract_flag_string(gr1):
+    val = "子曰：「學而時習之，不亦說乎？有朋自遠方來，不亦樂乎？"
+    with pytest.raises(KeyError):
+        gr1.getAbstractFlag("stringflag")
+    with gr1.newTransaction() as t:
+        t.setAbstractFlag("stringflag", val)
+    assert gr1.getAbstractFlag("stringflag") == val
