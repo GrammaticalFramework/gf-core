@@ -216,12 +216,21 @@ Expr_call(ExprObject* self, PyObject* args, PyObject* kw)
 	size_t n_args = PyTuple_Size(args);
 	for (size_t i = 0; i < n_args; i++) {
 		PyObject* arg = PyTuple_GetItem(args, i);
-		if (arg->ob_type != &pgf_ExprType) {
+        if (arg == NULL) {
+            Py_DECREF(res);
+            return NULL;
+        }
+		if (!PyObject_TypeCheck(arg, &pgf_ExprType)) {
+            Py_DECREF(res);
 			PyErr_SetString(PyExc_TypeError, "the arguments must be expressions");
 			return NULL;
 		}
 
         ExprAppObject *pyexpr = (ExprAppObject *)pgf_ExprAppType.tp_alloc(&pgf_ExprAppType, 0);
+        if (pyexpr == NULL) {
+            Py_DECREF(res);
+            return NULL;
+        }
         pyexpr->fun = res;
         pyexpr->arg = (ExprObject *)arg; Py_INCREF(arg);
         res = (ExprObject *) pyexpr;
