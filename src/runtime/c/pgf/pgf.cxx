@@ -638,8 +638,10 @@ PgfRevision pgf_checkout_revision(PgfDB *db, PgfText *name,
     PGF_API_BEGIN {
         DB_scope scope(db, WRITER_SCOPE);
         ref<PgfPGF> pgf = PgfDB::get_revision(name);
-        Node<PgfPGF>::add_value_ref(pgf);
-        db->ref_count++;
+        if (pgf != 0) {
+            Node<PgfPGF>::add_value_ref(pgf);
+            db->ref_count++;
+        }
         return pgf.as_object();
     } PGF_API_END
 
