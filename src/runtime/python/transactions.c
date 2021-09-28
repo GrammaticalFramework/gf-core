@@ -184,13 +184,17 @@ Transaction_createCategory(TransactionObject *self, PyObject *args)
     Py_ssize_t size;
     PyObject *hypos;
     prob_t prob = 0.0;
-    if (!PyArg_ParseTuple(args, "s#O!f", &s, &size, &PyList_Type, &hypos, &prob))
+    if (!PyArg_ParseTuple(args, "s#Of", &s, &size, &hypos, &prob))
         return NULL;
+    if (!PySequence_Check(hypos)) {
+        PyErr_SetString(PyExc_TypeError, "context must be a sequence");
+        return NULL;
+    }
 
     PgfText *catname = CString_AsPgfText(s, size);
 
     Py_ssize_t n_hypos;
-    PgfTypeHypo *context = PyList_AsHypos(hypos, &n_hypos);
+    PgfTypeHypo *context = PySequence_AsHypos(hypos, &n_hypos);
     if (PyErr_Occurred()) {
         FreePgfText(catname);
         return NULL;

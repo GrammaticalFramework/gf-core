@@ -8,9 +8,9 @@
 
 typedef struct {
     PyObject_HEAD
-    PyObject *hypos; // PyListObject of PyTupleObject: (PyBool, PyUnicodeObject, TypeObject)
+    PyObject *hypos; // PyTupleObject of PyTupleObject: (PyBool, PyUnicodeObject, TypeObject)
     PyObject *name;  // PyUnicodeObject
-    PyObject *exprs; // PyListObject of ExprObject
+    PyObject *exprs; // PyTupleObject of ExprObject
 } TypeObject;
 
 PyTypeObject pgf_TypeType;

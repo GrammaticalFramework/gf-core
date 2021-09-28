@@ -61,18 +61,18 @@ PyUnicode_FromPgfText(PgfText *text)
 }
 
 PgfTypeHypo *
-PyList_AsHypos(PyObject *pylist, Py_ssize_t *n_hypos)
+PySequence_AsHypos(PyObject *pyseq, Py_ssize_t *n_hypos)
 {
-    if (!PyList_Check(pylist)) {
-        PyErr_SetString(PyExc_TypeError, "hypotheses must be a list");
+    if (!PySequence_Check(pyseq)) {
+        PyErr_SetString(PyExc_TypeError, "hypotheses must be a sequence");
         return NULL;
     }
-    Py_ssize_t n = PyList_Size(pylist);
+    Py_ssize_t n = PySequence_Size(pyseq);
     *n_hypos = n;
     PgfTypeHypo *hypos = PyMem_RawMalloc(sizeof(PgfTypeHypo)*n);
 
     for (Py_ssize_t i = 0; i < n; i++) {
-        // PyObject *item = PyList_GetItem(pylist, i);
+        // PyObject *item = PySequence_GetItem(pyseq, i);
         // if (!PyObject_TypeCheck(item, &pgf_HypoType)) {
         //     PyErr_SetString(PyExc_TypeError, "hypothesis must be of type Hypo");
         //     return NULL;
@@ -82,7 +82,7 @@ PyList_AsHypos(PyObject *pylist, Py_ssize_t *n_hypos)
         // hypos[i].cid = PyUnicode_AsPgfText(hypo->cid);
         // hypos[i].type = (PgfType) hypo->type;
 
-        PyObject *tup = PyList_GetItem(pylist, i);
+        PyObject *tup = PySequence_GetItem(pyseq, i);
         if (!PyTuple_Check(tup)) {
             PyErr_SetString(PyExc_TypeError, "hypothesis must be a tuple");
             return NULL;
@@ -317,12 +317,12 @@ dtyp(PgfUnmarshaller *this, int n_hypos, PgfTypeHypo *hypos, PgfText *cat, int n
 {
     TypeObject *pytype = (TypeObject *)pgf_TypeType.tp_alloc(&pgf_TypeType, 0);
 
-    pytype->hypos = PyList_FromHypos(hypos, n_hypos);
+    pytype->hypos = PySequence_Tuple(PyList_FromHypos(hypos, n_hypos));
     pytype->name = PyUnicode_FromStringAndSize(cat->text, cat->size);
-    pytype->exprs = PyList_New(n_exprs);
+    pytype->exprs = PyTuple_New(n_exprs);
     for (int i = 0; i < n_exprs; i++) {
         PyObject *expr = (PyObject *)exprs[i];
-        PyList_SetItem(pytype->exprs, i, expr);
+        PyTuple_SetItem(pytype->exprs, i, expr);
         Py_INCREF(expr);
     }
 
@@ -454,19 +454,20 @@ match_type(PgfMarshaller *this, PgfUnmarshaller *u, PgfType ty)
     TypeObject *type = (TypeObject *)ty;
 
     Py_ssize_t n_hypos;
-    PgfTypeHypo *hypos = PyList_AsHypos(type->hypos, &n_hypos);
-    if (PyErr_Occurred())
+    PgfTypeHypo *hypos = PySequence_AsHypos(type->hypos, &n_hypos);
+    if (hypos == NULL) {
         return 0;
+    }
 
     PgfText *cat = PyUnicode_AsPgfText(type->name);
     if (cat == NULL) {
         return 0;
     }
 
-    Py_ssize_t n_exprs = PyList_Size(type->exprs);
+    Py_ssize_t n_exprs = PySequence_Size(type->exprs);
     PgfExpr exprs[n_exprs];
     for (Py_ssize_t i = 0; i < n_exprs; i++) {
-        exprs[i] = (PgfExpr)PyList_GetItem(type->exprs, i);
+        exprs[i] = (PgfExpr)PySequence_GetItem(type->exprs, i);
         Py_INCREF(exprs[i]);
     }
 

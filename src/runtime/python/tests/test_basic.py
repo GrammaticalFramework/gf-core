@@ -219,9 +219,11 @@ def test_Type_getters():
     h0 = mkDepHypo("x", Type([], "N", []))
     e0 = ExprVar(0)
     type = Type([h0], "N", [e0])
-    assert type.hypos == [h0]
+    assert len(type.hypos) == 1
+    assert type.hypos[0] == h0
     assert type.cat == "N"
-    assert type.exprs == [e0]
+    assert len(type.exprs) == 1
+    assert type.exprs[0] == e0
     with pytest.raises(AttributeError):
         type.fake
 

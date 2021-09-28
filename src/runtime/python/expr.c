@@ -23,16 +23,24 @@ Type_init(TypeObject *self, PyObject *args, PyObject *kwds)
     PyObject* hypos;
     PyObject* name;
     PyObject* exprs;
-    if (!PyArg_ParseTuple(args, "O!UO!", &PyList_Type, &hypos, &name, &PyList_Type, &exprs)) {
+    if (!PyArg_ParseTuple(args, "OUO", &hypos, &name, &exprs)) {
+        return -1;
+    }
+    if (!PySequence_Check(hypos)) {
+        PyErr_SetString(PyExc_TypeError, "hypotheses must be iterable");
+        return -1;
+    }
+    if (!PySequence_Check(exprs)) {
+        PyErr_SetString(PyExc_TypeError, "expressions must be a sequence");
         return -1;
     }
 
-    for (Py_ssize_t i = 0; i < PyList_Size(hypos); i++) {
-        // if (!PyObject_TypeCheck(PyList_GetItem(hypos, i), &pgf_HypoType)) {
+    for (Py_ssize_t i = 0; i < PySequence_Size(hypos); i++) {
+        // if (!PyObject_TypeCheck(PySequence_GetItem(hypos, i), &pgf_HypoType)) {
         //     PyErr_SetString(PyExc_TypeError, "invalid hypo in Type initialisation");
         //     return -1;
         // }
-        PyObject *tup = PyList_GetItem(hypos, i);
+        PyObject *tup = PySequence_GetItem(hypos, i);
         if (!PyObject_TypeCheck(tup, &PyTuple_Type)) {
             PyErr_SetString(PyExc_TypeError, "hypothesis must be a tuple");
             return -1;
@@ -51,15 +59,15 @@ Type_init(TypeObject *self, PyObject *args, PyObject *kwds)
         }
     }
 
-    for (Py_ssize_t i = 0; i < PyList_Size(exprs); i++) {
-        if (!PyObject_TypeCheck(PyList_GetItem(exprs, i), &pgf_ExprType)) {
+    for (Py_ssize_t i = 0; i < PySequence_Size(exprs); i++) {
+        if (!PyObject_TypeCheck(PySequence_GetItem(exprs, i), &pgf_ExprType)) {
             PyErr_SetString(PyExc_TypeError, "invalid expression in Type initialisation");
             return -1;
         }
     }
-    self->hypos = hypos;
+    self->hypos = PySequence_Tuple(hypos);
     self->name = name;
-    self->exprs = exprs;
+    self->exprs = PySequence_Tuple(exprs);
     Py_INCREF(self->hypos);
     Py_INCREF(self->name);
     Py_INCREF(self->exprs);
@@ -94,18 +102,18 @@ Type_richcompare(TypeObject *t1, PyObject *p2, int op)
 
     if (PyUnicode_Compare(t1->name, t2->name) != 0) goto done;
 
-    if (PyList_Size(t1->hypos) != PyList_Size(t2->hypos)) goto done;
-    for (Py_ssize_t n = 0; n < PyList_Size(t1->hypos); n++) {
-        PyObject *h1 = PyList_GetItem(t1->hypos, n);
-        PyObject *h2 = PyList_GetItem(t2->hypos, n);
+    if (PyTuple_Size(t1->hypos) != PyTuple_Size(t2->hypos)) goto done;
+    for (Py_ssize_t n = 0; n < PyTuple_Size(t1->hypos); n++) {
+        PyObject *h1 = PyTuple_GetItem(t1->hypos, n);
+        PyObject *h2 = PyTuple_GetItem(t2->hypos, n);
         if (!PyObject_RichCompareBool(h1, h2, Py_EQ))
             goto done;
     }
 
-    if (PyList_Size(t1->exprs) != PyList_Size(t2->exprs)) goto done;
-    for (Py_ssize_t n = 0; n < PyList_Size(t1->exprs); n++) {
-        PyObject *e1 = PyList_GetItem(t1->exprs, n);
-        PyObject *e2 = PyList_GetItem(t2->exprs, n);
+    if (PyTuple_Size(t1->exprs) != PyTuple_Size(t2->exprs)) goto done;
+    for (Py_ssize_t n = 0; n < PyTuple_Size(t1->exprs); n++) {
+        PyObject *e1 = PyTuple_GetItem(t1->exprs, n);
+        PyObject *e2 = PyTuple_GetItem(t2->exprs, n);
         if (!PyObject_RichCompareBool(e1, e2, Py_EQ))
             goto done;
     }
@@ -128,9 +136,9 @@ static PyMethodDef Type_methods[] = {
 };
 
 static PyMemberDef Type_members[] = {
-    {"hypos", T_OBJECT_EX, offsetof(TypeObject, hypos), READONLY, "list of hypotheses in the type signature"},
+    {"hypos", T_OBJECT_EX, offsetof(TypeObject, hypos), READONLY, "hypotheses in the type signature"},
     {"cat", T_OBJECT_EX, offsetof(TypeObject, name), READONLY, "name of the category"},
-    {"exprs", T_OBJECT_EX, offsetof(TypeObject, exprs), READONLY, "list of indices for the category"},
+    {"exprs", T_OBJECT_EX, offsetof(TypeObject, exprs), READONLY, "indices for the category"},
     {NULL}  /* Sentinel */
 };
 
@@ -296,20 +304,20 @@ Expr_new(PyTypeObject *subtype, PyObject *args, PyObject *kwds)
 {
     Py_ssize_t tuple_size = PyTuple_Size(args);
 
-	if (tuple_size == 0) {
+    if (tuple_size == 0) {
         return pgf_ExprMetaType.tp_alloc(&pgf_ExprMetaType, 0);
-	} else if (tuple_size == 1) {
-		return pgf_ExprLitType.tp_alloc(&pgf_ExprLitType, 0);
-	} else if (tuple_size == 2) {
+    } else if (tuple_size == 1) {
+        return pgf_ExprLitType.tp_alloc(&pgf_ExprLitType, 0);
+    } else if (tuple_size == 2) {
         PyObject* arg = PyTuple_GetItem(args, 1);
         if (PyList_Check(arg) && PyList_Size(arg) == 0)
             return pgf_ExprAppType.tp_alloc(&pgf_ExprFunType, 0);
         else
             return pgf_ExprAppType.tp_alloc(&pgf_ExprAppType, 0);
-	} else {
-		PyErr_Format(PyExc_TypeError, "function takes 0, 1 or 2 arguments (%d given)", (int) tuple_size);
-		return NULL;
-	}
+    } else {
+        PyErr_Format(PyExc_TypeError, "function takes 0, 1 or 2 arguments (%d given)", (int) tuple_size);
+        return NULL;
+    }
 }
 
 static PyObject *
@@ -330,20 +338,20 @@ Expr_str(ExprObject *self)
 static ExprObject*
 Expr_call(ExprObject* self, PyObject* args, PyObject* kw)
 {
-	ExprObject *res = self; Py_INCREF(self);
+    ExprObject *res = self; Py_INCREF(self);
 
-	size_t n_args = PyTuple_Size(args);
-	for (size_t i = 0; i < n_args; i++) {
-		PyObject* arg = PyTuple_GetItem(args, i);
+    size_t n_args = PyTuple_Size(args);
+    for (size_t i = 0; i < n_args; i++) {
+        PyObject* arg = PyTuple_GetItem(args, i);
         if (arg == NULL) {
             Py_DECREF(res);
             return NULL;
         }
-		if (!PyObject_TypeCheck(arg, &pgf_ExprType)) {
+        if (!PyObject_TypeCheck(arg, &pgf_ExprType)) {
             Py_DECREF(res);
-			PyErr_SetString(PyExc_TypeError, "the arguments must be expressions");
-			return NULL;
-		}
+            PyErr_SetString(PyExc_TypeError, "the arguments must be expressions");
+            return NULL;
+        }
 
         ExprAppObject *pyexpr = (ExprAppObject *)pgf_ExprAppType.tp_alloc(&pgf_ExprAppType, 0);
         if (pyexpr == NULL) {
@@ -353,29 +361,29 @@ Expr_call(ExprObject* self, PyObject* args, PyObject* kw)
         pyexpr->fun = res;
         pyexpr->arg = (ExprObject *)arg; Py_INCREF(arg);
         res = (ExprObject *) pyexpr;
-	}
+    }
 
-	return res;
+    return res;
 }
 
 static PyObject*
 Expr_unpack(ExprObject *self, PyObject *fargs)
 {
     ExprObject *expr = self;
-	PyObject *args = PyList_New(0);
+    PyObject *args = PyList_New(0);
 
-	for (;;) {
+    for (;;) {
         if (PyObject_TypeCheck(expr, &pgf_ExprAbsType)) {
             ExprAbsObject *eabs = (ExprAbsObject *) expr;
             PyObject* res =
-				Py_BuildValue("OOOO", eabs->bind_type, eabs->name, eabs->body, args);
-			Py_DECREF(args);
+                Py_BuildValue("OOOO", eabs->bind_type, eabs->name, eabs->body, args);
+            Py_DECREF(args);
             return res;
         } else if (PyObject_TypeCheck(expr, &pgf_ExprAppType)) {
             if (PyList_Insert(args, 0, (PyObject*) ((ExprAppObject *) expr)->arg) == -1) {
-				Py_DECREF(args);
-				return NULL;
-			}
+                Py_DECREF(args);
+                return NULL;
+            }
             expr = ((ExprAppObject *) expr)->fun;
         } else if (PyObject_TypeCheck(expr, &pgf_ExprLitType)) {
             PyObject* res = ((ExprLitObject *) expr)->lit;
@@ -384,16 +392,16 @@ Expr_unpack(ExprObject *self, PyObject *fargs)
             return res;
         } else if (PyObject_TypeCheck(expr, &pgf_ExprMetaType)) {
             PyObject* res = Py_BuildValue("OO", Py_None, args);
-			Py_DECREF(args);
-			return res;
+            Py_DECREF(args);
+            return res;
         } else if (PyObject_TypeCheck(expr, &pgf_ExprFunType)) {
-			PyObject* res = Py_BuildValue("OO", ((ExprFunObject *) expr)->name, args);
-			Py_DECREF(args);
-			return res;
+            PyObject* res = Py_BuildValue("OO", ((ExprFunObject *) expr)->name, args);
+            Py_DECREF(args);
+            return res;
         } else if (PyObject_TypeCheck(expr, &pgf_ExprVarType)) {
-			PyObject* res = Py_BuildValue("OO", ((ExprVarObject *) expr)->var, args);
-			Py_DECREF(args);
-			return res;
+            PyObject* res = Py_BuildValue("OO", ((ExprVarObject *) expr)->var, args);
+            Py_DECREF(args);
+            return res;
         } else if (PyObject_TypeCheck(expr, &pgf_ExprTypedType)) {
             expr = ((ExprTypedObject *) expr)->expr;
         } else if (PyObject_TypeCheck(expr, &pgf_ExprImplArgType)) {
@@ -408,9 +416,9 @@ Expr_unpack(ExprObject *self, PyObject *fargs)
 static PyObject*
 Expr_visit(ExprObject* self, PyObject *args)
 {
-	PyObject* py_visitor = NULL;
-	if (!PyArg_ParseTuple(args, "O", &py_visitor))
-		return NULL;
+    PyObject* py_visitor = NULL;
+    if (!PyArg_ParseTuple(args, "O", &py_visitor))
+        return NULL;
 
     if (PyObject_TypeCheck(self, &pgf_ExprTypedType)) {
         self = ((ExprTypedObject *) self)->expr;
@@ -431,14 +439,14 @@ Expr_visit(ExprObject* self, PyObject *args)
         if (text == NULL)
             return NULL;
 
-		char* method_name = alloca(len+4);
-		strcpy(method_name, "on_");
-		memcpy(method_name+3, text, len+1);
-		if (PyObject_HasAttrString(py_visitor, method_name)) {
-			PyObject* method_args = PyTuple_New(arity);
-			if (method_args == NULL) {
-				return NULL;
-			}
+        char* method_name = alloca(len+4);
+        strcpy(method_name, "on_");
+        memcpy(method_name+3, text, len+1);
+        if (PyObject_HasAttrString(py_visitor, method_name)) {
+            PyObject* method_args = PyTuple_New(arity);
+            if (method_args == NULL) {
+                return NULL;
+            }
 
             o = (ExprObject *) self;
             for (size_t i = 0; i < arity; i++) {
@@ -462,52 +470,52 @@ Expr_visit(ExprObject* self, PyObject *args)
                 }
             }
 
-			PyObject* method =
-				PyObject_GetAttrString(py_visitor, method_name);
-			if (method == NULL) {
-				Py_DECREF(method_args);
-				return NULL;
-			}
+            PyObject* method =
+                PyObject_GetAttrString(py_visitor, method_name);
+            if (method == NULL) {
+                Py_DECREF(method_args);
+                return NULL;
+            }
 
-			PyObject *res = PyObject_CallObject(method, method_args);
+            PyObject *res = PyObject_CallObject(method, method_args);
 
             Py_DECREF(method_args);
 
             return res;
-		}
-	}
+        }
+    }
 
-	return PyObject_CallMethod(py_visitor, "default", "O", self);
+    return PyObject_CallMethod(py_visitor, "default", "O", self);
 }
 
 static PyObject*
 Expr_reduce_ex(ExprObject* self, PyObject *args)
 {
-	int protocol;
-	if (!PyArg_ParseTuple(args, "i", &protocol))
-		return NULL;
+    int protocol;
+    if (!PyArg_ParseTuple(args, "i", &protocol))
+        return NULL;
 
-	PyObject* myModule = PyImport_ImportModule("pgf");
-	if (myModule == NULL)
-		return NULL;
-	PyObject* py_readExpr = PyObject_GetAttrString(myModule, "readExpr");
-	Py_DECREF(myModule);
-	if (py_readExpr == NULL)
-		return NULL;
+    PyObject* myModule = PyImport_ImportModule("pgf");
+    if (myModule == NULL)
+        return NULL;
+    PyObject* py_readExpr = PyObject_GetAttrString(myModule, "readExpr");
+    Py_DECREF(myModule);
+    if (py_readExpr == NULL)
+        return NULL;
 
-	PyObject* py_str = Expr_str(self);
-	if (py_str == NULL) {
-		Py_DECREF(py_readExpr);
-		return NULL;
-	}
+    PyObject* py_str = Expr_str(self);
+    if (py_str == NULL) {
+        Py_DECREF(py_readExpr);
+        return NULL;
+    }
 
-	PyObject* py_tuple =
-		Py_BuildValue("O(O)", py_readExpr, py_str);
+    PyObject* py_tuple =
+        Py_BuildValue("O(O)", py_readExpr, py_str);
 
-	Py_DECREF(py_str);
-	Py_DECREF(py_readExpr);
+    Py_DECREF(py_str);
+    Py_DECREF(py_readExpr);
 
-	return py_tuple;
+    return py_tuple;
 }
 
 static PyMethodDef Expr_methods[] = {
