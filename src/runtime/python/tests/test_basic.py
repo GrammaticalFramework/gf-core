@@ -113,10 +113,13 @@ def test_categoryContext_3(PGF):
     cxt = PGF.categoryContext("P")
     assert len(cxt) == 1
     hypo = cxt[0]
-    assert isinstance(hypo, Hypo)
-    assert hypo.bind_type == BIND_TYPE_EXPLICIT
-    assert hypo.cid == "_"
-    assert hypo.type == readType("N")
+    # assert isinstance(hypo, Hypo)
+    # assert hypo.bind_type == BIND_TYPE_EXPLICIT
+    # assert hypo.cid == "_"
+    # assert hypo.type == readType("N")
+    assert hypo[0] == BIND_TYPE_EXPLICIT
+    assert hypo[1] == "_"
+    assert hypo[2] == readType("N")
 
 def test_categoryContext_4(PGF):
     assert PGF.categoryContext("X") == None
