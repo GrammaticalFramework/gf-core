@@ -11,7 +11,6 @@ import Prelude hiding ((<>)) -- GHC 8.4.1 clash with Text.PrettyPrint
 import GF.Grammar hiding (Env, VGen, VApp, VRecType)
 import GF.Grammar.Lookup(lookupResDef,allParamValues)
 import GF.Grammar.Predef(cPredef,cErrorType,cTok,cStr,cTrace,cPBool)
-import GF.Grammar.PatternMatch(matchPattern,measurePatt)
 import GF.Grammar.Lockfield(isLockLabel,lockRecType) --unlockRecord,lockLabel
 import GF.Grammar.Printer
 import GF.Compile.Compute.Predef(predef,predefName,delta)
@@ -48,6 +47,7 @@ type Env s = [(Ident,Thunk s)]
 data Value s
   = VApp QIdent [Thunk s]
   | VMeta (Thunk s) (Env s) [Thunk s]
+  | VSusp (Thunk s) (Env s) [Thunk s] (Thunk s -> EvalM s (Value s))
   | VGen  {-# UNPACK #-} !Int [Thunk s]
   | VClosure (Env s) Term
   | VProd BindType Ident (Value s) (Value s)
@@ -57,7 +57,7 @@ data Value s
   | VTable (Value s) (Value s)
   | VT TInfo [Case]
   | VV Type [Thunk s]
-  | VS (Value s) (Value s) [Thunk s]
+  | VS (Value s) (Thunk s) [Thunk s]
   | VSort Ident
   | VInt Integer
   | VFlt Double
@@ -100,13 +100,12 @@ eval env (Table t1 t2)  []  = do v1 <- eval env t1 []
 eval env (T i cs)       []  = return (VT i cs)
 eval env (V ty ts)      []  = do tnks <- mapM (newThunk env) ts
                                  return (VV ty tnks)
-eval env (S t1 t2)      vs  = do v1   <- eval env t1 []
+eval env t@(S t1 t2)    vs  = do v1   <- eval env t1 []
                                  tnk2 <- newThunk env t2
+                                 let v0 = VS v1 tnk2 vs
                                  case v1 of
-                                   VT _ cs -> do (env,t) <- patternMatch env cs tnk2
-                                                 eval env t vs
-                                   v1      -> do v2 <- force tnk2 []
-                                                 return (VS v1 v2 vs)
+                                   VT _ cs -> patternMatch v0 env (map (\(p,t) -> ([p],t)) cs) (tnk2:vs)
+                                   v1      -> return v0
 eval env (Let (x,(_,t1)) t2) vs = do tnk <- newThunk env t1
                                      eval ((x,tnk):env) t2 vs
 eval env (Q q)          vs  = do t <- lookupGlobal q
@@ -129,51 +128,34 @@ apply (VMeta m env vs0)             vs  = return (VMeta m env (vs0++vs))
 apply (VGen i  vs0)                 vs  = return (VGen i (vs0++vs))
 apply (VClosure env (Abs b x t)) (v:vs) = eval ((x,v):env) t vs
 
-patternMatch env []         tnk = fail "No matching pattern found"
-patternMatch env ((p,t):cs) tnk = do
-  res <- match env p tnk
-  case res of
-    Nothing  -> patternMatch env cs tnk
-    Just env -> return (env,t)
+patternMatch v0 env0 []          args0 = fail "No matching pattern found"
+patternMatch v0 env0 ((ps,t):cs) args0 = match env0 ps args0
   where
-    match env (PP q ps)  tnk = do v <- force tnk []
-                                  case v of
-                                    VApp r tnks | q == r -> matchArgs env ps tnks
-                                    _                    -> return Nothing
-    match env (PV v)     tnk = return (Just ((v,tnk):env))
-    match env PW         tnk = return (Just env)
-    match env (PR pas)   tnk = do v <- force tnk []
-                                  case v of
-                                    VR as -> matchRec env pas as
-                                    _     -> return Nothing
-    match env (PInt n)   tnk = do v <- force tnk []
-                                  case v of
-                                    VInt m | n == m -> return (Just env)
-                                    _               -> return Nothing
-    match env (PFloat n) tnk = do v <- force tnk []
-                                  case v of
-                                    VFlt m | n == m -> return (Just env)
-                                    _               -> return Nothing
-    match env (PT ty p)  tnk = match env p tnk
-    match env (PTilde _) tnk = return (Just env)
-    match env (PAs v p)  tnk = match ((v,tnk):env) p tnk
+    match env []                 args  = eval env t args
+    match env (PV v    :ps) (arg:args) = match ((v,arg):env) ps args
+    match env (PAs v p :ps) (arg:args) = match ((v,arg):env) (p:ps) (arg:args)
+    match env (PW      :ps) (arg:args) = match env ps args
+    match env (PTilde _:ps) (arg:args) = match env ps args
+    match env (PT ty p :ps)      args  = match env (p:ps) args
+    match env (p       :ps) (arg:args) = do
+      v <- force arg []
+      case (p,v) of
+        (p,       VMeta i envi vs  ) -> return (VSusp i envi vs (\tnk -> match env (p:ps) (tnk:args)))
+        (p,       VGen  i vs       ) -> return v0
+        (p,       VSusp i envi vs k) -> return (VSusp i envi vs (\tnk -> match env (p:ps) (tnk:args)))
+        (PP q qs, VApp r tnks)
+          | q == r      -> match env (qs++ps) (tnks++args)
+        (PR pas, VR as) -> matchRec env pas as ps args
+        (PInt n, VInt m)
+          | n == m      -> match env ps args
+        (PFloat n, VFlt m)
+          | n == m      -> match env ps args
+        _               -> patternMatch v0 env0 cs args0
 
-    matchArgs env []     []         =
-      return (Just env)
-    matchArgs env (p:ps) (tnk:tnks) = do
-      res <- match env p tnk
-      case res of
-        Nothing  -> return Nothing
-        Just env -> matchArgs env ps tnks
-
-    matchRec env []            as =
-      return (Just env)
-    matchRec env ((lbl,p):pas) as =
+    matchRec env []            as ps args = match env ps args
+    matchRec env ((lbl,p):pas) as ps args =
       case lookup lbl as of
-        Just tnk -> do res <- match env p tnk
-                       case res of
-                         Nothing  -> return Nothing
-                         Just env -> matchRec env pas as
+        Just tnk -> matchRec env pas as (p:ps) (tnk:args)
         Nothing  -> evalError ("Missing value for label" <+> pp lbl)
 
 value2term i (VApp q tnks) =
@@ -210,9 +192,9 @@ value2term i (VTable v1 v2) = do
 value2term i (VT ti cs) = return (T ti cs)
 value2term i (VV ty tnks) = do ts <- mapM (\tnk -> force tnk [] >>= value2term i) tnks
                                return (V ty ts)
-value2term i (VS v1 v2 tnks) = do t1 <- value2term i v1
-                                  t2 <- value2term i v2
-                                  foldM (\e1 tnk -> fmap (App e1) (force tnk [] >>= value2term i)) (S t1 t2) tnks
+value2term i (VS v1 tnk2 tnks) = do t1 <- value2term i v1
+                                    t2 <- force tnk2 [] >>= value2term i
+                                    foldM (\e1 tnk -> fmap (App e1) (force tnk [] >>= value2term i)) (S t1 t2) tnks
 value2term i (VSort s) = return (Sort s)
 value2term i (VStr tok) = return (K tok)
 value2term i (VInt n) = return (EInt n)

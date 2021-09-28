@@ -8,3 +8,12 @@ variants {"p2q1"; "p2q2"}
 "p2q1"
 "12"
 "??"
+\v0 -> case <v0 : param_table.Q> of {
+         param_table.Q1 => "q1";
+         param_table.Q2 => "q2"
+       }
+\v0 -> "p2"
+\v0 -> case <v0 : param_table.Q> of {
+         param_table.Q1 => "q1";
+         param_table.Q2 => "q2"
+       }
