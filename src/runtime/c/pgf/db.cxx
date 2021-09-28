@@ -300,37 +300,53 @@ PgfDB::PgfDB(const char* filepath, int flags, int mode) {
         if (fd < 0)
             throw pgf_systemerror(errno, filepath);
 
-        this->filepath = strdup(filepath);
-
         file_size = lseek(fd, 0, SEEK_END);
-        if (file_size == ((off_t) -1))
-            throw pgf_systemerror(errno, filepath);
+        if (file_size == ((off_t) -1)) {
+            int code = errno;
+            close(fd);
+            throw pgf_systemerror(code, filepath);
+        }
 
         is_new = false;
         if (file_size == 0) {
             file_size = getpagesize();
-            if (ftruncate(fd, file_size) < 0)
-                throw pgf_systemerror(errno, filepath);
+            if (ftruncate(fd, file_size) < 0) {
+                int code = errno;
+                close(fd);
+                throw pgf_systemerror(code, filepath);
+            }
             is_new = true;
         }
+
+        this->filepath = strdup(filepath);
     }
 
     int mflags = (fd < 0) ? (MAP_PRIVATE | MAP_ANONYMOUS) : MAP_SHARED;
     ms = (malloc_state*)
         mmap(NULL, file_size, PROT_READ | PROT_WRITE, mflags, fd, 0);
-    if (ms == MAP_FAILED)
-        throw pgf_systemerror(errno, filepath);
+    if (ms == MAP_FAILED) {
+        ::free((void *) this->filepath);
+        int code = errno;
+        close(fd);
+        throw pgf_systemerror(code, filepath);
+    }
 
     int res = pthread_rwlock_init(&rwlock, NULL);
     if (res != 0) {
-        throw pgf_systemerror(errno);
+        ::free((void *) this->filepath);
+        int code = errno;
+        close(fd);
+        throw pgf_systemerror(code);
     }
 
     if (is_new) {
         init_state(file_size);
     } else {
-        if (strncmp(ms->sign, slovo, sizeof(ms->sign)) != 0)
+        if (strncmp(ms->sign, slovo, sizeof(ms->sign)) != 0) {
+            ::free((void *) this->filepath);
+            close(fd);
             throw pgf_error("Invalid file content");
+        }
 
         // We must make sure that left-over transient revisions are
         // released. This may happen if a client process was killed
