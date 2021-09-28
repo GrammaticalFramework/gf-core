@@ -8,21 +8,21 @@
 
 typedef struct {
     PyObject_HEAD
-    PyObject *hypos; // PyListObject of HypoObject
+    PyObject *hypos; // PyListObject of PyTupleObject: (PyBool, PyUnicodeObject, TypeObject)
     PyObject *name;  // PyUnicodeObject
     PyObject *exprs; // PyListObject of ExprObject
 } TypeObject;
 
 PyTypeObject pgf_TypeType;
 
-typedef struct {
-    PyObject_HEAD
-    PyObject *bind_type; // PyBool
-    PyObject *cid;       // PyUnicodeObject
-    TypeObject *type;
-} HypoObject;
-
-PyTypeObject pgf_HypoType;
+// typedef struct {
+//     PyObject_HEAD
+//     PyObject *bind_type; // PyBool
+//     PyObject *cid;       // PyUnicodeObject
+//     TypeObject *type;
+// } HypoObject;
+//
+// PyTypeObject pgf_HypoType;
 
 typedef struct {
     PyObject_HEAD
