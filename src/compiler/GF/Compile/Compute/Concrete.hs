@@ -50,6 +50,7 @@ data Value s
   | VMeta (Thunk s) (Env s) [Thunk s]
   | VGen  {-# UNPACK #-} !Int [Thunk s]
   | VClosure (Env s) Term
+  | VProd BindType Ident (Value s) (Value s)
   | VRecType [(Label, Value s)]
   | VR [(Label, Thunk s)]
   | VP (Value s) Label [Thunk s]
@@ -79,7 +80,8 @@ eval env (Abs b x t) (v:vs) = eval ((x,v):env) t vs
 eval env (Meta i)       vs  = do tnk <- newMeta i
                                  return (VMeta tnk env vs)
 eval env (ImplArg t)    []  = eval env t []
--- eval env (Prod b x t1 t2)[] = eval env t []
+eval env (Prod b x t1 t2)[] = do v1 <- eval env t1 []
+                                 return (VProd b x v1 (VClosure env (Abs b x t2)))
 eval env (Typed t ty)   vs  = eval env t vs
 eval env (RecType lbls) []  = do lbls <- mapM (\(lbl,ty) -> fmap ((,) lbl) (eval env ty [])) lbls
                                  return (VRecType lbls)
@@ -188,6 +190,10 @@ value2term i (VClosure env (Abs b x t)) = do
   v <- eval ((x,tnk):env) t []
   t <- value2term (i+1) v
   return (Abs b (identS ('v':show i)) t)
+value2term i (VProd b x v1 v2) = do
+  t1 <- value2term i v1
+  t2 <- value2term i v2
+  return (Prod b x t1 t2)
 value2term i (VRecType lbls) = do
   lbls <- mapM (\(lbl,v) -> fmap ((,) lbl) (value2term i v)) lbls
   return (RecType lbls)
