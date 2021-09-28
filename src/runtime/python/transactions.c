@@ -29,6 +29,7 @@ PGF_checkoutBranch(PGFObject *self, PyObject *args)
         return NULL;
     }
 
+    pgf_free_revision(self->db, self->revision);
     self->revision = rev;
 
     Py_RETURN_TRUE;
@@ -198,8 +199,14 @@ Transaction_createCategory(TransactionObject *self, PyObject *args)
 
     PgfExn err;
     pgf_create_category(self->pgf->db, self->revision, catname, n_hypos, context, prob, &marshaller, &err);
+
     FreePgfText(catname);
-    if (handleError(err) != PGF_EXN_NONE) {
+    for (Py_ssize_t i = 0; i < n_hypos; i++) {
+        FreePgfText(context[i].cid);
+    }
+    PyMem_Free(context);
+
+    if (handleError(err) != PGF_EXN_NONE) {        
         return NULL;
     }
 

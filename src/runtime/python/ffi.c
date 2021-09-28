@@ -122,12 +122,18 @@ PyList_AsPgfPrintContext(PyObject *pylist)
             PyErr_SetString(PyExc_TypeError, "variable argument in context must be a string");
             return NULL;
         }
-        PgfText *input = PyUnicode_AsPgfText(item);
 
-        // TODO a better way to copy into this->name?
-        PgfPrintContext *this = (PgfPrintContext *)PyMem_RawMalloc(sizeof(PgfPrintContext *) + sizeof(PgfText) + input->size + 1);
+        if (PyUnicode_READY(item) != 0) {
+            return NULL;
+        }
+
+        Py_ssize_t size;
+        const char *enc = PyUnicode_AsUTF8AndSize(item, &size);
+
+        PgfPrintContext *this = (PgfPrintContext *)PyMem_RawMalloc(sizeof(PgfPrintContext) + size + 1);
         this->next = ctxt;
-        memcpy(&this->name, input, sizeof(PgfText)+input->size+1);
+        this->name.size = size;
+        memcpy(&this->name.text, enc, size+1);
         ctxt = this;
     }
 
@@ -254,6 +260,7 @@ lint(PgfUnmarshaller *this, size_t size, uintmax_t *v)
             Py_DECREF(i);
             i = tmp;
         }
+        Py_DECREF(intShifter);
         if (PyErr_Occurred()) {
             return 0;
         }
@@ -326,42 +333,61 @@ match_lit(PgfMarshaller *this, PgfUnmarshaller *u, PgfLiteral lit)
     PyObject *pyobj = (PyObject *)lit;
 
     if (PyLong_Check(pyobj)) {
-        PyObject *intShifter = PyLong_FromUnsignedLong(pow(10, floor(log10(ULONG_MAX))));
+        PyObject *intShifter = PyLong_FromUnsignedLong(LINT_BASE);
 
         // determine size
         size_t size = 1;
-        PyObject *x = PyNumber_Absolute(PyNumber_Long(pyobj)); // make a copy, ignore sign
+        PyObject *x = PyNumber_Absolute(pyobj); // make a copy, ignore sign
         while (PyObject_RichCompareBool(x, intShifter, Py_GE) == 1) {
             size++;
-            x = PyNumber_FloorDivide(x, intShifter);
+            PyObject *tmp = PyNumber_FloorDivide(x, intShifter);
+            Py_DECREF(x);
+            x = tmp;
         }
+        Py_DECREF(x);
 
         // chop up into chunks, always positive
-        bool isPos = PyObject_RichCompareBool(pyobj, PyLong_FromLong(0), Py_GE) == 1;
-        x = PyNumber_Absolute(PyNumber_Long(pyobj)); // make a copy, ignore sign
+        PyObject *zero = PyLong_FromLong(0);
+        bool isPos = PyObject_RichCompareBool(pyobj, zero, Py_GE) == 1;
+        Py_DECREF(zero);
+        x = PyNumber_Absolute(pyobj); // make a copy, ignore sign
         uintmax_t *i = PyMem_RawMalloc(sizeof(uintmax_t)*size); // TODO when does this get freed?
         for (int n = size-1; n > 0; n--) {
             PyObject *rem = PyNumber_Remainder(x, intShifter);
             i[n] = PyLong_AsUnsignedLong(rem);
-            x = PyNumber_FloorDivide(x, intShifter);
+            Py_DECREF(rem);
+            PyObject *tmp = PyNumber_FloorDivide(x, intShifter);
+            Py_DECREF(x);
+            x = tmp;
         }
+
+        Py_DECREF(intShifter);
 
         // first chunk, re-applying polarity
         if (isPos)
             i[0] = PyLong_AsLong(x);
         else
-            i[0] = PyLong_AsLong(PyNumber_Negative(x));
+            i[0] = -PyLong_AsLong(x);
+
+        Py_DECREF(x);
 
         if (PyErr_Occurred()) {
             return 0;
         }
-        return u->vtbl->lint(u, size, i);
+
+        object res = u->vtbl->lint(u, size, i);
+
+        PyMem_RawFree(i);
+
+        return res;
     } else if (PyFloat_Check(pyobj)) {
         double d = PyFloat_AsDouble(pyobj);
         return u->vtbl->lflt(u, d);
     } else if (PyUnicode_Check(pyobj)) {
         PgfText *t = PyUnicode_AsPgfText(pyobj);
-        return u->vtbl->lstr(u, t);
+        object res = u->vtbl->lstr(u, t);
+        FreePgfText(t);
+        return res;
     } else {
         PyErr_SetString(PyExc_TypeError, "unable to match on literal");
         return 0;
@@ -376,7 +402,10 @@ match_expr(PgfMarshaller *this, PgfUnmarshaller *u, PgfExpr expr)
     if (PyObject_TypeCheck(pyobj, &pgf_ExprAbsType)) {
         ExprAbsObject *eabs = (ExprAbsObject *)expr;
         long bt = eabs->bind_type == Py_True ? 0 : 1;
-        return u->vtbl->eabs(u, bt, PyUnicode_AsPgfText(eabs->name), (PgfExpr) eabs->body);
+        PgfText *name = PyUnicode_AsPgfText(eabs->name);
+        object res = u->vtbl->eabs(u, bt, name, (PgfExpr) eabs->body);
+        FreePgfText(name);
+        return res;
     } else
     if (PyObject_TypeCheck(pyobj, &pgf_ExprAppType)) {
         ExprAppObject *eapp = (ExprAppObject *)expr;
@@ -392,7 +421,10 @@ match_expr(PgfMarshaller *this, PgfUnmarshaller *u, PgfExpr expr)
     } else
     if (PyObject_TypeCheck(pyobj, &pgf_ExprFunType)) {
         ExprFunObject *efun = (ExprFunObject *)expr;
-        return u->vtbl->efun(u, PyUnicode_AsPgfText(efun->name));
+        PgfText *name = PyUnicode_AsPgfText(efun->name);
+        object res = u->vtbl->efun(u, name);
+        FreePgfText(name);
+        return res;
     } else
     if (PyObject_TypeCheck(pyobj, &pgf_ExprVarType)) {
         ExprVarObject *evar = (ExprVarObject *)expr;
@@ -442,6 +474,7 @@ match_type(PgfMarshaller *this, PgfUnmarshaller *u, PgfType ty)
         free(hypos[i].cid);
         Py_DECREF(hypos[i].type);
     }
+    PyMem_Free(hypos);
     FreePgfText(cat);
 
     return res;

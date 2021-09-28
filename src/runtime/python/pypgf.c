@@ -150,6 +150,12 @@ PGF_categoryContext(PGFObject *self, PyObject *args)
 
     PyObject *contexts = PyList_FromHypos(hypos, n_hypos);
 
+    for (size_t i = 0; i < n_hypos; i++) {
+        free(hypos[i].cid);
+        Py_DECREF((PyObject *)hypos[i].type);
+    }
+    free(hypos);
+
     return contexts;
 }
 
