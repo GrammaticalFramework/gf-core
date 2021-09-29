@@ -154,8 +154,10 @@ patternMatch v0 ((env0,ps,args0,t):eqs) = match env0 ps eqs args0
         (PSeq p1 p2,VStr s)
                           -> do eqs <- matchStr env (p1:p2:ps) eqs [] [] s [] args
                                 patternMatch v0 eqs
-        (PSeq p1 p2,VC vs)-> do eqs <- matchSeq env (p1:p2:ps) eqs [] vs args
-                                patternMatch v0 eqs
+        (PSeq p1 p2,VC vs)-> do mb_eqs <- matchSeq env (p1:p2:ps) eqs [] vs args
+                                case mb_eqs of
+                                  Just eqs -> patternMatch v0 eqs
+                                  Nothing  -> return v0
         (PChar, VStr [_]) -> match env ps eqs args
         (PChars cs, VStr [c])
           | elem c cs     -> match env ps eqs args
@@ -171,11 +173,16 @@ patternMatch v0 ((env0,ps,args0,t):eqs) = match env0 ps eqs args0
         Just tnk -> matchRec env pas as (p:ps) eqs (tnk:args)
         Nothing  -> evalError ("Missing value for label" <+> pp lbl)
 
-    matchSeq env ps eqs ws []                   args = return eqs
-    matchSeq env ps eqs ws (v@(VStr (c:cs)):vs) args = do
-      eqs <- matchSeq env ps eqs (v:ws) vs args
-      eqs <- matchStr env ps eqs ws [c] cs vs args
-      return eqs
+    matchSeq env ps eqs ws []     args = return (Just eqs)
+    matchSeq env ps eqs ws (v:vs) args = do
+      mb_eqs <- matchSeq env ps eqs (v:ws) vs args
+      case v of
+        VStr []     -> return mb_eqs
+        VStr (c:cs) -> case mb_eqs of
+                         Just eqs -> do eqs <- matchStr env ps eqs ws [c] cs vs args
+                                        return (Just eqs)
+                         Nothing  -> return Nothing
+        _           -> return Nothing
 
     matchStr env ps eqs ws ds []     vs args = do
       arg1 <- newEvaluatedThunk (vc (reverse (VStr (reverse ds):ws)))
