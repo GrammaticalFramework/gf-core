@@ -24,7 +24,7 @@ import GF.Infra.Ident
 import GF.Grammar.Macros
 --import GF.Grammar.Printer
 
---import Data.List
+import Data.Maybe(fromMaybe)
 import Control.Monad
 import GF.Text.Pretty
 --import Debug.Trace
@@ -124,7 +124,7 @@ tryMatch (p,t) = do
       (PSeq min1 max1 p1 min2 max2 p2, ([],K s, [])) -> matchPSeq min1 max1 p1 min2 max2 p2 s
 
       (PRep _ _ p1, ([],K s, [])) -> checks [
-         trym (foldr (const (PSeq 0 maxBound p1 0 maxBound)) (PString "")
+         trym (foldr (const (PSeq 0 Nothing p1 0 Nothing)) (PString "")
            [1..n]) t' | n <- [0 .. length s]
         ] >>
         return []
@@ -140,8 +140,8 @@ tryMatch (p,t) = do
 
 matchPSeq min1 max1 p1 min2 max2 p2 s =
   do let n = length s
-         lo = min1 `max` (n-max2)
-         hi = (n-min2) `min` max1
+         lo = min1 `max` (n-fromMaybe n max2)
+         hi = (n-min2) `min` (fromMaybe n max1)
          cuts = [splitAt i s | i <- [lo..hi]]
      matches <- checks [mapM tryMatch [(p1,K s1),(p2,K s2)] | (s1,s2) <- cuts]
      return (concat matches)

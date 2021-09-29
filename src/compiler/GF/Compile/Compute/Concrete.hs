@@ -19,6 +19,7 @@ import GF.Data.Operations(Err(..),err,errIn,maybeErr,mapPairsM)
 import GF.Data.Utilities(mapFst,mapSnd)
 import GF.Infra.Option
 import Data.STRef
+import Data.Maybe(fromMaybe)
 import Control.Monad
 import Control.Monad.ST
 import Control.Applicative
@@ -134,6 +135,11 @@ patternMatch v0 ((env0,ps,args0,t):eqs) = match env0 ps eqs args0
     match env []              eqs      args  = eval env t args
     match env (PT ty p   :ps) eqs      args  = match env (p:ps) eqs args
     match env (PAlt p1 p2:ps) eqs      args  = match env (p1:ps) ((env,p2:ps,args,t):eqs) args
+    match env (PM q      :ps) eqs      args  = do t <- lookupGlobal q
+                                                  case t of
+                                                    EPatt _ _ p -> match env (p:ps) eqs args
+                                                    _ -> evalError $ hang "Expected pattern macro:" 4
+                                                                          (pp t)
     match env (PV v      :ps) eqs (arg:args) = match ((v,arg):env) ps eqs args
     match env (PAs v p   :ps) eqs (arg:args) = match ((v,arg):env) (p:ps) eqs (arg:args)
     match env (PW        :ps) eqs (arg:args) = match env ps eqs args
@@ -154,18 +160,16 @@ patternMatch v0 ((env0,ps,args0,t):eqs) = match env0 ps eqs args0
         (PSeq min1 max1 p1 min2 max2 p2,v)
                           -> case value2string v of
                                Just s  -> do let n  = length s
-                                                 lo = min1 `max` (n-max2)
-                                                 hi = (n-min2) `min` max1
+                                                 lo = min1 `max` (n-fromMaybe n max2)
+                                                 hi = (n-min2) `min` fromMaybe n max1
                                                  (ds,cs) = splitAt lo s
                                              eqs <- matchStr env (p1:p2:ps) eqs (hi-lo) (reverse ds) cs args
                                              patternMatch v0 eqs
                                Nothing -> return v0
         (PRep minp maxp p, v)
-          | minp == 0     -> match env ps eqs args
-          | otherwise     -> case value2string v of
-                               Just s  -> do let n = length s `div` minp
-                                                 eqs0 = eqs
-                                             eqs <- matchRep env n minp maxp p minp maxp p ps eqs (arg:args)
+                          -> case value2string v of
+                               Just s  -> do let n = length s `div` (max minp 1)
+                                             eqs <- matchRep env n minp maxp p minp maxp p ps ((env,PString []:ps,(arg:args),t) : eqs) (arg:args)
                                              patternMatch v0 eqs
                                Nothing -> return v0
         (PChar, VStr [_]) -> match env ps eqs args
@@ -202,9 +206,9 @@ patternMatch v0 ((env0,ps,args0,t):eqs) = match env0 ps eqs args0
       return ((env,ps,arg1:arg2:args,t) : eqs)
 
     matchRep env 0 minp maxp p minq maxq q ps eqs args = do
-      return ((env,PString []:ps,args,t) : eqs)
+      return eqs
     matchRep env n minp maxp p minq maxq q ps eqs args = do
-      matchRep env (n-1) minp maxp p (minp+minq) (maxp+maxq) (PSeq minp maxp p minq maxq q) ps ((env,q:ps,args,t) : eqs) args
+      matchRep env (n-1) minp maxp p (minp+minq) (liftM2 (+) maxp maxq) (PSeq minp maxp p minq maxq q) ps ((env,q:ps,args,t) : eqs) args
 
     vc s =
       case words s of

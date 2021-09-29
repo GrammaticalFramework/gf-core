@@ -386,7 +386,7 @@ data Term =
  | C Term Term                   -- ^ concatenation: @s ++ t@
  | Glue Term Term                -- ^ agglutination: @s + t@
 
- | EPatt Patt                    -- ^ pattern (in macro definition): # p
+ | EPatt Int (Maybe Int) Patt    -- ^ pattern (in macro definition): # p
  | EPattType Term                -- ^ pattern type: pattern T
 
  | ELincat Ident Term            -- ^ boxed linearization type of Ident
@@ -421,12 +421,12 @@ data Patt =
  -- regular expression patterns
  | PNeg Patt              -- ^ negated pattern: -p
  | PAlt Patt Patt         -- ^ disjunctive pattern: p1 | p2
- | PSeq {-# UNPACK #-} !Int {-# UNPACK #-} !Int Patt {-# UNPACK #-} !Int {-# UNPACK #-} !Int Patt
+ | PSeq Int (Maybe Int) Patt Int (Maybe Int) Patt
                           -- ^ sequence of token parts: p + q
                           -- In the constructor PSeq minp maxp p minq maxq q,
                           -- minp/maxp and minq/maxq are the minimal/maximal
                           -- length of a matching string for p/q.
- | PRep {-# UNPACK #-} !Int {-# UNPACK #-} !Int Patt
+ | PRep Int (Maybe Int) Patt
                           -- ^ repetition of token part: p*
                           -- In the constructor PRep minp maxp p,
                           -- minp/maxp is the minimal/maximal length of

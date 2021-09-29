@@ -182,7 +182,7 @@ instance Binary Term where
   put (QC x)        = putWord8 25 >> put x
   put (C x y)       = putWord8 26 >> put (x,y)
   put (Glue x y)    = putWord8 27 >> put (x,y)
-  put (EPatt x)     = putWord8 28 >> put x
+  put (EPatt x y z) = putWord8 28 >> put (x,y,z)
   put (EPattType x) = putWord8 29 >> put x
   put (ELincat x y) = putWord8 30 >> put (x,y)
   put (ELin x y)    = putWord8 31 >> put (x,y)
@@ -221,7 +221,7 @@ instance Binary Term where
              25 -> get >>= \x       -> return (QC x)
              26 -> get >>= \(x,y)   -> return (C x y)
              27 -> get >>= \(x,y)   -> return (Glue x y)
-             28 -> get >>= \x       -> return (EPatt x)
+             28 -> get >>= \(x,y,z) -> return (EPatt x y z)
              29 -> get >>= \x       -> return (EPattType x)
              30 -> get >>= \(x,y)   -> return (ELincat x y)
              31 -> get >>= \(x,y)   -> return (ELin x y)

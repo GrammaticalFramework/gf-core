@@ -265,9 +265,10 @@ inferLType gr g trm = case trm of
    EPattType ty -> do
      ty' <- justCheck g ty typeType
      return (EPattType ty',typeType)
-   EPatt p -> do
+   EPatt _ _ p -> do
      ty <- inferPatt p
-     return (trm, EPattType ty)
+     let (minp,maxp,p') = measurePatt gr p
+     return (EPatt minp maxp p', EPattType ty)
 
    ELin c trm -> do
      (trm',ty) <- inferLType gr g trm
@@ -321,29 +322,34 @@ inferLType gr g trm = case trm of
      PChars _ -> return $ typeStr
      _ -> inferLType gr g (patt2term p) >>= return . snd
 
-measurePatt p =
+measurePatt gr p =
   case p of
-    PR ass     -> let p' = PR (map (\(lbl,p) -> let (_,_,p') = measurePatt p in (lbl,p')) ass)
+    PM q       -> case lookupResDef gr q of
+                    Ok t    -> case t of
+                                 EPatt minp maxp _ -> (minp,maxp,p)
+                                 _ -> error "Expected pattern macro"
+                    Bad msg -> error msg
+    PR ass     -> let p' = PR (map (\(lbl,p) -> let (_,_,p') = measurePatt gr p in (lbl,p')) ass)
                   in (0,Nothing,p')
     PString s  -> let len=length s
                   in (len,Just len,p)
-    PT t p     -> let (min,max,p') = measurePatt p
+    PT t p     -> let (min,max,p') = measurePatt gr p
                   in (min,max,PT t p')
-    PAs x p    -> let (min,max,p') = measurePatt p
+    PAs x p    -> let (min,max,p') = measurePatt gr p
                   in (min,max,PAs x p')
-    PImplArg p -> let (min,max,p') = measurePatt p
+    PImplArg p -> let (min,max,p') = measurePatt gr p
                   in (min,max,PImplArg p')
-    PNeg p     -> let (_,_,p') = measurePatt p
+    PNeg p     -> let (_,_,p') = measurePatt gr p
                   in (0,Nothing,PNeg p')
-    PAlt p1 p2 -> let (min1,max1,p1') = measurePatt p1
-                      (min2,max2,p2') = measurePatt p2
+    PAlt p1 p2 -> let (min1,max1,p1') = measurePatt gr p1
+                      (min2,max2,p2') = measurePatt gr p2
                   in (min min1 min2,liftM2 max max1 max2,PAlt p1' p2')
     PSeq _ _ p1 _ _ p2
-               -> let (min1,max1,p1') = measurePatt p1
-                      (min2,max2,p2') = measurePatt p2
-                  in (min1+min2,liftM2 (+) max1 max2,PSeq min1 (fromMaybe maxBound max1) p1' min2 (fromMaybe maxBound max2) p2')
-    PRep _ _ p -> let (minp,maxp,p') = measurePatt p
-                  in (0,Nothing,PRep minp (fromMaybe maxBound maxp) p')
+               -> let (min1,max1,p1') = measurePatt gr p1
+                      (min2,max2,p2') = measurePatt gr p2
+                  in (min1+min2,liftM2 (+) max1 max2,PSeq min1 max1 p1' min2 max2 p2')
+    PRep _ _ p -> let (minp,maxp,p') = measurePatt gr p
+                  in (0,Nothing,PRep minp maxp p')
     PChar      -> (1,Just 1,p)
     PChars _   -> (1,Just 1,p)
     _          -> (0,Nothing,p)
@@ -624,7 +630,7 @@ checkLType gr g trm typ0 = do
    checkCase arg val (p,t) = do
      cont <- pattContext gr g arg p
      t' <- justCheck (reverse cont ++ g) t val
-     let (_,_,p') = measurePatt p
+     let (_,_,p') = measurePatt gr p
      return (p',t')
 
 pattContext :: SourceGrammar -> Context -> Type -> Patt -> Check Context

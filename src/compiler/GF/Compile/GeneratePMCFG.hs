@@ -379,8 +379,8 @@ convertTerm opts sel ctype (Alts s alts)= do CStr s <- convertTerm opts CNil cty
     unSym (CStr [SymKS t]) = t
     unSym _                = ppbug $ hang ("invalid prefix in pre expression:") 4 (Alts s alts)
 
-    unPatt (EPatt p) = fmap Strs (getPatts p)
-    unPatt u         = return u
+    unPatt (EPatt _ _ p) = fmap Strs (getPatts p)
+    unPatt u             = return u
 
     getPatts p = case p of
       PAlt a b  -> liftM2 (++) (getPatts a) (getPatts b)

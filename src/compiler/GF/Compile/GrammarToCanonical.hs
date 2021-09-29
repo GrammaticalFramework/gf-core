@@ -242,7 +242,7 @@ convert' gr vs = ppT
         pre (K s) = [s]
         pre Empty = [""]  -- Empty == K ""
         pre (Strs ts) = concatMap pre ts
-        pre (EPatt p) = pat p
+        pre (EPatt _ _ p) = pat p
         pre t = error $ "convert' alts pre: " ++ show t
 
         pat (PString s) = [s]

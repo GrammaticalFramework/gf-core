@@ -384,7 +384,7 @@ term2patt trm = case termForm trm of
     return (PNeg a')
   Ok ([], Cn id, [a]) | id == cRep -> do
     a' <- term2patt a
-    return (PRep 0 maxBound a')
+    return (PRep 0 Nothing a')
   Ok ([], Cn id, []) | id == cRep -> do
     return PChar
   Ok ([], Cn id,[K s]) | id == cChars  -> do
@@ -392,7 +392,7 @@ term2patt trm = case termForm trm of
   Ok ([], Cn id, [a,b]) | id == cSeq -> do
     a' <- term2patt a
     b' <- term2patt b
-    return (PSeq 0 maxBound a' 0 maxBound b')
+    return (PSeq 0 Nothing a' 0 Nothing b')
   Ok ([], Cn id, [a,b]) | id == cAlt -> do
     a' <- term2patt a
     b' <- term2patt b
@@ -475,8 +475,8 @@ composPattOp op patt =
     PImplArg p      -> liftM  PImplArg (op p)
     PNeg p          -> liftM  PNeg (op p)
     PAlt p1 p2      -> liftM2 PAlt (op p1) (op p2)
-    PSeq _ _ p1 _ _ p2  -> liftM2 (\p1 p2 -> PSeq 0 maxBound p1 0 maxBound p2) (op p1) (op p2)
-    PRep _ _ p      -> liftM  (PRep 0 maxBound) (op p)
+    PSeq _ _ p1 _ _ p2  -> liftM2 (\p1 p2 -> PSeq 0 Nothing p1 0 Nothing p2) (op p1) (op p2)
+    PRep _ _ p      -> liftM  (PRep 0 Nothing) (op p)
     _               -> return patt -- covers cases without subpatterns
 
 collectOp :: Monoid m => (Term -> m) -> Term -> m

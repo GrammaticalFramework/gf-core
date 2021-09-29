@@ -237,9 +237,9 @@ renameTerm env vars = ren vars where
                             , checkError ("unknown qualified constant" <+> trm)
                             ]
 
-    EPatt p -> do
+    EPatt minp maxp p -> do
       (p',_) <- renpatt p
-      return $ EPatt p'
+      return $ EPatt minp maxp p'
 
     _ -> composOp (ren vs) trm
 

@@ -444,7 +444,7 @@ Exp4
   | 'pre' '{' String ';' ListAltern '}' { Alts (K $3) $5 }
   | 'pre' '{' Ident ';' ListAltern '}' { Alts (Vr $3) $5 }
   | 'strs' '{' ListExp '}'           { Strs $3       }
-  | '#' Patt3                        { EPatt $2      }
+  | '#' Patt3                        { EPatt 0 Nothing $2 }
   | 'pattern' Exp5                   { EPattType $2  }
   | 'lincat' Ident Exp5              { ELincat $2 $3 }
   | 'lin' Ident Exp5                 { ELin $2 $3 }
@@ -485,14 +485,14 @@ Exps
 Patt :: { Patt }
 Patt
   : Patt '|' Patt1            { PAlt $1 $3 } 
-  | Patt '+' Patt1            { PSeq 0 maxBound $1 0 maxBound $3 }
+  | Patt '+' Patt1            { PSeq 0 Nothing $1 0 Nothing $3 }
   | Patt1                     { $1         }
 
 Patt1 :: { Patt }
 Patt1
   : Ident ListPatt            { PC $1 $2 } 
   | ModuleName '.' Ident ListPatt  { PP ($1,$3) $4 }
-  | Patt3 '*'                 { PRep 0 maxBound $1 }
+  | Patt3 '*'                 { PRep 0 Nothing $1 }
   | Patt2                     { $1 }
 
 Patt2 :: { Patt }

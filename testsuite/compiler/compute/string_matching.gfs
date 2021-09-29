@@ -23,3 +23,6 @@ cc <case "abcdefghi" of {""+x => x; _ => "?"} : Str>
 cc <case "abcdefghi" of {x+"" => x; _ => "?"} : Str>
 cc <case "aaaaxy" of {"a"* + x => x; _ => "?"} : Str>
 cc <case "xybbbbb" of {x + "b"* => x; _ => "?"} : Str>
+cc <case "xyababbbab" of {x + #ab_patt* => x; _ => "?"} : Str>
+cc test "abcd"
+cc test "xyz"
