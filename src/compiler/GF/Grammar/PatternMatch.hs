@@ -123,7 +123,7 @@ tryMatch (p,t) = do
 
       (PSeq min1 max1 p1 min2 max2 p2, ([],K s, [])) -> matchPSeq min1 max1 p1 min2 max2 p2 s
 
-      (PRep p1, ([],K s, [])) -> checks [
+      (PRep _ _ p1, ([],K s, [])) -> checks [
          trym (foldr (const (PSeq 0 maxBound p1 0 maxBound)) (PString "")
            [1..n]) t' | n <- [0 .. length s]
         ] >>

@@ -305,7 +305,7 @@ inferLType gr g trm = case trm of
      PChars _ -> True
      PSeq _ _ p _ _ q -> isConstPatt p && isConstPatt q
      PAlt p q -> isConstPatt p && isConstPatt q
-     PRep p -> isConstPatt p
+     PRep _ _ p -> isConstPatt p
      PNeg p -> isConstPatt p
      PAs _ p -> isConstPatt p
      _ -> False
@@ -316,7 +316,7 @@ inferLType gr g trm = case trm of
      PNeg p   -> inferPatt p
      PAlt p q -> checks [inferPatt p, inferPatt q]
      PSeq _ _ _ _ _ _ -> return $ typeStr
-     PRep _   -> return $ typeStr
+     PRep _ _ _ -> return $ typeStr
      PChar    -> return $ typeStr
      PChars _ -> return $ typeStr
      _ -> inferLType gr g (patt2term p) >>= return . snd
@@ -342,8 +342,8 @@ measurePatt p =
                -> let (min1,max1,p1') = measurePatt p1
                       (min2,max2,p2') = measurePatt p2
                   in (min1+min2,liftM2 (+) max1 max2,PSeq min1 (fromMaybe maxBound max1) p1' min2 (fromMaybe maxBound max2) p2')
-    PRep p     -> let (_,_,p') = measurePatt p
-                  in (0,Nothing,PRep p')
+    PRep _ _ p -> let (minp,maxp,p') = measurePatt p
+                  in (0,Nothing,PRep minp (fromMaybe maxBound maxp) p')
     PChar      -> (1,Just 1,p)
     PChars _   -> (1,Just 1,p)
     _          -> (0,Nothing,p)
@@ -666,7 +666,7 @@ pattContext env g typ p = case p of
     g1 <- pattContext env g typ p
     g2 <- pattContext env g typ q
     return $ g1 ++ g2
-  PRep p' -> noBind typeStr p'
+  PRep _ _ p' -> noBind typeStr p'
   PNeg p' -> noBind typ p'
 
   _ -> return [] ---- check types!

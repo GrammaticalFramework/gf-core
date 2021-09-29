@@ -421,8 +421,17 @@ data Patt =
  -- regular expression patterns
  | PNeg Patt              -- ^ negated pattern: -p
  | PAlt Patt Patt         -- ^ disjunctive pattern: p1 | p2
- | PSeq Int Int Patt Int Int Patt  -- ^ sequence of token parts: p + q
- | PRep Patt              -- ^ repetition of token part: p*
+ | PSeq {-# UNPACK #-} !Int {-# UNPACK #-} !Int Patt {-# UNPACK #-} !Int {-# UNPACK #-} !Int Patt
+                          -- ^ sequence of token parts: p + q
+                          -- In the constructor PSeq minp maxp p minq maxq q,
+                          -- minp/maxp and minq/maxq are the minimal/maximal
+                          -- length of a matching string for p/q.
+ | PRep {-# UNPACK #-} !Int {-# UNPACK #-} !Int Patt
+                          -- ^ repetition of token part: p*
+                          -- In the constructor PRep minp maxp p,
+                          -- minp/maxp is the minimal/maximal length of
+                          -- a matching string for p.
+ 
  | PChar                  -- ^ string of length one: ?
  | PChars [Char]          -- ^ character list: ["aeiou"]
  | PMacro Ident           -- #p

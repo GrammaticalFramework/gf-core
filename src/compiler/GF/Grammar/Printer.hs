@@ -257,7 +257,7 @@ ppPatt q d (PC f ps)    = if null ps
 ppPatt q d (PP f ps)    = if null ps
                             then ppQIdent q f
                             else prec d 1 (ppQIdent q f <+> hsep (map (ppPatt q 3) ps))
-ppPatt q d (PRep p)     = prec d 1 (ppPatt q 3 p <> '*')
+ppPatt q d (PRep _ _ p) = prec d 1 (ppPatt q 3 p <> '*')
 ppPatt q d (PAs f p)    = prec d 2 (f <> '@' <> ppPatt q 3 p)
 ppPatt q d (PNeg p)     = prec d 2 ('-' <> ppPatt q 3 p)
 ppPatt q d (PChar)      = pp '?'

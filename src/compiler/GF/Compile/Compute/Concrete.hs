@@ -25,7 +25,6 @@ import Control.Applicative
 import qualified Control.Monad.Fail as Fail
 import qualified Data.Map as Map
 import GF.Text.Pretty
-import Debug.Trace
 
 -- * Main entry points
 
@@ -161,6 +160,14 @@ patternMatch v0 ((env0,ps,args0,t):eqs) = match env0 ps eqs args0
                                              eqs <- matchStr env (p1:p2:ps) eqs (hi-lo) (reverse ds) cs args
                                              patternMatch v0 eqs
                                Nothing -> return v0
+        (PRep minp maxp p, v)
+          | minp == 0     -> match env ps eqs args
+          | otherwise     -> case value2string v of
+                               Just s  -> do let n = length s `div` minp
+                                                 eqs0 = eqs
+                                             eqs <- matchRep env n minp maxp p minp maxp p ps eqs (arg:args)
+                                             patternMatch v0 eqs
+                               Nothing -> return v0
         (PChar, VStr [_]) -> match env ps eqs args
         (PChars cs, VStr [c])
           | elem c cs     -> match env ps eqs args
@@ -193,6 +200,11 @@ patternMatch v0 ((env0,ps,args0,t):eqs) = match env0 ps eqs args0
       arg2 <- newEvaluatedThunk (vc (c:cs))
       eqs  <- matchStr env ps eqs (i-1 :: Int) (c:ds) cs args
       return ((env,ps,arg1:arg2:args,t) : eqs)
+
+    matchRep env 0 minp maxp p minq maxq q ps eqs args = do
+      return ((env,PString []:ps,args,t) : eqs)
+    matchRep env n minp maxp p minq maxq q ps eqs args = do
+      matchRep env (n-1) minp maxp p (minp+minq) (maxp+maxq) (PSeq minp maxp p minq maxq q) ps ((env,q:ps,args,t) : eqs) args
 
     vc s =
       case words s of

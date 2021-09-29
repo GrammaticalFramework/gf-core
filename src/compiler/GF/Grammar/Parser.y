@@ -492,7 +492,7 @@ Patt1 :: { Patt }
 Patt1
   : Ident ListPatt            { PC $1 $2 } 
   | ModuleName '.' Ident ListPatt  { PP ($1,$3) $4 }
-  | Patt3 '*'                 { PRep $1 }
+  | Patt3 '*'                 { PRep 0 maxBound $1 }
   | Patt2                     { $1 }
 
 Patt2 :: { Patt }

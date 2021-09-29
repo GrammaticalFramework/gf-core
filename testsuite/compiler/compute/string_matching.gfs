@@ -21,3 +21,5 @@ cc <case "abc def ghi" of {"ab"+x => x; _ => "?"} : Str>
 cc <case "abc def ghi" of {x+"hi" => x; _ => "?"} : Str>
 cc <case "abcdefghi" of {""+x => x; _ => "?"} : Str>
 cc <case "abcdefghi" of {x+"" => x; _ => "?"} : Str>
+cc <case "aaaaxy" of {"a"* + x => x; _ => "?"} : Str>
+cc <case "xybbbbb" of {x + "b"* => x; _ => "?"} : Str>
