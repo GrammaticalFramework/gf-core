@@ -104,7 +104,7 @@ eval env t@(S t1 t2)    vs  = do v1   <- eval env t1 []
                                  tnk2 <- newThunk env t2
                                  let v0 = VS v1 tnk2 vs
                                  case v1 of
-                                   VT _ cs -> patternMatch v0 env (map (\(p,t) -> ([p],t)) cs) (tnk2:vs)
+                                   VT _ cs -> patternMatch v0 (map (\(p,t) -> (env,[p],tnk2:vs,t)) cs)
                                    v1      -> return v0
 eval env (Let (x,(_,t1)) t2) vs = do tnk <- newThunk env t1
                                      eval ((x,tnk):env) t2 vs
@@ -128,35 +128,67 @@ apply (VMeta m env vs0)             vs  = return (VMeta m env (vs0++vs))
 apply (VGen i  vs0)                 vs  = return (VGen i (vs0++vs))
 apply (VClosure env (Abs b x t)) (v:vs) = eval ((x,v):env) t vs
 
-patternMatch v0 env0 []          args0 = fail "No matching pattern found"
-patternMatch v0 env0 ((ps,t):cs) args0 = match env0 ps args0
+patternMatch v0 []                      = fail "No matching pattern found"
+patternMatch v0 ((env0,ps,args0,t):eqs) = match env0 ps eqs args0
   where
-    match env []                 args  = eval env t args
-    match env (PV v    :ps) (arg:args) = match ((v,arg):env) ps args
-    match env (PAs v p :ps) (arg:args) = match ((v,arg):env) (p:ps) (arg:args)
-    match env (PW      :ps) (arg:args) = match env ps args
-    match env (PTilde _:ps) (arg:args) = match env ps args
-    match env (PT ty p :ps)      args  = match env (p:ps) args
-    match env (p       :ps) (arg:args) = do
+    match env []              eqs      args  = eval env t args
+    match env (PT ty p   :ps) eqs      args  = match env (p:ps) eqs args
+    match env (PAlt p1 p2:ps) eqs      args  = match env (p1:ps) ((env,p2:ps,args,t):eqs) args
+    match env (PV v      :ps) eqs (arg:args) = match ((v,arg):env) ps eqs args
+    match env (PAs v p   :ps) eqs (arg:args) = match ((v,arg):env) (p:ps) eqs (arg:args)
+    match env (PW        :ps) eqs (arg:args) = match env ps eqs args
+    match env (PTilde _  :ps) eqs (arg:args) = match env ps eqs args
+    match env (p         :ps) eqs (arg:args) = do
       v <- force arg []
       case (p,v) of
-        (p,       VMeta i envi vs  ) -> return (VSusp i envi vs (\tnk -> match env (p:ps) (tnk:args)))
+        (p,       VMeta i envi vs  ) -> return (VSusp i envi vs (\tnk -> match env (p:ps) eqs (tnk:args)))
         (p,       VGen  i vs       ) -> return v0
-        (p,       VSusp i envi vs k) -> return (VSusp i envi vs (\tnk -> match env (p:ps) (tnk:args)))
+        (p,       VSusp i envi vs k) -> return (VSusp i envi vs (\tnk -> match env (p:ps) eqs (tnk:args)))
         (PP q qs, VApp r tnks)
-          | q == r      -> match env (qs++ps) (tnks++args)
-        (PR pas, VR as) -> matchRec env pas as ps args
+          | q == r        -> match env (qs++ps) eqs (tnks++args)
+        (PR pas, VR as)   -> matchRec env pas as ps eqs args
+        (PString s1, VStr s2)
+          | s1 == s2      -> match env ps eqs args
+        (PString s1, VC [])
+          | null s1       -> match env ps eqs args
+        (PSeq p1 p2,VStr s)
+                          -> do eqs <- matchStr env (p1:p2:ps) eqs [] [] s [] args
+                                patternMatch v0 eqs
+        (PSeq p1 p2,VC vs)-> do eqs <- matchSeq env (p1:p2:ps) eqs [] vs args
+                                patternMatch v0 eqs
+        (PChar, VStr [_]) -> match env ps eqs args
+        (PChars cs, VStr [c])
+          | elem c cs     -> match env ps eqs args
         (PInt n, VInt m)
-          | n == m      -> match env ps args
+          | n == m        -> match env ps eqs args
         (PFloat n, VFlt m)
-          | n == m      -> match env ps args
-        _               -> patternMatch v0 env0 cs args0
+          | n == m        -> match env ps eqs args
+        _                 -> patternMatch v0 eqs
 
-    matchRec env []            as ps args = match env ps args
-    matchRec env ((lbl,p):pas) as ps args =
+    matchRec env []            as ps eqs args = match env ps eqs args
+    matchRec env ((lbl,p):pas) as ps eqs args =
       case lookup lbl as of
-        Just tnk -> matchRec env pas as (p:ps) (tnk:args)
+        Just tnk -> matchRec env pas as (p:ps) eqs (tnk:args)
         Nothing  -> evalError ("Missing value for label" <+> pp lbl)
+
+    matchSeq env ps eqs ws []                   args = return eqs
+    matchSeq env ps eqs ws (v@(VStr (c:cs)):vs) args = do
+      eqs <- matchSeq env ps eqs (v:ws) vs args
+      eqs <- matchStr env ps eqs ws [c] cs vs args
+      return eqs
+
+    matchStr env ps eqs ws ds []     vs args = do
+      arg1 <- newEvaluatedThunk (vc (reverse (VStr (reverse ds):ws)))
+      arg2 <- newEvaluatedThunk (vc vs)
+      return ((env,ps,arg1:arg2:args,t) : eqs)
+    matchStr env ps eqs ws ds (c:cs) vs args = do
+      arg1 <- newEvaluatedThunk (vc (reverse (if null ds then ws else VStr (reverse ds):ws)))
+      arg2 <- newEvaluatedThunk (vc (VStr (c:cs):vs))
+      eqs  <- matchStr env ps eqs ws (c:ds) cs vs args
+      return ((env,ps,arg1:arg2:args,t) : eqs)
+
+    vc [x] = x
+    vc xs  = VC xs
 
 value2term i (VApp q tnks) =
   foldM (\e1 tnk -> fmap (App e1) (force tnk [] >>= value2term i)) (QC q) tnks
@@ -258,6 +290,10 @@ lookupGlobal q = EvalM $ \gr k mt r -> do
 
 newThunk env t = EvalM $ \gr k mt r -> do
  tnk <- newSTRef (Unevaluated env t)
+ k tnk mt r
+
+newEvaluatedThunk v = EvalM $ \gr k mt r -> do
+ tnk <- newSTRef (Evaluated v)
  k tnk mt r
 
 newMeta i = EvalM $ \gr k mt r ->

@@ -1,0 +1,23 @@
+i -retain testsuite/compiler/compute/param_table.gf
+cc "a b c"
+cc case "abc" of {"abc" => Q1; _ => Q2}
+cc case "def" of {"abc" => Q1; _ => Q2}
+cc case "x" of {? => Q1; _ => Q2}
+cc case "xy" of {? => Q1; _ => Q2}
+cc case "x" of {["abc"] => Q1; _ => Q2}
+cc case "b" of {["abc"] => Q1; _ => Q2}
+cc case "xy" of {["abc"] => Q1; _ => Q2}
+cc case "abc" of {"abc"|"xyz" => Q1; _ => Q2}
+cc case "xyz" of {"abc"|"xyz" => Q1; _ => Q2}
+cc case "def" of {"abc"|"xyz" => Q1; _ => Q2}
+cc case <<"start","abc","end"> : Str*Str*Str> of {<s,m@("abc"|"xyz"),e> => s++m++e; _ => "zero"}
+cc case <<"start","xyz","end"> : Str*Str*Str> of {<s,m@("abc"|"xyz"),e> => s++m++e; _ => "zero"}
+cc case <<"start","def","end"> : Str*Str*Str> of {<s,m@("abc"|"xyz"),e> => s++m++e; _ => "zero"}
+cc <case "abcdefghi" of {"abc"+x+"ghi" => x; _ => "?"} : Str>
+cc <case "abcdef" of {"abc"+x+"ghi" => x; _ => "?"} : Str>
+cc <case "defghi" of {"abc"+x+"ghi" => x; _ => "?"} : Str>
+cc <case "abc def ghi" of {"ab"+x+"hi" => x; _ => "?"} : Str>
+cc <case "abc def ghi" of {"ab"+x => x; _ => "?"} : Str>
+cc <case "abc def ghi" of {x+"hi" => x; _ => "?"} : Str>
+cc <case "abcdefghi" of {""+x => x; _ => "?"} : Str>
+cc <case "abcdefghi" of {x+"" => x; _ => "?"} : Str>
