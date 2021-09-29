@@ -318,7 +318,7 @@ tcPatt ge scope (PString s) ty0 = do
 tcPatt ge scope PChar ty0 = do
   unify ge scope ty0 vtypeStr
   return scope
-tcPatt ge scope (PSeq p1 p2) ty0 = do
+tcPatt ge scope (PSeq _ _ p1 _ _ p2) ty0 = do
   unify ge scope ty0 vtypeStr
   scope <- tcPatt ge scope p1 vtypeStr
   scope <- tcPatt ge scope p2 vtypeStr

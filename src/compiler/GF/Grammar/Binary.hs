@@ -244,7 +244,7 @@ instance Binary Patt where
   put (PAs  x y)   = putWord8 10 >> put (x,y)
   put (PNeg x)     = putWord8 11 >> put x
   put (PAlt x y)   = putWord8 12 >> put (x,y)
-  put (PSeq x y)   = putWord8 13 >> put (x,y)
+  put (PSeq minx maxx x miny maxy y)   = putWord8 13 >> put (minx,maxx,x,miny,maxy,y)
   put (PRep x)     = putWord8 14 >> put x
   put (PChar)      = putWord8 15
   put (PChars x)   = putWord8 16 >> put x
@@ -266,7 +266,7 @@ instance Binary Patt where
              10 -> get >>= \(x,y)   -> return (PAs  x y)
              11 -> get >>= \x       -> return (PNeg x)
              12 -> get >>= \(x,y)   -> return (PAlt x y)
-             13 -> get >>= \(x,y)   -> return (PSeq x y)
+             13 -> get >>= \(minx,maxx,x,miny,maxy,y) -> return (PSeq minx maxx x miny maxy y)
              14 -> get >>= \x       -> return (PRep x)
              15 ->                     return (PChar)
              16 -> get >>= \x       -> return (PChars x)

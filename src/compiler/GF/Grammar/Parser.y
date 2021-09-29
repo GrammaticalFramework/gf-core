@@ -485,7 +485,7 @@ Exps
 Patt :: { Patt }
 Patt
   : Patt '|' Patt1            { PAlt $1 $3 } 
-  | Patt '+' Patt1            { PSeq $1 $3 }
+  | Patt '+' Patt1            { PSeq 0 maxBound $1 0 maxBound $3 }
   | Patt1                     { $1         }
 
 Patt1 :: { Patt }

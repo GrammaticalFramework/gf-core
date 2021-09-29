@@ -385,7 +385,7 @@ convertTerm opts sel ctype (Alts s alts)= do CStr s <- convertTerm opts CNil cty
     getPatts p = case p of
       PAlt a b  -> liftM2 (++) (getPatts a) (getPatts b)
       PString s -> return [K s]
-      PSeq a b  -> do
+      PSeq _ _ a _ _ b  -> do
         as <- getPatts a
         bs <- getPatts b
         return [K (s ++ t) | K s <- as, K t <- bs]

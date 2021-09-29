@@ -13,6 +13,7 @@ import GF.Grammar.Lockfield (isLockLabel, lockRecType, unlockRecord)
 import GF.Compile.TypeCheck.Primitives
 
 import Data.List
+import Data.Maybe(fromMaybe)
 import Control.Monad
 import GF.Text.Pretty
 
@@ -290,7 +291,7 @@ inferLType gr g trm = case trm of
    inferCase mty (patt,term) = do
      arg  <- maybe (inferPatt patt) return mty
      cont <- pattContext gr g arg patt
-     (_,val) <- inferLType gr (reverse cont ++ g) term
+     (term',val) <- inferLType gr (reverse cont ++ g) term
      return (arg,val)
    isConstPatt p = case p of
      PC _ ps -> True --- all isConstPatt ps
@@ -302,7 +303,7 @@ inferLType gr g trm = case trm of
      PFloat _ -> True
      PChar -> True
      PChars _ -> True
-     PSeq p q -> isConstPatt p && isConstPatt q
+     PSeq _ _ p _ _ q -> isConstPatt p && isConstPatt q
      PAlt p q -> isConstPatt p && isConstPatt q
      PRep p -> isConstPatt p
      PNeg p -> isConstPatt p
@@ -314,11 +315,38 @@ inferLType gr g trm = case trm of
      PAs _ p  -> inferPatt p
      PNeg p   -> inferPatt p
      PAlt p q -> checks [inferPatt p, inferPatt q]
-     PSeq _ _ -> return $ typeStr
+     PSeq _ _ _ _ _ _ -> return $ typeStr
      PRep _   -> return $ typeStr
      PChar    -> return $ typeStr
      PChars _ -> return $ typeStr
      _ -> inferLType gr g (patt2term p) >>= return . snd
+
+measurePatt p =
+  case p of
+    PR ass     -> let p' = PR (map (\(lbl,p) -> let (_,_,p') = measurePatt p in (lbl,p')) ass)
+                  in (0,Nothing,p')
+    PString s  -> let len=length s
+                  in (len,Just len,p)
+    PT t p     -> let (min,max,p') = measurePatt p
+                  in (min,max,PT t p')
+    PAs x p    -> let (min,max,p') = measurePatt p
+                  in (min,max,PAs x p')
+    PImplArg p -> let (min,max,p') = measurePatt p
+                  in (min,max,PImplArg p')
+    PNeg p     -> let (_,_,p') = measurePatt p
+                  in (0,Nothing,PNeg p')
+    PAlt p1 p2 -> let (min1,max1,p1') = measurePatt p1
+                      (min2,max2,p2') = measurePatt p2
+                  in (min min1 min2,liftM2 max max1 max2,PAlt p1' p2')
+    PSeq _ _ p1 _ _ p2
+               -> let (min1,max1,p1') = measurePatt p1
+                      (min2,max2,p2') = measurePatt p2
+                  in (min1+min2,liftM2 (+) max1 max2,PSeq min1 (fromMaybe maxBound max1) p1' min2 (fromMaybe maxBound max2) p2')
+    PRep p     -> let (_,_,p') = measurePatt p
+                  in (0,Nothing,PRep p')
+    PChar      -> (1,Just 1,p)
+    PChars _   -> (1,Just 1,p)
+    _          -> (0,Nothing,p)
 
 -- type inference: Nothing, type checking: Just t
 -- the latter permits matching with value type
@@ -596,7 +624,8 @@ checkLType gr g trm typ0 = do
    checkCase arg val (p,t) = do
      cont <- pattContext gr g arg p
      t' <- justCheck (reverse cont ++ g) t val
-     return (p,t')
+     let (_,_,p') = measurePatt p
+     return (p',t')
 
 pattContext :: SourceGrammar -> Context -> Type -> Patt -> Check Context
 pattContext env g typ p = case p of
@@ -633,7 +662,7 @@ pattContext env g typ p = case p of
        fsep pts <+>
        "in pattern alterantives" <+> ppPatt Unqualified 0 p) (null pts)
     return g1 -- must be g1 == g2
-  PSeq p q -> do
+  PSeq _ _ p _ _ q -> do
     g1 <- pattContext env g typ p
     g2 <- pattContext env g typ q
     return $ g1 ++ g2

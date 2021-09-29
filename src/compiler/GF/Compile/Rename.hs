@@ -306,10 +306,10 @@ renamePattern env patt =
         (q',ws) <- renp q
         return (PAlt p' q', vs ++ ws)
 
-      PSeq p q -> do
+      PSeq minp maxp p minq maxq q -> do
         (p',vs) <- renp p
         (q',ws) <- renp q
-        return (PSeq p' q', vs ++ ws)
+        return (PSeq minp maxp p' minq maxq q', vs ++ ws)
 
       PRep p -> do
         (p',vs) <- renp p

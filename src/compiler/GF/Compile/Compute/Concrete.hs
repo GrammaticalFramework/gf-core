@@ -25,6 +25,7 @@ import Control.Applicative
 import qualified Control.Monad.Fail as Fail
 import qualified Data.Map as Map
 import GF.Text.Pretty
+import Debug.Trace
 
 -- * Main entry points
 
@@ -151,13 +152,15 @@ patternMatch v0 ((env0,ps,args0,t):eqs) = match env0 ps eqs args0
           | s1 == s2      -> match env ps eqs args
         (PString s1, VC [])
           | null s1       -> match env ps eqs args
-        (PSeq p1 p2,VStr s)
-                          -> do eqs <- matchStr env (p1:p2:ps) eqs [] [] s [] args
-                                patternMatch v0 eqs
-        (PSeq p1 p2,VC vs)-> do mb_eqs <- matchSeq env (p1:p2:ps) eqs [] vs args
-                                case mb_eqs of
-                                  Just eqs -> patternMatch v0 eqs
-                                  Nothing  -> return v0
+        (PSeq min1 max1 p1 min2 max2 p2,v)
+                          -> case value2string v of
+                               Just s  -> do let n  = length s
+                                                 lo = min1 `max` (n-max2)
+                                                 hi = (n-min2) `min` max1
+                                                 (ds,cs) = splitAt lo s
+                                             eqs <- matchStr env (p1:p2:ps) eqs (hi-lo) (reverse ds) cs args
+                                             patternMatch v0 eqs
+                               Nothing -> return v0
         (PChar, VStr [_]) -> match env ps eqs args
         (PChars cs, VStr [c])
           | elem c cs     -> match env ps eqs args
@@ -173,29 +176,29 @@ patternMatch v0 ((env0,ps,args0,t):eqs) = match env0 ps eqs args0
         Just tnk -> matchRec env pas as (p:ps) eqs (tnk:args)
         Nothing  -> evalError ("Missing value for label" <+> pp lbl)
 
-    matchSeq env ps eqs ws []     args = return (Just eqs)
-    matchSeq env ps eqs ws (v:vs) args = do
-      mb_eqs <- matchSeq env ps eqs (v:ws) vs args
-      case v of
-        VStr []     -> return mb_eqs
-        VStr (c:cs) -> case mb_eqs of
-                         Just eqs -> do eqs <- matchStr env ps eqs ws [c] cs vs args
-                                        return (Just eqs)
-                         Nothing  -> return Nothing
-        _           -> return Nothing
+    value2string (VStr s) = Just s
+    value2string (VC vs)  = fmap unwords (mapM value2string vs)
+    value2string _        = Nothing
 
-    matchStr env ps eqs ws ds []     vs args = do
-      arg1 <- newEvaluatedThunk (vc (reverse (VStr (reverse ds):ws)))
-      arg2 <- newEvaluatedThunk (vc vs)
+    matchStr env ps eqs i ds []     args = do
+      arg1 <- newEvaluatedThunk (vc (reverse ds))
+      arg2 <- newEvaluatedThunk (vc [])
       return ((env,ps,arg1:arg2:args,t) : eqs)
-    matchStr env ps eqs ws ds (c:cs) vs args = do
-      arg1 <- newEvaluatedThunk (vc (reverse (if null ds then ws else VStr (reverse ds):ws)))
-      arg2 <- newEvaluatedThunk (vc (VStr (c:cs):vs))
-      eqs  <- matchStr env ps eqs ws (c:ds) cs vs args
+    matchStr env ps eqs 0 ds cs     args = do
+      arg1 <- newEvaluatedThunk (vc (reverse ds))
+      arg2 <- newEvaluatedThunk (vc cs)
+      return ((env,ps,arg1:arg2:args,t) : eqs)
+    matchStr env ps eqs i ds (c:cs) args = do
+      arg1 <- newEvaluatedThunk (vc (reverse ds))
+      arg2 <- newEvaluatedThunk (vc (c:cs))
+      eqs  <- matchStr env ps eqs (i-1 :: Int) (c:ds) cs args
       return ((env,ps,arg1:arg2:args,t) : eqs)
 
-    vc [x] = x
-    vc xs  = VC xs
+    vc s =
+      case words s of
+        []  -> VC []
+        [w] -> VStr w
+        ws  -> VC (map VStr ws)
 
 value2term i (VApp q tnks) =
   foldM (\e1 tnk -> fmap (App e1) (force tnk [] >>= value2term i)) (QC q) tnks
