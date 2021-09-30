@@ -26,6 +26,7 @@ PyObject *PyList_FromHypos(PgfTypeHypo *hypos, const size_t n_hypos);
 PgfPrintContext *PyList_AsPgfPrintContext(PyObject *pylist);
 
 void FreePgfText(PgfText *txt);
+void FreeHypos(PgfTypeHypo *hypos, Py_ssize_t n_hypos);
 void FreePgfPrintContext(PgfPrintContext *ctxt);
 
 PgfUnmarshaller unmarshaller;

@@ -42,9 +42,6 @@ PyUnicode_AsPgfText(PyObject *pystr)
         PyErr_SetString(PyExc_TypeError, "input to PyUnicode_AsPgfText is not a string");
         return NULL;
     }
-    if (PyUnicode_READY(pystr) != 0) {
-        return NULL;
-    }
 
     Py_ssize_t size;
     const char *enc = PyUnicode_AsUTF8AndSize(pystr, &size);
@@ -184,6 +181,16 @@ void
 FreePgfText(PgfText *txt)
 {
     PyMem_RawFree(txt);
+}
+
+void
+FreeHypos(PgfTypeHypo *hypos, Py_ssize_t n_hypos)
+{
+    for (Py_ssize_t i = 0; i < n_hypos; i++) {
+        FreePgfText(hypos[i].cid);
+        Py_DECREF(hypos[i].type);
+    }
+    PyMem_RawFree(hypos);
 }
 
 void
@@ -508,11 +515,7 @@ match_type(PgfMarshaller *this, PgfUnmarshaller *u, PgfType ty)
     for (Py_ssize_t i = 0; i < n_exprs; i++) {
         Py_DECREF(exprs[i]);
     }
-    for (Py_ssize_t i = 0; i < n_hypos; i++) {
-        free(hypos[i].cid);
-        Py_DECREF(hypos[i].type);
-    }
-    PyMem_Free(hypos);
+    FreeHypos(hypos, n_hypos);
     FreePgfText(cat);
 
     return res;

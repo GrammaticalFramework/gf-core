@@ -205,12 +205,9 @@ Transaction_createCategory(TransactionObject *self, PyObject *args)
     pgf_create_category(self->pgf->db, self->revision, catname, n_hypos, context, prob, &marshaller, &err);
 
     FreePgfText(catname);
-    for (Py_ssize_t i = 0; i < n_hypos; i++) {
-        FreePgfText(context[i].cid);
-    }
-    PyMem_Free(context);
+    FreeHypos(context, n_hypos);
 
-    if (handleError(err) != PGF_EXN_NONE) {        
+    if (handleError(err) != PGF_EXN_NONE) {
         return NULL;
     }
 
