@@ -26,3 +26,4 @@ cc <case "xybbbbb" of {x + "b"* => x; _ => "?"} : Str>
 cc <case "xyababbbab" of {x + #ab_patt* => x; _ => "?"} : Str>
 cc test "abcd"
 cc test "xyz"
+cc <\x -> case x of {"q1" => Q1; _ => Q2} : Str -> Q>

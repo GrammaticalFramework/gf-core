@@ -25,3 +25,7 @@ param_table.Q2
 "xy"
 param_table.Q1
 param_table.Q2
+\v0 -> case <v0 : Str> of {
+         "q1" => param_table.Q1;
+         _ => param_table.Q2
+       }
