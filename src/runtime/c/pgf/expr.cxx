@@ -363,7 +363,6 @@ void PgfExprParser::token()
 
 	switch (ch) {
 	case EOF:
-		ch = getc();
 		token_tag = PGF_TOKEN_EOF;
 		break;
 	case '(':
