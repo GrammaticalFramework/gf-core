@@ -248,21 +248,22 @@ uint32_t PgfExprParser::getc()
     return ch;
 }
 
-void PgfExprParser::putc(uint32_t ch)
+void PgfExprParser::putc(uint32_t ucs)
 {
-    size_t ch_len =
-             (ch < 0xe0 ? 1 :
-	          ch < 0xf0 ? 2 :
-	          ch < 0xf8 ? 3 :
-	          ch < 0xfc ? 4 :
-	                      5
+    size_t ucs_len =
+             (ucs < 0x80 ? 1 :
+	          ucs < 0x800 ? 2 :
+	          ucs < 0x10000 ? 3 :
+	          ucs < 0x200000 ? 4 :
+	          ucs < 0x4000000 ? 5 :
+                                6            
 	         );
     size_t len = token_value ? token_value->size : 0;
 
     token_value = (PgfText*)
-        realloc(token_value, sizeof(PgfText)+len+ch_len+1);
+        realloc(token_value, sizeof(PgfText)+len+ucs_len+1);
     uint8_t *p = (uint8_t*) (token_value->text+len);
-    pgf_utf8_encode(ch, &p);
+    pgf_utf8_encode(ucs, &p);
     token_value->size = p - ((uint8_t*) token_value->text);
     *(p++) = 0;
 }
