@@ -1,0 +1,20 @@
+{
+  "name": "jspgf",
+  "version": "1.0.0",
+  "description": "JavaScript bindings to the Grammatical Frameworks's PGF runtime",
+  "main": "dist/index.js",
+  "scripts": {
+    "build": "npx tsc",
+    "test": "ts-node ./tests/basic.ts"
+  },
+  "author": "John J. Camilleri",
+  "license": "ISC",
+  "dependencies": {
+    "ffi": "^2.3.0"
+  },
+  "devDependencies": {
+    "@types/ffi": "^0.2.3",
+    "ts-node": "^10.2.1",
+    "typescript": "^4.4.3"
+  }
+}
