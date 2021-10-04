@@ -35,7 +35,7 @@ const PgfItor = Struct({
 const PgfItorPtr = ref.refType(PgfItor)
 
 const PgfType = ref.types.void // TODO
-const PgfTypePtr = ref.refType(PgfType)
+// const PgfTypePtr = ref.refType(PgfType)
 
 const PgfTypeHypo = ref.types.void // TODO
 const PgfTypeHypoPtr = ref.refType(PgfTypeHypo)
@@ -58,7 +58,7 @@ const PgfMarshallerPtr = ref.refType(PgfMarshaller)
 
 // Type definitions for `ref` package don't include extensions to Buffer
 interface Pointer extends Buffer {
-  deref(): any
+  deref (): any // eslint-disable-line @typescript-eslint/no-explicit-any
 }
 
 class PGFError extends Error {
@@ -123,10 +123,10 @@ function handleError (errPtr: Pointer): void {
     case 0: return
 
     // PGF_EXN_SYSTEM_ERROR
-    case 1:
+    case 1: {
       const desc = errno.lookup(err.code)
       throw new Error(`${desc}: ${err.msg}`)
-
+    }
     // PGF_EXN_PGF_ERROR
     case 2:
       throw new PGFError(err.msg)
@@ -159,21 +159,21 @@ export class PGFGrammar {
   }
 
   // NB the library user is responsible for calling this
-  release () {
+  release (): void {
     runtime.pgf_free_revision(this.db, this.revision)
   }
 
-  getAbstractName () {
+  getAbstractName (): string {
     const err = ref.alloc(PgfExn) as Pointer
     const txt = runtime.pgf_abstract_name(this.db, this.revision, err)
     handleError(err)
     return PgfText_AsString(txt)
   }
 
-  getCategories () {
-    const cats = new Array()
+  getCategories (): string[] {
+    const cats: string[] = []
     const callback = ffi.Callback(ref.types.void, [ PgfItorPtr, PgfTextPtr, voidPtr, PgfExnPtr],
-      function (self: Pointer, key: Pointer, value: Pointer, err: Pointer) {
+      function (self: Pointer, key: Pointer, value: Pointer, err: Pointer) { // eslint-disable-line @typescript-eslint/no-unused-vars
         const k = PgfText_AsString(key)
         cats.push(k)
     })
@@ -183,10 +183,10 @@ export class PGFGrammar {
     return cats
   }
 
-  getFunctions () {
-    const funs = new Array()
+  getFunctions (): string[] {
+    const funs: string[] = []
     const callback = ffi.Callback(ref.types.void, [ PgfItorPtr, PgfTextPtr, voidPtr, PgfExnPtr],
-      function (self: Pointer, key: Pointer, value: Pointer, err: Pointer) {
+      function (self: Pointer, key: Pointer, value: Pointer, err: Pointer) { // eslint-disable-line @typescript-eslint/no-unused-vars
         const k = PgfText_AsString(key)
         funs.push(k)
     })

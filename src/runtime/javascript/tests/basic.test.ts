@@ -29,7 +29,9 @@ describe('bootNGF', () => {
   beforeAll(() => {
     try {
       fs.unlinkSync('./basic.ngf')
-    } catch { }
+    } catch {
+      // empty
+    }
   })
 
   test('valid', () => {
