@@ -61,6 +61,7 @@ jobs:
       working-directory: ./src/runtime/javascript
       env:
         LD_LIBRARY_PATH: /usr/local/lib
+        PYTHON: /usr/bin/python2
       run: |
         npm ci
         npm run test

@@ -1,30 +1,86 @@
-import PGF from '../index'
+import PGF, { PGFGrammar } from '../index'
+import fs from 'fs'
 
-// readPGF
+describe('readPGF', () => {
+  test('valid', () => {
+    PGF.readPGF('../haskell/tests/basic.pgf')
+  })
 
-test('readPGF successful', () => {
-  let gr = PGF.readPGF('../haskell/tests/basic.pgf')
+  test('non-existent', () => {
+    expect(() => {
+      PGF.readPGF('../haskell/tests/abc.pgf')
+    }).toThrow(Error)
+  })
+
+  test('GF', () => {
+    expect(() => {
+      PGF.readPGF('../haskell/tests/basic.gf')
+    }).toThrow(PGF.PGFError)
+  })
+
+  // test('NGF', () => {
+  //   expect(() => {
+  //     PGF.readPGF('basic.ngf')
+  //   }).toThrow(PGF.PGFError)
+  // })
 })
 
-test('readPGF missing file', () => {
-  expect(() => {
-    PGF.readPGF('abc.pgf')
-  }).toThrow()
+describe('bootNGF', () => {
+  beforeAll(() => {
+    try {
+      fs.unlinkSync('./basic.ngf')
+    } catch { }
+  })
+
+  test('valid', () => {
+    PGF.bootNGF('../haskell/tests/basic.pgf', './basic.ngf')
+  })
+
+  test('non-existent', () => {
+    expect(() => {
+      PGF.bootNGF('../haskell/tests/abc.pgf', './abc.ngf')
+    }).toThrow(Error)
+  })
+
+  test('GF', () => {
+    expect(() => {
+      PGF.bootNGF('../haskell/tests/basic.gf', './abc.ngf')
+    }).toThrow(PGF.PGFError)
+  })
+
+  test('NGF', () => {
+    expect(() => {
+      PGF.bootNGF('./basic.ngf', './abc.ngf')
+    }).toThrow(PGF.PGFError)
+  })
+
+  test('existing', () => {
+    expect(() => {
+      PGF.bootNGF('../haskell/tests/basic.pgf', './basic.ngf')
+    }).toThrow(Error)
+  })
 })
 
-// abstract syntax
+describe('abstract syntax', () => {
+  let gr: PGFGrammar
 
-test('abstract name', () => {
-  let gr = PGF.readPGF('../haskell/tests/basic.pgf')
-  expect(gr.getAbstractName()).toBe('basic')
-})
+  beforeAll(() => {
+    gr = PGF.readPGF('../haskell/tests/basic.pgf')
+  })
 
-test('categories', () => {
-  let gr = PGF.readPGF('../haskell/tests/basic.pgf')
-  expect(gr.getCategories()).toEqual(['Float','Int','N','P','S','String'])
-})
+  afterAll(() => {
+    gr.release()
+  })
 
-test('functions', () => {
-  let gr = PGF.readPGF('../haskell/tests/basic.pgf')
-  expect(gr.getFunctions()).toEqual(['c','ind','s','z'])
+  test('abstract name', () => {
+    expect(gr.getAbstractName()).toBe('basic')
+  })
+
+  test('categories', () => {
+    expect(gr.getCategories()).toEqual(['Float','Int','N','P','S','String'])
+  })
+
+  test('functions', () => {
+    expect(gr.getFunctions()).toEqual(['c','ind','s','z'])
+  })
 })

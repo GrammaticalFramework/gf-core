@@ -64,6 +64,8 @@ interface Pointer extends Buffer {
 class PGFError extends Error {
   constructor(message: string) {
     super(message)
+    // https://stackoverflow.com/a/65243177/98600
+    Object.setPrototypeOf(this, PGFError.prototype)
   }
 }
 
@@ -147,17 +149,17 @@ function PgfText_AsString (txtPtr: Pointer) {
 // ----------------------------------------------------------------------------
 // PGF grammar object
 
-class PGF {
-  db: Pointer
-  revision: number
+export class PGFGrammar {
+  readonly db: Pointer
+  readonly revision: number
 
-  constructor () {
-    this.db = ref.NULL_POINTER as Pointer
-    this.revision = 0
+  constructor (db: Pointer, revision: number) {
+    this.db = db
+    this.revision = revision
   }
 
   // NB the library user is responsible for calling this
-  destructor () {
+  release () {
     runtime.pgf_free_revision(this.db, this.revision)
   }
 
@@ -199,23 +201,29 @@ class PGF {
 // ----------------------------------------------------------------------------
 // PGF module functions
 
-function readPGF (path: string): PGF {
+function readPGF (path: string): PGFGrammar {
   const rev = ref.alloc(PgfRevision) as Pointer
   const err = ref.alloc(PgfExn) as Pointer
   const db = runtime.pgf_read_pgf(path, rev, err)
   handleError(err)
+  return new PGFGrammar(db, rev.deref())
+}
 
-  const state = new PGF()
-  state.db = db
-  state.revision = rev.deref()
-  return state
+function bootNGF (pgf_path: string, ngf_path: string): PGFGrammar {
+  const rev = ref.alloc(PgfRevision) as Pointer
+  const err = ref.alloc(PgfExn) as Pointer
+  const db = runtime.pgf_boot_ngf(pgf_path, ngf_path, rev, err)
+  handleError(err)
+  return new PGFGrammar(db, rev.deref())
 }
 
 // ----------------------------------------------------------------------------
 // Exposed library API
 
 export default {
-  readPGF
+  PGFError,
+  readPGF,
+  bootNGF
 }
 
 // ----------------------------------------------------------------------------

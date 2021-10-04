@@ -8,7 +8,7 @@ from pgf import *
 def PGF():
     return readPGF("../haskell/tests/basic.pgf")
 
-def test_readPGF_non_existant():
+def test_readPGF_non_existent():
     with pytest.raises(FileNotFoundError):
         readPGF("../haskell/tests/abc.pgf")
 
@@ -28,7 +28,7 @@ def NGF():
     yield ngf
     os.remove("./basic.ngf")
 
-def test_bootNGF_non_existant():
+def test_bootNGF_non_existent():
     with pytest.raises(FileNotFoundError):
         bootNGF("../haskell/tests/abc.pgf", "./abc.ngf")
 
@@ -46,7 +46,7 @@ def test_bootNGF_existing(NGF):
 
 # readNGF
 
-def test_readNGF_non_existant():
+def test_readNGF_non_existent():
     with pytest.raises(FileNotFoundError):
         readNGF("./abc.ngf")
 
@@ -100,7 +100,7 @@ def test_functionsByCat_1(PGF):
 def test_functionsByCat_2(PGF):
     assert PGF.functionsByCat("S") == ["c"]
 
-def test_functionsByCat_non_existant(PGF):
+def test_functionsByCat_non_existent(PGF):
     assert PGF.functionsByCat("X") == []
 
 def test_categoryContext_1(PGF):
@@ -169,7 +169,7 @@ def test_functionType_2(PGF):
 def test_functionType_3(PGF):
     assert PGF.functionType("c") == readType("N -> S")
 
-def test_functionType_non_existant(PGF):
+def test_functionType_non_existent(PGF):
     with pytest.raises(KeyError):
         assert PGF.functionType("cbx")
 
