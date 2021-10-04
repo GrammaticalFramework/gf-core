@@ -1,7 +1,8 @@
 import errno from './errno'
-import ffi from 'ffi'
-import ref from 'ref'
-import Struct from 'ref-struct'
+import ffi from 'ffi-napi'
+import ref, { Pointer } from 'ref-napi'
+import ref_struct, { StructObject } from 'ref-struct-di'
+const Struct = ref_struct(ref)
 
 // ----------------------------------------------------------------------------
 // FFI "Types"
@@ -10,10 +11,10 @@ const voidPtr = ref.refType(ref.types.void)
 const prob_t = ref.types.float
 const size_t = ref.types.size_t
 
-const PgfDB = ref.types.int
+const PgfDB = ref.types.void
 const PgfDBPtr = ref.refType(PgfDB)
 
-const PgfRevision = ref.types.int
+const PgfRevision = ref.refType(ref.types.void)
 const PgfRevisionPtr = ref.refType(PgfRevision)
 
 const PgfExn = Struct({
@@ -29,10 +30,7 @@ const PgfText = Struct({
 })
 const PgfTextPtr = ref.refType(PgfText)
 
-const PgfItor = Struct({
-  fn: voidPtr
-})
-const PgfItorPtr = ref.refType(PgfItor)
+const PgfItorPtr = ref.refType(ref.types.void)
 
 const PgfType = ref.types.void // TODO
 // const PgfTypePtr = ref.refType(PgfType)
@@ -56,9 +54,10 @@ const PgfMarshallerPtr = ref.refType(PgfMarshaller)
 // ----------------------------------------------------------------------------
 // TypeScript Types
 
-// Type definitions for `ref` package don't include extensions to Buffer
-interface Pointer extends Buffer {
-  deref (): any // eslint-disable-line @typescript-eslint/no-explicit-any
+interface PgfExnType {
+  type: number
+  code: number
+  msg: string | null
 }
 
 class PGFError extends Error {
@@ -93,31 +92,30 @@ const runtime = ffi.Library('libpgf', {
   'pgf_function_prob': [ prob_t, [ PgfDBPtr, PgfRevision, PgfTextPtr, PgfExnPtr ] ],
   'pgf_print_expr': [ PgfTextPtr, [ PgfExpr, PgfPrintContextPtr, ref.types.int, PgfMarshallerPtr ] ],
   'pgf_read_expr': [ PgfExpr, [ PgfTextPtr, PgfUnmarshallerPtr ] ],
-  'pgf_read_expr_ex': [ PgfExpr , [ PgfTextPtr, ref.refType(ref.types.CString), PgfUnmarshallerPtr ] ],
-  'pgf_expr_prob': [ prob_t , [ PgfDBPtr, PgfRevision, PgfExpr, PgfMarshallerPtr, PgfExnPtr ] ],
+  'pgf_read_expr_ex': [ PgfExpr, [ PgfTextPtr, ref.refType(ref.types.CString), PgfUnmarshallerPtr ] ],
+  'pgf_expr_prob': [ prob_t, [ PgfDBPtr, PgfRevision, PgfExpr, PgfMarshallerPtr, PgfExnPtr ] ],
   'pgf_print_type': [ PgfTextPtr, [ PgfType, PgfPrintContextPtr, ref.types.int, PgfMarshallerPtr ] ],
   'pgf_print_context': [ PgfTextPtr, [ size_t, PgfTypeHypoPtr, PgfPrintContextPtr, ref.types.int, PgfMarshallerPtr ] ],
-  'pgf_read_type': [ PgfType , [ PgfTextPtr, PgfUnmarshallerPtr ] ],
+  'pgf_read_type': [ PgfType, [ PgfTextPtr, PgfUnmarshallerPtr ] ],
 
-  'pgf_clone_revision': [ PgfRevision , [ PgfDBPtr, PgfRevision, PgfTextPtr, PgfExnPtr ] ],
+  'pgf_clone_revision': [ PgfRevision, [ PgfDBPtr, PgfRevision, PgfTextPtr, PgfExnPtr ] ],
   'pgf_commit_revision': [ ref.types.void, [ PgfDBPtr, PgfRevision, PgfExnPtr ] ],
-  'pgf_checkout_revision': [ PgfRevision , [ PgfDBPtr, PgfTextPtr, PgfExnPtr ] ],
+  'pgf_checkout_revision': [ PgfRevision, [ PgfDBPtr, PgfTextPtr, PgfExnPtr ] ],
   'pgf_create_function': [ ref.types.void, [ PgfDBPtr, PgfRevision, PgfTextPtr, PgfType, size_t, prob_t, PgfMarshallerPtr, PgfExnPtr ] ],
   'pgf_drop_function': [ ref.types.void, [ PgfDBPtr, PgfRevision, PgfTextPtr,  PgfExnPtr ] ],
   'pgf_create_category': [ ref.types.void, [ PgfDBPtr, PgfRevision, PgfTextPtr, size_t, PgfTypeHypoPtr, prob_t, PgfMarshallerPtr, PgfExnPtr ] ],
   'pgf_drop_category': [ ref.types.void, [ PgfDBPtr, PgfRevision, PgfTextPtr, PgfExnPtr ] ],
 
-  'pgf_get_global_flag': [ PgfLiteral , [ PgfDBPtr, PgfRevision, PgfTextPtr, PgfUnmarshallerPtr, PgfExnPtr ] ],
+  'pgf_get_global_flag': [ PgfLiteral, [ PgfDBPtr, PgfRevision, PgfTextPtr, PgfUnmarshallerPtr, PgfExnPtr ] ],
   'pgf_set_global_flag': [ ref.types.void, [ PgfDBPtr, PgfRevision, PgfTextPtr, PgfLiteral, PgfMarshallerPtr, PgfExnPtr ] ],
-  'pgf_get_abstract_flag': [ PgfLiteral , [ PgfDBPtr, PgfRevision, PgfTextPtr, PgfUnmarshallerPtr, PgfExnPtr ] ],
+  'pgf_get_abstract_flag': [ PgfLiteral, [ PgfDBPtr, PgfRevision, PgfTextPtr, PgfUnmarshallerPtr, PgfExnPtr ] ],
   'pgf_set_abstract_flag': [ ref.types.void, [ PgfDBPtr, PgfRevision, PgfTextPtr, PgfLiteral, PgfMarshallerPtr, PgfExnPtr ] ],
 })
 
 // ----------------------------------------------------------------------------
 // Helpers
 
-function handleError (errPtr: Pointer): void {
-  const err = errPtr.deref()
+function handleError (err: StructObject<PgfExnType>): void {
   switch (err.type) {
     // PGF_EXN_NONE
     case 0: return
@@ -129,18 +127,18 @@ function handleError (errPtr: Pointer): void {
     }
     // PGF_EXN_PGF_ERROR
     case 2:
-      throw new PGFError(err.msg)
+      throw new PGFError(err.msg as string)
 
     // PGF_EXN_OTHER_ERROR
     case 3:
-      throw new Error(err.msg)
+      throw new Error(err.msg as string)
 
     default:
       throw new Error(`unknown error type: ${err.type}`)
   }
 }
 
-function PgfText_AsString (txtPtr: Pointer) {
+function PgfText_AsString (txtPtr: Pointer<any>) {
   const txtSize = txtPtr.deref().size
   const charPtr = ref.reinterpret(txtPtr, txtSize, ref.types.size_t.size)
   return charPtr.toString('utf8')
@@ -150,48 +148,48 @@ function PgfText_AsString (txtPtr: Pointer) {
 // PGF grammar object
 
 export class PGFGrammar {
-  readonly db: Pointer
-  readonly revision: number
+  readonly db: Pointer<any>
+  readonly revision: Pointer<any>
 
-  constructor (db: Pointer, revision: number) {
+  constructor (db: Pointer<any>, revision: Pointer<any>) {
     this.db = db
     this.revision = revision
   }
 
   // NB the library user is responsible for calling this
   release (): void {
-    runtime.pgf_free_revision(this.db, this.revision)
+    runtime.pgf_free_revision(this.db, this.revision.deref())
   }
 
   getAbstractName (): string {
-    const err = ref.alloc(PgfExn) as Pointer
-    const txt = runtime.pgf_abstract_name(this.db, this.revision, err)
+    const err = new PgfExn
+    const txt = runtime.pgf_abstract_name(this.db, this.revision.deref(), err.ref())
     handleError(err)
     return PgfText_AsString(txt)
   }
 
   getCategories (): string[] {
     const cats: string[] = []
-    const callback = ffi.Callback(ref.types.void, [ PgfItorPtr, PgfTextPtr, voidPtr, PgfExnPtr],
-      function (self: Pointer, key: Pointer, value: Pointer, err: Pointer) { // eslint-disable-line @typescript-eslint/no-unused-vars
+    const callback = ffi.Callback(ref.types.void, [ PgfItorPtr, PgfTextPtr, voidPtr, PgfExnPtr ],
+      function (self: Pointer<any>, key: Pointer<any>, value: Pointer<any>, err: Pointer<any>) { // eslint-disable-line @typescript-eslint/no-unused-vars
         const k = PgfText_AsString(key)
         cats.push(k)
     })
-    const err = ref.alloc(PgfExn) as Pointer
-    runtime.pgf_iter_categories(this.db, this.revision, ref.ref(callback), err)
+    const err = new PgfExn
+    runtime.pgf_iter_categories(this.db, this.revision.deref(), callback.ref() as Pointer<void>, err.ref())
     handleError(err)
     return cats
   }
 
   getFunctions (): string[] {
     const funs: string[] = []
-    const callback = ffi.Callback(ref.types.void, [ PgfItorPtr, PgfTextPtr, voidPtr, PgfExnPtr],
-      function (self: Pointer, key: Pointer, value: Pointer, err: Pointer) { // eslint-disable-line @typescript-eslint/no-unused-vars
+    const callback = ffi.Callback(ref.types.void, [ PgfItorPtr, PgfTextPtr, voidPtr, PgfExnPtr ],
+      function (self: Pointer<any>, key: Pointer<any>, value: Pointer<any>, err: Pointer<any>) { // eslint-disable-line @typescript-eslint/no-unused-vars
         const k = PgfText_AsString(key)
         funs.push(k)
     })
-    const err = ref.alloc(PgfExn) as Pointer
-    runtime.pgf_iter_functions(this.db, this.revision, ref.ref(callback), err)
+    const err = new PgfExn
+    runtime.pgf_iter_functions(this.db, this.revision.deref(), callback.ref() as Pointer<void>, err.ref())
     handleError(err)
     return funs
   }
@@ -202,19 +200,19 @@ export class PGFGrammar {
 // PGF module functions
 
 function readPGF (path: string): PGFGrammar {
-  const rev = ref.alloc(PgfRevision) as Pointer
-  const err = ref.alloc(PgfExn) as Pointer
-  const db = runtime.pgf_read_pgf(path, rev, err)
+  const rev = ref.alloc(PgfRevisionPtr)
+  const err = new PgfExn
+  const db = runtime.pgf_read_pgf(path, rev, err.ref())
   handleError(err)
-  return new PGFGrammar(db, rev.deref())
+  return new PGFGrammar(db, rev)
 }
 
 function bootNGF (pgf_path: string, ngf_path: string): PGFGrammar {
-  const rev = ref.alloc(PgfRevision) as Pointer
-  const err = ref.alloc(PgfExn) as Pointer
-  const db = runtime.pgf_boot_ngf(pgf_path, ngf_path, rev, err)
+  const rev = ref.alloc(PgfRevisionPtr)
+  const err = new PgfExn
+  const db = runtime.pgf_boot_ngf(pgf_path, ngf_path, rev, err.ref())
   handleError(err)
-  return new PGFGrammar(db, rev.deref())
+  return new PGFGrammar(db, rev)
 }
 
 // ----------------------------------------------------------------------------
@@ -229,5 +227,8 @@ export default {
 // ----------------------------------------------------------------------------
 // Quick testing
 
-// const gr: PGF = readPGF('../haskell/tests/basic.pgf')
+// const gr = readPGF('../haskell/tests/basic.pgf')
+// console.log(gr)
+// console.log(gr.getAbstractName())
 // console.log(gr.getCategories())
+// console.log(gr.getFunctions())

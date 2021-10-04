@@ -11,10 +11,10 @@
   "author": "John J. Camilleri",
   "license": "ISC",
   "dependencies": {
-    "ffi": "^2.3.0"
+    "ffi-napi": "^4.0.3"
   },
   "devDependencies": {
-    "@types/ffi": "^0.2.3",
+    "@types/ffi-napi": "^4.0.4",
     "@types/jest": "^27.0.2",
     "@typescript-eslint/eslint-plugin": "^4.32.0",
     "@typescript-eslint/parser": "^4.32.0",
