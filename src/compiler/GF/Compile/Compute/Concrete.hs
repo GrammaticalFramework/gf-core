@@ -65,6 +65,8 @@ data Value s
   | VFlt Double
   | VStr String
   | VC [Value s]
+  | VPatt Int (Maybe Int) Patt
+  | VPattType (Value s)
 
 
 eval env (Vr x)         vs  = case lookup x env of
@@ -131,6 +133,9 @@ eval env t@(Glue t1 t2) []  = do v1 <- eval env t1 []
                                  case liftM2 (++) (value2string v1) (value2string v2) of
                                    Just s  -> return (string2value s)
                                    Nothing -> evalError ("Cannot reduce term" <+> pp t)
+eval env (EPatt min max p) [] = return (VPatt min max p)
+eval env (EPattType t)  []  = do v <- eval env t []
+                                 return (VPattType v)
 eval env (FV ts)        vs  = msum [eval env t vs | t <- ts]
 eval env (Error msg)    vs  = fail msg
 eval env t              vs  = evalError ("Cannot reduce term" <+> pp t)
@@ -316,6 +321,9 @@ value2term i (VC vs) = do
   case ts of
     []     -> return Empty
     (t:ts) -> return (foldl C t ts)
+value2term i (VPatt min max p) = return (EPatt min max p)
+value2term i (VPattType v) = do t <- value2term i v
+                                return (EPattType t)
 
 value2string (VStr s) = Just s
 value2string (VC vs)  = fmap unwords (mapM value2string vs)
