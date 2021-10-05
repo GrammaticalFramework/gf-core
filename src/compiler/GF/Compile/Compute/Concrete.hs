@@ -126,6 +126,11 @@ eval env (C t1 t2)      []  = do v1 <- eval env t1 []
                                    (VC vs1,v2    ) -> return (VC (vs1++[v2]))
                                    (v1,    VC vs2) -> return (VC ([v1]++vs2))
                                    (v1,    v2    ) -> return (VC [v1,v2])
+eval env t@(Glue t1 t2) []  = do v1 <- eval env t1 []
+                                 v2 <- eval env t2 []
+                                 case liftM2 (++) (value2string v1) (value2string v2) of
+                                   Just s  -> return (string2value s)
+                                   Nothing -> evalError ("Cannot reduce term" <+> pp t)
 eval env (FV ts)        vs  = msum [eval env t vs | t <- ts]
 eval env (Error msg)    vs  = fail msg
 eval env t              vs  = evalError ("Cannot reduce term" <+> pp t)

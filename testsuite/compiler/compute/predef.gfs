@@ -31,3 +31,5 @@ cc "x"++SOFT_BIND++"y"
 cc "x"++SOFT_SPACE++"y"
 cc "x"++CAPIT++"y"
 cc "x"++ALL_CAPIT++"y"
+cc "a"+"b"
+cc eqInt (length ("a"+"b")) 2

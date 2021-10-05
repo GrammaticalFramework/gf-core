@@ -32,3 +32,5 @@ CallStack (from HasCallStack):
 "x" ++ Predef.SOFT_SPACE ++ "y"
 "x" ++ Predef.CAPIT ++ "y"
 "x" ++ Predef.ALL_CAPIT ++ "y"
+"ab"
+Predef.PTrue
