@@ -26,3 +26,9 @@ Predef.PTrue
 : In _: user error
 CallStack (from HasCallStack):
   error, called at src/compiler/GF/Compile/Compute/Concrete.hs:36:18 in main:GF.Compile.Compute.Concrete
+"x" ++ Predef.nonExist ++ "y"
+"x" ++ Predef.BIND ++ "y"
+"x" ++ Predef.SOFT_BIND ++ "y"
+"x" ++ Predef.SOFT_SPACE ++ "y"
+"x" ++ Predef.CAPIT ++ "y"
+"x" ++ Predef.ALL_CAPIT ++ "y"
