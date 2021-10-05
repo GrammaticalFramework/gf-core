@@ -153,9 +153,9 @@ evalPredef id [v1,v2]
 evalPredef id [v]
   | id == cIsUpper= return (fmap toPBool (liftM (all isUpper) (value2string v)))
 evalPredef id [v]
-  | id == cToUpper= return (fmap VStr (liftM (map toUpper) (value2string v)))
+  | id == cToUpper= return (fmap string2value (liftM (map toUpper) (value2string v)))
 evalPredef id [v]
-  | id == cToLower= return (fmap VStr (liftM (map toLower) (value2string v)))
+  | id == cToLower= return (fmap string2value (liftM (map toLower) (value2string v)))
 evalPredef id [v1,v2]
   | id == cEqStr  = return (fmap toPBool (liftM2 (==) (value2string v1) (value2string v2)))
 evalPredef id [v1,v2]
