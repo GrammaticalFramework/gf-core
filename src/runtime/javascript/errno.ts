@@ -43,7 +43,7 @@ const errs: ErrorInfo[] = [
 ]
 
 export default {
-  lookup(errno: number): string | undefined {
+  lookup (errno: number): string | undefined {
     return errs.find(err => err.errno === errno)?.description
   }
 }

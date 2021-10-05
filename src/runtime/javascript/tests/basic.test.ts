@@ -154,11 +154,11 @@ describe('abstract syntax', () => {
   })
 
   test('categories', () => {
-    expect(gr.getCategories()).toEqual(['Float','Int','N','P','S','String'])
+    expect(gr.getCategories()).toEqual(['Float', 'Int', 'N', 'P', 'S', 'String'])
   })
 
   test('functions', () => {
-    expect(gr.getFunctions()).toEqual(['c','ind','s','z'])
+    expect(gr.getFunctions()).toEqual(['c', 'ind', 's', 'z'])
   })
 
   describe('function is constructor', () => {
@@ -178,7 +178,7 @@ describe('abstract syntax', () => {
 
   describe('functions by category', () => {
     test('N', () => {
-      expect(gr.functionsByCategory('N')).toEqual(['s','z'])
+      expect(gr.functionsByCategory('N')).toEqual(['s', 'z'])
     })
     test('S', () => {
       expect(gr.functionsByCategory('S')).toEqual(['c'])
