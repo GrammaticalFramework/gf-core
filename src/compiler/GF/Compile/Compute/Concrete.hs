@@ -10,16 +10,17 @@ import Prelude hiding ((<>)) -- GHC 8.4.1 clash with Text.PrettyPrint
 
 import GF.Grammar hiding (Env, VGen, VApp, VRecType)
 import GF.Grammar.Lookup(lookupResDef,allParamValues)
-import GF.Grammar.Predef(cPredef,cErrorType,cTok,cStr,cTrace,cPBool)
+import GF.Grammar.Predef
 import GF.Grammar.Lockfield(isLockLabel,lockRecType) --unlockRecord,lockLabel
 import GF.Grammar.Printer
-import GF.Compile.Compute.Predef(predef,predefName,delta)
 import GF.Data.Str(Str,glueStr,str2strings,str,sstr,plusStr,strTok)
 import GF.Data.Operations(Err(..),err,errIn,maybeErr,mapPairsM)
 import GF.Data.Utilities(mapFst,mapSnd)
 import GF.Infra.Option
 import Data.STRef
 import Data.Maybe(fromMaybe)
+import Data.List
+import Data.Char
 import Control.Monad
 import Control.Monad.ST
 import Control.Applicative
@@ -109,7 +110,13 @@ eval env t@(S t1 t2)    vs  = do v1   <- eval env t1 []
                                    v1      -> return v0
 eval env (Let (x,(_,t1)) t2) vs = do tnk <- newThunk env t1
                                      eval ((x,tnk):env) t2 vs
-eval env (Q q)          vs  = do t <- lookupGlobal q
+eval env (Q q@(m,id))   vs
+  | m == cPredef            = do vs' <- mapM (flip force []) vs
+                                 mb_res <- evalPredef id vs'
+                                 case mb_res of
+                                   Just res -> return res
+                                   Nothing  -> return (VApp q vs)
+  | otherwise               = do t <- lookupGlobal q
                                  eval env t vs
 eval env (QC q)         vs  = return (VApp q vs)
 eval env (C t1 t2)      []  = do v1 <- eval env t1 []
@@ -128,6 +135,58 @@ apply (VApp f  vs0)                 vs  = return (VApp f (vs0++vs))
 apply (VMeta m env vs0)             vs  = return (VMeta m env (vs0++vs))
 apply (VGen i  vs0)                 vs  = return (VGen i (vs0++vs))
 apply (VClosure env (Abs b x t)) (v:vs) = eval ((x,v):env) t vs
+
+evalPredef id [v]
+  | id == cLength = return (fmap VInt (liftM genericLength (value2string v)))
+evalPredef id [v1,v2]
+  | id == cTake   = return (fmap VStr (liftM2 genericTake (value2int v1) (value2string v2)))
+evalPredef id [v1,v2]
+  | id == cDrop   = return (fmap VStr (liftM2 genericDrop (value2int v1) (value2string v2)))
+evalPredef id [v1,v2]
+  | id == cTk     = return (fmap VStr (liftM2 genericTk (value2int v1) (value2string v2)))
+  where
+    genericTk n = reverse . genericTake n . reverse
+evalPredef id [v1,v2]
+  | id == cDp     = return (fmap VStr (liftM2 genericDp (value2int v1) (value2string v2)))
+  where
+    genericDp n = reverse . genericDrop n . reverse
+evalPredef id [v]
+  | id == cToUpper= return (fmap VStr (liftM (map toUpper) (value2string v)))
+evalPredef id [v]
+  | id == cToLower= return (fmap VStr (liftM (map toLower) (value2string v)))
+evalPredef id [v]
+  | id == cIsUpper= return (fmap toPBool (liftM (all isUpper) (value2string v)))
+evalPredef id [v1,v2]
+  | id == cEqStr  = return (fmap toPBool (liftM2 (==) (value2string v1) (value2string v2)))
+evalPredef id [v1,v2]
+  | id == cOccur  = return (fmap toPBool (liftM2 occur (value2string v1) (value2string v2)))
+evalPredef id [v1,v2]
+  | id == cOccurs  = return (fmap toPBool (liftM2 occurs (value2string v1) (value2string v2)))
+evalPredef id [v1,v2]
+  | id == cEqInt  = return (fmap toPBool (liftM2 (==) (value2int v1) (value2int v2)))
+evalPredef id [v1,v2]
+  | id == cLessInt= return (fmap toPBool (liftM2 (<) (value2int v1) (value2int v2)))
+evalPredef id [v1,v2]
+  | id == cPlus   = return (fmap VInt (liftM2 (+) (value2int v1) (value2int v2)))
+evalPredef id [v]
+  | id == cError  = case value2string v of
+                      Just msg -> fail msg
+                      Nothing  -> return Nothing
+evalPredef id vs  = return Nothing
+
+toPBool True  = VApp (cPredef,cPTrue)  []
+toPBool False = VApp (cPredef,cPFalse) []
+
+occur s1 []          = False
+occur s1 s2@(_:tail) = check s1 s2
+  where
+    check xs        []  = False
+    check []        ys  = True
+    check (x:xs) (y:ys)
+      | x == y          = check xs ys
+    check _      _      = occur s1 tail
+
+occurs cs s2 = any (\c -> elem c s2) cs
 
 patternMatch v0 []                      = fail "No matching pattern found"
 patternMatch v0 ((env0,ps,args0,t):eqs) = match env0 ps eqs args0
@@ -186,10 +245,6 @@ patternMatch v0 ((env0,ps,args0,t):eqs) = match env0 ps eqs args0
       case lookup lbl as of
         Just tnk -> matchRec env pas as (p:ps) eqs (tnk:args)
         Nothing  -> evalError ("Missing value for label" <+> pp lbl)
-
-    value2string (VStr s) = Just s
-    value2string (VC vs)  = fmap unwords (mapM value2string vs)
-    value2string _        = Nothing
 
     matchStr env ps eqs i ds []     args = do
       arg1 <- newEvaluatedThunk (vc (reverse ds))
@@ -262,6 +317,13 @@ value2term i (VC vs) = do
   case ts of
     []     -> return Empty
     (t:ts) -> return (foldl C t ts)
+
+value2string (VStr s) = Just s
+value2string (VC vs)  = fmap unwords (mapM value2string vs)
+value2string _        = Nothing
+
+value2int (VInt n) = Just n
+value2int _        = Nothing
 
 -----------------------------------------------------------------------
 -- * Evaluation monad

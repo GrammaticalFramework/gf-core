@@ -1,0 +1,33 @@
+i -retain prelude/Predef.gfo
+cc length "abcd"
+cc length ("ab"++"cd")
+cc <\x -> length x : Str -> Int>
+cc take 2 "abcd"
+cc drop 2 "abcd"
+cc tk 1 "abcd"
+cc dp 1 "abcd"
+cc toUpper "abcd"
+cc toLower "ABCD"
+cc isUpper "abcd"
+cc isUpper "ABCD"
+cc isUpper "AbCd"
+cc case isUpper "abcd" of {PTrue => "yes"; PFalse => "no"}
+cc case isUpper "ABCD" of {PTrue => "yes"; PFalse => "no"}
+cc case isUpper "AbCd" of {PTrue => "yes"; PFalse => "no"}
+cc eqStr "ab cd" ("ab"++"cd")
+cc occur "bc" "abcd"
+cc occur "bc" "acbd"
+cc occurs "bc" "xxxxbxxx"
+cc occurs "bc" "xxxxcxxx"
+cc occurs "bc" "xxxxxxxx"
+cc eqInt (length "abcd") 4
+cc lessInt (length "abcd") 3
+cc lessInt (length "abcd") 5
+cc plus (length "abcd") 1
+cc error "user error"++"!"
+cc "x"++nonExist++"y"
+cc "x"++BIND++"y"
+cc "x"++SOFT_BIND++"y"
+cc "x"++SOFT_SPACE++"y"
+cc "x"++CAPIT++"y"
+cc "x"++ALL_CAPIT++"y"

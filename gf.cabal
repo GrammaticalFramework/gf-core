@@ -109,7 +109,6 @@ executable gf
     GF.Command.TreeOperations
     GF.Compile.CFGtoPGF
     GF.Compile.CheckGrammar
-    GF.Compile.Compute.Predef
     GF.Compile.Compute.Concrete
     GF.Compile.ExampleBased
     GF.Compile.Export

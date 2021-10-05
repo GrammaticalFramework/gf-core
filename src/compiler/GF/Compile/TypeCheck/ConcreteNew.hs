@@ -11,7 +11,6 @@ import GF.Grammar.Lookup
 import GF.Grammar.Predef
 import GF.Grammar.Lockfield
 import GF.Compile.Compute.Concrete
-import GF.Compile.Compute.Predef(predef,predefName)
 import GF.Infra.CheckM
 import GF.Data.Operations
 import Control.Applicative(Applicative(..))
