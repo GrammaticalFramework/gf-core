@@ -339,6 +339,8 @@ void PgfExprParser::str_char()
         case 't':
             putc('\t');
             break;
+        case '0':
+            puts("\0");
         default:
             return;
         }
