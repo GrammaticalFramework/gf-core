@@ -66,6 +66,7 @@ data Value s
   | VFlt Double
   | VStr String
   | VC [Value s]
+  | VGlue (Value s) (Value s)
   | VPatt Int (Maybe Int) Patt
   | VPattType (Value s)
 
@@ -133,7 +134,7 @@ eval env t@(Glue t1 t2) []  = do v1 <- eval env t1 []
                                  v2 <- eval env t2 []
                                  case liftM2 (++) (value2string v1) (value2string v2) of
                                    Just s  -> return (string2value s)
-                                   Nothing -> evalError ("Cannot reduce term" <+> pp t)
+                                   Nothing -> return (VGlue v1 v2)
 eval env (EPatt min max p) [] = return (VPatt min max p)
 eval env (EPattType t)  []  = do v <- eval env t []
                                  return (VPattType v)
@@ -323,6 +324,10 @@ value2term i (VC vs) = do
   case ts of
     []     -> return Empty
     (t:ts) -> return (foldl C t ts)
+value2term i (VGlue v1 v2) = do
+  t1 <- value2term i v1
+  t2 <- value2term i v2
+  return (Glue t1 t2)
 value2term i (VPatt min max p) = return (EPatt min max p)
 value2term i (VPattType v) = do t <- value2term i v
                                 return (EPattType t)

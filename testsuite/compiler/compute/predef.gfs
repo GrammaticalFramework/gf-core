@@ -32,4 +32,5 @@ cc "x"++SOFT_SPACE++"y"
 cc "x"++CAPIT++"y"
 cc "x"++ALL_CAPIT++"y"
 cc "a"+"b"
+cc <\x->x+"b" : Str -> Str>
 cc eqInt (length ("a"+"b")) 2

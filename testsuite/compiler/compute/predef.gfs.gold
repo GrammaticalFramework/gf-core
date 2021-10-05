@@ -31,4 +31,5 @@ user error
 "x" ++ Predef.CAPIT ++ "y"
 "x" ++ Predef.ALL_CAPIT ++ "y"
 "ab"
+\v0 -> v0 + "b"
 Predef.PTrue
