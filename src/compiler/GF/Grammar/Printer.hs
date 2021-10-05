@@ -35,9 +35,8 @@ import GF.Text.Pretty
 import Data.Maybe (isNothing)
 import Data.List  (intersperse)
 import qualified Data.Map as Map
---import qualified Data.IntMap as IntMap
---import qualified Data.Set as Set
 import qualified Data.Array.IArray as Array
+import qualified GHC.Show
 
 data TermPrintQual
   = Terse | Unqualified | Qualified | Internal
@@ -289,7 +288,12 @@ ppConstrs = map (\(v,w) -> braces (ppValue Unqualified 0 v <+> "<>" <+> ppValue 
 ppEnv :: Env -> Doc
 ppEnv e = hcat (map (\(x,t) -> braces (x <> ":=" <> ppValue Unqualified 0 t)) e)
 
-str s = doubleQuotes s
+str s = doubleQuotes (pp (foldr showLitChar "" s))
+  where
+    showLitChar c
+      | c == '"'    = showString "\\\""
+      | c > '\DEL'  = showChar c
+      | otherwise   = GHC.Show.showLitChar c
 
 ppDecl q (_,id,typ)
   | id == identW = ppTerm q 3 typ
