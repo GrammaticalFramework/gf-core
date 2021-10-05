@@ -139,23 +139,23 @@ apply (VClosure env (Abs b x t)) (v:vs) = eval ((x,v):env) t vs
 evalPredef id [v]
   | id == cLength = return (fmap VInt (liftM genericLength (value2string v)))
 evalPredef id [v1,v2]
-  | id == cTake   = return (fmap VStr (liftM2 genericTake (value2int v1) (value2string v2)))
+  | id == cTake   = return (fmap string2value (liftM2 genericTake (value2int v1) (value2string v2)))
 evalPredef id [v1,v2]
-  | id == cDrop   = return (fmap VStr (liftM2 genericDrop (value2int v1) (value2string v2)))
+  | id == cDrop   = return (fmap string2value (liftM2 genericDrop (value2int v1) (value2string v2)))
 evalPredef id [v1,v2]
-  | id == cTk     = return (fmap VStr (liftM2 genericTk (value2int v1) (value2string v2)))
+  | id == cTk     = return (fmap string2value (liftM2 genericTk (value2int v1) (value2string v2)))
   where
     genericTk n = reverse . genericTake n . reverse
 evalPredef id [v1,v2]
-  | id == cDp     = return (fmap VStr (liftM2 genericDp (value2int v1) (value2string v2)))
+  | id == cDp     = return (fmap string2value (liftM2 genericDp (value2int v1) (value2string v2)))
   where
     genericDp n = reverse . genericDrop n . reverse
+evalPredef id [v]
+  | id == cIsUpper= return (fmap toPBool (liftM (all isUpper) (value2string v)))
 evalPredef id [v]
   | id == cToUpper= return (fmap VStr (liftM (map toUpper) (value2string v)))
 evalPredef id [v]
   | id == cToLower= return (fmap VStr (liftM (map toLower) (value2string v)))
-evalPredef id [v]
-  | id == cIsUpper= return (fmap toPBool (liftM (all isUpper) (value2string v)))
 evalPredef id [v1,v2]
   | id == cEqStr  = return (fmap toPBool (liftM2 (==) (value2string v1) (value2string v2)))
 evalPredef id [v1,v2]
@@ -247,16 +247,16 @@ patternMatch v0 ((env0,ps,args0,t):eqs) = match env0 ps eqs args0
         Nothing  -> evalError ("Missing value for label" <+> pp lbl)
 
     matchStr env ps eqs i ds []     args = do
-      arg1 <- newEvaluatedThunk (vc (reverse ds))
-      arg2 <- newEvaluatedThunk (vc [])
+      arg1 <- newEvaluatedThunk (string2value (reverse ds))
+      arg2 <- newEvaluatedThunk (string2value [])
       return ((env,ps,arg1:arg2:args,t) : eqs)
     matchStr env ps eqs 0 ds cs     args = do
-      arg1 <- newEvaluatedThunk (vc (reverse ds))
-      arg2 <- newEvaluatedThunk (vc cs)
+      arg1 <- newEvaluatedThunk (string2value (reverse ds))
+      arg2 <- newEvaluatedThunk (string2value cs)
       return ((env,ps,arg1:arg2:args,t) : eqs)
     matchStr env ps eqs i ds (c:cs) args = do
-      arg1 <- newEvaluatedThunk (vc (reverse ds))
-      arg2 <- newEvaluatedThunk (vc (c:cs))
+      arg1 <- newEvaluatedThunk (string2value (reverse ds))
+      arg2 <- newEvaluatedThunk (string2value (c:cs))
       eqs  <- matchStr env ps eqs (i-1 :: Int) (c:ds) cs args
       return ((env,ps,arg1:arg2:args,t) : eqs)
 
@@ -264,12 +264,6 @@ patternMatch v0 ((env0,ps,args0,t):eqs) = match env0 ps eqs args0
       return eqs
     matchRep env n minp maxp p minq maxq q ps eqs args = do
       matchRep env (n-1) minp maxp p (minp+minq) (liftM2 (+) maxp maxq) (PSeq minp maxp p minq maxq q) ps ((env,q:ps,args,t) : eqs) args
-
-    vc s =
-      case words s of
-        []  -> VC []
-        [w] -> VStr w
-        ws  -> VC (map VStr ws)
 
 value2term i (VApp q tnks) =
   foldM (\e1 tnk -> fmap (App e1) (force tnk [] >>= value2term i)) (QC q) tnks
@@ -321,6 +315,12 @@ value2term i (VC vs) = do
 value2string (VStr s) = Just s
 value2string (VC vs)  = fmap unwords (mapM value2string vs)
 value2string _        = Nothing
+
+string2value s =
+  case words s of
+    []  -> VC []
+    [w] -> VStr w
+    ws  -> VC (map VStr ws)
 
 value2int (VInt n) = Just n
 value2int _        = Nothing
