@@ -138,10 +138,20 @@ function handleError (err: StructObject<PgfExnType>): void {
   }
 }
 
-function PgfText_AsString (txtPtr: Pointer<any>) {
+function PgfText_AsString (txtPtr: Pointer<any>): string {
   const txtSize = txtPtr.deref().size
   const charPtr = ref.reinterpret(txtPtr, txtSize, ref.types.size_t.size)
   return charPtr.toString('utf8')
+}
+
+function PgfText_FromString (str: string): Pointer<any> {
+  const strbuf = Buffer.from(str, 'utf8')
+  const size = strbuf.length // size in bytes, not chars
+  const sizebuf = ref.alloc(ref.types.size_t, size)
+  const txtbuf = Buffer.alloc(ref.types.size_t.size + size + 1)
+  sizebuf.copy(txtbuf, 0, 0)
+  strbuf.copy(txtbuf, ref.types.size_t.size, 0)
+  return txtbuf as Pointer<void>
 }
 
 // ----------------------------------------------------------------------------
@@ -215,20 +225,31 @@ function bootNGF (pgf_path: string, ngf_path: string): PGFGrammar {
   return new PGFGrammar(db, rev)
 }
 
+function readNGF (path: string): PGFGrammar {
+  const rev = ref.alloc(PgfRevisionPtr)
+  const err = new PgfExn
+  const db = runtime.pgf_read_ngf(path, rev, err.ref())
+  handleError(err)
+  return new PGFGrammar(db, rev)
+}
+
+function newNGF (abstract_name: string, path?: string): PGFGrammar {
+  const absname = PgfText_FromString(abstract_name)
+  const fpath = path != null ? path : null
+  const rev = ref.alloc(PgfRevisionPtr)
+  const err = new PgfExn
+  const db = runtime.pgf_new_ngf(absname, fpath, rev, err.ref())
+  handleError(err)
+  return new PGFGrammar(db, rev)
+}
+
 // ----------------------------------------------------------------------------
 // Exposed library API
 
 export default {
   PGFError,
   readPGF,
-  bootNGF
+  bootNGF,
+  readNGF,
+  newNGF
 }
-
-// ----------------------------------------------------------------------------
-// Quick testing
-
-// const gr = readPGF('../haskell/tests/basic.pgf')
-// console.log(gr)
-// console.log(gr.getAbstractName())
-// console.log(gr.getCategories())
-// console.log(gr.getFunctions())

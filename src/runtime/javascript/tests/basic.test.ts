@@ -1,6 +1,8 @@
 import PGF, { PGFGrammar } from '../index'
 import fs from 'fs'
 
+// ----------------------------------------------------------------------------
+
 describe('readPGF', () => {
   test('valid', () => {
     PGF.readPGF('../haskell/tests/basic.pgf')
@@ -18,12 +20,20 @@ describe('readPGF', () => {
     }).toThrow(PGF.PGFError)
   })
 
-  // test('NGF', () => {
-  //   expect(() => {
-  //     PGF.readPGF('basic.ngf')
-  //   }).toThrow(PGF.PGFError)
-  // })
+  test('NGF', () => {
+    try {
+      fs.unlinkSync('./basic.ngf')
+    } catch {
+      // empty
+    }
+    PGF.bootNGF('../haskell/tests/basic.pgf', './basic.ngf')
+    expect(() => {
+      PGF.readPGF('./basic.ngf')
+    }).toThrow(PGF.PGFError)
+  })
 })
+
+// ----------------------------------------------------------------------------
 
 describe('bootNGF', () => {
   beforeAll(() => {
@@ -62,6 +72,71 @@ describe('bootNGF', () => {
     }).toThrow(Error)
   })
 })
+
+// ----------------------------------------------------------------------------
+
+describe('readNGF', () => {
+  // beforeAll(() => {
+  //   try {
+  //     fs.unlinkSync('./basic.ngf')
+  //   } catch {
+  //     // empty
+  //   }
+  // })
+
+  test('valid', () => {
+    const gr = PGF.readNGF('./basic.ngf')
+    expect(gr.getCategories().length).toBeGreaterThan(0)
+  })
+
+  test('non-existent', () => {
+    expect(() => {
+      PGF.readNGF('./abc.ngf')
+    }).toThrow(Error)
+  })
+
+  test('GF', () => {
+    expect(() => {
+      PGF.readNGF('../haskell/tests/basic.gf')
+    }).toThrow(PGF.PGFError)
+  })
+
+  test('PGF', () => {
+    expect(() => {
+      PGF.readNGF('../haskell/tests/basic.pgf')
+    }).toThrow(PGF.PGFError)
+  })
+})
+
+// ----------------------------------------------------------------------------
+
+describe('newNGF', () => {
+  beforeAll(() => {
+    try {
+      fs.unlinkSync('./empty.ngf')
+    } catch {
+      // empty
+    }
+  })
+
+  test('file', () => {
+    const gr = PGF.newNGF('empty', './empty.ngf')
+    expect(gr.getCategories().length).toBe(0)
+  })
+
+  test('memory', () => {
+    const gr = PGF.newNGF('empty')
+    expect(gr.getCategories().length).toBe(0)
+  })
+
+  test('existing', () => {
+    expect(() => {
+      PGF.newNGF('empty', './basic.ngf')
+    }).toThrow(Error)
+  })
+})
+
+// ----------------------------------------------------------------------------
 
 describe('abstract syntax', () => {
   let gr: PGFGrammar
