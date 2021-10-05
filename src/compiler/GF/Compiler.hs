@@ -15,6 +15,7 @@ import GF.Grammar.CFG
 --import GF.Infra.Ident(showIdent)
 import GF.Infra.UseIO
 import GF.Infra.Option
+import GF.Infra.CheckM
 import GF.Data.ErrM
 import GF.System.Directory
 import GF.Text.Pretty(render,render80)
@@ -67,22 +68,25 @@ compileSourceFiles opts fs =
       where
         ofmts = flag optOutputFormats opts
 
-    cnc2haskell (cnc,gr) =
-      do mapM_ writeExport $ concretes2haskell opts (srcAbsName gr cnc) gr
+    cnc2haskell (cnc,gr) = do
+      (res,_) <- runCheck (concretes2haskell opts (srcAbsName gr cnc) gr)
+      mapM_ writeExport res
 
-    abs2canonical (cnc,gr) =
-        writeExport ("canonical/"++render absname++".gf",render80 canAbs)
+    abs2canonical (cnc,gr) = do
+      (canAbs,_) <- runCheck (abstract2canonical absname gr)
+      writeExport ("canonical/"++render absname++".gf",render80 canAbs)
       where
         absname = srcAbsName gr cnc
-        canAbs = abstract2canonical absname gr
 
-    cnc2canonical (cnc,gr) =
-      mapM_ (writeExport.fmap render80) $
-            concretes2canonical opts (srcAbsName gr cnc) gr
+    cnc2canonical (cnc,gr) = do
+      (res,_) <- runCheck (concretes2canonical opts (srcAbsName gr cnc) gr)
+      mapM_ (writeExport.fmap render80) res
 
-    grammar2json (cnc,gr) = encodeJSON (render absname ++ ".json") gr_canon
-      where absname = srcAbsName gr cnc
-            gr_canon = grammar2canonical opts absname gr
+    grammar2json (cnc,gr) = do
+      (gr_canon,_) <- runCheck (grammar2canonical opts absname gr)
+      return (encodeJSON (render absname ++ ".json") gr_canon)
+      where
+        absname = srcAbsName gr cnc
 
     writeExport (path,s) = writing opts path $ writeUTF8File path s
 

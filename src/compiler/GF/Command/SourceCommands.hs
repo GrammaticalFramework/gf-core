@@ -8,9 +8,11 @@ import qualified Data.Map as Map
 
 import GF.Infra.SIO(MonadSIO(..),restricted)
 import GF.Infra.Option(modifyFlags,optTrace) --,noOptions
-import GF.Data.Operations (chunks,err,raise)
-import GF.Text.Pretty(render)
+import GF.Infra.Dependencies(depGraph)
+import GF.Infra.CheckM
+import GF.Text.Pretty(render,pp)
 import GF.Data.Str(sstr)
+import GF.Data.Operations (chunks,err,raise)
 
 import GF.Grammar hiding (Ident,isPrefixOf)
 import GF.Grammar.Analyse
@@ -20,8 +22,6 @@ import GF.Grammar.Lookup (allOpers,allOpersTo)
 import GF.Compile.Rename(renameSourceTerm)
 import GF.Compile.Compute.Concrete(normalForm)
 import GF.Compile.TypeCheck.Concrete as TC(inferLType,ppType)
-import GF.Infra.Dependencies(depGraph)
-import GF.Infra.CheckM(runCheck)
 
 import GF.Command.Abstract(Option(..),isOpt,listFlags,valueString,valStrOpts)
 import GF.Command.CommandInfo
@@ -162,12 +162,11 @@ sourceCommands = Map.fromList [
       do sgr <- getGrammar
          liftSIO (exec opts (toStrings ts) sgr)
 
-    compute_concrete opts ws sgr =
+    compute_concrete opts ws sgr = fmap fst $ runCheck $
       case runP pExp (UTF8.fromString s) of
         Left (_,msg) -> return $ pipeMessage msg
-        Right t      -> return $ err pipeMessage
-                                     (fromString . showTerm sgr style q)
-                                 $ checkComputeTerm opts sgr t
+        Right t      -> do t <- checkComputeTerm opts sgr t
+                           return (fromString (showTerm sgr style q t))
       where
         (style,q) = pOpts TermPrintDefault Qualified opts
         s = unwords ws
@@ -200,16 +199,16 @@ sourceCommands = Map.fromList [
                 | otherwise = unwords $ map prTerm ops
           return $ fromString printed
 
-    show_operations os ts sgr =
+    show_operations os ts sgr = fmap fst $ runCheck $
       case greatestResource sgr of
-        Nothing -> return $ fromString "no source grammar in scope; did you import with -retain?"
+        Nothing -> checkError (pp "no source grammar in scope; did you import with -retain?")
         Just mo -> do
           let greps = map valueString (listFlags "grep" os)
           let isRaw = isOpt "raw" os
           ops <- case ts of
              _:_ -> do
                let Right t = runP pExp (UTF8.fromString (unwords ts))
-               ty <- err error return $ checkComputeTerm os sgr t
+               ty <- checkComputeTerm os sgr t
                return $ allOpersTo sgr ty
              _   -> return $ allOpers sgr
           let sigs = [(op,ty) | ((mo,op),ty,pos) <- ops]
@@ -254,14 +253,12 @@ sourceCommands = Map.fromList [
          return void
 
 checkComputeTerm os sgr t =
-  do mo <- maybe (raise "no source grammar in scope") return $
+  do mo <- maybe (checkError (pp "no source grammar in scope")) return $
            greatestResource sgr
-     ((t,_),_) <- runCheck $ do t <- renameSourceTerm sgr mo t
-                                inferLType sgr [] t
+     t <- renameSourceTerm sgr mo t
+     (t,_) <- inferLType sgr [] t                                
      let opts = modifyFlags (\fs->fs{optTrace=isOpt "trace" os})
-         t1 = normalForm sgr (L NoLoc identW) t
-         t2 = evalStr t1
-     checkPredefError t2
+     fmap evalStr (normalForm sgr (L NoLoc identW) t)
   where
     -- ** Try to compute pre{...} tokens in token sequences
     evalStr t =

@@ -16,6 +16,7 @@ import GF.Grammar.Printer
 import GF.Data.Str(Str,glueStr,str2strings,str,sstr,plusStr,strTok)
 import GF.Data.Operations(Err(..),err,errIn,maybeErr,mapPairsM)
 import GF.Data.Utilities(mapFst,mapSnd)
+import GF.Infra.CheckM
 import GF.Infra.Option
 import Data.STRef
 import Data.Maybe(fromMaybe)
@@ -30,12 +31,12 @@ import GF.Text.Pretty
 
 -- * Main entry points
 
-normalForm :: Grammar -> L Ident -> Term -> Term
+normalForm :: Grammar -> L Ident -> Term -> Check Term
 normalForm gr loc t =
-  case runEvalM gr (eval [] t [] >>= value2term 0) of
-    Left msg  -> error (render (ppL loc msg))
-    Right [t] -> t
-    Right ts  -> FV ts
+  fmap mkFV (runEvalM gr (eval [] t [] >>= value2term 0))
+  where
+    mkFV [t] = t
+    mkFV ts  = FV ts
 
 
 data ThunkState s
@@ -52,7 +53,7 @@ data Value s
   | VSusp (Thunk s) (Env s) [Thunk s] (Thunk s -> EvalM s (Value s))
   | VGen  {-# UNPACK #-} !Int [Thunk s]
   | VClosure (Env s) Term
-  | VProd BindType Ident (Value s) (Value s)
+  | VProd BindType Ident (Value s) (Env s) Term
   | VRecType [(Label, Value s)]
   | VR [(Label, Thunk s)]
   | VP (Value s) Label [Thunk s]
@@ -85,7 +86,7 @@ eval env (Meta i)       vs  = do tnk <- newMeta i
                                  return (VMeta tnk env vs)
 eval env (ImplArg t)    []  = eval env t []
 eval env (Prod b x t1 t2)[] = do v1 <- eval env t1 []
-                                 return (VProd b x v1 (VClosure env (Abs b x t2)))
+                                 return (VProd b x v1 env t2)
 eval env (Typed t ty)   vs  = eval env t vs
 eval env (RecType lbls) []  = do lbls <- mapM (\(lbl,ty) -> fmap ((,) lbl) (eval env ty [])) lbls
                                  return (VRecType lbls)
@@ -137,7 +138,6 @@ eval env (EPatt min max p) [] = return (VPatt min max p)
 eval env (EPattType t)  []  = do v <- eval env t []
                                  return (VPattType v)
 eval env (FV ts)        vs  = msum [eval env t vs | t <- ts]
-eval env (Error msg)    vs  = fail msg
 eval env t              vs  = evalError ("Cannot reduce term" <+> pp t)
 
 apply v                             []  = return v
@@ -289,9 +289,11 @@ value2term i (VClosure env (Abs b x t)) = do
   v <- eval ((x,tnk):env) t []
   t <- value2term (i+1) v
   return (Abs b (identS ('v':show i)) t)
-value2term i (VProd b x v1 v2) = do
+value2term i (VProd b x v1 env t2) = do
   t1 <- value2term i v1
-  t2 <- value2term i v2
+  tnk <- newGen i
+  v2 <- eval ((x,tnk):env) t2 []
+  t2 <- value2term (i+1) v2
   return (Prod b x t1 t2)
 value2term i (VRecType lbls) = do
   lbls <- mapM (\(lbl,v) -> fmap ((,) lbl) (value2term i v)) lbls
@@ -342,7 +344,7 @@ value2int _        = Nothing
 -- * Evaluation monad
 
 type MetaThunks s = Map.Map MetaId (Thunk s)
-type Cont s r = MetaThunks s -> r -> ST s (Either Doc r)
+type Cont s r = MetaThunks s -> r -> ST s (CheckResult r)
 newtype EvalM s a = EvalM (forall r . Grammar -> (a -> Cont s r) -> Cont s r)
 
 instance Functor (EvalM s) where
@@ -361,33 +363,33 @@ instance Monad (EvalM s) where
 #endif
 
 instance Fail.MonadFail (EvalM s) where
-  fail msg = EvalM (\gr k _ r -> return (Left (pp msg)))
+  fail msg = EvalM (\gr k _ r -> return (Fail (pp msg)))
 
 instance Alternative (EvalM s) where
-  empty = EvalM (\gr k _ r -> return (Right r))
+  empty = EvalM (\gr k _ r -> return (Success r))
   (EvalM f) <|> (EvalM g) = EvalM $ \gr k mt r -> do
      res <- f gr k mt r
      case res of
-       Left msg -> return (Left msg)
-       Right r  -> g gr k mt r
+       Fail msg  -> return (Fail msg)
+       Success r -> g gr k mt r
 
 instance MonadPlus (EvalM s) where
 
-runEvalM :: Grammar -> (forall s . EvalM s a) -> Either Doc [a]
+runEvalM :: Grammar -> (forall s . EvalM s a) -> Check [a]
 runEvalM gr f =
   case runST (case f of
-                EvalM f -> f gr (\x mt xs -> return (Right (x:xs))) Map.empty []) of
-    Left msg -> Left msg
-    Right xs -> Right (reverse xs)
+                EvalM f -> f gr (\x mt xs -> return (Success (x:xs))) Map.empty []) of
+    Fail msg   -> checkError msg
+    Success xs -> return (reverse xs)
 
 evalError :: Doc -> EvalM s a
-evalError msg = EvalM (\gr k _ r -> return (Left msg))
+evalError msg = EvalM (\gr k _ r -> return (Fail msg))
   
 lookupGlobal :: QIdent -> EvalM s Term
 lookupGlobal q = EvalM $ \gr k mt r -> do
   case lookupResDef gr q of
     Ok t    -> k t mt r
-    Bad msg -> return (Left (pp msg))
+    Bad msg -> return (Fail (pp msg))
 
 newThunk env t = EvalM $ \gr k mt r -> do
  tnk <- newSTRef (Unevaluated env t)

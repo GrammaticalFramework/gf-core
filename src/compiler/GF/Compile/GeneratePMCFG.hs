@@ -148,10 +148,9 @@ addPMCFG opts gr opath am cm seqs id info = return (seqs, info)
 
 floc opath loc id = maybe (L loc id) (\path->L (External path loc) id) opath
 
-convert opts gr loc term ty@(_,val) pargs =
-  case normalForm gr loc (etaExpand ty term) of
-    Error s -> fail $ render $ ppL loc ("Predef.error: "++s)
-    term    -> return $ runCnvMonad gr (convertTerm opts CNil val term) (pargs,[])
+convert opts gr loc term ty@(_,val) pargs = error "TODO: convert"
+{-  case normalForm gr loc (etaExpand ty term) of
+    term    -> return $ runCnvMonad gr (convertTerm opts CNil val term) (pargs,[])-}
   where
     etaExpand (context,val) = mkAbs pars . flip mkApp args
       where pars = [(Explicit,v) | v <- vars]

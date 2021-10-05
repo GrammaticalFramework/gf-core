@@ -107,7 +107,7 @@ compileSourceModule opts cwd mb_gfFile gr =
 
     -- Apply to complete modules when not generating tags
     backend mo3 =
-      do mo4 <- runPassE Optimize "optimizing" $ optimizeModule opts gr mo3
+      do mo4 <- runPass Optimize "optimizing" $ optimizeModule opts gr mo3
          if isModCnc (snd mo4) && flag optPMCFG opts
           then runPassI "generating PMCFG" $ generatePMCFG opts gr mb_gfFile mo4
           else runPassI "" $ return mo4
@@ -128,7 +128,6 @@ compileSourceModule opts cwd mb_gfFile gr =
 
     -- * Running a compiler pass, with impedance matching
     runPass = runPass' fst fst snd (liftErr . runCheck' opts)
-    runPassE = runPass2e liftErr id
     runPassI = runPass2e id id Canon
     runPass2e lift dump = runPass' id dump (const "") lift
 

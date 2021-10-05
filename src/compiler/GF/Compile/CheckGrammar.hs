@@ -27,7 +27,7 @@ import GF.Infra.Ident
 import GF.Infra.Option
 
 import GF.Compile.TypeCheck.Abstract
-import GF.Compile.TypeCheck.Concrete(computeLType,checkLType,inferLType,ppType)
+import GF.Compile.TypeCheck.Concrete(checkLType,inferLType,ppType)
 import qualified GF.Compile.TypeCheck.ConcreteNew as CN(checkLType,inferLType)
 import qualified GF.Compile.Compute.Concrete as CN(normalForm)
 
@@ -120,7 +120,7 @@ checkCompleteGrammar opts cwd gr (am,abs) (cm,cnc) = checkInModule cwd cnc NoLoc
                                     return js
                    _ -> do
                      case mb_def of
-                       Ok def -> do (cont,val) <- linTypeOfType gr cm ty
+                       Ok def -> do (cont,val) <- linTypeOfType gr cm (L loc ty)
                                     let linty = (snd (valCat ty),cont,val)
                                     return $ Map.insert c (CncFun (Just linty) (Just (L NoLoc def)) Nothing Nothing) js
                        Bad _  -> do noLinOf c
@@ -140,8 +140,8 @@ checkCompleteGrammar opts cwd gr (am,abs) (cm,cnc) = checkInModule cwd cnc NoLoc
    checkCnc js (c,info) =
      case info of
        CncFun _ d mn mf -> case lookupOrigInfo gr (am,c) of
-                             Ok (_,AbsFun (Just (L _ ty)) _ _ _) ->
-                                        do (cont,val) <- linTypeOfType gr cm ty
+                             Ok (_,AbsFun (Just (L loc ty)) _ _ _) ->
+                                        do (cont,val) <- linTypeOfType gr cm (L loc ty)
                                            let linty = (snd (valCat ty),cont,val)
                                            return $ Map.insert c (CncFun (Just linty) d mn mf) js
                              _       -> do checkWarn ("function" <+> c <+> "is not in abstract")
@@ -181,14 +181,10 @@ checkInfo opts cwd sgr (m,mo) c info = checkInModule cwd mo NoLoc empty $ do
 
     CncCat mty mdef mref mpr mpmcfg -> do
       mty  <- case mty of
-                Just (L loc typ) -> chIn loc "linearization type of" $
-                                     (if False --flag optNewComp opts
-                                        then do (typ,_) <- CN.checkLType gr typ typeType
-                                                typ  <- computeLType gr [] typ
-                                                return (Just (L loc typ))
-                                        else do (typ,_) <- checkLType gr [] typ typeType
-                                                typ  <- computeLType gr [] typ
-                                                return (Just (L loc typ)))
+                Just (L loc typ) -> chIn loc "linearization type of" $ do
+                                      (typ,_) <- checkLType gr [] typ typeType
+                                      typ  <- CN.normalForm gr (L loc c) typ
+                                      return (Just (L loc typ))
                 Nothing          -> return Nothing
       mdef <- case (mty,mdef) of
                 (Just (L _ typ),Just (L loc def)) ->
@@ -228,20 +224,15 @@ checkInfo opts cwd sgr (m,mo) c info = checkInModule cwd mo NoLoc empty $ do
     ResOper pty pde -> do
       (pty', pde') <- case (pty,pde) of
          (Just (L loct ty), Just (L locd de)) -> do
-           ty'     <- chIn loct "operation" $
-                         (if False --flag optNewComp opts
-                            then CN.checkLType gr ty typeType >>= return . CN.normalForm gr (L loct c) . fst -- !!
-                            else checkLType gr [] ty typeType >>= computeLType gr [] . fst)
+           ty'     <- chIn loct "operation" $ do
+                         (ty,_) <- checkLType gr [] ty typeType
+                         CN.normalForm gr (L loct c) ty
            (de',_) <- chIn locd "operation" $
-                         (if False -- flag optNewComp opts
-                            then CN.checkLType gr de ty'
-                            else checkLType gr [] de ty')
+                         checkLType gr [] de ty'
            return (Just (L loct ty'), Just (L locd de'))
          (Nothing         , Just (L locd de)) -> do
            (de',ty') <- chIn locd "operation" $
-                          (if False -- flag optNewComp opts
-                            then CN.inferLType gr de
-                            else inferLType gr [] de)
+                          inferLType gr [] de
            return (Just (L locd ty'), Just (L locd de'))
          (Just (L loct ty), Nothing) -> do
            chIn loct "operation" $
@@ -306,8 +297,8 @@ checkReservedId x =
 -- auxiliaries
 
 -- | linearization types and defaults
-linTypeOfType :: Grammar -> ModuleName -> Type -> Check (Context,Type)
-linTypeOfType cnc m typ = do
+linTypeOfType :: Grammar -> ModuleName -> L Type -> Check (Context,Type)
+linTypeOfType cnc m (L loc typ) = do
   let (cont,cat) = typeSkeleton typ
   val  <- lookLin cat
   args <- mapM mkLinArg (zip [0..] cont)
@@ -325,6 +316,6 @@ linTypeOfType cnc m typ = do
                              plusRecType vars val
      return (Explicit,symb,rec)
    lookLin (_,c) = checks [ --- rather: update with defLinType ?
-      lookupLincat cnc m c >>= computeLType cnc []
+      lookupLincat cnc m c >>= CN.normalForm cnc (L loc c)
      ,return defLinType
      ]

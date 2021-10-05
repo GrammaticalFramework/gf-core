@@ -238,12 +238,6 @@ isPredefConstant t = case t of
   Q (mod,_) | mod == cPredef || mod == cPredefAbs -> True
   _                                               -> False
 
-checkPredefError :: Fail.MonadFail m => Term -> m Term
-checkPredefError t =
-    case t of
-      Error s -> fail ("Error: "++s)
-      _ -> return t
-
 cnPredef :: Ident -> Term
 cnPredef f = Q (cPredef,f)
 

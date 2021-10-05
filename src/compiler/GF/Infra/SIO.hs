@@ -24,12 +24,14 @@ import Control.Applicative(Applicative(..))
 import Control.Monad(liftM,ap)
 import Control.Monad.Trans(MonadTrans(..))
 import System.IO(hPutStr,hFlush,stdout)
+import System.IO.Error(isUserError,ioeGetErrorString)
 import GF.System.Catch(try)
 import System.Process(system)
 import System.Environment(getEnv)
 import Control.Concurrent.Chan(newChan,writeChan,getChanContents)
 import GF.Infra.Concurrency(lazyIO)
 import GF.Infra.UseIO(Output(..))
+import GF.Data.Operations(ErrorMonad(..))
 import qualified System.CPUTime as IO(getCPUTime)
 import qualified System.Directory as IO(getCurrentDirectory)
 import qualified System.Random as IO(newStdGen)
@@ -37,6 +39,7 @@ import qualified GF.Infra.UseIO as IO(getLibraryDirectory)
 import qualified GF.System.Signal as IO(runInterruptibly)
 import qualified GF.Command.Importing as GF(importGrammar, importSource)
 import qualified Control.Monad.Fail as Fail
+import Control.Exception
 
 -- * The SIO monad
 
@@ -61,6 +64,14 @@ instance Output SIO where
   ePutStrLn = lift0 . ePutStrLn
   putStrLnE = putStrLnFlush
   putStrE = putStr
+
+instance ErrorMonad SIO where
+  raise = fail
+  handle m h = SIO $ \putStr ->
+                 catch (unS m putStr) $
+                    \e -> if isUserError e
+                            then unS (h (ioeGetErrorString e)) putStr
+                            else ioError e
 
 class {- Monad m => -} MonadSIO m where liftSIO :: SIO a -> m a
 -- ^ If the Monad m superclass is included, then the generic instance
@@ -96,7 +107,7 @@ restricted io    = SIO (const (restrictedIO io))
 restrictedSystem = restricted . system
 
 restrictedIO io =
-    either (const io) (const $ fail message) =<< try (getEnv "GF_RESTRICTED")
+    either (const io) (const $ fail message) =<< GF.System.Catch.try (getEnv "GF_RESTRICTED")
   where
     message =
       "This operation is not allowed when GF is running in restricted mode."

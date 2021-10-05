@@ -23,9 +23,7 @@ Predef.PTrue
 Predef.PFalse
 Predef.PTrue
 5
-: In _: user error
-CallStack (from HasCallStack):
-  error, called at src/compiler/GF/Compile/Compute/Concrete.hs:36:18 in main:GF.Compile.Compute.Concrete
+user error
 "x" ++ Predef.nonExist ++ "y"
 "x" ++ Predef.BIND ++ "y"
 "x" ++ Predef.SOFT_BIND ++ "y"

@@ -18,13 +18,13 @@ import Debug.Trace(trace)
 
 -- | Generate Haskell code for the all concrete syntaxes associated with
 -- the named abstract syntax in given the grammar.
-concretes2haskell opts absname gr =
-  [(filename,render80 $ concrete2haskell opts abstr cncmod)
-     | let Grammar abstr cncs = grammar2canonical opts absname gr,
-       cncmod<-cncs,
-       let ModId name = concName cncmod
-           filename = showRawIdent name ++ ".hs" :: FilePath
-  ]
+concretes2haskell opts absname gr = do
+  Grammar abstr cncs <- grammar2canonical opts absname gr
+  return [(filename,render80 $ concrete2haskell opts abstr cncmod)
+             | cncmod<-cncs,
+               let ModId name = concName cncmod
+                   filename = showRawIdent name ++ ".hs" :: FilePath
+         ]
 
 -- | Generate Haskell code for the given concrete module.
 -- The only options that make a difference are

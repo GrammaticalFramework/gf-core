@@ -18,6 +18,7 @@ import GF.Grammar.Predef(cPredef,cInts)
 -- import GF.Compile.Compute.Value(Predefined(..))
 import GF.Infra.Ident(ModuleName(..),Ident,ident2raw,rawIdentS,showIdent,isWildIdent)
 import GF.Infra.Option(Options,optionsPGF)
+import GF.Infra.CheckM
 import PGF2(Literal(..))
 import GF.Compile.Compute.Concrete(normalForm)
 import GF.Grammar.Canonical as C
@@ -27,15 +28,16 @@ import qualified Debug.Trace as T
 
 -- | Generate Canonical code for the named abstract syntax and all associated
 -- concrete syntaxes
-grammar2canonical :: Options -> ModuleName -> G.Grammar -> C.Grammar
-grammar2canonical opts absname gr =
-   Grammar (abstract2canonical absname gr)
-           (map snd (concretes2canonical opts absname gr))
+grammar2canonical :: Options -> ModuleName -> G.Grammar -> Check C.Grammar
+grammar2canonical opts absname gr = do
+  abs <- abstract2canonical absname gr
+  cncs <- concretes2canonical opts absname gr
+  return (Grammar abs (map snd cncs))
 
 -- | Generate Canonical code for the named abstract syntax
-abstract2canonical :: ModuleName -> G.Grammar -> Abstract
+abstract2canonical :: ModuleName -> G.Grammar -> Check Abstract
 abstract2canonical absname gr =
-    Abstract (modId absname) (convFlags gr absname) cats funs
+  return (Abstract (modId absname) (convFlags gr absname) cats funs)
   where
     cats = [CatDef (gId c) (convCtx ctx) | ((_,c),AbsCat ctx) <- adefs]
 
@@ -48,7 +50,7 @@ abstract2canonical absname gr =
     convHypo (bt,name,t) =
       case typeForm t of
         ([],(_,cat),[]) -> gId cat -- !!
-        tf -> error $ "abstract2canonical convHypo: " ++ show tf
+        tf -> error ("abstract2canonical convHypo: " ++ show tf)
 
     convType t =
       case typeForm t of
@@ -61,26 +63,24 @@ abstract2canonical absname gr =
 
 -- | Generate Canonical code for the all concrete syntaxes associated with
 -- the named abstract syntax in given the grammar.
-concretes2canonical :: Options -> ModuleName -> G.Grammar -> [(FilePath, Concrete)]
+concretes2canonical :: Options -> ModuleName -> G.Grammar -> Check [(FilePath, Concrete)]
 concretes2canonical opts absname gr =
-  [(cncname,concrete2canonical gr absname cnc cncmod)
-     | cnc<-allConcretes gr absname,
-       let cncname = "canonical" </> render cnc <.> "gf"
-           Ok cncmod = lookupModule gr cnc
-  ]
+  sequence
+    [fmap ((,) cncname) (concrete2canonical gr absname cnc cncmod)
+        | cnc<-allConcretes gr absname,
+          let cncname = "canonical" </> render cnc <.> "gf"
+              Ok cncmod = lookupModule gr cnc
+        ]
 
 -- | Generate Canonical GF for the given concrete module.
-concrete2canonical :: G.Grammar -> ModuleName -> ModuleName -> ModuleInfo -> Concrete
-concrete2canonical gr absname cnc modinfo =
-  Concrete (modId cnc) (modId absname) (convFlags gr cnc)
-      (neededParamTypes S.empty (params defs))
-      [lincat | (_,Left lincat) <- defs]
-      [lin | (_,Right lin) <- defs]
+concrete2canonical :: G.Grammar -> ModuleName -> ModuleName -> ModuleInfo -> Check Concrete
+concrete2canonical gr absname cnc modinfo = do
+  defs <- fmap concat $ mapM (toCanonical gr absname) (M.toList (jments modinfo))
+  return (Concrete (modId cnc) (modId absname) (convFlags gr cnc)
+                   (neededParamTypes S.empty (params defs))
+                   [lincat | (_,Left lincat) <- defs]
+                   [lin | (_,Right lin) <- defs])
   where
-    defs = concatMap (toCanonical gr absname) .
-           M.toList $
-           jments modinfo
-
     params = S.toList . S.unions . map fst
 
     neededParamTypes have [] = []
@@ -93,29 +93,22 @@ concrete2canonical gr absname cnc modinfo =
 -- toCanonical :: G.Grammar -> ModuleName -> (Ident, Info) -> [(S.Set QIdent, Either LincatDef LinDef)]
 toCanonical gr absname (name,jment) =
   case jment of
-    CncCat (Just (L loc typ)) _ _ pprn _ ->
-        [(pts,Left (LincatDef (gId name) (convType ntyp)))]
-      where
-        pts = paramTypes gr ntyp
-        ntyp = nf loc typ
-    CncFun (Just r@(cat,ctx,lincat)) (Just (L loc def)) pprn _ ->
-        [(tts,Right (LinDef (gId name) (map gId args) (convert gr e')))]
-      where
-        tts = tableTypes gr [e']
-
-        e' = cleanupRecordFields lincat $
-             unAbs (length params) $
-             nf loc (mkAbs params (mkApp def (map Vr args)))
-        params = [(b,x)|(b,x,_)<-ctx]
-        args = map snd params
-
+    CncCat (Just (L loc typ)) _ _ pprn _ -> do
+      ntyp <- normalForm gr (L loc name) typ
+      let pts = paramTypes gr ntyp
+      return [(pts,Left (LincatDef (gId name) (convType ntyp)))]
+    CncFun (Just r@(cat,ctx,lincat)) (Just (L loc def)) pprn _ -> do
+      let params = [(b,x)|(b,x,_)<-ctx]
+          args   = map snd params
+      e0 <- normalForm gr (L loc name) (mkAbs params (mkApp def (map Vr args)))
+      let e   = cleanupRecordFields lincat (unAbs (length params) e0)
+          tts = tableTypes gr [e]
+      return [(tts,Right (LinDef (gId name) (map gId args) (convert gr e)))]
     AnyInd _ m  -> case lookupOrigInfo gr (m,name) of
                      Ok (m,jment) -> toCanonical gr absname (name,jment)
-                     _ -> []
-    _ -> []
+                     _ -> return []
+    _ -> return []
   where
-    nf loc = normalForm gr (L loc name)
-
     unAbs 0 t = t
     unAbs n (Abs _ _ t) = unAbs (n-1) t
     unAbs _ t = t
