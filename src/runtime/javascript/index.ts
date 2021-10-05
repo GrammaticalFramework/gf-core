@@ -1,6 +1,9 @@
 /* eslint-disable @typescript-eslint/naming-convention */
 
 import errno from './errno'
+import { Expr } from './expr'
+import { unmarshaller, PgfUnmarshaller, PgfExpr, PgfLiteral } from './ffi'
+
 import ffi from 'ffi-napi'
 import ref, { Pointer } from 'ref-napi'
 import ref_struct, { StructObject } from 'ref-struct-di'
@@ -40,13 +43,13 @@ const PgfType = ref.types.void // TODO
 const PgfTypeHypo = ref.types.void // TODO
 const PgfTypeHypoPtr = ref.refType(PgfTypeHypo)
 
-const PgfExpr = ref.types.void // TODO
-const PgfLiteral = ref.types.void // TODO
+// const PgfExpr = ref.types.void // TODO
+// const PgfLiteral = ref.types.void // TODO
 
 const PgfPrintContext = ref.types.void // TODO
 const PgfPrintContextPtr = ref.refType(PgfPrintContext)
 
-const PgfUnmarshaller = ref.types.void // TODO
+// const PgfUnmarshaller = ref.types.void // TODO
 const PgfUnmarshallerPtr = ref.refType(PgfUnmarshaller)
 
 const PgfMarshaller = ref.types.void // TODO
@@ -289,6 +292,14 @@ function newNGF (abstract_name: string, path?: string): PGFGrammar {
   return new PGFGrammar(db, rev)
 }
 
+function readExpr (str: string): Expr {
+  const txt = PgfText_FromString(str)
+  const expr = runtime.pgf_read_expr(txt, unmarshaller.ref())
+  console.log('expr', expr)
+
+  return new Expr()
+}
+
 // ----------------------------------------------------------------------------
 // Exposed library API
 
@@ -297,5 +308,7 @@ export default {
   readPGF,
   bootNGF,
   readNGF,
-  newNGF
+  newNGF,
+
+  readExpr
 }
