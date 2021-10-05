@@ -154,10 +154,55 @@ describe('abstract syntax', () => {
   })
 
   test('categories', () => {
-    expect(gr.getCategories()).toEqual(['Float','Int','N','P','S','String'])
+    expect(gr.getCategories()).toEqual(['Float', 'Int', 'N', 'P', 'S', 'String'])
   })
 
   test('functions', () => {
-    expect(gr.getFunctions()).toEqual(['c','ind','s','z'])
+    expect(gr.getFunctions()).toEqual(['c', 'ind', 's', 'z'])
+  })
+
+  describe('function is constructor', () => {
+    test('s', () => {
+      expect(gr.functionIsConstructor('s')).toBe(true)
+    })
+    test('z', () => {
+      expect(gr.functionIsConstructor('z')).toBe(true)
+    })
+    test('c', () => {
+      expect(gr.functionIsConstructor('c')).toBe(true)
+    })
+    test('ind', () => {
+      expect(gr.functionIsConstructor('ind')).toBe(false)
+    })
+  })
+
+  describe('functions by category', () => {
+    test('N', () => {
+      expect(gr.functionsByCategory('N')).toEqual(['s', 'z'])
+    })
+    test('S', () => {
+      expect(gr.functionsByCategory('S')).toEqual(['c'])
+    })
+    test('X', () => {
+      expect(gr.functionsByCategory('X')).toEqual([])
+    })
+  })
+
+  describe('probabilities', () => {
+    test.skip('category existing', () => {
+      expect(gr.categoryProbability('S')).toBeDefined()
+    })
+
+    test('category non-existent', () => {
+      expect(gr.categoryProbability('NP')).toBeUndefined()
+    })
+
+    test('function existing', () => {
+      expect(gr.functionProbability('c')).toBeDefined() // returns -0 (!)
+    })
+
+    test('function non-existent', () => {
+      expect(gr.functionProbability('mkC')).toBeUndefined()
+    })
   })
 })
