@@ -204,6 +204,51 @@ export class PGFGrammar {
     return funs
   }
 
+  categoryProbability (cat: string): number | undefined {
+    const catname = PgfText_FromString(cat)
+    const err = new PgfExn
+    const prob = runtime.pgf_category_prob(this.db, this.revision.deref(), catname, err.ref())
+    handleError(err)
+    if (prob === Infinity) {
+      return undefined
+    } else {
+      return prob
+    }
+  }
+
+  functionProbability (fun: string): number | undefined {
+    const funname = PgfText_FromString(fun)
+    const err = new PgfExn
+    const prob = runtime.pgf_function_prob(this.db, this.revision.deref(), funname, err.ref())
+    handleError(err)
+    if (prob === Infinity) {
+      return undefined
+    } else {
+      return prob
+    }
+  }
+
+  functionIsConstructor (fun: string): boolean {
+    const funname = PgfText_FromString(fun)
+    const err = new PgfExn
+    const isCon = runtime.pgf_function_is_constructor(this.db, this.revision.deref(), funname, err.ref())
+    handleError(err)
+    return Boolean(isCon)
+  }
+
+  functionsByCategory (cat: string): string[] {
+    const catname = PgfText_FromString(cat)
+    const funs: string[] = []
+    const callback = ffi.Callback(ref.types.void, [ PgfItorPtr, PgfTextPtr, voidPtr, PgfExnPtr ],
+      function (self: Pointer<any>, key: Pointer<any>, value: Pointer<any>, err: Pointer<any>) { // eslint-disable-line @typescript-eslint/no-unused-vars
+        const k = PgfText_AsString(key)
+        funs.push(k)
+    })
+    const err = new PgfExn
+    runtime.pgf_iter_functions_by_cat(this.db, this.revision.deref(), catname, callback.ref() as Pointer<void>, err.ref())
+    handleError(err)
+    return funs
+  }
 }
 
 // ----------------------------------------------------------------------------
