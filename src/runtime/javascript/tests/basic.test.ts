@@ -218,7 +218,7 @@ describe('expressions', () => {
     expect(e1).not.toEqual(e3)
   })
 
-  test.skip('negative integer', () => {
+  test('negative integer', () => {
     const e1 = PGF.readExpr('-123')
     const e2 = new PGF.ExprLit(-123)
     const e3 = new PGF.ExprLit(-456)
@@ -226,9 +226,31 @@ describe('expressions', () => {
     expect(e1).not.toEqual(e3)
   })
 
-  // test.only('big integer', () => {
-  //   const e1 = PGF.readExpr('774763251095801167872')
-  //   const e2 = new PGF.ExprLit(BigInt(774763251095801167872))
-  //   expect(e1).toEqual(e2)
-  // })
+  test('big integer', () => {
+    const e1 = PGF.readExpr('774763251095801167872')
+    const e2 = new PGF.ExprLit(BigInt('774763251095801167872'))
+    expect(e1).toEqual(e2)
+  })
+
+  test('negative big integer', () => {
+    const e1 = PGF.readExpr('-774763251095801167872')
+    const e2 = new PGF.ExprLit(BigInt('-774763251095801167872'))
+    expect(e1).toEqual(e2)
+  })
+
+  test('really big integer', () => {
+    const e1 = PGF.readExpr('7747632510958011678729003251095801167999')
+    const e2 = new PGF.ExprLit(BigInt('7747632510958011678729003251095801167999'))
+    const e3 = new PGF.ExprLit(BigInt('7747632510958011678729003251095801167990'))
+    expect(e1).toEqual(e2)
+    expect(e1).not.toEqual(e3)
+  })
+
+  test('negative really big integer', () => {
+    const e1 = PGF.readExpr('-7747632510958011678729003251095801167999')
+    const e2 = new PGF.ExprLit(BigInt('-7747632510958011678729003251095801167999'))
+    const e3 = new PGF.ExprLit(BigInt('-7747632510958011678729003251095801167990'))
+    expect(e1).toEqual(e2)
+    expect(e1).not.toEqual(e3)
+  })
 })

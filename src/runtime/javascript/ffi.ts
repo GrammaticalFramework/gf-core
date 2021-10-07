@@ -1,6 +1,7 @@
 /* eslint-disable @typescript-eslint/naming-convention */
 import { ExprLit, Literal } from './expr'
 
+import os from 'os'
 import ffi from 'ffi-napi'
 import ref, { Pointer } from 'ref-napi'
 import ref_struct from 'ref-struct-di'
@@ -37,9 +38,34 @@ const elit = ffi.Callback(PgfExpr, [PgfUnmarshaller, PgfLiteral],
     return buf
   })
 
-const lint = ffi.Callback(PgfLiteral, [PgfUnmarshaller, ref.types.size_t, ref.refType(ref.types.uint)],
+// TODO get from platform/runtime
+const WORDSIZE_BITS = 64
+const WORDSIZE_BYTES = WORDSIZE_BITS / 8
+const LINT_BASE = BigInt('10000000000000000000')
+
+const lint = ffi.Callback(PgfLiteral, [PgfUnmarshaller, ref.types.size_t, ref.refType(ref.types.int)],
   function (self, size: number, val: Pointer<number>): Pointer<Literal> {
-    const obj = new Literal(val.deref())
+    let jsval: number | bigint = 0
+    if (size === 1) {
+      jsval = val.deref()
+    } else if (size > 1) {
+      jsval = BigInt(val.deref())
+      const pos = jsval >= 0
+      const vals = ref.reinterpret(val, size * WORDSIZE_BYTES)
+      for (let n = 1; n < size; n++) {
+        let thisval
+        switch (WORDSIZE_BITS) {
+          case 64:
+            thisval = BigInt((os.endianness() === 'LE') ? vals.readUInt64LE(n * WORDSIZE_BYTES) : vals.readUInt64BE(n * WORDSIZE_BYTES))
+        }
+        if (thisval == null) {
+          throw Error(`Unsupported word size: ${WORDSIZE_BITS}`)
+        }
+        jsval = (jsval * LINT_BASE) + (pos ? thisval : -thisval)
+      }
+    }
+
+    const obj = new Literal(jsval)
     const buf = ref.alloc(ref.types.Object) as Pointer<Literal>
     ref.writeObject(buf, 0, obj)
     return buf
@@ -47,7 +73,6 @@ const lint = ffi.Callback(PgfLiteral, [PgfUnmarshaller, ref.types.size_t, ref.re
 
 const free_ref = ffi.Callback(ref.types.void, [PgfUnmarshaller, ref.refType(ref.types.void)],
   function (self, x: any): void {
-    // console.log('free_ref')
   })
 
 const vtbl = new PgfUnmarshallerVtbl({

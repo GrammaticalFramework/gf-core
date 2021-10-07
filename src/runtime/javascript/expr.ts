@@ -31,7 +31,7 @@ export class ExprApp extends Expr {
 }
 export class ExprLit extends Expr {
   lit: Literal
-  constructor (l: Literal | number | string) {
+  constructor (l: Literal | number | bigint | string) {
     super()
     if (l instanceof Literal) this.lit = l
     else this.lit = new Literal(l)
@@ -58,8 +58,8 @@ export class ExprImplArg extends Expr {
 }
 
 export class Literal {
-  val: number | string
-  constructor (v: number | string) {
+  val: number | bigint | string
+  constructor (v: number | bigint | string) {
     this.val = v
   }
 
