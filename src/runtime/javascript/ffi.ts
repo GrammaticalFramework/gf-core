@@ -236,12 +236,19 @@ const lint = ffi.Callback(PgfLiteral, [PgfUnmarshaller, ref.types.size_t, ref.re
 
 const lflt = ffi.Callback(PgfLiteral, [PgfUnmarshaller, ref.types.double],
   function (self, val: number): Pointer<Literal> {
-    return 0 as any
+    const obj = new Literal(val)
+    const buf = ref.alloc(ref.types.Object) as Pointer<Literal>
+    ref.writeObject(buf, 0, obj)
+    return buf
   })
 
 const lstr = ffi.Callback(PgfLiteral, [PgfUnmarshaller, PgfTextPtr],
   function (self, val: Pointer<any>): Pointer<Literal> {
-    return 0 as any
+    const jsval = PgfText_AsString(val)
+    const obj = new Literal(jsval)
+    const buf = ref.alloc(ref.types.Object) as Pointer<Literal>
+    ref.writeObject(buf, 0, obj)
+    return buf
   })
 
 const dtyp = ffi.Callback(PgfType, [PgfUnmarshaller, ref.types.int, PgfTypeHypoPtr, PgfTextPtr, ref.types.int, ref.refType(PgfExpr)],
@@ -249,8 +256,8 @@ const dtyp = ffi.Callback(PgfType, [PgfUnmarshaller, ref.types.int, PgfTypeHypoP
     return 0 as any
   })
 
-const free_ref = ffi.Callback(ref.types.void, [PgfUnmarshaller, ref.refType(ref.types.void)],
-  function (self, x: any): void {
+const free_ref = ffi.Callback(ref.types.void, [PgfUnmarshaller, ref.refType(ref.types.Object)],
+  function (self, x: Pointer<any>): void {
   })
 
 const un_vtbl = new PgfUnmarshallerVtbl({
