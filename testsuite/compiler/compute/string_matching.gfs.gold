@@ -29,3 +29,4 @@ param_table.Q2
          "q1" => param_table.Q1;
          _ => param_table.Q2
        }
+pre {"в"; "във" / strs {"в"; "ф"}}

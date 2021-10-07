@@ -3,3 +3,8 @@ cc hello
 cc {x="x"; y="y"}.x
 cc {x="x"; y="y"}.y
 cc <\r -> r.x : {x:Str; y:Str} -> Str>
+cc <{x="x"; y="y"} ** {z="z"} : {x,y,z:Str}>
+cc <{x="x"; y="y"} ** {y="y'"} : {x,y:Str}>
+cc <\r -> r ** {y="y'"} : {x,y:Str} -> {y:Str}>
+cc <\r -> r ** {y="y'"} : {x,y:Str} -> {x,y:Str}>
+cc <\r -> f r ** {b="b"} : {b:Str} -> {b:Str}>

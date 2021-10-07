@@ -11,7 +11,7 @@ import Prelude hiding ((<>)) -- GHC 8.4.1 clash with Text.PrettyPrint
 import GF.Grammar hiding (Env, VGen, VApp, VRecType)
 import GF.Grammar.Lookup(lookupResDef,allParamValues)
 import GF.Grammar.Predef
-import GF.Grammar.Lockfield(isLockLabel,lockRecType) --unlockRecord,lockLabel
+import GF.Grammar.Lockfield(lockLabel)
 import GF.Grammar.Printer
 import GF.Data.Str(Str,glueStr,str2strings,str,sstr,plusStr,strTok)
 import GF.Data.Operations(Err(..),err,errIn,maybeErr,mapPairsM)
@@ -57,6 +57,7 @@ data Value s
   | VRecType [(Label, Value s)]
   | VR [(Label, Thunk s)]
   | VP (Value s) Label [Thunk s]
+  | VExtR (Value s) (Value s)
   | VTable (Value s) (Value s)
   | VT TInfo [Case]
   | VV Type [Thunk s]
@@ -69,6 +70,8 @@ data Value s
   | VGlue (Value s) (Value s)
   | VPatt Int (Maybe Int) Patt
   | VPattType (Value s)
+  | VAlts (Value s) [(Value s, Value s)]
+  | VStrs [Value s]
 
 
 eval env (Vr x)         vs  = case lookup x env of
@@ -100,6 +103,12 @@ eval env (P t lbl)      vs  = do v <- eval env t []
                                                                      "in record" <+> pp t)
                                               Just tnk -> force tnk vs
                                    v     -> return (VP v lbl vs)
+eval env (ExtR t1 t2)   []  = do v1 <- eval env t1 []
+                                 v2 <- eval env t2 []
+                                 case (v1,v2) of
+                                   (VR       as1,VR       as2) -> return (VR       (foldl (\as (lbl,v) -> update lbl v as) as1 as2))
+                                   (VRecType as1,VRecType as2) -> return (VRecType (foldl (\as (lbl,v) -> update lbl v as) as1 as2))
+                                   _                           -> return (VExtR v1 v2)
 eval env (Table t1 t2)  []  = do v1 <- eval env t1 []
                                  v2 <- eval env t2 []
                                  return (VTable v1 v2)
@@ -110,7 +119,12 @@ eval env t@(S t1 t2)    vs  = do v1   <- eval env t1 []
                                  tnk2 <- newThunk env t2
                                  let v0 = VS v1 tnk2 vs
                                  case v1 of
-                                   VT _ cs -> patternMatch v0 (map (\(p,t) -> (env,[p],tnk2:vs,t)) cs)
+                                   VT _  cs   -> patternMatch v0 (map (\(p,t) -> (env,[p],tnk2:vs,t)) cs)
+                                   VV ty tnks -> do t2 <- force tnk2 [] >>= value2term (length env)
+                                                    ts <- getAllParamValues ty
+                                                    case lookup t2 (zip ts tnks) of
+                                                      Just tnk -> force tnk vs
+                                                      Nothing  -> return v0
                                    v1      -> return v0
 eval env (Let (x,(_,t1)) t2) vs = do tnk <- newThunk env t1
                                      eval ((x,tnk):env) t2 vs
@@ -138,7 +152,27 @@ eval env t@(Glue t1 t2) []  = do v1 <- eval env t1 []
 eval env (EPatt min max p) [] = return (VPatt min max p)
 eval env (EPattType t)  []  = do v <- eval env t []
                                  return (VPattType v)
+eval env (ELincat c ty) []  = do v <- eval env ty []
+                                 let lbl = lockLabel c
+                                     lv  = VRecType []
+                                 case v of
+                                   (VRecType as) -> return (VRecType (update lbl lv as))
+                                   _             -> return (VExtR v (VRecType [(lbl,lv)]))
+eval env (ELin c t)     []  = do v <- eval env t []
+                                 let lbl = lockLabel c
+                                 tnk <- newEvaluatedThunk (VR [])
+                                 case v of
+                                   (VR as) -> return (VR (update lbl tnk as))
+                                   _       -> return (VExtR v (VR [(lbl,tnk)]))
 eval env (FV ts)        vs  = msum [eval env t vs | t <- ts]
+eval env (Alts d as)    []  = do vd <- eval env d []
+                                 vas <- forM as $ \(t,s) -> do
+                                           vt <- eval env t []
+                                           vs <- eval env s []
+                                           return (vt,vs)
+                                 return (VAlts vd vas)
+eval env (Strs ts)      []  = do vs <- mapM (\t -> eval env t []) ts
+                                 return (VStrs vs)
 eval env t              vs  = evalError ("Cannot reduce term" <+> pp t)
 
 apply v                             []  = return v
@@ -198,6 +232,11 @@ occur s1 s2@(_:tail) = check s1 s2
     check _      _      = occur s1 tail
 
 occurs cs s2 = any (\c -> elem c s2) cs
+
+update lbl v []              = [(lbl,v)]
+update lbl v (a@(lbl',_):as)
+  | lbl==lbl'                = (lbl,v) : as
+  | otherwise                = a : update lbl v as
 
 patternMatch v0 []                      = fail "No matching pattern found"
 patternMatch v0 ((env0,ps,args0,t):eqs) = match env0 ps eqs args0
@@ -305,6 +344,10 @@ value2term i (VR as) = do
 value2term i (VP v lbl tnks) = do
   t <- value2term i v
   foldM (\e1 tnk -> fmap (App e1) (force tnk [] >>= value2term i)) (P t lbl) tnks
+value2term i (VExtR v1 v2) = do
+  t1 <- value2term i v1
+  t2 <- value2term i v2
+  return (ExtR t1 t2) 
 value2term i (VTable v1 v2) = do
   t1 <- value2term i v1
   t2 <- value2term i v2
@@ -331,7 +374,16 @@ value2term i (VGlue v1 v2) = do
 value2term i (VPatt min max p) = return (EPatt min max p)
 value2term i (VPattType v) = do t <- value2term i v
                                 return (EPattType t)
-
+value2term i (VAlts vd vas) = do
+  d <- value2term i vd
+  as <- forM vas $ \(vt,vs) -> do
+           t <- value2term i vt
+           s <- value2term i vs
+           return (t,s)
+  return (Alts d as)
+value2term i (VStrs vs) = do
+  ts <- mapM (value2term i) vs
+  return (Strs ts)
 value2string (VStr s) = Just s
 value2string (VC vs)  = fmap unwords (mapM value2string vs)
 value2string _        = Nothing
@@ -394,6 +446,12 @@ lookupGlobal :: QIdent -> EvalM s Term
 lookupGlobal q = EvalM $ \gr k mt r -> do
   case lookupResDef gr q of
     Ok t    -> k t mt r
+    Bad msg -> return (Fail (pp msg))
+
+getAllParamValues :: Type -> EvalM s [Term]
+getAllParamValues ty = EvalM $ \gr k mt r ->
+  case allParamValues gr ty of
+    Ok ts   -> k ts mt r
     Bad msg -> return (Fail (pp msg))
 
 newThunk env t = EvalM $ \gr k mt r -> do
