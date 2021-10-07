@@ -1,7 +1,7 @@
 /* eslint-disable @typescript-eslint/naming-convention */
 
 import errno from './errno'
-import { Expr } from './expr'
+import { Expr, ExprLit } from './expr'
 import { unmarshaller, PgfUnmarshaller, PgfExpr, PgfLiteral } from './ffi'
 
 import ffi from 'ffi-napi'
@@ -185,7 +185,7 @@ export class PGFGrammar {
   getCategories (): string[] {
     const cats: string[] = []
     const callback = ffi.Callback(ref.types.void, [PgfItorPtr, PgfTextPtr, voidPtr, PgfExnPtr],
-      function (self: Pointer<any>, key: Pointer<any>, value: Pointer<any>, err: Pointer<any>) { // eslint-disable-line @typescript-eslint/no-unused-vars
+      function (self: Pointer<any>, key: Pointer<any>, value: Pointer<any>, err: Pointer<any>) {
         const k = PgfText_AsString(key)
         cats.push(k)
       })
@@ -198,7 +198,7 @@ export class PGFGrammar {
   getFunctions (): string[] {
     const funs: string[] = []
     const callback = ffi.Callback(ref.types.void, [PgfItorPtr, PgfTextPtr, voidPtr, PgfExnPtr],
-      function (self: Pointer<any>, key: Pointer<any>, value: Pointer<any>, err: Pointer<any>) { // eslint-disable-line @typescript-eslint/no-unused-vars
+      function (self: Pointer<any>, key: Pointer<any>, value: Pointer<any>, err: Pointer<any>) {
         const k = PgfText_AsString(key)
         funs.push(k)
       })
@@ -244,7 +244,7 @@ export class PGFGrammar {
     const catname = PgfText_FromString(cat)
     const funs: string[] = []
     const callback = ffi.Callback(ref.types.void, [PgfItorPtr, PgfTextPtr, voidPtr, PgfExnPtr],
-      function (self: Pointer<any>, key: Pointer<any>, value: Pointer<any>, err: Pointer<any>) { // eslint-disable-line @typescript-eslint/no-unused-vars
+      function (self: Pointer<any>, key: Pointer<any>, value: Pointer<any>, err: Pointer<any>) {
         const k = PgfText_AsString(key)
         funs.push(k)
       })
@@ -295,9 +295,7 @@ function newNGF (abstract_name: string, path?: string): PGFGrammar {
 function readExpr (str: string): Expr {
   const txt = PgfText_FromString(str)
   const expr = runtime.pgf_read_expr(txt, unmarshaller.ref())
-  console.log('expr', expr)
-
-  return new Expr()
+  return ref.readObject(expr) as Expr
 }
 
 // ----------------------------------------------------------------------------
@@ -310,5 +308,8 @@ export default {
   readNGF,
   newNGF,
 
-  readExpr
+  readExpr,
+
+  Expr,
+  ExprLit
 }

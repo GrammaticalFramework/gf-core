@@ -1,12 +1,13 @@
 /* eslint-disable @typescript-eslint/naming-convention */
+import { ExprLit, Literal } from './expr'
 
 import ffi from 'ffi-napi'
 import ref, { Pointer } from 'ref-napi'
 import ref_struct from 'ref-struct-di'
 const Struct = ref_struct(ref)
 
-export const PgfExpr = ref.refType(ref.types.void)
-export const PgfLiteral = ref.refType(ref.types.void)
+export const PgfExpr = ref.refType(ref.types.Object)
+export const PgfLiteral = ref.refType(ref.types.Object)
 
 const PgfUnmarshallerVtbl = Struct({
   eabs: ref.refType(ref.types.void),
@@ -28,24 +29,25 @@ export const PgfUnmarshaller = Struct({
 })
 
 const elit = ffi.Callback(PgfExpr, [PgfUnmarshaller, PgfLiteral],
-  function (self, lit: Pointer<any>): any { // eslint-disable-line @typescript-eslint/no-unused-vars
-    console.log('myelit')
-    console.log('  lit', lit)
-    return lit.deref()
+  function (self, lit: Pointer<any>): Pointer<ExprLit> {
+    const litObj = lit.deref() as Literal
+    const obj = new ExprLit(litObj)
+    const buf = ref.alloc(ref.types.Object) as Pointer<ExprLit>
+    ref.writeObject(buf, 0, obj)
+    return buf
   })
 
 const lint = ffi.Callback(PgfLiteral, [PgfUnmarshaller, ref.types.size_t, ref.refType(ref.types.uint)],
-  function (self, size: number, val: Pointer<number>): any { // eslint-disable-line @typescript-eslint/no-unused-vars
-    console.log('mylint')
-    console.log('  size', size)
-    console.log('  val', val.deref())
-    // const x: number = val.deref()
-    return val
+  function (self, size: number, val: Pointer<number>): Pointer<Literal> {
+    const obj = new Literal(val.deref())
+    const buf = ref.alloc(ref.types.Object) as Pointer<Literal>
+    ref.writeObject(buf, 0, obj)
+    return buf
   })
 
 const free_ref = ffi.Callback(ref.types.void, [PgfUnmarshaller, ref.refType(ref.types.void)],
-  function (self, x: any): void { // eslint-disable-line @typescript-eslint/no-unused-vars
-    console.log('free_ref')
+  function (self, x: any): void {
+    // console.log('free_ref')
   })
 
 const vtbl = new PgfUnmarshallerVtbl({
