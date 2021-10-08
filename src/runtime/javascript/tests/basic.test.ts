@@ -210,79 +210,87 @@ describe('abstract syntax', () => {
 // ----------------------------------------------------------------------------
 
 describe('expressions', () => {
-  test('small integer', () => {
-    const e1 = PGF.readExpr('123')
-    const e2 = new PGF.ExprLit(123)
-    const e3 = new PGF.ExprLit(456)
-    expect(e1).toEqual(e2)
-    expect(e1).not.toEqual(e3)
+  test('invalid', () => {
+    expect(() => {
+      PGF.readExpr('->')
+    }).toThrow(PGF.PGFError)
   })
 
-  test('negative integer', () => {
-    const e1 = PGF.readExpr('-123')
-    const e2 = new PGF.ExprLit(-123)
-    const e3 = new PGF.ExprLit(-456)
-    expect(e1).toEqual(e2)
-    expect(e1).not.toEqual(e3)
-  })
+  describe('literals', () => {
+    test('small integer', () => {
+      const e1 = PGF.readExpr('123')
+      const e2 = new PGF.ExprLit(123)
+      const e3 = new PGF.ExprLit(456)
+      expect(e1).toEqual(e2)
+      expect(e1).not.toEqual(e3)
+    })
 
-  test('big integer', () => {
-    const e1 = PGF.readExpr('774763251095801167872')
-    const e2 = new PGF.ExprLit(BigInt('774763251095801167872'))
-    expect(e1).toEqual(e2)
-  })
+    test('negative integer', () => {
+      const e1 = PGF.readExpr('-123')
+      const e2 = new PGF.ExprLit(-123)
+      const e3 = new PGF.ExprLit(-456)
+      expect(e1).toEqual(e2)
+      expect(e1).not.toEqual(e3)
+    })
 
-  test('negative big integer', () => {
-    const e1 = PGF.readExpr('-774763251095801167872')
-    const e2 = new PGF.ExprLit(BigInt('-774763251095801167872'))
-    expect(e1).toEqual(e2)
-  })
+    test('big integer', () => {
+      const e1 = PGF.readExpr('774763251095801167872')
+      const e2 = new PGF.ExprLit(BigInt('774763251095801167872'))
+      expect(e1).toEqual(e2)
+    })
 
-  test('really big integer', () => {
-    const e1 = PGF.readExpr('7747632510958011678729003251095801167999')
-    const e2 = new PGF.ExprLit(BigInt('7747632510958011678729003251095801167999'))
-    const e3 = new PGF.ExprLit(BigInt('7747632510958011678729003251095801167990'))
-    expect(e1).toEqual(e2)
-    expect(e1).not.toEqual(e3)
-  })
+    test('negative big integer', () => {
+      const e1 = PGF.readExpr('-774763251095801167872')
+      const e2 = new PGF.ExprLit(BigInt('-774763251095801167872'))
+      expect(e1).toEqual(e2)
+    })
 
-  test('negative really big integer', () => {
-    const e1 = PGF.readExpr('-7747632510958011678729003251095801167999')
-    const e2 = new PGF.ExprLit(BigInt('-7747632510958011678729003251095801167999'))
-    const e3 = new PGF.ExprLit(BigInt('-7747632510958011678729003251095801167990'))
-    expect(e1).toEqual(e2)
-    expect(e1).not.toEqual(e3)
-  })
+    test('really big integer', () => {
+      const e1 = PGF.readExpr('7747632510958011678729003251095801167999')
+      const e2 = new PGF.ExprLit(BigInt('7747632510958011678729003251095801167999'))
+      const e3 = new PGF.ExprLit(BigInt('7747632510958011678729003251095801167990'))
+      expect(e1).toEqual(e2)
+      expect(e1).not.toEqual(e3)
+    })
 
-  test('float', () => {
-    const e1 = PGF.readExpr('3.142')
-    const e2 = new PGF.ExprLit(3.142)
-    const e3 = new PGF.ExprLit(2.014)
-    expect(e1).toEqual(e2)
-    expect(e1).not.toEqual(e3)
-  })
+    test('negative really big integer', () => {
+      const e1 = PGF.readExpr('-7747632510958011678729003251095801167999')
+      const e2 = new PGF.ExprLit(BigInt('-7747632510958011678729003251095801167999'))
+      const e3 = new PGF.ExprLit(BigInt('-7747632510958011678729003251095801167990'))
+      expect(e1).toEqual(e2)
+      expect(e1).not.toEqual(e3)
+    })
 
-  test('negative float', () => {
-    const e1 = PGF.readExpr('-3.142')
-    const e2 = new PGF.ExprLit(-3.142)
-    const e3 = new PGF.ExprLit(-2.014)
-    expect(e1).toEqual(e2)
-    expect(e1).not.toEqual(e3)
-  })
+    test('float', () => {
+      const e1 = PGF.readExpr('3.142')
+      const e2 = new PGF.ExprLit(3.142)
+      const e3 = new PGF.ExprLit(2.014)
+      expect(e1).toEqual(e2)
+      expect(e1).not.toEqual(e3)
+    })
 
-  test('string', () => {
-    const e1 = PGF.readExpr('"abc"')
-    const e2 = new PGF.ExprLit('abc')
-    const e3 = new PGF.ExprLit('def')
-    expect(e1).toEqual(e2)
-    expect(e1).not.toEqual(e3)
-  })
+    test('negative float', () => {
+      const e1 = PGF.readExpr('-3.142')
+      const e2 = new PGF.ExprLit(-3.142)
+      const e3 = new PGF.ExprLit(-2.014)
+      expect(e1).toEqual(e2)
+      expect(e1).not.toEqual(e3)
+    })
 
-  test('string unicode', () => {
-    const e1 = PGF.readExpr('"açġħ"')
-    const e2 = new PGF.ExprLit('açġħ')
-    const e3 = new PGF.ExprLit('acgh')
-    expect(e1).toEqual(e2)
-    expect(e1).not.toEqual(e3)
+    test('string', () => {
+      const e1 = PGF.readExpr('"abc"')
+      const e2 = new PGF.ExprLit('abc')
+      const e3 = new PGF.ExprLit('def')
+      expect(e1).toEqual(e2)
+      expect(e1).not.toEqual(e3)
+    })
+
+    test('string unicode', () => {
+      const e1 = PGF.readExpr('"açġħ"')
+      const e2 = new PGF.ExprLit('açġħ')
+      const e3 = new PGF.ExprLit('acgh')
+      expect(e1).toEqual(e2)
+      expect(e1).not.toEqual(e3)
+    })
   })
 })

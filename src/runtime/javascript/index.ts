@@ -201,6 +201,9 @@ function newNGF (abstract_name: string, path?: string): PGFGrammar {
 function readExpr (str: string): Expr {
   const txt = PgfText_FromString(str)
   const expr = runtime.pgf_read_expr(txt, unmarshaller.ref())
+  if (ref.isNull(expr)) {
+    throw new PGFError('unable to parse expression')
+  }
   return ref.readObject(expr) as Expr
 }
 
