@@ -23,7 +23,8 @@ import qualified Data.Map.Strict as Map
 
 generatePMCFG :: Options -> SourceGrammar -> SourceModule -> Check SourceModule
 generatePMCFG opts gr cmo@(cm,cmi) = do
-  js <- mapM (addPMCFG opts gr) (Map.toList (jments cmi))
+  let gr' = prependModule gr cmo
+  js <- mapM (addPMCFG opts gr') (Map.toList (jments cmi))
   return (cm,cmi{jments = (Map.fromAscList js)})
 
 addPMCFG opts gr (id,CncFun mty@(Just (cat,ctxt,val)) mlin@(Just (L loc term)) mprn Nothing) = do
