@@ -1,7 +1,8 @@
 /* eslint-disable @typescript-eslint/naming-convention */
 import {
   Type,
-  // Hypo,
+  Hypo,
+  Expr,
   ExprAbs,
   ExprApp,
   ExprLit,
@@ -12,8 +13,8 @@ import {
   ExprImplArg,
   Literal
 } from './expr'
+import { BE, WORDSIZE_BITS, WORDSIZE_BYTES, LINT_BASE } from './constants'
 
-import os from 'os'
 import ffi from 'ffi-napi'
 import ref, { Pointer } from 'ref-napi'
 import ref_struct from 'ref-struct-di'
@@ -47,7 +48,7 @@ export const PgfTextPtr = ref.refType(PgfText)
 
 export const PgfItorPtr = ref.refType(ref.types.void)
 
-const PgfType = ref.types.void // TODO
+const PgfType = ref.refType(ref.types.Object) // TODO
 // const PgfTypePtr = ref.refType(PgfType)
 
 const PgfTypeHypo = ref.types.void // TODO
@@ -158,18 +159,25 @@ export function PgfText_FromString (str: string): Pointer<any> {
 // Un/marshalling
 
 const eabs = ffi.Callback(PgfExpr, [PgfUnmarshaller, ref.types.bool, PgfTextPtr, PgfExpr],
-  function (self, btype: boolean, name: Pointer<any>, body: Pointer<any>): Pointer<ExprAbs> {
-    return 0 as any
+  function (self, btype: boolean, name: Pointer<any>, body: Pointer<Expr>): Pointer<ExprAbs> {
+    const jsname = PgfText_AsString(name)
+    const obj = new ExprAbs(btype, jsname, body.deref())
+    const buf = ref.alloc(ref.types.Object) as Pointer<ExprAbs>
+    ref.writeObject(buf, 0, obj)
+    return buf
   })
 
 const eapp = ffi.Callback(PgfExpr, [PgfUnmarshaller, PgfExpr, PgfExpr],
-  function (self, fun: Pointer<any>, arg: Pointer<any>): Pointer<ExprApp> {
-    return 0 as any
+  function (self, fun: Pointer<Expr>, arg: Pointer<Type>): Pointer<ExprApp> {
+    const obj = new ExprApp(fun.deref(), arg.deref())
+    const buf = ref.alloc(ref.types.Object) as Pointer<ExprApp>
+    ref.writeObject(buf, 0, obj)
+    return buf
   })
 
 const elit = ffi.Callback(PgfExpr, [PgfUnmarshaller, PgfLiteral],
-  function (self, lit: Pointer<any>): Pointer<ExprLit> {
-    const litObj = lit.deref() as Literal
+  function (self, lit: Pointer<Literal>): Pointer<ExprLit> {
+    const litObj = lit.deref()
     const obj = new ExprLit(litObj)
     const buf = ref.alloc(ref.types.Object) as Pointer<ExprLit>
     ref.writeObject(buf, 0, obj)
@@ -177,34 +185,45 @@ const elit = ffi.Callback(PgfExpr, [PgfUnmarshaller, PgfLiteral],
   })
 
 const emeta = ffi.Callback(PgfExpr, [PgfUnmarshaller, PgfMetaId],
-  function (self, meta: Pointer<any>): Pointer<ExprMeta> {
-    return 0 as any
+  function (self, meta: number): Pointer<ExprMeta> {
+    const obj = new ExprMeta(meta)
+    const buf = ref.alloc(ref.types.Object) as Pointer<ExprMeta>
+    ref.writeObject(buf, 0, obj)
+    return buf
   })
 
 const efun = ffi.Callback(PgfExpr, [PgfUnmarshaller, PgfTextPtr],
   function (self, name: Pointer<any>): Pointer<ExprFun> {
-    return 0 as any
+    const jsname = PgfText_AsString(name)
+    const obj = new ExprFun(jsname)
+    const buf = ref.alloc(ref.types.Object) as Pointer<ExprFun>
+    ref.writeObject(buf, 0, obj)
+    return buf
   })
 
 const evar = ffi.Callback(PgfExpr, [PgfUnmarshaller, ref.types.int],
   function (self, index: number): Pointer<ExprVar> {
-    return 0 as any
+    const obj = new ExprVar(index)
+    const buf = ref.alloc(ref.types.Object) as Pointer<ExprVar>
+    ref.writeObject(buf, 0, obj)
+    return buf
   })
 
 const etyped = ffi.Callback(PgfExpr, [PgfUnmarshaller, PgfExpr, PgfType],
-  function (self, expr: Pointer<any>, type: Pointer<any>): Pointer<ExprTyped> {
-    return 0 as any
+  function (self, expr: Pointer<Expr>, type: Pointer<Type>): Pointer<ExprTyped> {
+    const obj = new ExprTyped(expr.deref(), type.deref())
+    const buf = ref.alloc(ref.types.Object) as Pointer<ExprTyped>
+    ref.writeObject(buf, 0, obj)
+    return buf
   })
 
 const eimplarg = ffi.Callback(PgfExpr, [PgfUnmarshaller, PgfExpr],
-  function (self, expr: Pointer<any>): Pointer<ExprImplArg> {
-    return 0 as any
+  function (self, expr: Pointer<Expr>): Pointer<ExprImplArg> {
+    const obj = new ExprImplArg(expr.deref())
+    const buf = ref.alloc(ref.types.Object) as Pointer<ExprImplArg>
+    ref.writeObject(buf, 0, obj)
+    return buf
   })
-
-// TODO get from platform/runtime
-const WORDSIZE_BITS = 64
-const WORDSIZE_BYTES = WORDSIZE_BITS / 8
-const LINT_BASE = BigInt('10000000000000000000')
 
 const lint = ffi.Callback(PgfLiteral, [PgfUnmarshaller, ref.types.size_t, ref.refType(ref.types.int)],
   function (self, size: number, val: Pointer<number>): Pointer<Literal> {
@@ -219,7 +238,17 @@ const lint = ffi.Callback(PgfLiteral, [PgfUnmarshaller, ref.types.size_t, ref.re
         let thisval
         switch (WORDSIZE_BITS) {
           case 64:
-            thisval = BigInt((os.endianness() === 'LE') ? vals.readUInt64LE(n * WORDSIZE_BYTES) : vals.readUInt64BE(n * WORDSIZE_BYTES))
+            thisval = BigInt(BE ? vals.readUInt64BE(n * WORDSIZE_BYTES) : vals.readUInt64LE(n * WORDSIZE_BYTES))
+            break
+          case 32:
+            thisval = BigInt(BE ? vals.readUInt32BE(n * WORDSIZE_BYTES) : vals.readUInt32LE(n * WORDSIZE_BYTES))
+            break
+          case 16:
+            thisval = BigInt(BE ? vals.readUInt16BE(n * WORDSIZE_BYTES) : vals.readUInt16LE(n * WORDSIZE_BYTES))
+            break
+          case 8:
+            thisval = BigInt(vals.readUInt8(n * WORDSIZE_BYTES))
+            break
         }
         if (thisval == null) {
           throw Error(`Unsupported word size: ${WORDSIZE_BITS}`)
@@ -253,7 +282,14 @@ const lstr = ffi.Callback(PgfLiteral, [PgfUnmarshaller, PgfTextPtr],
 
 const dtyp = ffi.Callback(PgfType, [PgfUnmarshaller, ref.types.int, PgfTypeHypoPtr, PgfTextPtr, ref.types.int, ref.refType(PgfExpr)],
   function (self, n_hypos: number, hypos: Pointer<any>, cat: Pointer<any>, n_exprs: number, exprs: Pointer<any>): Pointer<Type> {
-    return 0 as any
+    // TODO
+    const jshypos: Hypo[] = []
+    const jsname = PgfText_AsString(cat)
+    const jsexprs: Expr[] = []
+    const obj = new Type(jshypos, jsname, jsexprs)
+    const buf = ref.alloc(ref.types.Object) as Pointer<Type>
+    ref.writeObject(buf, 0, obj)
+    return buf
   })
 
 const free_ref = ffi.Callback(ref.types.void, [PgfUnmarshaller, ref.refType(ref.types.Object)],

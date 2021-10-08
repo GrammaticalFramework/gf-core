@@ -2,7 +2,9 @@
 
 ## Requirements
 
-Required system packages (Debian/Ubuntu):
+### Debian/Ubuntu
+
+Required system packages (`apt install ...`):
 ```
 autoconf
 automake
@@ -10,6 +12,11 @@ libtool
 make
 g++
 ```
+
+### macOS
+
+- Install XCode from App Store
+- Install XCode command line tools: `xcode-select --install`
 
 ## Installation
 
