@@ -3,9 +3,12 @@
 -- | Functions for computing the values of terms in the concrete syntax, in
 -- | preparation for PMCFG generation.
 module GF.Compile.Compute.Concrete
-           (normalForm,
-            Value(..), Env, value2term, eval
+           ( normalForm
+           , Value(..), Thunk, ThunkState(..), Env, EvalM, runEvalM
+           , eval, apply, force, value2term
+           , newMeta,newEvaluatedThunk,getAllParamValues
            ) where
+
 import Prelude hiding ((<>)) -- GHC 8.4.1 clash with Text.PrettyPrint
 
 import GF.Grammar hiding (Env, VGen, VApp, VRecType)
@@ -72,6 +75,8 @@ data Value s
   | VPattType (Value s)
   | VAlts (Value s) [(Value s, Value s)]
   | VStrs [Value s]
+  | VSymCat Int Int     -- This is only generated internally in
+                        -- the PMCFG generator.
 
 
 eval env (Vr x)         vs  = case lookup x env of
@@ -322,6 +327,10 @@ value2term i (VMeta m env tnks) = do
   case res of
     Right i -> foldM (\e1 tnk -> fmap (App e1) (force tnk [] >>= value2term i)) (Meta i) tnks
     Left  v -> value2term i v
+value2term i (VSusp j env vs k) = do
+  tnk <- newEvaluatedThunk (VGen maxBound vs)
+  v <- k tnk
+  value2term i v
 value2term i (VGen j tnks) =
   foldM (\e1 tnk -> fmap (App e1) (force tnk [] >>= value2term i)) (Vr (identS ('v':show j))) tnks
 value2term i (VClosure env (Abs b x t)) = do

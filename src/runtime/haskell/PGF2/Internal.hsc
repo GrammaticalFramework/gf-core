@@ -7,38 +7,13 @@ module PGF2.Internal(-- * Access the internal structures
                      -- * Byte code
                      CodeLabel, Instr(..), IVal(..), TailInfo(..),
 
-                     SeqId,LIndex,
-                     FunId,Token,Production(..),PArg(..),Symbol(..),
-
                      unionPGF, writeConcr
                     ) where
 
 import PGF2.FFI
 import PGF2.Expr
 
-type Token  = String
-type LIndex = Int
-data Symbol
-  = SymCat {-# UNPACK #-} !Int {-# UNPACK #-} !LIndex
-  | SymLit {-# UNPACK #-} !Int {-# UNPACK #-} !LIndex
-  | SymVar {-# UNPACK #-} !Int {-# UNPACK #-} !Int
-  | SymKS Token
-  | SymKP [Symbol] [([Symbol],[String])]
-  | SymBIND                         -- the special BIND token
-  | SymNE                           -- non exist
-  | SymSOFT_BIND                    -- the special SOFT_BIND token
-  | SymSOFT_SPACE                   -- the special SOFT_SPACE token
-  | SymCAPIT                        -- the special CAPIT token
-  | SymALL_CAPIT                    -- the special ALL_CAPIT token
-  deriving (Eq,Ord,Show)
-data Production
-  = PApply  {-# UNPACK #-} !FunId [PArg]
-  | PCoerce {-# UNPACK #-} !FId
-  deriving (Eq,Ord,Show)
-type FunId = Int
-type SeqId = Int
 type FId = Int
-data PArg = PArg [FId] {-# UNPACK #-} !FId deriving (Eq,Ord,Show)
 
 fidString, fidInt, fidFloat, fidVar, fidStart :: FId
 fidString = (-1)

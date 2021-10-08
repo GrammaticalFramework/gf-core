@@ -2,7 +2,7 @@
 module GF.Compile.OptimizePGF(optimizePGF) where
 
 import PGF2(Cat,Fun)
-import PGF2.Internal
+import PGF2.Transactions
 import Data.Array.ST
 import Data.Array.Unboxed
 import qualified Data.Map as Map
@@ -12,13 +12,14 @@ import qualified Data.IntMap as IntMap
 import qualified Data.List as List
 import Control.Monad.ST
 
-type ConcrData = ([(FId,[FunId])],          -- ^ Lindefs
+type ConcrData = ()
+{-([(FId,[FunId])],          -- ^ Lindefs
                   [(FId,[FunId])],          -- ^ Linrefs
                   [(FId,[Production])],     -- ^ Productions
                   [(Fun,[SeqId])],          -- ^ Concrete functions   (must be sorted by Fun)
                   [[Symbol]],               -- ^ Sequences            (must be sorted)
                   [(Cat,FId,FId,[String])]) -- ^ Concrete categories
-
+-}
 optimizePGF :: Cat -> ConcrData -> ConcrData
 optimizePGF startCat = error "TODO: optimizePGF" {- topDownFilter startCat . bottomUpFilter
 

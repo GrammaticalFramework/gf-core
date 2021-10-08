@@ -78,7 +78,7 @@ extendModule cwd gr (name,m)
 -- | rebuilding instance + interface, and "with" modules, prior to renaming.
 -- AR 24/10/2003
 rebuildModule :: FilePath -> SourceGrammar -> SourceModule -> Check SourceModule
-rebuildModule cwd gr mo@(i,mi@(ModInfo mt stat fs_ me mw ops_ med_ msrc_ env_ js_)) =
+rebuildModule cwd gr mo@(i,mi@(ModInfo mt stat fs_ me mw ops_ med_ msrc_ js_)) =
   checkInModule cwd mi NoLoc empty $ do
 
 ----  deps <- moduleDeps ms
@@ -115,7 +115,7 @@ rebuildModule cwd gr mo@(i,mi@(ModInfo mt stat fs_ me mw ops_ med_ msrc_ env_ js
                     else MSIncomplete
       unless (stat' == MSComplete || stat == MSIncomplete)
              (checkError ("module" <+> i <+> "remains incomplete"))
-      ModInfo mt0 _ fs me' _ ops0 _ fpath _ js <- lookupModule gr ext
+      ModInfo mt0 _ fs me' _ ops0 _ fpath js <- lookupModule gr ext
       let ops1 = nub $
                    ops_ ++ -- N.B. js has been name-resolved already
                    [OQualif i j | (i,j) <- ops] ++
@@ -131,7 +131,7 @@ rebuildModule cwd gr mo@(i,mi@(ModInfo mt stat fs_ me mw ops_ med_ msrc_ env_ js
                                     js
       let js1 = Map.union js0 js_
       let med1= nub (ext : infs ++ insts ++ med_)
-      return $ ModInfo mt0 stat' fs1 me Nothing ops1 med1 msrc_ env_ js1
+      return $ ModInfo mt0 stat' fs1 me Nothing ops1 med1 msrc_ js1
 
   return (i,mi')
 

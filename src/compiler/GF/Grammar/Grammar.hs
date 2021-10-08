@@ -64,7 +64,7 @@ module GF.Grammar.Grammar (
         Location(..), L(..), unLoc, noLoc, ppLocation, ppL,
 
         -- ** PMCFG        
-        PMCFG(..), Production(..), FId, FunId, SeqId, LIndex
+        PMCFG(..)
         ) where
 
 import GF.Infra.Ident
@@ -74,7 +74,7 @@ import GF.Infra.Location
 import GF.Data.Operations
 
 import PGF2(BindType(..))
-import PGF2.Internal(FId, FunId, SeqId, LIndex, Symbol)
+import PGF2.Transactions(Symbol)
 
 import Data.Array.IArray(Array)
 import Data.Array.Unboxed(UArray)
@@ -100,7 +100,6 @@ data ModuleInfo = ModInfo {
     mopens  :: [OpenSpec],
     mexdeps :: [ModuleName],
     msrc    :: FilePath,
-    mseqs   :: Maybe (Array SeqId [Symbol]),
     jments  :: Map.Map Ident Info
   }
 
@@ -305,13 +304,7 @@ allConcreteModules gr =
   [i | (i, m) <- modules gr, MTConcrete _ <- [mtype m], isCompleteModule m]
 
 
-data Production = Production {-# UNPACK #-} !FId
-                             {-# UNPACK #-} !FunId
-                             [[FId]]
-                  deriving (Eq,Ord,Show)
-
-data PMCFG = PMCFG [Production]
-                   (Array FunId (UArray LIndex SeqId)) 
+data PMCFG = PMCFG [[[Symbol]]]
              deriving (Eq,Show)
 
 -- | the constructors are judgements in 

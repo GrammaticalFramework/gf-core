@@ -116,7 +116,6 @@ executable gf
     GF.Compile.GeneratePMCFG
     GF.Compile.GrammarToPGF
     GF.Compile.Multi
-    GF.Compile.Optimize
     GF.Compile.OptimizePGF
     GF.Compile.PGFtoHaskell
     GF.Compile.PGFtoJava

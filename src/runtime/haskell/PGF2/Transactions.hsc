@@ -1,5 +1,7 @@
 module PGF2.Transactions
           ( Transaction
+
+            -- abstract syntax
           , modifyPGF
           , branchPGF
           , checkoutPGF
@@ -9,6 +11,9 @@ module PGF2.Transactions
           , dropCategory
           , setGlobalFlag
           , setAbstractFlag
+
+            -- concrete syntax
+          , Token, LIndex, Symbol(..)
           ) where
 
 import PGF2.FFI
@@ -144,3 +149,20 @@ setAbstractFlag name value = Transaction $ \c_db c_revision c_exn ->
   bracket (newStablePtr value) freeStablePtr $ \c_value ->
   withForeignPtr marshaller $ \m ->
     pgf_set_abstract_flag c_db c_revision c_name c_value m c_exn
+
+
+type Token  = String
+type LIndex = Int
+data Symbol
+  = SymCat {-# UNPACK #-} !Int {-# UNPACK #-} !LIndex
+  | SymLit {-# UNPACK #-} !Int {-# UNPACK #-} !LIndex
+  | SymVar {-# UNPACK #-} !Int {-# UNPACK #-} !Int
+  | SymKS Token
+  | SymKP [Symbol] [([Symbol],[String])]
+  | SymBIND                         -- the special BIND token
+  | SymNE                           -- non exist
+  | SymSOFT_BIND                    -- the special SOFT_BIND token
+  | SymSOFT_SPACE                   -- the special SOFT_SPACE token
+  | SymCAPIT                        -- the special CAPIT token
+  | SymALL_CAPIT                    -- the special ALL_CAPIT token
+  deriving (Eq,Show)

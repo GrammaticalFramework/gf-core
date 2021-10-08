@@ -8,7 +8,7 @@ module GF.Grammar.CFG(Cat,Token, module GF.Grammar.CFG) where
 
 import GF.Data.Utilities
 import PGF2(Fun,Cat)
-import PGF2.Internal(Token)
+import PGF2.Transactions(Token)
 import GF.Data.Relation
 
 import Data.Map (Map)

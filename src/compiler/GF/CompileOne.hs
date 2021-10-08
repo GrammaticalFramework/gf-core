@@ -8,7 +8,6 @@ module GF.CompileOne(-- ** Compiling a single module
 import GF.Compile.GetGrammar(getSourceModule)
 import GF.Compile.Rename(renameModule)
 import GF.Compile.CheckGrammar(checkModule)
-import GF.Compile.Optimize(optimizeModule)
 import GF.Compile.SubExOpt(subexpModule,unsubexpModule)
 import GF.Compile.GeneratePMCFG(generatePMCFG)
 import GF.Compile.Update(extendModule,rebuildModule)
@@ -107,10 +106,9 @@ compileSourceModule opts cwd mb_gfFile gr =
 
     -- Apply to complete modules when not generating tags
     backend mo3 =
-      do mo4 <- runPass Optimize "optimizing" $ optimizeModule opts gr mo3
-         if isModCnc (snd mo4) && flag optPMCFG opts
-          then runPassI "generating PMCFG" $ generatePMCFG opts gr mb_gfFile mo4
-          else runPassI "" $ return mo4
+      do if isModCnc (snd mo3) && flag optPMCFG opts
+          then runPassI "generating PMCFG" $ fmap fst $ runCheck' opts (generatePMCFG opts gr mo3)
+          else runPassI "" $ return mo3
 
     ifComplete yes mo@(_,mi) =
       if isCompleteModule mi then yes mo else return mo

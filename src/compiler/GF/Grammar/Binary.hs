@@ -23,10 +23,10 @@ import GF.Infra.UseIO(MonadIO(..))
 import GF.Grammar.Grammar
 
 import PGF2(Literal(..))
-import PGF2.Internal(Symbol(..))
+import PGF2.Transactions(Symbol(..))
 
 -- Please change this every time when the GFO format is changed
-gfoVersion = "GF04"
+gfoVersion = "GF05"
 
 instance Binary Ident where
   put id = put (ident2utf8 id)
@@ -44,9 +44,9 @@ instance Binary Grammar where
   get = fmap mGrammar get
 
 instance Binary ModuleInfo where
-  put mi = do put (mtype mi,mstatus mi,mflags mi,mextend mi,mwith mi,mopens mi,mexdeps mi,msrc mi,mseqs mi,jments mi)
-  get    = do (mtype,mstatus,mflags,mextend,mwith,mopens,med,msrc,mseqs,jments) <- get
-              return (ModInfo mtype mstatus mflags mextend mwith mopens med msrc mseqs jments)
+  put mi = do put (mtype mi,mstatus mi,mflags mi,mextend mi,mwith mi,mopens mi,mexdeps mi,msrc mi,jments mi)
+  get    = do (mtype,mstatus,mflags,mextend,mwith,mopens,med,msrc,jments) <- get
+              return (ModInfo mtype mstatus mflags mextend mwith mopens med msrc jments)
 
 instance Binary ModuleType where
   put MTAbstract       = putWord8 0
@@ -103,18 +103,9 @@ instance Binary Options where
              toString (LInt n) = show n
              toString (LFlt d) = show d
 
-instance Binary Production where
-  put (Production res funid args) = put (res,funid,args)
-  get = do res   <- get
-           funid <- get
-           args  <- get
-           return (Production res funid args)
-
 instance Binary PMCFG where
-  put (PMCFG prods funs) = put (prods,funs)
-  get = do prods <- get
-           funs  <- get
-           return (PMCFG prods funs)
+  put (PMCFG lins) = put lins
+  get = fmap PMCFG get
 
 instance Binary Info where
   put (AbsCat x)       = putWord8 0 >> put x
@@ -377,7 +368,7 @@ decodeModuleHeader :: MonadIO io => FilePath -> io (VersionTagged Module)
 decodeModuleHeader = liftIO . fmap (fmap conv) . decodeFile'
   where
     conv (m,mtype,mstatus,mflags,mextend,mwith,mopens,med,msrc) =
-        (m,ModInfo mtype mstatus mflags mextend mwith mopens med msrc Nothing Map.empty)
+        (m,ModInfo mtype mstatus mflags mextend mwith mopens med msrc Map.empty)
 
 encodeModule :: MonadIO io => FilePath -> SourceModule -> io ()
 encodeModule fpath mo = liftIO $ encodeFile fpath (Tagged mo)

@@ -25,7 +25,7 @@ module GF.Grammar.Printer
 import Prelude hiding ((<>)) -- GHC 8.4.1 clash with Text.PrettyPrint
 
 import PGF2 as PGF2
-import PGF2.Internal as PGF2
+import PGF2.Transactions as PGF2
 import GF.Infra.Ident
 import GF.Infra.Option
 import GF.Grammar.Values
@@ -46,11 +46,10 @@ instance Pretty Grammar where
   pp = vcat . map (ppModule Qualified) . modules
 
 ppModule :: TermPrintQual -> SourceModule -> Doc
-ppModule q (mn, ModInfo mtype mstat opts exts with opens _ _ mseqs jments) =
+ppModule q (mn, ModInfo mtype mstat opts exts with opens _ _ jments) =
     hdr $$
     nest 2 (ppOptions opts $$
-            vcat (map (ppJudgement q) (Map.toList jments)) $$
-            maybe empty (ppSequences q) mseqs) $$
+            vcat (map (ppJudgement q) (Map.toList jments))) $$
     ftr
     where
       hdr = complModDoc <+> modTypeDoc <+> '=' <+>
@@ -136,13 +135,9 @@ ppJudgement q (id, CncCat pcat pdef pref pprn mpmcfg) =
      Just (L _ prn) -> "printname" <+> id <+> '=' <+> ppTerm q 0 prn <+> ';'
      Nothing        -> empty) $$
   (case (mpmcfg,q) of
-     (Just (PMCFG prods funs),Internal)
+     (Just (PMCFG lins),Internal)
                     -> "pmcfg" <+> id <+> '=' <+> '{' $$
-                       nest 2 (vcat (map ppProduction prods) $$
-                               ' ' $$
-                               vcat (map (\(funid,arr) -> ppFunId funid <+> ":=" <+>
-                                                          parens (hcat (punctuate ',' (map ppSeqId (Array.elems arr)))))
-                                         (Array.assocs funs))) $$
+                       nest 2 (vcat (map ppPmcfgLin lins)) $$
                        '}'
      _              -> empty)
 ppJudgement q (id, CncFun  ptype pdef pprn mpmcfg) =
@@ -154,19 +149,18 @@ ppJudgement q (id, CncFun  ptype pdef pprn mpmcfg) =
      Just (L _ prn) -> "printname" <+> id <+> '=' <+> ppTerm q 0 prn <+> ';'
      Nothing        -> empty) $$
   (case (mpmcfg,q) of
-     (Just (PMCFG prods funs),Internal)
+     (Just (PMCFG lins),Internal)
                     -> "pmcfg" <+> id <+> '=' <+> '{' $$
-                       nest 2 (vcat (map ppProduction prods) $$
-                               ' ' $$
-                               vcat (map (\(funid,arr) -> ppFunId funid <+> ":=" <+>
-                                                          parens (hcat (punctuate ',' (map ppSeqId (Array.elems arr)))))
-                                         (Array.assocs funs))) $$
+                       nest 2 (vcat (map ppPmcfgLin lins)) $$
                        '}'
      _              -> empty)
 ppJudgement q (id, AnyInd cann mid) =
   case q of
     Internal -> "ind" <+> id <+> '=' <+> (if cann then pp "canonical" else empty) <+> mid <+> ';'
     _        -> empty
+
+ppPmcfgLin lin =
+  brackets (vcat (map (hsep . map ppSymbol) lin))
 
 instance Pretty Term where pp = ppTerm Unqualified 0
 
@@ -330,18 +324,6 @@ ppAltern q (x,y) = ppTerm q 0 x <+> '/' <+> ppTerm q 0 y
 ppParams q ps = fsep (intersperse (pp '|') (map (ppParam q) ps))
 ppParam q (id,cxt) = id <+> hsep (map (ppDDecl q) cxt)
 
-ppProduction (Production fid funid args) =
-  ppFId fid <+> "->" <+> ppFunId funid <>
-  brackets (hcat (punctuate "," (map (hsep . intersperse (pp '|') . map ppFId) args)))
-
-ppSequences q seqsArr
-  | null seqs || q /= Internal = empty
-  | otherwise                  = "sequences" <+> '{' $$
-                                 nest 2 (vcat (map ppSeq seqs)) $$
-                                 '}'
-  where
-    seqs = Array.assocs seqsArr
-
 commaPunct f ds = (hcat (punctuate "," (map f ds)))
 
 prec d1 d2 doc
@@ -365,17 +347,6 @@ getLet (Let l e) = let (ls,e') = getLet e
                    in (l:ls,e')
 getLet e         = ([],e)
 
-ppFunId funid = pp 'F' <> pp funid
-ppSeqId seqid = pp 'S' <> pp seqid
-
-ppFId fid
-  | fid == PGF2.fidString = pp "CString"
-  | fid == PGF2.fidInt    = pp "CInt"
-  | fid == PGF2.fidFloat  = pp "CFloat"
-  | fid == PGF2.fidVar    = pp "CVar"
-  | fid == PGF2.fidStart  = pp "CStart"
-  | otherwise             = pp 'C' <> pp fid
-
 ppMeta :: Int -> Doc
 ppMeta n
   | n == 0    = pp '?'
@@ -384,9 +355,6 @@ ppMeta n
 ppLit (PGF2.LStr s) = pp (show s)
 ppLit (PGF2.LInt n) = pp n
 ppLit (PGF2.LFlt d) = pp d
-
-ppSeq (seqid,seq) = 
-  ppSeqId seqid <+> pp ":=" <+> hsep (map ppSymbol seq)
 
 ppSymbol (PGF2.SymCat d r) = pp '<' <> pp d <> pp ',' <> pp r <> pp '>'
 ppSymbol (PGF2.SymLit d r) = pp '{' <> pp d <> pp ',' <> pp r <> pp '}'
