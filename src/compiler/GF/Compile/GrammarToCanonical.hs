@@ -94,13 +94,13 @@ concrete2canonical gr absname cnc modinfo = do
 toCanonical gr absname (name,jment) =
   case jment of
     CncCat (Just (L loc typ)) _ _ pprn _ -> do
-      ntyp <- normalForm gr (L loc name) typ
+      ntyp <- normalForm gr typ
       let pts = paramTypes gr ntyp
       return [(pts,Left (LincatDef (gId name) (convType ntyp)))]
     CncFun (Just r@(cat,ctx,lincat)) (Just (L loc def)) pprn _ -> do
       let params = [(b,x)|(b,x,_)<-ctx]
           args   = map snd params
-      e0 <- normalForm gr (L loc name) (mkAbs params (mkApp def (map Vr args)))
+      e0 <- normalForm gr (mkAbs params (mkApp def (map Vr args)))
       let e   = cleanupRecordFields lincat (unAbs (length params) e0)
           tts = tableTypes gr [e]
       return [(tts,Right (LinDef (gId name) (map gId args) (convert gr e)))]

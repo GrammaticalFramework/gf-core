@@ -107,7 +107,7 @@ compileSourceModule opts cwd mb_gfFile gr =
     -- Apply to complete modules when not generating tags
     backend mo3 =
       do if isModCnc (snd mo3) && flag optPMCFG opts
-          then runPassI "generating PMCFG" $ fmap fst $ runCheck' opts (generatePMCFG opts gr mo3)
+          then runPassI "generating PMCFG" $ fmap fst $ runCheck' opts (generatePMCFG opts cwd gr mo3)
           else runPassI "" $ return mo3
 
     ifComplete yes mo@(_,mi) =

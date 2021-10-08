@@ -4,15 +4,18 @@
 -- | preparation for PMCFG generation.
 module GF.Compile.Compute.Concrete
            ( normalForm
-           , Value(..), Thunk, ThunkState(..), Env, EvalM, runEvalM
+           , Value(..), Thunk, ThunkState(..), Env
+           , EvalM, runEvalM, evalError
            , eval, apply, force, value2term
-           , newMeta,newEvaluatedThunk,getAllParamValues
+           , newMeta,getMeta,setMeta
+           , newEvaluatedThunk,getAllParamValues
+           , lookupParams
            ) where
 
 import Prelude hiding ((<>)) -- GHC 8.4.1 clash with Text.PrettyPrint
 
 import GF.Grammar hiding (Env, VGen, VApp, VRecType)
-import GF.Grammar.Lookup(lookupResDef,allParamValues)
+import GF.Grammar.Lookup(lookupResDef,lookupOrigInfo,allParamValues)
 import GF.Grammar.Predef
 import GF.Grammar.Lockfield(lockLabel)
 import GF.Grammar.Printer
@@ -34,8 +37,8 @@ import GF.Text.Pretty
 
 -- * Main entry points
 
-normalForm :: Grammar -> L Ident -> Term -> Check Term
-normalForm gr loc t =
+normalForm :: Grammar -> Term -> Check Term
+normalForm gr t =
   fmap mkFV (runEvalM gr (eval [] t [] >>= value2term 0))
   where
     mkFV [t] = t
@@ -45,7 +48,7 @@ normalForm gr loc t =
 data ThunkState s
   = Unevaluated (Env s) Term
   | Evaluated (Value s)
-  | Unbound {-# UNPACK #-} !MetaId
+  | Unbound (Maybe Type) {-# UNPACK #-} !MetaId
 
 type Thunk s = STRef s (ThunkState s)
 type Env s = [(Ident,Thunk s)]
@@ -91,7 +94,7 @@ eval env (App t1 t2)    vs  = do tnk <- newThunk env t2
                                  eval env t1 (tnk : vs)
 eval env (Abs b x t)    []  = return (VClosure env (Abs b x t))
 eval env (Abs b x t) (v:vs) = eval ((x,v):env) t vs
-eval env (Meta i)       vs  = do tnk <- newMeta i
+eval env (Meta i)       vs  = do tnk <- newMeta Nothing i
                                  return (VMeta tnk env vs)
 eval env (ImplArg t)    []  = eval env t []
 eval env (Prod b x t1 t2)[] = do v1 <- eval env t1 []
@@ -180,11 +183,14 @@ eval env (Strs ts)      []  = do vs <- mapM (\t -> eval env t []) ts
                                  return (VStrs vs)
 eval env t              vs  = evalError ("Cannot reduce term" <+> pp t)
 
-apply v                             []  = return v
+apply (VMeta m env vs0)             vs  = do st <- getMeta m
+                                             case st of
+                                               Evaluated v -> apply v vs
+                                               Unbound _ _ -> return (VMeta m env (vs0++vs))
 apply (VApp f  vs0)                 vs  = return (VApp f (vs0++vs))
-apply (VMeta m env vs0)             vs  = return (VMeta m env (vs0++vs))
 apply (VGen i  vs0)                 vs  = return (VGen i (vs0++vs))
 apply (VClosure env (Abs b x t)) (v:vs) = eval ((x,v):env) t vs
+apply v                             []  = return v
 
 evalPredef id [v]
   | id == cLength = return (fmap VInt (liftM genericLength (value2string v)))
@@ -242,6 +248,7 @@ update lbl v []              = [(lbl,v)]
 update lbl v (a@(lbl',_):as)
   | lbl==lbl'                = (lbl,v) : as
   | otherwise                = a : update lbl v as
+
 
 patternMatch v0 []                      = fail "No matching pattern found"
 patternMatch v0 ((env0,ps,args0,t):eqs) = match env0 ps eqs args0
@@ -393,6 +400,7 @@ value2term i (VAlts vd vas) = do
 value2term i (VStrs vs) = do
   ts <- mapM (value2term i) vs
   return (Strs ts)
+
 value2string (VStr s) = Just s
 value2string (VC vs)  = fmap unwords (mapM value2string vs)
 value2string _        = Nothing
@@ -457,6 +465,14 @@ lookupGlobal q = EvalM $ \gr k mt r -> do
     Ok t    -> k t mt r
     Bad msg -> return (Fail (pp msg))
 
+lookupParams :: QIdent -> EvalM s (ModuleName,[Param])
+lookupParams q = EvalM $ \gr k mt r -> do
+  case lookupOrigInfo gr q of
+    Ok (m,info) -> case info of
+                     ResParam (Just (L _ ps)) _ -> k (m,ps) mt r
+                     _                          -> return (Fail (ppQIdent Qualified q <+> "is not a parameter type"))
+    Bad msg -> return (Fail (pp msg))
+
 getAllParamValues :: Type -> EvalM s [Term]
 getAllParamValues ty = EvalM $ \gr k mt r ->
   case allParamValues gr ty of
@@ -471,14 +487,23 @@ newEvaluatedThunk v = EvalM $ \gr k mt r -> do
  tnk <- newSTRef (Evaluated v)
  k tnk mt r
 
-newMeta i = EvalM $ \gr k mt r ->
+newMeta mb_ty i = EvalM $ \gr k mt r ->
   if i == 0
-    then do tnk <- newSTRef (Unbound i)
+    then do tnk <- newSTRef (Unbound mb_ty i)
             k tnk mt r
     else case Map.lookup i mt of
            Just tnk -> k tnk mt r
-           Nothing  -> do tnk <- newSTRef (Unbound i)
+           Nothing  -> do tnk <- newSTRef (Unbound mb_ty i)
                           k tnk (Map.insert i tnk mt) r
+
+getMeta tnk    = EvalM $ \gr k mt r -> readSTRef tnk >>= \st -> k st mt r
+
+setMeta tnk st = EvalM $ \gr k mt r -> do
+  old <- readSTRef tnk
+  writeSTRef tnk st
+  r <- k () mt r
+  writeSTRef tnk old
+  return r
 
 newGen i = EvalM $ \gr k mt r -> do
  tnk <- newSTRef (Evaluated (VGen i []))
@@ -494,10 +519,11 @@ force tnk vs = EvalM $ \gr k mt r -> do
                                                           return r) mt r
     Evaluated v       -> case apply v vs of
                            EvalM f -> f gr k mt r
+    Unbound _ _       -> k (VMeta tnk [] vs) mt r
 
 zonk tnk vs = EvalM $ \gr k mt r -> do
   s <- readSTRef tnk
   case s of
     Evaluated v -> case apply v vs of
                      EvalM f -> f gr (k . Left) mt r
-    Unbound i   -> k (Right i) mt r
+    Unbound _ i -> k (Right i) mt r

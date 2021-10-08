@@ -183,7 +183,7 @@ checkInfo opts cwd sgr (m,mo) c info = checkInModule cwd mo NoLoc empty $ do
       mty  <- case mty of
                 Just (L loc typ) -> chIn loc "linearization type of" $ do
                                       (typ,_) <- checkLType gr [] typ typeType
-                                      typ  <- CN.normalForm gr (L loc c) typ
+                                      typ  <- CN.normalForm gr typ
                                       return (Just (L loc typ))
                 Nothing          -> return Nothing
       mdef <- case (mty,mdef) of
@@ -226,7 +226,7 @@ checkInfo opts cwd sgr (m,mo) c info = checkInModule cwd mo NoLoc empty $ do
          (Just (L loct ty), Just (L locd de)) -> do
            ty'     <- chIn loct "operation" $ do
                          (ty,_) <- checkLType gr [] ty typeType
-                         CN.normalForm gr (L loct c) ty
+                         CN.normalForm gr ty
            (de',_) <- chIn locd "operation" $
                          checkLType gr [] de ty'
            return (Just (L loct ty'), Just (L locd de'))
@@ -316,6 +316,6 @@ linTypeOfType cnc m (L loc typ) = do
                              plusRecType vars val
      return (Explicit,symb,rec)
    lookLin (_,c) = checks [ --- rather: update with defLinType ?
-      lookupLincat cnc m c >>= CN.normalForm cnc (L loc c)
+      lookupLincat cnc m c >>= CN.normalForm cnc
      ,return defLinType
      ]

@@ -258,7 +258,7 @@ checkComputeTerm os sgr t =
      t <- renameSourceTerm sgr mo t
      (t,_) <- inferLType sgr [] t                                
      let opts = modifyFlags (\fs->fs{optTrace=isOpt "trace" os})
-     fmap evalStr (normalForm sgr (L NoLoc identW) t)
+     fmap evalStr (normalForm sgr t)
   where
     -- ** Try to compute pre{...} tokens in token sequences
     evalStr t =

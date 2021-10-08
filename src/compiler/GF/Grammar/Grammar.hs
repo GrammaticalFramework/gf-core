@@ -446,7 +446,7 @@ data Label =
 
 type MetaId = Int
 
-type Hypo     = (BindType,Ident,Term)   -- (x:A)  (_:A)  A  ({x}:A)
+type Hypo     = (BindType,Ident,Type)   -- (x:A)  (_:A)  A  ({x}:A)
 type Context  = [Hypo]                  -- (x:A)(y:B)   (x,y:A)   (_,_:A)
 type Equation = ([Patt],Term) 
 
