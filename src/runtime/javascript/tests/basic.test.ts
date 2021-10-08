@@ -209,7 +209,7 @@ describe('abstract syntax', () => {
 
 // ----------------------------------------------------------------------------
 
-describe.only('expressions', () => {
+describe('expressions', () => {
   test('small integer', () => {
     const e1 = PGF.readExpr('123')
     const e2 = new PGF.ExprLit(123)
