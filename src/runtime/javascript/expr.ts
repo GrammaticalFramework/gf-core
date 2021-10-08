@@ -71,9 +71,10 @@ export class ExprLit extends Expr {
 export class ExprMeta extends Expr {
   id: number
 
-  constructor (i: number) {
+  constructor (i?: number) {
     super()
-    this.id = i
+    if (i != null) this.id = i
+    else this.id = 0
   }
 }
 

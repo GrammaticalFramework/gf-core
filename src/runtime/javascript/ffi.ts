@@ -159,9 +159,9 @@ export function PgfText_FromString (str: string): Pointer<any> {
 // Un/marshalling
 
 const eabs = ffi.Callback(PgfExpr, [PgfUnmarshaller, ref.types.bool, PgfTextPtr, PgfExpr],
-  function (self, btype: boolean, name: Pointer<any>, body: Pointer<any>): Pointer<ExprAbs> {
+  function (self, btype: boolean, name: Pointer<any>, body: Pointer<Expr>): Pointer<ExprAbs> {
     const jsname = PgfText_AsString(name)
-    const obj = new ExprAbs(btype, jsname, body) // TODO check body
+    const obj = new ExprAbs(btype, jsname, body.deref())
     const buf = ref.alloc(ref.types.Object) as Pointer<ExprAbs>
     ref.writeObject(buf, 0, obj)
     return buf
@@ -169,7 +169,7 @@ const eabs = ffi.Callback(PgfExpr, [PgfUnmarshaller, ref.types.bool, PgfTextPtr,
 
 const eapp = ffi.Callback(PgfExpr, [PgfUnmarshaller, PgfExpr, PgfExpr],
   function (self, fun: Pointer<Expr>, arg: Pointer<Type>): Pointer<ExprApp> {
-    const obj = new ExprApp(fun, arg) // TODO check
+    const obj = new ExprApp(fun.deref(), arg.deref())
     const buf = ref.alloc(ref.types.Object) as Pointer<ExprApp>
     ref.writeObject(buf, 0, obj)
     return buf
@@ -211,7 +211,7 @@ const evar = ffi.Callback(PgfExpr, [PgfUnmarshaller, ref.types.int],
 
 const etyped = ffi.Callback(PgfExpr, [PgfUnmarshaller, PgfExpr, PgfType],
   function (self, expr: Pointer<Expr>, type: Pointer<Type>): Pointer<ExprTyped> {
-    const obj = new ExprTyped(expr, type.deref()) // TODO check
+    const obj = new ExprTyped(expr.deref(), type.deref())
     const buf = ref.alloc(ref.types.Object) as Pointer<ExprTyped>
     ref.writeObject(buf, 0, obj)
     return buf
@@ -219,7 +219,7 @@ const etyped = ffi.Callback(PgfExpr, [PgfUnmarshaller, PgfExpr, PgfType],
 
 const eimplarg = ffi.Callback(PgfExpr, [PgfUnmarshaller, PgfExpr],
   function (self, expr: Pointer<Expr>): Pointer<ExprImplArg> {
-    const obj = new ExprImplArg(expr) // TODO check
+    const obj = new ExprImplArg(expr.deref())
     const buf = ref.alloc(ref.types.Object) as Pointer<ExprImplArg>
     ref.writeObject(buf, 0, obj)
     return buf

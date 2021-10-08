@@ -1,7 +1,20 @@
 /* eslint-disable @typescript-eslint/naming-convention */
 
 import errno from './errno'
-import { Expr, ExprLit } from './expr'
+import {
+  Type,
+  Hypo,
+  Expr,
+  ExprAbs,
+  ExprApp,
+  ExprLit,
+  ExprMeta,
+  ExprFun,
+  ExprVar,
+  ExprTyped,
+  ExprImplArg,
+  Literal
+} from './expr'
 import {
   voidPtr,
   PgfRevisionPtr,
@@ -67,7 +80,7 @@ function handleError (err: StructObject<PgfExnType>): void {
 // ----------------------------------------------------------------------------
 // PGF grammar object
 
-export class PGFGrammar {
+class PGFGrammar {
   readonly db: Pointer<any>
   readonly revision: Pointer<any>
 
@@ -198,6 +211,15 @@ function newNGF (abstract_name: string, path?: string): PGFGrammar {
   return new PGFGrammar(db, rev)
 }
 
+function readType (str: string): Type {
+  const txt = PgfText_FromString(str)
+  const type = runtime.pgf_read_type(txt, unmarshaller.ref())
+  if (ref.isNull(type)) {
+    throw new PGFError('unable to parse type')
+  }
+  return ref.readObject(type) as Type
+}
+
 function readExpr (str: string): Expr {
   const txt = PgfText_FromString(str)
   const expr = runtime.pgf_read_expr(txt, unmarshaller.ref())
@@ -210,15 +232,51 @@ function readExpr (str: string): Expr {
 // ----------------------------------------------------------------------------
 // Exposed library API
 
-export default {
+export {
+  PGFGrammar,
   PGFError,
   readPGF,
   bootNGF,
   readNGF,
   newNGF,
 
+  readType,
   readExpr,
 
+  Type,
+  Hypo,
   Expr,
-  ExprLit
+  ExprAbs,
+  ExprApp,
+  ExprLit,
+  ExprMeta,
+  ExprFun,
+  ExprVar,
+  ExprTyped,
+  ExprImplArg,
+  Literal
+}
+export default {
+  PGFGrammar,
+  PGFError,
+  readPGF,
+  bootNGF,
+  readNGF,
+  newNGF,
+
+  readType,
+  readExpr,
+
+  Type,
+  Hypo,
+  Expr,
+  ExprAbs,
+  ExprApp,
+  ExprLit,
+  ExprMeta,
+  ExprFun,
+  ExprVar,
+  ExprTyped,
+  ExprImplArg,
+  Literal
 }
