@@ -9,7 +9,12 @@ So, **Don't Panic!** and keep reading. This is a live document and will develop 
 
 **TABLE OF CONTENTS**
 
-1. [Desiderata](DESIDERATA.md)
-2. [Memory Model](memory_model.md)
-3. [Abstract Expressions](abstract_expressions.md)
-3. [Transactions](transactions.md)
+1. Compilation
+   1. [Overview](CompilationOverview.md)
+   1. [Lambda Calculus](LambdaCalculus.md)
+   2. [Parallel Multiple Context-Free Grammars](PMCFG.md)
+2. Runtime
+   1. [Desiderata](DESIDERATA.md)
+   2. [Memory Model](memory_model.md)
+   3. [Abstract Expressions](abstract_expressions.md)
+   4. [Transactions](transactions.md)
