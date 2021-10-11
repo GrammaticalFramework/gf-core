@@ -1,0 +1,11 @@
+# Compilation
+
+The GF language is designed to be easy for the programmers to use but be able to run it efficiently we need to reduce it to a more low-level language. The goal of this chapter is to give an overview of the different steps in the compilation. The program transformation goes throught the following phases:
+
+- renaming - here all identifiers in the grammar are made explicitly qualified. For example, if you had used the identifier PredVP somewhere, the compiler will search for a definition of that identifier in either the current module or in any of the modules imported from the current one. If a definition is found in, say in a module called Sentence, then the unqualified name PredVP will be replaced with the explicit qualification Sentence.PredVP. On the other hand, if the source program is already using an explicit qualification like Sentence.PredVP, then the compiler will check whether PredVP is indeed defined in the module Sentence. 
+
+- type checking - here the compiler will check whether all functions and variables are used correctly with respect to their types. For each term that the compiler checks it will also generate a new version of the term after the type checking. The input and output terms may not need to be the same. For example, the compiler may insert explicit type information. It might fill-in implicit arguments, or it may instantiate meta variables.
+
+- partial evaluation - here is where the real compilation starts. The compiler will fully evaluate the term for each linearization to a normal. In the process, all uses of operations will be inlined. This is part of reducing the GF language to a simpler language which does not support operations.
+
+- PMCFG generation - the language that the GF runtime understands is an extension of the PMCFG formalism. Not all features permitted in the GF language are allowed on that level. Most of the uses for that extra features have been eliminated via partial evaluation. If there are any left, then the compilation will abort. The main purpose of the PMCFG generation is to get rid of most of the parameter types in the source grammar. That is possible by generating several specialized linearization rules from a single linearization rule in the source.
