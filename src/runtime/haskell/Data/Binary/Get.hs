@@ -1,4 +1,6 @@
 {-# LANGUAGE CPP, MagicHash #-}
+-- This module makes profiling a lot slower
+{-# OPTIONS_GHC -fno-prof-auto #-}
 -- for unboxed shifts
 
 -----------------------------------------------------------------------------
