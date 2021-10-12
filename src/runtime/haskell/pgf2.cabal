@@ -50,7 +50,7 @@ test-suite basic
   default-language: Haskell2010
   build-depends:
     base,
-    HUnit,
+    HUnit >= 1.6.1.0,
     random,
     directory,
     pgf2
@@ -61,5 +61,5 @@ test-suite transactions
   default-language: Haskell2010
   build-depends:
     base,
-    HUnit,
+    HUnit >= 1.6.1.0,
     pgf2

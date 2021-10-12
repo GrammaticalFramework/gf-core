@@ -1,3 +1,5 @@
-# This is mainly here so that I can run `stack sdist` for uploading to Hackage
-
 resolver: lts-12.26 # ghc 8.4.4
+
+extra-deps:
+  - HUnit-1.6.2.0@sha256:1a79174e8af616117ad39464cac9de205ca923da6582825e97c10786fda933a4,1588
+  - call-stack-0.4.0@sha256:ac44d2c00931dc20b01750da8c92ec443eb63a7231e8550188cb2ac2385f7feb,1200
