@@ -1,5 +1,7 @@
 #include <fcntl.h>
 #include <math.h>
+#include <errno.h>
+
 #include "data.h"
 #include "reader.h"
 #include "writer.h"
@@ -28,8 +30,14 @@ pgf_exn_clear(PgfExn* err)
         err->msg  = strdup(e.what()); \
     }
 
+// PGF_INTERNAL
+// PgfText master = {size: 6, text: {}};
+
 PGF_INTERNAL
-PgfText master = {size: 6, text: {'m','a','s','t','e','r',0}};
+size_t master_size = 6;
+
+PGF_INTERNAL
+char master_text[] = {'m','a','s','t','e','r',0};
 
 PGF_API
 PgfDB *pgf_read_pgf(const char* fpath,
@@ -124,10 +132,14 @@ PgfDB *pgf_read_ngf(const char *fpath,
     PGF_API_BEGIN {
         db = new PgfDB(fpath, O_RDWR, 0);
 
+        PgfText *master = (PgfText *)alloca(sizeof(PgfText)+master_size+1);
+        master->size = master_size;
+        strcpy(master->text, master_text);
+
         {
             DB_scope scope(db, WRITER_SCOPE);
 
-            ref<PgfPGF> pgf = PgfDB::get_revision(&master);
+            ref<PgfPGF> pgf = PgfDB::get_revision(master);
             Node<PgfPGF>::add_value_ref(pgf);
             *revision = pgf.as_object();
         }
@@ -159,7 +171,7 @@ PgfDB *pgf_new_ngf(PgfText *abstract_name,
         {
             DB_scope scope(db, WRITER_SCOPE);
 
-            ref<PgfPGF> pgf = PgfDB::malloc<PgfPGF>(master.size+1);
+            ref<PgfPGF> pgf = PgfDB::malloc<PgfPGF>(master_size+1);
             pgf->ref_count = 1;
             pgf->major_version = PGF_MAJOR_VERSION;
             pgf->minor_version = PGF_MINOR_VERSION;
@@ -171,7 +183,8 @@ PgfDB *pgf_new_ngf(PgfText *abstract_name,
             pgf->abstract.cats = 0;
             pgf->prev = 0;
             pgf->next = 0;
-            memcpy(&pgf->name, &master, sizeof(PgfText)+master.size+1);
+            pgf->name.size = master_size;
+            memcpy(&pgf->name.text, master_text, master_size+1);
             PgfDB::set_revision(pgf);
             *revision = pgf.as_object();
 
@@ -269,7 +282,7 @@ void pgf_iter_categories(PgfDB *db, PgfRevision revision,
     PGF_API_BEGIN {
         DB_scope scope(db, READER_SCOPE);
         ref<PgfPGF> pgf = PgfDB::revision2pgf(revision);
-    
+
         namespace_iter(pgf->abstract.cats, itor, err);
     } PGF_API_END
 }
@@ -671,7 +684,7 @@ void pgf_create_function(PgfDB *db, PgfRevision revision,
             ref<PgfExprFun>::from_ptr((PgfExprFun*) &absfun->name);
         absfun->ep.expr = ref<PgfExprFun>::tagged(efun);
         memcpy(&absfun->name, name, sizeof(PgfText)+name->size+1);
-        
+
         Namespace<PgfAbsFun> funs =
             namespace_insert(pgf->abstract.funs, absfun);
         namespace_release(pgf->abstract.funs);

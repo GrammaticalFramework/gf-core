@@ -256,7 +256,7 @@ void PgfExprParser::putc(uint32_t ucs)
 	          ucs < 0x10000 ? 3 :
 	          ucs < 0x200000 ? 4 :
 	          ucs < 0x4000000 ? 5 :
-                                6            
+                                6
 	         );
     size_t len = token_value ? token_value->size : 0;
 
@@ -365,9 +365,10 @@ void PgfExprParser::token()
 	}
 
 	switch (ch) {
-	case EOF:
-		token_tag = PGF_TOKEN_EOF;
-		break;
+    // TODO
+	// case EOF:
+	// 	token_tag = PGF_TOKEN_EOF;
+	// 	break;
 	case '(':
 		ch = getc();
 		token_tag = PGF_TOKEN_LPAR;
@@ -615,7 +616,8 @@ PgfExpr PgfExprParser::parse_arg()
 	return arg;
 }
 
-PGF_INTERNAL PgfText wildcard = {size: 1, text: {'_',0}};
+// PGF_INTERNAL PgfText wildcard = {size: 1, text: {'_',0}};
+PGF_INTERNAL PgfText wildcard = {size: 1, text: {}}; // TODO
 
 PgfBind *PgfExprParser::parse_bind(PgfBind *next)
 {
@@ -826,7 +828,7 @@ PgfType PgfExprParser::parse_type()
             size_t n_start = n_hypos;
 
 			if ((token_tag == PGF_TOKEN_IDENT &&
-			     (lookahead(',') || 
+			     (lookahead(',') ||
 				  lookahead(':'))) ||
 				(token_tag == PGF_TOKEN_LCURLY) ||
 				(token_tag == PGF_TOKEN_WILD)) {

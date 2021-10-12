@@ -883,8 +883,16 @@ object PgfDB::malloc_internal(size_t bytes)
                     throw pgf_systemerror(errno, filepath);
             }
 
+// OSX mman and mman-win32 do not implement mremap or MREMAP_MAYMOVE
+#ifndef MREMAP_MAYMOVE
+            if (munmap(ms, old_size) == -1)
+                throw pgf_systemerror(errno);
+            malloc_state* new_ms =
+                (malloc_state*) mmap(0, new_size, PROT_READ | PROT_WRITE, MAP_SHARED, fd, 0);
+#else
             malloc_state* new_ms =
                 (malloc_state*) mremap(ms, old_size, new_size, MREMAP_MAYMOVE);
+#endif
             if (new_ms == MAP_FAILED)
                 throw pgf_systemerror(errno);
 
