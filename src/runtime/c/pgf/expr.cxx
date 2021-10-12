@@ -239,13 +239,15 @@ PgfExprParser::~PgfExprParser()
     free(token_value);
 }
 
-uint32_t PgfExprParser::getc()
+bool PgfExprParser::getc()
 {
-    uint32_t ch = pgf_utf8_decode((const uint8_t **) &pos);
-	if (pos - ((const char*) &inp->text) > inp->size) {
-		ch = EOF;
-	}
-    return ch;
+    if (pos - ((const char*) &inp->text) >= inp->size) {
+        ch = ' ';
+        return false;
+    }
+
+    ch = pgf_utf8_decode((const uint8_t **) &pos);
+    return true;
 }
 
 void PgfExprParser::putc(uint32_t ucs)
@@ -313,10 +315,12 @@ pgf_is_normal_ident(PgfText *id)
 	return true;
 }
 
-void PgfExprParser::str_char()
+bool PgfExprParser::str_char()
 {
     if (ch == '\\') {
-        ch = getc();
+        if (!getc())
+            return false;
+
         switch (ch) {
         case '\\':
             putc('\\');
@@ -340,14 +344,14 @@ void PgfExprParser::str_char()
             putc('\t');
             break;
         case '0':
-            puts("\0");
+            putc('\0');
         default:
-            return;
+            return false;
         }
     } else {
         putc(ch);
     }
-    ch = getc();
+    return getc();
 }
 
 void PgfExprParser::token()
@@ -361,87 +365,91 @@ void PgfExprParser::token()
 
 	while (isspace(ch)) {
         token_pos   = pos;
-		ch = getc();
+        if (!getc()) {
+            token_tag = PGF_TOKEN_EOF;
+            return;
+        }
 	}
 
 	switch (ch) {
-    // TODO
-	// case EOF:
-	// 	token_tag = PGF_TOKEN_EOF;
-	// 	break;
 	case '(':
-		ch = getc();
+		getc();
 		token_tag = PGF_TOKEN_LPAR;
 		break;
 	case ')':
-		ch = getc();
+		getc();
 		token_tag = PGF_TOKEN_RPAR;
 		break;
 	case '{':
-		ch = getc();
+		getc();
 		token_tag = PGF_TOKEN_LCURLY;
 		break;
 	case '}':
-		ch = getc();
+		getc();
 		token_tag = PGF_TOKEN_RCURLY;
 		break;
 	case '<':
-		ch = getc();
+		getc();
 		token_tag = PGF_TOKEN_LTRIANGLE;
 		break;
 	case '>':
-		ch = getc();
+		getc();
 		token_tag = PGF_TOKEN_RTRIANGLE;
 		break;
 	case '?':
-		ch = getc();
+		getc();
 		token_tag = PGF_TOKEN_QUESTION;
 		break;
 	case '\\':
-		ch = getc();
+		getc();
 		token_tag = PGF_TOKEN_LAMBDA;
 		break;
 	case '-':
-		ch = getc();
-		if (ch == '>') {
-			ch = getc();
-			token_tag = PGF_TOKEN_RARROW;
-		} else if (isdigit(ch)) {
-            putc('-');
-            goto digit;
+        if (getc()) {
+            if (ch == '>') {
+                getc();
+                token_tag = PGF_TOKEN_RARROW;
+            } else if (isdigit(ch)) {
+                putc('-');
+                goto digit;
+            }
         }
 		break;
 	case ',':
-		ch = getc();
+		getc();
 		token_tag = PGF_TOKEN_COMMA;
 		break;
 	case ':':
-		ch = getc();
+		getc();
 		token_tag = PGF_TOKEN_COLON;
 		break;
 	case ';':
-		ch = getc();
+		getc();
 		token_tag = PGF_TOKEN_SEMI;
 		break;
 	case '\'': {
-		ch = getc();
-		while (ch != '\'' && ch != EOF) {
-			str_char();
-		}
-		if (ch == '\'') {
-			ch = getc();
-			token_tag = PGF_TOKEN_IDENT;
-		}
+        if (getc()) {
+            while (ch != '\'') {
+                if (!str_char())
+                    break;
+            }
+            if (ch == '\'') {
+                getc();
+                token_tag = PGF_TOKEN_IDENT;
+            }
+        }
 		break;
     }
     case '"': {
-        ch = getc();
-        while (ch != '"' && ch != EOF) {
-            str_char();
-        }
-        if (ch == '"') {
-            ch = getc();
-            token_tag = PGF_TOKEN_STR;
+        if (getc()) {
+            while (ch != '"') {
+                if (!str_char())
+                    break;
+            }
+            if (ch == '"') {
+                getc();
+                token_tag = PGF_TOKEN_STR;
+            }
         }
         break;
     }
@@ -449,28 +457,31 @@ void PgfExprParser::token()
 		if (pgf_is_ident_first(ch)) {
 			do {
 				putc(ch);
-				ch = getc();
+				if (!getc())
+                    break;
 			} while (pgf_is_ident_rest(ch));
 			token_tag = PGF_TOKEN_IDENT;
 		} else if (isdigit(ch)) {
 digit:
 			do {
 				putc(ch);
-				ch = getc();
+				if (!getc())
+                    break;
 			} while (isdigit(ch));
 
-			if (ch == '.') {
-				putc(ch);
-				ch = getc();
-
-				while (isdigit(ch)) {
-					putc(ch);
-					ch = getc();
-				}
+            if (ch == '.') {
+                putc(ch);
+                if (getc()) {
+                    while (isdigit(ch)) {
+                        putc(ch);
+                        if (!getc())
+                            break;
+                    }
+                }
 				token_tag   = PGF_TOKEN_FLT;
-			} else {
-				token_tag   = PGF_TOKEN_INT;
-			}
+            } else {
+                token_tag   = PGF_TOKEN_INT;
+            }
 		}
 		break;
 	}
@@ -480,7 +491,8 @@ digit:
 bool PgfExprParser::lookahead(int ch)
 {
 	while (isspace(this->ch)) {
-		this->ch = getc();
+        if (!getc())
+            break;
 	}
 
 	return (this->ch == ch);
