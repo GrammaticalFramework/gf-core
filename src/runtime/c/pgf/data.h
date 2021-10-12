@@ -123,13 +123,7 @@ struct PGF_INTERNAL_DECL PgfPGF {
     static void release(ref<PgfPGF> pgf);
 };
 
-// extern PGF_INTERNAL_DECL
-// PgfText master;
-
-extern PGF_INTERNAL_DECL
-size_t master_size;
-
-extern PGF_INTERNAL_DECL
-char master_text[];
+extern PGF_INTERNAL_DECL size_t master_size;
+extern PGF_INTERNAL_DECL char master_text[];
 
 #endif

@@ -30,14 +30,8 @@ pgf_exn_clear(PgfExn* err)
         err->msg  = strdup(e.what()); \
     }
 
-// PGF_INTERNAL
-// PgfText master = {size: 6, text: {}};
-
-PGF_INTERNAL
-size_t master_size = 6;
-
-PGF_INTERNAL
-char master_text[] = {'m','a','s','t','e','r',0};
+PGF_INTERNAL size_t master_size = 6;
+PGF_INTERNAL char master_text[] = {'m','a','s','t','e','r',0};
 
 PGF_API
 PgfDB *pgf_read_pgf(const char* fpath,
