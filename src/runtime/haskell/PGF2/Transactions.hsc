@@ -153,8 +153,9 @@ setAbstractFlag name value = Transaction $ \c_db c_revision c_exn ->
 
 type Token  = String
 type LIndex = Int
+type Param  = Int
 data Symbol
-  = SymCat {-# UNPACK #-} !Int {-# UNPACK #-} !LIndex
+  = SymCat {-# UNPACK #-} !Int {-# UNPACK #-} !LIndex [(LIndex,Param)]
   | SymLit {-# UNPACK #-} !Int {-# UNPACK #-} !LIndex
   | SymVar {-# UNPACK #-} !Int {-# UNPACK #-} !Int
   | SymKS Token

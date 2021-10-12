@@ -234,6 +234,7 @@ ppTerm q d (Typed e t) = '<' <> ppTerm q 0 e <+> ':' <+> ppTerm q 0 t <> '>'
 ppTerm q d (ImplArg e) = braces (ppTerm q 0 e)
 ppTerm q d (ELincat cat t) = prec d 4 ("lincat" <+> cat <+> ppTerm q 5 t)
 ppTerm q d (ELin cat t) = prec d 4 ("lin" <+> cat <+> ppTerm q 5 t)
+ppTerm q d (TSymCat i r rs) = pp '<' <> pp i <> pp ',' <> ppLinFun pp r rs <> pp '>'
 
 ppEquation q (ps,e) = hcat (map (ppPatt q 2) ps) <+> "->" <+> ppTerm q 0 e
 
@@ -356,16 +357,31 @@ ppLit (PGF2.LStr s) = pp (show s)
 ppLit (PGF2.LInt n) = pp n
 ppLit (PGF2.LFlt d) = pp d
 
-ppSymbol (PGF2.SymCat d r) = pp '<' <> pp d <> pp ',' <> pp r <> pp '>'
-ppSymbol (PGF2.SymLit d r) = pp '{' <> pp d <> pp ',' <> pp r <> pp '}'
-ppSymbol (PGF2.SymVar d r) = pp '<' <> pp d <> pp ',' <> pp '$' <> pp r <> pp '>'
-ppSymbol (PGF2.SymKS t)    = doubleQuotes (pp t)
-ppSymbol PGF2.SymNE        = pp "nonExist"
-ppSymbol PGF2.SymBIND      = pp "BIND"
-ppSymbol PGF2.SymSOFT_BIND = pp "SOFT_BIND"
-ppSymbol PGF2.SymSOFT_SPACE= pp "SOFT_SPACE"
-ppSymbol PGF2.SymCAPIT     = pp "CAPIT"
-ppSymbol PGF2.SymALL_CAPIT = pp "ALL_CAPIT"
+ppSymbol (PGF2.SymCat d r rs)= pp '<' <> pp d <> pp ',' <> ppLinFun ppIntVar r rs <> pp '>'
+ppSymbol (PGF2.SymLit d r)   = pp '{' <> pp d <> pp ',' <> pp r <> pp '}'
+ppSymbol (PGF2.SymVar d r)   = pp '<' <> pp d <> pp ',' <> pp '$' <> pp r <> pp '>'
+ppSymbol (PGF2.SymKS t)      = doubleQuotes (pp t)
+ppSymbol PGF2.SymNE          = pp "nonExist"
+ppSymbol PGF2.SymBIND        = pp "BIND"
+ppSymbol PGF2.SymSOFT_BIND   = pp "SOFT_BIND"
+ppSymbol PGF2.SymSOFT_SPACE  = pp "SOFT_SPACE"
+ppSymbol PGF2.SymCAPIT       = pp "CAPIT"
+ppSymbol PGF2.SymALL_CAPIT   = pp "ALL_CAPIT"
 ppSymbol (PGF2.SymKP syms alts) = pp "pre" <+> braces (hsep (punctuate (pp ';') (hsep (map ppSymbol syms) : map ppAlt alts)))
+
+ppLinFun ppParam r rs
+  | r == 0 && not (null rs) = hcat (intersperse (pp '+') (       map ppTerm rs))
+  | otherwise               = hcat (intersperse (pp '+') (pp r : map ppTerm rs))
+  where
+    ppTerm (i,p)
+      | i == 1    = ppParam p
+      | otherwise = pp i <> pp '*' <> ppParam p
+
+ppIntVar p
+  | i == 0    = pp (chars !! j)
+  | otherwise = pp (chars !! j : show i)
+  where
+    chars = "ijklmnopqr"
+    (i,j) = p `divMod` (length chars)
 
 ppAlt (syms,ps) = hsep (map ppSymbol syms) <+> pp '/' <+> hsep (map (doubleQuotes . pp) ps)

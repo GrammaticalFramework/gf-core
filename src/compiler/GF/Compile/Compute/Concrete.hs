@@ -8,7 +8,7 @@ module GF.Compile.Compute.Concrete
            , EvalM, runEvalM, evalError
            , eval, apply, force, value2term
            , newMeta,getMeta,setMeta
-           , newEvaluatedThunk,getAllParamValues
+           , newThunk,newEvaluatedThunk,getAllParamValues
            , lookupParams
            ) where
 
@@ -34,6 +34,7 @@ import Control.Applicative
 import qualified Control.Monad.Fail as Fail
 import qualified Data.Map as Map
 import GF.Text.Pretty
+import PGF2.Transactions(LIndex)
 
 -- * Main entry points
 
@@ -78,8 +79,9 @@ data Value s
   | VPattType (Value s)
   | VAlts (Value s) [(Value s, Value s)]
   | VStrs [Value s]
-  | VSymCat Int Int     -- This is only generated internally in
-                        -- the PMCFG generator.
+    -- This last constructor is only generated internally
+    -- in the PMCFG generator.
+  | VSymCat Int LIndex [(LIndex, Thunk s)]
 
 
 eval env (Vr x)         vs  = case lookup x env of
@@ -181,6 +183,11 @@ eval env (Alts d as)    []  = do vd <- eval env d []
                                  return (VAlts vd vas)
 eval env (Strs ts)      []  = do vs <- mapM (\t -> eval env t []) ts
                                  return (VStrs vs)
+eval env (TSymCat d r rs) []= do rs <- forM rs $ \(i,pv) ->
+                                         case lookup pv env of
+                                           Just tnk -> return (i,tnk)
+                                           Nothing  -> evalError ("Variable" <+> pp pv <+> "is not in scope")
+                                 return (VSymCat d r rs)
 eval env t              vs  = evalError ("Cannot reduce term" <+> pp t)
 
 apply (VMeta m env vs0)             vs  = do st <- getMeta m

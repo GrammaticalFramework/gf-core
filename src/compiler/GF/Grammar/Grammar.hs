@@ -74,7 +74,7 @@ import GF.Infra.Location
 import GF.Data.Operations
 
 import PGF2(BindType(..))
-import PGF2.Transactions(Symbol)
+import PGF2.Transactions(Symbol,LIndex)
 
 import Data.Array.IArray(Array)
 import Data.Array.Unboxed(UArray)
@@ -391,6 +391,7 @@ data Term =
 
  | Alts Term [(Term, Term)]      -- ^ alternatives by prefix: @pre {t ; s\/c ; ...}@
  | Strs [Term]                   -- ^ conditioning prefix strings: @strs {s ; ...}@
+ | TSymCat Int LIndex [(LIndex,Ident)]
   deriving (Show, Eq, Ord)
 
 -- | Patterns
