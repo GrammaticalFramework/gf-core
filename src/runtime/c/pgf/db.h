@@ -112,6 +112,6 @@ private:
     DB_scope* next_scope;
 };
 
-extern PGF_INTERNAL_DECL thread_local DB_scope *last_db_scope __attribute__((tls_model("initial-exec")));
+extern PGF_INTERNAL_DECL __thread DB_scope *last_db_scope __attribute__((tls_model("initial-exec")));
 
 #endif
