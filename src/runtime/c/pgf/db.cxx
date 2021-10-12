@@ -2,6 +2,8 @@
 #include <sys/mman.h>
 #include <unistd.h>
 #include <fcntl.h>
+#include <errno.h>
+#include <pthread.h>
 
 #include "data.h"
 
@@ -589,7 +591,7 @@ object PgfDB::malloc_internal(size_t bytes)
            invoked all that often in most programs. And the programs that
            it is called frequently in otherwise tend to fragment.
         */
-   
+
         idx = largebin_index(nb);
         if (ms->have_fastchunks)
             malloc_consolidate(ms);
