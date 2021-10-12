@@ -267,8 +267,6 @@ public:
     prob_t get_prob() { return prob; };
 };
 
-PGF_INTERNAL_DECL extern PgfText wildcard;
-
 /* The following functions release the memory in the database,
  * allocated for values of the corresponding types.
  */

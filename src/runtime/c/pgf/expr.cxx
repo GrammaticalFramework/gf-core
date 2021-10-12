@@ -460,7 +460,10 @@ void PgfExprParser::token()
 				if (!getc())
                     break;
 			} while (pgf_is_ident_rest(ch));
-			token_tag = PGF_TOKEN_IDENT;
+            if (token_value->size == 1 && strcmp(token_value->text,"_")==0)
+                token_tag = PGF_TOKEN_WILD;
+            else
+                token_tag = PGF_TOKEN_IDENT;
 		} else if (isdigit(ch)) {
 digit:
 			do {
@@ -628,9 +631,6 @@ PgfExpr PgfExprParser::parse_arg()
 	return arg;
 }
 
-// PGF_INTERNAL PgfText wildcard = {size: 1, text: {'_',0}};
-PGF_INTERNAL PgfText wildcard = {size: 1, text: {}}; // TODO
-
 PgfBind *PgfExprParser::parse_bind(PgfBind *next)
 {
     PgfBind *last = next;
@@ -643,10 +643,8 @@ PgfBind *PgfExprParser::parse_bind(PgfBind *next)
 
 	for (;;) {
         PgfText *var;
-		if (token_tag == PGF_TOKEN_IDENT) {
+		if (token_tag == PGF_TOKEN_IDENT || token_tag == PGF_TOKEN_WILD) {
 			var = token_value;
-		} else if (token_tag == PGF_TOKEN_WILD) {
-			var = &wildcard;
 		} else {
 			goto error;
 		}
@@ -785,10 +783,8 @@ bool PgfExprParser::parse_hypos(size_t *n_hypos, PgfTypeHypo **hypos)
 		}
 
         PgfText *var;
-		if (token_tag == PGF_TOKEN_IDENT) {
+		if (token_tag == PGF_TOKEN_IDENT || token_tag == PGF_TOKEN_WILD) {
 			var = token_value;
-		} else if (token_tag == PGF_TOKEN_WILD) {
-			var = &wildcard;
 		} else {
 			return false;
 		}
@@ -819,6 +815,18 @@ bool PgfExprParser::parse_hypos(size_t *n_hypos, PgfTypeHypo **hypos)
 		return false;
 
 	return true;
+}
+
+static
+PgfText *mk_wildcard()
+{
+    PgfText *t = (PgfText *) malloc(sizeof(PgfText)+2);
+    if (t != NULL) {
+        t->size = 1;
+        t->text[0] = '_';
+        t->text[1] = 0;
+    }
+    return t;
 }
 
 PgfType PgfExprParser::parse_type()
@@ -856,7 +864,7 @@ PgfType PgfExprParser::parse_type()
                 hypos = (PgfTypeHypo*) realloc(hypos, sizeof(PgfTypeHypo)*(n_hypos+1));
                 PgfTypeHypo *bt = &hypos[n_hypos];
                 bt->bind_type = PGF_BIND_TYPE_EXPLICIT;
-                bt->cid  = textdup(&wildcard);
+                bt->cid  = mk_wildcard();
                 bt->type = 0;
                 n_hypos++;
 			}
@@ -903,7 +911,7 @@ PgfType PgfExprParser::parse_type()
             hypos = (PgfTypeHypo*) realloc(hypos, sizeof(PgfTypeHypo)*(n_hypos+1));
             PgfTypeHypo *bt = &hypos[n_hypos];
             bt->bind_type = PGF_BIND_TYPE_EXPLICIT;
-            bt->cid  = textdup(&wildcard);
+            bt->cid  = mk_wildcard();
             bt->type = u->dtyp(0,NULL,cat,n_args,args);
             n_hypos++;
 

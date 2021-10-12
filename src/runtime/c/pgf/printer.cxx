@@ -382,7 +382,7 @@ PgfLiteral PgfPrinter::lstr(PgfText *v)
 
 void PgfPrinter::hypo(PgfTypeHypo *hypo, int prio)
 {
-    if (textcmp(hypo->cid, &wildcard) == 0) {
+    if (hypo->cid->size == 1 && strcmp(hypo->cid->text, "_") == 0) {
         this->prio = prio;
         m->match_type(this, hypo->type);
     } else {
