@@ -48,14 +48,21 @@ export const PgfTextPtr = ref.refType(PgfText)
 
 export const PgfItorPtr = ref.refType(ref.types.void)
 
-const PgfType = ref.refType(ref.types.Object) // TODO
-// const PgfTypePtr = ref.refType(PgfType)
+const PgfType = ref.refType(ref.types.Object)
 
-const PgfTypeHypo = ref.types.void // TODO
-const PgfTypeHypoPtr = ref.refType(PgfTypeHypo)
+const PgfTypeHypo = Struct({
+  bind_type: ref.types.int,
+  cid: PgfTextPtr,
+  type: PgfType
+})
 
 export const PgfExpr = ref.refType(ref.types.Object)
 export const PgfLiteral = ref.refType(ref.types.Object)
+
+// export const PgfTypePtr = ref.refType(PgfType)
+export const PgfTypeHypoPtr = ref.refType(PgfTypeHypo)
+export const PgfExprPtr = ref.refType(PgfExpr)
+// export const PgfLiteralPtr = ref.refType(PgfLiteral)
 
 const PgfMetaId = ref.types.int
 
@@ -158,7 +165,7 @@ export function PgfText_FromString (str: string): Pointer<any> {
 // ----------------------------------------------------------------------------
 // Un/marshalling
 
-const eabs = ffi.Callback(PgfExpr, [PgfUnmarshaller, ref.types.bool, PgfTextPtr, PgfExpr],
+const eabs = ffi.Callback(PgfExpr, [PgfUnmarshallerPtr, ref.types.bool, PgfTextPtr, PgfExpr],
   function (self, btype: boolean, name: Pointer<any>, body: Pointer<Expr>): Pointer<ExprAbs> {
     const jsname = PgfText_AsString(name)
     const obj = new ExprAbs(btype, jsname, body.deref())
@@ -167,7 +174,7 @@ const eabs = ffi.Callback(PgfExpr, [PgfUnmarshaller, ref.types.bool, PgfTextPtr,
     return buf
   })
 
-const eapp = ffi.Callback(PgfExpr, [PgfUnmarshaller, PgfExpr, PgfExpr],
+const eapp = ffi.Callback(PgfExpr, [PgfUnmarshallerPtr, PgfExpr, PgfExpr],
   function (self, fun: Pointer<Expr>, arg: Pointer<Type>): Pointer<ExprApp> {
     const obj = new ExprApp(fun.deref(), arg.deref())
     const buf = ref.alloc(ref.types.Object) as Pointer<ExprApp>
@@ -175,7 +182,7 @@ const eapp = ffi.Callback(PgfExpr, [PgfUnmarshaller, PgfExpr, PgfExpr],
     return buf
   })
 
-const elit = ffi.Callback(PgfExpr, [PgfUnmarshaller, PgfLiteral],
+const elit = ffi.Callback(PgfExpr, [PgfUnmarshallerPtr, PgfLiteral],
   function (self, lit: Pointer<Literal>): Pointer<ExprLit> {
     const litObj = lit.deref()
     const obj = new ExprLit(litObj)
@@ -184,7 +191,7 @@ const elit = ffi.Callback(PgfExpr, [PgfUnmarshaller, PgfLiteral],
     return buf
   })
 
-const emeta = ffi.Callback(PgfExpr, [PgfUnmarshaller, PgfMetaId],
+const emeta = ffi.Callback(PgfExpr, [PgfUnmarshallerPtr, PgfMetaId],
   function (self, meta: number): Pointer<ExprMeta> {
     const obj = new ExprMeta(meta)
     const buf = ref.alloc(ref.types.Object) as Pointer<ExprMeta>
@@ -192,7 +199,7 @@ const emeta = ffi.Callback(PgfExpr, [PgfUnmarshaller, PgfMetaId],
     return buf
   })
 
-const efun = ffi.Callback(PgfExpr, [PgfUnmarshaller, PgfTextPtr],
+const efun = ffi.Callback(PgfExpr, [PgfUnmarshallerPtr, PgfTextPtr],
   function (self, name: Pointer<any>): Pointer<ExprFun> {
     const jsname = PgfText_AsString(name)
     const obj = new ExprFun(jsname)
@@ -201,7 +208,7 @@ const efun = ffi.Callback(PgfExpr, [PgfUnmarshaller, PgfTextPtr],
     return buf
   })
 
-const evar = ffi.Callback(PgfExpr, [PgfUnmarshaller, ref.types.int],
+const evar = ffi.Callback(PgfExpr, [PgfUnmarshallerPtr, ref.types.int],
   function (self, index: number): Pointer<ExprVar> {
     const obj = new ExprVar(index)
     const buf = ref.alloc(ref.types.Object) as Pointer<ExprVar>
@@ -209,7 +216,7 @@ const evar = ffi.Callback(PgfExpr, [PgfUnmarshaller, ref.types.int],
     return buf
   })
 
-const etyped = ffi.Callback(PgfExpr, [PgfUnmarshaller, PgfExpr, PgfType],
+const etyped = ffi.Callback(PgfExpr, [PgfUnmarshallerPtr, PgfExpr, PgfType],
   function (self, expr: Pointer<Expr>, type: Pointer<Type>): Pointer<ExprTyped> {
     const obj = new ExprTyped(expr.deref(), type.deref())
     const buf = ref.alloc(ref.types.Object) as Pointer<ExprTyped>
@@ -217,7 +224,7 @@ const etyped = ffi.Callback(PgfExpr, [PgfUnmarshaller, PgfExpr, PgfType],
     return buf
   })
 
-const eimplarg = ffi.Callback(PgfExpr, [PgfUnmarshaller, PgfExpr],
+const eimplarg = ffi.Callback(PgfExpr, [PgfUnmarshallerPtr, PgfExpr],
   function (self, expr: Pointer<Expr>): Pointer<ExprImplArg> {
     const obj = new ExprImplArg(expr.deref())
     const buf = ref.alloc(ref.types.Object) as Pointer<ExprImplArg>
@@ -225,7 +232,7 @@ const eimplarg = ffi.Callback(PgfExpr, [PgfUnmarshaller, PgfExpr],
     return buf
   })
 
-const lint = ffi.Callback(PgfLiteral, [PgfUnmarshaller, ref.types.size_t, ref.refType(ref.types.int)],
+const lint = ffi.Callback(PgfLiteral, [PgfUnmarshallerPtr, ref.types.size_t, ref.refType(ref.types.int)],
   function (self, size: number, val: Pointer<number>): Pointer<Literal> {
     let jsval: number | bigint = 0
     if (size === 1) {
@@ -263,7 +270,7 @@ const lint = ffi.Callback(PgfLiteral, [PgfUnmarshaller, ref.types.size_t, ref.re
     return buf
   })
 
-const lflt = ffi.Callback(PgfLiteral, [PgfUnmarshaller, ref.types.double],
+const lflt = ffi.Callback(PgfLiteral, [PgfUnmarshallerPtr, ref.types.double],
   function (self, val: number): Pointer<Literal> {
     const obj = new Literal(val)
     const buf = ref.alloc(ref.types.Object) as Pointer<Literal>
@@ -271,7 +278,7 @@ const lflt = ffi.Callback(PgfLiteral, [PgfUnmarshaller, ref.types.double],
     return buf
   })
 
-const lstr = ffi.Callback(PgfLiteral, [PgfUnmarshaller, PgfTextPtr],
+const lstr = ffi.Callback(PgfLiteral, [PgfUnmarshallerPtr, PgfTextPtr],
   function (self, val: Pointer<any>): Pointer<Literal> {
     const jsval = PgfText_AsString(val)
     const obj = new Literal(jsval)
@@ -280,19 +287,36 @@ const lstr = ffi.Callback(PgfLiteral, [PgfUnmarshaller, PgfTextPtr],
     return buf
   })
 
-const dtyp = ffi.Callback(PgfType, [PgfUnmarshaller, ref.types.int, PgfTypeHypoPtr, PgfTextPtr, ref.types.int, ref.refType(PgfExpr)],
+const dtyp = ffi.Callback(PgfType, [PgfUnmarshallerPtr, ref.types.int, PgfTypeHypoPtr, PgfTextPtr, ref.types.int, PgfExprPtr],
   function (self, n_hypos: number, hypos: Pointer<any>, cat: Pointer<any>, n_exprs: number, exprs: Pointer<any>): Pointer<Type> {
-    // TODO
     const jshypos: Hypo[] = []
+    if (n_hypos > 0) {
+      const hyposArr = hypos.reinterpret(PgfTypeHypo.size * n_hypos, 0)
+      for (let i = 0; i < n_hypos; i++) {
+        const hypo = ref.get(hyposArr, PgfTypeHypo.size * i, PgfTypeHypo)
+        const h = new Hypo(hypo.bind_type, PgfText_AsString(hypo.cid), hypo.type.deref() as Type)
+        jshypos.push(h)
+      }
+    }
+
     const jsname = PgfText_AsString(cat)
+
     const jsexprs: Expr[] = []
+    if (n_exprs > 0) {
+      const exprsArr = exprs.reinterpret(PgfExpr.size * n_exprs, 0)
+      for (let i = 0; i < n_exprs; i++) {
+        const expr = ref.get(exprsArr, PgfExpr.size * i, PgfExpr)
+        jsexprs.push(expr.deref() as Expr)
+      }
+    }
+
     const obj = new Type(jshypos, jsname, jsexprs)
     const buf = ref.alloc(ref.types.Object) as Pointer<Type>
     ref.writeObject(buf, 0, obj)
     return buf
   })
 
-const free_ref = ffi.Callback(ref.types.void, [PgfUnmarshaller, ref.refType(ref.types.Object)],
+const free_ref = ffi.Callback(ref.types.void, [PgfUnmarshallerPtr, ref.refType(ref.types.Object)],
   function (self, x: Pointer<any>): void {
   })
 
@@ -314,17 +338,17 @@ const un_vtbl = new PgfUnmarshallerVtbl({
 
 export const unmarshaller = new PgfUnmarshaller({ vtbl: un_vtbl.ref() })
 
-const match_lit = ffi.Callback(ref.types.Object, [PgfMarshaller, PgfUnmarshaller, PgfLiteral],
+const match_lit = ffi.Callback(ref.types.Object, [PgfMarshallerPtr, PgfUnmarshallerPtr, PgfLiteral],
   function (self, u: any, lit: any): Pointer<any> {
     return 0 as any
   })
 
-const match_expr = ffi.Callback(ref.types.Object, [PgfMarshaller, PgfUnmarshaller, PgfExpr],
+const match_expr = ffi.Callback(ref.types.Object, [PgfMarshallerPtr, PgfUnmarshallerPtr, PgfExpr],
   function (self, u: any, expr: any): Pointer<any> {
     return 0 as any
   })
 
-const match_type = ffi.Callback(ref.types.Object, [PgfMarshaller, PgfUnmarshaller, PgfType],
+const match_type = ffi.Callback(ref.types.Object, [PgfMarshallerPtr, PgfUnmarshallerPtr, PgfType],
   function (self, u: any, type: any): Pointer<any> {
     return 0 as any
   })

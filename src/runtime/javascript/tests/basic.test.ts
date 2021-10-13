@@ -2,14 +2,18 @@ import PGF, {
   PGFError,
   PGFGrammar,
   // Type,
+  mkType,
   // Hypo,
+  mkHypo,
+  mkDepHypo,
+  mkImplHypo,
   // Expr,
   // ExprAbs,
   ExprApp,
   ExprLit,
   ExprMeta,
   ExprFun,
-  // ExprVar,
+  ExprVar,
   // ExprTyped,
   ExprImplArg
   // Literal
@@ -225,10 +229,87 @@ describe('abstract syntax', () => {
 // ----------------------------------------------------------------------------
 
 describe('types', () => {
-  test('invalid', () => {
-    expect(() => {
-      PGF.readType('->')
-    }).toThrow(PGFError)
+  describe('read', () => {
+    test('invalid', () => {
+      expect(() => {
+        PGF.readType('->')
+      }).toThrow(PGFError)
+    })
+
+    test('1', () => {
+      const t1 = PGF.readType('A')
+      const t2 = PGF.readType('A')
+      const t3 = PGF.readType('B')
+      expect(t1).toEqual(t2)
+      expect(t1).not.toEqual(t3)
+    })
+
+    test('2', () => {
+      const t1 = PGF.readType('A -> B')
+      const t2 = PGF.readType('A->B')
+      const t3 = PGF.readType('B->B')
+      expect(t1).toEqual(t2)
+      expect(t1).not.toEqual(t3)
+    })
+
+    test('3', () => {
+      const t1 = PGF.readType('A -> B -> C')
+      const t2 = PGF.readType('A->B   ->    C')
+      expect(t1).toEqual(t2)
+    })
+
+    test('4', () => {
+      const t1 = PGF.readType('(x : N) -> P x')
+      const t2 = mkType([mkDepHypo('x', mkType([], 'N', []))], 'P', [new ExprFun('x')])
+      expect(t1).toEqual(t2)
+    })
+  })
+
+  describe.skip('show', () => {
+    test('1', () => {
+      const type = mkType([], 'N', [])
+      expect(PGF.showType([], type)).toEqual('N')
+    })
+
+    test('2', () => {
+      const type = mkType([mkHypo(mkType([], 'N', []))], 'N', [])
+      expect(PGF.showType([], type)).toEqual('N -> N')
+    })
+
+    test('3', () => {
+      const type = mkType([mkHypo(mkType([mkHypo(mkType([], 'N', []))], 'N', []))], 'N', [])
+      expect(PGF.showType([], type)).toEqual('(N -> N) -> N')
+    })
+
+    test('4', () => {
+      const type = mkType([mkDepHypo('x', mkType([], 'N', []))], 'P', [new ExprVar(0)])
+      expect(PGF.showType([], type)).toEqual('(x : N) -> P x')
+    })
+
+    test('5', () => {
+      const type = mkType([mkDepHypo('f', mkType([mkHypo(mkType([], 'N', []))], 'N', []))], 'P', [new ExprApp(new ExprVar(0), new ExprFun('z'))])
+      expect(PGF.showType([], type)).toEqual('(f : N -> N) -> P (f z)')
+    })
+
+    test('6', () => {
+      const type = mkType([mkDepHypo('f', mkType([mkHypo(mkType([], 'N', []))], 'N', []))], 'P', [new ExprApp(new ExprVar(0), new ExprVar(1))])
+      expect(PGF.showType(['n'], type)).toEqual('(f : N -> N) -> P (f n)')
+    })
+
+    test('7', () => {
+      const type = mkType([mkImplHypo('f', mkType([mkHypo(mkType([], 'N', []))], 'N', []))], 'P', [new ExprApp(new ExprVar(0), new ExprVar(1))])
+      expect(PGF.showType(['n'], type)).toEqual('({f} : N -> N) -> P (f n)')
+    })
+
+    test('8', () => {
+      const type = mkType([mkDepHypo('x', mkType([], 'N', [])), mkHypo(mkType([], 'P', [new ExprVar(0)]))], 'S', [])
+      expect(PGF.showType(['n'], type)).toEqual('(x : N) -> P x -> S')
+    })
+
+    test('9', () => {
+      const type = mkType([mkDepHypo('x', mkType([], 'N', [])), mkDepHypo('y', mkType([], 'P', [new ExprVar(0)]))], 'S', [])
+      expect(PGF.showType(['n'], type)).toEqual('(x : N) -> (y : P x) -> S')
+    })
   })
 })
 
