@@ -10,10 +10,37 @@ export class Type {
   }
 }
 
+export function mkType (hypos: Hypo[], name: string, exprs: Expr[]): Type {
+  return new Type(hypos, name, exprs)
+}
+
+export enum BindType {
+  Explicit,
+  Implicit
+}
+
 export class Hypo {
-  bind_type!: boolean
-  var!: string
-  type!: Type
+  bind_type: BindType
+  var: string
+  type: Type
+
+  constructor (bt: BindType, v: string, t: Type) {
+    this.bind_type = bt
+    this.var = v
+    this.type = t
+  }
+}
+
+export function mkHypo (type: Type): Hypo {
+  return new Hypo(BindType.Explicit, '_', type)
+}
+
+export function mkDepHypo (vr: string, type: Type): Hypo {
+  return new Hypo(BindType.Explicit, vr, type)
+}
+
+export function mkImplHypo (vr: string, type: Type): Hypo {
+  return new Hypo(BindType.Implicit, vr, type)
 }
 
 export class Expr {

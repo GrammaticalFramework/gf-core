@@ -2,6 +2,9 @@
 #include <sys/mman.h>
 #include <fcntl.h>
 #include <unistd.h>
+#include <errno.h>
+#include <pthread.h>
+
 #include "pgf/data.h"
 
 typedef struct {

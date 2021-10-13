@@ -210,14 +210,14 @@ class PGF_INTERNAL_DECL PgfExprParser {
     const char *token_pos, *pos;
     uint32_t ch;
 
-    uint32_t getc();
+    bool getc();
     void putc(uint32_t ch);
 
 public:
     PgfExprParser(PgfText* input, PgfUnmarshaller *unmarshaller);
     ~PgfExprParser();
 
-    void str_char();
+    bool str_char();
     void token();
     bool lookahead(int ch);
 
@@ -266,8 +266,6 @@ public:
 
     prob_t get_prob() { return prob; };
 };
-
-PGF_INTERNAL_DECL extern PgfText wildcard;
 
 /* The following functions release the memory in the database,
  * allocated for values of the corresponding types.

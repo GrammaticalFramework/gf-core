@@ -2,8 +2,8 @@
 
 import errno from './errno'
 import {
-  Type,
-  Hypo,
+  Type, mkType,
+  Hypo, mkHypo, mkDepHypo, mkImplHypo,
   Expr,
   ExprAbs,
   ExprApp,
@@ -229,6 +229,10 @@ function readExpr (str: string): Expr {
   return ref.readObject(expr) as Expr
 }
 
+function showType (context: string[], type: Type): string {
+  return 'TODO'
+}
+
 // ----------------------------------------------------------------------------
 // Exposed library API
 
@@ -242,9 +246,14 @@ export {
 
   readType,
   readExpr,
+  showType,
 
   Type,
+  mkType,
   Hypo,
+  mkHypo,
+  mkDepHypo,
+  mkImplHypo,
   Expr,
   ExprAbs,
   ExprApp,
@@ -266,9 +275,14 @@ export default {
 
   readType,
   readExpr,
+  showType,
 
   Type,
+  mkType,
   Hypo,
+  mkHypo,
+  mkDepHypo,
+  mkImplHypo,
   Expr,
   ExprAbs,
   ExprApp,
