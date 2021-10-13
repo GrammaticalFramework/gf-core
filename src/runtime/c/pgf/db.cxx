@@ -327,6 +327,7 @@ PgfDB::PgfDB(const char* filepath, int flags, int mode) {
     ms = (malloc_state*)
         mmap(NULL, file_size, PROT_READ | PROT_WRITE, mflags, fd, 0);
     if (ms == MAP_FAILED) {
+        ms = NULL; // mark that ms is not created.
         ::free((void *) this->filepath);
         int code = errno;
         close(fd);
