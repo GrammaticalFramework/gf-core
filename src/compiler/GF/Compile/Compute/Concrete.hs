@@ -66,7 +66,7 @@ data Value s
   | VP (Value s) Label [Thunk s]
   | VExtR (Value s) (Value s)
   | VTable (Value s) (Value s)
-  | VT TInfo [Case]
+  | VT TInfo (Env s) [Case]
   | VV Type [Thunk s]
   | VS (Value s) (Thunk s) [Thunk s]
   | VSort Ident
@@ -122,19 +122,19 @@ eval env (ExtR t1 t2)   []  = do v1 <- eval env t1 []
 eval env (Table t1 t2)  []  = do v1 <- eval env t1 []
                                  v2 <- eval env t2 []
                                  return (VTable v1 v2)
-eval env (T i cs)       []  = return (VT i cs)
+eval env (T i cs)       []  = return (VT i env cs)
 eval env (V ty ts)      []  = do tnks <- mapM (newThunk env) ts
                                  return (VV ty tnks)
 eval env t@(S t1 t2)    vs  = do v1   <- eval env t1 []
                                  tnk2 <- newThunk env t2
                                  let v0 = VS v1 tnk2 vs
                                  case v1 of
-                                   VT _  cs   -> patternMatch v0 (map (\(p,t) -> (env,[p],tnk2:vs,t)) cs)
-                                   VV ty tnks -> do t2 <- force tnk2 [] >>= value2term (length env)
-                                                    ts <- getAllParamValues ty
-                                                    case lookup t2 (zip ts tnks) of
-                                                      Just tnk -> force tnk vs
-                                                      Nothing  -> return v0
+                                   VT _  env cs -> patternMatch v0 (map (\(p,t) -> (env,[p],tnk2:vs,t)) cs)
+                                   VV ty tnks   -> do t2 <- force tnk2 [] >>= value2term (length env)
+                                                      ts <- getAllParamValues ty
+                                                      case lookup t2 (zip ts tnks) of
+                                                        Just tnk -> force tnk vs
+                                                        Nothing  -> return v0
                                    v1      -> return v0
 eval env (Let (x,(_,t1)) t2) vs = do tnk <- newThunk env t1
                                      eval ((x,tnk):env) t2 vs
@@ -375,7 +375,7 @@ value2term i (VTable v1 v2) = do
   t1 <- value2term i v1
   t2 <- value2term i v2
   return (Table t1 t2)
-value2term i (VT ti cs) = return (T ti cs)
+value2term i (VT ti _ cs) = return (T ti cs)
 value2term i (VV ty tnks) = do ts <- mapM (\tnk -> force tnk [] >>= value2term i) tnks
                                return (V ty ts)
 value2term i (VS v1 tnk2 tnks) = do t1 <- value2term i v1

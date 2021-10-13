@@ -108,14 +108,14 @@ flatten (VR as) (RecType lbls) st = do
                        flatten v ty st
         Nothing  -> evalError ("Missing value for label" <+> pp lbl $$
                                "among" <+> hsep (punctuate (pp ',') (map fst as)))
-flatten v@(VT _ cs) (Table p q) st = do
+flatten v@(VT _ env cs) (Table p q) st = do
   ts <- getAllParamValues p
   foldM collect st ts
   where
     collect st t = do
       tnk <- newThunk [] t
       let v0 = VS v tnk []
-      v <- patternMatch v0 (map (\(p,t) -> ([],[p],[tnk],t)) cs)
+      v <- patternMatch v0 (map (\(p,t) -> (env,[p],[tnk],t)) cs)
       flatten v q st
 flatten (VV _ tnks) (Table _ q) st = do
   foldM collect st tnks
