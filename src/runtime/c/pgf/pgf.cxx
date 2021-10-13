@@ -128,7 +128,7 @@ PgfDB *pgf_read_ngf(const char *fpath,
 
         PgfText *master = (PgfText *)alloca(sizeof(PgfText)+master_size+1);
         master->size = master_size;
-        strcpy(master->text, master_text);
+        memcpy(&master->text, master_text, master_size+1);
 
         {
             DB_scope scope(db, WRITER_SCOPE);
