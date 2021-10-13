@@ -16,7 +16,7 @@ module GF.Infra.CheckM
           (Check, CheckResult(..), Message, runCheck, runCheck',
            checkError, checkCond, checkWarn, checkWarnings, checkAccumError,
            checkIn, checkInModule, checkMap, checkMapRecover,
-           parallelCheck, accumulateError, commitCheck,
+           accumulateError, commitCheck,
           ) where
 
 import Prelude hiding ((<>)) -- GHC 8.4.1 clash with Text.PrettyPrint
@@ -118,38 +118,14 @@ runCheck' opts c =
     list = vcat . reverse
     wlist ws = if verbAtLeast opts Normal then list ws else empty
 
-parallelCheck :: [Check a] -> Check [a]
-parallelCheck cs =
-  Check $ \ {-ctxt-} (es0,ws0) ->
-  let os = [unCheck c {-[]-} ([],[])|c<-cs] `using` parList rseq
-      (msgs1,crs) = unzip os
-      (ess,wss) = unzip msgs1
-      rs = [r | Success r<-crs]
-      fs = [f | Fail f<-crs]
-      msgs = (concat ess++es0,concat wss++ws0)
-  in if null fs
-     then (msgs,Success rs)
-     else (msgs,Fail (vcat $ reverse fs))
-
 checkMap :: (Ord a) => (a -> b -> Check b) -> Map.Map a b -> Check (Map.Map a b)
 checkMap f map = do xs <- mapM (\(k,v) -> do v <- f k v
                                              return (k,v)) (Map.toList map)
                     return (Map.fromAscList xs)
 
 checkMapRecover :: (Ord a) => (a -> b -> Check b) -> Map.Map a b -> Check (Map.Map a b)
-checkMapRecover f = fmap Map.fromList . parallelCheck . map f' . Map.toList
+checkMapRecover f = fmap Map.fromList . mapM f' . Map.toList
   where f' (k,v) = fmap ((,)k) (f k v)
-
-{-
-checkMapRecover f mp = do
-  let xs = map (\ (k,v) -> (k,runCheck (f k v))) (Map.toList mp)
-  case [s | (_,Bad s) <- xs] of
-    ss@(_:_) -> checkError (text (unlines ss))
-    _   -> do
-      let (kx,ss) = unzip [((k,x),s) | (k, Ok (x,s)) <- xs]
-      if not (all null ss) then checkWarn (text (unlines ss)) else return ()
-      return (Map.fromAscList kx)
--}
 
 checkIn :: Doc -> Check a -> Check a
 checkIn msg c = Check $ \{-ctxt-} msgs0 ->

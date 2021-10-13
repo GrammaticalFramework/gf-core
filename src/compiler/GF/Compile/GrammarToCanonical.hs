@@ -97,7 +97,7 @@ toCanonical gr absname (name,jment) =
       ntyp <- normalForm gr typ
       let pts = paramTypes gr ntyp
       return [(pts,Left (LincatDef (gId name) (convType ntyp)))]
-    CncFun (Just r@(cat,ctx,lincat)) (Just (L loc def)) pprn _ -> do
+    CncFun (Just r@(_,cat,ctx,lincat)) (Just (L loc def)) pprn _ -> do
       let params = [(b,x)|(b,x,_)<-ctx]
           args   = map snd params
       e0 <- normalForm gr (mkAbs params (mkApp def (map Vr args)))

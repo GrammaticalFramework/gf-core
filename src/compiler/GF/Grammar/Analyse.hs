@@ -29,7 +29,7 @@ stripInfo i = case i of
   AbsCat _ -> i
   AbsFun mt mi me mb -> AbsFun mt mi Nothing mb
   ResParam mp mt -> ResParam mp Nothing
-  ResValue lt -> i ----
+  ResValue lt _ -> i ----
   ResOper mt md -> ResOper mt Nothing
   ResOverload is fs -> ResOverload is [(lty, L loc (EInt 0)) | (lty,L loc _) <- fs]
   CncCat mty mte _ mtf mpmcfg -> CncCat mty Nothing Nothing Nothing Nothing
@@ -108,7 +108,7 @@ sizeInfo i = case i of
     sum [sum (map (sizeTerm . patt2term) ps) + sizeTerm t | Just es <- [me], L _ (ps,t) <- es]
   ResParam mp mt -> 
     1 + sum [1 + sum [1 + sizeTerm ty | (_,_,ty) <- co] | Just (L _ ps) <- [mp], (_,co) <- ps]
-  ResValue lt -> 0
+  ResValue _ _ -> 0
   ResOper mt md -> 1 + msize mt + msize md
   ResOverload is fs -> 1 + sum [sizeTerm ty + sizeTerm tr | (L _ ty, L _ tr) <- fs]
   CncCat mty _ _ _ _ -> 1 + msize mty   -- ignoring lindef, linref and printname

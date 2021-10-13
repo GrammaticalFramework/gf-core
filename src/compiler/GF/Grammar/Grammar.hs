@@ -64,7 +64,7 @@ module GF.Grammar.Grammar (
         Location(..), L(..), unLoc, noLoc, ppLocation, ppL,
 
         -- ** PMCFG        
-        PMCFG(..)
+        PMCFGCat(..), PMCFGRule(..)
         ) where
 
 import GF.Infra.Ident
@@ -74,7 +74,7 @@ import GF.Infra.Location
 import GF.Data.Operations
 
 import PGF2(BindType(..))
-import PGF2.Transactions(Symbol,LIndex)
+import PGF2.Transactions(Symbol,LIndex,LParam)
 
 import Data.Array.IArray(Array)
 import Data.Array.Unboxed(UArray)
@@ -304,8 +304,11 @@ allConcreteModules gr =
   [i | (i, m) <- modules gr, MTConcrete _ <- [mtype m], isCompleteModule m]
 
 
-data PMCFG = PMCFG [[[Symbol]]]
-             deriving (Eq,Show)
+data PMCFGCat  = PMCFGCat LIndex [(LIndex,LParam)]
+                 deriving (Eq,Show)
+
+data PMCFGRule = PMCFGRule PMCFGCat [PMCFGCat] [[Symbol]]
+                 deriving (Eq,Show)
 
 -- | the constructors are judgements in 
 --
@@ -322,15 +325,18 @@ data Info =
  | AbsFun   (Maybe (L Type)) (Maybe Int) (Maybe [L Equation]) (Maybe Bool) -- ^ (/ABS/) type, arrity and definition of a function
 
 -- judgements in resource
- | ResParam (Maybe (L [Param])) (Maybe [Term])   -- ^ (/RES/) the second parameter is list of all possible values
- | ResValue (L Type)                             -- ^ (/RES/) to mark parameter constructors for lookup
- | ResOper  (Maybe (L Type)) (Maybe (L Term))    -- ^ (/RES/)
+ | ResParam (Maybe (L [Param])) (Maybe ([Term],Int)) -- ^ (/RES/) The second argument is list of all possible values
+                                                     -- and its precomputed length.
+ | ResValue (L Type) Int                             -- ^ (/RES/) to mark parameter constructors for lookup.
+                                                     -- The second argument is the offset into the list of all values
+                                                     -- where that constructor appears first.
+ | ResOper  (Maybe (L Type)) (Maybe (L Term))        -- ^ (/RES/)
 
- | ResOverload [ModuleName] [(L Type,L Term)]         -- ^ (/RES/) idents: modules inherited
+ | ResOverload [ModuleName] [(L Type,L Term)]        -- ^ (/RES/) idents: modules inherited
 
 -- judgements in concrete syntax
- | CncCat  (Maybe (L Type))             (Maybe (L Term)) (Maybe (L Term)) (Maybe (L Term)) (Maybe PMCFG) -- ^ (/CNC/) lindef ini'zed, 
- | CncFun  (Maybe (Ident,Context,Type)) (Maybe (L Term))                  (Maybe (L Term)) (Maybe PMCFG) -- ^ (/CNC/) type info added at 'TC'
+ | CncCat  (Maybe (L Type))                     (Maybe (L Term)) (Maybe (L Term)) (Maybe (L Term)) (Maybe [PMCFGRule]) -- ^ (/CNC/) lindef ini'zed, 
+ | CncFun  (Maybe ([Ident],Ident,Context,Type)) (Maybe (L Term))                  (Maybe (L Term)) (Maybe [PMCFGRule]) -- ^ (/CNC/) type info added at 'TC'
 
 -- indirection to module Ident
  | AnyInd Bool ModuleName                        -- ^ (/INDIR/) the 'Bool' says if canonical

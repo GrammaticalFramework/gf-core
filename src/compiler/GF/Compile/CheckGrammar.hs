@@ -29,7 +29,7 @@ import GF.Infra.Option
 import GF.Compile.TypeCheck.Abstract
 import GF.Compile.TypeCheck.Concrete(checkLType,inferLType,ppType)
 import qualified GF.Compile.TypeCheck.ConcreteNew as CN(checkLType,inferLType)
-import qualified GF.Compile.Compute.Concrete as CN(normalForm)
+import GF.Compile.Compute.Concrete(normalForm)
 
 import GF.Grammar
 import GF.Grammar.Lexer
@@ -54,11 +54,7 @@ checkModule opts cwd sgr mo@(m,mi) = do
                              checkCompleteGrammar opts cwd gr (a,abs) mo
           _            -> return mo
   infoss <- checkInModule cwd mi NoLoc empty $ topoSortJments2 mo
-  foldM updateCheckInfos mo infoss
-  where
-    updateCheckInfos mo = fmap (foldl update mo) . parallelCheck . map check
-      where check (i,info) = fmap ((,) i) (checkInfo opts cwd sgr mo i info)
-    update mo@(m,mi) (i,info) = (m,mi{jments=Map.insert i info (jments mi)})
+  foldM (foldM (checkInfo opts cwd sgr)) mo infoss
 
 -- check if restricted inheritance modules are still coherent
 -- i.e. that the defs of remaining names don't depend on omitted names
@@ -120,8 +116,7 @@ checkCompleteGrammar opts cwd gr (am,abs) (cm,cnc) = checkInModule cwd cnc NoLoc
                                     return js
                    _ -> do
                      case mb_def of
-                       Ok def -> do (cont,val) <- linTypeOfType gr cm (L loc ty)
-                                    let linty = (snd (valCat ty),cont,val)
+                       Ok def -> do linty <- linTypeOfType gr cm (L loc ty)
                                     return $ Map.insert c (CncFun (Just linty) (Just (L NoLoc def)) Nothing Nothing) js
                        Bad _  -> do noLinOf c
                                     return js
@@ -141,8 +136,7 @@ checkCompleteGrammar opts cwd gr (am,abs) (cm,cnc) = checkInModule cwd cnc NoLoc
      case info of
        CncFun _ d mn mf -> case lookupOrigInfo gr (am,c) of
                              Ok (_,AbsFun (Just (L loc ty)) _ _ _) ->
-                                        do (cont,val) <- linTypeOfType gr cm (L loc ty)
-                                           let linty = (snd (valCat ty),cont,val)
+                                        do linty <- linTypeOfType gr cm (L loc ty)
                                            return $ Map.insert c (CncFun (Just linty) d mn mf) js
                              _       -> do checkWarn ("function" <+> c <+> "is not in abstract")
                                            return js
@@ -158,32 +152,29 @@ checkCompleteGrammar opts cwd gr (am,abs) (cm,cnc) = checkInModule cwd cnc NoLoc
 
        _ -> return $ Map.insert c info js
 
-
--- | General Principle: only Just-values are checked.
--- A May-value has always been checked in its origin module.
-checkInfo :: Options -> FilePath -> SourceGrammar -> SourceModule -> Ident -> Info -> Check Info
-checkInfo opts cwd sgr (m,mo) c info = checkInModule cwd mo NoLoc empty $ do
+checkInfo :: Options -> FilePath -> SourceGrammar -> SourceModule -> (Ident,Info) -> Check SourceModule
+checkInfo opts cwd sgr sm (c,info) = checkInModule cwd (snd sm) NoLoc empty $ do
   checkReservedId c
   case info of
     AbsCat (Just (L loc cont)) ->
       mkCheck loc "the category" $
         checkContext gr cont
 
-    AbsFun (Just (L loc typ0)) ma md moper -> do
-      typ <- compAbsTyp [] typ0   -- to calculate let definitions
+    AbsFun (Just (L loc typ)) ma md moper -> do
       mkCheck loc "the type of function" $
         checkTyp gr typ
+      typ <- compAbsTyp [] typ   -- to calculate let definitions
       case md of
         Just eqs -> mapM_ (\(L loc eq) -> mkCheck loc "the definition of function" $
-                                          checkDef gr (m,c) typ eq) eqs
+                                          checkDef gr (fst sm,c) typ eq) eqs
         Nothing  -> return ()
-      return (AbsFun (Just (L loc typ)) ma md moper)
+      update sm c (AbsFun (Just (L loc typ)) ma md moper)
 
     CncCat mty mdef mref mpr mpmcfg -> do
       mty  <- case mty of
                 Just (L loc typ) -> chIn loc "linearization type of" $ do
                                       (typ,_) <- checkLType gr [] typ typeType
-                                      typ  <- CN.normalForm gr typ
+                                      typ  <- normalForm gr typ
                                       return (Just (L loc typ))
                 Nothing          -> return Nothing
       mdef <- case (mty,mdef) of
@@ -204,11 +195,11 @@ checkInfo opts cwd sgr (m,mo) c info = checkInModule cwd mo NoLoc empty $ do
                        (t,_) <- checkLType gr [] t typeStr
                        return (Just (L loc t))
                 _ -> return Nothing
-      return (CncCat mty mdef mref mpr mpmcfg)
+      update sm c (CncCat mty mdef mref mpr mpmcfg)
 
     CncFun mty mt mpr mpmcfg -> do
       mt <- case (mty,mt) of
-              (Just (cat,cont,val),Just (L loc trm)) ->
+              (Just (_,cat,cont,val),Just (L loc trm)) ->
                   chIn loc "linearization of" $ do
                      (trm,_) <- checkLType gr [] trm (mkFunType (map (\(_,_,ty) -> ty) cont) val)  -- erases arg vars
                      return (Just (L loc trm))
@@ -219,14 +210,14 @@ checkInfo opts cwd sgr (m,mo) c info = checkInModule cwd mo NoLoc empty $ do
                        (t,_) <- checkLType gr [] t typeStr
                        return (Just (L loc t))
                 _ -> return Nothing
-      return (CncFun mty mt mpr mpmcfg)
+      update sm c (CncFun mty mt mpr mpmcfg)
 
     ResOper pty pde -> do
       (pty', pde') <- case (pty,pde) of
          (Just (L loct ty), Just (L locd de)) -> do
            ty'     <- chIn loct "operation" $ do
                          (ty,_) <- checkLType gr [] ty typeType
-                         CN.normalForm gr ty
+                         normalForm gr ty
            (de',_) <- chIn locd "operation" $
                          checkLType gr [] de ty'
            return (Just (L loct ty'), Just (L locd de'))
@@ -237,32 +228,37 @@ checkInfo opts cwd sgr (m,mo) c info = checkInModule cwd mo NoLoc empty $ do
          (Just (L loct ty), Nothing) -> do
            chIn loct "operation" $
              checkError (pp "No definition given to the operation")
-      return (ResOper pty' pde')
+      update sm c (ResOper pty' pde')
 
     ResOverload os tysts -> chIn NoLoc "overloading" $ do
       tysts' <- mapM (uncurry $ flip (\(L loc1 t) (L loc2 ty) -> checkLType gr [] t ty >>= \(t,ty) -> return (L loc1 t, L loc2 ty))) tysts  -- return explicit ones
-      tysts0 <- lookupOverload gr (m,c)  -- check against inherited ones too
+      tysts0 <- lookupOverload gr (fst sm,c)  -- check against inherited ones too
       tysts1 <- mapM (uncurry $ flip (checkLType gr []))
                   [(mkFunType args val,tr) | (args,(val,tr)) <- tysts0]
       --- this can only be a partial guarantee, since matching
       --- with value type is only possible if expected type is given
       checkUniq $
         sort [let (xs,t) = typeFormCnc x in t : map (\(b,x,t) -> t) xs | (_,x) <- tysts1]
-      return (ResOverload os [(y,x) | (x,y) <- tysts'])
+      update sm c (ResOverload os [(y,x) | (x,y) <- tysts'])
 
     ResParam (Just (L loc pcs)) _ -> do
-      ts <- chIn loc "parameter type" $
-              liftM concat $ mapM mkPar pcs
-      return (ResParam (Just (L loc pcs)) (Just ts))
+      (sm,cnt,ts) <- chIn loc "parameter type" $
+                        mkParamValues sm 0 [] pcs
+      update sm c (ResParam (Just (L loc pcs)) (Just (ts,cnt)))
 
-    _ ->  return info
+    _ ->  return sm
  where
-   gr = prependModule sgr (m,mo)
-   chIn loc cat = checkInModule cwd mo loc ("Happened in" <+> cat <+> c)
+   gr = prependModule sgr sm
+   chIn loc cat = checkInModule cwd (snd sm) loc ("Happened in" <+> cat <+> c)
 
-   mkPar (f,co) = do
-       vs <- liftM sequence $ mapM (\(_,_,ty) -> allParamValues gr ty) co
-       return $ map (mkApp (QC (m,f))) vs
+   mkParamValues sm         cnt ts []          = return (sm,cnt,[])
+   mkParamValues sm@(mn,mi) cnt ts ((f,co):fs) = do
+     sm <- case lookupIdent f (jments mi) of
+             Ok (ResValue ty _) -> update sm f (ResValue ty cnt)
+             Bad msg            -> checkError (pp msg)
+     vs <- liftM sequence $ mapM (\(_,_,ty) -> allParamValues gr ty) co
+     (sm,cnt,ts) <- mkParamValues sm (cnt+length vs) ts fs
+     return (sm,cnt,map (mkApp (QC (mn,f))) vs ++ ts)
 
    checkUniq xss = case xss of
      x:y:xs
@@ -272,7 +268,7 @@ checkInfo opts cwd sgr (m,mo) c info = checkInModule cwd mo NoLoc empty $ do
      _ -> return ()
 
    mkCheck loc cat ss = case ss of
-     [] -> return info
+     [] -> return sm
      _ -> chIn loc cat $ checkError (vcat ss)
 
    compAbsTyp g t = case t of
@@ -285,7 +281,9 @@ checkInfo opts cwd sgr (m,mo) c info = checkInModule cwd mo NoLoc empty $ do
        t' <- compAbsTyp ((x,Vr x):g) t
        return $ Prod b x a' t'
      Abs _ _ _ -> return t
-     _ -> composOp (compAbsTyp g) t
+     _ -> composOp (compAbsTyp g) t  
+
+   update (mn,mi) c info = return (mn,mi{jments=Map.insert c info (jments mi)})
 
 
 -- | for grammars obtained otherwise than by parsing ---- update!!
@@ -297,12 +295,13 @@ checkReservedId x =
 -- auxiliaries
 
 -- | linearization types and defaults
-linTypeOfType :: Grammar -> ModuleName -> L Type -> Check (Context,Type)
+linTypeOfType :: Grammar -> ModuleName -> L Type -> Check ([Ident],Ident,Context,Type)
 linTypeOfType cnc m (L loc typ) = do
-  let (cont,cat) = typeSkeleton typ
-  val  <- lookLin cat
-  args <- mapM mkLinArg (zip [0..] cont)
-  return (args, val)
+  let (ctxt,res_cat) = typeSkeleton typ
+  val <- lookLin res_cat
+  lin_args <- mapM mkLinArg (zip [0..] ctxt)
+  let (args,arg_cats) = unzip lin_args
+  return (arg_cats, snd res_cat, args, val)
  where
    mkLinArg (i,(n,mc@(m,cat))) = do
      val  <- lookLin mc
@@ -314,8 +313,8 @@ linTypeOfType cnc m (L loc typ) = do
                                       "with" $$
                                       nest 2 val)) $
                              plusRecType vars val
-     return (Explicit,symb,rec)
+     return ((Explicit,symb,rec),cat)
    lookLin (_,c) = checks [ --- rather: update with defLinType ?
-      lookupLincat cnc m c >>= CN.normalForm cnc
+      lookupLincat cnc m c >>= normalForm cnc
      ,return defLinType
      ]

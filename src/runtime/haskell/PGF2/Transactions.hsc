@@ -13,7 +13,7 @@ module PGF2.Transactions
           , setAbstractFlag
 
             -- concrete syntax
-          , Token, LIndex, Symbol(..)
+          , Token, LIndex, LParam, Symbol(..)
           ) where
 
 import PGF2.FFI
@@ -153,9 +153,9 @@ setAbstractFlag name value = Transaction $ \c_db c_revision c_exn ->
 
 type Token  = String
 type LIndex = Int
-type Param  = Int
+type LParam = Int
 data Symbol
-  = SymCat {-# UNPACK #-} !Int {-# UNPACK #-} !LIndex [(LIndex,Param)]
+  = SymCat {-# UNPACK #-} !Int {-# UNPACK #-} !LIndex [(LIndex,LParam)]
   | SymLit {-# UNPACK #-} !Int {-# UNPACK #-} !LIndex
   | SymVar {-# UNPACK #-} !Int {-# UNPACK #-} !Int
   | SymKS Token

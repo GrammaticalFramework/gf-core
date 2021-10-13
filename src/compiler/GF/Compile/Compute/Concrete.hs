@@ -6,10 +6,10 @@ module GF.Compile.Compute.Concrete
            ( normalForm
            , Value(..), Thunk, ThunkState(..), Env
            , EvalM, runEvalM, evalError
-           , eval, apply, force, value2term
+           , eval, apply, force, value2term, patternMatch
            , newMeta,getMeta,setMeta
-           , newThunk,newEvaluatedThunk,getAllParamValues
-           , lookupParams
+           , newThunk,newEvaluatedThunk
+           , getResDef, getInfo, getAllParamValues
            ) where
 
 import Prelude hiding ((<>)) -- GHC 8.4.1 clash with Text.PrettyPrint
@@ -144,7 +144,7 @@ eval env (Q q@(m,id))   vs
                                  case mb_res of
                                    Just res -> return res
                                    Nothing  -> return (VApp q vs)
-  | otherwise               = do t <- lookupGlobal q
+  | otherwise               = do t <- getResDef q
                                  eval env t vs
 eval env (QC q)         vs  = return (VApp q vs)
 eval env (C t1 t2)      []  = do v1 <- eval env t1 []
@@ -263,7 +263,7 @@ patternMatch v0 ((env0,ps,args0,t):eqs) = match env0 ps eqs args0
     match env []              eqs      args  = eval env t args
     match env (PT ty p   :ps) eqs      args  = match env (p:ps) eqs args
     match env (PAlt p1 p2:ps) eqs      args  = match env (p1:ps) ((env,p2:ps,args,t):eqs) args
-    match env (PM q      :ps) eqs      args  = do t <- lookupGlobal q
+    match env (PM q      :ps) eqs      args  = do t <- getResDef q
                                                   case t of
                                                     EPatt _ _ p -> match env (p:ps) eqs args
                                                     _ -> evalError $ hang "Expected pattern macro:" 4
@@ -466,18 +466,16 @@ runEvalM gr f =
 evalError :: Doc -> EvalM s a
 evalError msg = EvalM (\gr k _ r -> return (Fail msg))
   
-lookupGlobal :: QIdent -> EvalM s Term
-lookupGlobal q = EvalM $ \gr k mt r -> do
+getResDef :: QIdent -> EvalM s Term
+getResDef q = EvalM $ \gr k mt r -> do
   case lookupResDef gr q of
     Ok t    -> k t mt r
     Bad msg -> return (Fail (pp msg))
 
-lookupParams :: QIdent -> EvalM s (ModuleName,[Param])
-lookupParams q = EvalM $ \gr k mt r -> do
+getInfo :: QIdent -> EvalM s (ModuleName,Info)
+getInfo q = EvalM $ \gr k mt r -> do
   case lookupOrigInfo gr q of
-    Ok (m,info) -> case info of
-                     ResParam (Just (L _ ps)) _ -> k (m,ps) mt r
-                     _                          -> return (Fail (ppQIdent Qualified q <+> "is not a parameter type"))
+    Ok res  -> k res mt r
     Bad msg -> return (Fail (pp msg))
 
 getAllParamValues :: Type -> EvalM s [Term]

@@ -78,12 +78,12 @@ lookupResDefLoc gr (m,c)
         CncCat (Just (L l ty)) _ _ _ _ -> fmap (L l) (lock c ty)
         CncCat _ _ _ _ _         -> fmap noLoc (lock c defLinType)
 
-        CncFun (Just (cat,_,_)) (Just (L l tr)) _ _ -> fmap (L l) (unlock cat tr)
-        CncFun _                (Just ltr) _ _ -> return ltr
+        CncFun (Just (_,cat,_,_)) (Just (L l tr)) _ _ -> fmap (L l) (unlock cat tr)
+        CncFun _                  (Just ltr) _ _ -> return ltr
 
         AnyInd _ n        -> look n c
         ResParam _ _      -> return (noLoc (QC (m,c)))
-        ResValue _        -> return (noLoc (QC (m,c)))
+        ResValue _ _      -> return (noLoc (QC (m,c)))
         _   -> raise $ render (c <+> "is not defined in resource" <+> m)
 
 lookupResType :: ErrorMonad m => Grammar -> QIdent -> m Type
@@ -94,12 +94,12 @@ lookupResType gr (m,c) = do
 
     -- used in reused concrete
     CncCat _ _ _ _ _ -> return typeType
-    CncFun (Just (cat,cont,val)) _ _ _ -> do
+    CncFun (Just (_,cat,cont,val)) _ _ _ -> do
           val' <- lock cat val
           return $ mkProd cont val' []
     AnyInd _ n        -> lookupResType gr (n,c)
-    ResParam _ _      -> return typePType
-    ResValue (L _ t)  -> return t
+    ResParam _ _    -> return typePType
+    ResValue (L _ t) _ -> return t
     _   -> raise $ render (c <+> "has no type defined in resource" <+> m)
 
 lookupOverloadTypes :: ErrorMonad m => Grammar -> QIdent -> m [(Term,Type)]
@@ -110,11 +110,11 @@ lookupOverloadTypes gr id@(m,c) = do
 
     -- used in reused concrete
     CncCat _ _ _ _ _ -> ret typeType
-    CncFun (Just (cat,cont,val)) _ _ _ -> do
+    CncFun (Just (_,cat,cont,val)) _ _ _ -> do
           val' <- lock cat val
           ret $ mkProd cont val' []
-    ResParam _ _      -> ret typePType
-    ResValue (L _ t)  -> ret t
+    ResParam _ _    -> ret typePType
+    ResValue (L _ t) _ -> ret t
     ResOverload os tysts -> do
             tss <- mapM (\x -> lookupOverloadTypes gr (x,c)) os
             return $ [(tr,ty) | (L _ ty,L _ tr) <- tysts] ++
@@ -154,8 +154,8 @@ lookupParamValues :: ErrorMonad m => Grammar -> QIdent -> m [Term]
 lookupParamValues gr c = do
   (_,info) <- lookupOrigInfo gr c
   case info of
-    ResParam _ (Just pvs) -> return pvs
-    _                     -> raise $ render (ppQIdent Qualified c <+> "has no parameter values defined")
+    ResParam _ (Just (pvs,_)) -> return pvs
+    _                         -> raise $ render (ppQIdent Qualified c <+> "has no parameter values defined")
 
 allParamValues :: ErrorMonad m => Grammar -> Type -> m [Term]
 allParamValues cnc ptyp =
@@ -226,9 +226,9 @@ allOpers gr =
     typesIn info = case info of
       AbsFun  (Just ltyp) _ _ _ -> [ltyp]
       ResOper (Just ltyp) _     -> [ltyp]
-      ResValue ltyp             -> [ltyp]
+      ResValue ltyp _           -> [ltyp]
       ResOverload _ tytrs       -> [ltyp | (ltyp,_) <- tytrs]
-      CncFun  (Just (i,ctx,typ)) _ _ _ ->
+      CncFun  (Just (_,i,ctx,typ)) _ _ _ ->
                                    [L NoLoc (mkProdSimple ctx (lock' i typ))]
       _                         -> []
 
