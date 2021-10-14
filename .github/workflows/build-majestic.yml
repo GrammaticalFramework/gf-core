@@ -4,7 +4,7 @@ on: push
 
 jobs:
 
-  ubuntu-build:
+  ubuntu-runtime:
     name: Build on Ubuntu
     runs-on: ubuntu-20.04
 
@@ -29,22 +29,16 @@ jobs:
   ubuntu-haskell:
     name: Build & test Haskell bindings on Ubuntu
     runs-on: ubuntu-20.04
-    needs: ubuntu-build
+    needs: ubuntu-runtime
 
     steps:
     - uses: actions/checkout@v2
-
     - uses: actions/download-artifact@master
       with:
         name: libpgf-ubuntu
     - run: |
         sudo mv lib/* /usr/local/lib/
         sudo mv include/* /usr/local/include/
-
-    - name: Display downloaded files
-      run: |
-        ls -R /usr/local/lib/*pgf*
-        ls -R /usr/local/include/pgf
 
     - name: Setup Haskell
       uses: haskell/actions/setup@v1
@@ -59,27 +53,59 @@ jobs:
       run: |
         cabal test --extra-lib-dirs=/usr/local/lib
 
-    # - name: Install Python bindings
-    #   working-directory: ./src/runtime/python
-    #   run: |
-    #     python setup.py build
-    #     sudo python setup.py install
-    #
-    # - name: Run Python testsuite
-    #   working-directory: ./src/runtime/python
-    #   env:
-    #     LD_LIBRARY_PATH: /usr/local/lib
-    #   run: |
-    #     pip install pytest
-    #     pytest
-    #
-    # - name: Run JavaScript testsuite
-    #   working-directory: ./src/runtime/javascript
-    #   env:
-    #     LD_LIBRARY_PATH: /usr/local/lib
-    #   run: |
-    #     npm ci
-    #     npm run test
+  ubuntu-python:
+    name: Build & test Python bindings on Ubuntu
+    runs-on: ubuntu-20.04
+    needs: ubuntu-runtime
+
+    steps:
+    - uses: actions/checkout@v2
+    - uses: actions/download-artifact@master
+      with:
+        name: libpgf-ubuntu
+    - run: |
+        sudo mv lib/* /usr/local/lib/
+        sudo mv include/* /usr/local/include/
+
+    - name: Install Python bindings
+      working-directory: ./src/runtime/python
+      run: |
+        python setup.py build
+        sudo python setup.py install
+
+    - name: Run Python testsuite
+      working-directory: ./src/runtime/python
+      env:
+        LD_LIBRARY_PATH: /usr/local/lib
+      run: |
+        pip install pytest
+        pytest
+
+  ubuntu-javascript:
+    name: Build & test JavaScript bindings on Ubuntu
+    runs-on: ubuntu-20.04
+    needs: ubuntu-runtime
+
+    steps:
+    - uses: actions/checkout@v2
+    - uses: actions/download-artifact@master
+      with:
+        name: libpgf-ubuntu
+    - run: |
+        sudo mv lib/* /usr/local/lib/
+        sudo mv include/* /usr/local/include/
+
+    - name: Build JavaScript bindings
+      working-directory: ./src/runtime/javascript
+      run: |
+        npm ci
+
+    - name: Run JavaScript testsuite
+      working-directory: ./src/runtime/javascript
+      env:
+        LD_LIBRARY_PATH: /usr/local/lib
+      run: |
+        npm run test
 
   # macos:
   #   name: Build on macOS
