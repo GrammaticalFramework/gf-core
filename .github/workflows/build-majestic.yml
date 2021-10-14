@@ -2,6 +2,9 @@ name: Build majestic runtime
 
 on: push
 
+env:
+  LD_LIBRARY_PATH: /usr/local/lib
+
 jobs:
 
   ubuntu-runtime:
@@ -47,8 +50,6 @@ jobs:
 
     - name: Build & run testsuite
       working-directory: ./src/runtime/haskell
-      env:
-        LD_LIBRARY_PATH: /usr/local/lib
       run: |
         cabal test --extra-lib-dirs=/usr/local/lib
 
@@ -75,8 +76,6 @@ jobs:
 
     - name: Run testsuite
       working-directory: ./src/runtime/python
-      env:
-        LD_LIBRARY_PATH: /usr/local/lib
       run: |
         pip install pytest
         pytest
@@ -103,8 +102,6 @@ jobs:
 
     - name: Run testsuite
       working-directory: ./src/runtime/javascript
-      env:
-        LD_LIBRARY_PATH: /usr/local/lib
       run: |
         npm run test
 
@@ -161,7 +158,5 @@ jobs:
 
     - name: Build & run testsuite
       working-directory: ./src/runtime/haskell
-      env:
-        LD_LIBRARY_PATH: /usr/local/lib
       run: |
         cabal test --extra-lib-dirs=/usr/local/lib
