@@ -72,16 +72,14 @@ jobs:
     steps:
     - uses: actions/checkout@v2
 
-    # All these are already available in GitHub runner
-    # - name: Install build tools
-    #   run: |
-    #     sudo apt-get update
-    #     sudo apt-get install -y \
-    #       autoconf \
-    #       automake \
-    #       libtool \
-    #       make \
-    #       g++
+    - name: Install build tools
+      run: |
+        brew install
+          autoconf \
+          automake \
+          libtool \
+      # make \
+      # g++
 
     - name: Build C runtime
       working-directory: ./src/runtime/c
