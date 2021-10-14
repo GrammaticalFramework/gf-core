@@ -5,13 +5,13 @@ on: push
 jobs:
 
   ubuntu-runtime:
-    name: Build on Ubuntu
+    name: Runtime (Ubuntu)
     runs-on: ubuntu-20.04
 
     steps:
     - uses: actions/checkout@v2
 
-    - name: Build C runtime
+    - name: Build runtime
       working-directory: ./src/runtime/c
       run: |
         autoreconf -i
@@ -19,7 +19,8 @@ jobs:
         make
         sudo make install
 
-    - uses: actions/upload-artifact@master
+    - name: Upload artifact
+      uses: actions/upload-artifact@master
       with:
         name: libpgf-ubuntu
         path: |
@@ -27,13 +28,14 @@ jobs:
           /usr/local/include/pgf
 
   ubuntu-haskell:
-    name: Build & test Haskell bindings on Ubuntu
+    name: Haskell (Ubuntu)
     runs-on: ubuntu-20.04
     needs: ubuntu-runtime
 
     steps:
     - uses: actions/checkout@v2
-    - uses: actions/download-artifact@master
+    - name: Download artifact
+      uses: actions/download-artifact@master
       with:
         name: libpgf-ubuntu
     - run: |
@@ -42,11 +44,8 @@ jobs:
 
     - name: Setup Haskell
       uses: haskell/actions/setup@v1
-      # with:
-      #   ghc-version: '8.6'
-      #   cabal-version: '2.4.1.0'
 
-    - name: Run Haskell testsuite
+    - name: Build & run testsuite
       working-directory: ./src/runtime/haskell
       env:
         LD_LIBRARY_PATH: /usr/local/lib
@@ -54,26 +53,27 @@ jobs:
         cabal test --extra-lib-dirs=/usr/local/lib
 
   ubuntu-python:
-    name: Build & test Python bindings on Ubuntu
+    name: Python (Ubuntu)
     runs-on: ubuntu-20.04
     needs: ubuntu-runtime
 
     steps:
     - uses: actions/checkout@v2
-    - uses: actions/download-artifact@master
+    - name: Download artifact
+      uses: actions/download-artifact@master
       with:
         name: libpgf-ubuntu
     - run: |
         sudo mv lib/* /usr/local/lib/
         sudo mv include/* /usr/local/include/
 
-    - name: Install Python bindings
+    - name: Install bindings
       working-directory: ./src/runtime/python
       run: |
         python setup.py build
         sudo python setup.py install
 
-    - name: Run Python testsuite
+    - name: Run testsuite
       working-directory: ./src/runtime/python
       env:
         LD_LIBRARY_PATH: /usr/local/lib
@@ -82,63 +82,86 @@ jobs:
         pytest
 
   ubuntu-javascript:
-    name: Build & test JavaScript bindings on Ubuntu
+    name: JavaScript (Ubuntu)
     runs-on: ubuntu-20.04
     needs: ubuntu-runtime
 
     steps:
     - uses: actions/checkout@v2
-    - uses: actions/download-artifact@master
+    - name: Download artifact
+      uses: actions/download-artifact@master
       with:
         name: libpgf-ubuntu
     - run: |
         sudo mv lib/* /usr/local/lib/
         sudo mv include/* /usr/local/include/
 
-    - name: Build JavaScript bindings
+    - name: Install dependencies
       working-directory: ./src/runtime/javascript
       run: |
         npm ci
 
-    - name: Run JavaScript testsuite
+    - name: Run testsuite
       working-directory: ./src/runtime/javascript
       env:
         LD_LIBRARY_PATH: /usr/local/lib
       run: |
         npm run test
 
-  # macos:
-  #   name: Build on macOS
-  #   runs-on: macOS-11
-  #
-  #   steps:
-  #   - uses: actions/checkout@v2
-  #
-  #   - name: Install build tools
-  #     run: |
-  #       brew install \
-  #         autoconf \
-  #         automake \
-  #         libtool \
-  #
-  #   - name: Build C runtime
-  #     working-directory: ./src/runtime/c
-  #     run: |
-  #       glibtoolize
-  #       autoreconf -i
-  #       ./configure
-  #       make
-  #       sudo make install
-  #
-  #   - name: Setup Haskell
-  #     uses: haskell/actions/setup@v1
-  #     # with:
-  #     #   ghc-version: '8.6'
-  #     #   cabal-version: '2.4.1.0'
-  #
-  #   - name: Run Haskell testsuite
-  #     working-directory: ./src/runtime/haskell
-  #     env:
-  #       LD_LIBRARY_PATH: /usr/local/lib
-  #     run: |
-  #       cabal test --extra-lib-dirs=/usr/local/lib
+# ----------------------------------------------------------------------------
+
+  macos-runtime:
+    name: Runtime (macOS)
+    runs-on: macOS-11
+
+    steps:
+    - uses: actions/checkout@v2
+
+    - name: Install build tools
+      run: |
+        brew install \
+          autoconf \
+          automake \
+          libtool \
+
+    - name: Build runtime
+      working-directory: ./src/runtime/c
+      run: |
+        glibtoolize
+        autoreconf -i
+        ./configure
+        make
+        sudo make install
+
+    - name: Upload artifact
+      uses: actions/upload-artifact@master
+      with:
+        name: libpgf-macos
+        path: |
+          /usr/local/lib/libpgf*
+          /usr/local/include/pgf
+
+  macos-haskell:
+    name: Haskell (macOS)
+    runs-on: macOS-11
+    needs: macos-runtime
+
+    steps:
+    - uses: actions/checkout@v2
+    - name: Download artifact
+      uses: actions/download-artifact@master
+      with:
+        name: libpgf-macos
+    - run: |
+        sudo mv lib/* /usr/local/lib/
+        sudo mv include/* /usr/local/include/
+
+    - name: Setup Haskell
+      uses: haskell/actions/setup@v1
+
+    - name: Build & run testsuite
+      working-directory: ./src/runtime/haskell
+      env:
+        LD_LIBRARY_PATH: /usr/local/lib
+      run: |
+        cabal test --extra-lib-dirs=/usr/local/lib
