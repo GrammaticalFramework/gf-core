@@ -41,8 +41,10 @@ jobs:
         sudo mv lib/* /usr/local/lib/
         sudo mv include/* /usr/local/include/
 
-    - name: Display structure of downloaded files
-      run: ls -R /usr/local
+    - name: Display downloaded files
+      run: |
+        ls -R /usr/local/lib/*pgf*
+        ls -R /usr/local/include/pgf
 
     - name: Setup Haskell
       uses: haskell/actions/setup@v1
