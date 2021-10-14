@@ -17,16 +17,24 @@ g++
 
 - Install XCode from App Store
 - Install XCode command line tools: `xcode-select --install`
+- Required system packages (`brew install ...`):
+```
+autoconf
+automake
+libtool
+```
 
 ## Installation
 
-Installing the runtime (puts libraries in `/usr/local/lib`):
+**Note for macOS**: you should first run `glibtoolize`, followed by the commands below.
+
 ```
 autoreconf -i
 ./configure
 make
 make install
 ```
+The shared libraries are installed in `/usr/local/lib`.
 
 ## Using
 
