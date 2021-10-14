@@ -40,3 +40,24 @@ The shared libraries are installed in `/usr/local/lib`.
 
 - Compiling GF with this runtime will require flag `--extra-lib-dirs=/usr/local/lib`.
 - Running GF with this runtime will require environment variable `LD_LIBRARY_PATH=/usr/local/lib`
+
+## Uninstalling
+
+To remove the _old_ C runtime from your system, do:
+```
+rm /usr/local/lib/libpgf.*
+rm /usr/local/lib/libgu.*
+rm /usr/local/lib/libsg.*
+rm -rf /usr/local/include/pgf
+```
+
+To remove _this_ version of the runtime from your system, do:
+```
+rm /usr/local/lib/libpgf.*
+rm -rf /usr/local/include/pgf
+```
+
+To clean all generated build files from this directory, use:
+```
+git clean -Xdf  
+```
