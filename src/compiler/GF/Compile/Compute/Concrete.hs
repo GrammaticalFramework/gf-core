@@ -352,12 +352,16 @@ value2term i (VClosure env (Abs b x t)) = do
   v <- eval ((x,tnk):env) t []
   t <- value2term (i+1) v
   return (Abs b (identS ('v':show i)) t)
-value2term i (VProd b x v1 env t2) = do
-  t1 <- value2term i v1
-  tnk <- newGen i
-  v2 <- eval ((x,tnk):env) t2 []
-  t2 <- value2term (i+1) v2
-  return (Prod b x t1 t2)
+value2term i (VProd b x v1 env t2)
+  | x == identW = do t1 <- value2term i v1
+                     v2 <- eval env t2 []
+                     t2 <- value2term i v2
+                     return (Prod b x t1 t2)
+  | otherwise   = do t1 <- value2term i v1
+                     tnk <- newGen i
+                     v2 <- eval ((x,tnk):env) t2 []
+                     t2 <- value2term (i+1) v2
+                     return (Prod b (identS ('v':show i)) t1 t2)
 value2term i (VRecType lbls) = do
   lbls <- mapM (\(lbl,v) -> fmap ((,) lbl) (value2term i v)) lbls
   return (RecType lbls)
