@@ -37,7 +37,7 @@ jobs:
     - uses: actions/download-artifact@master
       with:
         name: libpgf-ubuntu
-    - run:
+    - run: |
         sudo mv lib/* /usr/local/lib/
         sudo mv include/* /usr/local/include/
 
