@@ -34,14 +34,12 @@ jobs:
     steps:
     - uses: actions/checkout@v2
 
-    - run: |
-        sudo mkdir -p /usr/local/lib
-        sudo mkdir -p /usr/local/include
-
     - uses: actions/download-artifact@master
       with:
         name: libpgf-ubuntu
-        path: /usr/local
+    - run:
+        mv lib/* /usr/local/lib/
+        mv include/* /usr/local/include/
 
     - name: Display structure of downloaded files
       run: ls -R /usr/local
