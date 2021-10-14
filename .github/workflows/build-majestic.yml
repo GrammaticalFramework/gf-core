@@ -74,7 +74,7 @@ jobs:
 
     - name: Install build tools
       run: |
-        brew install
+        brew install \
           autoconf \
           automake \
           libtool \
