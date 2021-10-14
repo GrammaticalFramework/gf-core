@@ -37,10 +37,10 @@ jobs:
     - uses: actions/download-artifact@master
       with:
         name: libpgf-ubuntu
-        # path: /
+        path: /usr/local
 
     - name: Display structure of downloaded files
-      run: ls -R
+      run: ls -R /usr/local
 
     - name: Setup Haskell
       uses: haskell/actions/setup@v1
