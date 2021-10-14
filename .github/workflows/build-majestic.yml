@@ -86,6 +86,7 @@ jobs:
     - name: Build C runtime
       working-directory: ./src/runtime/c
       run: |
+        glibtoolize
         autoreconf -i
         ./configure
         make
