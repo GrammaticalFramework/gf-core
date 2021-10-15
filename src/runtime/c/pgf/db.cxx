@@ -323,10 +323,19 @@ PgfDB::PgfDB(const char* filepath, int flags, int mode) {
         this->filepath = strdup(filepath);
     }
 
+#ifndef MREMAP_MAYMOVE
+    if (fd >= 0) {
+      ms = (malloc_state*)
+          mmap(NULL, file_size, PROT_READ | PROT_WRITE, MAP_SHARED, fd, 0);
+    } else {
+      ms = (malloc_state*) malloc(file_size); // doesn't compile
+    }
+#else
     int mflags = (fd < 0) ? (MAP_PRIVATE | MAP_ANONYMOUS) : MAP_SHARED;
     ms = (malloc_state*)
         mmap(NULL, file_size, PROT_READ | PROT_WRITE, mflags, fd, 0);
-    if (ms == MAP_FAILED) {
+#endif
+    if (ms == MAP_FAILED || ms == NULL) {
         ms = NULL; // mark that ms is not created.
         ::free((void *) this->filepath);
         int code = errno;
@@ -884,14 +893,19 @@ object PgfDB::malloc_internal(size_t bytes)
                     throw pgf_systemerror(errno, filepath);
             }
 
+            malloc_state* new_ms;
 // OSX mman and mman-win32 do not implement mremap or MREMAP_MAYMOVE
 #ifndef MREMAP_MAYMOVE
-            if (munmap(ms, old_size) == -1)
-                throw pgf_systemerror(errno);
-            malloc_state* new_ms =
-                (malloc_state*) mmap(0, new_size, PROT_READ | PROT_WRITE, MAP_SHARED, fd, 0);
+            if (fd >= 0) {
+              if (munmap(ms, old_size) == -1)
+                  throw pgf_systemerror(errno);
+              new_ms =
+                  (malloc_state*) mmap(0, new_size, PROT_READ | PROT_WRITE, MAP_SHARED, fd, 0);
+            } else {
+              new_ms = (malloc_state*) realloc(ms, new_size);
+            }
 #else
-            malloc_state* new_ms =
+            new_ms =
                 (malloc_state*) mremap(ms, old_size, new_size, MREMAP_MAYMOVE);
 #endif
             if (new_ms == MAP_FAILED)
