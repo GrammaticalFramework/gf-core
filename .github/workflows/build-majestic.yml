@@ -160,3 +160,30 @@ jobs:
       working-directory: ./src/runtime/haskell
       run: |
         cabal test --extra-lib-dirs=/usr/local/lib
+
+  macos-python:
+    name: Python (macOS)
+    runs-on: macOS-11
+    needs: macos-runtime
+
+    steps:
+    - uses: actions/checkout@v2
+    - name: Download artifact
+      uses: actions/download-artifact@master
+      with:
+        name: libpgf-macos
+    - run: |
+        sudo mv lib/* /usr/local/lib/
+        sudo mv include/* /usr/local/include/
+
+    - name: Install bindings
+      working-directory: ./src/runtime/python
+      run: |
+        python3 setup.py build
+        sudo python3 setup.py install
+
+    - name: Run testsuite
+      working-directory: ./src/runtime/python
+      run: |
+        pip3 install pytest
+        pytest

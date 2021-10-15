@@ -1,3 +1,4 @@
+#include <stdlib.h>
 #include <string.h>
 #include <sys/mman.h>
 #include <unistd.h>
@@ -325,10 +326,10 @@ PgfDB::PgfDB(const char* filepath, int flags, int mode) {
 
 #ifndef MREMAP_MAYMOVE
     if (fd >= 0) {
-      ms = (malloc_state*)
-          mmap(NULL, file_size, PROT_READ | PROT_WRITE, MAP_SHARED, fd, 0);
+        ms = (malloc_state*)
+            mmap(NULL, file_size, PROT_READ | PROT_WRITE, MAP_SHARED, fd, 0);
     } else {
-      ms = (malloc_state*) malloc(file_size); // doesn't compile
+        ms = (malloc_state*) ::malloc(file_size);
     }
 #else
     int mflags = (fd < 0) ? (MAP_PRIVATE | MAP_ANONYMOUS) : MAP_SHARED;
@@ -377,6 +378,11 @@ PgfDB::~PgfDB() {
         size_t size =
             ms->top + chunksize(ptr(ms,ms->top)) + sizeof(size_t);
 
+#ifndef MREMAP_MAYMOVE
+        if (fd < 0) {
+          ::free(ms);
+        } else
+#endif
         munmap(ms,size);
     }
 
@@ -897,12 +903,12 @@ object PgfDB::malloc_internal(size_t bytes)
 // OSX mman and mman-win32 do not implement mremap or MREMAP_MAYMOVE
 #ifndef MREMAP_MAYMOVE
             if (fd >= 0) {
-              if (munmap(ms, old_size) == -1)
-                  throw pgf_systemerror(errno);
-              new_ms =
-                  (malloc_state*) mmap(0, new_size, PROT_READ | PROT_WRITE, MAP_SHARED, fd, 0);
+                if (munmap(ms, old_size) == -1)
+                    throw pgf_systemerror(errno);
+                new_ms =
+                    (malloc_state*) mmap(0, new_size, PROT_READ | PROT_WRITE, MAP_SHARED, fd, 0);
             } else {
-              new_ms = (malloc_state*) realloc(ms, new_size);
+                new_ms = (malloc_state*) realloc(ms, new_size);
             }
 #else
             new_ms =
