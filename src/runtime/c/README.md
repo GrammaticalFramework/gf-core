@@ -17,18 +17,47 @@ g++
 
 - Install XCode from App Store
 - Install XCode command line tools: `xcode-select --install`
+- Required system packages (`brew install ...`):
+```
+autoconf
+automake
+libtool
+```
 
 ## Installation
 
-Installing the runtime (puts libraries in `/usr/local/lib`):
+**Note for macOS**: you should first run `glibtoolize`, followed by the commands below.
+
 ```
 autoreconf -i
 ./configure
 make
 make install
 ```
+The shared libraries are installed in `/usr/local/lib`.
 
 ## Using
 
 - Compiling GF with this runtime will require flag `--extra-lib-dirs=/usr/local/lib`.
 - Running GF with this runtime will require environment variable `LD_LIBRARY_PATH=/usr/local/lib`
+
+## Uninstalling
+
+To remove the _old_ C runtime from your system, do:
+```
+rm /usr/local/lib/libpgf.*
+rm /usr/local/lib/libgu.*
+rm /usr/local/lib/libsg.*
+rm -rf /usr/local/include/pgf
+```
+
+To remove _this_ version of the runtime from your system, do:
+```
+rm /usr/local/lib/libpgf.*
+rm -rf /usr/local/include/pgf
+```
+
+To clean all generated build files from this directory, use:
+```
+git clean -Xdf  
+```
