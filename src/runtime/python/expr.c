@@ -93,11 +93,11 @@ Type_init(TypeObject *self, PyObject *args, PyObject *kwds)
                 Py_INCREF(item);
                 PyTuple_SET_ITEM(self->hypos, i, item);
             } else if (PyObject_TypeCheck(item, &pgf_TypeType)) {
-                Py_INCREF(Py_True);
-                Py_INCREF(item);
+                PyObject *wildcard = PyUnicode_FromString("_");
                 PyObject *tuple = PyTuple_Pack(3, Py_True,
                                                   PyUnicode_FromString("_"),
                                                   item);
+                Py_DECREF(wildcard);
                 PyTuple_SET_ITEM(self->hypos, i, tuple);
             } else if (PyUnicode_Check(item)) {
                 Py_INCREF(item);
@@ -106,10 +106,12 @@ Type_init(TypeObject *self, PyObject *args, PyObject *kwds)
                 pytype->name = item;
                 pytype->exprs = PyTuple_New(0);
 
-                Py_INCREF(Py_True);
+                PyObject *wildcard = PyUnicode_FromString("_");
                 PyObject *tuple = PyTuple_Pack(3, Py_True,
-                                                  PyUnicode_FromString("_"),
+                                                  wildcard,
                                                   pytype);
+                Py_DECREF(wildcard);
+                Py_DECREF(pytype);
                 PyTuple_SET_ITEM(self->hypos, i, tuple);
             } else {
                 PyErr_SetString(PyExc_TypeError, "Each hypothesis must be either a tuple of size 3, a type or a string");
