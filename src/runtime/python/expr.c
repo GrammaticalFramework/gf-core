@@ -197,7 +197,49 @@ done:
     }
 }
 
+static PyObject*
+Type_unpack(TypeObject* self, PyObject *fargs)
+{
+	return Py_BuildValue("OOO", self->hypos, self->name, self->exprs);
+}
+
+static PyObject*
+Type_reduce_ex(TypeObject* self, PyObject *args)
+{
+	int protocol;
+	if (!PyArg_ParseTuple(args, "i", &protocol))
+		return NULL;
+
+	PyObject* myModule = PyImport_ImportModule("pgf");
+	if (myModule == NULL)
+		return NULL;
+	PyObject* py_readType = PyObject_GetAttrString(myModule, "readType");
+	Py_DECREF(myModule);
+	if (py_readType == NULL)
+		return NULL;
+
+	PyObject* py_str = Type_str(self);
+	if (py_str == NULL) {
+		Py_DECREF(py_readType);
+		return NULL;
+	}
+
+	PyObject* py_tuple =
+		Py_BuildValue("O(O)", py_readType, py_str);
+
+	Py_DECREF(py_str);
+	Py_DECREF(py_readType);
+
+	return py_tuple;
+}
+
 static PyMethodDef Type_methods[] = {
+    {"unpack", (PyCFunction)Type_unpack, METH_VARARGS,
+     "Decomposes a type into its components"
+    },
+    {"__reduce_ex__", (PyCFunction)Type_reduce_ex, METH_VARARGS,
+     "This method allows for transparent pickling/unpickling of types."
+    },
     {NULL}  /* Sentinel */
 };
 
