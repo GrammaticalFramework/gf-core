@@ -89,7 +89,8 @@ def test_extended_categories(gr2):
     assert gr2.categories == ["Float","Int","N","P","Q","S","String"]
 
 def test_extended_category_context(gr2):
-    assert gr2.categoryContext("Q") == [(BIND_TYPE_EXPLICIT, "x", ty)]
+    print(gr2.categoryContext("Q"))
+    assert gr2.categoryContext("Q") == ((BIND_TYPE_EXPLICIT, "x", ty),)
 
 def test_extended_function_type(gr2):
     assert gr2.functionType("foo") == ty
@@ -112,7 +113,7 @@ def test_branched_categories(gr3):
     assert gr3.categories == ["Float","Int","N","P","R","S","String"]
 
 def test_branched_category_context(gr3):
-    assert gr3.categoryContext("R") == [(BIND_TYPE_EXPLICIT, "x", ty)]
+    assert gr3.categoryContext("R") == ((BIND_TYPE_EXPLICIT, "x", ty),)
 
 def test_branched_function_type(gr3):
     assert gr3.functionType("bar") == ty

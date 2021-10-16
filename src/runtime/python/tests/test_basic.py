@@ -104,10 +104,10 @@ def test_functionsByCat_non_existent(PGF):
     assert PGF.functionsByCat("X") == []
 
 def test_categoryContext_1(PGF):
-    assert PGF.categoryContext("N") == []
+    assert PGF.categoryContext("N") == ()
 
 def test_categoryContext_2(PGF):
-    assert PGF.categoryContext("S") == []
+    assert PGF.categoryContext("S") == ()
 
 def test_categoryContext_3(PGF):
     cxt = PGF.categoryContext("P")
