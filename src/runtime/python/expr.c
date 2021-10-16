@@ -22,55 +22,121 @@ Type_init(TypeObject *self, PyObject *args, PyObject *kwds)
 {
     PyObject* hypos;
     PyObject* name;
-    PyObject* exprs;
-    if (!PyArg_ParseTuple(args, "OUO", &hypos, &name, &exprs)) {
-        return -1;
-    }
-    if (!PySequence_Check(hypos)) {
-        PyErr_SetString(PyExc_TypeError, "hypotheses must be iterable");
-        return -1;
-    }
-    if (!PySequence_Check(exprs)) {
-        PyErr_SetString(PyExc_TypeError, "expressions must be a sequence");
+    PyObject* exprs = NULL;
+    switch (PyTuple_Size(args)) {
+    case 1:
+        hypos = NULL;
+        name  = PyTuple_GET_ITEM(args, 0);
+        exprs = NULL;
+        if (!PyUnicode_Check(name)) {
+            PyErr_SetString(PyExc_TypeError, "category must be a string");
+            return -1;
+        }
+        break;
+    case 2:
+        if (PySequence_Check(PyTuple_GET_ITEM(args, 0)) &&
+            PyUnicode_Check(PyTuple_GET_ITEM(args, 1))) {
+            hypos = PyTuple_GET_ITEM(args, 0);
+            name  = PyTuple_GET_ITEM(args, 1);
+            exprs = NULL;
+        } else if (PyUnicode_Check(PyTuple_GET_ITEM(args, 0)) &&
+                   PySequence_Check(PyTuple_GET_ITEM(args, 1))) {
+            hypos = NULL;
+            name  = PyTuple_GET_ITEM(args, 0);
+            exprs = PyTuple_GET_ITEM(args, 1);
+        } else {
+            PyErr_SetString(PyExc_TypeError, "The arguments must be hypotheses and category or category and expressions");
+            return -1;
+        }
+        break;
+    case 3:
+        hypos = PyTuple_GET_ITEM(args, 0);
+        name  = PyTuple_GET_ITEM(args, 1);
+        exprs = PyTuple_GET_ITEM(args, 2);
+
+        if (!PySequence_Check(hypos)) {
+            PyErr_SetString(PyExc_TypeError, "hypotheses must be a sequence");
+            return -1;
+        }
+        if (!PyUnicode_Check(name)) {
+            PyErr_SetString(PyExc_TypeError, "category must be a string");
+            return -1;
+        }
+        if (!PySequence_Check(exprs)) {
+            PyErr_SetString(PyExc_TypeError, "expressions must be a sequence");
+            return -1;
+        }
+        break;
+    default:
+        PyErr_SetString(PyExc_TypeError, "1, 2 or 3 arguments are expected");
         return -1;
     }
 
-    for (Py_ssize_t i = 0; i < PySequence_Size(hypos); i++) {
-        // if (!PyObject_TypeCheck(PySequence_GetItem(hypos, i), &pgf_HypoType)) {
-        //     PyErr_SetString(PyExc_TypeError, "invalid hypo in Type initialisation");
-        //     return -1;
-        // }
-        PyObject *tup = PySequence_GetItem(hypos, i);
-        if (!PyObject_TypeCheck(tup, &PyTuple_Type)) {
-            PyErr_SetString(PyExc_TypeError, "hypothesis must be a tuple");
-            return -1;
+    if (hypos != NULL) {
+        Py_ssize_t n_hypos = PySequence_Size(hypos);
+        self->hypos = PyTuple_New(n_hypos);
+        for (Py_ssize_t i = 0; i < n_hypos; i++) {
+            PyObject *item = PySequence_GetItem(hypos, i);
+            if (PyTuple_Check(item) && PyTuple_Size(item) == 3) {
+                if (!PyBool_Check(PyTuple_GetItem(item, 0))) {
+                    PyErr_SetString(PyExc_TypeError, "hypothesis bind type must be a boolean");
+                    return -1;
+                }
+                if (!PyUnicode_Check(PyTuple_GetItem(item, 1))) {
+                    PyErr_SetString(PyExc_TypeError, "hypothesis variable must be a string");
+                    return -1;
+                }
+                if (!PyObject_TypeCheck(PyTuple_GetItem(item, 2), &pgf_TypeType)) {
+                    PyErr_SetString(PyExc_TypeError, "hypothesis type must be a Type");
+                    return -1;
+                }
+                Py_INCREF(item);
+                PyTuple_SET_ITEM(self->hypos, i, item);
+            } else if (PyObject_TypeCheck(item, &pgf_TypeType)) {
+                Py_INCREF(Py_True);
+                Py_INCREF(item);
+                PyObject *tuple = PyTuple_Pack(3, Py_True,
+                                                  PyUnicode_FromString("_"),
+                                                  item);
+                PyTuple_SET_ITEM(self->hypos, i, tuple);
+            } else if (PyUnicode_Check(item)) {
+                Py_INCREF(item);
+                TypeObject *pytype = (TypeObject *)pgf_TypeType.tp_alloc(&pgf_TypeType, 0);
+                pytype->hypos = PyTuple_New(0);
+                pytype->name = item;
+                pytype->exprs = PyTuple_New(0);
+
+                Py_INCREF(Py_True);
+                PyObject *tuple = PyTuple_Pack(3, Py_True,
+                                                  PyUnicode_FromString("_"),
+                                                  pytype);
+                PyTuple_SET_ITEM(self->hypos, i, tuple);
+            } else {
+                PyErr_SetString(PyExc_TypeError, "Each hypothesis must be either a tuple of size 3, a type or a string");
+                return -1;
+            }
         }
-        if (!PyLong_Check(PyTuple_GetItem(tup, 0))) {
-            PyErr_SetString(PyExc_TypeError, "hypothesis bind type must be a boolean");
-            return -1;
-        }
-        if (!PyUnicode_Check(PyTuple_GetItem(tup, 1))) {
-            PyErr_SetString(PyExc_TypeError, "hypothesis variable must be a string");
-            return -1;
-        }
-        if (!PyObject_TypeCheck(PyTuple_GetItem(tup, 2), &pgf_TypeType)) {
-            PyErr_SetString(PyExc_TypeError, "hypothesis type must be a Type");
-            return -1;
-        }
+    } else {
+        self->hypos = PyTuple_New(0);
     }
 
-    for (Py_ssize_t i = 0; i < PySequence_Size(exprs); i++) {
-        if (!PyObject_TypeCheck(PySequence_GetItem(exprs, i), &pgf_ExprType)) {
-            PyErr_SetString(PyExc_TypeError, "invalid expression in Type initialisation");
-            return -1;
-        }
-    }
-    self->hypos = PySequence_Tuple(hypos);
     self->name = name;
-    self->exprs = PySequence_Tuple(exprs);
-    Py_INCREF(self->hypos);
     Py_INCREF(self->name);
-    Py_INCREF(self->exprs);
+
+    if (exprs != NULL) {
+        Py_ssize_t n_exprs = PySequence_Size(exprs);
+        self->exprs = PyTuple_New(n_exprs);
+        for (Py_ssize_t i = 0; i < n_exprs; i++) {
+            PyObject *expr = PySequence_GetItem(exprs, i);
+            if (!PyObject_TypeCheck(expr, &pgf_ExprType)) {
+                PyErr_SetString(PyExc_TypeError, "invalid expression in Type initialisation");
+                return -1;
+            }
+            PyTuple_SET_ITEM(self->exprs, i, expr);
+        }
+    } else {
+        self->exprs = PyTuple_New(0);
+    }
 
     return 0;
 }

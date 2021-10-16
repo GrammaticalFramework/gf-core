@@ -336,7 +336,7 @@ dtyp(PgfUnmarshaller *this, int n_hypos, PgfTypeHypo *hypos, PgfText *cat, int n
     pytype->exprs = PyTuple_New(n_exprs);
     for (int i = 0; i < n_exprs; i++) {
         PyObject *expr = (PyObject *)exprs[i];
-        PyTuple_SetItem(pytype->exprs, i, expr);
+        PyTuple_SET_ITEM(pytype->exprs, i, expr);
         Py_INCREF(expr);
     }
 
