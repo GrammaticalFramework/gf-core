@@ -1077,7 +1077,13 @@ void PgfDB::sync()
     size_t size =
         ms->top + chunksize(ptr(ms,ms->top)) + sizeof(size_t);
 
-    int res = msync((void *) ms, size, MS_SYNC | MS_INVALIDATE);
+    int res;
+#ifndef MREMAP_MAYMOVE
+    if (current_db->fd < 0) {
+      res = 0;
+    } else
+#endif
+    res = msync((void *) ms, size, MS_SYNC | MS_INVALIDATE);
     if (res != 0)
         throw pgf_systemerror(errno);
 }
