@@ -96,9 +96,9 @@ jobs:
         sudo mv include/* /usr/local/include/
 
     - name: Setup Node.js
-      run: |
-        nvm install 12
-        nvm use 12
+      uses: actions/setup-node@v2
+      with:
+        node-version: '12'
 
     - name: Install dependencies
       working-directory: ./src/runtime/javascript
@@ -209,9 +209,9 @@ jobs:
         sudo mv include/* /usr/local/include/
 
     - name: Setup Node.js
-      run: |
-        nvm install 12
-        nvm use 12
+      uses: actions/setup-node@v2
+      with:
+        node-version: '12'
 
     - name: Install dependencies
       working-directory: ./src/runtime/javascript
