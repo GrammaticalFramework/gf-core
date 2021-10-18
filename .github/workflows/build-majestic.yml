@@ -84,7 +84,6 @@ jobs:
     name: JavaScript (Ubuntu)
     runs-on: ubuntu-20.04
     needs: ubuntu-runtime
-    if: false
 
     steps:
     - uses: actions/checkout@v2
@@ -95,6 +94,11 @@ jobs:
     - run: |
         sudo mv lib/* /usr/local/lib/
         sudo mv include/* /usr/local/include/
+
+    - name: Setup Node.js
+      run: |
+        nvm install 12
+        nvm use 12
 
     - name: Install dependencies
       working-directory: ./src/runtime/javascript
@@ -193,7 +197,6 @@ jobs:
     name: JavaScript (macOS)
     runs-on: macOS-11
     needs: macos-runtime
-    if: false
 
     steps:
     - uses: actions/checkout@v2
@@ -204,6 +207,11 @@ jobs:
     - run: |
         sudo mv lib/* /usr/local/lib/
         sudo mv include/* /usr/local/include/
+
+    - name: Setup Node.js
+      run: |
+        nvm install 12
+        nvm use 12
 
     - name: Install dependencies
       working-directory: ./src/runtime/javascript

@@ -31,11 +31,12 @@ npm run build
 npm run test
 ```
 
-## Known issues
+## Compatability
 
-There is a known issue with random crashes with Node 14 and 16 on macOS. See here:
+Unfortunately, these bindings currently only work properly with Node.js < 14.
+Newer versions of Node.js case the bindings to crash randomly, and/or run very slowly.
+This issue is discussed here:
+
 - https://github.com/nodejs/node/issues/32463
 - https://github.com/node-ffi-napi/node-ffi-napi/issues/97
 - https://github.com/node-ffi-napi/ref-napi/issues/47
-
-It seems to work with Node 12 on macOS, as well as on other platforms.
