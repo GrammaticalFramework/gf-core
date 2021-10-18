@@ -1,5 +1,9 @@
 # Python bindings to C runtime
 
+## Compatibility
+
+These bindings do not support Python 2. Python 3 is assumed in all these instructions.
+
 ## Pre-requisites
 
 1. You must have installed the PGF C runtime (see `../c/README.md`)
@@ -26,10 +30,3 @@ pytest
 ```
 
 Requires: `pip install pytest`
-
-
-## Debugging
-
-valgrind --leak-check=full --show-leak-kinds=all pytest 2> valgrind.txt
-
-valgrind --leak-check=full --show-leak-kinds=all -- python -c 'import pgf; s = pgf.readType("A -> B"); print(s)' 2> valgrind.txt

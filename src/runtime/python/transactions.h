@@ -12,7 +12,7 @@ typedef struct {
     PgfRevision revision; // transient branch
 } TransactionObject;
 
-PyTypeObject pgf_TransactionType;
+extern PyTypeObject pgf_TransactionType;
 
 PyObject *PGF_checkoutBranch(PGFObject *self, PyObject *args);
 
