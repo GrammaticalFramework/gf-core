@@ -84,6 +84,7 @@ jobs:
     name: JavaScript (Ubuntu)
     runs-on: ubuntu-20.04
     needs: ubuntu-runtime
+    if: false
 
     steps:
     - uses: actions/checkout@v2
@@ -187,3 +188,29 @@ jobs:
       run: |
         pip3 install pytest
         pytest
+
+  macos-javascript:
+    name: JavaScript (macOS)
+    runs-on: macOS-11
+    needs: macos-runtime
+    if: false
+
+    steps:
+    - uses: actions/checkout@v2
+    - name: Download artifact
+      uses: actions/download-artifact@master
+      with:
+        name: libpgf-macos
+    - run: |
+        sudo mv lib/* /usr/local/lib/
+        sudo mv include/* /usr/local/include/
+
+    - name: Install dependencies
+      working-directory: ./src/runtime/javascript
+      run: |
+        npm ci
+
+    - name: Run testsuite
+      working-directory: ./src/runtime/javascript
+      run: |
+        npm run test
