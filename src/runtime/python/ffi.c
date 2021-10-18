@@ -69,39 +69,34 @@ PySequence_AsHypos(PyObject *pyseq, Py_ssize_t *n_hypos)
     PgfTypeHypo *hypos = PyMem_RawMalloc(sizeof(PgfTypeHypo)*n);
 
     for (Py_ssize_t i = 0; i < n; i++) {
-        // PyObject *item = PySequence_GetItem(pyseq, i);
-        // if (!PyObject_TypeCheck(item, &pgf_HypoType)) {
-        //     PyErr_SetString(PyExc_TypeError, "hypothesis must be of type Hypo");
-        //     return NULL;
-        // }
-        // HypoObject *hypo = (HypoObject *)item;
-        // hypos[i].bind_type = hypo->bind_type == Py_True ? 0 : 1;
-        // hypos[i].cid = PyUnicode_AsPgfText(hypo->cid);
-        // hypos[i].type = (PgfType) hypo->type;
-
         PyObject *tup = PySequence_GetItem(pyseq, i);
-        if (!PyTuple_Check(tup)) {
+        if (!PyTuple_Check(tup) || PyTuple_Size(tup) != 3) {
             PyErr_SetString(PyExc_TypeError, "hypothesis must be a tuple");
+            FreeHypos(hypos, i);
             return NULL;
         }
 
-        PyObject *t0 = PyTuple_GetItem(tup, 0);
-        if (!PyLong_Check(t0)) {
+        PyObject *t0 = PyTuple_GET_ITEM(tup, 0);
+        if (!PyBool_Check(t0)) {
             PyErr_SetString(PyExc_TypeError, "hypothesis bind type must be an boolean");
+            FreeHypos(hypos, i);
             return NULL;
         }
-        hypos[i].bind_type = t0 == Py_True ? 0 : 1;
+        hypos[i].bind_type = t0 == Py_True ? PGF_BIND_TYPE_EXPLICIT : PGF_BIND_TYPE_IMPLICIT;
 
-        PyObject *t1 = PyTuple_GetItem(tup, 1);
+        PyObject *t1 = PyTuple_GET_ITEM(tup, 1);
         if (!PyUnicode_Check(t1)) {
             PyErr_SetString(PyExc_TypeError, "hypothesis variable must be a string");
+            FreeHypos(hypos, i);
             return NULL;
         }
         hypos[i].cid = PyUnicode_AsPgfText(t1);
 
-        PyObject *t2 = PyTuple_GetItem(tup, 2);
+        PyObject *t2 = PyTuple_GET_ITEM(tup, 2);
         if (!PyObject_TypeCheck(t2, &pgf_TypeType)) {
             PyErr_SetString(PyExc_TypeError, "hypothesis type must be a Type");
+            FreePgfText(hypos[i].cid);
+            FreeHypos(hypos, i);
             return NULL;
         }
         hypos[i].type = (PgfType) t2;
@@ -113,37 +108,29 @@ PySequence_AsHypos(PyObject *pyseq, Py_ssize_t *n_hypos)
 }
 
 PyObject *
-PyList_FromHypos(PgfTypeHypo *hypos, const size_t n_hypos)
+PyTuple_FromHypos(PgfTypeHypo *hypos, const size_t n_hypos)
 {
-    PyObject *pylist = PyList_New(n_hypos);
-    if (pylist == NULL) {
+    PyObject *pytuple = PyTuple_New(n_hypos);
+    if (pytuple == NULL) {
         return NULL;
     }
 
     for (size_t i = 0; i < n_hypos; i++) {
-        // HypoObject *hypo = PyObject_New(HypoObject, &pgf_HypoType);
-        // hypo->bind_type = hypos[i].bind_type == 0 ? Py_True : Py_False;
-        // hypo->cid = PyUnicode_FromStringAndSize(hypos[i].cid->text, hypos[i].cid->size);
-        // hypo->type = (TypeObject *)hypos[i].type;
-        // Py_INCREF(hypo->bind_type);
-        // Py_INCREF(hypo->type);
-        // PyList_SetItem(pylist, i, (PyObject *)hypo);
-
         PyObject *tup = PyTuple_New(3);
         PyObject *bt = hypos[i].bind_type == 0 ? Py_True : Py_False;
-        PyTuple_SetItem(tup, 0, bt);
-        PyTuple_SetItem(tup, 1, PyUnicode_FromStringAndSize(hypos[i].cid->text, hypos[i].cid->size));
-        PyTuple_SetItem(tup, 2, (PyObject *)hypos[i].type);
+        PyTuple_SET_ITEM(tup, 0, bt);
+        PyTuple_SET_ITEM(tup, 1, PyUnicode_FromStringAndSize(hypos[i].cid->text, hypos[i].cid->size));
+        PyTuple_SET_ITEM(tup, 2, (PyObject *)hypos[i].type);
         Py_INCREF(bt);
         Py_INCREF(hypos[i].type);
-        PyList_SetItem(pylist, i, tup);
+        PyTuple_SET_ITEM(pytuple, i, tup);
     }
     if (PyErr_Occurred()) {
-        Py_DECREF(pylist);
+        Py_DECREF(pytuple);
         return NULL;
     }
 
-    return pylist;
+    return pytuple;
 }
 
 PgfPrintContext *
@@ -331,12 +318,12 @@ dtyp(PgfUnmarshaller *this, int n_hypos, PgfTypeHypo *hypos, PgfText *cat, int n
 {
     TypeObject *pytype = (TypeObject *)pgf_TypeType.tp_alloc(&pgf_TypeType, 0);
 
-    pytype->hypos = PySequence_Tuple(PyList_FromHypos(hypos, n_hypos));
+    pytype->hypos = PyTuple_FromHypos(hypos, n_hypos);
     pytype->name = PyUnicode_FromStringAndSize(cat->text, cat->size);
     pytype->exprs = PyTuple_New(n_exprs);
     for (int i = 0; i < n_exprs; i++) {
         PyObject *expr = (PyObject *)exprs[i];
-        PyTuple_SetItem(pytype->exprs, i, expr);
+        PyTuple_SET_ITEM(pytype->exprs, i, expr);
         Py_INCREF(expr);
     }
 

@@ -104,10 +104,10 @@ def test_functionsByCat_non_existent(PGF):
     assert PGF.functionsByCat("X") == []
 
 def test_categoryContext_1(PGF):
-    assert PGF.categoryContext("N") == []
+    assert PGF.categoryContext("N") == ()
 
 def test_categoryContext_2(PGF):
-    assert PGF.categoryContext("S") == []
+    assert PGF.categoryContext("S") == ()
 
 def test_categoryContext_3(PGF):
     cxt = PGF.categoryContext("P")
@@ -214,6 +214,18 @@ def test_showType_8(PGF):
 def test_showType_9(PGF):
     type = Type([mkDepHypo("x", Type([], "N", [])), mkDepHypo("y", Type([], "P", [ExprVar(0)]))], "S", [])
     assert showType(["n"], type) == "(x : N) -> (y : P x) -> S"
+
+def test_Type_overloading_1(PGF):
+    assert Type([],"A",[]) == Type("A")
+
+def test_Type_overloading_2(PGF):
+    assert Type([(True,"_",Type("A"))],"B",[]) == Type(["A"],"B")
+
+def test_Type_overloading_3(PGF):
+    assert Type([(True,"_",Type("A"))],"B",[]) == Type([Type("A")],"B")
+
+def test_Type_overloading_4(PGF):
+    assert Type([],"A",[Expr(3)]) == Type("A",[Expr(3)])
 
 def test_Type_getters():
     h0 = mkDepHypo("x", Type([], "N", []))

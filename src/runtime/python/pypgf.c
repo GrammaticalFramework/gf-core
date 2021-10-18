@@ -148,7 +148,7 @@ PGF_categoryContext(PGFObject *self, PyObject *args)
         Py_RETURN_NONE;
     }
 
-    PyObject *contexts = PyList_FromHypos(hypos, n_hypos);
+    PyObject *contexts = PyTuple_FromHypos(hypos, n_hypos);
 
     for (size_t i = 0; i < n_hypos; i++) {
         free(hypos[i].cid);
