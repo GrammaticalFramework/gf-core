@@ -13,7 +13,7 @@ import GF.Grammar.Lockfield (isLockLabel, lockRecType, unlockRecord)
 import GF.Compile.TypeCheck.Primitives
 
 import Data.List
-import Data.Maybe(fromMaybe)
+import Data.Maybe(fromMaybe,isJust,isNothing)
 import Control.Monad
 import GF.Text.Pretty
 
@@ -543,23 +543,18 @@ checkLType gr g trm typ0 = do
 
        RecType rr -> do
 
-         ll2 <- case s of
-           R ss -> return $ map fst ss
+         (fields1,fields2) <- case s of
+           R ss -> return (partition (\(l,_) -> isNothing (lookup l ss)) rr)
            _ -> do
              (s',typ2) <- inferLType gr g s
              case typ2 of
-               RecType ss -> return $ map fst ss
+               RecType ss -> return (partition (\(l,_) -> isNothing (lookup l ss)) rr)
                _ ->  checkError ("cannot get labels from" $$ nest 2 (ppTerm Unqualified 0 typ2))
-         let ll1 = [l | (l,_) <- rr, notElem l ll2]
 
----         over <- getOverload gr g Nothing r --- this would solve #66 but fail ParadigmsAra. AR 6/7/2020
----         let r1 = maybe r fst over
-         let r1 = r ---
+         (r',_) <- checkLType gr g r (RecType fields1)
+         (s',_) <- checkLType gr g s (RecType fields2)
 
-         (r',_) <- checkLType gr g r1 (RecType [field | field@(l,_) <- rr, elem l ll1])
-         (s',_) <- checkLType gr g s  (RecType [field | field@(l,_) <- rr, elem l ll2])
-
-         let rec = R ([(l,(Nothing,P r' l)) | l <- ll1] ++ [(l,(Nothing,P s' l)) | l <- ll2])
+         let rec = R ([(l,(Nothing,P r' l)) | (l,_) <- fields1] ++ [(l,(Nothing,P s' l)) | (l,_) <- fields2])
          return (rec, typ)
 
        ExtR ty ex -> do

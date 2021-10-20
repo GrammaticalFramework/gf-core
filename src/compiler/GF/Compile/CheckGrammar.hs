@@ -202,7 +202,7 @@ checkInfo opts cwd sgr sm (c,info) = checkInModule cwd (snd sm) NoLoc empty $ do
               (Just (_,cat,cont,val),Just (L loc trm)) ->
                   chIn loc "linearization of" $ do
                      (trm,_) <- checkLType gr [] trm (mkFunType (map (\(_,_,ty) -> ty) cont) val)  -- erases arg vars
-                     return (Just (L loc trm))
+                     return (Just (L loc (etaExpand [] trm cont)))
               _ -> return mt
       mpr  <- case mpr of
                 (Just (L loc t)) ->
@@ -281,7 +281,19 @@ checkInfo opts cwd sgr sm (c,info) = checkInModule cwd (snd sm) NoLoc empty $ do
        t' <- compAbsTyp ((x,Vr x):g) t
        return $ Prod b x a' t'
      Abs _ _ _ -> return t
-     _ -> composOp (compAbsTyp g) t  
+     _ -> composOp (compAbsTyp g) t
+
+   etaExpand xs t            []               = t
+   etaExpand xs (Abs bt x t) (_        :cont) = Abs bt x (etaExpand (x:xs) t              cont)
+   etaExpand xs t            ((bt,_,ty):cont) = Abs bt x (etaExpand (x:xs) (App t (Vr x)) cont)
+     where
+       x = freeVar 1 xs
+
+       freeVar i xs
+         | elem x xs = freeVar (i+1) xs
+         | otherwise = x
+         where
+           x = identS ("v"++show i)
 
    update (mn,mi) c info = return (mn,mi{jments=Map.insert c info (jments mi)})
 
