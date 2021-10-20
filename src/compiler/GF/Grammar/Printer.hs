@@ -160,7 +160,11 @@ ppJudgement q (id, AnyInd cann mid) =
     _        -> empty
 
 ppPmcfgRule id arg_cats res_cat (PMCFGRule res args lins) =
-  pp id <+> (':' <+> hsep (intersperse (pp '*') (zipWith ppPmcfgCat arg_cats args)) <+> "->" <+> ppPmcfgCat res_cat res $$
+  pp id <+> (':' <+>
+             (if null args
+                then empty
+                else hsep (intersperse (pp '*') (zipWith ppPmcfgCat arg_cats args)) <+> "->") <+>
+             ppPmcfgCat res_cat res $$
              '=' <+> brackets (vcat (map (hsep . map ppSymbol) lins)))
 
 ppPmcfgCat :: Ident -> PMCFGCat -> Doc

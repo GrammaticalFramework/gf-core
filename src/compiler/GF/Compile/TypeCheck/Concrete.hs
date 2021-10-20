@@ -554,7 +554,14 @@ checkLType gr g trm typ0 = do
          (r',_) <- checkLType gr g r (RecType fields1)
          (s',_) <- checkLType gr g s (RecType fields2)
 
-         let rec = R ([(l,(Nothing,P r' l)) | (l,_) <- fields1] ++ [(l,(Nothing,P s' l)) | (l,_) <- fields2])
+         let project t l =
+                case t of
+                  R rs -> case lookup l rs of
+                            Just (_,t) -> t
+                            Nothing    -> error (render ("no value for label" <+> l))
+                  t    -> P t l
+
+             rec = R ([(l,(Nothing,project r' l)) | (l,_) <- fields1] ++ [(l,(Nothing,project s' l)) | (l,_) <- fields2])
          return (rec, typ)
 
        ExtR ty ex -> do
