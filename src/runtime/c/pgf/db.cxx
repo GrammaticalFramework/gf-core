@@ -1044,6 +1044,23 @@ ref<PgfPGF> PgfDB::revision2pgf(PgfRevision revision)
 }
 
 PGF_INTERNAL
+ref<PgfConcr> PgfDB::revision2concr(PgfConcrRevision revision)
+{
+    if (revision <= sizeof(*current_db->ms) || revision >= current_db->ms->top)
+        throw pgf_error("Invalid revision");
+
+    mchunk *chunk = mem2chunk(ptr(current_db->ms,revision));
+    if (chunksize(chunk) < sizeof(PgfConcr))
+        throw pgf_error("Invalid revision");
+
+    ref<PgfConcr> concr = revision;
+    if (chunksize(chunk) != request2size(sizeof(PgfConcr)+concr->name.size+1))
+        throw pgf_error("Invalid revision");
+
+    return concr;
+}
+
+PGF_INTERNAL
 bool PgfDB::is_persistant_revision(ref<PgfPGF> pgf)
 {
     return (pgf->prev == 0 && pgf->next == 0 &&

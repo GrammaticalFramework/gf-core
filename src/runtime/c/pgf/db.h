@@ -85,6 +85,7 @@ public:
     static PGF_INTERNAL_DECL ref<PgfPGF> get_revision(PgfText *name);
     static PGF_INTERNAL_DECL void set_revision(ref<PgfPGF> pgf);
     static PGF_INTERNAL_DECL ref<PgfPGF> revision2pgf(PgfRevision revision);
+    static PGF_INTERNAL_DECL ref<PgfConcr> revision2concr(PgfConcrRevision revision);
     static PGF_INTERNAL_DECL bool is_persistant_revision(ref<PgfPGF> pgf);
     static PGF_INTERNAL_DECL void link_transient_revision(ref<PgfPGF> pgf);
     static PGF_INTERNAL_DECL void unlink_transient_revision(ref<PgfPGF> pgf);

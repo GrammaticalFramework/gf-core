@@ -68,6 +68,8 @@ public:
     ref<PgfAbsCat> read_abscat();
     void read_abstract(ref<PgfAbstr> abstract);
 
+    ref<PgfConcr> read_concrete();
+
     ref<PgfPGF> read_pgf();
 
 private:

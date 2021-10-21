@@ -85,15 +85,15 @@ typedef struct {
     const char *msg;
 } PgfExn;
 
+typedef uintptr_t object;
+
 /* A generic structure to pass a callback for iteration over a collection */
 typedef struct PgfItor PgfItor;
 
 struct PgfItor {
-	void (*fn)(PgfItor* self, PgfText* key, void *value,
+	void (*fn)(PgfItor* self, PgfText* key, object value,
 		       PgfExn *err);
 };
-
-typedef uintptr_t object;
 
 /// An abstract syntax tree
 typedef object PgfExpr;
@@ -219,6 +219,7 @@ typedef float prob_t;
 
 typedef struct PgfDB PgfDB;
 typedef object PgfRevision;
+typedef object PgfConcrRevision;
 
 /* Reads a PGF file and builds the database in memory.
  * If successful, *revision will contain the initial revision of
@@ -264,6 +265,9 @@ void pgf_write_pgf(const char* fpath,
 PGF_API_DECL
 void pgf_free_revision(PgfDB *pgf, PgfRevision revision);
 
+PGF_API_DECL
+void pgf_free_concr_revision(PgfDB *db, PgfConcrRevision revision);
+
 /* Returns a newly allocated text which contains the abstract name of
  * the grammar. The text must be released with a call to free.
  */
@@ -274,6 +278,10 @@ PgfText *pgf_abstract_name(PgfDB *db, PgfRevision revision,
 PGF_API_DECL
 void pgf_iter_categories(PgfDB *db, PgfRevision revision,
                          PgfItor *itor, PgfExn *err);
+
+PGF_API
+void pgf_iter_concretes(PgfDB *db, PgfRevision revision,
+                        PgfItor *itor, PgfExn *err);
 
 PGF_API_DECL
 PgfType pgf_start_cat(PgfDB *db, PgfRevision revision,
@@ -312,6 +320,14 @@ PGF_API_DECL
 prob_t pgf_function_prob(PgfDB *db, PgfRevision revision,
                          PgfText *funname,
                          PgfExn* err);
+
+PGF_API_DECL
+PgfText *pgf_concrete_name(PgfDB *db, PgfConcrRevision revision,
+                           PgfExn* err);
+
+PGF_API_DECL
+PgfText *pgf_concrete_language_code(PgfDB *db, PgfConcrRevision revision,
+                                    PgfExn* err);
 
 typedef struct PgfPrintContext PgfPrintContext;
 
@@ -388,6 +404,21 @@ void pgf_drop_category(PgfDB *db, PgfRevision revision,
                        PgfExn *err);
 
 PGF_API_DECL
+PgfConcrRevision pgf_create_concrete(PgfDB *db, PgfRevision revision,
+                                     PgfText *name,
+                                     PgfExn *err);
+
+PGF_API_DECL
+PgfConcrRevision pgf_clone_concrete(PgfDB *db, PgfRevision revision,
+                                    PgfText *name,
+                                    PgfExn *err);
+
+PGF_API_DECL
+void pgf_drop_concrete(PgfDB *db, PgfRevision revision,
+                       PgfText *name,
+                       PgfExn *err);
+
+PGF_API_DECL
 PgfLiteral pgf_get_global_flag(PgfDB *db, PgfRevision revision,
                                PgfText *name,
                                PgfUnmarshaller *u,
@@ -405,6 +436,17 @@ PgfLiteral pgf_get_abstract_flag(PgfDB *db, PgfRevision revision,
                                  PgfExn *err);
 PGF_API_DECL
 void pgf_set_abstract_flag(PgfDB *db, PgfRevision revision,
+                           PgfText *name,
+                           PgfLiteral value,
+                           PgfMarshaller *m,
+                           PgfExn *err);
+PGF_API_DECL
+PgfLiteral pgf_get_concrete_flag(PgfDB *db, PgfConcrRevision revision,
+                                 PgfText *name,
+                                 PgfUnmarshaller *u,
+                                 PgfExn *err);
+PGF_API_DECL
+void pgf_set_concrete_flag(PgfDB *db, PgfConcrRevision revision,
                            PgfText *name,
                            PgfLiteral value,
                            PgfMarshaller *m,

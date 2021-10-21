@@ -18,6 +18,7 @@ import GF.Infra.Option
 import GF.Infra.UseIO (IOE)
 import GF.Data.Operations
 
+import Control.Monad(forM)
 import Data.List
 import Data.Char
 import qualified Data.Set as Set
@@ -28,125 +29,61 @@ import Data.Maybe(fromMaybe)
 import System.FilePath
 import System.Directory
 
-import GHC.Prim
-import GHC.Base(getTag)
-
 grammar2PGF :: Options -> SourceGrammar -> ModuleName -> Map.Map PGF2.Fun Double -> IO PGF
 grammar2PGF opts gr am probs = do
-  gr <- mkAbstr am probs
-  return gr {-do
-  cnc_infos <- getConcreteInfos gr am
-  return $
-    build (let gflags   = if flag optSplitPGF opts 
-                            then [("split", LStr "true")]
-                            else []
-               (an,abs) = mkAbstr am probs
-               cncs     = map (mkConcr opts abs) cnc_infos
-           in newPGF gflags an abs cncs)-}
+  let abs_name = mi2i am
+  mb_ngf_path <-
+     if snd (flag optLinkTargets opts)
+       then do let fname = maybe id (</>)
+                                 (flag optOutputDir opts)
+                                 (fromMaybe abs_name (flag optName opts)<.>"ngf")
+               exists <- doesFileExist fname
+               if exists
+                 then removeFile fname
+                 else return ()
+               putStr ("(Boot image "++fname++") ")
+               return (Just fname)
+       else do return Nothing
+  pgf <- newNGF abs_name mb_ngf_path
+  pgf <- modifyPGF pgf $ do
+    sequence_ [setAbstractFlag name value | (name,value) <- optionsPGF aflags]
+    sequence_ [createCategory c ctxt p | (c,ctxt,p) <- cats]
+    sequence_ [createFunction f ty arity p | (f,ty,arity,_,p) <- funs]
+    forM (allConcretes gr am) $ \cm ->
+      createConcrete (mi2i cm) $ do
+        let cflags = err (const noOptions) mflags (lookupModule gr cm)
+        sequence_ [setConcreteFlag name value | (name,value) <- optionsPGF cflags]
+  return pgf
   where
     aflags = err (const noOptions) mflags (lookupModule gr am)
 
-    mkAbstr :: ModuleName -> Map.Map PGF2.Fun Double -> IO PGF
-    mkAbstr am probs = do
-      let abs_name = mi2i am
-      mb_ngf_path <-
-         if snd (flag optLinkTargets opts)
-           then do let fname = maybe id (</>)
-                                     (flag optOutputDir opts)
-                                     (fromMaybe abs_name (flag optName opts)<.>"ngf")
-                   exists <- doesFileExist fname
-                   if exists
-                     then removeFile fname
-                     else return ()
-                   putStr ("(Boot image "++fname++") ")
-                   return (Just fname)
-           else do return Nothing
-      gr <- newNGF abs_name mb_ngf_path
-      modifyPGF gr $ do
-        sequence_ [setAbstractFlag name value | (name,value) <- flags]
-        sequence_ [createCategory c ctxt p | (c,ctxt,p) <- cats]
-        sequence_ [createFunction f ty arity p | (f,ty,arity,_,p) <- funs]
+    adefs =
+        [((cPredefAbs,c), AbsCat (Just (L NoLoc []))) | c <- [cFloat,cInt,cString]] ++ 
+        Look.allOrigInfos gr am
+
+    toLogProb = realToFrac . negate . log
+
+    cats = [(c', snd (mkContext [] cont), toLogProb (fromMaybe 0 (Map.lookup c' probs))) |
+                               ((m,c),AbsCat (Just (L _ cont))) <- adefs, let c' = i2i c]
+
+    funs = [(f', mkType [] ty, arity, bcode, toLogProb (fromMaybe 0 (Map.lookup f' funs_probs))) |
+                               ((m,f),AbsFun (Just (L _ ty)) ma mdef _) <- adefs,
+                               let arity = mkArity ma mdef ty,
+                               let bcode = mkDef gr arity mdef,
+                               let f' = i2i f]
+                               
+    funs_probs = (Map.fromList . concat . Map.elems . fmap pad . Map.fromListWith (++))
+                    [(i2i cat,[(i2i f,Map.lookup f' probs)]) | ((m,f),AbsFun (Just (L _ ty)) _ _ _) <- adefs,
+                                                               let (_,(_,cat),_) = GM.typeForm ty,
+                                                               let f' = i2i f]
       where
-        adefs =
-            [((cPredefAbs,c), AbsCat (Just (L NoLoc []))) | c <- [cFloat,cInt,cString]] ++ 
-            Look.allOrigInfos gr am
-
-        flags = optionsPGF aflags
-
-        toLogProb = realToFrac . negate . log
-
-        cats = [(c', snd (mkContext [] cont), toLogProb (fromMaybe 0 (Map.lookup c' probs))) |
-                                   ((m,c),AbsCat (Just (L _ cont))) <- adefs, let c' = i2i c]
-
-        funs = [(f', mkType [] ty, arity, bcode, toLogProb (fromMaybe 0 (Map.lookup f' funs_probs))) |
-                                   ((m,f),AbsFun (Just (L _ ty)) ma mdef _) <- adefs,
-                                   let arity = mkArity ma mdef ty,
-                                   let bcode = mkDef gr arity mdef,
-                                   let f' = i2i f]
-                                   
-        funs_probs = (Map.fromList . concat . Map.elems . fmap pad . Map.fromListWith (++))
-                        [(i2i cat,[(i2i f,Map.lookup f' probs)]) | ((m,f),AbsFun (Just (L _ ty)) _ _ _) <- adefs,
-                                                                   let (_,(_,cat),_) = GM.typeForm ty,
-                                                                   let f' = i2i f]
+        pad :: [(a,Maybe Double)] -> [(a,Double)]
+        pad pfs = [(f,fromMaybe deflt mb_p) | (f,mb_p) <- pfs]
           where
-            pad :: [(a,Maybe Double)] -> [(a,Double)]
-            pad pfs = [(f,fromMaybe deflt mb_p) | (f,mb_p) <- pfs]
-              where
-                deflt = case length [f | (f,Nothing) <- pfs] of
-                          0 -> 0
-                          n -> max 0 ((1 - sum [d | (f,Just d) <- pfs]) / fromIntegral n)
-{-
-    mkConcr opts abs (cm,ex_seqs,cdefs) =
-      let cflags = err (const noOptions) mflags (lookupModule gr cm)
-          ciCmp | flag optCaseSensitive cflags = compare
-                | otherwise                    = compareCaseInsensitive
+            deflt = case length [f | (f,Nothing) <- pfs] of
+                      0 -> 0
+                      n -> max 0 ((1 - sum [d | (f,Just d) <- pfs]) / fromIntegral n)
 
-          flags = optionsPGF aflags
-
-          seqs = (mkSetArray . Set.fromList . concat) $
-                       (elems (ex_seqs :: Array SeqId [Symbol]) : [maybe [] elems (mseqs mi) | (m,mi) <- allExtends gr cm])
-
-          !(!fid_cnt1,!cnccats) = genCncCats gr am cm cdefs
-          cnccat_ranges = Map.fromList (map (\(cid,s,e,_) -> (cid,(s,e))) cnccats)
-          !(!fid_cnt2,!productions,!lindefs,!linrefs,!cncfuns)
-                                = genCncFuns gr am cm ex_seqs ciCmp seqs cdefs fid_cnt1 cnccat_ranges
-
-          printnames = genPrintNames cdefs
-
-          startCat = (fromMaybe "S" (flag optStartCat aflags))
-
-          (lindefs',linrefs',productions',cncfuns',sequences',cnccats') =
-               (if flag optOptimizePGF opts then optimizePGF startCat else id)
-                    (lindefs,linrefs,productions,cncfuns,elems seqs,cnccats)
-
-      in (mi2i cm, newConcr abs
-                            flags
-                            printnames
-                            lindefs'
-                            linrefs'
-                            productions'
-                            cncfuns'
-                            sequences'
-                            cnccats'
-                            fid_cnt2)
-
-    getConcreteInfos gr am = mapM flatten (allConcretes gr am)
-      where
-        flatten cm = do
-          (seqs,infos) <- addMissingPMCFGs cm Map.empty
-                                           (lit_infos ++ Look.allOrigInfos gr cm)
-          return (cm,mkMapArray seqs :: Array SeqId [Symbol],infos)
-
-        lit_infos = [((cPredefAbs,c), CncCat (Just (L NoLoc GM.defLinType)) Nothing Nothing Nothing Nothing) | c <- [cInt,cFloat,cString]]
-
-        -- if some module was compiled with -no-pmcfg, then
-        -- we have to create the PMCFG code just before linking
-        addMissingPMCFGs cm seqs []                  = return (seqs,[])
-        addMissingPMCFGs cm seqs (((m,id), info):is) = do
-          (seqs,info)  <- addPMCFG opts gr cenv Nothing am cm seqs id info
-          (seqs,infos) <- addMissingPMCFGs cm seqs is
-          return (seqs, ((m,id), info) : infos)
--}
 i2i :: Ident -> String
 i2i = showIdent
 

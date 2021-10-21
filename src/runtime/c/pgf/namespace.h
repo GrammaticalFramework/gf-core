@@ -480,7 +480,7 @@ void namespace_iter(Namespace<V> map, PgfItor* itor, PgfExn *err)
     if (err->type != PGF_EXN_NONE)
         return;
 
-    itor->fn(itor, &map->value->name, &(*map->value), err);
+    itor->fn(itor, &map->value->name, map->value.as_object(), err);
     if (err->type != PGF_EXN_NONE)
         return;
 

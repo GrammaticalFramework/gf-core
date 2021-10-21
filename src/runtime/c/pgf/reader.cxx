@@ -203,10 +203,13 @@ PgfLiteral PgfReader::read_literal()
 		break;
 	}
 	case PgfLiteralInt::tag: {
+        size_t size = read_len();
 		ref<PgfLiteralInt> lit_int =
-			PgfDB::malloc<PgfLiteralInt>(sizeof(uintmax_t));
-        lit_int->size   = 1;
-		lit_int->val[0] = read_int();
+			PgfDB::malloc<PgfLiteralInt>(sizeof(uintmax_t)*size);
+        lit_int->size   = size;
+        for (size_t i = 0; i < size; i++) {
+            lit_int->val[i] = (uintmax_t) read_uint();
+        }
         lit = ref<PgfLiteralInt>::tagged(lit_int);
 		break;
 	}
@@ -428,6 +431,14 @@ void PgfReader::read_abstract(ref<PgfAbstr> abstract)
     abstract->cats = read_namespace<PgfAbsCat>(&PgfReader::read_abscat);
 }
 
+ref<PgfConcr> PgfReader::read_concrete()
+{
+    ref<PgfConcr> concr = read_name(&PgfConcr::name);
+    concr->ref_count = 1;
+	concr->cflags = read_namespace<PgfFlag>(&PgfReader::read_flag);
+    return concr;
+}
+
 ref<PgfPGF> PgfReader::read_pgf()
 {
     ref<PgfPGF> pgf = PgfDB::malloc<PgfPGF>(master_size+1);
@@ -444,6 +455,8 @@ ref<PgfPGF> PgfReader::read_pgf()
     pgf->gflags = read_namespace<PgfFlag>(&PgfReader::read_flag);
 
     read_abstract(ref<PgfAbstr>::from_ptr(&pgf->abstract));
+
+    pgf->concretes = read_namespace<PgfConcr>(&PgfReader::read_concrete);
 
     pgf->prev = 0;
     pgf->next = 0;

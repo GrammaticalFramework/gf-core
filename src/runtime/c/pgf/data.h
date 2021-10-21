@@ -54,6 +54,7 @@ private:
 };
 
 class PgfPGF;
+class PgfConcr;
 
 #include "db.h"
 #include "text.h"
@@ -103,6 +104,14 @@ typedef struct {
     Namespace<PgfAbsCat> cats;
 } PgfAbstr;
 
+struct PGF_INTERNAL_DECL PgfConcr {
+    size_t ref_count;
+	Namespace<PgfFlag> cflags;
+    PgfText name;
+
+    static void release(ref<PgfConcr> pgf);
+};
+
 struct PGF_INTERNAL_DECL PgfPGF {
     size_t ref_count;
 
@@ -110,7 +119,7 @@ struct PGF_INTERNAL_DECL PgfPGF {
 	uint16_t minor_version;
 	Namespace<PgfFlag> gflags;
 	PgfAbstr abstract;
-	//PgfConcrs* concretes;
+    Namespace<PgfConcr> concretes;
 
     // If the revision is transient, then it is in a double-linked list
     // with all other transient revisions.

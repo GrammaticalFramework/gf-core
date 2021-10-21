@@ -42,6 +42,8 @@ public:
     void write_abscat(ref<PgfAbsCat> abscat);
     void write_abstract(ref<PgfAbstr> abstract);
 
+    void write_concrete(ref<PgfConcr> concr);
+
     void write_pgf(ref<PgfPGF> pgf);
 
 private:

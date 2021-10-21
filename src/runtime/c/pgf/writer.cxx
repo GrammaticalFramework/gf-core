@@ -385,6 +385,12 @@ void PgfWriter::write_abstract(ref<PgfAbstr> abstract)
     this->abstract = 0;
 }
 
+void PgfWriter::write_concrete(ref<PgfConcr> concr)
+{
+    write_name(&concr->name);
+    write_namespace<PgfFlag>(concr->cflags, &PgfWriter::write_flag);
+}
+
 void PgfWriter::write_pgf(ref<PgfPGF> pgf)
 {
     write_u16be(pgf->major_version);
@@ -393,4 +399,5 @@ void PgfWriter::write_pgf(ref<PgfPGF> pgf)
     write_namespace<PgfFlag>(pgf->gflags, &PgfWriter::write_flag);
 
     write_abstract(ref<PgfAbstr>::from_ptr(&pgf->abstract));
+    write_namespace<PgfConcr>(pgf->concretes, &PgfWriter::write_concrete);
 }

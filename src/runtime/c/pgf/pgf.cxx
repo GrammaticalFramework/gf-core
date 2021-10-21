@@ -175,6 +175,7 @@ PgfDB *pgf_new_ngf(PgfText *abstract_name,
             pgf->abstract.aflags = 0;
             pgf->abstract.funs = 0;
             pgf->abstract.cats = 0;
+            pgf->concretes = 0;
             pgf->prev = 0;
             pgf->next = 0;
             pgf->name.size = master_size;
@@ -255,6 +256,36 @@ void pgf_free_revision(PgfDB *db, PgfRevision revision)
         delete db;
 }
 
+PGF_API_DECL
+void pgf_free_concr_revision(PgfDB *db, PgfConcrRevision revision)
+{
+/*    try {
+        DB_scope scope(db, WRITER_SCOPE);
+        ref<PgfPGF> pgf = PgfDB::revision2pgf(revision);
+
+        if (pgf->ref_count == 1 && PgfDB::is_persistant_revision(pgf)) {
+            // Someone is trying to release the last reference count
+            // to a persistant revision. Mostly likely this is an
+            // error in the reference counting for one of the clients.
+            // The best that we can do is to ignore the request.
+            return;
+        }
+
+        if (!(--pgf->ref_count)) {
+            PgfDB::unlink_transient_revision(pgf);
+            PgfPGF::release(pgf);
+            PgfDB::free(pgf);
+        }
+
+        db->ref_count--;
+    } catch (std::runtime_error& e) {
+        // silently ignore and hope for the best
+    }
+
+    if (!db->ref_count)
+        delete db;*/
+}
+
 PGF_API
 PgfText *pgf_abstract_name(PgfDB *db, PgfRevision revision,
                            PgfExn *err)
@@ -278,6 +309,18 @@ void pgf_iter_categories(PgfDB *db, PgfRevision revision,
         ref<PgfPGF> pgf = PgfDB::revision2pgf(revision);
 
         namespace_iter(pgf->abstract.cats, itor, err);
+    } PGF_API_END
+}
+
+PGF_API
+void pgf_iter_concretes(PgfDB *db, PgfRevision revision,
+                        PgfItor *itor, PgfExn *err)
+{
+    PGF_API_BEGIN {
+        DB_scope scope(db, READER_SCOPE);
+        ref<PgfPGF> pgf = PgfDB::revision2pgf(revision);
+
+        namespace_iter(pgf->concretes, itor, err);
     } PGF_API_END
 }
 
@@ -397,11 +440,11 @@ struct PgfItorHelper : PgfItor
 };
 
 static
-void iter_by_cat_helper(PgfItor *itor, PgfText *key, void *value,
+void iter_by_cat_helper(PgfItor *itor, PgfText *key, object value,
 		                PgfExn *err)
 {
     PgfItorHelper* helper = (PgfItorHelper*) itor;
-    PgfAbsFun* absfun = (PgfAbsFun*) value;
+    ref<PgfAbsFun> absfun = value;
     if (textcmp(helper->cat, &absfun->type->name) == 0)
         helper->itor->fn(helper->itor, key, value, err);
 }
@@ -481,6 +524,46 @@ prob_t pgf_function_prob(PgfDB *db, PgfRevision revision,
     } PGF_API_END
 
     return INFINITY;
+}
+
+PGF_API
+PgfText *pgf_concrete_name(PgfDB *db, PgfConcrRevision revision,
+                           PgfExn *err)
+{
+    PGF_API_BEGIN {
+        DB_scope scope(db, READER_SCOPE);
+        ref<PgfConcr> concr = PgfDB::revision2concr(revision);
+
+        return textdup(&concr->name);
+    } PGF_API_END
+
+    return NULL;
+}
+
+PGF_API
+PgfText *pgf_concrete_language_code(PgfDB *db, PgfConcrRevision revision,
+                                    PgfExn *err)
+{
+    PGF_API_BEGIN {
+        DB_scope scope(db, READER_SCOPE);
+
+        ref<PgfConcr> concr = PgfDB::revision2concr(revision);
+
+        size_t size = strlen("language");
+        PgfText *language = (PgfText *) alloca(sizeof(PgfText)+size+1);
+        language->size = size;
+        strcpy((char*) &language->text, "language");
+
+        ref<PgfFlag> flag =
+            namespace_lookup(concr->cflags, language);
+        if (flag != 0 &&
+            ref<PgfLiteral>::get_tag(flag->value) == PgfLiteralStr::tag) {
+            ref<PgfLiteralStr> lstr = ref<PgfLiteralStr>::untagged(flag->value);
+            return textdup(&lstr->val);
+        }
+    } PGF_API_END
+
+    return NULL;
 }
 
 PGF_API
@@ -603,6 +686,10 @@ PgfRevision pgf_clone_revision(PgfDB *db, PgfRevision revision,
         new_pgf->abstract.cats = pgf->abstract.cats;
         if (pgf->abstract.cats != 0)
             Node<PgfAbsCat>::add_node_ref(pgf->abstract.cats);
+
+        new_pgf->concretes = pgf->concretes;
+        if (pgf->concretes != 0)
+            Node<PgfConcr>::add_node_ref(pgf->concretes);
 
         new_pgf->prev = 0;
         new_pgf->next = 0;
@@ -753,6 +840,81 @@ void pgf_drop_category(PgfDB *db, PgfRevision revision,
 }
 
 PGF_API
+PgfConcrRevision pgf_create_concrete(PgfDB *db, PgfRevision revision,
+                                     PgfText *name,
+                                     PgfExn *err)
+{
+    PGF_API_BEGIN {
+        DB_scope scope(db, WRITER_SCOPE);
+
+        ref<PgfPGF> pgf = PgfDB::revision2pgf(revision);
+
+        ref<PgfConcr> concr =
+            namespace_lookup(pgf->concretes, name);
+        if (concr != 0)
+            throw pgf_error("The concrete syntax already exists");
+
+        concr = PgfDB::malloc<PgfConcr>(name->size+1);
+        concr->ref_count = 1;
+        concr->cflags = 0;
+        memcpy(&concr->name, name, sizeof(PgfText)+name->size+1);
+
+        Namespace<PgfConcr> concrs =
+            namespace_insert(pgf->concretes, concr);
+        namespace_release(pgf->concretes);
+        pgf->concretes = concrs;
+        return concr.as_object();
+    } PGF_API_END
+    return 0;
+}
+
+PGF_API
+PgfConcrRevision pgf_clone_concrete(PgfDB *db, PgfRevision revision,
+                                    PgfText *name,
+                                    PgfExn *err)
+{
+    PGF_API_BEGIN {
+        DB_scope scope(db, WRITER_SCOPE);
+
+        ref<PgfPGF> pgf = PgfDB::revision2pgf(revision);
+        
+        ref<PgfConcr> concr =
+            namespace_lookup(pgf->concretes, name);
+        if (concr == 0)
+            throw pgf_error("Unknown concrete syntax");
+
+        ref<PgfConcr> clone = PgfDB::malloc<PgfConcr>(name->size+1);
+        clone->ref_count = 1;
+        clone->cflags = concr->cflags;
+        memcpy(&clone->name, name, sizeof(PgfText)+name->size+1);
+
+        Namespace<PgfConcr> concrs =
+            namespace_insert(pgf->concretes, clone);
+        namespace_release(pgf->concretes);
+        pgf->concretes = concrs;
+        return clone.as_object();
+    } PGF_API_END
+    return 0;
+}
+
+PGF_API
+void pgf_drop_concrete(PgfDB *db, PgfRevision revision,
+                       PgfText *name,
+                       PgfExn *err)
+{
+    PGF_API_BEGIN {
+        DB_scope scope(db, WRITER_SCOPE);
+
+        ref<PgfPGF> pgf = PgfDB::revision2pgf(revision);
+
+        Namespace<PgfConcr> concrs =
+            namespace_delete(pgf->concretes, name);
+        namespace_release(pgf->concretes);
+        pgf->concretes = concrs;
+    } PGF_API_END
+}
+
+PGF_API
 PgfLiteral pgf_get_global_flag(PgfDB *db, PgfRevision revision,
                                PgfText *name,
                                PgfUnmarshaller *u,
@@ -841,5 +1003,51 @@ void pgf_set_abstract_flag(PgfDB *db, PgfRevision revision,
             namespace_insert(pgf->abstract.aflags, flag);
         namespace_release(pgf->abstract.aflags);
         pgf->abstract.aflags = aflags;
+    } PGF_API_END
+}
+
+PGF_API
+PgfLiteral pgf_get_concrete_flag(PgfDB *db, PgfConcrRevision revision,
+                                 PgfText *name,
+                                 PgfUnmarshaller *u,
+                                 PgfExn *err)
+{
+    PGF_API_BEGIN {
+        DB_scope scope(db, READER_SCOPE);
+
+        ref<PgfConcr> concr = PgfDB::revision2concr(revision);
+
+        ref<PgfFlag> flag =
+            namespace_lookup(concr->cflags, name);
+        if (flag != 0) {
+            return PgfDBMarshaller().match_lit(u, flag->value);
+        }
+    } PGF_API_END
+
+    return 0;
+}
+
+PGF_API
+void pgf_set_concrete_flag(PgfDB *db, PgfConcrRevision revision,
+                           PgfText *name,
+                           PgfLiteral value,
+                           PgfMarshaller *m,
+                           PgfExn *err)
+{
+    PGF_API_BEGIN {
+        DB_scope scope(db, WRITER_SCOPE);
+
+        PgfDBUnmarshaller u(m);
+
+        ref<PgfConcr> concr = PgfDB::revision2concr(revision);
+
+        ref<PgfFlag> flag = PgfDB::malloc<PgfFlag>(name->size+1);
+        flag->ref_count = 1;
+        memcpy(&flag->name, name, sizeof(PgfText)+name->size+1);
+        flag->value = m->match_lit(&u, value);
+        Namespace<PgfFlag> cflags =
+            namespace_insert(concr->cflags, flag);
+        namespace_release(concr->cflags);
+        concr->cflags = cflags;
     } PGF_API_END
 }

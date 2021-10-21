@@ -6,10 +6,12 @@ import GHC.Exts
 import GHC.Prim
 import GHC.Integer.Logarithms
 import Data.Word
+import Data.IORef
 import Data.Typeable
 import Foreign
 import Foreign.C
 import Foreign.Ptr
+import qualified Foreign.Concurrent as C
 import qualified Data.Map as Map
 import Control.Exception(Exception,bracket,mask_,throwIO)
 import System.IO.Unsafe(unsafePerformIO)
@@ -23,11 +25,11 @@ type ConcName = String -- ^ Name of concrete syntax
 
 -- | An abstract data type representing multilingual grammar
 -- in Portable Grammar Format.
-data PGF = PGF { a_db     :: Ptr PgfDB
-               , revision :: ForeignPtr PgfRevision
-               , languages:: Map.Map ConcName Concr
+data PGF = PGF { a_db       :: Ptr PgfDB
+               , a_revision :: ForeignPtr (PgfRevision PGF)
+               , languages  :: Map.Map ConcName Concr
                }
-data Concr = Concr {c_pgf :: Ptr PgfDB, concr :: Ptr PgfConcr}
+data Concr = Concr {c_db :: Ptr PgfDB, c_revision :: ForeignPtr (PgfRevision Concr)}
 
 ------------------------------------------------------------------
 -- libpgf API
@@ -36,9 +38,8 @@ data PgfExn
 data PgfText
 data PgfItor
 data PgfDB
-data PgfRevision
+data PgfRevision a
 data PgfPrintContext
-data PgfConcr
 data PgfTypeHypo
 data PgfMarshaller
 data PgfUnmarshaller
@@ -50,23 +51,24 @@ foreign import ccall unsafe "pgf_utf8_encode"
   pgf_utf8_encode :: Word32 -> Ptr CString -> IO ()
 
 foreign import ccall "pgf_read_pgf"
-  pgf_read_pgf :: CString -> Ptr (Ptr PgfRevision) -> Ptr PgfExn -> IO (Ptr PgfDB)
+  pgf_read_pgf :: CString -> Ptr (Ptr (PgfRevision PGF)) -> Ptr PgfExn -> IO (Ptr PgfDB)
 
 foreign import ccall "pgf_boot_ngf"
-  pgf_boot_ngf :: CString -> CString -> Ptr (Ptr PgfRevision) -> Ptr PgfExn -> IO (Ptr PgfDB)
+  pgf_boot_ngf :: CString -> CString -> Ptr (Ptr (PgfRevision PGF)) -> Ptr PgfExn -> IO (Ptr PgfDB)
 
 foreign import ccall "pgf_read_ngf"
-  pgf_read_ngf :: CString -> Ptr (Ptr PgfRevision) -> Ptr PgfExn -> IO (Ptr PgfDB)
+  pgf_read_ngf :: CString -> Ptr (Ptr (PgfRevision PGF)) -> Ptr PgfExn -> IO (Ptr PgfDB)
 
-foreign import ccall pgf_new_ngf :: Ptr PgfText -> CString -> Ptr (Ptr PgfRevision) -> Ptr PgfExn -> IO (Ptr PgfDB)
+foreign import ccall pgf_new_ngf :: Ptr PgfText -> CString -> Ptr (Ptr (PgfRevision PGF)) -> Ptr PgfExn -> IO (Ptr PgfDB)
 
-foreign import ccall pgf_write_pgf :: CString -> Ptr PgfDB -> Ptr PgfRevision -> Ptr PgfExn -> IO ()
+foreign import ccall pgf_write_pgf :: CString -> Ptr PgfDB -> Ptr (PgfRevision PGF) -> Ptr PgfExn -> IO ()
 
-foreign import ccall "pgf_free_revision"
-  pgf_free_revision :: Ptr PgfDB -> Ptr PgfRevision -> IO ()
+foreign import ccall pgf_free_revision :: Ptr PgfDB -> Ptr (PgfRevision PGF) -> IO ()
+
+foreign import ccall pgf_free_concr_revision :: Ptr PgfDB -> Ptr (PgfRevision Concr) -> IO ()
 
 foreign import ccall "pgf_abstract_name"
-  pgf_abstract_name :: Ptr PgfDB -> Ptr PgfRevision -> Ptr PgfExn -> IO (Ptr PgfText)
+  pgf_abstract_name :: Ptr PgfDB -> Ptr (PgfRevision PGF) -> Ptr PgfExn -> IO (Ptr PgfText)
 
 foreign import ccall "pgf_print_expr"
   pgf_print_expr :: StablePtr Expr -> Ptr PgfPrintContext -> CInt -> Ptr PgfMarshaller -> IO (Ptr PgfText)
@@ -84,61 +86,77 @@ foreign import ccall pgf_print_context :: CSize -> Ptr PgfTypeHypo -> Ptr PgfPri
 foreign import ccall "pgf_read_type"
   pgf_read_type :: Ptr PgfText -> Ptr PgfUnmarshaller -> IO (StablePtr Type)
 
-type ItorCallback = Ptr PgfItor -> Ptr PgfText -> Ptr PgfExn -> IO ()
+type ItorCallback = Ptr PgfItor -> Ptr PgfText -> Ptr () -> Ptr PgfExn -> IO ()
 
 foreign import ccall "wrapper"
   wrapItorCallback :: ItorCallback -> IO (FunPtr ItorCallback)
 
 foreign import ccall "pgf_iter_categories"
-  pgf_iter_categories :: Ptr PgfDB -> Ptr PgfRevision -> Ptr PgfItor -> Ptr PgfExn -> IO ()
+  pgf_iter_categories :: Ptr PgfDB -> Ptr (PgfRevision PGF) -> Ptr PgfItor -> Ptr PgfExn -> IO ()
+
+foreign import ccall pgf_iter_concretes :: Ptr PgfDB -> Ptr (PgfRevision PGF) -> Ptr PgfItor -> Ptr PgfExn -> IO ()
 
 foreign import ccall "pgf_start_cat"
-  pgf_start_cat :: Ptr PgfDB -> Ptr PgfRevision -> Ptr PgfUnmarshaller -> Ptr PgfExn -> IO (StablePtr Type)
+  pgf_start_cat :: Ptr PgfDB -> Ptr (PgfRevision PGF) -> Ptr PgfUnmarshaller -> Ptr PgfExn -> IO (StablePtr Type)
 
 foreign import ccall "pgf/pgf.h pgf_category_context"
-  pgf_category_context :: Ptr PgfDB -> Ptr PgfRevision -> Ptr PgfText -> Ptr CSize -> Ptr PgfUnmarshaller -> Ptr PgfExn -> IO (Ptr PgfTypeHypo)
+  pgf_category_context :: Ptr PgfDB -> Ptr (PgfRevision PGF) -> Ptr PgfText -> Ptr CSize -> Ptr PgfUnmarshaller -> Ptr PgfExn -> IO (Ptr PgfTypeHypo)
 
 foreign import ccall "pgf/pgf.h pgf_category_prob"
-  pgf_category_prob :: Ptr PgfDB -> Ptr PgfRevision -> Ptr PgfText -> Ptr PgfExn -> IO (#type prob_t)
+  pgf_category_prob :: Ptr PgfDB -> Ptr (PgfRevision PGF) -> Ptr PgfText -> Ptr PgfExn -> IO (#type prob_t)
 
 foreign import ccall "pgf_iter_functions"
-  pgf_iter_functions :: Ptr PgfDB -> Ptr PgfRevision -> Ptr PgfItor -> Ptr PgfExn -> IO ()
+  pgf_iter_functions :: Ptr PgfDB -> Ptr (PgfRevision PGF) -> Ptr PgfItor -> Ptr PgfExn -> IO ()
 
 foreign import ccall "pgf_iter_functions_by_cat"
-  pgf_iter_functions_by_cat :: Ptr PgfDB -> Ptr PgfRevision -> Ptr PgfText -> Ptr PgfItor -> Ptr PgfExn -> IO ()
+  pgf_iter_functions_by_cat :: Ptr PgfDB -> Ptr (PgfRevision PGF) -> Ptr PgfText -> Ptr PgfItor -> Ptr PgfExn -> IO ()
 
 foreign import ccall "pgf_function_type"
-   pgf_function_type :: Ptr PgfDB -> Ptr PgfRevision -> Ptr PgfText -> Ptr PgfUnmarshaller -> Ptr PgfExn -> IO (StablePtr Type)
+   pgf_function_type :: Ptr PgfDB -> Ptr (PgfRevision PGF) -> Ptr PgfText -> Ptr PgfUnmarshaller -> Ptr PgfExn -> IO (StablePtr Type)
 
 foreign import ccall "pgf_function_is_constructor"
-   pgf_function_is_constructor :: Ptr PgfDB -> Ptr PgfRevision -> Ptr PgfText -> Ptr PgfExn -> IO (#type int)
+   pgf_function_is_constructor :: Ptr PgfDB -> Ptr (PgfRevision PGF) -> Ptr PgfText -> Ptr PgfExn -> IO (#type int)
 
 foreign import ccall "pgf_function_prob"
-   pgf_function_prob :: Ptr PgfDB -> Ptr PgfRevision -> Ptr PgfText -> Ptr PgfExn -> IO (#type prob_t)
+   pgf_function_prob :: Ptr PgfDB -> Ptr (PgfRevision PGF) -> Ptr PgfText -> Ptr PgfExn -> IO (#type prob_t)
 
-foreign import ccall pgf_expr_prob :: Ptr PgfDB -> Ptr PgfRevision -> StablePtr Expr -> Ptr PgfMarshaller -> Ptr PgfExn -> IO (#type prob_t)
+foreign import ccall pgf_concrete_name :: Ptr PgfDB -> Ptr (PgfRevision Concr) -> Ptr PgfExn -> IO (Ptr PgfText)
 
-foreign import ccall pgf_clone_revision :: Ptr PgfDB -> Ptr PgfRevision -> Ptr PgfText -> Ptr PgfExn -> IO (Ptr PgfRevision)
+foreign import ccall pgf_concrete_language_code :: Ptr PgfDB -> Ptr (PgfRevision Concr) -> Ptr PgfExn -> IO (Ptr PgfText)
 
-foreign import ccall pgf_commit_revision :: Ptr PgfDB -> Ptr PgfRevision -> Ptr PgfExn -> IO ()
+foreign import ccall pgf_expr_prob :: Ptr PgfDB -> Ptr (PgfRevision PGF) -> StablePtr Expr -> Ptr PgfMarshaller -> Ptr PgfExn -> IO (#type prob_t)
 
-foreign import ccall pgf_checkout_revision :: Ptr PgfDB -> Ptr PgfText -> Ptr PgfExn -> IO (Ptr PgfRevision)
+foreign import ccall pgf_clone_revision :: Ptr PgfDB -> Ptr (PgfRevision PGF) -> Ptr PgfText -> Ptr PgfExn -> IO (Ptr (PgfRevision PGF))
 
-foreign import ccall pgf_create_function :: Ptr PgfDB -> Ptr PgfRevision -> Ptr PgfText -> StablePtr Type -> CSize -> (#type prob_t) -> Ptr PgfMarshaller -> Ptr PgfExn -> IO ()
+foreign import ccall pgf_commit_revision :: Ptr PgfDB -> Ptr (PgfRevision PGF) -> Ptr PgfExn -> IO ()
 
-foreign import ccall pgf_drop_function :: Ptr PgfDB -> Ptr PgfRevision -> Ptr PgfText -> Ptr PgfExn -> IO ()
+foreign import ccall pgf_checkout_revision :: Ptr PgfDB -> Ptr PgfText -> Ptr PgfExn -> IO (Ptr (PgfRevision PGF))
 
-foreign import ccall pgf_create_category :: Ptr PgfDB -> Ptr PgfRevision -> Ptr PgfText -> CSize -> Ptr PgfTypeHypo -> (#type prob_t) -> Ptr PgfMarshaller -> Ptr PgfExn -> IO ()
+foreign import ccall pgf_create_function :: Ptr PgfDB -> Ptr (PgfRevision PGF) -> Ptr PgfText -> StablePtr Type -> CSize -> (#type prob_t) -> Ptr PgfMarshaller -> Ptr PgfExn -> IO ()
 
-foreign import ccall pgf_drop_category :: Ptr PgfDB -> Ptr PgfRevision -> Ptr PgfText -> Ptr PgfExn -> IO ()
+foreign import ccall pgf_drop_function :: Ptr PgfDB -> Ptr (PgfRevision PGF) -> Ptr PgfText -> Ptr PgfExn -> IO ()
 
-foreign import ccall pgf_get_global_flag :: Ptr PgfDB -> Ptr PgfRevision -> Ptr PgfText -> Ptr PgfUnmarshaller -> Ptr PgfExn -> IO (StablePtr Literal)
+foreign import ccall pgf_create_category :: Ptr PgfDB -> Ptr (PgfRevision PGF) -> Ptr PgfText -> CSize -> Ptr PgfTypeHypo -> (#type prob_t) -> Ptr PgfMarshaller -> Ptr PgfExn -> IO ()
 
-foreign import ccall pgf_set_global_flag :: Ptr PgfDB -> Ptr PgfRevision -> Ptr PgfText -> StablePtr Literal -> Ptr PgfMarshaller -> Ptr PgfExn -> IO ()
+foreign import ccall pgf_drop_category :: Ptr PgfDB -> Ptr (PgfRevision PGF) -> Ptr PgfText -> Ptr PgfExn -> IO ()
 
-foreign import ccall pgf_get_abstract_flag :: Ptr PgfDB -> Ptr PgfRevision -> Ptr PgfText -> Ptr PgfUnmarshaller -> Ptr PgfExn -> IO (StablePtr Literal)
+foreign import ccall pgf_create_concrete :: Ptr PgfDB -> Ptr (PgfRevision PGF) -> Ptr PgfText -> Ptr PgfExn -> IO (Ptr (PgfRevision Concr))
 
-foreign import ccall pgf_set_abstract_flag :: Ptr PgfDB -> Ptr PgfRevision -> Ptr PgfText -> StablePtr Literal -> Ptr PgfMarshaller -> Ptr PgfExn -> IO ()
+foreign import ccall pgf_clone_concrete :: Ptr PgfDB -> Ptr (PgfRevision PGF) -> Ptr PgfText -> Ptr PgfExn -> IO (Ptr (PgfRevision Concr))
+
+foreign import ccall pgf_drop_concrete :: Ptr PgfDB -> Ptr (PgfRevision PGF) -> Ptr PgfText -> Ptr PgfExn -> IO ()
+
+foreign import ccall pgf_get_global_flag :: Ptr PgfDB -> Ptr (PgfRevision PGF) -> Ptr PgfText -> Ptr PgfUnmarshaller -> Ptr PgfExn -> IO (StablePtr Literal)
+
+foreign import ccall pgf_set_global_flag :: Ptr PgfDB -> Ptr (PgfRevision PGF) -> Ptr PgfText -> StablePtr Literal -> Ptr PgfMarshaller -> Ptr PgfExn -> IO ()
+
+foreign import ccall pgf_get_abstract_flag :: Ptr PgfDB -> Ptr (PgfRevision PGF) -> Ptr PgfText -> Ptr PgfUnmarshaller -> Ptr PgfExn -> IO (StablePtr Literal)
+
+foreign import ccall pgf_set_abstract_flag :: Ptr PgfDB -> Ptr (PgfRevision PGF) -> Ptr PgfText -> StablePtr Literal -> Ptr PgfMarshaller -> Ptr PgfExn -> IO ()
+
+foreign import ccall pgf_get_concrete_flag :: Ptr PgfDB -> Ptr (PgfRevision Concr) -> Ptr PgfText -> Ptr PgfUnmarshaller -> Ptr PgfExn -> IO (StablePtr Literal)
+
+foreign import ccall pgf_set_concrete_flag :: Ptr PgfDB -> Ptr (PgfRevision Concr) -> Ptr PgfText -> StablePtr Literal -> Ptr PgfMarshaller -> Ptr PgfExn -> IO ()
 
 -----------------------------------------------------------------------
 -- Texts
@@ -581,3 +599,19 @@ withHypos hypos f =
       (#peek PgfTypeHypo, type) ptr >>= freeStablePtr
       freeHypos (n-1) (ptr `plusPtr` (#size PgfTypeHypo))
 
+getConcretes c_db c_revision = do
+  ref <- newIORef Map.empty
+  (withForeignPtr c_revision $ \c_revision ->
+   allocaBytes (#size PgfItor) $ \itor ->
+   bracket (wrapItorCallback (getConcretes ref)) freeHaskellFunPtr $ \fptr -> do
+     (#poke PgfItor, fn) itor fptr
+     withPgfExn "getConcretes" (pgf_iter_concretes c_db c_revision itor)
+     readIORef ref)
+  where
+    getConcretes :: IORef (Map.Map ConcName Concr) -> ItorCallback
+    getConcretes ref itor key c_revision exn = do
+      print 1
+      concrs <- readIORef ref
+      name  <- peekText key
+      fptr <- C.newForeignPtr (castPtr c_revision) (pgf_free_concr_revision c_db (castPtr c_revision))
+      writeIORef ref (Map.insert name (Concr c_db fptr) concrs)
