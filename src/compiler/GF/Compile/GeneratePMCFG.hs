@@ -134,7 +134,10 @@ str2lin (VSymCat d r rs) = do (r, rs) <- compute r rs
       return (r*cnt'+r',combine cnt' rs rs')
 str2lin (VC vs)          = fmap concat (mapM str2lin vs)
 str2lin (VAlts def alts) = do def <- str2lin def
-                              return [SymKP def []]
+                              alts <- forM alts $ \(v,VStrs vs) -> do
+                                lin <- str2lin v
+                                return (lin,[s | VStr s <- vs])
+                              return [SymKP def alts]
 str2lin v                = do t <- value2term 0 v
                               evalError ("the string:" <+> ppTerm Unqualified 0 t $$
                                          "cannot be evaluated at compile time.")
