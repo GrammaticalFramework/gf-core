@@ -1,5 +1,6 @@
 4
 5
+Predef.length Predef.nonExist
 \v0 -> Predef.length v0
 "ab"
 "cd"

@@ -1,6 +1,7 @@
 i -retain prelude/Predef.gfo
 cc length "abcd"
 cc length ("ab"++"cd")
+cc length nonExist
 cc <\x -> length x : Str -> Int>
 cc take 2 "abcd"
 cc drop 2 "abcd"

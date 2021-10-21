@@ -518,7 +518,8 @@ value2string =
       where
         all_capit = map toUpper
 --  value2string (b,f,ws) (VAlts vd vas) =
-    value2string st _     = st
+    value2string (Const _) _  = RunTime
+    value2string st        _  = st
 
 string2value s =
   case words s of
