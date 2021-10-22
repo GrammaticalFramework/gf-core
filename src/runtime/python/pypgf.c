@@ -91,7 +91,7 @@ PGF_getAbstractName(PGFObject *self, void *closure)
 }
 
 static void
-_collect_cats(PgfItor *fn, PgfText *key, void *value, PgfExn *err)
+_collect_cats(PgfItor *fn, PgfText *key, object value, PgfExn *err)
 {
     PgfText *name = key;
     PyPGFClosure *clo = (PyPGFClosure*) fn;
@@ -177,7 +177,7 @@ PGF_getStartCat(PGFObject *self, void *closure)
 }
 
 static void
-_collect_funs(PgfItor *fn, PgfText *key, void *value, PgfExn *err)
+_collect_funs(PgfItor *fn, PgfText *key, object value, PgfExn *err)
 {
     PgfText *name = key;
     PyPGFClosure *clo = (PyPGFClosure*) fn;
