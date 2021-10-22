@@ -371,6 +371,49 @@ static PyGetSetDef PGF_getseters[] = {
     {NULL}  /* Sentinel */
 };
 
+static void
+pgf_embed_funs(PgfItor* fn, PgfText* name, object value, PgfExn* err)
+{
+    PyPGFClosure *clo = (PyPGFClosure*) fn;
+
+	ExprFunObject *pyexpr = (ExprFunObject *)
+        pgf_ExprFunType.tp_alloc(&pgf_ExprFunType, 0);
+	if (pyexpr == NULL) {
+		err->type = PGF_EXN_OTHER_ERROR;
+		return;
+	}
+
+	pyexpr->name = PyUnicode_FromStringAndSize(name->text, name->size);
+    if (pyexpr->name == NULL) {
+        Py_DECREF(pyexpr);
+        err->type = PGF_EXN_OTHER_ERROR;
+        return;
+    }
+
+    if (PyModule_AddObject(clo->collection, name->text, (PyObject*) pyexpr) != 0) {
+		Py_DECREF(pyexpr);
+        err->type = PGF_EXN_OTHER_ERROR;
+	}
+}
+
+static PyObject*
+PGF_embed(PGFObject* self, PyObject *modname)
+{
+	PyObject *m = PyImport_AddModuleObject(modname);
+	if (m == NULL)
+		return NULL;
+
+    PgfExn err;
+    PyPGFClosure clo = { { pgf_embed_funs }, self, m };
+    pgf_iter_functions(self->db, self->revision, &clo.fn, &err);
+    if (handleError(err) != PGF_EXN_NONE) {
+        Py_DECREF(m);
+        return NULL;
+    }
+	
+    return m;
+}
+
 static PyMethodDef PGF_methods[] = {
     {"writePGF", (PyCFunction)PGF_writePGF, METH_VARARGS,
      "Writes to a PGF file"},
@@ -406,6 +449,12 @@ static PyMethodDef PGF_methods[] = {
     },
     {"getAbstractFlag", (PyCFunction)PGF_getAbstractFlag, METH_VARARGS,
      "Get the value of an abstract flag"
+    },
+    {"embed", (PyCFunction)PGF_embed, METH_O,
+     "embed(mod_name) creates a Python module with name mod_name, which "
+     "contains one Python object for every abstract function in the grammar. "
+     "The module can be imported to make it easier to construct abstract "
+     "syntax trees."
     },
     {NULL}  /* Sentinel */
 };
