@@ -80,7 +80,7 @@ def test_newNGF_existing(NGF):
 # writePGF
 
 def test_writePGF(PGF):
-    PGF.writeToFile("./copy.pgf")
+    PGF.writePGF("./copy.pgf")
     os.remove("./copy.pgf") # cleanup
 
 # abstract syntax

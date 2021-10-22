@@ -19,7 +19,7 @@ PGF_dealloc(PGFObject *self)
 }
 
 static PyObject *
-PGF_writeToFile(PGFObject *self, PyObject *args)
+PGF_writePGF(PGFObject *self, PyObject *args)
 {
     const char *fpath;
     if (!PyArg_ParseTuple(args, "s", &fpath))
@@ -371,14 +371,9 @@ static PyGetSetDef PGF_getseters[] = {
     {NULL}  /* Sentinel */
 };
 
-static PyMemberDef PGF_members[] = {
-    {NULL}  /* Sentinel */
-};
-
 static PyMethodDef PGF_methods[] = {
-    {"writeToFile", (PyCFunction)PGF_writeToFile, METH_VARARGS,
-     "Writes PGF to file"},
-
+    {"writePGF", (PyCFunction)PGF_writePGF, METH_VARARGS,
+     "Writes to a PGF file"},
     {"categoryContext", (PyCFunction)PGF_categoryContext, METH_VARARGS,
      "Returns the context for a given category"
     },
@@ -400,21 +395,18 @@ static PyMethodDef PGF_methods[] = {
     {"exprProbability", (PyCFunction)PGF_exprProbability, METH_VARARGS,
      "Returns the probability of an expression"
     },
-
     {"checkoutBranch", (PyCFunction)PGF_checkoutBranch, METH_VARARGS,
      "Switch to a branch"
     },
     {"newTransaction", (PyCFunction)PGF_newTransaction, METH_VARARGS,
      "Create new transaction"
     },
-
     {"getGlobalFlag", (PyCFunction)PGF_getGlobalFlag, METH_VARARGS,
      "Get the value of a global flag"
     },
     {"getAbstractFlag", (PyCFunction)PGF_getAbstractFlag, METH_VARARGS,
      "Get the value of an abstract flag"
     },
-
     {NULL}  /* Sentinel */
 };
 
@@ -441,14 +433,14 @@ static PyTypeObject pgf_PGFType = {
     0,                         /*tp_as_buffer*/
     Py_TPFLAGS_DEFAULT | Py_TPFLAGS_BASETYPE, /*tp_flags*/
     "PGF object",              /*tp_doc*/
-    0,                           /*tp_traverse */
-    0,                           /*tp_clear */
-    0,                           /*tp_richcompare */
-    0,                           /*tp_weaklistoffset */
-    0,                           /*tp_iter */
-    0,                           /*tp_iternext */
+    0,                         /*tp_traverse */
+    0,                         /*tp_clear */
+    0,                         /*tp_richcompare */
+    0,                         /*tp_weaklistoffset */
+    0,                         /*tp_iter */
+    0,                         /*tp_iternext */
     PGF_methods,               /*tp_methods */
-    PGF_members,               /*tp_members */
+    0,                         /*tp_members */
     PGF_getseters,             /*tp_getset */
     0,                         /*tp_base */
     0,                         /*tp_dict */
