@@ -410,7 +410,8 @@ PGF_embed(PGFObject* self, PyObject *modname)
         Py_DECREF(m);
         return NULL;
     }
-	
+
+    Py_INCREF(m);
     return m;
 }
 
