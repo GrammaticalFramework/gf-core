@@ -421,7 +421,7 @@ Expr_new(PyTypeObject *subtype, PyObject *args, PyObject *kwds)
     } else if (tuple_size == 2) {
         PyObject* arg = PyTuple_GetItem(args, 1);
         if (PyList_Check(arg) && PyList_Size(arg) == 0)
-            return pgf_ExprAppType.tp_alloc(&pgf_ExprFunType, 0);
+            return pgf_ExprFunType.tp_alloc(&pgf_ExprFunType, 0);
         else
             return pgf_ExprAppType.tp_alloc(&pgf_ExprAppType, 0);
     } else {
