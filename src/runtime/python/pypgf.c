@@ -778,7 +778,6 @@ static PyMethodDef module_methods[] = {
         return MOD_ERROR_VAL;
 
 #define ADD_TYPE(name, type) \
-    Py_INCREF(&type); \
     if (PyModule_AddObject(m, name, (PyObject *)&type) < 0) { \
         Py_DECREF(&type); \
         Py_DECREF(m); \
@@ -786,7 +785,6 @@ static PyMethodDef module_methods[] = {
     }
 
 #define ADD_TYPE_DIRECT(name, type) \
-    Py_INCREF(type); \
     if (PyModule_AddObject(m, name, (PyObject *)type) < 0) { \
         Py_DECREF(type); \
         Py_DECREF(m); \
@@ -809,7 +807,6 @@ MOD_INIT(pgf)
     TYPE_READY(pgf_ExprTypedType);
     TYPE_READY(pgf_ExprImplArgType);
     TYPE_READY(pgf_TypeType);
-    // TYPE_READY(pgf_HypoType);
 
     MOD_DEF(m, "pgf", "The Runtime for Portable Grammar Format in Python", module_methods);
     if (m == NULL)
@@ -830,9 +827,10 @@ MOD_INIT(pgf)
     ADD_TYPE("ExprTyped", pgf_ExprTypedType);
     ADD_TYPE("ExprImplArg", pgf_ExprImplArgType);
     ADD_TYPE("Type", pgf_TypeType);
-    // ADD_TYPE("Hypo", pgf_HypoType);
 
+    Py_INCREF(Py_True);
     ADD_TYPE_DIRECT("BIND_TYPE_EXPLICIT", Py_True);
+    Py_INCREF(Py_False);
     ADD_TYPE_DIRECT("BIND_TYPE_IMPLICIT", Py_False);
 
     return MOD_SUCCESS_VAL(m);
