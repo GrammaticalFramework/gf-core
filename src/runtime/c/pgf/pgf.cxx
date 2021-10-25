@@ -235,7 +235,7 @@ void pgf_free_revision(PgfDB *db, PgfRevision revision)
 
         if (pgf->ref_count == 1 && PgfDB::is_persistant_revision(pgf)) {
             // Someone is trying to release the last reference count
-            // to a persistant revision. Mostly likely this is an
+            // to a persistant revision. Most likely this is an
             // error in the reference counting for one of the clients.
             // The best that we can do is to ignore the request.
             return;
