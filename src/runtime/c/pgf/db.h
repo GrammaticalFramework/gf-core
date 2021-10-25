@@ -60,7 +60,7 @@ private:
     const char *filepath;
     malloc_state* ms;
 
-    pthread_rwlock_t rwlock;
+    pthread_rwlock_t *rwlock;
 
     friend class PgfReader;
 

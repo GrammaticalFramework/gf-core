@@ -5,6 +5,7 @@ PGF_INTERNAL_DECL
 pthread_rwlock_t *ipc_new_file_rwlock(const char* file_path);
 
 PGF_INTERNAL
-void ipc_release_file_rwlock(const char* file_path);
+void ipc_release_file_rwlock(const char* file_path,
+                             pthread_rwlock_t *rwlock);
 
 #endif
