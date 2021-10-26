@@ -24,7 +24,6 @@ import PGF2.Expr
 
 import Foreign
 import Foreign.C
-import qualified Foreign.Concurrent as C
 import Control.Exception
 
 #include <pgf/pgf.h>
@@ -90,19 +89,19 @@ branchPGF_ c_name p (Transaction f) =
       then do ((restore (f (a_db p) c_revision c_exn))
                `catch`
                (\e -> do
-                    pgf_free_revision (a_db p) c_revision
+                    pgf_free_revision_ (a_db p) c_revision
                     throwIO (e :: SomeException)))
               ex_type <- (#peek PgfExn, type) c_exn
               if (ex_type :: (#type PgfExnType)) == (#const PGF_EXN_NONE)
                 then do pgf_commit_revision (a_db p) c_revision c_exn
                         ex_type <- (#peek PgfExn, type) c_exn
                         if (ex_type :: (#type PgfExnType)) == (#const PGF_EXN_NONE)
-                          then do fptr <- C.newForeignPtr c_revision (pgf_free_revision (a_db p) c_revision)
+                          then do fptr <- newForeignPtrEnv pgf_free_revision (a_db p) c_revision
                                   langs <- getConcretes (a_db p) fptr
                                   return (PGF (a_db p) fptr langs)
-                          else do pgf_free_revision (a_db p) c_revision
+                          else do pgf_free_revision_ (a_db p) c_revision
                                   return p
-                else do pgf_free_revision (a_db p) c_revision
+                else do pgf_free_revision_ (a_db p) c_revision
                         return p
       else return p
 
@@ -113,7 +112,7 @@ checkoutPGF p name =
     c_revision <- withPgfExn "checkoutPGF" (pgf_checkout_revision (a_db p) c_name)
     if c_revision == nullPtr
       then return Nothing
-      else do fptr <- C.newForeignPtr c_revision (pgf_free_revision (a_db p) c_revision)
+      else do fptr <- newForeignPtrEnv pgf_free_revision (a_db p) c_revision
               langs <- getConcretes (a_db p) fptr
               return (Just (PGF (a_db p) fptr langs))
 

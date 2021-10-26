@@ -96,7 +96,6 @@ import Foreign.C
 import Control.Exception(mask_,bracket)
 import System.IO.Unsafe(unsafePerformIO)
 import System.Random
-import qualified Foreign.Concurrent as C
 import qualified Data.Map as Map
 import Data.IORef
 import Data.List(intersperse,groupBy)
@@ -114,7 +113,7 @@ readPGF fpath =
   mask_ $ do
     c_db <- withPgfExn "readPGF" (pgf_read_pgf c_fpath p_revision)
     c_revision <- peek p_revision
-    fptr <- C.newForeignPtr c_revision (pgf_free_revision c_db c_revision)
+    fptr <- newForeignPtrEnv pgf_free_revision c_db c_revision
     langs <- getConcretes c_db fptr
     return (PGF c_db fptr langs)
 
@@ -130,7 +129,7 @@ bootNGF pgf_path ngf_path =
   mask_ $ do
     c_db <- withPgfExn "bootNGF" (pgf_boot_ngf c_pgf_path c_ngf_path p_revision)
     c_revision <- peek p_revision
-    fptr <- C.newForeignPtr c_revision (pgf_free_revision c_db c_revision)
+    fptr <- newForeignPtrEnv pgf_free_revision c_db c_revision
     langs <- getConcretes c_db fptr
     return (PGF c_db fptr langs)
 
@@ -143,7 +142,7 @@ readNGF fpath =
   mask_ $ do
     c_db <- withPgfExn "readNGF" (pgf_read_ngf c_fpath p_revision)
     c_revision <- peek p_revision
-    fptr <- C.newForeignPtr c_revision (pgf_free_revision c_db c_revision)
+    fptr <- newForeignPtrEnv pgf_free_revision c_db c_revision
     langs <- getConcretes c_db fptr
     return (PGF c_db fptr langs)
 
@@ -159,7 +158,7 @@ newNGF abs_name mb_fpath =
   mask_ $ do
     c_db <- withPgfExn "newNGF" (pgf_new_ngf c_abs_name c_fpath p_revision)
     c_revision <- peek p_revision
-    fptr <- C.newForeignPtr c_revision (pgf_free_revision c_db c_revision)
+    fptr <- newForeignPtrEnv pgf_free_revision c_db c_revision
     return (PGF c_db fptr Map.empty)
 
 writePGF :: FilePath -> PGF -> IO ()

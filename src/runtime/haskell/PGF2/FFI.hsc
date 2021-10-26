@@ -63,7 +63,9 @@ foreign import ccall pgf_new_ngf :: Ptr PgfText -> CString -> Ptr (Ptr (PgfRevis
 
 foreign import ccall pgf_write_pgf :: CString -> Ptr PgfDB -> Ptr (PgfRevision PGF) -> Ptr PgfExn -> IO ()
 
-foreign import ccall pgf_free_revision :: Ptr PgfDB -> Ptr (PgfRevision PGF) -> IO ()
+foreign import ccall "pgf_free_revision" pgf_free_revision_ :: Ptr PgfDB -> Ptr (PgfRevision PGF) -> IO ()
+
+foreign import ccall "&pgf_free_revision" pgf_free_revision :: FinalizerEnvPtr PgfDB (PgfRevision PGF)
 
 foreign import ccall pgf_free_concr_revision :: Ptr PgfDB -> Ptr (PgfRevision Concr) -> IO ()
 
