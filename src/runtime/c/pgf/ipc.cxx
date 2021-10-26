@@ -238,21 +238,16 @@ void ipc_release_file_rwlock(const char* file_path,
     if (locks == NULL)
         return;
 
-    struct stat s;
-    if (stat(file_path, &s) != 0) {
-        ipc_error();
-    }
-
     pthread_mutex_lock(&locks->mutex);
 
     lock_entry *entry = ptr(locks->lock_entries,lock_entry);
     ptr_t(lock_entry) *last = &locks->lock_entries;
     while (entry != NULL) {
-        if (entry->dev == s.st_dev && entry->ino == s.st_ino) {
+        if (&entry->rwlock == rwlock) {
             break;
         }
-        entry = ptr(entry->next,lock_entry);
         last  = &entry->next;
+        entry = ptr(*last,lock_entry);
     }
 
     if (entry != NULL) {
@@ -314,8 +309,6 @@ int main(int argc, char *argv[])
         return 1;
     }
 
-    printf("%ld\n", sizeof(lock_entry));
-
     pthread_rwlock_t *rwlock = ipc_new_file_rwlock(argv[2]);
 
     if (strcmp(argv[1],"r") == 0) {
@@ -332,7 +325,7 @@ int main(int argc, char *argv[])
 
     pthread_rwlock_unlock(rwlock);
 
-    ipc_release_file_rwlock(argv[2]);
+    ipc_release_file_rwlock(argv[2], rwlock);
 
     return 0;
 }
