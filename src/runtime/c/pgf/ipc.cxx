@@ -56,6 +56,55 @@ static char gf_runtime_locks[] = "/gf-runtime-locks";
 
 static file_locks *locks = NULL;
 
+static
+void ipc_cleanup_dead_processes()
+{
+    ptr_t(lock_entry) *last = &locks->lock_entries;
+    lock_entry *entry = ptr(*last, lock_entry);
+    while (entry != NULL) {
+        process_entry *pentry = &entry->p;
+        ptr_t(process_entry) *plast = NULL;
+        while (pentry != NULL) {
+            char proc_file[32];
+            sprintf(proc_file, "/proc/%d", pentry->pid);
+            if (access(proc_file, F_OK) != 0) {
+                // if there are dead processes -> remove them
+                if (plast == NULL) {
+                    if (entry->p.next == 0) {
+                        *last = entry->next;
+                        entry->next  = locks->free_lock_entries;
+                        entry->dev   = 0;
+                        entry->ino   = 0;
+                        entry->p.pid = 0;
+                        locks->free_lock_entries = offs(entry);
+                        goto next;
+                    } else {
+                        process_entry *tmp =
+                            ptr(pentry->next, process_entry);
+                        *pentry   = *tmp;
+                        tmp->pid  = 0;
+                        tmp->next = locks->free_process_entries;
+                        locks->free_process_entries = offs(tmp);
+                    }
+                } else {
+                    *plast = pentry->next;
+                    pentry->pid  = 0;
+                    pentry->next = locks->free_process_entries;
+                    locks->free_process_entries = offs(pentry);
+                    pentry = ptr(*plast,process_entry);
+                }
+            } else {
+                plast  = &pentry->next;
+                pentry = ptr(*plast,process_entry);
+            }
+        }
+
+        last  = &entry->next;
+next:
+        entry = ptr(*last, lock_entry);
+    }
+}
+
 PGF_INTERNAL
 pthread_rwlock_t *ipc_new_file_rwlock(const char* file_path)
 {
@@ -130,6 +179,8 @@ pthread_rwlock_t *ipc_new_file_rwlock(const char* file_path)
 
     pthread_mutex_lock(&locks->mutex);
 
+    ipc_cleanup_dead_processes();
+
     lock_entry *entry = ptr(locks->lock_entries, lock_entry);
     while (entry != NULL) {
         if (entry->dev == s.st_dev && entry->ino == s.st_ino) {
@@ -170,54 +221,22 @@ pthread_rwlock_t *ipc_new_file_rwlock(const char* file_path)
         entry->next  = locks->lock_entries;
         locks->lock_entries = offs(entry);
     } else {
-        process_entry *pentry = &entry->p;
-        ptr_t(process_entry) *plast = NULL;
-        while (pentry != NULL) {
-            char proc_file[32];
-            sprintf(proc_file, "/proc/%d", pentry->pid);
-            if (access(proc_file, F_OK) != 0) {
-                // if there are dead processes -> remove them
-                if (plast == NULL) {
-                    if (entry->p.next == 0) {
-                        entry->p.pid = 0;
-                        break;
-                    } else {
-                        process_entry *tmp =
-                            ptr(pentry->next, process_entry);
-                        *pentry = *tmp;
-                        tmp->pid  = 0;
-                        tmp->next = locks->free_process_entries;
-                        locks->free_process_entries = offs(tmp);
-                    }
-                } else {
-                    *plast = pentry->next;
-                    pentry->pid  = 0;
-                    pentry->next = locks->free_process_entries;
-                    locks->free_process_entries = offs(pentry);
-                    pentry = ptr(*plast,process_entry);
-                }
-            } else {
-                plast  = &pentry->next;
-                pentry = ptr(*plast,process_entry);
+        process_entry *pentry;
+        if (locks->free_process_entries) {
+            pentry = ptr(locks->free_process_entries,process_entry);
+            locks->free_process_entries = pentry->next;
+        } else {
+            if (locks->top+sizeof(process_entry) > pagesize) {
+                pthread_mutex_unlock(&locks->mutex);
+                ipc_toomany();
             }
+            pentry = ptr(locks->top,process_entry);
+            locks->top += sizeof(process_entry);
         }
 
-        if (plast != NULL) {
-            if (locks->free_process_entries) {
-                pentry = ptr(locks->free_process_entries,process_entry);
-                locks->free_process_entries = pentry->next;
-            } else {
-                if (locks->top+sizeof(process_entry) > pagesize) {
-                    pthread_mutex_unlock(&locks->mutex);
-                    ipc_toomany();
-                }
-                pentry = ptr(locks->top,process_entry);
-                locks->top += sizeof(process_entry);
-            }
-            *plast        = offs(pentry);
-        }
         pentry->pid  = getpid();
-        pentry->next = 0;
+        pentry->next = entry->p.next;
+        entry->p.next = offs(pentry);
     }
 
     pthread_mutex_unlock(&locks->mutex);
@@ -240,6 +259,8 @@ void ipc_release_file_rwlock(const char* file_path,
 
     pthread_mutex_lock(&locks->mutex);
 
+    ipc_cleanup_dead_processes();
+
     lock_entry *entry = ptr(locks->lock_entries,lock_entry);
     ptr_t(lock_entry) *last = &locks->lock_entries;
     while (entry != NULL) {
@@ -256,9 +277,6 @@ void ipc_release_file_rwlock(const char* file_path,
         ptr_t(process_entry) *plast = NULL;
         while (pentry != NULL) {
             if (pentry->pid == pid) {
-                pid = -1; // only the first entry should be removed
-
-free_it:
                 if (plast == NULL) {
                     if (entry->p.next == 0) {
                         *last = entry->next;
@@ -267,7 +285,6 @@ free_it:
                         entry->ino = 0;
                         entry->p.pid = 0;
                         locks->free_lock_entries = offs(entry);
-                        break;
                     } else {
                         process_entry *tmp =
                             ptr(pentry->next, process_entry);
@@ -281,19 +298,13 @@ free_it:
                     pentry->pid  = 0;
                     pentry->next = locks->free_process_entries;
                     locks->free_process_entries = offs(pentry);
-                    pentry = ptr(*plast,process_entry);
                 }
-            } else {
-                char proc_file[32];
-                sprintf(proc_file, "/proc/%d", pentry->pid);
-                if (access(proc_file, F_OK) != 0) {
-                    // if there are dead processes -> remove them too
-                    goto free_it;
-                } else {
-                    plast  = &pentry->next;
-                    pentry = ptr(*plast,process_entry);
-                }
+
+                break;
             }
+
+            plast  = &pentry->next;
+            pentry = ptr(*plast,process_entry);
         }
     }
 
