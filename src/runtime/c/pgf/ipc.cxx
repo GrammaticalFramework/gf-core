@@ -203,12 +203,17 @@ pthread_rwlock_t *ipc_new_file_rwlock(const char* file_path)
 
             pthread_rwlockattr_t attr;
             if (pthread_rwlockattr_init(&attr) != 0) {
+                pthread_mutex_unlock(&locks->mutex);
                 ipc_error();
             }
             if (pthread_rwlockattr_setpshared(&attr, PTHREAD_PROCESS_SHARED) != 0) {
+                pthread_rwlockattr_destroy(&attr);
+                pthread_mutex_unlock(&locks->mutex);
                 ipc_error();
             }
             if (pthread_rwlock_init(&entry->rwlock, &attr) != 0) {
+                pthread_rwlockattr_destroy(&attr);
+                pthread_mutex_unlock(&locks->mutex);
                 ipc_error();
             }
             pthread_rwlockattr_destroy(&attr);
