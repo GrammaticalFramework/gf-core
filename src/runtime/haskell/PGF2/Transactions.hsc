@@ -10,6 +10,7 @@ module PGF2.Transactions
           , createCategory
           , dropCategory
           , createConcrete
+          , alterConcrete
           , dropConcrete
           , setGlobalFlag
           , setAbstractFlag

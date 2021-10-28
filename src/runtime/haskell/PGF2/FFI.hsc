@@ -11,7 +11,6 @@ import Data.Typeable
 import Foreign
 import Foreign.C
 import Foreign.Ptr
-import qualified Foreign.Concurrent as C
 import qualified Data.Map as Map
 import Control.Exception(Exception,bracket,mask_,throwIO)
 import System.IO.Unsafe(unsafePerformIO)
@@ -67,7 +66,7 @@ foreign import ccall "pgf_free_revision" pgf_free_revision_ :: Ptr PgfDB -> Ptr 
 
 foreign import ccall "&pgf_free_revision" pgf_free_revision :: FinalizerEnvPtr PgfDB (PgfRevision PGF)
 
-foreign import ccall pgf_free_concr_revision :: Ptr PgfDB -> Ptr (PgfRevision Concr) -> IO ()
+foreign import ccall "&pgf_free_concr_revision" pgf_free_concr_revision :: FinalizerEnvPtr PgfDB (PgfRevision Concr)
 
 foreign import ccall "pgf_abstract_name"
   pgf_abstract_name :: Ptr PgfDB -> Ptr (PgfRevision PGF) -> Ptr PgfExn -> IO (Ptr PgfText)
@@ -612,8 +611,7 @@ getConcretes c_db c_revision = do
   where
     getConcretes :: IORef (Map.Map ConcName Concr) -> ItorCallback
     getConcretes ref itor key c_revision exn = do
-      print 1
       concrs <- readIORef ref
       name  <- peekText key
-      fptr <- C.newForeignPtr (castPtr c_revision) (pgf_free_concr_revision c_db (castPtr c_revision))
+      fptr <- newForeignPtrEnv pgf_free_concr_revision c_db (castPtr c_revision)
       writeIORef ref (Map.insert name (Concr c_db fptr) concrs)
