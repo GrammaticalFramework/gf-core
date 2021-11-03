@@ -259,22 +259,17 @@ void pgf_free_revision(PgfDB *db, PgfRevision revision)
 PGF_API_DECL
 void pgf_free_concr_revision(PgfDB *db, PgfConcrRevision revision)
 {
-/*    try {
+    try {
         DB_scope scope(db, WRITER_SCOPE);
-        ref<PgfPGF> pgf = PgfDB::revision2pgf(revision);
+        ref<PgfConcr> concr = PgfDB::revision2concr(revision);
 
-        if (pgf->ref_count == 1 && PgfDB::is_persistant_revision(pgf)) {
-            // Someone is trying to release the last reference count
-            // to a persistant revision. Mostly likely this is an
-            // error in the reference counting for one of the clients.
-            // The best that we can do is to ignore the request.
-            return;
+        if (!(--concr->ref_count_ex)) {
+            PgfDB::unlink_transient_revision(concr);
         }
 
-        if (!(--pgf->ref_count)) {
-            PgfDB::unlink_transient_revision(pgf);
-            PgfPGF::release(pgf);
-            PgfDB::free(pgf);
+        if (!(--concr->ref_count)) {
+            PgfConcr::release(concr);
+            PgfDB::free(concr);
         }
 
         db->ref_count--;
@@ -283,7 +278,7 @@ void pgf_free_concr_revision(PgfDB *db, PgfConcrRevision revision)
     }
 
     if (!db->ref_count)
-        delete db;*/
+        delete db;
 }
 
 PGF_API
@@ -312,6 +307,24 @@ void pgf_iter_categories(PgfDB *db, PgfRevision revision,
     } PGF_API_END
 }
 
+struct PgfItorConcrHelper : PgfItor
+{
+    PgfDB *db;
+    PgfItor *itor;
+};
+
+static
+void iter_concretes_helper(PgfItor *itor, PgfText *key, object value,
+		                   PgfExn *err)
+{
+    PgfItorConcrHelper* helper = (PgfItorConcrHelper*) itor;
+    ref<PgfConcr> concr = value;
+    concr->ref_count++;
+    concr->ref_count_ex++;
+    helper->db->ref_count++;
+    helper->itor->fn(helper->itor, key, value, err);
+}
+
 PGF_API
 void pgf_iter_concretes(PgfDB *db, PgfRevision revision,
                         PgfItor *itor, PgfExn *err)
@@ -320,7 +333,12 @@ void pgf_iter_concretes(PgfDB *db, PgfRevision revision,
         DB_scope scope(db, READER_SCOPE);
         ref<PgfPGF> pgf = PgfDB::revision2pgf(revision);
 
-        namespace_iter(pgf->concretes, itor, err);
+        PgfItorConcrHelper helper;
+        helper.fn   = iter_concretes_helper;
+        helper.db   = db;
+        helper.itor = itor;
+
+        namespace_iter(pgf->concretes, &helper, err);
     } PGF_API_END
 }
 
@@ -433,7 +451,7 @@ void pgf_iter_functions(PgfDB *db, PgfRevision revision,
     } PGF_API_END
 }
 
-struct PgfItorHelper : PgfItor
+struct PgfItorCatHelper : PgfItor
 {
     PgfText *cat;
     PgfItor *itor;
@@ -443,7 +461,7 @@ static
 void iter_by_cat_helper(PgfItor *itor, PgfText *key, object value,
 		                PgfExn *err)
 {
-    PgfItorHelper* helper = (PgfItorHelper*) itor;
+    PgfItorCatHelper* helper = (PgfItorCatHelper*) itor;
     ref<PgfAbsFun> absfun = value;
     if (textcmp(helper->cat, &absfun->type->name) == 0)
         helper->itor->fn(helper->itor, key, value, err);
@@ -457,7 +475,7 @@ void pgf_iter_functions_by_cat(PgfDB *db, PgfRevision revision,
         DB_scope scope(db, READER_SCOPE);
         ref<PgfPGF> pgf = PgfDB::revision2pgf(revision);
 
-        PgfItorHelper helper;
+        PgfItorCatHelper helper;
         helper.fn   = iter_by_cat_helper;
         helper.cat  = cat;
         helper.itor = itor;
@@ -855,14 +873,21 @@ PgfConcrRevision pgf_create_concrete(PgfDB *db, PgfRevision revision,
             throw pgf_error("The concrete syntax already exists");
 
         concr = PgfDB::malloc<PgfConcr>(name->size+1);
-        concr->ref_count = 1;
+        concr->ref_count    = 1;
+        concr->ref_count_ex = 1;
         concr->cflags = 0;
+        concr->prev = 0;
+        concr->next = 0;
         memcpy(&concr->name, name, sizeof(PgfText)+name->size+1);
+
+        PgfDB::link_transient_revision(concrter);
 
         Namespace<PgfConcr> concrs =
             namespace_insert(pgf->concretes, concr);
         namespace_release(pgf->concretes);
         pgf->concretes = concrs;
+
+        db->ref_count++;
         return concr.as_object();
     } PGF_API_END
     return 0;
@@ -884,14 +909,24 @@ PgfConcrRevision pgf_clone_concrete(PgfDB *db, PgfRevision revision,
             throw pgf_error("Unknown concrete syntax");
 
         ref<PgfConcr> clone = PgfDB::malloc<PgfConcr>(name->size+1);
-        clone->ref_count = 1;
+        clone->ref_count    = 1;
+        clone->ref_count_ex = 1;
         clone->cflags = concr->cflags;
+        clone->prev = 0;
+        clone->next = 0;
         memcpy(&clone->name, name, sizeof(PgfText)+name->size+1);
+
+        if (clone->cflags != 0)
+            Node<PgfFlag>::add_node_ref(clone->cflags);
+
+        PgfDB::link_transient_revision(clone);
 
         Namespace<PgfConcr> concrs =
             namespace_insert(pgf->concretes, clone);
         namespace_release(pgf->concretes);
         pgf->concretes = concrs;
+
+        db->ref_count++;
         return clone.as_object();
     } PGF_API_END
     return 0;

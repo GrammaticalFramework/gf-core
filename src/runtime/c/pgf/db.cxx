@@ -280,16 +280,18 @@ struct PGF_INTERNAL_DECL malloc_state
     /* The namespace of all persistant grammar revisions */
     Namespace<PgfPGF> revisions;
 
-    /* A reference to the first transient revision in
+    /* A reference to the first transient revisions in
      * a double-linked list.
      */
-    ref<PgfPGF> transient_revisions;
+    ref<PgfPGF>   transient_revisions;
+    ref<PgfConcr> transient_concr_revisions;
 };
 
 PGF_INTERNAL
 PgfDB::PgfDB(const char* filepath, int flags, int mode) {
     size_t file_size;
     bool is_new = false;
+    bool is_first = false;
 
     fd = -1;
     ms = NULL;
@@ -346,7 +348,7 @@ PgfDB::PgfDB(const char* filepath, int flags, int mode) {
     }
 
     try {
-        rwlock = ipc_new_file_rwlock(this->filepath);
+        rwlock = ipc_new_file_rwlock(this->filepath, &is_first);
     } catch (pgf_systemerror e) {
         ::free((void *) this->filepath);
         close(fd);
@@ -362,14 +364,32 @@ PgfDB::PgfDB(const char* filepath, int flags, int mode) {
             throw pgf_error("Invalid file content");
         }
 
-        // We must make sure that left-over transient revisions are
-        // released. This may happen if a client process was killed
-        // or if the garbadge collector has not managed to run
-        // pgf_release_revision() before the process ended.
+        if (is_first) {
+            // We must make sure that left-over transient revisions are
+            // released. This may happen if a client process was killed
+            // or if the garbadge collector has not managed to run
+            // pgf_release_revision() before the process ended.
 
-        while (ms->transient_revisions != 0) {
-            pgf_free_revision(this, ms->transient_revisions.as_object());
-        }
+            while (ms->transient_revisions != 0) {
+                pgf_free_revision(this, ms->transient_revisions.as_object());
+                ref<PgfPGF> pgf = ms->transient_revisions;
+                ref<PgfPGF> next = pgf->next;
+                PgfPGF::release(pgf);
+                PgfDB::free(pgf);
+                ms->transient_revisions = next;
+            }
+
+            while (ms->transient_concr_revisions != 0) {
+                ref<PgfConcr> concr = ms->transient_concr_revisions;
+                ref<PgfConcr> next = concr->next;
+                concr->ref_count -= concr->ref_count_ex;
+                if (!concr->ref_count) {
+                    PgfConcr::release(concr);
+                    PgfDB::free(concr);
+                }
+                ms->transient_concr_revisions = next;
+            }
+         }
     }
 }
 
@@ -440,6 +460,7 @@ void PgfDB::init_state(size_t size)
 
     ms->revisions = 0;
     ms->transient_revisions = 0;
+    ms->transient_concr_revisions = 0;
 }
 
 /* Take a chunk off a bin list.  */
@@ -1045,23 +1066,6 @@ ref<PgfPGF> PgfDB::revision2pgf(PgfRevision revision)
 }
 
 PGF_INTERNAL
-ref<PgfConcr> PgfDB::revision2concr(PgfConcrRevision revision)
-{
-    if (revision <= sizeof(*current_db->ms) || revision >= current_db->ms->top)
-        throw pgf_error("Invalid revision");
-
-    mchunk *chunk = mem2chunk(ptr(current_db->ms,revision));
-    if (chunksize(chunk) < sizeof(PgfConcr))
-        throw pgf_error("Invalid revision");
-
-    ref<PgfConcr> concr = revision;
-    if (chunksize(chunk) != request2size(sizeof(PgfConcr)+concr->name.size+1))
-        throw pgf_error("Invalid revision");
-
-    return concr;
-}
-
-PGF_INTERNAL
 bool PgfDB::is_persistant_revision(ref<PgfPGF> pgf)
 {
     return (pgf->prev == 0 && pgf->next == 0 &&
@@ -1086,6 +1090,50 @@ void PgfDB::unlink_transient_revision(ref<PgfPGF> pgf)
         pgf->prev->next = pgf->next;
     else if (current_db->ms->transient_revisions == pgf)
         current_db->ms->transient_revisions = pgf->next;
+}
+
+PGF_INTERNAL
+ref<PgfConcr> PgfDB::revision2concr(PgfConcrRevision revision)
+{
+    if (revision <= sizeof(*current_db->ms) || revision >= current_db->ms->top)
+        throw pgf_error("Invalid revision");
+
+    mchunk *chunk = mem2chunk(ptr(current_db->ms,revision));
+    if (chunksize(chunk) < sizeof(PgfConcr))
+        throw pgf_error("Invalid revision");
+
+    ref<PgfConcr> concr = revision;
+    if (chunksize(chunk) != request2size(sizeof(PgfConcr)+concr->name.size+1))
+        throw pgf_error("Invalid revision");
+
+    return concr;
+}
+
+PGF_INTERNAL
+bool PgfDB::is_persistant_revision(ref<PgfConcr> concr)
+{
+    return (concr->prev == 0 && concr->next == 0 &&
+            current_db->ms->transient_concr_revisions != concr);
+}
+
+PGF_INTERNAL
+void PgfDB::link_transient_revision(ref<PgfConcr> concr)
+{
+    concr->next = current_db->ms->transient_concr_revisions;
+    if (current_db->ms->transient_concr_revisions != 0)
+        current_db->ms->transient_concr_revisions->prev = concr;
+    current_db->ms->transient_concr_revisions = concr;
+}
+
+PGF_INTERNAL
+void PgfDB::unlink_transient_revision(ref<PgfConcr> concr)
+{
+    if (concr->next != 0)
+        concr->next->prev = concr->prev;
+    if (concr->prev != 0)
+        concr->prev->next = concr->next;
+    else if (current_db->ms->transient_concr_revisions == concr)
+        current_db->ms->transient_concr_revisions = concr->next;
 }
 
 PGF_INTERNAL

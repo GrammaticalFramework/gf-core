@@ -106,7 +106,15 @@ typedef struct {
 
 struct PGF_INTERNAL_DECL PgfConcr {
     size_t ref_count;
-	Namespace<PgfFlag> cflags;
+    size_t ref_count_ex;
+    Namespace<PgfFlag> cflags;
+
+    // If there are references from the host language to this concrete,
+    // then it is included in a double-linked list. If a process
+    // dies without releasing the reference, it will be released by
+    // the first process who have an exclusive access to the database.
+    ref<PgfConcr> prev, next;
+
     PgfText name;
 
     static void release(ref<PgfConcr> pgf);

@@ -106,9 +106,11 @@ next:
 }
 
 PGF_INTERNAL
-pthread_rwlock_t *ipc_new_file_rwlock(const char* file_path)
+pthread_rwlock_t *ipc_new_file_rwlock(const char* file_path,
+                                      bool *is_first)
 {
     if (file_path == NULL) {
+        *is_first = true;
         pthread_rwlock_t *rwlock = (pthread_rwlock_t *)
             malloc(sizeof(pthread_rwlock_t));
         if (pthread_rwlock_init(rwlock, NULL) != 0) {
@@ -189,7 +191,11 @@ pthread_rwlock_t *ipc_new_file_rwlock(const char* file_path)
         entry = ptr(entry->next, lock_entry);
     }
 
+    *is_first = false;
+
     if (entry == NULL) {
+        *is_first = true;
+
         if (locks->free_lock_entries) {
             entry = ptr(locks->free_lock_entries, lock_entry);
             locks->free_lock_entries = entry->next;

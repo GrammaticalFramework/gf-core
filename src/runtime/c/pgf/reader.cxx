@@ -434,8 +434,11 @@ void PgfReader::read_abstract(ref<PgfAbstr> abstract)
 ref<PgfConcr> PgfReader::read_concrete()
 {
     ref<PgfConcr> concr = read_name(&PgfConcr::name);
-    concr->ref_count = 1;
+    concr->ref_count    = 1;
+    concr->ref_count_ex = 0;
 	concr->cflags = read_namespace<PgfFlag>(&PgfReader::read_flag);
+    concr->prev = 0;
+    concr->next = 0;
     return concr;
 }
 
