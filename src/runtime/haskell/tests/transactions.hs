@@ -3,6 +3,7 @@ import PGF2
 import PGF2.Transactions
 import System.Mem
 import System.Exit (exitSuccess, exitFailure)
+import qualified Data.Map as Map
 
 main = do
   gr1 <- readPGF "tests/basic.pgf"
@@ -17,6 +18,11 @@ main = do
   Just gr5 <- checkoutPGF gr1 "bar_branch"
 
   gr6 <- modifyPGF gr1 (dropFunction "ind" >> dropCategory "S")
+
+  gr7 <- modifyPGF gr1 $
+           createConcrete "basic_eng" $ do
+             setConcreteFlag "test_flag" (LStr "test")
+  let Just cnc = Map.lookup "basic_eng" (languages gr7)
 
   c <- runTestTT $
     TestList $
@@ -38,6 +44,9 @@ main = do
       ,TestCase (assertEqual "new function prob" pi        (functionProbability gr2 "foo"))
       ,TestCase (assertEqual "old category prob" (-log 0)  (categoryProbability gr1 "Q"))
       ,TestCase (assertEqual "new category prob" pi        (categoryProbability gr2 "Q"))
+      ,TestCase (assertEqual "empty concretes" []          (Map.keys (languages gr1)))
+      ,TestCase (assertEqual "extended concretes" ["basic_eng"] (Map.keys (languages gr7)))
+      ,TestCase (assertEqual "added concrete flag" (Just (LStr "test")) (concreteFlag cnc "test_flag"))
       ]
 
   performMajorGC
