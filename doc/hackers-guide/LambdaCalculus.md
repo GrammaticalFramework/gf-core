@@ -14,16 +14,26 @@ We will start with the simplest possible subset of the GF language, also known a
 ```Haskell
 data Term
   = Vr Ident           -- e.g. variables: x,y,z ...
+  | Cn Ident           -- e.g. constructors: cons, nil, etc.
   | App Term Term      -- e.g. function application: @f x@
   | Abs Ident Term     -- e.g. \x -> t
 ```
 
 ```Haskell
+type Env = [(Ident,Value)]
+data Value
+  = VApp Ident [Value]
+  | VClosure Env Term
+```
+
+```Haskell
 eval env (Vr x)         vs  = apply (lookup x env) vs
+eval env (Cn c)         vs  = VApp c vs
 eval env (App t1 t2)    vs  = eval env t1 (eval env t2 : vs)
 eval env (Abs b x t)    []  = return (VClosure env (Abs b x t))
 eval env (Abs b x t) (v:vs) = eval ((x,v):env) t vs
 
+apply (VApp c vs0)                   vs = VApp c (vs0++vs)
 apply (VClosure env (Abs b x t)) (v:vs) = eval ((x,v):env) t vs
 ```
 
