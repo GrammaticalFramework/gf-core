@@ -30,7 +30,7 @@ data Value
 eval env (Vr x)       vs  = apply (lookup x env) vs
 eval env (Cn c)       vs  = VApp c vs
 eval env (App t1 t2)  vs  = eval env t1 (eval env t2 : vs)
-eval env (Abs x t)    []  = return (VClosure env (Abs b x t))
+eval env (Abs x t)    []  = VClosure env (Abs b x t)
 eval env (Abs x t) (v:vs) = eval ((x,v):env) t vs
 
 apply (VApp c vs0)                vs  = VApp c (vs0++vs)
