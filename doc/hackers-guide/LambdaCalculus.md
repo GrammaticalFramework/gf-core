@@ -10,6 +10,23 @@ In the rest of we will discuss the implementation of the partial evaluator.
 
 # Simple Lambda Terms
 
+We will start with the simplest possible subset of the GF language, also known as simple lambda calculus. It is defined as an algebraic data type in Haskell, as follows:
+```Haskell
+data Term
+  = Vr Ident           -- e.g. variables: x,y,z ...
+  | App Term Term      -- e.g. function application: @f x@
+  | Abs Ident Term     -- e.g. \x -> t
+```
+
+```Haskell
+eval env (Vr x)         vs  = apply (lookup x env) vs
+eval env (App t1 t2)    vs  = eval env t1 (eval env t2 : vs)
+eval env (Abs b x t)    []  = return (VClosure env (Abs b x t))
+eval env (Abs b x t) (v:vs) = eval ((x,v):env) t vs
+
+apply (VClosure env (Abs b x t)) (v:vs) = eval ((x,v):env) t vs
+```
+
 # Variants
 
 # Meta Variables
