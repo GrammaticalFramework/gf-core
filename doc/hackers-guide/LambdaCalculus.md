@@ -151,12 +151,20 @@ x.s2+x.s2 where x = {s1="s"; s2="b"}
 ```
 we branch only after encountering the variant in the `s2` field.
 
-The implementation for variants requires the introduction of a nondeterministic monad in the evaluator. See this [paper](https://gup.ub.gu.se/file/207634):
+The implementation for variants requires the introduction of a nondeterministic monad with a support for logical variables. See this [paper](https://gup.ub.gu.se/file/207634):
 
-Claessen, Koen & Ljunglöf, Peter. (2000). Typed Logical Variables in Haskell. Electr. Notes Theor. Comput. Sci.. 41. 37. 10.1016/S1571-0661(05)80544-4.
+Claessen, Koen & Ljunglöf, Peter. (2000). Typed Logical Variables in Haskell. Electronic Notes Theoretical Computer Science. 41. 37. 10.1016/S1571-0661(05)80544-4.
 
-The monad (let's call it `EvalM`) must provide the primitives:
+for possible implementations. Our concrete implemention is built on top of the `ST` monad in Haskell and provides the primitives:
+```Haskell
+newThunk :: Env s -> Term -> EvalM s (Thunk s)
+newEvaluatedThunk :: Value s -> EvalM s (Thunk s)
+force :: Thunk s -> EvalM s (Value s)
+msum :: [EvalM s a] -> EvalM s a
+```
+Here, a `Thunk` is either an unevaluated term or an already computed value. Internally, it is implement as an `STRef`. If the thunk is unevaluated, it can be forced to an evaluated state by calling `force`. In addition, `msum` makes it possible to nondeterministically branch into a list of possible actions.
 
+The terms and the values in the extended language are similar with two exceptions. We add the constructor `FV` for encoding variants in the terms, and the constructors for values now take lists of thunks instead of values:
 ```Haskell
 data Term
   = Vr Ident           -- i.e. variables: x,y,z ...
@@ -170,7 +178,9 @@ data Value s
   = VApp Ident [Thunk s]   -- i.e. constructor application
   | VClosure (Env s) Term  -- i.e. a closure contains an environment and the term for a lambda abstraction
   | VGen Int [Thunk s]     -- i.e. an internal representation for free variables
+```
 
+```Haskell
 eval env (Vr x)          args = do tnk <- lookup x env
                                    v   <- force tnk
                                    apply v args
