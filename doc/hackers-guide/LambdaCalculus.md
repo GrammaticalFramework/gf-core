@@ -188,9 +188,9 @@ apply (VGen i  vs)                   args = return (VGen i (vs++args))
 
 ```Haskell
 value2term i (VApp c tnks) =
-  foldM (\e1 tnk -> fmap (App e1) (force tnk >>= value2term i)) (Cn c) tnks
+  foldM (\t tnk -> fmap (App t) (force tnk >>= value2term i)) (Cn c) tnks
 value2term i (VGen j tnks) =
-  foldM (\e1 tnk -> fmap (App e1) (force tnk >>= value2term i)) (Vr ('v':show j)) tnks
+  foldM (\t tnk -> fmap (App t) (force tnk >>= value2term i)) (Vr ('v':show j)) tnks
 value2term i (VClosure env (Abs x t)) = do
   tnk <- newEvaluatedThunk (VGen i [])
   v <- eval ((x,tnk):env) t []
