@@ -30,17 +30,17 @@ For the lambda abstractions we build a closure which preserves the environment a
 
 The evaluation itself is simple:
 ```Haskell
-eval env (Vr x)       vs  = apply (lookup x env) vs
-eval env (Cn c)       vs  = VApp c vs
-eval env (App t1 t2)  vs  = eval env t1 (eval env t2 : vs)
-eval env (Abs x t)    []  = VClosure env (Abs x t)
-eval env (Abs x t) (v:vs) = eval ((x,v):env) t vs
+eval env (Vr x)          args = apply (lookup x env) args
+eval env (Cn c)          args = VApp c args
+eval env (App t1 t2)     args = eval env t1 (eval env t2 : args)
+eval env (Abs x t)         [] = VClosure env (Abs x t)
+eval env (Abs x t) (arg:args) = eval ((x,v):env) t args
 
-apply (VApp c vs0)                vs  = VApp c (vs0++vs)
-apply (VClosure env (Abs x t)) (v:vs) = eval ((x,v):env) t vs
-apply (VGen i vs0)                vs  = VGen i (vs0++vs)
+apply (VApp c vs)                    args = VApp c (vs++args)
+apply (VClosure env (Abs x t)) (arg:args) = eval ((x,arg):env) t args
+apply (VGen i vs)                    args = VGen i (vs++args)
 ```
-Here the we use the `apply` function to apply an already evaluated term to a list of other values.
+Here the we use the `apply` function to apply an already evaluated term to a list of arguments.
 
 When we talk about functional languages, we usually discuss the evaluation order and we differentiate between about lazy and strict languages. Simply speaking, a strict language evaluates the arguments of a function before the function is called. In a lazy language, on the other hand, the arguments are passed unevaluated and are computed only if the value is really needed for the execution of the function. The main advantage of lazy languages is that they guarantee the termination of the computation in some cases where strict languages don't. The GF language does not allow recursion and therefore all programs terminate. Looking from only that angle it looks like the evaluation order is irrelevant in GF. Perhaps that is also the reason why this has never been discussed before. The question, however, becomes relevant again if we want to have an optimal semantics for variants. As we will see in the next section, the only way to get that is if we define GF as a lazy language.
 
@@ -79,7 +79,7 @@ unchanged since it can't know whether the value of `x` ends with `"s"`.
 
 # Variants
 
-GF supports variants which makes its semantics closer to the language [Curry](https://en.wikipedia.org/wiki/Curry_(programming_language)) than to Haskell. We can have terms like `("a"|"b")` which evaluate to either `"a"` or `"b"` nondeterministically. The use for variants is to define equivalent linearizations for one and the same semantic term. Perhaps the most prototypical application is for spelling variantions. For instance, if we want to blend British and American English in the same language then we can use `("color"|"colour")` everywhere where either of the forms is accepted.
+GF supports variants which makes its semantics closer to the language [Curry](https://en.wikipedia.org/wiki/Curry_(programming_language)) than to Haskell. We support terms like `("a"|"b")` which are used to define equivalent linearizations for one and the same semantic term. Perhaps the most prototypical example is for spelling variantions. For instance, if we want to blend British and American English into the same language then we can use `("color"|"colour")` whenever either of the forms is accepted.
 
 The proper implementation for variants complicates the semantics of the language a lot. Consider the term `(\x -> x + x) ("a"|"b")`! Its value depends on whether our language is defined as lazy or strict. In a strict language, we will first evaluate the argument:
 ```GF
@@ -94,22 +94,113 @@ and therefore there are only two values `"aa"´ and `"bb"´. On the other hand i
 => ("a"|"b") + ("a"|"b")
 => ("aa"|"ab"|"ba"|"bb")
 ```
-and get four different values. The experience shows that a semantics producing only two values is more useful since it gives us a way to control how variants are expanded. If you want the same variant to appear in two different places, just bind the variant to a variable first. It looks like a strict evaluation order has an advantage here. Unfortunately that is not always the case. Consider another example, evaluated in a strict order:
+and get four different values. The experience shows that a semantics producing only two values is more useful since it gives us a way to control how variants are expanded. If you want the same variant to appear in two different places, just bind the variant to a variable first! It looks like a strict evaluation order has an advantage here. Unfortunately that is not always the case. Consider another example, in a strict order:
 ```GF
    (\x -> "c") ("a"|"b")
 => ((\x -> "c") "a") | ((\x -> "c") "b")
 => ("c" | "c")
 ```
-Here we get two variants with one and the same value "c". A lazy evaluation order would have avoided the redundancy since `("a"|"b")` would never have been evaluated.
+Here we get two variants with one and the same value "c". A lazy evaluation order would have avoided the redundancy since `("a"|"b")` would never have been computed.
 
-The source of the problem is that above we treated the variant as a possible value as well.
+The best strategy is to actually use lazy evaluation but not to treat the variants as values. Whenever we encounter a variant term, we just split the evaluation in two different branches, one for each variant. At the end of the computation, we get a set of values which does not contain variants. The partial evaluator converts each value back to a term and combines all terms back to a single one by using a top-level variant. The first example would then compute as:
 ```GF
    (\x -> x + x) ("a"|"b")
 => x + x where x = ("a"|"b")
-=> (x + x where x = "a") | (x + x where x = "b")
-=> ("aa"|"bb")
+
+-- Branch 1:
+=> x + x where x = "a"
+=> "a" + "a" where x = "a"
+=> "aa"
+
+-- Branch 2:
+=> x + x where x = "b"
+=> "b" + "b" where x = "b"
+=> "bb"
+```
+Here the first step proceeds without branching. We just compute the body of the lambda function while remembering that `x` is bound to the unevaluated term `("a"|"b")`. When we encounter the concatenation `x + x`, then we actually need the value of `x`. Since it is bound to a variant, we must split the evaluation into two branches. In each branch `x` is rebound to either of the two variants `"a"` or `"b"`. The partial evaluator would then recombine the results into `"aa"|"bb"`.
+
+If we consider the second example, it will proceed as:
+```GF
+   (\x -> "c") ("a"|"b")
+=> "c" where x = ("a"|"b")
+=> "c"
+```
+since we never ever needed the value of `x`.
+
+There are a lot of other even more interesting examples when we take into account that GF also supports record types and parameter types. Consider this:
+```GF
+   (\x -> x.s1+x.s1) {s1="s"; s2="a"|"b"}
+=> x.s1+x.s1 where x = {s1="s"; s2="a"|"b"}
+=> "s"+"s"
+=> "ss"
+```
+Here when we encounter `x.s1`, we must evaluate `x` and then its field `s1` but not `s2`. Therefore, there is only one variant. On the other hand, here:
+```GF
+   (\x -> x.s2+x.s2) {s1="s"; s2="a"|"b"}
+=> x.s2+x.s2 where x = {s1="s"; s2="a"|"b"}
+
+-- Branch 1
+x.s2+x.s2 where x = {s1="s"; s2="a"}
+"a"+"a"
+"aa"
+
+-- Branch 2
+x.s2+x.s2 where x = {s1="s"; s2="b"}
+"b"+"b"
+"bb"
+```
+we branch only after encountering the variant in the `s2` field.
+
+The implementation for variants requires the introduction of a nondeterministic monad in the evaluator. See this [paper](https://gup.ub.gu.se/file/207634):
+
+Claessen, Koen & Ljunglöf, Peter. (2000). Typed Logical Variables in Haskell. Electr. Notes Theor. Comput. Sci.. 41. 37. 10.1016/S1571-0661(05)80544-4.
+
+The monad (let's call it `EvalM`) must provide the primitives:
+
+```Haskell
+data Term
+  = Vr Ident           -- e.g. variables: x,y,z ...
+  | Cn Ident           -- e.g. constructors: cons, nil, etc.
+  | App Term Term      -- e.g. function application: @f x@
+  | Abs Ident Term     -- e.g. \x -> t
+  | FV [Term]          -- e.g. a list of variants: t1|t2|t3|...
+
+type Env s = [(Ident,Thunk s)]
+data Value s
+  = VApp Ident [Thunk s]   -- e.g. constructor application
+  | VClosure (Env s) Term  -- e.g. a closure contains an environment and the term for a lambda abstraction
+  | VGen Int [Thunk s]     -- e.g. an internal representation for free variables
+  
+eval env (Vr x)          args = do tnk <- lookup x env
+                                   v   <- force tnk
+                                   apply v args
+eval env (Cn c)          args = return (VApp c args)
+eval env (App t1 t2)     args = do tnk <- newThunk env t2
+                                   eval env t1 (tnk : args)
+eval env (Abs x t)         [] = return (VClosure env (Abs x t))
+eval env (Abs x t) (arg:args) = eval ((x,arg):env) t args
+eval env (FV ts)         args = msum [eval env t args | t <- ts]
+
+apply (VApp f  vs)                   args = return (VApp f (vs++args))
+apply (VClosure env (Abs x t)) (arg:args) = eval ((x,arg):env) t args
+apply (VGen i  vs)                   args = return (VGen i (vs++args))
 ```
 
+```Haskell
+value2term i (VApp c tnks) =
+  foldM (\e1 tnk -> fmap (App e1) (force tnk >>= value2term i)) (Cn c) tnks
+value2term i (VGen j tnks) =
+  foldM (\e1 tnk -> fmap (App e1) (force tnk >>= value2term i)) (Vr ('v':show j)) tnks
+value2term i (VClosure env (Abs x t)) = do
+  tnk <- newEvaluatedThunk (VGen i [])
+  v <- eval ((x,tnk):env) t []
+  t <- value2term (i+1) v
+  return (Abs ('v':show i) t)
 
+normalForm gr t =
+  case runEvalM gr (eval [] t [] >>= value2term 0) of
+    [t] -> t
+    ts  -> FV ts
+```
 
 # Meta Variables
