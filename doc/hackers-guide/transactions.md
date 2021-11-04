@@ -12,7 +12,7 @@ main = do
   -- modify the grammar gr
   functionType gr "f" >>= print
 ```
-Here we ask for the type of a function before and after an arbitrary update in the grammar `gr`. Obviously if we allow that then `functionType` would have to be in the IO monad, e.g.:
+Here we ask for the type of a function before and after an arbitrary update in the grammar `gr`. Obviously if we allow that, then `functionType` would have to be in the IO monad, e.g.:
 
 ```Haskell
 functionType :: PGF -> Fun -> IO Type
@@ -29,7 +29,7 @@ main = do
            -- do all updates here
   print (functionType gr2 "f")
 ```
-Here `modifyPGF` allows us to do updates but the updates are performed on a freshly created clone of the grammar `gr`. The original grammar is never ever modified. After the changes the variable `gr2` is a reference to the new revision. While the transaction is in progress we cannot see the currently changing revision, and therefore all read-only operations can remain pure. Only after the transaction is complete do we get to use `gr2`, which will not change anymore.
+Here `modifyPGF` allows us to do updates but the updates are performed on a freshly created clone of the grammar `gr`. The original grammar is never ever modified. After the changes the variable `gr2` is a reference to the new revision. While the transaction is in progress we cannot see the currently changing revision, and therefore all read-only operations can remain pure. Only after the transaction is complete, do we get to use `gr2`, which will not allowed to change anymore.
 
 Note also that above `functionType` is used with its usual pure type:
 ```Haskell
@@ -46,8 +46,6 @@ main = do
 The last line prints the type of function `"f"` in both the old and the new revision. Both are still available.
 
 The API as described so far would have been complete if all updates were happening in a single thread. In reality we can expect that there might be several threads or processes modifying the database. The database ensures a multiple readers/single writer exclusion but this doesn't mean that another process/thread cannot modify the database while the current one is reading an old revision. In a parallel setting, `modifyPGF` first merges the revision which the process is using with the latest revision in the database. On top of that the specified updates are performed. The final revision after the updates is returned as a result.
-
-**TODO: Interprocess synhronization is still not implemented**
 
 **TODO: Merges are still not implemented.**
 
@@ -79,6 +77,9 @@ Here we start with an existing revision, apply a transaction and store the resul
 
 # Implementation
 
+In this section we summarize important design decisions related to the internal implementation.
+
+## API
 The low-level API for transactions consists of only four functions:
 ```C
 PgfRevision pgf_clone_revision(PgfDB *db, PgfRevision revision,
@@ -107,6 +108,8 @@ From an imperative point of view, it may sound wasteful that a new copy of the g
 
 - J. Nievergelt and E.M. Reingold, "Binary search trees of bounded balance", SIAM journal of computing 2(1), March 1973.
 
+This is also the same algorithm used by Data.Map in Haskell. There are also other possible implementations (B-Trees for instance), and they may be considered if the current one turns our too inefficient.
+
 
 ## Garbage Collection
 
@@ -114,8 +117,18 @@ We use reference counting to keep track of which objects should be kept alive. F
 
 Clients are supposed to correctly use `pgf_free_revision` to indicate that they don't need a revision any more. Unfortunately, this is not always possible to guarantee. For example many languages with garbage collection will call `pgf_free_revision` from a finalizer method. In some languages, however, the finalizer is not guaranteed to be executed if the process terminates before the garbage collection is done. Haskell is one of those languages. Even in languages with reference counting like Python, the process may get killed by the operating system and then the finalizer may still not be executed.
 
-The solution is that we count on the database clients to correctly report when a revision is not needed. However, on a fresh database restart we explictly clean all left over transient revisions. This means that even if a client is killed or if it does not correctly release its revisions, the worst that can happen is a memory leak until the next restart.
+The solution is that we count on the database clients to correctly report when a revision is not needed. In addition, to be on the safe side, on a fresh database restart we explictly clean all left over transient revisions. This means that even if a client is killed or if it does not correctly release its revisions, the worst that can happen is a memory leak until the next restart.
 
+## Inter-process Communication
+
+One and the same database may be opened by several processes. In that case, each process creates a mapping of the database into his own address space. The mapping is shared. This means that if a page from the database gets loaded in memory, it is loaded in only one place in the physical memory. The physical memory is then assigned possibly different virtual addresses for each process. All processes can read the data simultaneously, but if we let them to change it at a same, all kinds of problems may happen. To avoid that, we currently use a single-writer/multiple-readers lock which is shared between all processes accessing the same database.
+
+Shared locks must be allocated in shared memory. Each time when you open a database, the runtime looks for the shared memory object called "/gf-runtime-locks".
+If it doesn't exist then it creates it and allocates 4Kb for it. In that area we keep a table of locks for all databases which are currently open from at least one process. The entries in the table, beside the lock itself, contain the device id and the inode of the database file. This lets us to create a lock the first time when the file is opened. If another thread or process opens the same database, the we reuse the lock. In this way, all threads and processes accessing the file are synchronised by a shared lock.
+
+When all processes accessing a given file release all references to grammar revisions from that file, then we must close the database and remove the shared lock. In this way the released entry can be reused for another database file. This is possible by keeping a list of processes that are currently using a given database. When a process doesn't need a database anymore, it removes itself from the list. If that is the last process, then it also takes care of freeing the entry for the shared lock. That would have been enough if we can trust that all processes will close databases that they don't need. Unfortunately we can't trust them. What we do instead is that each time when we open/close a database, we also go through the list of processes and remove those that are dead.
+
+We check whether a process is alive by looking for a file under the "/proc" folder with name equal to the process id. This is not a 100% sure check. Since the kernel assigns process ids randomly, it is possible that the process has died and then another one with the same id was created. This is not a big issue. It happens rarely and if it happens, the new process will soon or later die as well.
 
 ## Atomicity
 
