@@ -69,7 +69,7 @@ normalForm t = value2term 0 (eval [] t [])
 
 Of course the rules above describe only the core of a functional language. If we really want to be able to simplify terms like ``\s -> s ++ ""``, then we must
 add string operations as well. The full implementation of GF for instance knows that an empty string concatenated with any other value results in the same value. This is true even if the other value is actually a variable, i.e. a `VGen` in the internal representation. On the other hand, it knows that pattern matching on a variable is impossible to precompute. In other words, the partial evaluator would leave the term:
-```Haskell
+```GF
 \x -> case x of {
         _+"s" -> x+"'"
         _     -> x+"'s"
@@ -78,5 +78,38 @@ add string operations as well. The full implementation of GF for instance knows 
 unchanged since it can't know whether the value of `x` ends with `"s"`.
 
 # Variants
+
+GF supports variants which makes its semantics closer to the language [Curry](https://en.wikipedia.org/wiki/Curry_(programming_language)) than to Haskell. We can have terms like `("a"|"b")` which evaluate to either `"a"` or `"b"` nondeterministically. The use for variants is to define equivalent linearizations for one and the same semantic term. Perhaps the most prototypical application is for spelling variantions. For instance, if we want to blend British and American English in the same language then we can use `("color"|"colour")` everywhere where either of the forms is accepted.
+
+The proper implementation for variants complicates the semantics of the language a lot. Consider the term `(\x -> x + x) ("a"|"b")`! Its value depends on whether our language is defined as lazy or strict. In a strict language, we will first evaluate the argument:
+```GF
+   (\x -> x + x) ("a"|"b")
+=> ((\x -> x + x) "a") | ((\x -> x + x) "b")
+=> ("a"+"a") | ("b"+"b")
+=> ("aa"|"bb")
+```
+and therefore there are only two values `"aa"´ and `"bb"´. On the other hand in a lazy language, we will do the function application first:
+```GF
+   (\x -> x + x) ("a"|"b")
+=> ("a"|"b") + ("a"|"b")
+=> ("aa"|"ab"|"ba"|"bb")
+```
+and get four different values. The experience shows that a semantics producing only two values is more useful since it gives us a way to control how variants are expanded. If you want the same variant to appear in two different places, just bind the variant to a variable first. It looks like a strict evaluation order has an advantage here. Unfortunately that is not always the case. Consider another example, evaluated in a strict order:
+```GF
+   (\x -> "c") ("a"|"b")
+=> ((\x -> "c") "a") | ((\x -> "c") "b")
+=> ("c" | "c")
+```
+Here we get two variants with one and the same value "c". A lazy evaluation order would have avoided the redundancy since `("a"|"b")` would never have been evaluated.
+
+The source of the problem is that above we treated the variant as a possible value as well.
+```GF
+   (\x -> x + x) ("a"|"b")
+=> x + x where x = ("a"|"b")
+=> (x + x where x = "a") | (x + x where x = "b")
+=> ("aa"|"bb")
+```
+
+
 
 # Meta Variables
