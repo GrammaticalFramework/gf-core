@@ -151,7 +151,7 @@ x.s2+x.s2 where x = {s1="s"; s2="b"}
 ```
 we branch only after encountering the variant in the `s2` field.
 
-The implementation for variants requires the introduction of a nondeterministic monad with a support for logical variables. See this [paper](https://gup.ub.gu.se/file/207634):
+The implementation for variants requires the introduction of a nondeterministic monad with a support for mutable variables. See this [paper](https://gup.ub.gu.se/file/207634):
 
 Claessen, Koen & Ljunglöf, Peter. (2000). Typed Logical Variables in Haskell. Electronic Notes Theoretical Computer Science. 41. 37. 10.1016/S1571-0661(05)80544-4.
 
@@ -161,8 +161,9 @@ newThunk :: Env s -> Term -> EvalM s (Thunk s)
 newEvaluatedThunk :: Value s -> EvalM s (Thunk s)
 force :: Thunk s -> EvalM s (Value s)
 msum :: [EvalM s a] -> EvalM s a
+runEvalM :: (forall s . EvalM s a) -> [a]
 ```
-Here, a `Thunk` is either an unevaluated term or an already computed value. Internally, it is implement as an `STRef`. If the thunk is unevaluated, it can be forced to an evaluated state by calling `force`. In addition, `msum` makes it possible to nondeterministically branch into a list of possible actions.
+Here, a `Thunk` is either an unevaluated term or an already computed value. Internally, it is implement as an `STRef`. If the thunk is unevaluated, it can be forced to an evaluated state by calling `force`. Once a thunk is evaluated, it remains evaluated forever. `msum`, on the other hand, makes it possible to nondeterministically branch into a list of possible actions. Finally, `runEvalM` takes a monadic action and returns the list of all possible results.
 
 The terms and the values in the extended language are similar with two exceptions. We add the constructor `FV` for encoding variants in the terms, and the constructors for values now take lists of thunks instead of values:
 ```Haskell
@@ -179,7 +180,7 @@ data Value s
   | VClosure (Env s) Term  -- i.e. a closure contains an environment and the term for a lambda abstraction
   | VGen Int [Thunk s]     -- i.e. an internal representation for free variables
 ```
-
+The eval/apply rules are similar 
 ```Haskell
 eval env (Vr x)          args = do tnk <- lookup x env
                                    v   <- force tnk
