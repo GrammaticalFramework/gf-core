@@ -880,7 +880,7 @@ PgfConcrRevision pgf_create_concrete(PgfDB *db, PgfRevision revision,
         concr->next = 0;
         memcpy(&concr->name, name, sizeof(PgfText)+name->size+1);
 
-        PgfDB::link_transient_revision(concrter);
+        PgfDB::link_transient_revision(concr);
 
         Namespace<PgfConcr> concrs =
             namespace_insert(pgf->concretes, concr);
