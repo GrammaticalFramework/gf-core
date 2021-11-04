@@ -13,17 +13,17 @@ In the rest of we will discuss the implementation of the partial evaluator.
 We will start with the simplest possible subset of the GF language, also known as simple lambda calculus. It is defined as an algebraic data type in Haskell, as follows:
 ```Haskell
 data Term
-  = Vr Ident           -- e.g. variables: x,y,z ...
-  | Cn Ident           -- e.g. constructors: cons, nil, etc.
-  | App Term Term      -- e.g. function application: @f x@
-  | Abs Ident Term     -- e.g. \x -> t
+  = Vr Ident           -- i.e. variables: x,y,z ...
+  | Cn Ident           -- i.e. constructors: cons, nil, etc.
+  | App Term Term      -- i.e. function application: @f x@
+  | Abs Ident Term     -- i.e. \x -> t
 ```
 The result from the evaluation of a GF term is either a constructor applied to a list of other values, or an unapplied lambda abstraction:
 ```Haskell
 type Env = [(Ident,Value)]
 data Value
-  = VApp Ident [Value]   -- e.g. constructor application
-  | VClosure Env Term    -- e.g. a closure contains an environment and the term for a lambda abstraction
+  = VApp Ident [Value]   -- i.e. constructor application
+  | VClosure Env Term    -- i.e. a closure contains an environment and the term for a lambda abstraction
   | VGen Int [Value]     -- we will also need that special kind of value for the partial evaluator
 ```
 For the lambda abstractions we build a closure which preserves the environment as it was when we encountered the abstraction. That is necessary since its body may contain free variables whose values are defined in the environment.
@@ -159,18 +159,18 @@ The monad (let's call it `EvalM`) must provide the primitives:
 
 ```Haskell
 data Term
-  = Vr Ident           -- e.g. variables: x,y,z ...
-  | Cn Ident           -- e.g. constructors: cons, nil, etc.
-  | App Term Term      -- e.g. function application: @f x@
-  | Abs Ident Term     -- e.g. \x -> t
-  | FV [Term]          -- e.g. a list of variants: t1|t2|t3|...
+  = Vr Ident           -- i.e. variables: x,y,z ...
+  | Cn Ident           -- i.e. constructors: cons, nil, etc.
+  | App Term Term      -- i.e. function application: @f x@
+  | Abs Ident Term     -- i.e. \x -> t
+  | FV [Term]          -- i.e. a list of variants: t1|t2|t3|...
 
 type Env s = [(Ident,Thunk s)]
 data Value s
-  = VApp Ident [Thunk s]   -- e.g. constructor application
-  | VClosure (Env s) Term  -- e.g. a closure contains an environment and the term for a lambda abstraction
-  | VGen Int [Thunk s]     -- e.g. an internal representation for free variables
-  
+  = VApp Ident [Thunk s]   -- i.e. constructor application
+  | VClosure (Env s) Term  -- i.e. a closure contains an environment and the term for a lambda abstraction
+  | VGen Int [Thunk s]     -- i.e. an internal representation for free variables
+
 eval env (Vr x)          args = do tnk <- lookup x env
                                    v   <- force tnk
                                    apply v args
