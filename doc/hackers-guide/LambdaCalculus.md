@@ -18,14 +18,15 @@ data Term
   | App Term Term      -- e.g. function application: @f x@
   | Abs Ident Term     -- e.g. \x -> t
 ```
-The result from the evaluation of a GF term is either a constructor applied to a list of other values or an unapplied lambda abstraction:
+The result from the evaluation of a GF term is either a constructor applied to a list of other values, or an unapplied lambda abstraction:
 ```Haskell
 type Env = [(Ident,Value)]
 data Value
-  = VApp Ident [Value]
-  | VClosure Env Term
+  = VApp Ident [Value]   -- e.g. constructor application
+  | VClosure Env Term    -- e.g. a closure contains an environment and the term for a lambda abstraction
+  | VGen Int [Value]     -- we will also need that special kind of value for the partial evaluator
 ```
-In the later case we also preserve the environment as it was when we encountered the lambda abstraction. That is necessary since the body of the abstraction may contain free variables whose values are defined in the environment.
+For the lambda abstractions we build a closure which preserves the environment as it was when we encountered the abstraction. That is necessary since its body may contain free variables whose values are defined in the environment.
 
 The evaluation itself is simple:
 ```Haskell
@@ -37,6 +38,7 @@ eval env (Abs x t) (v:vs) = eval ((x,v):env) t vs
 
 apply (VApp c vs0)                vs  = VApp c (vs0++vs)
 apply (VClosure env (Abs x t)) (v:vs) = eval ((x,v):env) t vs
+apply (VGen i vs0)                vs  = VGen i (vs0++vs)
 ```
 Here the we use the `apply` function to apply an already evaluated term to a list of other values.
 
@@ -46,8 +48,9 @@ After that discussion, there is an interesting question. Does the eval/apply imp
 ```Haskell
 eval env (App t1 t2)  vs  = eval env t1 (eval env t2 : vs)
 ```
-where we see that when a term `t1` is applied to a term `t2` then both get evaluated. The answer to the question then depends on the semantics of the implementation language. Since the evaluation is implemented in Haskell, `eval env t2` would not be computed unless if the value is really neeeded. Therefore, our implementation defines a new lazy language. On the other hand, if the same algorithm is directly transcribed in ML then it will define a strict one instead of a lazy one.
+where we see that when a term `t1` is applied to a term `t2` then both get evaluated. The answer to the question then depends on the semantics of the implementation language. Since the evaluation is implemented in Haskell, `eval env t2` would not be computed unless if its value is really neeeded. Therefore, our implementation defines a new lazy language. On the other hand, if the same algorithm is directly transcribed in ML then it will define a strict one instead of a lazy one.
 
+So far we only defined the evaluator which does the usual computations, but it still can't simplify terms like ``\s -> s ++ ""`` where the simplification happens under the lambda abstraction. The normal evaluator would simply return the abstraction unchanged. To take the next step, we also need a function which takes a value and produces a new term which is precomputed as much as possible:
 ```Haskell
 value2term i (VApp c vs) =
   foldl (\t v -> App t (value2term i v)) (Cn c) vs
@@ -57,6 +60,22 @@ value2term i (VClosure env (Abs x t)) =
   let v = eval ((x,VGen i []):env) t []
   in Abs ('v':show i) (value2term (i+1) v)
 ```
+The interesting rule here is how closures are turned back to terms. We simply evaluate the body of the lambda abstraction with an environment which binds the variable with the special value `VGen i []`. That value stands for the free variable bound by the `i`-th lambda abstraction counted from the outset of the final term inwards. The only thing that we can do with a free variable is to apply it to other values and this is exactly what `apply` does above. After we evaluate the body of the lambda abstraction, the final value is turned back to a term and we reapply a lambda abstraction on top of it. Note that here we also use `i` as a way to generate fresh variables. Whenever, `value2term` encounters a `VGen` it concerts it back to a variable, i.e. `Vr ('v':show j)`.
+
+Given the two functions `eval` and `value2term`, a partial evaluator is defined as:
+```Haskell
+normalForm t = value2term 0 (eval [] t [])
+```
+
+Of course the rules above describe only the core of a functional language. If we really want to be able to simplify terms like ``\s -> s ++ ""``, then we must
+add string operations as well. The full implementation of GF for instance knows that an empty string concatenated with any other value results in the same value. This is true even if the other value is actually a variable, i.e. a `VGen` in the internal representation. On the other hand, it knows that pattern matching on a variable is impossible to precompute. In other words, the partial evaluator would leave the term:
+```Haskell
+\x -> case x of {
+        _+"s" -> x+"'"
+        _     -> x+"'s"
+      }
+```
+unchanged since it can't know whether the value of `x` ends with `"s"`.
 
 # Variants
 
