@@ -18,14 +18,16 @@ data Term
   | App Term Term      -- e.g. function application: @f x@
   | Abs Ident Term     -- e.g. \x -> t
 ```
-
+The result from the evaluation of a GF term is either a constructor applied to a list of other values or an unapplied lambda abstraction:
 ```Haskell
 type Env = [(Ident,Value)]
 data Value
   = VApp Ident [Value]
   | VClosure Env Term
 ```
+In the later case we also preserve the environment as it was when we encountered the lambda abstraction. That is necessary since the body of the abstraction may contain free variables whose values are defined in the environment.
 
+The evaluation itself is simple:
 ```Haskell
 eval env (Vr x)       vs  = apply (lookup x env) vs
 eval env (Cn c)       vs  = VApp c vs
@@ -35,6 +37,25 @@ eval env (Abs x t) (v:vs) = eval ((x,v):env) t vs
 
 apply (VApp c vs0)                vs  = VApp c (vs0++vs)
 apply (VClosure env (Abs x t)) (v:vs) = eval ((x,v):env) t vs
+```
+Here the we use the `apply` function to apply an already evaluated term to a list of other values.
+
+When we talk about functional languages, we usually discuss the evaluation order and we differentiate between about lazy and strict languages. Simply speaking, a strict language evaluates the arguments of a function before the function is called. In a lazy language, on the other hand, the arguments are passed unevaluated and are computed only if the value is really needed for the execution of the function. The main advantage of lazy languages is that they guarantee the termination of the computation in some cases where strict languages don't. The GF language does not allow recursion and therefore all programs terminate. Looking from only that angle it looks like the evaluation order is irrelevant in GF. Perhaps that is also the reason why this has never been discussed before. The question, however, becomes relevant again if we want to have an optimal semantics for variants. As we will see in the next section, the only way to get that is if we define GF as a lazy language.
+
+After that discussion, there is an interesting question. Does the eval/apply implementation above define a strict or a lazy language? We have the rule:
+```Haskell
+eval env (App t1 t2)  vs  = eval env t1 (eval env t2 : vs)
+```
+where we see that when a term `t1` is applied to a term `t2` then both get evaluated. The answer to the question then depends on the semantics of the implementation language. Since the evaluation is implemented in Haskell, `eval env t2` would not be computed unless if the value is really neeeded. Therefore, our implementation defines a new lazy language. On the other hand, if the same algorithm is directly transcribed in ML then it will define a strict one instead of a lazy one.
+
+```Haskell
+value2term i (VApp c vs) =
+  foldl (\t v -> App t (value2term i v)) (Cn c) vs
+value2term i (VGen j vs) =
+  foldl (\t v -> App t (value2term i v)) (Vr ('v':show j)) vs
+value2term i (VClosure env (Abs x t)) =
+  let v = eval ((x,VGen i []):env) t []
+  in Abs ('v':show i) (value2term (i+1) v)
 ```
 
 # Variants
