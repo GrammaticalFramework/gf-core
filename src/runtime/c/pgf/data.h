@@ -104,10 +104,114 @@ typedef struct {
     Namespace<PgfAbsCat> cats;
 } PgfAbstr;
 
+struct PGF_INTERNAL_DECL PgfConcrLincat {
+    size_t ref_count;
+    ref<PgfVector<ref<PgfText>>> fields;
+    PgfText name;
+
+    static void release(ref<PgfConcrLincat> lincat);
+};
+
+struct PGF_INTERNAL_DECL PgfConcrLIndex {
+    size_t i0;
+    size_t n_terms;
+    struct {
+        size_t factor;
+        size_t var;
+    } terms[];
+};
+
+struct PGF_INTERNAL_DECL PgfConcrLinArg {
+    ref<PgfConcrLincat> lincat;
+    ref<PgfConcrLIndex> param;
+};
+
+struct PGF_INTERNAL_DECL PgfConcrLinRes {
+    ref<PgfConcrLincat> lincat;
+    ref<PgfConcrLIndex> param;
+};
+
+typedef object PgfSymbol;
+
+struct PGF_INTERNAL_DECL PgfSymbolIdx {
+    size_t d;
+    ref<PgfConcrLIndex> r;
+};
+
+struct PGF_INTERNAL_DECL PgfSymbolCat : PgfSymbolIdx {
+    static const uint8_t tag = 0;
+};
+
+struct PGF_INTERNAL_DECL PgfSymbolLit : PgfSymbolIdx {
+    static const uint8_t tag = 1;
+};
+
+struct PGF_INTERNAL_DECL PgfSymbolVar {
+    static const uint8_t tag = 2;
+    size_t d, r;
+};
+
+struct PGF_INTERNAL_DECL PgfSymbolKS : PgfText {
+    static const uint8_t tag = 3;
+};
+
+struct PGF_INTERNAL_DECL PgfSymbolKP {
+    static const uint8_t tag = 4;
+};
+
+struct PGF_INTERNAL_DECL PgfSymbolBIND {
+    static const uint8_t tag = 5;
+};
+
+struct PGF_INTERNAL_DECL PgfSymbolSOFTBIND {
+    static const uint8_t tag = 6;
+};
+
+struct PGF_INTERNAL_DECL PgfSymbolNE {
+    static const uint8_t tag = 7;
+};
+
+struct PGF_INTERNAL_DECL PgfSymbolSOFTSPACE {
+    static const uint8_t tag = 8;
+};
+
+struct PGF_INTERNAL_DECL PgfSymbolCAPIT {
+    static const uint8_t tag = 9;
+};
+
+struct PGF_INTERNAL_DECL PgfSymbolALLCAPIT {
+    static const uint8_t tag = 10;
+};
+
+typedef PgfVector<PgfSymbol> PgfSequence;
+
+struct PGF_INTERNAL_DECL PgfConcrLin {
+    size_t ref_count;
+
+    ref<PgfVector<PgfConcrLinArg>> args;
+    ref<PgfVector<PgfConcrLinRes>> res;
+    ref<PgfVector<ref<PgfSequence>>> seqs;
+
+    PgfText name;
+
+    static void release(ref<PgfConcrLin> lin);
+};
+
+struct PGF_INTERNAL_DECL PgfConcrPrintname {
+    size_t ref_count;
+    ref<PgfText> printname;
+    PgfText name;
+
+    static void release(ref<PgfConcrPrintname> printname);
+};
+
 struct PGF_INTERNAL_DECL PgfConcr {
     size_t ref_count;
     size_t ref_count_ex;
     Namespace<PgfFlag> cflags;
+    Namespace<PgfConcrLin> lins;
+    Namespace<PgfConcrLincat> lincats;
+    Namespace<PgfConcrPrintname> printnames;
 
     // If there are references from the host language to this concrete,
     // then it is included in a double-linked list. If a process
