@@ -135,7 +135,7 @@ typedef object PgfSymbol;
 
 struct PGF_INTERNAL_DECL PgfSymbolIdx {
     size_t d;
-    ref<PgfConcrLIndex> r;
+    PgfConcrLIndex r;
 };
 
 struct PGF_INTERNAL_DECL PgfSymbolCat : PgfSymbolIdx {
