@@ -151,8 +151,9 @@ struct PGF_INTERNAL_DECL PgfSymbolVar {
     size_t d, r;
 };
 
-struct PGF_INTERNAL_DECL PgfSymbolKS : PgfText {
+struct PGF_INTERNAL_DECL PgfSymbolKS {
     static const uint8_t tag = 3;
+    PgfText token;
 };
 
 struct PGF_INTERNAL_DECL PgfSymbolKP {
