@@ -133,17 +133,16 @@ struct PGF_INTERNAL_DECL PgfConcrLinRes {
 
 typedef object PgfSymbol;
 
-struct PGF_INTERNAL_DECL PgfSymbolIdx {
+struct PGF_INTERNAL_DECL PgfSymbolCat {
+    static const uint8_t tag = 0;
     size_t d;
     PgfConcrLIndex r;
 };
 
-struct PGF_INTERNAL_DECL PgfSymbolCat : PgfSymbolIdx {
-    static const uint8_t tag = 0;
-};
-
-struct PGF_INTERNAL_DECL PgfSymbolLit : PgfSymbolIdx {
+struct PGF_INTERNAL_DECL PgfSymbolLit {
     static const uint8_t tag = 1;
+    size_t d;
+    PgfConcrLIndex r;
 };
 
 struct PGF_INTERNAL_DECL PgfSymbolVar {
