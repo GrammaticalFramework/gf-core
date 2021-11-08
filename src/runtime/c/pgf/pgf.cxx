@@ -876,6 +876,9 @@ PgfConcrRevision pgf_create_concrete(PgfDB *db, PgfRevision revision,
         concr->ref_count    = 1;
         concr->ref_count_ex = 1;
         concr->cflags = 0;
+        concr->lins = 0;
+        concr->lincats = 0;
+        concr->printnames = 0;
         concr->prev = 0;
         concr->next = 0;
         memcpy(&concr->name, name, sizeof(PgfText)+name->size+1);
@@ -912,6 +915,9 @@ PgfConcrRevision pgf_clone_concrete(PgfDB *db, PgfRevision revision,
         clone->ref_count    = 1;
         clone->ref_count_ex = 1;
         clone->cflags = concr->cflags;
+        clone->lins = concr->lins;
+        clone->lincats = concr->lincats;
+        clone->printnames = concr->printnames;
         clone->prev = 0;
         clone->next = 0;
         memcpy(&clone->name, name, sizeof(PgfText)+name->size+1);

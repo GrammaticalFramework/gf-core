@@ -60,13 +60,19 @@ public:
     ref<PgfFlag> read_flag();
 
     PgfPatt read_patt();
-    void read_patt2(ref<PgfPatt> r) { *r = read_patt(); };
-
     void read_defn(ref<ref<PgfEquation>> defn);
 
     ref<PgfAbsFun> read_absfun();
     ref<PgfAbsCat> read_abscat();
     void read_abstract(ref<PgfAbstr> abstract);
+
+    ref<PgfConcrLincat> read_lincat();
+    ref<PgfConcrLIndex> read_lindex();
+    void read_linarg(ref<PgfConcrLinArg> linarg);
+    void read_linres(ref<PgfConcrLinRes> linres);
+    PgfSymbol read_symbol();
+    ref<PgfConcrLin> read_lin();
+    ref<PgfConcrPrintname> read_printname();
 
     ref<PgfConcr> read_concrete();
 
@@ -74,9 +80,19 @@ public:
 
 private:
     FILE *in;
+    ref<PgfAbstr> abstract;
+    ref<PgfConcr> concrete;
 
     object read_name_internal(size_t struct_size);
     object read_text_internal(size_t struct_size);
+
+    void read_patt2(ref<PgfPatt> r) { *r = read_patt(); };
+    void read_text2(ref<ref<PgfText>> r) { *r = read_text(); };
+    void read_symbol2(ref<PgfSymbol> r) { *r = read_symbol(); };
+    void read_seq2(ref<ref<PgfSequence>> r) { *r = read_vector(&PgfReader::read_symbol2); }
+
+    template<class I>
+    ref<I> read_symbol_idx();
 };
 
 #endif

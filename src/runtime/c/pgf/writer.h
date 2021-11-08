@@ -33,7 +33,6 @@ public:
     void write_type(ref<PgfDTyp> ty);
 
     void write_patt(PgfPatt patt);
-    void write_patt(ref<PgfPatt> r) { write_patt(*r); };
     void write_defn(ref<ref<PgfEquation>> r);
 
     void write_flag(ref<PgfFlag> flag);
@@ -42,6 +41,15 @@ public:
     void write_abscat(ref<PgfAbsCat> abscat);
     void write_abstract(ref<PgfAbstr> abstract);
 
+    void write_lincat(ref<PgfConcrLincat> lincat);
+    void write_lindex(ref<PgfConcrLIndex> lindex);
+    void write_linarg(ref<PgfConcrLinArg> linarg);
+    void write_linres(ref<PgfConcrLinRes> linres);
+    void write_symbol(PgfSymbol sym);
+    void write_seq(ref<PgfSequence> seq);
+    void write_lin(ref<PgfConcrLin> lin);
+    void write_printname(ref<PgfConcrPrintname> printname);
+
     void write_concrete(ref<PgfConcr> concr);
 
     void write_pgf(ref<PgfPGF> pgf);
@@ -49,6 +57,11 @@ public:
 private:
     template<class V>
     void write_namespace_helper(Namespace<V> nmsp, void (PgfWriter::*write_value)(ref<V>));
+
+    void write_patt(ref<PgfPatt> r) { write_patt(*r); };
+    void write_text(ref<ref<PgfText>> r) { write_text(&(**r)); };
+    void write_seq(ref<ref<PgfSequence>> r) { write_seq(*r); };
+    void write_symbol(ref<PgfSymbol> r) { write_symbol(*r); };
 
     FILE *out;
     ref<PgfAbstr> abstract;

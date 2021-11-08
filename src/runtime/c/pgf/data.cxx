@@ -42,4 +42,24 @@ void PgfPGF::release(ref<PgfPGF> pgf)
 void PgfConcr::release(ref<PgfConcr> concr)
 {
     namespace_release(concr->cflags);
+    namespace_release(concr->lins);
+    namespace_release(concr->lincats);
+    namespace_release(concr->printnames);
+}
+
+void PgfConcrLin::release(ref<PgfConcrLin> lin)
+{
+    PgfDB::free(lin->args);
+    PgfDB::free(lin->res);
+    PgfDB::free(lin->seqs);
+}
+
+void PgfConcrLincat::release(ref<PgfConcrLincat> lincat)
+{
+    PgfDB::free(lincat->fields);
+}
+
+void PgfConcrPrintname::release(ref<PgfConcrPrintname> printname)
+{
+    PgfDB::free(printname->printname);
 }

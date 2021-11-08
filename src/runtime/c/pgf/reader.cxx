@@ -6,6 +6,8 @@
 PgfReader::PgfReader(FILE *in)
 {
     this->in = in;
+    this->abstract = 0;
+    this->concrete = 0;
 }
 
 uint8_t PgfReader::read_uint8()
@@ -425,18 +427,198 @@ ref<PgfAbsCat> PgfReader::read_abscat()
 
 void PgfReader::read_abstract(ref<PgfAbstr> abstract)
 {
+    this->abstract = abstract;
+
     abstract->name = read_name();
 	abstract->aflags = read_namespace<PgfFlag>(&PgfReader::read_flag);
     abstract->funs = read_namespace<PgfAbsFun>(&PgfReader::read_absfun);
     abstract->cats = read_namespace<PgfAbsCat>(&PgfReader::read_abscat);
 }
 
+ref<PgfConcrLIndex> PgfReader::read_lindex()
+{
+    size_t i0 = read_int();
+    size_t n_terms = read_len();
+    ref<PgfConcrLIndex> lindex =
+        PgfDB::malloc<PgfConcrLIndex>(n_terms*sizeof(PgfConcrLIndex::terms[0]));
+    lindex->i0 = i0;
+    lindex->n_terms = n_terms;
+
+    for (size_t i = 0; i < n_terms; i++) {
+        lindex->terms[i].factor = read_int();
+        lindex->terms[i].var    = read_int();
+    }
+
+    return lindex;
+}
+
+void PgfReader::read_linarg(ref<PgfConcrLinArg> linarg)
+{
+    size_t size = read_len();
+    PgfText* name = (PgfText*) alloca(sizeof(PgfText)+size+1);
+    name->size = size;
+
+    // If reading the extra bytes causes EOF, it is an encoding
+    // error, not a legitimate end of character stream.
+    fread(name->text, size, 1, in);
+    if (feof(in))
+        throw pgf_error("utf8 decoding error");
+    if (ferror(in))
+        throw pgf_error("an error occured while reading the grammar");
+
+    name->text[size] = 0;
+
+    
+    linarg->lincat = namespace_lookup(this->concrete->lincats, name);
+    if (linarg->lincat == 0)
+        throw pgf_error("Encountered an unknown category");
+    linarg->param  = read_lindex();
+}
+
+void PgfReader::read_linres(ref<PgfConcrLinRes> linres)
+{
+    size_t size = read_len();
+    PgfText* name = (PgfText*) alloca(sizeof(PgfText)+size+1);
+    name->size = size;
+
+    // If reading the extra bytes causes EOF, it is an encoding
+    // error, not a legitimate end of character stream.
+    fread(name->text, size, 1, in);
+    if (feof(in))
+        throw pgf_error("utf8 decoding error");
+    if (ferror(in))
+        throw pgf_error("an error occured while reading the grammar");
+
+    name->text[size] = 0;
+
+    
+    linres->lincat = namespace_lookup(this->concrete->lincats, name);
+    if (linres->lincat == 0)
+        throw pgf_error("Encountered an unknown category");
+    linres->param  = read_lindex();
+}
+
+template<class I>
+ref<I> PgfReader::read_symbol_idx()
+{
+    size_t d = read_int();
+    size_t i0 = read_int();
+    size_t n_terms = read_len();
+    ref<I> sym_idx =
+        PgfDB::malloc<I>(n_terms*sizeof(PgfConcrLIndex::terms[0]));
+    sym_idx->d = d;
+    sym_idx->r.i0 = i0;
+    sym_idx->r.n_terms = n_terms;
+
+    for (size_t i = 0; i < n_terms; i++) {
+        sym_idx->r.terms[i].factor = read_int();
+        sym_idx->r.terms[i].var    = read_int();
+    }
+
+    return sym_idx;
+}
+
+PgfSymbol PgfReader::read_symbol()
+{
+    PgfSymbol sym = 0;
+
+    uint8_t tag = read_tag();
+    switch (tag) {
+	case PgfSymbolCat::tag: {
+        ref<PgfSymbolCat> sym_cat = read_symbol_idx<PgfSymbolCat>();
+        sym = ref<PgfSymbolCat>::tagged(sym_cat);
+		break;
+    }
+	case PgfSymbolLit::tag: {
+        ref<PgfSymbolLit> sym_lit = read_symbol_idx<PgfSymbolLit>();
+        sym = ref<PgfSymbolLit>::tagged(sym_lit);
+		break;
+    }
+	case PgfSymbolVar::tag: {
+        ref<PgfSymbolVar> sym_var = PgfDB::malloc<PgfSymbolVar>();
+        sym_var->d = read_int();
+        sym_var->r = read_int();
+        sym = ref<PgfSymbolVar>::tagged(sym_var);
+		break;
+    }
+	case PgfSymbolKS::tag: {
+        ref<PgfSymbolKS> sym_ks = read_text(&PgfSymbolKS::token);
+        sym = ref<PgfSymbolKS>::tagged(sym_ks);
+		break;
+    }
+	case PgfSymbolKP::tag: {
+        ref<PgfSymbolKP> sym_kp = PgfDB::malloc<PgfSymbolKP>();
+        sym = ref<PgfSymbolKP>::tagged(sym_kp);
+		break;
+    }
+	case PgfSymbolBIND::tag: {
+        sym = ref<PgfSymbolBIND>::tagged(0);
+		break;
+    }
+	case PgfSymbolSOFTBIND::tag: {
+        sym = ref<PgfSymbolSOFTBIND>::tagged(0);
+		break;
+    }
+	case PgfSymbolNE::tag: {
+        sym = ref<PgfSymbolNE>::tagged(0);
+		break;
+    }
+	case PgfSymbolSOFTSPACE::tag: {
+        sym = ref<PgfSymbolSOFTSPACE>::tagged(0);
+		break;
+    }
+	case PgfSymbolCAPIT::tag: {
+        sym = ref<PgfSymbolCAPIT>::tagged(0);
+		break;
+    }
+	case PgfSymbolALLCAPIT::tag: {
+        sym = ref<PgfSymbolALLCAPIT>::tagged(0);
+		break;
+    }
+	default:
+		throw pgf_error("Unknown symbol tag");
+    }
+
+    return sym;
+}
+
+ref<PgfConcrLincat> PgfReader::read_lincat()
+{
+    ref<PgfConcrLincat> lincat = read_name(&PgfConcrLincat::name);
+    lincat->ref_count = 1;
+    lincat->fields = read_vector(&PgfReader::read_text2);
+    return lincat;
+}
+
+ref<PgfConcrLin> PgfReader::read_lin()
+{
+    ref<PgfConcrLin> lin = read_name(&PgfConcrLin::name);
+    lin->ref_count = 1;
+    lin->args = read_vector(&PgfReader::read_linarg);
+    lin->res  = read_vector(&PgfReader::read_linres);
+    lin->seqs = read_vector(&PgfReader::read_seq2);
+    return lin;
+}
+
+ref<PgfConcrPrintname> PgfReader::read_printname()
+{
+    ref<PgfConcrPrintname> printname = read_name(&PgfConcrPrintname::name);
+    printname->ref_count = 1;
+    printname->printname = read_text();
+    return printname;
+}
+
 ref<PgfConcr> PgfReader::read_concrete()
 {
     ref<PgfConcr> concr = read_name(&PgfConcr::name);
+    this->concrete = concr;
+
     concr->ref_count    = 1;
     concr->ref_count_ex = 0;
 	concr->cflags = read_namespace<PgfFlag>(&PgfReader::read_flag);
+	concr->lincats = read_namespace<PgfConcrLincat>(&PgfReader::read_lincat);
+	concr->lins = read_namespace<PgfConcrLin>(&PgfReader::read_lin);
+	concr->printnames = read_namespace<PgfConcrPrintname>(&PgfReader::read_printname);
     concr->prev = 0;
     concr->next = 0;
     return concr;

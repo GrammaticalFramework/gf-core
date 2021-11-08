@@ -385,10 +385,105 @@ void PgfWriter::write_abstract(ref<PgfAbstr> abstract)
     this->abstract = 0;
 }
 
+void PgfWriter::write_lincat(ref<PgfConcrLincat> lincat)
+{
+    write_name(&lincat->name);
+    write_vector(lincat->fields, &PgfWriter::write_text);
+}
+
+void PgfWriter::write_lindex(ref<PgfConcrLIndex> lindex)
+{
+    write_int(lindex->i0);
+    write_len(lindex->n_terms);
+    for (size_t i = 0; i < lindex->n_terms; i++) {
+        write_int(lindex->terms[i].factor);
+        write_int(lindex->terms[i].var);
+    }
+}
+
+void PgfWriter::write_linarg(ref<PgfConcrLinArg> linarg)
+{
+    write_name(&linarg->lincat->name);
+    write_lindex(linarg->param);
+}
+
+void PgfWriter::write_linres(ref<PgfConcrLinRes> linres)
+{
+    write_name(&linres->lincat->name);
+    write_lindex(linres->param);
+}
+
+void PgfWriter::write_symbol(PgfSymbol sym)
+{
+    auto tag = ref<PgfSymbol>::get_tag(sym);
+    write_tag(tag);
+
+    switch (tag) {
+	case PgfSymbolCat::tag: {
+        auto sym_cat = ref<PgfSymbolCat>::untagged(sym);
+        write_int(sym_cat->d);
+        write_lindex(ref<PgfConcrLIndex>::from_ptr(&sym_cat->r));
+		break;
+	}
+	case PgfSymbolLit::tag: {
+        auto sym_lit = ref<PgfSymbolLit>::untagged(sym);
+        write_int(sym_lit->d);
+        write_lindex(ref<PgfConcrLIndex>::from_ptr(&sym_lit->r));
+		break;
+	}
+	case PgfSymbolVar::tag: {
+        auto sym_var = ref<PgfSymbolVar>::untagged(sym);
+        write_int(sym_var->d);
+        write_int(sym_var->r);
+		break;
+	}
+	case PgfSymbolKS::tag: {
+        auto sym_ks = ref<PgfSymbolKS>::untagged(sym);
+        write_text(&sym_ks->token);
+		break;
+	}
+	case PgfSymbolKP::tag: {
+        auto sym_ks = ref<PgfSymbolKP>::untagged(sym);
+		break;
+	}
+	case PgfSymbolBIND::tag:
+	case PgfSymbolSOFTBIND::tag:
+	case PgfSymbolNE::tag:
+	case PgfSymbolSOFTSPACE::tag:
+	case PgfSymbolCAPIT::tag:
+	case PgfSymbolALLCAPIT::tag:
+		break;
+	default:
+		throw pgf_error("Unknown symbol tag");
+	}
+}
+
+void PgfWriter::write_seq(ref<PgfSequence> seq)
+{
+    write_vector(seq, &PgfWriter::write_symbol);
+}
+
+void PgfWriter::write_lin(ref<PgfConcrLin> lin)
+{
+    write_name(&lin->name);
+    write_vector(lin->args, &PgfWriter::write_linarg);
+    write_vector(lin->res, &PgfWriter::write_linres);
+    write_vector(lin->seqs, &PgfWriter::write_seq);
+}
+
+void PgfWriter::write_printname(ref<PgfConcrPrintname> printname)
+{
+    write_name(&printname->name);
+    write_text(printname->printname);
+}
+
 void PgfWriter::write_concrete(ref<PgfConcr> concr)
 {
     write_name(&concr->name);
     write_namespace<PgfFlag>(concr->cflags, &PgfWriter::write_flag);
+    write_namespace<PgfConcrLincat>(concr->lincats, &PgfWriter::write_lincat);
+	write_namespace<PgfConcrLin>(concr->lins, &PgfWriter::write_lin);
+	write_namespace<PgfConcrPrintname>(concr->printnames, &PgfWriter::write_printname);
 }
 
 void PgfWriter::write_pgf(ref<PgfPGF> pgf)
