@@ -419,8 +419,9 @@ void pgf_drop_concrete(PgfDB *db, PgfRevision revision,
                        PgfExn *err);
 
 PGF_API_DECL
-void pgf_create_lin(PgfDB *db, PgfConcrRevision revision,
-                    PgfText *name, size_t n_prods, PgfExn *exn);
+void pgf_create_lin(PgfDB *db,
+                    PgfRevision revision, PgfConcrRevision cnc_revision,
+                    PgfText *name, size_t n_prods, PgfExn *err);
 
 PGF_API_DECL
 PgfLiteral pgf_get_global_flag(PgfDB *db, PgfRevision revision,

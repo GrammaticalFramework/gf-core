@@ -180,6 +180,8 @@ struct PGF_INTERNAL_DECL PgfSymbolALLCAPIT {
 struct PGF_INTERNAL_DECL PgfConcrLin {
     size_t ref_count;
 
+    ref<PgfAbsFun> absfun;
+
     ref<Vector<PgfPArg>> args;
     ref<Vector<ref<PgfLParam>>> res;
     ref<Vector<ref<Vector<PgfSymbol>>>> seqs;

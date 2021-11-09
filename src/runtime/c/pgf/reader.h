@@ -80,7 +80,6 @@ public:
 private:
     FILE *in;
     ref<PgfAbstr> abstract;
-    ref<PgfConcr> concrete;
 
     object read_name_internal(size_t struct_size);
     object read_text_internal(size_t struct_size);

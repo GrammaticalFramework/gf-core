@@ -956,18 +956,35 @@ void pgf_drop_concrete(PgfDB *db, PgfRevision revision,
 }
 
 PGF_API
-void pgf_create_lin(PgfDB *db, PgfConcrRevision revision,
+void pgf_create_lin(PgfDB *db,
+                    PgfRevision revision, PgfConcrRevision cnc_revision,
                     PgfText *name, size_t n_prods, PgfExn *err)
 {
     PGF_API_BEGIN {
         DB_scope scope(db, WRITER_SCOPE);
 
-        ref<PgfConcr> concr = PgfDB::revision2concr(revision);
+        ref<PgfPGF> pgf = PgfDB::revision2pgf(revision);
+        ref<PgfConcr> concr = PgfDB::revision2concr(cnc_revision);
+
+        ref<PgfAbsFun> absfun =
+            namespace_lookup(pgf->abstract.funs, name);
+        if (absfun == 0) {
+            throw pgf_error("There is no corresponding function in the abstract syntax");
+        }
+
+        ref<PgfConcrLincat> lincat =
+            namespace_lookup(concr->lincats, &absfun->type->name);
+        if (lincat == 0) {
+            throw pgf_error("Missing linearization category");
+        }
 
         ref<PgfConcrLin> lin = PgfDB::malloc<PgfConcrLin>(name->size+1);
         memcpy(&lin->name, name, sizeof(PgfText)+name->size+1);
         lin->ref_count = 1;
-        lin->res = vector_new<ref<PgfLParam>>(n_prods);
+        lin->absfun = absfun;
+        lin->args = vector_new<PgfPArg>(n_prods*absfun->type->hypos->len);
+        lin->res  = vector_new<ref<PgfLParam>>(n_prods);
+        lin->seqs = vector_new<ref<Vector<PgfSymbol>>>(n_prods*lincat->fields->len);
 
         for (size_t i = 0; i < n_prods; i++) {
         }

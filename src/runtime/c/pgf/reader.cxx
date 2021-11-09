@@ -7,7 +7,6 @@ PgfReader::PgfReader(FILE *in)
 {
     this->in = in;
     this->abstract = 0;
-    this->concrete = 0;
 }
 
 uint8_t PgfReader::read_uint8()
@@ -553,6 +552,7 @@ ref<PgfConcrLin> PgfReader::read_lin()
 {
     ref<PgfConcrLin> lin = read_name(&PgfConcrLin::name);
     lin->ref_count = 1;
+    lin->absfun = namespace_lookup(abstract->funs, &lin->name);
     lin->args = read_vector(&PgfReader::read_parg);
     lin->res  = read_vector(&PgfReader::read_lparam);
     lin->seqs = read_vector(&PgfReader::read_seq2);
@@ -570,8 +570,6 @@ ref<PgfConcrPrintname> PgfReader::read_printname()
 ref<PgfConcr> PgfReader::read_concrete()
 {
     ref<PgfConcr> concr = read_name(&PgfConcr::name);
-    this->concrete = concr;
-
     concr->ref_count    = 1;
     concr->ref_count_ex = 0;
 	concr->cflags = read_namespace<PgfFlag>(&PgfReader::read_flag);

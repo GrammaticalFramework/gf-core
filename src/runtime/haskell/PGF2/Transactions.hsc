@@ -33,27 +33,27 @@ import Control.Exception
 #include <pgf/pgf.h>
 
 newtype Transaction k a =
-  Transaction (Ptr PgfDB -> Ptr k -> Ptr PgfExn -> IO a)
+  Transaction (Ptr PgfDB -> Ptr PGF -> Ptr k -> Ptr PgfExn -> IO a)
 
 instance Functor (Transaction k) where
-  fmap f (Transaction g) = Transaction $ \c_db c_revision c_exn -> do
-    res <- g c_db c_revision c_exn
+  fmap f (Transaction g) = Transaction $ \c_db c_abstr c_revision c_exn -> do
+    res <- g c_db c_abstr c_revision c_exn
     return (f res)
 
 instance Applicative (Transaction k) where
-  pure x = Transaction $ \c_db c_revision c_exn -> return x
+  pure x = Transaction $ \c_db _ c_revision c_exn -> return x
   f <*> g = do
     f <- f
     g <- g
     return (f g)
 
 instance Monad (Transaction k) where
-  (Transaction f) >>= g = Transaction $ \c_db c_revision c_exn -> do
-    res <- f c_db c_revision c_exn
+  (Transaction f) >>= g = Transaction $ \c_db c_abstr c_revision c_exn -> do
+    res <- f c_db c_abstr c_revision c_exn
     ex_type <- (#peek PgfExn, type) c_exn
     if (ex_type :: (#type PgfExnType)) == (#const PGF_EXN_NONE)
       then case g res of
-             Transaction g -> g c_db c_revision c_exn
+             Transaction g -> g c_db c_abstr c_revision c_exn
       else return undefined
 
 {- | @modifyPGF gr t@ updates the grammar @gr@ by performing the
@@ -90,7 +90,7 @@ branchPGF_ c_name p (Transaction f) =
     c_revision <- pgf_clone_revision (a_db p) c_revision c_name c_exn
     ex_type <- (#peek PgfExn, type) c_exn
     if (ex_type :: (#type PgfExnType)) == (#const PGF_EXN_NONE)
-      then do ((restore (f (a_db p) c_revision c_exn))
+      then do ((restore (f (a_db p) c_revision c_revision c_exn))
                `catch`
                (\e -> do
                     pgf_free_revision_ (a_db p) c_revision
@@ -121,63 +121,63 @@ checkoutPGF p name =
               return (Just (PGF (a_db p) fptr langs))
 
 createFunction :: Fun -> Type -> Int -> Float -> Transaction PGF ()
-createFunction name ty arity prob = Transaction $ \c_db c_revision c_exn ->
+createFunction name ty arity prob = Transaction $ \c_db _ c_revision c_exn ->
   withText name $ \c_name ->
   bracket (newStablePtr ty) freeStablePtr $ \c_ty ->
   withForeignPtr marshaller $ \m -> do
     pgf_create_function c_db c_revision c_name c_ty (fromIntegral arity) prob m c_exn
 
 dropFunction :: Fun -> Transaction PGF ()
-dropFunction name = Transaction $ \c_db c_revision c_exn ->
+dropFunction name = Transaction $ \c_db _ c_revision c_exn ->
   withText name $ \c_name -> do
     pgf_drop_function c_db c_revision c_name c_exn
 
 createCategory :: Fun -> [Hypo] -> Float -> Transaction PGF ()
-createCategory name hypos prob = Transaction $ \c_db c_revision c_exn ->
+createCategory name hypos prob = Transaction $ \c_db _ c_revision c_exn ->
   withText name $ \c_name ->
   withHypos hypos $ \n_hypos c_hypos ->
   withForeignPtr marshaller $ \m -> do
     pgf_create_category c_db c_revision c_name n_hypos c_hypos prob m c_exn
 
 dropCategory :: Cat -> Transaction PGF ()
-dropCategory name = Transaction $ \c_db c_revision c_exn ->
+dropCategory name = Transaction $ \c_db _ c_revision c_exn ->
   withText name $ \c_name -> do
     pgf_drop_category c_db c_revision c_name c_exn
 
 createConcrete :: ConcName -> Transaction Concr () -> Transaction PGF ()
-createConcrete name (Transaction f) = Transaction $ \c_db c_revision c_exn ->
+createConcrete name (Transaction f) = Transaction $ \c_db c_abstr c_revision c_exn ->
   withText name $ \c_name -> do
   bracket (pgf_create_concrete c_db c_revision c_name c_exn)
           (pgf_free_concr_revision_ c_db) $ \c_concr_revision ->
-    f c_db c_concr_revision c_exn
+    f c_db c_abstr c_concr_revision c_exn
 
 alterConcrete :: ConcName -> Transaction Concr () -> Transaction PGF ()
-alterConcrete name (Transaction f) = Transaction $ \c_db c_revision c_exn ->
+alterConcrete name (Transaction f) = Transaction $ \c_db c_abstr c_revision c_exn ->
   withText name $ \c_name -> do
     c_concr_revision <- pgf_clone_concrete c_db c_revision c_name c_exn
-    f c_db c_concr_revision c_exn
+    f c_db c_abstr c_concr_revision c_exn
 
 dropConcrete :: ConcName -> Transaction PGF ()
-dropConcrete name = Transaction $ \c_db c_revision c_exn ->
+dropConcrete name = Transaction $ \c_db _ c_revision c_exn ->
   withText name $ \c_name -> do
     pgf_drop_concrete c_db c_revision c_name c_exn
 
 setGlobalFlag :: String -> Literal -> Transaction PGF ()
-setGlobalFlag name value = Transaction $ \c_db c_revision c_exn ->
+setGlobalFlag name value = Transaction $ \c_db _ c_revision c_exn ->
   withText name $ \c_name ->
   bracket (newStablePtr value) freeStablePtr $ \c_value ->
   withForeignPtr marshaller $ \m ->
     pgf_set_global_flag c_db c_revision c_name c_value m c_exn
 
 setAbstractFlag :: String -> Literal -> Transaction PGF ()
-setAbstractFlag name value = Transaction $ \c_db c_revision c_exn ->
+setAbstractFlag name value = Transaction $ \c_db _ c_revision c_exn ->
   withText name $ \c_name ->
   bracket (newStablePtr value) freeStablePtr $ \c_value ->
   withForeignPtr marshaller $ \m ->
     pgf_set_abstract_flag c_db c_revision c_name c_value m c_exn
 
 setConcreteFlag :: String -> Literal -> Transaction Concr ()
-setConcreteFlag name value = Transaction $ \c_db c_revision c_exn ->
+setConcreteFlag name value = Transaction $ \c_db _ c_revision c_exn ->
   withText name $ \c_name ->
   bracket (newStablePtr value) freeStablePtr $ \c_value ->
   withForeignPtr marshaller $ \m ->
@@ -211,6 +211,6 @@ data Production = Production [PArg] LParam [[Symbol]]
                  deriving (Eq,Show)
 
 createLin :: Fun -> [Production] -> Transaction Concr ()
-createLin name rules = Transaction $ \c_db c_revision c_exn ->
+createLin name rules = Transaction $ \c_db c_abstr c_revision c_exn ->
   withText name $ \c_name ->
-    pgf_create_lin c_db c_revision c_name (fromIntegral (length rules)) c_exn
+    pgf_create_lin c_db c_abstr c_revision c_name (fromIntegral (length rules)) c_exn
