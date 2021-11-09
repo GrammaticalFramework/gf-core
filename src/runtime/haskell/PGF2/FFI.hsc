@@ -66,6 +66,8 @@ foreign import ccall "pgf_free_revision" pgf_free_revision_ :: Ptr PgfDB -> Ptr 
 
 foreign import ccall "&pgf_free_revision" pgf_free_revision :: FinalizerEnvPtr PgfDB (PgfRevision PGF)
 
+foreign import ccall "pgf_free_concr_revision" pgf_free_concr_revision_ :: Ptr PgfDB -> Ptr (PgfRevision Concr) -> IO ()
+
 foreign import ccall "&pgf_free_concr_revision" pgf_free_concr_revision :: FinalizerEnvPtr PgfDB (PgfRevision Concr)
 
 foreign import ccall "pgf_abstract_name"

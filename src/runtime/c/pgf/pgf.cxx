@@ -873,7 +873,7 @@ PgfConcrRevision pgf_create_concrete(PgfDB *db, PgfRevision revision,
             throw pgf_error("The concrete syntax already exists");
 
         concr = PgfDB::malloc<PgfConcr>(name->size+1);
-        concr->ref_count    = 1;
+        concr->ref_count    = 2;
         concr->ref_count_ex = 1;
         concr->cflags = 0;
         concr->lins = 0;
@@ -912,7 +912,7 @@ PgfConcrRevision pgf_clone_concrete(PgfDB *db, PgfRevision revision,
             throw pgf_error("Unknown concrete syntax");
 
         ref<PgfConcr> clone = PgfDB::malloc<PgfConcr>(name->size+1);
-        clone->ref_count    = 1;
+        clone->ref_count    = 2;
         clone->ref_count_ex = 1;
         clone->cflags = concr->cflags;
         clone->lins = concr->lins;
