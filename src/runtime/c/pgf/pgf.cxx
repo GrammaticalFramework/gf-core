@@ -957,11 +957,26 @@ void pgf_drop_concrete(PgfDB *db, PgfRevision revision,
 
 PGF_API
 void pgf_create_lin(PgfDB *db, PgfConcrRevision revision,
-                    PgfText *name, size_t n_prods, PgfExn *exn)
+                    PgfText *name, size_t n_prods, PgfExn *err)
 {
-    ref<PgfConcrLin> lin = PgfDB::malloc<PgfConcrLin>(name->size+1);
-    lin->ref_count = 1;
-    memcpy(&lin->name, name, sizeof(PgfText)+name->size+1);
+    PGF_API_BEGIN {
+        DB_scope scope(db, WRITER_SCOPE);
+
+        ref<PgfConcr> concr = PgfDB::revision2concr(revision);
+
+        ref<PgfConcrLin> lin = PgfDB::malloc<PgfConcrLin>(name->size+1);
+        memcpy(&lin->name, name, sizeof(PgfText)+name->size+1);
+        lin->ref_count = 1;
+        lin->res = vector_new<ref<PgfLParam>>(n_prods);
+
+        for (size_t i = 0; i < n_prods; i++) {
+        }
+
+        Namespace<PgfConcrLin> lins =
+            namespace_insert(concr->lins, lin);
+        namespace_release(concr->lins);
+        concr->lins = lins;
+    } PGF_API_END
 }
 
 PGF_API
