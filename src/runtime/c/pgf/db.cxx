@@ -1,10 +1,28 @@
 #include <stdlib.h>
 #include <string.h>
+
+#ifndef _WIN32
 #include <sys/mman.h>
 #include <unistd.h>
 #include <fcntl.h>
 #include <errno.h>
 #include <pthread.h>
+
+#else
+
+#include <io.h>
+#include <windows.h>
+
+static
+size_t getpagesize()
+{
+    SYSTEM_INFO si;
+    GetSystemInfo(&si);
+    return si.dwPageSize;
+}
+
+#define ftruncate _chsize
+#endif
 
 #include "data.h"
 #include "ipc.h"

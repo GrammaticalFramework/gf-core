@@ -118,6 +118,7 @@ typedef struct {
 /* Arbitrary size integers are represented as an array of uintmax_t
  * values. Each value in the array is at most LINT_BASE-1 big.
  * LINT_BASE itself is always 10 ^ LINT_BASE_LOG. */
+#if defined(__WORDSIZE)
 #if __WORDSIZE == 8
 #define LINT_BASE 100
 #define LINT_BASE_LOG 2
@@ -132,6 +133,15 @@ typedef struct {
 #define LINT_BASE_LOG 19
 #else
 #error "Platforms with the current __WORDSIZE are not supported yet"
+#endif
+#elif defined(_WIN64)
+#define LINT_BASE 10000000000000000000UL
+#define LINT_BASE_LOG 19
+#elif defined(_WIN32)
+#define LINT_BASE 1000000000
+#define LINT_BASE_LOG 9
+#else
+#error "Unsupported platform"
 #endif
 
 /* The PgfUnmarshaller structure tells the runtime how to create
