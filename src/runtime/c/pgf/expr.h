@@ -30,8 +30,8 @@ struct PGF_INTERNAL_DECL PgfHypo {
 };
 
 struct PGF_INTERNAL_DECL PgfDTyp {
-	ref<PgfVector<PgfHypo>> hypos;
-    ref<PgfVector<PgfExpr>> exprs;
+	ref<Vector<PgfHypo>> hypos;
+    ref<Vector<PgfExpr>> exprs;
 	PgfText name;
 };
 
@@ -95,7 +95,7 @@ struct PGF_INTERNAL_DECL PgfPattApp {
     static const uint8_t tag = 0;
 
 	ref<PgfText> ctor;
-    PgfVector<PgfPatt> args;
+    Vector<PgfPatt> args;
 };
 
 struct PGF_INTERNAL_DECL PgfPattVar {
@@ -278,7 +278,7 @@ PGF_INTERNAL_DECL
 void pgf_expr_free(PgfExpr expr);
 
 PGF_INTERNAL_DECL
-void pgf_context_free(ref<PgfVector<PgfHypo>> hypos);
+void pgf_context_free(ref<Vector<PgfHypo>> hypos);
 
 PGF_INTERNAL_DECL
 void pgf_type_free(ref<PgfDTyp> dtyp);

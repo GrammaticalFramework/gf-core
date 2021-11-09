@@ -23,7 +23,7 @@ public:
     void write_namespace(Namespace<V> nmsp, void (PgfWriter::*write_value)(ref<V>));
 
     template<class V>
-    void write_vector(ref<PgfVector<V>> vec, void (PgfWriter::*write_value)(ref<V> val));
+    void write_vector(ref<Vector<V>> vec, void (PgfWriter::*write_value)(ref<V> val));
 
     void write_literal(PgfLiteral literal);
     void write_expr(PgfExpr expr);
@@ -45,7 +45,7 @@ public:
     void write_lparam(ref<PgfLParam> lparam);
     void write_parg(ref<PgfPArg> linarg);
     void write_symbol(PgfSymbol sym);
-    void write_seq(ref<PgfVector<PgfSymbol>> seq);
+    void write_seq(ref<Vector<PgfSymbol>> seq);
     void write_lin(ref<PgfConcrLin> lin);
     void write_printname(ref<PgfConcrPrintname> printname);
 
@@ -60,7 +60,7 @@ private:
     void write_patt(ref<PgfPatt> r) { write_patt(*r); };
     void write_text(ref<ref<PgfText>> r) { write_text(&(**r)); };
     void write_lparam(ref<ref<PgfLParam>> r) { write_lparam(*r); };
-    void write_seq(ref<ref<PgfVector<PgfSymbol>>> r) { write_seq(*r); };
+    void write_seq(ref<ref<Vector<PgfSymbol>>> r) { write_seq(*r); };
     void write_symbol(ref<PgfSymbol> r) { write_symbol(*r); };
 
     FILE *out;

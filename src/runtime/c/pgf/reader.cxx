@@ -171,21 +171,21 @@ Namespace<V> PgfReader::read_namespace(ref<V> (PgfReader::*read_value)())
 }
 
 template <class C, class V>
-ref<C> PgfReader::read_vector(PgfVector<V> C::* field, void (PgfReader::*read_value)(ref<V> val))
+ref<C> PgfReader::read_vector(Vector<V> C::* field, void (PgfReader::*read_value)(ref<V> val))
 {
     size_t len = read_len();
     ref<C> loc = vector_new<C,V>(field,len);
     for (size_t i = 0; i < len; i++) {
-        (this->*read_value)(vector_elem(ref<PgfVector<V>>::from_ptr(&(loc->*field)),i));
+        (this->*read_value)(vector_elem(ref<Vector<V>>::from_ptr(&(loc->*field)),i));
     }
     return loc;
 }
 
 template <class V>
-ref<PgfVector<V>> PgfReader::read_vector(void (PgfReader::*read_value)(ref<V> val))
+ref<Vector<V>> PgfReader::read_vector(void (PgfReader::*read_value)(ref<V> val))
 {
     size_t len = read_len();
-    ref<PgfVector<V>> vec = vector_new<V>(len);
+    ref<Vector<V>> vec = vector_new<V>(len);
     for (size_t i = 0; i < len; i++) {
         (this->*read_value)(vector_elem(vec,i));
     }
@@ -309,7 +309,7 @@ void PgfReader::read_hypo(ref<PgfHypo> hypo)
 
 ref<PgfDTyp> PgfReader::read_type()
 {
-    ref<PgfVector<PgfHypo>> hypos =
+    ref<Vector<PgfHypo>> hypos =
         read_vector<PgfHypo>(&PgfReader::read_hypo);
     ref<PgfDTyp> tp = read_name<PgfDTyp>(&PgfDTyp::name);
     tp->hypos = hypos;

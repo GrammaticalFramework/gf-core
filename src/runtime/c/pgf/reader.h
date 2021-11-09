@@ -45,10 +45,10 @@ public:
     Namespace<V> read_namespace(ref<V> (PgfReader::*read_value)());
 
     template <class C, class V>
-    ref<C> read_vector(PgfVector<V> C::* field, void (PgfReader::*read_value)(ref<V> val));
+    ref<C> read_vector(Vector<V> C::* field, void (PgfReader::*read_value)(ref<V> val));
 
     template<class V>
-    ref<PgfVector<V>> read_vector(void (PgfReader::*read_value)(ref<V> val));
+    ref<Vector<V>> read_vector(void (PgfReader::*read_value)(ref<V> val));
 
     PgfLiteral read_literal();
     PgfExpr read_expr();
@@ -89,7 +89,7 @@ private:
     void read_text2(ref<ref<PgfText>> r) { *r = read_text(); };
     void read_lparam(ref<ref<PgfLParam>> r) { *r = read_lparam(); };
     void read_symbol2(ref<PgfSymbol> r) { *r = read_symbol(); };
-    void read_seq2(ref<ref<PgfVector<PgfSymbol>>> r) { *r = read_vector(&PgfReader::read_symbol2); }
+    void read_seq2(ref<ref<Vector<PgfSymbol>>> r) { *r = read_vector(&PgfReader::read_symbol2); }
 
     template<class I>
     ref<I> read_symbol_idx();

@@ -1105,7 +1105,7 @@ void pgf_expr_free(PgfExpr expr)
 }
 
 PGF_INTERNAL
-void pgf_context_free(ref<PgfVector<PgfHypo>> hypos)
+void pgf_context_free(ref<Vector<PgfHypo>> hypos)
 {
     for (size_t i = 0; i < hypos->len; i++) {
         PgfDB::free(vector_elem(hypos, i)->cid);
@@ -1136,7 +1136,7 @@ void pgf_patt_free(PgfPatt patt)
         auto papp = ref<PgfPattApp>::untagged(patt);
         PgfDB::free(papp->ctor);
         for (size_t i = 0; i < papp->args.len; i++) {
-            PgfPatt patt = *vector_elem(ref<PgfVector<PgfPatt>>::from_ptr(&papp->args), i);
+            PgfPatt patt = *vector_elem(ref<Vector<PgfPatt>>::from_ptr(&papp->args), i);
             pgf_patt_free(patt);
         }
         PgfDB::free(papp);

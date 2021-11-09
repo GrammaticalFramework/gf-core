@@ -151,7 +151,7 @@ void PgfWriter::write_namespace_helper(Namespace<V> nmsp, void (PgfWriter::*writ
 }
 
 template<class V>
-void PgfWriter::write_vector(ref<PgfVector<V>> vec, void (PgfWriter::*write_value)(ref<V> val))
+void PgfWriter::write_vector(ref<Vector<V>> vec, void (PgfWriter::*write_value)(ref<V> val))
 {
     write_len(vec->len);
     for (size_t i = 0; i < vec->len; i++) {
@@ -262,7 +262,7 @@ void PgfWriter::write_patt(PgfPatt patt)
 	case PgfPattApp::tag: {
 		auto papp = ref<PgfPattApp>::untagged(patt);
         write_name(papp->ctor);
-        write_vector(ref<PgfVector<PgfPatt>>::from_ptr(&papp->args), &PgfWriter::write_patt);
+        write_vector(ref<Vector<PgfPatt>>::from_ptr(&papp->args), &PgfWriter::write_patt);
 		break;
 	}
 	case PgfPattVar::tag: {
@@ -304,7 +304,7 @@ void PgfWriter::write_defn(ref<ref<PgfEquation>> r)
 {
     ref<PgfEquation> equ = *r;
 
-    write_vector(ref<PgfVector<PgfPatt>>::from_ptr(&equ->patts), &PgfWriter::write_patt);
+    write_vector(ref<Vector<PgfPatt>>::from_ptr(&equ->patts), &PgfWriter::write_patt);
     write_expr(equ->body);
 }
 
@@ -451,7 +451,7 @@ void PgfWriter::write_symbol(PgfSymbol sym)
 	}
 }
 
-void PgfWriter::write_seq(ref<PgfVector<PgfSymbol>> seq)
+void PgfWriter::write_seq(ref<Vector<PgfSymbol>> seq)
 {
     write_vector(seq, &PgfWriter::write_symbol);
 }

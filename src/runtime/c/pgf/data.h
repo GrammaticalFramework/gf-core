@@ -72,7 +72,7 @@ struct PGF_INTERNAL_DECL PgfFlag {
 
 typedef struct {
 	PgfExpr body;
-	PgfVector<PgfPatt> patts;
+	Vector<PgfPatt> patts;
 } PgfEquation;
 
 struct PGF_INTERNAL_DECL PgfAbsFun {
@@ -80,7 +80,7 @@ struct PGF_INTERNAL_DECL PgfAbsFun {
 
     ref<PgfDTyp> type;
 	int arity;
-    ref<PgfVector<ref<PgfEquation>>> defns;
+    ref<Vector<ref<PgfEquation>>> defns;
     PgfExprProb ep;
     PgfText name;
 
@@ -90,7 +90,7 @@ struct PGF_INTERNAL_DECL PgfAbsFun {
 struct PGF_INTERNAL_DECL PgfAbsCat {
     size_t ref_count;
 
-	ref<PgfVector<PgfHypo>> context;
+	ref<Vector<PgfHypo>> context;
 	prob_t prob;
     PgfText name;
 
@@ -106,7 +106,7 @@ typedef struct {
 
 struct PGF_INTERNAL_DECL PgfConcrLincat {
     size_t ref_count;
-    ref<PgfVector<ref<PgfText>>> fields;
+    ref<Vector<ref<PgfText>>> fields;
     PgfText name;
 
     static void release(ref<PgfConcrLincat> lincat);
@@ -180,9 +180,9 @@ struct PGF_INTERNAL_DECL PgfSymbolALLCAPIT {
 struct PGF_INTERNAL_DECL PgfConcrLin {
     size_t ref_count;
 
-    ref<PgfVector<PgfPArg>> args;
-    ref<PgfVector<ref<PgfLParam>>> res;
-    ref<PgfVector<ref<PgfVector<PgfSymbol>>>> seqs;
+    ref<Vector<PgfPArg>> args;
+    ref<Vector<ref<PgfLParam>>> res;
+    ref<Vector<ref<Vector<PgfSymbol>>>> seqs;
 
     PgfText name;
 

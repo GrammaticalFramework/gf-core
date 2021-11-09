@@ -2,30 +2,30 @@
 #define VECTOR_H
 
 template <class A>
-struct PgfVector {
+struct Vector {
     size_t len;
     A data[];
 };
 
 template <class A> inline
-ref<PgfVector<A>> vector_new(size_t len)
+ref<Vector<A>> vector_new(size_t len)
 {
-    ref<PgfVector<A>> res = PgfDB::malloc<PgfVector<A>>(len*sizeof(A));
+    ref<Vector<A>> res = PgfDB::malloc<Vector<A>>(len*sizeof(A));
     res->len = len;
     return res;
 }
 
 template <class C, class A> inline
-ref<C> vector_new(PgfVector<A> C::* field, size_t len)
+ref<C> vector_new(Vector<A> C::* field, size_t len)
 {
     ptrdiff_t offset = (ptrdiff_t) &(((C*) NULL)->*field);
-    ref<C> res = PgfDB::malloc<PgfVector<A>>(offset+len*sizeof(A)).as_object()-offset;
+    ref<C> res = PgfDB::malloc<Vector<A>>(offset+len*sizeof(A)).as_object()-offset;
     (res->*field).len = len;
     return res;
 }
 
 template <class A> inline
-ref<A> vector_elem(ref<PgfVector<A>> v, size_t index)
+ref<A> vector_elem(ref<Vector<A>> v, size_t index)
 {
     return ref<A>::from_ptr(&v->data[index]);
 }

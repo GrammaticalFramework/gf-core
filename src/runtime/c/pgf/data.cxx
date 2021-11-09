@@ -15,7 +15,7 @@ void PgfAbsFun::release(ref<PgfAbsFun> absfun)
             pgf_expr_free(eq->body);
 
             for (size_t j = 0; j < eq->patts.len; j++) {
-                PgfPatt patt = *vector_elem(ref<PgfVector<PgfPatt>>::from_ptr(&eq->patts), j);
+                PgfPatt patt = *vector_elem(ref<Vector<PgfPatt>>::from_ptr(&eq->patts), j);
                 pgf_patt_free(patt);
             }
         }
