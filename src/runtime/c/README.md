@@ -24,6 +24,16 @@ automake
 libtool
 ```
 
+### Windows
+
+- Install MSYS2
+- MSYS2 provides two shells MSYS2 MSYS and MSYS2 MinGW. Open MSYS2 MinGW.
+- Use pacman to install additional packages:
+```
+pacman -Syu
+pacman -S --needed base-devel mingw-w64-x86_64-toolchain mingw-w64-x86_64-libtool
+```
+
 ## Installation
 
 **Note for macOS**: you should first run `glibtoolize`, followed by the commands below.
