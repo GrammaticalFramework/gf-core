@@ -139,7 +139,15 @@ foreign import ccall pgf_clone_concrete :: Ptr PgfDB -> Ptr PGF -> Ptr PgfText -
 
 foreign import ccall pgf_drop_concrete :: Ptr PgfDB -> Ptr PGF -> Ptr PgfText -> Ptr PgfExn -> IO ()
 
+foreign import ccall pgf_create_lincat :: Ptr PgfDB -> Ptr PGF -> Ptr Concr -> Ptr PgfText -> CSize -> Ptr PgfExn -> IO ()
+
+foreign import ccall pgf_drop_lincat :: Ptr PgfDB -> Ptr Concr -> Ptr PgfText -> Ptr PgfExn -> IO ()
+
 foreign import ccall pgf_create_lin :: Ptr PgfDB -> Ptr PGF -> Ptr Concr -> Ptr PgfText -> CSize -> Ptr PgfExn -> IO ()
+
+foreign import ccall pgf_drop_lin :: Ptr PgfDB -> Ptr Concr -> Ptr PgfText -> Ptr PgfExn -> IO ()
+
+foreign import ccall pgf_has_linearization :: Ptr PgfDB -> Ptr Concr -> Ptr PgfText -> Ptr PgfExn -> IO CInt
 
 foreign import ccall pgf_get_global_flag :: Ptr PgfDB -> Ptr PGF -> Ptr PgfText -> Ptr PgfUnmarshaller -> Ptr PgfExn -> IO (StablePtr Literal)
 

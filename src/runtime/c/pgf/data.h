@@ -106,6 +106,9 @@ typedef struct {
 
 struct PGF_INTERNAL_DECL PgfConcrLincat {
     size_t ref_count;
+
+    ref<PgfAbsCat> abscat;
+
     ref<Vector<ref<PgfText>>> fields;
     PgfText name;
 

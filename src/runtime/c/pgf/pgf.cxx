@@ -956,6 +956,56 @@ void pgf_drop_concrete(PgfDB *db, PgfRevision revision,
 }
 
 PGF_API
+void pgf_create_lincat(PgfDB *db,
+                       PgfRevision revision, PgfConcrRevision cnc_revision,
+                       PgfText *name, size_t n_fields, PgfExn *err)
+{
+    PGF_API_BEGIN {
+        DB_scope scope(db, WRITER_SCOPE);
+
+        ref<PgfPGF> pgf = PgfDB::revision2pgf(revision);
+        ref<PgfConcr> concr = PgfDB::revision2concr(cnc_revision);
+
+        ref<PgfAbsCat> abscat =
+            namespace_lookup(pgf->abstract.cats, name);
+        if (abscat == 0) {
+            throw pgf_error("There is no corresponding category in the abstract syntax");
+        }
+
+        ref<PgfConcrLincat> lincat = PgfDB::malloc<PgfConcrLincat>(name->size+1);
+        memcpy(&lincat->name, name, sizeof(PgfText)+name->size+1);
+        lincat->ref_count = 1;
+        lincat->abscat = abscat;
+        lincat->fields = vector_new<ref<PgfText>>(n_fields);
+
+        for (size_t i = 0; i < n_fields; i++) {
+        }
+
+        Namespace<PgfConcrLincat> lincats =
+            namespace_insert(concr->lincats, lincat);
+        namespace_release(concr->lincats);
+        concr->lincats = lincats;
+    } PGF_API_END
+}
+
+PGF_API
+void pgf_drop_lincat(PgfDB *db,
+                     PgfConcrRevision revision,
+                     PgfText *name, PgfExn *err)
+{
+    PGF_API_BEGIN {
+        DB_scope scope(db, WRITER_SCOPE);
+
+        ref<PgfConcr> concr = PgfDB::revision2concr(revision);
+
+        Namespace<PgfConcrLincat> lincats =
+            namespace_delete(concr->lincats, name);
+        namespace_release(concr->lincats);
+        concr->lincats = lincats;
+    } PGF_API_END
+}
+
+PGF_API
 void pgf_create_lin(PgfDB *db,
                     PgfRevision revision, PgfConcrRevision cnc_revision,
                     PgfText *name, size_t n_prods, PgfExn *err)
@@ -994,6 +1044,41 @@ void pgf_create_lin(PgfDB *db,
         namespace_release(concr->lins);
         concr->lins = lins;
     } PGF_API_END
+}
+
+PGF_API
+void pgf_drop_lin(PgfDB *db,
+                  PgfConcrRevision revision,
+                  PgfText *name, PgfExn *err)
+{
+    PGF_API_BEGIN {
+        DB_scope scope(db, WRITER_SCOPE);
+
+        ref<PgfConcr> concr = PgfDB::revision2concr(revision);
+
+        Namespace<PgfConcrLin> lins =
+            namespace_delete(concr->lins, name);
+        namespace_release(concr->lins);
+        concr->lins = lins;
+    } PGF_API_END
+}
+
+PGF_API
+int pgf_has_linearization(PgfDB *db, PgfConcrRevision revision,
+                          PgfText *name, PgfExn *err)
+{
+    PGF_API_BEGIN {
+        DB_scope scope(db, READER_SCOPE);
+
+        ref<PgfConcr> concr = PgfDB::revision2concr(revision);
+
+        ref<PgfConcrLin> lin =
+            namespace_lookup(concr->lins, name);
+
+        return (lin != 0);
+    } PGF_API_END
+
+    return 0;
 }
 
 PGF_API

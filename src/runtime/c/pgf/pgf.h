@@ -419,9 +419,26 @@ void pgf_drop_concrete(PgfDB *db, PgfRevision revision,
                        PgfExn *err);
 
 PGF_API_DECL
+void pgf_create_lincat(PgfDB *db,
+                       PgfRevision revision, PgfConcrRevision cnc_revision,
+                       PgfText *name, size_t n_fields, PgfExn *err);
+
+PGF_API_DECL
+void pgf_drop_lincat(PgfDB *db, PgfConcrRevision revision,
+                     PgfText *name, PgfExn *err);
+
+PGF_API_DECL
 void pgf_create_lin(PgfDB *db,
                     PgfRevision revision, PgfConcrRevision cnc_revision,
                     PgfText *name, size_t n_prods, PgfExn *err);
+
+PGF_API_DECL
+void pgf_drop_lin(PgfDB *db, PgfConcrRevision revision,
+                  PgfText *name, PgfExn *err);
+
+PGF_API_DECL
+int pgf_has_linearization(PgfDB *db, PgfConcrRevision revision,
+                          PgfText *name, PgfExn *err);
 
 PGF_API_DECL
 PgfLiteral pgf_get_global_flag(PgfDB *db, PgfRevision revision,

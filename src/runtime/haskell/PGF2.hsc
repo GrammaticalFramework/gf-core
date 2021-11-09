@@ -433,7 +433,12 @@ complete = error "TODO: complete"
 
 -- | Returns True if there is a linearization defined for that function in that language
 hasLinearization :: Concr -> Fun -> Bool
-hasLinearization = error "TODO: linearize"
+hasLinearization c name =
+  unsafePerformIO $
+  withText name $ \c_name ->
+  withForeignPtr (c_revision c) $ \c_revision -> do
+    c_res <- withPgfExn "hasLinearization" (pgf_has_linearization (c_db c) c_revision c_name)
+    return (c_res /= 0)
 
 -- | Linearizes an expression as a string in the language
 linearize :: Concr -> Expr -> String

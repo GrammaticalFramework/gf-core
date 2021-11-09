@@ -20,7 +20,10 @@ module PGF2.Transactions
           , alterConcrete
           , dropConcrete
           , setConcreteFlag
+          , createLincat
+          , dropLincat
           , createLin
+          , dropLin
           ) where
 
 import PGF2.FFI
@@ -210,7 +213,22 @@ data PArg = PArg [(LIndex,LIndex)] {-# UNPACK #-} !LParam
 data Production = Production [PArg] LParam [[Symbol]]
                  deriving (Eq,Show)
 
+createLincat :: Cat -> [String] -> Transaction Concr ()
+createLincat name fields = Transaction $ \c_db c_abstr c_revision c_exn ->
+  withText name $ \c_name ->
+    pgf_create_lincat c_db c_abstr c_revision c_name (fromIntegral (length fields)) c_exn
+
+dropLincat :: Cat -> Transaction Concr ()
+dropLincat name = Transaction $ \c_db _ c_revision c_exn ->
+  withText name $ \c_name ->
+    pgf_drop_lincat c_db c_revision c_name c_exn
+
 createLin :: Fun -> [Production] -> Transaction Concr ()
 createLin name rules = Transaction $ \c_db c_abstr c_revision c_exn ->
   withText name $ \c_name ->
     pgf_create_lin c_db c_abstr c_revision c_name (fromIntegral (length rules)) c_exn
+
+dropLin :: Fun -> Transaction Concr ()
+dropLin name = Transaction $ \c_db _ c_revision c_exn ->
+  withText name $ \c_name ->
+    pgf_drop_lin c_db c_revision c_name c_exn

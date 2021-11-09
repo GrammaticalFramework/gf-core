@@ -544,6 +544,7 @@ ref<PgfConcrLincat> PgfReader::read_lincat()
 {
     ref<PgfConcrLincat> lincat = read_name(&PgfConcrLincat::name);
     lincat->ref_count = 1;
+    lincat->abscat = namespace_lookup(abstract->cats, &lincat->name);
     lincat->fields = read_vector(&PgfReader::read_text2);
     return lincat;
 }
