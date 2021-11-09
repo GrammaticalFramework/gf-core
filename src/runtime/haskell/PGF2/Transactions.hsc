@@ -33,7 +33,7 @@ import Control.Exception
 #include <pgf/pgf.h>
 
 newtype Transaction k a =
-  Transaction (Ptr PgfDB -> Ptr (PgfRevision k) -> Ptr PgfExn -> IO a)
+  Transaction (Ptr PgfDB -> Ptr k -> Ptr PgfExn -> IO a)
 
 instance Functor (Transaction k) where
   fmap f (Transaction g) = Transaction $ \c_db c_revision c_exn -> do
