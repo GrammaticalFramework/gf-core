@@ -956,6 +956,15 @@ void pgf_drop_concrete(PgfDB *db, PgfRevision revision,
 }
 
 PGF_API
+void pgf_create_lin(PgfDB *db, PgfConcrRevision revision,
+                    PgfText *name, size_t n_prods, PgfExn *exn)
+{
+    ref<PgfConcrLin> lin = PgfDB::malloc<PgfConcrLin>(name->size+1);
+    lin->ref_count = 1;
+    memcpy(&lin->name, name, sizeof(PgfText)+name->size+1);
+}
+
+PGF_API
 PgfLiteral pgf_get_global_flag(PgfDB *db, PgfRevision revision,
                                PgfText *name,
                                PgfUnmarshaller *u,

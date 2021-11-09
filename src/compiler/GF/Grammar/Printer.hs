@@ -25,7 +25,6 @@ module GF.Grammar.Printer
 import Prelude hiding ((<>)) -- GHC 8.4.1 clash with Text.PrettyPrint
 
 import PGF2(Literal(..))
-import PGF2.Transactions(LIndex,LParam,Symbol(..))
 import GF.Infra.Ident
 import GF.Infra.Option
 import GF.Grammar.Values
@@ -159,16 +158,18 @@ ppJudgement q (id, AnyInd cann mid) =
     Internal -> "ind" <+> id <+> '=' <+> (if cann then pp "canonical" else empty) <+> mid <+> ';'
     _        -> empty
 
-ppPmcfgRule id arg_cats res_cat (PMCFGRule res args lins) =
+ppPmcfgRule id arg_cats res_cat (Production args res lins) =
   pp id <+> (':' <+>
              (if null args
                 then empty
-                else hsep (intersperse (pp '*') (zipWith ppPmcfgCat arg_cats args)) <+> "->") <+>
+                else hsep (intersperse (pp '*') (zipWith ppPArg arg_cats args)) <+> "->") <+>
              ppPmcfgCat res_cat res $$
              '=' <+> brackets (vcat (map (hsep . map ppSymbol) lins)))
 
-ppPmcfgCat :: Ident -> PMCFGCat -> Doc
-ppPmcfgCat cat (PMCFGCat r rs) = pp cat <> parens (ppLinFun ppLParam r rs)
+ppPArg cat (PArg _ p) = ppPmcfgCat cat p
+
+ppPmcfgCat :: Ident -> LParam -> Doc
+ppPmcfgCat cat p = pp cat <> parens (ppLParam p)
 
 instance Pretty Term where pp = ppTerm Unqualified 0
 
@@ -365,8 +366,8 @@ ppLit (LStr s) = pp (show s)
 ppLit (LInt n) = pp n
 ppLit (LFlt d) = pp d
 
-ppSymbol (SymCat d r rs)= pp '<' <> pp d <> pp ',' <> ppLinFun ppLParam r rs <> pp '>'
-ppSymbol (SymLit d r)   = pp '{' <> pp d <> pp ',' <> pp r <> pp '}'
+ppSymbol (SymCat d r)= pp '<' <> pp d <> pp ',' <> ppLParam r <> pp '>'
+ppSymbol (SymLit d r)= pp '{' <> pp d <> pp ',' <> ppLParam r <> pp '}'
 ppSymbol (SymVar d r)   = pp '<' <> pp d <> pp ',' <> pp '$' <> pp r <> pp '>'
 ppSymbol (SymKS t)      = doubleQuotes (pp t)
 ppSymbol SymNE          = pp "nonExist"
@@ -377,6 +378,8 @@ ppSymbol SymCAPIT       = pp "CAPIT"
 ppSymbol SymALL_CAPIT   = pp "ALL_CAPIT"
 ppSymbol (SymKP syms alts) = pp "pre" <+> braces (hsep (punctuate (pp ';') (hsep (map ppSymbol syms) : map ppAlt alts)))
 
+ppLParam (LParam r rs) = ppLinFun ppLVar r rs
+
 ppLinFun ppParam r rs
   | r == 0 && not (null rs) = hcat (intersperse (pp '+') (       map ppTerm rs))
   | otherwise               = hcat (intersperse (pp '+') (pp r : map ppTerm rs))
@@ -385,7 +388,7 @@ ppLinFun ppParam r rs
       | i == 1    = ppParam p
       | otherwise = pp i <> pp '*' <> ppParam p
 
-ppLParam p
+ppLVar p
   | i == 0    = pp (chars !! j)
   | otherwise = pp (chars !! j : show i)
   where

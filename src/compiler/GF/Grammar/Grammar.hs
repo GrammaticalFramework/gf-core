@@ -64,7 +64,7 @@ module GF.Grammar.Grammar (
         Location(..), L(..), unLoc, noLoc, ppLocation, ppL,
 
         -- ** PMCFG        
-        PMCFGCat(..), PMCFGRule(..)
+        LIndex,LVar,LParam(..),PArg(..),Symbol(..),Production(..)
         ) where
 
 import GF.Infra.Ident
@@ -74,7 +74,7 @@ import GF.Infra.Location
 import GF.Data.Operations
 
 import PGF2(BindType(..))
-import PGF2.Transactions(Symbol,LIndex,LParam)
+import PGF2.Transactions(LIndex,LVar,LParam(..),PArg(..),Symbol(..),Production(..))
 
 import Data.Array.IArray(Array)
 import Data.Array.Unboxed(UArray)
@@ -304,12 +304,6 @@ allConcreteModules gr =
   [i | (i, m) <- modules gr, MTConcrete _ <- [mtype m], isCompleteModule m]
 
 
-data PMCFGCat  = PMCFGCat LIndex [(LIndex,LParam)]
-                 deriving (Eq,Show)
-
-data PMCFGRule = PMCFGRule PMCFGCat [PMCFGCat] [[Symbol]]
-                 deriving (Eq,Show)
-
 -- | the constructors are judgements in 
 --
 --   - abstract syntax (/ABS/)
@@ -335,8 +329,8 @@ data Info =
  | ResOverload [ModuleName] [(L Type,L Term)]        -- ^ (/RES/) idents: modules inherited
 
 -- judgements in concrete syntax
- | CncCat  (Maybe (L Type))                     (Maybe (L Term)) (Maybe (L Term)) (Maybe (L Term)) (Maybe [PMCFGRule]) -- ^ (/CNC/) lindef ini'zed, 
- | CncFun  (Maybe ([Ident],Ident,Context,Type)) (Maybe (L Term))                  (Maybe (L Term)) (Maybe [PMCFGRule]) -- ^ (/CNC/) type info added at 'TC'
+ | CncCat  (Maybe (L Type))                     (Maybe (L Term)) (Maybe (L Term)) (Maybe (L Term)) (Maybe [Production]) -- ^ (/CNC/) lindef ini'zed, 
+ | CncFun  (Maybe ([Ident],Ident,Context,Type)) (Maybe (L Term))                  (Maybe (L Term)) (Maybe [Production]) -- ^ (/CNC/) type info added at 'TC'
 
 -- indirection to module Ident
  | AnyInd Bool ModuleName                        -- ^ (/INDIR/) the 'Bool' says if canonical

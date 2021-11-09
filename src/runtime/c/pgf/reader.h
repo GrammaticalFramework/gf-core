@@ -67,9 +67,8 @@ public:
     void read_abstract(ref<PgfAbstr> abstract);
 
     ref<PgfConcrLincat> read_lincat();
-    ref<PgfConcrLIndex> read_lindex();
-    void read_linarg(ref<PgfConcrLinArg> linarg);
-    void read_linres(ref<PgfConcrLinRes> linres);
+    ref<PgfLParam> read_lparam();
+    void read_parg(ref<PgfPArg> parg);
     PgfSymbol read_symbol();
     ref<PgfConcrLin> read_lin();
     ref<PgfConcrPrintname> read_printname();
@@ -88,8 +87,9 @@ private:
 
     void read_patt2(ref<PgfPatt> r) { *r = read_patt(); };
     void read_text2(ref<ref<PgfText>> r) { *r = read_text(); };
+    void read_lparam(ref<ref<PgfLParam>> r) { *r = read_lparam(); };
     void read_symbol2(ref<PgfSymbol> r) { *r = read_symbol(); };
-    void read_seq2(ref<ref<PgfSequence>> r) { *r = read_vector(&PgfReader::read_symbol2); }
+    void read_seq2(ref<ref<PgfVector<PgfSymbol>>> r) { *r = read_vector(&PgfReader::read_symbol2); }
 
     template<class I>
     ref<I> read_symbol_idx();

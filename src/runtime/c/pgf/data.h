@@ -112,7 +112,7 @@ struct PGF_INTERNAL_DECL PgfConcrLincat {
     static void release(ref<PgfConcrLincat> lincat);
 };
 
-struct PGF_INTERNAL_DECL PgfConcrLIndex {
+struct PGF_INTERNAL_DECL PgfLParam {
     size_t i0;
     size_t n_terms;
     struct {
@@ -121,14 +121,8 @@ struct PGF_INTERNAL_DECL PgfConcrLIndex {
     } terms[];
 };
 
-struct PGF_INTERNAL_DECL PgfConcrLinArg {
-    ref<PgfConcrLincat> lincat;
-    ref<PgfConcrLIndex> param;
-};
-
-struct PGF_INTERNAL_DECL PgfConcrLinRes {
-    ref<PgfConcrLincat> lincat;
-    ref<PgfConcrLIndex> param;
+struct PGF_INTERNAL_DECL PgfPArg {
+    ref<PgfLParam> param;
 };
 
 typedef object PgfSymbol;
@@ -136,13 +130,13 @@ typedef object PgfSymbol;
 struct PGF_INTERNAL_DECL PgfSymbolCat {
     static const uint8_t tag = 0;
     size_t d;
-    PgfConcrLIndex r;
+    PgfLParam r;
 };
 
 struct PGF_INTERNAL_DECL PgfSymbolLit {
     static const uint8_t tag = 1;
     size_t d;
-    PgfConcrLIndex r;
+    PgfLParam r;
 };
 
 struct PGF_INTERNAL_DECL PgfSymbolVar {
@@ -183,14 +177,12 @@ struct PGF_INTERNAL_DECL PgfSymbolALLCAPIT {
     static const uint8_t tag = 10;
 };
 
-typedef PgfVector<PgfSymbol> PgfSequence;
-
 struct PGF_INTERNAL_DECL PgfConcrLin {
     size_t ref_count;
 
-    ref<PgfVector<PgfConcrLinArg>> args;
-    ref<PgfVector<PgfConcrLinRes>> res;
-    ref<PgfVector<ref<PgfSequence>>> seqs;
+    ref<PgfVector<PgfPArg>> args;
+    ref<PgfVector<ref<PgfLParam>>> res;
+    ref<PgfVector<ref<PgfVector<PgfSymbol>>>> seqs;
 
     PgfText name;
 

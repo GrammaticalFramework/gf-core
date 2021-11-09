@@ -147,6 +147,8 @@ foreign import ccall pgf_clone_concrete :: Ptr PgfDB -> Ptr (PgfRevision PGF) ->
 
 foreign import ccall pgf_drop_concrete :: Ptr PgfDB -> Ptr (PgfRevision PGF) -> Ptr PgfText -> Ptr PgfExn -> IO ()
 
+foreign import ccall pgf_create_lin :: Ptr PgfDB -> Ptr (PgfRevision Concr) -> Ptr PgfText -> CSize -> Ptr PgfExn -> IO ()
+
 foreign import ccall pgf_get_global_flag :: Ptr PgfDB -> Ptr (PgfRevision PGF) -> Ptr PgfText -> Ptr PgfUnmarshaller -> Ptr PgfExn -> IO (StablePtr Literal)
 
 foreign import ccall pgf_set_global_flag :: Ptr PgfDB -> Ptr (PgfRevision PGF) -> Ptr PgfText -> StablePtr Literal -> Ptr PgfMarshaller -> Ptr PgfExn -> IO ()

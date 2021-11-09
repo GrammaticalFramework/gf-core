@@ -435,67 +435,26 @@ void PgfReader::read_abstract(ref<PgfAbstr> abstract)
     abstract->cats = read_namespace<PgfAbsCat>(&PgfReader::read_abscat);
 }
 
-ref<PgfConcrLIndex> PgfReader::read_lindex()
+ref<PgfLParam> PgfReader::read_lparam()
 {
     size_t i0 = read_int();
     size_t n_terms = read_len();
-    ref<PgfConcrLIndex> lindex =
-        PgfDB::malloc<PgfConcrLIndex>(n_terms*sizeof(PgfConcrLIndex::terms[0]));
-    lindex->i0 = i0;
-    lindex->n_terms = n_terms;
+    ref<PgfLParam> lparam =
+        PgfDB::malloc<PgfLParam>(n_terms*sizeof(PgfLParam::terms[0]));
+    lparam->i0 = i0;
+    lparam->n_terms = n_terms;
 
     for (size_t i = 0; i < n_terms; i++) {
-        lindex->terms[i].factor = read_int();
-        lindex->terms[i].var    = read_int();
+        lparam->terms[i].factor = read_int();
+        lparam->terms[i].var    = read_int();
     }
 
-    return lindex;
+    return lparam;
 }
 
-void PgfReader::read_linarg(ref<PgfConcrLinArg> linarg)
+void PgfReader::read_parg(ref<PgfPArg> parg)
 {
-    size_t size = read_len();
-    PgfText* name = (PgfText*) alloca(sizeof(PgfText)+size+1);
-    name->size = size;
-
-    // If reading the extra bytes causes EOF, it is an encoding
-    // error, not a legitimate end of character stream.
-    fread(name->text, size, 1, in);
-    if (feof(in))
-        throw pgf_error("utf8 decoding error");
-    if (ferror(in))
-        throw pgf_error("an error occured while reading the grammar");
-
-    name->text[size] = 0;
-
-    
-    linarg->lincat = namespace_lookup(this->concrete->lincats, name);
-    if (linarg->lincat == 0)
-        throw pgf_error("Encountered an unknown category");
-    linarg->param  = read_lindex();
-}
-
-void PgfReader::read_linres(ref<PgfConcrLinRes> linres)
-{
-    size_t size = read_len();
-    PgfText* name = (PgfText*) alloca(sizeof(PgfText)+size+1);
-    name->size = size;
-
-    // If reading the extra bytes causes EOF, it is an encoding
-    // error, not a legitimate end of character stream.
-    fread(name->text, size, 1, in);
-    if (feof(in))
-        throw pgf_error("utf8 decoding error");
-    if (ferror(in))
-        throw pgf_error("an error occured while reading the grammar");
-
-    name->text[size] = 0;
-
-    
-    linres->lincat = namespace_lookup(this->concrete->lincats, name);
-    if (linres->lincat == 0)
-        throw pgf_error("Encountered an unknown category");
-    linres->param  = read_lindex();
+    parg->param  = read_lparam();
 }
 
 template<class I>
@@ -505,7 +464,7 @@ ref<I> PgfReader::read_symbol_idx()
     size_t i0 = read_int();
     size_t n_terms = read_len();
     ref<I> sym_idx =
-        PgfDB::malloc<I>(n_terms*sizeof(PgfConcrLIndex::terms[0]));
+        PgfDB::malloc<I>(n_terms*sizeof(PgfLParam::terms[0]));
     sym_idx->d = d;
     sym_idx->r.i0 = i0;
     sym_idx->r.n_terms = n_terms;
@@ -594,8 +553,8 @@ ref<PgfConcrLin> PgfReader::read_lin()
 {
     ref<PgfConcrLin> lin = read_name(&PgfConcrLin::name);
     lin->ref_count = 1;
-    lin->args = read_vector(&PgfReader::read_linarg);
-    lin->res  = read_vector(&PgfReader::read_linres);
+    lin->args = read_vector(&PgfReader::read_parg);
+    lin->res  = read_vector(&PgfReader::read_lparam);
     lin->seqs = read_vector(&PgfReader::read_seq2);
     return lin;
 }

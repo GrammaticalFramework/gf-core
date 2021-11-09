@@ -9,15 +9,18 @@ module PGF2.Transactions
           , dropFunction
           , createCategory
           , dropCategory
+          , setGlobalFlag
+          , setAbstractFlag
+
+            -- concrete syntax
+          , Token, LIndex, LVar, LParam(..)
+          , PArg(..), Symbol(..), Production(..)
+
           , createConcrete
           , alterConcrete
           , dropConcrete
-          , setGlobalFlag
-          , setAbstractFlag
           , setConcreteFlag
-
-            -- concrete syntax
-          , Token, LIndex, LParam, Symbol(..)
+          , createLin
           ) where
 
 import PGF2.FFI
@@ -180,11 +183,15 @@ setConcreteFlag name value = Transaction $ \c_db c_revision c_exn ->
     pgf_set_concrete_flag c_db c_revision c_name c_value m c_exn
 
 type Token  = String
+
 type LIndex = Int
-type LParam = Int
+type LVar   = Int
+data LParam  = LParam {-# UNPACK #-} !LIndex [(LIndex,LVar)]
+               deriving (Eq,Show)
+
 data Symbol
-  = SymCat {-# UNPACK #-} !Int {-# UNPACK #-} !LIndex [(LIndex,LParam)]
-  | SymLit {-# UNPACK #-} !Int {-# UNPACK #-} !LIndex
+  = SymCat {-# UNPACK #-} !Int {-# UNPACK #-} !LParam
+  | SymLit {-# UNPACK #-} !Int {-# UNPACK #-} !LParam
   | SymVar {-# UNPACK #-} !Int {-# UNPACK #-} !Int
   | SymKS Token
   | SymKP [Symbol] [([Symbol],[String])]
@@ -195,3 +202,14 @@ data Symbol
   | SymCAPIT                        -- the special CAPIT token
   | SymALL_CAPIT                    -- the special ALL_CAPIT token
   deriving (Eq,Show)
+
+data PArg = PArg [(LIndex,LIndex)] {-# UNPACK #-} !LParam
+            deriving (Eq,Show)
+
+data Production = Production [PArg] LParam [[Symbol]]
+                 deriving (Eq,Show)
+
+createLin :: Fun -> [Production] -> Transaction Concr ()
+createLin name rules = Transaction $ \c_db c_revision c_exn ->
+  withText name $ \c_name ->
+    pgf_create_lin c_db c_revision c_name (fromIntegral (length rules)) c_exn

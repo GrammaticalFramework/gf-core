@@ -38,7 +38,7 @@ addPMCFG opts cwd gr cmi (id,CncFun mty@(Just (_,cat,ctxt,val)) mlin@(Just (L lo
     return (id,CncFun mty mlin mprn (Just rules))
 addPMCFG opts cwd gr cmi id_info = return id_info
 
-pmcfgForm :: Grammar -> Term -> Context -> Type -> Check [PMCFGRule]
+pmcfgForm :: Grammar -> Term -> Context -> Type -> Check [Production]
 pmcfgForm gr t ctxt ty =
   runEvalM gr $ do
     ((_,ms),args) <- mapAccumM (\(d,ms) (_,_,ty) -> do
@@ -51,14 +51,14 @@ pmcfgForm gr t ctxt ty =
     (lins,params) <- flatten v ty ([],[])
     lins <- mapM str2lin lins
     (r,rs,_) <- compute params
-    args <- zipWithM tnk2pmcfgcat args ctxt
-    return (PMCFGRule (PMCFGCat r rs) args (reverse lins))
+    args <- zipWithM tnk2lparam args ctxt
+    return (Production args (LParam r rs) (reverse lins))
     where
-      tnk2pmcfgcat tnk (_,_,ty) = do
+      tnk2lparam tnk (_,_,ty) = do
         v <- force tnk
         (_,params) <- flatten v ty ([],[])
         (r,rs,_) <- compute params
-        return (PMCFGCat r rs)
+        return (PArg [] (LParam r rs))
 
       compute []     = return (0,[],1)
       compute (v:vs) = do
@@ -125,7 +125,7 @@ str2lin (VApp q [])
   | q == (cPredef, cALL_CAPIT)  = return [SymALL_CAPIT]
 str2lin (VStr s)         = return [SymKS s]
 str2lin (VSymCat d r rs) = do (r, rs) <- compute r rs
-                              return [SymCat d r rs]
+                              return [SymCat d (LParam r rs)]
   where
     compute r' []                = return (r',[])
     compute r' ((cnt',tnk):tnks) = do
