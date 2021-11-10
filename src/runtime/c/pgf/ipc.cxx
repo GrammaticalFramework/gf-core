@@ -1,10 +1,3 @@
-#include <sys/stat.h>
-#include <sys/mman.h>
-#include <fcntl.h>
-#include <unistd.h>
-#include <errno.h>
-#include <pthread.h>
-
 //#define DEBUG_IPC
 
 #ifdef DEBUG_IPC
@@ -26,6 +19,14 @@ void ipc_toomany() {
 #define ipc_error() throw pgf_systemerror(errno);
 #define ipc_toomany() throw pgf_error("Too many open grammars")
 #endif
+
+#ifndef _WIN32
+#include <sys/stat.h>
+#include <sys/mman.h>
+#include <fcntl.h>
+#include <unistd.h>
+#include <errno.h>
+#include <pthread.h>
 
 #define ptr_t(x) size_t
 #define ptr(o,T)  (o ? (T*) (((uint8_t*) locks) + o) : NULL)
@@ -321,6 +322,20 @@ void ipc_release_file_rwlock(const char* file_path,
 
     pthread_mutex_unlock(&locks->mutex);
 }
+#else
+PGF_INTERNAL_DECL
+pthread_rwlock_t *ipc_new_file_rwlock(const char* file_path,
+                                      bool *is_first)
+{
+    return NULL;
+}
+
+PGF_INTERNAL_DECL
+void ipc_release_file_rwlock(const char* file_path,
+                             pthread_rwlock_t *rwlock)
+{
+}
+#endif
 
 #ifdef DEBUG_IPC
 int main(int argc, char *argv[])

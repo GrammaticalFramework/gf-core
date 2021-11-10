@@ -7,23 +7,15 @@
 #define EXTERN_C
 #endif
 
-#if defined(_MSC_VER)
+#if defined(_MSC_VER) || defined(__MINGW32__)
 
 #if defined(COMPILING_PGF)
-#define PGF_API_DECL __declspec(dllexport) EXTERN_C
-#define PGF_API      __declspec(dllexport) EXTERN_C
+#define PGF_API_DECL EXTERN_C __declspec(dllexport)
+#define PGF_API      EXTERN_C __declspec(dllexport)
 #else
 #define PGF_API_DECL __declspec(dllimport)
 #define PGF_API      ERROR_NOT_COMPILING_LIBPGF
 #endif
-#define PGF_INTERNAL_DECL
-#define PGF_INTERNAL
-
-#elif defined(__MINGW32__)
-
-#define PGF_API_DECL EXTERN_C
-#define PGF_API      EXTERN_C
-
 #define PGF_INTERNAL_DECL
 #define PGF_INTERNAL
 
@@ -37,7 +29,7 @@
 
 #endif
 
-#include<stdint.h>
+#include <stdint.h>
 #include <sys/types.h>
 
 #define PGF_MAJOR_VERSION 2
@@ -259,7 +251,7 @@ PgfDB *pgf_read_ngf(const char* fpath,
  * Aside from the name, the grammar is otherwise empty but can be later
  * populated with new functions and categories. If fpath is NULL then
  * the file is not stored on the disk but only in memory. */
-PGF_API
+PGF_API_DECL
 PgfDB *pgf_new_ngf(PgfText *abstract_name,
                    const char *fpath,
                    PgfRevision *revision,
@@ -289,7 +281,7 @@ PGF_API_DECL
 void pgf_iter_categories(PgfDB *db, PgfRevision revision,
                          PgfItor *itor, PgfExn *err);
 
-PGF_API
+PGF_API_DECL
 void pgf_iter_concretes(PgfDB *db, PgfRevision revision,
                         PgfItor *itor, PgfExn *err);
 

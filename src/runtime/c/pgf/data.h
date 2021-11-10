@@ -8,6 +8,10 @@
 
 #include "pgf.h"
 
+#ifdef _WIN32
+#include <windows.h>
+#endif
+
 class PGF_INTERNAL_DECL pgf_error : public std::runtime_error {
 public:
     pgf_error(const char *msg) : std::runtime_error(msg)

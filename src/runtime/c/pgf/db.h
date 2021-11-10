@@ -62,6 +62,10 @@ private:
 
     pthread_rwlock_t *rwlock;
 
+#ifdef _WIN32
+    HANDLE hMap;
+#endif
+
     friend class PgfReader;
 
 public:

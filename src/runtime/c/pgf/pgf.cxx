@@ -1,6 +1,7 @@
 #include <fcntl.h>
 #include <math.h>
 #include <errno.h>
+#include <io.h>
 
 #include "data.h"
 #include "reader.h"
@@ -81,7 +82,13 @@ PgfDB *pgf_boot_ngf(const char* pgf_path, const char* ngf_path,
     FILE *in = NULL;
 
     PGF_API_BEGIN {
-        db = new PgfDB(ngf_path, O_CREAT | O_EXCL | O_RDWR, S_IRUSR | S_IWUSR);
+        db = new PgfDB(ngf_path, O_CREAT | O_EXCL | O_RDWR,
+#ifndef _WIN32
+         S_IRUSR | S_IWUSR
+#else
+         0
+#endif
+         );
 
         in = fopen(pgf_path, "rb");
         if (!in) {
@@ -160,7 +167,13 @@ PgfDB *pgf_new_ngf(PgfText *abstract_name,
     PgfDB *db = NULL;
 
     PGF_API_BEGIN {
-        db = new PgfDB(fpath, O_CREAT | O_EXCL | O_RDWR, S_IRUSR | S_IWUSR);
+        db = new PgfDB(fpath, O_CREAT | O_EXCL | O_RDWR,
+#ifndef _WIN32
+         S_IRUSR | S_IWUSR
+#else
+         0
+#endif
+);
 
         {
             DB_scope scope(db, WRITER_SCOPE);
