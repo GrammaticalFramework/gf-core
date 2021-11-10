@@ -368,21 +368,25 @@ PgfDB::PgfDB(const char* filepath, int flags, int mode) {
 #else
     if (fd >= 0) {
         hMap = CreateFileMapping((HANDLE) _get_osfhandle(fd),
-                                NULL,
-                                PAGE_READWRITE,
-                                HIWORD(file_size), LOWORD(file_size),
-                                NULL);
+                                 NULL,
+                                 PAGE_READWRITE,
+                                 HIWORD(file_size), LOWORD(file_size),
+                                 NULL);
         if (hMap != NULL) {
             ms = (malloc_state*) MapViewOfFile(hMap,
-                                            FILE_MAP_WRITE,
-                                            0,0,file_size);
+                                               FILE_MAP_WRITE,
+                                               0,0,file_size);
+            if (ms == NULL) {
+                CloseHandle(hMap);
+                hMap = INVALID_HANDLE_VALUE;
+            }
         } else {
             hMap = INVALID_HANDLE_VALUE;
             ms   = NULL;
         }
     } else {
         hMap = INVALID_HANDLE_VALUE;
-        ms = (malloc_state*) ::malloc(file_size);
+        ms   = (malloc_state*) ::malloc(file_size);
     }
 
     if (ms == NULL) {
@@ -396,6 +400,22 @@ PgfDB::PgfDB(const char* filepath, int flags, int mode) {
     try {
         rwlock = ipc_new_file_rwlock(this->filepath, &is_first);
     } catch (pgf_systemerror e) {
+#ifndef _WIN32
+#ifndef MREMAP_MAYMOVE
+        if (fd < 0) {
+          ::free(ms);
+        } else
+#endif
+        munmap(ms,file_size);
+#else
+        if (fd < 0) {
+            ::free(ms);
+        } else {
+            UnmapViewOfFile(ms);
+            CloseHandle(hMap);
+        }
+#endif
+
         ::free((void *) this->filepath);
         close(fd);
         throw e;
@@ -405,6 +425,22 @@ PgfDB::PgfDB(const char* filepath, int flags, int mode) {
         init_state(file_size);
     } else {
         if (strncmp(ms->sign, slovo, sizeof(ms->sign)) != 0) {
+#ifndef _WIN32
+#ifndef MREMAP_MAYMOVE
+            if (fd < 0) {
+              ::free(ms);
+            } else
+#endif
+            munmap(ms,file_size);
+#else
+            if (fd < 0) {
+                ::free(ms);
+            } else {
+                UnmapViewOfFile(ms);
+                CloseHandle(hMap);
+            }
+#endif
+
             ::free((void *) this->filepath);
             close(fd);
             throw pgf_error("Invalid file content");

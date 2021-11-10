@@ -1,7 +1,6 @@
 #include <fcntl.h>
 #include <math.h>
 #include <errno.h>
-#include <io.h>
 
 #include "data.h"
 #include "reader.h"
