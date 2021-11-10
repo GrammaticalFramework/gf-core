@@ -33,7 +33,7 @@ library
   build-depends:
     integer-gmp,
     ghc-prim,
-    base >= 4.3 && < 4.16,
+    base >= 4.3 && <= 4.16.0.0,
     containers,
     pretty,
     array,
