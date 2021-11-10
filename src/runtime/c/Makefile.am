@@ -28,8 +28,7 @@ libpgf_la_SOURCES = \
 	pgf/namespace.h
 
 libpgf_la_LDFLAGS = -no-undefined
-# libpgf_la_LIBADD = -lrt
-libpgf_la_CXXFLAGS = -fno-rtti -std=c++11
+libpgf_la_CXXFLAGS = -fno-rtti -std=c++11 -DCOMPILING_PGF
 
 bin_PROGRAMS =
 
