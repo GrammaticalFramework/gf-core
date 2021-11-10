@@ -24,8 +24,6 @@ size_t getpagesize()
 #define ftruncate _chsize
 #endif
 
-#include "ipc.h"
-
 PGF_INTERNAL __thread unsigned char* current_base __attribute__((tls_model("initial-exec"))) = NULL;
 PGF_INTERNAL __thread PgfDB* current_db __attribute__((tls_model("initial-exec"))) = NULL;
 PGF_INTERNAL __thread DB_scope *last_db_scope __attribute__((tls_model("initial-exec"))) = NULL;
@@ -1254,8 +1252,8 @@ void PgfDB::sync()
 DB_scope::DB_scope(PgfDB *db, DB_scope_mode m)
 {
     int res =
-        (m == READER_SCOPE) ? pthread_rwlock_rdlock(db->rwlock)
-                            : pthread_rwlock_wrlock(db->rwlock);
+        (m == READER_SCOPE) ? ipc_rwlock_rdlock(db->rwlock)
+                            : ipc_rwlock_wrlock(db->rwlock);
     if (res != 0)
         throw pgf_systemerror(res);
 
@@ -1271,7 +1269,7 @@ DB_scope::~DB_scope()
 {
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wterminate"
-    pthread_rwlock_unlock(current_db->rwlock);
+    ipc_rwlock_unlock(current_db->rwlock);
 
     current_db    = save_db;
     current_base  = current_db ? (unsigned char*) current_db->ms

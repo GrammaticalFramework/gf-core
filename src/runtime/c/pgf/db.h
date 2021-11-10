@@ -54,13 +54,15 @@ public:
     }
 };
 
+#include "ipc.h"
+
 class PgfDB {
 private:
     int fd;
     const char *filepath;
     malloc_state* ms;
 
-    pthread_rwlock_t *rwlock;
+    ipc_rwlock_t *rwlock;
 
 #ifdef _WIN32
     HANDLE hMap;

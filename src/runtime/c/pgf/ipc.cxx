@@ -107,8 +107,8 @@ next:
 }
 
 PGF_INTERNAL
-pthread_rwlock_t *ipc_new_file_rwlock(const char* file_path,
-                                      bool *is_first)
+ipc_rwlock_t *ipc_new_file_rwlock(const char* file_path,
+                                  bool *is_first)
 {
     if (file_path == NULL) {
         *is_first = true;
@@ -258,7 +258,7 @@ pthread_rwlock_t *ipc_new_file_rwlock(const char* file_path,
 
 PGF_INTERNAL
 void ipc_release_file_rwlock(const char* file_path,
-                             pthread_rwlock_t *rwlock)
+                             ipc_rwlock_t *rwlock)
 {
     if (file_path == NULL) {
         pthread_rwlock_destroy(rwlock);
@@ -323,16 +323,34 @@ void ipc_release_file_rwlock(const char* file_path,
     pthread_mutex_unlock(&locks->mutex);
 }
 #else
-PGF_INTERNAL_DECL
-pthread_rwlock_t *ipc_new_file_rwlock(const char* file_path,
-                                      bool *is_first)
+PGF_INTERNAL
+int ipc_rwlock_rdlock(ipc_rwlock_t *rwlock)
+{
+    return 0;
+}
+
+PGF_INTERNAL
+int ipc_rwlock_wrlock(ipc_rwlock_t *rwlock)
+{
+    return 0;
+}
+
+PGF_INTERNAL
+int ipc_rwlock_unlock(ipc_rwlock_t *rwlock)
+{
+    return 0;
+}
+
+PGF_INTERNAL
+ipc_rwlock_t *ipc_new_file_rwlock(const char* file_path,
+                                  bool *is_first)
 {
     return NULL;
 }
 
-PGF_INTERNAL_DECL
+PGF_INTERNAL
 void ipc_release_file_rwlock(const char* file_path,
-                             pthread_rwlock_t *rwlock)
+                             ipc_rwlock_t *rwlock)
 {
 }
 #endif
