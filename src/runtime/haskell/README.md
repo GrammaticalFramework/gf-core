@@ -5,20 +5,36 @@ This is a Haskell binding to the PGF runtime written in C.
 The exposed modules are:
 
 - `PGF2`: a user API similar to Python and Java APIs
-- `PGF2.Internal`: an internal module with FFI definitions for the relevant C functions
+- `PGF2.Transactions`: an interface for modifying an existing grammar at runtime
 
 ## How to compile
 
 **Important:** You must have the C runtime already installed and available on your system.
 See <https://github.com/GrammaticalFramework/gf-core/blob/master/src/runtime/c/INSTALL>
 
-Once the runtine is installed, you can install the library to your global Cabal installation:
+Once the runtime is installed, you can install this binding with Cabal:
 
 ```
 cabal install pgf2 --extra-lib-dirs=/usr/local/lib
 ```
 
-or add it to your `stack.yaml` file:
+The option extra-lib-dirs is needed if you have installed the C runtime
+in the default folder /usr/local/lib on Linux. If you instead have
+configured the C runtime with:
+
+```
+./configure --prefix=/usr
+```
+
+on Linux, or as:
+
+```
+./configure --prefix=<your GHC root directory>/mingw
+```
+
+on Windows, then you don't need the extra-lib-dirs option here.
+
+You can also add the binding to your `stack.yaml` file:
 
 ```yaml
 extra-deps:

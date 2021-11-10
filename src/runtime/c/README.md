@@ -44,12 +44,26 @@ autoreconf -i
 make
 make install
 ```
-The shared libraries are installed in `/usr/local/lib`.
+The shared libraries are installed in `/usr/local/lib`. You can instead use:
 
 ## Using
 
 - Compiling GF with this runtime will require flag `--extra-lib-dirs=/usr/local/lib`.
 - Running GF with this runtime will require environment variable `LD_LIBRARY_PATH=/usr/local/lib`
+
+This can be avoided by configuring the C runtime with:
+
+```
+./configure --prefix=/usr
+```
+
+On Windows, the easiest way to let GHC know about the library is to use:
+
+```
+./configure --prefix=<GHC-root-directory>/mingw
+```
+
+after that move libpgf-0.dll from `<GHC-root-directory>/mingw/bin` to `<GHC-root-directory>/bin`.
 
 ## Uninstalling
 
