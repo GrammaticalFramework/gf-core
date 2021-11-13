@@ -33,6 +33,15 @@ libtool
 pacman -Syu
 pacman -S --needed base-devel mingw-w64-x86_64-toolchain mingw-w64-x86_64-libtool
 ```
+By default the runtime compiled with MinGW will depend on libgcc_s_seh-1.dll,
+libstdc++-6.dll and libwinpthread-1.dll which are non-standard on Windows. Although
+the compiler can in principle link those statically, there is a bug in libtool which
+prevents us from using that option. The workaround is to hack your installation by doing:
+```
+mv /mingw64/lib/gcc/x86_64-w64-mingw32/10.3.0/libgcc_eh.a /mingw64/lib/gcc/x86_64-w64-mingw32/10.3.0/libgcc_s.a
+rm /mingw64/lib/gcc/x86_64-w64-mingw32/10.3.0/libstdc++.dll.a
+rm /mingw64/x86_64-w64-mingw32/lib/libpthread.dll.a
+```
 
 ## Installation
 
