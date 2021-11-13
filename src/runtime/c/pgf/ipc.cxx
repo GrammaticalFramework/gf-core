@@ -1,11 +1,13 @@
 //#define DEBUG_IPC
 
+#ifndef _WIN32
 #ifdef DEBUG_IPC
 #include <stdio.h>
 #include <stdint.h>
 #include <stdlib.h>
 #include <string.h>
 #define PGF_INTERNAL static
+
 void ipc_error() {
     perror(NULL);
     exit(1);
@@ -20,7 +22,6 @@ void ipc_toomany() {
 #define ipc_toomany() throw pgf_error("Too many open grammars")
 #endif
 
-#ifndef _WIN32
 #include <sys/stat.h>
 #include <sys/mman.h>
 #include <fcntl.h>
@@ -107,8 +108,8 @@ next:
 }
 
 PGF_INTERNAL
-ipc_rwlock_t *ipc_new_file_rwlock(const char* file_path,
-                                  bool *is_first)
+pthread_rwlock_t *ipc_new_file_rwlock(const char* file_path,
+                                      bool *is_first)
 {
     if (file_path == NULL) {
         *is_first = true;
@@ -258,7 +259,7 @@ ipc_rwlock_t *ipc_new_file_rwlock(const char* file_path,
 
 PGF_INTERNAL
 void ipc_release_file_rwlock(const char* file_path,
-                             ipc_rwlock_t *rwlock)
+                             pthread_rwlock_t *rwlock)
 {
     if (file_path == NULL) {
         pthread_rwlock_destroy(rwlock);
@@ -322,38 +323,6 @@ void ipc_release_file_rwlock(const char* file_path,
 
     pthread_mutex_unlock(&locks->mutex);
 }
-#else
-PGF_INTERNAL
-int ipc_rwlock_rdlock(ipc_rwlock_t *rwlock)
-{
-    return 0;
-}
-
-PGF_INTERNAL
-int ipc_rwlock_wrlock(ipc_rwlock_t *rwlock)
-{
-    return 0;
-}
-
-PGF_INTERNAL
-int ipc_rwlock_unlock(ipc_rwlock_t *rwlock)
-{
-    return 0;
-}
-
-PGF_INTERNAL
-ipc_rwlock_t *ipc_new_file_rwlock(const char* file_path,
-                                  bool *is_first)
-{
-    return NULL;
-}
-
-PGF_INTERNAL
-void ipc_release_file_rwlock(const char* file_path,
-                             ipc_rwlock_t *rwlock)
-{
-}
-#endif
 
 #ifdef DEBUG_IPC
 int main(int argc, char *argv[])
@@ -364,12 +333,13 @@ int main(int argc, char *argv[])
         return 1;
     }
 
-    pthread_rwlock_t *rwlock = ipc_new_file_rwlock(argv[2]);
+    bool is_first;
+    ipc_rwlock_t *rwlock = ipc_new_file_rwlock(argv[2], &is_first);
 
     if (strcmp(argv[1],"r") == 0) {
-        pthread_rwlock_rdlock(rwlock);
+        ipc_rwlock_rdlock(rwlock);
     } else if (strcmp(argv[1],"w") == 0) {
-        pthread_rwlock_wrlock(rwlock);
+        ipc_rwlock_wrlock(rwlock);
     }
 
     fputs("> ", stdout);
@@ -378,10 +348,11 @@ int main(int argc, char *argv[])
     char buf[16];
     read(0, buf, sizeof(buf));
 
-    pthread_rwlock_unlock(rwlock);
+    ipc_rwlock_unlock(rwlock);
 
     ipc_release_file_rwlock(argv[2], rwlock);
 
     return 0;
 }
+#endif
 #endif

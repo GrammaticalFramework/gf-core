@@ -54,7 +54,11 @@ public:
     }
 };
 
+#ifndef _WIN32
 #include "ipc.h"
+#endif
+
+enum DB_scope_mode {READER_SCOPE, WRITER_SCOPE};
 
 class PgfDB {
 private:
@@ -62,10 +66,11 @@ private:
     const char *filepath;
     malloc_state* ms;
 
-    ipc_rwlock_t *rwlock;
-
-#ifdef _WIN32
+#ifndef _WIN32
+    pthread_rwlock_t *rwlock;
+#else
     HANDLE hMap;
+    HANDLE hRWEvent;
 #endif
 
     friend class PgfReader;
@@ -109,10 +114,11 @@ private:
     PGF_INTERNAL_DECL object malloc_internal(size_t bytes);
     PGF_INTERNAL_DECL void free_internal(object o);
 
+    void lock(DB_scope_mode m);
+    void unlock();
+
     friend class DB_scope;
 };
-
-enum DB_scope_mode {READER_SCOPE, WRITER_SCOPE};
 
 class PGF_INTERNAL_DECL DB_scope {
 public:

@@ -22,6 +22,21 @@ size_t getpagesize()
 }
 
 #define ftruncate _chsize
+
+static
+int last_error_to_errno()
+{
+    switch (GetLastError()) {
+    case ERROR_SUCCESS:
+        return 0;
+    case ERROR_OUTOFMEMORY:
+        return ENOMEM;
+    case ERROR_HANDLE_DISK_FULL:
+        return ENOSPC;
+    default:
+        return EINVAL;
+    }
+}
 #endif
 
 PGF_INTERNAL __thread unsigned char* current_base __attribute__((tls_model("initial-exec"))) = NULL;
@@ -300,6 +315,11 @@ struct PGF_INTERNAL_DECL malloc_state
      */
     ref<PgfPGF>   transient_revisions;
     ref<PgfConcr> transient_concr_revisions;
+
+#ifdef _WIN32
+    /* Stores a Reader/Writer lock for Windows */
+    LONG lock;
+#endif
 };
 
 PGF_INTERNAL
@@ -342,29 +362,62 @@ PgfDB::PgfDB(const char* filepath, int flags, int mode) {
         this->filepath = strdup(filepath);
     }
 
+    int code = 0;
 #ifndef _WIN32
 #ifndef MREMAP_MAYMOVE
     if (fd >= 0) {
         ms = (malloc_state*)
             mmap(NULL, file_size, PROT_READ | PROT_WRITE, MAP_SHARED, fd, 0);
+        code = errno;
     } else {
         ms = (malloc_state*) ::malloc(file_size);
+        code = ENOMEM;
     }
 #else
     int mflags = (fd < 0) ? (MAP_PRIVATE | MAP_ANONYMOUS) : MAP_SHARED;
     ms = (malloc_state*)
         mmap(NULL, file_size, PROT_READ | PROT_WRITE, mflags, fd, 0);
+    code = errno;
 #endif
-
     if (ms == MAP_FAILED || ms == NULL) {
         ms = NULL; // mark that ms is not created.
         ::free((void *) this->filepath);
-        int code = errno;
         close(fd);
         throw pgf_systemerror(code, filepath);
     }
+
+    try {
+        rwlock = ipc_new_file_rwlock(this->filepath, &is_first);
+    } catch (pgf_systemerror e) {
+#ifndef MREMAP_MAYMOVE
+        if (fd < 0) {
+          ::free(ms);
+        } else
+#endif
+        munmap(ms,file_size);
+
+        ::free((void *) this->filepath);
+        close(fd);
+        throw e;
+    }
 #else
+    char *name;
+    char buf[256];
+
     if (fd >= 0) {
+        BY_HANDLE_FILE_INFORMATION hInfo;
+        if (!GetFileInformationByHandle((HANDLE) _get_osfhandle(fd), &hInfo)) {
+            code = last_error_to_errno();
+            ::free((void *) this->filepath);
+            close(fd);
+            throw pgf_systemerror(code);
+        }
+        sprintf(buf, "gf-rwevent-%lx-%lx-%lx",
+                     hInfo.dwVolumeSerialNumber,
+                     hInfo.nFileIndexHigh,
+                     hInfo.nFileIndexLow);
+        name = buf;
+
         hMap = CreateFileMapping((HANDLE) _get_osfhandle(fd),
                                  NULL,
                                  PAGE_READWRITE,
@@ -375,49 +428,41 @@ PgfDB::PgfDB(const char* filepath, int flags, int mode) {
                                                FILE_MAP_WRITE,
                                                0,0,file_size);
             if (ms == NULL) {
+                code = last_error_to_errno();
                 CloseHandle(hMap);
                 hMap = INVALID_HANDLE_VALUE;
             }
         } else {
+            code = last_error_to_errno();
             hMap = INVALID_HANDLE_VALUE;
             ms   = NULL;
         }
     } else {
+        code = ENOMEM;
+        name = NULL;
         hMap = INVALID_HANDLE_VALUE;
         ms   = (malloc_state*) ::malloc(file_size);
     }
 
     if (ms == NULL) {
         ::free((void *) this->filepath);
-        int code = errno;
         close(fd);
         throw pgf_systemerror(code, filepath);
     }
-#endif
 
-    try {
-        rwlock = ipc_new_file_rwlock(this->filepath, &is_first);
-    } catch (pgf_systemerror e) {
-#ifndef _WIN32
-#ifndef MREMAP_MAYMOVE
-        if (fd < 0) {
-          ::free(ms);
-        } else
-#endif
-        munmap(ms,file_size);
-#else
+    hRWEvent = CreateEvent(NULL, FALSE, FALSE, name);
+    if (hRWEvent == NULL) {
         if (fd < 0) {
             ::free(ms);
         } else {
             UnmapViewOfFile(ms);
             CloseHandle(hMap);
         }
-#endif
-
         ::free((void *) this->filepath);
         close(fd);
-        throw e;
+        throw pgf_systemerror(code, filepath);
     }
+#endif
 
     if (is_new) {
         init_state(file_size);
@@ -437,6 +482,7 @@ PgfDB::PgfDB(const char* filepath, int flags, int mode) {
                 UnmapViewOfFile(ms);
                 CloseHandle(hMap);
             }
+            CloseHandle(hRWEvent);
 #endif
 
             ::free((void *) this->filepath);
@@ -493,13 +539,16 @@ PgfDB::~PgfDB() {
             UnmapViewOfFile(ms);
             CloseHandle(hMap);
         }
+        CloseHandle(hRWEvent);
 #endif
     }
 
     if (fd >= 0)
         close(fd);
 
+#ifndef _WIN32
     ipc_release_file_rwlock(filepath, rwlock);
+#endif
 
     ::free((void*) filepath);
 }
@@ -550,6 +599,10 @@ void PgfDB::init_state(size_t size)
     ms->revisions = 0;
     ms->transient_revisions = 0;
     ms->transient_concr_revisions = 0;
+
+#if _WIN32
+    ms->lock = 0;
+#endif
 }
 
 /* Take a chunk off a bin list.  */
@@ -1005,30 +1058,61 @@ object PgfDB::malloc_internal(size_t bytes)
             size_t new_size =
                 old_size + alloc_size;
 
-            if (fd >= 0) {
-                if (ftruncate(fd, new_size) < 0)
-                    throw pgf_systemerror(errno, filepath);
-            }
-
             malloc_state* new_ms;
 #ifndef _WIN32
-// OSX mman and mman-win32 do not implement mremap or MREMAP_MAYMOVE
+// OSX do not implement mremap or MREMAP_MAYMOVE
 #ifndef MREMAP_MAYMOVE
             if (fd >= 0) {
                 if (munmap(ms, old_size) == -1)
                     throw pgf_systemerror(errno);
+                ms = NULL;
+                if (ftruncate(fd, new_size) < 0)
+                    throw pgf_systemerror(errno, filepath);
                 new_ms =
                     (malloc_state*) mmap(0, new_size, PROT_READ | PROT_WRITE, MAP_SHARED, fd, 0);
+                if (new_ms == MAP_FAILED)
+                    throw pgf_systemerror(errno);
             } else {
                 new_ms = (malloc_state*) realloc(ms, new_size);
+                if (new_ms == NULL)
+                    throw pgf_systemerror(ENOMEM);
             }
 #else
+            if (fd >= 0) {
+                if (ftruncate(fd, new_size) < 0)
+                    throw pgf_systemerror(errno, filepath);
+            }
             new_ms =
                 (malloc_state*) mremap(ms, old_size, new_size, MREMAP_MAYMOVE);
-#endif
             if (new_ms == MAP_FAILED)
                 throw pgf_systemerror(errno);
+#endif
 #else
+            if (fd >= 0) {
+                UnmapViewOfFile(ms);
+                CloseHandle(hMap);
+                ms = NULL;
+
+                hMap = CreateFileMapping((HANDLE) _get_osfhandle(fd),
+                                         NULL,
+                                         PAGE_READWRITE,
+                                         HIWORD(new_size), LOWORD(new_size),
+                                         NULL);
+                if (hMap == NULL) {
+                    hMap = INVALID_HANDLE_VALUE;
+                    throw pgf_systemerror(last_error_to_errno());
+                }
+
+                new_ms = (malloc_state*) MapViewOfFile(hMap,
+                                                       FILE_MAP_WRITE,
+                                                       0,0,new_size);
+                if (new_ms == NULL)
+                    throw pgf_systemerror(last_error_to_errno());
+            } else {
+                new_ms = (malloc_state*) realloc(ms, new_size);
+                if (new_ms == NULL)
+                    throw pgf_systemerror(ENOMEM);
+            }
 #endif
 
             ms = new_ms;
@@ -1246,16 +1330,142 @@ void PgfDB::sync()
     if (res != 0)
         throw pgf_systemerror(errno);
 #else
+    if (current_db->fd > 0) {
+        if (!FlushViewOfFile(ms,size)) {
+            throw pgf_systemerror(last_error_to_errno());
+        }
+    }
+#endif
+}
+
+#ifdef _WIN32
+#define MAX_SPIN 50000
+
+__forceinline __int16 ReaderCount(unsigned __int32 lock)
+{
+	return lock & 0x00007FFF;
+}
+
+__forceinline __int32 SetReaders(unsigned __int32 lock, unsigned __int16 readers)
+{
+	return (lock & ~0x00007FFF) | readers;
+}
+
+__forceinline __int16 WaitingCount(unsigned __int32 lock)
+{
+	return (__int16) ((lock & 0x3FFF8000) >> 15);
+}
+
+__forceinline __int32 SetWaiting(unsigned __int32 lock, unsigned __int16 waiting)
+{
+	return (lock & ~0x3FFF8000) | (waiting << 15);
+}
+
+__forceinline bool Writer(unsigned __int32 lock)
+{
+	return (lock & 0x40000000) != 0;
+}
+
+__forceinline __int32 SetWriter(unsigned __int32 lock, bool writer)
+{
+	if(writer)
+		return lock | 0x40000000;
+	else
+		return lock & ~0x40000000;
+}
+
+__forceinline bool AllClear(unsigned __int32 lock)
+{
+	return (lock & 0x40007FFF) == 0;
+}
+#endif
+
+void PgfDB::lock(DB_scope_mode m)
+{
+#ifndef _WIN32
+    int res =
+        (m == READER_SCOPE) ? pthread_rwlock_rdlock(rwlock)
+                            : pthread_rwlock_wrlock(rwlock);
+    if (res != 0)
+        throw pgf_systemerror(res);
+#else
+    for (int i = 0; ; ++i) {
+        unsigned __int32 temp = ms->lock;
+        if (m == READER_SCOPE && !Writer(temp)) {
+            if (InterlockedCompareExchange(&ms->lock, SetReaders(temp, ReaderCount(temp) + 1), temp) == temp)
+                return;
+            else
+                continue;
+        } else if (m == WRITER_SCOPE && AllClear(temp)) {
+            if (InterlockedCompareExchange(&ms->lock, SetWriter(temp, true), temp) == temp)
+                return;
+            else
+                continue;
+        } else {
+            if (i < MAX_SPIN) {
+                YieldProcessor();
+                continue;
+            }
+
+            //The pending write operation is taking too long, so we'll drop to the kernel and wait
+            if (InterlockedCompareExchange(&ms->lock, SetWaiting(temp, WaitingCount(temp) + 1), temp) != temp)
+                continue;
+
+            i = 0; //Reset the spincount for the next time
+            WaitForSingleObject(hRWEvent, INFINITE);
+
+            do
+            {
+                temp = ms->lock;
+            } while (InterlockedCompareExchange(&ms->lock, SetWaiting(temp, WaitingCount(temp) - 1), temp) != temp);
+        }
+    }
+#endif
+}
+
+void PgfDB::unlock()
+{
+#ifndef _WIN32
+    pthread_rwlock_unlock(rwlock);
+#else
+    while (true) {
+        unsigned __int32 temp = ms->lock;
+        if (ReaderCount(temp) > 0) {
+            if (ReaderCount(temp) == 1 && WaitingCount(temp) != 0) {
+                //Note: this isn't nor has to be thread-safe, as the worst a duplicate notification can do
+                //is cause a waiting to reader to wake, perform a spinlock, then go back to sleep
+
+                //We're the last reader and there's a pending write
+                //Wake one waiting writer
+                SetEvent(hRWEvent);
+            }
+
+            //Decrement reader count
+            if (InterlockedCompareExchange(&ms->lock, SetReaders(temp, ReaderCount(temp) - 1), temp) == temp)
+                break;
+        } else {
+            while(true) {
+                temp = ms->lock;
+                assert(Writer(temp));
+                if (WaitingCount(temp) == 0)
+                    break;
+
+                //Note: this is thread-safe (there's guaranteed not to be another EndWrite simultaneously)
+                //Wake all waiting readers or writers, loop until wake confirmation is received
+                SetEvent(hRWEvent);
+            }
+
+            //Decrement writer count
+            if (InterlockedCompareExchange(&ms->lock, SetWriter(temp, false), temp) == temp)
+                break;
+        }
+    }
 #endif
 }
 
 DB_scope::DB_scope(PgfDB *db, DB_scope_mode m)
 {
-    int res =
-        (m == READER_SCOPE) ? ipc_rwlock_rdlock(db->rwlock)
-                            : ipc_rwlock_wrlock(db->rwlock);
-    if (res != 0)
-        throw pgf_systemerror(res);
+    db->lock(m);
 
     save_db       = current_db;
     current_db    = db;
@@ -1269,7 +1479,7 @@ DB_scope::~DB_scope()
 {
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wterminate"
-    ipc_rwlock_unlock(current_db->rwlock);
+    current_db->unlock();
 
     current_db    = save_db;
     current_base  = current_db ? (unsigned char*) current_db->ms
