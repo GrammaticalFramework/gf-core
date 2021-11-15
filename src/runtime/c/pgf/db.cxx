@@ -22,9 +22,6 @@ size_t getpagesize()
 }
 
 #define ftruncate _chsize
-
-typedef DWORD pid_t;
-
 #define getpid GetCurrentProcessId
 
 static
@@ -291,7 +288,11 @@ typedef struct mchunk mbin;
 static char slovo[5] = {'S','L','O','V','O'};
 
 typedef struct {
+#ifndef _WIN32
     pid_t pid;
+#else
+    DWORD pid;
+#endif
     object next;
 } process_entry;
 
@@ -609,7 +610,7 @@ void PgfDB::register_process(bool *is_first)
 PGF_INTERNAL
 void PgfDB::unregister_process()
 {
-    pid_t pid = getpid();
+    auto pid = getpid();
     process_entry *pentry = &ms->p;
     object *plast = NULL;
 
