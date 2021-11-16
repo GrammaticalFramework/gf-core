@@ -249,3 +249,11 @@ jobs:
         ./configure
         make
         make install
+
+    - name: Upload artifact
+      uses: actions/upload-artifact@master
+      with:
+        name: libpgf-windows
+        path: |
+          $RUNNER_TEMP/mingw64/lib/libpgf*
+          $RUNNER_TEMP/mingw64/include/pgf
