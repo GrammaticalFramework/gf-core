@@ -244,4 +244,7 @@ jobs:
     - name: Build runtime
       shell: msys2 {0}
       run: |
-        uname -a
+        autoreconf -i
+        ./configure
+        make
+        sudo make install
