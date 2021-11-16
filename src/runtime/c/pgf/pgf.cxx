@@ -1,8 +1,8 @@
 #include <fcntl.h>
 #include <math.h>
 #include <errno.h>
-#ifdef WIN32
-#include <io.h>
+#ifdef _WIN32
+#include <sys\stat.h>
 #endif
 
 #include "data.h"
