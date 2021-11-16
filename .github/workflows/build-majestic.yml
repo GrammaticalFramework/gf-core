@@ -258,5 +258,6 @@ jobs:
           ${{runner.temp}}/msys64/mingw64/bin/libpgf*
           ${{runner.temp}}/msys64/mingw64/bin/libgcc_s_seh-1.dll
           ${{runner.temp}}/msys64/mingw64/bin/libstdc++-6.dll
+          ${{runner.temp}}/msys64/mingw64/bin/libwinpthread-1.dll
           ${{runner.temp}}/msys64/mingw64/lib/libpgf*
           ${{runner.temp}}/msys64/mingw64/include/pgf
