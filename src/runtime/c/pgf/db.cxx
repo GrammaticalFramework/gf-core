@@ -685,17 +685,18 @@ void PgfDB::init_state(size_t size)
     ms->transient_concr_revisions = 0;
 
 #ifndef _WIN32
+    int code;
     pthread_rwlockattr_t attr;
-    if (pthread_rwlockattr_init(&attr) != 0) {
-        throw pgf_systemerror(errno);
+    if ((code = pthread_rwlockattr_init(&attr)) != 0) {
+        throw pgf_systemerror(code);
     }
-    if (pthread_rwlockattr_setpshared(&attr, PTHREAD_PROCESS_SHARED) != 0) {
+    if ((code = pthread_rwlockattr_setpshared(&attr, PTHREAD_PROCESS_SHARED)) != 0) {
         pthread_rwlockattr_destroy(&attr);
-        throw pgf_systemerror(errno);
+        throw pgf_systemerror(code);
     }
-    if (pthread_rwlock_init(&ms->rwlock, &attr) != 0) {
+    if ((code = pthread_rwlock_init(&ms->rwlock, &attr)) != 0) {
         pthread_rwlockattr_destroy(&attr);
-        throw pgf_systemerror(errno);
+        throw pgf_systemerror(code);
     }
     pthread_rwlockattr_destroy(&attr);
 #else
