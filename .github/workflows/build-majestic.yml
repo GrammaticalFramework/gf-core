@@ -255,5 +255,5 @@ jobs:
       with:
         name: libpgf-windows
         path: |
-          $RUNNER_TEMP/mingw64/lib/libpgf*
-          $RUNNER_TEMP/mingw64/include/pgf
+          %RUNNER_TEMP%/mingw64/lib/libpgf*
+          %RUNNER_TEMP%/mingw64/include/pgf
