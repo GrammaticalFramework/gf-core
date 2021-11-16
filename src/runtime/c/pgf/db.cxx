@@ -696,6 +696,7 @@ void PgfDB::init_state(size_t size)
             throw pgf_systemerror(code);
         }
     }
+    memset(&ms->rwlock, 0, sizeof(ms->rwlock));
     if ((code = pthread_rwlock_init(&ms->rwlock, &attr)) != 0) {
         pthread_rwlockattr_destroy(&attr);
         throw pgf_systemerror(code);
