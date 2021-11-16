@@ -429,10 +429,72 @@ PGF_API_DECL
 void pgf_drop_lincat(PgfDB *db, PgfConcrRevision revision,
                      PgfText *name, PgfExn *err);
 
+#ifdef __cplusplus
+struct PgfLinBuilderIface {
+    virtual void start_production(PgfExn *err)=0;
+    virtual void add_argument(size_t i0, size_t n_terms, size_t *terms, PgfExn *err)=0;
+    virtual void set_result(size_t i0, size_t n_terms, size_t *terms, PgfExn *err)=0;
+    virtual void start_sequence(size_t n_syms, PgfExn *err)=0;
+    virtual void add_symcat(size_t d, size_t i0, size_t n_terms, size_t *terms, PgfExn *err)=0;
+    virtual void add_symlit(size_t d, size_t i0, size_t n_terms, size_t *terms, PgfExn *err)=0;
+    virtual void add_symvar(size_t d, size_t r, PgfExn *err)=0;
+    virtual void add_symks(PgfText *token, PgfExn *err)=0;
+    virtual void add_symbind(PgfExn *err)=0;
+    virtual void add_symsoftbind(PgfExn *err)=0;
+    virtual void add_symne(PgfExn *err)=0;
+    virtual void add_symsoftspace(PgfExn *err)=0;
+    virtual void add_symcapit(PgfExn *err)=0;
+    virtual void add_symallcapit(PgfExn *err)=0;
+    virtual void end_sequence(PgfExn *err)=0;
+    virtual void end_production(PgfExn *err)=0;
+};
+
+struct PgfBuildLinIface {
+    virtual void build(PgfLinBuilderIface *builder, PgfExn *err)=0;
+};
+#else
+typedef struct PgfLinBuilderIface PgfLinBuilderIface;
+
+typedef struct {
+    void (*start_production)(PgfLinBuilderIface *this, PgfExn *err);
+    void (*add_argument)(PgfLinBuilderIface *this, size_t i0, size_t n_terms, size_t *terms, PgfExn *err);
+    void (*set_result)(PgfLinBuilderIface *this, size_t i0, size_t n_terms, size_t *terms, PgfExn *err);
+    void (*start_sequence)(PgfLinBuilderIface *this, size_t n_syms, PgfExn *err);
+    void (*add_symcat)(PgfLinBuilderIface *this, size_t d, size_t i0, size_t n_terms, size_t *terms, PgfExn *err);
+    void (*add_symlit)(PgfLinBuilderIface *this, size_t d, size_t i0, size_t n_terms, size_t *terms, PgfExn *err);
+    void (*add_symvar)(PgfLinBuilderIface *this, size_t d, size_t r, PgfExn *err);
+    void (*add_symks)(PgfLinBuilderIface *this, PgfText *token, PgfExn *err);
+    void (*add_symbind)(PgfLinBuilderIface *this, PgfExn *err);
+    void (*add_symsoftbind)(PgfLinBuilderIface *this, PgfExn *err);
+    void (*add_symne)(PgfLinBuilderIface *this, PgfExn *err);
+    void (*add_symsoftspace)(PgfLinBuilderIface *this, PgfExn *err);
+    void (*add_symcapit)(PgfLinBuilderIface *this, PgfExn *err);
+    void (*add_symallcapit)(PgfLinBuilderIface *this, PgfExn *err);
+    void (*end_sequence)(PgfLinBuilderIface *this, PgfExn *err);
+    void (*end_production)(PgfLinBuilderIface *this, PgfExn *err);
+} PgfLinBuilderIfaceVtbl;
+
+struct PgfLinBuilderIface {
+    PgfLinBuilderIfaceVtbl *vtbl;
+};
+
+typedef struct PgfBuildLinIface PgfBuildLinIface;
+
+typedef struct {
+    void (*build)(PgfBuildLinIface *this, PgfLinBuilderIface *builder, PgfExn *err);
+} PgfBuildLinIfaceVtbl;
+
+struct PgfBuildLinIface {
+    PgfBuildLinIfaceVtbl *vtbl;
+};
+#endif
+
 PGF_API_DECL
 void pgf_create_lin(PgfDB *db,
                     PgfRevision revision, PgfConcrRevision cnc_revision,
-                    PgfText *name, size_t n_prods, PgfExn *err);
+                    PgfText *name, size_t n_prods,
+                    PgfBuildLinIface *build,
+                    PgfExn *err);
 
 PGF_API_DECL
 void pgf_drop_lin(PgfDB *db, PgfConcrRevision revision,

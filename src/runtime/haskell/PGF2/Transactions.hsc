@@ -31,6 +31,7 @@ import PGF2.Expr
 
 import Foreign
 import Foreign.C
+import Control.Monad
 import Control.Exception
 
 #include <pgf/pgf.h>
@@ -224,9 +225,79 @@ dropLincat name = Transaction $ \c_db _ c_revision c_exn ->
     pgf_drop_lincat c_db c_revision c_name c_exn
 
 createLin :: Fun -> [Production] -> Transaction Concr ()
-createLin name rules = Transaction $ \c_db c_abstr c_revision c_exn ->
+createLin name prods = Transaction $ \c_db c_abstr c_revision c_exn ->
   withText name $ \c_name ->
-    pgf_create_lin c_db c_abstr c_revision c_name (fromIntegral (length rules)) c_exn
+  allocaBytes (#size PgfBuildLinIface) $ \c_build ->
+  allocaBytes (#size PgfBuildLinIfaceVtbl) $ \vtbl ->
+  bracket (wrapLinBuild build) freeHaskellFunPtr $ \c_callback -> do
+    (#poke PgfBuildLinIface, vtbl) c_build vtbl
+    (#poke PgfBuildLinIfaceVtbl, build) vtbl c_callback
+    pgf_create_lin c_db c_abstr c_revision c_name (fromIntegral (length prods)) c_build c_exn
+  where
+    build _ c_builder c_exn = do
+      vtbl <- (#peek PgfLinBuilderIface, vtbl) c_builder
+      forM_ prods $ \(Production args res seqs) -> do
+        fun <- (#peek PgfLinBuilderIfaceVtbl, start_production) vtbl
+        callLinBuilder0 fun c_builder c_exn
+        fun <- (#peek PgfLinBuilderIfaceVtbl, add_argument) vtbl
+        forM_ args $ \(PArg _ param) ->
+          callLParam (callLinBuilder3 fun c_builder) param c_exn
+        fun <- (#peek PgfLinBuilderIfaceVtbl, set_result) vtbl  
+        callLParam (callLinBuilder3 fun c_builder) res c_exn
+        forM_ seqs $ \syms -> do
+          fun <- (#peek PgfLinBuilderIfaceVtbl, start_sequence) vtbl
+          callLinBuilder1 fun c_builder (fromIntegral (length syms)) c_exn
+          mapM_ (addSymbol c_builder vtbl c_exn) syms
+          fun <- (#peek PgfLinBuilderIfaceVtbl, end_sequence) vtbl
+          callLinBuilder0 fun c_builder c_exn
+        fun <- (#peek PgfLinBuilderIfaceVtbl, end_production) vtbl
+        callLinBuilder0 fun c_builder c_exn
+        return ()
+
+    addSymbol c_builder vtbl c_exn (SymCat d r) = do
+      fun <- (#peek PgfLinBuilderIfaceVtbl, add_symcat) vtbl
+      callLParam (callLinBuilder4 fun c_builder (fromIntegral d)) r c_exn
+    addSymbol c_builder vtbl c_exn (SymLit d r) = do
+      fun <- (#peek PgfLinBuilderIfaceVtbl, add_symlit) vtbl
+      callLParam (callLinBuilder4 fun c_builder (fromIntegral d)) r c_exn
+    addSymbol c_builder vtbl c_exn (SymVar d r) = do
+      fun <- (#peek PgfLinBuilderIfaceVtbl, add_symvar) vtbl
+      callLinBuilder2 fun c_builder (fromIntegral d) (fromIntegral r) c_exn
+    addSymbol c_builder vtbl c_exn (SymKS tok) = do
+      fun <- (#peek PgfLinBuilderIfaceVtbl, add_symvar) vtbl
+      withText tok $ \c_tok ->
+        callLinBuilder5 fun c_builder c_tok c_exn
+    addSymbol c_builder vtbl c_exn SymBIND = do
+      fun <- (#peek PgfLinBuilderIfaceVtbl, add_symbind) vtbl
+      callLinBuilder0 fun c_builder c_exn
+    addSymbol c_builder vtbl c_exn SymSOFT_BIND = do
+      fun <- (#peek PgfLinBuilderIfaceVtbl, add_symsoftbind) vtbl
+      callLinBuilder0 fun c_builder c_exn
+    addSymbol c_builder vtbl c_exn SymNE = do
+      fun <- (#peek PgfLinBuilderIfaceVtbl, add_symne) vtbl
+      callLinBuilder0 fun c_builder c_exn
+    addSymbol c_builder vtbl c_exn SymSOFT_SPACE = do
+      fun <- (#peek PgfLinBuilderIfaceVtbl, add_symsoftspace) vtbl
+      callLinBuilder0 fun c_builder c_exn
+    addSymbol c_builder vtbl c_exn SymCAPIT = do
+      fun <- (#peek PgfLinBuilderIfaceVtbl, add_symcapit) vtbl
+      callLinBuilder0 fun c_builder c_exn
+    addSymbol c_builder vtbl c_exn SymALL_CAPIT = do
+      fun <- (#peek PgfLinBuilderIfaceVtbl, add_symallcapit) vtbl
+      callLinBuilder0 fun c_builder c_exn
+
+    callLParam f (LParam i0 terms) c_exn =
+      allocaBytes ((#size size_t)*2*n_terms) $ \c_terms -> do
+        pokeTerms c_terms terms
+        f (fromIntegral i0) (fromIntegral n_terms) c_terms c_exn
+      where
+        n_terms = length terms
+
+        pokeTerms c_terms []                  = return ()
+        pokeTerms c_terms ((index,var):terms) = do
+          pokeElemOff c_terms 0 (fromIntegral index)
+          pokeElemOff c_terms 1 (fromIntegral var)
+          pokeTerms (c_terms `plusPtr` ((#size size_t) * 2)) terms
 
 dropLin :: Fun -> Transaction Concr ()
 dropLin name = Transaction $ \c_db _ c_revision c_exn ->

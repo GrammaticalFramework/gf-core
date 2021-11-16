@@ -970,6 +970,182 @@ void pgf_drop_concrete(PgfDB *db, PgfRevision revision,
     } PGF_API_END
 }
 
+class PGF_INTERNAL PgfLinBuilder : public PgfLinBuilderIface
+{
+    ref<PgfConcrLin> lin;
+    size_t arg_index;
+    size_t res_index;
+    size_t seq_index;
+    size_t sym_index;
+
+public:
+    PgfLinBuilder(ref<PgfConcrLin> lin) {
+        this->lin       = lin;
+        this->arg_index = 0;
+        this->res_index = 0;
+        this->seq_index = 0;
+        this->sym_index = 0;
+    }
+
+    void start_production(PgfExn *err)
+    {
+    }
+
+    void add_argument(size_t i0, size_t n_terms, size_t *terms, PgfExn *err)
+    {
+        ref<PgfLParam> param = PgfDB::malloc<PgfLParam>(n_terms*2*sizeof(size_t));
+        param->i0 = i0;
+        param->n_terms = n_terms;
+
+        for (size_t i = 0; i < n_terms; i++) {
+            param->terms[i].factor = terms[2*i];
+            param->terms[i].var    = terms[2*i+1];
+        }
+
+        ref<PgfPArg> parg = vector_elem(lin->args, arg_index);
+        parg->param = param;
+
+        arg_index++;
+    }
+
+    void set_result(size_t i0, size_t n_terms, size_t *terms, PgfExn *err)
+    {
+        ref<PgfLParam> param = PgfDB::malloc<PgfLParam>(n_terms*2*sizeof(size_t));
+        param->i0 = i0;
+        param->n_terms = n_terms;
+
+        for (size_t i = 0; i < n_terms; i++) {
+            param->terms[i].factor = terms[2*i];
+            param->terms[i].var    = terms[2*i+1];
+        }
+
+        *vector_elem(lin->res, res_index) = param;
+    }
+
+    void start_sequence(size_t n_syms, PgfExn *err)
+    {
+        *vector_elem(lin->seqs, seq_index) = vector_new<PgfSymbol>(n_syms);
+        sym_index = 0;
+    }
+
+    void add_symcat(size_t d, size_t i0, size_t n_terms, size_t *terms, PgfExn *err)
+    {
+        ref<PgfSymbolCat> symcat = PgfDB::malloc<PgfSymbolCat>(n_terms*2*sizeof(size_t));
+        symcat->d  = d;
+        symcat->r.i0 = i0;
+        symcat->r.n_terms = n_terms;
+
+        for (size_t i = 0; i < n_terms; i++) {
+            symcat->r.terms[i].factor = terms[2*i];
+            symcat->r.terms[i].var    = terms[2*i+1];
+        }
+
+        ref<Vector<PgfSymbol>> syms = *vector_elem(lin->seqs, seq_index);
+        *vector_elem(syms, sym_index) = ref<PgfSymbolCat>::tagged(symcat);
+
+        sym_index++;
+    }
+
+    void add_symlit(size_t d, size_t i0, size_t n_terms, size_t *terms, PgfExn *err)
+    {
+        ref<PgfSymbolLit> symlit = PgfDB::malloc<PgfSymbolLit>(n_terms*2*sizeof(size_t));
+        symlit->d  = d;
+        symlit->r.i0 = i0;
+        symlit->r.n_terms = n_terms;
+
+        for (size_t i = 0; i < n_terms; i++) {
+            symlit->r.terms[i].factor = terms[2*i];
+            symlit->r.terms[i].var    = terms[2*i+1];
+        }
+
+        ref<Vector<PgfSymbol>> syms = *vector_elem(lin->seqs, seq_index);
+        *vector_elem(syms, sym_index) = ref<PgfSymbolLit>::tagged(symlit);
+
+        sym_index++;
+    }
+
+    void add_symvar(size_t d, size_t r, PgfExn *err)
+    {
+        ref<PgfSymbolVar> symvar = PgfDB::malloc<PgfSymbolVar>();
+        symvar->d = d;
+        symvar->r = r;
+
+        ref<Vector<PgfSymbol>> syms = *vector_elem(lin->seqs, seq_index);
+        *vector_elem(syms, sym_index) = ref<PgfSymbolVar>::tagged(symvar);
+
+        sym_index++;
+    }
+
+    void add_symks(PgfText *token, PgfExn *err)
+    {
+        ref<PgfSymbolKS> symtok = PgfDB::malloc<PgfSymbolKS>(token->size+1);
+        memcpy(&symtok->token, token, sizeof(PgfText)+token->size+1);
+
+        ref<Vector<PgfSymbol>> syms = *vector_elem(lin->seqs, seq_index);
+        *vector_elem(syms, sym_index) = ref<PgfSymbolKS>::tagged(symtok);
+
+        sym_index++;
+    }
+
+    void add_symbind(PgfExn *err)
+    {
+        ref<Vector<PgfSymbol>> syms = *vector_elem(lin->seqs, seq_index);
+        *vector_elem(syms, sym_index) = ref<PgfSymbolBIND>::tagged(0);
+
+        sym_index++;
+    }
+
+    void add_symsoftbind(PgfExn *err)
+    {
+        ref<Vector<PgfSymbol>> syms = *vector_elem(lin->seqs, seq_index);
+        *vector_elem(syms, sym_index) = ref<PgfSymbolSOFTBIND>::tagged(0);
+
+        sym_index++;
+    }
+
+    void add_symne(PgfExn *err)
+    {
+        ref<Vector<PgfSymbol>> syms = *vector_elem(lin->seqs, seq_index);
+        *vector_elem(syms, sym_index) = ref<PgfSymbolNE>::tagged(0);
+
+        sym_index++;
+    }
+
+    void add_symsoftspace(PgfExn *err)
+    {
+        ref<Vector<PgfSymbol>> syms = *vector_elem(lin->seqs, seq_index);
+        *vector_elem(syms, sym_index) = ref<PgfSymbolSOFTSPACE>::tagged(0);
+
+        sym_index++;
+    }
+
+    void add_symcapit(PgfExn *err)
+    {
+        ref<Vector<PgfSymbol>> syms = *vector_elem(lin->seqs, seq_index);
+        *vector_elem(syms, sym_index) = ref<PgfSymbolCAPIT>::tagged(0);
+
+        sym_index++;
+    }
+
+    void add_symallcapit(PgfExn *err)
+    {
+        ref<Vector<PgfSymbol>> syms = *vector_elem(lin->seqs, seq_index);
+        *vector_elem(syms, sym_index) = ref<PgfSymbolALLCAPIT>::tagged(0);
+
+        sym_index++;
+    }
+
+    void end_sequence(PgfExn *err) {
+        seq_index++;
+    }
+
+    void end_production(PgfExn *err)
+    {
+        this->res_index++;
+    }
+};
+
+
 PGF_API
 void pgf_create_lincat(PgfDB *db,
                        PgfRevision revision, PgfConcrRevision cnc_revision,
@@ -1023,7 +1199,9 @@ void pgf_drop_lincat(PgfDB *db,
 PGF_API
 void pgf_create_lin(PgfDB *db,
                     PgfRevision revision, PgfConcrRevision cnc_revision,
-                    PgfText *name, size_t n_prods, PgfExn *err)
+                    PgfText *name, size_t n_prods,
+                    PgfBuildLinIface *build,
+                    PgfExn *err)
 {
     PGF_API_BEGIN {
         DB_scope scope(db, WRITER_SCOPE);
@@ -1051,8 +1229,8 @@ void pgf_create_lin(PgfDB *db,
         lin->res  = vector_new<ref<PgfLParam>>(n_prods);
         lin->seqs = vector_new<ref<Vector<PgfSymbol>>>(n_prods*lincat->fields->len);
 
-        for (size_t i = 0; i < n_prods; i++) {
-        }
+        PgfLinBuilder builder(lin);
+        build->build(&builder, err);
 
         Namespace<PgfConcrLin> lins =
             namespace_insert(concr->lins, lin);

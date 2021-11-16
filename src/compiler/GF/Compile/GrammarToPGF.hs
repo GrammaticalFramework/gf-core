@@ -18,7 +18,7 @@ import GF.Infra.Option
 import GF.Infra.UseIO (IOE)
 import GF.Data.Operations
 
-import Control.Monad(forM)
+import Control.Monad(forM_)
 import Data.List
 import Data.Char
 import qualified Data.Set as Set
@@ -49,10 +49,12 @@ grammar2PGF opts gr am probs = do
     sequence_ [setAbstractFlag name value | (name,value) <- optionsPGF aflags]
     sequence_ [createCategory c ctxt p | (c,ctxt,p) <- cats]
     sequence_ [createFunction f ty arity p | (f,ty,arity,_,p) <- funs]
-    forM (allConcretes gr am) $ \cm ->
+    forM_ (allConcretes gr am) $ \cm ->
       createConcrete (mi2i cm) $ do
         let cflags = err (const noOptions) mflags (lookupModule gr cm)
         sequence_ [setConcreteFlag name value | (name,value) <- optionsPGF cflags]
+        forM_ (Look.allOrigInfos gr cm) createCncCats
+        forM_ (Look.allOrigInfos gr cm) createCncFuns
   return pgf
   where
     aflags = err (const noOptions) mflags (lookupModule gr am)
@@ -83,6 +85,14 @@ grammar2PGF opts gr am probs = do
             deflt = case length [f | (f,Nothing) <- pfs] of
                       0 -> 0
                       n -> max 0 ((1 - sum [d | (f,Just d) <- pfs]) / fromIntegral n)
+
+    createCncCats ((m,c),CncCat _ _ _ _ _) = do
+      createLincat (i2i c) []
+    createCncCats _ = return ()
+
+    createCncFuns ((m,f),CncFun _ _ _ (Just prods)) = do
+      createLin (i2i f) prods
+    createCncFuns _ = return ()
 
 i2i :: Ident -> String
 i2i = showIdent

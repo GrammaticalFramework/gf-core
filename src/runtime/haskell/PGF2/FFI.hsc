@@ -41,6 +41,11 @@ data PgfPrintContext
 data PgfTypeHypo
 data PgfMarshaller
 data PgfUnmarshaller
+data PgfBuildLinIface
+data PgfLinBuilderIface
+
+type Wrapper a = a -> IO (FunPtr a)
+type Dynamic a = FunPtr a -> a
 
 foreign import ccall unsafe "pgf_utf8_decode"
   pgf_utf8_decode :: Ptr CString -> IO Word32
@@ -90,8 +95,7 @@ foreign import ccall "pgf_read_type"
 
 type ItorCallback = Ptr PgfItor -> Ptr PgfText -> Ptr () -> Ptr PgfExn -> IO ()
 
-foreign import ccall "wrapper"
-  wrapItorCallback :: ItorCallback -> IO (FunPtr ItorCallback)
+foreign import ccall "wrapper" wrapItorCallback :: Wrapper ItorCallback
 
 foreign import ccall pgf_iter_categories :: Ptr PgfDB -> Ptr PGF -> Ptr PgfItor -> Ptr PgfExn -> IO ()
 
@@ -139,11 +143,25 @@ foreign import ccall pgf_clone_concrete :: Ptr PgfDB -> Ptr PGF -> Ptr PgfText -
 
 foreign import ccall pgf_drop_concrete :: Ptr PgfDB -> Ptr PGF -> Ptr PgfText -> Ptr PgfExn -> IO ()
 
+foreign import ccall "wrapper" wrapLinBuild :: Wrapper (Ptr PgfBuildLinIface -> Ptr PgfLinBuilderIface -> Ptr PgfExn -> IO ())
+
+foreign import ccall "dynamic" callLinBuilder0 :: Dynamic (Ptr PgfLinBuilderIface -> Ptr PgfExn -> IO ())
+
+foreign import ccall "dynamic" callLinBuilder1 :: Dynamic (Ptr PgfLinBuilderIface -> CSize -> Ptr PgfExn -> IO ())
+
+foreign import ccall "dynamic" callLinBuilder2 :: Dynamic (Ptr PgfLinBuilderIface -> CSize -> CSize -> Ptr PgfExn -> IO ())
+
+foreign import ccall "dynamic" callLinBuilder3 :: Dynamic (Ptr PgfLinBuilderIface -> CSize -> CSize -> Ptr CSize -> Ptr PgfExn -> IO ())
+
+foreign import ccall "dynamic" callLinBuilder4 :: Dynamic (Ptr PgfLinBuilderIface -> CSize -> CSize -> CSize -> Ptr CSize -> Ptr PgfExn -> IO ())
+
+foreign import ccall "dynamic" callLinBuilder5 :: Dynamic (Ptr PgfLinBuilderIface -> Ptr PgfText -> Ptr PgfExn -> IO ())
+
 foreign import ccall pgf_create_lincat :: Ptr PgfDB -> Ptr PGF -> Ptr Concr -> Ptr PgfText -> CSize -> Ptr PgfExn -> IO ()
 
 foreign import ccall pgf_drop_lincat :: Ptr PgfDB -> Ptr Concr -> Ptr PgfText -> Ptr PgfExn -> IO ()
 
-foreign import ccall pgf_create_lin :: Ptr PgfDB -> Ptr PGF -> Ptr Concr -> Ptr PgfText -> CSize -> Ptr PgfExn -> IO ()
+foreign import ccall pgf_create_lin :: Ptr PgfDB -> Ptr PGF -> Ptr Concr -> Ptr PgfText -> CSize -> Ptr PgfBuildLinIface -> Ptr PgfExn -> IO ()
 
 foreign import ccall pgf_drop_lin :: Ptr PgfDB -> Ptr Concr -> Ptr PgfText -> Ptr PgfExn -> IO ()
 
@@ -272,99 +290,75 @@ type CBindType = (#type PgfBindType)
 
 type EAbsFun = Ptr PgfUnmarshaller -> (#type PgfBindType) -> Ptr PgfText -> StablePtr Expr -> IO (StablePtr Expr)
 
-foreign import ccall "dynamic"
-  callEAbsFun :: FunPtr EAbsFun -> EAbsFun
+foreign import ccall "dynamic" callEAbsFun :: Dynamic EAbsFun
 
-foreign import ccall "wrapper"
-  wrapEAbsFun :: EAbsFun -> IO (FunPtr EAbsFun)
+foreign import ccall "wrapper" wrapEAbsFun :: Wrapper EAbsFun
 
 type EAppFun = Ptr PgfUnmarshaller -> StablePtr Expr -> StablePtr Expr -> IO (StablePtr Expr)
 
-foreign import ccall "dynamic"
-  callEAppFun :: FunPtr EAppFun -> EAppFun
+foreign import ccall "dynamic" callEAppFun :: Dynamic EAppFun
 
-foreign import ccall "wrapper"
-  wrapEAppFun :: EAppFun -> IO (FunPtr EAppFun)
+foreign import ccall "wrapper" wrapEAppFun :: Wrapper EAppFun
 
 type ELitFun = Ptr PgfUnmarshaller -> StablePtr Literal -> IO (StablePtr Expr)
 
-foreign import ccall "dynamic"
-  callELitFun :: FunPtr ELitFun -> ELitFun
+foreign import ccall "dynamic" callELitFun :: Dynamic ELitFun
 
-foreign import ccall "wrapper"
-  wrapELitFun :: ELitFun -> IO (FunPtr ELitFun)
+foreign import ccall "wrapper" wrapELitFun :: Wrapper ELitFun
 
 type EMetaFun = Ptr PgfUnmarshaller -> (#type PgfMetaId) -> IO (StablePtr Expr)
 
-foreign import ccall "dynamic"
-  callEMetaFun :: FunPtr EMetaFun -> EMetaFun
+foreign import ccall "dynamic" callEMetaFun :: Dynamic EMetaFun
 
-foreign import ccall "wrapper"
-  wrapEMetaFun :: EMetaFun -> IO (FunPtr EMetaFun)
+foreign import ccall "wrapper" wrapEMetaFun :: Wrapper EMetaFun
 
 type EFunFun = Ptr PgfUnmarshaller -> Ptr PgfText -> IO (StablePtr Expr)
 
-foreign import ccall "dynamic"
-  callEFunFun :: FunPtr EFunFun -> EFunFun
+foreign import ccall "dynamic" callEFunFun :: Dynamic EFunFun
 
-foreign import ccall "wrapper"
-  wrapEFunFun :: EFunFun -> IO (FunPtr EFunFun)
+foreign import ccall "wrapper" wrapEFunFun :: Wrapper EFunFun
 
 type EVarFun = Ptr PgfUnmarshaller -> CInt -> IO (StablePtr Expr)
 
-foreign import ccall "dynamic"
-  callEVarFun :: FunPtr EVarFun -> EVarFun
+foreign import ccall "dynamic" callEVarFun :: Dynamic EVarFun
 
-foreign import ccall "wrapper"
-  wrapEVarFun :: EVarFun -> IO (FunPtr EVarFun)
+foreign import ccall "wrapper" wrapEVarFun :: Wrapper EVarFun
 
 type ETypedFun = Ptr PgfUnmarshaller -> StablePtr Expr -> StablePtr Type -> IO (StablePtr Expr)
 
-foreign import ccall "dynamic"
-  callETypedFun :: FunPtr ETypedFun -> ETypedFun
+foreign import ccall "dynamic" callETypedFun :: Dynamic ETypedFun
 
-foreign import ccall "wrapper"
-  wrapETypedFun :: ETypedFun -> IO (FunPtr ETypedFun)
+foreign import ccall "wrapper" wrapETypedFun :: Wrapper ETypedFun
 
 type EImplArgFun = Ptr PgfUnmarshaller -> StablePtr Expr -> IO (StablePtr Expr)
 
-foreign import ccall "dynamic"
-  callEImplArgFun :: FunPtr EImplArgFun -> EImplArgFun
+foreign import ccall "dynamic" callEImplArgFun :: Dynamic EImplArgFun
 
-foreign import ccall "wrapper"
-  wrapEImplArgFun :: EImplArgFun -> IO (FunPtr EImplArgFun)
+foreign import ccall "wrapper" wrapEImplArgFun :: Wrapper EImplArgFun
 
 type LIntFun = Ptr PgfUnmarshaller -> (#type size_t) -> Ptr (#type uintmax_t) -> IO (StablePtr Literal)
 
-foreign import ccall "dynamic"
-  callLIntFun :: FunPtr LIntFun -> LIntFun
+foreign import ccall "dynamic" callLIntFun :: Dynamic LIntFun
 
-foreign import ccall "wrapper"
-  wrapLIntFun :: LIntFun -> IO (FunPtr LIntFun)
+foreign import ccall "wrapper" wrapLIntFun :: Wrapper LIntFun
 
 type LFltFun = Ptr PgfUnmarshaller -> CDouble -> IO (StablePtr Literal)
 
-foreign import ccall "dynamic"
-  callLFltFun :: FunPtr LFltFun -> LFltFun
+foreign import ccall "dynamic" callLFltFun :: Dynamic LFltFun
 
-foreign import ccall "wrapper"
-  wrapLFltFun :: LFltFun -> IO (FunPtr LFltFun)
+foreign import ccall "wrapper" wrapLFltFun :: Wrapper LFltFun
 
 type LStrFun = Ptr PgfUnmarshaller -> Ptr PgfText -> IO (StablePtr Literal)
 
-foreign import ccall "dynamic"
-  callLStrFun :: FunPtr LStrFun -> LStrFun
+foreign import ccall "dynamic" callLStrFun :: Dynamic LStrFun
 
-foreign import ccall "wrapper"
-  wrapLStrFun :: LStrFun -> IO (FunPtr LStrFun)
+foreign import ccall "wrapper" wrapLStrFun :: Wrapper LStrFun
 
 type DTypFun = Ptr PgfUnmarshaller -> CSize -> Ptr PgfTypeHypo -> Ptr PgfText -> CSize -> Ptr (StablePtr Expr) -> IO (StablePtr Type)
 
-foreign import ccall "dynamic"
-  callDTypFun :: FunPtr DTypFun -> DTypFun
+foreign import ccall "dynamic" callDTypFun :: Dynamic DTypFun
 
-foreign import ccall "wrapper"
-  wrapDTypFun :: DTypFun -> IO (FunPtr DTypFun)
+foreign import ccall "wrapper" wrapDTypFun :: Wrapper DTypFun
 
 foreign import ccall "&hs_free_reference" hs_free_reference :: FunPtr (Ptr a -> StablePtr a -> IO ())
 
@@ -372,10 +366,7 @@ foreign import ccall "&hs_free_marshaller" hs_free_marshaller :: FinalizerPtr Pg
 
 foreign import ccall "&hs_free_unmarshaller" hs_free_unmarshaller :: FinalizerPtr PgfUnmarshaller
 
-type MatchFun a = Ptr PgfMarshaller -> Ptr PgfUnmarshaller -> StablePtr a -> IO (StablePtr a)
-
-foreign import ccall "wrapper"
-  wrapMatchFun :: MatchFun a -> IO (FunPtr (MatchFun a))
+foreign import ccall "wrapper" wrapMatchFun :: Wrapper (Ptr PgfMarshaller -> Ptr PgfUnmarshaller -> StablePtr a -> IO (StablePtr a))
 
 {-# NOINLINE marshaller #-}
 marshaller = unsafePerformIO $ do
