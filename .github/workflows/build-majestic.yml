@@ -240,3 +240,11 @@ jobs:
           base-devel
           mingw-w64-x86_64-toolchain
           mingw-w64-x86_64-libtool
+
+    - name: Build runtime
+      working-directory: ./src/runtime/c
+      run: |
+        autoreconf -i
+        ./configure
+        make
+        sudo make install
