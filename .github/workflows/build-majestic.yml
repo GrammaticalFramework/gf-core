@@ -255,5 +255,5 @@ jobs:
       with:
         name: libpgf-windows
         path: |
-          ${{runner.temp}}/mingw64/lib/libpgf*
-          ${{runner.temp}}/mingw64/include/pgf
+          ${{runner.temp}}/msys64/mingw64/lib/libpgf*
+          ${{runner.temp}}/msys64/mingw64/include/pgf
