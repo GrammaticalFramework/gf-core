@@ -242,9 +242,6 @@ jobs:
           mingw-w64-x86_64-libtool
 
     - name: Build runtime
-      working-directory: ./src/runtime/c
+      shell: msys2 {0}
       run: |
-        autoreconf -i
-        ./configure
-        make
-        sudo make install
+        uname -a
