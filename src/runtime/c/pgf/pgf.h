@@ -344,6 +344,9 @@ PgfText *pgf_print_expr(PgfExpr e,
                         PgfMarshaller *m);
 
 PGF_API_DECL
+PgfText *pgf_print_ident(PgfText *name);
+
+PGF_API_DECL
 PgfExpr pgf_read_expr(PgfText *input, PgfUnmarshaller *u);
 
 PGF_API_DECL

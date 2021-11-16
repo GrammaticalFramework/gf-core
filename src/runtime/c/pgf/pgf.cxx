@@ -610,6 +610,14 @@ PgfText *pgf_print_expr(PgfExpr e,
 }
 
 PGF_API
+PgfText *pgf_print_ident(PgfText *name)
+{
+    PgfPrinter printer(NULL,0,NULL);
+    printer.efun(name);
+    return printer.get_text();
+}
+
+PGF_API
 PgfExpr pgf_read_expr(PgfText *input, PgfUnmarshaller *u)
 {
     PgfExprParser parser(input, u);

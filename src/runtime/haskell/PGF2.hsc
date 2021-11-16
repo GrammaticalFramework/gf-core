@@ -168,7 +168,19 @@ writePGF fpath p =
     withPgfExn "writePGF" (pgf_write_pgf c_fpath (a_db p) c_revision)
 
 showPGF :: PGF -> String
-showPGF = error "TODO: showPGF"
+showPGF p =
+  render (text "abstract" <+> ppAbstractName p <+> char '{' $$
+          nest 4 (ppAbsCats p) $$
+          char '}')
+  where
+    ppAbstractName p =
+      unsafePerformIO $
+      withForeignPtr (a_revision p) $ \c_revision ->
+      bracket (withPgfExn "showPGF" (pgf_abstract_name (a_db p) c_revision)) free $ \c_text ->
+      bracket (pgf_print_ident c_text) free $ \c_text ->
+        fmap text (peekText c_text)
+
+    ppAbsCats p = empty
 
 -- | The abstract language name is the name of the top-level
 -- abstract module

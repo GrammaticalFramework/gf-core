@@ -80,6 +80,8 @@ foreign import ccall "pgf_abstract_name"
 foreign import ccall "pgf_print_expr"
   pgf_print_expr :: StablePtr Expr -> Ptr PgfPrintContext -> CInt -> Ptr PgfMarshaller -> IO (Ptr PgfText)
 
+foreign import ccall pgf_print_ident :: Ptr PgfText -> IO (Ptr PgfText)
+
 foreign import ccall "pgf_read_expr"
   pgf_read_expr :: Ptr PgfText -> Ptr PgfUnmarshaller -> IO (StablePtr Expr)
 
