@@ -222,6 +222,79 @@ void PgfDBUnmarshaller::free_ref(object x)
     PgfDB::free(ref<void>::untagged(x));
 }
 
+PgfLiteral PgfInternalMarshaller::match_lit(PgfUnmarshaller *u, PgfLiteral l)
+{
+    switch (ref<PgfLiteral>::get_tag(l)) {
+    case PgfLiteralInt::tag: {
+        auto lint = ref<PgfLiteralInt>::untagged(l);
+        return u->lint(lint->size, lint->val);
+    }
+    case PgfLiteralFlt::tag: {
+        return u->lflt(ref<PgfLiteralFlt>::untagged(l)->val);
+    }
+    case PgfLiteralStr::tag: {
+        return u->lstr(&ref<PgfLiteralStr>::untagged(l)->val);
+    }
+	default:
+		throw pgf_error("Unknown literal tag");
+    }
+}
+
+PgfExpr PgfInternalMarshaller::match_expr(PgfUnmarshaller *u, PgfExpr e)
+{
+    switch (ref<PgfExpr>::get_tag(e)) {
+    case PgfExprAbs::tag: {
+        auto eabs = ref<PgfExprAbs>::untagged(e);
+        return u->eabs(eabs->bind_type,&eabs->name,eabs->body);
+    }
+    case PgfExprApp::tag: {
+        auto eapp = ref<PgfExprApp>::untagged(e);
+        return u->eapp(eapp->fun,eapp->arg);
+    }
+    case PgfExprLit::tag: {
+        auto elit = ref<PgfExprLit>::untagged(e);
+        return u->elit(elit->lit);
+    }
+    case PgfExprMeta::tag: {
+        return u->emeta(ref<PgfExprMeta>::untagged(e)->id);
+    }
+	case PgfExprFun::tag: {
+        return u->efun(&ref<PgfExprFun>::untagged(e)->name);
+    }
+	case PgfExprVar::tag: {
+        return u->evar(ref<PgfExprVar>::untagged(e)->var);
+	}
+	case PgfExprTyped::tag: {
+        auto etyped = ref<PgfExprTyped>::untagged(e);
+        return u->etyped(etyped->expr,etyped->type.as_object());
+	}
+	case PgfExprImplArg::tag: {
+        auto eimpl = ref<PgfExprImplArg>::untagged(e);
+        return u->eimplarg(eimpl->expr);
+	}
+	default:
+		throw pgf_error("Unknown expression tag");
+    }
+}
+
+PGF_INTERNAL
+PgfType PgfInternalMarshaller::match_type(PgfUnmarshaller *u, PgfType ty)
+{
+    ref<PgfDTyp> tp = ty;
+
+    PgfTypeHypo *hypos = (PgfTypeHypo *)
+        alloca(tp->hypos->len * sizeof(PgfTypeHypo));
+    for (size_t i = 0; i < tp->hypos->len; i++) {
+        hypos[i].bind_type = tp->hypos->data[i].bind_type;
+        hypos[i].cid = &(*tp->hypos->data[i].cid);
+        hypos[i].type = tp->hypos->data[i].type.as_object();
+    }
+
+    return  u->dtyp(tp->hypos->len, hypos,
+                    &tp->name,
+                    tp->exprs->len, tp->exprs->data);
+}
+
 PgfExprParser::PgfExprParser(PgfText *input, PgfUnmarshaller *unmarshaller)
 {
     inp = input;

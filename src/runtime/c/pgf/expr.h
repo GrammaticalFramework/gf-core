@@ -168,6 +168,12 @@ struct PGF_INTERNAL_DECL PgfDBUnmarshaller : public PgfUnmarshaller {
     virtual void free_ref(object x);
 };
 
+struct PGF_INTERNAL_DECL PgfInternalMarshaller : public PgfMarshaller {
+    virtual object match_lit(PgfUnmarshaller *u, PgfLiteral l);
+    virtual object match_expr(PgfUnmarshaller *u, PgfExpr e);
+    virtual object match_type(PgfUnmarshaller *u, PgfType ty);
+};
+
 typedef struct PgfBind {
     PgfBindType bind_type;
     struct PgfBind *next;

@@ -95,6 +95,10 @@ foreign import ccall pgf_print_context :: CSize -> Ptr PgfTypeHypo -> Ptr PgfPri
 foreign import ccall "pgf_read_type"
   pgf_read_type :: Ptr PgfText -> Ptr PgfUnmarshaller -> IO (StablePtr Type)
 
+foreign import ccall pgf_print_category_internal :: Ptr () -> IO (Ptr PgfText)
+
+foreign import ccall pgf_print_function_internal :: Ptr () -> IO (Ptr PgfText)
+
 type ItorCallback = Ptr PgfItor -> Ptr PgfText -> Ptr () -> Ptr PgfExn -> IO ()
 
 foreign import ccall "wrapper" wrapItorCallback :: Wrapper ItorCallback

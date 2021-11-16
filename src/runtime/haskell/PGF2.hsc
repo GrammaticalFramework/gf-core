@@ -170,8 +170,10 @@ writePGF fpath p =
 showPGF :: PGF -> String
 showPGF p =
   render (text "abstract" <+> ppAbstractName p <+> char '{' $$
-          nest 4 (ppAbsCats p) $$
-          char '}')
+          nest 2 (ppAbsCats p $$
+                  ppAbsFuns p) $$
+          char '}' $$
+          Map.foldrWithKey (\name concr doc -> ppConcr name concr $$ doc) empty (languages p))
   where
     ppAbstractName p =
       unsafePerformIO $
@@ -180,7 +182,39 @@ showPGF p =
       bracket (pgf_print_ident c_text) free $ \c_text ->
         fmap text (peekText c_text)
 
-    ppAbsCats p = empty
+    ppAbsCats p = unsafePerformIO $ do
+      ref <- newIORef empty
+      (allocaBytes (#size PgfItor) $ \itor ->
+       bracket (wrapItorCallback (getCategories ref)) freeHaskellFunPtr $ \fptr ->
+       withForeignPtr (a_revision p) $ \c_revision -> do
+         (#poke PgfItor, fn) itor fptr
+         withPgfExn "categories" (pgf_iter_categories (a_db p) c_revision itor))
+      readIORef ref
+      where
+        getCategories :: IORef Doc -> ItorCallback
+        getCategories ref itor key val exn = do
+          def <- bracket (pgf_print_category_internal val) free peekText
+          doc <- readIORef ref
+          writeIORef ref $ (doc $$ text def)
+
+    ppAbsFuns p = unsafePerformIO $ do
+      ref <- newIORef empty
+      (allocaBytes (#size PgfItor) $ \itor ->
+       bracket (wrapItorCallback (getFunctions ref)) freeHaskellFunPtr $ \fptr ->
+       withForeignPtr (a_revision p) $ \c_revision -> do
+         (#poke PgfItor, fn) itor fptr
+         withPgfExn "functions" (pgf_iter_functions (a_db p) c_revision itor))
+      readIORef ref
+      where
+        getFunctions :: IORef Doc -> ItorCallback
+        getFunctions ref itor key val exn = do
+          def <- bracket (pgf_print_function_internal val) free peekText
+          doc <- readIORef ref
+          writeIORef ref $ (doc $$ text def)
+
+    ppConcr name c =
+      text "concrete" <+> text name <+> char '{' $$
+      char '}'
 
 -- | The abstract language name is the name of the top-level
 -- abstract module

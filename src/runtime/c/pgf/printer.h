@@ -46,8 +46,6 @@ public:
     // it will be allocated automatically.
     void nprintf(size_t buf_size, const char *format, ...) __attribute__ ((format (printf, 3, 4)));
 
-    void print_name(PgfText *name);
-
     PgfText *get_text();
 
     void hypo(PgfTypeHypo *hypo, int prio);

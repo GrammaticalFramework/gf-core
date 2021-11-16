@@ -372,6 +372,12 @@ PGF_API_DECL
 PgfType pgf_read_type(PgfText *input, PgfUnmarshaller *u);
 
 PGF_API_DECL
+PgfText *pgf_print_category_internal(object o);
+
+PGF_API_DECL
+PgfText *pgf_print_function_internal(object o);
+
+PGF_API_DECL
 PgfRevision pgf_clone_revision(PgfDB *db, PgfRevision revision,
                                PgfText *name,
                                PgfExn *err);

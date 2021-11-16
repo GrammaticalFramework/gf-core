@@ -693,6 +693,49 @@ PgfType pgf_read_type(PgfText *input, PgfUnmarshaller *u)
 }
 
 PGF_API
+PgfText *pgf_print_category_internal(object o)
+{
+    ref<PgfAbsCat> abscat = o;
+
+    PgfInternalMarshaller m;
+    PgfPrinter printer(NULL,0,&m);
+
+    printer.puts("cat ");
+    printer.efun(&abscat->name);
+
+    for (size_t i = 0; i < abscat->context->len; i++) {
+        printer.puts(" ");
+
+        PgfTypeHypo hypo;
+        hypo.bind_type = abscat->context->data[i].bind_type;
+        hypo.cid = abscat->context->data[i].cid;
+        hypo.type = abscat->context->data[i].type.as_object();
+        printer.hypo(&hypo,4);
+    }
+
+    printer.nprintf(32, " ; -- %g", abscat->prob);
+
+    return printer.get_text();
+}
+
+PGF_API
+PgfText *pgf_print_function_internal(object o)
+{
+    ref<PgfAbsFun> absfun = o;
+
+    PgfInternalMarshaller m;
+    PgfPrinter printer(NULL,0,&m);
+
+    printer.puts("fun ");
+    printer.efun(&absfun->name);
+    printer.puts(" : ");
+    m.match_type(&printer, absfun->type.as_object());
+    printer.nprintf(32, " ; -- %g", absfun->ep.prob);
+
+    return printer.get_text();
+}
+
+PGF_API
 PgfRevision pgf_clone_revision(PgfDB *db, PgfRevision revision,
                                PgfText *name,
                                PgfExn *err)
