@@ -690,9 +690,11 @@ void PgfDB::init_state(size_t size)
     if ((code = pthread_rwlockattr_init(&attr)) != 0) {
         throw pgf_systemerror(code);
     }
-    if ((code = pthread_rwlockattr_setpshared(&attr, PTHREAD_PROCESS_SHARED)) != 0) {
-        pthread_rwlockattr_destroy(&attr);
-        throw pgf_systemerror(code);
+    if (fd > 0) {
+        if ((code = pthread_rwlockattr_setpshared(&attr, PTHREAD_PROCESS_SHARED)) != 0) {
+            pthread_rwlockattr_destroy(&attr);
+            throw pgf_systemerror(code);
+        }
     }
     if ((code = pthread_rwlock_init(&ms->rwlock, &attr)) != 0) {
         pthread_rwlockattr_destroy(&attr);
