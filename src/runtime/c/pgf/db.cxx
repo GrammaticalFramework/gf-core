@@ -525,6 +525,12 @@ PgfDB::~PgfDB()
     if (ms != NULL) {
         unregister_process();
 
+#ifndef _WIN32
+        if (fd < 0) {
+            pthread_rwlock_destroy(&ms->rwlock);
+        }
+#endif
+
         size_t size =
             ms->top + chunksize(ptr(ms,ms->top)) + sizeof(size_t);
 
@@ -690,13 +696,12 @@ void PgfDB::init_state(size_t size)
     if ((code = pthread_rwlockattr_init(&attr)) != 0) {
         throw pgf_systemerror(code);
     }
-    if (fd > 0) {
+    if (fd >= 0) {
         if ((code = pthread_rwlockattr_setpshared(&attr, PTHREAD_PROCESS_SHARED)) != 0) {
             pthread_rwlockattr_destroy(&attr);
             throw pgf_systemerror(code);
         }
     }
-    memset(&ms->rwlock, 0, sizeof(ms->rwlock));
     if ((code = pthread_rwlock_init(&ms->rwlock, &attr)) != 0) {
         pthread_rwlockattr_destroy(&attr);
         throw pgf_systemerror(code);
