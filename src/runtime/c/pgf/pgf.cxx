@@ -1,6 +1,9 @@
 #include <fcntl.h>
 #include <math.h>
 #include <errno.h>
+#ifdef WIN32
+#include <io.h>
+#endif
 
 #include "data.h"
 #include "reader.h"
@@ -85,7 +88,7 @@ PgfDB *pgf_boot_ngf(const char* pgf_path, const char* ngf_path,
 #ifndef _WIN32
          S_IRUSR | S_IWUSR
 #else
-         0
+         _S_IREAD | _S_IWRITE
 #endif
          );
 
