@@ -433,6 +433,89 @@ PgfType PgfPrinter::dtyp(size_t n_hypos, PgfTypeHypo *hypos,
     return 0;
 }
 
+void PgfPrinter::parg(ref<PgfDTyp> ty, ref<PgfPArg> parg)
+{
+    efun(&ty->name);
+    puts("(");
+    lparam(parg->param);
+    puts(")");
+}
+
+void PgfPrinter::lparam(ref<PgfLParam> lparam)
+{
+    if (lparam->i0 != 0 || lparam->n_terms == 0)
+        nprintf(32,"%ld",lparam->i0);
+    for (size_t k = 0; k < lparam->n_terms; k++) {
+        if (lparam->i0 != 0 || k > 0)
+            puts("+");
+        if (lparam->terms[k].factor != 1) {
+            nprintf(32,"%ld",lparam->terms[k].factor);
+            puts("*");
+        }
+
+        char vars[] = "ijklmnopqr";
+        size_t i = lparam->terms[k].var / sizeof(vars);
+        size_t j = lparam->terms[k].var % sizeof(vars);
+
+        if (i == 0)
+            nprintf(32,"%c",vars[j]);
+        else
+            nprintf(32,"%c%ld",vars[j],i);
+    }
+}
+
+void PgfPrinter::symbol(PgfSymbol sym)
+{
+    switch (ref<PgfSymbol>::get_tag(sym)) {
+	case PgfSymbolCat::tag: {
+        auto sym_cat = ref<PgfSymbolCat>::untagged(sym);
+        nprintf(32, "<%ld,",sym_cat->d);
+        lparam(ref<PgfLParam>::from_ptr(&sym_cat->r));
+        puts(">");
+		break;
+	}
+	case PgfSymbolLit::tag: {
+        auto sym_lit = ref<PgfSymbolLit>::untagged(sym);
+        nprintf(32, "{%ld,",sym_lit->d);
+        lparam(ref<PgfLParam>::from_ptr(&sym_lit->r));
+        puts("}");
+		break;
+	}
+	case PgfSymbolVar::tag: {
+        auto sym_var = ref<PgfSymbolVar>::untagged(sym);
+        nprintf(64, "<%ld,$%ld>",sym_var->d, sym_var->r);
+		break;
+	}
+	case PgfSymbolKS::tag: {
+        auto sym_ks = ref<PgfSymbolKS>::untagged(sym);
+        lstr(&sym_ks->token);
+		break;
+	}
+	case PgfSymbolKP::tag: {
+        auto sym_ks = ref<PgfSymbolKP>::untagged(sym);
+		break;
+	}
+	case PgfSymbolBIND::tag:
+        puts("BIND");
+        break;
+	case PgfSymbolSOFTBIND::tag:
+        puts("SOFT_BIND");
+        break;
+	case PgfSymbolNE::tag:
+        puts("nonExist");
+        break;
+	case PgfSymbolSOFTSPACE::tag:
+        puts("SOFT_SPACE");
+        break;
+	case PgfSymbolCAPIT::tag:
+        puts("CAPIT");
+        break;
+	case PgfSymbolALLCAPIT::tag:
+        puts("ALL_CAPIT");
+        break;
+	}
+}
+
 void PgfPrinter::free_ref(object x)
 {
 }

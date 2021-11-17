@@ -95,9 +95,25 @@ foreign import ccall pgf_print_context :: CSize -> Ptr PgfTypeHypo -> Ptr PgfPri
 foreign import ccall "pgf_read_type"
   pgf_read_type :: Ptr PgfText -> Ptr PgfUnmarshaller -> IO (StablePtr Type)
 
+foreign import ccall pgf_print_start_cat_internal :: Ptr PgfDB -> Ptr PGF -> Ptr PgfExn -> IO (Ptr PgfText)
+
 foreign import ccall pgf_print_category_internal :: Ptr () -> IO (Ptr PgfText)
 
 foreign import ccall pgf_print_function_internal :: Ptr () -> IO (Ptr PgfText)
+
+foreign import ccall pgf_iter_lincats :: Ptr PgfDB -> Ptr Concr -> Ptr PgfItor -> Ptr PgfExn -> IO ()
+
+foreign import ccall pgf_iter_lins :: Ptr PgfDB -> Ptr Concr -> Ptr PgfItor -> Ptr PgfExn -> IO ()
+
+foreign import ccall pgf_get_lincat_counts_internal :: Ptr () -> Ptr CSize -> IO ()
+
+foreign import ccall pgf_get_lincat_field_internal :: Ptr () -> CSize -> IO (Ptr PgfText)
+
+foreign import ccall pgf_get_lin_counts_internal :: Ptr () -> Ptr CSize -> IO ()
+
+foreign import ccall pgf_print_lin_sig_internal :: Ptr () -> CSize -> IO (Ptr PgfText)
+
+foreign import ccall pgf_print_lin_seq_internal :: Ptr () -> CSize -> CSize -> IO (Ptr PgfText)
 
 type ItorCallback = Ptr PgfItor -> Ptr PgfText -> Ptr () -> Ptr PgfExn -> IO ()
 
@@ -163,7 +179,7 @@ foreign import ccall "dynamic" callLinBuilder4 :: Dynamic (Ptr PgfLinBuilderIfac
 
 foreign import ccall "dynamic" callLinBuilder5 :: Dynamic (Ptr PgfLinBuilderIface -> Ptr PgfText -> Ptr PgfExn -> IO ())
 
-foreign import ccall pgf_create_lincat :: Ptr PgfDB -> Ptr PGF -> Ptr Concr -> Ptr PgfText -> CSize -> Ptr PgfExn -> IO ()
+foreign import ccall pgf_create_lincat :: Ptr PgfDB -> Ptr PGF -> Ptr Concr -> Ptr PgfText -> CSize -> Ptr (Ptr PgfText) -> Ptr PgfExn -> IO ()
 
 foreign import ccall pgf_drop_lincat :: Ptr PgfDB -> Ptr Concr -> Ptr PgfText -> Ptr PgfExn -> IO ()
 

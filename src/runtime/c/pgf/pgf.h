@@ -371,11 +371,37 @@ PgfText *pgf_print_context(size_t n_hypos, PgfTypeHypo *hypos,
 PGF_API_DECL
 PgfType pgf_read_type(PgfText *input, PgfUnmarshaller *u);
 
+PGF_API
+PgfText *pgf_print_start_cat_internal(PgfDB *db, PgfRevision revision, PgfExn *err);
+
 PGF_API_DECL
 PgfText *pgf_print_category_internal(object o);
 
 PGF_API_DECL
 PgfText *pgf_print_function_internal(object o);
+
+PGF_API_DECL
+void pgf_iter_lincats(PgfDB *db, PgfConcrRevision cnc_revision,
+                      PgfItor *itor, PgfExn *err);
+
+PGF_API_DECL
+void pgf_iter_lins(PgfDB *db, PgfConcrRevision cnc_revision,
+                   PgfItor *itor, PgfExn *err);
+
+PGF_API_DECL
+void pgf_get_lincat_counts_internal(object o, size_t *counts);
+
+PGF_API_DECL
+PgfText *pgf_get_lincat_field_internal(object o, size_t i);
+
+PGF_API_DECL
+void pgf_get_lin_counts_internal(object o, size_t *counts);
+
+PGF_API_DECL
+PgfText *pgf_print_lin_sig_internal(object o, size_t i);
+
+PGF_API_DECL
+PgfText *pgf_print_lin_seq_internal(object o, size_t i, size_t j);
 
 PGF_API_DECL
 PgfRevision pgf_clone_revision(PgfDB *db, PgfRevision revision,
@@ -432,7 +458,8 @@ void pgf_drop_concrete(PgfDB *db, PgfRevision revision,
 PGF_API_DECL
 void pgf_create_lincat(PgfDB *db,
                        PgfRevision revision, PgfConcrRevision cnc_revision,
-                       PgfText *name, size_t n_fields, PgfExn *err);
+                       PgfText *name, size_t n_fields, PgfText **fields,
+                       PgfExn *err);
 
 PGF_API_DECL
 void pgf_drop_lincat(PgfDB *db, PgfConcrRevision revision,

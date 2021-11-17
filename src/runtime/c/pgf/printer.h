@@ -50,6 +50,10 @@ public:
 
     void hypo(PgfTypeHypo *hypo, int prio);
 
+    void parg(ref<PgfDTyp> ty, ref<PgfPArg> parg);
+    void lparam(ref<PgfLParam> lparam);
+    void symbol(PgfSymbol sym);
+
     virtual PgfExpr eabs(PgfBindType btype, PgfText *name, PgfExpr body);
     virtual PgfExpr eapp(PgfExpr fun, PgfExpr arg);
     virtual PgfExpr elit(PgfLiteral lit);

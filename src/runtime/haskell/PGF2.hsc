@@ -93,6 +93,7 @@ import PGF2.FFI
 
 import Foreign
 import Foreign.C
+import Control.Monad(forM,forM_)
 import Control.Exception(mask_,bracket)
 import System.IO.Unsafe(unsafePerformIO)
 import System.Random
@@ -170,11 +171,21 @@ writePGF fpath p =
 showPGF :: PGF -> String
 showPGF p =
   render (text "abstract" <+> ppAbstractName p <+> char '{' $$
-          nest 2 (ppAbsCats p $$
+          nest 2 (ppStartCat p $$
+                  ppAbsCats p $$
                   ppAbsFuns p) $$
           char '}' $$
           Map.foldrWithKey (\name concr doc -> ppConcr name concr $$ doc) empty (languages p))
   where
+    ppStartCat p =
+      unsafePerformIO $
+      withForeignPtr (a_revision p) $ \c_revision -> do
+        c_text <- withPgfExn "showPGF" (pgf_print_start_cat_internal (a_db p) c_revision)
+        if c_text == nullPtr
+          then return empty
+          else do s <- peekText c_text
+                  return (text "flags" <+> text s)
+
     ppAbstractName p =
       unsafePerformIO $
       withForeignPtr (a_revision p) $ \c_revision ->
@@ -188,14 +199,13 @@ showPGF p =
        bracket (wrapItorCallback (getCategories ref)) freeHaskellFunPtr $ \fptr ->
        withForeignPtr (a_revision p) $ \c_revision -> do
          (#poke PgfItor, fn) itor fptr
-         withPgfExn "categories" (pgf_iter_categories (a_db p) c_revision itor))
+         withPgfExn "showPGF" (pgf_iter_categories (a_db p) c_revision itor))
       readIORef ref
       where
         getCategories :: IORef Doc -> ItorCallback
         getCategories ref itor key val exn = do
           def <- bracket (pgf_print_category_internal val) free peekText
-          doc <- readIORef ref
-          writeIORef ref $ (doc $$ text def)
+          modifyIORef ref $ (\doc -> doc $$ text def)
 
     ppAbsFuns p = unsafePerformIO $ do
       ref <- newIORef empty
@@ -203,18 +213,68 @@ showPGF p =
        bracket (wrapItorCallback (getFunctions ref)) freeHaskellFunPtr $ \fptr ->
        withForeignPtr (a_revision p) $ \c_revision -> do
          (#poke PgfItor, fn) itor fptr
-         withPgfExn "functions" (pgf_iter_functions (a_db p) c_revision itor))
+         withPgfExn "showPGF" (pgf_iter_functions (a_db p) c_revision itor))
       readIORef ref
       where
         getFunctions :: IORef Doc -> ItorCallback
         getFunctions ref itor key val exn = do
           def <- bracket (pgf_print_function_internal val) free peekText
-          doc <- readIORef ref
-          writeIORef ref $ (doc $$ text def)
+          modifyIORef ref (\doc -> doc $$ text def)
 
     ppConcr name c =
       text "concrete" <+> text name <+> char '{' $$
+      nest 2 (ppLincats c $$
+              ppLins c) $$
       char '}'
+
+    ppLincats c = unsafePerformIO $ do
+      ref <- newIORef empty
+      (allocaBytes (#size PgfItor) $ \itor ->
+       bracket (wrapItorCallback (getLincats ref)) freeHaskellFunPtr $ \fptr ->
+       withForeignPtr (c_revision c) $ \c_revision -> do
+         (#poke PgfItor, fn) itor fptr
+         withPgfExn "showPGF" (pgf_iter_lincats (a_db p) c_revision itor))
+      readIORef ref
+      where
+        getLincats :: IORef Doc -> ItorCallback
+        getLincats ref itor key val exn = do
+          name   <- bracket (pgf_print_ident key) free $ \c_text -> do
+                      peekText c_text
+          fields <- allocaBytes (1*(#size size_t)) $ \pcounts -> do
+                      pgf_get_lincat_counts_internal val pcounts
+                      n_fields <- peekElemOff pcounts 0
+                      forM [0..n_fields-1] $ \i -> do
+                        pgf_get_lincat_field_internal val i >>= peekText
+          let def = text "lincat" <+> (text name <+> char '=' <+> char '{' $$
+                                       nest 2 (vcat (map text fields)) $$
+                                       char '}')
+          modifyIORef ref $ (\doc -> doc $$ def)
+
+    ppLins c = unsafePerformIO $ do
+      ref <- newIORef empty
+      (allocaBytes (#size PgfItor) $ \itor ->
+       bracket (wrapItorCallback (getLins ref)) freeHaskellFunPtr $ \fptr ->
+       withForeignPtr (c_revision c) $ \c_revision -> do
+         (#poke PgfItor, fn) itor fptr
+         withPgfExn "showPGF" (pgf_iter_lins (a_db p) c_revision itor))
+      readIORef ref
+      where
+        getLins :: IORef Doc -> ItorCallback
+        getLins ref itor key val exn =
+          allocaBytes (2*(#size size_t)) $ \pcounts -> do
+            pgf_get_lin_counts_internal val pcounts
+            n_prods <- peekElemOff pcounts 0
+            n_seqs  <- peekElemOff pcounts 1
+            forM_ [0..n_prods-1] $ \i -> do
+              sig <- bracket (pgf_print_lin_sig_internal val i) free $ \c_text -> do
+                       fmap text (peekText c_text)
+              syms <- forM [0..n_seqs-1] $ \j ->
+                        bracket (pgf_print_lin_seq_internal val i j) free $ \c_text -> do
+                          fmap text (peekText c_text)
+              let def = text "lin" <+> (sig <+> char '=' <+> char '{' $$
+                                        nest 2 (vcat syms) $$
+                                        char '}')
+              modifyIORef ref $ (\doc -> doc $$ def)
 
 -- | The abstract language name is the name of the top-level
 -- abstract module

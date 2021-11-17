@@ -719,6 +719,33 @@ PgfText *pgf_print_category_internal(object o)
 }
 
 PGF_API
+PgfText *pgf_print_start_cat_internal(PgfDB *db, PgfRevision revision, PgfExn *err)
+{
+    PGF_API_BEGIN {
+        DB_scope scope(db, READER_SCOPE);
+        ref<PgfPGF> pgf = PgfDB::revision2pgf(revision);
+
+        PgfText *startcat = (PgfText *)
+            alloca(sizeof(PgfText)+9);
+        startcat->size = 8;
+        strcpy(startcat->text, "startcat");
+
+        ref<PgfFlag> flag =
+            namespace_lookup(pgf->abstract.aflags, startcat);
+
+        if (flag != 0) {
+            PgfInternalMarshaller m;
+            PgfPrinter printer(NULL,0,&m);
+            printer.puts("startcat = ");
+            m.match_lit(&printer, flag->value);
+            return printer.get_text();
+        }
+    } PGF_API_END
+
+    return NULL;
+}
+
+PGF_API
 PgfText *pgf_print_function_internal(object o)
 {
     ref<PgfAbsFun> absfun = o;
@@ -731,6 +758,105 @@ PgfText *pgf_print_function_internal(object o)
     printer.puts(" : ");
     m.match_type(&printer, absfun->type.as_object());
     printer.nprintf(32, " ; -- %g", absfun->ep.prob);
+
+    return printer.get_text();
+}
+
+PGF_API
+void pgf_iter_lincats(PgfDB *db, PgfConcrRevision cnc_revision,
+                      PgfItor *itor, PgfExn *err)
+{
+    PGF_API_BEGIN {
+        DB_scope scope(db, READER_SCOPE);
+        ref<PgfConcr> concr = PgfDB::revision2concr(cnc_revision);
+
+        namespace_iter(concr->lincats, itor, err);
+    } PGF_API_END
+}
+
+PGF_API
+void pgf_iter_lins(PgfDB *db, PgfConcrRevision cnc_revision,
+                   PgfItor *itor, PgfExn *err)
+{
+    PGF_API_BEGIN {
+        DB_scope scope(db, READER_SCOPE);
+        ref<PgfConcr> concr = PgfDB::revision2concr(cnc_revision);
+
+        namespace_iter(concr->lins, itor, err);
+    } PGF_API_END
+}
+
+PGF_API
+void pgf_get_lincat_counts_internal(object o, size_t *counts)
+{
+    ref<PgfConcrLincat> lincat = o;
+    counts[0] = lincat->fields->len;
+}
+
+PGF_API
+PgfText *pgf_get_lincat_field_internal(object o, size_t i)
+{
+    ref<PgfConcrLincat> lincat = o;
+    return &(**vector_elem(lincat->fields, i));
+}
+
+PGF_API
+void pgf_get_lin_counts_internal(object o, size_t *counts)
+{
+    ref<PgfConcrLin> lin = o;
+    counts[0] = lin->res->len;
+    counts[1] = lin->seqs->len / lin->res->len;
+}
+
+PGF_API
+PgfText *pgf_print_lin_sig_internal(object o, size_t i)
+{
+    ref<PgfConcrLin> lin = o;
+    ref<PgfDTyp> ty = lin->absfun->type;
+
+    PgfInternalMarshaller m;
+    PgfPrinter printer(NULL,0,&m);
+
+    printer.efun(&lin->name);
+    printer.puts(" : ");
+
+    size_t n_args = lin->args->len / lin->res->len;
+    for (size_t j = 0; j < n_args; j++) {
+        if (j > 0)
+            printer.puts(" * ");
+
+        printer.parg(vector_elem(ty->hypos, j)->type,
+                     vector_elem(lin->args, i*n_args + j));
+    }
+
+    if (n_args > 0)
+        printer.puts(" -> ");
+
+    printer.efun(&ty->name);
+    puts("(");
+    printer.lparam(*vector_elem(lin->res, i));
+    puts(")");
+
+    return printer.get_text();
+}
+
+PGF_API
+PgfText *pgf_print_lin_seq_internal(object o, size_t i, size_t j)
+{
+    ref<PgfConcrLin> lin = o;
+
+    PgfInternalMarshaller m;
+    PgfPrinter printer(NULL,0,&m);
+
+    size_t n_seqs = lin->seqs->len / lin->res->len;
+    ref<Vector<PgfSymbol>> syms = *vector_elem(lin->seqs, i*n_seqs + j);
+
+    for (size_t k = 0; k < syms->len; k++) {
+        if (k > 0)
+            printer.puts(" ");
+
+        printer.symbol(*vector_elem(syms, k));
+    }
 
     return printer.get_text();
 }
@@ -1200,7 +1326,8 @@ public:
 PGF_API
 void pgf_create_lincat(PgfDB *db,
                        PgfRevision revision, PgfConcrRevision cnc_revision,
-                       PgfText *name, size_t n_fields, PgfExn *err)
+                       PgfText *name, size_t n_fields, PgfText **fields,
+                       PgfExn *err)
 {
     PGF_API_BEGIN {
         DB_scope scope(db, WRITER_SCOPE);
@@ -1221,6 +1348,7 @@ void pgf_create_lincat(PgfDB *db,
         lincat->fields = vector_new<ref<PgfText>>(n_fields);
 
         for (size_t i = 0; i < n_fields; i++) {
+            *vector_elem(lincat->fields, i) = textdup_db(fields[i]);
         }
 
         Namespace<PgfConcrLincat> lincats =

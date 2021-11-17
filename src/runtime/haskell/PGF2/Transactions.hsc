@@ -216,8 +216,17 @@ data Production = Production [PArg] LParam [[Symbol]]
 
 createLincat :: Cat -> [String] -> Transaction Concr ()
 createLincat name fields = Transaction $ \c_db c_abstr c_revision c_exn ->
-  withText name $ \c_name ->
-    pgf_create_lincat c_db c_abstr c_revision c_name (fromIntegral (length fields)) c_exn
+  let n_fields = length fields
+  in withText name $ \c_name ->
+     allocaBytes (n_fields*(#size PgfText*)) $ \c_fields ->
+     withTexts c_fields 0 fields $
+       pgf_create_lincat c_db c_abstr c_revision c_name (fromIntegral n_fields) c_fields c_exn
+  where
+    withTexts p i []     f = f
+    withTexts p i (s:ss) f =
+      withText s $ \c_s -> do
+        pokeElemOff p i c_s
+        withTexts p (i+1) ss f
 
 dropLincat :: Cat -> Transaction Concr ()
 dropLincat name = Transaction $ \c_db _ c_revision c_exn ->
@@ -287,17 +296,17 @@ createLin name prods = Transaction $ \c_db c_abstr c_revision c_exn ->
       callLinBuilder0 fun c_builder c_exn
 
     callLParam f (LParam i0 terms) c_exn =
-      allocaBytes ((#size size_t)*2*n_terms) $ \c_terms -> do
+      allocaBytes (n_terms*2*(#size size_t)) $ \c_terms -> do
         pokeTerms c_terms terms
         f (fromIntegral i0) (fromIntegral n_terms) c_terms c_exn
       where
         n_terms = length terms
 
         pokeTerms c_terms []                  = return ()
-        pokeTerms c_terms ((index,var):terms) = do
-          pokeElemOff c_terms 0 (fromIntegral index)
+        pokeTerms c_terms ((factor,var):terms) = do
+          pokeElemOff c_terms 0 (fromIntegral factor)
           pokeElemOff c_terms 1 (fromIntegral var)
-          pokeTerms (c_terms `plusPtr` ((#size size_t) * 2)) terms
+          pokeTerms (c_terms `plusPtr` (2*(#size size_t))) terms
 
 dropLin :: Fun -> Transaction Concr ()
 dropLin name = Transaction $ \c_db _ c_revision c_exn ->
