@@ -10,7 +10,7 @@
 -----------------------------------------------------------------------------
 
 module GF.Compile.GeneratePMCFG
-    (generatePMCFG, pgfCncCat, addPMCFG
+    (generatePMCFG, type2fields, addPMCFG
     ) where
 
 import GF.Grammar hiding (VApp,VRecType)
@@ -182,4 +182,13 @@ mapAccumM f a (x:xs) = do (a, y) <- f a x
                           (a,ys) <- mapAccumM f a xs
                           return (a,y:ys)
 
-pgfCncCat = error "TODO: pgfCncCat"
+type2fields :: SourceGrammar -> Type -> [String]
+type2fields gr = type2fields empty
+  where
+    type2fields d (Sort s) | s == cStr = [show d]
+    type2fields d (RecType lbls) =
+      concatMap (\(lbl,ty) -> type2fields (d <+> pp lbl) ty) lbls
+    type2fields d (Table p q) =
+      let Ok ts = allParamValues gr p
+      in concatMap (\t -> type2fields (d <+> ppTerm Unqualified 5 t) q) ts
+    type2fields d _ = []
