@@ -2,6 +2,8 @@
 
 # Grammatical Framework (GF)
 
+![Build majestic runtime](https://github.com/GrammaticalFramework/gf-core/actions/workflows/build-majestic.yml/badge.svg?branch=majestic)
+
 The Grammatical Framework is a grammar formalism based on type theory.
 It consists of:
 
