@@ -47,16 +47,36 @@ void PgfConcr::release(ref<PgfConcr> concr)
     namespace_release(concr->printnames);
 }
 
-void PgfConcrLin::release(ref<PgfConcrLin> lin)
-{
-    PgfDB::free(lin->args);
-    PgfDB::free(lin->res);
-    PgfDB::free(lin->seqs);
-}
-
 void PgfConcrLincat::release(ref<PgfConcrLincat> lincat)
 {
+    for (size_t i = 0; i < lincat->fields->len; i++) {
+        PgfDB::free(*vector_elem(lincat->fields, i));
+    }
+
     PgfDB::free(lincat->fields);
+}
+
+void PgfConcrLin::release(ref<PgfConcrLin> lin)
+{
+    for (size_t i = 0; i < lin->args->len; i++) {
+        PgfDB::free(vector_elem(lin->args, i)->param);
+    }
+    PgfDB::free(lin->args);
+
+    for (size_t i = 0; i < lin->res->len; i++) {
+        PgfDB::free(*vector_elem(lin->res, i));
+    }
+    PgfDB::free(lin->res);
+
+    for (size_t i = 0; i < lin->seqs->len; i++) {
+        ref<Vector<PgfSymbol>> syms = *vector_elem(lin->seqs, i);
+        for (size_t j = 0; j < syms->len; j++) {
+            PgfSymbol sym = *vector_elem(syms, i);
+            PgfDB::free(ref<void>::untagged(sym));
+        }
+        PgfDB::free(syms);
+    }
+    PgfDB::free(lin->seqs);
 }
 
 void PgfConcrPrintname::release(ref<PgfConcrPrintname> printname)
