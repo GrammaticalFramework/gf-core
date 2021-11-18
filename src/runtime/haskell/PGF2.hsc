@@ -245,9 +245,9 @@ showPGF p =
                       n_fields <- peekElemOff pcounts 0
                       forM [0..n_fields-1] $ \i -> do
                         pgf_get_lincat_field_internal val i >>= peekText
-          let def = text "lincat" <+> (text name <+> char '=' <+> char '{' $$
+          let def = text "lincat" <+> (text name <+> char '=' <+> char '[' $$
                                        nest 2 (vcat (map text fields)) $$
-                                       char '}')
+                                       char ']')
           modifyIORef ref $ (\doc -> doc $$ def)
 
     ppLins c = unsafePerformIO $ do
@@ -271,9 +271,9 @@ showPGF p =
               syms <- forM [0..n_seqs-1] $ \j ->
                         bracket (pgf_print_lin_seq_internal val i j) free $ \c_text -> do
                           fmap text (peekText c_text)
-              let def = text "lin" <+> (sig <+> char '=' <+> char '{' $$
+              let def = text "lin" <+> (sig <+> char '=' <+> char '[' $$
                                         nest 2 (vcat syms) $$
-                                        char '}')
+                                        char ']')
               modifyIORef ref $ (\doc -> doc $$ def)
 
 -- | The abstract language name is the name of the top-level
