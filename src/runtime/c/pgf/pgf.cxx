@@ -1168,13 +1168,20 @@ public:
             throw pgf_error("Missing linearization category");
         }
 
+        ref<Vector<PgfPArg>> args =
+            vector_new<PgfPArg>(n_prods*absfun->type->hypos->len);
+        ref<Vector<ref<PgfLParam>>> res =
+            vector_new<ref<PgfLParam>>(n_prods);
+        ref<Vector<ref<Vector<PgfSymbol>>>> seqs =
+            vector_new<ref<Vector<PgfSymbol>>>(n_prods*lincat->fields->len);
+
         lin = PgfDB::malloc<PgfConcrLin>(absfun->name.size+1);
         memcpy(&lin->name, &absfun->name, sizeof(PgfText)+absfun->name.size+1);
         lin->ref_count = 1;
         lin->absfun = absfun;
-        lin->args = vector_new<PgfPArg>(n_prods*absfun->type->hypos->len);
-        lin->res  = vector_new<ref<PgfLParam>>(n_prods);
-        lin->seqs = vector_new<ref<Vector<PgfSymbol>>>(n_prods*lincat->fields->len);
+        lin->args = args;
+        lin->res  = res;
+        lin->seqs = seqs;
 
         this->arg_index = 0;
         this->res_index = 0;
@@ -1250,7 +1257,8 @@ public:
             if (seq_index >= lin->seqs->len)
                 throw pgf_error(builder_error_msg);
 
-            *vector_elem(lin->seqs, seq_index) = vector_new<PgfSymbol>(n_syms);
+            ref<Vector<PgfSymbol>> syms = vector_new<PgfSymbol>(n_syms);
+            *vector_elem(lin->seqs, seq_index) = syms;
             sym_index = 0;
         } PGF_API_END
     }
@@ -1596,15 +1604,17 @@ void pgf_create_lincat(PgfDB *db,
             throw pgf_error("There is no corresponding category in the abstract syntax");
         }
 
+        ref<Vector<ref<PgfText>>> db_fields = vector_new<ref<PgfText>>(n_fields);
+        for (size_t i = 0; i < n_fields; i++) {
+            ref<PgfText> field = textdup_db(fields[i]);
+            *vector_elem(db_fields, i) = field;
+        }
+
         ref<PgfConcrLincat> lincat = PgfDB::malloc<PgfConcrLincat>(name->size+1);
         memcpy(&lincat->name, name, sizeof(PgfText)+name->size+1);
         lincat->ref_count = 1;
         lincat->abscat = abscat;
-        lincat->fields = vector_new<ref<PgfText>>(n_fields);
-
-        for (size_t i = 0; i < n_fields; i++) {
-            *vector_elem(lincat->fields, i) = textdup_db(fields[i]);
-        }
+        lincat->fields = db_fields;
 
         Namespace<PgfConcrLincat> lincats =
             namespace_insert(concr->lincats, lincat);
