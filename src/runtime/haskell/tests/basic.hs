@@ -6,6 +6,7 @@ import PGF2
 
 main = do
   g <- newStdGen
+
   let
     limit = 10 ^ 100
     ns    = take 5000 (randomRs (-limit,limit) g)
@@ -79,6 +80,7 @@ main = do
   gr1 <- readPGF "tests/basic.pgf"
   gr2 <- bootNGF "tests/basic.pgf" "tests/basic.ngf"
   gr3 <- readNGF "tests/basic.ngf"
+  pmcfg <- readFile "tests/basic.pmcfg"
 
   rp1 <- testLoadFailure (readPGF "non-existing.pgf")
   rp2 <- testLoadFailure (readPGF "tests/basic.gf")
@@ -103,6 +105,8 @@ main = do
 
       ,TestCase (assertBool "wrong file format (GF)" rn2)
       ,TestCase (assertBool "wrong file format (PGF)" rn3)
+
+      ,TestCase (assertEqual "show pgf" (init pmcfg) (showPGF gr1))
       ]
       ++ grammarTests gr1
       ++ grammarTests gr2

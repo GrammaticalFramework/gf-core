@@ -1,0 +1,36 @@
+abstract basic {
+  cat Float ; -- 0.693147
+  cat Int ; -- 0.693147
+  cat N ; -- 0.693147
+  cat P N ; -- 0.693147
+  cat S ; -- 0.693147
+  cat String ; -- 0.693147
+  data c : N -> S ; -- -0
+  fun ind : P z -> ((x : N) -> P x -> P (s x)) -> (x : N) -> P x ; -- -0
+  data s : N -> N ; -- 0.693147
+  data z : N ; -- 0.693147
+}
+concrete basic_cnc {
+  lincat N = [
+           "s"
+         ]
+  lincat P = [
+         ]
+  lincat S = [
+           ""
+         ]
+  lin c : N(j) -> S(0) = [
+        <0,0>
+      ]
+  lin ind : P(0) * P(0) * N(j) -> P(0) = [
+      ]
+  lin s : N(0) -> N(0) = [
+        <0,0> "+" "1"
+      ]
+  lin s : N(1) -> N(0) = [
+        "1"
+      ]
+  lin z : N(1) = [
+        "0"
+      ]
+}
