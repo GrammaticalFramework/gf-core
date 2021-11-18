@@ -31,7 +31,6 @@ import PGF2.Expr
 
 import Foreign
 import Foreign.C
-import Control.Monad
 import Control.Exception
 
 #include <pgf/pgf.h>
@@ -243,17 +242,24 @@ createLin name prods = Transaction $ \c_db c_abstr c_revision c_exn ->
     (#poke PgfBuildLinIfaceVtbl, build) vtbl c_callback
     pgf_create_lin c_db c_abstr c_revision c_name (fromIntegral (length prods)) c_build c_exn
   where
+    forM_ []     c_exn f = return ()
+    forM_ (x:xs) c_exn f = do
+      ex_type <- (#peek PgfExn, type) c_exn
+      if (ex_type :: (#type PgfExnType)) == (#const PGF_EXN_NONE)
+        then f x >> forM_ xs c_exn f
+        else return ()
+
     build _ c_builder c_exn = do
       vtbl <- (#peek PgfLinBuilderIface, vtbl) c_builder
-      forM_ prods $ \(Production args res seqs) -> do
+      forM_ prods c_exn $ \(Production args res seqs) -> do
         fun <- (#peek PgfLinBuilderIfaceVtbl, start_production) vtbl
         callLinBuilder0 fun c_builder c_exn
         fun <- (#peek PgfLinBuilderIfaceVtbl, add_argument) vtbl
-        forM_ args $ \(PArg _ param) ->
+        forM_ args c_exn $ \(PArg _ param) ->
           callLParam (callLinBuilder3 fun c_builder) param c_exn
         fun <- (#peek PgfLinBuilderIfaceVtbl, set_result) vtbl  
         callLParam (callLinBuilder3 fun c_builder) res c_exn
-        forM_ seqs $ \syms -> do
+        forM_ seqs c_exn $ \syms -> do
           fun <- (#peek PgfLinBuilderIfaceVtbl, start_sequence) vtbl
           callLinBuilder1 fun c_builder (fromIntegral (length syms)) c_exn
           mapM_ (addSymbol c_builder vtbl c_exn) syms
@@ -261,7 +267,6 @@ createLin name prods = Transaction $ \c_db c_abstr c_revision c_exn ->
           callLinBuilder0 fun c_builder c_exn
         fun <- (#peek PgfLinBuilderIfaceVtbl, end_production) vtbl
         callLinBuilder0 fun c_builder c_exn
-        return ()
 
     addSymbol c_builder vtbl c_exn (SymCat d r) = do
       fun <- (#peek PgfLinBuilderIfaceVtbl, add_symcat) vtbl

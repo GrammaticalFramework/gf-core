@@ -1155,170 +1155,424 @@ class PGF_INTERNAL PgfLinBuilder : public PgfLinBuilderIface
     size_t seq_index;
     size_t sym_index;
 
+    const char *builder_error_msg =
+        "Detected incorrect use of the linearization builder";
+
 public:
-    PgfLinBuilder(ref<PgfConcrLin> lin) {
-        this->lin       = lin;
+    PgfLinBuilder(ref<PgfAbsFun> absfun, PgfConcr *concr, size_t n_prods)
+    {
+        ref<PgfConcrLincat> lincat =
+            namespace_lookup(concr->lincats, &absfun->type->name);
+        if (lincat == 0) {
+            throw pgf_error("Missing linearization category");
+        }
+
+        lin = PgfDB::malloc<PgfConcrLin>(absfun->name.size+1);
+        memcpy(&lin->name, &absfun->name, sizeof(PgfText)+absfun->name.size+1);
+        lin->ref_count = 1;
+        lin->absfun = absfun;
+        lin->args = vector_new<PgfPArg>(n_prods*absfun->type->hypos->len);
+        lin->res  = vector_new<ref<PgfLParam>>(n_prods);
+        lin->seqs = vector_new<ref<Vector<PgfSymbol>>>(n_prods*lincat->fields->len);
+
         this->arg_index = 0;
         this->res_index = 0;
         this->seq_index = 0;
-        this->sym_index = 0;
+        this->sym_index = (size_t) -1;
     }
 
     void start_production(PgfExn *err)
     {
+        if (err->type != PGF_EXN_NONE)
+            return;
+
+        PGF_API_BEGIN {
+            if (res_index >= lin->res->len)
+                throw pgf_error(builder_error_msg);
+            *vector_elem(lin->res, res_index) = 0;
+        } PGF_API_END
     }
 
     void add_argument(size_t i0, size_t n_terms, size_t *terms, PgfExn *err)
     {
-        ref<PgfLParam> param = PgfDB::malloc<PgfLParam>(n_terms*2*sizeof(size_t));
-        param->i0 = i0;
-        param->n_terms = n_terms;
+        if (err->type != PGF_EXN_NONE)
+            return;
 
-        for (size_t i = 0; i < n_terms; i++) {
-            param->terms[i].factor = terms[2*i];
-            param->terms[i].var    = terms[2*i+1];
-        }
+        PGF_API_BEGIN {
+            if (arg_index >= lin->args->len)
+                throw pgf_error(builder_error_msg);
 
-        ref<PgfPArg> parg = vector_elem(lin->args, arg_index);
-        parg->param = param;
+            ref<PgfLParam> param = PgfDB::malloc<PgfLParam>(n_terms*2*sizeof(size_t));
+            param->i0 = i0;
+            param->n_terms = n_terms;
 
-        arg_index++;
+            for (size_t i = 0; i < n_terms; i++) {
+                param->terms[i].factor = terms[2*i];
+                param->terms[i].var    = terms[2*i+1];
+            }
+
+            ref<PgfPArg> parg = vector_elem(lin->args, arg_index);
+            parg->param = param;
+
+            arg_index++;
+        } PGF_API_END
     }
 
     void set_result(size_t i0, size_t n_terms, size_t *terms, PgfExn *err)
     {
-        ref<PgfLParam> param = PgfDB::malloc<PgfLParam>(n_terms*2*sizeof(size_t));
-        param->i0 = i0;
-        param->n_terms = n_terms;
+        if (err->type != PGF_EXN_NONE)
+            return;
 
-        for (size_t i = 0; i < n_terms; i++) {
-            param->terms[i].factor = terms[2*i];
-            param->terms[i].var    = terms[2*i+1];
-        }
+        PGF_API_BEGIN {
+            if (res_index >= lin->res->len)
+                throw pgf_error(builder_error_msg);
 
-        *vector_elem(lin->res, res_index) = param;
+            ref<PgfLParam> param = PgfDB::malloc<PgfLParam>(n_terms*2*sizeof(size_t));
+            param->i0 = i0;
+            param->n_terms = n_terms;
+
+            for (size_t i = 0; i < n_terms; i++) {
+                param->terms[i].factor = terms[2*i];
+                param->terms[i].var    = terms[2*i+1];
+            }
+
+            *vector_elem(lin->res, res_index) = param;
+        } PGF_API_END
     }
 
     void start_sequence(size_t n_syms, PgfExn *err)
     {
-        *vector_elem(lin->seqs, seq_index) = vector_new<PgfSymbol>(n_syms);
-        sym_index = 0;
+        if (err->type != PGF_EXN_NONE)
+            return;
+
+        PGF_API_BEGIN {
+            if (seq_index >= lin->seqs->len)
+                throw pgf_error(builder_error_msg);
+
+            *vector_elem(lin->seqs, seq_index) = vector_new<PgfSymbol>(n_syms);
+            sym_index = 0;
+        } PGF_API_END
     }
 
     void add_symcat(size_t d, size_t i0, size_t n_terms, size_t *terms, PgfExn *err)
     {
-        ref<PgfSymbolCat> symcat = PgfDB::malloc<PgfSymbolCat>(n_terms*2*sizeof(size_t));
-        symcat->d  = d;
-        symcat->r.i0 = i0;
-        symcat->r.n_terms = n_terms;
+        if (err->type != PGF_EXN_NONE)
+            return;
 
-        for (size_t i = 0; i < n_terms; i++) {
-            symcat->r.terms[i].factor = terms[2*i];
-            symcat->r.terms[i].var    = terms[2*i+1];
-        }
+        PGF_API_BEGIN {
+            if (sym_index == (size_t) -1)
+                throw pgf_error(builder_error_msg);
 
-        ref<Vector<PgfSymbol>> syms = *vector_elem(lin->seqs, seq_index);
-        *vector_elem(syms, sym_index) = ref<PgfSymbolCat>::tagged(symcat);
+            if (seq_index >= lin->seqs->len)
+                throw pgf_error(builder_error_msg);
 
-        sym_index++;
+            ref<Vector<PgfSymbol>> syms = *vector_elem(lin->seqs, seq_index);
+
+            if (sym_index >= syms->len)
+                throw pgf_error(builder_error_msg);
+
+            ref<PgfSymbolCat> symcat = PgfDB::malloc<PgfSymbolCat>(n_terms*2*sizeof(size_t));
+            symcat->d  = d;
+            symcat->r.i0 = i0;
+            symcat->r.n_terms = n_terms;
+
+            for (size_t i = 0; i < n_terms; i++) {
+                symcat->r.terms[i].factor = terms[2*i];
+                symcat->r.terms[i].var    = terms[2*i+1];
+            }
+
+            *vector_elem(syms, sym_index) = ref<PgfSymbolCat>::tagged(symcat);
+            sym_index++;
+        } PGF_API_END
     }
 
     void add_symlit(size_t d, size_t i0, size_t n_terms, size_t *terms, PgfExn *err)
     {
-        ref<PgfSymbolLit> symlit = PgfDB::malloc<PgfSymbolLit>(n_terms*2*sizeof(size_t));
-        symlit->d  = d;
-        symlit->r.i0 = i0;
-        symlit->r.n_terms = n_terms;
+        if (err->type != PGF_EXN_NONE)
+            return;
 
-        for (size_t i = 0; i < n_terms; i++) {
-            symlit->r.terms[i].factor = terms[2*i];
-            symlit->r.terms[i].var    = terms[2*i+1];
-        }
+        PGF_API_BEGIN {
+            if (sym_index == (size_t) -1)
+                throw pgf_error(builder_error_msg);
 
-        ref<Vector<PgfSymbol>> syms = *vector_elem(lin->seqs, seq_index);
-        *vector_elem(syms, sym_index) = ref<PgfSymbolLit>::tagged(symlit);
+            if (seq_index >= lin->seqs->len)
+                throw pgf_error(builder_error_msg);
 
-        sym_index++;
+            ref<Vector<PgfSymbol>> syms = *vector_elem(lin->seqs, seq_index);
+
+            if (sym_index >= syms->len)
+                throw pgf_error(builder_error_msg);
+
+            ref<PgfSymbolLit> symlit = PgfDB::malloc<PgfSymbolLit>(n_terms*2*sizeof(size_t));
+            symlit->d  = d;
+            symlit->r.i0 = i0;
+            symlit->r.n_terms = n_terms;
+
+            for (size_t i = 0; i < n_terms; i++) {
+                symlit->r.terms[i].factor = terms[2*i];
+                symlit->r.terms[i].var    = terms[2*i+1];
+            }
+
+            *vector_elem(syms, sym_index) = ref<PgfSymbolLit>::tagged(symlit);
+            sym_index++;
+        } PGF_API_END
     }
 
     void add_symvar(size_t d, size_t r, PgfExn *err)
     {
-        ref<PgfSymbolVar> symvar = PgfDB::malloc<PgfSymbolVar>();
-        symvar->d = d;
-        symvar->r = r;
+        if (err->type != PGF_EXN_NONE)
+            return;
 
-        ref<Vector<PgfSymbol>> syms = *vector_elem(lin->seqs, seq_index);
-        *vector_elem(syms, sym_index) = ref<PgfSymbolVar>::tagged(symvar);
+        PGF_API_BEGIN {
+            if (sym_index == (size_t) -1)
+                throw pgf_error(builder_error_msg);
 
-        sym_index++;
+            if (seq_index >= lin->seqs->len)
+                throw pgf_error(builder_error_msg);
+
+            ref<Vector<PgfSymbol>> syms = *vector_elem(lin->seqs, seq_index);
+
+            if (sym_index >= syms->len)
+                throw pgf_error(builder_error_msg);
+
+            ref<PgfSymbolVar> symvar = PgfDB::malloc<PgfSymbolVar>();
+            symvar->d = d;
+            symvar->r = r;
+
+            *vector_elem(syms, sym_index) = ref<PgfSymbolVar>::tagged(symvar);
+            sym_index++;
+        } PGF_API_END
     }
 
     void add_symks(PgfText *token, PgfExn *err)
     {
-        ref<PgfSymbolKS> symtok = PgfDB::malloc<PgfSymbolKS>(token->size+1);
-        memcpy(&symtok->token, token, sizeof(PgfText)+token->size+1);
+        if (err->type != PGF_EXN_NONE)
+            return;
 
-        ref<Vector<PgfSymbol>> syms = *vector_elem(lin->seqs, seq_index);
-        *vector_elem(syms, sym_index) = ref<PgfSymbolKS>::tagged(symtok);
+        PGF_API_BEGIN {
+            if (sym_index == (size_t) -1)
+                throw pgf_error(builder_error_msg);
 
-        sym_index++;
+            if (seq_index >= lin->seqs->len)
+                throw pgf_error(builder_error_msg);
+
+            ref<Vector<PgfSymbol>> syms = *vector_elem(lin->seqs, seq_index);
+
+            if (sym_index >= syms->len)
+                throw pgf_error(builder_error_msg);
+
+            ref<PgfSymbolKS> symtok = PgfDB::malloc<PgfSymbolKS>(token->size+1);
+            memcpy(&symtok->token, token, sizeof(PgfText)+token->size+1);
+
+            *vector_elem(syms, sym_index) = ref<PgfSymbolKS>::tagged(symtok);
+            sym_index++;
+        } PGF_API_END
     }
 
     void add_symbind(PgfExn *err)
     {
-        ref<Vector<PgfSymbol>> syms = *vector_elem(lin->seqs, seq_index);
-        *vector_elem(syms, sym_index) = ref<PgfSymbolBIND>::tagged(0);
+        if (err->type != PGF_EXN_NONE)
+            return;
 
-        sym_index++;
+        PGF_API_BEGIN {
+            if (sym_index == (size_t) -1)
+                throw pgf_error(builder_error_msg);
+
+            if (seq_index >= lin->seqs->len)
+                throw pgf_error(builder_error_msg);
+
+            ref<Vector<PgfSymbol>> syms = *vector_elem(lin->seqs, seq_index);
+
+            if (sym_index >= syms->len)
+                throw pgf_error(builder_error_msg);
+
+            *vector_elem(syms, sym_index) = ref<PgfSymbolBIND>::tagged(0);
+            sym_index++;
+        } PGF_API_END
     }
 
     void add_symsoftbind(PgfExn *err)
     {
-        ref<Vector<PgfSymbol>> syms = *vector_elem(lin->seqs, seq_index);
-        *vector_elem(syms, sym_index) = ref<PgfSymbolSOFTBIND>::tagged(0);
+        if (err->type != PGF_EXN_NONE)
+            return;
 
-        sym_index++;
+        PGF_API_BEGIN {
+            if (sym_index == (size_t) -1)
+                throw pgf_error(builder_error_msg);
+
+            if (seq_index >= lin->seqs->len)
+                throw pgf_error(builder_error_msg);
+
+            ref<Vector<PgfSymbol>> syms = *vector_elem(lin->seqs, seq_index);
+
+            if (sym_index >= syms->len)
+                throw pgf_error(builder_error_msg);
+
+            *vector_elem(syms, sym_index) = ref<PgfSymbolSOFTBIND>::tagged(0);
+            sym_index++;
+        } PGF_API_END
     }
 
     void add_symne(PgfExn *err)
     {
-        ref<Vector<PgfSymbol>> syms = *vector_elem(lin->seqs, seq_index);
-        *vector_elem(syms, sym_index) = ref<PgfSymbolNE>::tagged(0);
+        if (err->type != PGF_EXN_NONE)
+            return;
 
-        sym_index++;
+        PGF_API_BEGIN {
+            if (sym_index == (size_t) -1)
+                throw pgf_error(builder_error_msg);
+
+            if (seq_index >= lin->seqs->len)
+                throw pgf_error(builder_error_msg);
+
+            ref<Vector<PgfSymbol>> syms = *vector_elem(lin->seqs, seq_index);
+
+            if (sym_index >= syms->len)
+                throw pgf_error(builder_error_msg);
+
+            *vector_elem(syms, sym_index) = ref<PgfSymbolNE>::tagged(0);
+            sym_index++;
+        } PGF_API_END
     }
 
     void add_symsoftspace(PgfExn *err)
     {
-        ref<Vector<PgfSymbol>> syms = *vector_elem(lin->seqs, seq_index);
-        *vector_elem(syms, sym_index) = ref<PgfSymbolSOFTSPACE>::tagged(0);
+        if (err->type != PGF_EXN_NONE)
+            return;
 
-        sym_index++;
+        PGF_API_BEGIN {
+            if (sym_index == (size_t) -1)
+                throw pgf_error(builder_error_msg);
+
+            if (seq_index >= lin->seqs->len)
+                throw pgf_error(builder_error_msg);
+
+            ref<Vector<PgfSymbol>> syms = *vector_elem(lin->seqs, seq_index);
+
+            if (sym_index >= syms->len)
+                throw pgf_error(builder_error_msg);
+
+            *vector_elem(syms, sym_index) = ref<PgfSymbolSOFTSPACE>::tagged(0);
+            sym_index++;
+        } PGF_API_END
     }
 
     void add_symcapit(PgfExn *err)
     {
-        ref<Vector<PgfSymbol>> syms = *vector_elem(lin->seqs, seq_index);
-        *vector_elem(syms, sym_index) = ref<PgfSymbolCAPIT>::tagged(0);
+        if (err->type != PGF_EXN_NONE)
+            return;
 
-        sym_index++;
+        PGF_API_BEGIN {
+            if (sym_index == (size_t) -1)
+                throw pgf_error(builder_error_msg);
+
+            if (seq_index >= lin->seqs->len)
+                throw pgf_error(builder_error_msg);
+
+            ref<Vector<PgfSymbol>> syms = *vector_elem(lin->seqs, seq_index);
+
+            if (sym_index >= syms->len)
+                throw pgf_error(builder_error_msg);
+
+            *vector_elem(syms, sym_index) = ref<PgfSymbolCAPIT>::tagged(0);
+            sym_index++;
+        } PGF_API_END
     }
 
     void add_symallcapit(PgfExn *err)
     {
-        ref<Vector<PgfSymbol>> syms = *vector_elem(lin->seqs, seq_index);
-        *vector_elem(syms, sym_index) = ref<PgfSymbolALLCAPIT>::tagged(0);
+        if (err->type != PGF_EXN_NONE)
+            return;
 
-        sym_index++;
+        PGF_API_BEGIN {
+            if (sym_index == (size_t) -1)
+                throw pgf_error(builder_error_msg);
+
+            if (seq_index >= lin->seqs->len)
+                throw pgf_error(builder_error_msg);
+
+            ref<Vector<PgfSymbol>> syms = *vector_elem(lin->seqs, seq_index);
+
+            if (sym_index >= syms->len)
+                throw pgf_error(builder_error_msg);
+
+            *vector_elem(syms, sym_index) = ref<PgfSymbolALLCAPIT>::tagged(0);
+        } PGF_API_END
     }
 
-    void end_sequence(PgfExn *err) {
-        seq_index++;
+    void end_sequence(PgfExn *err)
+    {
+        if (err->type != PGF_EXN_NONE)
+            return;
+
+        PGF_API_BEGIN {
+            if (sym_index != (*vector_elem(lin->seqs, seq_index))->len)
+                throw pgf_error(builder_error_msg);
+            sym_index = (size_t) -1;
+            seq_index++;
+        } PGF_API_END
     }
 
     void end_production(PgfExn *err)
     {
-        this->res_index++;
+        if (err->type != PGF_EXN_NONE)
+            return;
+
+        PGF_API_BEGIN {
+            size_t n_args = (lin->args->len/lin->res->len);
+            if (arg_index != (res_index+1)*n_args)
+                throw pgf_error(builder_error_msg);
+
+            if (*vector_elem(lin->res, res_index) == 0)
+                throw pgf_error(builder_error_msg);
+
+            size_t n_seqs = (lin->seqs->len/lin->res->len);
+            if (seq_index != (res_index+1)*n_seqs)
+                throw pgf_error(builder_error_msg);
+
+            res_index++;
+        } PGF_API_END
+    }
+
+    ref<PgfConcrLin> done()
+    {
+        if (res_index != lin->res->len)
+            throw pgf_error(builder_error_msg);
+        return lin;
+    }
+    
+    void failed()
+    {
+        for (size_t i = 0; i < arg_index; i++) {
+            PgfDB::free(vector_elem(lin->args, i)->param);
+        }
+        PgfDB::free(lin->args);
+
+        for (size_t i = 0; i < res_index; i++) {
+            PgfDB::free(*vector_elem(lin->res, i));
+        }
+        PgfDB::free(lin->res);
+
+        for (size_t i = 0; i < seq_index; i++) {
+            ref<Vector<PgfSymbol>> syms = *vector_elem(lin->seqs, i);
+            for (size_t j = 0; j < syms->len; j++) {
+                PgfSymbol sym = *vector_elem(syms, j);
+                PgfDB::free(ref<void>::untagged(sym));
+            }
+            PgfDB::free(syms);
+        }
+        if (sym_index != (size_t) -1) {
+            ref<Vector<PgfSymbol>> syms = *vector_elem(lin->seqs, seq_index);
+            for (size_t j = 0; j < sym_index; j++) {
+                PgfSymbol sym = *vector_elem(syms, j);
+                PgfDB::free(ref<void>::untagged(sym));
+            }
+            PgfDB::free(syms);
+        }
+        PgfDB::free(lin->seqs);
+
+        PgfDB::free(lin);
+        lin = 0;
     }
 };
 
@@ -1394,27 +1648,17 @@ void pgf_create_lin(PgfDB *db,
             throw pgf_error("There is no corresponding function in the abstract syntax");
         }
 
-        ref<PgfConcrLincat> lincat =
-            namespace_lookup(concr->lincats, &absfun->type->name);
-        if (lincat == 0) {
-            throw pgf_error("Missing linearization category");
-        }
-
-        ref<PgfConcrLin> lin = PgfDB::malloc<PgfConcrLin>(name->size+1);
-        memcpy(&lin->name, name, sizeof(PgfText)+name->size+1);
-        lin->ref_count = 1;
-        lin->absfun = absfun;
-        lin->args = vector_new<PgfPArg>(n_prods*absfun->type->hypos->len);
-        lin->res  = vector_new<ref<PgfLParam>>(n_prods);
-        lin->seqs = vector_new<ref<Vector<PgfSymbol>>>(n_prods*lincat->fields->len);
-
-        PgfLinBuilder builder(lin);
+        PgfLinBuilder builder(absfun, concr, n_prods);
         build->build(&builder, err);
-
-        Namespace<PgfConcrLin> lins =
-            namespace_insert(concr->lins, lin);
-        namespace_release(concr->lins);
-        concr->lins = lins;
+        if (err->type == PGF_EXN_NONE) {
+            ref<PgfConcrLin> lin = builder.done();
+            Namespace<PgfConcrLin> lins =
+                namespace_insert(concr->lins, lin);
+            namespace_release(concr->lins);
+            concr->lins = lins;
+        } else {
+            builder.failed();
+        }
     } PGF_API_END
 }
 
