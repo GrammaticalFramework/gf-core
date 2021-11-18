@@ -246,7 +246,7 @@ showPGF p =
                       forM (init [0..n_fields]) $ \i -> do
                         pgf_get_lincat_field_internal val i >>= peekText
           let def = text "lincat" <+> (text name <+> char '=' <+> char '[' $$
-                                       nest 2 (vcat (map text fields)) $$
+                                       nest 2 (vcat (map (text.show) fields)) $$
                                        char ']')
           modifyIORef ref $ (\doc -> doc $$ def)
 
