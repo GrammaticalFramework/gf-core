@@ -243,7 +243,7 @@ showPGF p =
           fields <- allocaBytes (1*(#size size_t)) $ \pcounts -> do
                       pgf_get_lincat_counts_internal val pcounts
                       n_fields <- peekElemOff pcounts 0
-                      forM [0..n_fields-1] $ \i -> do
+                      forM (init [0..n_fields]) $ \i -> do
                         pgf_get_lincat_field_internal val i >>= peekText
           let def = text "lincat" <+> (text name <+> char '=' <+> char '[' $$
                                        nest 2 (vcat (map text fields)) $$
@@ -265,10 +265,10 @@ showPGF p =
             pgf_get_lin_counts_internal val pcounts
             n_prods <- peekElemOff pcounts 0
             n_seqs  <- peekElemOff pcounts 1
-            forM_ [0..n_prods-1] $ \i -> do
+            forM_ (init [0..n_prods]) $ \i -> do
               sig <- bracket (pgf_print_lin_sig_internal val i) free $ \c_text -> do
                        fmap text (peekText c_text)
-              syms <- forM [0..n_seqs-1] $ \j ->
+              syms <- forM (init [0..n_seqs]) $ \j ->
                         bracket (pgf_print_lin_seq_internal val i j) free $ \c_text -> do
                           fmap text (peekText c_text)
               let def = text "lin" <+> (sig <+> char '=' <+> char '[' $$
