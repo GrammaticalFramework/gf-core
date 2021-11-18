@@ -1736,7 +1736,8 @@ void pgf_set_global_flag(PgfDB *db, PgfRevision revision,
         ref<PgfFlag> flag = PgfDB::malloc<PgfFlag>(name->size+1);
         flag->ref_count = 1;
         memcpy(&flag->name, name, sizeof(PgfText)+name->size+1);
-        flag->value = m->match_lit(&u, value);
+        PgfLiteral lit = m->match_lit(&u, value);
+        flag->value = lit;
         Namespace<PgfFlag> gflags =
             namespace_insert(pgf->gflags, flag);
         namespace_release(pgf->gflags);
@@ -1782,7 +1783,8 @@ void pgf_set_abstract_flag(PgfDB *db, PgfRevision revision,
         ref<PgfFlag> flag = PgfDB::malloc<PgfFlag>(name->size+1);
         flag->ref_count = 1;
         memcpy(&flag->name, name, sizeof(PgfText)+name->size+1);
-        flag->value = m->match_lit(&u, value);
+        PgfLiteral lit = m->match_lit(&u, value);
+        flag->value = lit;
         Namespace<PgfFlag> aflags =
             namespace_insert(pgf->abstract.aflags, flag);
         namespace_release(pgf->abstract.aflags);
@@ -1828,7 +1830,8 @@ void pgf_set_concrete_flag(PgfDB *db, PgfConcrRevision revision,
         ref<PgfFlag> flag = PgfDB::malloc<PgfFlag>(name->size+1);
         flag->ref_count = 1;
         memcpy(&flag->name, name, sizeof(PgfText)+name->size+1);
-        flag->value = m->match_lit(&u, value);
+        PgfLiteral lit = m->match_lit(&u, value);
+        flag->value = lit;
         Namespace<PgfFlag> cflags =
             namespace_insert(concr->cflags, flag);
         namespace_release(concr->cflags);
