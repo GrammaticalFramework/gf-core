@@ -833,9 +833,9 @@ PgfText *pgf_print_lin_sig_internal(object o, size_t i)
         printer.puts(" -> ");
 
     printer.efun(&ty->name);
-    puts("(");
+    printer.puts("(");
     printer.lparam(*vector_elem(lin->res, i));
-    puts(")");
+    printer.puts(")");
 
     return printer.get_text();
 }
