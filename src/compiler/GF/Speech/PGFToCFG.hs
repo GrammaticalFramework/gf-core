@@ -7,7 +7,6 @@
 module GF.Speech.PGFToCFG (bnfPrinter, pgfToCFG) where
 
 import PGF2
-import PGF2.Internal
 import GF.Grammar.CFG hiding (Symbol)
 
 import Data.Map (Map)

@@ -84,7 +84,7 @@ struct PGF_INTERNAL_DECL PgfAbsFun {
 
     ref<PgfDTyp> type;
 	int arity;
-    ref<Vector<ref<PgfEquation>>> defns;
+    ref<char> bytecode;
     PgfExprProb ep;
     PgfText name;
 

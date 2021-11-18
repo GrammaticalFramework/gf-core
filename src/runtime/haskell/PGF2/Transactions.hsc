@@ -28,6 +28,7 @@ module PGF2.Transactions
 
 import PGF2.FFI
 import PGF2.Expr
+import PGF2.ByteCode
 
 import Foreign
 import Foreign.C
@@ -123,12 +124,13 @@ checkoutPGF p name =
               langs <- getConcretes (a_db p) fptr
               return (Just (PGF (a_db p) fptr langs))
 
-createFunction :: Fun -> Type -> Int -> Float -> Transaction PGF ()
-createFunction name ty arity prob = Transaction $ \c_db _ c_revision c_exn ->
+createFunction :: Fun -> Type -> Int -> [[Instr]] -> Float -> Transaction PGF ()
+createFunction name ty arity bytecode prob = Transaction $ \c_db _ c_revision c_exn ->
   withText name $ \c_name ->
   bracket (newStablePtr ty) freeStablePtr $ \c_ty ->
+  (if null bytecode then (\f -> f nullPtr) else (allocaBytes 0)) $ \c_bytecode ->
   withForeignPtr marshaller $ \m -> do
-    pgf_create_function c_db c_revision c_name c_ty (fromIntegral arity) prob m c_exn
+    pgf_create_function c_db c_revision c_name c_ty (fromIntegral arity) c_bytecode prob m c_exn
 
 dropFunction :: Fun -> Transaction PGF ()
 dropFunction name = Transaction $ \c_db _ c_revision c_exn ->

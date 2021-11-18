@@ -17,7 +17,6 @@
 module GF.Compile.PGFtoHaskell (grammar2haskell) where
 
 import PGF2
-import PGF2.Internal
 
 import GF.Data.Operations
 import GF.Infra.Option

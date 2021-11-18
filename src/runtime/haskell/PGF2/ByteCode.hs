@@ -1,29 +1,8 @@
-{-# LANGUAGE ImplicitParams, RankNTypes #-}
-
-module PGF2.Internal(-- * Access the internal structures
-                     FId,isPredefFId,
-                     fidString,fidInt,fidFloat,fidVar,fidStart,
-
-                     -- * Byte code
+module PGF2.ByteCode(-- * Byte code
                      CodeLabel, Instr(..), IVal(..), TailInfo(..),
-
-                     unionPGF, writeConcr
                     ) where
 
-import PGF2.FFI
 import PGF2.Expr
-
-type FId = Int
-
-fidString, fidInt, fidFloat, fidVar, fidStart :: FId
-fidString = (-1)
-fidInt    = (-2)
-fidFloat  = (-3)
-fidVar    = (-4)
-fidStart  = (-5)
-
-isPredefFId :: FId -> Bool
-isPredefFId = (`elem` [fidString, fidInt, fidFloat, fidVar])
 
 type CodeLabel = Int
 
@@ -60,9 +39,3 @@ data TailInfo
   = RecCall
   | TailCall {-# UNPACK #-} !Int
   | UpdateCall
-
-unionPGF :: PGF -> PGF -> Maybe PGF
-unionPGF = error "TODO: unionPGF"
-
-writeConcr :: FilePath -> Concr -> IO ()
-writeConcr = error "TODO: writeConcr"

@@ -1,7 +1,6 @@
 module GF.Compiler (mainGFC, linkGrammars, writeGrammar, writeOutputs) where
 
 import PGF2
-import PGF2.Internal(unionPGF,writeConcr)
 import GF.Compile as S(batchCompile,link,srcAbsName)
 import GF.CompileInParallel as P(parallelBatchCompile)
 import GF.Compile.Export
@@ -148,6 +147,8 @@ unionPGFFiles opts fs =
     readPGFVerbose f =
         putPointE Normal opts ("Reading " ++ f ++ "...") $ liftIO $ readPGF f
 
+unionPGF = error "TODO: unionPGF"
+
 -- | Export the PGF to the 'OutputFormat's specified in the 'Options'.
 -- Calls 'exportPGF'.
 writeOutputs :: Options -> PGF -> IOE ()
@@ -162,22 +163,9 @@ writeOutputs opts pgf = do
 writeGrammar :: Options -> PGF -> IOE ()
 writeGrammar opts pgf =
   if fst (flag optLinkTargets opts)
-    then if flag optSplitPGF opts
-           then writeSplitPGF
-           else writeNormalPGF
+    then do let outfile = outputPath opts (grammarName opts pgf <.> "pgf")
+            writing opts outfile (writePGF outfile pgf)
     else return ()
-  where
-    writeNormalPGF =
-       do let outfile = outputPath opts (grammarName opts pgf <.> "pgf")
-          writing opts outfile (writePGF outfile pgf)
-
-    writeSplitPGF =
-      do let outfile = outputPath opts (grammarName opts pgf <.> "pgf")
-         writing opts outfile $ writePGF outfile pgf
-         forM_ (Map.toList (languages pgf)) $ \(concrname,concr) -> do
-           let outfile = outputPath opts (concrname <.> "pgf_c")
-           writing opts outfile (writeConcr outfile concr)
-
 
 writeOutput :: Options -> FilePath-> String -> IOE ()
 writeOutput opts file str = writing opts path $ writeUTF8File path str
@@ -189,7 +177,7 @@ grammarName :: Options -> PGF -> String
 grammarName opts pgf = grammarName' opts (abstractName pgf)
 grammarName' opts abs = fromMaybe abs (flag optName opts)
 
-outputJustPGF opts = null (flag optOutputFormats opts) && not (flag optSplitPGF opts)
+outputJustPGF opts = null (flag optOutputFormats opts)
 
 outputPath opts file = maybe id (</>) (flag optOutputDir opts) file
 

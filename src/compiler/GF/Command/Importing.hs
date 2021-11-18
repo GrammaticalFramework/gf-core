@@ -1,7 +1,6 @@
 module GF.Command.Importing (importGrammar, importSource) where
 
 import PGF2
-import PGF2.Internal(unionPGF)
 
 import GF.Compile
 import GF.Compile.Multi (readMulti)
@@ -49,6 +48,8 @@ ioUnionPGF (Just one) two =
   case unionPGF one two of
     Nothing         -> putStrLn "Abstract changed, previous concretes discarded." >> return (Just two)
     Just pgf        -> return (Just pgf)
+
+unionPGF = error "TODO: unionPGF"
 
 importSource :: Options -> [FilePath] -> IO SourceGrammar
 importSource opts files = fmap (snd.snd) (batchCompile opts files)

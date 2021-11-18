@@ -9,18 +9,8 @@ void PgfAbsFun::release(ref<PgfAbsFun> absfun)
 {
     pgf_type_free(absfun->type);
 
-    if (absfun->defns != 0) {
-        for (size_t i = 0; i < absfun->defns->len; i++) {
-            ref<PgfEquation> eq = *vector_elem(absfun->defns, i);
-            pgf_expr_free(eq->body);
-
-            for (size_t j = 0; j < eq->patts.len; j++) {
-                PgfPatt patt = *vector_elem(ref<Vector<PgfPatt>>::from_ptr(&eq->patts), j);
-                pgf_patt_free(patt);
-            }
-        }
-
-        PgfDB::free(absfun->defns);
+    if (absfun->bytecode != 0) {
+        PgfDB::free(absfun->bytecode);
     }
 }
 

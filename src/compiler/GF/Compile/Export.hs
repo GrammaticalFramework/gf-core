@@ -4,7 +4,6 @@ import PGF2
 import GF.Compile.PGFtoHaskell
 --import GF.Compile.PGFtoAbstract
 import GF.Compile.PGFtoJava
-import GF.Compile.PGFtoJSON
 import GF.Infra.Option
 --import GF.Speech.CFG
 import GF.Speech.PGFToCFG
@@ -35,7 +34,6 @@ exportPGF opts fmt pgf =
       FmtPGFPretty    -> multi "txt" (showPGF)
       FmtCanonicalGF  -> [] -- canon "gf" (render80 . abstract2canonical)
       FmtCanonicalJson-> []
-      FmtJSON         -> multi "json"  pgf2json
       FmtHaskell      -> multi "hs"  (grammar2haskell opts name)
       FmtJava         -> multi "java" (grammar2java opts name)
       FmtBNF          -> single "bnf"   bnfPrinter

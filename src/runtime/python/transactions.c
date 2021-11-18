@@ -149,7 +149,7 @@ Transaction_createFunction(TransactionObject *self, PyObject *args)
     PgfText *funname = CString_AsPgfText(s, size);
 
     PgfExn err;
-    pgf_create_function(self->pgf->db, self->revision, funname, (PgfType) type, arity, prob, &marshaller, &err);
+    pgf_create_function(self->pgf->db, self->revision, funname, (PgfType) type, arity, NULL, prob, &marshaller, &err);
     FreePgfText(funname);
     if (handleError(err) != PGF_EXN_NONE) {
         return NULL;

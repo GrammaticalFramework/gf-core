@@ -9,9 +9,9 @@ main = do
   gr1 <- readPGF "tests/basic.pgf"
   let Just ty = readType "(N -> N) -> P (s z)"
 
-  gr2 <- modifyPGF gr1              (createFunction "foo" ty 0 pi >>
+  gr2 <- modifyPGF gr1              (createFunction "foo" ty 0 [] pi >>
                                      createCategory "Q" [(Explicit,"x",ty)] pi)
-  gr3 <- branchPGF gr1 "bar_branch" (createFunction "bar" ty 0 pi >>
+  gr3 <- branchPGF gr1 "bar_branch" (createFunction "bar" ty 0 [] pi >>
                                      createCategory "R" [(Explicit,"x",ty)] pi)
 
   Just gr4 <- checkoutPGF gr1 "master"
@@ -44,8 +44,8 @@ main = do
       ,TestCase (assertEqual "new function prob" pi        (functionProbability gr2 "foo"))
       ,TestCase (assertEqual "old category prob" (-log 0)  (categoryProbability gr1 "Q"))
       ,TestCase (assertEqual "new category prob" pi        (categoryProbability gr2 "Q"))
-      ,TestCase (assertEqual "empty concretes" []          (Map.keys (languages gr1)))
-      ,TestCase (assertEqual "extended concretes" ["basic_eng"] (Map.keys (languages gr7)))
+      ,TestCase (assertEqual "empty concretes" ["basic_cnc"] (Map.keys (languages gr1)))
+      ,TestCase (assertEqual "extended concretes" ["basic_cnc","basic_eng"] (Map.keys (languages gr7)))
       ,TestCase (assertEqual "added concrete flag" (Just (LStr "test")) (concreteFlag cnc "test_flag"))
       ]
 

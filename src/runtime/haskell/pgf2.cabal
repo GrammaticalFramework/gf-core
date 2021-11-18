@@ -23,7 +23,7 @@ library
   exposed-modules:
     PGF2,
     PGF2.Transactions,
-    PGF2.Internal,
+    PGF2.ByteCode,
     -- backwards compatibility API:
     PGF
   other-modules:

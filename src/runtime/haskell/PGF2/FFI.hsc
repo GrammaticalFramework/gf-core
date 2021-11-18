@@ -151,7 +151,7 @@ foreign import ccall pgf_commit_revision :: Ptr PgfDB -> Ptr PGF -> Ptr PgfExn -
 
 foreign import ccall pgf_checkout_revision :: Ptr PgfDB -> Ptr PgfText -> Ptr PgfExn -> IO (Ptr PGF)
 
-foreign import ccall pgf_create_function :: Ptr PgfDB -> Ptr PGF -> Ptr PgfText -> StablePtr Type -> CSize -> (#type prob_t) -> Ptr PgfMarshaller -> Ptr PgfExn -> IO ()
+foreign import ccall pgf_create_function :: Ptr PgfDB -> Ptr PGF -> Ptr PgfText -> StablePtr Type -> CSize -> Ptr CChar -> (#type prob_t) -> Ptr PgfMarshaller -> Ptr PgfExn -> IO ()
 
 foreign import ccall pgf_drop_function :: Ptr PgfDB -> Ptr PGF -> Ptr PgfText -> Ptr PgfExn -> IO ()
 

@@ -32,9 +32,6 @@ public:
     void write_hypo(ref<PgfHypo> hypo);
     void write_type(ref<PgfDTyp> ty);
 
-    void write_patt(PgfPatt patt);
-    void write_defn(ref<ref<PgfEquation>> r);
-
     void write_flag(ref<PgfFlag> flag);
 
     void write_absfun(ref<PgfAbsFun> absfun);

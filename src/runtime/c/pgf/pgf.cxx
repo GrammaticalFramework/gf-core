@@ -533,7 +533,7 @@ int pgf_function_is_constructor(PgfDB *db, PgfRevision revision,
         if (absfun == 0)
             return false;
 
-        return (absfun->defns == 0);
+        return (absfun->bytecode == 0);
     } PGF_API_END
 
     return false;
@@ -753,7 +753,7 @@ PgfText *pgf_print_function_internal(object o)
     PgfInternalMarshaller m;
     PgfPrinter printer(NULL,0,&m);
 
-    printer.puts("fun ");
+    printer.puts(absfun->bytecode != 0 ? "fun " : "data ");
     printer.efun(&absfun->name);
     printer.puts(" : ");
     m.match_type(&printer, absfun->type.as_object());
@@ -955,7 +955,8 @@ PgfRevision pgf_checkout_revision(PgfDB *db, PgfText *name,
 PGF_API
 void pgf_create_function(PgfDB *db, PgfRevision revision,
                          PgfText *name,
-                         PgfType ty, size_t arity, prob_t prob,
+                         PgfType ty, size_t arity, char *bytecode,
+                         prob_t prob,
                          PgfMarshaller *m,
                          PgfExn *err)
 {
@@ -969,7 +970,7 @@ void pgf_create_function(PgfDB *db, PgfRevision revision,
         absfun->ref_count = 1;
         absfun->type  = m->match_type(&u, ty);
         absfun->arity = arity;
-        absfun->defns = 0;
+        absfun->bytecode = bytecode ? PgfDB::malloc<char>(0) : 0;
         absfun->ep.prob = prob;
         ref<PgfExprFun> efun =
             ref<PgfExprFun>::from_ptr((PgfExprFun*) &absfun->name);

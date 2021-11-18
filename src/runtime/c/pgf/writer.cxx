@@ -253,61 +253,6 @@ void PgfWriter::write_type(ref<PgfDTyp> ty)
     write_vector<PgfExpr>(ty->exprs, &PgfWriter::write_expr);
 }
 
-void PgfWriter::write_patt(PgfPatt patt)
-{
-    auto tag = ref<PgfPatt>::get_tag(patt);
-    write_tag(tag);
-
-	switch (tag) {
-	case PgfPattApp::tag: {
-		auto papp = ref<PgfPattApp>::untagged(patt);
-        write_name(papp->ctor);
-        write_vector(ref<Vector<PgfPatt>>::from_ptr(&papp->args), &PgfWriter::write_patt);
-		break;
-	}
-	case PgfPattVar::tag: {
-		auto pvar = ref<PgfPattVar>::untagged(patt);
-        write_name(&pvar->name);
-		break;
-	}
-	case PgfPattAs::tag: {
-        auto pas = ref<PgfPattAs>::untagged(patt);
-        write_name(&pas->name);
-        write_patt(pas->patt);
-		break;
-	}
-	case PgfPattWild::tag: {
-		auto pwild = ref<PgfPattWild>::untagged(patt);
-		break;
-	}
-	case PgfPattLit::tag: {
-        auto plit = ref<PgfPattLit>::untagged(patt);
-        write_literal(plit->lit);
-		break;
-	}
-	case PgfPattImplArg::tag: {
-        auto pimpl = ref<PgfPattImplArg>::untagged(patt);
-		write_patt(pimpl->patt);
-		break;
-	}
-	case PgfPattTilde::tag: {
-        auto ptilde = ref<PgfPattTilde>::untagged(patt);
-		write_expr(ptilde->expr);
-		break;
-	}
-	default:
-		throw pgf_error("Unknown pattern tag");
-	}
-}
-
-void PgfWriter::write_defn(ref<ref<PgfEquation>> r)
-{
-    ref<PgfEquation> equ = *r;
-
-    write_vector(ref<Vector<PgfPatt>>::from_ptr(&equ->patts), &PgfWriter::write_patt);
-    write_expr(equ->body);
-}
-
 void PgfWriter::write_flag(ref<PgfFlag> flag)
 {
     write_name(&flag->name);
@@ -319,11 +264,11 @@ void PgfWriter::write_absfun(ref<PgfAbsFun> absfun)
     write_name(&absfun->name);
     write_type(absfun->type);
     write_int(absfun->arity);
-    if (absfun->defns == 0)
+    if (absfun->bytecode == 0)
         write_tag(0);
     else {
         write_tag(1);
-        write_vector<ref<PgfEquation>>(absfun->defns, &PgfWriter::write_defn);
+        write_len(0);
     }
     write_double(exp(-absfun->ep.prob));
 }

@@ -7,7 +7,6 @@ import GF.Infra.Option
 import GF.Compile.OptimizePGF
 
 import PGF2
-import PGF2.Internal
 
 import qualified Data.Set as Set
 import qualified Data.Map as Map

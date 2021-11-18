@@ -59,9 +59,6 @@ public:
 
     ref<PgfFlag> read_flag();
 
-    PgfPatt read_patt();
-    void read_defn(ref<ref<PgfEquation>> defn);
-
     ref<PgfAbsFun> read_absfun();
     ref<PgfAbsCat> read_abscat();
     void read_abstract(ref<PgfAbstr> abstract);
@@ -84,7 +81,6 @@ private:
     object read_name_internal(size_t struct_size);
     object read_text_internal(size_t struct_size);
 
-    void read_patt2(ref<PgfPatt> r) { *r = read_patt(); };
     void read_text2(ref<ref<PgfText>> r) { *r = read_text(); };
     void read_lparam(ref<ref<PgfLParam>> r) { *r = read_lparam(); };
     void read_symbol2(ref<PgfSymbol> r) { *r = read_symbol(); };

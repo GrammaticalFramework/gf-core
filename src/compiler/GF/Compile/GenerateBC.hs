@@ -5,7 +5,7 @@ import GF.Grammar
 import GF.Grammar.Lookup(lookupAbsDef,lookupFunType)
 import GF.Data.Operations
 import PGF2(Literal(..))
-import PGF2.Internal(CodeLabel,Instr(..),IVal(..),TailInfo(..))
+import PGF2.ByteCode
 import qualified Data.Map as Map
 import Data.List(nub,mapAccumL)
 import Data.Maybe(fromMaybe)
@@ -19,9 +19,7 @@ generateByteCode gr arity eqs =
       b = if arity == 0 || null eqs
             then instrs
             else CHECK_ARGS arity:instrs
-  in case bs of
-       [[FAIL]] -> []         -- in the runtime this is a more efficient variant of [[FAIL]]
-       _        -> reverse bs
+  in reverse bs
   where
     is = push_is (arity-1) arity []
 

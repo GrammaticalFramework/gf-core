@@ -48,7 +48,7 @@ grammar2PGF opts gr am probs = do
   pgf <- modifyPGF pgf $ do
     sequence_ [setAbstractFlag name value | (name,value) <- optionsPGF aflags]
     sequence_ [createCategory c ctxt p | (c,ctxt,p) <- cats]
-    sequence_ [createFunction f ty arity p | (f,ty,arity,_,p) <- funs]
+    sequence_ [createFunction f ty arity bcode p | (f,ty,arity,bcode,p) <- funs]
     forM_ (allConcretes gr am) $ \cm ->
       createConcrete (mi2i cm) $ do
         let cflags = err (const noOptions) mflags (lookupModule gr cm)

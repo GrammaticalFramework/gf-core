@@ -317,69 +317,6 @@ ref<PgfDTyp> PgfReader::read_type()
     return tp;
 }
 
-PgfPatt PgfReader::read_patt()
-{
-    PgfPatt patt = 0;
-
-	uint8_t tag = read_tag();
-	switch (tag) {
-	case PgfPattApp::tag: {
-		ref<PgfText> ctor = read_name();
-
-		ref<PgfPattApp> papp =
-            read_vector<PgfPattApp,PgfPatt>(&PgfPattApp::args,&PgfReader::read_patt2);
-		papp->ctor = ctor;
-        patt = ref<PgfPattApp>::tagged(papp);
-		break;
-	}
-	case PgfPattVar::tag: {
-		ref<PgfPattVar> pvar = read_name<PgfPattVar>(&PgfPattVar::name);
-        patt = ref<PgfPattVar>::tagged(pvar);
-		break;
-	}
-	case PgfPattAs::tag: {
-        ref<PgfPattAs> pas = read_name<PgfPattAs>(&PgfPattAs::name);
-		pas->patt = read_patt();
-        patt = ref<PgfPattAs>::tagged(pas);
-		break;
-	}
-	case PgfPattWild::tag: {
-		ref<PgfPattWild> pwild = PgfDB::malloc<PgfPattWild>();
-        patt = ref<PgfPattWild>::tagged(pwild);
-		break;
-	}
-	case PgfPattLit::tag: {
-        ref<PgfPattLit> plit = PgfDB::malloc<PgfPattLit>();
-		plit->lit = read_literal();
-        patt = ref<PgfPattLit>::tagged(plit);
-		break;
-	}
-	case PgfPattImplArg::tag: {
-        ref<PgfPattImplArg> pimpl = PgfDB::malloc<PgfPattImplArg>();
-		pimpl->patt = read_patt();
-        patt = ref<PgfPattImplArg>::tagged(pimpl);
-		break;
-	}
-	case PgfPattTilde::tag: {
-        ref<PgfPattTilde> ptilde = PgfDB::malloc<PgfPattTilde>();
-		ptilde->expr = read_expr();
-        patt = ref<PgfPattTilde>::tagged(ptilde);
-		break;
-	}
-	default:
-		throw pgf_error("Unknown pattern tag");
-	}
-
-	return patt;
-}
-
-void PgfReader::read_defn(ref<ref<PgfEquation>> defn)
-{
-    ref<PgfEquation> eq = read_vector(&PgfEquation::patts,&PgfReader::read_patt2);
-    eq->body = read_expr();
-    *defn = eq;
-}
-
 ref<PgfAbsFun> PgfReader::read_absfun()
 {
     ref<PgfAbsFun> absfun =
@@ -394,12 +331,13 @@ ref<PgfAbsFun> PgfReader::read_absfun()
     uint8_t tag = read_tag();
 	switch (tag) {
 	case 0:
-        absfun->defns = 0;
+        absfun->bytecode = 0;
         break;
-    case 1:
-        absfun->defns =
-            read_vector<ref<PgfEquation>>(&PgfReader::read_defn);
+    case 1: {
+        read_len();
+        absfun->bytecode = PgfDB::malloc<char>(0);
         break;
+    }
     default:
         throw pgf_error("Unknown tag, 0 or 1 expected");
     }
