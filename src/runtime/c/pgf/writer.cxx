@@ -112,7 +112,7 @@ void PgfWriter::write_name(PgfText *text)
     size_t n_items = fwrite(&text->text, text->size, 1, out);
     if (ferror(out))
         throw pgf_error("an error occured while writing out the grammar");
-    if (n_items != 1)
+    if (text->size != 0 && n_items != 1)
         throw pgf_error("couldn't write to the output file");
 }
 
@@ -128,7 +128,7 @@ void PgfWriter::write_text(PgfText *text)
     size_t n_items = fwrite(&text->text, text->size, 1, out);
     if (ferror(out))
         throw pgf_error("an error occured while writing out the grammar");
-    if (n_items != 1)
+    if (text->size != 0 && n_items != 1)
         throw pgf_error("couldn't write to the output file");
 }
 
