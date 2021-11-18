@@ -278,7 +278,7 @@ createLin name prods = Transaction $ \c_db c_abstr c_revision c_exn ->
       fun <- (#peek PgfLinBuilderIfaceVtbl, add_symvar) vtbl
       callLinBuilder2 fun c_builder (fromIntegral d) (fromIntegral r) c_exn
     addSymbol c_builder vtbl c_exn (SymKS tok) = do
-      fun <- (#peek PgfLinBuilderIfaceVtbl, add_symvar) vtbl
+      fun <- (#peek PgfLinBuilderIfaceVtbl, add_symks) vtbl
       withText tok $ \c_tok ->
         callLinBuilder5 fun c_builder c_tok c_exn
     addSymbol c_builder vtbl c_exn SymBIND = do
