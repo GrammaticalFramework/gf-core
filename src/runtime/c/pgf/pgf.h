@@ -404,6 +404,24 @@ PGF_API_DECL
 PgfText *pgf_print_lin_seq_internal(object o, size_t i, size_t j);
 
 PGF_API_DECL
+void pgf_check_expr(PgfDB *db, PgfRevision revision,
+                    PgfExpr* pe, PgfType ty,
+                    PgfMarshaller *m, PgfUnmarshaller *u,
+                    PgfExn *err);
+
+PGF_API_DECL
+PgfType pgf_infer_expr(PgfDB *db, PgfRevision revision,
+                       PgfExpr* pe,
+                       PgfMarshaller *m, PgfUnmarshaller *u,
+                       PgfExn *err);
+
+PGF_API_DECL
+void pgf_check_type(PgfDB *db, PgfRevision revision,
+                    PgfType* pty,
+                    PgfMarshaller *m, PgfUnmarshaller *u,
+                    PgfExn *err);
+
+PGF_API_DECL
 PgfRevision pgf_clone_revision(PgfDB *db, PgfRevision revision,
                                PgfText *name,
                                PgfExn *err);

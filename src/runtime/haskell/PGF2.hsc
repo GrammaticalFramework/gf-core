@@ -94,7 +94,7 @@ import PGF2.FFI
 import Foreign
 import Foreign.C
 import Control.Monad(forM,forM_)
-import Control.Exception(mask_,bracket)
+import Control.Exception(bracket,mask_,throwIO)
 import System.IO.Unsafe(unsafePerformIO)
 import System.Random
 import qualified Data.Map as Map
@@ -345,7 +345,36 @@ checkExpr = error "TODO: checkExpr"
 -- possible to infer its type in the GF type system.
 -- In this case the function returns an error.
 inferExpr :: PGF -> Expr -> Either String (Expr, Type)
-inferExpr = error "TODO: inferExpr"
+inferExpr p e =
+  unsafePerformIO $
+  withForeignPtr marshaller $ \m ->
+  withForeignPtr unmarshaller $ \u ->
+  withForeignPtr (a_revision p) $ \c_revision ->
+  bracket (newStablePtr e) freeStablePtr $ \c_e ->
+  alloca $ \p_e ->
+  allocaBytes (#size PgfExn) $ \c_exn -> do
+    poke p_e c_e
+    c_ty <- pgf_infer_expr (a_db p) c_revision p_e m u c_exn
+    ex_type <- (#peek PgfExn, type) c_exn :: IO (#type PgfExnType)
+    case ex_type of
+      (#const PGF_EXN_NONE) -> do
+         c_e <- peek p_e
+         e  <- deRefStablePtr c_e
+         ty <- deRefStablePtr c_ty
+         return (Right (e,ty))
+      (#const PGF_EXN_SYSTEM_ERROR) -> do
+         errno <- (#peek PgfExn, code) c_exn
+         c_msg <- (#peek PgfExn, msg) c_exn
+         mb_fpath <- if c_msg == nullPtr
+                       then return Nothing
+                       else fmap Just (peekCString c_msg)
+         ioError (errnoToIOError "inferExpr" (Errno errno) Nothing mb_fpath)
+      (#const PGF_EXN_PGF_ERROR) -> do
+         c_msg <- (#peek PgfExn, msg) c_exn
+         msg <- peekCString c_msg
+         free c_msg
+         return (Left msg)
+      _ -> throwIO (PGFError "inferExpr" "An unidentified error occurred")
 
 -- | Check whether a type is consistent with the abstract
 -- syntax of the grammar.

@@ -9,6 +9,7 @@
 #include "reader.h"
 #include "writer.h"
 #include "printer.h"
+#include "typechecker.h"
 
 static void
 pgf_exn_clear(PgfExn* err)
@@ -859,6 +860,60 @@ PgfText *pgf_print_lin_seq_internal(object o, size_t i, size_t j)
     }
 
     return printer.get_text();
+}
+
+PGF_API
+void pgf_check_expr(PgfDB *db, PgfRevision revision,
+                    PgfExpr* pe, PgfType ty,
+                    PgfMarshaller *m, PgfUnmarshaller *u,
+                    PgfExn *err)
+{
+    PGF_API_BEGIN {
+        DB_scope scope(db, READER_SCOPE);
+
+        ref<PgfPGF> pgf = PgfDB::revision2pgf(revision);
+
+        PgfTypechecker checker(pgf,u);
+        *pe = m->match_expr(&checker, *pe);
+    } PGF_API_END
+}
+
+PGF_API
+PgfType pgf_infer_expr(PgfDB *db, PgfRevision revision,
+                       PgfExpr* pe,
+                       PgfMarshaller *m, PgfUnmarshaller *u,
+                       PgfExn *err)
+{
+    PGF_API_BEGIN {
+        DB_scope scope(db, READER_SCOPE);
+
+        ref<PgfPGF> pgf = PgfDB::revision2pgf(revision);
+
+        PgfTypechecker checker(pgf,u);
+        *pe = m->match_expr(&checker, *pe);
+    } PGF_API_END
+
+    PgfText *cat = (PgfText *) alloca(sizeof(PgfText)+2);
+    cat->size = 1;
+    cat->text[0] = 'S';
+    cat->text[1] = 0;
+    return u->dtyp(0,NULL,cat,0,NULL);
+}
+
+PGF_API
+void pgf_check_type(PgfDB *db, PgfRevision revision,
+                    PgfType* pty,
+                    PgfMarshaller *m, PgfUnmarshaller *u,
+                    PgfExn *err)
+{
+    PGF_API_BEGIN {
+        DB_scope scope(db, READER_SCOPE);
+
+        ref<PgfPGF> pgf = PgfDB::revision2pgf(revision);
+
+        PgfTypechecker checker(pgf,u);
+        *pty = m->match_type(&checker, *pty);
+    } PGF_API_END
 }
 
 PGF_API
