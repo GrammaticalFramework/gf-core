@@ -1055,7 +1055,7 @@ PgfExpr PgfExprProbEstimator::efun(PgfText *name)
     if (absfun == 0)
         prob = INFINITY;
     else
-        prob += absfun->ep.prob;
+        prob += absfun->prob;
 
     return 0;
 }
@@ -1199,55 +1199,4 @@ void pgf_type_free(ref<PgfDTyp> dtyp)
     PgfDB::free(dtyp->exprs);
 
     PgfDB::free(dtyp);
-}
-
-PGF_INTERNAL
-void pgf_patt_free(PgfPatt patt)
-{
-    switch (ref<PgfPatt>::get_tag(patt)) {
-    case PgfPattApp::tag: {
-        auto papp = ref<PgfPattApp>::untagged(patt);
-        PgfDB::free(papp->ctor);
-        for (size_t i = 0; i < papp->args.len; i++) {
-            PgfPatt patt = *vector_elem(ref<Vector<PgfPatt>>::from_ptr(&papp->args), i);
-            pgf_patt_free(patt);
-        }
-        PgfDB::free(papp);
-        break;
-    }
-	case PgfPattVar::tag: {
-        PgfDB::free(ref<PgfPattVar>::untagged(patt));
-        break;
-	}
-	case PgfPattAs::tag: {
-        auto pas = ref<PgfPattAs>::untagged(patt);
-        pgf_patt_free(pas->patt);
-        PgfDB::free(pas);
-        break;
-	}
-	case PgfPattWild::tag: {
-        PgfDB::free(ref<PgfPattWild>::untagged(patt));
-        break;
-	}
-    case PgfPattLit::tag: {
-        auto plit = ref<PgfPattLit>::untagged(patt);
-        pgf_literal_free(plit->lit);
-        PgfDB::free(plit);
-        break;
-    }
-	case PgfPattImplArg::tag: {
-        auto pimpl = ref<PgfPattImplArg>::untagged(patt);
-        pgf_patt_free(pimpl->patt);
-        PgfDB::free(pimpl);
-        break;
-	}
-	case PgfPattTilde::tag: {
-        auto ptilde = ref<PgfPattTilde>::untagged(patt);
-        pgf_patt_free(ptilde->expr);
-        PgfDB::free(ptilde);
-        break;
-	}
-	default:
-		throw pgf_error("Unknown pattern tag");
-    }
 }

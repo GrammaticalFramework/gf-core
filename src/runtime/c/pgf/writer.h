@@ -54,7 +54,6 @@ private:
     template<class V>
     void write_namespace_helper(Namespace<V> nmsp, void (PgfWriter::*write_value)(ref<V>));
 
-    void write_patt(ref<PgfPatt> r) { write_patt(*r); };
     void write_text(ref<ref<PgfText>> r) { write_text(&(**r)); };
     void write_lparam(ref<ref<PgfLParam>> r) { write_lparam(*r); };
     void write_seq(ref<ref<Vector<PgfSymbol>>> r) { write_seq(*r); };

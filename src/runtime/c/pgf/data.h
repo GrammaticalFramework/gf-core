@@ -74,18 +74,13 @@ struct PGF_INTERNAL_DECL PgfFlag {
     static void release(ref<PgfFlag> pgf);
 };
 
-typedef struct {
-	PgfExpr body;
-	Vector<PgfPatt> patts;
-} PgfEquation;
-
 struct PGF_INTERNAL_DECL PgfAbsFun {
     size_t ref_count;
 
     ref<PgfDTyp> type;
 	int arity;
     ref<char> bytecode;
-    PgfExprProb ep;
+    prob_t prob;
     PgfText name;
 
     static void release(ref<PgfAbsFun> cat);

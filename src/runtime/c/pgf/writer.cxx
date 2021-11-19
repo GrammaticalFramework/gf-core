@@ -270,7 +270,7 @@ void PgfWriter::write_absfun(ref<PgfAbsFun> absfun)
         write_tag(1);
         write_len(0);
     }
-    write_double(exp(-absfun->ep.prob));
+    write_double(exp(-absfun->prob));
 }
 
 static
@@ -297,7 +297,7 @@ void write_funs_by_cat(Namespace<PgfAbsFun> funs, PgfText *cat, PgfWriter *wtr)
     write_funs_by_cat(funs->left, cat, wtr);
 
     if (textcmp(&funs->value->name, cat) == 0) {
-        wtr->write_double(exp(-funs->value->ep.prob));
+        wtr->write_double(exp(-funs->value->prob));
         wtr->write_name(&funs->value->name);
     }
 

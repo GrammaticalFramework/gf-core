@@ -553,7 +553,7 @@ prob_t pgf_function_prob(PgfDB *db, PgfRevision revision,
         if (absfun == 0)
             return INFINITY;
 
-        return absfun->ep.prob;
+        return absfun->prob;
     } PGF_API_END
 
     return INFINITY;
@@ -757,7 +757,7 @@ PgfText *pgf_print_function_internal(object o)
     printer.efun(&absfun->name);
     printer.puts(" : ");
     m.match_type(&printer, absfun->type.as_object());
-    printer.nprintf(32, " ; -- %g", absfun->ep.prob);
+    printer.nprintf(32, " ; -- %g", absfun->prob);
 
     return printer.get_text();
 }
@@ -971,10 +971,7 @@ void pgf_create_function(PgfDB *db, PgfRevision revision,
         absfun->type  = m->match_type(&u, ty);
         absfun->arity = arity;
         absfun->bytecode = bytecode ? PgfDB::malloc<char>(0) : 0;
-        absfun->ep.prob = prob;
-        ref<PgfExprFun> efun =
-            ref<PgfExprFun>::from_ptr((PgfExprFun*) &absfun->name);
-        absfun->ep.expr = ref<PgfExprFun>::tagged(efun);
+        absfun->prob = prob;
         memcpy(&absfun->name, name, sizeof(PgfText)+name->size+1);
 
         Namespace<PgfAbsFun> funs =

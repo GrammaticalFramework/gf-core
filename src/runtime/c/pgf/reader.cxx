@@ -324,7 +324,6 @@ ref<PgfAbsFun> PgfReader::read_absfun()
     absfun->ref_count = 1;
     ref<PgfExprFun> efun =
         ref<PgfExprFun>::from_ptr((PgfExprFun*) &absfun->name);
-    absfun->ep.expr = ref<PgfExprFun>::tagged(efun);
     absfun->type = read_type();
 	absfun->arity = read_int();
 
@@ -341,7 +340,7 @@ ref<PgfAbsFun> PgfReader::read_absfun()
     default:
         throw pgf_error("Unknown tag, 0 or 1 expected");
     }
-    absfun->ep.prob = - log(read_double());
+    absfun->prob = - log(read_double());
     return absfun;
 }
 
