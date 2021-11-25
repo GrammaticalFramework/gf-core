@@ -71,6 +71,10 @@ again: {
 
 PgfText *PgfPrinter::get_text()
 {
+    if (res == NULL) {
+        res = (PgfText*) malloc(sizeof(PgfText));
+        res->size = 0;
+    }
     return res;
 }
 
