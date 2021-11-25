@@ -494,6 +494,10 @@ struct PgfLinBuilderIface {
     virtual void add_symlit(size_t d, size_t i0, size_t n_terms, size_t *terms, PgfExn *err)=0;
     virtual void add_symvar(size_t d, size_t r, PgfExn *err)=0;
     virtual void add_symks(PgfText *token, PgfExn *err)=0;
+    virtual void start_symkp(size_t n_syms, size_t n_alts, PgfExn *err)=0;
+    virtual void start_symkp_alt(size_t n_syms, size_t n_prefs, PgfText **prefs, PgfExn *err)=0;
+    virtual void end_symkp_alt(PgfExn *err)=0;
+    virtual void end_symkp(PgfExn *err)=0;
     virtual void add_symbind(PgfExn *err)=0;
     virtual void add_symsoftbind(PgfExn *err)=0;
     virtual void add_symne(PgfExn *err)=0;
@@ -519,6 +523,10 @@ typedef struct {
     void (*add_symlit)(PgfLinBuilderIface *this, size_t d, size_t i0, size_t n_terms, size_t *terms, PgfExn *err);
     void (*add_symvar)(PgfLinBuilderIface *this, size_t d, size_t r, PgfExn *err);
     void (*add_symks)(PgfLinBuilderIface *this, PgfText *token, PgfExn *err);
+    void (*start_symkp)(PgfLinBuilderIface *this, size_t n_syms, size_t n_alts, PgfExn *err);
+    void (*start_symkp_alt)(PgfLinBuilderIface *this, size_t n_syms, size_t n_prefs, PgfText **prefs, PgfExn *err);
+    void (*end_symkp_alt)(PgfLinBuilderIface *this, PgfExn *err);
+    void (*end_symkp)(PgfLinBuilderIface *this, PgfExn *err);
     void (*add_symbind)(PgfLinBuilderIface *this, PgfExn *err);
     void (*add_symsoftbind)(PgfLinBuilderIface *this, PgfExn *err);
     void (*add_symne)(PgfLinBuilderIface *this, PgfExn *err);

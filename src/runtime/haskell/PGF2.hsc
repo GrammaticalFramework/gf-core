@@ -275,6 +275,7 @@ showPGF p =
                                         nest 2 (vcat syms) $$
                                         char ']')
               modifyIORef ref $ (\doc -> doc $$ def)
+              return ()
 
 -- | The abstract language name is the name of the top-level
 -- abstract module

@@ -442,7 +442,21 @@ PgfSymbol PgfReader::read_symbol()
 		break;
     }
 	case PgfSymbolKP::tag: {
-        ref<PgfSymbolKP> sym_kp = PgfDB::malloc<PgfSymbolKP>();
+        size_t n_alts = read_len();
+        ref<PgfSymbolKP> sym_kp = PgfDB::malloc<PgfSymbolKP>(n_alts*sizeof(PgfAlternative));
+        sym_kp->alts.len = n_alts;
+
+        for (size_t i = 0; i < n_alts; i++) {
+            auto form     = read_vector(&PgfReader::read_symbol2);
+            auto prefixes = read_vector(&PgfReader::read_text2);
+
+            sym_kp->alts.data[i].form     = form;
+            sym_kp->alts.data[i].prefixes = prefixes;
+        }
+
+        auto default_form = read_vector(&PgfReader::read_symbol2);
+        sym_kp->default_form = default_form;
+
         sym = ref<PgfSymbolKP>::tagged(sym_kp);
 		break;
     }

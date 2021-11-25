@@ -53,6 +53,7 @@ public:
     void parg(ref<PgfDTyp> ty, ref<PgfPArg> parg);
     void lparam(ref<PgfLParam> lparam);
     void symbol(PgfSymbol sym);
+    void symbols(ref<Vector<PgfSymbol>> syms);
 
     virtual PgfExpr eabs(PgfBindType btype, PgfText *name, PgfExpr body);
     virtual PgfExpr eapp(PgfExpr fun, PgfExpr arg);

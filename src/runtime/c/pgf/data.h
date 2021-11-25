@@ -151,8 +151,19 @@ struct PGF_INTERNAL_DECL PgfSymbolKS {
     PgfText token;
 };
 
+struct PGF_INTERNAL_DECL PgfAlternative {
+	ref<Vector<PgfSymbol>> form;
+	/**< The form of this variant as a list of tokens. */
+
+	ref<Vector<ref<PgfText>>> prefixes;
+	/**< The prefixes of the following symbol that trigger this
+	 * form. */
+};
+
 struct PGF_INTERNAL_DECL PgfSymbolKP {
     static const uint8_t tag = 4;
+    ref<Vector<PgfSymbol>> default_form;
+    Vector<PgfAlternative> alts;
 };
 
 struct PGF_INTERNAL_DECL PgfSymbolBIND {
@@ -178,6 +189,12 @@ struct PGF_INTERNAL_DECL PgfSymbolCAPIT {
 struct PGF_INTERNAL_DECL PgfSymbolALLCAPIT {
     static const uint8_t tag = 10;
 };
+
+PGF_INTERNAL_DECL
+void pgf_symbol_free(PgfSymbol sym);
+
+PGF_INTERNAL_DECL
+void pgf_symbols_free(ref<Vector<PgfSymbol>> syms);
 
 struct PGF_INTERNAL_DECL PgfConcrLin {
     size_t ref_count;

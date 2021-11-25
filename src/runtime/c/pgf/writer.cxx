@@ -381,7 +381,13 @@ void PgfWriter::write_symbol(PgfSymbol sym)
 		break;
 	}
 	case PgfSymbolKP::tag: {
-        auto sym_ks = ref<PgfSymbolKP>::untagged(sym);
+        auto sym_kp = ref<PgfSymbolKP>::untagged(sym);
+        write_len(sym_kp->alts.len);
+        for (size_t i = 0; i < sym_kp->alts.len; i++) {
+            write_seq(sym_kp->alts.data[i].form);
+            write_vector(sym_kp->alts.data[i].prefixes, &PgfWriter::write_text);
+        }
+        write_seq(sym_kp->default_form);
 		break;
 	}
 	case PgfSymbolBIND::tag:

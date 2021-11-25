@@ -852,12 +852,7 @@ PgfText *pgf_print_lin_seq_internal(object o, size_t i, size_t j)
     size_t n_seqs = lin->seqs->len / lin->res->len;
     ref<Vector<PgfSymbol>> syms = *vector_elem(lin->seqs, i*n_seqs + j);
 
-    for (size_t k = 0; k < syms->len; k++) {
-        if (k > 0)
-            printer.puts(" ");
-
-        printer.symbol(*vector_elem(syms, k));
-    }
+    printer.symbols(syms);
 
     return printer.get_text();
 }
@@ -1207,6 +1202,11 @@ class PGF_INTERNAL PgfLinBuilder : public PgfLinBuilderIface
     size_t res_index;
     size_t seq_index;
     size_t sym_index;
+    size_t alt_index;
+
+    ref<Vector<PgfSymbol>> syms;
+
+    size_t pre_sym_index;
 
     const char *builder_error_msg =
         "Detected incorrect use of the linearization builder";
@@ -1239,6 +1239,11 @@ public:
         this->res_index = 0;
         this->seq_index = 0;
         this->sym_index = (size_t) -1;
+        this->alt_index = (size_t) -1;
+
+        this->syms = 0;
+
+        this->pre_sym_index = (size_t) -1;
     }
 
     void start_production(PgfExn *err)
@@ -1309,7 +1314,7 @@ public:
             if (seq_index >= lin->seqs->len)
                 throw pgf_error(builder_error_msg);
 
-            ref<Vector<PgfSymbol>> syms = vector_new<PgfSymbol>(n_syms);
+            syms = vector_new<PgfSymbol>(n_syms);
             *vector_elem(lin->seqs, seq_index) = syms;
             sym_index = 0;
         } PGF_API_END
@@ -1321,15 +1326,7 @@ public:
             return;
 
         PGF_API_BEGIN {
-            if (sym_index == (size_t) -1)
-                throw pgf_error(builder_error_msg);
-
-            if (seq_index >= lin->seqs->len)
-                throw pgf_error(builder_error_msg);
-
-            ref<Vector<PgfSymbol>> syms = *vector_elem(lin->seqs, seq_index);
-
-            if (sym_index >= syms->len)
+            if (syms == 0 || sym_index == (size_t) -1 || sym_index >= syms->len)
                 throw pgf_error(builder_error_msg);
 
             ref<PgfSymbolCat> symcat = PgfDB::malloc<PgfSymbolCat>(n_terms*2*sizeof(size_t));
@@ -1353,15 +1350,7 @@ public:
             return;
 
         PGF_API_BEGIN {
-            if (sym_index == (size_t) -1)
-                throw pgf_error(builder_error_msg);
-
-            if (seq_index >= lin->seqs->len)
-                throw pgf_error(builder_error_msg);
-
-            ref<Vector<PgfSymbol>> syms = *vector_elem(lin->seqs, seq_index);
-
-            if (sym_index >= syms->len)
+            if (syms == 0 || sym_index == (size_t) -1 || sym_index >= syms->len)
                 throw pgf_error(builder_error_msg);
 
             ref<PgfSymbolLit> symlit = PgfDB::malloc<PgfSymbolLit>(n_terms*2*sizeof(size_t));
@@ -1385,15 +1374,7 @@ public:
             return;
 
         PGF_API_BEGIN {
-            if (sym_index == (size_t) -1)
-                throw pgf_error(builder_error_msg);
-
-            if (seq_index >= lin->seqs->len)
-                throw pgf_error(builder_error_msg);
-
-            ref<Vector<PgfSymbol>> syms = *vector_elem(lin->seqs, seq_index);
-
-            if (sym_index >= syms->len)
+            if (syms == 0 || sym_index == (size_t) -1 || sym_index >= syms->len)
                 throw pgf_error(builder_error_msg);
 
             ref<PgfSymbolVar> symvar = PgfDB::malloc<PgfSymbolVar>();
@@ -1411,15 +1392,7 @@ public:
             return;
 
         PGF_API_BEGIN {
-            if (sym_index == (size_t) -1)
-                throw pgf_error(builder_error_msg);
-
-            if (seq_index >= lin->seqs->len)
-                throw pgf_error(builder_error_msg);
-
-            ref<Vector<PgfSymbol>> syms = *vector_elem(lin->seqs, seq_index);
-
-            if (sym_index >= syms->len)
+            if (syms == 0 || sym_index == (size_t) -1 || sym_index >= syms->len)
                 throw pgf_error(builder_error_msg);
 
             ref<PgfSymbolKS> symtok = PgfDB::malloc<PgfSymbolKS>(token->size+1);
@@ -1430,21 +1403,100 @@ public:
         } PGF_API_END
     }
 
+    void start_symkp(size_t n_syms, size_t n_alts, PgfExn *err)
+    {
+        if (err->type != PGF_EXN_NONE)
+            return;
+
+        PGF_API_BEGIN {
+            if (syms == 0 || sym_index == (size_t) -1 || sym_index >= syms->len || pre_sym_index != (size_t) -1)
+                throw pgf_error(builder_error_msg);
+
+            ref<Vector<PgfSymbol>> def = vector_new<PgfSymbol>(n_syms);
+
+            ref<PgfSymbolKP> symkp = PgfDB::malloc<PgfSymbolKP>(n_alts*sizeof(PgfAlternative));
+            symkp->default_form = def;
+            symkp->alts.len = n_alts;
+
+            *vector_elem(syms, sym_index) = ref<PgfSymbolKP>::tagged(symkp);
+
+            pre_sym_index = sym_index;
+            syms = def;
+            sym_index = 0;
+            alt_index = 0;
+        } PGF_API_END
+    }
+
+    void start_symkp_alt(size_t n_syms, size_t n_prefs, PgfText **prefs, PgfExn *err)
+    {
+        if (err->type != PGF_EXN_NONE)
+            return;
+
+        PGF_API_BEGIN {
+            if (pre_sym_index == (size_t) -1)
+                throw pgf_error(builder_error_msg);
+
+            ref<Vector<PgfSymbol>> form = vector_new<PgfSymbol>(n_syms);
+
+            ref<Vector<ref<PgfText>>> prefixes = vector_new<ref<PgfText>>(n_prefs);
+            for (size_t i = 0; i < n_prefs; i++) {
+                ref<PgfText> pref = textdup_db(prefs[i]);
+                *vector_elem(prefixes, i) = pref;
+            }
+
+            syms = *vector_elem(lin->seqs, seq_index);
+            ref<PgfSymbolKP> symkp = ref<PgfSymbolKP>::untagged(*vector_elem(syms, pre_sym_index));
+            ref<PgfAlternative> alt = ref<PgfAlternative>::from_ptr(&symkp->alts.data[alt_index]);
+
+            alt->form     = form;
+            alt->prefixes = prefixes;
+
+            syms = form;
+            sym_index = 0;
+        } PGF_API_END
+    }
+
+    void end_symkp_alt(PgfExn *err)
+    {
+        if (err->type != PGF_EXN_NONE)
+            return;
+
+        PGF_API_BEGIN {
+            if (pre_sym_index == (size_t) -1)
+                throw pgf_error(builder_error_msg);
+
+            syms = *vector_elem(lin->seqs, seq_index);
+            ref<PgfSymbolKP> symkp = ref<PgfSymbolKP>::untagged(*vector_elem(syms, pre_sym_index));            
+            if (alt_index >= symkp->alts.len)
+                throw pgf_error(builder_error_msg);
+
+            alt_index++;
+        } PGF_API_END
+    }
+
+    void end_symkp(PgfExn *err)
+    {
+        if (err->type != PGF_EXN_NONE)
+            return;
+
+        PGF_API_BEGIN {
+            if (pre_sym_index == (size_t) -1)
+                throw pgf_error(builder_error_msg);
+
+            syms = *vector_elem(lin->seqs, seq_index);
+            sym_index = pre_sym_index+1;
+            alt_index = 0;
+            pre_sym_index = (size_t) -1;
+        } PGF_API_END
+    }
+
     void add_symbind(PgfExn *err)
     {
         if (err->type != PGF_EXN_NONE)
             return;
 
         PGF_API_BEGIN {
-            if (sym_index == (size_t) -1)
-                throw pgf_error(builder_error_msg);
-
-            if (seq_index >= lin->seqs->len)
-                throw pgf_error(builder_error_msg);
-
-            ref<Vector<PgfSymbol>> syms = *vector_elem(lin->seqs, seq_index);
-
-            if (sym_index >= syms->len)
+            if (syms == 0 || sym_index == (size_t) -1 || sym_index >= syms->len)
                 throw pgf_error(builder_error_msg);
 
             *vector_elem(syms, sym_index) = ref<PgfSymbolBIND>::tagged(0);
@@ -1458,15 +1510,7 @@ public:
             return;
 
         PGF_API_BEGIN {
-            if (sym_index == (size_t) -1)
-                throw pgf_error(builder_error_msg);
-
-            if (seq_index >= lin->seqs->len)
-                throw pgf_error(builder_error_msg);
-
-            ref<Vector<PgfSymbol>> syms = *vector_elem(lin->seqs, seq_index);
-
-            if (sym_index >= syms->len)
+            if (syms == 0 || sym_index == (size_t) -1 || sym_index >= syms->len)
                 throw pgf_error(builder_error_msg);
 
             *vector_elem(syms, sym_index) = ref<PgfSymbolSOFTBIND>::tagged(0);
@@ -1480,15 +1524,7 @@ public:
             return;
 
         PGF_API_BEGIN {
-            if (sym_index == (size_t) -1)
-                throw pgf_error(builder_error_msg);
-
-            if (seq_index >= lin->seqs->len)
-                throw pgf_error(builder_error_msg);
-
-            ref<Vector<PgfSymbol>> syms = *vector_elem(lin->seqs, seq_index);
-
-            if (sym_index >= syms->len)
+            if (syms == 0 || sym_index == (size_t) -1 || sym_index >= syms->len)
                 throw pgf_error(builder_error_msg);
 
             *vector_elem(syms, sym_index) = ref<PgfSymbolNE>::tagged(0);
@@ -1502,15 +1538,7 @@ public:
             return;
 
         PGF_API_BEGIN {
-            if (sym_index == (size_t) -1)
-                throw pgf_error(builder_error_msg);
-
-            if (seq_index >= lin->seqs->len)
-                throw pgf_error(builder_error_msg);
-
-            ref<Vector<PgfSymbol>> syms = *vector_elem(lin->seqs, seq_index);
-
-            if (sym_index >= syms->len)
+            if (syms == 0 || sym_index == (size_t) -1 || sym_index >= syms->len)
                 throw pgf_error(builder_error_msg);
 
             *vector_elem(syms, sym_index) = ref<PgfSymbolSOFTSPACE>::tagged(0);
@@ -1524,15 +1552,7 @@ public:
             return;
 
         PGF_API_BEGIN {
-            if (sym_index == (size_t) -1)
-                throw pgf_error(builder_error_msg);
-
-            if (seq_index >= lin->seqs->len)
-                throw pgf_error(builder_error_msg);
-
-            ref<Vector<PgfSymbol>> syms = *vector_elem(lin->seqs, seq_index);
-
-            if (sym_index >= syms->len)
+            if (syms == 0 || sym_index == (size_t) -1 || sym_index >= syms->len)
                 throw pgf_error(builder_error_msg);
 
             *vector_elem(syms, sym_index) = ref<PgfSymbolCAPIT>::tagged(0);
@@ -1546,15 +1566,7 @@ public:
             return;
 
         PGF_API_BEGIN {
-            if (sym_index == (size_t) -1)
-                throw pgf_error(builder_error_msg);
-
-            if (seq_index >= lin->seqs->len)
-                throw pgf_error(builder_error_msg);
-
-            ref<Vector<PgfSymbol>> syms = *vector_elem(lin->seqs, seq_index);
-
-            if (sym_index >= syms->len)
+            if (syms == 0 || sym_index == (size_t) -1 || sym_index >= syms->len)
                 throw pgf_error(builder_error_msg);
 
             *vector_elem(syms, sym_index) = ref<PgfSymbolALLCAPIT>::tagged(0);
@@ -1567,9 +1579,10 @@ public:
             return;
 
         PGF_API_BEGIN {
-            if (sym_index != (*vector_elem(lin->seqs, seq_index))->len)
+            if (syms == 0 || sym_index != syms->len)
                 throw pgf_error(builder_error_msg);
             sym_index = (size_t) -1;
+            syms = 0;
             seq_index++;
         } PGF_API_END
     }
@@ -1616,20 +1629,52 @@ public:
 
         for (size_t i = 0; i < seq_index; i++) {
             ref<Vector<PgfSymbol>> syms = *vector_elem(lin->seqs, i);
-            for (size_t j = 0; j < syms->len; j++) {
-                PgfSymbol sym = *vector_elem(syms, j);
-                PgfDB::free(ref<void>::untagged(sym));
-            }
-            PgfDB::free(syms);
+            pgf_symbols_free(syms);
         }
+        
         if (sym_index != (size_t) -1) {
             ref<Vector<PgfSymbol>> syms = *vector_elem(lin->seqs, seq_index);
+
+            if (pre_sym_index != (size_t) -1) {
+                auto sym_kp = ref<PgfSymbolKP>::untagged(*vector_elem(syms, pre_sym_index));
+
+                if (this->syms == sym_kp->default_form) {
+                    for (size_t i = 0; i < sym_index; i++) {
+                        PgfSymbol sym = *vector_elem(syms, i);
+                        pgf_symbol_free(sym);
+                    }
+                    PgfDB::free(syms);
+                } else {
+                    pgf_symbols_free(sym_kp->default_form);
+                    for (size_t i = 0; i < alt_index; i++) {
+                        pgf_symbols_free(sym_kp->alts.data[i].form);
+                        for (size_t j = 0; j < sym_kp->alts.data[i].prefixes->len; j++) {
+                            ref<PgfText> prefix = *vector_elem(sym_kp->alts.data[i].prefixes, j);
+                            PgfDB::free(prefix);
+                        }
+                    }
+                    for (size_t i = 0; i < sym_index; i++) {
+                        PgfSymbol sym = *vector_elem(sym_kp->alts.data[alt_index].form, i);
+                        pgf_symbol_free(sym);
+                    }
+                    PgfDB::free(sym_kp->alts.data[alt_index].form);
+                    for (size_t i = 0; i < sym_kp->alts.data[alt_index].prefixes->len; i++) {
+                        ref<PgfText> prefix = *vector_elem(sym_kp->alts.data[alt_index].prefixes, i);
+                        PgfDB::free(prefix);
+                    }
+                }
+                PgfDB::free(sym_kp);
+        
+                sym_index = pre_sym_index;
+            }
+
             for (size_t j = 0; j < sym_index; j++) {
                 PgfSymbol sym = *vector_elem(syms, j);
-                PgfDB::free(ref<void>::untagged(sym));
+                pgf_symbol_free(sym);
             }
             PgfDB::free(syms);
         }
+
         PgfDB::free(lin->seqs);
 
         PgfDB::free(lin);

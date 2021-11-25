@@ -185,6 +185,8 @@ foreign import ccall "dynamic" callLinBuilder4 :: Dynamic (Ptr PgfLinBuilderIfac
 
 foreign import ccall "dynamic" callLinBuilder5 :: Dynamic (Ptr PgfLinBuilderIface -> Ptr PgfText -> Ptr PgfExn -> IO ())
 
+foreign import ccall "dynamic" callLinBuilder6 :: Dynamic (Ptr PgfLinBuilderIface -> CSize -> CSize -> Ptr (Ptr PgfText) -> Ptr PgfExn -> IO ())
+
 foreign import ccall pgf_create_lincat :: Ptr PgfDB -> Ptr PGF -> Ptr Concr -> Ptr PgfText -> CSize -> Ptr (Ptr PgfText) -> Ptr PgfExn -> IO ()
 
 foreign import ccall pgf_drop_lincat :: Ptr PgfDB -> Ptr Concr -> Ptr PgfText -> Ptr PgfExn -> IO ()

@@ -496,7 +496,22 @@ void PgfPrinter::symbol(PgfSymbol sym)
 		break;
 	}
 	case PgfSymbolKP::tag: {
-        auto sym_ks = ref<PgfSymbolKP>::untagged(sym);
+        auto sym_kp = ref<PgfSymbolKP>::untagged(sym);
+        puts("pre {");
+
+        symbols(sym_kp->default_form);
+
+        for (size_t i = 0; i < sym_kp->alts.len; i++) {
+            puts("; ");
+            symbols(sym_kp->alts.data[i].form);
+            puts(" /");
+            for (size_t j = 0; j < sym_kp->alts.data[i].prefixes->len; j++) {
+                puts(" ");
+                lstr(sym_kp->alts.data[i].prefixes->data[j]);
+            }
+        }
+
+        puts("}");
 		break;
 	}
 	case PgfSymbolBIND::tag:
@@ -518,6 +533,16 @@ void PgfPrinter::symbol(PgfSymbol sym)
         puts("ALL_CAPIT");
         break;
 	}
+}
+
+void PgfPrinter::symbols(ref<Vector<PgfSymbol>> syms)
+{
+    for (size_t i = 0; i < syms->len; i++) {
+        if (i > 0)
+            puts(" ");
+
+        symbol(*vector_elem(syms, i));
+    }
 }
 
 void PgfPrinter::free_ref(object x)

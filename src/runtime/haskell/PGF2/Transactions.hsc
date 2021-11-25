@@ -264,7 +264,7 @@ createLin name prods = Transaction $ \c_db c_abstr c_revision c_exn ->
         forM_ seqs c_exn $ \syms -> do
           fun <- (#peek PgfLinBuilderIfaceVtbl, start_sequence) vtbl
           callLinBuilder1 fun c_builder (fromIntegral (length syms)) c_exn
-          mapM_ (addSymbol c_builder vtbl c_exn) syms
+          forM_ syms c_exn (addSymbol c_builder vtbl c_exn)
           fun <- (#peek PgfLinBuilderIfaceVtbl, end_sequence) vtbl
           callLinBuilder0 fun c_builder c_exn
         fun <- (#peek PgfLinBuilderIfaceVtbl, end_production) vtbl
@@ -283,6 +283,28 @@ createLin name prods = Transaction $ \c_db c_abstr c_revision c_exn ->
       fun <- (#peek PgfLinBuilderIfaceVtbl, add_symks) vtbl
       withText tok $ \c_tok ->
         callLinBuilder5 fun c_builder c_tok c_exn
+    addSymbol c_builder vtbl c_exn (SymKP def alts) = do
+      fun <- (#peek PgfLinBuilderIfaceVtbl, start_symkp) vtbl
+      callLinBuilder2 fun c_builder (fromIntegral (length def)) (fromIntegral (length alts)) c_exn
+      forM_ def c_exn (addSymbol c_builder vtbl c_exn)
+      forM_ alts c_exn $ \(form,ps) -> do
+        let n_ps = length ps
+        (allocaBytes (n_ps*(#size PgfText*)) $ \c_ps ->
+         withTexts c_ps 0 ps $ do
+           fun <- (#peek PgfLinBuilderIfaceVtbl, start_symkp_alt) vtbl
+           callLinBuilder6 fun c_builder (fromIntegral (length form)) (fromIntegral n_ps) c_ps c_exn)
+        forM_ form c_exn (addSymbol c_builder vtbl c_exn)
+        fun <- (#peek PgfLinBuilderIfaceVtbl, end_symkp_alt) vtbl
+        callLinBuilder0 fun c_builder c_exn
+      fun <- (#peek PgfLinBuilderIfaceVtbl, end_symkp) vtbl
+      callLinBuilder0 fun c_builder c_exn
+      where
+        withTexts p i []     f = f
+        withTexts p i (s:ss) f =
+          withText s $ \c_s -> do
+            pokeElemOff p i c_s
+            withTexts p (i+1) ss f
+
     addSymbol c_builder vtbl c_exn SymBIND = do
       fun <- (#peek PgfLinBuilderIfaceVtbl, add_symbind) vtbl
       callLinBuilder0 fun c_builder c_exn
