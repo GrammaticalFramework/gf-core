@@ -112,8 +112,8 @@ private:
     PGF_INTERNAL_DECL void unregister_process();
 
 
-    void lock(DB_scope_mode m);
-    void unlock();
+    PGF_INTERNAL_DECL void lock(DB_scope_mode m);
+    PGF_INTERNAL_DECL void unlock();
 
     friend class DB_scope;
 };

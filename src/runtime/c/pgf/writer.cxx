@@ -55,7 +55,7 @@ void PgfWriter::write_double(double d)
 	unsigned rawexp;
 	uint64_t mantissa;
 
-	switch (fpclassify(d)) {
+	switch (::fpclassify(d)) {
 	case FP_NAN:
 		rawexp   = 0x7ff;
 		mantissa = 1;
