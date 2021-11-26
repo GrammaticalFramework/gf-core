@@ -578,7 +578,13 @@ hasLinearization c name =
 
 -- | Linearizes an expression as a string in the language
 linearize :: Concr -> Expr -> String
-linearize lang e = error "TODO: linearize"
+linearize c e =
+  unsafePerformIO $
+  withForeignPtr (c_revision c) $ \c_revision ->
+  bracket (newStablePtr e) freeStablePtr $ \c_e ->
+  withForeignPtr marshaller $ \m ->
+  bracket (withPgfExn "linearize" (pgf_linearize  (c_db c) c_revision c_e m)) free $ \c_text ->
+    peekText c_text
 
 -- | Generates all possible linearizations of an expression
 linearizeAll :: Concr -> Expr -> [String]

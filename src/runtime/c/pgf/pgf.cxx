@@ -10,6 +10,7 @@
 #include "writer.h"
 #include "printer.h"
 #include "typechecker.h"
+#include "linearizer.h"
 
 static void
 pgf_exn_clear(PgfExn* err)
@@ -1844,6 +1845,27 @@ int pgf_has_linearization(PgfDB *db, PgfConcrRevision revision,
     } PGF_API_END
 
     return 0;
+}
+
+PGF_API
+PgfText *pgf_linearize(PgfDB *db, PgfConcrRevision revision,
+                       PgfExpr expr, PgfMarshaller *m,
+                       PgfExn* err)
+{
+    PGF_API_BEGIN {
+        DB_scope scope(db, READER_SCOPE);
+
+        ref<PgfConcr> concr = PgfDB::revision2concr(revision);
+        PgfLinearizer linearizer(concr, m);
+        m->match_expr(&linearizer, expr);
+
+        PgfText *res = (PgfText*) malloc(sizeof(PgfText)+1);
+        res->size = 0;
+        res->text[0] = 0;
+        return res;
+    } PGF_API_END
+
+    return NULL;
 }
 
 PGF_API

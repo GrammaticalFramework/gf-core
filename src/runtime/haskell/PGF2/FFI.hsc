@@ -197,6 +197,8 @@ foreign import ccall pgf_drop_lin :: Ptr PgfDB -> Ptr Concr -> Ptr PgfText -> Pt
 
 foreign import ccall pgf_has_linearization :: Ptr PgfDB -> Ptr Concr -> Ptr PgfText -> Ptr PgfExn -> IO CInt
 
+foreign import ccall pgf_linearize :: Ptr PgfDB -> Ptr Concr -> StablePtr Expr -> Ptr PgfMarshaller -> Ptr PgfExn -> IO (Ptr PgfText)
+
 foreign import ccall pgf_get_global_flag :: Ptr PgfDB -> Ptr PGF -> Ptr PgfText -> Ptr PgfUnmarshaller -> Ptr PgfExn -> IO (StablePtr Literal)
 
 foreign import ccall pgf_set_global_flag :: Ptr PgfDB -> Ptr PGF -> Ptr PgfText -> StablePtr Literal -> Ptr PgfMarshaller -> Ptr PgfExn -> IO ()

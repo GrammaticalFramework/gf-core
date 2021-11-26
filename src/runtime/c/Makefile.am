@@ -21,6 +21,8 @@ libpgf_la_SOURCES = \
 	pgf/printer.h \
 	pgf/typechecker.cxx \
 	pgf/typechecker.h \
+	pgf/linearizer.cxx \
+	pgf/linearizer.h \
 	pgf/data.cxx \
 	pgf/data.h \
 	pgf/expr.cxx \

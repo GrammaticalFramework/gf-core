@@ -570,6 +570,11 @@ int pgf_has_linearization(PgfDB *db, PgfConcrRevision revision,
                           PgfText *name, PgfExn *err);
 
 PGF_API_DECL
+PgfText *pgf_linearize(PgfDB *db, PgfConcrRevision revision,
+                       PgfExpr expr, PgfMarshaller *m,
+                       PgfExn* err);
+
+PGF_API_DECL
 PgfLiteral pgf_get_global_flag(PgfDB *db, PgfRevision revision,
                                PgfText *name,
                                PgfUnmarshaller *u,
