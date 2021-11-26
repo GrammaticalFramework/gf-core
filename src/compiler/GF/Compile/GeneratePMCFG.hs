@@ -80,7 +80,7 @@ type2metaTerm gr d ms r rs (Table p q) =
       count = case allParamValues gr p of
                 Ok ts   -> length ts
                 Bad msg -> error msg
-  in (ms',(r'-r)*count,T (TTyped p) [(PV pv,t)])
+  in (ms',r+(r'-r)*count,T (TTyped p) [(PV pv,t)])
 type2metaTerm gr d ms r rs ty@(QC q) =
   let i = Map.size ms + 1
   in (Map.insert i ty ms,r,Meta i)
