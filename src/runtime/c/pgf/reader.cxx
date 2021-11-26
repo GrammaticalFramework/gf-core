@@ -388,9 +388,42 @@ ref<PgfLParam> PgfReader::read_lparam()
     return lparam;
 }
 
+void PgfReader::read_variable_range(ref<PgfVariableRange> var_info)
+{
+    var_info->var   = read_int();
+    var_info->range = read_int();
+}
+
 void PgfReader::read_parg(ref<PgfPArg> parg)
 {
     parg->param  = read_lparam();
+}
+
+ref<PgfPResult> PgfReader::read_presult()
+{
+    ref<Vector<PgfVariableRange>> vars = 0;
+    size_t n_vars = read_len();
+    if (n_vars > 0) {
+        vars = vector_new<PgfVariableRange>(n_vars);
+        for (size_t i = 0; i < n_vars; i++) {
+            read_variable_range(vector_elem(vars,i));
+        }
+    }
+
+    size_t i0 = read_int();
+    size_t n_terms = read_len();
+    ref<PgfPResult> res =
+        PgfDB::malloc<PgfPResult>(n_terms*sizeof(PgfLParam::terms[0]));
+    res->vars = vars;
+    res->param.i0 = i0;
+    res->param.n_terms = n_terms;
+
+    for (size_t i = 0; i < n_terms; i++) {
+        res->param.terms[i].factor = read_int();
+        res->param.terms[i].var    = read_int();
+    }
+
+    return res;
 }
 
 template<class I>
@@ -506,7 +539,7 @@ ref<PgfConcrLin> PgfReader::read_lin()
     lin->ref_count = 1;
     lin->absfun = namespace_lookup(abstract->funs, &lin->name);
     lin->args = read_vector(&PgfReader::read_parg);
-    lin->res  = read_vector(&PgfReader::read_lparam);
+    lin->res  = read_vector(&PgfReader::read_presult2);
     lin->seqs = read_vector(&PgfReader::read_seq2);
     return lin;
 }

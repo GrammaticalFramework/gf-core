@@ -445,6 +445,18 @@ void PgfPrinter::parg(ref<PgfDTyp> ty, ref<PgfPArg> parg)
     puts(")");
 }
 
+void PgfPrinter::lvar(size_t var)
+{
+    char vars[] = "ijklmnopqr";
+    size_t i = var / sizeof(vars);
+    size_t j = var % sizeof(vars);
+
+    if (i == 0)
+        nprintf(32,"%c",vars[j]);
+    else
+        nprintf(32,"%c%ld",vars[j],i);
+}
+
 void PgfPrinter::lparam(ref<PgfLParam> lparam)
 {
     if (lparam->i0 != 0 || lparam->n_terms == 0)
@@ -457,15 +469,20 @@ void PgfPrinter::lparam(ref<PgfLParam> lparam)
             puts("*");
         }
 
-        char vars[] = "ijklmnopqr";
-        size_t i = lparam->terms[k].var / sizeof(vars);
-        size_t j = lparam->terms[k].var % sizeof(vars);
-
-        if (i == 0)
-            nprintf(32,"%c",vars[j]);
-        else
-            nprintf(32,"%c%ld",vars[j],i);
+        lvar(lparam->terms[k].var);
     }
+}
+
+void PgfPrinter::lvar_ranges(ref<Vector<PgfVariableRange>> vars)
+{
+    puts("∀{");
+    for (size_t i = 0; i < vars->len; i++) {
+        if (i > 0)
+            puts(", ");
+        lvar(vars->data[i].var);
+        nprintf(32,"<%ld",vars->data[i].range);
+    }
+    puts("}");
 }
 
 void PgfPrinter::symbol(PgfSymbol sym)

@@ -212,7 +212,7 @@ data Symbol
 data PArg = PArg [(LIndex,LIndex)] {-# UNPACK #-} !LParam
             deriving (Eq,Show)
 
-data Production = Production [PArg] LParam [[Symbol]]
+data Production = Production [(LVar,LIndex)] [PArg] LParam [[Symbol]]
                  deriving (Eq,Show)
 
 createLincat :: Cat -> [String] -> Transaction Concr ()
@@ -253,14 +253,17 @@ createLin name prods = Transaction $ \c_db c_abstr c_revision c_exn ->
 
     build _ c_builder c_exn = do
       vtbl <- (#peek PgfLinBuilderIface, vtbl) c_builder
-      forM_ prods c_exn $ \(Production args res seqs) -> do
+      forM_ prods c_exn $ \(Production vars args res seqs) -> do
         fun <- (#peek PgfLinBuilderIfaceVtbl, start_production) vtbl
         callLinBuilder0 fun c_builder c_exn
         fun <- (#peek PgfLinBuilderIfaceVtbl, add_argument) vtbl
-        forM_ args c_exn $ \(PArg _ param) ->
-          callLParam (callLinBuilder3 fun c_builder) param c_exn
+        forM_ args c_exn $ \(PArg hypos param) ->
+          callLParam (callLinBuilder3 fun c_builder (fromIntegral (length hypos))) param c_exn
         fun <- (#peek PgfLinBuilderIfaceVtbl, set_result) vtbl  
-        callLParam (callLinBuilder3 fun c_builder) res c_exn
+        callLParam (callLinBuilder3 fun c_builder (fromIntegral (length vars))) res c_exn
+        fun <- (#peek PgfLinBuilderIfaceVtbl, add_variable) vtbl
+        forM_ vars c_exn $ \(v,r) ->
+          callLinBuilder2 fun c_builder (fromIntegral v) (fromIntegral r) c_exn
         forM_ seqs c_exn $ \syms -> do
           fun <- (#peek PgfLinBuilderIfaceVtbl, start_sequence) vtbl
           callLinBuilder1 fun c_builder (fromIntegral (length syms)) c_exn

@@ -821,6 +821,13 @@ PgfText *pgf_print_lin_sig_internal(object o, size_t i)
     printer.efun(&lin->name);
     printer.puts(" : ");
 
+    ref<PgfPResult> res = *vector_elem(lin->res, i);
+
+    if (res->vars != 0) {
+        printer.lvar_ranges(res->vars);
+        printer.puts(" . ");
+    }
+
     size_t n_args = lin->args->len / lin->res->len;
     for (size_t j = 0; j < n_args; j++) {
         if (j > 0)
@@ -835,7 +842,7 @@ PgfText *pgf_print_lin_sig_internal(object o, size_t i)
 
     printer.efun(&ty->name);
     printer.puts("(");
-    printer.lparam(*vector_elem(lin->res, i));
+    printer.lparam(ref<PgfLParam>::from_ptr(&res->param));
     printer.puts(")");
 
     return printer.get_text();
@@ -1198,6 +1205,7 @@ void pgf_drop_concrete(PgfDB *db, PgfRevision revision,
 class PGF_INTERNAL PgfLinBuilder : public PgfLinBuilderIface
 {
     ref<PgfConcrLin> lin;
+    size_t var_index;
     size_t arg_index;
     size_t res_index;
     size_t seq_index;
@@ -1222,8 +1230,8 @@ public:
 
         ref<Vector<PgfPArg>> args =
             vector_new<PgfPArg>(n_prods*absfun->type->hypos->len);
-        ref<Vector<ref<PgfLParam>>> res =
-            vector_new<ref<PgfLParam>>(n_prods);
+        ref<Vector<ref<PgfPResult>>> res =
+            vector_new<ref<PgfPResult>>(n_prods);
         ref<Vector<ref<Vector<PgfSymbol>>>> seqs =
             vector_new<ref<Vector<PgfSymbol>>>(n_prods*lincat->fields->len);
 
@@ -1235,6 +1243,7 @@ public:
         lin->res  = res;
         lin->seqs = seqs;
 
+        this->var_index = 0;
         this->arg_index = 0;
         this->res_index = 0;
         this->seq_index = 0;
@@ -1254,11 +1263,12 @@ public:
         PGF_API_BEGIN {
             if (res_index >= lin->res->len)
                 throw pgf_error(builder_error_msg);
+            var_index = 0;
             *vector_elem(lin->res, res_index) = 0;
         } PGF_API_END
     }
 
-    void add_argument(size_t i0, size_t n_terms, size_t *terms, PgfExn *err)
+    void add_argument(size_t n_hypos, size_t i0, size_t n_terms, size_t *terms, PgfExn *err)
     {
         if (err->type != PGF_EXN_NONE)
             return;
@@ -1283,7 +1293,7 @@ public:
         } PGF_API_END
     }
 
-    void set_result(size_t i0, size_t n_terms, size_t *terms, PgfExn *err)
+    void set_result(size_t n_vars, size_t i0, size_t n_terms, size_t *terms, PgfExn *err)
     {
         if (err->type != PGF_EXN_NONE)
             return;
@@ -1292,16 +1302,45 @@ public:
             if (res_index >= lin->res->len)
                 throw pgf_error(builder_error_msg);
 
-            ref<PgfLParam> param = PgfDB::malloc<PgfLParam>(n_terms*2*sizeof(size_t));
-            param->i0 = i0;
-            param->n_terms = n_terms;
+            ref<Vector<PgfVariableRange>> vars =
+                (n_vars > 0) ? vector_new<PgfVariableRange>(n_vars)
+                             : 0;
+
+            ref<PgfPResult> res = PgfDB::malloc<PgfPResult>(n_terms*2*sizeof(size_t));
+            res->vars = vars;
+            res->param.i0 = i0;
+            res->param.n_terms = n_terms;
 
             for (size_t i = 0; i < n_terms; i++) {
-                param->terms[i].factor = terms[2*i];
-                param->terms[i].var    = terms[2*i+1];
+                res->param.terms[i].factor = terms[2*i];
+                res->param.terms[i].var    = terms[2*i+1];
             }
 
-            *vector_elem(lin->res, res_index) = param;
+            *vector_elem(lin->res, res_index) = res;
+        } PGF_API_END
+    }
+
+    void add_variable(size_t var, size_t range, PgfExn *err)
+    {
+        if (err->type != PGF_EXN_NONE)
+            return;
+
+        PGF_API_BEGIN {
+            if (res_index >= lin->res->len)
+                throw pgf_error(builder_error_msg);
+
+            ref<PgfPResult> res =
+                *vector_elem(lin->res, res_index);
+
+            if (res->vars == 0 || var_index >= res->vars->len)
+                throw pgf_error(builder_error_msg);
+
+            ref<PgfVariableRange> var_range =
+                vector_elem(res->vars, var_index);
+            var_range->var   = var;
+            var_range->range = range;
+
+            var_index++;
         } PGF_API_END
     }
 
@@ -1623,7 +1662,9 @@ public:
         PgfDB::free(lin->args);
 
         for (size_t i = 0; i < res_index; i++) {
-            PgfDB::free(*vector_elem(lin->res, i));
+            ref<PgfPResult> res = *vector_elem(lin->res, i);
+            PgfDB::free(res->vars);
+            PgfDB::free(res);
         }
         PgfDB::free(lin->res);
 

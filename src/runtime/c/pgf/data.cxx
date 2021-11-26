@@ -86,7 +86,9 @@ void PgfConcrLin::release(ref<PgfConcrLin> lin)
     PgfDB::free(lin->args);
 
     for (size_t i = 0; i < lin->res->len; i++) {
-        PgfDB::free(*vector_elem(lin->res, i));
+        ref<PgfPResult> res = *vector_elem(lin->res, i);
+        PgfDB::free(res->vars);
+        PgfDB::free(res);
     }
     PgfDB::free(lin->res);
 

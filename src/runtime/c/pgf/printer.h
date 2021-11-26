@@ -51,7 +51,9 @@ public:
     void hypo(PgfTypeHypo *hypo, int prio);
 
     void parg(ref<PgfDTyp> ty, ref<PgfPArg> parg);
+    void lvar(size_t var);
     void lparam(ref<PgfLParam> lparam);
+    void lvar_ranges(ref<Vector<PgfVariableRange>> vars);
     void symbol(PgfSymbol sym);
     void symbols(ref<Vector<PgfSymbol>> syms);
 

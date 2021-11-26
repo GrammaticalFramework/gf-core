@@ -158,8 +158,11 @@ ppJudgement q (id, AnyInd cann mid) =
     Internal -> "ind" <+> id <+> '=' <+> (if cann then pp "canonical" else empty) <+> mid <+> ';'
     _        -> empty
 
-ppPmcfgRule id arg_cats res_cat (Production args res lins) =
+ppPmcfgRule id arg_cats res_cat (Production vars args res lins) =
   pp id <+> (':' <+>
+             (if null vars
+                then empty
+                else "∀{" <> hsep (punctuate ',' [ppLVar v <> '<' <> m | (v,m) <- vars]) <> '}'  <+> '.') <+>
              (if null args
                 then empty
                 else hsep (intersperse (pp '*') (zipWith ppPArg arg_cats args)) <+> "->") <+>

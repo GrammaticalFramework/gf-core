@@ -52,7 +52,8 @@ pmcfgForm gr t ctxt ty =
     lins <- mapM str2lin lins
     (r,rs,_) <- compute params
     args <- zipWithM tnk2lparam args ctxt
-    return (Production args (LParam r rs) (reverse lins))
+    vars <- getVariables
+    return (Production vars args (LParam r rs) (reverse lins))
     where
       tnk2lparam tnk (_,_,ty) = do
         v <- force tnk

@@ -65,7 +65,9 @@ public:
 
     ref<PgfConcrLincat> read_lincat();
     ref<PgfLParam> read_lparam();
+    void read_variable_range(ref<PgfVariableRange> var_info);
     void read_parg(ref<PgfPArg> parg);
+    ref<PgfPResult> read_presult();
     PgfSymbol read_symbol();
     ref<PgfConcrLin> read_lin();
     ref<PgfConcrPrintname> read_printname();
@@ -85,6 +87,7 @@ private:
     void read_lparam(ref<ref<PgfLParam>> r) { auto lparam = read_lparam(); *r = lparam; };
     void read_symbol2(ref<PgfSymbol> r) { auto sym = read_symbol(); *r = sym; };
     void read_seq2(ref<ref<Vector<PgfSymbol>>> r) { auto seq = read_vector(&PgfReader::read_symbol2); *r = seq; }
+    void read_presult2(ref<ref<PgfPResult>> r) { auto res = read_presult(); *r = res; }
 
     template<class I>
     ref<I> read_symbol_idx();

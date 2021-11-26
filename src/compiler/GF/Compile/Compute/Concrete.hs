@@ -8,7 +8,7 @@ module GF.Compile.Compute.Concrete
            , EvalM, runEvalM, evalError
            , eval, apply, force, value2term, patternMatch
            , newThunk, newEvaluatedThunk
-           , newResiduation, newNarrowing
+           , newResiduation, newNarrowing, getVariables
            , getRef
            , getResDef, getInfo, getAllParamValues
            ) where
@@ -387,15 +387,24 @@ patternMatch v0 ((env0,ps,args0,t):eqs) = match env0 ps eqs args0
       where
         bind gr k mt r s m []             = return (Success r)
         bind gr k mt r s m ((p, ctxt):ps) = do
-          tnks <- mapM (\(_,_,ty) -> newSTRef (Narrowing 0 ty)) ctxt
+          (mt',tnks) <- mkArgs mt ctxt
           let v = VApp (m,p) tnks
           writeSTRef i (Evaluated v)
           res <- case ki v of
-                   EvalM f -> f gr k mt r
+                   EvalM f -> f gr k mt' r
           writeSTRef i s
           case res of
             Fail msg  -> return (Fail msg)
             Success r -> bind gr k mt r s m ps
+
+        mkArgs mt []              = return (mt,[])
+        mkArgs mt ((_,_,ty):ctxt) = do
+          let i = case Map.maxViewWithKey mt of
+                    Just ((i,_),_) -> i+1
+                    _              -> 0
+          tnk  <- newSTRef (Narrowing i ty)
+          (mt,tnks) <- mkArgs (Map.insert i tnk mt) ctxt
+          return (mt,tnk:tnks)
 
 value2term i (VApp q tnks) =
   foldM (\e1 tnk -> fmap (App e1) (force tnk >>= value2term i)) (QC q) tnks
@@ -618,6 +627,22 @@ newNarrowing i ty = EvalM $ \gr k mt r ->
            Just tnk -> k tnk mt r
            Nothing  -> do tnk <- newSTRef (Narrowing i ty)
                           k tnk (Map.insert i tnk mt) r
+
+getVariables :: EvalM s [(LVar,LIndex)]
+getVariables = EvalM $ \gr k mt r -> do
+  ps <- metas2params gr (Map.elems mt)
+  k ps mt r
+  where
+    metas2params gr []         = return []
+    metas2params gr (tnk:tnks) = do
+      st <- readSTRef tnk
+      case st of
+        Narrowing i ty -> do let range = case allParamValues gr ty of
+                                           Ok ts   -> length ts
+                                           Bad msg -> error msg
+                             params <- metas2params gr tnks
+                             return ((i,range):params)
+        _              -> metas2params gr tnks
 
 getRef tnk = EvalM $ \gr k mt r -> readSTRef tnk >>= \st -> k st mt r
 

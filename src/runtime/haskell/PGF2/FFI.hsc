@@ -179,7 +179,7 @@ foreign import ccall "dynamic" callLinBuilder1 :: Dynamic (Ptr PgfLinBuilderIfac
 
 foreign import ccall "dynamic" callLinBuilder2 :: Dynamic (Ptr PgfLinBuilderIface -> CSize -> CSize -> Ptr PgfExn -> IO ())
 
-foreign import ccall "dynamic" callLinBuilder3 :: Dynamic (Ptr PgfLinBuilderIface -> CSize -> CSize -> Ptr CSize -> Ptr PgfExn -> IO ())
+foreign import ccall "dynamic" callLinBuilder3 :: Dynamic (Ptr PgfLinBuilderIface -> CSize -> CSize -> CSize -> Ptr CSize -> Ptr PgfExn -> IO ())
 
 foreign import ccall "dynamic" callLinBuilder4 :: Dynamic (Ptr PgfLinBuilderIface -> CSize -> CSize -> CSize -> Ptr CSize -> Ptr PgfExn -> IO ())
 

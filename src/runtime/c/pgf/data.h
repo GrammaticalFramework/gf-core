@@ -123,8 +123,18 @@ struct PGF_INTERNAL_DECL PgfLParam {
     } terms[];
 };
 
+struct PGF_INTERNAL_DECL PgfVariableRange {
+    size_t var;
+    size_t range;
+};
+
 struct PGF_INTERNAL_DECL PgfPArg {
     ref<PgfLParam> param;
+};
+
+struct PGF_INTERNAL_DECL PgfPResult {
+    ref<Vector<PgfVariableRange>> vars; 
+    PgfLParam param;
 };
 
 typedef object PgfSymbol;
@@ -202,7 +212,7 @@ struct PGF_INTERNAL_DECL PgfConcrLin {
     ref<PgfAbsFun> absfun;
 
     ref<Vector<PgfPArg>> args;
-    ref<Vector<ref<PgfLParam>>> res;
+    ref<Vector<ref<PgfPResult>>> res;
     ref<Vector<ref<Vector<PgfSymbol>>>> seqs;
 
     PgfText name;

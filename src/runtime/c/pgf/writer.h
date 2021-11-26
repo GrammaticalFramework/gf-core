@@ -39,8 +39,10 @@ public:
     void write_abstract(ref<PgfAbstr> abstract);
 
     void write_lincat(ref<PgfConcrLincat> lincat);
+    void write_variable_range(ref<PgfVariableRange> var);
     void write_lparam(ref<PgfLParam> lparam);
     void write_parg(ref<PgfPArg> linarg);
+    void write_presult(ref<PgfPResult> linres);
     void write_symbol(PgfSymbol sym);
     void write_seq(ref<Vector<PgfSymbol>> seq);
     void write_lin(ref<PgfConcrLin> lin);
@@ -58,6 +60,7 @@ private:
     void write_lparam(ref<ref<PgfLParam>> r) { write_lparam(*r); };
     void write_seq(ref<ref<Vector<PgfSymbol>>> r) { write_seq(*r); };
     void write_symbol(ref<PgfSymbol> r) { write_symbol(*r); };
+    void write_presult(ref<ref<PgfPResult>> r) { write_presult(*r); };
 
     FILE *out;
     ref<PgfAbstr> abstract;

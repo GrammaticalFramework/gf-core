@@ -112,8 +112,8 @@ instance Binary PArg where
   get = get >>= \(x,y) -> return (PArg x y)
 
 instance Binary Production where
-  put (Production args res rules) = put (args,res,rules)
-  get = get >>= \(args,res,rules) -> return (Production args res rules)
+  put (Production ps args res rules) = put (ps,args,res,rules)
+  get = get >>= \(ps,args,res,rules) -> return (Production ps args res rules)
 
 instance Binary Info where
   put (AbsCat x)       = putWord8 0 >> put x

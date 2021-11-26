@@ -336,6 +336,12 @@ void PgfWriter::write_lincat(ref<PgfConcrLincat> lincat)
     write_vector(lincat->fields, &PgfWriter::write_text);
 }
 
+void PgfWriter::write_variable_range(ref<PgfVariableRange> var)
+{
+    write_int(var->var);
+    write_int(var->range);
+}
+
 void PgfWriter::write_lparam(ref<PgfLParam> lparam)
 {
     write_int(lparam->i0);
@@ -349,6 +355,15 @@ void PgfWriter::write_lparam(ref<PgfLParam> lparam)
 void PgfWriter::write_parg(ref<PgfPArg> parg)
 {
     write_lparam(parg->param);
+}
+
+void PgfWriter::write_presult(ref<PgfPResult> pres)
+{
+    if (pres->vars != 0)
+        write_vector(pres->vars, &PgfWriter::write_variable_range);
+    else
+        write_len(0);
+    write_lparam(ref<PgfLParam>::from_ptr(&pres->param));
 }
 
 void PgfWriter::write_symbol(PgfSymbol sym)
@@ -411,7 +426,7 @@ void PgfWriter::write_lin(ref<PgfConcrLin> lin)
 {
     write_name(&lin->name);
     write_vector(lin->args, &PgfWriter::write_parg);
-    write_vector(lin->res, &PgfWriter::write_lparam);
+    write_vector(lin->res, &PgfWriter::write_presult);
     write_vector(lin->seqs, &PgfWriter::write_seq);
 }
 
