@@ -1856,13 +1856,13 @@ PgfText *pgf_linearize(PgfDB *db, PgfConcrRevision revision,
         DB_scope scope(db, READER_SCOPE);
 
         ref<PgfConcr> concr = PgfDB::revision2concr(revision);
+        PgfLinearizationOutput out;
         PgfLinearizer linearizer(concr, m);
         m->match_expr(&linearizer, expr);
-
-        PgfText *res = (PgfText*) malloc(sizeof(PgfText)+1);
-        res->size = 0;
-        res->text[0] = 0;
-        return res;
+        if (linearizer.resolve()) {
+            linearizer.linearize(&out);
+            return out.get_text();
+        }
     } PGF_API_END
 
     return NULL;

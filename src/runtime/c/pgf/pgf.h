@@ -569,6 +569,36 @@ PGF_API_DECL
 int pgf_has_linearization(PgfDB *db, PgfConcrRevision revision,
                           PgfText *name, PgfExn *err);
 
+#ifdef __cplusplus
+struct PgfLinearizationOutputIface
+{
+	/// Output tokens
+	virtual void symbol_token(PgfText *tok)=0;
+
+	/// Begin phrase
+	virtual void begin_phrase(PgfText *cat, int fid, PgfText *ann, PgfText *fun)=0;
+
+	/// End phrase
+	virtual void end_phrase(PgfText *cat, int fid, PgfText *ann, PgfText *fun)=0;
+
+	/// handling nonExist
+	virtual void symbol_ne()=0;
+
+	/// token binding
+	virtual void symbol_bind()=0;
+
+	/// capitalization
+	virtual void symbol_capit()=0;
+	
+	/// capitalization
+	virtual void symbol_allcapit()=0;
+
+	/// meta variable
+	virtual void symbol_meta(PgfMetaId id)=0;
+};
+#else
+#endif
+
 PGF_API_DECL
 PgfText *pgf_linearize(PgfDB *db, PgfConcrRevision revision,
                        PgfExpr expr, PgfMarshaller *m,
