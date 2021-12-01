@@ -39,6 +39,7 @@ class PGF_INTERNAL_DECL PgfLinearizer : public PgfUnmarshaller {
         size_t *var_values;
 
         TreeNode(PgfLinearizer *linearizer, ref<PgfConcrLin> lin);
+        ~TreeNode() { free(var_values); };
         size_t eval_param(PgfLParam *param);
     };
 

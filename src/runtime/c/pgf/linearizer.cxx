@@ -67,9 +67,6 @@ bool PgfLinearizer::resolve()
 
             ref<PgfPResult> pres = *vector_elem(node->lin->res,  node->lin_index);
 
-            node->var_count  = 0;
-            node->var_values = NULL;
-
             int i = 0;
             TreeNode *arg = node->args;
             while (arg != NULL) {
@@ -133,6 +130,11 @@ bool PgfLinearizer::resolve()
             if (arg == NULL) {
                 node->value = node->eval_param(&pres->param);
                 break;
+            }
+
+            // Unbind all variables
+            for (size_t j = 0; j < node->var_count; j++) {
+                node->var_values[j] = (size_t) -1;
             }
         }
 
