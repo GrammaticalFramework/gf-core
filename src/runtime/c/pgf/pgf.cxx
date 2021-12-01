@@ -1610,6 +1610,7 @@ public:
                 throw pgf_error(builder_error_msg);
 
             *vector_elem(syms, sym_index) = ref<PgfSymbolALLCAPIT>::tagged(0);
+            sym_index++;
         } PGF_API_END
     }
 

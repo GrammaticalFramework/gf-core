@@ -63,6 +63,13 @@ void pgf_symbol_free(PgfSymbol sym)
         PgfDB::free(sym_kp);
         break;
     }
+    case PgfSymbolBIND::tag:
+    case PgfSymbolSOFTBIND::tag:
+    case PgfSymbolNE::tag:
+    case PgfSymbolSOFTSPACE::tag:
+    case PgfSymbolCAPIT::tag:
+    case PgfSymbolALLCAPIT::tag:
+        break;
     default:
         PgfDB::free(ref<void>::untagged(sym));
     }
@@ -87,7 +94,8 @@ void PgfConcrLin::release(ref<PgfConcrLin> lin)
 
     for (size_t i = 0; i < lin->res->len; i++) {
         ref<PgfPResult> res = *vector_elem(lin->res, i);
-        PgfDB::free(res->vars);
+        if (res->vars != 0)
+            PgfDB::free(res->vars);
         PgfDB::free(res);
     }
     PgfDB::free(lin->res);
@@ -95,7 +103,7 @@ void PgfConcrLin::release(ref<PgfConcrLin> lin)
     for (size_t i = 0; i < lin->seqs->len; i++) {
         ref<Vector<PgfSymbol>> syms = *vector_elem(lin->seqs, i);
         for (size_t j = 0; j < syms->len; j++) {
-            PgfSymbol sym = *vector_elem(syms, i);
+            PgfSymbol sym = *vector_elem(syms, j);
             pgf_symbol_free(sym);
         }
         PgfDB::free(syms);
