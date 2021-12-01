@@ -307,10 +307,43 @@ void PgfLinearizationOutput::symbol_token(PgfText *tok)
     bind = false;
 
     if (capit) {
-        //TODO
+        PgfText *cap = (PgfText *) alloca(sizeof(PgfText)+tok->size+6);
+
+        const uint8_t *p   = (const uint8_t *) tok->text;
+        const uint8_t *end = p + tok->size;
+
+        uint8_t *q = (uint8_t *) cap->text;
+
+        uint32_t ucs = pgf_utf8_decode(&p);
+        ucs = pgf_utf8_to_upper(ucs);
+        pgf_utf8_encode(ucs,&q);
+
+        memcpy(q, p, (end - p)+1);
+        q += (end - p);
+
+        cap->size = q - (uint8_t *) cap->text;
+        printer.puts(cap);
+
         capit = false;
     } else if (allcapit) {
-        //TODO
+        PgfText *cap = (PgfText *) alloca(sizeof(PgfText)+tok->size*6);
+
+        const uint8_t *p   = (const uint8_t *) tok->text;
+        const uint8_t *end = p + tok->size;
+
+        uint8_t *q = (uint8_t *) cap->text;
+
+        while (p != end) {
+            uint32_t ucs = pgf_utf8_decode(&p);
+            ucs = pgf_utf8_to_upper(ucs);
+            pgf_utf8_encode(ucs,&q);
+        }
+
+        cap->size = q - (uint8_t *) cap->text;
+        *q = 0;
+
+        printer.puts(cap);
+
         allcapit = false;
     } else {
         printer.puts(tok);
