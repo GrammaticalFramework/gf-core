@@ -2,12 +2,13 @@
 #include "printer.h"
 #include "linearizer.h"
 
-PgfLinearizer::TreeNode::TreeNode(PgfLinearizer *linearizer, ref<PgfConcrLin> lin) {
+PgfLinearizer::TreeNode::TreeNode(PgfLinearizer *linearizer, ref<PgfConcrLin> lin, PgfText *lit) {
     this->next     = NULL;
     this->next_arg = NULL;
     this->args     = linearizer->args;
 
     this->lin       = lin;
+    this->literal   = lit;
     this->lin_index = 0;
 
     this->value     = 0;
@@ -60,81 +61,83 @@ bool PgfLinearizer::resolve()
 {
     TreeNode *node = first;
     while (node != NULL) {
-        size_t n_args = node->lin->args->len / node->lin->res->len;
+        if (node->literal == NULL) {
+            size_t n_args = node->lin->args->len / node->lin->res->len;
 
-        while (node->lin_index < node->lin->res->len) {
-            size_t offset = node->lin_index*n_args;
+            while (node->lin_index < node->lin->res->len) {
+                size_t offset = node->lin_index*n_args;
 
-            ref<PgfPResult> pres = *vector_elem(node->lin->res,  node->lin_index);
+                ref<PgfPResult> pres = *vector_elem(node->lin->res,  node->lin_index);
 
-            int i = 0;
-            TreeNode *arg = node->args;
-            while (arg != NULL) {
-                ref<PgfPArg> parg = vector_elem(node->lin->args, offset+i);
+                int i = 0;
+                TreeNode *arg = node->args;
+                while (arg != NULL) {
+                    ref<PgfPArg> parg = vector_elem(node->lin->args, offset+i);
 
-                if (arg->value < parg->param->i0)
-                    break;
+                    if (arg->value < parg->param->i0)
+                        break;
 
-                size_t value = arg->value - parg->param->i0;
-                for (size_t j = 0; j < parg->param->n_terms; j++) {
-                    size_t factor    = parg->param->terms[j].factor;
-                    size_t var       = parg->param->terms[j].var;
-                    size_t var_value;
+                    size_t value = arg->value - parg->param->i0;
+                    for (size_t j = 0; j < parg->param->n_terms; j++) {
+                        size_t factor    = parg->param->terms[j].factor;
+                        size_t var       = parg->param->terms[j].var;
+                        size_t var_value;
 
-                    if (var < node->var_count && node->var_values[var] != (size_t) -1) {
-                        // The variable already has a value
-                        var_value = node->var_values[var];
-                    } else {
-                        // The variable is not assigned yet
-                        var_value = value / factor;
+                        if (var < node->var_count && node->var_values[var] != (size_t) -1) {
+                            // The variable already has a value
+                            var_value = node->var_values[var];
+                        } else {
+                            // The variable is not assigned yet
+                            var_value = value / factor;
 
-                        // find the range for the variable
-                        size_t range = 0;
-                        for (size_t k = 0; k < pres->vars->len; k++) {
-                            ref<PgfVariableRange> var_range = vector_elem(pres->vars, k);
-                            if (var_range->var == var) {
-                                range = var_range->range;
+                            // find the range for the variable
+                            size_t range = 0;
+                            for (size_t k = 0; k < pres->vars->len; k++) {
+                                ref<PgfVariableRange> var_range = vector_elem(pres->vars, k);
+                                if (var_range->var == var) {
+                                    range = var_range->range;
+                                    break;
+                                }
+                            }
+                            if (range == 0)
+                                throw pgf_error("Unknown variable in resolving a linearization");
+
+                            if (var_value > range)
                                 break;
-                            }
-                        }
-                        if (range == 0)
-                            throw pgf_error("Unknown variable in resolving a linearization");
 
-                        if (var_value > range)
-                            break;
-
-                        // Assign the variable;
-                        if (var >= node->var_count) {
-                            node->var_values = (size_t*)
-                                realloc(node->var_values, (var+1)*sizeof(size_t));
-                            while (node->var_count < var) {
-                                node->var_values[node->var_count++] = (size_t) -1;
+                            // Assign the variable;
+                            if (var >= node->var_count) {
+                                node->var_values = (size_t*)
+                                    realloc(node->var_values, (var+1)*sizeof(size_t));
+                                while (node->var_count < var) {
+                                    node->var_values[node->var_count++] = (size_t) -1;
+                                }
+                                node->var_count++;
                             }
-                            node->var_count++;
+                            node->var_values[var] = var_value;
                         }
-                        node->var_values[var] = var_value;
+
+                        value -= var_value * factor;
                     }
 
-                    value -= var_value * factor;
+                    if (value != 0)
+                        break;
+
+                    arg = arg->next_arg;
+                    i++;
                 }
 
-                if (value != 0)
+                node->lin_index++;
+
+                if (arg == NULL) {
+                    node->value = node->eval_param(&pres->param);
                     break;
+                }
 
-                arg = arg->next_arg;
-                i++;
-            }
-
-            node->lin_index++;
-
-            if (arg == NULL) {
-                node->value = node->eval_param(&pres->param);
-                break;
-            }
-
-            // Unbind all variables
-            for (size_t j = 0; j < node->var_count; j++) {
-                node->var_values[j] = (size_t) -1;
+                // Unbind all variables
+                for (size_t j = 0; j < node->var_count; j++) {
+                    node->var_values[j] = (size_t) -1;
+                }
             }
         }
 
@@ -228,9 +231,13 @@ void PgfLinearizer::linearize(PgfLinearizationOutputIface *out, TreeNode *node, 
 
 void PgfLinearizer::linearize(PgfLinearizationOutputIface *out, TreeNode *node, size_t lindex)
 {
-    size_t n_seqs = node->lin->seqs->len / node->lin->res->len;
-    ref<Vector<PgfSymbol>> syms = *vector_elem(node->lin->seqs, (node->lin_index-1)*n_seqs + lindex);
-    linearize(out, node, syms);
+    if (node->literal == NULL) {
+        size_t n_seqs = node->lin->seqs->len / node->lin->res->len;
+        ref<Vector<PgfSymbol>> syms = *vector_elem(node->lin->seqs, (node->lin_index-1)*n_seqs + lindex);
+        linearize(out, node, syms);
+    } else {
+        out->symbol_token(node->literal);
+    }
 }
 
 PgfExpr PgfLinearizer::eabs(PgfBindType btype, PgfText *name, PgfExpr body)
@@ -262,7 +269,7 @@ PgfExpr PgfLinearizer::emeta(PgfMetaId meta)
 PgfExpr PgfLinearizer::efun(PgfText *name)
 {
     ref<PgfConcrLin> lin = namespace_lookup(concr->lins, name);
-    TreeNode *node = new TreeNode(this, lin);
+    TreeNode *node = new TreeNode(this, lin, NULL);
     return (PgfExpr) node;
 }
 
@@ -283,17 +290,21 @@ PgfExpr PgfLinearizer::eimplarg(PgfExpr expr)
 
 PgfLiteral PgfLinearizer::lint(size_t size, uintmax_t *v)
 {
-    return 0;
+    PgfPrinter printer(NULL,0,NULL);
+    printer.lint(size,v);
+    return (PgfExpr) new TreeNode(this, 0, printer.get_text());
 }
 
 PgfLiteral PgfLinearizer::lflt(double v)
 {
-    return 0;
+    PgfPrinter printer(NULL,0,NULL);
+    printer.lflt(v);
+    return (PgfExpr) new TreeNode(this, 0, printer.get_text());
 }
 
 PgfLiteral PgfLinearizer::lstr(PgfText *v)
 {
-    return 0;
+    return (PgfExpr) new TreeNode(this, 0, textdup(v));
 }
 
 PgfType PgfLinearizer::dtyp(size_t n_hypos, PgfTypeHypo *hypos,
