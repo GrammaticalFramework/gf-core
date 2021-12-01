@@ -4,14 +4,15 @@
 class PGF_INTERNAL_DECL PgfLinearizationOutput : public PgfLinearizationOutputIface {
     PgfPrinter printer;
     bool bind;
+    bool nonexist;
     bool capit;
     bool allcapit;
 
 public:
     PgfLinearizationOutput();
 
-    PgfText *get_text() { return printer.get_text(); };
-    
+    PgfText *get_text();
+
 	virtual void symbol_token(PgfText *tok);
 	virtual void begin_phrase(PgfText *cat, int fid, PgfText *ann, PgfText *fun);
 	virtual void end_phrase(PgfText *cat, int fid, PgfText *ann, PgfText *fun);

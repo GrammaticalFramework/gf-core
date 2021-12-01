@@ -71,11 +71,13 @@ again: {
 
 PgfText *PgfPrinter::get_text()
 {
-    if (res == NULL) {
-        res = (PgfText*) malloc(sizeof(PgfText));
-        res->size = 0;
+    PgfText *tmp = res;
+    if (tmp == NULL) {
+        tmp = (PgfText*) malloc(sizeof(PgfText));
+        tmp->size = 0;
     }
-    return res;
+    res = NULL;
+    return tmp;
 }
 
 void PgfPrinter::flush_lambdas()

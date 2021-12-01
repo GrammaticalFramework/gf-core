@@ -310,8 +310,18 @@ void PgfLinearizer::free_ref(object x)
 PgfLinearizationOutput::PgfLinearizationOutput() : printer(NULL,0,NULL)
 {
     bind = true;
+    nonexist = false;
     capit = false;
     allcapit = false;
+}
+
+PgfText *PgfLinearizationOutput::get_text()
+{
+    if (nonexist) {
+        free(printer.get_text());
+        return NULL;
+    }
+    return printer.get_text();
 }
 
 void PgfLinearizationOutput::symbol_token(PgfText *tok)
@@ -375,6 +385,7 @@ void PgfLinearizationOutput::end_phrase(PgfText *cat, int fid, PgfText *ann, Pgf
 
 void PgfLinearizationOutput::symbol_ne()
 {
+    nonexist = true;
 }
 
 void PgfLinearizationOutput::symbol_bind()

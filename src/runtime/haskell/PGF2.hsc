@@ -584,7 +584,9 @@ linearize c e =
   bracket (newStablePtr e) freeStablePtr $ \c_e ->
   withForeignPtr marshaller $ \m ->
   bracket (withPgfExn "linearize" (pgf_linearize  (c_db c) c_revision c_e m)) free $ \c_text ->
-    peekText c_text
+    if c_text == nullPtr
+      then return ""
+      else peekText c_text
 
 -- | Generates all possible linearizations of an expression
 linearizeAll :: Concr -> Expr -> [String]
