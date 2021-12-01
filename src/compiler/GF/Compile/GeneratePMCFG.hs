@@ -24,7 +24,7 @@ import GF.Data.Operations(Err(..))
 import PGF2.Transactions
 import qualified Data.Map.Strict as Map
 import Control.Monad
-import Data.List(mapAccumL)
+import Data.List(mapAccumL,sortBy)
 
 generatePMCFG :: Options -> FilePath -> SourceGrammar -> SourceModule -> Check SourceModule
 generatePMCFG opts cwd gr cmo@(cm,cmi) = do
@@ -53,13 +53,13 @@ pmcfgForm gr t ctxt ty =
     (r,rs,_) <- compute params
     args <- zipWithM tnk2lparam args ctxt
     vars <- getVariables
-    return (Production vars args (LParam r rs) (reverse lins))
+    return (Production vars args (LParam r (order rs)) (reverse lins))
     where
       tnk2lparam tnk (_,_,ty) = do
         v <- force tnk
         (_,params) <- flatten v ty ([],[])
         (r,rs,_) <- compute params
-        return (PArg [] (LParam r rs))
+        return (PArg [] (LParam r (order rs)))
 
       compute []     = return (0,[],1)
       compute (v:vs) = do
@@ -126,7 +126,7 @@ str2lin (VApp q [])
   | q == (cPredef, cALL_CAPIT)  = return [SymALL_CAPIT]
 str2lin (VStr s)         = return [SymKS s]
 str2lin (VSymCat d r rs) = do (r, rs) <- compute r rs
-                              return [SymCat d (LParam r rs)]
+                              return [SymCat d (LParam r (order rs))]
   where
     compute r' []                = return (r',[])
     compute r' ((cnt',tnk):tnks) = do
@@ -146,7 +146,7 @@ str2lin v                = do t <- value2term 0 v
 param2int (VApp q tnks) = do
   (r ,    cnt ) <- getIdxCnt q
   (r',rs',cnt') <- compute tnks
-  return (r*cnt' + r',rs',cnt*cnt')
+  return (r+r',rs',cnt*cnt')
   where
     getIdxCnt q = do
       (_,ResValue (L _ ty) idx) <- getInfo q
@@ -177,6 +177,8 @@ combine cnt' ((r,pv):rs) ((r',pv'):rs') =
     LT -> (r*cnt',   pv ) : combine cnt' rs ((r',pv'):rs')
     EQ -> (r*cnt'+r',pv ) : combine cnt' rs ((r',pv'):rs')
     GT -> (       r',pv') : combine cnt' ((r,pv):rs) rs'
+
+order = sortBy (\(r1,_) (r2,_) -> compare r2 r1)
 
 mapAccumM f a []     = return (a,[])
 mapAccumM f a (x:xs) = do (a, y) <- f a x
