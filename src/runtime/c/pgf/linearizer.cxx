@@ -173,6 +173,21 @@ void PgfLinearizer::linearize(PgfLinearizationOutputIface *out, TreeNode *node, 
         }
         case PgfSymbolLit::tag: {
             auto sym_lit = ref<PgfSymbolLit>::untagged(sym);
+
+            size_t d = sym_lit->d;
+            TreeNode *arg = node->args;
+            while (d > 0) {
+                arg = arg->next_arg;
+                if (arg == 0)
+                    throw pgf_error("Found inconsistency in the PMCFG representation");
+                d--;
+            }
+            size_t lindex = node->eval_param(&sym_lit->r);
+            PgfText *cat = &vector_elem(hypos, sym_lit->d)->type->name;
+
+            out->begin_phrase(cat, 0, NULL, &node->lin->name);
+            linearize(out, arg, lindex);
+            out->end_phrase(cat, 0, NULL, &node->lin->name);
             break;
         }
         case PgfSymbolVar::tag: {
