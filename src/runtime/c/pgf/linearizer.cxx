@@ -139,6 +139,9 @@ bool PgfLinearizer::resolve()
                     node->var_values[j] = (size_t) -1;
                 }
             }
+
+            if (node->lin_index > node->lin->res->len)
+                return false;
         }
 
         node = node->next;
