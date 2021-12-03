@@ -165,7 +165,7 @@ param2int (VMeta tnk _ _) = do
     Evaluated v    -> param2int v
     Narrowing j ty -> do let QC q = valTypeCnc ty
                          (_,ResParam _ (Just (_,cnt))) <- getInfo q
-                         return (0,[(1,j)],cnt)
+                         return (0,[(1,j-1)],cnt)
 param2int v               = do t <- value2term 0 v
                                evalError ("the parameter:" <+> ppTerm Unqualified 0 t $$
                                           "cannot be evaluated at compile time.")

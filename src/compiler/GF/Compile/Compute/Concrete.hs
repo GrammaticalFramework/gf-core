@@ -641,7 +641,7 @@ getVariables = EvalM $ \gr k mt r -> do
                                            Ok ts   -> length ts
                                            Bad msg -> error msg
                              params <- metas2params gr tnks
-                             return ((i,range):params)
+                             return ((i-1,range):params)
         _              -> metas2params gr tnks
 
 getRef tnk = EvalM $ \gr k mt r -> readSTRef tnk >>= \st -> k st mt r
