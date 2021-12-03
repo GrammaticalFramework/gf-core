@@ -631,6 +631,14 @@ void pgf_bracketed_linearize(PgfDB *db, PgfConcrRevision revision,
                              PgfExn* err);
 
 PGF_API_DECL
+PgfText *pgf_get_printname(PgfDB *db, PgfConcrRevision revision,
+                           PgfText *fun, PgfExn* err);
+
+PGF_API_DECL
+void pgf_set_printname(PgfDB *db, PgfConcrRevision revision,
+                       PgfText *fun, PgfText *name, PgfExn* err);
+
+PGF_API_DECL
 PgfLiteral pgf_get_global_flag(PgfDB *db, PgfRevision revision,
                                PgfText *name,
                                PgfUnmarshaller *u,

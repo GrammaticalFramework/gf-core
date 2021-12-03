@@ -210,6 +210,10 @@ foreign import ccall "wrapper" wrapSymbol2 :: Wrapper (Ptr PgfLinearizationOutpu
 
 foreign import ccall "wrapper" wrapSymbol3 :: Wrapper (Ptr PgfLinearizationOutputIface -> CInt -> IO ())
 
+foreign import ccall pgf_get_printname :: Ptr PgfDB -> Ptr Concr -> Ptr PgfText -> Ptr PgfExn -> IO (Ptr PgfText)
+
+foreign import ccall pgf_set_printname :: Ptr PgfDB -> Ptr Concr -> Ptr PgfText -> Ptr PgfText -> Ptr PgfExn -> IO ()
+
 foreign import ccall pgf_get_global_flag :: Ptr PgfDB -> Ptr PGF -> Ptr PgfText -> Ptr PgfUnmarshaller -> Ptr PgfExn -> IO (StablePtr Literal)
 
 foreign import ccall pgf_set_global_flag :: Ptr PgfDB -> Ptr PGF -> Ptr PgfText -> StablePtr Literal -> Ptr PgfMarshaller -> Ptr PgfExn -> IO ()

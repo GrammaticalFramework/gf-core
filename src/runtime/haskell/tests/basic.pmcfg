@@ -19,10 +19,10 @@ concrete basic_cnc {
   lincat S = [
            ""
          ]
-  lin c : ∀{j<2} . N(j) -> S(0) = [
+  lin c : ∀{i<2} . N(i) -> S(0) = [
         <0,0>
       ]
-  lin ind : ∀{j<2} . P(0) * P(0) * N(j) -> P(0) = [
+  lin ind : ∀{i<2} . P(0) * P(0) * N(i) -> P(0) = [
       ]
   lin s : N(0) -> N(0) = [
         <0,0> "+" "1"

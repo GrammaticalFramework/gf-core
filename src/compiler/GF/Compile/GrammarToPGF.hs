@@ -90,9 +90,17 @@ grammar2PGF opts gr am probs = do
       createLincat (i2i c) (type2fields gr ty)
     createCncCats _ = return ()
 
-    createCncFuns ((m,f),CncFun _ _ _ (Just prods)) = do
+    createCncFuns ((m,f),CncFun _ _ mprn (Just prods)) = do
       createLin (i2i f) prods
+      case mprn of
+        Nothing        -> return ()
+        Just (L _ prn) -> setPrintName (i2i f) (unwords (term2tokens prn))
     createCncFuns _ = return ()
+
+    term2tokens (K tok)     = [tok]
+    term2tokens (C t1 t2)   = term2tokens t1 ++ term2tokens t2
+    term2tokens (Typed t _) = term2tokens t
+    term2tokens _           = []
 
 i2i :: Ident -> String
 i2i = showIdent

@@ -415,7 +415,14 @@ concreteFlag c name =
               return (Just lit)
 
 printName :: Concr -> Fun -> Maybe String
-printName lang fun = error "TODO: printName"
+printName c fun =
+  unsafePerformIO $
+  withText fun $ \c_fun ->
+  withForeignPtr (c_revision c) $ \c_revision ->
+  bracket (withPgfExn "printName" (pgf_get_printname (c_db c) c_revision c_fun)) free $ \c_name -> do
+    if c_name /= nullPtr
+      then fmap Just $ peekText c_name
+      else return Nothing
 
 alignWords :: Concr -> Expr -> [(String, [Int])]
 alignWords = error "TODO: alignWords"

@@ -1890,6 +1890,42 @@ void pgf_bracketed_linearize(PgfDB *db, PgfConcrRevision revision,
 }
 
 PGF_API
+PgfText *pgf_get_printname(PgfDB *db, PgfConcrRevision revision,
+                           PgfText *fun, PgfExn* err)
+{
+    PGF_API_BEGIN {
+        DB_scope scope(db, READER_SCOPE);
+
+        ref<PgfConcr> concr = PgfDB::revision2concr(revision);
+        PgfText *printname = namespace_lookup(concr->printnames, fun)->printname;
+        return textdup(printname);
+    } PGF_API_END
+
+    return NULL;
+}
+
+PGF_API
+void pgf_set_printname(PgfDB *db, PgfConcrRevision revision,
+                       PgfText *fun, PgfText *name, PgfExn* err)
+{
+    PGF_API_BEGIN {
+        DB_scope scope(db, WRITER_SCOPE);
+
+        ref<PgfConcr> concr = PgfDB::revision2concr(revision);
+
+        ref<PgfConcrPrintname> printname = PgfDB::malloc<PgfConcrPrintname>(fun->size+1);
+        printname->ref_count = 1;
+        memcpy(&printname->name, fun, sizeof(PgfText)+fun->size+1);
+        printname->printname = textdup_db(name);
+
+        Namespace<PgfConcrPrintname> printnames =
+            namespace_insert(concr->printnames, printname);
+        namespace_release(concr->printnames);
+        concr->printnames = printnames;
+    } PGF_API_END
+}
+
+PGF_API
 PgfLiteral pgf_get_global_flag(PgfDB *db, PgfRevision revision,
                                PgfText *name,
                                PgfUnmarshaller *u,

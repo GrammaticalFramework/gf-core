@@ -32,10 +32,15 @@ generatePMCFG opts cwd gr cmo@(cm,cmi) = do
   js <- mapM (addPMCFG opts cwd gr' cmi) (Map.toList (jments cmi))
   return (cm,cmi{jments = (Map.fromAscList js)})
 
-addPMCFG opts cwd gr cmi (id,CncFun mty@(Just (_,cat,ctxt,val)) mlin@(Just (L loc term)) mprn Nothing) =
-  checkInModule cwd cmi loc ("Happened in the PMCFG generation for" <+> id) $ do
-    rules <- pmcfgForm gr term ctxt val
-    return (id,CncFun mty mlin mprn (Just rules))
+addPMCFG opts cwd gr cmi (id,CncFun mty@(Just (_,cat,ctxt,val)) mlin@(Just (L loc term)) mprn Nothing) = do
+  rules <- checkInModule cwd cmi loc ("Happened in the PMCFG generation for" <+> id) $
+             pmcfgForm gr term ctxt val
+  mprn  <- case mprn of
+             Nothing          -> return Nothing
+             Just (L loc prn) -> checkInModule cwd cmi loc ("Happened in the computation of the print name for" <+> id) $ do
+                                   prn <- normalForm gr prn
+                                   return (Just (L loc prn))
+  return (id,CncFun mty mlin mprn (Just rules))
 addPMCFG opts cwd gr cmi id_info = return id_info
 
 pmcfgForm :: Grammar -> Term -> Context -> Type -> Check [Production]

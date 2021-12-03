@@ -24,6 +24,7 @@ module PGF2.Transactions
           , dropLincat
           , createLin
           , dropLin
+          , setPrintName
           ) where
 
 import PGF2.FFI
@@ -344,3 +345,9 @@ dropLin :: Fun -> Transaction Concr ()
 dropLin name = Transaction $ \c_db _ c_revision c_exn ->
   withText name $ \c_name ->
     pgf_drop_lin c_db c_revision c_name c_exn
+
+setPrintName :: Fun -> String -> Transaction Concr ()
+setPrintName fun name = Transaction $ \c_db _ c_revision c_exn ->
+  withText fun $ \c_fun ->
+  withText name $ \c_name -> do
+    withPgfExn "setPrintName" (pgf_set_printname c_db c_revision c_fun c_name)
