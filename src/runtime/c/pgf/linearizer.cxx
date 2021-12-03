@@ -56,6 +56,14 @@ PgfLinearizer::~PgfLinearizer()
 
     while (pre_stack != NULL) {
         PreStack *next = pre_stack->next;
+
+        while (pre_stack->bracket_stack != NULL) {
+            BracketStack *next = pre_stack->bracket_stack->next;
+            delete pre_stack->bracket_stack;
+
+            pre_stack->bracket_stack = next;
+        }
+
         delete pre_stack;
         pre_stack = next;
     }
@@ -190,12 +198,67 @@ void PgfLinearizer::flush_pre_stack(PgfLinearizationOutputIface *out, PgfText *t
         linearize(out, pre->node, pre->sym_kp->default_form);
 
     done:
+        if (pre->bracket_stack != NULL)
+            pre->bracket_stack->flush(out);
+
         if (pre->bind)
             out->symbol_bind();
 
         capit    = pre->capit;
 
         delete pre;
+    }
+}
+
+void PgfLinearizer::BracketStack::flush(PgfLinearizationOutputIface *out)
+{
+    if (next != NULL)
+        next->flush(out);
+
+    if (begin)
+        out->begin_phrase(&node->lin->absfun->type->name, node->fid, field, &node->lin->name);
+    else
+        out->end_phrase(&node->lin->absfun->type->name, node->fid, field, &node->lin->name);
+}
+
+void PgfLinearizer::linearize(PgfLinearizationOutputIface *out, TreeNode *node, size_t d, PgfLParam *r)
+{
+    TreeNode *arg = node->args;
+    while (d > 0) {
+        arg = arg->next_arg;
+        if (arg == 0)
+            throw pgf_error("Found inconsistency in the PMCFG representation");
+        d--;
+    }
+    size_t lindex = node->eval_param(r);
+    PgfText *cat = &arg->lin->absfun->type->name;
+
+    PgfText *field = NULL;
+    ref<PgfConcrLincat> lincat = namespace_lookup(concr->lincats, cat);
+    if (lincat != 0) {
+        field = &(**vector_elem(lincat->fields, lindex));
+    }
+
+    if (pre_stack == NULL)
+        out->begin_phrase(cat, arg->fid, field, &arg->lin->name);
+    else {
+        BracketStack *bracket = new BracketStack();
+        bracket->next  = pre_stack->bracket_stack;
+        bracket->begin = true;
+        bracket->node  = arg;
+        bracket->field = field;
+        pre_stack->bracket_stack = bracket;
+    }
+    linearize(out, arg, lindex);
+    if (pre_stack == NULL)
+        out->end_phrase(cat, arg->fid, field, &arg->lin->name);
+    else {
+        BracketStack *bracket = new BracketStack();
+        bracket->next  = pre_stack->bracket_stack;
+        bracket->begin = false;
+        bracket->node  = arg;
+        bracket->field = field;
+        pre_stack->bracket_stack = bracket;
     }
 }
 
@@ -209,46 +272,12 @@ void PgfLinearizer::linearize(PgfLinearizationOutputIface *out, TreeNode *node, 
         switch (ref<PgfSymbol>::get_tag(sym)) {
         case PgfSymbolCat::tag: {
             auto sym_cat = ref<PgfSymbolCat>::untagged(sym);
-
-            size_t d = sym_cat->d;
-            TreeNode *arg = node->args;
-            while (d > 0) {
-                arg = arg->next_arg;
-                if (arg == 0)
-                    throw pgf_error("Found inconsistency in the PMCFG representation");
-                d--;
-            }
-            size_t lindex = node->eval_param(&sym_cat->r);
-            PgfText *cat = &vector_elem(hypos, sym_cat->d)->type->name;
-
-            PgfText *field = NULL;
-            ref<PgfConcrLincat> lincat = namespace_lookup(concr->lincats, cat);
-            if (lincat != 0) {
-                field = &(**vector_elem(lincat->fields, lindex));
-            }
-
-            out->begin_phrase(cat, arg->fid, field, &arg->lin->name);
-            linearize(out, arg, lindex);
-            out->end_phrase(cat, arg->fid, field, &arg->lin->name);
+            linearize(out, node, sym_cat->d, &sym_cat->r);
             break;
         }
         case PgfSymbolLit::tag: {
             auto sym_lit = ref<PgfSymbolLit>::untagged(sym);
-
-            size_t d = sym_lit->d;
-            TreeNode *arg = node->args;
-            while (d > 0) {
-                arg = arg->next_arg;
-                if (arg == 0)
-                    throw pgf_error("Found inconsistency in the PMCFG representation");
-                d--;
-            }
-            size_t lindex = node->eval_param(&sym_lit->r);
-            PgfText *cat = &vector_elem(hypos, sym_lit->d)->type->name;
-
-            out->begin_phrase(cat, 0, NULL, &node->lin->name);
-            linearize(out, arg, lindex);
-            out->end_phrase(cat, 0, NULL, &node->lin->name);
+            linearize(out, node, sym_lit->d, &sym_lit->r);
             break;
         }
         case PgfSymbolVar::tag: {
@@ -316,6 +345,9 @@ void PgfLinearizer::linearize(PgfLinearizationOutputIface *out, TreeNode *node, 
             pre->next   = pre_stack;
             pre->node   = node;
             pre->sym_kp = sym_kp;
+            pre->bind   = false;
+            pre->capit  = CAPIT_NONE;
+            pre->bracket_stack = NULL;
             pre_stack   = pre;
             break;
         }
