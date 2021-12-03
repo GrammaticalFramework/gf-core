@@ -184,13 +184,15 @@ void PgfLinearizer::flush_pre_stack(PgfLinearizationOutputIface *out, PgfText *t
         PreStack *pre = pre_stack;
         pre_stack = pre->next;
 
-        for (size_t i = 0; i < pre->sym_kp->alts.len; i++) {
-            PgfAlternative *alt = &pre->sym_kp->alts.data[i];
-            for (size_t j = 0; j < alt->prefixes->len; j++) {
-                ref<PgfText> prefix = *vector_elem(alt->prefixes,j);
-                if (textstarts(token, &(*prefix))) {
-                    linearize(out, pre->node, alt->form);
-                    goto done;
+        if (token != NULL) {
+            for (size_t i = 0; i < pre->sym_kp->alts.len; i++) {
+                PgfAlternative *alt = &pre->sym_kp->alts.data[i];
+                for (size_t j = 0; j < alt->prefixes->len; j++) {
+                    ref<PgfText> prefix = *vector_elem(alt->prefixes,j);
+                    if (textstarts(token, &(*prefix))) {
+                        linearize(out, pre->node, alt->form);
+                        goto done;
+                    }
                 }
             }
         }

@@ -82,6 +82,7 @@ public:
     void reverse_and_label();
     void linearize(PgfLinearizationOutputIface *out) {
         linearize(out, root, 0);
+        flush_pre_stack(out, NULL);
     }
 
     ~PgfLinearizer();
