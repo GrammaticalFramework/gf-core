@@ -42,8 +42,7 @@ PgfLinearizer::PgfLinearizer(ref<PgfConcr> concr, PgfMarshaller *m) {
     this->root  = NULL;
     this->first = NULL;
     this->args  = NULL;
-    this->capit = false;
-    this->allcapit = false;
+    this->capit = CAPIT_NONE;
     this->pre_stack = NULL;
 };
 
@@ -195,7 +194,6 @@ void PgfLinearizer::flush_pre_stack(PgfLinearizationOutputIface *out, PgfText *t
             out->symbol_bind();
 
         capit    = pre->capit;
-        allcapit = pre->allcapit;
 
         delete pre;
     }
@@ -262,7 +260,11 @@ void PgfLinearizer::linearize(PgfLinearizationOutputIface *out, TreeNode *node, 
 
             flush_pre_stack(out, &sym_ks->token);
 
-            if (capit) {
+            switch (capit) {
+            case CAPIT_NONE:
+                out->symbol_token(&sym_ks->token);
+                break;
+            case CAPIT_FIRST: {
                 PgfText *cap = (PgfText *) alloca(sizeof(PgfText)+sym_ks->token.size+6);
 
                 const uint8_t *p   = (const uint8_t *) sym_ks->token.text;
@@ -280,8 +282,10 @@ void PgfLinearizer::linearize(PgfLinearizationOutputIface *out, TreeNode *node, 
                 cap->size = q - (uint8_t *) cap->text;
                 out->symbol_token(cap);
 
-                capit = false;
-            } else if (allcapit) {
+                capit = CAPIT_NONE;
+                break;
+            }
+            case CAPIT_ALL: {
                 PgfText *cap = (PgfText *) alloca(sizeof(PgfText)+sym_ks->token.size*6);
 
                 const uint8_t *p   = (const uint8_t *) sym_ks->token.text;
@@ -300,9 +304,9 @@ void PgfLinearizer::linearize(PgfLinearizationOutputIface *out, TreeNode *node, 
 
                 out->symbol_token(cap);
 
-                allcapit = false;
-            } else {
-                out->symbol_token(&sym_ks->token);
+                capit = CAPIT_NONE;
+                break;
+            }
             }
             break;
         }
@@ -330,15 +334,15 @@ void PgfLinearizer::linearize(PgfLinearizationOutputIface *out, TreeNode *node, 
             break;
         case PgfSymbolCAPIT::tag:
             if (pre_stack == NULL)
-                capit = true;
+                capit = CAPIT_FIRST;
             else
-                pre_stack->capit = true;
+                pre_stack->capit = CAPIT_FIRST;
             break;
         case PgfSymbolALLCAPIT::tag:
             if (pre_stack == NULL)
-                allcapit = true;
+                capit = CAPIT_ALL;
             else
-                pre_stack->allcapit = true;
+                pre_stack->capit = CAPIT_ALL;
             break;
         }
     }

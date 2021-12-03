@@ -46,16 +46,16 @@ class PGF_INTERNAL_DECL PgfLinearizer : public PgfUnmarshaller {
     TreeNode *first;
     TreeNode *args;
 
-    bool capit;
-    bool allcapit;
+    enum CapitState { CAPIT_NONE, CAPIT_FIRST, CAPIT_ALL };
+
+    CapitState capit;
 
     struct PreStack {
         PreStack *next;
         TreeNode *node;
         ref<PgfSymbolKP> sym_kp;
         bool bind;
-        bool capit;
-        bool allcapit;
+        CapitState capit;
     };
 
     PreStack *pre_stack;
