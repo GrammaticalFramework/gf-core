@@ -587,22 +587,48 @@ struct PgfLinearizationOutputIface
 	/// token binding
 	virtual void symbol_bind()=0;
 
-	/// capitalization
-	virtual void symbol_capit()=0;
-	
-	/// capitalization
-	virtual void symbol_allcapit()=0;
-
 	/// meta variable
 	virtual void symbol_meta(PgfMetaId id)=0;
 };
 #else
+typedef struct PgfLinearizationOutputIface     PgfLinearizationOutputIface;
+typedef struct PgfLinearizationOutputIfaceVtbl PgfLinearizationOutputIfaceVtbl;
+struct PgfLinearizationOutputIfaceVtbl
+{
+	/// Output tokens
+	void (*symbol_token)(PgfLinearizationOutputIface *this, PgfText *tok);
+
+	/// Begin phrase
+	void (*begin_phrase)(PgfLinearizationOutputIface *this, PgfText *cat, int fid, PgfText *ann, PgfText *fun);
+
+	/// End phrase
+	void (*end_phrase)(PgfLinearizationOutputIface *this, PgfText *cat, int fid, PgfText *ann, PgfText *fun);
+
+	/// handling nonExist
+	void (*symbol_ne)(PgfLinearizationOutputIface *this);
+
+	/// token binding
+	void (*symbol_bind)(PgfLinearizationOutputIface *this);
+
+	/// meta variable
+	void (*symbol_meta)(PgfLinearizationOutputIface *this, PgfMetaId id);
+};
+struct PgfLinearizationOutputIface
+{
+    PgfLinearizationOutputIfaceVtbl *vtbl;
+};
 #endif
 
 PGF_API_DECL
 PgfText *pgf_linearize(PgfDB *db, PgfConcrRevision revision,
                        PgfExpr expr, PgfMarshaller *m,
                        PgfExn* err);
+
+PGF_API_DECL
+void pgf_bracketed_linearize(PgfDB *db, PgfConcrRevision revision,
+                             PgfExpr expr, PgfMarshaller *m,
+                             PgfLinearizationOutputIface *out,
+                             PgfExn* err);
 
 PGF_API_DECL
 PgfLiteral pgf_get_global_flag(PgfDB *db, PgfRevision revision,

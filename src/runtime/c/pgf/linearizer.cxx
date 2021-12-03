@@ -2,26 +2,22 @@
 #include "printer.h"
 #include "linearizer.h"
 
-PgfLinearizer::TreeNode::TreeNode(PgfLinearizer *linearizer, ref<PgfConcrLin> lin, PgfText *lit) {
-    this->next     = NULL;
+PgfLinearizer::TreeNode::TreeNode(PgfLinearizer *linearizer, ref<PgfConcrLin> lin, PgfText *lit)
+{
+    this->next     = linearizer->root;
     this->next_arg = NULL;
     this->args     = linearizer->args;
 
-    this->lin       = lin;
+    this->fid       = 0;
     this->literal   = lit;
+    this->lin       = lin;
     this->lin_index = 0;
 
     this->value     = 0;
     this->var_count = 0;
     this->var_values= NULL;
 
-    if (linearizer->first == NULL) {
-        linearizer->first = this;
-        linearizer->root  = this;
-    } else {
-        linearizer->root->next = this;
-        linearizer->root = this;
-    }
+    linearizer->root= this;
 }
 
 size_t PgfLinearizer::TreeNode::eval_param(PgfLParam *param)
@@ -46,6 +42,8 @@ PgfLinearizer::PgfLinearizer(ref<PgfConcr> concr, PgfMarshaller *m) {
     this->root  = NULL;
     this->first = NULL;
     this->args  = NULL;
+    this->capit = false;
+    this->allcapit = false;
 };
 
 PgfLinearizer::~PgfLinearizer()
@@ -150,6 +148,22 @@ bool PgfLinearizer::resolve()
     return true;
 }
 
+void PgfLinearizer::reverse_and_label()
+{
+    // Reverse the list of nodes and label them with fid;
+    int fid = 0;
+    TreeNode *node = root;
+    while (node != NULL) {
+        TreeNode *tmp = node->next;
+
+        node->fid  = fid++;
+        node->next = first;
+
+        first = node;
+        node  = tmp;
+    }
+}
+
 void PgfLinearizer::linearize(PgfLinearizationOutputIface *out, TreeNode *node, ref<Vector<PgfSymbol>> syms)
 {
     ref<Vector<PgfHypo>> hypos = node->lin->absfun->type->hypos;
@@ -172,9 +186,15 @@ void PgfLinearizer::linearize(PgfLinearizationOutputIface *out, TreeNode *node, 
             size_t lindex = node->eval_param(&sym_cat->r);
             PgfText *cat = &vector_elem(hypos, sym_cat->d)->type->name;
 
-            out->begin_phrase(cat, 0, NULL, &node->lin->name);
+            PgfText *field = NULL;
+            ref<PgfConcrLincat> lincat = namespace_lookup(concr->lincats, cat);
+            if (lincat != 0) {
+                field = &(**vector_elem(lincat->fields, lindex));
+            }
+
+            out->begin_phrase(cat, arg->fid, field, &arg->lin->name);
             linearize(out, arg, lindex);
-            out->end_phrase(cat, 0, NULL, &node->lin->name);
+            out->end_phrase(cat, arg->fid, field, &arg->lin->name);
             break;
         }
         case PgfSymbolLit::tag: {
@@ -202,7 +222,49 @@ void PgfLinearizer::linearize(PgfLinearizationOutputIface *out, TreeNode *node, 
         }
         case PgfSymbolKS::tag: {
             auto sym_ks = ref<PgfSymbolKS>::untagged(sym);
-            out->symbol_token(&sym_ks->token);
+
+            if (capit) {
+                PgfText *cap = (PgfText *) alloca(sizeof(PgfText)+sym_ks->token.size+6);
+
+                const uint8_t *p   = (const uint8_t *) sym_ks->token.text;
+                const uint8_t *end = p + sym_ks->token.size;
+
+                uint8_t *q = (uint8_t *) cap->text;
+
+                uint32_t ucs = pgf_utf8_decode(&p);
+                ucs = pgf_utf8_to_upper(ucs);
+                pgf_utf8_encode(ucs,&q);
+
+                memcpy(q, p, (end - p)+1);
+                q += (end - p);
+
+                cap->size = q - (uint8_t *) cap->text;
+                out->symbol_token(cap);
+
+                capit = false;
+            } else if (allcapit) {
+                PgfText *cap = (PgfText *) alloca(sizeof(PgfText)+sym_ks->token.size*6);
+
+                const uint8_t *p   = (const uint8_t *) sym_ks->token.text;
+                const uint8_t *end = p + sym_ks->token.size;
+
+                uint8_t *q = (uint8_t *) cap->text;
+
+                while (p != end) {
+                    uint32_t ucs = pgf_utf8_decode(&p);
+                    ucs = pgf_utf8_to_upper(ucs);
+                    pgf_utf8_encode(ucs,&q);
+                }
+
+                cap->size = q - (uint8_t *) cap->text;
+                *q = 0;
+
+                out->symbol_token(cap);
+
+                allcapit = false;
+            } else {
+                out->symbol_token(&sym_ks->token);
+            }
             break;
         }
         case PgfSymbolKP::tag: {
@@ -223,10 +285,10 @@ void PgfLinearizer::linearize(PgfLinearizationOutputIface *out, TreeNode *node, 
             // Nothing to do
             break;
         case PgfSymbolCAPIT::tag:
-            out->symbol_capit();
+            capit = true;
             break;
         case PgfSymbolALLCAPIT::tag:
-            out->symbol_allcapit();
+            allcapit = true;
             break;
         }
     }
@@ -325,8 +387,6 @@ PgfLinearizationOutput::PgfLinearizationOutput() : printer(NULL,0,NULL)
 {
     bind = true;
     nonexist = false;
-    capit = false;
-    allcapit = false;
 }
 
 PgfText *PgfLinearizationOutput::get_text()
@@ -345,48 +405,7 @@ void PgfLinearizationOutput::symbol_token(PgfText *tok)
     }
     bind = false;
 
-    if (capit) {
-        PgfText *cap = (PgfText *) alloca(sizeof(PgfText)+tok->size+6);
-
-        const uint8_t *p   = (const uint8_t *) tok->text;
-        const uint8_t *end = p + tok->size;
-
-        uint8_t *q = (uint8_t *) cap->text;
-
-        uint32_t ucs = pgf_utf8_decode(&p);
-        ucs = pgf_utf8_to_upper(ucs);
-        pgf_utf8_encode(ucs,&q);
-
-        memcpy(q, p, (end - p)+1);
-        q += (end - p);
-
-        cap->size = q - (uint8_t *) cap->text;
-        printer.puts(cap);
-
-        capit = false;
-    } else if (allcapit) {
-        PgfText *cap = (PgfText *) alloca(sizeof(PgfText)+tok->size*6);
-
-        const uint8_t *p   = (const uint8_t *) tok->text;
-        const uint8_t *end = p + tok->size;
-
-        uint8_t *q = (uint8_t *) cap->text;
-
-        while (p != end) {
-            uint32_t ucs = pgf_utf8_decode(&p);
-            ucs = pgf_utf8_to_upper(ucs);
-            pgf_utf8_encode(ucs,&q);
-        }
-
-        cap->size = q - (uint8_t *) cap->text;
-        *q = 0;
-
-        printer.puts(cap);
-
-        allcapit = false;
-    } else {
-        printer.puts(tok);
-    }
+    printer.puts(tok);
 }
 
 void PgfLinearizationOutput::begin_phrase(PgfText *cat, int fid, PgfText *ann, PgfText *fun)
@@ -405,16 +424,6 @@ void PgfLinearizationOutput::symbol_ne()
 void PgfLinearizationOutput::symbol_bind()
 {
     bind = true;
-}
-
-void PgfLinearizationOutput::symbol_capit()
-{
-    capit = true;
-}
-
-void PgfLinearizationOutput::symbol_allcapit()
-{
-    allcapit = true;
 }
 
 void PgfLinearizationOutput::symbol_meta(PgfMetaId id)

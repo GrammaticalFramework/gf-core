@@ -43,6 +43,7 @@ data PgfMarshaller
 data PgfUnmarshaller
 data PgfBuildLinIface
 data PgfLinBuilderIface
+data PgfLinearizationOutputIface
 
 type Wrapper a = a -> IO (FunPtr a)
 type Dynamic a = FunPtr a -> a
@@ -198,6 +199,16 @@ foreign import ccall pgf_drop_lin :: Ptr PgfDB -> Ptr Concr -> Ptr PgfText -> Pt
 foreign import ccall pgf_has_linearization :: Ptr PgfDB -> Ptr Concr -> Ptr PgfText -> Ptr PgfExn -> IO CInt
 
 foreign import ccall pgf_linearize :: Ptr PgfDB -> Ptr Concr -> StablePtr Expr -> Ptr PgfMarshaller -> Ptr PgfExn -> IO (Ptr PgfText)
+
+foreign import ccall pgf_bracketed_linearize :: Ptr PgfDB -> Ptr Concr -> StablePtr Expr -> Ptr PgfMarshaller -> Ptr PgfLinearizationOutputIface -> Ptr PgfExn -> IO ()
+
+foreign import ccall "wrapper" wrapSymbol0 :: Wrapper (Ptr PgfLinearizationOutputIface -> IO ())
+
+foreign import ccall "wrapper" wrapSymbol1 :: Wrapper (Ptr PgfLinearizationOutputIface -> Ptr PgfText -> IO ())
+
+foreign import ccall "wrapper" wrapSymbol2 :: Wrapper (Ptr PgfLinearizationOutputIface -> Ptr PgfText -> CInt -> Ptr PgfText -> Ptr PgfText -> IO ())
+
+foreign import ccall "wrapper" wrapSymbol3 :: Wrapper (Ptr PgfLinearizationOutputIface -> CInt -> IO ())
 
 foreign import ccall pgf_get_global_flag :: Ptr PgfDB -> Ptr PGF -> Ptr PgfText -> Ptr PgfUnmarshaller -> Ptr PgfExn -> IO (StablePtr Literal)
 

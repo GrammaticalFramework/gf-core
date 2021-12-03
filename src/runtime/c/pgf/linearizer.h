@@ -5,8 +5,6 @@ class PGF_INTERNAL_DECL PgfLinearizationOutput : public PgfLinearizationOutputIf
     PgfPrinter printer;
     bool bind;
     bool nonexist;
-    bool capit;
-    bool allcapit;
 
 public:
     PgfLinearizationOutput();
@@ -18,8 +16,6 @@ public:
 	virtual void end_phrase(PgfText *cat, int fid, PgfText *ann, PgfText *fun);
 	virtual void symbol_ne();
 	virtual void symbol_bind();
-	virtual void symbol_capit();
-	virtual void symbol_allcapit();
 	virtual void symbol_meta(PgfMetaId id);
 };
 
@@ -32,6 +28,7 @@ class PGF_INTERNAL_DECL PgfLinearizer : public PgfUnmarshaller {
         TreeNode *next_arg;
         TreeNode *args;
 
+        int fid;
         PgfText *literal;      // != NULL if literal
         ref<PgfConcrLin> lin;  // != 0    if function
         size_t lin_index;
@@ -49,6 +46,9 @@ class PGF_INTERNAL_DECL PgfLinearizer : public PgfUnmarshaller {
     TreeNode *first;
     TreeNode *args;
 
+    bool capit;
+    bool allcapit;
+
     void linearize(PgfLinearizationOutputIface *out, TreeNode *node, ref<Vector<PgfSymbol>> syms);
     void linearize(PgfLinearizationOutputIface *out, TreeNode *node, size_t lindex);
 
@@ -56,6 +56,7 @@ public:
     PgfLinearizer(ref<PgfConcr> concr, PgfMarshaller *m);
 
     bool resolve();
+    void reverse_and_label();
     void linearize(PgfLinearizationOutputIface *out) {
         linearize(out, root, 0);
     }

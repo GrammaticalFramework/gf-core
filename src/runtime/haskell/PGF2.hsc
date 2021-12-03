@@ -642,7 +642,62 @@ flattenBracketedString (Leaf w)              = [w]
 flattenBracketedString (Bracket _ _ _ _ bss) = concatMap flattenBracketedString bss
 
 bracketedLinearize :: Concr -> Expr -> [BracketedString]
-bracketedLinearize = error "TODO: bracketedLinearize"
+bracketedLinearize c e = unsafePerformIO $ do
+  ref <- newIORef (False,[],[])
+  (withForeignPtr (c_revision c) $ \c_revision ->
+   bracket (newStablePtr e) freeStablePtr $ \c_e ->
+   withForeignPtr marshaller $ \m ->
+   allocaBytes (#size PgfLinearizationOutputIface) $ \c_out ->
+   allocaBytes (#size PgfLinearizationOutputIfaceVtbl) $ \vtbl ->
+   bracket (wrapSymbol1 (symbol_token ref)) freeHaskellFunPtr $ \c_symbol_token ->
+   bracket (wrapSymbol2 (begin_phrase ref)) freeHaskellFunPtr $ \c_begin_phrase ->
+   bracket (wrapSymbol2 (end_phrase ref)) freeHaskellFunPtr $ \c_end_phrase ->
+   bracket (wrapSymbol0 (symbol_bind ref)) freeHaskellFunPtr $ \c_symbol_bind ->
+   bracket (wrapSymbol0 (symbol_ne ref)) freeHaskellFunPtr $ \c_symbol_ne ->
+   bracket (wrapSymbol3 (symbol_meta ref)) freeHaskellFunPtr $ \c_symbol_meta -> do
+     (#poke PgfLinearizationOutputIfaceVtbl, symbol_token) vtbl c_symbol_token
+     (#poke PgfLinearizationOutputIfaceVtbl, begin_phrase) vtbl c_begin_phrase
+     (#poke PgfLinearizationOutputIfaceVtbl, end_phrase) vtbl c_end_phrase
+     (#poke PgfLinearizationOutputIfaceVtbl, symbol_bind) vtbl c_symbol_bind
+     (#poke PgfLinearizationOutputIfaceVtbl, symbol_ne) vtbl c_symbol_ne
+     (#poke PgfLinearizationOutputIfaceVtbl, symbol_meta) vtbl c_symbol_meta
+     (#poke PgfLinearizationOutputIface, vtbl) c_out vtbl
+     withPgfExn "bracketedLinearize" (pgf_bracketed_linearize  (c_db c) c_revision c_e m c_out))
+  (ne,_,bs) <- readIORef ref
+  (if ne
+     then return []
+     else return (reverse bs))
+  where
+    symbol_token ref _ c_text = do
+      (ne,stack,bs) <- readIORef ref
+      token <- peekText c_text
+      writeIORef ref (ne,stack,Leaf token : bs)
+
+    begin_phrase ref _ c_cat c_fid c_ann c_fun = do
+      (ne,stack,bs) <- readIORef ref
+      writeIORef ref (ne,bs:stack,[])
+
+    end_phrase ref _ c_cat c_fid c_ann c_fun = do
+      (ne,bs':stack,bs) <- readIORef ref
+      if null bs
+        then writeIORef ref (ne,stack, bs')
+        else do cat <- peekText c_cat
+                let fid = fromIntegral c_fid
+                ann <- peekText c_ann
+                fun <- peekText c_fun
+                writeIORef ref (ne,stack,Bracket cat fid ann fun (reverse bs) : bs')
+
+    symbol_bind ref _ = do
+      (ne,stack,bs) <- readIORef ref
+      writeIORef ref (ne,stack,BIND : bs)
+
+    symbol_ne ref _ = do
+      (ne,stack,bs) <- readIORef ref
+      writeIORef ref (True,[],[])
+
+    symbol_meta ref _ meta_id = do
+      (ne,stack,bs) <- readIORef ref
+      writeIORef ref (ne,stack,Leaf "?" : bs)
 
 bracketedLinearizeAll :: Concr -> Expr -> [[BracketedString]]
 bracketedLinearizeAll = error "TODO: bracketedLinearizeAll"

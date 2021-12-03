@@ -1860,6 +1860,7 @@ PgfText *pgf_linearize(PgfDB *db, PgfConcrRevision revision,
         PgfLinearizationOutput out;
         PgfLinearizer linearizer(concr, m);
         m->match_expr(&linearizer, expr);
+        linearizer.reverse_and_label();
         if (linearizer.resolve()) {
             linearizer.linearize(&out);
             return out.get_text();
@@ -1867,6 +1868,25 @@ PgfText *pgf_linearize(PgfDB *db, PgfConcrRevision revision,
     } PGF_API_END
 
     return NULL;
+}
+
+PGF_API_DECL
+void pgf_bracketed_linearize(PgfDB *db, PgfConcrRevision revision,
+                             PgfExpr expr, PgfMarshaller *m,
+                             PgfLinearizationOutputIface *out,
+                             PgfExn* err)
+{
+    PGF_API_BEGIN {
+        DB_scope scope(db, READER_SCOPE);
+
+        ref<PgfConcr> concr = PgfDB::revision2concr(revision);
+        PgfLinearizer linearizer(concr, m);
+        m->match_expr(&linearizer, expr);
+        linearizer.reverse_and_label();
+        if (linearizer.resolve()) {
+            linearizer.linearize(out);
+        }
+    } PGF_API_END
 }
 
 PGF_API
