@@ -17,6 +17,20 @@ int textcmp(PgfText *t1, PgfText *t2)
 }
 
 PGF_INTERNAL
+bool textstarts(PgfText *t, PgfText *prefix)
+{
+    if (t->size < prefix->size)
+        return false;
+
+    for (size_t i = 0; i < prefix->size; i++) {
+        if (t->text[i] != prefix->text[i])
+            return false;
+    }
+
+    return true;
+}
+
+PGF_INTERNAL
 PgfText* textdup(PgfText *t1)
 {
     size_t size = sizeof(PgfText)+t1->size+1;

@@ -44,6 +44,7 @@ PgfLinearizer::PgfLinearizer(ref<PgfConcr> concr, PgfMarshaller *m) {
     this->args  = NULL;
     this->capit = false;
     this->allcapit = false;
+    this->pre_stack = NULL;
 };
 
 PgfLinearizer::~PgfLinearizer()
@@ -52,6 +53,12 @@ PgfLinearizer::~PgfLinearizer()
         TreeNode *next = first->next;
         delete first;
         first = next;
+    }
+
+    while (pre_stack != NULL) {
+        PreStack *next = pre_stack->next;
+        delete pre_stack;
+        pre_stack = next;
     }
 }
 
@@ -164,6 +171,36 @@ void PgfLinearizer::reverse_and_label()
     }
 }
 
+void PgfLinearizer::flush_pre_stack(PgfLinearizationOutputIface *out, PgfText *token)
+{
+    while (pre_stack != NULL) {
+        PreStack *pre = pre_stack;
+        pre_stack = pre->next;
+
+        for (size_t i = 0; i < pre->sym_kp->alts.len; i++) {
+            PgfAlternative *alt = &pre->sym_kp->alts.data[i];
+            for (size_t j = 0; j < alt->prefixes->len; j++) {
+                ref<PgfText> prefix = *vector_elem(alt->prefixes,j);
+                if (textstarts(token, &(*prefix))) {
+                    linearize(out, pre->node, alt->form);
+                    goto done;
+                }
+            }
+        }
+
+        linearize(out, pre->node, pre->sym_kp->default_form);
+
+    done:
+        if (pre->bind)
+            out->symbol_bind();
+
+        capit    = pre->capit;
+        allcapit = pre->allcapit;
+
+        delete pre;
+    }
+}
+
 void PgfLinearizer::linearize(PgfLinearizationOutputIface *out, TreeNode *node, ref<Vector<PgfSymbol>> syms)
 {
     ref<Vector<PgfHypo>> hypos = node->lin->absfun->type->hypos;
@@ -223,6 +260,8 @@ void PgfLinearizer::linearize(PgfLinearizationOutputIface *out, TreeNode *node, 
         case PgfSymbolKS::tag: {
             auto sym_ks = ref<PgfSymbolKS>::untagged(sym);
 
+            flush_pre_stack(out, &sym_ks->token);
+
             if (capit) {
                 PgfText *cap = (PgfText *) alloca(sizeof(PgfText)+sym_ks->token.size+6);
 
@@ -269,14 +308,19 @@ void PgfLinearizer::linearize(PgfLinearizationOutputIface *out, TreeNode *node, 
         }
         case PgfSymbolKP::tag: {
             auto sym_kp = ref<PgfSymbolKP>::untagged(sym);
-            linearize(out, node, sym_kp->default_form);
+            PreStack *pre = new PreStack();
+            pre->next   = pre_stack;
+            pre->node   = node;
+            pre->sym_kp = sym_kp;
+            pre_stack   = pre;
             break;
         }
         case PgfSymbolBIND::tag:
-            out->symbol_bind();
-            break;
         case PgfSymbolSOFTBIND::tag:
-            out->symbol_bind();
+            if (pre_stack == NULL)
+                out->symbol_bind();
+            else
+                pre_stack->bind = true;
             break;
         case PgfSymbolNE::tag:
             out->symbol_ne();
@@ -285,10 +329,16 @@ void PgfLinearizer::linearize(PgfLinearizationOutputIface *out, TreeNode *node, 
             // Nothing to do
             break;
         case PgfSymbolCAPIT::tag:
-            capit = true;
+            if (pre_stack == NULL)
+                capit = true;
+            else
+                pre_stack->capit = true;
             break;
         case PgfSymbolALLCAPIT::tag:
-            allcapit = true;
+            if (pre_stack == NULL)
+                allcapit = true;
+            else
+                pre_stack->allcapit = true;
             break;
         }
     }

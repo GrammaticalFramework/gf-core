@@ -49,6 +49,18 @@ class PGF_INTERNAL_DECL PgfLinearizer : public PgfUnmarshaller {
     bool capit;
     bool allcapit;
 
+    struct PreStack {
+        PreStack *next;
+        TreeNode *node;
+        ref<PgfSymbolKP> sym_kp;
+        bool bind;
+        bool capit;
+        bool allcapit;
+    };
+
+    PreStack *pre_stack;
+    void flush_pre_stack(PgfLinearizationOutputIface *out, PgfText *token);
+
     void linearize(PgfLinearizationOutputIface *out, TreeNode *node, ref<Vector<PgfSymbol>> syms);
     void linearize(PgfLinearizationOutputIface *out, TreeNode *node, size_t lindex);
 
