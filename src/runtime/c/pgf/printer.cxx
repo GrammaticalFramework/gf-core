@@ -447,6 +447,20 @@ void PgfPrinter::parg(ref<PgfDTyp> ty, ref<PgfPArg> parg)
     puts(")");
 }
 
+void PgfPrinter::bindings(size_t n_vars)
+{
+    bool first = true;
+    PgfPrintContext *context = ctxt;
+    while (context != NULL && n_vars > 0) {
+        if (!first) {
+            puts(",");
+            first = false;
+        }
+        efun(&context->name);
+        context = context->next;
+    }
+}
+
 void PgfPrinter::lvar(size_t var)
 {
     char vars[] = "ijklmnopqr";

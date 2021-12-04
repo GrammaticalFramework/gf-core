@@ -619,8 +619,8 @@ pgfCommands = Map.fromList [
          mapM_ putStrLn ss
          return void
        else do
-         let funs = not (isOpt "nofun" opts)
-         let cats = not (isOpt "nocat" opts)
+         let funs = isOpt "nofun" opts
+         let cats = isOpt "nocat" opts
          let grphs = map (graphvizAbstractTree pgf (graphvizDefaults{noFun=funs,noCat=cats})) es
          if isFlag "view" opts || isFlag "format" opts
            then do

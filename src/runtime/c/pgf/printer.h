@@ -18,14 +18,6 @@ class PGF_INTERNAL_DECL PgfPrinter : public PgfUnmarshaller {
     // of lambda expressions is finished.
     void flush_lambdas();
 
-    // Push a new variable in the printing context. If the name
-    // collides with an existing variable, the variable is renamed
-    // by adding a number.
-    void push_variable(PgfText *name);
-
-    // Pop the last variable name from the context.
-    void pop_variable();
-
     // The current operator priority
     int prio;
 
@@ -38,6 +30,14 @@ class PGF_INTERNAL_DECL PgfPrinter : public PgfUnmarshaller {
 public:
     PgfPrinter(PgfPrintContext *context, int priority,
                PgfMarshaller *marshaller);
+
+    // Push a new variable in the printing context. If the name
+    // collides with an existing variable, the variable is renamed
+    // by adding a number.
+    void push_variable(PgfText *name);
+
+    // Pop the last variable name from the context.
+    void pop_variable();
 
     void puts(PgfText *s);
     void puts(const char *s);
@@ -72,6 +72,8 @@ public:
                          PgfText *cat,
                          size_t n_exprs, PgfExpr *exprs);
     virtual void free_ref(object x);
+
+    void bindings(size_t n_vars);
 };
 
 #endif

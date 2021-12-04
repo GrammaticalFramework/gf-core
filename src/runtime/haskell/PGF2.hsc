@@ -881,7 +881,14 @@ withGraphvizOptions opts f =
 
 -- | Renders an abstract syntax tree in a Graphviz format.
 graphvizAbstractTree :: PGF -> GraphvizOptions -> Expr -> String
-graphvizAbstractTree p opts e = error "TODO: graphvizAbstractTree"
+graphvizAbstractTree p opts e =
+  unsafePerformIO $
+  withForeignPtr (a_revision p) $ \c_revision ->
+  bracket (newStablePtr e) freeStablePtr $ \c_e ->
+  withForeignPtr marshaller $ \m ->
+  withGraphvizOptions opts $ \c_opts ->
+  bracket (withPgfExn "graphvizAbstractTree" (pgf_graphviz_abstract_tree (a_db p) c_revision c_e m c_opts)) free $ \c_text ->
+    peekText c_text
 
 graphvizParseTree :: Concr -> GraphvizOptions -> Expr -> String
 graphvizParseTree c opts e =

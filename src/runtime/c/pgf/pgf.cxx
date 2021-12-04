@@ -2068,6 +2068,24 @@ void pgf_set_concrete_flag(PgfDB *db, PgfConcrRevision revision,
 }
 
 PGF_API PgfText *
+pgf_graphviz_abstract_tree(PgfDB *db, PgfRevision revision,
+                           PgfExpr expr, PgfMarshaller *m,
+                           PgfGraphvizOptions* opts,
+                           PgfExn *err)
+{
+    PGF_API_BEGIN {
+        DB_scope scope(db, READER_SCOPE);
+
+        ref<PgfPGF> pgf = PgfDB::revision2pgf(revision);
+
+        PgfAbstractGraphvizOutput out(&pgf->abstract, opts, m);
+        return out.generate_graphviz(expr);
+    } PGF_API_END
+
+    return NULL;
+}
+
+PGF_API PgfText *
 pgf_graphviz_parse_tree(PgfDB *db, PgfConcrRevision revision,
                         PgfExpr expr, PgfMarshaller *m,
                         PgfGraphvizOptions* opts,
