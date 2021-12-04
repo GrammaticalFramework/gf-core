@@ -27,6 +27,8 @@ class PGF_INTERNAL_DECL PgfPrinter : public PgfUnmarshaller {
     // The marshaller for pattern matching
     PgfMarshaller *m;
 
+    void bindings(PgfPrintContext *context, size_t n_vars);
+
 public:
     PgfPrinter(PgfPrintContext *context, int priority,
                PgfMarshaller *marshaller);
@@ -73,7 +75,9 @@ public:
                          size_t n_exprs, PgfExpr *exprs);
     virtual void free_ref(object x);
 
-    void bindings(size_t n_vars);
+    void bindings(size_t n_vars) {
+        bindings(ctxt,n_vars);
+    }
 };
 
 #endif
