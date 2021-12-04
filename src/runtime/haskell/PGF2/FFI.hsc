@@ -44,6 +44,7 @@ data PgfUnmarshaller
 data PgfBuildLinIface
 data PgfLinBuilderIface
 data PgfLinearizationOutputIface
+data PgfGraphvizOptions
 
 type Wrapper a = a -> IO (FunPtr a)
 type Dynamic a = FunPtr a -> a
@@ -225,6 +226,9 @@ foreign import ccall pgf_set_abstract_flag :: Ptr PgfDB -> Ptr PGF -> Ptr PgfTex
 foreign import ccall pgf_get_concrete_flag :: Ptr PgfDB -> Ptr Concr -> Ptr PgfText -> Ptr PgfUnmarshaller -> Ptr PgfExn -> IO (StablePtr Literal)
 
 foreign import ccall pgf_set_concrete_flag :: Ptr PgfDB -> Ptr Concr -> Ptr PgfText -> StablePtr Literal -> Ptr PgfMarshaller -> Ptr PgfExn -> IO ()
+
+foreign import ccall pgf_graphviz_parse_tree :: Ptr PgfDB -> Ptr Concr -> StablePtr Expr -> Ptr PgfMarshaller -> Ptr PgfGraphvizOptions -> Ptr PgfExn -> IO (Ptr PgfText)
+
 
 -----------------------------------------------------------------------
 -- Texts

@@ -858,12 +858,40 @@ data GraphvizOptions = GraphvizOptions {noLeaves :: Bool,
 
 graphvizDefaults = GraphvizOptions False False False True "" "" "" "" "" ""
 
+withGraphvizOptions :: GraphvizOptions -> (Ptr PgfGraphvizOptions -> IO a) -> IO a
+withGraphvizOptions opts f =
+  allocaBytes (#size PgfGraphvizOptions) $ \c_opts ->
+  withCString (nodeFont opts) $ \c_nodeFont ->
+  withCString (leafFont opts) $ \c_leafFont ->
+  withCString (nodeColor opts) $ \c_nodeColor ->
+  withCString (leafColor opts) $ \c_leafColor ->
+  withCString (nodeEdgeStyle opts) $ \c_nodeEdgeStyle ->
+  withCString (leafEdgeStyle opts) $ \c_leafEdgeStyle -> do
+    (#poke PgfGraphvizOptions, noLeaves) c_opts (if noLeaves opts then 1 else 0 :: CInt)
+    (#poke PgfGraphvizOptions, noFun)    c_opts (if noFun    opts then 1 else 0 :: CInt)
+    (#poke PgfGraphvizOptions, noCat)    c_opts (if noCat    opts then 1 else 0 :: CInt)
+    (#poke PgfGraphvizOptions, noDep)    c_opts (if noDep    opts then 1 else 0 :: CInt)
+    (#poke PgfGraphvizOptions, nodeFont) c_opts c_nodeFont
+    (#poke PgfGraphvizOptions, leafFont) c_opts c_leafFont
+    (#poke PgfGraphvizOptions, nodeColor) c_opts c_nodeColor
+    (#poke PgfGraphvizOptions, leafColor) c_opts c_leafColor
+    (#poke PgfGraphvizOptions, nodeEdgeStyle) c_opts c_nodeEdgeStyle
+    (#poke PgfGraphvizOptions, leafEdgeStyle) c_opts c_leafEdgeStyle
+    f c_opts
+
 -- | Renders an abstract syntax tree in a Graphviz format.
 graphvizAbstractTree :: PGF -> GraphvizOptions -> Expr -> String
 graphvizAbstractTree p opts e = error "TODO: graphvizAbstractTree"
 
 graphvizParseTree :: Concr -> GraphvizOptions -> Expr -> String
-graphvizParseTree c opts e = error "TODO: graphvizParseTree"
+graphvizParseTree c opts e =
+  unsafePerformIO $
+  withForeignPtr (c_revision c) $ \c_revision ->
+  bracket (newStablePtr e) freeStablePtr $ \c_e ->
+  withForeignPtr marshaller $ \m ->
+  withGraphvizOptions opts $ \c_opts ->
+  bracket (withPgfExn "graphvizParseTree" (pgf_graphviz_parse_tree  (c_db c) c_revision c_e m c_opts)) free $ \c_text ->
+    peekText c_text
 
 graphvizWordAlignment :: [Concr] -> GraphvizOptions -> Expr -> String
 graphvizWordAlignment cs opts e = error "TODO: graphvizWordAlignment"

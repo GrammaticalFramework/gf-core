@@ -561,12 +561,8 @@ pgfCommands = Map.fromList [
                                           nodeEdgeStyle = valStrOpts "nodeedgestyle" "solid" opts,
                                           leafEdgeStyle = valStrOpts "leafedgestyle" "dashed" opts
                                          }
-         let depfile = valStrOpts "file" "" opts
          concr  <- optLang pgf opts
-         mlab <- case depfile of
-           "" -> return Nothing
-           _  -> (Just . getDepLabels) `fmap` restricted (readFile depfile)
-         let grphs = map (graphvizDependencyTree "dot" False mlab Nothing concr) es
+         let grphs = map (graphvizParseTree concr gvOptions) es
          if isFlag "view" opts || isFlag "format" opts
            then do
              let view = optViewGraph opts

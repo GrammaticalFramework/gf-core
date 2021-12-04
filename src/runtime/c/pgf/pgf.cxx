@@ -11,6 +11,7 @@
 #include "printer.h"
 #include "typechecker.h"
 #include "linearizer.h"
+#include "graphviz.h"
 
 static void
 pgf_exn_clear(PgfExn* err)
@@ -2064,4 +2065,28 @@ void pgf_set_concrete_flag(PgfDB *db, PgfConcrRevision revision,
         namespace_release(concr->cflags);
         concr->cflags = cflags;
     } PGF_API_END
+}
+
+PGF_API PgfText *
+pgf_graphviz_parse_tree(PgfDB *db, PgfConcrRevision revision,
+                        PgfExpr expr, PgfMarshaller *m,
+                        PgfGraphvizOptions* opts,
+                        PgfExn *err)
+{
+    PGF_API_BEGIN {
+        DB_scope scope(db, READER_SCOPE);
+
+        ref<PgfConcr> concr = PgfDB::revision2concr(revision);
+
+        PgfLinearizationGraphvizOutput out;
+        PgfLinearizer linearizer(concr, m);
+        m->match_expr(&linearizer, expr);
+        linearizer.reverse_and_label();
+        if (linearizer.resolve()) {
+            linearizer.linearize(&out);
+            return out.generate_graphviz(opts);
+        }
+    } PGF_API_END
+
+    return NULL;
 }

@@ -672,4 +672,23 @@ void pgf_set_concrete_flag(PgfDB *db, PgfConcrRevision revision,
                            PgfMarshaller *m,
                            PgfExn *err);
 
+typedef struct {
+    int noLeaves;
+    int noFun;
+    int noCat;
+    int noDep;
+    const char *nodeFont;
+    const char *leafFont;
+    const char *nodeColor;
+    const char *leafColor;
+    const char *nodeEdgeStyle;
+    const char *leafEdgeStyle;
+} PgfGraphvizOptions;
+
+PGF_API PgfText *
+pgf_graphviz_parse_tree(PgfDB *db, PgfConcrRevision revision,
+                        PgfExpr expr, PgfMarshaller *m,
+                        PgfGraphvizOptions* opts,
+                        PgfExn *err);
+
 #endif // PGF_H_

@@ -23,6 +23,8 @@ libpgf_la_SOURCES = \
 	pgf/typechecker.h \
 	pgf/linearizer.cxx \
 	pgf/linearizer.h \
+	pgf/graphviz.cxx \
+	pgf/graphviz.h \
 	pgf/data.cxx \
 	pgf/data.h \
 	pgf/expr.cxx \
