@@ -103,17 +103,6 @@ typedef struct {
     Namespace<PgfAbsCat> cats;
 } PgfAbstr;
 
-struct PGF_INTERNAL_DECL PgfConcrLincat {
-    size_t ref_count;
-
-    ref<PgfAbsCat> abscat;
-
-    ref<Vector<ref<PgfText>>> fields;
-    PgfText name;
-
-    static void release(ref<PgfConcrLincat> lincat);
-};
-
 struct PGF_INTERNAL_DECL PgfLParam {
     size_t i0;
     size_t n_terms;
@@ -205,6 +194,23 @@ void pgf_symbol_free(PgfSymbol sym);
 
 PGF_INTERNAL_DECL
 void pgf_symbols_free(ref<Vector<PgfSymbol>> syms);
+
+struct PGF_INTERNAL_DECL PgfConcrLincat {
+    size_t ref_count;
+
+    ref<PgfAbsCat> abscat;
+
+    ref<Vector<ref<PgfText>>> fields;
+
+    size_t n_lindefs;
+    ref<Vector<PgfPArg>> args;
+    ref<Vector<ref<PgfPResult>>> res;
+    ref<Vector<ref<Vector<PgfSymbol>>>> seqs;
+
+    PgfText name;
+
+    static void release(ref<PgfConcrLincat> lincat);
+};
 
 struct PGF_INTERNAL_DECL PgfConcrLin {
     size_t ref_count;

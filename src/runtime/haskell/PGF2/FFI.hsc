@@ -111,6 +111,14 @@ foreign import ccall pgf_get_lincat_counts_internal :: Ptr () -> Ptr CSize -> IO
 
 foreign import ccall pgf_get_lincat_field_internal :: Ptr () -> CSize -> IO (Ptr PgfText)
 
+foreign import ccall pgf_print_lindef_sig_internal :: Ptr () -> CSize -> IO (Ptr PgfText)
+
+foreign import ccall pgf_print_lindef_seq_internal :: Ptr () -> CSize -> CSize -> IO (Ptr PgfText)
+
+foreign import ccall pgf_print_linref_sig_internal :: Ptr () -> CSize -> IO (Ptr PgfText)
+
+foreign import ccall pgf_print_linref_seq_internal :: Ptr () -> CSize -> IO (Ptr PgfText)
+
 foreign import ccall pgf_get_lin_counts_internal :: Ptr () -> Ptr CSize -> IO ()
 
 foreign import ccall pgf_print_lin_sig_internal :: Ptr () -> CSize -> IO (Ptr PgfText)
@@ -189,7 +197,7 @@ foreign import ccall "dynamic" callLinBuilder5 :: Dynamic (Ptr PgfLinBuilderIfac
 
 foreign import ccall "dynamic" callLinBuilder6 :: Dynamic (Ptr PgfLinBuilderIface -> CSize -> CSize -> Ptr (Ptr PgfText) -> Ptr PgfExn -> IO ())
 
-foreign import ccall pgf_create_lincat :: Ptr PgfDB -> Ptr PGF -> Ptr Concr -> Ptr PgfText -> CSize -> Ptr (Ptr PgfText) -> Ptr PgfExn -> IO ()
+foreign import ccall pgf_create_lincat :: Ptr PgfDB -> Ptr PGF -> Ptr Concr -> Ptr PgfText -> CSize -> Ptr (Ptr PgfText) -> CSize -> CSize -> Ptr PgfBuildLinIface -> Ptr PgfExn -> IO ()
 
 foreign import ccall pgf_drop_lincat :: Ptr PgfDB -> Ptr Concr -> Ptr PgfText -> Ptr PgfExn -> IO ()
 

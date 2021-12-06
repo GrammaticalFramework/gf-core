@@ -240,15 +240,39 @@ showPGF p =
         getLincats ref itor key val exn = do
           name   <- bracket (pgf_print_ident key) free $ \c_text -> do
                       peekText c_text
-          fields <- allocaBytes (1*(#size size_t)) $ \pcounts -> do
+          (n_fields,n_lindefs,n_linrefs) <-
+                    allocaBytes (3*(#size size_t)) $ \pcounts -> do
                       pgf_get_lincat_counts_internal val pcounts
-                      n_fields <- peekElemOff pcounts 0
+                      n_fields  <- peekElemOff pcounts 0
+                      n_lindefs <- peekElemOff pcounts 1
+                      n_linrefs <- peekElemOff pcounts 2
+                      return (n_fields,n_lindefs,n_linrefs)
+          fields <- allocaBytes (3*(#size size_t)) $ \pcounts -> do
                       forM (init [0..n_fields]) $ \i -> do
                         pgf_get_lincat_field_internal val i >>= peekText
           let def = text "lincat" <+> (text name <+> char '=' <+> char '[' $$
                                        nest 2 (vcat (map (text.show) fields)) $$
                                        char ']')
           modifyIORef ref $ (\doc -> doc $$ def)
+          forM_ (init [0..n_lindefs]) $ \i -> do
+            sig <- bracket (pgf_print_lindef_sig_internal val i) free $ \c_text -> do
+                     fmap text (peekText c_text)
+            seqs <- forM (init [0..n_fields]) $ \j ->
+                      bracket (pgf_print_lindef_seq_internal val i j) free $ \c_text -> do
+                          fmap text (peekText c_text)
+            let def = text "lindef" <+> (sig <+> char '=' <+> char '[' $$
+                                         nest 2 (vcat seqs) $$
+                                         char ']')
+            modifyIORef ref $ (\doc -> doc $$ def)
+          forM_ (init [0..n_linrefs]) $ \i -> do
+            sig <- bracket (pgf_print_linref_sig_internal val i) free $ \c_text -> do
+                     fmap text (peekText c_text)
+            seq <- bracket (pgf_print_linref_seq_internal val i) free $ \c_text -> do
+                     fmap text (peekText c_text)
+            let def = text "linref" <+> (sig <+> char '=' <+> char '[' $$
+                                         nest 2 seq $$
+                                         char ']')
+            modifyIORef ref $ (\doc -> doc $$ def)
 
     ppLins c = unsafePerformIO $ do
       ref <- newIORef empty

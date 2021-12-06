@@ -216,13 +216,17 @@ data PArg = PArg [(LIndex,LIndex)] {-# UNPACK #-} !LParam
 data Production = Production [(LVar,LIndex)] [PArg] LParam [[Symbol]]
                  deriving (Eq,Show)
 
-createLincat :: Cat -> [String] -> Transaction Concr ()
-createLincat name fields = Transaction $ \c_db c_abstr c_revision c_exn ->
+createLincat :: Cat -> [String] -> [Production] -> [Production] -> Transaction Concr ()
+createLincat name fields lindefs linrefs = Transaction $ \c_db c_abstr c_revision c_exn ->
   let n_fields = length fields
   in withText name $ \c_name ->
      allocaBytes (n_fields*(#size PgfText*)) $ \c_fields ->
      withTexts c_fields 0 fields $
-       pgf_create_lincat c_db c_abstr c_revision c_name (fromIntegral n_fields) c_fields c_exn
+     withBuildLinIface (lindefs++linrefs) $ \c_build ->
+       pgf_create_lincat c_db c_abstr c_revision c_name
+                         (fromIntegral n_fields) c_fields
+                         (fromIntegral (length lindefs)) (fromIntegral (length linrefs))
+                         c_build c_exn
   where
     withTexts p i []     f = f
     withTexts p i (s:ss) f =
@@ -238,12 +242,16 @@ dropLincat name = Transaction $ \c_db _ c_revision c_exn ->
 createLin :: Fun -> [Production] -> Transaction Concr ()
 createLin name prods = Transaction $ \c_db c_abstr c_revision c_exn ->
   withText name $ \c_name ->
+  withBuildLinIface prods $ \c_build ->
+    pgf_create_lin c_db c_abstr c_revision c_name (fromIntegral (length prods)) c_build c_exn
+
+withBuildLinIface prods f =
   allocaBytes (#size PgfBuildLinIface) $ \c_build ->
   allocaBytes (#size PgfBuildLinIfaceVtbl) $ \vtbl ->
   bracket (wrapLinBuild build) freeHaskellFunPtr $ \c_callback -> do
     (#poke PgfBuildLinIface, vtbl) c_build vtbl
     (#poke PgfBuildLinIfaceVtbl, build) vtbl c_callback
-    pgf_create_lin c_db c_abstr c_revision c_name (fromIntegral (length prods)) c_build c_exn
+    f c_build
   where
     forM_ []     c_exn f = return ()
     forM_ (x:xs) c_exn f = do

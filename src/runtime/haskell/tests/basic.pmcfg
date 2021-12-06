@@ -14,10 +14,27 @@ concrete basic_cnc {
   lincat N = [
            "s"
          ]
+  lindef N :  String(0) -> N(0) = [
+           <0,0>
+         ]
+  linref N : ∀{i<2} . N(i) -> String(0) = [
+           <0,0>
+         ]
   lincat P = [
+         ]
+  lindef P :  String(0) -> P(0) = [
+         ]
+  linref P : P(0) -> String(0) = [
+           
          ]
   lincat S = [
            ""
+         ]
+  lindef S :  String(0) -> S(0) = [
+           <0,0>
+         ]
+  linref S : S(0) -> String(0) = [
+           <0,0>
          ]
   lin c : ∀{i<2} . N(i) -> S(0) = [
         <0,0>

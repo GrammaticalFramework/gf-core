@@ -530,6 +530,10 @@ ref<PgfConcrLincat> PgfReader::read_lincat()
     lincat->ref_count = 1;
     lincat->abscat = namespace_lookup(abstract->cats, &lincat->name);
     lincat->fields = read_vector(&PgfReader::read_text2);
+    lincat->n_lindefs = read_len();
+    lincat->args = read_vector(&PgfReader::read_parg);
+    lincat->res  = read_vector(&PgfReader::read_presult2);
+    lincat->seqs = read_vector(&PgfReader::read_seq2);
     return lincat;
 }
 

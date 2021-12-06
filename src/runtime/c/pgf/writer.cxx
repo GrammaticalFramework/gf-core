@@ -330,12 +330,6 @@ void PgfWriter::write_abstract(ref<PgfAbstr> abstract)
     this->abstract = 0;
 }
 
-void PgfWriter::write_lincat(ref<PgfConcrLincat> lincat)
-{
-    write_name(&lincat->name);
-    write_vector(lincat->fields, &PgfWriter::write_text);
-}
-
 void PgfWriter::write_variable_range(ref<PgfVariableRange> var)
 {
     write_int(var->var);
@@ -420,6 +414,16 @@ void PgfWriter::write_symbol(PgfSymbol sym)
 void PgfWriter::write_seq(ref<Vector<PgfSymbol>> seq)
 {
     write_vector(seq, &PgfWriter::write_symbol);
+}
+
+void PgfWriter::write_lincat(ref<PgfConcrLincat> lincat)
+{
+    write_name(&lincat->name);
+    write_vector(lincat->fields, &PgfWriter::write_text);
+    write_len(lincat->n_lindefs);
+    write_vector(lincat->args, &PgfWriter::write_parg);
+    write_vector(lincat->res, &PgfWriter::write_presult);
+    write_vector(lincat->seqs, &PgfWriter::write_seq);
 }
 
 void PgfWriter::write_lin(ref<PgfConcrLin> lin)

@@ -25,6 +25,7 @@ import PGF2.Transactions
 import qualified Data.Map.Strict as Map
 import Control.Monad
 import Data.List(mapAccumL,sortBy)
+import Data.Maybe(fromMaybe)
 
 generatePMCFG :: Options -> FilePath -> SourceGrammar -> SourceModule -> Check SourceModule
 generatePMCFG opts cwd gr cmo@(cm,cmi) = do
@@ -32,6 +33,25 @@ generatePMCFG opts cwd gr cmo@(cm,cmi) = do
   js <- mapM (addPMCFG opts cwd gr' cmi) (Map.toList (jments cmi))
   return (cm,cmi{jments = (Map.fromAscList js)})
 
+addPMCFG opts cwd gr cmi (id,CncCat mty@(Just (L loc ty)) mdef mref mprn Nothing) = do
+  defs <- case mdef of
+            Nothing           -> checkInModule cwd cmi loc ("Happened in the PMCFG generation for the lindef of" <+> id) $ do
+                                   term <- mkLinDefault gr ty
+                                   pmcfgForm gr term [(Explicit,identW,typeStr)] ty
+            Just (L loc term) -> checkInModule cwd cmi loc ("Happened in the PMCFG generation for the lindef of" <+> id) $ do
+                                   pmcfgForm gr term [(Explicit,identW,typeStr)] ty
+  refs <- case mref of
+            Nothing           -> checkInModule cwd cmi loc ("Happened in the PMCFG generation for the linref of" <+> id) $ do
+                                   term <- mkLinReference gr ty
+                                   pmcfgForm gr term [(Explicit,identW,ty)] typeStr
+            Just (L loc term) -> checkInModule cwd cmi loc ("Happened in the PMCFG generation for the linref of" <+> id) $ do
+                                   pmcfgForm gr term [(Explicit,identW,ty)] typeStr
+  mprn  <- case mprn of
+             Nothing          -> return Nothing
+             Just (L loc prn) -> checkInModule cwd cmi loc ("Happened in the computation of the print name for" <+> id) $ do
+                                   prn <- normalForm gr prn
+                                   return (Just (L loc prn))
+  return (id,CncCat mty mdef mref mprn (Just (defs,refs)))
 addPMCFG opts cwd gr cmi (id,CncFun mty@(Just (_,cat,ctxt,val)) mlin@(Just (L loc term)) mprn Nothing) = do
   rules <- checkInModule cwd cmi loc ("Happened in the PMCFG generation for" <+> id) $
              pmcfgForm gr term ctxt val
@@ -200,3 +220,47 @@ type2fields gr = type2fields empty
       let Ok ts = allParamValues gr p
       in concatMap (\t -> type2fields (d <+> ppTerm Unqualified 5 t) q) ts
     type2fields d _ = []
+
+mkLinDefault :: SourceGrammar -> Type -> Check Term
+mkLinDefault gr typ = liftM (Abs Explicit varStr) $ mkDefField typ
+ where
+   mkDefField ty =
+     case ty of
+       Table p t  -> do t' <- mkDefField t
+                        let T _ cs = mkWildCases t'
+                        return $ T (TWild p) cs
+       Sort s | s == cStr -> return (Vr varStr)
+       QC p       -> case lookupParamValues gr p of
+                       Ok []    -> checkError ("no parameter values given to type" <+> ppQIdent Qualified p)
+                       Ok (v:_) -> return v
+                       Bad msg  -> fail msg
+       RecType r -> do
+         let (ls,ts) = unzip r
+         ts <- mapM mkDefField ts
+         return $ R (zipWith assign ls ts)
+       _ | Just _ <- isTypeInts typ -> return $ EInt 0 -- exists in all as first val
+       _ -> checkError ("linearization type field cannot be" <+> ty)
+
+mkLinReference :: SourceGrammar -> Type -> Check Term
+mkLinReference gr typ = do
+  mb_term <- mkRefField typ (Vr varStr)
+  return (Abs Explicit varStr (fromMaybe Empty mb_term))
+  where
+    mkRefField ty trm =
+      case ty of
+        Table pty ty -> case allParamValues gr pty of
+                          Ok []     -> checkError ("no parameter values given to type" <+> pty)
+                          Ok (p:ps) -> mkRefField ty (S trm p)
+                          Bad msg   -> fail msg
+        Sort s | s == cStr -> return (Just trm)
+        QC p       -> return Nothing
+        RecType [] -> return Nothing
+        RecType rs -> traverse rs trm
+        _ | Just _ <- isTypeInts typ -> return Nothing
+        _ -> checkError ("linearization type field cannot be" <+> typ)
+
+    traverse []          trm = return Nothing
+    traverse ((l,ty):rs) trm = do res <- mkRefField ty (P trm l)
+                                  case res of
+                                    Just trm -> return (Just trm)
+                                    Nothing  -> traverse rs trm

@@ -28,6 +28,7 @@ import PGF2(Literal(..))
 import GF.Infra.Ident
 import GF.Infra.Option
 import GF.Grammar.Values
+import GF.Grammar.Predef
 import GF.Grammar.Grammar
 
 import GF.Text.Pretty
@@ -134,9 +135,10 @@ ppJudgement q (id, CncCat mtyp pdef pref pprn mpmcfg) =
      Just (L _ prn) -> "printname" <+> id <+> '=' <+> ppTerm q 0 prn <+> ';'
      Nothing        -> empty) $$
   (case (mtyp,mpmcfg,q) of
-     (Just (L _ typ),Just rules,Internal)
+     (Just (L _ typ),Just (lindefs,linrefs),Internal)
                     -> "pmcfg" <+> '{' $$
-                       nest 2 (vcat (map (ppPmcfgRule id [] id) rules)) $$
+                       nest 2 (vcat (map (ppPmcfgRule (identS "lindef") [cString] id) lindefs)  $$
+                               vcat (map (ppPmcfgRule (identS "linref") [id] cString) linrefs)) $$
                        '}'
      _              -> empty)
 ppJudgement q (id, CncFun mtyp pdef pprn mpmcfg) =

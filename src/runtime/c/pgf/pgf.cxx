@@ -794,6 +794,8 @@ void pgf_get_lincat_counts_internal(object o, size_t *counts)
 {
     ref<PgfConcrLincat> lincat = o;
     counts[0] = lincat->fields->len;
+    counts[1] = lincat->n_lindefs;
+    counts[2] = lincat->res->len - lincat->n_lindefs;
 }
 
 PGF_API
@@ -809,6 +811,92 @@ void pgf_get_lin_counts_internal(object o, size_t *counts)
     ref<PgfConcrLin> lin = o;
     counts[0] = lin->res->len;
     counts[1] = lin->seqs->len / lin->res->len;
+}
+
+PGF_API
+PgfText *pgf_print_lindef_sig_internal(object o, size_t i)
+{
+    ref<PgfConcrLincat> lincat = o;
+
+    PgfInternalMarshaller m;
+    PgfPrinter printer(NULL,0,&m);
+
+    printer.efun(&lincat->name);
+    printer.puts(" : ");
+
+    ref<PgfPResult> res = *vector_elem(lincat->res, i);
+
+    if (res->vars != 0) {
+        printer.lvar_ranges(res->vars);
+        printer.puts(" . ");
+    }
+
+    printer.puts(" String(0) -> ");
+
+    printer.efun(&lincat->name);
+    printer.puts("(");
+    printer.lparam(ref<PgfLParam>::from_ptr(&res->param));
+    printer.puts(")");
+
+    return printer.get_text();
+}
+
+PGF_API
+PgfText *pgf_print_lindef_seq_internal(object o, size_t i, size_t j)
+{
+    ref<PgfConcrLincat> lincat = o;
+
+    PgfInternalMarshaller m;
+    PgfPrinter printer(NULL,0,&m);
+
+    size_t n_seqs = lincat->fields->len;
+    ref<Vector<PgfSymbol>> syms = *vector_elem(lincat->seqs, i*n_seqs + j);
+
+    printer.symbols(syms);
+
+    return printer.get_text();
+}
+
+PGF_API
+PgfText *pgf_print_linref_sig_internal(object o, size_t i)
+{
+    ref<PgfConcrLincat> lincat = o;
+
+    PgfInternalMarshaller m;
+    PgfPrinter printer(NULL,0,&m);
+
+    printer.efun(&lincat->name);
+    printer.puts(" : ");
+
+    ref<PgfPResult> res = *vector_elem(lincat->res, lincat->n_lindefs+i);
+
+    if (res->vars != 0) {
+        printer.lvar_ranges(res->vars);
+        printer.puts(" . ");
+    }
+
+    printer.efun(&lincat->name);
+    printer.puts("(");
+    printer.lparam(vector_elem(lincat->args, lincat->n_lindefs+i)->param);
+    printer.puts(") -> String(0)");
+
+    return printer.get_text();
+}
+
+PGF_API
+PgfText *pgf_print_linref_seq_internal(object o, size_t i)
+{
+    ref<PgfConcrLincat> lincat = o;
+
+    PgfInternalMarshaller m;
+    PgfPrinter printer(NULL,0,&m);
+
+    size_t n_seqs = lincat->fields->len;
+    ref<Vector<PgfSymbol>> syms = *vector_elem(lincat->seqs, lincat->n_lindefs*n_seqs+i);
+
+    printer.symbols(syms);
+
+    return printer.get_text();
 }
 
 PGF_API
@@ -1206,13 +1294,19 @@ void pgf_drop_concrete(PgfDB *db, PgfRevision revision,
 
 class PGF_INTERNAL PgfLinBuilder : public PgfLinBuilderIface
 {
-    ref<PgfConcrLin> lin;
+    ref<Vector<PgfPArg>> args;
+    ref<Vector<ref<PgfPResult>>> res;
+    ref<Vector<ref<Vector<PgfSymbol>>>> seqs;
+
     size_t var_index;
     size_t arg_index;
     size_t res_index;
     size_t seq_index;
     size_t sym_index;
     size_t alt_index;
+
+    size_t n_lindefs;
+    size_t n_linrefs;
 
     ref<Vector<PgfSymbol>> syms;
 
@@ -1222,7 +1316,72 @@ class PGF_INTERNAL PgfLinBuilder : public PgfLinBuilderIface
         "Detected incorrect use of the linearization builder";
 
 public:
-    PgfLinBuilder(ref<PgfAbsFun> absfun, PgfConcr *concr, size_t n_prods)
+    PgfLinBuilder()
+    {
+        this->args = 0;
+        this->res  = 0;
+        this->seqs = 0;
+        this->var_index = 0;
+        this->arg_index = 0;
+        this->res_index = 0;
+        this->seq_index = 0;
+        this->sym_index = (size_t) -1;
+        this->alt_index = (size_t) -1;
+        this->n_lindefs = 0;
+        this->n_linrefs = 0;
+        this->syms = 0;
+        this->pre_sym_index = (size_t) -1;
+    }
+
+    ref<PgfConcrLincat> build(ref<PgfAbsCat> abscat, PgfConcr *concr,
+                              size_t n_fields, PgfText **fields,
+                              size_t n_lindefs, size_t n_linrefs,
+                              PgfBuildLinIface *build, PgfExn *err)
+    {
+        size_t n_prods = n_lindefs+n_linrefs;
+        this->args = vector_new<PgfPArg>(n_prods);
+        this->res  = vector_new<ref<PgfPResult>>(n_prods);
+        this->seqs = vector_new<ref<Vector<PgfSymbol>>>(n_lindefs*n_fields+n_linrefs);
+        this->n_lindefs = n_lindefs;
+        this->n_linrefs = n_linrefs;
+
+        ref<Vector<ref<PgfText>>> db_fields = vector_new<ref<PgfText>>(n_fields);
+        for (size_t i = 0; i < n_fields; i++) {
+            ref<PgfText> field = textdup_db(fields[i]);
+            *vector_elem(db_fields, i) = field;
+        }
+
+        ref<PgfConcrLincat> lincat = PgfDB::malloc<PgfConcrLincat>(abscat->name.size+1);
+        memcpy(&lincat->name, &abscat->name, sizeof(PgfText)+abscat->name.size+1);
+        lincat->ref_count = 1;
+        lincat->abscat = abscat;
+        lincat->args = args;
+        lincat->res  = res;
+        lincat->seqs = seqs;
+        lincat->fields = db_fields;
+        lincat->n_lindefs = n_lindefs;
+
+        build->build(this, err);
+        if (err->type == PGF_EXN_NONE && res_index != res->len) {
+            err->type = PGF_EXN_PGF_ERROR;
+            err->msg  = builder_error_msg;
+        }
+
+        if (err->type != PGF_EXN_NONE) {
+            failed();
+            for (size_t i = 0; i < n_fields; i++) {
+                PgfDB::free(*vector_elem(db_fields, i));
+            }
+            PgfDB::free(db_fields);
+            PgfDB::free(lincat);
+            return 0;
+        }
+
+        return lincat;
+    }
+
+    ref<PgfConcrLin> build(ref<PgfAbsFun> absfun, PgfConcr *concr, size_t n_prods,
+                           PgfBuildLinIface *build, PgfExn *err)
     {
         ref<PgfConcrLincat> lincat =
             namespace_lookup(concr->lincats, &absfun->type->name);
@@ -1230,14 +1389,12 @@ public:
             throw pgf_error("Missing linearization category");
         }
 
-        ref<Vector<PgfPArg>> args =
-            vector_new<PgfPArg>(n_prods*absfun->type->hypos->len);
-        ref<Vector<ref<PgfPResult>>> res =
-            vector_new<ref<PgfPResult>>(n_prods);
-        ref<Vector<ref<Vector<PgfSymbol>>>> seqs =
-            vector_new<ref<Vector<PgfSymbol>>>(n_prods*lincat->fields->len);
+        this->args = vector_new<PgfPArg>(n_prods*absfun->type->hypos->len);
+        this->res  = vector_new<ref<PgfPResult>>(n_prods);
+        this->seqs = vector_new<ref<Vector<PgfSymbol>>>(n_prods*lincat->fields->len);
+        this->n_lindefs = n_prods;
 
-        lin = PgfDB::malloc<PgfConcrLin>(absfun->name.size+1);
+        ref<PgfConcrLin> lin = PgfDB::malloc<PgfConcrLin>(absfun->name.size+1);
         memcpy(&lin->name, &absfun->name, sizeof(PgfText)+absfun->name.size+1);
         lin->ref_count = 1;
         lin->absfun = absfun;
@@ -1245,16 +1402,19 @@ public:
         lin->res  = res;
         lin->seqs = seqs;
 
-        this->var_index = 0;
-        this->arg_index = 0;
-        this->res_index = 0;
-        this->seq_index = 0;
-        this->sym_index = (size_t) -1;
-        this->alt_index = (size_t) -1;
+        build->build(this, err);
+        if (err->type == PGF_EXN_NONE && res_index != res->len) {
+            err->type = PGF_EXN_PGF_ERROR;
+            err->msg  = builder_error_msg;
+        }
 
-        this->syms = 0;
+        if (err->type != PGF_EXN_NONE) {
+            failed();
+            PgfDB::free(lin);
+            return 0;
+        }
 
-        this->pre_sym_index = (size_t) -1;
+        return lin;
     }
 
     void start_production(PgfExn *err)
@@ -1263,10 +1423,10 @@ public:
             return;
 
         PGF_API_BEGIN {
-            if (res_index >= lin->res->len)
+            if (res_index >= res->len)
                 throw pgf_error(builder_error_msg);
             var_index = 0;
-            *vector_elem(lin->res, res_index) = 0;
+            *vector_elem(res, res_index) = 0;
         } PGF_API_END
     }
 
@@ -1276,7 +1436,7 @@ public:
             return;
 
         PGF_API_BEGIN {
-            if (arg_index >= lin->args->len)
+            if (arg_index >= args->len)
                 throw pgf_error(builder_error_msg);
 
             ref<PgfLParam> param = PgfDB::malloc<PgfLParam>(n_terms*2*sizeof(size_t));
@@ -1288,7 +1448,7 @@ public:
                 param->terms[i].var    = terms[2*i+1];
             }
 
-            ref<PgfPArg> parg = vector_elem(lin->args, arg_index);
+            ref<PgfPArg> parg = vector_elem(args, arg_index);
             parg->param = param;
 
             arg_index++;
@@ -1301,24 +1461,24 @@ public:
             return;
 
         PGF_API_BEGIN {
-            if (res_index >= lin->res->len)
+            if (res_index >= res->len)
                 throw pgf_error(builder_error_msg);
 
             ref<Vector<PgfVariableRange>> vars =
                 (n_vars > 0) ? vector_new<PgfVariableRange>(n_vars)
                              : 0;
 
-            ref<PgfPResult> res = PgfDB::malloc<PgfPResult>(n_terms*2*sizeof(size_t));
-            res->vars = vars;
-            res->param.i0 = i0;
-            res->param.n_terms = n_terms;
+            ref<PgfPResult> res_elem = PgfDB::malloc<PgfPResult>(n_terms*2*sizeof(size_t));
+            res_elem->vars = vars;
+            res_elem->param.i0 = i0;
+            res_elem->param.n_terms = n_terms;
 
             for (size_t i = 0; i < n_terms; i++) {
-                res->param.terms[i].factor = terms[2*i];
-                res->param.terms[i].var    = terms[2*i+1];
+                res_elem->param.terms[i].factor = terms[2*i];
+                res_elem->param.terms[i].var    = terms[2*i+1];
             }
 
-            *vector_elem(lin->res, res_index) = res;
+            *vector_elem(res, res_index) = res_elem;
         } PGF_API_END
     }
 
@@ -1328,17 +1488,17 @@ public:
             return;
 
         PGF_API_BEGIN {
-            if (res_index >= lin->res->len)
+            if (res_index >= res->len)
                 throw pgf_error(builder_error_msg);
 
-            ref<PgfPResult> res =
-                *vector_elem(lin->res, res_index);
+            ref<PgfPResult> res_elem =
+                *vector_elem(res, res_index);
 
-            if (res->vars == 0 || var_index >= res->vars->len)
+            if (res_elem->vars == 0 || var_index >= res_elem->vars->len)
                 throw pgf_error(builder_error_msg);
 
             ref<PgfVariableRange> var_range =
-                vector_elem(res->vars, var_index);
+                vector_elem(res_elem->vars, var_index);
             var_range->var   = var;
             var_range->range = range;
 
@@ -1352,11 +1512,11 @@ public:
             return;
 
         PGF_API_BEGIN {
-            if (seq_index >= lin->seqs->len)
+            if (seq_index >= seqs->len)
                 throw pgf_error(builder_error_msg);
 
             syms = vector_new<PgfSymbol>(n_syms);
-            *vector_elem(lin->seqs, seq_index) = syms;
+            *vector_elem(seqs, seq_index) = syms;
             sym_index = 0;
         } PGF_API_END
     }
@@ -1485,7 +1645,7 @@ public:
                 *vector_elem(prefixes, i) = pref;
             }
 
-            syms = *vector_elem(lin->seqs, seq_index);
+            syms = *vector_elem(seqs, seq_index);
             ref<PgfSymbolKP> symkp = ref<PgfSymbolKP>::untagged(*vector_elem(syms, pre_sym_index));
             ref<PgfAlternative> alt = ref<PgfAlternative>::from_ptr(&symkp->alts.data[alt_index]);
 
@@ -1506,7 +1666,7 @@ public:
             if (pre_sym_index == (size_t) -1)
                 throw pgf_error(builder_error_msg);
 
-            syms = *vector_elem(lin->seqs, seq_index);
+            syms = *vector_elem(seqs, seq_index);
             ref<PgfSymbolKP> symkp = ref<PgfSymbolKP>::untagged(*vector_elem(syms, pre_sym_index));            
             if (alt_index >= symkp->alts.len)
                 throw pgf_error(builder_error_msg);
@@ -1524,7 +1684,7 @@ public:
             if (pre_sym_index == (size_t) -1)
                 throw pgf_error(builder_error_msg);
 
-            syms = *vector_elem(lin->seqs, seq_index);
+            syms = *vector_elem(seqs, seq_index);
             sym_index = pre_sym_index+1;
             alt_index = 0;
             pre_sym_index = (size_t) -1;
@@ -1635,49 +1795,45 @@ public:
             return;
 
         PGF_API_BEGIN {
-            size_t n_args = (lin->args->len/lin->res->len);
+            size_t n_args = (args->len/res->len);
             if (arg_index != (res_index+1)*n_args)
                 throw pgf_error(builder_error_msg);
 
-            if (*vector_elem(lin->res, res_index) == 0)
+            if (*vector_elem(res, res_index) == 0)
                 throw pgf_error(builder_error_msg);
 
-            size_t n_seqs = (lin->seqs->len/lin->res->len);
-            if (seq_index != (res_index+1)*n_seqs)
+            size_t n_seqs = ((seqs->len-n_linrefs)/(res->len-n_linrefs));
+            size_t exp_index =
+                     (res_index < n_lindefs) ? (res_index+1)*n_seqs
+                                             : n_seqs * n_lindefs + (res_index-n_lindefs+1) ;
+            if (seq_index != exp_index)
                 throw pgf_error(builder_error_msg);
 
             res_index++;
         } PGF_API_END
     }
-
-    ref<PgfConcrLin> done()
-    {
-        if (res_index != lin->res->len)
-            throw pgf_error(builder_error_msg);
-        return lin;
-    }
     
     void failed()
     {
         for (size_t i = 0; i < arg_index; i++) {
-            PgfDB::free(vector_elem(lin->args, i)->param);
+            PgfDB::free(vector_elem(args, i)->param);
         }
-        PgfDB::free(lin->args);
+        PgfDB::free(args);
 
         for (size_t i = 0; i < res_index; i++) {
-            ref<PgfPResult> res = *vector_elem(lin->res, i);
-            PgfDB::free(res->vars);
-            PgfDB::free(res);
+            ref<PgfPResult> res_elem = *vector_elem(res, i);
+            PgfDB::free(res_elem->vars);
+            PgfDB::free(res_elem);
         }
-        PgfDB::free(lin->res);
+        PgfDB::free(res);
 
         for (size_t i = 0; i < seq_index; i++) {
-            ref<Vector<PgfSymbol>> syms = *vector_elem(lin->seqs, i);
+            ref<Vector<PgfSymbol>> syms = *vector_elem(seqs, i);
             pgf_symbols_free(syms);
         }
         
         if (sym_index != (size_t) -1) {
-            ref<Vector<PgfSymbol>> syms = *vector_elem(lin->seqs, seq_index);
+            ref<Vector<PgfSymbol>> syms = *vector_elem(seqs, seq_index);
 
             if (pre_sym_index != (size_t) -1) {
                 auto sym_kp = ref<PgfSymbolKP>::untagged(*vector_elem(syms, pre_sym_index));
@@ -1719,10 +1875,7 @@ public:
             PgfDB::free(syms);
         }
 
-        PgfDB::free(lin->seqs);
-
-        PgfDB::free(lin);
-        lin = 0;
+        PgfDB::free(seqs);
     }
 };
 
@@ -1731,6 +1884,7 @@ PGF_API
 void pgf_create_lincat(PgfDB *db,
                        PgfRevision revision, PgfConcrRevision cnc_revision,
                        PgfText *name, size_t n_fields, PgfText **fields,
+                       size_t n_lindefs, size_t n_linrefs, PgfBuildLinIface *build,
                        PgfExn *err)
 {
     PGF_API_BEGIN {
@@ -1745,22 +1899,14 @@ void pgf_create_lincat(PgfDB *db,
             throw pgf_error("There is no corresponding category in the abstract syntax");
         }
 
-        ref<Vector<ref<PgfText>>> db_fields = vector_new<ref<PgfText>>(n_fields);
-        for (size_t i = 0; i < n_fields; i++) {
-            ref<PgfText> field = textdup_db(fields[i]);
-            *vector_elem(db_fields, i) = field;
+        ref<PgfConcrLincat> lincat =
+            PgfLinBuilder().build(abscat, concr, n_fields, fields, n_lindefs, n_linrefs, build, err);
+        if (lincat != 0) {
+            Namespace<PgfConcrLincat> lincats =
+                namespace_insert(concr->lincats, lincat);
+            namespace_release(concr->lincats);
+            concr->lincats = lincats;
         }
-
-        ref<PgfConcrLincat> lincat = PgfDB::malloc<PgfConcrLincat>(name->size+1);
-        memcpy(&lincat->name, name, sizeof(PgfText)+name->size+1);
-        lincat->ref_count = 1;
-        lincat->abscat = abscat;
-        lincat->fields = db_fields;
-
-        Namespace<PgfConcrLincat> lincats =
-            namespace_insert(concr->lincats, lincat);
-        namespace_release(concr->lincats);
-        concr->lincats = lincats;
     } PGF_API_END
 }
 
@@ -1800,16 +1946,13 @@ void pgf_create_lin(PgfDB *db,
             throw pgf_error("There is no corresponding function in the abstract syntax");
         }
 
-        PgfLinBuilder builder(absfun, concr, n_prods);
-        build->build(&builder, err);
-        if (err->type == PGF_EXN_NONE) {
-            ref<PgfConcrLin> lin = builder.done();
+        ref<PgfConcrLin> lin =
+            PgfLinBuilder().build(absfun, concr, n_prods, build, err);
+        if (lin != 0) {
             Namespace<PgfConcrLin> lins =
                 namespace_insert(concr->lins, lin);
             namespace_release(concr->lins);
             concr->lins = lins;
-        } else {
-            builder.failed();
         }
     } PGF_API_END
 }

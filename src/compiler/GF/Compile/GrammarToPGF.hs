@@ -86,8 +86,11 @@ grammar2PGF opts gr am probs = do
                       0 -> 0
                       n -> max 0 ((1 - sum [d | (f,Just d) <- pfs]) / fromIntegral n)
 
-    createCncCats ((m,c),CncCat (Just (L _ ty)) _ _ _ _) = do
-      createLincat (i2i c) (type2fields gr ty)
+    createCncCats ((m,c),CncCat (Just (L _ ty)) _ _ mprn (Just (lindefs,linrefs))) = do
+      createLincat (i2i c) (type2fields gr ty) lindefs linrefs
+      case mprn of
+        Nothing        -> return ()
+        Just (L _ prn) -> setPrintName (i2i c) (unwords (term2tokens prn))
     createCncCats _ = return ()
 
     createCncFuns ((m,f),CncFun _ _ mprn (Just prods)) = do

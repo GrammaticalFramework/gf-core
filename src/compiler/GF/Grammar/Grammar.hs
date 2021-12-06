@@ -329,7 +329,7 @@ data Info =
  | ResOverload [ModuleName] [(L Type,L Term)]        -- ^ (/RES/) idents: modules inherited
 
 -- judgements in concrete syntax
- | CncCat  (Maybe (L Type))                     (Maybe (L Term)) (Maybe (L Term)) (Maybe (L Term)) (Maybe [Production]) -- ^ (/CNC/) lindef ini'zed, 
+ | CncCat  (Maybe (L Type))                     (Maybe (L Term)) (Maybe (L Term)) (Maybe (L Term)) (Maybe ([Production],[Production])) -- ^ (/CNC/) lindef ini'zed, 
  | CncFun  (Maybe ([Ident],Ident,Context,Type)) (Maybe (L Term))                  (Maybe (L Term)) (Maybe [Production]) -- ^ (/CNC/) type info added at 'TC'
 
 -- indirection to module Ident

@@ -398,6 +398,18 @@ PGF_API_DECL
 void pgf_get_lin_counts_internal(object o, size_t *counts);
 
 PGF_API_DECL
+PgfText *pgf_print_lindef_sig_internal(object o, size_t i);
+
+PGF_API_DECL
+PgfText *pgf_print_lindef_seq_internal(object o, size_t i, size_t j);
+
+PGF_API_DECL
+PgfText *pgf_print_linref_sig_internal(object o, size_t i);
+
+PGF_API_DECL
+PgfText *pgf_print_linref_seq_internal(object o, size_t i);
+
+PGF_API_DECL
 PgfText *pgf_print_lin_sig_internal(object o, size_t i);
 
 PGF_API_DECL
@@ -474,16 +486,6 @@ void pgf_drop_concrete(PgfDB *db, PgfRevision revision,
                        PgfText *name,
                        PgfExn *err);
 
-PGF_API_DECL
-void pgf_create_lincat(PgfDB *db,
-                       PgfRevision revision, PgfConcrRevision cnc_revision,
-                       PgfText *name, size_t n_fields, PgfText **fields,
-                       PgfExn *err);
-
-PGF_API_DECL
-void pgf_drop_lincat(PgfDB *db, PgfConcrRevision revision,
-                     PgfText *name, PgfExn *err);
-
 #ifdef __cplusplus
 struct PgfLinBuilderIface {
     virtual void start_production(PgfExn *err)=0;
@@ -553,6 +555,17 @@ struct PgfBuildLinIface {
     PgfBuildLinIfaceVtbl *vtbl;
 };
 #endif
+
+PGF_API_DECL
+void pgf_create_lincat(PgfDB *db,
+                       PgfRevision revision, PgfConcrRevision cnc_revision,
+                       PgfText *name, size_t n_fields, PgfText **fields,
+                       size_t n_lindefs, size_t n_linrefs, PgfBuildLinIface *build,
+                       PgfExn *err);
+
+PGF_API_DECL
+void pgf_drop_lincat(PgfDB *db, PgfConcrRevision revision,
+                     PgfText *name, PgfExn *err);
 
 PGF_API_DECL
 void pgf_create_lin(PgfDB *db,

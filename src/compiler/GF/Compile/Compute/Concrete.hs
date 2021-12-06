@@ -154,6 +154,8 @@ eval env (Table t1 t2)  []  = do v1 <- eval env t1 []
                                  return (VTable v1 v2)
 eval env (T (TTyped ty) cs)[]=do vty <- eval env ty []
                                  return (VT vty env cs)
+eval env (T (TWild ty) cs) []=do vty <- eval env ty []
+                                 return (VT vty env cs)
 eval env (V ty ts)      []  = do vty <- eval env ty []
                                  tnks <- mapM (newThunk env) ts
                                  return (VV vty tnks)
