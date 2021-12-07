@@ -53,8 +53,14 @@ grammar2PGF opts gr am probs = do
       createConcrete (mi2i cm) $ do
         let cflags = err (const noOptions) mflags (lookupModule gr cm)
         sequence_ [setConcreteFlag name value | (name,value) <- optionsPGF cflags]
-        forM_ (Look.allOrigInfos gr cm) createCncCats
-        forM_ (Look.allOrigInfos gr cm) createCncFuns
+        let id_prod = Production [] [PArg [] (LParam 0 [])] (LParam 0 []) [[SymCat 0 (LParam 0 [])]]
+            prods   = ([id_prod],[id_prod])
+            infos   = (((cPredefAbs,cInt),   CncCat (Just (noLoc GM.defLinType)) Nothing Nothing Nothing (Just prods))
+                      :((cPredefAbs,cString),CncCat (Just (noLoc GM.defLinType)) Nothing Nothing Nothing (Just prods))
+                      :((cPredefAbs,cFloat), CncCat (Just (noLoc GM.defLinType)) Nothing Nothing Nothing (Just prods))
+                      : Look.allOrigInfos gr cm)
+        forM_ infos createCncCats
+        forM_ infos createCncFuns
   return pgf
   where
     aflags = err (const noOptions) mflags (lookupModule gr am)
