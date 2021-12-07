@@ -225,6 +225,8 @@ void PgfLinearizer::BracketStack::flush(PgfLinearizationOutputIface *out)
 
 void PgfLinearizer::linearize(PgfLinearizationOutputIface *out, TreeNode *node, size_t d, PgfLParam *r)
 {
+    size_t lindex = node->eval_param(r);
+    PgfText *cat = &vector_elem(node->lin->absfun->type->hypos, d)->type->name;
     TreeNode *arg = node->args;
     while (d > 0) {
         arg = arg->next_arg;
@@ -232,8 +234,6 @@ void PgfLinearizer::linearize(PgfLinearizationOutputIface *out, TreeNode *node, 
             throw pgf_error("Found inconsistency in the PMCFG representation");
         d--;
     }
-    size_t lindex = node->eval_param(r);
-    PgfText *cat = &arg->lin->absfun->type->name;
 
     PgfText *field = NULL;
     ref<PgfConcrLincat> lincat = namespace_lookup(concr->lincats, cat);
