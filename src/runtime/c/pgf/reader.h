@@ -52,7 +52,7 @@ public:
 
     PgfLiteral read_literal();
     PgfExpr read_expr();
-    void read_expr(ref<PgfExpr> r) { *r = read_expr(); };
+    void read_expr(ref<PgfExpr> r) { auto res = read_expr(); *r = res; };
 
     void read_hypo(ref<PgfHypo> hypo);
     ref<PgfDTyp> read_type();
