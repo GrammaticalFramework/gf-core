@@ -23,9 +23,11 @@ void PgfLinearizer::TreeNode::linearize_arg(PgfLinearizationOutputIface *out, Pg
     while (d > 0) {
         arg = arg->next_arg;
         if (arg == 0)
-            throw pgf_error("Found inconsistency in the PMCFG representation");
+            break;
         d--;
     }
+    if (arg == 0)
+        throw pgf_error("Missing argument");
     size_t lindex = eval_param(r);
     arg->linearize(out, linearizer, lindex);
 }
