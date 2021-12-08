@@ -300,6 +300,11 @@ void PgfLinearizer::TreeLinNode::linearize(PgfLinearizationOutputIface *out, Pgf
     }
 }
 
+ref<PgfConcrLincat> PgfLinearizer::TreeLinNode::get_lincat(PgfLinearizer *linearizer)
+{
+    return namespace_lookup(linearizer->concr->lincats, &lin->absfun->type->name);
+}
+
 PgfLinearizer::TreeLindefNode::TreeLindefNode(PgfLinearizer *linearizer, PgfText *literal)
   : TreeNode(linearizer)
 {
@@ -310,10 +315,15 @@ PgfLinearizer::TreeLindefNode::TreeLindefNode(PgfLinearizer *linearizer, PgfText
 
 bool PgfLinearizer::TreeLindefNode::resolve(PgfLinearizer *linearizer)
 {
-    ref<PgfPResult> pres = *vector_elem(lincat->res,  lin_index);
-    value = eval_param(&pres->param);
-    lin_index++;
-    return true;
+    if (lincat == 0) {
+        lin_index++;
+        return (lin_index <= 1);
+    } else {
+        ref<PgfPResult> pres = *vector_elem(lincat->res,  lin_index);
+        value = eval_param(&pres->param);
+        lin_index++;
+        return (lin_index <= lincat->n_lindefs);
+    }
 }
 
 void PgfLinearizer::TreeLindefNode::check_category(PgfLinearizer *linearizer, PgfText *cat)
@@ -366,6 +376,42 @@ void PgfLinearizer::TreeLindefNode::linearize(PgfLinearizationOutputIface *out, 
     }
 }
 
+ref<PgfConcrLincat> PgfLinearizer::TreeLindefNode::get_lincat(PgfLinearizer *linearizer)
+{
+    return lincat;
+}
+
+PgfLinearizer::TreeLinrefNode::TreeLinrefNode(PgfLinearizer *linearizer, TreeNode *root)
+  : TreeNode(linearizer)
+{
+    args = root;
+    lin_index=0;
+}
+
+bool PgfLinearizer::TreeLinrefNode::resolve(PgfLinearizer *linearizer)
+{
+    ref<PgfConcrLincat> lincat = args->get_lincat(linearizer);
+    lin_index++;
+    return (lincat->n_lindefs+lin_index <= lincat->res->len);
+}
+
+void PgfLinearizer::TreeLinrefNode::linearize(PgfLinearizationOutputIface *out, PgfLinearizer *linearizer, size_t lindex)
+{
+    ref<PgfConcrLincat> lincat = args->get_lincat(linearizer);
+    if (lincat != 0) {
+        size_t i = lincat->n_lindefs*lincat->fields->len + (lin_index-1);
+        ref<Vector<PgfSymbol>> syms = *vector_elem(lincat->seqs, i);
+        linearize_syms(out, linearizer, syms);
+    } else {
+        args->linearize(out, linearizer, lindex);
+    }
+}
+
+ref<PgfConcrLincat> PgfLinearizer::TreeLinrefNode::get_lincat(PgfLinearizer *linearizer)
+{
+    return 0;
+}
+
 PgfLinearizer::TreeLitNode::TreeLitNode(PgfLinearizer *linearizer, ref<PgfConcrLincat> lincat, PgfText *lit)
   : TreeNode(linearizer)
 {
@@ -393,6 +439,11 @@ void PgfLinearizer::TreeLitNode::linearize(PgfLinearizationOutputIface *out, Pgf
     out->symbol_token(literal);
     if (lincat != 0)
         out->end_phrase(&lincat->name, fid, field, linearizer->wild);
+}
+
+ref<PgfConcrLincat> PgfLinearizer::TreeLitNode::get_lincat(PgfLinearizer *linearizer)
+{
+    return lincat;
 }
 
 PgfLinearizer::PgfLinearizer(ref<PgfConcr> concr, PgfMarshaller *m) {
@@ -449,6 +500,8 @@ bool PgfLinearizer::resolve()
 
 void PgfLinearizer::reverse_and_label()
 {
+    new TreeLinrefNode(this, root);
+
     // Reverse the list of nodes and label them with fid;
     int fid = 0;
     TreeNode *node = root;
