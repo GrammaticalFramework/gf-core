@@ -709,6 +709,7 @@ PgfText *PgfLinearizationOutput::get_text()
 {
     if (nonexist) {
         free(printer.get_text());
+        nonexist = false;
         return NULL;
     }
     bind = true;
