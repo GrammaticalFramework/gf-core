@@ -64,3 +64,13 @@ test-suite transactions
     HUnit >= 1.6.1.0,
     containers,
     pgf2
+
+test-suite linearization
+  type: exitcode-stdio-1.0
+  main-is: tests/linearization.hs
+  default-language: Haskell2010
+  build-depends:
+    base,
+    HUnit >= 1.6.1.0,
+    containers,
+    pgf2

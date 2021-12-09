@@ -17,6 +17,12 @@ lin z = {s="0"; is_zero=True} ;
 
 lin c n = n.s ;
 
-lincat P = {};
+lincat P = {s:Str};
+lin nat n = {s="nat"++SOFT_BIND++"("++SOFT_BIND++n.s++SOFT_BIND++")"};
+lin ind pz ps n = {s=pz.s ++ "&" ++ "λ"++SOFT_BIND++ps.$0++SOFT_BIND++","++SOFT_BIND++ps.$1 ++ "." ++ ps.s} ;
+
+lin intLit    n = n.s ;
+lin stringLit s = s.s ;
+lin floatLit  f = f.s ;
 
 }

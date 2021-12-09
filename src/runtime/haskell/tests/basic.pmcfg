@@ -5,12 +5,34 @@ abstract basic {
   cat P N ; -- 0.693147
   cat S ; -- 0.693147
   cat String ; -- 0.693147
-  data c : N -> S ; -- -0
-  fun ind : P z -> ((x : N) -> P x -> P (s x)) -> (x : N) -> P x ; -- -0
+  data c : N -> S ; -- 1.38629
+  fun floatLit : Float -> S ; -- 1.38629
+  fun ind : P z -> ((x : N) -> P x -> P (s x)) -> (x : N) -> P x ; -- 0.693147
+  fun intLit : Int -> S ; -- 1.38629
+  fun nat : (x : N) -> P x ; -- 0.693147
   data s : N -> N ; -- 0.693147
+  fun stringLit : String -> S ; -- 1.38629
   data z : N ; -- 0.693147
 }
 concrete basic_cnc {
+  lincat Float = [
+           "s"
+         ]
+  lindef Float :  String(0) -> Float(0) = [
+           <0,0>
+         ]
+  linref Float : Float(0) -> String(0) = [
+           <0,0>
+         ]
+  lincat Int = [
+           "s"
+         ]
+  lindef Int :  String(0) -> Int(0) = [
+           <0,0>
+         ]
+  linref Int : Int(0) -> String(0) = [
+           <0,0>
+         ]
   lincat N = [
            "s"
          ]
@@ -21,11 +43,13 @@ concrete basic_cnc {
            <0,0>
          ]
   lincat P = [
+           "s"
          ]
   lindef P :  String(0) -> P(0) = [
+           <0,0>
          ]
   linref P : P(0) -> String(0) = [
-           
+           <0,0>
          ]
   lincat S = [
            ""
@@ -36,16 +60,38 @@ concrete basic_cnc {
   linref S : S(0) -> String(0) = [
            <0,0>
          ]
+  lincat String = [
+           "s"
+         ]
+  lindef String :  String(0) -> String(0) = [
+           <0,0>
+         ]
+  linref String : String(0) -> String(0) = [
+           <0,0>
+         ]
   lin c : ∀{i<2} . N(i) -> S(0) = [
         <0,0>
       ]
+  lin floatLit : Float(0) -> S(0) = [
+        <0,0>
+      ]
   lin ind : ∀{i<2} . P(0) * P(0) * N(i) -> P(0) = [
+        <0,0> "&" "λ" SOFT_BIND <1,$0> SOFT_BIND "," SOFT_BIND <1,$1> "." <1,0>
+      ]
+  lin intLit : Int(0) -> S(0) = [
+        <0,0>
+      ]
+  lin nat : ∀{i<2} . N(i) -> P(0) = [
+        "nat" SOFT_BIND "(" SOFT_BIND <0,0> SOFT_BIND ")"
       ]
   lin s : N(0) -> N(0) = [
         <0,0> "+" "1"
       ]
   lin s : N(1) -> N(0) = [
         "1"
+      ]
+  lin stringLit : String(0) -> S(0) = [
+        <0,0>
       ]
   lin z : N(1) = [
         "0"
