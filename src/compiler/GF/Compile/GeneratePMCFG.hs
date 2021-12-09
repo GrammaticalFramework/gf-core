@@ -171,6 +171,13 @@ str2lin v                = do t <- value2term 0 v
                               evalError ("the string:" <+> ppTerm Unqualified 0 t $$
                                          "cannot be evaluated at compile time.")
 
+param2int (VR as) = compute as
+  where
+    compute []             = return (0,[],1)
+    compute ((lbl,tnk):as) = do
+      (r, rs ,cnt ) <- force tnk >>= param2int
+      (r',rs',cnt') <- compute as
+      return (r*cnt'+r',combine cnt' rs rs',cnt*cnt')
 param2int (VApp q tnks) = do
   (r ,    cnt ) <- getIdxCnt q
   (r',rs',cnt') <- compute tnks
