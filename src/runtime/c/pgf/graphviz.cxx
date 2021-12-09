@@ -91,11 +91,6 @@ void PgfLinearizationGraphvizOutput::symbol_bind()
 {
 }
 
-void PgfLinearizationGraphvizOutput::symbol_meta(PgfMetaId id)
-{
-	new ParseNode(&leaves, 100000 + leaves.n_nodes, parent, NULL, meta);
-}
-
 void PgfLinearizationGraphvizOutput::generate_graphviz_level(PgfPrinter *printer, PgfGraphvizOptions* opts, ParseLevel *level)
 {
 	printer->puts("\n  subgraph {\n    rank=same;\n");

@@ -41,7 +41,6 @@ public:
 	virtual void end_phrase(PgfText *cat, int fid, PgfText *ann, PgfText *fun);
 	virtual void symbol_ne();
 	virtual void symbol_bind();
-	virtual void symbol_meta(PgfMetaId id);
 };
 
 class PGF_INTERNAL_DECL PgfAbstractGraphvizOutput : public PgfUnmarshaller {

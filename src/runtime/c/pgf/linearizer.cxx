@@ -740,8 +740,3 @@ void PgfLinearizationOutput::symbol_bind()
 {
     bind = true;
 }
-
-void PgfLinearizationOutput::symbol_meta(PgfMetaId id)
-{
-    printer.nprintf(32, "?%d", id);
-}

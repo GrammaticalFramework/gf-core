@@ -599,9 +599,6 @@ struct PgfLinearizationOutputIface
 
 	/// token binding
 	virtual void symbol_bind()=0;
-
-	/// meta variable
-	virtual void symbol_meta(PgfMetaId id)=0;
 };
 #else
 typedef struct PgfLinearizationOutputIface     PgfLinearizationOutputIface;
@@ -622,9 +619,6 @@ struct PgfLinearizationOutputIfaceVtbl
 
 	/// token binding
 	void (*symbol_bind)(PgfLinearizationOutputIface *this);
-
-	/// meta variable
-	void (*symbol_meta)(PgfLinearizationOutputIface *this, PgfMetaId id);
 };
 struct PgfLinearizationOutputIface
 {

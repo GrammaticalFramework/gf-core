@@ -685,14 +685,12 @@ bracketedLinearize c e = unsafePerformIO $ do
    bracket (wrapSymbol2 (begin_phrase ref)) freeHaskellFunPtr $ \c_begin_phrase ->
    bracket (wrapSymbol2 (end_phrase ref)) freeHaskellFunPtr $ \c_end_phrase ->
    bracket (wrapSymbol0 (symbol_bind ref)) freeHaskellFunPtr $ \c_symbol_bind ->
-   bracket (wrapSymbol0 (symbol_ne ref)) freeHaskellFunPtr $ \c_symbol_ne ->
-   bracket (wrapSymbol3 (symbol_meta ref)) freeHaskellFunPtr $ \c_symbol_meta -> do
+   bracket (wrapSymbol0 (symbol_ne ref)) freeHaskellFunPtr $ \c_symbol_ne -> do
      (#poke PgfLinearizationOutputIfaceVtbl, symbol_token) vtbl c_symbol_token
      (#poke PgfLinearizationOutputIfaceVtbl, begin_phrase) vtbl c_begin_phrase
      (#poke PgfLinearizationOutputIfaceVtbl, end_phrase) vtbl c_end_phrase
      (#poke PgfLinearizationOutputIfaceVtbl, symbol_bind) vtbl c_symbol_bind
      (#poke PgfLinearizationOutputIfaceVtbl, symbol_ne) vtbl c_symbol_ne
-     (#poke PgfLinearizationOutputIfaceVtbl, symbol_meta) vtbl c_symbol_meta
      (#poke PgfLinearizationOutputIface, vtbl) c_out vtbl
      withPgfExn "bracketedLinearize" (pgf_bracketed_linearize (c_db c) c_revision c_e nullPtr m c_out))
   (ne,_,bs) <- readIORef ref
@@ -726,10 +724,6 @@ bracketedLinearize c e = unsafePerformIO $ do
     symbol_ne ref _ = do
       (ne,stack,bs) <- readIORef ref
       writeIORef ref (True,[],[])
-
-    symbol_meta ref _ meta_id = do
-      (ne,stack,bs) <- readIORef ref
-      writeIORef ref (ne,stack,Leaf "?" : bs)
 
 bracketedLinearizeAll :: Concr -> Expr -> [[BracketedString]]
 bracketedLinearizeAll = error "TODO: bracketedLinearizeAll"
