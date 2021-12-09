@@ -626,10 +626,26 @@ linearizeAll lang e = error "TODO: linearizeAll"
 
 -- | Generates a table of linearizations for an expression
 tabularLinearize :: Concr -> Expr -> [(String, String)]
-tabularLinearize lang e =
-  case tabularLinearizeAll lang e of
-    (lins:_) -> lins
-    _        -> []
+tabularLinearize c e =
+  unsafePerformIO $
+  withForeignPtr (c_revision c) $ \c_revision ->
+  bracket (newStablePtr e) freeStablePtr $ \c_e ->
+  withForeignPtr marshaller $ \m ->
+  alloca $ \p_n_fields ->
+  bracket (withPgfExn "tabularLinearize" (pgf_tabular_linearize (c_db c) c_revision c_e nullPtr m p_n_fields)) free $ \c_texts -> do
+    n_fields <- peek p_n_fields
+    peekTable n_fields c_texts
+  where
+    peekTable 0 c_texts = return []
+    peekTable n c_texts = do
+      c_field <- peek c_texts
+      field <- peekText c_field
+      free c_field
+      c_lin <- peek (c_texts `plusPtr` (#size PgfText*))
+      lin <- peekText c_lin
+      free c_lin
+      table <- peekTable (n-1) (c_texts `plusPtr` (2*(#size PgfText*)))
+      return ((field,lin):table)
 
 -- | Generates a table of linearizations for an expression
 tabularLinearizeAll :: Concr -> Expr -> [[(String, String)]]

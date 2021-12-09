@@ -522,9 +522,10 @@ bool PgfLinearizer::resolve()
     return true;
 }
 
-void PgfLinearizer::reverse_and_label()
+void PgfLinearizer::reverse_and_label(bool add_linref)
 {
-    new TreeLinrefNode(this, root);
+    if (add_linref)
+        new TreeLinrefNode(this, root);
 
     // Reverse the list of nodes and label them with fid;
     int fid = 0;
@@ -710,6 +711,7 @@ PgfText *PgfLinearizationOutput::get_text()
         free(printer.get_text());
         return NULL;
     }
+    bind = true;
     return printer.get_text();
 }
 

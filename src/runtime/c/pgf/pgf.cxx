@@ -2005,10 +2005,47 @@ PgfText *pgf_linearize(PgfDB *db, PgfConcrRevision revision,
         PgfLinearizationOutput out;
         PgfLinearizer linearizer(ctxt, concr, m);
         m->match_expr(&linearizer, expr);
-        linearizer.reverse_and_label();
+        linearizer.reverse_and_label(true);
         if (linearizer.resolve()) {
-            linearizer.linearize(&out);
+            linearizer.linearize(&out, 0);
             return out.get_text();
+        }
+    } PGF_API_END
+
+    return NULL;
+}
+
+PGF_API
+PgfText **pgf_tabular_linearize(PgfDB *db, PgfConcrRevision revision,
+                                PgfExpr expr, PgfPrintContext *ctxt,
+                                PgfMarshaller *m, size_t *n_fields,
+                                PgfExn* err)
+{
+    PGF_API_BEGIN {
+        DB_scope scope(db, READER_SCOPE);
+
+        ref<PgfConcr> concr = PgfDB::revision2concr(revision);
+        PgfLinearizationOutput out;
+        PgfLinearizer linearizer(ctxt, concr, m);
+        m->match_expr(&linearizer, expr);
+        linearizer.reverse_and_label(false);
+        if (linearizer.resolve()) {
+            ref<PgfConcrLincat> lincat = linearizer.get_lincat();
+            PgfText **res = (PgfText **)
+                malloc(lincat->fields->len*2*sizeof(PgfText*));
+            size_t pos = 0;
+            for (size_t i = 0; i < lincat->fields->len; i++) {
+                linearizer.linearize(&out, i);
+
+                PgfText *text = out.get_text();
+                if (text != NULL) {
+                    res[pos]   = textdup(&(*lincat->fields->data[i]));
+                    res[pos+1] = text;
+                    pos += 2;
+                }
+            }
+            *n_fields = pos/2;
+            return res;
         }
     } PGF_API_END
 
@@ -2028,9 +2065,9 @@ void pgf_bracketed_linearize(PgfDB *db, PgfConcrRevision revision,
         ref<PgfConcr> concr = PgfDB::revision2concr(revision);
         PgfLinearizer linearizer(ctxt, concr, m);
         m->match_expr(&linearizer, expr);
-        linearizer.reverse_and_label();
+        linearizer.reverse_and_label(true);
         if (linearizer.resolve()) {
-            linearizer.linearize(out);
+            linearizer.linearize(out, 0);
         }
     } PGF_API_END
 }
@@ -2245,9 +2282,9 @@ pgf_graphviz_parse_tree(PgfDB *db, PgfConcrRevision revision,
         PgfLinearizationGraphvizOutput out;
         PgfLinearizer linearizer(ctxt, concr, m);
         m->match_expr(&linearizer, expr);
-        linearizer.reverse_and_label();
+        linearizer.reverse_and_label(true);
         if (linearizer.resolve()) {
-            linearizer.linearize(&out);
+            linearizer.linearize(&out, 0);
             return out.generate_graphviz(opts);
         }
     } PGF_API_END

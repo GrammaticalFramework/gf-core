@@ -134,10 +134,13 @@ public:
     PgfLinearizer(PgfPrintContext *ctxt, ref<PgfConcr> concr, PgfMarshaller *m);
 
     bool resolve();
-    void reverse_and_label();
-    void linearize(PgfLinearizationOutputIface *out) {
-        root->linearize(out, this, 0);
+    void reverse_and_label(bool add_linref);
+    void linearize(PgfLinearizationOutputIface *out, size_t lindex) {
+        root->linearize(out, this, lindex);
         flush_pre_stack(out, NULL);
+    }
+    ref<PgfConcrLincat> get_lincat() {
+        return root->get_lincat(this);
     }
 
     ~PgfLinearizer();
