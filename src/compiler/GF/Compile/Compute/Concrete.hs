@@ -81,9 +81,10 @@ data Value s
   | VPattType (Value s)
   | VAlts (Value s) [(Value s, Value s)]
   | VStrs [Value s]
-    -- This last constructor is only generated internally
+    -- These last constructors are only generated internally
     -- in the PMCFG generator.
   | VSymCat Int LIndex [(LIndex, Thunk s)]
+  | VSymVar Int Int
 
 
 showValue (VApp q tnks) = "(VApp "++unwords (show q : map (const "_") tnks) ++ ")"
@@ -226,6 +227,7 @@ eval env (TSymCat d r rs) []= do rs <- forM rs $ \(i,pv) ->
                                            Just tnk -> return (i,tnk)
                                            Nothing  -> evalError ("Variable" <+> pp pv <+> "is not in scope")
                                  return (VSymCat d r rs)
+eval env (TSymVar d r)  []  = do return (VSymVar d r)
 eval env t              vs  = evalError ("Cannot reduce term" <+> pp t)
 
 apply (VMeta m env vs0)             vs  = return (VMeta m env   (vs0++vs))

@@ -96,8 +96,10 @@ type2metaTerm :: SourceGrammar -> Int -> Map.Map MetaId Type -> LIndex -> [(LInd
 type2metaTerm gr d ms r rs (Sort s) | s == cStr =
   (ms,r+1,TSymCat d r rs)
 type2metaTerm gr d ms r rs (RecType lbls) =
-  let ((ms',r'),ass) = mapAccumL (\(ms,r) (lbl,ty) -> let (ms',r',t) = type2metaTerm gr d ms r rs ty
-                                                      in ((ms',r'),(lbl,(Just ty,t))))
+  let ((ms',r'),ass) = mapAccumL (\(ms,r) (lbl,ty) -> case lbl of
+                                                        LVar j -> ((ms,r),(lbl,(Just ty,TSymVar d j)))
+                                                        lbl    -> let (ms',r',t) = type2metaTerm gr d ms r rs ty
+                                                                  in ((ms',r'),(lbl,(Just ty,t))))
                                  (ms,r) lbls
   in (ms',r',R ass)  
 type2metaTerm gr d ms r rs (Table p q) =
@@ -158,6 +160,7 @@ str2lin (VSymCat d r rs) = do (r, rs) <- compute r rs
       (r, rs,_) <- force tnk >>= param2int
       (r',rs' ) <- compute r' tnks
       return (r*cnt'+r',combine cnt' rs rs')
+str2lin (VSymVar d r)    = return [SymVar d r]
 str2lin (VC vs)          = fmap concat (mapM str2lin vs)
 str2lin (VAlts def alts) = do def <- str2lin def
                               alts <- forM alts $ \(v,VStrs vs) -> do

@@ -615,7 +615,7 @@ linearize c e =
   withForeignPtr (c_revision c) $ \c_revision ->
   bracket (newStablePtr e) freeStablePtr $ \c_e ->
   withForeignPtr marshaller $ \m ->
-  bracket (withPgfExn "linearize" (pgf_linearize  (c_db c) c_revision c_e m)) free $ \c_text ->
+  bracket (withPgfExn "linearize" (pgf_linearize (c_db c) c_revision c_e nullPtr m)) free $ \c_text ->
     if c_text == nullPtr
       then return ""
       else peekText c_text
@@ -694,7 +694,7 @@ bracketedLinearize c e = unsafePerformIO $ do
      (#poke PgfLinearizationOutputIfaceVtbl, symbol_ne) vtbl c_symbol_ne
      (#poke PgfLinearizationOutputIfaceVtbl, symbol_meta) vtbl c_symbol_meta
      (#poke PgfLinearizationOutputIface, vtbl) c_out vtbl
-     withPgfExn "bracketedLinearize" (pgf_bracketed_linearize  (c_db c) c_revision c_e m c_out))
+     withPgfExn "bracketedLinearize" (pgf_bracketed_linearize (c_db c) c_revision c_e nullPtr m c_out))
   (ne,_,bs) <- readIORef ref
   (if ne
      then return []
@@ -922,7 +922,7 @@ graphvizParseTree c opts e =
   bracket (newStablePtr e) freeStablePtr $ \c_e ->
   withForeignPtr marshaller $ \m ->
   withGraphvizOptions opts $ \c_opts ->
-  bracket (withPgfExn "graphvizParseTree" (pgf_graphviz_parse_tree  (c_db c) c_revision c_e m c_opts)) free $ \c_text ->
+  bracket (withPgfExn "graphvizParseTree" (pgf_graphviz_parse_tree  (c_db c) c_revision c_e nullPtr m c_opts)) free $ \c_text ->
     peekText c_text
 
 graphvizWordAlignment :: [Concr] -> GraphvizOptions -> Expr -> String

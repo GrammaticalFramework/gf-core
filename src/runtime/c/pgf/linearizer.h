@@ -20,6 +20,9 @@ public:
 };
 
 class PGF_INTERNAL_DECL PgfLinearizer : public PgfUnmarshaller {
+    // List of free variables in order reverse to the order of binding
+    PgfPrinter printer;
+
     ref<PgfConcr> concr;
     PgfMarshaller *m;
 
@@ -34,15 +37,19 @@ class PGF_INTERNAL_DECL PgfLinearizer : public PgfUnmarshaller {
         size_t var_count;
         size_t *var_values;
 
+        size_t n_hoas_vars;
+        PgfText **hoas_vars;
+
         TreeNode(PgfLinearizer *linearizer);
         virtual bool resolve(PgfLinearizer *linearizer) { return true; };
         virtual void check_category(PgfLinearizer *linearizer, PgfText *cat)=0;
         virtual void linearize_arg(PgfLinearizationOutputIface *out, PgfLinearizer *linearizer, size_t d, PgfLParam *r);
+        virtual void linearize_var(PgfLinearizationOutputIface *out, PgfLinearizer *linearizer, size_t d, size_t r);
         virtual void linearize_syms(PgfLinearizationOutputIface *out, PgfLinearizer *linearizer, ref<Vector<PgfSymbol>> syms);
         virtual void linearize(PgfLinearizationOutputIface *out, PgfLinearizer *linearizer, size_t lindex)=0;
         size_t eval_param(PgfLParam *param);
         virtual ref<PgfConcrLincat> get_lincat(PgfLinearizer *linearizer)=0;
-        virtual ~TreeNode() { free(var_values); };
+        virtual ~TreeNode() { free(var_values); free(hoas_vars); };
     };
 
     struct TreeLinNode : public TreeNode {
@@ -125,7 +132,7 @@ class PGF_INTERNAL_DECL PgfLinearizer : public PgfUnmarshaller {
     PgfText *wild;
 
 public:
-    PgfLinearizer(ref<PgfConcr> concr, PgfMarshaller *m);
+    PgfLinearizer(PgfPrintContext *ctxt, ref<PgfConcr> concr, PgfMarshaller *m);
 
     bool resolve();
     void reverse_and_label();

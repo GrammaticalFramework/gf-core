@@ -207,9 +207,9 @@ foreign import ccall pgf_drop_lin :: Ptr PgfDB -> Ptr Concr -> Ptr PgfText -> Pt
 
 foreign import ccall pgf_has_linearization :: Ptr PgfDB -> Ptr Concr -> Ptr PgfText -> Ptr PgfExn -> IO CInt
 
-foreign import ccall pgf_linearize :: Ptr PgfDB -> Ptr Concr -> StablePtr Expr -> Ptr PgfMarshaller -> Ptr PgfExn -> IO (Ptr PgfText)
+foreign import ccall pgf_linearize :: Ptr PgfDB -> Ptr Concr -> StablePtr Expr -> Ptr PgfPrintContext -> Ptr PgfMarshaller -> Ptr PgfExn -> IO (Ptr PgfText)
 
-foreign import ccall pgf_bracketed_linearize :: Ptr PgfDB -> Ptr Concr -> StablePtr Expr -> Ptr PgfMarshaller -> Ptr PgfLinearizationOutputIface -> Ptr PgfExn -> IO ()
+foreign import ccall pgf_bracketed_linearize :: Ptr PgfDB -> Ptr Concr -> StablePtr Expr -> Ptr PgfPrintContext -> Ptr PgfMarshaller -> Ptr PgfLinearizationOutputIface -> Ptr PgfExn -> IO ()
 
 foreign import ccall "wrapper" wrapSymbol0 :: Wrapper (Ptr PgfLinearizationOutputIface -> IO ())
 
@@ -237,7 +237,7 @@ foreign import ccall pgf_set_concrete_flag :: Ptr PgfDB -> Ptr Concr -> Ptr PgfT
 
 foreign import ccall pgf_graphviz_abstract_tree :: Ptr PgfDB -> Ptr PGF -> StablePtr Expr -> Ptr PgfMarshaller -> Ptr PgfGraphvizOptions -> Ptr PgfExn -> IO (Ptr PgfText)
 
-foreign import ccall pgf_graphviz_parse_tree :: Ptr PgfDB -> Ptr Concr -> StablePtr Expr -> Ptr PgfMarshaller -> Ptr PgfGraphvizOptions -> Ptr PgfExn -> IO (Ptr PgfText)
+foreign import ccall pgf_graphviz_parse_tree :: Ptr PgfDB -> Ptr Concr -> StablePtr Expr -> Ptr PgfPrintContext -> Ptr PgfMarshaller -> Ptr PgfGraphvizOptions -> Ptr PgfExn -> IO (Ptr PgfText)
 
 
 -----------------------------------------------------------------------

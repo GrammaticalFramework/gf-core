@@ -1994,7 +1994,8 @@ int pgf_has_linearization(PgfDB *db, PgfConcrRevision revision,
 
 PGF_API
 PgfText *pgf_linearize(PgfDB *db, PgfConcrRevision revision,
-                       PgfExpr expr, PgfMarshaller *m,
+                       PgfExpr expr, PgfPrintContext *ctxt,
+                       PgfMarshaller *m,
                        PgfExn* err)
 {
     PGF_API_BEGIN {
@@ -2002,7 +2003,7 @@ PgfText *pgf_linearize(PgfDB *db, PgfConcrRevision revision,
 
         ref<PgfConcr> concr = PgfDB::revision2concr(revision);
         PgfLinearizationOutput out;
-        PgfLinearizer linearizer(concr, m);
+        PgfLinearizer linearizer(ctxt, concr, m);
         m->match_expr(&linearizer, expr);
         linearizer.reverse_and_label();
         if (linearizer.resolve()) {
@@ -2016,7 +2017,8 @@ PgfText *pgf_linearize(PgfDB *db, PgfConcrRevision revision,
 
 PGF_API_DECL
 void pgf_bracketed_linearize(PgfDB *db, PgfConcrRevision revision,
-                             PgfExpr expr, PgfMarshaller *m,
+                             PgfExpr expr, PgfPrintContext *ctxt,
+                             PgfMarshaller *m,
                              PgfLinearizationOutputIface *out,
                              PgfExn* err)
 {
@@ -2024,7 +2026,7 @@ void pgf_bracketed_linearize(PgfDB *db, PgfConcrRevision revision,
         DB_scope scope(db, READER_SCOPE);
 
         ref<PgfConcr> concr = PgfDB::revision2concr(revision);
-        PgfLinearizer linearizer(concr, m);
+        PgfLinearizer linearizer(ctxt, concr, m);
         m->match_expr(&linearizer, expr);
         linearizer.reverse_and_label();
         if (linearizer.resolve()) {
@@ -2230,7 +2232,8 @@ pgf_graphviz_abstract_tree(PgfDB *db, PgfRevision revision,
 
 PGF_API PgfText *
 pgf_graphviz_parse_tree(PgfDB *db, PgfConcrRevision revision,
-                        PgfExpr expr, PgfMarshaller *m,
+                        PgfExpr expr, PgfPrintContext *ctxt,
+                        PgfMarshaller *m,
                         PgfGraphvizOptions* opts,
                         PgfExn *err)
 {
@@ -2240,7 +2243,7 @@ pgf_graphviz_parse_tree(PgfDB *db, PgfConcrRevision revision,
         ref<PgfConcr> concr = PgfDB::revision2concr(revision);
 
         PgfLinearizationGraphvizOutput out;
-        PgfLinearizer linearizer(concr, m);
+        PgfLinearizer linearizer(ctxt, concr, m);
         m->match_expr(&linearizer, expr);
         linearizer.reverse_and_label();
         if (linearizer.resolve()) {

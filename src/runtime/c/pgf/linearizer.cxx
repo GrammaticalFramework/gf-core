@@ -14,6 +14,9 @@ PgfLinearizer::TreeNode::TreeNode(PgfLinearizer *linearizer)
     this->var_count = 0;
     this->var_values= NULL;
 
+    this->n_hoas_vars = 0;
+    this->hoas_vars   = NULL;
+
     linearizer->root= this;
 }
 
@@ -30,6 +33,23 @@ void PgfLinearizer::TreeNode::linearize_arg(PgfLinearizationOutputIface *out, Pg
         throw pgf_error("Missing argument");
     size_t lindex = eval_param(r);
     arg->linearize(out, linearizer, lindex);
+}
+
+void PgfLinearizer::TreeNode::linearize_var(PgfLinearizationOutputIface *out, PgfLinearizer *linearizer, size_t d, size_t r)
+{
+    TreeNode *arg = args;
+    while (d > 0) {
+        arg = arg->next_arg;
+        if (arg == 0)
+            break;
+        d--;
+    }
+    if (arg == 0)
+        throw pgf_error("Missing argument");
+    if (r >= arg->n_hoas_vars)
+        throw pgf_error("Missing lambda variable");
+    linearizer->printer.efun(arg->hoas_vars[r]);
+    out->symbol_token(linearizer->printer.get_text());
 }
 
 void PgfLinearizer::TreeNode::linearize_syms(PgfLinearizationOutputIface *out, PgfLinearizer *linearizer, ref<Vector<PgfSymbol>> syms)
@@ -50,6 +70,7 @@ void PgfLinearizer::TreeNode::linearize_syms(PgfLinearizationOutputIface *out, P
         }
         case PgfSymbolVar::tag: {
             auto sym_var = ref<PgfSymbolVar>::untagged(sym);
+            linearize_var(out, linearizer, sym_var->d, sym_var->r);
             break;
         }
         case PgfSymbolKS::tag: {
@@ -448,7 +469,9 @@ ref<PgfConcrLincat> PgfLinearizer::TreeLitNode::get_lincat(PgfLinearizer *linear
     return lincat;
 }
 
-PgfLinearizer::PgfLinearizer(ref<PgfConcr> concr, PgfMarshaller *m) {
+PgfLinearizer::PgfLinearizer(PgfPrintContext *ctxt, ref<PgfConcr> concr, PgfMarshaller *m)
+  : printer(ctxt,0,m)
+{
     this->concr = concr;
     this->m = m;
     this->root  = NULL;
@@ -460,7 +483,6 @@ PgfLinearizer::PgfLinearizer(ref<PgfConcr> concr, PgfMarshaller *m) {
     this->wild->size = 1;
     this->wild->text[0] = '_';
     this->wild->text[1] = 0;
-
 };
 
 PgfLinearizer::~PgfLinearizer()
@@ -565,7 +587,19 @@ void PgfLinearizer::BracketStack::flush(PgfLinearizationOutputIface *out)
 
 PgfExpr PgfLinearizer::eabs(PgfBindType btype, PgfText *name, PgfExpr body)
 {
-    return 0;
+    printer.push_variable(name);
+
+    TreeNode *node = (TreeNode *) m->match_expr(this, body);
+
+    PgfText** hoas_vars = (PgfText**) malloc((node->n_hoas_vars+1)*sizeof(PgfText*));
+    hoas_vars[0] = textdup(name);
+    memcpy(hoas_vars+1, node->hoas_vars, node->n_hoas_vars*sizeof(PgfText*));
+    free(node->hoas_vars);
+    node->n_hoas_vars++;
+    node->hoas_vars = hoas_vars;
+
+    printer.pop_variable();
+    return (PgfExpr) node;
 }
 
 PgfExpr PgfLinearizer::eapp(PgfExpr fun, PgfExpr arg)
@@ -586,11 +620,7 @@ PgfExpr PgfLinearizer::elit(PgfLiteral lit)
 
 PgfExpr PgfLinearizer::emeta(PgfMetaId meta)
 {
-    PgfPrinter printer(NULL,0,NULL);
-    if (meta == 0)
-        printer.puts("?");
-    else
-        printer.nprintf(32,"?%d",meta);
+    printer.emeta(meta);
     return (PgfExpr) new TreeLindefNode(this, printer.get_text());
 }
 
@@ -600,7 +630,6 @@ PgfExpr PgfLinearizer::efun(PgfText *name)
     if (lin != 0)
         return (PgfExpr) new TreeLinNode(this, lin);
     else {
-        PgfPrinter printer(NULL,0,NULL);
         printer.puts("[");
         printer.efun(name);
         printer.puts("]");
@@ -610,7 +639,8 @@ PgfExpr PgfLinearizer::efun(PgfText *name)
 
 PgfExpr PgfLinearizer::evar(int index)
 {
-    return 0;
+    printer.evar(index);
+    return (PgfExpr) new TreeLindefNode(this, printer.get_text());
 }
 
 PgfExpr PgfLinearizer::etyped(PgfExpr expr, PgfType ty)
@@ -630,7 +660,6 @@ PgfLiteral PgfLinearizer::lint(size_t size, uintmax_t *v)
     strcpy(cat->text, "Int");
     ref<PgfConcrLincat> lincat = namespace_lookup(concr->lincats, cat);
 
-    PgfPrinter printer(NULL,0,NULL);
     printer.lint(size,v);
 
     return (PgfExpr) new TreeLitNode(this, lincat, printer.get_text());
@@ -643,7 +672,6 @@ PgfLiteral PgfLinearizer::lflt(double v)
     strcpy(cat->text, "Float");
     ref<PgfConcrLincat> lincat = namespace_lookup(concr->lincats, cat);
 
-    PgfPrinter printer(NULL,0,NULL);
     printer.lflt(v);
 
     return (PgfExpr) new TreeLitNode(this, lincat, printer.get_text());

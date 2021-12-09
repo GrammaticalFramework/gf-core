@@ -392,6 +392,7 @@ data Term =
  | Alts Term [(Term, Term)]      -- ^ alternatives by prefix: @pre {t ; s\/c ; ...}@
  | Strs [Term]                   -- ^ conditioning prefix strings: @strs {s ; ...}@
  | TSymCat Int LIndex [(LIndex,Ident)]
+ | TSymVar Int Int
   deriving (Show, Eq, Ord)
 
 -- | Patterns
