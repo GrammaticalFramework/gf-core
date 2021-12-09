@@ -177,7 +177,7 @@ describe('abstract syntax', () => {
   })
 
   test('functions', () => {
-    expect(gr.getFunctions()).toEqual(['c', 'ind', 's', 'z'])
+    expect(gr.getFunctions()).toEqual(['c', 'floatLit', 'ind', 'intLit', 's', 'stringLit', 'z'])
   })
 
   describe('function is constructor', () => {
@@ -200,7 +200,7 @@ describe('abstract syntax', () => {
       expect(gr.functionsByCategory('N')).toEqual(['s', 'z'])
     })
     test('S', () => {
-      expect(gr.functionsByCategory('S')).toEqual(['c'])
+      expect(gr.functionsByCategory('S')).toEqual(['c', 'floatLit', 'intLit', 'stringLit'])
     })
     test('X', () => {
       expect(gr.functionsByCategory('X')).toEqual([])
