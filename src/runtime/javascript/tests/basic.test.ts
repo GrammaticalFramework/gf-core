@@ -177,7 +177,7 @@ describe('abstract syntax', () => {
   })
 
   test('functions', () => {
-    expect(gr.getFunctions()).toEqual(['c', 'floatLit', 'ind', 'intLit', 's', 'stringLit', 'z'])
+    expect(gr.getFunctions()).toEqual(['c', 'floatLit', 'ind', 'intLit', 'nat', 's', 'stringLit', 'z'])
   })
 
   describe('function is constructor', () => {
