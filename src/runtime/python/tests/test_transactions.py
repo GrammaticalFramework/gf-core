@@ -56,7 +56,7 @@ def test_checkout_non_existant(gr1):
 # gr1
 
 def test_original_functions(gr1):
-    assert gr1.functions == ["c", "ind", "s", "z"]
+    assert gr1.functions == ['c', 'floatLit', 'ind', 'intLit', 'nat', 's', 'stringLit', 'z']
 
 def test_original_categories(gr1):
     assert gr1.categories == ["Float","Int","N","P","S","String"]
@@ -83,7 +83,7 @@ def test_original_expr_prob(gr1):
 # gr2
 
 def test_extended_functions(gr2):
-    assert gr2.functions == ["c", "foo", "ind", "s", "z"]
+    assert gr2.functions == ['c', 'floatLit', "foo", 'ind', 'intLit', 'nat', 's', 'stringLit', 'z']
 
 def test_extended_categories(gr2):
     assert gr2.categories == ["Float","Int","N","P","Q","S","String"]
@@ -107,7 +107,7 @@ def test_extended_expr_prob(gr2):
 # gr3
 
 def test_branched_functions(gr3):
-    assert gr3.functions == ["bar", "c", "ind", "s", "z"]
+    assert gr3.functions == ["bar", 'c', 'floatLit', 'ind', 'intLit', 'nat', 's', 'stringLit', 'z']
 
 def test_branched_categories(gr3):
     assert gr3.categories == ["Float","Int","N","P","R","S","String"]
@@ -124,12 +124,12 @@ def test_branched_functions(gr4):
     assert gr4.functions == ["c", "foo", "ind", "s", "z"]
 
 def test_branched_functions(gr5):
-    assert gr5.functions == ["bar", "c", "ind", "s", "z"]
+    assert gr5.functions == ["bar", 'c', 'floatLit', 'ind', 'intLit', 'nat', 's', 'stringLit', 'z']
 
 # gr6
 
 def test_reduced_functions(gr6):
-    assert gr6.functions == ["c", "s", "z"]
+    assert gr6.functions == ['c', 'floatLit', 'intLit', 'nat', 's', 'stringLit', 'z']
 
 def test_reduced_categories(gr6):
     assert gr6.categories == ["Float","Int","N","P","String"]

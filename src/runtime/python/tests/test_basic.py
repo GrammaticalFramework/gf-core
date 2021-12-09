@@ -92,13 +92,13 @@ def test_categories(PGF):
     assert PGF.categories == ["Float","Int","N","P","S","String"]
 
 def test_functions(PGF):
-    assert PGF.functions == ["c","ind","s","z"]
+    assert PGF.functions == ['c', 'floatLit', 'ind', 'intLit', 'nat', 's', 'stringLit', 'z']
 
 def test_functionsByCat_1(PGF):
     assert PGF.functionsByCat("N") == ["s","z"]
 
 def test_functionsByCat_2(PGF):
-    assert PGF.functionsByCat("S") == ["c"]
+    assert PGF.functionsByCat("S") == ["c", 'floatLit', 'intLit', 'stringLit']
 
 def test_functionsByCat_non_existent(PGF):
     assert PGF.functionsByCat("X") == []
