@@ -28,8 +28,9 @@ module PGF2 (-- * PGF
 
              -- ** Expressions
              Expr(..), Literal(..), showExpr, readExpr,
-             mkAbs,    unAbs,
+             mkAbs,    unAbs, Var,
              mkApp,    unApp, unapply,
+             mkVar,    unVar,
              mkStr,    unStr,
              mkInt,    unInt,
              mkDouble, unDouble,

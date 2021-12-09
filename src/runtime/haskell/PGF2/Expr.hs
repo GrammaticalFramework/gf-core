@@ -1,10 +1,11 @@
-module PGF2.Expr(Var, Cat, Fun,
+module PGF2.Expr(Var, Cat, Fun, Var,
                  BindType(..), Literal(..), Expr(..),
                  Type(..), Hypo,
                  Patt(..), Equation(..),
 
                  mkAbs,    unAbs,
                  mkApp,    unApp, unapply,
+                 mkVar,    unVar,
                  mkStr,    unStr,
                  mkInt,    unInt,
                  mkDouble, unDouble,
@@ -106,6 +107,17 @@ unapply = extract []
     extract es (ETyped e ty)= extract es e
     extract es (EImplArg e) = extract es e
     extract es h            = (h,es)
+
+-- | Constructs a variable expression from a de Bruijn index
+mkVar :: Int -> Expr
+mkVar = EVar
+
+-- | Extracts the de Bruijn index of a variable
+unVar :: Expr -> Maybe Int
+unVar (EVar i)      = Just i
+unVar (ETyped e ty) = unVar e
+unVar (EImplArg e)  = unVar e
+unVar _             = Nothing
 
 -- | Constructs an expression from string literal
 mkStr :: String -> Expr
