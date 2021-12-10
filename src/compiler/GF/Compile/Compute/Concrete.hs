@@ -248,11 +248,11 @@ evalPredef id [v1,v2]
 evalPredef id [v1,v2]
   | id == cTk     = return (fmap string2value (liftA2 genericTk (value2int v1) (value2string v2)))
   where
-    genericTk n = reverse . genericTake n . reverse
+    genericTk n = reverse . genericDrop n . reverse
 evalPredef id [v1,v2]
   | id == cDp     = return (fmap string2value (liftA2 genericDp (value2int v1) (value2string v2)))
   where
-    genericDp n = reverse . genericDrop n . reverse
+    genericDp n = reverse . genericTake n . reverse
 evalPredef id [v]
   | id == cIsUpper= return (fmap toPBool (liftA (all isUpper) (value2string v)))
 evalPredef id [v]
