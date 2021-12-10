@@ -4,7 +4,7 @@
 
 PgfLinearizer::TreeNode::TreeNode(PgfLinearizer *linearizer)
 {
-    this->next     = linearizer->root;
+    this->next     = linearizer->prev;
     this->next_arg = NULL;
     this->args     = linearizer->args;
 
@@ -17,7 +17,7 @@ PgfLinearizer::TreeNode::TreeNode(PgfLinearizer *linearizer)
     this->n_hoas_vars = 0;
     this->hoas_vars   = NULL;
 
-    linearizer->root= this;
+    linearizer->prev = this;
 }
 
 void PgfLinearizer::TreeNode::linearize_arg(PgfLinearizationOutputIface *out, PgfLinearizer *linearizer, size_t d, PgfLParam *r)
@@ -202,6 +202,11 @@ bool PgfLinearizer::TreeLinNode::resolve(PgfLinearizer *linearizer)
 
         ref<PgfPResult> pres = *vector_elem(lin->res,  lin_index);
 
+        // Unbind all variables
+        for (size_t j = 0; j < var_count; j++) {
+            var_values[j] = (size_t) -1;
+        }
+
         int i = 0;
         TreeNode *arg = args;
         while (arg != NULL) {
@@ -265,16 +270,12 @@ bool PgfLinearizer::TreeLinNode::resolve(PgfLinearizer *linearizer)
 
         if (arg == NULL) {
             value = eval_param(&pres->param);
-            break;
-        }
-
-        // Unbind all variables
-        for (size_t j = 0; j < var_count; j++) {
-            var_values[j] = (size_t) -1;
+            return true;
         }
     }
 
-    return (lin_index <= lin->res->len);
+    lin_index = 0;
+    return false;
 }
 
 void PgfLinearizer::TreeLinNode::check_category(PgfLinearizer *linearizer, PgfText *cat)
@@ -339,13 +340,15 @@ PgfLinearizer::TreeLindefNode::TreeLindefNode(PgfLinearizer *linearizer, PgfText
 bool PgfLinearizer::TreeLindefNode::resolve(PgfLinearizer *linearizer)
 {
     if (lincat == 0) {
-        lin_index++;
-        return (lin_index <= 1);
+        return (lin_index = !lin_index);
     } else {
         ref<PgfPResult> pres = *vector_elem(lincat->res,  lin_index);
         value = eval_param(&pres->param);
         lin_index++;
-        return (lin_index <= lincat->n_lindefs);
+        if (lin_index <= lincat->n_lindefs)
+            return true;
+        lin_index = 0;
+        return false;
     }
 }
 
@@ -415,7 +418,10 @@ bool PgfLinearizer::TreeLinrefNode::resolve(PgfLinearizer *linearizer)
 {
     ref<PgfConcrLincat> lincat = args->get_lincat(linearizer);
     lin_index++;
-    return (lincat->n_lindefs+lin_index <= lincat->res->len);
+    if (lincat->n_lindefs+lin_index <= lincat->res->len)
+        return true;
+    lin_index = 0;
+    return false;
 }
 
 void PgfLinearizer::TreeLinrefNode::linearize(PgfLinearizationOutputIface *out, PgfLinearizer *linearizer, size_t lindex)
@@ -474,8 +480,8 @@ PgfLinearizer::PgfLinearizer(PgfPrintContext *ctxt, ref<PgfConcr> concr, PgfMars
 {
     this->concr = concr;
     this->m = m;
-    this->root  = NULL;
-    this->first = NULL;
+    this->prev  = NULL;
+    this->next  = NULL;
     this->args  = NULL;
     this->capit = CAPIT_NONE;
     this->pre_stack = NULL;
@@ -487,10 +493,16 @@ PgfLinearizer::PgfLinearizer(PgfPrintContext *ctxt, ref<PgfConcr> concr, PgfMars
 
 PgfLinearizer::~PgfLinearizer()
 {
-    while (first != NULL) {
-        TreeNode *next = first->next;
-        delete first;
-        first = next;
+    while (prev != NULL) {
+        TreeNode *prev_next = prev->next;
+        delete prev;
+        prev = prev_next;
+    }
+
+    while (next != NULL) {
+        TreeNode *next_next = next->next;
+        delete next;
+        next = next_next;
     }
 
     while (pre_stack != NULL) {
@@ -512,32 +524,40 @@ PgfLinearizer::~PgfLinearizer()
 
 bool PgfLinearizer::resolve()
 {
-    TreeNode *node = first;
-    while (node != NULL) {
-        if (!node->resolve(this))
-            return false;
-        node = node->next;
+    for (;;) {
+        if (!prev || prev->resolve(this)) {
+            if (next == NULL)
+                return true;
+            TreeNode *next_next = next->next;
+            next->next = prev;
+            prev = next;
+            next = next_next;
+        } else {
+            TreeNode *prev_next = prev->next;
+            prev->next = next;
+            next = prev;
+            prev = prev_next;
+            if (prev == NULL)
+                return false;
+        }
     }
-
-    return true;
 }
 
 void PgfLinearizer::reverse_and_label(bool add_linref)
 {
     if (add_linref)
-        new TreeLinrefNode(this, root);
+        new TreeLinrefNode(this, prev);
 
     // Reverse the list of nodes and label them with fid;
     int fid = 0;
-    TreeNode *node = root;
-    while (node != NULL) {
-        TreeNode *tmp = node->next;
+    while (prev != NULL) {
+        TreeNode *tmp = prev->next;
 
-        node->fid  = fid++;
-        node->next = first;
+        prev->fid  = fid++;
+        prev->next = next;
 
-        first = node;
-        node  = tmp;
+        next = prev;
+        prev = tmp;
     }
 }
 

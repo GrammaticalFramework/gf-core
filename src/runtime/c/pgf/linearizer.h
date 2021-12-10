@@ -97,8 +97,8 @@ class PGF_INTERNAL_DECL PgfLinearizer : public PgfUnmarshaller {
         ~TreeLitNode() { free(literal); };
     };
 
-    TreeNode *root;
-    TreeNode *first;
+    TreeNode *prev;
+    TreeNode *next;
     TreeNode *args;
 
     enum CapitState { CAPIT_NONE, CAPIT_FIRST, CAPIT_ALL };
@@ -136,11 +136,11 @@ public:
     bool resolve();
     void reverse_and_label(bool add_linref);
     void linearize(PgfLinearizationOutputIface *out, size_t lindex) {
-        root->linearize(out, this, lindex);
+        prev->linearize(out, this, lindex);
         flush_pre_stack(out, NULL);
     }
     ref<PgfConcrLincat> get_lincat() {
-        return root->get_lincat(this);
+        return prev->get_lincat(this);
     }
 
     ~PgfLinearizer();

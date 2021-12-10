@@ -622,7 +622,23 @@ linearize c e =
 
 -- | Generates all possible linearizations of an expression
 linearizeAll :: Concr -> Expr -> [String]
-linearizeAll lang e = error "TODO: linearizeAll"
+linearizeAll c e =
+  unsafePerformIO $
+  withForeignPtr (c_revision c) $ \c_revision ->
+  bracket (newStablePtr e) freeStablePtr $ \c_e ->
+  withForeignPtr marshaller $ \m ->
+  alloca $ \p_n_fields ->
+  bracket (withPgfExn "linearizeAll" (pgf_linearize_all (c_db c) c_revision c_e nullPtr m p_n_fields)) free $ \c_texts -> do
+    n_fields <- peek p_n_fields
+    peekTexts n_fields c_texts
+  where
+    peekTexts 0 c_texts = return []
+    peekTexts n c_texts = do
+      c_text <- peek c_texts
+      text <- peekText c_text
+      free c_text
+      texts <- peekTexts (n-1) (c_texts `plusPtr` (#size PgfText*))
+      return (text:texts)
 
 -- | Generates a table of linearizations for an expression
 tabularLinearize :: Concr -> Expr -> [(String, String)]

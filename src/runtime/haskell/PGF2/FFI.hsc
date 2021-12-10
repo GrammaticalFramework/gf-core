@@ -209,6 +209,8 @@ foreign import ccall pgf_has_linearization :: Ptr PgfDB -> Ptr Concr -> Ptr PgfT
 
 foreign import ccall pgf_linearize :: Ptr PgfDB -> Ptr Concr -> StablePtr Expr -> Ptr PgfPrintContext -> Ptr PgfMarshaller -> Ptr PgfExn -> IO (Ptr PgfText)
 
+foreign import ccall pgf_linearize_all :: Ptr PgfDB -> Ptr Concr -> StablePtr Expr -> Ptr PgfPrintContext -> Ptr PgfMarshaller -> Ptr CSize -> Ptr PgfExn -> IO (Ptr (Ptr PgfText))
+
 foreign import ccall pgf_tabular_linearize :: Ptr PgfDB -> Ptr Concr -> StablePtr Expr -> Ptr PgfPrintContext -> Ptr PgfMarshaller -> Ptr CSize -> Ptr PgfExn -> IO (Ptr (Ptr PgfText))
 
 foreign import ccall pgf_bracketed_linearize :: Ptr PgfDB -> Ptr Concr -> StablePtr Expr -> Ptr PgfPrintContext -> Ptr PgfMarshaller -> Ptr PgfLinearizationOutputIface -> Ptr PgfExn -> IO ()

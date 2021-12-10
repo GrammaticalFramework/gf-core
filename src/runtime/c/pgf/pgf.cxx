@@ -2016,6 +2016,37 @@ PgfText *pgf_linearize(PgfDB *db, PgfConcrRevision revision,
 }
 
 PGF_API
+PgfText **pgf_linearize_all(PgfDB *db, PgfConcrRevision revision,
+                            PgfExpr expr, PgfPrintContext *ctxt,
+                            PgfMarshaller *m, size_t *n_variants,
+                            PgfExn* err)
+{
+    *n_variants = 0;
+    PgfText **variants = NULL;
+
+    PGF_API_BEGIN {
+        DB_scope scope(db, READER_SCOPE);
+
+        ref<PgfConcr> concr = PgfDB::revision2concr(revision);
+        PgfLinearizationOutput out;
+        PgfLinearizer linearizer(ctxt, concr, m);
+        m->match_expr(&linearizer, expr);
+        linearizer.reverse_and_label(true);
+
+        while (linearizer.resolve()) {
+            linearizer.linearize(&out, 0);
+            variants = (PgfText **) realloc(variants, ((*n_variants)+1)*sizeof(PgfText **));
+            variants[(*n_variants)++] = out.get_text();
+        }
+
+        return variants;
+    } PGF_API_END
+
+    free(variants);
+    return NULL;
+}
+
+PGF_API
 PgfText **pgf_tabular_linearize(PgfDB *db, PgfConcrRevision revision,
                                 PgfExpr expr, PgfPrintContext *ctxt,
                                 PgfMarshaller *m, size_t *n_fields,
