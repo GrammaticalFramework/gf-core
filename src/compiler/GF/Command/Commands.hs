@@ -713,13 +713,17 @@ pgfCommands = Map.fromList [
 
    linear :: [Option] -> Concr -> Expr -> [String]
    linear opts concr = case opts of
-       _ | isOpt "all"     opts -> concat .
-                                   map (map snd) . tabularLinearizeAll concr
-       _ | isOpt "list"    opts -> (:[]) . commaList . concat .
-                                   map (map snd) . tabularLinearizeAll concr
-       _ | isOpt "table"   opts -> concat .
-                                    map (map (\(p,v) -> p+++":"+++v)) . tabularLinearizeAll concr
+       _ | isOpt "list"    opts &&
+           isOpt "all"     opts -> map (commaList . map snd) . tabularLinearizeAll concr
+       _ | isOpt "list"    opts -> (:[]) . commaList .
+                                   map snd . tabularLinearize concr
+       _ | isOpt "table"   opts &&
+           isOpt "all"     opts -> map (\(p,v) -> p+++":"+++v) . concat . tabularLinearizeAll concr
+       _ | isOpt "table"   opts -> map (\(p,v) -> p+++":"+++v) . tabularLinearize concr
+       _ | isOpt "bracket" opts &&
+           isOpt "all"     opts -> map (unwords . map showBracketedString) . bracketedLinearizeAll concr
        _ | isOpt "bracket" opts -> (:[]) . unwords . map showBracketedString . bracketedLinearize concr
+       _ | isOpt "all"     opts -> linearizeAll concr
        _                        -> (:[]) . linearize concr
 
    -- replace each non-atomic constructor with mkC, where C is the val cat
