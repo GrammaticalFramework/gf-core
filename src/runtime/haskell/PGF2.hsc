@@ -736,11 +736,13 @@ bracketedLinearize c e = unsafePerformIO $ do
    bracket (wrapSymbol2 (end_phrase ref)) freeHaskellFunPtr $ \c_end_phrase ->
    bracket (wrapSymbol0 (symbol_bind ref)) freeHaskellFunPtr $ \c_symbol_bind ->
    bracket (wrapSymbol0 (symbol_ne ref)) freeHaskellFunPtr $ \c_symbol_ne -> do
+   bracket (wrapSymbol0 (flush ref)) freeHaskellFunPtr $ \c_flush -> do
      (#poke PgfLinearizationOutputIfaceVtbl, symbol_token) vtbl c_symbol_token
      (#poke PgfLinearizationOutputIfaceVtbl, begin_phrase) vtbl c_begin_phrase
      (#poke PgfLinearizationOutputIfaceVtbl, end_phrase) vtbl c_end_phrase
      (#poke PgfLinearizationOutputIfaceVtbl, symbol_bind) vtbl c_symbol_bind
      (#poke PgfLinearizationOutputIfaceVtbl, symbol_ne) vtbl c_symbol_ne
+     (#poke PgfLinearizationOutputIfaceVtbl, flush) vtbl c_flush
      (#poke PgfLinearizationOutputIface, vtbl) c_out vtbl
      withPgfExn "bracketedLinearize" (pgf_bracketed_linearize (c_db c) c_revision c_e nullPtr m c_out))
   (ne,_,bs) <- readIORef ref
@@ -775,8 +777,66 @@ bracketedLinearize c e = unsafePerformIO $ do
       (ne,stack,bs) <- readIORef ref
       writeIORef ref (True,[],[])
 
+    flush _ _ = return ()
+
 bracketedLinearizeAll :: Concr -> Expr -> [[BracketedString]]
-bracketedLinearizeAll = error "TODO: bracketedLinearizeAll"
+bracketedLinearizeAll c e = unsafePerformIO $ do
+  ref <- newIORef (False,[],[],[])
+  (withForeignPtr (c_revision c) $ \c_revision ->
+   bracket (newStablePtr e) freeStablePtr $ \c_e ->
+   withForeignPtr marshaller $ \m ->
+   allocaBytes (#size PgfLinearizationOutputIface) $ \c_out ->
+   allocaBytes (#size PgfLinearizationOutputIfaceVtbl) $ \vtbl ->
+   bracket (wrapSymbol1 (symbol_token ref)) freeHaskellFunPtr $ \c_symbol_token ->
+   bracket (wrapSymbol2 (begin_phrase ref)) freeHaskellFunPtr $ \c_begin_phrase ->
+   bracket (wrapSymbol2 (end_phrase ref)) freeHaskellFunPtr $ \c_end_phrase ->
+   bracket (wrapSymbol0 (symbol_bind ref)) freeHaskellFunPtr $ \c_symbol_bind ->
+   bracket (wrapSymbol0 (symbol_ne ref)) freeHaskellFunPtr $ \c_symbol_ne -> do
+   bracket (wrapSymbol0 (flush ref)) freeHaskellFunPtr $ \c_flush -> do
+     (#poke PgfLinearizationOutputIfaceVtbl, symbol_token) vtbl c_symbol_token
+     (#poke PgfLinearizationOutputIfaceVtbl, begin_phrase) vtbl c_begin_phrase
+     (#poke PgfLinearizationOutputIfaceVtbl, end_phrase) vtbl c_end_phrase
+     (#poke PgfLinearizationOutputIfaceVtbl, symbol_bind) vtbl c_symbol_bind
+     (#poke PgfLinearizationOutputIfaceVtbl, symbol_ne) vtbl c_symbol_ne
+     (#poke PgfLinearizationOutputIfaceVtbl, flush) vtbl c_flush
+     (#poke PgfLinearizationOutputIface, vtbl) c_out vtbl
+     withPgfExn "bracketedLinearizeAll" (pgf_bracketed_linearize_all (c_db c) c_revision c_e nullPtr m c_out))
+  (_,_,_,all) <- readIORef ref
+  return all
+  where
+    symbol_token ref _ c_text = do
+      (ne,stack,bs,all) <- readIORef ref
+      token <- peekText c_text
+      writeIORef ref (ne,stack,Leaf token : bs,all)
+
+    begin_phrase ref _ c_cat c_fid c_ann c_fun = do
+      (ne,stack,bs,all) <- readIORef ref
+      writeIORef ref (ne,bs:stack,[],all)
+
+    end_phrase ref _ c_cat c_fid c_ann c_fun = do
+      (ne,bs':stack,bs,all) <- readIORef ref
+      if null bs
+        then writeIORef ref (ne,stack,bs',all)
+        else do cat <- peekText c_cat
+                let fid = fromIntegral c_fid
+                ann <- peekText c_ann
+                fun <- peekText c_fun
+                writeIORef ref (ne,stack,Bracket cat fid ann fun (reverse bs) : bs',all)
+
+    symbol_bind ref _ = do
+      (ne,stack,bs,all) <- readIORef ref
+      writeIORef ref (ne,stack,BIND : bs,all)
+
+    symbol_ne ref _ = do
+      (ne,stack,bs,all) <- readIORef ref
+      writeIORef ref (True,[],[],all)
+
+    flush ref _ = do
+      (ne,_,bs,all) <- readIORef ref
+      if ne
+        then writeIORef ref (False,[],[],all)
+        else writeIORef ref (False,[],[],reverse bs:all)
+
 
 generateAll :: PGF -> Type -> [(Expr,Float)]
 generateAll p ty = error "TODO: generateAll"

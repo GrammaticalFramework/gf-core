@@ -763,3 +763,7 @@ void PgfLinearizationOutput::symbol_bind()
 {
     bind = true;
 }
+
+void PgfLinearizationOutput::flush()
+{
+}

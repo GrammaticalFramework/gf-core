@@ -217,6 +217,8 @@ foreign import ccall pgf_tabular_linearize_all :: Ptr PgfDB -> Ptr Concr -> Stab
 
 foreign import ccall pgf_bracketed_linearize :: Ptr PgfDB -> Ptr Concr -> StablePtr Expr -> Ptr PgfPrintContext -> Ptr PgfMarshaller -> Ptr PgfLinearizationOutputIface -> Ptr PgfExn -> IO ()
 
+foreign import ccall pgf_bracketed_linearize_all :: Ptr PgfDB -> Ptr Concr -> StablePtr Expr -> Ptr PgfPrintContext -> Ptr PgfMarshaller -> Ptr PgfLinearizationOutputIface -> Ptr PgfExn -> IO ()
+
 foreign import ccall "wrapper" wrapSymbol0 :: Wrapper (Ptr PgfLinearizationOutputIface -> IO ())
 
 foreign import ccall "wrapper" wrapSymbol1 :: Wrapper (Ptr PgfLinearizationOutputIface -> Ptr PgfText -> IO ())

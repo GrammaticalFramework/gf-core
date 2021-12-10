@@ -37,10 +37,11 @@ public:
     PgfText *generate_graphviz(PgfGraphvizOptions* opts);
 
     virtual void symbol_token(PgfText *tok);
-	virtual void begin_phrase(PgfText *cat, int fid, PgfText *ann, PgfText *fun);
-	virtual void end_phrase(PgfText *cat, int fid, PgfText *ann, PgfText *fun);
-	virtual void symbol_ne();
-	virtual void symbol_bind();
+    virtual void begin_phrase(PgfText *cat, int fid, PgfText *ann, PgfText *fun);
+    virtual void end_phrase(PgfText *cat, int fid, PgfText *ann, PgfText *fun);
+    virtual void symbol_ne();
+    virtual void symbol_bind();
+    virtual void flush();
 };
 
 class PGF_INTERNAL_DECL PgfAbstractGraphvizOutput : public PgfUnmarshaller {

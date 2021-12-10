@@ -2140,6 +2140,27 @@ void pgf_bracketed_linearize(PgfDB *db, PgfConcrRevision revision,
     } PGF_API_END
 }
 
+PGF_API_DECL
+void pgf_bracketed_linearize_all(PgfDB *db, PgfConcrRevision revision,
+                                 PgfExpr expr, PgfPrintContext *ctxt,
+                                 PgfMarshaller *m,
+                                 PgfLinearizationOutputIface *out,
+                                 PgfExn* err)
+{
+    PGF_API_BEGIN {
+        DB_scope scope(db, READER_SCOPE);
+
+        ref<PgfConcr> concr = PgfDB::revision2concr(revision);
+        PgfLinearizer linearizer(ctxt, concr, m);
+        m->match_expr(&linearizer, expr);
+        linearizer.reverse_and_label(true);
+        while (linearizer.resolve()) {
+            linearizer.linearize(out, 0);
+            out->flush();
+        }
+    } PGF_API_END
+}
+
 PGF_API
 PgfText *pgf_get_printname(PgfDB *db, PgfConcrRevision revision,
                            PgfText *fun, PgfExn* err)

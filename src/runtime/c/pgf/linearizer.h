@@ -11,11 +11,12 @@ public:
 
     PgfText *get_text();
 
-	virtual void symbol_token(PgfText *tok);
-	virtual void begin_phrase(PgfText *cat, int fid, PgfText *ann, PgfText *fun);
-	virtual void end_phrase(PgfText *cat, int fid, PgfText *ann, PgfText *fun);
-	virtual void symbol_ne();
-	virtual void symbol_bind();
+    virtual void symbol_token(PgfText *tok);
+    virtual void begin_phrase(PgfText *cat, int fid, PgfText *ann, PgfText *fun);
+    virtual void end_phrase(PgfText *cat, int fid, PgfText *ann, PgfText *fun);
+    virtual void symbol_ne();
+    virtual void symbol_bind();
+    virtual void flush();
 };
 
 class PGF_INTERNAL_DECL PgfLinearizer : public PgfUnmarshaller {

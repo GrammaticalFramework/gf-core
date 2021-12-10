@@ -91,6 +91,10 @@ void PgfLinearizationGraphvizOutput::symbol_bind()
 {
 }
 
+void PgfLinearizationGraphvizOutput::flush()
+{
+}
+
 void PgfLinearizationGraphvizOutput::generate_graphviz_level(PgfPrinter *printer, PgfGraphvizOptions* opts, ParseLevel *level)
 {
 	printer->puts("\n  subgraph {\n    rank=same;\n");

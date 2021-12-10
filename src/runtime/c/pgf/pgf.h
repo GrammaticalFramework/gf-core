@@ -585,40 +585,46 @@ int pgf_has_linearization(PgfDB *db, PgfConcrRevision revision,
 #ifdef __cplusplus
 struct PgfLinearizationOutputIface
 {
-	/// Output tokens
-	virtual void symbol_token(PgfText *tok)=0;
+    /// Output tokens
+    virtual void symbol_token(PgfText *tok)=0;
 
-	/// Begin phrase
-	virtual void begin_phrase(PgfText *cat, int fid, PgfText *ann, PgfText *fun)=0;
+    /// Begin phrase
+    virtual void begin_phrase(PgfText *cat, int fid, PgfText *ann, PgfText *fun)=0;
 
-	/// End phrase
-	virtual void end_phrase(PgfText *cat, int fid, PgfText *ann, PgfText *fun)=0;
+    /// End phrase
+    virtual void end_phrase(PgfText *cat, int fid, PgfText *ann, PgfText *fun)=0;
 
-	/// handling nonExist
-	virtual void symbol_ne()=0;
+    /// handling nonExist
+    virtual void symbol_ne()=0;
 
-	/// token binding
-	virtual void symbol_bind()=0;
+    /// token binding
+    virtual void symbol_bind()=0;
+
+    /// called when the current linearization is finished
+    virtual void flush()=0;
 };
 #else
 typedef struct PgfLinearizationOutputIface     PgfLinearizationOutputIface;
 typedef struct PgfLinearizationOutputIfaceVtbl PgfLinearizationOutputIfaceVtbl;
 struct PgfLinearizationOutputIfaceVtbl
 {
-	/// Output tokens
-	void (*symbol_token)(PgfLinearizationOutputIface *this, PgfText *tok);
+    /// Output tokens
+    void (*symbol_token)(PgfLinearizationOutputIface *this, PgfText *tok);
 
-	/// Begin phrase
-	void (*begin_phrase)(PgfLinearizationOutputIface *this, PgfText *cat, int fid, PgfText *ann, PgfText *fun);
+    /// Begin phrase
+    void (*begin_phrase)(PgfLinearizationOutputIface *this, PgfText *cat, int fid, PgfText *ann, PgfText *fun);
 
-	/// End phrase
-	void (*end_phrase)(PgfLinearizationOutputIface *this, PgfText *cat, int fid, PgfText *ann, PgfText *fun);
+    /// End phrase
+    void (*end_phrase)(PgfLinearizationOutputIface *this, PgfText *cat, int fid, PgfText *ann, PgfText *fun);
 
-	/// handling nonExist
-	void (*symbol_ne)(PgfLinearizationOutputIface *this);
+    /// handling nonExist
+    void (*symbol_ne)(PgfLinearizationOutputIface *this);
 
-	/// token binding
-	void (*symbol_bind)(PgfLinearizationOutputIface *this);
+    /// token binding
+    void (*symbol_bind)(PgfLinearizationOutputIface *this);
+
+    /// called when the current linearization is finished
+    void (*flush)(PgfLinearizationOutputIface *this);
 };
 struct PgfLinearizationOutputIface
 {
@@ -632,12 +638,12 @@ PgfText *pgf_linearize(PgfDB *db, PgfConcrRevision revision,
                        PgfMarshaller *m,
                        PgfExn* err);
 
-PGF_API
+PGF_API_DECL
 PgfText **pgf_tabular_linearize(PgfDB *db, PgfConcrRevision revision,
                                 PgfExpr expr, PgfPrintContext *ctxt,
                                 PgfMarshaller *m, PgfExn* err);
 
-PGF_API
+PGF_API_DECL
 PgfText **pgf_tabular_linearize_all(PgfDB *db, PgfConcrRevision revision,
                                     PgfExpr expr, PgfPrintContext *ctxt,
                                     PgfMarshaller *m, PgfExn* err);
@@ -648,6 +654,13 @@ void pgf_bracketed_linearize(PgfDB *db, PgfConcrRevision revision,
                              PgfMarshaller *m,
                              PgfLinearizationOutputIface *out,
                              PgfExn* err);
+
+PGF_API_DECL
+void pgf_bracketed_linearize_all(PgfDB *db, PgfConcrRevision revision,
+                                 PgfExpr expr, PgfPrintContext *ctxt,
+                                 PgfMarshaller *m,
+                                 PgfLinearizationOutputIface *out,
+                                 PgfExn* err);
 
 PGF_API_DECL
 PgfText *pgf_get_printname(PgfDB *db, PgfConcrRevision revision,
