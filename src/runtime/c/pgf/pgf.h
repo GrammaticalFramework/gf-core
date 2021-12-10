@@ -635,8 +635,12 @@ PgfText *pgf_linearize(PgfDB *db, PgfConcrRevision revision,
 PGF_API
 PgfText **pgf_tabular_linearize(PgfDB *db, PgfConcrRevision revision,
                                 PgfExpr expr, PgfPrintContext *ctxt,
-                                PgfMarshaller *m, size_t *n_fields,
-                                PgfExn* err);
+                                PgfMarshaller *m, PgfExn* err);
+
+PGF_API
+PgfText **pgf_tabular_linearize_all(PgfDB *db, PgfConcrRevision revision,
+                                    PgfExpr expr, PgfPrintContext *ctxt,
+                                    PgfMarshaller *m, PgfExn* err);
 
 PGF_API_DECL
 void pgf_bracketed_linearize(PgfDB *db, PgfConcrRevision revision,

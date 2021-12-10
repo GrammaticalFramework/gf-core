@@ -647,25 +647,43 @@ tabularLinearize c e =
   withForeignPtr (c_revision c) $ \c_revision ->
   bracket (newStablePtr e) freeStablePtr $ \c_e ->
   withForeignPtr marshaller $ \m ->
-  alloca $ \p_n_fields ->
-  bracket (withPgfExn "tabularLinearize" (pgf_tabular_linearize (c_db c) c_revision c_e nullPtr m p_n_fields)) free $ \c_texts -> do
-    n_fields <- peek p_n_fields
-    peekTable n_fields c_texts
+  bracket (withPgfExn "tabularLinearize" (pgf_tabular_linearize (c_db c) c_revision c_e nullPtr m)) free peekTable
   where
-    peekTable 0 c_texts = return []
-    peekTable n c_texts = do
-      c_field <- peek c_texts
-      field <- peekText c_field
-      free c_field
-      c_lin <- peek (c_texts `plusPtr` (#size PgfText*))
-      lin <- peekText c_lin
-      free c_lin
-      table <- peekTable (n-1) (c_texts `plusPtr` (2*(#size PgfText*)))
-      return ((field,lin):table)
+    peekTable c_texts = do
+      c_field <- peekElemOff c_texts 0
+      c_lin   <- peekElemOff c_texts 1
+      if c_field == nullPtr && c_lin == nullPtr
+        then return []
+        else do field <- peekText c_field
+                free c_field
+                lin   <- peekText c_lin
+                free c_lin
+                table <- peekTable (c_texts `plusPtr` (2*(#size PgfText*)))
+                return ((field,lin):table)
 
 -- | Generates a table of linearizations for an expression
 tabularLinearizeAll :: Concr -> Expr -> [[(String, String)]]
-tabularLinearizeAll lang e = error "TODO: tabularLinearizeAll"
+tabularLinearizeAll c e =
+  unsafePerformIO $
+  withForeignPtr (c_revision c) $ \c_revision ->
+  bracket (newStablePtr e) freeStablePtr $ \c_e ->
+  withForeignPtr marshaller $ \m ->
+  bracket (withPgfExn "tabularLinearizeAll" (pgf_tabular_linearize_all (c_db c) c_revision c_e nullPtr m)) free peekTables
+  where
+    peekTables c_texts = do
+      c_field <- peekElemOff c_texts 0
+      c_lin   <- peekElemOff c_texts 1
+      if c_field == nullPtr && c_lin == nullPtr
+        then return [[]]
+        else if c_field == nullPtr
+               then do tables <- peekTables (c_texts `plusPtr` (#size PgfText*))
+                       return ([]:tables)
+               else do field <- peekText c_field
+                       free c_field
+                       lin   <- peekText c_lin
+                       free c_lin
+                       (table:tables) <- peekTables (c_texts `plusPtr` (2*(#size PgfText*)))
+                       return (((field,lin):table):tables)
 
 type FId = Int
 

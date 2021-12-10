@@ -2049,8 +2049,7 @@ PgfText **pgf_linearize_all(PgfDB *db, PgfConcrRevision revision,
 PGF_API
 PgfText **pgf_tabular_linearize(PgfDB *db, PgfConcrRevision revision,
                                 PgfExpr expr, PgfPrintContext *ctxt,
-                                PgfMarshaller *m, size_t *n_fields,
-                                PgfExn* err)
+                                PgfMarshaller *m, PgfExn* err)
 {
     PGF_API_BEGIN {
         DB_scope scope(db, READER_SCOPE);
@@ -2063,21 +2062,59 @@ PgfText **pgf_tabular_linearize(PgfDB *db, PgfConcrRevision revision,
         if (linearizer.resolve()) {
             ref<PgfConcrLincat> lincat = linearizer.get_lincat();
             PgfText **res = (PgfText **)
-                malloc(lincat->fields->len*2*sizeof(PgfText*));
+                malloc((lincat->fields->len+1)*2*sizeof(PgfText*));
             size_t pos = 0;
             for (size_t i = 0; i < lincat->fields->len; i++) {
                 linearizer.linearize(&out, i);
 
                 PgfText *text = out.get_text();
                 if (text != NULL) {
-                    res[pos]   = textdup(&(*lincat->fields->data[i]));
-                    res[pos+1] = text;
-                    pos += 2;
+                    res[pos++] = textdup(&(*lincat->fields->data[i]));
+                    res[pos++] = text;
                 }
             }
-            *n_fields = pos/2;
+            res[pos++] = NULL;
+            res[pos++] = NULL;
             return res;
         }
+    } PGF_API_END
+
+    return NULL;
+}
+
+PGF_API
+PgfText **pgf_tabular_linearize_all(PgfDB *db, PgfConcrRevision revision,
+                                    PgfExpr expr, PgfPrintContext *ctxt,
+                                    PgfMarshaller *m, PgfExn* err)
+{
+    PGF_API_BEGIN {
+        DB_scope scope(db, READER_SCOPE);
+
+        ref<PgfConcr> concr = PgfDB::revision2concr(revision);
+        PgfLinearizationOutput out;
+        PgfLinearizer linearizer(ctxt, concr, m);
+        m->match_expr(&linearizer, expr);
+        linearizer.reverse_and_label(false);
+
+        size_t pos = 0;
+        PgfText **res = NULL;
+        while (linearizer.resolve()) {
+            ref<PgfConcrLincat> lincat = linearizer.get_lincat();
+            res = (PgfText **)
+                realloc(res, (pos+(lincat->fields->len+1)*2)*sizeof(PgfText*));
+            for (size_t i = 0; i < lincat->fields->len; i++) {
+                linearizer.linearize(&out, i);
+
+                PgfText *text = out.get_text();
+                if (text != NULL) {
+                    res[pos++] = textdup(&(*lincat->fields->data[i]));
+                    res[pos++] = text;
+                }
+            }
+            res[pos++] = NULL;
+        }
+        res[pos++] = NULL;
+        return res;
     } PGF_API_END
 
     return NULL;
