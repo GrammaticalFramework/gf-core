@@ -10,7 +10,7 @@
 -----------------------------------------------------------------------------
 
 module GF.Compile.GeneratePMCFG
-    (generatePMCFG, type2fields, addPMCFG
+    (generatePMCFG, type2fields
     ) where
 
 import GF.Grammar hiding (VApp,VRecType)
@@ -28,10 +28,11 @@ import Data.List(mapAccumL,sortBy)
 import Data.Maybe(fromMaybe)
 
 generatePMCFG :: Options -> FilePath -> SourceGrammar -> SourceModule -> Check SourceModule
-generatePMCFG opts cwd gr cmo@(cm,cmi) = do
-  let gr' = prependModule gr cmo
-  js <- mapM (addPMCFG opts cwd gr' cmi) (Map.toList (jments cmi))
-  return (cm,cmi{jments = (Map.fromAscList js)})
+generatePMCFG opts cwd gr cmo@(cm,cmi)
+  | isModCnc cmi = do let gr' = prependModule gr cmo
+                      js <- mapM (addPMCFG opts cwd gr' cmi) (Map.toList (jments cmi))
+                      return (cm,cmi{jments = (Map.fromAscList js)})
+  | otherwise    = return cmo
 
 addPMCFG opts cwd gr cmi (id,CncCat mty@(Just (L loc ty)) mdef mref mprn Nothing) = do
   defs <- case mdef of

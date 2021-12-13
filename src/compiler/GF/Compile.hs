@@ -1,21 +1,23 @@
 module GF.Compile (compileToPGF, link, batchCompile, srcAbsName) where
 
+import GF.Compile.GeneratePMCFG(generatePMCFG)
 import GF.Compile.GrammarToPGF(grammar2PGF)
 import GF.Compile.ReadFiles(ModEnv,getOptionsFromFile,getAllFiles,
                             importsOfModule)
 import GF.CompileOne(compileOne)
 
-import GF.Grammar.Grammar(Grammar,emptyGrammar,
+import GF.Grammar.Grammar(Grammar,emptyGrammar,modules,mGrammar,
                           abstractOfConcrete,prependModule)--,msrc,modules
 
+import GF.Infra.CheckM
 import GF.Infra.Ident(ModuleName,moduleNameS)--,showIdent
 import GF.Infra.Option
 import GF.Infra.UseIO(IOE,FullPath,liftIO,getLibraryDirectory,putIfVerb,
-                      justModuleName,extendPathEnv,putStrE,putPointE)
+                      justModuleName,extendPathEnv,putStrE,putPointE,warnOut)
 import GF.Data.Operations(raise,(+++),err)
 
 import Control.Monad(foldM,when,(<=<))
-import GF.System.Directory(doesFileExist,getModificationTime)
+import GF.System.Directory(getCurrentDirectory,doesFileExist,getModificationTime)
 import System.FilePath((</>),isRelative,dropFileName)
 import qualified Data.Map as Map(empty,insert,elems) --lookup
 import Data.List(nub)
@@ -35,8 +37,14 @@ link :: Options -> (ModuleName,Grammar) -> IOE PGF
 link opts (cnc,gr) =
   putPointE Normal opts "linking ... " $ do
     let abs = srcAbsName gr cnc
+
+    -- if a module was compiled with no-pmcfg then we generate now
+    cwd <- getCurrentDirectory
+    (gr',warnings) <- runCheck' opts (fmap mGrammar $ mapM (generatePMCFG opts cwd gr) (modules gr))
+    warnOut opts warnings
+
     probs <- liftIO (maybe (return Map.empty) readProbabilitiesFromFile (flag optProbsFile opts))
-    pgf <- grammar2PGF opts gr abs probs
+    pgf <- grammar2PGF opts gr' abs probs
     when (verbAtLeast opts Normal) $ putStrE "OK"
     return pgf
 
