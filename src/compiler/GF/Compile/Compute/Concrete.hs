@@ -411,7 +411,7 @@ patternMatch v0 ((env0,ps,args0,t):eqs) = match env0 ps eqs args0
           return (mt,tnk:tnks)
 
 value2term i (VApp q tnks) =
-  foldM (\e1 tnk -> fmap (App e1) (force tnk >>= value2term i)) (QC q) tnks
+  foldM (\e1 tnk -> fmap (App e1) (force tnk >>= value2term i)) (if fst q == cPredef then Q q else QC q) tnks
 value2term i (VMeta m env tnks) = do
   res <- zonk m tnks
   case res of
