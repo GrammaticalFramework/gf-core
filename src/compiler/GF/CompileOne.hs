@@ -18,7 +18,7 @@ import GF.Grammar.Printer(ppModule,TermPrintQual(..))
 import GF.Grammar.Binary(decodeModule,encodeModule)
 
 import GF.Infra.Option
-import GF.Infra.UseIO(FullPath,IOE,isGFO,gf2gfo,MonadIO(..),Output(..),putPointE)
+import GF.Infra.UseIO(FullPath,IOE,isGFO,gf2gfo,MonadIO(..),Output(..),putPointE,dumpOut,warnOut)
 import GF.Infra.CheckM(runCheck')
 import GF.Data.Operations(ErrorMonad,liftErr,(+++))
 
@@ -27,7 +27,6 @@ import System.FilePath(makeRelative)
 import System.Random(randomIO)
 import qualified Data.Map as Map
 import GF.Text.Pretty(render,(<+>),($$)) --Doc,
-import GF.System.Console(TermColors(..),getTermColors)
 import Control.Monad((<=<))
 import qualified Control.Monad.Fail as Fail
 
@@ -57,7 +56,7 @@ reuseGFO opts srcgr file =
              decodeModule file
      let sm0 = (fst sm00,(snd sm00){mflags=mflags (snd sm00) `addOptions` opts})
 
-     idump opts Source sm0
+     dumpOut opts Source (ppModule Internal sm0)
 
      let sm1 = unsubexpModule sm0
      (sm,warnings) <- -- putPointE Normal opts "creating indirections" $ 
@@ -80,7 +79,7 @@ useTheSource opts srcgr file =
          sm <- putpOpt ("- parsing" +++ rfile)
                        ("- compiling" +++ rfile ++ "... ")
                        (getSourceModule opts file)
-         idump opts Source sm
+         dumpOut opts Source (ppModule Internal sm)
          compileSourceModule opts cwd (Just file) srcgr sm
   where
     putpOpt v m act
@@ -132,7 +131,7 @@ compileSourceModule opts cwd mb_gfFile gr =
     runPass' ret dump warn lift pass pp m =
         do out <- putpp pp $ lift m
            warnOut opts (warn out)
-           idump opts pass (dump out)
+           dumpOut opts pass (ppModule Internal (dump out))
            return (ret out)
 
     maybeM f = maybe (return ()) f
@@ -151,20 +150,3 @@ writeGFO opts cwd file mo =
     (m,mi) = subexpModule mo
 
     notAnyInd x = case x of AnyInd{} -> False; _ -> True
-
--- to output an intermediate stage
---intermOut :: Options -> Dump -> Doc -> IOE ()
-intermOut opts d doc
-  | dump opts d = ePutStrLn (render ("\n\n--#" <+> show d $$ doc))
-  | otherwise   = return ()
-
-idump opts pass = intermOut opts (Dump pass) . ppModule Internal
-
-warnOut opts warnings
-  | null warnings = return ()
-  | otherwise     = do t <- getTermColors
-                       ePutStr (blueFg t);ePutStr ws;ePutStrLn (restore t)
-  where
-    ws = if flag optVerbosity opts == Normal
-         then '\n':warnings
-         else warnings

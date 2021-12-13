@@ -25,15 +25,15 @@ import GF.System.Catch
 import Paths_gf(getDataDir)
 
 import GF.System.Directory
+import GF.System.Console
+import GF.Text.Pretty
 import System.FilePath
 import System.IO
 import System.IO.Error(isUserError,ioeGetErrorString)
 import System.Environment
 import System.Exit
 import System.CPUTime
---import System.Cmd
 import Text.Printf
---import Control.Applicative(Applicative(..))
 import Control.Monad(when,liftM,foldM)
 import Control.Monad.Trans(MonadIO(..))
 import Control.Monad.State(StateT,lift)
@@ -232,6 +232,21 @@ putPointE v opts msg act = do
       else when (verbAtLeast opts v) $ putStrLnE ""
 
   return a
+
+dumpOut opts pass doc
+  | dump opts d = ePutStrLn (render ("\n\n--#" <+> show d $$ doc))
+  | otherwise   = return ()
+  where
+    d   = (Dump pass)
+
+warnOut opts warnings
+  | null warnings = return ()
+  | otherwise     = do t <- getTermColors
+                       ePutStr (blueFg t);ePutStr ws;ePutStrLn (restore t)
+  where
+    ws = if flag optVerbosity opts == Normal
+         then '\n':warnings
+         else warnings
 
 -- | Because GHC adds the confusing text "user error" for failures caused by
 -- calls to 'fail'.
