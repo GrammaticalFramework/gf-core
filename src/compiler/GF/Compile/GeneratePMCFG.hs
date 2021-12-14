@@ -192,7 +192,7 @@ param2int (VR as) (RecType lbls) = compute lbls
 param2int (VApp q tnks) ty = do
   (r ,    ctxt,cnt ) <- getIdxCnt q
   (r',rs',     cnt') <- compute ctxt tnks
-  return (r+r',rs',cnt*cnt')
+  return (r+r',rs',cnt)
   where
     getIdxCnt q = do
       (_,ResValue (L _ ty) idx) <- getInfo q
