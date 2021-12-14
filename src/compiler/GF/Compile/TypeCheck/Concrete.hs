@@ -356,8 +356,9 @@ measurePatt gr p =
                -> do (min1,max1,p1) <- measurePatt gr p1
                      (min2,max2,p2) <- measurePatt gr p2
                      case (p1,p2) of
-                       (PW,PW) -> return (0,Nothing,PW)
-                       _       -> return (min1+min2,liftM2 (+) max1 max2,PSeq min1 max1 p1 min2 max2 p2)
+                       (PW,        PW        ) -> return (0,Nothing,PW)
+                       (PString s1,PString s2) -> return (min1+min2,liftM2 (+) max1 max2,PString (s1++s2))
+                       _                       -> return (min1+min2,liftM2 (+) max1 max2,PSeq min1 max1 p1 min2 max2 p2)
     PRep _ _ p -> do (minp,maxp,p) <- measurePatt gr p
                      case p of
                        PW    -> return (0,Nothing,PW)
