@@ -120,7 +120,9 @@ eval env (Vr x)         vs  = case lookup x env of
 eval env (Sort s)       []  = return (VSort s)
 eval env (EInt n)       []  = return (VInt n)
 eval env (EFloat d)     []  = return (VFlt d)
-eval env (K t)          []  = return (VStr t)
+eval env (K t)          []
+  | null t                  = return (VC [])
+  | otherwise               = return (VStr t)
 eval env Empty          []  = return (VC [])
 eval env (App t1 t2)    vs  = do tnk <- newThunk env t2
                                  eval env t1 (tnk : vs)
