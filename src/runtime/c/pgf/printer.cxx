@@ -460,7 +460,7 @@ void PgfPrinter::bindings(PgfPrintContext *context, size_t n_vars)
 
 void PgfPrinter::lvar(size_t var)
 {
-    char vars[] = "ijklmnopqr";
+    char vars[10] = {'i','j','k','l','m','n','o','p','q','r'};
     size_t i = var / sizeof(vars);
     size_t j = var % sizeof(vars);
 
