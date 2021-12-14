@@ -180,15 +180,12 @@ inferLType gr g trm = case trm of
 --   return (trm, Table arg val) -- old, caused issue 68
      checkLType gr g trm (Table arg val)
 
-   K s  -> do
-     if elem ' ' s
-        then do
-          let ss = foldr C Empty (map K (words s))
-          ----- removed irritating warning AR 24/5/2008
-          ----- checkWarn ("token \"" ++ s ++
-          -----              "\" converted to token list" ++ prt ss)
-          return (ss, typeStr)
-        else return (trm, typeStr)
+   K s  ->
+     let trm' = case words s of
+                  []  -> Empty
+                  [w] -> K w
+                  ws  -> foldr C Empty (map K ws)
+     in return (trm', typeStr)
 
    EInt i -> return (trm, typeInt)
 
