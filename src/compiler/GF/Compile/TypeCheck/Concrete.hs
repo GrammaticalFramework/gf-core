@@ -336,21 +336,33 @@ measurePatt gr p =
                      return (len,Just len,p)
     PT t p     -> do (min,max,p') <- measurePatt gr p
                      return (min,max,PT t p')
-    PAs x p    -> do (min,max,p') <- measurePatt gr p
-                     return (min,max,PAs x p')
+    PAs x p    -> do (min,max,p) <- measurePatt gr p
+                     case p of
+                       PW -> return (0,Nothing,PV x)
+                       _  -> return (min,max,PAs x p)
     PImplArg p -> do (min,max,p') <- measurePatt gr p
                      return (min,max,PImplArg p')
     PNeg p     -> do (_,_,p') <- measurePatt gr p
                      return (0,Nothing,PNeg p')
-    PAlt p1 p2 -> do (min1,max1,p1') <- measurePatt gr p1
-                     (min2,max2,p2') <- measurePatt gr p2
-                     return (min min1 min2,liftM2 max max1 max2,PAlt p1' p2')
+    PAlt p1 p2 -> do (min1,max1,p1) <- measurePatt gr p1
+                     (min2,max2,p2) <- measurePatt gr p2
+                     case (p1,p2) of
+                       (PString [c1],PString [c2]) -> return (1,Just 1,PChars [c1,c2])
+                       (PString [c], PChars cs)    -> return (1,Just 1,PChars ([c]++cs))
+                       (PChars cs,   PString [c])  -> return (1,Just 1,PChars (cs++[c]))
+                       (PChars cs1,  PChars cs2)   -> return (1,Just 1,PChars (cs1++cs2))
+                       _                           -> return (min min1 min2,liftM2 max max1 max2,PAlt p1 p2)
     PSeq _ _ p1 _ _ p2
-               -> do (min1,max1,p1') <- measurePatt gr p1
-                     (min2,max2,p2') <- measurePatt gr p2
-                     return (min1+min2,liftM2 (+) max1 max2,PSeq min1 max1 p1' min2 max2 p2')
-    PRep _ _ p -> do (minp,maxp,p') <- measurePatt gr p
-                     return (0,Nothing,PRep minp maxp p')
+               -> do (min1,max1,p1) <- measurePatt gr p1
+                     (min2,max2,p2) <- measurePatt gr p2
+                     case (p1,p2) of
+                       (PW,PW) -> return (0,Nothing,PW)
+                       _       -> return (min1+min2,liftM2 (+) max1 max2,PSeq min1 max1 p1 min2 max2 p2)
+    PRep _ _ p -> do (minp,maxp,p) <- measurePatt gr p
+                     case p of
+                       PW    -> return (0,Nothing,PW)
+                       PChar -> return (0,Nothing,PW)
+                       _     -> return (0,Nothing,PRep minp maxp p)
     PChar      -> return (1,Just 1,p)
     PChars _   -> return (1,Just 1,p)
     _          -> return (0,Nothing,p)
