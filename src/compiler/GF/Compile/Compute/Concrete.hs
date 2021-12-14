@@ -83,7 +83,7 @@ data Value s
   | VStrs [Value s]
     -- These last constructors are only generated internally
     -- in the PMCFG generator.
-  | VSymCat Int LIndex [(LIndex, Thunk s)]
+  | VSymCat Int LIndex [(LIndex, (Thunk s, Type))]
   | VSymVar Int Int
 
 
@@ -224,9 +224,9 @@ eval env (Alts d as)    []  = do vd <- eval env d []
                                  return (VAlts vd vas)
 eval env (Strs ts)      []  = do vs <- mapM (\t -> eval env t []) ts
                                  return (VStrs vs)
-eval env (TSymCat d r rs) []= do rs <- forM rs $ \(i,pv) ->
+eval env (TSymCat d r rs) []= do rs <- forM rs $ \(i,(pv,ty)) ->
                                          case lookup pv env of
-                                           Just tnk -> return (i,tnk)
+                                           Just tnk -> return (i,(tnk,ty))
                                            Nothing  -> evalError ("Variable" <+> pp pv <+> "is not in scope")
                                  return (VSymCat d r rs)
 eval env (TSymVar d r)  []  = do return (VSymVar d r)
@@ -385,14 +385,17 @@ patternMatch v0 ((env0,ps,args0,t):eqs) = match env0 ps eqs args0
       s <- readSTRef i
       case s of
         Narrowing id (QC q) -> case lookupOrigInfo gr q of
-                                 Ok (m,ResParam (Just (L _ ps)) _) -> bind gr k mt r s m ps
+                                 Ok (m,ResParam (Just (L _ ps)) _) -> bindParam gr k mt r s m ps
                                  Bad msg -> return (Fail (pp msg))
+        Narrowing id ty
+          | Just max <- isTypeInts ty
+                            -> bindInt gr k mt r s 0 max
         Evaluated v         -> case ki v of
                                  EvalM f -> f gr k mt r
         _                   -> k (VSusp i env ki vs) mt r
       where
-        bind gr k mt r s m []             = return (Success r)
-        bind gr k mt r s m ((p, ctxt):ps) = do
+        bindParam gr k mt r s m []             = return (Success r)
+        bindParam gr k mt r s m ((p, ctxt):ps) = do
           (mt',tnks) <- mkArgs mt ctxt
           let v = VApp (m,p) tnks
           writeSTRef i (Evaluated v)
@@ -401,7 +404,7 @@ patternMatch v0 ((env0,ps,args0,t):eqs) = match env0 ps eqs args0
           writeSTRef i s
           case res of
             Fail msg  -> return (Fail msg)
-            Success r -> bind gr k mt r s m ps
+            Success r -> bindParam gr k mt r s m ps
 
         mkArgs mt []              = return (mt,[])
         mkArgs mt ((_,_,ty):ctxt) = do
@@ -411,6 +414,18 @@ patternMatch v0 ((env0,ps,args0,t):eqs) = match env0 ps eqs args0
           tnk  <- newSTRef (Narrowing i ty)
           (mt,tnks) <- mkArgs (Map.insert i tnk mt) ctxt
           return (mt,tnk:tnks)
+
+        bindInt gr k mt r s iv max
+          | iv < max = do
+             let v = VInt iv
+             writeSTRef i (Evaluated v)
+             res <- case ki v of
+                      EvalM f -> f gr k mt r
+             writeSTRef i s
+             case res of
+               Fail msg  -> return (Fail msg)
+               Success r -> bindInt gr k mt r s (iv+1) max
+          | otherwise = return (Success r)
 
 value2term i (VApp q tnks) =
   foldM (\e1 tnk -> fmap (App e1) (force tnk >>= value2term i)) (if fst q == cPredef then Q q else QC q) tnks

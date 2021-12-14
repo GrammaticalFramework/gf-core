@@ -87,13 +87,13 @@ pmcfgForm gr t ctxt ty =
         (r,rs,_) <- compute params
         return (PArg [] (LParam r (order rs)))
 
-      compute []     = return (0,[],1)
-      compute (v:vs) = do
-        (r, rs ,cnt ) <- param2int v
-        (r',rs',cnt') <- compute vs
+      compute []              = return (0,[],1)
+      compute ((v,ty):params) = do
+        (r, rs ,cnt ) <- param2int v ty
+        (r',rs',cnt') <- compute params
         return (r*cnt'+r',combine cnt' rs rs',cnt*cnt')
 
-type2metaTerm :: SourceGrammar -> Int -> Map.Map MetaId Type -> LIndex -> [(LIndex,Ident)] -> Type -> (Map.Map MetaId Type,Int,Term)
+type2metaTerm :: SourceGrammar -> Int -> Map.Map MetaId Type -> LIndex -> [(LIndex,(Ident,Type))] -> Type -> (Map.Map MetaId Type,Int,Term)
 type2metaTerm gr d ms r rs (Sort s) | s == cStr =
   (ms,r+1,TSymCat d r rs)
 type2metaTerm gr d ms r rs (RecType lbls) =
@@ -105,7 +105,7 @@ type2metaTerm gr d ms r rs (RecType lbls) =
   in (ms',r',R ass)  
 type2metaTerm gr d ms r rs (Table p q) =
   let pv = identS ('p':show (length rs))
-      (ms',r',t) = type2metaTerm gr d ms r ((r'-r,pv):rs) q
+      (ms',r',t) = type2metaTerm gr d ms r ((r'-r,(pv,p)):rs) q
       count = case allParamValues gr p of
                 Ok ts   -> length ts
                 Bad msg -> error msg
@@ -113,6 +113,10 @@ type2metaTerm gr d ms r rs (Table p q) =
 type2metaTerm gr d ms r rs ty@(QC q) =
   let i = Map.size ms + 1
   in (Map.insert i ty ms,r,Meta i)
+type2metaTerm gr d ms r rs ty
+  | Just n <- isTypeInts ty =
+      let i = Map.size ms + 1
+      in (Map.insert i ty ms,r,Meta i)
 
 flatten (VR as) (RecType lbls) st = do
   foldM collect st lbls
@@ -140,10 +144,11 @@ flatten (VV _ tnks) (Table _ q) st = do
       flatten v q st
 flatten v (Sort s) (lins,params) | s == cStr = do
   return (v:lins,params)
-flatten v (QC q) (lins,params) = do
-  return (lins,v:params)
-flatten v _ _ = do
-  error (showValue v)
+flatten v ty@(QC q) (lins,params) = do
+  return (lins,(v,ty):params)
+flatten v ty (lins,params)
+  | Just n <- isTypeInts ty = return (lins,(v,ty):params)
+  | otherwise               = error (showValue v)
 
 str2lin (VApp q [])
   | q == (cPredef, cBIND)       = return [SymBIND]
@@ -156,9 +161,10 @@ str2lin (VStr s)         = return [SymKS s]
 str2lin (VSymCat d r rs) = do (r, rs) <- compute r rs
                               return [SymCat d (LParam r (order rs))]
   where
-    compute r' []                = return (r',[])
-    compute r' ((cnt',tnk):tnks) = do
-      (r, rs,_) <- force tnk >>= param2int
+    compute r' []                     = return (r',[])
+    compute r' ((cnt',(tnk,ty)):tnks) = do
+      v <- force tnk
+      (r, rs,_) <- param2int v ty
       (r',rs' ) <- compute r' tnks
       return (r*cnt'+r',combine cnt' rs rs')
 str2lin (VSymVar d r)    = return [SymVar d r]
@@ -172,39 +178,47 @@ str2lin v                = do t <- value2term 0 v
                               evalError ("the string:" <+> ppTerm Unqualified 0 t $$
                                          "cannot be evaluated at compile time.")
 
-param2int (VR as) = compute as
+param2int (VR as) (RecType lbls) = compute lbls
   where
-    compute []             = return (0,[],1)
-    compute ((lbl,tnk):as) = do
-      (r, rs ,cnt ) <- force tnk >>= param2int
-      (r',rs',cnt') <- compute as
-      return (r*cnt'+r',combine cnt' rs rs',cnt*cnt')
-param2int (VApp q tnks) = do
-  (r ,    cnt ) <- getIdxCnt q
-  (r',rs',cnt') <- compute tnks
+    compute []              = return (0,[],1)
+    compute ((lbl,ty):lbls) = do
+      case lookup lbl as of
+        Just tnk -> do v <- force tnk
+                       (r, rs ,cnt ) <- param2int v ty
+                       (r',rs',cnt') <- compute lbls
+                       return (r*cnt'+r',combine cnt' rs rs',cnt*cnt')
+        Nothing  -> evalError ("Missing value for label" <+> pp lbl $$
+                               "among" <+> hsep (punctuate (pp ',') (map fst as)))
+param2int (VApp q tnks) ty = do
+  (r ,    ctxt,cnt ) <- getIdxCnt q
+  (r',rs',     cnt') <- compute ctxt tnks
   return (r+r',rs',cnt*cnt')
   where
     getIdxCnt q = do
       (_,ResValue (L _ ty) idx) <- getInfo q
-      let QC p = valTypeCnc ty
+      let (ctxt,QC p) = typeFormCnc ty
       (_,ResParam _ (Just (_,cnt))) <- getInfo p
-      return (idx,cnt)
+      return (idx,ctxt,cnt)
 
-    compute []         = return (0,[],1)
-    compute (tnk:tnks) = do
-      (r, rs ,cnt ) <- force tnk >>= param2int
-      (r',rs',cnt') <- compute tnks
+    compute []              []         = return (0,[],1)
+    compute ((_,_,ty):ctxt) (tnk:tnks) = do
+      v <- force tnk
+      (r, rs ,cnt ) <- param2int v ty
+      (r',rs',cnt') <- compute ctxt tnks
       return (r*cnt'+r',combine cnt' rs rs',cnt*cnt')
-param2int (VMeta tnk _ _) = do
+param2int (VInt n)        ty
+  | Just max <- isTypeInts ty= return (fromIntegral n,[],fromIntegral max+1)
+param2int (VMeta tnk _ _) ty = do
   tnk_st <- getRef tnk
   case tnk_st of
-    Evaluated v    -> param2int v
-    Narrowing j ty -> do let QC q = valTypeCnc ty
-                         (_,ResParam _ (Just (_,cnt))) <- getInfo q
-                         return (0,[(1,j-1)],cnt)
-param2int v               = do t <- value2term 0 v
-                               evalError ("the parameter:" <+> ppTerm Unqualified 0 t $$
-                                          "cannot be evaluated at compile time.")
+    Evaluated v    -> param2int v ty
+    Narrowing j ty -> case valTypeCnc ty of
+                        QC q -> do (_,ResParam _ (Just (_,cnt))) <- getInfo q
+                                   return (0,[(1,j-1)],cnt)
+                        App q (EInt cnt) -> return (0,[(1,j-1)],fromIntegral cnt)
+param2int v ty = do t <- value2term 0 v
+                    evalError ("the parameter:" <+> ppTerm Unqualified 0 t $$
+                               "cannot be evaluated at compile time.")
 
 combine cnt'          []            rs' = rs'
 combine cnt'         rs              [] = [(r*cnt',pv) | (r,pv) <- rs]
@@ -249,8 +263,8 @@ mkLinDefault gr typ = liftM (Abs Explicit varStr) $ mkDefField typ
          let (ls,ts) = unzip r
          ts <- mapM mkDefField ts
          return $ R (zipWith assign ls ts)
-       _ | Just _ <- isTypeInts typ -> return $ EInt 0 -- exists in all as first val
-       _ -> checkError ("linearization type field cannot be" <+> ty)
+       _ | Just _ <- isTypeInts ty -> return $ EInt 0 -- exists in all as first val
+       _ -> checkError ("linearization type field cannot be" <+> pp (show ty))
 
 mkLinReference :: SourceGrammar -> Type -> Check Term
 mkLinReference gr typ = do
@@ -267,7 +281,7 @@ mkLinReference gr typ = do
         QC p       -> return Nothing
         RecType [] -> return Nothing
         RecType rs -> traverse rs trm
-        _ | Just _ <- isTypeInts typ -> return Nothing
+        _ | Just _ <- isTypeInts ty -> return Nothing
         _ -> checkError ("linearization type field cannot be" <+> typ)
 
     traverse []          trm = return Nothing

@@ -248,7 +248,7 @@ ppTerm q d (Typed e t) = '<' <> ppTerm q 0 e <+> ':' <+> ppTerm q 0 t <> '>'
 ppTerm q d (ImplArg e) = braces (ppTerm q 0 e)
 ppTerm q d (ELincat cat t) = prec d 4 ("lincat" <+> cat <+> ppTerm q 5 t)
 ppTerm q d (ELin cat t) = prec d 4 ("lin" <+> cat <+> ppTerm q 5 t)
-ppTerm q d (TSymCat i r rs) = pp '<' <> pp i <> pp ',' <> ppLinFun pp r rs <> pp '>'
+ppTerm q d (TSymCat i r rs) = pp '<' <> pp i <> pp ',' <> ppLinFun (pp.fst) r rs <> pp '>'
 ppTerm q d (TSymVar i r) = pp '<' <> pp i <> pp ',' <> pp '$' <> pp r <> pp '>'
 
 ppEquation q (ps,e) = hcat (map (ppPatt q 2) ps) <+> "->" <+> ppTerm q 0 e
