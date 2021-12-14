@@ -1934,6 +1934,9 @@ void pgf_create_lin(PgfDB *db,
                     PgfBuildLinIface *build,
                     PgfExn *err)
 {
+    if (n_prods == 0)
+        return;
+
     PGF_API_BEGIN {
         DB_scope scope(db, WRITER_SCOPE);
 
