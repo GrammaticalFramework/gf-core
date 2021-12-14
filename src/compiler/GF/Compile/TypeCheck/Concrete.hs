@@ -225,12 +225,7 @@ inferLType gr g trm = case trm of
      return (RecType (zip ls ts'), typeType)
 
    ExtR r s -> do
-
----     over <- getOverload gr g Nothing r
----     let r1 = maybe r fst over
-     let r1 = r ---
-
-     (r',rT) <- inferLType gr g r1
+     (r',rT) <- inferLType gr g r
      rT'     <- computeLType gr g rT
 
      (s',sT) <- inferLType gr g s
@@ -568,14 +563,21 @@ checkLType gr g trm typ0 = do
          (r',_) <- checkLType gr g r (RecType fields1)
          (s',_) <- checkLType gr g s (RecType fields2)
 
-         let project t l =
-                case t of
-                  R rs -> case lookup l rs of
-                            Just (_,t) -> t
-                            Nothing    -> error (render ("no value for label" <+> l))
-                  t    -> P t l
+         let withProjection t fields g f =
+               case t of
+                 R rs -> f g (\l -> case lookup l rs of
+                                      Just (_,t) -> t
+                                      Nothing    -> error (render ("no value for label" <+> l)))
+                 QC _ -> f g (\l -> P t l)
+                 Vr _ -> f g (\l -> P t l)
+                 _    -> if length fields == 1
+                           then f g (\l -> P t l)
+                           else let x = mkFreshVar (map (\(_,v,_)->v) g)
+                                in Let (x, (Nothing, t)) (f ((Explicit,x,RecType fields):g) (\l -> P (Vr x) l))
 
-             rec = R ([(l,(Nothing,project r' l)) | (l,_) <- fields1] ++ [(l,(Nothing,project s' l)) | (l,_) <- fields2])
+             rec = withProjection r' fields1 g $ \g p_r' ->
+                   withProjection s' fields2 g $ \g p_s' ->
+                     R ([(l,(Nothing,p_r' l)) | (l,_) <- fields1] ++ [(l,(Nothing,p_s' l)) | (l,_) <- fields2])
          return (rec, typ)
 
        ExtR ty ex -> do
