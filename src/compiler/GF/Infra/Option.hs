@@ -182,8 +182,7 @@ data Flags = Flags {
       optHeuristicFactor :: Maybe Double,
       optCaseSensitive   :: Bool,
       optPlusAsBind      :: Bool,
-      optJobs            :: Maybe (Maybe Int),
-      optTrace           :: Bool
+      optJobs            :: Maybe (Maybe Int)
     }
   deriving (Show)
 
@@ -294,8 +293,7 @@ defaultFlags = Flags {
       optHeuristicFactor = Nothing,
       optCaseSensitive   = True,
       optPlusAsBind      = False,
-      optJobs            = Nothing,
-      optTrace           = False
+      optJobs            = Nothing
     }
 
 -- | Option descriptions
@@ -410,7 +408,6 @@ optDescr =
                                         Just i  -> set $ \o -> o { optVerbosity = i }
                                         Nothing -> fail $ "Bad verbosity: " ++ show v
        cpu         x = set $ \o -> o { optShowCPUTime = x }
---     trace       x = set $ \o -> o { optTrace = x }
        gfoDir      x = set $ \o -> o { optGFODir = Just x }
        outFmt      x = readOutputFormat x >>= \f ->
                          set $ \o -> o { optOutputFormats = optOutputFormats o ++ [f] }
