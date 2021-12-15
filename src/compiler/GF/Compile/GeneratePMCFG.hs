@@ -274,7 +274,7 @@ mkLinDefault gr typ = liftM (Abs Explicit varStr) $ mkDefField typ
          ts <- mapM mkDefField ts
          return $ R (zipWith assign ls ts)
        _ | Just _ <- isTypeInts ty -> return $ EInt 0 -- exists in all as first val
-       _ -> checkError ("linearization type field cannot be" <+> pp (show ty))
+       _ -> checkError ("a field in a linearization type cannot be" <+> ty)
 
 mkLinReference :: SourceGrammar -> Type -> Check Term
 mkLinReference gr typ = do
@@ -292,7 +292,7 @@ mkLinReference gr typ = do
         RecType [] -> return Nothing
         RecType rs -> traverse rs trm
         _ | Just _ <- isTypeInts ty -> return Nothing
-        _ -> checkError ("linearization type field cannot be" <+> typ)
+        _ -> checkError ("a field in a linearization type cannot be" <+> typ)
 
     traverse []          trm = return Nothing
     traverse ((l,ty):rs) trm = do res <- mkRefField ty (P trm l)
