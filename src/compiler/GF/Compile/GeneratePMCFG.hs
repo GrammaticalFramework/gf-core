@@ -143,12 +143,22 @@ flatten (VV _ tnks) (Table _ q) st = do
       v <- force tnk
       flatten v q st
 flatten v (Sort s) (lins,params) | s == cStr = do
+  deepForce v
   return (v:lins,params)
 flatten v ty@(QC q) (lins,params) = do
+  deepForce v
   return (lins,(v,ty):params)
 flatten v ty (lins,params)
-  | Just n <- isTypeInts ty = return (lins,(v,ty):params)
+  | Just n <- isTypeInts ty = do deepForce v
+                                 return (lins,(v,ty):params)
   | otherwise               = error (showValue v)
+
+deepForce (VR as)          = mapM_ (\(lbl,v) -> force v >>= deepForce) as
+deepForce (VApp q tnks)    = mapM_ (\tnk -> force tnk >>= deepForce) tnks
+deepForce (VC vs)          = mapM_ deepForce vs
+deepForce (VAlts def alts) = do deepForce def
+                                mapM_ (\(v,_) -> deepForce v) alts
+deepForce _                = return ()
 
 str2lin (VApp q [])
   | q == (cPredef, cBIND)       = return [SymBIND]
