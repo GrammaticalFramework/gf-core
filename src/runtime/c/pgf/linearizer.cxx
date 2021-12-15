@@ -241,7 +241,7 @@ bool PgfLinearizer::TreeLinNode::resolve(PgfLinearizer *linearizer)
                     if (range == 0)
                         throw pgf_error("Unknown variable in resolving a linearization");
 
-                    if (var_value > range)
+                    if (var_value >= range)
                         break;
 
                     // Assign the variable;
