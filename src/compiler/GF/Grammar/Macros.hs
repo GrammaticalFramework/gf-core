@@ -309,37 +309,6 @@ mkFreshVar olds x =
 mkFreshVarX :: [Ident] -> Ident -> Ident
 mkFreshVarX olds x = if (elem x olds) then (varX (maximum ((-1) : (map varIndex olds)) + 1)) else x
 
--- | create a terminal for concrete syntax
-string2term :: String -> Term
-string2term = K
-
-int2term :: Integer -> Term
-int2term = EInt
-
-float2term :: Double -> Term
-float2term = EFloat
-
--- | create a terminal from identifier
-ident2terminal :: Ident -> Term
-ident2terminal = K . showIdent
-
-symbolOfIdent :: Ident -> String
-symbolOfIdent = showIdent
-
-symid :: Ident -> String
-symid = symbolOfIdent
-
-justIdentOf :: Term -> Maybe Ident
-justIdentOf (Vr x) = Just x
-justIdentOf (Cn x) = Just x
-justIdentOf _ = Nothing
-
-linTypeStr :: Type
-linTypeStr = mkRecType linLabel [typeStr] -- default lintype {s :: Str}
-
-linAsStr :: String -> Term
-linAsStr s = mkRecord linLabel [K s] -- default linearization {s = s}
-
 -- *** Term and pattern conversion
 
 term2patt :: Term -> Err Patt
@@ -509,18 +478,6 @@ collectPattOp op patt =
 
 -- *** Misc
 
-redirectTerm :: ModuleName -> Term -> Term
-redirectTerm n t = case t of
-  QC (_,f) -> QC (n,f)
-  Q  (_,f) -> Q  (n,f)
-  _ -> composSafeOp (redirectTerm n) t
-
--- | to gather ultimate cases in a table; preserves pattern list
-allCaseValues :: Term -> [([Patt],Term)]
-allCaseValues trm = case trm of
-  T _ cs -> [(p:ps, t) | (p,t0) <- cs, (ps,t) <- allCaseValues t0]
-  _      -> [([],trm)]
-
 -- | to get a string from a term that represents a sequence of terminals
 strsFromTerm :: Term -> Err [Str]
 strsFromTerm t = case t of
@@ -548,34 +505,12 @@ strsFromTerm t = case t of
   Strs ts -> mapM strsFromTerm ts >>= return . concat
   _ -> raise (render ("cannot get Str from term" <+> ppTerm Unqualified 0 t))
 
-getTableType :: TInfo -> Err Type
-getTableType i = case i of
-  TTyped ty -> return ty
-  TComp ty  -> return ty
-  TWild ty  -> return ty
-  _ -> Bad "the table is untyped"
-
 changeTableType :: Monad m => (Type -> m Type) -> TInfo -> m TInfo
 changeTableType co i = case i of
     TTyped ty -> co ty >>= return . TTyped
     TComp ty  -> co ty >>= return . TComp
     TWild ty  -> co ty >>= return . TWild
     _ -> return i
-
--- | to find the word items in a term
-wordsInTerm :: Term -> [String]
-wordsInTerm trm = filter (not . null) $ case trm of
-   K s     -> [s]
-   S c _   -> wo c
-   Alts t aa -> wo t ++ concatMap (wo . fst) aa
-   _       -> collectOp wo trm
- where wo = wordsInTerm
-
-noExist :: Term
-noExist = FV []
-
-defaultLinType :: Type
-defaultLinType = mkRecType linLabel [typeStr]
 
 -- | normalize records and record types; put s first
 

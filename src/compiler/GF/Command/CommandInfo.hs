@@ -1,8 +1,8 @@
 module GF.Command.CommandInfo where
 import GF.Command.Abstract(Option,Expr,Term)
 import GF.Text.Pretty(render)
+import GF.Grammar.Grammar(Term(K))
 import GF.Grammar.Printer() -- instance Pretty Term
-import GF.Grammar.Macros(string2term)
 import PGF2(mkStr,unStr,showExpr)
 
 data CommandInfo m = CommandInfo {
@@ -73,8 +73,8 @@ toExprs args =
 toTerm args =
   case args of
     Term t -> t
-    Strings ss -> string2term $ unwords ss -- hmm
-    Exprs es -> string2term $ unwords $ map (showExpr [] . fst) es -- hmm
+    Strings ss -> K $ unwords ss -- hmm
+    Exprs es -> K $ unwords $ map (showExpr [] . fst) es -- hmm
 
 -- ** Creating documentation
 
