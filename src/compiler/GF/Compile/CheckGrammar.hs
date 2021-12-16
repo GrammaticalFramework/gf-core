@@ -311,21 +311,20 @@ linTypeOfType :: Grammar -> ModuleName -> L Type -> Check ([Ident],Ident,Context
 linTypeOfType cnc m (L loc typ) = do
   let (ctxt,res_cat) = typeSkeleton typ
   val <- lookLin res_cat
-  lin_args <- mapM mkLinArg (zip [0..] ctxt)
+  lin_args <- mapM mkLinArg (zip [1..] ctxt)
   let (args,arg_cats) = unzip lin_args
   return (arg_cats, snd res_cat, args, val)
  where
    mkLinArg (i,(n,mc@(m,cat))) = do
      val  <- lookLin mc
      let vars = mkRecType varLabel $ replicate n typeStr
-         symb = argIdent n cat i
      rec <- if n==0 then return val else
                        errIn (render ("extending" $$
                                       nest 2 vars $$
                                       "with" $$
                                       nest 2 val)) $
                              plusRecType vars val
-     return ((Explicit,symb,rec),cat)
+     return ((Explicit,varX i,rec),cat)
    lookLin (_,c) = checks [ --- rather: update with defLinType ?
       lookupLincat cnc m c >>= normalForm cnc
      ,return defLinType

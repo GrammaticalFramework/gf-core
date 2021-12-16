@@ -18,8 +18,7 @@ module GF.Infra.Ident (-- ** Identifiers
   -- *** Normal identifiers (returned by the parser)
   identS, identC, identW,
   -- *** Special identifiers for internal use
-  identV, identA, identAV,
-  argIdent, isArgIdent, getArgIndex,
+  identV,
   varStr, varX, isWildIdent, varIndex,
   -- *** Raw identifiers
   RawIdent, rawIdentS, rawIdentC, ident2raw, prefixRawIdent,
@@ -52,9 +51,6 @@ data Ident =
 --
 -- below this constructor: internal representation never returned by the parser
  | IV  {-# UNPACK #-} !RawIdent {-# UNPACK #-} !Int                       -- ^ /INTERNAL/ variable
- | IA  {-# UNPACK #-} !RawIdent {-# UNPACK #-} !Int                       -- ^ /INTERNAL/ argument of cat at position
- | IAV {-# UNPACK #-} !RawIdent {-# UNPACK #-} !Int {-# UNPACK #-} !Int   -- ^ /INTERNAL/ argument of cat with bindings at position
---
   deriving (Eq, Ord, Show, Read)
 
 -- | Identifiers are stored as UTF-8-encoded bytestrings.
@@ -83,8 +79,6 @@ ident2utf8 :: Ident -> UTF8.ByteString
 ident2utf8 i = case i of
   IC (Id s) -> s
   IV (Id s) n -> BS.append s (pack ('_':show n))
-  IA (Id s) j -> BS.append s (pack ('_':show j))
-  IAV (Id s) b j -> BS.append s (pack ('_':show b ++ '_':show j))
   IW -> pack "_"
 
 ident2raw :: Ident -> RawIdent
@@ -106,37 +100,14 @@ identW :: Ident
 prefixIdent :: String -> Ident -> Ident
 prefixIdent pref = identC . Id . BS.append (pack pref) . ident2utf8
 
--- normal identifier
--- ident s = IC s
-
 identV :: RawIdent -> Int -> Ident
-identA :: RawIdent -> Int -> Ident
-identAV:: RawIdent -> Int -> Int -> Ident
 
-(identC, identV, identA, identAV, identW) =
-    (IC,     IV,     IA,     IAV,     IW)
-
--- | to mark argument variables
-argIdent :: Int -> Ident -> Int -> Ident
-argIdent 0 (IC c) i = identA  c i
-argIdent b (IC c) i = identAV c b i
-
-isArgIdent IA{}  = True
-isArgIdent IAV{} = True
-isArgIdent _     = False
-
-getArgIndex (IA _ i)    = Just i
-getArgIndex (IAV _ _ i) = Just i
-getArgIndex (IC (Id bs))
-  | isDigit c =
-   -- (Just . read . unpack . snd . BS.spanEnd isDigit) bs -- not ok with UTF-8
-      (Just . read . reverse . takeWhile isDigit) s
-  where s@(c:_) = reverse (unpack bs)
-getArgIndex x = Nothing
+(identC, identV, identW) =
+    (IC,     IV,     IW)
 
 -- | used in lin defaults
 varStr :: Ident
-varStr = identA (rawIdentS "str") 0
+varStr = identS "str"
 
 -- | refreshing variables
 varX :: Int -> Ident
