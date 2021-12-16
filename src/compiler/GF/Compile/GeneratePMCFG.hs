@@ -26,7 +26,6 @@ import qualified Data.Map.Strict as Map
 import Control.Monad
 import Data.List(mapAccumL,sortBy)
 import Data.Maybe(fromMaybe)
-import Debug.Trace
 
 generatePMCFG :: Options -> FilePath -> SourceGrammar -> SourceModule -> Check SourceModule
 generatePMCFG opts cwd gr cmo@(cm,cmi)
@@ -40,15 +39,15 @@ addPMCFG opts cwd gr cmi (id,CncCat mty@(Just (L loc ty)) mdef mref mprn Nothing
   defs <- case mdef of
             Nothing           -> checkInModule cwd cmi loc ("Happened in the PMCFG generation for the lindef of" <+> id) $ do
                                    term <- mkLinDefault gr ty
-                                   trace (show id) $ pmcfgForm gr term [(Explicit,identW,typeStr)] ty
+                                   pmcfgForm gr term [(Explicit,identW,typeStr)] ty
             Just (L loc term) -> checkInModule cwd cmi loc ("Happened in the PMCFG generation for the lindef of" <+> id) $ do
-                                   trace (show id) $ pmcfgForm gr term [(Explicit,identW,typeStr)] ty
+                                   pmcfgForm gr term [(Explicit,identW,typeStr)] ty
   refs <- case mref of
             Nothing           -> checkInModule cwd cmi loc ("Happened in the PMCFG generation for the linref of" <+> id) $ do
                                    term <- mkLinReference gr ty
-                                   trace (show id) $ pmcfgForm gr term [(Explicit,identW,ty)] typeStr
+                                   pmcfgForm gr term [(Explicit,identW,ty)] typeStr
             Just (L loc term) -> checkInModule cwd cmi loc ("Happened in the PMCFG generation for the linref of" <+> id) $ do
-                                   trace (show id) $ pmcfgForm gr term [(Explicit,identW,ty)] typeStr
+                                   pmcfgForm gr term [(Explicit,identW,ty)] typeStr
   mprn  <- case mprn of
              Nothing          -> return Nothing
              Just (L loc prn) -> checkInModule cwd cmi loc ("Happened in the computation of the print name for" <+> id) $ do
@@ -57,7 +56,7 @@ addPMCFG opts cwd gr cmi (id,CncCat mty@(Just (L loc ty)) mdef mref mprn Nothing
   return (id,CncCat mty mdef mref mprn (Just (defs,refs)))
 addPMCFG opts cwd gr cmi (id,CncFun mty@(Just (_,cat,ctxt,val)) mlin@(Just (L loc term)) mprn Nothing) = do
   rules <- checkInModule cwd cmi loc ("Happened in the PMCFG generation for" <+> id) $
-             trace (show id) $ pmcfgForm gr term ctxt val
+             pmcfgForm gr term ctxt val
   mprn  <- case mprn of
              Nothing          -> return Nothing
              Just (L loc prn) -> checkInModule cwd cmi loc ("Happened in the computation of the print name for" <+> id) $ do
