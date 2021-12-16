@@ -125,7 +125,7 @@ inferLType gr g trm = case trm of
          case fty' of
            Prod bt z arg val -> do
              a' <- justCheck g a arg
-             ty <- if isWildIdent z
+             ty <- if z == identW
                       then return val
                       else substituteLType [(bt,z,a')] val
              return (App f' a',ty)
@@ -472,7 +472,7 @@ checkLType gr g trm typ0 = do
     Abs bt x c -> do
       case typ of
         Prod bt' z a b -> do
-          (c',b') <- if isWildIdent z
+          (c',b') <- if z == identW
                        then checkLType gr ((bt,x,a):g) c b
                        else do b' <- checkIn (pp "abs") $ substituteLType [(bt',z,Vr x)] b
                                checkLType gr ((bt,x,a):g) c b'

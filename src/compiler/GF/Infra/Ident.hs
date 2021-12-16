@@ -19,7 +19,7 @@ module GF.Infra.Ident (-- ** Identifiers
   identS, identC, identW,
   -- *** Special identifiers for internal use
   identV,
-  varStr, varX, isWildIdent, varIndex,
+  varStr, varX, varIndex,
   -- *** Raw identifiers
   RawIdent, rawIdentS, rawIdentC, ident2raw, prefixRawIdent,
   isPrefixOf, showRawIdent
@@ -42,6 +42,9 @@ moduleNameS = MN . identS
 instance Show ModuleName where showsPrec d (MN m) = showsPrec d m
 instance Pretty ModuleName where pp (MN m) = pp m
 
+instance Binary ModuleName where
+  put (MN id) = put id
+  get = fmap MN get
 
 -- | the constructors labelled /INTERNAL/ are
 -- internal representation never returned by the parser
@@ -69,6 +72,13 @@ showRawIdent = unpack . rawId2utf8
 prefixRawIdent (Id x) (Id y) = Id (BS.append x y)
 isPrefixOf (Id x) (Id y) = BS.isPrefixOf x y
 
+instance Binary Ident where
+  put id = put (ident2utf8 id)
+  get    = do bs <- get
+              if bs == wild
+                then return identW
+                else return (identC (rawIdentC bs))
+
 instance Binary RawIdent where
   put = put . rawId2utf8
   get = fmap rawIdentC get
@@ -79,7 +89,7 @@ ident2utf8 :: Ident -> UTF8.ByteString
 ident2utf8 i = case i of
   IC (Id s) -> s
   IV (Id s) n -> BS.append s (pack ('_':show n))
-  IW -> pack "_"
+  IW -> wild
 
 ident2raw :: Ident -> RawIdent
 ident2raw = Id . ident2utf8
@@ -113,13 +123,7 @@ varStr = identS "str"
 varX :: Int -> Ident
 varX = identV (rawIdentS "x")
 
-isWildIdent :: Ident -> Bool
-isWildIdent x = case x of
-  IW -> True
-  IC s | s == wild -> True
-  _ -> False
-
-wild = Id (pack "_")
+wild = pack "_"
 
 varIndex :: Ident -> Int
 varIndex (IV _ n) = n

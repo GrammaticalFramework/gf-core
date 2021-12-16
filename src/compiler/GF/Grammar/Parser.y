@@ -727,7 +727,7 @@ listCatDef (L loc (id,cont,size)) = [catd,nilfund,consfund]
     niltyp  = mkProdSimple (cont' ++ replicate size cd) lc
     constyp = mkProdSimple (cont' ++ [cd, mkHypo lc]) lc
 
-    mkId x i = if isWildIdent x then (varX i) else x
+    mkId x i = if x == identW then (varX i) else x
 
 tryLoc (c,mty,Just e) = return (c,(mty,e))
 tryLoc (c,_  ,_     ) = fail ("local definition of" +++ showIdent c +++ "without value")

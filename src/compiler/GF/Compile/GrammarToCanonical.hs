@@ -15,8 +15,7 @@ import GF.Grammar.Lookup(lookupOrigInfo,allOrigInfos,allParamValues)
 import GF.Grammar.Macros(typeForm,collectOp,collectPattOp,composSafeOp,mkAbs,mkApp,term2patt,sortRec)
 import GF.Grammar.Lockfield(isLockLabel)
 import GF.Grammar.Predef(cPredef,cInts)
--- import GF.Compile.Compute.Value(Predefined(..))
-import GF.Infra.Ident(ModuleName(..),Ident,ident2raw,rawIdentS,showIdent,isWildIdent)
+import GF.Infra.Ident(ModuleName(..),Ident,identW,ident2raw,rawIdentS,showIdent)
 import GF.Infra.Option(Options,optionsPGF)
 import GF.Infra.CheckM
 import PGF2(Literal(..))
@@ -399,7 +398,7 @@ class FromIdent i where
   gId :: Ident -> i
 
 instance FromIdent VarId where
-  gId i = if isWildIdent i then Anonymous else VarId (ident2raw i)
+  gId i = if i == identW then Anonymous else VarId (ident2raw i)
 
 instance FromIdent C.FunId where gId = C.FunId . ident2raw
 instance FromIdent CatId where gId = CatId . ident2raw

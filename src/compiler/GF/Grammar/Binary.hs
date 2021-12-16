@@ -28,17 +28,6 @@ import PGF2.Transactions(Symbol(..))
 -- Please change this every time when the GFO format is changed
 gfoVersion = "GF05"
 
-instance Binary Ident where
-  put id = put (ident2utf8 id)
-  get    = do bs <- get
-              if bs == BS.pack "_"
-                then return identW
-                else return (identC (rawIdentC bs))
-
-instance Binary ModuleName where
-  put (MN id) = put id
-  get = fmap MN get
-
 instance Binary Grammar where
   put = put . modules
   get = fmap mGrammar get

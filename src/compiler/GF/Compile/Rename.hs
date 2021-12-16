@@ -332,7 +332,7 @@ renameContext :: Status -> Context -> Check Context
 renameContext b = renc [] where
   renc vs cont = case cont of
     (bt,x,t) : xts
-      | isWildIdent x -> do
+      | x == identW -> do
           t'   <- ren vs t
           xts' <- renc vs xts
           return $ (bt,x,t') : xts'
