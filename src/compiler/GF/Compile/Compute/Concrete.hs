@@ -297,7 +297,7 @@ update lbl v (a@(lbl',_):as)
   | otherwise                = a : update lbl v as
 
 
-patternMatch v0 []                      = fail "No matching pattern found"
+patternMatch v0 []                      = return v0
 patternMatch v0 ((env0,ps,args0,t):eqs) = match env0 ps eqs args0
   where
     match env []              eqs      args  = eval env t args
