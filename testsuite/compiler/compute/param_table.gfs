@@ -14,4 +14,4 @@ cc case <Q1,Q2> of {<Q1,Q1> => "11"; <Q1,Q2> => "12"; _ => "??"}
 cc case <Q2,Q2> of {<Q1,Q1> => "11"; <Q1,Q2> => "12"; _ => "??"}
 cc <\x -> case x of {Q1 => "q1"; Q2 => "q2"} : Q -> Str>
 cc <\x -> case P2 x of {P1 => "p1"; P2 q => "p2"} : Q -> Str>
-cc <\x -> case P2 x of {P1 => "p1"; P2 q => case q of {Q1 => "q1"; Q2 => "q2"}} : Q -> Str>
+cc <\x -> case P2 x of {P1 => "p1"; P2 q => case q of {Q1 => "q"+"1"; Q2 => "q"+"2"}} : Q -> Str>

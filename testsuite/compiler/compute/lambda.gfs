@@ -1,0 +1,3 @@
+i -retain prelude/Predef.gfo
+cc <\x,x -> x : Str -> Str -> Str>
+cc <\x -> (<\y,x->y : Str -> Str -> Str>) x : Str -> Str -> Str>

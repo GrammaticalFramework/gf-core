@@ -19,7 +19,7 @@ module GF.Infra.Ident (-- ** Identifiers
   identS, identC, identW,
   -- *** Special identifiers for internal use
   identV,
-  varStr, varX, varIndex,
+  varStr, varX, varIndex, varIndex',
   -- *** Raw identifiers
   RawIdent, rawIdentS, rawIdentC, ident2raw, prefixRawIdent,
   isPrefixOf, showRawIdent
@@ -128,3 +128,10 @@ wild = pack "_"
 varIndex :: Ident -> Int
 varIndex (IV _ n) = n
 varIndex _ = -1 --- other than IV should not count
+
+varIndex' :: RawIdent -> Ident -> Int
+varIndex' x (IC y)
+  | x == y    = 0
+varIndex' x (IV y n)
+  | x == y    = n
+varIndex' _ _ = -1 --- other than IV should not count

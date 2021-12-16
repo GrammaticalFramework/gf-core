@@ -297,22 +297,17 @@ defLinType :: Type
 defLinType = RecType [(theLinLabel,  typeStr)]
 
 -- | refreshing variables
-mkFreshVar :: [Ident] -> Ident
-mkFreshVar olds = varX (maxVarIndex olds + 1)
+mkFreshVar :: [Ident] -> Ident -> Ident
+mkFreshVar olds x =
+  case maximum ((-1) : map (varIndex' rx) olds) + 1 of
+    0 -> x
+    i -> identV rx i
+  where
+    rx = ident2raw x
 
 -- | trying to preserve a given symbol
 mkFreshVarX :: [Ident] -> Ident -> Ident
-mkFreshVarX olds x = if (elem x olds) then (varX (maxVarIndex olds + 1)) else x
-
-maxVarIndex :: [Ident] -> Int
-maxVarIndex = maximum . ((-1):) . map varIndex
-
-mkFreshVars :: Int -> [Ident] -> [Ident]
-mkFreshVars n olds = [varX (maxVarIndex olds + i) | i <- [1..n]]
-
--- | quick hack for refining with var in editor
-freshAsTerm :: String -> Term
-freshAsTerm s = Vr (varX (readIntArg s))
+mkFreshVarX olds x = if (elem x olds) then (varX (maximum ((-1) : (map varIndex olds)) + 1)) else x
 
 -- | create a terminal for concrete syntax
 string2term :: String -> Term

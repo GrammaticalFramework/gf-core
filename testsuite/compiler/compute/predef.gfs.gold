@@ -1,11 +1,11 @@
 4
 5
 Predef.length Predef.nonExist
-\v0 -> Predef.length v0
+\x -> Predef.length x
 "ab"
 "cd"
-"d"
 "abc"
+"d"
 "ABCD"
 "abcd"
 Predef.PFalse
@@ -32,5 +32,5 @@ user error
 "x" ++ Predef.CAPIT ++ "y"
 "x" ++ Predef.ALL_CAPIT ++ "y"
 "ab"
-\v0 -> v0 + "b"
+\x -> x + "b"
 Predef.PTrue

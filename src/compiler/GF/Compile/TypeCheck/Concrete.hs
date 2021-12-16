@@ -569,7 +569,7 @@ checkLType gr g trm typ0 = do
                  Vr _ -> f g (\l -> P t l)
                  _    -> if length fields == 1
                            then f g (\l -> P t l)
-                           else let x = mkFreshVar (map (\(_,v,_)->v) g)
+                           else let x = mkFreshVar (map (\(_,x,_) -> x) g) (identS "x")
                                 in Let (x, (Nothing, t)) (f ((Explicit,x,RecType fields):g) (\l -> P (Vr x) l))
 
              rec = withProjection r' fields1 g $ \g p_r' ->
