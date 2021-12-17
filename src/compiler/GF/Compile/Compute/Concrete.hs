@@ -34,6 +34,7 @@ import qualified Control.Monad.Fail as Fail
 import qualified Data.Map as Map
 import GF.Text.Pretty
 import PGF2.Transactions(LIndex)
+import Debug.Trace
 
 -- * Main entry points
 
@@ -102,7 +103,7 @@ showValue (VS v _ _) = "(VS "++showValue v++")"
 showValue (VSort _) = "VSort"
 showValue (VInt _) = "VInt"
 showValue (VFlt _) = "VFlt"
-showValue (VStr _) = "VStr"
+showValue (VStr s) = "(VStr "++show s++")"
 showValue (VC _) = "VC"
 showValue (VGlue _ _) = "VGlue"
 showValue (VPatt _ _ _) = "VPatt"
@@ -158,19 +159,14 @@ eval env (T (TWild ty) cs) []=do vty <- eval env ty []
 eval env (V ty ts)      []  = do vty <- eval env ty []
                                  tnks <- mapM (newThunk env) ts
                                  return (VV vty tnks)
-eval env t@(S t1 t2)    vs  = do v1   <- eval env t1 []
+eval env (S t1 t2)      vs  = do v1   <- eval env t1 []
                                  tnk2 <- newThunk env t2
                                  let v0 = VS v1 tnk2 vs
                                  case v1 of
                                    VT _  env cs -> patternMatch v0 (map (\(p,t) -> (env,[p],tnk2:vs,t)) cs)
-                                   VV vty tnks  -> do t2 <- force tnk2 >>= value2term (map fst env)
-                                                      ty <- value2term (map fst env) vty
-                                                      ts <- getAllParamValues ty
-                                                      case lookup t2 (zip ts tnks) of
-                                                        Just tnk -> do v <- force tnk
-                                                                       apply v vs
-                                                        Nothing  -> return v0
-                                   v1      -> return v0
+                                   VV vty tnks  -> do ty <- value2term (map fst env) vty
+                                                      vtableSelect v0 ty tnks tnk2 vs
+                                   v1           -> return v0
 eval env (Let (x,(_,t1)) t2) vs = do tnk <- newThunk env t1
                                      eval ((x,tnk):env) t2 vs
 eval env (Q q@(m,id))   vs
@@ -316,9 +312,9 @@ patternMatch v0 ((env0,ps,args0,t):eqs) = match env0 ps eqs args0
 
     match' env p ps eqs arg v args = do
       case (p,v) of
-        (p,       VMeta i envi   vs) -> susp i envi (\v -> apply v vs >>= \v -> match' env p ps eqs arg v args) []
+        (p,       VMeta i envi   vs) -> susp i envi (\v -> apply v vs >>= \v -> match' env p ps eqs arg v args)
         (p,       VGen  i vs       ) -> return v0
-        (p,       VSusp i envi k vs) -> susp i envi (\v -> k v >>= \v -> apply v vs >>= \v -> match' env p ps eqs arg v args) []
+        (p,       VSusp i envi k vs) -> susp i envi (\v -> k v >>= \v -> apply v vs >>= \v -> match' env p ps eqs arg v args)
         (PP q qs, VApp r tnks)
           | q == r        -> match env (qs++ps) eqs (tnks++args)
         (PR pas, VR as)   -> matchRec env pas as ps eqs args
@@ -377,51 +373,100 @@ patternMatch v0 ((env0,ps,args0,t):eqs) = match env0 ps eqs args0
     matchRep env n minp maxp p minq maxq q ps eqs args = do
       matchRep env (n-1) minp maxp p (minp+minq) (liftM2 (+) maxp maxq) (PSeq minp maxp p minq maxq q) ps ((env,q:ps,args,t) : eqs) args
 
-    susp i env ki vs = EvalM $ \gr k mt r -> do
-      s <- readSTRef i
-      case s of
-        Narrowing id (QC q) -> case lookupOrigInfo gr q of
-                                 Ok (m,ResParam (Just (L _ ps)) _) -> bindParam gr k mt r s m ps
-                                 Bad msg -> return (Fail (pp msg))
-        Narrowing id ty
-          | Just max <- isTypeInts ty
-                            -> bindInt gr k mt r s 0 max
-        Evaluated v         -> case ki v of
-                                 EvalM f -> f gr k mt r
-        _                   -> k (VSusp i env ki vs) mt r
+
+vtableSelect v0 ty tnks tnk2 vs = do
+  v2 <- force tnk2
+  (i,_) <- value2index v2 ty
+  v <- force (tnks !! i)
+  apply v vs
+  where
+    value2index (VR as) (RecType lbls) = compute lbls
       where
-        bindParam gr k mt r s m []             = return (Success r)
-        bindParam gr k mt r s m ((p, ctxt):ps) = do
-          (mt',tnks) <- mkArgs mt ctxt
-          let v = VApp (m,p) tnks
-          writeSTRef i (Evaluated v)
-          res <- case ki v of
-                   EvalM f -> f gr k mt' r
-          writeSTRef i s
-          case res of
-            Fail msg  -> return (Fail msg)
-            Success r -> bindParam gr k mt r s m ps
+        compute []              = return (0,1)
+        compute ((lbl,ty):lbls) = do
+          case lookup lbl as of
+            Just tnk -> do v <- force tnk
+                           (r, cnt ) <- value2index v ty
+                           (r',cnt') <- compute lbls
+                           return (r*cnt'+r',cnt*cnt')
+            Nothing  -> evalError ("Missing value for label" <+> pp lbl $$
+                                   "among" <+> hsep (punctuate (pp ',') (map fst as)))
+    value2index (VApp q tnks) ty = do
+      (r ,ctxt,cnt ) <- getIdxCnt q
+      (r',     cnt') <- compute ctxt tnks
+      return (r+r',cnt)
+      where
+        getIdxCnt q = do
+          (_,ResValue (L _ ty) idx) <- getInfo q
+          let (ctxt,QC p) = typeFormCnc ty
+          (_,ResParam _ (Just (_,cnt))) <- getInfo p
+          return (idx,ctxt,cnt)
 
-        mkArgs mt []              = return (mt,[])
-        mkArgs mt ((_,_,ty):ctxt) = do
-          let i = case Map.maxViewWithKey mt of
-                    Just ((i,_),_) -> i+1
-                    _              -> 0
-          tnk  <- newSTRef (Narrowing i ty)
-          (mt,tnks) <- mkArgs (Map.insert i tnk mt) ctxt
-          return (mt,tnk:tnks)
+        compute []              []         = return (0,1)
+        compute ((_,_,ty):ctxt) (tnk:tnks) = do
+          v <- force tnk
+          (r, cnt ) <- value2index v ty
+          (r',cnt') <- compute ctxt tnks
+          return (r*cnt'+r',cnt*cnt')
+    value2index (VInt n)          ty
+      | Just max <- isTypeInts ty    = return (fromIntegral n,fromIntegral max+1)
+    value2index (VMeta i envi vs) ty = do
+      v <- susp i envi (\v -> apply v vs)
+      value2index v ty
+    value2index (VSusp i envi k vs) ty = do
+      v <- susp i envi (\v -> k v >>= \v -> apply v vs)
+      value2index v ty
+    value2index v ty = do t <- value2term [] v
+                          evalError ("the parameter:" <+> ppTerm Unqualified 0 t $$
+                                     "cannot be evaluated at compile time.")
 
-        bindInt gr k mt r s iv max
-          | iv < max = do
-             let v = VInt iv
-             writeSTRef i (Evaluated v)
-             res <- case ki v of
-                      EvalM f -> f gr k mt r
-             writeSTRef i s
-             case res of
-               Fail msg  -> return (Fail msg)
-               Success r -> bindInt gr k mt r s (iv+1) max
-          | otherwise = return (Success r)
+
+susp i env ki = EvalM $ \gr k mt r -> do
+  s <- readSTRef i
+  case s of
+    Narrowing id (QC q) -> case lookupOrigInfo gr q of
+                             Ok (m,ResParam (Just (L _ ps)) _) -> bindParam gr k mt r s m ps
+                             Bad msg -> return (Fail (pp msg))
+    Narrowing id ty
+      | Just max <- isTypeInts ty
+                        -> bindInt gr k mt r s 0 max
+    Evaluated v         -> case ki v of
+                             EvalM f -> f gr k mt r
+    _                   -> k (VSusp i env ki []) mt r
+  where
+    bindParam gr k mt r s m []             = return (Success r)
+    bindParam gr k mt r s m ((p, ctxt):ps) = do
+      (mt',tnks) <- mkArgs mt ctxt
+      let v = VApp (m,p) tnks
+      writeSTRef i (Evaluated v)
+      res <- case ki v of
+               EvalM f -> f gr k mt' r
+      writeSTRef i s
+      case res of
+        Fail msg  -> return (Fail msg)
+        Success r -> bindParam gr k mt r s m ps
+
+    mkArgs mt []              = return (mt,[])
+    mkArgs mt ((_,_,ty):ctxt) = do
+      let i = case Map.maxViewWithKey mt of
+                Just ((i,_),_) -> i+1
+                _              -> 0
+      tnk  <- newSTRef (Narrowing i ty)
+      (mt,tnks) <- mkArgs (Map.insert i tnk mt) ctxt
+      return (mt,tnk:tnks)
+
+    bindInt gr k mt r s iv max
+      | iv < max = do
+         let v = VInt iv
+         writeSTRef i (Evaluated v)
+         res <- case ki v of
+                  EvalM f -> f gr k mt r
+         writeSTRef i s
+         case res of
+           Fail msg  -> return (Fail msg)
+           Success r -> bindInt gr k mt r s (iv+1) max
+      | otherwise = return (Success r)
+
 
 value2term xs (VApp q tnks) =
   foldM (\e1 tnk -> fmap (App e1) (force tnk >>= value2term xs)) (if fst q == cPredef then Q q else QC q) tnks
