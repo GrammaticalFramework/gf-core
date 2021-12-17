@@ -21,7 +21,7 @@ import GF.Grammar.Predef
 import GF.Grammar.Lockfield(lockLabel)
 import GF.Grammar.Printer
 import GF.Data.Str(Str,glueStr,str2strings,str,sstr,plusStr,strTok)
-import GF.Data.Operations(Err(..),err,errIn,maybeErr,mapPairsM)
+import GF.Data.Operations(Err(..))
 import GF.Data.Utilities(mapFst,mapSnd)
 import GF.Infra.CheckM
 import GF.Infra.Option
