@@ -20,9 +20,7 @@ import GF.Grammar.Lookup(lookupResDef,lookupOrigInfo,allParamValues)
 import GF.Grammar.Predef
 import GF.Grammar.Lockfield(lockLabel)
 import GF.Grammar.Printer
-import GF.Data.Str(Str,glueStr,str2strings,str,sstr,plusStr,strTok)
 import GF.Data.Operations(Err(..))
-import GF.Data.Utilities(mapFst,mapSnd)
 import GF.Infra.CheckM
 import GF.Infra.Option
 import Data.STRef
