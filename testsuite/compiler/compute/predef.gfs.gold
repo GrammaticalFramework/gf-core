@@ -34,3 +34,13 @@ user error
 "ab"
 \x -> x + "b"
 Predef.PTrue
+"aabb"
+"aaBb"
+"aaBb"
+"aaBB"
+"aaBB"
+Predef.nonExist
+"X"
+"aa" ++ "X"
+"aa" ++ "X" ++ "cc"
+"aa" ++ "B" ++ "bb"

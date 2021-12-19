@@ -35,3 +35,13 @@ cc "x"++ALL_CAPIT++"y"
 cc "a"+"b"
 cc <\x->x+"b" : Str -> Str>
 cc eqInt (length ("a"+"b")) 2
+cc take 10 ("aa"++BIND++"bb")
+cc take 10 ("aa"++CAPIT++BIND++"bb")
+cc take 10 ("aa"++BIND++CAPIT++"bb")
+cc take 10 ("aa"++ALL_CAPIT++BIND++"bb")
+cc take 10 ("aa"++BIND++ALL_CAPIT++"bb")
+cc take 10 ("aa"++nonExist++"bb")
+cc take 10 (pre {"b"=>"B"; _=>"X"})
+cc take 10 ("aa"++pre {"b"=>"B"; _=>"X"})
+cc take 10 ("aa"++pre {"b"=>"B"; _=>"X"}++"cc")
+cc take 10 ("aa"++pre {"b"=>"B"; _=>"X"}++"bb")
