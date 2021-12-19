@@ -182,9 +182,9 @@ inferLType gr g trm = case trm of
 
    K s  ->
      let trm' = case words s of
-                  []  -> Empty
-                  [w] -> K w
-                  ws  -> foldr C Empty (map K ws)
+                  []     -> Empty
+                  [w]    -> K w
+                  (w:ws) -> foldl (\t -> C t . K) (K w) ws
      in return (trm', typeStr)
 
    EInt i -> return (trm, typeInt)
