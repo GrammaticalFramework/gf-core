@@ -74,7 +74,8 @@ data Value s
   | VInt Integer
   | VFlt Double
   | VStr String
-  | VC [Value s]
+  | VEmpty
+  | VC (Value s) (Value s)
   | VGlue (Value s) (Value s)
   | VPatt Int (Maybe Int) Patt
   | VPattType (Value s)
@@ -104,7 +105,8 @@ showValue (VSort _) = "VSort"
 showValue (VInt _) = "VInt"
 showValue (VFlt _) = "VFlt"
 showValue (VStr s) = "(VStr "++show s++")"
-showValue (VC _) = "VC"
+showValue VEmpty = "VEmpty"
+showValue (VC _ _) = "VC"
 showValue (VGlue _ _) = "VGlue"
 showValue (VPatt _ _ _) = "VPatt"
 showValue (VPattType _) = "VPattType"
@@ -120,7 +122,7 @@ eval env (Sort s)       []  = return (VSort s)
 eval env (EInt n)       []  = return (VInt n)
 eval env (EFloat d)     []  = return (VFlt d)
 eval env (K t)          []  = return (VStr t)
-eval env Empty          []  = return (VC [])
+eval env Empty          []  = return VEmpty
 eval env (App t1 t2)    vs  = do tnk <- newThunk env t2
                                  eval env t1 (tnk : vs)
 eval env (Abs b x t)    []  = return (VClosure env (Abs b x t))
@@ -182,10 +184,10 @@ eval env (QC q)         vs  = return (VApp q vs)
 eval env (C t1 t2)      []  = do v1 <- eval env t1 []
                                  v2 <- eval env t2 []
                                  case (v1,v2) of
-                                   (VC vs1,VC vs2) -> return (VC (vs1++vs2))
-                                   (VC vs1,v2    ) -> return (VC (vs1++[v2]))
-                                   (v1,    VC vs2) -> return (VC ([v1]++vs2))
-                                   (v1,    v2    ) -> return (VC [v1,v2])
+                                   (VEmpty,VEmpty) -> return VEmpty
+                                   (v1,    VEmpty) -> return v1
+                                   (VEmpty,v2    ) -> return v2
+                                   _               -> return (VC v1 v2)
 eval env t@(Glue t1 t2) []  = do v1 <- eval env t1 []
                                  v2 <- eval env t2 []
                                  case liftA2 (++) (value2string v1) (value2string v2) of
@@ -320,7 +322,7 @@ patternMatch v0 ((env0,ps,args0,t):eqs) = match env0 ps eqs args0
         (PR pas, VR as)   -> matchRec env pas as ps eqs args
         (PString s1, VStr s2)
           | s1 == s2      -> match env ps eqs args
-        (PString s1, VC [])
+        (PString s1, VEmpty)
           | null s1       -> match env ps eqs args
         (PSeq min1 max1 p1 min2 max2 p2,v)
                           -> case value2string v of
@@ -531,11 +533,11 @@ value2term xs (VSort s) = return (Sort s)
 value2term xs (VStr tok) = return (K tok)
 value2term xs (VInt n) = return (EInt n)
 value2term xs (VFlt n) = return (EFloat n)
-value2term xs (VC vs) = do
-  ts <- mapM (value2term xs) vs
-  case ts of
-    []     -> return Empty
-    (t:ts) -> return (foldl C t ts)
+value2term xs VEmpty = return Empty
+value2term xs (VC v1 v2) = do
+  t1 <- value2term xs v1
+  t2 <- value2term xs v2
+  return (C t1 t2)
 value2term xs (VGlue v1 v2) = do
   t1 <- value2term xs v1
   t2 <- value2term xs v2
@@ -592,10 +594,10 @@ value2string v = fmap (unwords.snd) (value2string v False [])
   where
     value2string (VStr w1)   True  (w2:ws) = Const (False,(w1++w2):ws)
     value2string (VStr w)    _     ws      = Const (False,w       :ws)
-    value2string (VC [])     b     ws      = Const (b,ws)
-    value2string (VC (v:vs)) b     ws      =
-      case value2string (VC vs) b ws of
-        Const (b,ws) -> value2string v b ws
+    value2string VEmpty      b     ws      = Const (b,ws)
+    value2string (VC v1 v2)  b     ws      =
+      case value2string v2 b ws of
+        Const (b,ws) -> value2string v1 b ws
         st           -> st
     value2string (VApp q []) b     ws
       | q == (cPredef,cNonExist)           = NonExist
@@ -630,11 +632,11 @@ startsWith (x:xs) (y:ys)
 startsWith      _      _ = False
 
 
-string2value s =
-  case words s of
-    []  -> VC []
-    [w] -> VStr w
-    ws  -> VC (map VStr ws)
+string2value s = string2value (words s)
+  where
+    string2value []     = VEmpty
+    string2value [w]    = VStr w
+    string2value (w:ws) = VC (VStr w) (string2value ws)
 
 value2int (VInt n) = Const n
 value2int _        = RunTime

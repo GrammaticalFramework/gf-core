@@ -156,7 +156,7 @@ flatten v ty (lins,params)
 
 deepForce (VR as)          = mapM_ (\(lbl,v) -> force v >>= deepForce) as
 deepForce (VApp q tnks)    = mapM_ (\tnk -> force tnk >>= deepForce) tnks
-deepForce (VC vs)          = mapM_ deepForce vs
+deepForce (VC v1 v2)       = deepForce v1 >> deepForce v2
 deepForce (VAlts def alts) = do deepForce def
                                 mapM_ (\(v,_) -> deepForce v) alts
 deepForce _                = return ()
@@ -179,7 +179,8 @@ str2lin (VSymCat d r rs) = do (r, rs) <- compute r rs
       (r',rs' ) <- compute r' tnks
       return (r*cnt'+r',combine cnt' rs rs')
 str2lin (VSymVar d r)    = return [SymVar d r]
-str2lin (VC vs)          = fmap concat (mapM str2lin vs)
+str2lin VEmpty           = return []
+str2lin (VC v1 v2)       = liftM2 (++) (str2lin v1) (str2lin v2)
 str2lin (VAlts def alts) = do def <- str2lin def
                               alts <- forM alts $ \(v,VStrs vs) -> do
                                 lin <- str2lin v
