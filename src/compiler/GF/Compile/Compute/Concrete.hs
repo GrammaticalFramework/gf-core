@@ -300,8 +300,9 @@ patternMatch v0 ((env0,ps,args0,t):eqs) = match env0 ps eqs args0
     match env (PT ty p   :ps) eqs      args  = match env (p:ps) eqs args
     match env (PAlt p1 p2:ps) eqs      args  = match env (p1:ps) ((env,p2:ps,args,t):eqs) args
     match env (PM q      :ps) eqs      args  = do t <- getResDef q
-                                                  case t of
-                                                    EPatt _ _ p -> match env (p:ps) eqs args
+                                                  v <- eval [] t []
+                                                  case v of
+                                                    VPatt _ _ p -> match env (p:ps) eqs args
                                                     _ -> evalError $ hang "Expected pattern macro:" 4
                                                                           (pp t)
     match env (PV v      :ps) eqs (arg:args) = match ((v,arg):env) ps eqs args
