@@ -563,3 +563,20 @@ topoSortJments2 (m,mi) = do
            (topoTest2 (allDependencies (==m) (jments mi)))
   return
     [[(i,info) | i<-is,Just info<-[Map.lookup i (jments mi)]] | is<-iss]
+
+
+mkStrs p = case p of
+ PAlt a b -> do
+   Strs as <- mkStrs a
+   Strs bs <- mkStrs b
+   return $ Strs $ as ++ bs
+ PSeq _ _ a _ _ b ->
+             do Strs as <- mkStrs a
+                Strs bs <- mkStrs b
+                return $ Strs $ [K (a++b) | K a <- as, K b <- bs]
+ PString s -> return $ Strs [K s]
+ PChars cs -> return $ Strs [K [c] | c <- cs]
+ PV x -> return (Vr x) --- for macros; not yet complete
+ PMacro x -> return (Vr x) --- for macros; not yet complete
+ PM c -> return (Q c) --- for macros; not yet complete
+ _ -> fail "no strs from pattern"

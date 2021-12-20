@@ -811,16 +811,6 @@ mkAlts cs = case cs of
    mkAlt (p,t) = do
      ss <- mkStrs p
      return (t,ss)
-   mkStrs p = case p of
-     PAlt a b -> do
-       Strs as <- mkStrs a
-       Strs bs <- mkStrs b
-       return $ Strs $ as ++ bs
-     PString s -> return $ Strs [K s]
-     PV x -> return (Vr x) --- for macros; not yet complete
-     PMacro x -> return (Vr x) --- for macros; not yet complete
-     PM c -> return (Q c) --- for macros; not yet complete
-     _ -> fail "no strs from pattern"
 
 mkL :: Posn -> Posn -> x -> L x
 mkL (Pn l1 _) (Pn l2 _) x = L (Local l1 l2) x

@@ -213,6 +213,13 @@ inferLType gr g trm = case trm of
      aa' <- flip mapM aa (\ (c,v) -> do
         c' <- justCheck g c typeStr
         v' <- checks $ map (justCheck g v) [typeStrs, EPattType typeStr]
+        v' <- case v' of
+                Q q -> do t <- lookupResDef gr q
+                          t <- normalForm gr t
+                          case t of
+                            EPatt _ _ p -> mkStrs p
+                            _           -> return v'
+                _   -> return v'
         return (c',v'))
      return (Alts t' aa', typeStr)
 
