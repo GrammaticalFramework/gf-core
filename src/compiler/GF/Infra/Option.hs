@@ -322,8 +322,6 @@ optDescr =
      Option [] ["boot-only"] (NoArg (set $ \o -> o {optLinkTargets = (False,True)})) "Boot the .ngf database and don't write a .pgf file",
      Option [] ["cpu"] (NoArg (cpu True)) "Show compilation CPU time statistics.",
      Option [] ["no-cpu"] (NoArg (cpu False)) "Don't show compilation CPU time statistics (default).",
---   Option ['t'] ["trace"] (NoArg (trace True)) "Trace computations",
---   Option [] ["no-trace"] (NoArg (trace False)) "Don't trace computations",
      Option [] ["gfo-dir"] (ReqArg gfoDir "DIR") "Directory to put .gfo files in (default = '.').",
      Option ['f'] ["output-format"] (ReqArg outFmt "FMT")
         (unlines ["Output format. FMT can be one of:",
