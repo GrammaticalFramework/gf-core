@@ -105,7 +105,7 @@ type2metaTerm gr d ms r rs (RecType lbls) =
                                  (ms,r) lbls
   in (ms',r',R ass)  
 type2metaTerm gr d ms r rs (Table p q) =
-  let pv = identS ('p':show (length rs))
+  let pv = varX (length rs+1)
       (ms',r',t) = type2metaTerm gr d ms r ((r'-r,(pv,p)):rs) q
       count = case allParamValues gr p of
                 Ok ts   -> length ts
@@ -224,10 +224,8 @@ param2int (VMeta tnk _ _) ty = do
   tnk_st <- getRef tnk
   case tnk_st of
     Evaluated v    -> param2int v ty
-    Narrowing j ty -> case valTypeCnc ty of
-                        QC q -> do (_,ResParam _ (Just (_,cnt))) <- getInfo q
-                                   return (0,[(1,j-1)],cnt)
-                        App q (EInt cnt) -> return (0,[(1,j-1)],fromIntegral cnt)
+    Narrowing j ty -> do ts <- getAllParamValues ty
+                         return (0,[(1,j-1)],length ts)
 param2int v ty = do t <- value2term [] v
                     evalError ("the parameter:" <+> ppTerm Unqualified 0 t $$
                                "cannot be evaluated at compile time.")
