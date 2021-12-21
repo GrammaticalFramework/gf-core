@@ -34,7 +34,6 @@ import qualified Control.Monad.Fail as Fail
 import qualified Data.Map as Map
 import GF.Text.Pretty
 import PGF2.Transactions(LIndex)
-import Debug.Trace
 
 -- * Main entry points
 

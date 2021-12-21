@@ -242,8 +242,8 @@ checkInfo opts cwd sgr sm (c,info) = checkInModule cwd (snd sm) NoLoc empty $ do
       update sm c (ResOverload os [(y,x) | (x,y) <- tysts'])
 
     ResParam (Just (L loc pcs)) _ -> do
-      (sm,cnt,ts) <- chIn loc "parameter type" $
-                        mkParamValues sm 0 [] pcs
+      (sm,cnt,ts,pcs) <- chIn loc "parameter type" $
+                            mkParamValues sm c 0 [] pcs
       update sm c (ResParam (Just (L loc pcs)) (Just (ts,cnt)))
 
     _ ->  return sm
@@ -251,14 +251,15 @@ checkInfo opts cwd sgr sm (c,info) = checkInModule cwd (snd sm) NoLoc empty $ do
    gr = prependModule sgr sm
    chIn loc cat = checkInModule cwd (snd sm) loc ("Happened in" <+> cat <+> c)
 
-   mkParamValues sm         cnt ts []          = return (sm,cnt,[])
-   mkParamValues sm@(mn,mi) cnt ts ((f,co):fs) = do
-     sm <- case lookupIdent f (jments mi) of
-             Ok (ResValue ty _) -> update sm f (ResValue ty cnt)
-             Bad msg            -> checkError (pp msg)
+   mkParamValues sm         c cnt ts []           = return (sm,cnt,[],[])
+   mkParamValues sm@(mn,mi) c cnt ts ((p,co):pcs) = do
+     co <- mapM (\(b,v,ty) -> normalForm gr ty >>= \ty -> return (b,v,ty)) co
+     sm <- case lookupIdent p (jments mi) of
+             Ok (ResValue (L loc _) _) -> update sm p (ResValue (L loc (mkProdSimple co (QC (mn,c)))) cnt)
+             Bad msg                   -> checkError (pp msg)
      vs <- liftM sequence $ mapM (\(_,_,ty) -> allParamValues gr ty) co
-     (sm,cnt,ts) <- mkParamValues sm (cnt+length vs) ts fs
-     return (sm,cnt,map (mkApp (QC (mn,f))) vs ++ ts)
+     (sm,cnt,ts,pcs) <- mkParamValues sm c (cnt+length vs) ts pcs
+     return (sm,cnt,map (mkApp (QC (mn,p))) vs ++ ts,(p,co):pcs)
 
    checkUniq xss = case xss of
      x:y:xs
