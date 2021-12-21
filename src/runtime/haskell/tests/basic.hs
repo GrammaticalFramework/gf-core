@@ -88,7 +88,7 @@ main = do
 
   bn1 <- testLoadFailure (bootNGF "non-existing.pgf" "non-existing.ngf")
   bn2 <- testLoadFailure (bootNGF "tests/basic.gf" "tests/basic.ngf")
-  bn3 <- testLoadFailure (bootNGF "tests/basic.ngf" "tests/basic.pgf")
+  bn3 <- testLoadFailure (bootNGF "tests/basic.ngf" "tests/tmp.pgf")
 
   rn2 <- testLoadFailure (readNGF "tests/basic.gf")
   rn3 <- testLoadFailure (readNGF "tests/basic.pgf")
