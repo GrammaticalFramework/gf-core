@@ -1,3 +1,4 @@
+{-# LANGUAGE DeriveDataTypeable #-}
 module PGF2.Expr(Var, Cat, Fun, Var,
                  BindType(..), Literal(..), Expr(..),
                  Type(..), Hypo,
@@ -19,6 +20,8 @@ module PGF2.Expr(Var, Cat, Fun, Var,
 
                 ) where
 
+import Data.Data
+
 type Var = String -- ^ Name of syntactic category
 type Cat = String -- ^ Name of syntactic category
 type Fun = String -- ^ Name of function
@@ -28,13 +31,13 @@ type MetaId = Int
 data BindType = 
     Explicit
   | Implicit
-  deriving (Eq,Ord,Show)
+  deriving (Eq,Ord,Show,Data)
 
 data Literal =
    LStr String                      -- ^ string constant
  | LInt Integer                     -- ^ integer constant
  | LFlt Double                      -- ^ floating point constant
- deriving (Eq,Ord,Show)
+ deriving (Eq,Ord,Show,Data)
 
 -- | An expression in the abstract syntax of the grammar. It could be
 -- both parameter of a dependent type or an abstract syntax tree for
@@ -48,12 +51,12 @@ data Expr =
  | EVar   {-# UNPACK #-} !Int       -- ^ variable with de Bruijn index
  | ETyped Expr Type                 -- ^ local type signature
  | EImplArg Expr                    -- ^ implicit argument in expression
-  deriving (Eq,Ord,Show)
+  deriving (Eq,Ord,Show,Data)
 
 -- | To read a type from a 'String', use 'readType'.
 data Type =
    DTyp [Hypo] Cat [Expr]
-  deriving (Eq,Ord,Show)
+  deriving (Eq,Ord,Show,Data)
 
 -- | 'Hypo' represents a hypothesis in a type i.e. in the type A -> B, A is the hypothesis
 type Hypo = (BindType,Var,Type)
