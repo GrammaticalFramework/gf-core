@@ -62,7 +62,9 @@ private:
     const char *filepath;
     malloc_state* ms;
 
-#ifdef _WIN32
+#ifndef _WIN32
+    pthread_rwlock_t *rwlock;
+#else
     HANDLE hMap;
     HANDLE hRWEvent;
 #endif

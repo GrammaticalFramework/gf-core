@@ -7,9 +7,173 @@
 #ifndef _WIN32
 
 #include <sys/mman.h>
+#include <sys/stat.h>
 #include <unistd.h>
 #include <errno.h>
 #include <pthread.h>
+
+typedef struct {
+    dev_t dev;
+    ino_t ino;
+    pthread_rwlock_t rwlock;
+} lock_entry;
+
+typedef struct {
+    pthread_mutex_t mutex;
+    size_t n_entries;
+    size_t n_max_entries;
+    lock_entry entries[];
+} file_locks;
+
+static char gf_runtime_locks[] = "/gf-runtime-locks";
+
+static file_locks *locks = NULL;
+
+static
+pthread_rwlock_t *ipc_rwlock_new(const char* file_path)
+{
+    int res;
+
+    if (file_path == NULL) {
+        pthread_rwlock_t *rwlock = (pthread_rwlock_t *)
+            malloc(sizeof(pthread_rwlock_t));
+        if (rwlock == NULL)
+            throw pgf_systemerror(ENOMEM);
+        if ((res = pthread_rwlock_init(rwlock, NULL)) != 0) {
+            throw pgf_systemerror(res);
+        }
+        return rwlock;
+    }
+
+    if (locks == NULL) {
+        int created = 0;
+
+        // Uncomment if you want a clean state
+        //shm_unlink(gf_runtime_locks);
+
+        int fd =
+            shm_open(gf_runtime_locks, O_RDWR, 0);
+        if (errno == ENOENT) {
+            created = 1;
+            fd = shm_open(gf_runtime_locks, O_RDWR | O_CREAT, S_IRUSR | S_IWUSR);
+        }
+        if (fd < 0) {
+            throw pgf_systemerror(errno);
+        }
+
+        int pagesize  = getpagesize();
+
+        if (ftruncate(fd, pagesize) != 0) {
+            close(fd);
+            throw pgf_systemerror(errno);
+        }
+
+        locks = (file_locks *)
+             mmap(NULL, pagesize,
+                  PROT_READ|PROT_WRITE,
+                  MAP_SHARED,
+                  fd,0);
+        close(fd);
+        if (locks == MAP_FAILED) {
+            locks = NULL;
+            throw pgf_systemerror(errno);
+        }
+
+        if (created) {
+            pthread_mutexattr_t attr;
+            if (pthread_mutexattr_init(&attr)) {
+                throw pgf_systemerror(errno);
+            }
+            if (pthread_mutexattr_setpshared(&attr, PTHREAD_PROCESS_SHARED)) {
+                throw pgf_systemerror(errno);
+            }
+            if (pthread_mutex_init(&locks->mutex, &attr)) {
+                throw pgf_systemerror(errno);
+            }
+            pthread_mutexattr_destroy(&attr);
+
+            locks->n_entries = 0;
+            locks->n_max_entries = (pagesize-sizeof(file_locks))/sizeof(lock_entry);
+        }
+    }
+
+    struct stat s;
+    if (stat(file_path, &s) != 0) {
+        throw pgf_systemerror(errno);
+    }
+
+    pthread_mutex_lock(&locks->mutex);
+
+    lock_entry *entry = NULL;
+    for (size_t i = 0; i < locks->n_entries; i++) {
+        if (locks->entries[i].dev == 0 && locks->entries[i].ino == 0) {
+            entry = &locks->entries[i];
+        }
+        if (locks->entries[i].dev == s.st_dev && locks->entries[i].ino == s.st_ino) {
+            entry = &locks->entries[i];
+            break;
+        }
+    }
+
+    if (entry == NULL) {
+        if (locks->n_entries >= locks->n_max_entries) {
+            pthread_mutex_unlock(&locks->mutex);
+            throw pgf_error("Too many open grammars");
+        }
+
+        entry = &locks->entries[locks->n_entries++];
+
+        pthread_rwlockattr_t attr;
+        if ((res = pthread_rwlockattr_init(&attr)) != 0) {
+            pthread_mutex_unlock(&locks->mutex);
+            throw pgf_systemerror(res);
+        }
+        if ((res = pthread_rwlockattr_setpshared(&attr, PTHREAD_PROCESS_SHARED)) != 0) {
+            pthread_rwlockattr_destroy(&attr);
+            pthread_mutex_unlock(&locks->mutex);
+            throw pgf_systemerror(res);
+        }
+        if ((res = pthread_rwlock_init(&entry->rwlock, &attr)) != 0) {
+            pthread_rwlockattr_destroy(&attr);
+            pthread_mutex_unlock(&locks->mutex);
+            throw pgf_systemerror(res);
+        }
+        pthread_rwlockattr_destroy(&attr);
+    }
+
+    entry->dev = s.st_dev;
+    entry->ino = s.st_ino;
+
+    pthread_mutex_unlock(&locks->mutex);
+
+    return &entry->rwlock;
+}
+
+static
+void ipc_rwlock_destroy(const char* file_path,
+                        pthread_rwlock_t *rwlock)
+{
+    if (file_path == NULL) {
+        pthread_rwlock_destroy(rwlock);
+        free(rwlock);
+        return;
+    }
+
+    if (locks == NULL)
+        return;
+
+    pthread_mutex_lock(&locks->mutex);
+
+    for (size_t i = 0; i < locks->n_entries; i++) {
+        if (&locks->entries[i].rwlock == rwlock) {
+            locks->entries[i].dev = 0;
+            locks->entries[i].ino = 0;
+            break;
+        }
+    }
+
+    pthread_mutex_unlock(&locks->mutex);
+}
 
 #else
 
@@ -326,9 +490,7 @@ struct PGF_INTERNAL_DECL malloc_state
     ref<PgfPGF>   transient_revisions;
     ref<PgfConcr> transient_concr_revisions;
 
-#ifndef _WIN32
-    pthread_rwlock_t rwlock;
-#else
+#ifdef _WIN32
     /* Stores a Reader/Writer lock for Windows */
     LONG rwlock;
 #endif
@@ -462,6 +624,10 @@ PgfDB::PgfDB(const char* filepath, int flags, int mode) {
     }
 #endif
 
+#ifndef _WIN32
+    rwlock = ipc_rwlock_new(filepath);
+#endif
+
     if (is_new) {
         init_state(file_size);
     } else {
@@ -526,9 +692,8 @@ PgfDB::~PgfDB()
         unregister_process();
 
 #ifndef _WIN32
-        if (fd < 0) {
-            pthread_rwlock_destroy(&ms->rwlock);
-        }
+        if (ms->p.pid == 0)
+            ipc_rwlock_destroy(filepath, rwlock);
 #endif
 
         size_t size =
@@ -690,25 +855,7 @@ void PgfDB::init_state(size_t size)
     ms->transient_revisions = 0;
     ms->transient_concr_revisions = 0;
 
-#ifndef _WIN32
-    int code;
-    pthread_rwlockattr_t attr;
-    if ((code = pthread_rwlockattr_init(&attr)) != 0) {
-        throw pgf_systemerror(code);
-    }
-    if (fd >= 0) {
-        if ((code = pthread_rwlockattr_setpshared(&attr, PTHREAD_PROCESS_SHARED)) != 0) {
-            pthread_rwlockattr_destroy(&attr);
-            throw pgf_systemerror(code);
-        }
-    }
-    memset(&ms->rwlock, 0, sizeof(ms->rwlock)); // Apparently this is needed for MacOS
-    if ((code = pthread_rwlock_init(&ms->rwlock, &attr)) != 0) {
-        pthread_rwlockattr_destroy(&attr);
-        throw pgf_systemerror(code);
-    }
-    pthread_rwlockattr_destroy(&attr);
-#else
+#ifdef _WIN32
     ms->rwlock = 0;
 #endif
     ms->p.pid  = getpid();
@@ -1494,8 +1641,8 @@ void PgfDB::lock(DB_scope_mode m)
 {
 #ifndef _WIN32
     int res =
-        (m == READER_SCOPE) ? pthread_rwlock_rdlock(&ms->rwlock)
-                            : pthread_rwlock_wrlock(&ms->rwlock);
+        (m == READER_SCOPE) ? pthread_rwlock_rdlock(rwlock)
+                            : pthread_rwlock_wrlock(rwlock);
     if (res != 0)
         throw pgf_systemerror(res);
 #else
@@ -1536,7 +1683,7 @@ void PgfDB::lock(DB_scope_mode m)
 void PgfDB::unlock()
 {
 #ifndef _WIN32
-    pthread_rwlock_unlock(&ms->rwlock);
+    pthread_rwlock_unlock(rwlock);
 #else
     while (true) {
         unsigned __int32 temp = ms->rwlock;
