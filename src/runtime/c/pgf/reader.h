@@ -44,6 +44,9 @@ public:
     template<class V>
     Namespace<V> read_namespace(ref<V> (PgfReader::*read_value)());
 
+    template<class V>
+    void merge_namespace(ref<V> (PgfReader::*read_value)());
+
     template <class C, class V>
     ref<C> read_vector(Vector<V> C::* field, void (PgfReader::*read_value)(ref<V> val));
 
@@ -62,6 +65,7 @@ public:
     ref<PgfAbsFun> read_absfun();
     ref<PgfAbsCat> read_abscat();
     void read_abstract(ref<PgfAbstr> abstract);
+    void merge_abstract(ref<PgfAbstr> abstract);
 
     ref<PgfConcrLincat> read_lincat();
     ref<PgfLParam> read_lparam();
@@ -75,6 +79,7 @@ public:
     ref<PgfConcr> read_concrete();
 
     ref<PgfPGF> read_pgf();
+    void merge_pgf(ref<PgfPGF> pgf);
 
 private:
     FILE *in;

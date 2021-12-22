@@ -169,6 +169,16 @@ Namespace<V> PgfReader::read_namespace(ref<V> (PgfReader::*read_value)())
     return read_namespace(read_value, len);
 }
 
+template<class V>
+void PgfReader::merge_namespace(ref<V> (PgfReader::*read_value)())
+{
+    size_t len = read_len();
+    for (size_t i = 0; i < len; i++) {
+        ref<V> value = (this->*read_value)();
+        V::release(value);
+    }
+}
+
 template <class C, class V>
 ref<C> PgfReader::read_vector(Vector<V> C::* field, void (PgfReader::*read_value)(ref<V> val))
 {
@@ -369,6 +379,16 @@ void PgfReader::read_abstract(ref<PgfAbstr> abstract)
 	abstract->aflags = read_namespace<PgfFlag>(&PgfReader::read_flag);
     abstract->funs = read_namespace<PgfAbsFun>(&PgfReader::read_absfun);
     abstract->cats = read_namespace<PgfAbsCat>(&PgfReader::read_abscat);
+}
+
+void PgfReader::merge_abstract(ref<PgfAbstr> abstract)
+{
+    this->abstract = abstract;
+
+    read_name(); // ?
+	merge_namespace<PgfFlag>(&PgfReader::read_flag); // ?
+    merge_namespace<PgfAbsFun>(&PgfReader::read_absfun); // ?
+    merge_namespace<PgfAbsCat>(&PgfReader::read_abscat); // ?
 }
 
 ref<PgfLParam> PgfReader::read_lparam()
@@ -596,4 +616,28 @@ ref<PgfPGF> PgfReader::read_pgf()
     memcpy(&pgf->name.text, master_text, master_size+1);
 
     return pgf;
+}
+
+void PgfReader::merge_pgf(ref<PgfPGF> pgf)
+{
+    uint16_t major_version = read_u16be();
+    uint16_t minor_version = read_u16be();
+
+    if (pgf->major_version != PGF_MAJOR_VERSION ||
+        pgf->minor_version != PGF_MINOR_VERSION) {
+        throw pgf_error("Unsupported format version");
+    }
+
+    merge_namespace<PgfFlag>(&PgfReader::read_flag); // ??
+
+    merge_abstract(ref<PgfAbstr>::from_ptr(&pgf->abstract));
+
+    size_t len = read_len();
+    for (size_t i = 0; i < len; i++) {
+        ref<PgfConcr> concr = PgfReader::read_concrete();
+        Namespace<PgfConcr> concrs =
+            namespace_insert(pgf->concretes, concr);
+        namespace_release(pgf->concretes);
+        pgf->concretes = concrs;
+    }
 }

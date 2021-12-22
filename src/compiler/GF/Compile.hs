@@ -28,13 +28,13 @@ import PGF2(PGF,readProbabilitiesFromFile)
 
 -- | Compiles a number of source files and builds a 'PGF' structure for them.
 -- This is a composition of 'link' and 'batchCompile'.
-compileToPGF :: Options -> [FilePath] -> IOE PGF
-compileToPGF opts fs = link opts . snd =<< batchCompile opts fs
+compileToPGF :: Options -> Maybe PGF -> [FilePath] -> IOE PGF
+compileToPGF opts mb_pgf fs = link opts mb_pgf . snd =<< batchCompile opts fs
 
 -- | Link a grammar into a 'PGF' that can be used to 'PGF.linearize' and
 -- 'PGF.parse' with the "PGF" run-time system.
-link :: Options -> (ModuleName,Grammar) -> IOE PGF
-link opts (cnc,gr) =
+link :: Options -> Maybe PGF -> (ModuleName,Grammar) -> IOE PGF
+link opts mb_pgf (cnc,gr) =
   putPointE Normal opts "linking ... " $ do
     let abs = srcAbsName gr cnc
 
@@ -44,7 +44,7 @@ link opts (cnc,gr) =
     warnOut opts warnings
 
     probs <- liftIO (maybe (return Map.empty) readProbabilitiesFromFile (flag optProbsFile opts))
-    pgf <- grammar2PGF opts gr' abs probs
+    pgf <- grammar2PGF opts mb_pgf gr' abs probs
     when (verbAtLeast opts Normal) $ putStrE "OK"
     return pgf
 
@@ -62,22 +62,11 @@ batchCompile opts files = do
   let cnc = moduleNameS (justModuleName (last files))
       t = maximum . map fst $ Map.elems menv
   return (t,(cnc,gr))
-{-
--- to compile a set of modules, e.g. an old GF or a .cf file
-compileSourceGrammar :: Options -> Grammar -> IOE Grammar
-compileSourceGrammar opts gr = do
-  cwd <- getCurrentDirectory
-  (_,gr',_) <- foldM (\env -> compileSourceModule opts cwd env Nothing)
-                     emptyCompileEnv
-                     (modules gr)
-  return gr'
--}
 
 -- | compile with one module as starting point
 -- command-line options override options (marked by --#) in the file
 -- As for path: if it is read from file, the file path is prepended to each name.
 -- If from command line, it is used as it is.
-
 compileModule :: Options -- ^ Options from program command line and shell command.
               -> CompileEnv -> FilePath -> IOE CompileEnv
 compileModule opts1 env@(_,rfs) file =

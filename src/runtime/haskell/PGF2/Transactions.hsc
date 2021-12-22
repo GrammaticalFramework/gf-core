@@ -19,6 +19,7 @@ module PGF2.Transactions
           , createConcrete
           , alterConcrete
           , dropConcrete
+          , mergePGF
           , setConcreteFlag
           , createLincat
           , dropLincat
@@ -167,6 +168,11 @@ dropConcrete :: ConcName -> Transaction PGF ()
 dropConcrete name = Transaction $ \c_db _ c_revision c_exn ->
   withText name $ \c_name -> do
     pgf_drop_concrete c_db c_revision c_name c_exn
+
+mergePGF :: FilePath -> Transaction PGF ()
+mergePGF fpath = Transaction $ \c_db _ c_revision c_exn ->
+  withCString fpath $ \c_fpath ->
+    pgf_merge_pgf c_db c_revision c_fpath c_exn
 
 setGlobalFlag :: String -> Literal -> Transaction PGF ()
 setGlobalFlag name value = Transaction $ \c_db _ c_revision c_exn ->

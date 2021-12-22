@@ -1,6 +1,7 @@
-module GF.Compiler (mainGFC, linkGrammars, writeGrammar, writeOutputs) where
+module GF.Compiler (mainGFC, writeGrammar, writeOutputs) where
 
 import PGF2
+import PGF2.Transactions
 import GF.Compile as S(batchCompile,link,srcAbsName)
 import GF.CompileInParallel as P(parallelBatchCompile)
 import GF.Compile.Export
@@ -25,7 +26,7 @@ import qualified Data.Set as Set
 import qualified Data.ByteString.Lazy as BSL
 import GF.Grammar.CanonicalJSON (encodeJSON)
 import System.FilePath
-import Control.Monad(when,unless,forM_)
+import Control.Monad(when,unless,forM_,foldM)
 
 -- | Compile the given GF grammar files. The result is a number of @.gfo@ files
 -- and, depending on the options, a @.pgf@ file. (@gf -batch@, @gf -make@)
@@ -95,7 +96,8 @@ compileSourceFiles opts fs =
 -- If a @.pgf@ file by the same name already exists and it is newer than the
 -- source grammar files (as indicated by the 'UTCTime' argument), it is not
 -- recreated. Calls 'writeGrammar' and 'writeOutputs'.
-linkGrammars opts (t_src,~cnc_grs@(~(cnc,gr):_)) =
+linkGrammars opts (t_src,[])                      = return ()
+linkGrammars opts (t_src,cnc_gr@(cnc,gr):cnc_grs) =
     do let abs = render (srcAbsName gr cnc)
            pgfFile = outputPath opts (grammarName' opts abs<.>"pgf")
        t_pgf <- if outputJustPGF opts
@@ -103,8 +105,8 @@ linkGrammars opts (t_src,~cnc_grs@(~(cnc,gr):_)) =
                 else return Nothing
        if t_pgf >= Just t_src
          then putIfVerb opts $ pgfFile ++ " is up-to-date."
-         else do pgfs <- mapM (link opts) cnc_grs
-                 let pgf = foldl1 (\one two -> fromMaybe two (unionPGF one two)) pgfs
+         else do pgf <- link opts Nothing cnc_gr
+                 pgf <- foldM (link opts . Just) pgf cnc_grs
                  writeGrammar opts pgf
                  writeOutputs opts pgf
 
@@ -136,18 +138,29 @@ unionPGFFiles opts fs =
            else doIt
 
     doIt =
-      do pgfs <- mapM readPGFVerbose fs
-         let pgf = foldl1 (\one two -> fromMaybe two (unionPGF one two)) pgfs
-         let pgfFile = outputPath opts (grammarName opts pgf <.> "pgf")
-         if pgfFile `elem` fs
-           then putStrLnE $ "Refusing to overwrite " ++ pgfFile
-           else writeGrammar opts pgf
-         writeOutputs opts pgf
+      case fs of
+        []     -> return ()
+        (f:fs) -> do pgf <- if snd (flag optLinkTargets opts)
+                              then case flag optName opts of
+                                     Just name -> do let fname = maybe id (</>) (flag optOutputDir opts) (name<.>"ngf")
+                                                     putStrLnE ("(Boot image "++fname++")")
+                                                     exists <- doesFileExist fname
+                                                     if exists
+                                                       then removeFile fname
+                                                       else return ()
+                                                     echo (\f -> bootNGF f fname) f
+                                     Nothing   -> do putStrLnE $ "To boot from a list of .pgf files add option -name"
+                                                     echo readPGF f
+                              else echo readPGF f
+                     pgf <- foldM (\pgf -> echo (modifyPGF pgf . mergePGF)) pgf fs
+                     let pgfFile = outputPath opts (grammarName opts pgf <.> "pgf")
+                     if pgfFile `elem` fs
+                       then putStrLnE $ "Refusing to overwrite " ++ pgfFile
+                       else writeGrammar opts pgf
+                     writeOutputs opts pgf
 
-    readPGFVerbose f =
-        putPointE Normal opts ("Reading " ++ f ++ "...") $ liftIO $ readPGF f
+    echo read f = putPointE Normal opts ("Reading " ++ f ++ "...") (liftIO (read f))
 
-unionPGF = error "TODO: unionPGF"
 
 -- | Export the PGF to the 'OutputFormat's specified in the 'Options'.
 -- Calls 'exportPGF'.

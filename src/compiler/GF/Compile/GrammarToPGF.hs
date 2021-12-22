@@ -29,22 +29,23 @@ import Data.Maybe(fromMaybe)
 import System.FilePath
 import System.Directory
 
-grammar2PGF :: Options -> SourceGrammar -> ModuleName -> Map.Map PGF2.Fun Double -> IO PGF
-grammar2PGF opts gr am probs = do
-  let abs_name = mi2i am
-  mb_ngf_path <-
-     if snd (flag optLinkTargets opts)
-       then do let fname = maybe id (</>)
-                                 (flag optOutputDir opts)
-                                 (fromMaybe abs_name (flag optName opts)<.>"ngf")
-               exists <- doesFileExist fname
-               if exists
-                 then removeFile fname
-                 else return ()
-               putStr ("(Boot image "++fname++") ")
-               return (Just fname)
-       else do return Nothing
-  pgf <- newNGF abs_name mb_ngf_path
+grammar2PGF :: Options -> Maybe PGF -> SourceGrammar -> ModuleName -> Map.Map PGF2.Fun Double -> IO PGF
+grammar2PGF opts mb_pgf gr am probs = do
+  pgf <- case mb_pgf of
+           Nothing  -> let abs_name = mi2i am
+                       in if snd (flag optLinkTargets opts)
+                            then do let fname = maybe id (</>)
+                                                      (flag optOutputDir opts)
+                                                      (fromMaybe abs_name (flag optName opts)<.>"ngf")
+                                    exists <- doesFileExist fname
+                                    if exists
+                                      then removeFile fname
+                                      else return ()
+                                    putStr ("(Boot image "++fname++") ")
+                                    newNGF abs_name (Just fname)
+                            else newNGF abs_name Nothing
+           Just pgf -> return pgf
+
   pgf <- modifyPGF pgf $ do
     sequence_ [setAbstractFlag name value | (name,value) <- optionsPGF aflags]
     sequence_ [createCategory c ctxt p | (c,ctxt,p) <- cats]

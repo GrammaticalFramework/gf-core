@@ -257,6 +257,11 @@ PgfDB *pgf_new_ngf(PgfText *abstract_name,
                    PgfRevision *revision,
                    PgfExn* err);
 
+PGF_API
+void pgf_merge_pgf(PgfDB *db, PgfRevision revision,
+                   const char* fpath,
+                   PgfExn* err);
+
 PGF_API_DECL
 void pgf_write_pgf(const char* fpath,
                    PgfDB *db, PgfRevision revision,

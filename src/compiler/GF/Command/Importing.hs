@@ -1,6 +1,7 @@
 module GF.Command.Importing (importGrammar, importSource) where
 
 import PGF2
+import PGF2.Transactions
 
 import GF.Compile
 import GF.Compile.Multi (readMulti)
@@ -21,35 +22,32 @@ import Control.Monad(foldM)
 
 -- import a grammar in an environment where it extends an existing grammar
 importGrammar :: Maybe PGF -> Options -> [FilePath] -> IO (Maybe PGF)
-importGrammar pgf0 _    []    = return pgf0
-importGrammar pgf0 opts files =
-  case takeExtensions (last files) of
-    ".cf"   -> fmap Just $ importCF opts files getBNFCRules bnfc2cf
-    ".ebnf" -> fmap Just $ importCF opts files getEBNFRules ebnf2cf
-    ".gfm"  -> do
-      ascss <- mapM readMulti files
-      let cs = concatMap snd ascss
-      importGrammar pgf0 opts cs
-    s | elem s [".gf",".gfo"] -> do
-      res <- tryIOE $ compileToPGF opts files
-      case res of
-        Ok pgf2 -> ioUnionPGF pgf0 pgf2
-        Bad msg -> do putStrLn ('\n':'\n':msg)
-                      return pgf0
-    ".pgf" -> do
-      mapM readPGF files >>= foldM ioUnionPGF pgf0
-    ".ngf" -> do
-      mapM readNGF files >>= foldM ioUnionPGF pgf0
-    ext -> die $ "Unknown filename extension: " ++ show ext
+importGrammar pgf0 _    [] = return pgf0
+importGrammar pgf0 opts fs
+  | all (extensionIs ".cf")   fs = fmap Just $ importCF opts fs getBNFCRules bnfc2cf
+  | all (extensionIs ".ebnf") fs = fmap Just $ importCF opts fs getEBNFRules ebnf2cf
+  | all (extensionIs ".gfm")  fs = do
+        ascss <- mapM readMulti fs
+        let cs = concatMap snd ascss
+        importGrammar pgf0 opts cs
+  | all (\f -> extensionIs ".gf" f || extensionIs ".gfo" f) fs = do
+        res <- tryIOE $ compileToPGF opts pgf0 fs
+        case res of
+          Ok pgf  -> return (Just pgf)
+          Bad msg -> do putStrLn ('\n':'\n':msg)
+                        return pgf0
+  | all (extensionIs ".pgf") fs = foldM importPGF pgf0 fs
+  | all (extensionIs ".ngf") fs = do
+        case fs of
+          [f] -> fmap Just $ readNGF f
+          _   -> die $ "Only one .ngf file could be loaded at a time"
+  | otherwise =  die $ "Don't know what to do with these input files: " ++ unwords fs
+  where
+    extensionIs ext = (== ext) .  takeExtension
 
-ioUnionPGF :: Maybe PGF -> PGF -> IO (Maybe PGF)
-ioUnionPGF Nothing    two = return (Just two)
-ioUnionPGF (Just one) two =
-  case unionPGF one two of
-    Nothing         -> putStrLn "Abstract changed, previous concretes discarded." >> return (Just two)
-    Just pgf        -> return (Just pgf)
-
-unionPGF = error "TODO: unionPGF"
+importPGF :: Maybe PGF -> FilePath -> IO (Maybe PGF)
+importPGF Nothing    f = fmap Just (readPGF f)
+importPGF (Just pgf) f = fmap Just (modifyPGF pgf (mergePGF f))
 
 importSource :: Options -> [FilePath] -> IO SourceGrammar
 importSource opts files = fmap (snd.snd) (batchCompile opts files)

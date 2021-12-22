@@ -214,6 +214,33 @@ PgfDB *pgf_new_ngf(PgfText *abstract_name,
 }
 
 PGF_API
+void pgf_merge_pgf(PgfDB *db, PgfRevision revision,
+                   const char* fpath,
+                   PgfExn* err)
+{
+    FILE *in = NULL;
+
+    PGF_API_BEGIN {
+        in = fopen(fpath, "rb");
+        if (!in) {
+            throw pgf_systemerror(errno, fpath);
+        }
+
+        {
+            DB_scope scope(db, WRITER_SCOPE);
+            ref<PgfPGF> pgf = PgfDB::revision2pgf(revision);
+
+            PgfReader rdr(in);
+            rdr.merge_pgf(pgf);
+        }
+    } PGF_API_END
+
+end:
+    if (in != NULL)
+        fclose(in);
+}
+
+PGF_API
 void pgf_write_pgf(const char* fpath,
                    PgfDB *db, PgfRevision revision,
                    PgfExn* err)
