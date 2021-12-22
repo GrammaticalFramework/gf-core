@@ -134,7 +134,6 @@ PgfDB *pgf_read_ngf(const char *fpath,
 {
     PgfDB *db = NULL;
 
-    bool is_new = false;
     PGF_API_BEGIN {
         db = new PgfDB(fpath, O_RDWR, 0);
 
@@ -154,11 +153,8 @@ PgfDB *pgf_read_ngf(const char *fpath,
         return db;
     } PGF_API_END
 
-    if (db != NULL) {
+    if (db != NULL)
         delete db;
-        if (is_new)
-            remove(fpath);
-    }
 
     return NULL;
 }
