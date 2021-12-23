@@ -719,6 +719,22 @@ PgfType pgf_read_type(PgfText *input, PgfUnmarshaller *u)
 }
 
 PGF_API
+PgfTypeHypo *pgf_read_context(PgfText *input, PgfUnmarshaller *u, size_t *n_hypos)
+{
+    PgfExprParser parser(input, u);
+    PgfTypeHypo *res = parser.parse_context(n_hypos);
+    if (!parser.eof()) {
+        for (size_t i = 0; i < *n_hypos; i++) {
+            free(res[i].cid);
+            u->free_ref(res[i].type);
+        }
+        *n_hypos = (size_t) -1;
+        return NULL;
+    }
+    return res;
+}
+
+PGF_API
 PgfText *pgf_print_category_internal(object o)
 {
     ref<PgfAbsCat> abscat = o;

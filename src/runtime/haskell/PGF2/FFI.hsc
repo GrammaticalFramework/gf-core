@@ -96,8 +96,9 @@ foreign import ccall "pgf_print_type"
 
 foreign import ccall pgf_print_context :: CSize -> Ptr PgfTypeHypo -> Ptr PgfPrintContext -> CInt -> Ptr PgfMarshaller -> IO (Ptr PgfText)
 
-foreign import ccall "pgf_read_type"
-  pgf_read_type :: Ptr PgfText -> Ptr PgfUnmarshaller -> IO (StablePtr Type)
+foreign import ccall pgf_read_type :: Ptr PgfText -> Ptr PgfUnmarshaller -> IO (StablePtr Type)
+
+foreign import ccall pgf_read_context :: Ptr PgfText -> Ptr PgfUnmarshaller -> Ptr CSize -> IO (Ptr PgfTypeHypo)
 
 foreign import ccall pgf_print_start_cat_internal :: Ptr PgfDB -> Ptr PGF -> Ptr PgfExn -> IO (Ptr PgfText)
 

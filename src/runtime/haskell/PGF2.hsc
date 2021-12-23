@@ -41,14 +41,14 @@ module PGF2 (-- * PGF
 
              -- ** Types
              Type(..), Hypo, BindType(..), startCat,
-             readType, showType, showContext,
+             readType, showType, readContext, showContext,
              mkType, unType,
              mkHypo, mkDepHypo, mkImplHypo,
 
              -- ** Type checking
              -- | Dynamically-built expressions should always be type-checked before using in other functions,
              -- as the exceptions thrown by using invalid expressions may not catchable.
-             checkExpr, inferExpr, checkType,
+             checkExpr, inferExpr, checkType, checkContext,
 
              -- ** Computing
              compute,
@@ -406,7 +406,12 @@ inferExpr p e =
 -- syntax of the grammar.
 checkType :: PGF -> Type -> Either String Type
 checkType pgf ty = Right ty
-  
+
+-- | Check whether a context is consistent with the abstract
+-- syntax of the grammar.
+checkContext :: PGF -> [Hypo] -> Either String [Hypo]
+checkContext pgf ctxt = Right ctxt
+
 compute :: PGF -> Expr -> Expr
 compute = error "TODO: compute"
 
@@ -1333,6 +1338,38 @@ readType str =
       else do ty <- deRefStablePtr c_ty
               freeStablePtr c_ty
               return (Just ty)
+
+readContext :: String -> Maybe [Hypo]
+readContext str =
+  unsafePerformIO $
+  withText str $ \c_str ->
+  withForeignPtr unmarshaller $ \u ->
+  alloca $ \p_n_hypos -> do
+    c_hypos <- pgf_read_context c_str u p_n_hypos
+    n_hypos <- peek p_n_hypos
+    if c_hypos == nullPtr && n_hypos /= 0
+      then return Nothing
+      else do hypos <- peekHypos (castPtrToStablePtr nullPtr) n_hypos c_hypos
+              free c_hypos
+              return (Just hypos)
+  where
+    peekHypos last 0       p_hypo = do
+      if last /= castPtrToStablePtr nullPtr
+        then freeStablePtr last
+        else return ()
+      return []
+    peekHypos last n_hypos p_hypo = do
+      bt  <- fmap unmarshalBindType ((#peek PgfTypeHypo, bind_type) p_hypo)
+      c_cid <- (#peek PgfTypeHypo, cid) p_hypo
+      cid <- peekText c_cid
+      free c_cid
+      c_ty <- (#peek PgfTypeHypo, type) p_hypo
+      ty <- deRefStablePtr c_ty
+      if last /= c_ty
+        then freeStablePtr last
+        else return ()
+      hs  <- peekHypos c_ty (n_hypos-1) (p_hypo `plusPtr` (#size PgfTypeHypo))
+      return ((bt,cid,ty):hs)
 
 readProbabilitiesFromFile :: FilePath -> IO (Map.Map String Double)
 readProbabilitiesFromFile fpath = do

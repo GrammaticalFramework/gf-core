@@ -1,6 +1,6 @@
 module GF.Command.Abstract(module GF.Command.Abstract,Expr,showExpr,Literal(..),Term) where
 
-import PGF2(Expr,showExpr,Literal(..),Type)
+import PGF2
 import GF.Grammar.Grammar(Term)
 
 type Ident = String
@@ -14,8 +14,10 @@ data Command
    deriving Show
 
 data TransactionCommand
-   = CreateFun [Option] Ident Type
-   | DropFun [Option] Ident
+   = CreateFun [Option] Fun Type
+   | CreateCat [Option] Cat [Hypo]
+   | DropFun [Option] Fun
+   | DropCat [Option] Cat
    deriving Show
 
 data Option

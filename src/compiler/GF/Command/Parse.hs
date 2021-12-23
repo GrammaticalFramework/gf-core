@@ -1,7 +1,7 @@
 module GF.Command.Parse(readCommandLine, readTransactionCommand, pCommand) where
 
 import PGF(pExpr,pIdent)
-import PGF2(readType)
+import PGF2(readType,readContext)
 import GF.Grammar.Parser(runPartial,pTerm)
 import GF.Command.Abstract
 
@@ -63,6 +63,16 @@ pTransactionCommand = do
           | take 1 cmd == "d" -> do
                 f <- pIdent
                 return (DropFun opts f)
+    "cat" | take 1 cmd == "c" -> do
+               c <- pIdent
+               skipSpaces
+               ctxt <- readS_to_P (\s -> case readContext s of
+                                           Just ty -> [(ty,"")]
+                                           Nothing -> [])
+               return (CreateCat opts c ctxt)
+          | take 1 cmd == "d" -> do
+                c <- pIdent
+                return (DropCat opts c)
     _     -> pfail
 
 pOption = do

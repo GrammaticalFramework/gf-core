@@ -376,7 +376,10 @@ PgfText *pgf_print_context(size_t n_hypos, PgfTypeHypo *hypos,
 PGF_API_DECL
 PgfType pgf_read_type(PgfText *input, PgfUnmarshaller *u);
 
-PGF_API
+PGF_API_DECL
+PgfTypeHypo *pgf_read_context(PgfText *input, PgfUnmarshaller *u, size_t *n_hypos);
+
+PGF_API_DECL
 PgfText *pgf_print_start_cat_internal(PgfDB *db, PgfRevision revision, PgfExn *err);
 
 PGF_API_DECL

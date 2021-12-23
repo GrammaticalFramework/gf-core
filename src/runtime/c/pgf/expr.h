@@ -185,6 +185,7 @@ public:
 
     bool parse_hypos(size_t *n_hypos, PgfTypeHypo **hypos);
     PgfType parse_type();
+    PgfTypeHypo *parse_context(size_t *p_n_hypos);
 
     bool eof();
 

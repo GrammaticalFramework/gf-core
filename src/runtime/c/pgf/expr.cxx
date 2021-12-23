@@ -1025,6 +1025,72 @@ exit:
     return type;
 }
 
+PgfTypeHypo *PgfExprParser::parse_context(size_t *p_n_hypos)
+{
+    size_t n_hypos = 0;
+    PgfTypeHypo *hypos = NULL;
+
+	for (;;) {
+		if (token_tag == PGF_TOKEN_LPAR) {
+			token();
+
+            size_t n_start = n_hypos;
+
+			if ((token_tag == PGF_TOKEN_IDENT &&
+			     (lookahead(',') ||
+				  lookahead(':'))) ||
+				(token_tag == PGF_TOKEN_LCURLY) ||
+				(token_tag == PGF_TOKEN_WILD)) {
+
+				if (!parse_hypos(&n_hypos, &hypos))
+					goto exit;
+
+				if (token_tag != PGF_TOKEN_COLON)
+					goto exit;
+
+				token();
+			} else {
+                hypos = (PgfTypeHypo*) realloc(hypos, sizeof(PgfTypeHypo)*(n_hypos+1));
+                PgfTypeHypo *bt = &hypos[n_hypos];
+                bt->bind_type = PGF_BIND_TYPE_EXPLICIT;
+                bt->cid  = mk_wildcard();
+                bt->type = 0;
+                n_hypos++;
+			}
+
+            size_t n_end = n_hypos;
+
+			PgfType type = parse_type();
+			if (type == 0)
+				goto exit;
+
+			if (token_tag != PGF_TOKEN_RPAR)
+				goto exit;
+
+			token();
+
+			for (size_t i = n_start; i < n_end; i++) {
+				hypos[i].type = type;
+			}
+		} else if (token_tag == PGF_TOKEN_IDENT) {
+            hypos = (PgfTypeHypo*) realloc(hypos, sizeof(PgfTypeHypo)*(n_hypos+1));
+            PgfTypeHypo *bt = &hypos[n_hypos];
+            bt->bind_type = PGF_BIND_TYPE_EXPLICIT;
+            bt->cid  = mk_wildcard();
+            bt->type = u->dtyp(0,NULL,token_value,0,NULL);
+            n_hypos++;
+
+            token();
+		} else {
+            goto exit;
+        }
+	}
+
+exit:
+    *p_n_hypos = n_hypos;
+    return hypos;
+}
+
 PgfExpr PgfExprProbEstimator::eabs(PgfBindType bind_type, PgfText *name, PgfExpr body)
 {
     m->match_expr(this, body);

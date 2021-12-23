@@ -236,8 +236,17 @@ transactionCommand (CreateFun opts f ty) pgf = do
     Left msg -> putStrLnE msg
     Right ty -> do lift $ modifyPGF pgf (createFunction f ty 0 [] prob)
                    return ()
+transactionCommand (CreateCat opts c ctxt) pgf = do
+  let prob = realToFrac (valFltOpts "prob" (1/0) opts)
+  case checkContext pgf ctxt of
+    Left msg -> putStrLnE msg
+    Right ty -> do lift $ modifyPGF pgf (createCategory c ctxt prob)
+                   return ()
 transactionCommand (DropFun opts f) pgf = do
   lift $ modifyPGF pgf (dropFunction f)
+  return ()
+transactionCommand (DropCat opts c) pgf = do
+  lift $ modifyPGF pgf (dropCategory c)
   return ()
 
 -- | Commands that work on 'GFEnv'
