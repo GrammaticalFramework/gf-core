@@ -255,21 +255,25 @@ PgfExpr PgfReader::read_expr()
         PgfBindType bind_type = (PgfBindType) read_tag();
         ref<PgfExprAbs> eabs = read_name(&PgfExprAbs::name);
         eabs->bind_type = bind_type;
-        eabs->body = read_expr();
+        PgfExpr body = read_expr();
+        eabs->body = body;
         expr = ref<PgfExprAbs>::tagged(eabs);
 		break;
 	}
 	case PgfExprApp::tag: {
+        PgfExpr fun = read_expr();
+        PgfExpr arg = read_expr();
         ref<PgfExprApp> eapp = PgfDB::malloc<PgfExprApp>();
-		eapp->fun = read_expr();
-		eapp->arg = read_expr();
+        eapp->fun = fun;
+        eapp->arg = arg;
         expr = ref<PgfExprApp>::tagged(eapp);
 		break;
 	}
 	case PgfExprLit::tag: {
+        PgfExpr lit = read_literal();
         ref<PgfExprLit> elit = PgfDB::malloc<PgfExprLit>();
-		elit->lit = read_literal();
-		expr = ref<PgfExprLit>::tagged(elit);
+        elit->lit = lit;
+        expr = ref<PgfExprLit>::tagged(elit);
 		break;
 	}
 	case PgfExprMeta::tag: {
@@ -290,15 +294,18 @@ PgfExpr PgfReader::read_expr()
 		break;
 	}
 	case PgfExprTyped::tag: {
+        auto expr = read_expr();
+        auto type = read_type();
         ref<PgfExprTyped> etyped = PgfDB::malloc<PgfExprTyped>();
-		etyped->expr = read_expr();
-		etyped->type = read_type();
+        etyped->expr = expr;
+        etyped->type = type;
         expr = ref<PgfExprTyped>::tagged(etyped);
-		break;
+        break;
 	}
 	case PgfExprImplArg::tag: {
+        auto expr = read_expr();
         ref<PgfExprImplArg> eimpl = current_db->malloc<PgfExprImplArg>();
-		eimpl->expr = read_expr();
+        eimpl->expr = expr;
         expr = ref<PgfExprImplArg>::tagged(eimpl);
 		break;
 	}
@@ -312,18 +319,21 @@ PgfExpr PgfReader::read_expr()
 void PgfReader::read_hypo(ref<PgfHypo> hypo)
 {
     hypo->bind_type = (PgfBindType) read_tag();
-	hypo->cid = read_name();
-	hypo->type = read_type();
+    auto cid = read_name();
+    hypo->cid = cid;
+    auto type = read_type();
+    hypo->type = type;
 }
 
 ref<PgfDTyp> PgfReader::read_type()
 {
-    ref<Vector<PgfHypo>> hypos =
+    auto hypos =
         read_vector<PgfHypo>(&PgfReader::read_hypo);
     ref<PgfDTyp> tp = read_name<PgfDTyp>(&PgfDTyp::name);
     tp->hypos = hypos;
-    tp->exprs =
+    auto exprs =
         read_vector<PgfExpr>(&PgfReader::read_expr);
+    tp->exprs = exprs;
     return tp;
 }
 
