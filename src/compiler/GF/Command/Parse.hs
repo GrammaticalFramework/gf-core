@@ -1,7 +1,9 @@
 module GF.Command.Parse(readCommandLine, readTransactionCommand, pCommand) where
 
 import PGF(pExpr,pIdent)
-import PGF2(readType,readContext)
+import PGF2(BindType(..),readType,readContext)
+import GF.Infra.Ident(identS)
+import GF.Grammar.Grammar(Term(Abs))
 import GF.Grammar.Parser(runPartial,pTerm)
 import GF.Command.Abstract
 
@@ -73,6 +75,33 @@ pTransactionCommand = do
           | take 1 cmd == "d" -> do
                 c <- pIdent
                 return (DropCat opts c)
+    "lin" | take 1 cmd == "c" -> do
+               f <- pIdent
+               skipSpaces
+               args <- sepBy pIdent skipSpaces
+               skipSpaces
+               char '='
+               skipSpaces
+               t  <- readS_to_P (\s -> case runPartial pTerm s of
+                                         Right (s,t) -> [(t,s)]
+                                         _ -> [])
+               return (CreateLin opts f (foldr (Abs Explicit . identS) t args))
+          | take 1 cmd == "d" -> do
+                f <- pIdent
+                return (DropLin opts f)
+    "lincat"
+          | take 1 cmd == "c" -> do
+               f <- pIdent
+               skipSpaces
+               char '='
+               skipSpaces
+               t  <- readS_to_P (\s -> case runPartial pTerm s of
+                                         Right (s,t) -> [(t,s)]
+                                         _ -> [])
+               return (CreateLincat opts f t)
+          | take 1 cmd == "d" -> do
+                f <- pIdent
+                return (DropLincat opts f)
     _     -> pfail
 
 pOption = do

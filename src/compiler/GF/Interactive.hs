@@ -242,12 +242,45 @@ transactionCommand (CreateCat opts c ctxt) pgf = do
     Left msg -> putStrLnE msg
     Right ty -> do lift $ modifyPGF pgf (createCategory c ctxt prob)
                    return ()
+transactionCommand (CreateLin opts f t) pgf = do
+  lang <- optLang pgf opts
+  lift $ modifyPGF pgf (alterConcrete lang (createLin f []))
+  return ()
+transactionCommand (CreateLincat opts c t) pgf = do
+  lang <- optLang pgf opts
+  lift $ modifyPGF pgf (alterConcrete lang (createLincat c [] [] []))
+  return ()
 transactionCommand (DropFun opts f) pgf = do
   lift $ modifyPGF pgf (dropFunction f)
   return ()
 transactionCommand (DropCat opts c) pgf = do
   lift $ modifyPGF pgf (dropCategory c)
   return ()
+transactionCommand (DropLin opts f) pgf = do
+  lang <- optLang pgf opts
+  lift $ modifyPGF pgf (alterConcrete lang (dropLin f))
+  return ()
+transactionCommand (DropLincat opts c) pgf = do
+  lang <- optLang pgf opts
+  lift $ modifyPGF pgf (alterConcrete lang (dropLincat c))
+  return ()
+
+optLang pgf opts =
+  case Map.keys (languages pgf) of
+    [lang] -> completeLang (valStrOpts "lang" lang opts)
+    _      -> case valStrOpts "lang" "" opts of
+                ""   -> fail "Specify a language to change"
+                lang -> completeLang lang
+  where
+    langs = languages pgf
+
+    completeLang la
+      | Map.member la  langs = return la
+      | Map.member la' langs = return la'
+      | otherwise            = fail "Unknown language"
+      where
+        la' = abstractName pgf ++ la
+
 
 -- | Commands that work on 'GFEnv'
 moreCommands = [
