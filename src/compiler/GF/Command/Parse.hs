@@ -1,6 +1,7 @@
-module GF.Command.Parse(readCommandLine, pCommand) where
+module GF.Command.Parse(readCommandLine, readTransactionCommand, pCommand) where
 
 import PGF(pExpr,pIdent)
+import PGF2(readType)
 import GF.Grammar.Parser(runPartial,pTerm)
 import GF.Command.Abstract
 
@@ -32,8 +33,37 @@ pCommand = (do
   char '?'
   skipSpaces
   c <- pSystemCommand
-  return (Command "sp" [OFlag "command" (VStr c)] ANoArg)
+  return (Command "sp" [OFlag "command" (LStr c)] ANoArg)
   )
+
+readTransactionCommand :: String -> Maybe TransactionCommand
+readTransactionCommand s =
+    case [x | (x,cs) <- readP_to_S pTransactionCommand s, all isSpace cs] of
+      [x] -> Just x
+      _   -> Nothing
+
+pTransactionCommand = do
+  skipSpaces
+  cmd <- pIdent
+  skipSpaces
+  opts <- sepBy pOption skipSpaces
+  skipSpaces
+  kwd <- pIdent
+  skipSpaces
+  case kwd of
+    "fun" | take 1 cmd == "c" -> do
+               f <- pIdent
+               skipSpaces
+               char ':'
+               skipSpaces
+               ty <- readS_to_P (\s -> case readType s of
+                                         Just ty -> [(ty,"")]
+                                         Nothing -> [])
+               return (CreateFun opts f ty)
+          | take 1 cmd == "d" -> do
+                f <- pIdent
+                return (DropFun opts f)
+    _     -> pfail
 
 pOption = do
   char '-'
@@ -41,11 +71,13 @@ pOption = do
   option (OOpt flg) (fmap (OFlag flg) (char '=' >> pValue))
 
 pValue = do
-  fmap VInt (readS_to_P reads)
+  fmap LInt (readS_to_P reads)
   <++
-  fmap VStr (readS_to_P reads)
+  fmap LFlt (readS_to_P reads)
   <++
-  fmap VId  pFilename
+  fmap LStr (readS_to_P reads)
+  <++
+  fmap LStr pFilename
 
 pFilename = liftM2 (:) (satisfy isFileFirst) (munch (not . isSpace)) where
   isFileFirst c = not (isSpace c) && not (isDigit c)

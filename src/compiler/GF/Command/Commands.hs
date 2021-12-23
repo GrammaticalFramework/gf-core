@@ -31,7 +31,6 @@ import GF.Text.Pretty
 import Data.List (sort)
 import Control.Monad(mplus)
 import qualified Control.Monad.Fail as Fail
---import Debug.Trace
 
 
 class (Functor m,Monad m,MonadSIO m) => HasPGF m where getPGF :: m (Maybe PGF)
@@ -649,12 +648,12 @@ pgfCommands = Map.fromList [
      syntax = "ai IDENTIFIER  or  ai EXPR",
      synopsis = "Provides an information about a function, an expression or a category from the abstract syntax",
      explanation = unlines [
-       "The command has one argument which is either function, expression or",
-       "a category defined in the abstract syntax of the current grammar. ",
-       "If the argument is a function then ?its type is printed out.",
+       "The command has one argument which is either a function, an expression or",
+       "a category defined in the abstract syntax of the current grammar.",
+       "If the argument is a function then its type is printed out.",
        "If it is a category then the category definition is printed.",
-       "If a whole expression is given it prints the expression with refined",
-       "metavariables and the type of the expression."
+       "If a whole expression is given, then it prints the expression with refined",
+       "metavariables as well as the type of the expression."
        ],
      exec = needPGF $ \opts arg pgf -> do
        case toExprs arg of
@@ -682,13 +681,44 @@ pgfCommands = Map.fromList [
          _           -> do putStrLn "a single identifier or expression is expected from the command"
                            return void,
      needsTypeCheck = False
+     }),
+  ("c", emptyCommandInfo {
+     longname = "create",
+     syntax = "create fun f = ..; create cat c = ..; create lin c = ..; or create lincat c = ..",
+     synopsis = "Dynamically adds new functions and categories to the current grammar.",
+     explanation = unlines [
+       "After the command you can write fun, data, cat, lin or a lincat definition.",
+       "The syntax is the same as if the definition was in a module. If you want to use",
+       "any operations inside lin and lincat, you should import them",
+       "by using the command `i -resource <file path>`."
+       ],
+     flags = [
+       ("lang","the language to which to add a lin or a lincat"),
+       ("prob","the probability for a new abstract function")
+       ],
+     needsTypeCheck = False
+     }),
+  ("d", emptyCommandInfo {
+     longname = "drop",
+     syntax = "drop fun f; drop cat c; drop lin c; or drop lincat c",
+     synopsis = "Dynamically removes functions and categories from the current grammar.",
+     explanation = unlines [
+       "After the command you must specify whether you want to remove",
+       "fun, data, cat, lin or a lincat definition.",
+       "Note that if you are removing an abstract function or category,",
+       "then all corresponding linearizations will be dropped as well."
+       ],
+     flags = [
+       ("lang","the language from which to remove the lin or the lincat")
+       ],
+     needsTypeCheck = False
      })
   ]
  where
    needPGF exec opts ts = do
      mb_pgf <- getPGF
      case mb_pgf of
-       Just pgf -> liftSIO $ exec opts ts pgf
+       Just pgf -> do liftSIO $ exec opts ts pgf
        _ -> fail "Import a grammar before using this command"
 
    joinPiped (Piped (es1,ms1)) (Piped (es2,ms2)) = Piped (jA es1 es2,ms1+++-ms2)
@@ -815,9 +845,9 @@ pgfCommands = Map.fromList [
 
    -- ps -f -g s returns g (f s)
    treeOps pgf opts s = foldr app s (reverse opts) where
-     app (OOpt  op)         | Just (Left  f) <- treeOp pgf op = f
-     app (OFlag op (VId x)) | Just (Right f) <- treeOp pgf op = f x
-     app _                                                    = id
+     app (OOpt  op)          | Just (Left  f) <- treeOp pgf op = f
+     app (OFlag op (LStr x)) | Just (Right f) <- treeOp pgf op = f x
+     app _                                                     = id
 
 morphoMissing  :: Concr -> [String] -> [String]
 morphoMissing = morphoClassify False

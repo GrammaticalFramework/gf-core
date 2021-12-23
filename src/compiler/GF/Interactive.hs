@@ -11,7 +11,7 @@ import GF.Command.SourceCommands
 import GF.Command.CommandInfo
 import GF.Command.Help(helpCommand)
 import GF.Command.Abstract
-import GF.Command.Parse(readCommandLine,pCommand)
+import GF.Command.Parse(readCommandLine,pCommand,readTransactionCommand)
 import GF.Data.Operations (Err(..))
 import GF.Data.Utilities(whenM,repeatM)
 import GF.Grammar hiding (Ident,isPrefixOf)
@@ -21,12 +21,13 @@ import GF.Infra.Option
 import qualified System.Console.Haskeline as Haskeline
 
 import PGF2
+import PGF2.Transactions hiding (modifyPGF,checkoutPGF)
 
 import Data.Char
 import Data.List(isPrefixOf)
 import qualified Data.Map as Map
 import qualified Text.ParserCombinators.ReadP as RP
-import System.Directory({-getCurrentDirectory,-}getAppUserDataDirectory)
+import System.Directory(getAppUserDataDirectory)
 import Control.Exception(SomeException,fromException,evaluate,try)
 import Control.Monad.State hiding (void)
 import qualified GF.System.Signal as IO(runInterruptibly)
@@ -124,17 +125,34 @@ execute1' s0 =
          "!" :ws  -> system_command ws
          "eh":ws  -> execute_history ws
          "i" :ws  -> do import_ ws; continue
+         (w  :ws) | w == "c" || w == "d" -> do
+                        case readTransactionCommand s0 of
+                          Just cmd -> do checkout
+                                         mb_pgf <- getPGF
+                                         case mb_pgf of
+                                           Just pgf -> transactionCommand cmd pgf
+                                           Nothing  -> fail "Import a grammar before using this command"
+                          Nothing  -> putStrLnE $ "command not parsed: "++s0
+                        continue
       -- other special commands, working on GFEnv
          "dc":ws  -> define_command ws
          "dt":ws  -> define_tree ws
       -- ordinary commands
          _        -> do env <- gets commandenv
+                        checkout
                         interpretCommandLine env s0
                         continue
   where
     continue,stop :: ShellM Bool
     continue = return True
     stop = return False
+
+    checkout = do
+      mb_pgf <- gets multigrammar
+      case mb_pgf of
+        Just pgf -> do mb_pgf <- lift $ checkoutPGF pgf "master"
+                       modify $ \gfenv -> gfenv{pgfenv = (fst (pgfenv gfenv),mb_pgf)}
+        Nothing  -> return ()
 
     interruptible :: ShellM Bool -> ShellM Bool
     interruptible act =
@@ -210,6 +228,17 @@ import_ args =
          lib_dir  <- lift $ getLibraryDirectory (addOptions opts opts')
          importInEnv (addOptions opts (fixRelativeLibPaths curr_dir lib_dir opts')) files
        Bad err -> putStrLnE $ "Command parse error: " ++ err
+
+transactionCommand :: TransactionCommand -> PGF -> ShellM ()
+transactionCommand (CreateFun opts f ty) pgf = do
+  let prob = realToFrac (valFltOpts "prob" (1/0) opts)
+  case checkType pgf ty of
+    Left msg -> putStrLnE msg
+    Right ty -> do lift $ modifyPGF pgf (createFunction f ty 0 [] prob)
+                   return ()
+transactionCommand (DropFun opts f) pgf = do
+  lift $ modifyPGF pgf (dropFunction f)
+  return ()
 
 -- | Commands that work on 'GFEnv'
 moreCommands = [

@@ -13,6 +13,7 @@ module GF.Infra.SIO(
        -- ** Specific to GF
        importGrammar,importSource,
        putStrLnFlush,runInterruptibly,lazySIO,
+       modifyPGF, checkoutPGF,
        -- * Restricted accesss to arbitrary (potentially unsafe) IO operations
        -- | If the environment variable GF_RESTRICTED is defined, these
        -- operations will fail. Otherwise, they will be executed normally.
@@ -39,6 +40,7 @@ import qualified GF.Infra.UseIO as IO(getLibraryDirectory)
 import qualified GF.System.Signal as IO(runInterruptibly)
 import qualified GF.Command.Importing as GF(importGrammar, importSource)
 import qualified Control.Monad.Fail as Fail
+import qualified PGF2.Transactions as PGFT
 import Control.Exception
 
 -- * The SIO monad
@@ -132,3 +134,6 @@ lazySIO              = lift1   lazyIO
 
 importGrammar pgf opts files = lift0 $ GF.importGrammar pgf opts files
 importSource      opts files = lift0 $ GF.importSource      opts files
+
+modifyPGF   gr t = lift0 (PGFT.modifyPGF gr t)
+checkoutPGF gr b = lift0 (PGFT.checkoutPGF gr b)
