@@ -139,7 +139,7 @@ dropFunction name = Transaction $ \c_db _ c_revision c_exn ->
   withText name $ \c_name -> do
     pgf_drop_function c_db c_revision c_name c_exn
 
-createCategory :: Fun -> [Hypo] -> Float -> Transaction PGF ()
+createCategory :: Cat -> [Hypo] -> Float -> Transaction PGF ()
 createCategory name hypos prob = Transaction $ \c_db _ c_revision c_exn ->
   withText name $ \c_name ->
   withHypos hypos $ \n_hypos c_hypos ->
