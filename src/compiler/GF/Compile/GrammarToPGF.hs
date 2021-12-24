@@ -31,20 +31,22 @@ import System.Directory
 
 grammar2PGF :: Options -> Maybe PGF -> SourceGrammar -> ModuleName -> Map.Map PGF2.Fun Double -> IO PGF
 grammar2PGF opts mb_pgf gr am probs = do
+  let abs_name = mi2i am
   pgf <- case mb_pgf of
-           Nothing  -> let abs_name = mi2i am
-                       in if snd (flag optLinkTargets opts)
-                            then do let fname = maybe id (</>)
-                                                      (flag optOutputDir opts)
-                                                      (fromMaybe abs_name (flag optName opts)<.>"ngf")
-                                    exists <- doesFileExist fname
-                                    if exists
-                                      then removeFile fname
-                                      else return ()
-                                    putStr ("(Boot image "++fname++") ")
-                                    newNGF abs_name (Just fname)
-                            else newNGF abs_name Nothing
-           Just pgf -> return pgf
+           Just pgf | abstractName pgf == abs_name   ->
+                         do return pgf
+           _        | snd (flag optLinkTargets opts) ->
+                         do let fname = maybe id (</>)
+                                              (flag optOutputDir opts)
+                                              (fromMaybe abs_name (flag optName opts)<.>"ngf")
+                            exists <- doesFileExist fname
+                            if exists
+                              then removeFile fname
+                              else return ()
+                            putStr ("(Boot image "++fname++") ")
+                            newNGF abs_name (Just fname)
+                    | otherwise ->
+                         do newNGF abs_name Nothing
 
   pgf <- modifyPGF pgf $ do
     sequence_ [setAbstractFlag name value | (name,value) <- optionsPGF aflags]
