@@ -20,6 +20,7 @@ import System.Directory
 import qualified Data.Set as Set
 import qualified Data.Map as Map
 import Control.Monad(foldM)
+import Control.Exception(catch,throwIO)
 
 -- import a grammar in an environment where it extends an existing grammar
 importGrammar :: Maybe PGF -> Options -> [FilePath] -> IO (Maybe PGF)
@@ -65,7 +66,13 @@ importPGF opts Nothing    f
                                         putStr ("(Boot image "++f'++") ")
                                         fmap Just (bootNGF f f')
   | otherwise                      = fmap Just (readPGF f)
-importPGF opts (Just pgf) f        = fmap Just (modifyPGF pgf (mergePGF f))
+importPGF opts (Just pgf) f        = fmap Just (modifyPGF pgf (mergePGF f) `catch`
+                                                (\e@(PGFError loc msg) ->
+                                                      if msg == "The abstract syntax names doesn't match"
+                                                        then do putStrLn (msg++", previous concretes discarded.")
+                                                                readPGF f
+                                                        else throwIO e))
+
 
 importSource :: Options -> [FilePath] -> IO (ModuleName,SourceGrammar)
 importSource opts files = fmap snd (batchCompile opts files)

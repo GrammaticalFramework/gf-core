@@ -395,10 +395,15 @@ void PgfReader::merge_abstract(ref<PgfAbstr> abstract)
 {
     this->abstract = abstract;
 
-    read_name(); // ?
-	merge_namespace<PgfFlag>(&PgfReader::read_flag); // ?
-    merge_namespace<PgfAbsFun>(&PgfReader::read_absfun); // ?
-    merge_namespace<PgfAbsCat>(&PgfReader::read_abscat); // ?
+    ref<PgfText> name = read_name();
+    int cmp = textcmp(&(*abstract->name), &(*name));
+    PgfDB::free(name);
+    if (cmp != 0)
+        throw pgf_error("The abstract syntax names doesn't match");
+
+	merge_namespace<PgfFlag>(&PgfReader::read_flag);
+    merge_namespace<PgfAbsFun>(&PgfReader::read_absfun);
+    merge_namespace<PgfAbsCat>(&PgfReader::read_abscat);
 }
 
 ref<PgfLParam> PgfReader::read_lparam()
