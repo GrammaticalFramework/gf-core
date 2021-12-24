@@ -70,7 +70,7 @@ mainServerGFI opts0 port files =
           return $ if continue then Just gfenv else Nothing
 #else
 mainServerGFI opts port files =
-  error "GF has not been compiled with server mode support"
+  fail "GF has not been compiled with server mode support"
 #endif
 
 -- | Read end execute commands until it is time to quit
