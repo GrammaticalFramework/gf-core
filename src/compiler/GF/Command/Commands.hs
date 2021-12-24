@@ -684,10 +684,10 @@ pgfCommands = Map.fromList [
      }),
   ("c", emptyCommandInfo {
      longname = "create",
-     syntax = "create fun f = ..; create cat c = ..; create lin c = ..; or create lincat c = ..",
-     synopsis = "Dynamically adds new functions and categories to the current grammar.",
+     syntax = "create fun f = ..; create cat c = ..; create concrete l; create lin c = ..; or create lincat c = ..",
+     synopsis = "Dynamically adds new functions, categories and languages to the current grammar.",
      explanation = unlines [
-       "After the command you can write fun, data, cat, lin or a lincat definition.",
+       "After the command you can write fun, data, cat, concrete, lin or a lincat definition.",
        "The syntax is the same as if the definition was in a module. If you want to use",
        "any operations inside lin and lincat, you should import them",
        "by using the command `i -resource <file path>`."
@@ -700,11 +700,11 @@ pgfCommands = Map.fromList [
      }),
   ("d", emptyCommandInfo {
      longname = "drop",
-     syntax = "drop fun f; drop cat c; drop lin c; or drop lincat c",
-     synopsis = "Dynamically removes functions and categories from the current grammar.",
+     syntax = "drop fun f; drop cat c; drop concrete l; drop lin c; or drop lincat c",
+     synopsis = "Dynamically removes functions, categories and languages from the current grammar.",
      explanation = unlines [
        "After the command you must specify whether you want to remove",
-       "fun, data, cat, lin or a lincat definition.",
+       "fun, data, cat, concrete, lin or a lincat definition.",
        "Note that if you are removing an abstract function or category,",
        "then all corresponding linearizations will be dropped as well."
        ],

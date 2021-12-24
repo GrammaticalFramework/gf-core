@@ -242,6 +242,9 @@ transactionCommand (CreateCat opts c ctxt) pgf = do
     Left msg -> putStrLnE msg
     Right ty -> do lift $ modifyPGF pgf (createCategory c ctxt prob)
                    return ()
+transactionCommand (CreateConcrete opts name) pgf = do
+  lift $ modifyPGF pgf (createConcrete name (return ()))
+  return ()
 transactionCommand (CreateLin opts f t) pgf = do
   lang <- optLang pgf opts
   lift $ modifyPGF pgf (alterConcrete lang (createLin f []))
@@ -255,6 +258,9 @@ transactionCommand (DropFun opts f) pgf = do
   return ()
 transactionCommand (DropCat opts c) pgf = do
   lift $ modifyPGF pgf (dropCategory c)
+  return ()
+transactionCommand (DropConcrete opts name) pgf = do
+  lift $ modifyPGF pgf (dropConcrete name)
   return ()
 transactionCommand (DropLin opts f) pgf = do
   lang <- optLang pgf opts

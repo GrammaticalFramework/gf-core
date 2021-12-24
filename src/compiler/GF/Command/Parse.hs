@@ -75,6 +75,13 @@ pTransactionCommand = do
           | take 1 cmd == "d" -> do
                 c <- pIdent
                 return (DropCat opts c)
+    "concrete"
+          | take 1 cmd == "c" -> do
+               name <- pIdent
+               return (CreateConcrete opts name)
+          | take 1 cmd == "d" -> do
+               name <- pIdent
+               return (DropConcrete opts name)
     "lin" | take 1 cmd == "c" -> do
                f <- pIdent
                skipSpaces
