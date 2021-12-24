@@ -30,7 +30,6 @@ importGrammar pgf0 opts  _
                                  return (Just fname)
                          else do return Nothing
         pgf <- newNGF name mb_ngf_file
-        putStrLn (abstractName pgf)
         return (Just pgf)
 importGrammar pgf0 _    [] = return pgf0
 importGrammar pgf0 opts fs
