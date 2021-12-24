@@ -28,8 +28,7 @@ library
     PGF
   other-modules:
     PGF2.FFI,
-    PGF2.Expr,
-    PGF2.Type
+    PGF2.Expr
   build-depends:
     integer-gmp,
     ghc-prim,
