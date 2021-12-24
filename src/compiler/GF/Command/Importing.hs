@@ -16,6 +16,7 @@ import GF.Infra.Option
 import GF.Data.ErrM
 
 import System.FilePath
+import System.Directory
 import qualified Data.Set as Set
 import qualified Data.Map as Map
 import Control.Monad(foldM)
@@ -45,7 +46,7 @@ importGrammar pgf0 opts fs
           Ok pgf  -> return (Just pgf)
           Bad msg -> do putStrLn ('\n':'\n':msg)
                         return pgf0
-  | all (extensionIs ".pgf") fs = foldM importPGF pgf0 fs
+  | all (extensionIs ".pgf") fs = foldM (importPGF opts) pgf0 fs
   | all (extensionIs ".ngf") fs = do
         case fs of
           [f] -> fmap Just $ readNGF f
@@ -54,9 +55,17 @@ importGrammar pgf0 opts fs
   where
     extensionIs ext = (== ext) .  takeExtension
 
-importPGF :: Maybe PGF -> FilePath -> IO (Maybe PGF)
-importPGF Nothing    f = fmap Just (readPGF f)
-importPGF (Just pgf) f = fmap Just (modifyPGF pgf (mergePGF f))
+importPGF :: Options -> Maybe PGF -> FilePath -> IO (Maybe PGF)
+importPGF opts Nothing    f
+  | snd (flag optLinkTargets opts) = do let f' = replaceExtension f ".ngf"
+                                        exists <- doesFileExist f'
+                                        if exists
+                                          then removeFile f'
+                                          else return ()
+                                        putStr ("(Boot image "++f'++") ")
+                                        fmap Just (bootNGF f f')
+  | otherwise                      = fmap Just (readPGF f)
+importPGF opts (Just pgf) f        = fmap Just (modifyPGF pgf (mergePGF f))
 
 importSource :: Options -> [FilePath] -> IO SourceGrammar
 importSource opts files = fmap (snd.snd) (batchCompile opts files)
