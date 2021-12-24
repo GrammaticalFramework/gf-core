@@ -4,7 +4,7 @@ module GF.Infra.Option
      -- *** Option types
      Options,
      Flags(..),
-     Mode(..), Phase(..), Verbosity(..),
+     Mode(..), Phase(..), Verbosity(..), RetainMode(..),
      OutputFormat(..),
      SISRFormat(..), Optimization(..), CFGTransform(..), HaskellOption(..),
      Dump(..), Pass(..), Recomp(..),
@@ -146,6 +146,9 @@ data Pass = Source | Rebuild | Extend | Rename | TypeCheck | Refresh | Optimize 
 data Recomp = AlwaysRecomp | RecompIfNewer | NeverRecomp
   deriving (Show,Eq,Ord)
 
+data RetainMode = RetainAll | RetainSource | RetainCompiled
+  deriving Show
+
 data Flags = Flags {
       optMode            :: Mode,
       optStopAfterPhase  :: Phase,
@@ -164,7 +167,7 @@ data Flags = Flags {
       optDocumentRoot    :: Maybe FilePath, -- For --server mode
       optRecomp          :: Recomp,
       optProbsFile       :: Maybe FilePath,
-      optRetainResource  :: Bool,
+      optRetainResource  :: RetainMode,
       optName            :: Maybe String,
       optPreprocessors   :: [String],
       optEncoding        :: Maybe String,
@@ -185,7 +188,7 @@ data Flags = Flags {
       optPlusAsBind      :: Bool,
       optJobs            :: Maybe (Maybe Int)
     }
-  deriving (Show)
+  deriving Show
 
 newtype Options = Options (Flags -> Flags)
 
@@ -274,7 +277,7 @@ defaultFlags = Flags {
       optDocumentRoot    = Nothing,
       optRecomp          = RecompIfNewer,
       optProbsFile       = Nothing,
-      optRetainResource  = False,
+      optRetainResource  = RetainCompiled,
 
       optName            = Nothing,
       optPreprocessors   = [],
@@ -352,7 +355,8 @@ optDescr =
                  "(default) Recompile from source if the source is newer than the .gfo file.",
      Option [] ["gfo","no-recomp"] (NoArg (recomp NeverRecomp))
                  "Never recompile from source, if there is already .gfo file.",
-     Option [] ["retain"] (NoArg (set $ \o -> o { optRetainResource = True })) "Retain opers.",
+     Option [] ["retain"]   (NoArg (set $ \o -> o { optRetainResource = RetainAll })) "Retain the source and well as the compiled grammar.",
+     Option [] ["resource"] (NoArg (set $ \o -> o { optRetainResource = RetainSource })) "Load the source grammar as a resource only.",
      Option [] ["probs"] (ReqArg probsFile "file.probs") "Read probabilities from file.",
      Option ['n'] ["name"] (ReqArg name "NAME")
            (unlines ["Use NAME as the name of the output. This is used in the output file names, ",

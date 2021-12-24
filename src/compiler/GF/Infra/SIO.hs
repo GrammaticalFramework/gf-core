@@ -11,8 +11,8 @@ module GF.Infra.SIO(
        getCPUTime,getCurrentDirectory,getLibraryDirectory,
        newStdGen,print,putStr,putStrLn,
        -- ** Specific to GF
-       importGrammar,importSource,
-       putStrLnFlush,runInterruptibly,lazySIO,
+       importGrammar,importSource, link,
+       putStrLnFlush,runInterruptibly,
        modifyPGF, checkoutPGF,
        -- * Restricted accesss to arbitrary (potentially unsafe) IO operations
        -- | If the environment variable GF_RESTRICTED is defined, these
@@ -30,7 +30,6 @@ import GF.System.Catch(try)
 import System.Process(system)
 import System.Environment(getEnv)
 import Control.Concurrent.Chan(newChan,writeChan,getChanContents)
-import GF.Infra.Concurrency(lazyIO)
 import GF.Infra.UseIO(Output(..))
 import GF.Data.Operations(ErrorMonad(..))
 import qualified System.CPUTime as IO(getCPUTime)
@@ -39,6 +38,7 @@ import qualified System.Random as IO(newStdGen)
 import qualified GF.Infra.UseIO as IO(getLibraryDirectory)
 import qualified GF.System.Signal as IO(runInterruptibly)
 import qualified GF.Command.Importing as GF(importGrammar, importSource)
+import qualified GF.Compile as GF(link)
 import qualified Control.Monad.Fail as Fail
 import qualified PGF2.Transactions as PGFT
 import Control.Exception
@@ -130,10 +130,10 @@ getCurrentDirectory  = lift0   IO.getCurrentDirectory
 getLibraryDirectory  = lift0 . IO.getLibraryDirectory
 newStdGen            = lift0   IO.newStdGen
 runInterruptibly     = lift1   IO.runInterruptibly
-lazySIO              = lift1   lazyIO
 
 importGrammar pgf opts files = lift0 $ GF.importGrammar pgf opts files
 importSource      opts files = lift0 $ GF.importSource      opts files
+link opts pgf src = lift0 $ GF.link opts pgf src
 
 modifyPGF   gr t = lift0 (PGFT.modifyPGF gr t)
 checkoutPGF gr b = lift0 (PGFT.checkoutPGF gr b)

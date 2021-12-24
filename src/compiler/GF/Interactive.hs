@@ -169,11 +169,6 @@ execute1' s0 =
 
     system_command ws = do lift $ restrictedSystem $ unwords ws ; continue
 
-
-       {-"eh":w:_ -> do
-                  cs <- readFile w >>= return . map words . lines
-                  gfenv' <- foldM (flip (process False benv)) gfenv cs
-                  loopNewCPU gfenv' -}
     execute_history [w] =
       do execute . lines =<< lift (restricted (readFile w))
          continue
@@ -349,13 +344,14 @@ fetchCommand gfenv = do
 importInEnv :: Options -> [FilePath] -> ShellM ()
 importInEnv opts files =
   do pgf0 <- gets multigrammar
-     if flag optRetainResource opts
-      then do src <- lift $ importSource opts files
-              pgf <- lift . lazySIO $ importPGF pgf0 -- duplicates some work, better to link src
-              modify $ \ gfenv -> gfenv {retain=True, pgfenv = (src,pgf)}
-      else do pgf1 <- lift $ importPGF pgf0
-              modify $ \ gfenv->gfenv { retain=False,
-                                        pgfenv = (emptyGrammar,pgf1) }
+     case flag optRetainResource opts of
+       RetainAll      -> do src <- lift $ importSource opts files
+                            pgf <- lift $ link opts pgf0 src
+                            modify $ \gfenv -> gfenv{pgfenv = (snd src,Just pgf)}
+       RetainSource   -> do src <- lift $ importSource opts files
+                            modify $ \gfenv -> gfenv{pgfenv = (snd src,snd (pgfenv gfenv))}
+       RetainCompiled -> do pgf <- lift $ importPGF pgf0
+                            modify $ \gfenv -> gfenv{pgfenv = (emptyGrammar,pgf)}
   where
     importPGF pgf0 =
       do let opts' = addOptions (setOptimization OptCSE False) opts
@@ -373,23 +369,20 @@ tryGetLine = do
    Left (e :: SomeException) -> return "q"
    Right l -> return l
 
-prompt env
-  | retain env = "> "
-  | otherwise  = case multigrammar env of
-                   Just pgf -> abstractName pgf ++ "> "
-                   Nothing  -> "> "
+prompt env = case multigrammar env of
+               Just pgf -> abstractName pgf ++ "> "
+               Nothing  -> "> "
 
 type CmdEnv = (Grammar,Maybe PGF)
 
 data GFEnv = GFEnv {
     startOpts :: Options,
-    retain :: Bool,  -- grammar was imported with -retain flag
     pgfenv :: CmdEnv,
     commandenv :: CommandEnv ShellM,
     history    :: [String]
   }
 
-emptyGFEnv opts = GFEnv opts False emptyCmdEnv emptyCommandEnv []
+emptyGFEnv opts = GFEnv opts emptyCmdEnv emptyCommandEnv []
 
 emptyCmdEnv = (emptyGrammar,Nothing)
 

@@ -6,7 +6,7 @@ import PGF2.Transactions
 import GF.Compile
 import GF.Compile.Multi (readMulti)
 import GF.Compile.GetGrammar (getBNFCRules, getEBNFRules)
-import GF.Grammar (SourceGrammar) -- for cc command
+import GF.Grammar (ModuleName,SourceGrammar) -- for cc command
 import GF.Grammar.BNFC
 import GF.Grammar.EBNF
 import GF.Grammar.CFG
@@ -67,8 +67,8 @@ importPGF opts Nothing    f
   | otherwise                      = fmap Just (readPGF f)
 importPGF opts (Just pgf) f        = fmap Just (modifyPGF pgf (mergePGF f))
 
-importSource :: Options -> [FilePath] -> IO SourceGrammar
-importSource opts files = fmap (snd.snd) (batchCompile opts files)
+importSource :: Options -> [FilePath] -> IO (ModuleName,SourceGrammar)
+importSource opts files = fmap snd (batchCompile opts files)
 
 -- for different cf formats
 importCF opts files get convert = impCF
