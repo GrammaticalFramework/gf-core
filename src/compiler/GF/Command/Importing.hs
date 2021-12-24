@@ -22,6 +22,16 @@ import Control.Monad(foldM)
 
 -- import a grammar in an environment where it extends an existing grammar
 importGrammar :: Maybe PGF -> Options -> [FilePath] -> IO (Maybe PGF)
+importGrammar pgf0 opts  _
+  | Just name <- flag optBlank opts = do
+        mb_ngf_file <- if snd (flag optLinkTargets opts)
+                         then do let fname = name <.> ".ngf"
+                                 putStr ("(Boot image "++fname++") ")
+                                 return (Just fname)
+                         else do return Nothing
+        pgf <- newNGF name mb_ngf_file
+        putStrLn (abstractName pgf)
+        return (Just pgf)
 importGrammar pgf0 _    [] = return pgf0
 importGrammar pgf0 opts fs
   | all (extensionIs ".cf")   fs = fmap Just $ importCF opts fs getBNFCRules bnfc2cf

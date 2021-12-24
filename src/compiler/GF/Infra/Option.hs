@@ -153,6 +153,7 @@ data Flags = Flags {
       optShowCPUTime     :: Bool,
       optOutputFormats   :: [OutputFormat],
       optLinkTargets     :: (Bool,Bool), -- pgf,ngf files
+      optBlank           :: Maybe String,
       optSISR            :: Maybe SISRFormat,
       optHaskellOptions  :: Set HaskellOption,
       optLexicalCats     :: Set String,
@@ -262,6 +263,7 @@ defaultFlags = Flags {
       optShowCPUTime     = False,
       optOutputFormats   = [],
       optLinkTargets     = (True,False),
+      optBlank           = Nothing,
       optSISR            = Nothing,
       optHaskellOptions  = Set.empty,
       optLiteralCats     = Set.fromList [cString,cInt,cFloat,cVar],
@@ -320,6 +322,7 @@ optDescr =
      Option [] ["make"] (NoArg (liftM2 addOptions (mode ModeCompiler) (phase Link))) "Build .pgf file and other output files and exit.",
      Option [] ["boot"] (NoArg (set $ \o -> o {optLinkTargets = (True,True)})) "Boot an .ngf database for fast grammar reloading",
      Option [] ["boot-only"] (NoArg (set $ \o -> o {optLinkTargets = (False,True)})) "Boot the .ngf database and don't write a .pgf file",
+     Option [] ["blank"] (ReqArg (\x -> set $ \o -> o { optBlank = Just x }) "ABSTR_NAME") "Create a blank database with an empty abstract syntax.",
      Option [] ["cpu"] (NoArg (cpu True)) "Show compilation CPU time statistics.",
      Option [] ["no-cpu"] (NoArg (cpu False)) "Don't show compilation CPU time statistics (default).",
      Option [] ["gfo-dir"] (ReqArg gfoDir "DIR") "Directory to put .gfo files in (default = '.').",
