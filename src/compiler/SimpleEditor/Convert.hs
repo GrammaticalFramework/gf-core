@@ -17,7 +17,7 @@ import GF.Grammar.Printer(ppParams,ppTerm,getAbs,TermPrintQual(..))
 import GF.Grammar.Parser(runP,pModDef)
 import GF.Grammar.Lexer(Posn(..))
 import GF.Data.ErrM
-import PGF2.Internal(Literal(LStr))
+import PGF2(Literal(LStr))
 
 import SimpleEditor.Syntax as S
 import SimpleEditor.JSON
@@ -119,7 +119,7 @@ convCncJment (name,jment) =
   case jment of
     ResParam ops _ ->
       return $ Pa $ Param i (maybe "" (render . ppParams q . unLoc) ops)
-    ResValue _ -> return Ignored
+    ResValue _ _ -> return Ignored
     CncCat (Just (L _ typ)) Nothing Nothing pprn _ -> -- ignores printname !!
       return $ LC $ Lincat i (render $ ppTerm q 0 typ)
     ResOper oltyp (Just lterm) -> return $ Op $ Oper lhs rhs

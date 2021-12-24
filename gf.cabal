@@ -212,6 +212,41 @@ executable gf
       terminfo >=0.4.0 && < 0.5,
       unix >= 2.7.2 && < 2.8
 
+  if flag(server)
+    build-depends:
+      cgi >= 3001.3.0.2 && < 3001.6,
+      httpd-shed >= 0.4.0 && < 0.5,
+      network>=2.3 && <2.7
+    if flag(network-uri)
+      build-depends:
+        network-uri >= 2.6.1.0 && < 2.7,
+        network>=2.6 && <2.7
+    else
+      build-depends:
+        network >= 2.5 && <2.6
+
+    cpp-options: -DSERVER_MODE
+    other-modules:
+      GF.Server
+      PGFService
+      RunHTTP
+      SimpleEditor.Convert
+      SimpleEditor.JSON
+      SimpleEditor.Syntax
+      URLEncoding
+      CGI
+      CGIUtils
+      Cache
+    hs-source-dirs:
+      src/server
+      src/server/transfer
+
+  if flag(interrupt)
+    cpp-options: -DUSE_INTERRUPT
+    other-modules: GF.System.UseSignal
+  else
+    other-modules: GF.System.NoSignal
+
 test-suite gf-tests
   type: exitcode-stdio-1.0
   main-is: run.hs
