@@ -10,7 +10,7 @@
 -----------------------------------------------------------------------------
 
 module GF.Compile.GeneratePMCFG
-    (generatePMCFG, type2fields
+    (generatePMCFG, pmcfgForm, type2fields
     ) where
 
 import GF.Grammar hiding (VApp,VRecType)

@@ -12,12 +12,17 @@ import GF.Command.CommandInfo
 import GF.Command.Help(helpCommand)
 import GF.Command.Abstract
 import GF.Command.Parse(readCommandLine,pCommand,readTransactionCommand)
+import GF.Compile.Rename(renameSourceTerm)
+import GF.Compile.CheckGrammar(linTypeOfType)
+import GF.Compile.TypeCheck.Concrete(inferLType)
+import GF.Compile.GeneratePMCFG(pmcfgForm)
 import GF.Data.Operations (Err(..))
 import GF.Data.Utilities(whenM,repeatM)
 import GF.Grammar hiding (Ident,isPrefixOf)
 import GF.Infra.UseIO(ioErrorText,putStrLnE)
 import GF.Infra.SIO
 import GF.Infra.Option
+import GF.Infra.CheckM
 import qualified System.Console.Haskeline as Haskeline
 
 import PGF2
@@ -34,7 +39,6 @@ import qualified GF.System.Signal as IO(runInterruptibly)
 #ifdef SERVER_MODE
 import GF.Server(server)
 #endif
-
 import GF.Command.Messages(welcome)
 
 -- | Run the GF Shell in quiet mode (@gf -run@).
@@ -241,9 +245,29 @@ transactionCommand (CreateConcrete opts name) pgf = do
   lift $ modifyPGF pgf (createConcrete name (return ()))
   return ()
 transactionCommand (CreateLin opts f t) pgf = do
-  lang <- optLang pgf opts
-  lift $ modifyPGF pgf (alterConcrete lang (createLin f []))
-  return ()
+  sgr <- getGrammar
+  mo <- maybe (fail "no source grammar in scope") return $
+           greatestResource sgr
+  ty <- case functionType pgf f of
+          Just ty -> return $ type2term mo ty
+          Nothing -> fail ("Function "++f++" is not in the abstract syntax")
+  case runCheck (compileLinTerm sgr mo t ty) of
+    Ok (prods,_) -> do lang <- optLang pgf opts
+                       lift $ modifyPGF pgf (alterConcrete lang (createLin f prods))
+                       return ()
+    Bad msg      -> fail msg
+  where
+    type2term mo (DTyp hypos cat _) =
+      foldr (\(b,x,ty1) ty2 -> Prod b (identS x) (type2term mo ty1) ty2)
+            (Vr (identS cat))
+            hypos
+
+    compileLinTerm sgr mo t ty = do
+      t  <- renameSourceTerm sgr mo (Typed t ty)
+      (t,ty) <- inferLType sgr [] t
+      let (ctxt,res_ty) = typeFormCnc ty
+      pmcfgForm sgr t ctxt res_ty
+
 transactionCommand (CreateLincat opts c t) pgf = do
   lang <- optLang pgf opts
   lift $ modifyPGF pgf (alterConcrete lang (createLincat c [] [] []))
