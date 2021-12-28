@@ -23,6 +23,8 @@ AC_PROG_INSTALL
 AC_PROG_LIBTOOL
 AC_PROG_CXX
 
+LT_INIT
+
 [if [ "x$GCC" = "xyes" ]; then
   CFLAGS="$CFLAGS\
  -Wall\
