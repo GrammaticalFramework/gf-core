@@ -152,12 +152,6 @@ isVariable :: Term -> Bool
 isVariable (Vr _ ) = True
 isVariable _ = False
 
---eqIdent :: Ident -> Ident -> Bool
---eqIdent = (==)
-
-uType :: Type
-uType = Cn cUndefinedType
-
 -- *** Assignment
 
 assign :: Label -> Term -> Assign

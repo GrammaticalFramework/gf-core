@@ -255,7 +255,7 @@ checkComputeTerm os sgr t =
   do mo <- maybe (checkError (pp "no source grammar in scope")) return $
            greatestResource sgr
      t <- renameSourceTerm sgr mo t
-     (t,_) <- inferLType sgr [] t                                
+     (t,_) <- inferLType sgr [] t
      fmap evalStr (normalForm sgr t)
   where
     -- ** Try to compute pre{...} tokens in token sequences

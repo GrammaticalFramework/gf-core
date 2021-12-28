@@ -844,12 +844,7 @@ ppType ty =
                       _      -> ppTerm Unqualified 0 ty
     Prod _ x a b -> ppType a <+> "->" <+> ppType b
     _            -> ppTerm Unqualified 0 ty
-{-
-ppqType :: Type -> Type -> Doc
-ppqType t u = case (ppType t, ppType u) of
-  (pt,pu) | render pt == render pu -> ppTerm Qualified 0 t
-  (pt,_) -> pt
--}
+
 checkLookup :: Ident -> Context -> Check Type
 checkLookup x g =
   case [ty | (b,y,ty) <- g, x == y] of

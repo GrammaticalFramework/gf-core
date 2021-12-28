@@ -13,7 +13,6 @@ import GF.Command.Help(helpCommand)
 import GF.Command.Abstract
 import GF.Command.Parse(readCommandLine,pCommand,readTransactionCommand)
 import GF.Compile.Rename(renameSourceTerm)
-import GF.Compile.CheckGrammar(linTypeOfType)
 import GF.Compile.TypeCheck.Concrete(inferLType)
 import GF.Compile.GeneratePMCFG(pmcfgForm)
 import GF.Data.Operations (Err(..))
