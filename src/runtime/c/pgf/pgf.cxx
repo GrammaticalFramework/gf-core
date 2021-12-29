@@ -2048,6 +2048,38 @@ int pgf_has_linearization(PgfDB *db, PgfConcrRevision revision,
 }
 
 PGF_API
+PgfText **pgf_category_fields(PgfDB *db, PgfConcrRevision revision,
+                              PgfText *name, size_t *p_n_fields,
+                              PgfExn *err)
+{
+    PGF_API_BEGIN {
+        DB_scope scope(db, READER_SCOPE);
+
+        ref<PgfConcr> concr = PgfDB::revision2concr(revision);
+
+        ref<PgfConcrLincat> lincat =
+            namespace_lookup(concr->lincats, name);
+
+        if (lincat == 0) {
+			*p_n_fields = 0;
+			return NULL;
+		} else {
+			size_t n_fields = lincat->fields->len;
+			PgfText **fields = (PgfText **) malloc(sizeof(PgfText*)*n_fields);
+			if (fields == 0)
+				throw pgf_systemerror(ENOMEM);
+			for (size_t i = 0; i < n_fields; i++) {
+				fields[i] = textdup(lincat->fields->data[i]);
+			}
+			*p_n_fields = n_fields;
+			return fields;
+		}
+    } PGF_API_END
+
+    return NULL;
+}
+
+PGF_API
 PgfText *pgf_linearize(PgfDB *db, PgfConcrRevision revision,
                        PgfExpr expr, PgfPrintContext *ctxt,
                        PgfMarshaller *m,

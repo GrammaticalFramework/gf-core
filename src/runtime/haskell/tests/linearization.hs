@@ -19,6 +19,8 @@ main = do
       ,TestCase (assertEqual "floatLit" "3.14" (linearize cnc (mkApp "floatLit" [mkFloat 3.14])))
       ,TestCase (assertEqual "stringLit" "abcd" (linearize cnc (mkApp "stringLit" [mkStr "abcd"])))
       ,TestCase (assertEqual "parse tree 2" graphviz_parse2 (graphvizParseTree cnc graphvizDefaults (mkApp "stringLit" [mkStr "abcd"])))
+      ,TestCase (assertEqual "categoryFields 1" (Just ["s"]) (categoryFields cnc "N"))
+      ,TestCase (assertEqual "categoryFields 2" Nothing (categoryFields cnc "NonExistingCat"))
       ]
 
 graphviz_parse1="graph {\n  node[shape=plaintext]\n\n  subgraph {\n    rank=same;\n    n1[label=\"c : S\"]\n  }\n\n  subgraph {\n    rank=same;\n    n2[label=\"s : N\"]\n  }\n  n1 -- n2\n\n  subgraph {\n    rank=same;\n    n3[label=\"_ : N\"]\n  }\n  n2 -- n3\n\n  subgraph {\n    rank=same;\n    edge[style=invis]\n    n100000[label=\"?1\"]\n    n100001[label=\"+\"]\n    n100002[label=\"1\"]\n    n100000 -- n100001 -- n100002\n  }\n  n3 -- n100000\n  n2 -- n100001\n  n2 -- n100002\n}"

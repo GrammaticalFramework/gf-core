@@ -210,6 +210,8 @@ foreign import ccall pgf_drop_lin :: Ptr PgfDB -> Ptr Concr -> Ptr PgfText -> Pt
 
 foreign import ccall pgf_has_linearization :: Ptr PgfDB -> Ptr Concr -> Ptr PgfText -> Ptr PgfExn -> IO CInt
 
+foreign import ccall pgf_category_fields :: Ptr PgfDB -> Ptr Concr -> Ptr PgfText -> Ptr CSize -> Ptr PgfExn -> IO (Ptr (Ptr PgfText))
+
 foreign import ccall pgf_linearize :: Ptr PgfDB -> Ptr Concr -> StablePtr Expr -> Ptr PgfPrintContext -> Ptr PgfMarshaller -> Ptr PgfExn -> IO (Ptr PgfText)
 
 foreign import ccall pgf_linearize_all :: Ptr PgfDB -> Ptr Concr -> StablePtr Expr -> Ptr PgfPrintContext -> Ptr PgfMarshaller -> Ptr CSize -> Ptr PgfExn -> IO (Ptr (Ptr PgfText))

@@ -74,7 +74,7 @@ module PGF2 (-- * PGF
              linearize, linearizeAll, tabularLinearize, tabularLinearizeAll,
              FId, BracketedString(..), showBracketedString, flattenBracketedString,
              bracketedLinearize, bracketedLinearizeAll,
-             hasLinearization,
+             hasLinearization, categoryFields,
              printName, alignWords, gizaAlignment,
 
              -- ** Parsing
@@ -612,6 +612,27 @@ hasLinearization c name =
   withForeignPtr (c_revision c) $ \c_revision -> do
     c_res <- withPgfExn "hasLinearization" (pgf_has_linearization (c_db c) c_revision c_name)
     return (c_res /= 0)
+
+categoryFields :: Concr -> Cat -> Maybe [String]
+categoryFields c cat =
+  unsafePerformIO $
+  withForeignPtr (c_revision c) $ \c_revision ->
+  withText cat $ \c_cat ->
+  alloca $ \p_n_fields ->
+  bracket (withPgfExn "categoryFields" (pgf_category_fields (c_db c) c_revision c_cat p_n_fields)) free $ \c_fields ->
+    if c_fields == nullPtr
+      then return Nothing
+      else do n_fields <- peek p_n_fields
+              fs <- peekFields n_fields c_fields
+              return (Just fs)
+  where
+    peekFields n_fields c_fields
+      | n_fields == 0 = return []
+      | otherwise     = do c_text <- peek c_fields
+                           f  <- peekText c_text
+                           free c_text
+                           fs <- peekFields (n_fields-1) (c_fields `plusPtr` (#size PgfText*))
+                           return (f:fs)
 
 -- | Linearizes an expression as a string in the language
 linearize :: Concr -> Expr -> String

@@ -590,6 +590,11 @@ PGF_API_DECL
 int pgf_has_linearization(PgfDB *db, PgfConcrRevision revision,
                           PgfText *name, PgfExn *err);
 
+PGF_API
+PgfText **pgf_category_fields(PgfDB *db, PgfConcrRevision revision,
+                              PgfText *name, size_t *p_n_fields,
+                              PgfExn *err);
+
 #ifdef __cplusplus
 struct PgfLinearizationOutputIface
 {
