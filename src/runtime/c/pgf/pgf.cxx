@@ -144,6 +144,8 @@ PgfDB *pgf_read_ngf(const char *fpath,
         {
             DB_scope scope(db, WRITER_SCOPE);
 
+			db->cleanup_revisions();
+
             ref<PgfPGF> pgf = PgfDB::get_revision(master);
             Node<PgfPGF>::add_value_ref(pgf);
             *revision = pgf.as_object();

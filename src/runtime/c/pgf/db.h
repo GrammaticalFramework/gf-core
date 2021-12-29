@@ -90,6 +90,8 @@ public:
         current_db->free_internal(o.as_object());
     }
 
+	PGF_INTERNAL_DECL void cleanup_revisions();
+
     static PGF_INTERNAL_DECL ref<PgfPGF> get_revision(PgfText *name);
     static PGF_INTERNAL_DECL void set_revision(ref<PgfPGF> pgf);
 
@@ -111,9 +113,8 @@ private:
     PGF_INTERNAL_DECL object malloc_internal(size_t bytes);
     PGF_INTERNAL_DECL void free_internal(object o);
 
-    PGF_INTERNAL_DECL void register_process(bool *is_first);
+    PGF_INTERNAL_DECL void register_process();
     PGF_INTERNAL_DECL void unregister_process();
-
 
     PGF_INTERNAL_DECL void lock(DB_scope_mode m);
     PGF_INTERNAL_DECL void unlock();

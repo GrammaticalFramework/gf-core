@@ -502,7 +502,6 @@ struct PGF_INTERNAL_DECL malloc_state
 PGF_INTERNAL
 PgfDB::PgfDB(const char* filepath, int flags, int mode) {
     bool is_new = false;
-    bool is_first = false;
 
     fd = -1;
     ms = NULL;
@@ -655,34 +654,7 @@ PgfDB::PgfDB(const char* filepath, int flags, int mode) {
             throw pgf_error("Invalid file content");
         }
 
-        register_process(&is_first);
-
-        if (is_first) {
-            // We must make sure that left-over transient revisions are
-            // released. This may happen if a client process was killed
-            // or if the garbadge collector has not managed to run
-            // pgf_release_revision() before the process ended.
-
-            while (ms->transient_revisions != 0) {
-                pgf_free_revision(this, ms->transient_revisions.as_object());
-                ref<PgfPGF> pgf = ms->transient_revisions;
-                ref<PgfPGF> next = pgf->next;
-                PgfPGF::release(pgf);
-                PgfDB::free(pgf);
-                ms->transient_revisions = next;
-            }
-
-            while (ms->transient_concr_revisions != 0) {
-                ref<PgfConcr> concr = ms->transient_concr_revisions;
-                ref<PgfConcr> next = concr->next;
-                concr->ref_count -= concr->ref_count_ex;
-                if (!concr->ref_count) {
-                    PgfConcr::release(concr);
-                    PgfDB::free(concr);
-                }
-                ms->transient_concr_revisions = next;
-            }
-         }
+        register_process();
     }
 }
 
@@ -725,7 +697,7 @@ PgfDB::~PgfDB()
 }
 
 PGF_INTERNAL
-void PgfDB::register_process(bool *is_first)
+void PgfDB::register_process()
 {
     process_entry *pentry = &ms->p;
     object *plast = NULL;
@@ -768,10 +740,7 @@ void PgfDB::register_process(bool *is_first)
         }
     }
 
-    if (plast == NULL) {
-        *is_first = true;
-    } else {
-        *is_first = false;
+    if (plast != NULL) {
         *plast = malloc_internal(sizeof(process_entry));
         pentry = (process_entry*) ptr(ms,*plast);
         pentry->next = 0;
@@ -807,6 +776,37 @@ void PgfDB::unregister_process()
             pentry = (process_entry *) ptr(ms, *plast);
         }
     }
+}
+
+void PgfDB::cleanup_revisions()
+{
+	if (ms->p.next == 0) {
+		// The first process that opens this file makes sure that
+		// left-over transient revisions are released.
+		// They may be left-over of a client process that was killed
+		// or if the garbadge collector has not managed to run
+		// pgf_release_revision() before the process ended.
+
+		while (ms->transient_revisions != 0) {
+			pgf_free_revision(this, ms->transient_revisions.as_object());
+			ref<PgfPGF> pgf = ms->transient_revisions;
+			ref<PgfPGF> next = pgf->next;
+			PgfPGF::release(pgf);
+			PgfDB::free(pgf);
+			ms->transient_revisions = next;
+		}
+
+		while (ms->transient_concr_revisions != 0) {
+			ref<PgfConcr> concr = ms->transient_concr_revisions;
+			ref<PgfConcr> next = concr->next;
+			concr->ref_count -= concr->ref_count_ex;
+			if (!concr->ref_count) {
+				PgfConcr::release(concr);
+				PgfDB::free(concr);
+			}
+			ms->transient_concr_revisions = next;
+		}
+	}
 }
 
 PGF_INTERNAL
