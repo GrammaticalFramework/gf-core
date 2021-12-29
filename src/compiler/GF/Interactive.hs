@@ -14,7 +14,7 @@ import GF.Command.Abstract
 import GF.Command.Parse(readCommandLine,pCommand,readTransactionCommand)
 import GF.Compile.Rename(renameSourceTerm)
 import GF.Compile.TypeCheck.Concrete(inferLType)
-import GF.Compile.GeneratePMCFG(pmcfgForm)
+import GF.Compile.GeneratePMCFG(pmcfgForm,type2fields)
 import GF.Data.Operations (Err(..))
 import GF.Data.Utilities(whenM,repeatM)
 import GF.Grammar hiding (Ident,isPrefixOf)
@@ -245,15 +245,22 @@ transactionCommand (CreateConcrete opts name) pgf = do
   return ()
 transactionCommand (CreateLin opts f t) pgf = do
   sgr <- getGrammar
+  lang <- optLang pgf opts
   mo <- maybe (fail "no source grammar in scope") return $
            greatestResource sgr
-  ty <- case functionType pgf f of
-          Just ty -> return $ type2term mo ty
-          Nothing -> fail ("Function "++f++" is not in the abstract syntax")
+  (fields,ty) <-
+    case functionType pgf f of
+      Just ty -> let DTyp _ cat _ = ty
+                     Just cnc     = Map.lookup lang (languages pgf)
+                     Just fields  = categoryFields cnc cat
+                 in return (fields,type2term mo ty)
+      Nothing -> fail ("Function "++f++" is not in the abstract syntax")
   case runCheck (compileLinTerm sgr mo t ty) of
-    Ok (prods,_) -> do lang <- optLang pgf opts
-                       lift $ modifyPGF pgf (alterConcrete lang (createLin f prods))
+    Ok ((prods,fields'),_)
+         | fields == fields' ->
+                    do lift $ modifyPGF pgf (alterConcrete lang (createLin f prods))
                        return ()
+         | otherwise -> fail "The linearization categories in the resource and the compiled grammar does not match"
     Bad msg      -> fail msg
   where
     type2term mo (DTyp hypos cat _) =
@@ -265,7 +272,8 @@ transactionCommand (CreateLin opts f t) pgf = do
       t  <- renameSourceTerm sgr mo (Typed t ty)
       (t,ty) <- inferLType sgr [] t
       let (ctxt,res_ty) = typeFormCnc ty
-      pmcfgForm sgr t ctxt res_ty
+      prods <- pmcfgForm sgr t ctxt res_ty
+      return (prods,type2fields sgr res_ty)
 
 transactionCommand (CreateLincat opts c t) pgf = do
   lang <- optLang pgf opts
