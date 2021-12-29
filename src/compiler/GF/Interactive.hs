@@ -276,9 +276,19 @@ transactionCommand (CreateLin opts f t) pgf = do
       return (prods,type2fields sgr res_ty)
 
 transactionCommand (CreateLincat opts c t) pgf = do
+  sgr <- getGrammar
   lang <- optLang pgf opts
-  lift $ modifyPGF pgf (alterConcrete lang (createLincat c [] [] []))
-  return ()
+  mo <- maybe (fail "no source grammar in scope") return $
+           greatestResource sgr
+  case runCheck (compileLincatTerm sgr mo t) of
+    Ok (fields,_)-> do lift $ modifyPGF pgf (alterConcrete lang (createLincat c fields [] []))
+                       return ()
+    Bad msg      -> fail msg
+  where
+    compileLincatTerm sgr mo t = do
+      t <- renameSourceTerm sgr mo t
+      (t,_) <- inferLType sgr [] t
+      return (type2fields sgr t)
 transactionCommand (DropFun opts f) pgf = do
   lift $ modifyPGF pgf (dropFunction f)
   return ()
