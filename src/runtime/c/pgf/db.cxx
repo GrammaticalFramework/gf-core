@@ -481,6 +481,8 @@ struct PGF_INTERNAL_DECL malloc_state
     /* Bitmap of bins */
     unsigned int binmap[BINMAPSIZE];
 
+    size_t file_size;
+
     /* The namespace of all persistant grammar revisions */
     Namespace<PgfPGF> revisions;
 
@@ -499,7 +501,6 @@ struct PGF_INTERNAL_DECL malloc_state
 
 PGF_INTERNAL
 PgfDB::PgfDB(const char* filepath, int flags, int mode) {
-    size_t file_size;
     bool is_new = false;
     bool is_first = false;
 
@@ -509,24 +510,24 @@ PgfDB::PgfDB(const char* filepath, int flags, int mode) {
 
     if (filepath == NULL) {
         this->filepath = NULL;
-        file_size = getpagesize();
+        mmap_size = getpagesize();
         is_new    = true;
     } else {
         fd = open(filepath, flags, mode);
         if (fd < 0)
             throw pgf_systemerror(errno, filepath);
 
-        file_size = lseek(fd, 0, SEEK_END);
-        if (file_size == ((off_t) -1)) {
+        mmap_size = lseek(fd, 0, SEEK_END);
+        if (mmap_size == ((off_t) -1)) {
             int code = errno;
             close(fd);
             throw pgf_systemerror(code, filepath);
         }
 
         is_new = false;
-        if (file_size == 0) {
-            file_size = getpagesize();
-            if (ftruncate(fd, file_size) < 0) {
+        if (mmap_size == 0) {
+            mmap_size = getpagesize();
+            if (ftruncate(fd, mmap_size) < 0) {
                 int code = errno;
                 close(fd);
                 throw pgf_systemerror(code, filepath);
@@ -542,16 +543,16 @@ PgfDB::PgfDB(const char* filepath, int flags, int mode) {
 #ifndef MREMAP_MAYMOVE
     if (fd >= 0) {
         ms = (malloc_state*)
-            mmap(NULL, file_size, PROT_READ | PROT_WRITE, MAP_SHARED, fd, 0);
+            mmap(NULL, mmap_size, PROT_READ | PROT_WRITE, MAP_SHARED, fd, 0);
         code = errno;
     } else {
-        ms = (malloc_state*) ::malloc(file_size);
+        ms = (malloc_state*) ::malloc(mmap_size);
         code = ENOMEM;
     }
 #else
     int mflags = (fd < 0) ? (MAP_PRIVATE | MAP_ANONYMOUS) : MAP_SHARED;
     ms = (malloc_state*)
-        mmap(NULL, file_size, PROT_READ | PROT_WRITE, mflags, fd, 0);
+        mmap(NULL, mmap_size, PROT_READ | PROT_WRITE, mflags, fd, 0);
     code = errno;
 #endif
     if (ms == MAP_FAILED || ms == NULL) {
@@ -581,12 +582,12 @@ PgfDB::PgfDB(const char* filepath, int flags, int mode) {
         hMap = CreateFileMapping((HANDLE) _get_osfhandle(fd),
                                  NULL,
                                  PAGE_READWRITE,
-                                 HIWORD(file_size), LOWORD(file_size),
+                                 HIWORD(mmap_size), LOWORD(mmap_size),
                                  NULL);
         if (hMap != NULL) {
             ms = (malloc_state*) MapViewOfFile(hMap,
                                                FILE_MAP_WRITE,
-                                               0,0,file_size);
+                                               0,0,mmap_size);
             if (ms == NULL) {
                 code = last_error_to_errno();
                 CloseHandle(hMap);
@@ -601,7 +602,7 @@ PgfDB::PgfDB(const char* filepath, int flags, int mode) {
         code = ENOMEM;
         name = NULL;
         hMap = INVALID_HANDLE_VALUE;
-        ms   = (malloc_state*) ::malloc(file_size);
+        ms   = (malloc_state*) ::malloc(mmap_size);
     }
 
     if (ms == NULL) {
@@ -629,7 +630,7 @@ PgfDB::PgfDB(const char* filepath, int flags, int mode) {
 #endif
 
     if (is_new) {
-        init_state(file_size);
+        init_state(mmap_size);
     } else {
         if (strncmp(ms->sign, slovo, sizeof(ms->sign)) != 0) {
 #ifndef _WIN32
@@ -638,7 +639,7 @@ PgfDB::PgfDB(const char* filepath, int flags, int mode) {
               ::free(ms);
             } else
 #endif
-            munmap(ms,file_size);
+            munmap(ms,mmap_size);
 #else
             if (fd < 0) {
                 ::free(ms);
@@ -850,6 +851,8 @@ void PgfDB::init_state(size_t size)
     }
 
     memset(ms->binmap, 0, sizeof(ms->binmap));
+
+    ms->file_size = size;
 
     ms->revisions = 0;
     ms->transient_revisions = 0;
@@ -1310,70 +1313,10 @@ object PgfDB::malloc_internal(size_t bytes)
             size_t alloc_size =
                 ((nb + MINSIZE - size + page_size - 1) / page_size) * page_size;
 
-            size_t old_size =
-                ms->top + size + sizeof(size_t);
             size_t new_size =
-                old_size + alloc_size;
+                ms->file_size + alloc_size;
 
-            malloc_state* new_ms;
-#ifndef _WIN32
-// OSX do not implement mremap or MREMAP_MAYMOVE
-#ifndef MREMAP_MAYMOVE
-            if (fd >= 0) {
-                if (munmap(ms, old_size) == -1)
-                    throw pgf_systemerror(errno);
-                ms = NULL;
-                if (ftruncate(fd, new_size) < 0)
-                    throw pgf_systemerror(errno, filepath);
-                new_ms =
-                    (malloc_state*) mmap(0, new_size, PROT_READ | PROT_WRITE, MAP_SHARED, fd, 0);
-                if (new_ms == MAP_FAILED)
-                    throw pgf_systemerror(errno);
-            } else {
-                new_ms = (malloc_state*) realloc(ms, new_size);
-                if (new_ms == NULL)
-                    throw pgf_systemerror(ENOMEM);
-            }
-#else
-            if (fd >= 0) {
-                if (ftruncate(fd, new_size) < 0)
-                    throw pgf_systemerror(errno, filepath);
-            }
-            new_ms =
-                (malloc_state*) mremap(ms, old_size, new_size, MREMAP_MAYMOVE);
-            if (new_ms == MAP_FAILED)
-                throw pgf_systemerror(errno);
-#endif
-#else
-            if (fd >= 0) {
-                UnmapViewOfFile(ms);
-                CloseHandle(hMap);
-                ms = NULL;
-
-                hMap = CreateFileMapping((HANDLE) _get_osfhandle(fd),
-                                         NULL,
-                                         PAGE_READWRITE,
-                                         HIWORD(new_size), LOWORD(new_size),
-                                         NULL);
-                if (hMap == NULL) {
-                    hMap = INVALID_HANDLE_VALUE;
-                    throw pgf_systemerror(last_error_to_errno());
-                }
-
-                new_ms = (malloc_state*) MapViewOfFile(hMap,
-                                                       FILE_MAP_WRITE,
-                                                       0,0,new_size);
-                if (new_ms == NULL)
-                    throw pgf_systemerror(last_error_to_errno());
-            } else {
-                new_ms = (malloc_state*) realloc(ms, new_size);
-                if (new_ms == NULL)
-                    throw pgf_systemerror(ENOMEM);
-            }
-#endif
-
-            ms = new_ms;
-            current_base = (unsigned char*) ms;
+			resize_map(new_size);
 
             victim = ptr(ms,ms->top);
 
@@ -1678,6 +1621,10 @@ void PgfDB::lock(DB_scope_mode m)
         }
     }
 #endif
+
+	// If another process has resized the file we must resize the map
+	if (mmap_size != ms->file_size)
+		resize_map(ms->file_size);
 }
 
 void PgfDB::unlock()
@@ -1718,6 +1665,74 @@ void PgfDB::unlock()
         }
     }
 #endif
+}
+
+void PgfDB::resize_map(size_t new_size)
+{
+	malloc_state* new_ms;
+#ifndef _WIN32
+// OSX do not implement mremap or MREMAP_MAYMOVE
+#ifndef MREMAP_MAYMOVE
+	if (fd >= 0) {
+		size_t old_file_size = ms->file_size;
+		if (munmap(ms, mmap_size) == -1)
+			throw pgf_systemerror(errno);
+		ms = NULL;
+		if (old_file_size != new_size) {
+			if (ftruncate(fd, new_size) < 0)
+				throw pgf_systemerror(errno, filepath);
+		}
+		new_ms =
+			(malloc_state*) mmap(0, new_size, PROT_READ | PROT_WRITE, MAP_SHARED, fd, 0);
+		if (new_ms == MAP_FAILED)
+			throw pgf_systemerror(errno);
+	} else {
+		new_ms = (malloc_state*) realloc(ms, new_size);
+		if (new_ms == NULL)
+			throw pgf_systemerror(ENOMEM);
+	}
+#else
+	if (fd >= 0 && ms->file_size != new_size) {
+		if (ftruncate(fd, new_size) < 0)
+			throw pgf_systemerror(errno, filepath);
+	}
+	new_ms =
+		(malloc_state*) mremap(ms, mmap_size, new_size, MREMAP_MAYMOVE);
+	if (new_ms == MAP_FAILED)
+		throw pgf_systemerror(errno);
+#endif
+#else
+	if (fd >= 0) {
+		UnmapViewOfFile(ms);
+		CloseHandle(hMap);
+		ms = NULL;
+
+		hMap = CreateFileMapping((HANDLE) _get_osfhandle(fd),
+								 NULL,
+								 PAGE_READWRITE,
+								 HIWORD(new_size), LOWORD(new_size),
+								 NULL);
+		if (hMap == NULL) {
+			hMap = INVALID_HANDLE_VALUE;
+			throw pgf_systemerror(last_error_to_errno());
+		}
+
+		new_ms = (malloc_state*) MapViewOfFile(hMap,
+											   FILE_MAP_WRITE,
+											   0,0,new_size);
+		if (new_ms == NULL)
+			throw pgf_systemerror(last_error_to_errno());
+	} else {
+		new_ms = (malloc_state*) realloc(ms, new_size);
+		if (new_ms == NULL)
+			throw pgf_systemerror(ENOMEM);
+	}
+#endif
+
+	ms = new_ms;
+	current_base = (unsigned char*) ms;
+	mmap_size = new_size;
+	ms->file_size = new_size;
 }
 
 DB_scope::DB_scope(PgfDB *db, DB_scope_mode m)

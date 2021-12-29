@@ -61,6 +61,7 @@ private:
     int fd;
     const char *filepath;
     malloc_state* ms;
+    size_t mmap_size;
 
 #ifndef _WIN32
     pthread_rwlock_t *rwlock;
@@ -116,6 +117,8 @@ private:
 
     PGF_INTERNAL_DECL void lock(DB_scope_mode m);
     PGF_INTERNAL_DECL void unlock();
+
+    PGF_INTERNAL_DECL void resize_map(size_t new_size);
 
     friend class DB_scope;
 };
