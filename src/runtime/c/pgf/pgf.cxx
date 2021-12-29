@@ -1290,10 +1290,23 @@ PgfConcrRevision pgf_clone_concrete(PgfDB *db, PgfRevision revision,
         ref<PgfConcr> clone = PgfDB::malloc<PgfConcr>(name->size+1);
         clone->ref_count    = 2;
         clone->ref_count_ex = 1;
+
         clone->cflags = concr->cflags;
+		if (clone->cflags != 0)
+            Node<PgfFlag>::add_node_ref(clone->cflags);
+
         clone->lins = concr->lins;
+		if (clone->lins != 0)
+            Node<PgfConcrLin>::add_node_ref(clone->lins);
+
         clone->lincats = concr->lincats;
+		if (clone->lincats != 0)
+            Node<PgfConcrLincat>::add_node_ref(clone->lincats);
+
         clone->printnames = concr->printnames;
+		if (clone->printnames != 0)
+            Node<PgfConcrPrintname>::add_node_ref(clone->printnames);
+
         clone->prev = 0;
         clone->next = 0;
         memcpy(&clone->name, name, sizeof(PgfText)+name->size+1);
