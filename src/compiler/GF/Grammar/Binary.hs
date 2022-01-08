@@ -33,7 +33,7 @@ instance Binary Grammar where
   get = fmap mGrammar get
 
 instance Binary ModuleInfo where
-  put mi = do put (mtype mi,mstatus mi,mflags mi,mextend mi,mwith mi,mopens mi,mexdeps mi,msrc mi,jments mi)
+  put mi = do put (mtype mi,mstatus mi,mflags mi,mextend mi,mwith mi,mopens mi,mexdeps mi,msrc mi,mseqs mi,jments mi)
   get    = do (mtype,mstatus,mflags,mextend,mwith,mopens,med,msrc,mseqs,jments) <- get
               return (ModInfo mtype mstatus mflags mextend mwith mopens med msrc mseqs jments)
 
