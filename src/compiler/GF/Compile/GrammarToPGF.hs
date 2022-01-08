@@ -18,12 +18,13 @@ import GF.Infra.Option
 import GF.Infra.UseIO (IOE)
 import GF.Data.Operations
 
-import Control.Monad(forM_)
+import Control.Monad(forM_,foldM)
 import Data.List
 import Data.Char
 import qualified Data.Set as Set
 import qualified Data.Map as Map
 import qualified Data.IntMap as IntMap
+import qualified Data.Sequence as Seq
 import Data.Array.IArray
 import Data.Maybe(fromMaybe)
 import System.FilePath
@@ -56,14 +57,18 @@ grammar2PGF opts mb_pgf gr am probs = do
       createConcrete (mi2i cm) $ do
         let cflags = err (const noOptions) mflags (lookupModule gr cm)
         sequence_ [setConcreteFlag name value | (name,value) <- optionsPGF cflags]
-        let id_prod = Production [] [PArg [] (LParam 0 [])] (LParam 0 []) [[SymCat 0 (LParam 0 [])]]
-            prods   = ([id_prod],[id_prod])
-            infos   = (((cPredefAbs,cInt),   CncCat (Just (noLoc GM.defLinType)) Nothing Nothing Nothing (Just prods))
-                      :((cPredefAbs,cString),CncCat (Just (noLoc GM.defLinType)) Nothing Nothing Nothing (Just prods))
-                      :((cPredefAbs,cFloat), CncCat (Just (noLoc GM.defLinType)) Nothing Nothing Nothing (Just prods))
-                      : Look.allOrigInfos gr cm)
-        forM_ infos createCncCats
-        forM_ infos createCncFuns
+        let infos = ( Seq.fromList [Left [SymCat 0 (LParam 0 [])]]
+                    , let id_prod = Production [] [PArg [] (LParam 0 [])] (LParam 0 []) [0]
+                          prods   = ([id_prod],[id_prod])
+                      in [(cInt,   CncCat (Just (noLoc GM.defLinType)) Nothing Nothing Nothing (Just prods))
+                         ,(cString,CncCat (Just (noLoc GM.defLinType)) Nothing Nothing Nothing (Just prods))
+                         ,(cFloat, CncCat (Just (noLoc GM.defLinType)) Nothing Nothing Nothing (Just prods))
+                         ]
+                    )
+                    : prepareSeqTbls (Look.allOrigInfos gr cm)
+        infos <- processInfos createCncCats infos
+        infos <- processInfos createCncFuns infos
+        return ()
   return pgf
   where
     aflags = err (const noOptions) mflags (lookupModule gr am)
@@ -95,19 +100,38 @@ grammar2PGF opts mb_pgf gr am probs = do
                       0 -> 0
                       n -> max 0 ((1 - sum [d | (f,Just d) <- pfs]) / fromIntegral n)
 
-    createCncCats ((m,c),CncCat (Just (L _ ty)) _ _ mprn (Just (lindefs,linrefs))) = do
-      createLincat (i2i c) (type2fields gr ty) lindefs linrefs
+    prepareSeqTbls infos = 
+       (map addSeqTable . Map.toList . Map.fromListWith (++))
+               [(m,[(c,info)]) | ((m,c),info) <- infos]
+       where
+         addSeqTable (m,infos) = 
+           case lookupModule gr m of
+             Ok mi   -> case mseqs mi of
+                          Just seqs -> (fmap Left seqs,infos)
+                          Nothing   -> (Seq.empty,[])
+             Bad msg -> error msg
+
+    processInfos f []                    = return []
+    processInfos f ((seqtbl,infos):rest) = do
+      seqtbl <- foldM f seqtbl infos
+      rest <- processInfos f rest
+      return ((seqtbl,infos):rest)
+
+    createCncCats seqtbl (c,CncCat (Just (L _ ty)) _ _ mprn (Just (lindefs,linrefs))) = do
+      seqtbl <- createLincat (i2i c) (type2fields gr ty) lindefs linrefs seqtbl
       case mprn of
         Nothing        -> return ()
         Just (L _ prn) -> setPrintName (i2i c) (unwords (term2tokens prn))
-    createCncCats _ = return ()
+      return seqtbl
+    createCncCats seqtbl _ = return seqtbl
 
-    createCncFuns ((m,f),CncFun _ _ mprn (Just prods)) = do
-      createLin (i2i f) prods
+    createCncFuns seqtbl (f,CncFun _ _ mprn (Just prods)) = do
+      seqtbl <- createLin (i2i f) prods seqtbl
       case mprn of
         Nothing        -> return ()
         Just (L _ prn) -> setPrintName (i2i f) (unwords (term2tokens prn))
-    createCncFuns _ = return ()
+      return seqtbl
+    createCncFuns seqtbl _ = return seqtbl
 
     term2tokens (K tok)     = [tok]
     term2tokens (C t1 t2)   = term2tokens t1 ++ term2tokens t2

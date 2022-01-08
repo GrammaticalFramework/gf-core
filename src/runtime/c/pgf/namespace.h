@@ -509,7 +509,6 @@ void namespace_release(Namespace<V> node)
 
         if (!(--node->value->ref_count)) {
             V::release(node->value);
-            PgfDB::free(node->value);
         }
 
         PgfDB::free(node);

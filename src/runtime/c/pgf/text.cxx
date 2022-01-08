@@ -5,7 +5,7 @@ int textcmp(PgfText *t1, PgfText *t2)
 {
     for (size_t i = 0; ; i++) {
         if (i >= t1->size)
-            return (i - t2->size);
+            return -(i < t2->size);
         if (i >= t2->size)
             return 1;
 
@@ -13,6 +13,48 @@ int textcmp(PgfText *t1, PgfText *t2)
             return 1;
         else if (t1->text[i] < t2->text[i])
             return -1;
+    }
+}
+
+PGF_INTERNAL
+void texticmp(PgfText *t1, PgfText *t2, int res[2])
+{
+	const uint8_t *s1 = (uint8_t*) &t1->text;
+	const uint8_t *e1 = s1+t1->size;
+
+	const uint8_t *s2 = (uint8_t*) &t2->text;
+	const uint8_t *e2 = s2+t2->size;
+
+    for (;;) {
+        if (s1 >= e1) {
+			res[0] = (res[1] = -(s2 < e2));
+            return;
+		}
+        if (s2 >= e2) {
+			res[0] = (res[1] = 1);
+            return;
+        }
+
+		uint32_t ucs1  = pgf_utf8_decode(&s1);
+		uint32_t ucs1i = pgf_utf8_to_upper(ucs1);
+
+		uint32_t ucs2  = pgf_utf8_decode(&s2);
+		uint32_t ucs2i = pgf_utf8_to_upper(ucs2);
+
+        if (ucs1i > ucs2i) {
+			res[0] = (res[1] = 1);
+            return;
+        }
+        else if (ucs1i < ucs2i) {
+			res[0] = (res[1] = -1);
+            return;
+        }
+        else if (res[1] == 0) {
+			if (ucs1 > ucs2)
+				res[1] =  1;
+			else if (ucs1 < ucs2)
+				res[1] = -1;
+		}
     }
 }
 
@@ -49,7 +91,7 @@ ref<PgfText> textdup_db(PgfText *t1)
 }
 
 PGF_API uint32_t
-pgf_utf8_decode(const uint8_t** src_inout)
+pgf_utf8_decode(const uint8_t **src_inout)
 {
 	const uint8_t* src = *src_inout;
 	uint8_t c = src[0];
@@ -74,7 +116,7 @@ pgf_utf8_decode(const uint8_t** src_inout)
 }
 
 PGF_API void
-pgf_utf8_encode(uint32_t ucs, uint8_t** buf)
+pgf_utf8_encode(uint32_t ucs, uint8_t **buf)
 {
 	uint8_t* p = *buf;
 	if (ucs < 0x80) {

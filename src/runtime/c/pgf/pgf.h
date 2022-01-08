@@ -396,6 +396,15 @@ PGF_API_DECL
 void pgf_iter_lins(PgfDB *db, PgfConcrRevision cnc_revision,
                    PgfItor *itor, PgfExn *err);
 
+typedef struct PgfSequenceItor PgfSequenceItor;
+struct PgfSequenceItor {
+	void (*fn)(PgfSequenceItor* self, object value, PgfExn *err);
+};
+
+PGF_API
+void pgf_iter_sequences(PgfDB *db, PgfConcrRevision cnc_revision,
+                        PgfSequenceItor *itor, PgfExn *err);
+
 PGF_API_DECL
 void pgf_get_lincat_counts_internal(object o, size_t *counts);
 
@@ -403,25 +412,19 @@ PGF_API_DECL
 PgfText *pgf_get_lincat_field_internal(object o, size_t i);
 
 PGF_API_DECL
-void pgf_get_lin_counts_internal(object o, size_t *counts);
+size_t pgf_get_lin_get_prod_count(object o);
 
 PGF_API_DECL
-PgfText *pgf_print_lindef_sig_internal(object o, size_t i);
+PgfText *pgf_print_lindef_internal(object o, size_t i);
 
 PGF_API_DECL
-PgfText *pgf_print_lindef_seq_internal(object o, size_t i, size_t j);
+PgfText *pgf_print_linref_internal(object o, size_t i);
 
 PGF_API_DECL
-PgfText *pgf_print_linref_sig_internal(object o, size_t i);
+PgfText *pgf_print_lin_internal(object o, size_t i);
 
 PGF_API_DECL
-PgfText *pgf_print_linref_seq_internal(object o, size_t i);
-
-PGF_API_DECL
-PgfText *pgf_print_lin_sig_internal(object o, size_t i);
-
-PGF_API_DECL
-PgfText *pgf_print_lin_seq_internal(object o, size_t i, size_t j);
+PgfText *pgf_print_sequence_internal(object o);
 
 PGF_API_DECL
 void pgf_check_expr(PgfDB *db, PgfRevision revision,
@@ -515,7 +518,8 @@ struct PgfLinBuilderIface {
     virtual void add_symsoftspace(PgfExn *err)=0;
     virtual void add_symcapit(PgfExn *err)=0;
     virtual void add_symallcapit(PgfExn *err)=0;
-    virtual void end_sequence(PgfExn *err)=0;
+    virtual object end_sequence(PgfExn *err)=0;
+    virtual void add_sequence_id(object seq_id, PgfExn *err)=0;
     virtual void end_production(PgfExn *err)=0;
 };
 
@@ -545,7 +549,8 @@ typedef struct {
     void (*add_symsoftspace)(PgfLinBuilderIface *this, PgfExn *err);
     void (*add_symcapit)(PgfLinBuilderIface *this, PgfExn *err);
     void (*add_symallcapit)(PgfLinBuilderIface *this, PgfExn *err);
-    void (*end_sequence)(PgfLinBuilderIface *this, PgfExn *err);
+    object (*end_sequence)(PgfLinBuilderIface *this, PgfExn *err);
+    void (*add_sequence_id)(PgfLinBuilderIface *this, object seq_id, PgfExn *err);
     void (*end_production)(PgfLinBuilderIface *this, PgfExn *err);
 } PgfLinBuilderIfaceVtbl;
 

@@ -13,7 +13,7 @@ module PGF2.Transactions
           , setAbstractFlag
 
             -- concrete syntax
-          , Token, LIndex, LVar, LParam(..)
+          , Token, SeqId, LIndex, LIndex, LVar, LParam(..)
           , PArg(..), Symbol(..), Production(..)
 
           , createConcrete
@@ -21,6 +21,7 @@ module PGF2.Transactions
           , dropConcrete
           , mergePGF
           , setConcreteFlag
+          , SeqTable
           , createLincat
           , dropLincat
           , createLin
@@ -35,6 +36,8 @@ import PGF2.ByteCode
 import Foreign
 import Foreign.C
 import Control.Exception
+import qualified Data.Sequence as Seq
+import Data.IORef
 
 #include <pgf/pgf.h>
 
@@ -197,10 +200,11 @@ setConcreteFlag name value = Transaction $ \c_db _ c_revision c_exn ->
 
 type Token  = String
 
+type SeqId  = Int
 type LIndex = Int
 type LVar   = Int
 data LParam  = LParam {-# UNPACK #-} !LIndex [(LIndex,LVar)]
-               deriving (Eq,Show)
+               deriving (Eq,Ord,Show)
 
 data Symbol
   = SymCat {-# UNPACK #-} !Int {-# UNPACK #-} !LParam
@@ -214,21 +218,23 @@ data Symbol
   | SymSOFT_SPACE                   -- the special SOFT_SPACE token
   | SymCAPIT                        -- the special CAPIT token
   | SymALL_CAPIT                    -- the special ALL_CAPIT token
-  deriving (Eq,Show)
+  deriving (Eq,Ord,Show)
 
 data PArg = PArg [(LIndex,LIndex)] {-# UNPACK #-} !LParam
             deriving (Eq,Show)
 
-data Production = Production [(LVar,LIndex)] [PArg] LParam [[Symbol]]
+data Production = Production [(LVar,LIndex)] [PArg] LParam [SeqId]
                  deriving (Eq,Show)
 
-createLincat :: Cat -> [String] -> [Production] -> [Production] -> Transaction Concr ()
-createLincat name fields lindefs linrefs = Transaction $ \c_db c_abstr c_revision c_exn ->
+type SeqTable = Seq.Seq (Either [Symbol] SeqId)
+
+createLincat :: Cat -> [String] -> [Production] -> [Production] -> SeqTable -> Transaction Concr SeqTable
+createLincat name fields lindefs linrefs seqtbl = Transaction $ \c_db c_abstr c_revision c_exn ->
   let n_fields = length fields
   in withText name $ \c_name ->
      allocaBytes (n_fields*(#size PgfText*)) $ \c_fields ->
      withTexts c_fields 0 fields $
-     withBuildLinIface (lindefs++linrefs) $ \c_build ->
+     withBuildLinIface (lindefs++linrefs) seqtbl $ \c_build ->
        pgf_create_lincat c_db c_abstr c_revision c_name
                          (fromIntegral n_fields) c_fields
                          (fromIntegral (length lindefs)) (fromIntegral (length linrefs))
@@ -245,19 +251,21 @@ dropLincat name = Transaction $ \c_db _ c_revision c_exn ->
   withText name $ \c_name ->
     pgf_drop_lincat c_db c_revision c_name c_exn
 
-createLin :: Fun -> [Production] -> Transaction Concr ()
-createLin name prods = Transaction $ \c_db c_abstr c_revision c_exn ->
+createLin :: Fun -> [Production] -> SeqTable -> Transaction Concr SeqTable
+createLin name prods seqtbl = Transaction $ \c_db c_abstr c_revision c_exn ->
   withText name $ \c_name ->
-  withBuildLinIface prods $ \c_build ->
+  withBuildLinIface prods seqtbl $ \c_build ->
     pgf_create_lin c_db c_abstr c_revision c_name (fromIntegral (length prods)) c_build c_exn
 
-withBuildLinIface prods f =
-  allocaBytes (#size PgfBuildLinIface) $ \c_build ->
-  allocaBytes (#size PgfBuildLinIfaceVtbl) $ \vtbl ->
-  bracket (wrapLinBuild build) freeHaskellFunPtr $ \c_callback -> do
-    (#poke PgfBuildLinIface, vtbl) c_build vtbl
-    (#poke PgfBuildLinIfaceVtbl, build) vtbl c_callback
-    f c_build
+withBuildLinIface prods seqtbl f = do
+  ref <- newIORef seqtbl
+  (allocaBytes (#size PgfBuildLinIface) $ \c_build ->
+   allocaBytes (#size PgfBuildLinIfaceVtbl) $ \vtbl ->
+   bracket (wrapLinBuild (build ref)) freeHaskellFunPtr $ \c_callback -> do
+     (#poke PgfBuildLinIface, vtbl) c_build vtbl
+     (#poke PgfBuildLinIfaceVtbl, build) vtbl c_callback
+     f c_build)
+  readIORef ref
   where
     forM_ []     c_exn f = return ()
     forM_ (x:xs) c_exn f = do
@@ -266,9 +274,9 @@ withBuildLinIface prods f =
         then f x >> forM_ xs c_exn f
         else return ()
 
-    build _ c_builder c_exn = do
+    build ref _ c_builder c_exn = do
       vtbl <- (#peek PgfLinBuilderIface, vtbl) c_builder
-      forM_ prods c_exn $ \(Production vars args res seqs) -> do
+      forM_ prods c_exn $ \(Production vars args res seqids) -> do
         fun <- (#peek PgfLinBuilderIfaceVtbl, start_production) vtbl
         callLinBuilder0 fun c_builder c_exn
         fun <- (#peek PgfLinBuilderIfaceVtbl, add_argument) vtbl
@@ -279,12 +287,17 @@ withBuildLinIface prods f =
         fun <- (#peek PgfLinBuilderIfaceVtbl, add_variable) vtbl
         forM_ vars c_exn $ \(v,r) ->
           callLinBuilder2 fun c_builder (fromIntegral v) (fromIntegral r) c_exn
-        forM_ seqs c_exn $ \syms -> do
-          fun <- (#peek PgfLinBuilderIfaceVtbl, start_sequence) vtbl
-          callLinBuilder1 fun c_builder (fromIntegral (length syms)) c_exn
-          forM_ syms c_exn (addSymbol c_builder vtbl c_exn)
-          fun <- (#peek PgfLinBuilderIfaceVtbl, end_sequence) vtbl
-          callLinBuilder0 fun c_builder c_exn
+        fun <- (#peek PgfLinBuilderIfaceVtbl, add_sequence_id) vtbl
+        seqtbl <- readIORef ref
+        forM_ seqids c_exn $ \seqid ->
+          case Seq.index seqtbl seqid of
+            Left syms   -> do fun    <- (#peek PgfLinBuilderIfaceVtbl, start_sequence) vtbl
+                              callLinBuilder1 fun c_builder (fromIntegral (length syms)) c_exn
+                              forM_ syms c_exn (addSymbol c_builder vtbl c_exn)
+                              fun <- (#peek PgfLinBuilderIfaceVtbl, end_sequence) vtbl
+                              seqid' <- callLinBuilder7 fun c_builder c_exn
+                              writeIORef ref $! Seq.update seqid (Right (fromIntegral seqid')) seqtbl
+            Right seqid -> do callLinBuilder1 fun c_builder (fromIntegral seqid) c_exn
         fun <- (#peek PgfLinBuilderIfaceVtbl, end_production) vtbl
         callLinBuilder0 fun c_builder c_exn
 

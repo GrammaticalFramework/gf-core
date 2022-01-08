@@ -45,7 +45,7 @@ class PGF_INTERNAL_DECL PgfLinearizer : public PgfUnmarshaller {
         virtual void check_category(PgfLinearizer *linearizer, PgfText *cat)=0;
         virtual void linearize_arg(PgfLinearizationOutputIface *out, PgfLinearizer *linearizer, size_t d, PgfLParam *r);
         virtual void linearize_var(PgfLinearizationOutputIface *out, PgfLinearizer *linearizer, size_t d, size_t r);
-        virtual void linearize_syms(PgfLinearizationOutputIface *out, PgfLinearizer *linearizer, ref<Vector<PgfSymbol>> syms);
+        virtual void linearize_seq(PgfLinearizationOutputIface *out, PgfLinearizer *linearizer, ref<PgfSequence> seq);
         virtual void linearize(PgfLinearizationOutputIface *out, PgfLinearizer *linearizer, size_t lindex)=0;
         size_t eval_param(PgfLParam *param);
         virtual ref<PgfConcrLincat> get_lincat(PgfLinearizer *linearizer)=0;

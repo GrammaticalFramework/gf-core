@@ -792,7 +792,6 @@ void PgfDB::cleanup_revisions()
 			ref<PgfPGF> pgf = ms->transient_revisions;
 			ref<PgfPGF> next = pgf->next;
 			PgfPGF::release(pgf);
-			PgfDB::free(pgf);
 			ms->transient_revisions = next;
 		}
 
@@ -802,7 +801,6 @@ void PgfDB::cleanup_revisions()
 			concr->ref_count -= concr->ref_count_ex;
 			if (!concr->ref_count) {
 				PgfConcr::release(concr);
-				PgfDB::free(concr);
 			}
 			ms->transient_concr_revisions = next;
 		}

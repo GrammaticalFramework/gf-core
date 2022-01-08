@@ -222,11 +222,15 @@ showPGF p =
           def <- bracket (pgf_print_function_internal val) free peekText
           modifyIORef ref (\doc -> doc $$ text def)
 
-    ppConcr name c =
-      text "concrete" <+> text name <+> char '{' $$
-      nest 2 (ppLincats c $$
-              ppLins c) $$
-      char '}'
+    ppConcr name c = unsafePerformIO $ do
+      doc <- prepareSequences c -- run first to update all seq_id
+      return (text "concrete" <+> text name <+> char '{' $$
+              nest 2 (ppLincats c $$
+                      ppLins c $$
+                      (text "sequences" <+> char '{' $$ 
+                       nest 2 doc $$ 
+                       char '}')) $$
+              char '}')
 
     ppLincats c = unsafePerformIO $ do
       ref <- newIORef empty
@@ -248,32 +252,20 @@ showPGF p =
                       n_lindefs <- peekElemOff pcounts 1
                       n_linrefs <- peekElemOff pcounts 2
                       return (n_fields,n_lindefs,n_linrefs)
-          fields <- allocaBytes (3*(#size size_t)) $ \pcounts -> do
-                      forM (init [0..n_fields]) $ \i -> do
-                        pgf_get_lincat_field_internal val i >>= peekText
+          fields <- forM (init [0..n_fields]) $ \i -> do
+                      pgf_get_lincat_field_internal val i >>= peekText
           let def = text "lincat" <+> (text name <+> char '=' <+> char '[' $$
                                        nest 2 (vcat (map (text.show) fields)) $$
                                        char ']')
           modifyIORef ref $ (\doc -> doc $$ def)
           forM_ (init [0..n_lindefs]) $ \i -> do
-            sig <- bracket (pgf_print_lindef_sig_internal val i) free $ \c_text -> do
+            def <- bracket (pgf_print_lindef_internal val i) free $ \c_text -> do
                      fmap text (peekText c_text)
-            seqs <- forM (init [0..n_fields]) $ \j ->
-                      bracket (pgf_print_lindef_seq_internal val i j) free $ \c_text -> do
-                          fmap text (peekText c_text)
-            let def = text "lindef" <+> (sig <+> char '=' <+> char '[' $$
-                                         nest 2 (vcat seqs) $$
-                                         char ']')
-            modifyIORef ref $ (\doc -> doc $$ def)
+            modifyIORef ref (\doc -> doc $$ text "lindef" <+> def)
           forM_ (init [0..n_linrefs]) $ \i -> do
-            sig <- bracket (pgf_print_linref_sig_internal val i) free $ \c_text -> do
+            def <- bracket (pgf_print_linref_internal val i) free $ \c_text -> do
                      fmap text (peekText c_text)
-            seq <- bracket (pgf_print_linref_seq_internal val i) free $ \c_text -> do
-                     fmap text (peekText c_text)
-            let def = text "linref" <+> (sig <+> char '=' <+> char '[' $$
-                                         nest 2 seq $$
-                                         char ']')
-            modifyIORef ref $ (\doc -> doc $$ def)
+            modifyIORef ref $ (\doc -> doc $$ text "linref" <+> def)
 
     ppLins c = unsafePerformIO $ do
       ref <- newIORef empty
@@ -285,22 +277,28 @@ showPGF p =
       readIORef ref
       where
         getLins :: IORef Doc -> ItorCallback
-        getLins ref itor key val exn =
-          allocaBytes (2*(#size size_t)) $ \pcounts -> do
-            pgf_get_lin_counts_internal val pcounts
-            n_prods <- peekElemOff pcounts 0
-            n_seqs  <- peekElemOff pcounts 1
-            forM_ (init [0..n_prods]) $ \i -> do
-              sig <- bracket (pgf_print_lin_sig_internal val i) free $ \c_text -> do
-                       fmap text (peekText c_text)
-              syms <- forM (init [0..n_seqs]) $ \j ->
-                        bracket (pgf_print_lin_seq_internal val i j) free $ \c_text -> do
-                          fmap text (peekText c_text)
-              let def = text "lin" <+> (sig <+> char '=' <+> char '[' $$
-                                        nest 2 (vcat syms) $$
-                                        char ']')
-              modifyIORef ref $ (\doc -> doc $$ def)
-              return ()
+        getLins ref itor key val exn = do
+          n_prods <- pgf_get_lin_get_prod_count val
+          forM_ (init [0..n_prods]) $ \i -> do
+            def <- bracket (pgf_print_lin_internal val i) free $ \c_text -> do
+                     fmap text (peekText c_text)
+            modifyIORef ref (\doc -> doc $$ text "lin" <+> def)
+            return ()
+
+    prepareSequences c = do
+      ref <- newIORef empty
+      (allocaBytes (#size PgfSequenceItor) $ \itor ->
+       bracket (wrapSequenceItorCallback (getSequences ref)) freeHaskellFunPtr $ \fptr ->
+       withForeignPtr (c_revision c) $ \c_revision -> do
+         (#poke PgfSequenceItor, fn) itor fptr
+         withPgfExn "showPGF" (pgf_iter_sequences (a_db p) c_revision itor))
+      readIORef ref
+      where
+        getSequences :: IORef Doc -> SequenceItorCallback
+        getSequences ref itor val exn = do
+          def <- bracket (pgf_print_sequence_internal val) free $ \c_text -> do
+                     fmap text (peekText c_text)
+          modifyIORef ref $ (\doc -> doc $$ def)
 
 -- | The abstract language name is the name of the top-level
 -- abstract module

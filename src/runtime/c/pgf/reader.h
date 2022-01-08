@@ -73,6 +73,8 @@ public:
     void read_parg(ref<PgfPArg> parg);
     ref<PgfPResult> read_presult();
     PgfSymbol read_symbol();
+    ref<PgfSequence> read_seq();
+    void read_seq_id(ref<ref<PgfSequence>> r);
     ref<PgfConcrLin> read_lin();
     ref<PgfConcrPrintname> read_printname();
 
@@ -84,14 +86,13 @@ public:
 private:
     FILE *in;
     ref<PgfAbstr> abstract;
+    ref<PgfConcr> concrete;
 
     object read_name_internal(size_t struct_size);
     object read_text_internal(size_t struct_size);
 
-    void read_text2(ref<ref<PgfText>> r) { auto text = read_text(); *r = text; };
-    void read_lparam(ref<ref<PgfLParam>> r) { auto lparam = read_lparam(); *r = lparam; };
-    void read_symbol2(ref<PgfSymbol> r) { auto sym = read_symbol(); *r = sym; };
-    void read_seq2(ref<ref<Vector<PgfSymbol>>> r) { auto seq = read_vector(&PgfReader::read_symbol2); *r = seq; }
+    void read_text2(ref<ref<PgfText>> r) { auto text = read_text(); *r = text; }
+    void read_lparam(ref<ref<PgfLParam>> r) { auto lparam = read_lparam(); *r = lparam; }
     void read_presult2(ref<ref<PgfPResult>> r) { auto res = read_presult(); *r = res; }
 
     template<class I>

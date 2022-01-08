@@ -7,6 +7,7 @@ PgfReader::PgfReader(FILE *in)
 {
     this->in = in;
     this->abstract = 0;
+    this->concrete = 0;
 }
 
 uint8_t PgfReader::read_uint8()
@@ -515,14 +516,14 @@ PgfSymbol PgfReader::read_symbol()
         sym_kp->alts.len = n_alts;
 
         for (size_t i = 0; i < n_alts; i++) {
-            auto form     = read_vector(&PgfReader::read_symbol2);
+            auto form     = read_seq();
             auto prefixes = read_vector(&PgfReader::read_text2);
 
             sym_kp->alts.data[i].form     = form;
             sym_kp->alts.data[i].prefixes = prefixes;
         }
 
-        auto default_form = read_vector(&PgfReader::read_symbol2);
+        auto default_form = read_seq();
         sym_kp->default_form = default_form;
 
         sym = ref<PgfSymbolKP>::tagged(sym_kp);
@@ -559,6 +560,32 @@ PgfSymbol PgfReader::read_symbol()
     return sym;
 }
 
+ref<PgfSequence> PgfReader::read_seq()
+{
+	size_t n_syms = read_len();
+
+	ref<PgfSequence> seq = PgfDB::malloc<PgfSequence>(n_syms*sizeof(PgfSymbol));
+    seq->seq_id    = 0;
+    seq->ref_count = 1;
+    seq->syms.len  = n_syms;
+
+    for (size_t i = 0; i < n_syms; i++) {
+        PgfSymbol sym = read_symbol();
+        *vector_elem(&seq->syms,i) = sym;
+    }
+
+    return seq;
+}
+
+void PgfReader::read_seq_id(ref<ref<PgfSequence>> r)
+{
+	size_t seq_id = read_len();
+	ref<PgfSequence> seq = phrasetable_get(concrete->phrasetable, seq_id);
+	if (seq == 0)
+		throw pgf_error("Invalid sequence id");
+	*r = seq;
+}
+
 ref<PgfConcrLincat> PgfReader::read_lincat()
 {
     ref<PgfConcrLincat> lincat = read_name(&PgfConcrLincat::name);
@@ -568,7 +595,7 @@ ref<PgfConcrLincat> PgfReader::read_lincat()
     lincat->n_lindefs = read_len();
     lincat->args = read_vector(&PgfReader::read_parg);
     lincat->res  = read_vector(&PgfReader::read_presult2);
-    lincat->seqs = read_vector(&PgfReader::read_seq2);
+    lincat->seqs = read_vector(&PgfReader::read_seq_id);
     return lincat;
 }
 
@@ -579,7 +606,7 @@ ref<PgfConcrLin> PgfReader::read_lin()
     lin->absfun = namespace_lookup(abstract->funs, &lin->name);
     lin->args = read_vector(&PgfReader::read_parg);
     lin->res  = read_vector(&PgfReader::read_presult2);
-    lin->seqs = read_vector(&PgfReader::read_seq2);
+    lin->seqs = read_vector(&PgfReader::read_seq_id);
     return lin;
 }
 
@@ -593,16 +620,17 @@ ref<PgfConcrPrintname> PgfReader::read_printname()
 
 ref<PgfConcr> PgfReader::read_concrete()
 {
-    ref<PgfConcr> concr = read_name(&PgfConcr::name);
-    concr->ref_count    = 1;
-    concr->ref_count_ex = 0;
-	concr->cflags = read_namespace<PgfFlag>(&PgfReader::read_flag);
-	concr->lincats = read_namespace<PgfConcrLincat>(&PgfReader::read_lincat);
-	concr->lins = read_namespace<PgfConcrLin>(&PgfReader::read_lin);
-	concr->printnames = read_namespace<PgfConcrPrintname>(&PgfReader::read_printname);
-    concr->prev = 0;
-    concr->next = 0;
-    return concr;
+    concrete = read_name(&PgfConcr::name);
+    concrete->ref_count    = 1;
+    concrete->ref_count_ex = 0;
+	concrete->cflags = read_namespace<PgfFlag>(&PgfReader::read_flag);
+	concrete->phrasetable = read_namespace<PgfSequence>(&PgfReader::read_seq);
+	concrete->lincats = read_namespace<PgfConcrLincat>(&PgfReader::read_lincat);
+	concrete->lins = read_namespace<PgfConcrLin>(&PgfReader::read_lin);
+	concrete->printnames = read_namespace<PgfConcrPrintname>(&PgfReader::read_printname);
+    concrete->prev = 0;
+    concrete->next = 0;
+    return concrete;
 }
 
 ref<PgfPGF> PgfReader::read_pgf()

@@ -74,11 +74,12 @@ import GF.Infra.Location
 import GF.Data.Operations
 
 import PGF2(BindType(..))
-import PGF2.Transactions(LIndex,LVar,LParam(..),PArg(..),Symbol(..),Production(..))
+import PGF2.Transactions(SeqId,LIndex,LVar,LParam(..),PArg(..),Symbol(..),Production(..))
 
 import Data.Array.IArray(Array)
 import Data.Array.Unboxed(UArray)
 import qualified Data.Map as Map
+import qualified Data.Sequence as Seq
 import GF.Text.Pretty
 
 
@@ -100,6 +101,7 @@ data ModuleInfo = ModInfo {
     mopens  :: [OpenSpec],
     mexdeps :: [ModuleName],
     msrc    :: FilePath,
+    mseqs   :: Maybe (Seq.Seq [Symbol]),
     jments  :: Map.Map Ident Info
   }
 

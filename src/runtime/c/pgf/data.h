@@ -64,6 +64,7 @@ class PgfConcr;
 #include "text.h"
 #include "vector.h"
 #include "namespace.h"
+#include "phrasetable.h"
 #include "expr.h"
 
 struct PGF_INTERNAL_DECL PgfFlag {
@@ -128,6 +129,14 @@ struct PGF_INTERNAL_DECL PgfPResult {
 
 typedef object PgfSymbol;
 
+struct PGF_INTERNAL_DECL PgfSequence {
+	size_t seq_id;
+	size_t ref_count;
+	Vector<PgfSymbol> syms;
+
+    static void release(ref<PgfSequence> lincat);
+};
+
 struct PGF_INTERNAL_DECL PgfSymbolCat {
     static const uint8_t tag = 0;
     size_t d;
@@ -151,7 +160,7 @@ struct PGF_INTERNAL_DECL PgfSymbolKS {
 };
 
 struct PGF_INTERNAL_DECL PgfAlternative {
-	ref<Vector<PgfSymbol>> form;
+	ref<PgfSequence> form;
 	/**< The form of this variant as a list of tokens. */
 
 	ref<Vector<ref<PgfText>>> prefixes;
@@ -161,7 +170,7 @@ struct PGF_INTERNAL_DECL PgfAlternative {
 
 struct PGF_INTERNAL_DECL PgfSymbolKP {
     static const uint8_t tag = 4;
-    ref<Vector<PgfSymbol>> default_form;
+    ref<PgfSequence> default_form;
     Vector<PgfAlternative> alts;
 };
 
@@ -192,9 +201,6 @@ struct PGF_INTERNAL_DECL PgfSymbolALLCAPIT {
 PGF_INTERNAL_DECL
 void pgf_symbol_free(PgfSymbol sym);
 
-PGF_INTERNAL_DECL
-void pgf_symbols_free(ref<Vector<PgfSymbol>> syms);
-
 struct PGF_INTERNAL_DECL PgfConcrLincat {
     size_t ref_count;
 
@@ -205,7 +211,7 @@ struct PGF_INTERNAL_DECL PgfConcrLincat {
     size_t n_lindefs;
     ref<Vector<PgfPArg>> args;
     ref<Vector<ref<PgfPResult>>> res;
-    ref<Vector<ref<Vector<PgfSymbol>>>> seqs;
+    ref<Vector<ref<PgfSequence>>> seqs;
 
     PgfText name;
 
@@ -219,7 +225,7 @@ struct PGF_INTERNAL_DECL PgfConcrLin {
 
     ref<Vector<PgfPArg>> args;
     ref<Vector<ref<PgfPResult>>> res;
-    ref<Vector<ref<Vector<PgfSymbol>>>> seqs;
+    ref<Vector<ref<PgfSequence>>> seqs;
 
     PgfText name;
 
@@ -240,6 +246,7 @@ struct PGF_INTERNAL_DECL PgfConcr {
     Namespace<PgfFlag> cflags;
     Namespace<PgfConcrLin> lins;
     Namespace<PgfConcrLincat> lincats;
+    PgfPhrasetable phrasetable;
     Namespace<PgfConcrPrintname> printnames;
 
     // If there are references from the host language to this concrete,

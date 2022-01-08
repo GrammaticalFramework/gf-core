@@ -34,8 +34,8 @@ instance Binary Grammar where
 
 instance Binary ModuleInfo where
   put mi = do put (mtype mi,mstatus mi,mflags mi,mextend mi,mwith mi,mopens mi,mexdeps mi,msrc mi,jments mi)
-  get    = do (mtype,mstatus,mflags,mextend,mwith,mopens,med,msrc,jments) <- get
-              return (ModInfo mtype mstatus mflags mextend mwith mopens med msrc jments)
+  get    = do (mtype,mstatus,mflags,mextend,mwith,mopens,med,msrc,mseqs,jments) <- get
+              return (ModInfo mtype mstatus mflags mextend mwith mopens med msrc mseqs jments)
 
 instance Binary ModuleType where
   put MTAbstract       = putWord8 0
@@ -365,7 +365,7 @@ decodeModuleHeader :: MonadIO io => FilePath -> io (VersionTagged Module)
 decodeModuleHeader = liftIO . fmap (fmap conv) . decodeFile'
   where
     conv (m,mtype,mstatus,mflags,mextend,mwith,mopens,med,msrc) =
-        (m,ModInfo mtype mstatus mflags mextend mwith mopens med msrc Map.empty)
+        (m,ModInfo mtype mstatus mflags mextend mwith mopens med msrc Nothing Map.empty)
 
 encodeModule :: MonadIO io => FilePath -> SourceModule -> io ()
 encodeModule fpath mo = liftIO $ encodeFile fpath (Tagged mo)

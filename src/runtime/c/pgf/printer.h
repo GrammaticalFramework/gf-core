@@ -56,8 +56,9 @@ public:
     void lvar(size_t var);
     void lparam(ref<PgfLParam> lparam);
     void lvar_ranges(ref<Vector<PgfVariableRange>> vars);
+    void seq_id(size_t seqid);
     void symbol(PgfSymbol sym);
-    void symbols(ref<Vector<PgfSymbol>> syms);
+    void sequence(ref<PgfSequence> seq);
 
     virtual PgfExpr eabs(PgfBindType btype, PgfText *name, PgfExpr body);
     virtual PgfExpr eapp(PgfExpr fun, PgfExpr arg);

@@ -529,11 +529,11 @@ void PgfPrinter::symbol(PgfSymbol sym)
         auto sym_kp = ref<PgfSymbolKP>::untagged(sym);
         puts("pre {");
 
-        symbols(sym_kp->default_form);
+        sequence(sym_kp->default_form);
 
         for (size_t i = 0; i < sym_kp->alts.len; i++) {
             puts("; ");
-            symbols(sym_kp->alts.data[i].form);
+            sequence(sym_kp->alts.data[i].form);
             puts(" /");
             for (size_t j = 0; j < sym_kp->alts.data[i].prefixes->len; j++) {
                 puts(" ");
@@ -565,14 +565,19 @@ void PgfPrinter::symbol(PgfSymbol sym)
 	}
 }
 
-void PgfPrinter::symbols(ref<Vector<PgfSymbol>> syms)
+void PgfPrinter::sequence(ref<PgfSequence> seq)
 {
-    for (size_t i = 0; i < syms->len; i++) {
+    for (size_t i = 0; i < seq->syms.len; i++) {
         if (i > 0)
             puts(" ");
 
-        symbol(*vector_elem(syms, i));
+        symbol(*vector_elem(&seq->syms, i));
     }
+}
+
+void PgfPrinter::seq_id(size_t seq_id)
+{
+	nprintf(5, "S%zu", seq_id);
 }
 
 void PgfPrinter::free_ref(object x)

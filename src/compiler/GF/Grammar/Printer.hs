@@ -25,6 +25,7 @@ module GF.Grammar.Printer
 import Prelude hiding ((<>)) -- GHC 8.4.1 clash with Text.PrettyPrint
 
 import PGF2(Literal(..))
+import PGF2.Transactions(SeqId)
 import GF.Infra.Ident
 import GF.Infra.Option
 import GF.Grammar.Values
@@ -34,8 +35,9 @@ import GF.Grammar.Grammar
 import GF.Text.Pretty
 import Data.Maybe (isNothing)
 import Data.List  (intersperse)
+import Data.Foldable (toList)
 import qualified Data.Map as Map
-import qualified Data.Array.IArray as Array
+import qualified Data.Sequence as Seq
 import qualified GHC.Show
 
 data TermPrintQual
@@ -46,10 +48,11 @@ instance Pretty Grammar where
   pp = vcat . map (ppModule Qualified) . modules
 
 ppModule :: TermPrintQual -> SourceModule -> Doc
-ppModule q (mn, ModInfo mtype mstat opts exts with opens _ _ jments) =
+ppModule q (mn, ModInfo mtype mstat opts exts with opens _ _ mseqs jments) =
     hdr $$
     nest 2 (ppOptions opts $$
-            vcat (map (ppJudgement q) (Map.toList jments))) $$
+            vcat (map (ppJudgement q) (Map.toList jments)) $$
+            maybe empty (ppSequences q) mseqs) $$
     ftr
     where
       hdr = complModDoc <+> modTypeDoc <+> '=' <+>
@@ -160,7 +163,7 @@ ppJudgement q (id, AnyInd cann mid) =
     Internal -> "ind" <+> id <+> '=' <+> (if cann then pp "canonical" else empty) <+> mid <+> ';'
     _        -> empty
 
-ppPmcfgRule id arg_cats res_cat (Production vars args res lins) =
+ppPmcfgRule id arg_cats res_cat (Production vars args res seqids) =
   pp id <+> (':' <+>
              (if null vars
                 then empty
@@ -169,7 +172,7 @@ ppPmcfgRule id arg_cats res_cat (Production vars args res lins) =
                 then empty
                 else hsep (intersperse (pp '*') (zipWith ppPArg arg_cats args)) <+> "->") <+>
              ppPmcfgCat res_cat res $$
-             '=' <+> brackets (vcat (map (hsep . map ppSymbol) lins)))
+             '=' <+> brackets (hcat (intersperse (pp ',') (map ppSeqId seqids))))
 
 ppPArg cat (PArg _ p) = ppPmcfgCat cat p
 
@@ -339,6 +342,18 @@ ppAltern q (x,y) = ppTerm q 0 x <+> '/' <+> ppTerm q 0 y
 
 ppParams q ps = fsep (intersperse (pp '|') (map (ppParam q) ps))
 ppParam q (id,cxt) = id <+> hsep (map (ppDDecl q) cxt)
+
+ppSeqId :: SeqId -> Doc
+ppSeqId seqid = 'S' <> pp seqid
+
+ppSequences q seqs
+  | Seq.null seqs || q /= Internal = empty
+  | otherwise                      = "sequences" <+> '{' $$
+                                     nest 2 (vcat (zipWith ppSeq [0..] (toList seqs))) $$
+                                    '}'
+  where
+    ppSeq seqid seq =
+      ppSeqId seqid <+> ":=" <+> hsep (map ppSymbol seq)
 
 commaPunct f ds = (hcat (punctuate "," (map f ds)))
 

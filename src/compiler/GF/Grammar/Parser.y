@@ -132,14 +132,14 @@ ModDef
                                           (opens,jments,opts) = case content of { Just c -> c; Nothing -> ([],[],noOptions) }
                                       jments <- mapM (checkInfoType mtype) jments
                                       defs <- buildAnyTree id jments
-                                      return (id, ModInfo mtype mstat opts extends with opens [] "" defs)  }
+                                      return (id, ModInfo mtype mstat opts extends with opens [] "" Nothing defs)  }
 
 ModHeader :: { SourceModule }
 ModHeader
   : ComplMod ModType '=' ModHeaderBody { let { mstat = $1 ;
                                                (mtype,id) = $2 ;
                                                (extends,with,opens) = $4 }
-                                         in (id, ModInfo mtype mstat noOptions extends with opens [] "" Map.empty) }
+                                         in (id, ModInfo mtype mstat noOptions extends with opens [] "" Nothing Map.empty) }
 
 ComplMod :: { ModuleStatus }
 ComplMod 

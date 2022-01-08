@@ -22,77 +22,99 @@ import GF.Text.Pretty
 import GF.Compile.Compute.Concrete
 import GF.Data.Operations(Err(..))
 import PGF2.Transactions
-import qualified Data.Map.Strict as Map
 import Control.Monad
-import Data.List(mapAccumL,sortBy)
-import Data.Maybe(fromMaybe)
+import Control.Monad.State
+import qualified Data.Map.Strict as Map
+import qualified Data.Sequence as Seq
+import Data.List(mapAccumL,sortOn)
+import Data.Maybe(fromMaybe,isNothing)
 
 generatePMCFG :: Options -> FilePath -> SourceGrammar -> SourceModule -> Check SourceModule
 generatePMCFG opts cwd gr cmo@(cm,cmi)
-  | mstatus cmi == MSComplete && isModCnc cmi =
+  | mstatus cmi == MSComplete && isModCnc cmi && isNothing (mseqs cmi) =
                 do let gr' = prependModule gr cmo
-                   js <- mapM (addPMCFG opts cwd gr' cmi) (Map.toList (jments cmi))
-                   return (cm,cmi{jments = (Map.fromAscList js)})
+                   (js,seqs) <- runStateT (Map.traverseWithKey (\id info -> StateT (addPMCFG opts cwd gr' cmi id info)) (jments cmi)) Map.empty
+                   return (cm,cmi{jments = js, mseqs=Just (mapToSequence seqs)})
   | otherwise = return cmo
+  where
+    mapToSequence m = Seq.fromList (map fst (sortOn snd (Map.toList m)))
 
-addPMCFG opts cwd gr cmi (id,CncCat mty@(Just (L loc ty)) mdef mref mprn Nothing) = do
-  defs <- case mdef of
+type SequenceSet = Map.Map [Symbol] Int
+
+addPMCFG opts cwd gr cmi id (CncCat mty@(Just (L loc ty)) mdef mref mprn Nothing) seqs = do
+  (defs,seqs) <-
+          case mdef of
             Nothing           -> checkInModule cwd cmi loc ("Happened in the PMCFG generation for the lindef of" <+> id) $ do
                                    term <- mkLinDefault gr ty
-                                   pmcfgForm gr term [(Explicit,identW,typeStr)] ty
+                                   pmcfgForm gr term [(Explicit,identW,typeStr)] ty seqs
             Just (L loc term) -> checkInModule cwd cmi loc ("Happened in the PMCFG generation for the lindef of" <+> id) $ do
-                                   pmcfgForm gr term [(Explicit,identW,typeStr)] ty
-  refs <- case mref of
+                                   pmcfgForm gr term [(Explicit,identW,typeStr)] ty seqs
+  (refs,seqs) <- 
+          case mref of
             Nothing           -> checkInModule cwd cmi loc ("Happened in the PMCFG generation for the linref of" <+> id) $ do
                                    term <- mkLinReference gr ty
-                                   pmcfgForm gr term [(Explicit,identW,ty)] typeStr
+                                   pmcfgForm gr term [(Explicit,identW,ty)] typeStr seqs
             Just (L loc term) -> checkInModule cwd cmi loc ("Happened in the PMCFG generation for the linref of" <+> id) $ do
-                                   pmcfgForm gr term [(Explicit,identW,ty)] typeStr
+                                   pmcfgForm gr term [(Explicit,identW,ty)] typeStr seqs
   mprn  <- case mprn of
              Nothing          -> return Nothing
              Just (L loc prn) -> checkInModule cwd cmi loc ("Happened in the computation of the print name for" <+> id) $ do
                                    prn <- normalForm gr prn
                                    return (Just (L loc prn))
-  return (id,CncCat mty mdef mref mprn (Just (defs,refs)))
-addPMCFG opts cwd gr cmi (id,CncFun mty@(Just (_,cat,ctxt,val)) mlin@(Just (L loc term)) mprn Nothing) = do
-  rules <- checkInModule cwd cmi loc ("Happened in the PMCFG generation for" <+> id) $
-             pmcfgForm gr term ctxt val
+  return (CncCat mty mdef mref mprn (Just (defs,refs)),seqs)
+addPMCFG opts cwd gr cmi id (CncFun mty@(Just (_,cat,ctxt,val)) mlin@(Just (L loc term)) mprn Nothing) seqs = do
+  (rules,seqs) <-
+           checkInModule cwd cmi loc ("Happened in the PMCFG generation for" <+> id) $
+             pmcfgForm gr term ctxt val seqs
   mprn  <- case mprn of
              Nothing          -> return Nothing
              Just (L loc prn) -> checkInModule cwd cmi loc ("Happened in the computation of the print name for" <+> id) $ do
                                    prn <- normalForm gr prn
                                    return (Just (L loc prn))
-  return (id,CncFun mty mlin mprn (Just rules))
-addPMCFG opts cwd gr cmi id_info = return id_info
+  return (CncFun mty mlin mprn (Just rules),seqs)
+addPMCFG opts cwd gr cmi id info seqs = return (info,seqs)
 
-pmcfgForm :: Grammar -> Term -> Context -> Type -> Check [Production]
-pmcfgForm gr t ctxt ty =
-  runEvalM gr $ do
-    ((_,ms),args) <- mapAccumM (\(d,ms) (_,_,ty) -> do
-                                   let (ms',_,t) = type2metaTerm gr d ms 0 [] ty
-                                   tnk <- newThunk [] t
-                                   return ((d+1,ms'),tnk))
-                               (0,Map.empty) ctxt
-    sequence_ [newNarrowing i ty | (i,ty) <- Map.toList ms]
-    v <- eval [] t args
-    (lins,params) <- flatten v ty ([],[])
-    lins <- mapM str2lin lins
-    (r,rs,_) <- compute params
-    args <- zipWithM tnk2lparam args ctxt
-    vars <- getVariables
-    return (Production vars args (LParam r (order rs)) (reverse lins))
-    where
-      tnk2lparam tnk (_,_,ty) = do
-        v <- force tnk
-        (_,params) <- flatten v ty ([],[])
-        (r,rs,_) <- compute params
-        return (PArg [] (LParam r (order rs)))
+pmcfgForm :: Grammar -> Term -> Context -> Type -> SequenceSet -> Check ([Production],SequenceSet)
+pmcfgForm gr t ctxt ty seqs = do
+  res <- runEvalM gr $ do
+           ((_,ms),args) <- mapAccumM (\(d,ms) (_,_,ty) -> do
+                                          let (ms',_,t) = type2metaTerm gr d ms 0 [] ty
+                                          tnk <- newThunk [] t
+                                          return ((d+1,ms'),tnk))
+                                      (0,Map.empty) ctxt
+           sequence_ [newNarrowing i ty | (i,ty) <- Map.toList ms]
+           v <- eval [] t args
+           (lins,params) <- flatten v ty ([],[])
+           lins <- fmap reverse $ mapM str2lin lins
+           (r,rs,_) <- compute params
+           args <- zipWithM tnk2lparam args ctxt
+           vars <- getVariables
+           let res = LParam r (order rs)
+           return (vars,args,res,lins)
+  return (runState (mapM mkProduction res) seqs)
+  where
+    tnk2lparam tnk (_,_,ty) = do
+      v <- force tnk
+      (_,params) <- flatten v ty ([],[])
+      (r,rs,_) <- compute params
+      return (PArg [] (LParam r (order rs)))
 
-      compute []              = return (0,[],1)
-      compute ((v,ty):params) = do
-        (r, rs ,cnt ) <- param2int v ty
-        (r',rs',cnt') <- compute params
-        return (r*cnt'+r',combine cnt' rs rs',cnt*cnt')
+    compute []              = return (0,[],1)
+    compute ((v,ty):params) = do
+      (r, rs ,cnt ) <- param2int v ty
+      (r',rs',cnt') <- compute params
+      return (r*cnt'+r',combine cnt' rs rs',cnt*cnt')
+
+    mkProduction (vars,args,res,lins) = do
+      lins <- mapM getSeqId lins
+      return (Production vars args res lins)
+      where
+        getSeqId :: [Symbol] -> State (Map.Map [Symbol] SeqId) SeqId
+        getSeqId lin = state $ \m ->
+          case Map.lookup lin m of
+            Just seqid -> (seqid,m)
+            Nothing    -> let seqid = Map.size m
+                          in (seqid,Map.insert lin seqid m)
 
 type2metaTerm :: SourceGrammar -> Int -> Map.Map MetaId Type -> LIndex -> [(LIndex,(Ident,Type))] -> Type -> (Map.Map MetaId Type,Int,Term)
 type2metaTerm gr d ms r rs (Sort s) | s == cStr =
@@ -238,7 +260,7 @@ combine cnt' ((r,pv):rs) ((r',pv'):rs') =
     EQ -> (r*cnt'+r',pv ) : combine cnt' rs ((r',pv'):rs')
     GT -> (       r',pv') : combine cnt' ((r,pv):rs) rs'
 
-order = sortBy (\(r1,_) (r2,_) -> compare r2 r1)
+order = sortOn fst
 
 mapAccumM f a []     = return (a,[])
 mapAccumM f a (x:xs) = do (a, y) <- f a x

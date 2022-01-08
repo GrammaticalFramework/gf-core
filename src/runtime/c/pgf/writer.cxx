@@ -135,7 +135,7 @@ void PgfWriter::write_text(PgfText *text)
 template<class V>
 void PgfWriter::write_namespace(Namespace<V> nmsp, void (PgfWriter::*write_value)(ref<V>))
 {
-    write_len(nmsp->sz);
+    write_len(namespace_size(nmsp));
     write_namespace_helper(nmsp, write_value);
 }
 
@@ -393,10 +393,11 @@ void PgfWriter::write_symbol(PgfSymbol sym)
         auto sym_kp = ref<PgfSymbolKP>::untagged(sym);
         write_len(sym_kp->alts.len);
         for (size_t i = 0; i < sym_kp->alts.len; i++) {
-            write_seq(sym_kp->alts.data[i].form);
-            write_vector(sym_kp->alts.data[i].prefixes, &PgfWriter::write_text);
+			PgfAlternative *alt = vector_elem(&sym_kp->alts, i);
+            write_vector(ref<Vector<PgfSymbol>>::from_ptr(&alt->form->syms), &PgfWriter::write_symbol);
+            write_vector(alt->prefixes, &PgfWriter::write_text);
         }
-        write_seq(sym_kp->default_form);
+        write_vector(ref<Vector<PgfSymbol>>::from_ptr(&sym_kp->default_form->syms), &PgfWriter::write_symbol);
 		break;
 	}
 	case PgfSymbolBIND::tag:
@@ -411,9 +412,10 @@ void PgfWriter::write_symbol(PgfSymbol sym)
 	}
 }
 
-void PgfWriter::write_seq(ref<Vector<PgfSymbol>> seq)
+void PgfWriter::write_seq(ref<PgfSequence> seq)
 {
-    write_vector(seq, &PgfWriter::write_symbol);
+	seq->seq_id = next_seq_id++;
+    write_vector(ref<Vector<PgfSymbol>>::from_ptr(&seq->syms), &PgfWriter::write_symbol);
 }
 
 void PgfWriter::write_lincat(ref<PgfConcrLincat> lincat)
@@ -423,7 +425,7 @@ void PgfWriter::write_lincat(ref<PgfConcrLincat> lincat)
     write_len(lincat->n_lindefs);
     write_vector(lincat->args, &PgfWriter::write_parg);
     write_vector(lincat->res, &PgfWriter::write_presult);
-    write_vector(lincat->seqs, &PgfWriter::write_seq);
+    write_vector(lincat->seqs, &PgfWriter::write_seq_id);
 }
 
 void PgfWriter::write_lin(ref<PgfConcrLin> lin)
@@ -431,7 +433,7 @@ void PgfWriter::write_lin(ref<PgfConcrLin> lin)
     write_name(&lin->name);
     write_vector(lin->args, &PgfWriter::write_parg);
     write_vector(lin->res, &PgfWriter::write_presult);
-    write_vector(lin->seqs, &PgfWriter::write_seq);
+    write_vector(lin->seqs, &PgfWriter::write_seq_id);
 }
 
 void PgfWriter::write_printname(ref<PgfConcrPrintname> printname)
@@ -442,8 +444,11 @@ void PgfWriter::write_printname(ref<PgfConcrPrintname> printname)
 
 void PgfWriter::write_concrete(ref<PgfConcr> concr)
 {
+	next_seq_id = 0;
+
     write_name(&concr->name);
     write_namespace<PgfFlag>(concr->cflags, &PgfWriter::write_flag);
+	write_namespace<PgfSequence>(concr->phrasetable, &PgfWriter::write_seq);
     write_namespace<PgfConcrLincat>(concr->lincats, &PgfWriter::write_lincat);
 	write_namespace<PgfConcrLin>(concr->lins, &PgfWriter::write_lin);
 	write_namespace<PgfConcrPrintname>(concr->printnames, &PgfWriter::write_printname);

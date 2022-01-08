@@ -30,4 +30,10 @@ ref<A> vector_elem(ref<Vector<A>> v, size_t index)
     return ref<A>::from_ptr(&v->data[index]);
 }
 
+template <class A> inline
+A *vector_elem(Vector<A> *v, size_t index)
+{
+    return &v->data[index];
+}
+
 #endif // VECTOR_H

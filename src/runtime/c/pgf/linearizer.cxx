@@ -52,10 +52,10 @@ void PgfLinearizer::TreeNode::linearize_var(PgfLinearizationOutputIface *out, Pg
     out->symbol_token(linearizer->printer.get_text());
 }
 
-void PgfLinearizer::TreeNode::linearize_syms(PgfLinearizationOutputIface *out, PgfLinearizer *linearizer, ref<Vector<PgfSymbol>> syms)
+void PgfLinearizer::TreeNode::linearize_seq(PgfLinearizationOutputIface *out, PgfLinearizer *linearizer, ref<PgfSequence> seq)
 {
-    for (size_t i = 0; i < syms->len; i++) {
-        PgfSymbol sym = *vector_elem(syms, i);
+    for (size_t i = 0; i < seq->syms.len; i++) {
+        PgfSymbol sym = *vector_elem(&seq->syms, i);
 
         switch (ref<PgfSymbol>::get_tag(sym)) {
         case PgfSymbolCat::tag: {
@@ -307,8 +307,8 @@ void PgfLinearizer::TreeLinNode::linearize(PgfLinearizationOutputIface *out, Pgf
     }
 
     size_t n_seqs = lin->seqs->len / lin->res->len;
-    ref<Vector<PgfSymbol>> syms = *vector_elem(lin->seqs, (lin_index-1)*n_seqs + lindex);
-    linearize_syms(out, linearizer, syms);
+    ref<PgfSequence> seq = *vector_elem(lin->seqs, (lin_index-1)*n_seqs + lindex);
+    linearize_seq(out, linearizer, seq);
 
     if (linearizer->pre_stack == NULL)
         out->end_phrase(cat, fid, field, &lin->name);
@@ -382,8 +382,8 @@ void PgfLinearizer::TreeLindefNode::linearize(PgfLinearizationOutputIface *out, 
             linearizer->pre_stack->bracket_stack = bracket;
         }
 
-        ref<Vector<PgfSymbol>> syms = *vector_elem(lincat->seqs, (lin_index-1)*lincat->fields->len + lindex);
-        linearize_syms(out, linearizer, syms);
+        ref<PgfSequence> seq = *vector_elem(lincat->seqs, (lin_index-1)*lincat->fields->len + lindex);
+        linearize_seq(out, linearizer, seq);
 
         if (linearizer->pre_stack == NULL)
             out->end_phrase(&lincat->name, fid, field, linearizer->wild);
@@ -429,8 +429,8 @@ void PgfLinearizer::TreeLinrefNode::linearize(PgfLinearizationOutputIface *out, 
     ref<PgfConcrLincat> lincat = args->get_lincat(linearizer);
     if (lincat != 0) {
         size_t i = lincat->n_lindefs*lincat->fields->len + (lin_index-1);
-        ref<Vector<PgfSymbol>> syms = *vector_elem(lincat->seqs, i);
-        linearize_syms(out, linearizer, syms);
+        ref<PgfSequence> seq = *vector_elem(lincat->seqs, i);
+        linearize_seq(out, linearizer, seq);
     } else {
         args->linearize(out, linearizer, lindex);
     }
@@ -573,14 +573,14 @@ void PgfLinearizer::flush_pre_stack(PgfLinearizationOutputIface *out, PgfText *t
                 for (size_t j = 0; j < alt->prefixes->len; j++) {
                     ref<PgfText> prefix = *vector_elem(alt->prefixes,j);
                     if (textstarts(token, &(*prefix))) {
-                        pre->node->linearize_syms(out, this, alt->form);
+                        pre->node->linearize_seq(out, this, alt->form);
                         goto done;
                     }
                 }
             }
         }
 
-        pre->node->linearize_syms(out, this, pre->sym_kp->default_form);
+        pre->node->linearize_seq(out, this, pre->sym_kp->default_form);
 
     done:
         if (pre->bracket_stack != NULL)

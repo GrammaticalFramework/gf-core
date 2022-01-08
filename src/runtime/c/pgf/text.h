@@ -1,8 +1,18 @@
 #ifndef TEXT_H
 #define TEXT_H
 
+/* Case sensitive comparison */
 PGF_INTERNAL_DECL
 int textcmp(PgfText *t1, PgfText *t2);
+
+/* Performs both case-insensitive and case-sensitive comparison. 
+ * The first element in res contains the result from
+ * the case-insensitive comparison. The second the result 
+ * from case-sensitive one. Usually res must be initialized 
+ * with {0,0}. If it is not then that can be used
+ * to chain a list of comparisons.*/
+PGF_INTERNAL_DECL
+void texticmp(PgfText *t1, PgfText *t2, int res[2]);
 
 PGF_INTERNAL_DECL
 bool textstarts(PgfText *t, PgfText *prefix);

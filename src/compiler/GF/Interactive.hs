@@ -28,8 +28,9 @@ import PGF2
 import PGF2.Transactions hiding (modifyPGF,checkoutPGF)
 
 import Data.Char
-import Data.List(isPrefixOf)
+import Data.List(isPrefixOf,sortOn)
 import qualified Data.Map as Map
+import qualified Data.Sequence as Seq
 import qualified Text.ParserCombinators.ReadP as RP
 import System.Directory(getAppUserDataDirectory)
 import Control.Exception(SomeException,fromException,evaluate,try)
@@ -256,9 +257,9 @@ transactionCommand (CreateLin opts f t) pgf = do
                  in return (fields,type2term mo ty)
       Nothing -> fail ("Function "++f++" is not in the abstract syntax")
   case runCheck (compileLinTerm sgr mo t ty) of
-    Ok ((prods,fields'),_)
+    Ok ((prods,seqtbl,fields'),_)
          | fields == fields' ->
-                    do lift $ modifyPGF pgf (alterConcrete lang (createLin f prods))
+                    do lift $ modifyPGF pgf (alterConcrete lang (createLin f prods seqtbl >> return ()))
                        return ()
          | otherwise -> fail "The linearization categories in the resource and the compiled grammar does not match"
     Bad msg      -> fail msg
@@ -272,8 +273,10 @@ transactionCommand (CreateLin opts f t) pgf = do
       t  <- renameSourceTerm sgr mo (Typed t ty)
       (t,ty) <- inferLType sgr [] t
       let (ctxt,res_ty) = typeFormCnc ty
-      prods <- pmcfgForm sgr t ctxt res_ty
-      return (prods,type2fields sgr res_ty)
+      (prods,seqs) <- pmcfgForm sgr t ctxt res_ty Map.empty
+      return (prods,mapToSequence seqs,type2fields sgr res_ty)
+      where
+        mapToSequence m = Seq.fromList (map (Left . fst) (sortOn snd (Map.toList m)))
 
 transactionCommand (CreateLincat opts c t) pgf = do
   sgr <- getGrammar
@@ -281,7 +284,7 @@ transactionCommand (CreateLincat opts c t) pgf = do
   mo <- maybe (fail "no source grammar in scope") return $
            greatestResource sgr
   case runCheck (compileLincatTerm sgr mo t) of
-    Ok (fields,_)-> do lift $ modifyPGF pgf (alterConcrete lang (createLincat c fields [] []))
+    Ok (fields,_)-> do lift $ modifyPGF pgf (alterConcrete lang (createLincat c fields [] [] Seq.empty >> return ()))
                        return ()
     Bad msg      -> fail msg
   where

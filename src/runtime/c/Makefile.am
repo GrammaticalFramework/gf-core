@@ -29,7 +29,9 @@ libpgf_la_SOURCES = \
 	pgf/data.h \
 	pgf/expr.cxx \
 	pgf/expr.h \
-	pgf/namespace.h
+	pgf/namespace.h \
+	pgf/phrasetable.cxx \
+	pgf/phrasetable.h
 
 libpgf_la_LDFLAGS = -no-undefined
 libpgf_la_CXXFLAGS = -fno-rtti -std=c++11 -DCOMPILING_PGF
