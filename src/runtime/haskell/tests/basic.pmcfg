@@ -18,82 +18,48 @@ concrete basic_cnc {
   lincat Float = [
            "s"
          ]
-  lindef Float :  String(0) -> Float(0) = [
-           <0,0>
-         ]
-  linref Float : Float(0) -> String(0) = [
-           <0,0>
-         ]
+  lindef Float :  String(0) -> Float(0) = [S0]
+  linref Float : Float(0) -> String(0) = [S0]
   lincat Int = [
            "s"
          ]
-  lindef Int :  String(0) -> Int(0) = [
-           <0,0>
-         ]
-  linref Int : Int(0) -> String(0) = [
-           <0,0>
-         ]
+  lindef Int :  String(0) -> Int(0) = [S0]
+  linref Int : Int(0) -> String(0) = [S0]
   lincat N = [
            "s"
          ]
-  lindef N :  String(0) -> N(0) = [
-           <0,0>
-         ]
-  linref N : ∀{i<2} . N(i) -> String(0) = [
-           <0,0>
-         ]
+  lindef N :  String(0) -> N(0) = [S0]
+  linref N : ∀{i<2} . N(i) -> String(0) = [S0]
   lincat P = [
            "s"
          ]
-  lindef P :  String(0) -> P(0) = [
-           <0,0>
-         ]
-  linref P : P(0) -> String(0) = [
-           <0,0>
-         ]
+  lindef P :  String(0) -> P(0) = [S0]
+  linref P : P(0) -> String(0) = [S0]
   lincat S = [
            ""
          ]
-  lindef S :  String(0) -> S(0) = [
-           <0,0>
-         ]
-  linref S : S(0) -> String(0) = [
-           <0,0>
-         ]
+  lindef S :  String(0) -> S(0) = [S0]
+  linref S : S(0) -> String(0) = [S0]
   lincat String = [
            "s"
          ]
-  lindef String :  String(0) -> String(0) = [
-           <0,0>
-         ]
-  linref String : String(0) -> String(0) = [
-           <0,0>
-         ]
-  lin c : ∀{i<2} . N(i) -> S(0) = [
-        <0,0>
-      ]
-  lin floatLit : Float(0) -> S(0) = [
-        <0,0>
-      ]
-  lin ind : ∀{i<2} . P(0) * P(0) * N(i) -> P(0) = [
-        <0,0> "&" "λ" SOFT_BIND <1,$0> SOFT_BIND "," SOFT_BIND <1,$1> "." <1,0>
-      ]
-  lin intLit : Int(0) -> S(0) = [
-        <0,0>
-      ]
-  lin nat : ∀{i<2} . N(i) -> P(0) = [
-        "nat" SOFT_BIND "(" SOFT_BIND <0,0> SOFT_BIND ")"
-      ]
-  lin s : N(0) -> N(0) = [
-        <0,0> "+" "1"
-      ]
-  lin s : N(1) -> N(0) = [
-        "1"
-      ]
-  lin stringLit : String(0) -> S(0) = [
-        <0,0>
-      ]
-  lin z : N(1) = [
-        "0"
-      ]
+  lindef String :  String(0) -> String(0) = [S0]
+  linref String : String(0) -> String(0) = [S0]
+  lin c : ∀{i<2} . N(i) -> S(0) = [S0]
+  lin floatLit : Float(0) -> S(0) = [S0]
+  lin ind : ∀{i<2} . P(0) * P(0) * N(i) -> P(0) = [S1]
+  lin intLit : Int(0) -> S(0) = [S0]
+  lin nat : ∀{i<2} . N(i) -> P(0) = [S5]
+  lin s : N(0) -> N(0) = [S2]
+  lin s : N(1) -> N(0) = [S4]
+  lin stringLit : String(0) -> S(0) = [S0]
+  lin z : N(1) = [S3]
+  sequences {
+    S0 = <0,0>
+    S1 = <0,0> "&" "λ" SOFT_BIND <1,$0> SOFT_BIND "," SOFT_BIND <1,$1> "." <1,0>
+    S2 = <0,0> "+" "1"
+    S3 = "0"
+    S4 = "1"
+    S5 = "nat" SOFT_BIND "(" SOFT_BIND <0,0> SOFT_BIND ")"
+  }
 }
