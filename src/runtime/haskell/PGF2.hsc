@@ -673,7 +673,7 @@ tabularLinearize c e =
   withForeignPtr marshaller $ \m ->
   bracket (withPgfExn "tabularLinearize" (pgf_tabular_linearize (c_db c) c_revision c_e nullPtr m)) free $ \c_texts -> do
     if c_texts == nullPtr
-      then []
+      then return []
       else peekTable c_texts
   where
     peekTable c_texts = do
