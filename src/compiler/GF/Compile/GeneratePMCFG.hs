@@ -26,7 +26,7 @@ import Control.Monad
 import Control.Monad.State
 import qualified Data.Map.Strict as Map
 import qualified Data.Sequence as Seq
-import Data.List(mapAccumL,sortOn)
+import Data.List(mapAccumL,sortOn,sortBy)
 import Data.Maybe(fromMaybe,isNothing)
 
 generatePMCFG :: Options -> FilePath -> SourceGrammar -> SourceModule -> Check SourceModule
@@ -260,7 +260,7 @@ combine cnt' ((r,pv):rs) ((r',pv'):rs') =
     EQ -> (r*cnt'+r',pv ) : combine cnt' rs ((r',pv'):rs')
     GT -> (       r',pv') : combine cnt' ((r,pv):rs) rs'
 
-order = sortOn fst
+order = sortBy (\(r1,_) (r2,_) -> compare r2 r1)
 
 mapAccumM f a []     = return (a,[])
 mapAccumM f a (x:xs) = do (a, y) <- f a x
