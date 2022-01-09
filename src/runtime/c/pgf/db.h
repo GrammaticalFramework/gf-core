@@ -35,7 +35,7 @@ public:
     static
     ref<A> from_ptr(A *ptr) { return (((uint8_t*) ptr) - current_base); }
 
-    object as_object() { return offset; }
+    object as_object() const { return offset; }
 
     static
     object tagged(ref<A> ref) {
