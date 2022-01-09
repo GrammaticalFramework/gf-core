@@ -671,7 +671,10 @@ tabularLinearize c e =
   withForeignPtr (c_revision c) $ \c_revision ->
   bracket (newStablePtr e) freeStablePtr $ \c_e ->
   withForeignPtr marshaller $ \m ->
-  bracket (withPgfExn "tabularLinearize" (pgf_tabular_linearize (c_db c) c_revision c_e nullPtr m)) free peekTable
+  bracket (withPgfExn "tabularLinearize" (pgf_tabular_linearize (c_db c) c_revision c_e nullPtr m)) free $ \c_texts -> do
+    if c_texts == nullPtr
+      then []
+      else peekTable c_texts
   where
     peekTable c_texts = do
       c_field <- peekElemOff c_texts 0
