@@ -130,7 +130,6 @@ struct PGF_INTERNAL_DECL PgfPResult {
 typedef object PgfSymbol;
 
 struct PGF_INTERNAL_DECL PgfSequence {
-	size_t seq_id;
 	size_t ref_count;
 	Vector<PgfSymbol> syms;
 

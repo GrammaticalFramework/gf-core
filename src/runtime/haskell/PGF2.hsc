@@ -223,16 +223,19 @@ showPGF p =
           modifyIORef ref (\doc -> doc $$ text def)
 
     ppConcr name c = unsafePerformIO $ do
-      doc <- prepareSequences c -- run first to update all seq_id
+      (seq_ids,doc3) <- prepareSequences c -- run first to update all seq_id
+      doc1 <- ppLincats seq_ids c
+      doc2 <- ppLins seq_ids c
+      pgf_release_phrasetable_ids seq_ids
       return (text "concrete" <+> text name <+> char '{' $$
-              nest 2 (ppLincats c $$
-                      ppLins c $$
+              nest 2 (doc1 $$
+                      doc2 $$
                       (text "sequences" <+> char '{' $$ 
-                       nest 2 doc $$ 
+                       nest 2 doc3 $$ 
                        char '}')) $$
               char '}')
 
-    ppLincats c = unsafePerformIO $ do
+    ppLincats seq_ids c = do
       ref <- newIORef empty
       (allocaBytes (#size PgfItor) $ \itor ->
        bracket (wrapItorCallback (getLincats ref)) freeHaskellFunPtr $ \fptr ->
@@ -259,15 +262,15 @@ showPGF p =
                                        char ']')
           modifyIORef ref $ (\doc -> doc $$ def)
           forM_ (init [0..n_lindefs]) $ \i -> do
-            def <- bracket (pgf_print_lindef_internal val i) free $ \c_text -> do
+            def <- bracket (pgf_print_lindef_internal seq_ids val i) free $ \c_text -> do
                      fmap text (peekText c_text)
             modifyIORef ref (\doc -> doc $$ text "lindef" <+> def)
           forM_ (init [0..n_linrefs]) $ \i -> do
-            def <- bracket (pgf_print_linref_internal val i) free $ \c_text -> do
+            def <- bracket (pgf_print_linref_internal seq_ids val i) free $ \c_text -> do
                      fmap text (peekText c_text)
             modifyIORef ref $ (\doc -> doc $$ text "linref" <+> def)
 
-    ppLins c = unsafePerformIO $ do
+    ppLins seq_ids c = do
       ref <- newIORef empty
       (allocaBytes (#size PgfItor) $ \itor ->
        bracket (wrapItorCallback (getLins ref)) freeHaskellFunPtr $ \fptr ->
@@ -280,23 +283,24 @@ showPGF p =
         getLins ref itor key val exn = do
           n_prods <- pgf_get_lin_get_prod_count val
           forM_ (init [0..n_prods]) $ \i -> do
-            def <- bracket (pgf_print_lin_internal val i) free $ \c_text -> do
+            def <- bracket (pgf_print_lin_internal seq_ids val i) free $ \c_text -> do
                      fmap text (peekText c_text)
             modifyIORef ref (\doc -> doc $$ text "lin" <+> def)
             return ()
 
     prepareSequences c = do
       ref <- newIORef empty
-      (allocaBytes (#size PgfSequenceItor) $ \itor ->
-       bracket (wrapSequenceItorCallback (getSequences ref)) freeHaskellFunPtr $ \fptr ->
-       withForeignPtr (c_revision c) $ \c_revision -> do
-         (#poke PgfSequenceItor, fn) itor fptr
-         withPgfExn "showPGF" (pgf_iter_sequences (a_db p) c_revision itor))
-      readIORef ref
+      seq_ids <- (allocaBytes (#size PgfSequenceItor) $ \itor ->
+                  bracket (wrapSequenceItorCallback (getSequences ref)) freeHaskellFunPtr $ \fptr ->
+                  withForeignPtr (c_revision c) $ \c_revision -> do
+                    (#poke PgfSequenceItor, fn) itor fptr
+                    withPgfExn "showPGF" (pgf_iter_sequences (a_db p) c_revision itor))
+      doc <- readIORef ref
+      return (seq_ids, doc)
       where
         getSequences :: IORef Doc -> SequenceItorCallback
-        getSequences ref itor val exn = do
-          def <- bracket (pgf_print_sequence_internal val) free $ \c_text -> do
+        getSequences ref itor seq_id val exn = do
+          def <- bracket (pgf_print_sequence_internal seq_id val) free $ \c_text -> do
                      fmap text (peekText c_text)
           modifyIORef ref $ (\doc -> doc $$ def)
 

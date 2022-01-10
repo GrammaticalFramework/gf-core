@@ -827,16 +827,22 @@ void pgf_iter_lins(PgfDB *db, PgfConcrRevision cnc_revision,
 }
 
 PGF_API
-void pgf_iter_sequences(PgfDB *db, PgfConcrRevision cnc_revision,
-                        PgfSequenceItor *itor, PgfExn *err)
+PgfPhrasetableIds *pgf_iter_sequences(PgfDB *db, PgfConcrRevision cnc_revision,
+                                      PgfSequenceItor *itor, PgfExn *err)
 {
     PGF_API_BEGIN {
         DB_scope scope(db, READER_SCOPE);
         ref<PgfConcr> concr = PgfDB::revision2concr(cnc_revision);
 
-		size_t next_id = 0;
-        phrasetable_iter(concr->phrasetable, itor, &next_id, err);
+		PgfPhrasetableIds *seq_ids = new PgfPhrasetableIds();
+		seq_ids->start(concr);
+
+        phrasetable_iter(concr->phrasetable, itor, seq_ids, err);
+
+        return seq_ids;
     } PGF_API_END
+
+    return NULL;
 }
 
 PGF_API
@@ -863,7 +869,7 @@ size_t pgf_get_lin_get_prod_count(object o)
 }
 
 PGF_API
-PgfText *pgf_print_lindef_internal(object o, size_t i)
+PgfText *pgf_print_lindef_internal(PgfPhrasetableIds *seq_ids, object o, size_t i)
 {
     ref<PgfConcrLincat> lincat = o;
 
@@ -893,7 +899,7 @@ PgfText *pgf_print_lindef_internal(object o, size_t i)
 			printer.puts(",");
 
 		ref<PgfSequence> seq = *vector_elem(lincat->seqs, i*n_seqs + j);
-		printer.seq_id(seq->seq_id);
+		printer.seq_id(seq_ids, seq);
 	}
 
 	printer.puts("]");
@@ -902,7 +908,7 @@ PgfText *pgf_print_lindef_internal(object o, size_t i)
 }
 
 PGF_API
-PgfText *pgf_print_linref_internal(object o, size_t i)
+PgfText *pgf_print_linref_internal(PgfPhrasetableIds *seq_ids, object o, size_t i)
 {
     ref<PgfConcrLincat> lincat = o;
 
@@ -926,7 +932,7 @@ PgfText *pgf_print_linref_internal(object o, size_t i)
 
 	size_t n_seqs = lincat->fields->len;
 	ref<PgfSequence> seq = *vector_elem(lincat->seqs, lincat->n_lindefs*n_seqs+i);
-	printer.seq_id(seq->seq_id);
+	printer.seq_id(seq_ids, seq);
 
 	printer.puts("]");
 
@@ -934,7 +940,7 @@ PgfText *pgf_print_linref_internal(object o, size_t i)
 }
 
 PGF_API
-PgfText *pgf_print_lin_internal(object o, size_t i)
+PgfText *pgf_print_lin_internal(PgfPhrasetableIds *seq_ids, object o, size_t i)
 {
     ref<PgfConcrLin> lin = o;
     ref<PgfDTyp> ty = lin->absfun->type;
@@ -975,7 +981,7 @@ PgfText *pgf_print_lin_internal(object o, size_t i)
 			printer.puts(",");
 
 		ref<PgfSequence> seq = *vector_elem(lin->seqs, i*n_seqs + j);
-		printer.seq_id(seq->seq_id);
+		printer.seq_id(seq_ids, seq);
 	}
 
 	printer.puts("]");
@@ -984,18 +990,23 @@ PgfText *pgf_print_lin_internal(object o, size_t i)
 }
 
 PGF_API
-PgfText *pgf_print_sequence_internal(object o)
+PgfText *pgf_print_sequence_internal(size_t seq_id, object o)
 {
     ref<PgfSequence> seq = o;
 
     PgfInternalMarshaller m;
     PgfPrinter printer(NULL,0,&m);
 
-	printer.seq_id(seq->seq_id);
-	printer.puts(" = ");
+	printer.nprintf(10,"S%zu = ", seq_id);
 	printer.sequence(seq);
 
     return printer.get_text();
+}
+
+PGF_API_DECL
+void pgf_release_phrasetable_ids(PgfPhrasetableIds *seq_ids)
+{
+	delete seq_ids;
 }
 
 PGF_API
@@ -1578,7 +1589,6 @@ public:
                 throw pgf_error(builder_error_msg);
 
 			seq = PgfDB::malloc<PgfSequence>(n_syms*sizeof(PgfSymbol));
-            seq->seq_id    = 0;
             seq->ref_count = 1;
             seq->syms.len  = n_syms;
 
@@ -1680,7 +1690,6 @@ public:
                 throw pgf_error(builder_error_msg);
 
 			ref<PgfSequence> def = PgfDB::malloc<PgfSequence>(n_syms*sizeof(PgfSymbol));
-            def->seq_id    = 0;
             def->ref_count = 1;
             def->syms.len  = n_syms;
 
@@ -1707,7 +1716,6 @@ public:
                 throw pgf_error(builder_error_msg);
 
 			ref<PgfSequence> form = PgfDB::malloc<PgfSequence>(n_syms*sizeof(PgfSymbol));
-            form->seq_id    = 0;
             form->ref_count = 1;
             form->syms.len  = n_syms;
 

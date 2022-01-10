@@ -565,7 +565,6 @@ ref<PgfSequence> PgfReader::read_seq()
 	size_t n_syms = read_len();
 
 	ref<PgfSequence> seq = PgfDB::malloc<PgfSequence>(n_syms*sizeof(PgfSymbol));
-    seq->seq_id    = 0;
     seq->ref_count = 1;
     seq->syms.len  = n_syms;
 

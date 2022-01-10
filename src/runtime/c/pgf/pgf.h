@@ -396,14 +396,16 @@ PGF_API_DECL
 void pgf_iter_lins(PgfDB *db, PgfConcrRevision cnc_revision,
                    PgfItor *itor, PgfExn *err);
 
+typedef struct PgfPhrasetableIds PgfPhrasetableIds;
+
 typedef struct PgfSequenceItor PgfSequenceItor;
 struct PgfSequenceItor {
-	void (*fn)(PgfSequenceItor* self, object value, PgfExn *err);
+	void (*fn)(PgfSequenceItor* self, size_t seq_id, object value, PgfExn *err);
 };
 
 PGF_API
-void pgf_iter_sequences(PgfDB *db, PgfConcrRevision cnc_revision,
-                        PgfSequenceItor *itor, PgfExn *err);
+PgfPhrasetableIds *pgf_iter_sequences(PgfDB *db, PgfConcrRevision cnc_revision,
+                                      PgfSequenceItor *itor, PgfExn *err);
 
 PGF_API_DECL
 void pgf_get_lincat_counts_internal(object o, size_t *counts);
@@ -415,16 +417,19 @@ PGF_API_DECL
 size_t pgf_get_lin_get_prod_count(object o);
 
 PGF_API_DECL
-PgfText *pgf_print_lindef_internal(object o, size_t i);
+PgfText *pgf_print_lindef_internal(PgfPhrasetableIds *seq_ids, object o, size_t i);
 
 PGF_API_DECL
-PgfText *pgf_print_linref_internal(object o, size_t i);
+PgfText *pgf_print_linref_internal(PgfPhrasetableIds *seq_ids, object o, size_t i);
 
 PGF_API_DECL
-PgfText *pgf_print_lin_internal(object o, size_t i);
+PgfText *pgf_print_lin_internal(PgfPhrasetableIds *seq_ids, object o, size_t i);
 
 PGF_API_DECL
-PgfText *pgf_print_sequence_internal(object o);
+PgfText *pgf_print_sequence_internal(size_t seq_id, object o);
+
+PGF_API_DECL
+void pgf_release_phrasetable_ids(PgfPhrasetableIds *seq_ids);
 
 PGF_API_DECL
 void pgf_check_expr(PgfDB *db, PgfRevision revision,

@@ -46,6 +46,7 @@ data PgfLinBuilderIface
 data PgfLinearizationOutputIface
 data PgfGraphvizOptions
 data PgfSequenceItor
+data PgfPhrasetableIds
 
 type Wrapper a = a -> IO (FunPtr a)
 type Dynamic a = FunPtr a -> a
@@ -111,25 +112,27 @@ foreign import ccall pgf_iter_lincats :: Ptr PgfDB -> Ptr Concr -> Ptr PgfItor -
 
 foreign import ccall pgf_iter_lins :: Ptr PgfDB -> Ptr Concr -> Ptr PgfItor -> Ptr PgfExn -> IO ()
 
-type SequenceItorCallback = Ptr PgfSequenceItor -> Ptr () -> Ptr PgfExn -> IO ()
+type SequenceItorCallback = Ptr PgfSequenceItor -> CSize -> Ptr () -> Ptr PgfExn -> IO ()
 
 foreign import ccall "wrapper" wrapSequenceItorCallback :: Wrapper SequenceItorCallback
 
-foreign import ccall pgf_iter_sequences :: Ptr PgfDB -> Ptr Concr -> Ptr PgfSequenceItor -> Ptr PgfExn -> IO ()
+foreign import ccall pgf_iter_sequences :: Ptr PgfDB -> Ptr Concr -> Ptr PgfSequenceItor -> Ptr PgfExn -> IO (Ptr PgfPhrasetableIds)
 
 foreign import ccall pgf_get_lincat_counts_internal :: Ptr () -> Ptr CSize -> IO ()
 
 foreign import ccall pgf_get_lincat_field_internal :: Ptr () -> CSize -> IO (Ptr PgfText)
 
-foreign import ccall pgf_print_lindef_internal :: Ptr () -> CSize -> IO (Ptr PgfText)
+foreign import ccall pgf_print_lindef_internal :: Ptr PgfPhrasetableIds -> Ptr () -> CSize -> IO (Ptr PgfText)
 
-foreign import ccall pgf_print_linref_internal :: Ptr () -> CSize -> IO (Ptr PgfText)
+foreign import ccall pgf_print_linref_internal :: Ptr PgfPhrasetableIds -> Ptr () -> CSize -> IO (Ptr PgfText)
 
 foreign import ccall pgf_get_lin_get_prod_count :: Ptr () -> IO CSize
 
-foreign import ccall pgf_print_lin_internal :: Ptr () -> CSize -> IO (Ptr PgfText)
+foreign import ccall pgf_print_lin_internal :: Ptr PgfPhrasetableIds -> Ptr () -> CSize -> IO (Ptr PgfText)
 
-foreign import ccall pgf_print_sequence_internal :: Ptr () -> IO (Ptr PgfText)
+foreign import ccall pgf_print_sequence_internal :: CSize -> Ptr () -> IO (Ptr PgfText)
+
+foreign import ccall pgf_release_phrasetable_ids :: Ptr PgfPhrasetableIds -> IO ()
 
 type ItorCallback = Ptr PgfItor -> Ptr PgfText -> Ptr () -> Ptr PgfExn -> IO ()
 

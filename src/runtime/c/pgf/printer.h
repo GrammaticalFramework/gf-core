@@ -56,7 +56,7 @@ public:
     void lvar(size_t var);
     void lparam(ref<PgfLParam> lparam);
     void lvar_ranges(ref<Vector<PgfVariableRange>> vars);
-    void seq_id(size_t seqid);
+    void seq_id(PgfPhrasetableIds *seq_ids, ref<PgfSequence> seq);
     void symbol(PgfSymbol sym);
     void sequence(ref<PgfSequence> seq);
 

@@ -45,7 +45,7 @@ public:
     void write_presult(ref<PgfPResult> linres);
     void write_symbol(PgfSymbol sym);
     void write_seq(ref<PgfSequence> seq);
-    void write_seq_id(ref<ref<PgfSequence>> r) { write_len((*r)->seq_id); };
+    void write_seq_id(ref<ref<PgfSequence>> r) { write_len(seq_ids.get(*r)); };
     void write_lin(ref<PgfConcrLin> lin);
     void write_printname(ref<PgfConcrPrintname> printname);
 
@@ -62,10 +62,10 @@ private:
     void write_symbol(ref<PgfSymbol> r) { write_symbol(*r); };
     void write_presult(ref<ref<PgfPResult>> r) { write_presult(*r); };
 
-	size_t next_seq_id;
-	
     FILE *out;
+
     ref<PgfAbstr> abstract;
+    PgfPhrasetableIds seq_ids;
 };
 
 #endif

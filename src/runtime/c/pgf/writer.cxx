@@ -414,7 +414,7 @@ void PgfWriter::write_symbol(PgfSymbol sym)
 
 void PgfWriter::write_seq(ref<PgfSequence> seq)
 {
-	seq->seq_id = next_seq_id++;
+	seq_ids.add(seq);
     write_vector(ref<Vector<PgfSymbol>>::from_ptr(&seq->syms), &PgfWriter::write_symbol);
 }
 
@@ -444,7 +444,7 @@ void PgfWriter::write_printname(ref<PgfConcrPrintname> printname)
 
 void PgfWriter::write_concrete(ref<PgfConcr> concr)
 {
-	next_seq_id = 0;
+	seq_ids.start(concr);
 
     write_name(&concr->name);
     write_namespace<PgfFlag>(concr->cflags, &PgfWriter::write_flag);
@@ -452,6 +452,8 @@ void PgfWriter::write_concrete(ref<PgfConcr> concr)
     write_namespace<PgfConcrLincat>(concr->lincats, &PgfWriter::write_lincat);
 	write_namespace<PgfConcrLin>(concr->lins, &PgfWriter::write_lin);
 	write_namespace<PgfConcrPrintname>(concr->printnames, &PgfWriter::write_printname);
+
+	seq_ids.end();
 }
 
 void PgfWriter::write_pgf(ref<PgfPGF> pgf)

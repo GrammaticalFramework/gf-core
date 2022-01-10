@@ -1,5 +1,77 @@
 #include "data.h"
 
+PgfPhrasetableIds::PgfPhrasetableIds()
+{
+	next_id = 0;
+	n_pairs = 0;
+	pairs   = NULL;
+	chains  = NULL;
+}
+
+void PgfPhrasetableIds::start(ref<PgfConcr> concr)
+{
+	next_id = 0;
+	n_pairs = namespace_size(concr->phrasetable);
+	size_t mem_size = sizeof(SeqIdPair)*n_pairs;
+	pairs = (SeqIdPair*) malloc(mem_size);
+	if (pairs == NULL)
+		throw pgf_systemerror(ENOMEM);
+	memset(pairs, 0, mem_size);
+}
+
+size_t PgfPhrasetableIds::add(ref<PgfSequence> seq)
+{
+	size_t index = (seq.as_object() >> 4) % n_pairs;
+	if (pairs[index].seq == 0) {
+		pairs[index].seq = seq;
+		pairs[index].seq_id = next_id++;
+		return pairs[index].seq_id;
+	} else {
+		SeqIdChain *chain =
+			(SeqIdChain*) malloc(sizeof(SeqIdChain));
+		if (chain == NULL)
+			throw pgf_systemerror(ENOMEM);
+		chain->next   = chains;
+		chain->chain  = pairs[index].chain;
+		chain->seq    = seq;
+		chain->seq_id = next_id++;
+		pairs[index].chain = chain;
+		chains        = chain;
+		return chain->seq_id;
+	}
+}
+
+size_t PgfPhrasetableIds::get(ref<PgfSequence> seq)
+{
+	size_t index = (seq.as_object() >> 4) % n_pairs;
+	if (pairs[index].seq == seq) {
+		return pairs[index].seq_id;
+	} else {
+		SeqIdChain *chain = pairs[index].chain;
+		while (chain != NULL) {
+			if (chain->seq == seq)
+				return chain->seq_id;
+			chain = chain->chain;
+		}
+		throw pgf_error("Can't find sequence id");
+	}
+}
+
+void PgfPhrasetableIds::end()
+{
+	next_id = 0;
+	n_pairs = 0;
+	
+	while (chains != NULL) {
+		SeqIdChain *next = chains->next;
+		free(chains);
+		chains = next;
+	}
+
+	free(pairs);
+	pairs = NULL;
+}
+
 static
 int lparam_cmp(PgfLParam *p1, PgfLParam *p2)
 {
@@ -213,21 +285,22 @@ ref<PgfSequence> phrasetable_get(PgfPhrasetable table, size_t seq_id)
 }
 
 PGF_INTERNAL
-void phrasetable_iter(PgfPhrasetable table, PgfSequenceItor* itor, size_t *p_next_id, PgfExn *err)
+void phrasetable_iter(PgfPhrasetable table, PgfSequenceItor* itor,
+                      PgfPhrasetableIds *seq_ids, PgfExn *err)
 {
     if (table == 0)
         return;
 
-    phrasetable_iter(table->left, itor, p_next_id, err);
+    phrasetable_iter(table->left, itor, seq_ids, err);
     if (err->type != PGF_EXN_NONE)
         return;
 
-	table->value->seq_id = (*p_next_id)++;
-    itor->fn(itor, table->value.as_object(), err);
+	size_t seq_id = seq_ids->add(table->value);
+    itor->fn(itor, seq_id, table->value.as_object(), err);
     if (err->type != PGF_EXN_NONE)
         return;
 
-    phrasetable_iter(table->right, itor, p_next_id, err);
+    phrasetable_iter(table->right, itor, seq_ids, err);
     if (err->type != PGF_EXN_NONE)
         return;
 }

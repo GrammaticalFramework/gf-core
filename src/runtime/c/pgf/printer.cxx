@@ -575,9 +575,9 @@ void PgfPrinter::sequence(ref<PgfSequence> seq)
     }
 }
 
-void PgfPrinter::seq_id(size_t seq_id)
+void PgfPrinter::seq_id(PgfPhrasetableIds *seq_ids, ref<PgfSequence> seq)
 {
-	nprintf(5, "S%zu", seq_id);
+	nprintf(5, "S%zu", seq_ids->get(seq));
 }
 
 void PgfPrinter::free_ref(object x)
