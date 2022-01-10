@@ -2206,21 +2206,25 @@ PgfText **pgf_tabular_linearize(PgfDB *db, PgfConcrRevision revision,
         linearizer.reverse_and_label(false);
         if (linearizer.resolve()) {
             ref<PgfConcrLincat> lincat = linearizer.get_lincat();
-            PgfText **res = (PgfText **)
-                malloc((lincat->fields->len+1)*2*sizeof(PgfText*));
-            size_t pos = 0;
-            for (size_t i = 0; i < lincat->fields->len; i++) {
-                linearizer.linearize(&out, i);
+            if (lincat != 0) {
+                PgfText **res = (PgfText **)
+                    malloc((lincat->fields->len+1)*2*sizeof(PgfText*));
+                if (res == NULL)
+                    throw pgf_systemerror(ENOMEM);
+                size_t pos = 0;
+                for (size_t i = 0; i < lincat->fields->len; i++) {
+                    linearizer.linearize(&out, i);
 
-                PgfText *text = out.get_text();
-                if (text != NULL) {
-                    res[pos++] = textdup(&(*lincat->fields->data[i]));
-                    res[pos++] = text;
+                    PgfText *text = out.get_text();
+                    if (text != NULL) {
+                        res[pos++] = textdup(&(*lincat->fields->data[i]));
+                        res[pos++] = text;
+                    }
                 }
+                res[pos++] = NULL;
+                res[pos++] = NULL;
+                return res;
             }
-            res[pos++] = NULL;
-            res[pos++] = NULL;
-            return res;
         }
     } PGF_API_END
 
