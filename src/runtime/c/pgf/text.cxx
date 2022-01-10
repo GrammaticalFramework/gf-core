@@ -27,7 +27,9 @@ void texticmp(PgfText *t1, PgfText *t2, int res[2])
 
     for (;;) {
         if (s1 >= e1) {
-			res[0] = (res[1] = -(s2 < e2));
+            if (s2 >= e2)
+                return;
+            res[0] = (res[1] = -1);
             return;
 		}
         if (s2 >= e2) {
