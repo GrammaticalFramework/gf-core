@@ -132,6 +132,8 @@ foreign import ccall pgf_print_lin_internal :: Ptr PgfPhrasetableIds -> Ptr () -
 
 foreign import ccall pgf_print_sequence_internal :: CSize -> Ptr () -> IO (Ptr PgfText)
 
+foreign import ccall pgf_sequence_get_text_internal :: Ptr () -> IO (Ptr PgfText)
+
 foreign import ccall pgf_release_phrasetable_ids :: Ptr PgfPhrasetableIds -> IO ()
 
 type ItorCallback = Ptr PgfItor -> Ptr PgfText -> Ptr () -> Ptr PgfExn -> IO ()

@@ -429,6 +429,9 @@ PGF_API_DECL
 PgfText *pgf_print_sequence_internal(size_t seq_id, object o);
 
 PGF_API_DECL
+PgfText *pgf_sequence_get_text_internal(object o);
+
+PGF_API_DECL
 void pgf_release_phrasetable_ids(PgfPhrasetableIds *seq_ids);
 
 PGF_API_DECL

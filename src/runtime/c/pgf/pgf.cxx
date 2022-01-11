@@ -1003,6 +1003,31 @@ PgfText *pgf_print_sequence_internal(size_t seq_id, object o)
     return printer.get_text();
 }
 
+PGF_API
+PgfText *pgf_sequence_get_text_internal(object o)
+{
+    ref<PgfSequence> seq = o;
+
+    PgfPrinter printer(NULL,0,NULL);
+    for (size_t i = 0; i < seq->syms.len; i++) {
+        if (i > 0)
+            printer.puts(" ");
+
+        PgfSymbol sym = *vector_elem(&seq->syms, i);
+        switch (ref<PgfSymbol>::get_tag(sym)) {
+        case PgfSymbolKS::tag: {
+            auto sym_ks = ref<PgfSymbolKS>::untagged(sym);
+            printer.puts(&sym_ks->token);
+            break;
+        }
+        default:
+            return NULL;
+        }
+    }
+
+    return printer.get_text();
+}
+
 PGF_API_DECL
 void pgf_release_phrasetable_ids(PgfPhrasetableIds *seq_ids)
 {

@@ -33,6 +33,8 @@ public:
     PgfPrinter(PgfPrintContext *context, int priority,
                PgfMarshaller *marshaller);
 
+    PgfPrinter() { free(res); }
+
     // Push a new variable in the printing context. If the name
     // collides with an existing variable, the variable is renamed
     // by adding a number.

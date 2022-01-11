@@ -568,7 +568,23 @@ unk w [] | any (not . isPunctuation) w = True
 unk _ _                                = False
 
 fullFormLexicon :: Concr -> [(String, [MorphoAnalysis])]
-fullFormLexicon lang = error "TODO: fullFormLexicon"
+fullFormLexicon c = unsafePerformIO $ do
+  ref <- newIORef []
+  (allocaBytes (#size PgfSequenceItor) $ \itor ->
+   bracket (wrapSequenceItorCallback (getSequences ref)) freeHaskellFunPtr $ \fptr ->
+   withForeignPtr (c_revision c) $ \c_revision -> do
+     (#poke PgfSequenceItor, fn) itor fptr
+     seq_ids <- withPgfExn "fullFormLexicon" (pgf_iter_sequences (c_db c) c_revision itor)
+     pgf_release_phrasetable_ids seq_ids)
+  fmap reverse (readIORef ref)
+  where
+    getSequences ref itor seq_id val exn = do
+      bracket (pgf_sequence_get_text_internal val) free $ \c_text ->
+        if c_text == nullPtr
+          then return ()
+          else do lemma <- peekText c_text
+                  modifyIORef ref $ (\lexicon -> (lemma, []) : lexicon)
+
 
 -- | This data type encodes the different outcomes which you could get from the parser.
 data ParseOutput a
