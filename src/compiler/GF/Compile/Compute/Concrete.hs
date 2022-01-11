@@ -319,7 +319,7 @@ patternMatch v0 ((env0,ps,args0,t):eqs) = match env0 ps eqs args0
         (p,       VSusp i envi k vs) -> susp i envi (\v -> k v >>= \v -> apply v vs >>= \v -> match' env p ps eqs arg v args)
         (PP q qs, VApp r tnks)
           | q == r        -> match env (qs++ps) eqs (tnks++args)
-        (PR pas, VR as)   -> matchRec env pas as ps eqs args
+        (PR pas, VR as)   -> matchRec env (reverse pas) as ps eqs args
         (PString s1, VStr s2)
           | s1 == s2      -> match env ps eqs args
         (PString s1, VEmpty)
