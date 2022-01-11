@@ -28,6 +28,7 @@ import qualified Data.Map.Strict as Map
 import qualified Data.Sequence as Seq
 import Data.List(mapAccumL,sortOn,sortBy)
 import Data.Maybe(fromMaybe,isNothing)
+import Debug.Trace
 
 generatePMCFG :: Options -> FilePath -> SourceGrammar -> SourceModule -> Check SourceModule
 generatePMCFG opts cwd gr cmo@(cm,cmi)
@@ -181,6 +182,15 @@ deepForce (VApp q tnks)    = mapM_ (\tnk -> force tnk >>= deepForce) tnks
 deepForce (VC v1 v2)       = deepForce v1 >> deepForce v2
 deepForce (VAlts def alts) = do deepForce def
                                 mapM_ (\(v,_) -> deepForce v) alts
+deepForce (VSymCat d r rs) = mapM_ (\(_,(tnk,_)) -> force tnk >>= deepForce) rs
+  where
+    compute r' []                     = return (r',[])
+    compute r' ((cnt',(tnk,ty)):tnks) = do
+      v <- force tnk
+      (r, rs,_) <- param2int v ty
+      (r',rs' ) <- compute r' tnks
+      return (r*cnt'+r',combine cnt' rs rs')
+
 deepForce _                = return ()
 
 str2lin (VApp q [])
