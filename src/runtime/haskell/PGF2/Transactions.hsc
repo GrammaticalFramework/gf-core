@@ -13,7 +13,7 @@ module PGF2.Transactions
           , setAbstractFlag
 
             -- concrete syntax
-          , Token, SeqId, LIndex, LIndex, LVar, LParam(..)
+          , Token, SeqId, LIndex, LVar, LParam(..)
           , PArg(..), Symbol(..), Production(..)
 
           , createConcrete
