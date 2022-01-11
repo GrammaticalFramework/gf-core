@@ -12,6 +12,11 @@
 #include <windows.h>
 #endif
 
+#ifdef __APPLE__
+#include <sys/errno.h>
+#endif
+
+
 class PGF_INTERNAL_DECL pgf_error : public std::runtime_error {
 public:
     pgf_error(const char *msg) : std::runtime_error(msg)
