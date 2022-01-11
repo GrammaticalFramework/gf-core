@@ -183,14 +183,6 @@ deepForce (VC v1 v2)       = deepForce v1 >> deepForce v2
 deepForce (VAlts def alts) = do deepForce def
                                 mapM_ (\(v,_) -> deepForce v) alts
 deepForce (VSymCat d r rs) = mapM_ (\(_,(tnk,_)) -> force tnk >>= deepForce) rs
-  where
-    compute r' []                     = return (r',[])
-    compute r' ((cnt',(tnk,ty)):tnks) = do
-      v <- force tnk
-      (r, rs,_) <- param2int v ty
-      (r',rs' ) <- compute r' tnks
-      return (r*cnt'+r',combine cnt' rs rs')
-
 deepForce _                = return ()
 
 str2lin (VApp q [])
