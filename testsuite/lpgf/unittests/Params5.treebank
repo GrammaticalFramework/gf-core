@@ -1,0 +1,155 @@
+Params5: showP p1
+Params5Cnc: P1
+
+Params5: showP (pq q1)
+Params5Cnc: PQ Q1
+
+Params5: showP (pq (qr r1))
+Params5Cnc: PQ (QR R1)
+
+Params5: showP (pq (qr r2))
+Params5Cnc: PQ (QR R2)
+
+Params5: showPQ p1 q1
+Params5Cnc: P1 ; Q1
+
+Params5: showPQ p1 (qr r1)
+Params5Cnc: P1 ; QR R1
+
+Params5: showPQ p1 (qr r2)
+Params5Cnc: P1 ; QR R2
+
+Params5: showPQ (pq q1) q1
+Params5Cnc: PQ Q1 ; Q1
+
+Params5: showPQ (pq q1) (qr r1)
+Params5Cnc: PQ Q1 ; QR R1
+
+Params5: showPQ (pq q1) (qr r2)
+Params5Cnc: PQ Q1 ; QR R2
+
+Params5: showPQ (pq (qr r1)) q1
+Params5Cnc: PQ (QR R1) ; Q1
+
+Params5: showPQ (pq (qr r1)) (qr r1)
+Params5Cnc: PQ (QR R1) ; QR R1
+
+Params5: showPQ (pq (qr r1)) (qr r2)
+Params5Cnc: PQ (QR R1) ; QR R2
+
+Params5: showPQ (pq (qr r2)) q1
+Params5Cnc: PQ (QR R2) ; Q1
+
+Params5: showPQ (pq (qr r2)) (qr r1)
+Params5Cnc: PQ (QR R2) ; QR R1
+
+Params5: showPQ (pq (qr r2)) (qr r2)
+Params5Cnc: PQ (QR R2) ; QR R2
+
+Params5: showQP q1 p1
+Params5Cnc: Q1 ; P1
+
+Params5: showQP q1 (pq q1)
+Params5Cnc: Q1 ; PQ Q1
+
+Params5: showQP q1 (pq (qr r1))
+Params5Cnc: Q1 ; PQ (QR R1)
+
+Params5: showQP q1 (pq (qr r2))
+Params5Cnc: Q1 ; PQ (QR R2)
+
+Params5: showQP (qr r1) p1
+Params5Cnc: QR R1 ; P1
+
+Params5: showQP (qr r1) (pq q1)
+Params5Cnc: QR R1 ; PQ Q1
+
+Params5: showQP (qr r1) (pq (qr r1))
+Params5Cnc: QR R1 ; PQ (QR R1)
+
+Params5: showQP (qr r1) (pq (qr r2))
+Params5Cnc: QR R1 ; PQ (QR R2)
+
+Params5: showQP (qr r2) p1
+Params5Cnc: QR R2 ; P1
+
+Params5: showQP (qr r2) (pq q1)
+Params5Cnc: QR R2 ; PQ Q1
+
+Params5: showQP (qr r2) (pq (qr r1))
+Params5Cnc: QR R2 ; PQ (QR R1)
+
+Params5: showQP (qr r2) (pq (qr r2))
+Params5Cnc: QR R2 ; PQ (QR R2)
+
+Params5: showPQnested p1 q1
+Params5Cnc: P1 ; Q1
+
+Params5: showPQnested p1 (qr r1)
+Params5Cnc: P1 ; QR R1
+
+Params5: showPQnested p1 (qr r2)
+Params5Cnc: P1 ; QR R2
+
+Params5: showPQnested (pq q1) q1
+Params5Cnc: PQ Q1 ; Q1
+
+Params5: showPQnested (pq q1) (qr r1)
+Params5Cnc: PQ Q1 ; QR R1
+
+Params5: showPQnested (pq q1) (qr r2)
+Params5Cnc: PQ Q1 ; QR R2
+
+Params5: showPQnested (pq (qr r1)) q1
+Params5Cnc: PQ (QR R1) ; Q1
+
+Params5: showPQnested (pq (qr r1)) (qr r1)
+Params5Cnc: PQ (QR R1) ; QR R1
+
+Params5: showPQnested (pq (qr r1)) (qr r2)
+Params5Cnc: PQ (QR R1) ; QR R2
+
+Params5: showPQnested (pq (qr r2)) q1
+Params5Cnc: PQ (QR R2) ; Q1
+
+Params5: showPQnested (pq (qr r2)) (qr r1)
+Params5Cnc: PQ (QR R2) ; QR R1
+
+Params5: showPQnested (pq (qr r2)) (qr r2)
+Params5Cnc: PQ (QR R2) ; QR R2
+
+Params5: showPPQ p1 q1
+Params5Cnc: P1 ; Q1
+
+Params5: showPPQ p1 (qr r1)
+Params5Cnc: P1 ; QR R1
+
+Params5: showPPQ p1 (qr r2)
+Params5Cnc: P1 ; QR R2
+
+Params5: showPPQ (pq q1) q1
+Params5Cnc: PQ Q1 ; Q1
+
+Params5: showPPQ (pq q1) (qr r1)
+Params5Cnc: PQ Q1 ; QR R1
+
+Params5: showPPQ (pq q1) (qr r2)
+Params5Cnc: PQ Q1 ; QR R2
+
+Params5: showPPQ (pq (qr r1)) q1
+Params5Cnc: PQ (QR R1) ; Q1
+
+Params5: showPPQ (pq (qr r1)) (qr r1)
+Params5Cnc: PQ (QR R1) ; QR R1
+
+Params5: showPPQ (pq (qr r1)) (qr r2)
+Params5Cnc: PQ (QR R1) ; QR R2
+
+Params5: showPPQ (pq (qr r2)) q1
+Params5Cnc: PQ (QR R2) ; Q1
+
+Params5: showPPQ (pq (qr r2)) (qr r1)
+Params5Cnc: PQ (QR R2) ; QR R1
+
+Params5: showPPQ (pq (qr r2)) (qr r2)
+Params5Cnc: PQ (QR R2) ; QR R2

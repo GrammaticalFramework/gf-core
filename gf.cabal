@@ -86,9 +86,12 @@ library
     containers >= 0.5.7 && < 0.7,
     exceptions >= 0.8.3 && < 0.11,
     ghc-prim >= 0.5.0 && < 0.7,
+    hashable >= 1.2.6 && < 1.4,
     mtl >= 2.2.1 && < 2.3,
     pretty >= 1.1.3 && < 1.2,
     random >= 1.1 && < 1.3,
+    text >= 1.2.2 && < 1.3,
+    unordered-containers >= 0.2.8 && < 0.3,
     utf8-string >= 1.0.1.1 && < 1.1,
     -- We need transformers-compat >= 0.6.3, but that is only in newer snapshots where it is redundant.
     transformers-compat >= 0.5.1.4 && < 0.7
@@ -114,11 +117,13 @@ library
   -- ghc-prof-options: -fprof-auto
 
   exposed-modules:
+    LPGF
     PGF
     PGF.Internal
     PGF.Haskell
 
   other-modules:
+    LPGF.Internal
     PGF.Data
     PGF.Macros
     PGF.Binary
@@ -211,6 +216,7 @@ library
     GF.Compile.Export
     GF.Compile.GenerateBC
     GF.Compile.GeneratePMCFG
+    GF.Compile.GrammarToLPGF
     GF.Compile.GrammarToPGF
     GF.Compile.Multi
     GF.Compile.Optimize
@@ -239,6 +245,7 @@ library
     GF.Data.ErrM
     GF.Data.Graph
     GF.Data.Graphviz
+    GF.Data.IntMapBuilder
     GF.Data.Relation
     GF.Data.Str
     GF.Data.Utilities
@@ -406,4 +413,416 @@ test-suite gf-tests
     filepath >= 1.4.1 && < 1.5,
     process >= 1.4.3 && < 1.7
   build-tool-depends: gf:gf
+  default-language: Haskell2010
+
+test-suite lpgf
+  type: exitcode-stdio-1.0
+  main-is: test.hs
+  hs-source-dirs:
+    src/compiler
+    src/runtime/haskell
+    testsuite/lpgf
+  other-modules:
+    Data.Binary
+    Data.Binary.Builder
+    Data.Binary.Get
+    Data.Binary.IEEE754
+    Data.Binary.Put
+    GF
+    GF.Command.Abstract
+    GF.Command.CommandInfo
+    GF.Command.Commands
+    GF.Command.CommonCommands
+    GF.Command.Help
+    GF.Command.Importing
+    GF.Command.Interpreter
+    GF.Command.Messages
+    GF.Command.Parse
+    GF.Command.SourceCommands
+    GF.Command.TreeOperations
+    GF.Compile
+    GF.Compile.CFGtoPGF
+    GF.Compile.CheckGrammar
+    GF.Compile.Compute.Concrete
+    GF.Compile.Compute.Predef
+    GF.Compile.Compute.Value
+    GF.Compile.ConcreteToHaskell
+    GF.Compile.ExampleBased
+    GF.Compile.Export
+    GF.Compile.GenerateBC
+    GF.Compile.GeneratePMCFG
+    GF.Compile.GetGrammar
+    GF.Compile.GrammarToCanonical
+    GF.Compile.GrammarToLPGF
+    GF.Compile.GrammarToPGF
+    GF.Compile.Multi
+    GF.Compile.Optimize
+    GF.Compile.PGFtoHaskell
+    GF.Compile.PGFtoJava
+    GF.Compile.PGFtoJS
+    GF.Compile.PGFtoJSON
+    GF.Compile.PGFtoProlog
+    GF.Compile.PGFtoPython
+    GF.Compile.ReadFiles
+    GF.Compile.Rename
+    GF.Compile.SubExOpt
+    GF.Compile.Tags
+    GF.Compile.ToAPI
+    GF.Compile.TypeCheck.Abstract
+    GF.Compile.TypeCheck.Concrete
+    GF.Compile.TypeCheck.ConcreteNew
+    GF.Compile.TypeCheck.Primitives
+    GF.Compile.TypeCheck.TC
+    GF.Compile.Update
+    GF.CompileInParallel
+    GF.CompileOne
+    GF.Compiler
+    GF.Data.BacktrackM
+    GF.Data.ErrM
+    GF.Data.Graph
+    GF.Data.Graphviz
+    GF.Data.IntMapBuilder
+    GF.Data.Operations
+    GF.Data.Relation
+    GF.Data.Str
+    GF.Data.Utilities
+    GF.Data.XML
+    GF.Grammar
+    GF.Grammar.Analyse
+    GF.Grammar.Binary
+    GF.Grammar.BNFC
+    GF.Grammar.Canonical
+    GF.Grammar.CanonicalJSON
+    GF.Grammar.CFG
+    GF.Grammar.EBNF
+    GF.Grammar.Grammar
+    GF.Grammar.Lexer
+    GF.Grammar.Lockfield
+    GF.Grammar.Lookup
+    GF.Grammar.Macros
+    GF.Grammar.Parser
+    GF.Grammar.PatternMatch
+    GF.Grammar.Predef
+    GF.Grammar.Printer
+    GF.Grammar.ShowTerm
+    GF.Grammar.Unify
+    GF.Grammar.Values
+    GF.Haskell
+    GF.Infra.BuildInfo
+    GF.Infra.CheckM
+    GF.Infra.Concurrency
+    GF.Infra.Dependencies
+    GF.Infra.GetOpt
+    GF.Infra.Ident
+    GF.Infra.Location
+    GF.Infra.Option
+    GF.Infra.SIO
+    GF.Infra.UseIO
+    GF.Interactive
+    GF.JavaScript.AbsJS
+    GF.JavaScript.PrintJS
+    GF.Main
+    GF.Quiz
+    GF.Speech.CFGToFA
+    GF.Speech.FiniteState
+    GF.Speech.GSL
+    GF.Speech.JSGF
+    GF.Speech.PGFToCFG
+    GF.Speech.PrRegExp
+    GF.Speech.RegExp
+    GF.Speech.SISR
+    GF.Speech.SLF
+    GF.Speech.SRG
+    GF.Speech.SRGS_ABNF
+    GF.Speech.SRGS_XML
+    GF.Speech.VoiceXML
+    GF.Support
+    GF.System.Catch
+    GF.System.Concurrency
+    GF.System.Console
+    GF.System.Directory
+    GF.System.Process
+    GF.System.Signal
+    GF.Text.Clitics
+    GF.Text.Coding
+    GF.Text.Lexing
+    GF.Text.Pretty
+    GF.Text.Transliterations
+    LPGF
+    LPGF.Internal
+    PGF
+    PGF.Binary
+    PGF.ByteCode
+    PGF.CId
+    PGF.Data
+    PGF.Expr
+    PGF.Forest
+    PGF.Generate
+    PGF.Internal
+    PGF.Linearize
+    PGF.Macros
+    PGF.Morphology
+    PGF.OldBinary
+    PGF.Optimize
+    PGF.Paraphrase
+    PGF.Parse
+    PGF.Printer
+    PGF.Probabilistic
+    PGF.Tree
+    PGF.TrieMap
+    PGF.Type
+    PGF.TypeCheck
+    PGF.Utilities
+    PGF.VisualizeTree
+    Paths_gf
+  if flag(interrupt)
+    cpp-options: -DUSE_INTERRUPT
+    other-modules: GF.System.UseSignal
+  else
+    other-modules: GF.System.NoSignal
+  build-depends:
+    ansi-terminal >= 0.6.3 && < 0.12,
+    array >= 0.5.1 && < 0.6,
+    base >=4.6 && < 5,
+    bytestring >= 0.10.8 && < 0.11,
+    containers >= 0.5.7 && < 0.7,
+    directory >= 1.3.0 && < 1.4,
+    filepath >= 1.4.1 && < 1.5,
+    ghc-prim >= 0.5.0 && < 0.7,
+    hashable >= 1.2.6 && < 1.4,
+    haskeline >= 0.7.3 && < 0.9,
+    json >= 0.9.1 && < 0.11,
+    mtl >= 2.2.1 && < 2.3,
+    parallel >= 3.2.1.1 && < 3.3,
+    pretty >= 1.1.3 && < 1.2,
+    process >= 1.4.3 && < 1.7,
+    random >= 1.1 && < 1.3,
+    text >= 1.2.2 && < 1.3,
+    time >= 1.6.0 && < 1.10,
+    transformers-compat >= 0.5.1.4 && < 0.7,
+    unordered-containers >= 0.2.8 && < 0.3,
+    utf8-string >= 1.0.1.1 && < 1.1
+
+  if impl(ghc<8.0)
+    build-depends:
+      fail >= 4.9.0 && < 4.10
+
+  if os(windows)
+    build-depends:
+      Win32 >= 2.3.1.1 && < 2.7
+  else
+    build-depends:
+      unix >= 2.7.2 && < 2.8,
+      terminfo >=0.4.0 && < 0.5
+
+  default-language: Haskell2010
+
+benchmark lpgf-bench
+  type: exitcode-stdio-1.0
+  main-is: bench.hs
+  hs-source-dirs:
+    src/compiler
+    src/runtime/haskell
+    testsuite/lpgf
+  other-modules:
+    Data.Binary
+    Data.Binary.Builder
+    Data.Binary.Get
+    Data.Binary.IEEE754
+    Data.Binary.Put
+    GF
+    GF.Command.Abstract
+    GF.Command.CommandInfo
+    GF.Command.Commands
+    GF.Command.CommonCommands
+    GF.Command.Help
+    GF.Command.Importing
+    GF.Command.Interpreter
+    GF.Command.Messages
+    GF.Command.Parse
+    GF.Command.SourceCommands
+    GF.Command.TreeOperations
+    GF.Compile
+    GF.Compile.CFGtoPGF
+    GF.Compile.CheckGrammar
+    GF.Compile.Compute.Concrete
+    GF.Compile.Compute.Predef
+    GF.Compile.Compute.Value
+    GF.Compile.ConcreteToHaskell
+    GF.Compile.ExampleBased
+    GF.Compile.Export
+    GF.Compile.GenerateBC
+    GF.Compile.GeneratePMCFG
+    GF.Compile.GetGrammar
+    GF.Compile.GrammarToCanonical
+    GF.Compile.GrammarToLPGF
+    GF.Compile.GrammarToPGF
+    GF.Compile.Multi
+    GF.Compile.Optimize
+    GF.Compile.PGFtoHaskell
+    GF.Compile.PGFtoJS
+    GF.Compile.PGFtoJSON
+    GF.Compile.PGFtoJava
+    GF.Compile.PGFtoProlog
+    GF.Compile.PGFtoPython
+    GF.Compile.ReadFiles
+    GF.Compile.Rename
+    GF.Compile.SubExOpt
+    GF.Compile.Tags
+    GF.Compile.ToAPI
+    GF.Compile.TypeCheck.Abstract
+    GF.Compile.TypeCheck.Concrete
+    GF.Compile.TypeCheck.ConcreteNew
+    GF.Compile.TypeCheck.Primitives
+    GF.Compile.TypeCheck.TC
+    GF.Compile.Update
+    GF.CompileInParallel
+    GF.CompileOne
+    GF.Compiler
+    GF.Data.BacktrackM
+    GF.Data.ErrM
+    GF.Data.Graph
+    GF.Data.Graphviz
+    GF.Data.IntMapBuilder
+    GF.Data.Operations
+    GF.Data.Relation
+    GF.Data.Str
+    GF.Data.Utilities
+    GF.Data.XML
+    GF.Grammar
+    GF.Grammar.Analyse
+    GF.Grammar.BNFC
+    GF.Grammar.Binary
+    GF.Grammar.CFG
+    GF.Grammar.Canonical
+    GF.Grammar.CanonicalJSON
+    GF.Grammar.EBNF
+    GF.Grammar.Grammar
+    GF.Grammar.Lexer
+    GF.Grammar.Lockfield
+    GF.Grammar.Lookup
+    GF.Grammar.Macros
+    GF.Grammar.Parser
+    GF.Grammar.PatternMatch
+    GF.Grammar.Predef
+    GF.Grammar.Printer
+    GF.Grammar.ShowTerm
+    GF.Grammar.Unify
+    GF.Grammar.Values
+    GF.Haskell
+    GF.Infra.BuildInfo
+    GF.Infra.CheckM
+    GF.Infra.Concurrency
+    GF.Infra.Dependencies
+    GF.Infra.GetOpt
+    GF.Infra.Ident
+    GF.Infra.Location
+    GF.Infra.Option
+    GF.Infra.SIO
+    GF.Infra.UseIO
+    GF.Interactive
+    GF.JavaScript.AbsJS
+    GF.JavaScript.PrintJS
+    GF.Main
+    GF.Quiz
+    GF.Speech.CFGToFA
+    GF.Speech.FiniteState
+    GF.Speech.GSL
+    GF.Speech.JSGF
+    GF.Speech.PGFToCFG
+    GF.Speech.PrRegExp
+    GF.Speech.RegExp
+    GF.Speech.SISR
+    GF.Speech.SLF
+    GF.Speech.SRG
+    GF.Speech.SRGS_ABNF
+    GF.Speech.SRGS_XML
+    GF.Speech.VoiceXML
+    GF.Support
+    GF.System.Catch
+    GF.System.Concurrency
+    GF.System.Console
+    GF.System.Directory
+    GF.System.Process
+    GF.System.Signal
+    GF.Text.Clitics
+    GF.Text.Coding
+    GF.Text.Lexing
+    GF.Text.Pretty
+    GF.Text.Transliterations
+    LPGF
+    LPGF.Internal
+    PGF
+    PGF.Binary
+    PGF.ByteCode
+    PGF.CId
+    PGF.Data
+    PGF.Expr
+    PGF.Expr
+    PGF.Forest
+    PGF.Generate
+    PGF.Internal
+    PGF.Linearize
+    PGF.Macros
+    PGF.Morphology
+    PGF.OldBinary
+    PGF.Optimize
+    PGF.Paraphrase
+    PGF.Parse
+    PGF.Printer
+    PGF.Probabilistic
+    PGF.Tree
+    PGF.TrieMap
+    PGF.Type
+    PGF.TypeCheck
+    PGF.Utilities
+    PGF.VisualizeTree
+    PGF2
+    PGF2.Expr
+    PGF2.Type
+    PGF2.FFI
+    Paths_gf
+  if flag(interrupt)
+    cpp-options: -DUSE_INTERRUPT
+    other-modules: GF.System.UseSignal
+  else
+    other-modules: GF.System.NoSignal
+
+  hs-source-dirs:
+    src/runtime/haskell-bind
+  other-modules:
+    PGF2
+    PGF2.FFI
+    PGF2.Expr
+    PGF2.Type
+  build-tools:     hsc2hs
+  extra-libraries: pgf gu
+  c-sources:       src/runtime/haskell-bind/utils.c
+  cc-options:      -std=c99
+
+  build-depends:
+    ansi-terminal,
+    array,
+    base>=4.6 && <5,
+    bytestring,
+    containers,
+    deepseq,
+    directory,
+    filepath,
+    ghc-prim,
+    hashable,
+    haskeline,
+    json,
+    mtl,
+    parallel>=3,
+    pretty,
+    process,
+    random,
+    terminfo,
+    text,
+    time,
+    transformers-compat,
+    unix,
+    unordered-containers,
+    utf8-string
   default-language: Haskell2010

@@ -1,0 +1,7 @@
+f1
+f2
+concat f1 f2
+bind f1 f2
+softbind f1 f2
+softspace f1 f2
+concat (capit f1) (allcapit f2)

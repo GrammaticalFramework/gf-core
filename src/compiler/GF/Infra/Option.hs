@@ -87,7 +87,8 @@ data Verbosity = Quiet | Normal | Verbose | Debug
 data Phase = Preproc | Convert | Compile | Link
   deriving (Show,Eq,Ord)
 
-data OutputFormat = FmtPGFPretty
+data OutputFormat = FmtLPGF
+                  | FmtPGFPretty
                   | FmtCanonicalGF
                   | FmtCanonicalJson
                   | FmtJavaScript
@@ -335,7 +336,7 @@ optDescr =
      Option ['f'] ["output-format"] (ReqArg outFmt "FMT")
         (unlines ["Output format. FMT can be one of:",
                   "Canonical GF grammar: canonical_gf, canonical_json, (and haskell with option --haskell=concrete)",
-                  "Multiple concrete: pgf (default), json, js, pgf_pretty, prolog, python, ...", -- gar,
+                  "Multiple concrete: pgf (default), lpgf, json, js, pgf_pretty, prolog, python, ...", -- gar,
                   "Single concrete only: bnf, ebnf, fa, gsl, jsgf, regexp, slf, srgs_xml, srgs_abnf, vxml, ....", -- cf, lbnf,
                   "Abstract only: haskell, ..."]), -- prolog_abs,
      Option [] ["sisr"] (ReqArg sisrFmt "FMT")
@@ -477,7 +478,8 @@ outputFormats = map fst outputFormatsExpl
 
 outputFormatsExpl :: [((String,OutputFormat),String)]
 outputFormatsExpl =
-    [(("pgf_pretty",   FmtPGFPretty),"human-readable pgf"),
+    [(("lpgf",         FmtLPGF),"Linearisation-only PGF"),
+     (("pgf_pretty",   FmtPGFPretty),"Human-readable PGF"),
      (("canonical_gf", FmtCanonicalGF),"Canonical GF source files"),
      (("canonical_json", FmtCanonicalJson),"Canonical JSON source files"),
      (("js",           FmtJavaScript),"JavaScript (whole grammar)"),

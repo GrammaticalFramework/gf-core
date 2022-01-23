@@ -1,9 +1,11 @@
-module GF.Compiler (mainGFC, linkGrammars, writePGF, writeOutputs) where
+module GF.Compiler (mainGFC, linkGrammars, writePGF, writeLPGF, writeOutputs) where
 
 import PGF
 import PGF.Internal(concretes,optimizePGF,unionPGF)
 import PGF.Internal(putSplitAbs,encodeFile,runPut)
-import GF.Compile as S(batchCompile,link,srcAbsName)
+import LPGF(LPGF)
+import qualified LPGF.Internal as LPGF
+import GF.Compile as S(batchCompile,link,linkl,srcAbsName)
 import GF.CompileInParallel as P(parallelBatchCompile)
 import GF.Compile.Export
 import GF.Compile.ConcreteToHaskell(concretes2haskell)
@@ -11,7 +13,8 @@ import GF.Compile.GrammarToCanonical--(concretes2canonical)
 import GF.Compile.CFGtoPGF
 import GF.Compile.GetGrammar
 import GF.Grammar.BNFC
-import GF.Grammar.CFG
+import GF.Grammar.CFG hiding (Grammar)
+import GF.Grammar.Grammar (Grammar, ModuleName)
 
 --import GF.Infra.Ident(showIdent)
 import GF.Infra.UseIO
@@ -23,10 +26,11 @@ import GF.Text.Pretty(render,render80)
 import Data.Maybe
 import qualified Data.Map as Map
 import qualified Data.Set as Set
+import Data.Time(UTCTime)
 import qualified Data.ByteString.Lazy as BSL
 import GF.Grammar.CanonicalJSON (encodeJSON)
 import System.FilePath
-import Control.Monad(when,unless,forM_)
+import Control.Monad(when,unless,forM,void)
 
 -- | Compile the given GF grammar files. The result is a number of @.gfo@ files
 -- and, depending on the options, a @.pgf@ file. (@gf -batch@, @gf -make@)
@@ -47,7 +51,7 @@ mainGFC opts fs = do
    extensionIs ext = (== ext) .  takeExtension
 
 compileSourceFiles :: Options -> [FilePath] -> IOE ()
-compileSourceFiles opts fs = 
+compileSourceFiles opts fs =
     do output <- batchCompile opts fs
        exportCanonical output
        unless (flag optStopAfterPhase opts == Compile) $
@@ -93,6 +97,10 @@ compileSourceFiles opts fs =
 -- If a @.pgf@ file by the same name already exists and it is newer than the
 -- source grammar files (as indicated by the 'UTCTime' argument), it is not
 -- recreated. Calls 'writePGF' and 'writeOutputs'.
+linkGrammars :: Options -> (UTCTime,[(ModuleName, Grammar)]) -> IOE ()
+linkGrammars opts (_,cnc_grs) | FmtLPGF `elem` flag optOutputFormats opts = do
+  lpgf <- linkl opts (head cnc_grs)
+  void $ writeLPGF opts lpgf
 linkGrammars opts (t_src,~cnc_grs@(~(cnc,gr):_)) =
     do let abs = render (srcAbsName gr cnc)
            pgfFile = outputPath opts (grammarName' opts abs<.>"pgf")
@@ -145,7 +153,7 @@ unionPGFFiles opts fs =
              pgfFile = outputPath opts (grammarName opts pgf <.> "pgf")
          if pgfFile `elem` fs
            then putStrLnE $ "Refusing to overwrite " ++ pgfFile
-           else writePGF opts pgf
+           else void $ writePGF opts pgf
          writeOutputs opts pgf
 
     readPGFVerbose f =
@@ -155,33 +163,46 @@ unionPGFFiles opts fs =
 -- Calls 'exportPGF'.
 writeOutputs :: Options -> PGF -> IOE ()
 writeOutputs opts pgf = do
-  sequence_ [writeOutput opts name str 
+  sequence_ [writeOutput opts name str
                  | fmt <- flag optOutputFormats opts,
                    (name,str) <- exportPGF opts fmt pgf]
 
 -- | Write the result of compiling a grammar (e.g. with 'compileToPGF' or
 -- 'link') to a @.pgf@ file.
 -- A split PGF file is output if the @-split-pgf@ option is used.
-writePGF :: Options -> PGF -> IOE ()
+writePGF :: Options -> PGF -> IOE [FilePath]
 writePGF opts pgf =
     if flag optSplitPGF opts then writeSplitPGF else writeNormalPGF
   where
     writeNormalPGF =
        do let outfile = outputPath opts (grammarName opts pgf <.> "pgf")
           writing opts outfile $ encodeFile outfile pgf
+          return [outfile]
 
     writeSplitPGF =
       do let outfile = outputPath opts (grammarName opts pgf <.> "pgf")
          writing opts outfile $ BSL.writeFile outfile (runPut (putSplitAbs pgf))
                                 --encodeFile_ outfile (putSplitAbs pgf)
-         forM_ (Map.toList (concretes pgf)) $ \cnc -> do
+         outfiles <- forM (Map.toList (concretes pgf)) $ \cnc -> do
            let outfile = outputPath opts (showCId (fst cnc) <.> "pgf_c")
            writing opts outfile $ encodeFile outfile cnc
+           return outfile
 
+         return (outfile:outfiles)
 
-writeOutput :: Options -> FilePath-> String -> IOE ()
-writeOutput opts file str = writing opts path $ writeUTF8File path str
-  where path = outputPath opts file
+writeLPGF :: Options -> LPGF -> IOE FilePath
+writeLPGF opts lpgf = do
+  let
+    grammarName = fromMaybe (showCId (LPGF.absname lpgf)) (flag optName opts)
+    outfile = outputPath opts (grammarName <.> "lpgf")
+  writing opts outfile $ liftIO $ LPGF.encodeFile outfile lpgf
+  return outfile
+
+writeOutput :: Options -> FilePath-> String -> IOE FilePath
+writeOutput opts file str = do
+  let outfile = outputPath opts file
+  writing opts outfile $ writeUTF8File outfile str
+  return outfile
 
 -- * Useful helper functions
 

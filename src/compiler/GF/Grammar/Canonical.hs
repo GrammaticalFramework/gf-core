@@ -31,7 +31,7 @@ data TypeApp  = TypeApp CatId [Type]        deriving Show
 data TypeBinding = TypeBinding VarId Type   deriving Show
 
 --------------------------------------------------------------------------------
--- ** Concreate syntax
+-- ** Concrete syntax
 
 -- | Concrete Syntax
 data Concrete  = Concrete ModId ModId Flags [ParamDef] [LincatDef] [LinDef]
@@ -103,9 +103,9 @@ data TableRow  rhs = TableRow  LinPattern rhs
 
 -- *** Identifiers in Concrete Syntax
 
-newtype PredefId = PredefId Id        deriving (Eq,Ord,Show)
-newtype LabelId  = LabelId Id         deriving (Eq,Ord,Show)
-data VarValueId  = VarValueId QualId  deriving (Eq,Ord,Show)
+newtype PredefId   = PredefId Id        deriving (Eq,Ord,Show)
+newtype LabelId    = LabelId Id         deriving (Eq,Ord,Show)
+newtype VarValueId = VarValueId QualId  deriving (Eq,Ord,Show)
 
 -- | Name of param type or param value
 newtype ParamId = ParamId QualId  deriving (Eq,Ord,Show)
@@ -116,9 +116,9 @@ newtype ParamId = ParamId QualId  deriving (Eq,Ord,Show)
 newtype ModId = ModId Id  deriving (Eq,Ord,Show)
 
 newtype CatId = CatId Id  deriving (Eq,Ord,Show)
-newtype FunId = FunId Id  deriving (Eq,Show)
+newtype FunId = FunId Id  deriving (Eq,Ord,Show)
 
-data VarId = Anonymous | VarId Id  deriving Show
+data VarId = Anonymous | VarId Id  deriving (Eq,Show)
 
 newtype Flags = Flags [(FlagName,FlagValue)] deriving Show
 type FlagName = Id

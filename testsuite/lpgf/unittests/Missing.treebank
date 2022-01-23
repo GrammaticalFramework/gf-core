@@ -1,0 +1,96 @@
+Missing: Pred (mkNP ASg Dog) Eat (mkNP ASg Dog)
+MissingCnc: a dog [Eat] a dog [Eat]
+
+Missing: Pred (mkNP ASg Dog) Eat (mkNP ASg Fish)
+MissingCnc: a dog [Eat] a [Fish] [Eat]
+
+Missing: Pred (mkNP ASg Dog) Eat (mkNP ThePl Dog)
+MissingCnc: a dog [Eat] [ThePl] dog [Eat]
+
+Missing: Pred (mkNP ASg Dog) Eat (mkNP ThePl Fish)
+MissingCnc: a dog [Eat] [ThePl] [Fish] [Eat]
+
+Missing: Pred (mkNP ASg Dog) Love (mkNP ASg Dog)
+MissingCnc: a dog loves a dog a lot
+
+Missing: Pred (mkNP ASg Dog) Love (mkNP ASg Fish)
+MissingCnc: a dog loves a [Fish] a lot
+
+Missing: Pred (mkNP ASg Dog) Love (mkNP ThePl Dog)
+MissingCnc: a dog loves [ThePl] dog a lot
+
+Missing: Pred (mkNP ASg Dog) Love (mkNP ThePl Fish)
+MissingCnc: a dog loves [ThePl] [Fish] a lot
+
+Missing: Pred (mkNP ASg Fish) Eat (mkNP ASg Dog)
+MissingCnc: a [Fish] [Eat] a dog [Eat]
+
+Missing: Pred (mkNP ASg Fish) Eat (mkNP ASg Fish)
+MissingCnc: a [Fish] [Eat] a [Fish] [Eat]
+
+Missing: Pred (mkNP ASg Fish) Eat (mkNP ThePl Dog)
+MissingCnc: a [Fish] [Eat] [ThePl] dog [Eat]
+
+Missing: Pred (mkNP ASg Fish) Eat (mkNP ThePl Fish)
+MissingCnc: a [Fish] [Eat] [ThePl] [Fish] [Eat]
+
+Missing: Pred (mkNP ASg Fish) Love (mkNP ASg Dog)
+MissingCnc: a [Fish] loves a dog a lot
+
+Missing: Pred (mkNP ASg Fish) Love (mkNP ASg Fish)
+MissingCnc: a [Fish] loves a [Fish] a lot
+
+Missing: Pred (mkNP ASg Fish) Love (mkNP ThePl Dog)
+MissingCnc: a [Fish] loves [ThePl] dog a lot
+
+Missing: Pred (mkNP ASg Fish) Love (mkNP ThePl Fish)
+MissingCnc: a [Fish] loves [ThePl] [Fish] a lot
+
+Missing: Pred (mkNP ThePl Dog) Eat (mkNP ASg Dog)
+MissingCnc: [ThePl] dog [Eat] a dog [Eat]
+
+Missing: Pred (mkNP ThePl Dog) Eat (mkNP ASg Fish)
+MissingCnc: [ThePl] dog [Eat] a [Fish] [Eat]
+
+Missing: Pred (mkNP ThePl Dog) Eat (mkNP ThePl Dog)
+MissingCnc: [ThePl] dog [Eat] [ThePl] dog [Eat]
+
+Missing: Pred (mkNP ThePl Dog) Eat (mkNP ThePl Fish)
+MissingCnc: [ThePl] dog [Eat] [ThePl] [Fish] [Eat]
+
+Missing: Pred (mkNP ThePl Dog) Love (mkNP ASg Dog)
+MissingCnc: [ThePl] dog loves a dog a lot
+
+Missing: Pred (mkNP ThePl Dog) Love (mkNP ASg Fish)
+MissingCnc: [ThePl] dog loves a [Fish] a lot
+
+Missing: Pred (mkNP ThePl Dog) Love (mkNP ThePl Dog)
+MissingCnc: [ThePl] dog loves [ThePl] dog a lot
+
+Missing: Pred (mkNP ThePl Dog) Love (mkNP ThePl Fish)
+MissingCnc: [ThePl] dog loves [ThePl] [Fish] a lot
+
+Missing: Pred (mkNP ThePl Fish) Eat (mkNP ASg Dog)
+MissingCnc: [ThePl] [Fish] [Eat] a dog [Eat]
+
+Missing: Pred (mkNP ThePl Fish) Eat (mkNP ASg Fish)
+MissingCnc: [ThePl] [Fish] [Eat] a [Fish] [Eat]
+
+Missing: Pred (mkNP ThePl Fish) Eat (mkNP ThePl Dog)
+MissingCnc: [ThePl] [Fish] [Eat] [ThePl] dog [Eat]
+
+Missing: Pred (mkNP ThePl Fish) Eat (mkNP ThePl Fish)
+MissingCnc: [ThePl] [Fish] [Eat] [ThePl] [Fish] [Eat]
+
+Missing: Pred (mkNP ThePl Fish) Love (mkNP ASg Dog)
+MissingCnc: [ThePl] [Fish] loves a dog a lot
+
+Missing: Pred (mkNP ThePl Fish) Love (mkNP ASg Fish)
+MissingCnc: [ThePl] [Fish] loves a [Fish] a lot
+
+Missing: Pred (mkNP ThePl Fish) Love (mkNP ThePl Dog)
+MissingCnc: [ThePl] [Fish] loves [ThePl] dog a lot
+
+Missing: Pred (mkNP ThePl Fish) Love (mkNP ThePl Fish)
+MissingCnc: [ThePl] [Fish] loves [ThePl] [Fish] a lot
+

@@ -1,6 +1,7 @@
-module GF.Compile (compileToPGF, link, batchCompile, srcAbsName) where
+module GF.Compile (compileToPGF, compileToLPGF, link, linkl, batchCompile, srcAbsName) where
 
 import GF.Compile.GrammarToPGF(mkCanon2pgf)
+import GF.Compile.GrammarToLPGF(mkCanon2lpgf)
 import GF.Compile.ReadFiles(ModEnv,getOptionsFromFile,getAllFiles,
                             importsOfModule)
 import GF.CompileOne(compileOne)
@@ -14,7 +15,7 @@ import GF.Infra.UseIO(IOE,FullPath,liftIO,getLibraryDirectory,putIfVerb,
                       justModuleName,extendPathEnv,putStrE,putPointE)
 import GF.Data.Operations(raise,(+++),err)
 
-import Control.Monad(foldM,when,(<=<),filterM,liftM)
+import Control.Monad(foldM,when,(<=<),filterM)
 import GF.System.Directory(doesFileExist,getModificationTime)
 import System.FilePath((</>),isRelative,dropFileName)
 import qualified Data.Map as Map(empty,insert,elems) --lookup
@@ -24,11 +25,15 @@ import GF.Text.Pretty(render,($$),(<+>),nest)
 
 import PGF.Internal(optimizePGF)
 import PGF(PGF,defaultProbabilities,setProbabilities,readProbabilitiesFromFile)
+import LPGF(LPGF)
 
 -- | Compiles a number of source files and builds a 'PGF' structure for them.
 -- This is a composition of 'link' and 'batchCompile'.
 compileToPGF :: Options -> [FilePath] -> IOE PGF
 compileToPGF opts fs = link opts . snd =<< batchCompile opts fs
+
+compileToLPGF :: Options -> [FilePath] -> IOE LPGF
+compileToLPGF opts fs = linkl opts . snd =<< batchCompile opts fs
 
 -- | Link a grammar into a 'PGF' that can be used to 'PGF.linearize' and
 -- 'PGF.parse' with the "PGF" run-time system.
@@ -39,8 +44,16 @@ link opts (cnc,gr) =
     pgf <- mkCanon2pgf opts gr abs
     probs <- liftIO (maybe (return . defaultProbabilities) readProbabilitiesFromFile (flag optProbsFile opts) pgf)
     when (verbAtLeast opts Normal) $ putStrE "OK"
-    return $ setProbabilities probs 
+    return $ setProbabilities probs
            $ if flag optOptimizePGF opts then optimizePGF pgf else pgf
+
+-- | Link a grammar into a 'LPGF' that can be used for linearization only.
+linkl :: Options -> (ModuleName,Grammar) -> IOE LPGF
+linkl opts (cnc,gr) =
+  putPointE Normal opts "linking ... " $ do
+    let abs = srcAbsName gr cnc
+    lpgf <- mkCanon2lpgf opts gr abs
+    return lpgf
 
 -- | Returns the name of the abstract syntax corresponding to the named concrete syntax
 srcAbsName gr cnc = err (const cnc) id $ abstractOfConcrete gr cnc

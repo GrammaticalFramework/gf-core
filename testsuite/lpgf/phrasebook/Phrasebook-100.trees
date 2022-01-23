@@ -1,0 +1,100 @@
+PSentence (SHaveNoMass (Children (Children WeFemale)) Chicken)
+PImperativeFamPos VSwim
+PGreetingFemale GHowAreYou
+PImperativeFamNeg VWrite
+PImperativeFamNeg VStop
+PImperativePlurNeg (V2Eat (OneObj (ObjMass Salt)))
+PQuestion (QProp (Is (ThisMass Chicken) (Too Fresh)))
+PImperativePolNeg (V2Eat (OneObj (ObjIndef Apple)))
+PImperativePlurNeg VWait
+PImperativeFamNeg VEat
+PSentence (SPropNot (PropOpen (APlace AmusementPark)))
+PImperativePolPos (V2Eat (OneObj (ObjMass Meat)))
+PImperativePolPos VWait
+PImperativeFamNeg VRun
+PImperativePolPos VStop
+PImperativePlurNeg VSleep
+PSentence (SHaveNo (Son (Daughter YouPlurPolMale)) (SuchKind (Very Fresh) Pizza))
+PImperativePolNeg VSwim
+PImperativePolNeg VWait
+PGreetingMale GGoodMorning
+PGreetingFemale GSorryPol
+PGreetingFemale GExcuse
+PImperativePlurPos VWalk
+PImperativePlurNeg VWalk
+PSentence (SHaveNo YouFamMale Pizza)
+PQuestion (HowFarFromBy (SuperlPlace TheMostExpensive Pharmacy) (SuperlPlace TheMostPopular Zoo) ByFoot)
+PImperativePolPos VWait
+PGreetingMale PNo
+PImperativePolNeg (V2Eat (OneObj (ObjIndef Pizza)))
+PImperativePlurPos (V2Eat (OneObj (ObjIndef Pizza)))
+PImperativeFamPos VDrink
+PGreetingMale GSeeYouSoon
+PImperativePolPos (V2Eat (OneObj (ObjPlural Apple)))
+PGreetingFemale PNo
+PImperativeFamNeg VRead
+PImperativeFamPos (V2Eat (OneObj (ObjPlural Pizza)))
+PImperativeFamPos VEat
+PImperativePlurPos VRead
+PSentence (SPropNot (PropClosedDay (SuperlPlace TheBest Station) Wednesday))
+PImperativePolPos (V2Eat (OneObj (ObjMass Meat)))
+PImperativeFamPos VPlay
+PGreetingMale GHappyBirthday
+PGreetingMale GPleaseGive
+PImperativeFamPos VStop
+PImperativeFamPos VRead
+PSentence (SPropNot (PropClosedDay (ThePlace Hotel) Thursday))
+PGreetingFemale PYes
+PImperativeFamNeg VWalk
+PGreetingMale GHello
+PImperativeFamNeg VSit
+PImperativeFamNeg VWrite
+PSentence (SHaveNoMass (Daughter YouPlurPolFemale) (SuchMassKind (PropQuality Boring) Salt))
+PImperativePlurNeg (V2Eat (OneObj (ObjMass Chicken)))
+PGreetingFemale GThanks
+PGreetingMale (PSeeYouPlaceDate (APlace Bank) Today)
+PImperativePlurPos VWalk
+PImperativeFamPos VWrite
+PImperativePolNeg VWait
+PQuestion (QWhereDoVerbPhrase (Husband YouPolMale) VEat)
+PImperativePlurNeg VStop
+PImperativeFamNeg VRun
+PImperativePolNeg VWrite
+PGreetingFemale PYesToNo
+PQuestion (HowFarBy (SuperlPlace TheWorst Church) ByFoot)
+PImperativeFamNeg VWalk
+PGreetingFemale GSorryPol
+PImperativePlurNeg VSit
+PImperativeFamNeg VWait
+PQuestion (HowFarBy (APlace Center) ByFoot)
+PImperativeFamPos VEat
+PImperativePlurPos VEat
+PGreetingMale GPleaseGive
+PImperativePlurPos VWrite
+PImperativeFamNeg VWait
+PImperativeFamPos VRun
+PQuestion (HowFar (APlace Zoo))
+PImperativeFamNeg (V2Wait (PersonName NameNN))
+PGreetingFemale GExcuse
+PImperativePlurNeg VSit
+PSentence (SHaveNo YouPolFemale (SuchKind (Too Cold) Apple))
+PGreetingFemale GGoodbye
+PImperativeFamPos VWait
+PImperativePolNeg VSit
+PGreetingMale GExcusePol
+PQuestion (WherePerson (Wife TheyMale))
+PImperativeFamPos VEat
+PImperativePlurNeg (V2Drink (OneObj (ObjPlural Apple)))
+PImperativeFamNeg (V2Eat (OneObj (ObjIndef Apple)))
+PImperativeFamPos VStop
+PImperativePlurNeg VStop
+PGreetingMale GGoodNight
+PGreetingFemale GWhatTime
+PQuestion (QWhereDoVerbPhrase YouPlurFamMale (V2Wait (Wife YouPlurPolMale)))
+PGreetingMale GNiceToMeetYou
+PGreetingFemale PYesToNo
+PImperativePlurPos VDrink
+PImperativeFamNeg VEat
+PImperativeFamPos VRead
+PSentence (SHave YouPlurPolFemale (OneObj (ObjIndef Pizza)))
+PSentence (SPropNot (PropOpenDay (SuperlPlace TheCheapest Supermarket) Thursday))
