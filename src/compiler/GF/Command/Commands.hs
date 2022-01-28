@@ -897,7 +897,7 @@ prAllWords concr =
   unwords [w | (w,_) <- fullFormLexicon concr]
 
 prMorphoAnalysis (w,lps) =
-  unlines (w:[l ++ " : " ++ p ++ show prob | (l,p,prob) <- lps])
+  unlines (w:[l ++ " : " ++ p ++ " " ++ show prob | (l,p,prob) <- lps])
 
 viewGraphviz :: String -> String -> String -> [String] -> SIO CommandOutput
 viewGraphviz view format name grphs = do
