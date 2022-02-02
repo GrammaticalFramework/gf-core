@@ -1433,7 +1433,7 @@ ref<PgfPGF> PgfDB::revision2pgf(PgfRevision revision)
         throw pgf_error("Invalid revision");
 
     ref<PgfPGF> pgf = revision;
-    if (chunksize(chunk) != request2size(sizeof(PgfPGF)+pgf->name.size+1))
+    if (chunksize(chunk) - request2size(sizeof(PgfPGF)+pgf->name.size+1) > MINSIZE)
         throw pgf_error("Invalid revision");
 
     return pgf;
@@ -1477,7 +1477,7 @@ ref<PgfConcr> PgfDB::revision2concr(PgfConcrRevision revision)
         throw pgf_error("Invalid revision");
 
     ref<PgfConcr> concr = revision;
-    if (chunksize(chunk) != request2size(sizeof(PgfConcr)+concr->name.size+1))
+    if (chunksize(chunk) - request2size(sizeof(PgfConcr)+concr->name.size+1) > MINSIZE)
         throw pgf_error("Invalid revision");
 
     return concr;
