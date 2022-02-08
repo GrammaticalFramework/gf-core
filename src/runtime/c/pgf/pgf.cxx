@@ -147,7 +147,7 @@ PgfDB *pgf_read_ngf(const char *fpath,
 			db->cleanup_revisions();
 
             ref<PgfPGF> pgf = PgfDB::get_revision(master);
-            Node<PgfPGF>::add_value_ref(pgf);
+            Node<ref<PgfPGF>>::add_value_ref(pgf);
             *revision = pgf.as_object();
         }
 
@@ -828,16 +828,18 @@ void pgf_iter_lins(PgfDB *db, PgfConcrRevision cnc_revision,
 
 PGF_API
 PgfPhrasetableIds *pgf_iter_sequences(PgfDB *db, PgfConcrRevision cnc_revision,
-                                      PgfSequenceItor *itor, PgfExn *err)
+                                      PgfSequenceItor *itor,
+                                      PgfMorphoCallback *callback,
+                                      PgfExn *err)
 {
     PGF_API_BEGIN {
         DB_scope scope(db, READER_SCOPE);
         ref<PgfConcr> concr = PgfDB::revision2concr(cnc_revision);
 
-		PgfPhrasetableIds *seq_ids = new PgfPhrasetableIds();
-		seq_ids->start(concr);
+        PgfPhrasetableIds *seq_ids = new PgfPhrasetableIds();
+        seq_ids->start(concr);
 
-        phrasetable_iter(concr->phrasetable, itor, seq_ids, err);
+        phrasetable_iter(concr, concr->phrasetable, itor, callback, seq_ids, err);
 
         return seq_ids;
     } PGF_API_END
@@ -1108,25 +1110,25 @@ PgfRevision pgf_clone_revision(PgfDB *db, PgfRevision revision,
 
         new_pgf->gflags = pgf->gflags;
         if (pgf->gflags != 0)
-            Node<PgfFlag>::add_node_ref(pgf->gflags);
+            Node<ref<PgfFlag>>::add_node_ref(pgf->gflags);
 
         new_pgf->abstract.name = textdup_db(&(*pgf->abstract.name));
 
         new_pgf->abstract.aflags = pgf->abstract.aflags;
         if (pgf->abstract.aflags != 0)
-            Node<PgfFlag>::add_node_ref(pgf->abstract.aflags);
+            Node<ref<PgfFlag>>::add_node_ref(pgf->abstract.aflags);
 
         new_pgf->abstract.funs = pgf->abstract.funs;
         if (pgf->abstract.funs != 0)
-            Node<PgfAbsFun>::add_node_ref(pgf->abstract.funs);
+            Node<ref<PgfAbsFun>>::add_node_ref(pgf->abstract.funs);
 
         new_pgf->abstract.cats = pgf->abstract.cats;
         if (pgf->abstract.cats != 0)
-            Node<PgfAbsCat>::add_node_ref(pgf->abstract.cats);
+            Node<ref<PgfAbsCat>>::add_node_ref(pgf->abstract.cats);
 
         new_pgf->concretes = pgf->concretes;
         if (pgf->concretes != 0)
-            Node<PgfConcr>::add_node_ref(pgf->concretes);
+            Node<ref<PgfConcr>>::add_node_ref(pgf->concretes);
 
         new_pgf->prev = 0;
         new_pgf->next = 0;
@@ -1170,7 +1172,7 @@ PgfRevision pgf_checkout_revision(PgfDB *db, PgfText *name,
         DB_scope scope(db, WRITER_SCOPE);
         ref<PgfPGF> pgf = PgfDB::get_revision(name);
         if (pgf != 0) {
-            Node<PgfPGF>::add_value_ref(pgf);
+            Node<ref<PgfPGF>>::add_value_ref(pgf);
             db->ref_count++;
         }
         return pgf.as_object();
@@ -1335,26 +1337,27 @@ PgfConcrRevision pgf_clone_concrete(PgfDB *db, PgfRevision revision,
 
         clone->cflags = concr->cflags;
 		if (clone->cflags != 0)
-            Node<PgfFlag>::add_node_ref(clone->cflags);
+            Node<ref<PgfFlag>>::add_node_ref(clone->cflags);
 
         clone->lins = concr->lins;
 		if (clone->lins != 0)
-            Node<PgfConcrLin>::add_node_ref(clone->lins);
+            Node<ref<PgfConcrLin>>::add_node_ref(clone->lins);
 
         clone->lincats = concr->lincats;
 		if (clone->lincats != 0)
-            Node<PgfConcrLincat>::add_node_ref(clone->lincats);
+            Node<ref<PgfConcrLincat>>::add_node_ref(clone->lincats);
+
+        clone->phrasetable = concr->phrasetable;
+		if (clone->phrasetable != 0)
+            Node<PgfPhrasetableEntry>::add_node_ref(clone->phrasetable);
 
         clone->printnames = concr->printnames;
 		if (clone->printnames != 0)
-            Node<PgfConcrPrintname>::add_node_ref(clone->printnames);
+            Node<ref<PgfConcrPrintname>>::add_node_ref(clone->printnames);
 
         clone->prev = 0;
         clone->next = 0;
         memcpy(&clone->name, name, sizeof(PgfText)+name->size+1);
-
-        if (clone->cflags != 0)
-            Node<PgfFlag>::add_node_ref(clone->cflags);
 
         PgfDB::link_transient_revision(clone);
 
@@ -1393,6 +1396,8 @@ class PGF_INTERNAL PgfLinBuilder : public PgfLinBuilderIface
     ref<Vector<PgfPArg>> args;
     ref<Vector<ref<PgfPResult>>> res;
     ref<Vector<ref<PgfSequence>>> seqs;
+
+    object container; // what are we building?
 
     size_t var_index;
     size_t arg_index;
@@ -1459,6 +1464,8 @@ public:
         lincat->fields = db_fields;
         lincat->n_lindefs = n_lindefs;
 
+        this->container = ref<PgfConcrLincat>::tagged(lincat);
+
         build->build(this, err);
         if (err->type == PGF_EXN_NONE && res_index != res->len) {
             err->type = PGF_EXN_PGF_ERROR;
@@ -1499,6 +1506,8 @@ public:
         lin->args = args;
         lin->res  = res;
         lin->seqs = seqs;
+
+        this->container = ref<PgfConcrLin>::tagged(lin);
 
         build->build(this, err);
         if (err->type == PGF_EXN_NONE && res_index != res->len) {
@@ -1892,13 +1901,12 @@ public:
                 throw pgf_error(builder_error_msg);
 
             PgfPhrasetable phrasetable =
-				phrasetable_internalize(concr->phrasetable, &seq);
-			if (phrasetable != concr->phrasetable) {
-				phrasetable_release(concr->phrasetable);
-				concr->phrasetable = phrasetable;
-			} else {
-				*vector_elem(seqs, seq_index) = seq;
-			}
+				phrasetable_internalize(concr->phrasetable,
+                                        container, seq_index,
+                                        &seq);
+            phrasetable_release(concr->phrasetable);
+            concr->phrasetable = phrasetable;
+            *vector_elem(seqs, seq_index) = seq;
 
 			res = seq;
 
@@ -1919,7 +1927,17 @@ public:
             if (seq_index >= seqs->len)
                 throw pgf_error(builder_error_msg);
 
-            *vector_elem(seqs, seq_index) = seq_id;
+            ref<PgfSequence> seq = seq_id;
+            seq->ref_count++;
+
+            PgfPhrasetable phrasetable =
+				phrasetable_internalize(concr->phrasetable,
+                                        container, seq_index,
+                                        &seq);
+            phrasetable_release(concr->phrasetable);
+            concr->phrasetable = phrasetable;
+            *vector_elem(seqs, seq_index) = seq;
+
             seq_index++;
         } PGF_API_END
 	}
@@ -2055,8 +2073,19 @@ void pgf_drop_lincat(PgfDB *db,
 
         ref<PgfConcr> concr = PgfDB::revision2concr(revision);
 
+        ref<PgfConcrLincat> lincat;
         Namespace<PgfConcrLincat> lincats =
-            namespace_delete(concr->lincats, name);
+            namespace_delete(concr->lincats, name, &lincat);
+        if (lincat != 0) {
+            object container = ref<PgfConcrLincat>::tagged(lincat);
+            for (size_t i = 0; i < lincat->seqs->len; i++) {
+                ref<PgfSequence> seq = *vector_elem(lincat->seqs, i);
+                PgfPhrasetable new_phrasetable =
+                    phrasetable_delete(concr->phrasetable,container,i,seq);
+                phrasetable_release(concr->phrasetable);
+                concr->phrasetable = new_phrasetable;
+            }
+        }
         namespace_release(concr->lincats);
         concr->lincats = lincats;
     } PGF_API_END
@@ -2105,8 +2134,19 @@ void pgf_drop_lin(PgfDB *db,
 
         ref<PgfConcr> concr = PgfDB::revision2concr(revision);
 
+        ref<PgfConcrLin> lin;
         Namespace<PgfConcrLin> lins =
-            namespace_delete(concr->lins, name);
+            namespace_delete(concr->lins, name, &lin);
+        if (lin != 0) {
+            object container = ref<PgfConcrLin>::tagged(lin);
+            for (size_t i = 0; i < lin->seqs->len; i++) {
+                ref<PgfSequence> seq = *vector_elem(lin->seqs, i);
+                PgfPhrasetable new_phrasetable =
+                    phrasetable_delete(concr->phrasetable,container,i,seq);
+                phrasetable_release(concr->phrasetable);
+                concr->phrasetable = new_phrasetable;
+            }
+        }
         namespace_release(concr->lins);
         concr->lins = lins;
     } PGF_API_END

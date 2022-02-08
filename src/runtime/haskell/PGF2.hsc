@@ -294,7 +294,7 @@ showPGF p =
                   bracket (wrapSequenceItorCallback (getSequences ref)) freeHaskellFunPtr $ \fptr ->
                   withForeignPtr (c_revision c) $ \c_revision -> do
                     (#poke PgfSequenceItor, fn) itor fptr
-                    withPgfExn "showPGF" (pgf_iter_sequences (a_db p) c_revision itor))
+                    withPgfExn "showPGF" (pgf_iter_sequences (a_db p) c_revision itor nullPtr))
       doc <- readIORef ref
       return (seq_ids, doc)
       where
@@ -303,6 +303,7 @@ showPGF p =
           def <- bracket (pgf_print_sequence_internal seq_id val) free $ \c_text -> do
                      fmap text (peekText c_text)
           modifyIORef ref $ (\doc -> doc $$ def)
+          return 0
 
 -- | The abstract language name is the name of the top-level
 -- abstract module
@@ -570,20 +571,33 @@ unk _ _                                = False
 fullFormLexicon :: Concr -> [(String, [MorphoAnalysis])]
 fullFormLexicon c = unsafePerformIO $ do
   ref <- newIORef []
-  (allocaBytes (#size PgfSequenceItor) $ \itor ->
-   bracket (wrapSequenceItorCallback (getSequences ref)) freeHaskellFunPtr $ \fptr ->
+  (allocaBytes (#size PgfSequenceItor) $ \itor1 ->
+   bracket (wrapSequenceItorCallback (getSequences ref)) freeHaskellFunPtr $ \fptr1 ->
+   allocaBytes (#size PgfMorphoCallback) $ \itor2 ->
+   bracket (wrapMorphoCallback (getMorphology ref)) freeHaskellFunPtr $ \fptr2 ->
    withForeignPtr (c_revision c) $ \c_revision -> do
-     (#poke PgfSequenceItor, fn) itor fptr
-     seq_ids <- withPgfExn "fullFormLexicon" (pgf_iter_sequences (c_db c) c_revision itor)
+     (#poke PgfSequenceItor,   fn) itor1 fptr1
+     (#poke PgfMorphoCallback, fn) itor2 fptr2
+     seq_ids <- withPgfExn "fullFormLexicon" (pgf_iter_sequences (c_db c) c_revision itor1 itor2)
      pgf_release_phrasetable_ids seq_ids)
   fmap reverse (readIORef ref)
   where
-    getSequences ref itor seq_id val exn = do
+    getSequences ref _ seq_id val exn = do
       bracket (pgf_sequence_get_text_internal val) free $ \c_text ->
         if c_text == nullPtr
-          then return ()
-          else do lemma <- peekText c_text
-                  modifyIORef ref $ (\lexicon -> (lemma, []) : lexicon)
+          then return 1
+          else do form <- peekText c_text
+                  case form of
+                    [] -> return 1
+                    _  -> do modifyIORef ref $ (\lexicon -> (form, []) : lexicon)
+                             return 0
+
+    getMorphology ref _ c_name c_field c_prob exn = do
+      name  <- peekText c_name
+      field <- peekText c_field
+      let prob = realToFrac c_prob
+          ann = (name,field,prob)
+      modifyIORef ref (\((form,anns) : lexicon) -> (form,ann:anns) : lexicon)
 
 
 -- | This data type encodes the different outcomes which you could get from the parser.

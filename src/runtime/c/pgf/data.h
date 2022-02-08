@@ -141,6 +141,19 @@ struct PGF_INTERNAL_DECL PgfSequence {
     static void release(ref<PgfSequence> lincat);
 };
 
+struct PGF_INTERNAL_DECL PgfSequenceBackref {
+    object container;
+    size_t seq_index;
+};
+
+struct PGF_INTERNAL_DECL PgfSequenceBackrefs {
+    size_t ref_count;
+    Vector<PgfSequenceBackref> list;
+
+    static
+    void release(ref<PgfSequenceBackrefs> backrefs);
+};
+
 struct PGF_INTERNAL_DECL PgfSymbolCat {
     static const uint8_t tag = 0;
     size_t d;
@@ -206,6 +219,8 @@ PGF_INTERNAL_DECL
 void pgf_symbol_free(PgfSymbol sym);
 
 struct PGF_INTERNAL_DECL PgfConcrLincat {
+    static const uint8_t tag = 0;
+
     size_t ref_count;
 
     ref<PgfAbsCat> abscat;
@@ -223,6 +238,8 @@ struct PGF_INTERNAL_DECL PgfConcrLincat {
 };
 
 struct PGF_INTERNAL_DECL PgfConcrLin {
+    static const uint8_t tag = 1;
+
     size_t ref_count;
 
     ref<PgfAbsFun> absfun;

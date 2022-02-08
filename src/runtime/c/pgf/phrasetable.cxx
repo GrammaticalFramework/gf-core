@@ -11,7 +11,7 @@ PgfPhrasetableIds::PgfPhrasetableIds()
 void PgfPhrasetableIds::start(ref<PgfConcr> concr)
 {
 	next_id = 0;
-	n_pairs = namespace_size(concr->phrasetable);
+	n_pairs = phrasetable_size(concr->phrasetable);
 	size_t mem_size = sizeof(SeqIdPair)*n_pairs;
 	pairs = (SeqIdPair*) malloc(mem_size);
 	if (pairs == NULL)
@@ -70,6 +70,24 @@ void PgfPhrasetableIds::end()
 
 	free(pairs);
 	pairs = NULL;
+}
+
+void PgfPhrasetableEntry::add_ref()
+{
+    seq->ref_count++;
+    if (backrefs != 0)
+        backrefs->ref_count++;
+}
+
+void PgfPhrasetableEntry::release_ref()
+{
+    if (!(--seq->ref_count)) {
+        PgfSequence::release(seq);
+    }
+
+    if (backrefs != 0 && !(--backrefs->ref_count)) {
+        PgfSequenceBackrefs::release(backrefs);
+    }
 }
 
 static
@@ -228,55 +246,97 @@ int sequence_cmp(ref<PgfSequence> seq1, ref<PgfSequence> seq2)
 }
 
 PGF_INTERNAL
-PgfPhrasetable phrasetable_internalize(PgfPhrasetable table, ref<PgfSequence> *pseq)
+PgfPhrasetable phrasetable_internalize(PgfPhrasetable table,
+                                       object container,
+                                       size_t seq_index,
+                                       ref<PgfSequence> *pseq)
 {
     if (table == 0) {
-		PgfPhrasetable table = Node<PgfSequence>::new_node(*pseq);
-		Node<PgfSequence>::add_value_ref(table->value);
-        return table;
+        PgfPhrasetableEntry entry;
+        entry.seq = *pseq;
+        entry.backrefs = PgfDB::malloc<PgfSequenceBackrefs>(sizeof(PgfSequenceBackref));
+        entry.backrefs->ref_count = 1;
+        entry.backrefs->list.len = 1;
+        entry.backrefs->list.data[0].container = container;
+        entry.backrefs->list.data[0].seq_index = seq_index;
+        entry.seq->ref_count++;
+        return Node<PgfPhrasetableEntry>::new_node(entry);
 	}
 
-    int cmp = sequence_cmp(*pseq,table->value);
+    int cmp = sequence_cmp(*pseq,table->value.seq);
     if (cmp < 0) {
-        PgfPhrasetable left = phrasetable_internalize(table->left, pseq);
-        if (left == table->left)
-			return table;
-		else {
-			PgfPhrasetable node = Node<PgfSequence>::balanceL(table->value,left,table->right);
-			namespace_release(left);
-			return node;
-		}
+        PgfPhrasetable left = phrasetable_internalize(table->left,
+                                                      container,
+                                                      seq_index,
+                                                      pseq);
+        PgfPhrasetable node = Node<PgfPhrasetableEntry>::balanceL(table->value,left,table->right);
+        phrasetable_release(left);
+        return node;
     } else if (cmp > 0) {
-        PgfPhrasetable right = phrasetable_internalize(table->right, pseq);
-        if (right == table->right)
-			return table;
-		else {
-			PgfPhrasetable node  = Node<PgfSequence>::balanceR(table->value, table->left, right);
-			phrasetable_release(right);
-			return node;
-		}
+        PgfPhrasetable right = phrasetable_internalize(table->right,
+                                                       container,
+                                                       seq_index,
+                                                       pseq);
+        PgfPhrasetable node  = Node<PgfPhrasetableEntry>::balanceR(table->value, table->left, right);
+        phrasetable_release(right);
+        return node;
     } else {
 		if (!(--(*pseq)->ref_count)) {
             PgfSequence::release(*pseq);
         }
 
-		Node<PgfSequence>::add_value_ref(table->value);
+		table->value.seq->ref_count++;
+		*pseq = table->value.seq;
 
-		*pseq = table->value;
-        return table;
-    }
+        if (table->left != 0)
+            table->left->ref_count++;
+        if (table->right != 0)
+            table->right->ref_count++;
+
+        size_t len = (table->value.backrefs)
+                         ? table->value.backrefs->list.len
+                         : 0;
+        PgfPhrasetableEntry entry;
+        entry.seq = table->value.seq;
+        entry.backrefs = PgfDB::malloc<PgfSequenceBackrefs>((len+1)*sizeof(PgfSequenceBackref));
+        entry.backrefs->ref_count = 1;
+        entry.backrefs->list.len = len+1;
+        memcpy(entry.backrefs->list.data, table->value.backrefs->list.data, len*sizeof(PgfSequenceBackref));
+        entry.backrefs->list.data[len].container = container;
+        entry.backrefs->list.data[len].seq_index = seq_index;
+        entry.seq->ref_count++;
+        return Node<PgfPhrasetableEntry>::new_node(entry,table->left,table->right);
+     }
 }
 
 PGF_INTERNAL_DECL
-ref<PgfSequence> phrasetable_get(PgfPhrasetable table, size_t seq_id)
+ref<PgfSequence> phrasetable_relink(PgfPhrasetable table,
+                                    object container,
+                                    size_t seq_index,
+                                    size_t seq_id)
 {
 	while (table != 0) {
 		size_t left_sz = table->left->sz;
 		if (seq_id < left_sz)
 			table = table->left;
-		else if (seq_id == left_sz)
-			return table->value;
-		else {
+		else if (seq_id == left_sz) {
+            size_t len = (table->value.backrefs)
+                             ? table->value.backrefs->list.len
+                             : 0;
+
+            ref<PgfSequenceBackrefs> backrefs =
+                PgfDB::malloc<PgfSequenceBackrefs>((len+1)*sizeof(PgfSequenceBackref));
+            backrefs->ref_count = 1;
+            backrefs->list.len = len+1;
+            memcpy(backrefs->list.data, table->value.backrefs->list.data, len*sizeof(PgfSequenceBackref));
+            backrefs->list.data[len].container = container;
+            backrefs->list.data[len].seq_index = seq_index;
+            if (table->value.backrefs != 0)
+                PgfSequenceBackrefs::release(table->value.backrefs);
+            table->value.backrefs = backrefs;
+
+			return table->value.seq;
+        } else {
 			table = table->right;
 			seq_id -= left_sz+1;
 		}
@@ -284,23 +344,140 @@ ref<PgfSequence> phrasetable_get(PgfPhrasetable table, size_t seq_id)
 	return 0;
 }
 
+PgfPhrasetable phrasetable_delete(PgfPhrasetable table,
+                                  object container,
+                                  size_t seq_index,
+                                  ref<PgfSequence> seq)
+{
+    if (table == 0)
+        return 0;
+
+    int cmp = sequence_cmp(seq,table->value.seq);
+    if (cmp < 0) {
+        PgfPhrasetable left = phrasetable_delete(table->left,
+                                                 container, seq_index,
+                                                 seq);
+        if (left == table->left)
+            return table;
+        PgfPhrasetable node = Node<PgfPhrasetableEntry>::balanceR(table->value,left,table->right);
+        phrasetable_release(left);
+        return node;
+    } else if (cmp > 0) {
+        PgfPhrasetable right = phrasetable_delete(table->right, 
+                                                  container, seq_index,
+                                                  seq);
+        if (right == table->right)
+            return table;
+        PgfPhrasetable node  = Node<PgfPhrasetableEntry>::balanceL(table->value,table->left,right);
+        phrasetable_release(right);
+        return node;
+    } else {
+        PgfPhrasetableEntry entry;
+
+        size_t len = table->value.backrefs->list.len;
+        if (len > 1) {
+            entry.backrefs =
+                PgfDB::malloc<PgfSequenceBackrefs>((len-1)*sizeof(PgfSequenceBackref));
+            entry.backrefs->ref_count = 1;
+            entry.backrefs->list.len  = len-1;
+            size_t i = 0;
+            while (i < len) {
+                PgfSequenceBackref *backref = 
+                    vector_elem(&table->value.backrefs->list, i);
+                if (backref->container == container &&
+                    backref->seq_index == seq_index) {
+                    break;
+                }
+                *vector_elem(&entry.backrefs->list, i) = *backref;
+                i++;
+            }
+            i++;
+            while (i < len) {
+                PgfSequenceBackref *backref = 
+                    vector_elem(&table->value.backrefs->list, i);
+                *vector_elem(&entry.backrefs->list, i-1) = *backref;
+                i++;
+            }
+
+            entry.seq = table->value.seq;
+            table->value.seq->ref_count++;
+            return Node<PgfPhrasetableEntry>::new_node(entry, table->left, table->right);
+        } else {
+            if (table->left == 0) {
+                if (table->right != 0)
+                    table->right->ref_count++;
+                return table->right;
+            } else if (table->right == 0) {
+                if (table->left != 0)
+                    table->left->ref_count++;
+                return table->left;
+            } else if (table->left->sz > table->right->sz) {
+                PgfPhrasetable new_left = Node<PgfPhrasetableEntry>::pop_last(table->left, &entry);
+                PgfPhrasetable node = Node<PgfPhrasetableEntry>::balanceR(entry, new_left, table->right);
+                phrasetable_release(new_left);
+                return node;
+            } else {
+                PgfPhrasetable new_right = Node<PgfPhrasetableEntry>::pop_first(table->right, &entry);
+                PgfPhrasetable node = Node<PgfPhrasetableEntry>::balanceL(entry, table->left, new_right);
+                phrasetable_release(new_right);
+                return node;
+            }
+        }
+    }
+}
+
 PGF_INTERNAL
-void phrasetable_iter(PgfPhrasetable table, PgfSequenceItor* itor,
+size_t phrasetable_size(PgfPhrasetable table)
+{
+    return Node<PgfPhrasetableEntry>::size(table);
+}
+
+PGF_INTERNAL
+void phrasetable_iter(PgfConcr *concr,
+                      PgfPhrasetable table,
+                      PgfSequenceItor* itor,
+                      PgfMorphoCallback *callback,
                       PgfPhrasetableIds *seq_ids, PgfExn *err)
 {
     if (table == 0)
         return;
 
-    phrasetable_iter(table->left, itor, seq_ids, err);
+    phrasetable_iter(concr, table->left, itor, callback, seq_ids, err);
     if (err->type != PGF_EXN_NONE)
         return;
 
-	size_t seq_id = seq_ids->add(table->value);
-    itor->fn(itor, seq_id, table->value.as_object(), err);
+	size_t seq_id = seq_ids->add(table->value.seq);
+    int res = itor->fn(itor, seq_id, table->value.seq.as_object(), err);
     if (err->type != PGF_EXN_NONE)
         return;
 
-    phrasetable_iter(table->right, itor, seq_ids, err);
+    if (table->value.backrefs != 0 && res == 0 && callback != 0) {
+        for (size_t i = 0; i < table->value.backrefs->list.len; i++) {
+            PgfSequenceBackref backref = *vector_elem(&table->value.backrefs->list,i);
+            switch (ref<PgfConcrLin>::get_tag(backref.container)) {
+            case PgfConcrLin::tag: {
+                ref<PgfConcrLin> lin = ref<PgfConcrLin>::untagged(backref.container);
+                ref<PgfConcrLincat> lincat =
+                    namespace_lookup(concr->lincats, &lin->absfun->type->name);
+                if (lincat != 0) {
+                    ref<PgfText> field =
+                        *vector_elem(lincat->fields, backref.seq_index % lincat->fields->len);
+
+                    callback->fn(callback, &lin->absfun->name, &(*field), lincat->abscat->prob+lin->absfun->prob, err);
+                    if (err->type != PGF_EXN_NONE)
+                        return;
+                }
+                break;
+            }
+            case PgfConcrLincat::tag: {
+                //ignore
+                break;
+            }
+            }
+        }
+    }
+
+    phrasetable_iter(concr, table->right, itor, callback, seq_ids, err);
     if (err->type != PGF_EXN_NONE)
         return;
 }
@@ -308,5 +485,5 @@ void phrasetable_iter(PgfPhrasetable table, PgfSequenceItor* itor,
 PGF_INTERNAL
 void phrasetable_release(PgfPhrasetable table)
 {
-	namespace_release(table);
+    Node<PgfPhrasetableEntry>::release(table);
 }

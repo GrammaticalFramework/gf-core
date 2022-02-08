@@ -400,12 +400,21 @@ typedef struct PgfPhrasetableIds PgfPhrasetableIds;
 
 typedef struct PgfSequenceItor PgfSequenceItor;
 struct PgfSequenceItor {
-	void (*fn)(PgfSequenceItor* self, size_t seq_id, object value, PgfExn *err);
+	int (*fn)(PgfSequenceItor* self, size_t seq_id, object value,
+              PgfExn *err);
 };
 
-PGF_API
+typedef struct PgfMorphoCallback PgfMorphoCallback;
+struct PgfMorphoCallback {
+	void (*fn)(PgfMorphoCallback* self, PgfText *lemma, PgfText *analysis, prob_t prob,
+	           PgfExn* err);
+};
+
+PGF_API_DECL
 PgfPhrasetableIds *pgf_iter_sequences(PgfDB *db, PgfConcrRevision cnc_revision,
-                                      PgfSequenceItor *itor, PgfExn *err);
+                                      PgfSequenceItor *itor,
+                                      PgfMorphoCallback *callback,
+                                      PgfExn *err);
 
 PGF_API_DECL
 void pgf_get_lincat_counts_internal(object o, size_t *counts);

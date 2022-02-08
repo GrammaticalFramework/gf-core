@@ -46,6 +46,7 @@ public:
     void write_symbol(PgfSymbol sym);
     void write_seq(ref<PgfSequence> seq);
     void write_seq_id(ref<ref<PgfSequence>> r) { write_len(seq_ids.get(*r)); };
+    void write_phrasetable(PgfPhrasetable table);
     void write_lin(ref<PgfConcrLin> lin);
     void write_printname(ref<PgfConcrPrintname> printname);
 
@@ -56,6 +57,7 @@ public:
 private:
     template<class V>
     void write_namespace_helper(Namespace<V> nmsp, void (PgfWriter::*write_value)(ref<V>));
+    void write_phrasetable_helper(PgfPhrasetable table);
 
     void write_text(ref<ref<PgfText>> r) { write_text(&(**r)); };
     void write_lparam(ref<ref<PgfLParam>> r) { write_lparam(*r); };

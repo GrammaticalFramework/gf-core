@@ -46,6 +46,7 @@ data PgfLinBuilderIface
 data PgfLinearizationOutputIface
 data PgfGraphvizOptions
 data PgfSequenceItor
+data PgfMorphoCallback
 data PgfPhrasetableIds
 
 type Wrapper a = a -> IO (FunPtr a)
@@ -112,11 +113,15 @@ foreign import ccall pgf_iter_lincats :: Ptr PgfDB -> Ptr Concr -> Ptr PgfItor -
 
 foreign import ccall pgf_iter_lins :: Ptr PgfDB -> Ptr Concr -> Ptr PgfItor -> Ptr PgfExn -> IO ()
 
-type SequenceItorCallback = Ptr PgfSequenceItor -> CSize -> Ptr () -> Ptr PgfExn -> IO ()
+type SequenceItorCallback = Ptr PgfSequenceItor -> CSize -> Ptr () -> Ptr PgfExn -> IO CInt
 
 foreign import ccall "wrapper" wrapSequenceItorCallback :: Wrapper SequenceItorCallback
 
-foreign import ccall pgf_iter_sequences :: Ptr PgfDB -> Ptr Concr -> Ptr PgfSequenceItor -> Ptr PgfExn -> IO (Ptr PgfPhrasetableIds)
+type MorphoCallback = Ptr PgfMorphoCallback -> Ptr PgfText -> Ptr PgfText -> (#type prob_t) -> Ptr PgfExn -> IO ()
+
+foreign import ccall "wrapper" wrapMorphoCallback :: Wrapper MorphoCallback
+
+foreign import ccall pgf_iter_sequences :: Ptr PgfDB -> Ptr Concr -> Ptr PgfSequenceItor -> Ptr PgfMorphoCallback -> Ptr PgfExn -> IO (Ptr PgfPhrasetableIds)
 
 foreign import ccall pgf_get_lincat_counts_internal :: Ptr () -> Ptr CSize -> IO ()
 

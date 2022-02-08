@@ -39,6 +39,7 @@ void PgfConcr::release(ref<PgfConcr> concr)
     namespace_release(concr->cflags);
     namespace_release(concr->lins);
     namespace_release(concr->lincats);
+    phrasetable_release(concr->phrasetable);
     namespace_release(concr->printnames);
     PgfDB::free(concr);
 }
@@ -111,6 +112,11 @@ void PgfSequence::release(ref<PgfSequence> seq)
         pgf_symbol_free(sym);
     }
     PgfDB::free(seq);
+}
+
+void PgfSequenceBackrefs::release(ref<PgfSequenceBackrefs> backrefs)
+{
+    PgfDB::free(backrefs);
 }
 
 void PgfConcrLin::release(ref<PgfConcrLin> lin)

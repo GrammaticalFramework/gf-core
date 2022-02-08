@@ -418,6 +418,22 @@ void PgfWriter::write_seq(ref<PgfSequence> seq)
     write_vector(ref<Vector<PgfSymbol>>::from_ptr(&seq->syms), &PgfWriter::write_symbol);
 }
 
+void PgfWriter::write_phrasetable(PgfPhrasetable table)
+{
+    write_len(phrasetable_size(table));
+    write_phrasetable_helper(table);
+}
+
+void PgfWriter::write_phrasetable_helper(PgfPhrasetable table)
+{
+    if (table == 0)
+        return;
+
+    write_phrasetable_helper(table->left);
+    write_seq(table->value.seq);
+    write_phrasetable_helper(table->right);
+}
+
 void PgfWriter::write_lincat(ref<PgfConcrLincat> lincat)
 {
     write_name(&lincat->name);
@@ -448,7 +464,7 @@ void PgfWriter::write_concrete(ref<PgfConcr> concr)
 
     write_name(&concr->name);
     write_namespace<PgfFlag>(concr->cflags, &PgfWriter::write_flag);
-	write_namespace<PgfSequence>(concr->phrasetable, &PgfWriter::write_seq);
+	write_phrasetable(concr->phrasetable);
     write_namespace<PgfConcrLincat>(concr->lincats, &PgfWriter::write_lincat);
 	write_namespace<PgfConcrLin>(concr->lins, &PgfWriter::write_lin);
 	write_namespace<PgfConcrPrintname>(concr->printnames, &PgfWriter::write_printname);

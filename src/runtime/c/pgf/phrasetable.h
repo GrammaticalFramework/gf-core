@@ -1,9 +1,19 @@
 #ifndef PHRASETABLE_H
 #define PHRASETABLE_H
 
-class PgfSequence;
+struct PgfSequence;
+struct PgfSequenceBackrefs;
+
+struct PGF_INTERNAL_DECL PgfPhrasetableEntry {
+    ref<PgfSequence> seq;
+    ref<PgfSequenceBackrefs> backrefs;
+
+    void add_ref();
+    void release_ref();
+};
+
 class PgfSequenceItor;
-typedef ref<Node<PgfSequence>> PgfPhrasetable;
+typedef ref<Node<PgfPhrasetableEntry>> PgfPhrasetable;
 
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wattributes"
@@ -41,13 +51,30 @@ private:
 #pragma GCC diagnostic pop
 
 PGF_INTERNAL_DECL
-PgfPhrasetable phrasetable_internalize(PgfPhrasetable table, ref<PgfSequence> *seq);
+PgfPhrasetable phrasetable_internalize(PgfPhrasetable table,
+                                       object container,
+                                       size_t seq_index,
+                                       ref<PgfSequence> *seq);
 
 PGF_INTERNAL_DECL
-ref<PgfSequence> phrasetable_get(PgfPhrasetable table, size_t seq_id);
+ref<PgfSequence> phrasetable_relink(PgfPhrasetable table,
+                                    object container,
+                                    size_t seq_index,
+                                    size_t seq_id);
+
+PgfPhrasetable phrasetable_delete(PgfPhrasetable table,
+                                  object container,
+                                  size_t seq_index,
+                                  ref<PgfSequence> seq);
 
 PGF_INTERNAL_DECL
-void phrasetable_iter(PgfPhrasetable table, PgfSequenceItor* itor,
+size_t phrasetable_size(PgfPhrasetable table);
+
+PGF_INTERNAL_DECL
+void phrasetable_iter(PgfConcr *concr,
+                      PgfPhrasetable table,
+                      PgfSequenceItor* itor,
+                      PgfMorphoCallback *callback,
                       PgfPhrasetableIds *seq_ids, PgfExn *err);
 
 PGF_INTERNAL_DECL
