@@ -238,6 +238,7 @@ jobs:
         msystem: MINGW64
         install: >-
           base-devel
+          autoconf-wrapper
           mingw-w64-x86_64-toolchain
           mingw-w64-x86_64-libtool
 
