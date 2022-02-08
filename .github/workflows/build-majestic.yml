@@ -170,7 +170,8 @@ jobs:
     name: Python (macOS)
     runs-on: macOS-11
     needs: macos-runtime
-    env: EXTRA_INCLUDE_DIRS=/usr/local/include/
+    env:
+      EXTRA_INCLUDE_DIRS: /usr/local/include
 
     steps:
     - uses: actions/checkout@v2
