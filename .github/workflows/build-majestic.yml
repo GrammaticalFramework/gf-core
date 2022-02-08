@@ -170,6 +170,7 @@ jobs:
     name: Python (macOS)
     runs-on: macOS-11
     needs: macos-runtime
+    env: EXTRA_INCLUDE_DIRS=/usr/local/include/
 
     steps:
     - uses: actions/checkout@v2
@@ -184,7 +185,6 @@ jobs:
     - name: Install bindings
       working-directory: ./src/runtime/python
       run: |
-        EXTRA_INCLUDE_DIRS=/usr/local/include/
         python3 setup.py build
         sudo python3 setup.py install
 
