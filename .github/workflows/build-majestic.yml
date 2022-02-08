@@ -184,6 +184,7 @@ jobs:
     - name: Install bindings
       working-directory: ./src/runtime/python
       run: |
+        EXTRA_INCLUDE_DIRS=/usr/local/include/
         python3 setup.py build
         sudo python3 setup.py install
 
