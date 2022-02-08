@@ -106,25 +106,9 @@ void PgfWriter::write_uint(uint64_t u)
 	}
 }
 
-void PgfWriter::write_name(PgfText *text)
-{
-	write_len(text->size);
-    size_t n_items = fwrite(&text->text, text->size, 1, out);
-    if (ferror(out))
-        throw pgf_error("an error occured while writing out the grammar");
-    if (text->size != 0 && n_items != 1)
-        throw pgf_error("couldn't write to the output file");
-}
-
 void PgfWriter::write_text(PgfText *text)
 {
-    size_t len = 0;
-	const uint8_t* p = (const uint8_t*) &text->text;
-	const uint8_t* e = p + text->size;
-	while (p < e && pgf_utf8_decode(&p) != 0)
-		len++;
-
-	write_len(len);
+	write_len(text->size);
     size_t n_items = fwrite(&text->text, text->size, 1, out);
     if (ferror(out))
         throw pgf_error("an error occured while writing out the grammar");
@@ -273,48 +257,10 @@ void PgfWriter::write_absfun(ref<PgfAbsFun> absfun)
     write_double(expf(-absfun->prob));
 }
 
-static
-void count_funs_by_cat(Namespace<PgfAbsFun> funs, PgfText *cat, size_t *pcount)
-{
-    if (funs == 0)
-        return;
-
-    count_funs_by_cat(funs->left, cat, pcount);
-
-    if (textcmp(&funs->value->name, cat) == 0) {
-        *pcount++;
-    }
-
-    count_funs_by_cat(funs->right, cat, pcount);
-}
-
-static
-void write_funs_by_cat(Namespace<PgfAbsFun> funs, PgfText *cat, PgfWriter *wtr)
-{
-    if (funs == 0)
-        return;
-
-    write_funs_by_cat(funs->left, cat, wtr);
-
-    if (textcmp(&funs->value->name, cat) == 0) {
-        wtr->write_double(expf(-funs->value->prob));
-        wtr->write_name(&funs->value->name);
-    }
-
-    write_funs_by_cat(funs->right, cat, wtr);
-}
-
 void PgfWriter::write_abscat(ref<PgfAbsCat> abscat)
 {
     write_name(&abscat->name);
-    write_vector(abscat->context, &PgfWriter::write_hypo);
-
-	size_t n_count = 0;
-    count_funs_by_cat(abstract->funs, &abscat->name, &n_count);
-
-	write_len(n_count);
-    write_funs_by_cat(abstract->funs, &abscat->name, this);
-	
+    write_vector(abscat->context, &PgfWriter::write_hypo);	
 	write_double(expf(-abscat->prob));
 }
 

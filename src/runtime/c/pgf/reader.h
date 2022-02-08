@@ -22,11 +22,11 @@ public:
 
     template<class V>
     ref<V> read_name(PgfText V::* field) {
-        return read_name_internal((size_t) &(((V*) NULL)->*field));
+        return read_text_internal((size_t) &(((V*) NULL)->*field));
     };
 
     ref<PgfText> read_name() {
-        return read_name_internal(0);
+        return read_text_internal(0);
     };
 
     template<class V>

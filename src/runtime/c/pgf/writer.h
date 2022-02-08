@@ -16,7 +16,7 @@ public:
 
     void write_tag(uint8_t t) { write_uint8(t); }
 
-    void write_name(PgfText *text);
+    void write_name(PgfText *text) { write_text(text); };
     void write_text(PgfText *text);
 
     template<class V>

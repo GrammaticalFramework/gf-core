@@ -84,7 +84,7 @@ uint64_t PgfReader::read_uint()
 	return u;
 }
 
-object PgfReader::read_name_internal(size_t struct_size)
+object PgfReader::read_text_internal(size_t struct_size)
 {
     size_t size = read_len();
 	object offs = current_db->malloc_internal(struct_size+sizeof(PgfText)+size+1);
@@ -100,51 +100,6 @@ object PgfReader::read_name_internal(size_t struct_size)
         throw pgf_error("an error occured while reading the grammar");
 
     ptext->text[size] = 0;
-
-	return offs;
-}
-
-object PgfReader::read_text_internal(size_t struct_size)
-{
-    size_t len  = read_len();
-
-    char* buf = (char*) alloca(len*6+1);
-	char* p   = buf;
-	for (size_t i = 0; i < len; i++) {
-        uint8_t c = read_uint8();
-        *(p++) = (char) c;
-
-        if (c < 0x80) {
-            continue;
-        }
-        if (c < 0xc2) {
-            throw pgf_error("utf8 decoding error");
-        }
-
-        int len = (c < 0xe0 ? 1 :
-                   c < 0xf0 ? 2 :
-                   c < 0xf8 ? 3 :
-                   c < 0xfc ? 4 :
-                              5
-                   );
-        // If reading the extra bytes causes EOF, it is an encoding
-        // error, not a legitimate end of character stream.
-        fread(p, len, 1, in);
-        if (feof(in))
-            throw pgf_error("utf8 decoding error");
-        if (ferror(in))
-            throw pgf_error("an error occured while reading the grammar");
-
-        p += len;
-	}
-
-    size_t size = p-buf;
-	*p++ = 0;
-
-	object offs = current_db->malloc_internal(struct_size+sizeof(PgfText)+size+1);
-    PgfText* ptext = (PgfText*) (current_base+offs+struct_size);
-    ptext->size = size;
-	memcpy(ptext->text, buf, size+1);
 
 	return offs;
 }
@@ -370,14 +325,6 @@ ref<PgfAbsCat> PgfReader::read_abscat()
     ref<PgfAbsCat> abscat = read_name<PgfAbsCat>(&PgfAbsCat::name);
     abscat->ref_count = 1;
     abscat->context = read_vector<PgfHypo>(&PgfReader::read_hypo);
-
-    // for now we just read the set of functions per category and ignore them
-    size_t n_funs = read_len();
-    for (size_t i = 0; i < n_funs; i++) {
-        read_double();
-        read_name();
-    }
-
     abscat->prob  = - log(read_double());
     return abscat;
 }
