@@ -172,6 +172,7 @@ jobs:
     needs: macos-runtime
     env:
       EXTRA_INCLUDE_DIRS: /usr/local/include
+      EXTRA_LIB_DIRS: /usr/local/lib
 
     steps:
     - uses: actions/checkout@v2
