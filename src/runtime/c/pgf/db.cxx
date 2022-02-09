@@ -1774,7 +1774,7 @@ void PgfDB::resize_map(size_t new_size)
 		if (new_ms == MAP_FAILED)
 			throw pgf_systemerror(errno);
 	} else {
-		new_ms = (malloc_state*) realloc(ms, new_size);
+		new_ms = (malloc_state*) ::realloc(ms, new_size);
 		if (new_ms == NULL)
 			throw pgf_systemerror(ENOMEM);
 	}
@@ -1810,7 +1810,7 @@ void PgfDB::resize_map(size_t new_size)
 		if (new_ms == NULL)
 			throw pgf_systemerror(last_error_to_errno());
 	} else {
-		new_ms = (malloc_state*) realloc(ms, new_size);
+		new_ms = (malloc_state*) ::realloc(ms, new_size);
 		if (new_ms == NULL)
 			throw pgf_systemerror(ENOMEM);
 	}
