@@ -532,8 +532,9 @@ ref<Vector<ref<PgfSequence>>> PgfReader::read_seq_ids(object container)
         ref<PgfSequence> seq = phrasetable_relink(concrete->phrasetable,
                                                   container, i,
                                                   seq_id);
-        if (seq == 0)
+        if (seq == 0) {
             throw pgf_error("Invalid sequence id");
+        }
         *vector_elem(vec,i) = seq;
     }
     return vec;

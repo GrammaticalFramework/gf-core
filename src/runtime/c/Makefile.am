@@ -12,6 +12,8 @@ libpgf_la_SOURCES = \
 	pgf/db.h \
 	pgf/text.cxx \
 	pgf/text.h \
+	pgf/vector.cxx \
+	pgf/vector.h \
 	pgf/pgf.cxx \
 	pgf/reader.cxx \
 	pgf/reader.h \

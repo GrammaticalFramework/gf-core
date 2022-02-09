@@ -86,6 +86,11 @@ public:
     }
 
     template<class A>
+    static ref<A> realloc(ref<A> r, size_t extra_bytes) {
+        return current_db->realloc_internal(r.as_object(), sizeof(A)+extra_bytes);
+    }
+
+    template<class A>
     static void free(ref<A> o) {
         current_db->free_internal(o.as_object());
     }
@@ -111,6 +116,8 @@ private:
     PGF_INTERNAL_DECL void init_state(size_t size);
 
     PGF_INTERNAL_DECL object malloc_internal(size_t bytes);
+    PGF_INTERNAL_DECL object realloc_internal(object oldo, size_t bytes);
+
     PGF_INTERNAL_DECL void free_internal(object o);
 
     PGF_INTERNAL_DECL void register_process();

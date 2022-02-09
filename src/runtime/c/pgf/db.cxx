@@ -378,6 +378,10 @@ typedef struct mchunk mbin;
 /* Treat space at ptr + offset as a chunk */
 #define chunk_at_offset(p, s)  ((mchunk*) (((char *) (p)) + (s)))
 
+/* extract p's inuse bit */
+#define inuse(p)                                                              \
+  ((((mchunk*) (((char *) (p)) + chunksize(p)))->mchunk_size) & PREV_INUSE)
+
 /* check/set/clear inuse bits in known places */
 #define inuse_bit_at_offset(p, s)                                     \
   (((mchunk*) (((char *) (p)) + (s)))->mchunk_size & PREV_INUSE)
@@ -388,8 +392,13 @@ typedef struct mchunk mbin;
 #define clear_inuse_bit_at_offset(p, s)                               \
   (((mchunk*) (((char *) (p)) + (s)))->mchunk_size &= ~(PREV_INUSE))
 
+
+/* Set size at head, without disturbing its use bit */
+#define set_head_size(p, s)  ((p)->mchunk_size = (((p)->mchunk_size & PREV_INUSE) | (s)))
+
 /* Set size/use field */
 #define set_head(p, s)       ((p)->mchunk_size = (s))
+
 /* Set size at footer (only when chunk is not in use) */
 #define set_foot(p, s)       (((mchunk*) ((char *) (p) + (s)))->mchunk_prev_size = (s))
 
@@ -1328,6 +1337,86 @@ object PgfDB::malloc_internal(size_t bytes)
             return ofs(ms,chunk2mem(victim));
         }
     }
+}
+
+PGF_INTERNAL
+object PgfDB::realloc_internal(object oldo, size_t bytes)
+{
+    if (oldo == 0)
+        return malloc_internal(bytes);
+
+    mchunk *newp;            /* chunk to return */
+    size_t  newsize;         /* its size */
+    mchunk *remainder;       /* extra space at end of newp */
+    size_t  remainder_size;  /* its size */
+
+    size_t nb = request2size(bytes);
+
+    mchunk *oldp    = mem2chunk(ptr(ms,oldo));
+    size_t oldsize  = chunksize(oldp);
+    mchunk *next    = chunk_at_offset(oldp, oldsize);
+    size_t nextsize = chunksize(next);
+
+    if (oldsize >= nb) {
+        /* already big enough; split below */
+        newp = oldp;
+        newsize = oldsize;
+    } else {
+        /* Try to expand forward into top */
+        if (ofs(ms,next) == ms->top &&
+            (unsigned long) (newsize = oldsize + nextsize) >=
+            (unsigned long) (nb + MINSIZE))
+        {
+            set_head_size(oldp, nb);
+            remainder = chunk_at_offset(oldp, nb);
+            ms->top = ofs(ms,remainder);
+            set_head(remainder, (newsize - nb) | PREV_INUSE);
+            return oldo;
+        }
+        /* Try to expand forward into next chunk;  split off remainder below */
+        else if (ofs(ms,next) != ms->top &&
+                 !inuse(next) &&
+                 (unsigned long) (newsize = oldsize + nextsize) >=
+                 (unsigned long) (nb))
+        {
+            newp = oldp;
+            unlink_chunk(ms, next);
+        }
+        /* allocate, copy, free */
+        else
+        {
+            object newo = malloc_internal(bytes);
+            newp = mem2chunk(ptr(ms,newo));
+            newsize = chunksize(newp);
+            /*
+               Avoid copy if newp is next chunk after oldp.
+            */
+            if (newp == next) {
+                newsize += oldsize;
+                newp = oldp;
+            } else {
+                memcpy(ptr(ms,newo), ptr(ms,oldo), oldsize - sizeof(size_t));
+                free_internal(oldo);
+                return newo;
+            }
+        }
+    }
+
+    /* If possible, free extra space in old or extended chunk */
+    assert(newsize >= nb);
+    remainder_size = newsize - nb;
+    if (remainder_size < MINSIZE) {  /* not enough extra to split off */
+        set_head_size(newp, newsize);
+        set_inuse_bit_at_offset(newp, newsize);
+    } else {  /* split remainder */
+        remainder = chunk_at_offset(newp, nb);
+        set_head_size(newp, nb);
+        set_head(remainder, remainder_size | PREV_INUSE);
+        /* Mark remainder as inuse so free() won't complain */
+        set_inuse_bit_at_offset(remainder, remainder_size);
+        free_internal(ofs(ms,chunk2mem(remainder)));
+    }
+    return ofs(ms,chunk2mem(newp));
 }
 
 PGF_INTERNAL

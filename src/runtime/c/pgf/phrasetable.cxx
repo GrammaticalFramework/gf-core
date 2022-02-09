@@ -316,23 +316,19 @@ ref<PgfSequence> phrasetable_relink(PgfPhrasetable table,
                                     size_t seq_id)
 {
 	while (table != 0) {
-		size_t left_sz = table->left->sz;
+		size_t left_sz = (table->left==0) ? 0 : table->left->sz;
 		if (seq_id < left_sz)
 			table = table->left;
 		else if (seq_id == left_sz) {
-            size_t len = (table->value.backrefs)
-                             ? table->value.backrefs->list.len
-                             : 0;
+            size_t len = (table->value.backrefs == 0)
+                             ? 0
+                             : table->value.backrefs->list.len;
 
             ref<PgfSequenceBackrefs> backrefs =
-                PgfDB::malloc<PgfSequenceBackrefs>((len+1)*sizeof(PgfSequenceBackref));
+                vector_resize<PgfSequenceBackrefs,PgfSequenceBackref>(table->value.backrefs, &PgfSequenceBackrefs::list, len+1);
             backrefs->ref_count = 1;
-            backrefs->list.len = len+1;
-            memcpy(backrefs->list.data, table->value.backrefs->list.data, len*sizeof(PgfSequenceBackref));
             backrefs->list.data[len].container = container;
             backrefs->list.data[len].seq_index = seq_index;
-            if (table->value.backrefs != 0)
-                PgfSequenceBackrefs::release(table->value.backrefs);
             table->value.backrefs = backrefs;
 
 			return table->value.seq;
