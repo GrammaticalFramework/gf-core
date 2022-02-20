@@ -43,7 +43,7 @@ case "$target_cpu" in
 		   [Define if lightning is targeting the sparc architecture]) ;;
 	powerpc) cpu=ppc; AC_DEFINE(LIGHTNING_PPC, 1,
 		   [Define if lightning is targeting the powerpc architecture]) ;;
-    arm*)    cpu=arm; AC_DEFINE(LIGHTNING_ARM, 1,
+  aarch* | arm*)    cpu=arm; AC_DEFINE(LIGHTNING_ARM, 1,
 		   [Define if lightning is targeting the arm architecture]) ;;
 	*)	 AC_MSG_ERROR([cpu $target_cpu not supported])	;;
 esac
