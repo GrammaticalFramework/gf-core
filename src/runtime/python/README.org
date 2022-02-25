@@ -120,20 +120,6 @@ Build the C runtime by following the instructions in ~gf-core/src/runtime/c/INST
 
 After a successful ~make install~, rebuild the Python bindings.
 
-** configure: error: cpu aarch64 not supported
-
-When building the C runtime, did you get this error?
-
-#+begin_example
-  configure: error: cpu aarch64 not supported
-#+end_example
-
-Solution: edit ~src/runtime/c/configure.ac~ to add ~aarch*~ to the ~arm64~ line.
-
-#+begin_example
-  aarch* | arm*)    cpu=arm; AC_DEFINE(LIGHTNING_ARM, 1,
-#+end_example
-
 ** How to re-build the Python bindings using pip
 
 Sometimes a ~pip install pgf~ will decline to recompile, because a cached wheel exists.
