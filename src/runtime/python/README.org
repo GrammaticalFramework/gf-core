@@ -1,0 +1,166 @@
+* INSTALL
+
+You will need the python-devel package or similar.
+
+You must have installed the PGF C runtime (see ../c/INSTALL)
+
+#+begin_src sh
+  $ python setup.py build
+  $ sudo python setup.py install
+#+end_src
+
+* Apple Silicon
+
+The following install instructions were written with the following config in mind:
+
+| OS                    | Hardware | GF                       |
+|-----------------------+----------+--------------------------+
+| MacOS Monterey 12.2.1 | Apple M1 | 3.11 from binary package |
+
+We assume that you may have installed GF as a binary package downloaded from Github.
+
+From that starting point, try all the solutions below, in sequence, until you achieve success.
+
+** Validation Goal
+
+Our goal is to be able to
+- run python 3
+- import pgf
+- type "pgf."
+- hit tab
+
+and get this:
+
+#+begin_example
+  >>> import pgf
+  >>> pgf.
+  pgf.BIND(        pgf.Concr(       pgf.Iter(        pgf.PGFError(    pgf.Type(        pgf.readExpr(    pgf.readType(
+  pgf.Bracket(     pgf.Expr(        pgf.PGF(         pgf.ParseError(  pgf.TypeError(   pgf.readPGF(
+#+end_example
+
+When that works, we can consider the Python PGF bindings to be installed successfully.
+
+** The GF binary package won't install
+
+We assume you've tried [[https://github.com/GrammaticalFramework/gf-core/releases][downloading a binary package]].
+
+If MacOS is being secure, go to System Preferences, Security & Privacy, General, and click Open Anyway.
+
+** gu/mem.h file not found
+
+Maybe you tried running something like ~pip install pgf~ or ~pip3 install pgf~.
+
+Did you get this error?
+
+#+begin_example
+  python3 setup.py build
+  running build
+  running build_ext
+  creating build/temp.macosx-12-arm64-3.9
+  clang -Wno-unused-result -Wsign-compare -Wunreachable-code -fno-common -dynamic -DNDEBUG -g -fwrapv -O3 -Wall -isysroot /Library/Developer/CommandLineTools/SDKs/MacOSX12.sdk -I/opt/homebrew/opt/python@3.9/Frameworks/Python.framework/Versions/3.9/include/python3.9 -c pypgf.c -o build/temp.macosx-12-arm64-3.9/pypgf.o -std=c99
+  pypgf.c:5:10: fatal error: 'gu/mem.h' file not found
+  #include <gu/mem.h>
+           ^~~~~~~~~~
+  1 error generated.
+  error: command '/usr/bin/clang' failed with exit code 1
+#+end_example
+
+Solution:
+
+#+begin_example
+  $ EXTRA_INCLUDE_DIRS=/usr/local/include EXTRA_LIB_DIRS=/usr/local/lib pip install pgf
+#+end_example
+
+This should tell the build where to find the include and lib files it needs to compile:
+
+#+begin_example
+  $ ls /usr/local/include/gu
+  assert.h  choice.h  enum.h    file.h    hash.h    map.h     out.h     seq.h     sysdeps.h utf8.h
+  bits.h    defs.h    exn.h     fun.h     in.h      mem.h     prime.h   string.h  ucs.h     variant.h
+
+  $ ls /usr/local/lib/libgu*
+  /usr/local/lib/libgu.0.dylib /usr/local/lib/libgu.a       /usr/local/lib/libgu.dylib   /usr/local/lib/libgu.la
+#+end_example
+
+If those files don't exist, or you get the following error, you will need to rebuild the C runtime.
+
+** symbol not found in flat namespace
+
+Did you get this error?
+
+#+begin_example
+  Python 3.9.10 (main, Jan 15 2022, 11:40:53)
+  [Clang 13.0.0 (clang-1300.0.29.3)] on darwin
+  Type "help", "copyright", "credits" or "license" for more information.
+  >>> import pgf
+  Traceback (most recent call last):
+    File "<stdin>", line 1, in <module>
+  ImportError: dlopen(/opt/homebrew/lib/python3.9/site-packages/pgf.cpython-39-darwin.so, 0x0002): symbol not found in flat namespace '_gu_alloc_variant'
+#+end_example
+
+This may be a sign that you're trying to get binaries and libraries compiled with different compilers to play nicely. We're trying to get three things to align:
+
+- the Python interpreter
+- the C runtime libraries
+- the Python pgf libraries
+
+Solution:
+
+Maybe your Python isn't the Apple-provided Python. In the above error message we see ~python3~ is provided by Homebrew. Assuming you prefer to keep things this way, we'll try to rebuild things to match your Python.
+
+Rebuilding needs a C compiler. The Apple-provided system ~clang~ is preferred. If you have multiple ~clang~ compilers installed, try disabling the others. For example, if your ~clang~ was provided by nix, run ~nix-env --uninstall clang~. Similarly for brew.
+
+Then try rebuilding the C runtime.
+
+** How to re-build the C runtime
+
+Maybe the C runtime is missing from ~/usr/local/lib~, or maybe the version you have installed is causing the "symbol not found" error.
+
+Build the C runtime by following the instructions in ~gf-core/src/runtime/c/INSTALL~.
+
+After a successful ~make install~, rebuild the Python bindings.
+
+** configure: error: cpu aarch64 not supported
+
+When building the C runtime, did you get this error?
+
+#+begin_example
+  configure: error: cpu aarch64 not supported
+#+end_example
+
+Solution: edit ~src/runtime/c/configure.ac~ to add ~aarch*~ to the ~arm64~ line.
+
+#+begin_example
+  aarch* | arm*)    cpu=arm; AC_DEFINE(LIGHTNING_ARM, 1,
+#+end_example
+
+** How to re-build the Python bindings using pip
+
+Sometimes a ~pip install pgf~ will decline to recompile, because a cached wheel exists.
+
+To return to a more pristine state,
+
+#+begin_example
+  pip uninstall pgf
+  pip cache remove pgf
+#+end_example
+
+You may need to ~sudo~ some of the above commands.
+
+Then you can repeat
+
+#+begin_example
+  $ EXTRA_INCLUDE_DIRS=/usr/local/include EXTRA_LIB_DIRS=/usr/local/lib pip install pgf
+#+end_example
+
+** How to re-build the Python bindings manually
+
+If the ~pip install pgf~ just isn't working, try building it directly in ~gf-core/src/runtime/python~:
+
+#+begin_example
+  $ python setup.py build
+  $ sudo python setup.py install
+#+end_example
+
+You may need to add the ~EXTRA~ environment prefixes as shown in previous commands.
+
