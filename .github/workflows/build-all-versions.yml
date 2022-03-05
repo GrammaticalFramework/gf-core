@@ -90,6 +90,8 @@ jobs:
       with:
         path: ~/.stack
         key: ${{ runner.os }}-${{ matrix.ghc }}-stack--${{ hashFiles(format('stack-ghc{0}', matrix.ghc)) }}
+        restore-keys: |
+             ${{ runner.os }}-${{ matrix.ghc }}-stack
 
     - name: Build
       run: |
