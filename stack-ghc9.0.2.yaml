@@ -1,4 +1,4 @@
-resolver: nightly-2022-02-19
+resolver: nightly-2022-02-19 # ghc 9.0.2
 
 extra-deps:
 # - network-2.6.3.6
