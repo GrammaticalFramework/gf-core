@@ -80,6 +80,11 @@ jobs:
         stack-version: 'latest'
         enable-stack: true
 
+
+    # Fix linker errrors on ghc-7.10.3 for ubuntu (see https://github.com/commercialhaskell/stack/blob/255cd830627870cdef34b5e54d670ef07882523e/doc/faq.md#i-get-strange-ld-errors-about-recompiling-with--fpic)
+    - run: sed -i.bak 's/"C compiler link flags", "/&-no-pie /' /home/runner/.ghcup/ghc/7.10.3/lib/ghc-7.10.3/settings
+      if: matrix.ghc == '7.10.3'
+
     - uses: actions/cache@v1
       name: Cache ~/.stack
       with:
