@@ -1,5 +1,5 @@
 {-# LANGUAGE CPP, MagicHash #-}
--- This module makes profiling a lot slower
+-- This module makes profiling a lot slower, so don't add automatic cost centres 
 {-# OPTIONS_GHC -fno-prof-auto #-}
 -- for unboxed shifts
 
