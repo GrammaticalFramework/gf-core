@@ -129,9 +129,10 @@ export const runtime = ffi.Library('libpgf', {
   pgf_print_context: [PgfTextPtr, [size_t, PgfTypeHypoPtr, PgfPrintContextPtr, ref.types.int, PgfMarshallerPtr]],
   pgf_read_type: [PgfType, [PgfTextPtr, PgfUnmarshallerPtr]],
 
-  pgf_clone_revision: [PgfRevision, [PgfDBPtr, PgfRevision, PgfExnPtr]],
-  pgf_commit_revision: [ref.types.void, [PgfDBPtr, PgfRevision, PgfExnPtr]],
-  pgf_checkout_revision: [PgfRevision, [PgfDBPtr, PgfTextPtr, PgfExnPtr]],
+  pgf_start_transaction: [PgfRevision, [PgfDBPtr, PgfRevision, PgfExnPtr]],
+  pgf_commit_transaction: [ref.types.void, [PgfDBPtr, PgfRevision, PgfExnPtr]],
+  pgf_rollback_transaction: [ref.types.void, [PgfDBPtr, PgfRevision]],
+  pgf_checkout_revision: [PgfRevision, [PgfDBPtr, PgfExnPtr]],
   pgf_create_function: [ref.types.void, [PgfDBPtr, PgfRevision, PgfTextPtr, PgfType, size_t, prob_t, PgfMarshallerPtr, PgfExnPtr]],
   pgf_drop_function: [ref.types.void, [PgfDBPtr, PgfRevision, PgfTextPtr, PgfExnPtr]],
   pgf_create_category: [ref.types.void, [PgfDBPtr, PgfRevision, PgfTextPtr, size_t, PgfTypeHypoPtr, prob_t, PgfMarshallerPtr, PgfExnPtr]],
