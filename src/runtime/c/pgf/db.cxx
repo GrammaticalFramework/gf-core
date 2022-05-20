@@ -1410,10 +1410,10 @@ void PgfDB::resize_map(size_t new_size)
 			throw pgf_systemerror(last_error_to_errno());
 		}
 
-		new_ms = (malloc_state*) MapViewOfFile(hMap,
-											   FILE_MAP_WRITE,
-											   0,0,new_size);
-		if (new_ms == NULL)
+		ms = (malloc_state*) MapViewOfFile(hMap,
+										   FILE_MAP_WRITE,
+                                           0,0,new_size);
+		if (ms == NULL)
 			throw pgf_systemerror(last_error_to_errno());
 	} else {
 		new_ms = (malloc_state*) ::realloc(ms, new_size);
@@ -1422,7 +1422,6 @@ void PgfDB::resize_map(size_t new_size)
 	}
     new_size -= page_size;
 
-	ms = new_ms;
     base = ((unsigned char*) ms) + page_size;
 #endif
     current_base = (unsigned char*) base;
