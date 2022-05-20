@@ -128,7 +128,7 @@ private:
     PGF_INTERNAL_DECL int init_state();
 
     PGF_INTERNAL_DECL size_t block_descr_size(object map);
-    PGF_INTERNAL_DECL object new_block_descr(object o, size_t size);
+    PGF_INTERNAL_DECL object new_block_descr(object o, size_t size, txn_t txn_id);
     PGF_INTERNAL_DECL object upd_block_descr(object map, object left, object right);
     PGF_INTERNAL_DECL object balanceL_block_descriptor(object map);
     PGF_INTERNAL_DECL object balanceR_block_descriptor(object map);

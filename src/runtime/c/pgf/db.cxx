@@ -592,7 +592,7 @@ size_t PgfDB::block_descr_size(object map)
     return ptr(block_descr, map)->sz;
 }
 
-PGF_INTERNAL_DECL object PgfDB::new_block_descr(object o, size_t size)
+PGF_INTERNAL_DECL object PgfDB::new_block_descr(object o, size_t size, txn_t txn_id)
 {
     object odescr;
     block_descr *descr;
@@ -626,7 +626,7 @@ PGF_INTERNAL_DECL object PgfDB::new_block_descr(object o, size_t size)
     descr->chain  = 0;
     descr->o      = o;
     descr->block_size = size;
-    descr->block_txn_id = ms->curr_txn_id;
+    descr->block_txn_id = txn_id;
     descr->descr_txn_id = ms->curr_txn_id;
 
     return odescr;
@@ -1073,10 +1073,10 @@ object PgfDB::realloc_internal(object oldo, size_t old_bytes, size_t new_bytes)
 PGF_INTERNAL
 object PgfDB::insert_block_descriptor(object map, object o, size_t size)
 {
-    if (map == 0)
-        return new_block_descr(o, size);
-
     txn_t txn_id = (o >= ms->top) ? 0 : ms->curr_txn_id;
+
+    if (map == 0)
+        return new_block_descr(o, size, txn_id);
 
     block_descr *descr = ptr(block_descr, map);
     int cmp = (size < descr->block_size) ? -1
