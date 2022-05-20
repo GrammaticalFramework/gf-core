@@ -79,7 +79,7 @@ private:
 #else
     DWORD pid;
     HANDLE hMap;
-    HANDLE hМutex;
+    HANDLE hMutex;
     HANDLE hRWEvent;
 #endif
 
