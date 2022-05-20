@@ -79,6 +79,7 @@ private:
 #else
     DWORD pid;
     HANDLE hMap;
+    HANDLE hMutex;
     HANDLE hRWEvent;
 #endif
 
@@ -139,7 +140,6 @@ private:
 #ifdef DEBUG_MEMORY_ALLOCATOR
     PGF_INTERNAL_DECL void dump_free_blocks(object map);
 #endif
-    
 
     PGF_INTERNAL_DECL object malloc_internal(size_t bytes);
 

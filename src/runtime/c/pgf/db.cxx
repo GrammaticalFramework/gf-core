@@ -200,7 +200,8 @@ PgfDB::PgfDB(const char* filepath, int flags, int mode) {
     base = ((unsigned char *) ms) + page_size;
 #endif
 #else
-    char *name;
+    char *mutex_name;
+    char *event_name;
     char buf[256];
 
     if (fd >= 0) {
@@ -211,11 +212,18 @@ PgfDB::PgfDB(const char* filepath, int flags, int mode) {
             close(fd);
             throw pgf_systemerror(code);
         }
-        sprintf(buf, "gf-rwevent-%lx-%lx-%lx",
+        mutex_name = buf;
+        sprintf(mutex_name,
+                     "gf-mutex-%lx-%lx-%lx",
                      hInfo.dwVolumeSerialNumber,
                      hInfo.nFileIndexHigh,
                      hInfo.nFileIndexLow);
-        name = buf;
+        event_name = buf+strlen(mutex_name+1);
+        sprintf(event_name,
+                     "gf-rwevent-%lx-%lx-%lx",
+                     hInfo.dwVolumeSerialNumber,
+                     hInfo.nFileIndexHigh,
+                     hInfo.nFileIndexLow);
 
         hMap = CreateFileMapping((HANDLE) _get_osfhandle(fd),
                                  NULL,
@@ -242,7 +250,8 @@ PgfDB::PgfDB(const char* filepath, int flags, int mode) {
             throw pgf_systemerror(code, filepath);
         }
     } else {
-        name = NULL;
+        mutex_name = NULL;
+        event_name = NULL;
         hMap = INVALID_HANDLE_VALUE;
         ms   = (malloc_state*) ::malloc(mmap_size);
         if (ms == NULL)
@@ -251,8 +260,22 @@ PgfDB::PgfDB(const char* filepath, int flags, int mode) {
         base = ((unsigned char *) ms) + page_size;
     }
 
-    hRWEvent = CreateEvent(NULL, FALSE, FALSE, name);
+    hМutex = CreateMutex(NULL, FALSE, mutex_name);
+    if (hМutex == NULL) {
+        if (fd < 0) {
+            ::free(ms);
+        } else {
+            UnmapViewOfFile(ms);
+            CloseHandle(hMap);
+        }
+        ::free((void *) this->filepath);
+        close(fd);
+        throw pgf_systemerror(code, filepath);
+    }
+
+    hRWEvent = CreateEvent(NULL, FALSE, FALSE, event_name);
     if (hRWEvent == NULL) {
+        CloseHandle(hMutex);
         if (fd < 0) {
             ::free(ms);
         } else {
@@ -284,6 +307,7 @@ PgfDB::PgfDB(const char* filepath, int flags, int mode) {
                 CloseHandle(hMap);
             }
             CloseHandle(hRWEvent);
+            CloseHandle(hMutex);
 #endif
 
             ::free((void *) this->filepath);
@@ -309,6 +333,7 @@ PgfDB::PgfDB(const char* filepath, int flags, int mode) {
                 CloseHandle(hMap);
             }
             CloseHandle(hRWEvent);
+            CloseHandle(hMutex);
 #endif
 
             ::free((void *) this->filepath);
@@ -351,6 +376,7 @@ PgfDB::~PgfDB()
         CloseHandle(hMap);
     }
     CloseHandle(hRWEvent);
+    CloseHandle(hMutex);
 #endif
 
     if (fd >= 0)
@@ -367,8 +393,12 @@ txn_t PgfDB::get_txn_id() {
 PGF_INTERNAL
 void PgfDB::register_revision(object o)
 {
+#ifndef _WIN32
     pthread_mutex_lock(&ms->mutex);
-    
+#else
+    WaitForSingleObject(hMutex, INFINITE); 
+#endif
+
     revision_entry *free_entry = NULL;
 
     for (size_t i = 0; i < ms->n_revisions; i++) {
@@ -397,13 +427,21 @@ void PgfDB::register_revision(object o)
     free_entry->txn_id = ms->curr_txn_id;
 
 done:
+#ifndef _WIN32
     pthread_mutex_unlock(&ms->mutex);
+#else
+    ReleaseMutex(hMutex); 
+#endif
 }
 
 PGF_INTERNAL
 void PgfDB::unregister_revision(object o)
 {
+#ifndef _WIN32
     pthread_mutex_lock(&ms->mutex);
+#else
+    WaitForSingleObject(hMutex, INFINITE); 
+#endif
 
     revision_entry *free_entry = NULL;
 
@@ -427,7 +465,11 @@ void PgfDB::unregister_revision(object o)
         }
     }
 
+#ifndef _WIN32
     pthread_mutex_unlock(&ms->mutex);
+#else
+    ReleaseMutex(hMutex); 
+#endif
 }
 
 void PgfDB::cleanup_revisions()
