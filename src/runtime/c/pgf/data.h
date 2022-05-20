@@ -73,7 +73,6 @@ class PgfConcr;
 #include "expr.h"
 
 struct PGF_INTERNAL_DECL PgfFlag {
-    size_t ref_count;
     PgfLiteral value;
     PgfText name;
 
@@ -81,8 +80,6 @@ struct PGF_INTERNAL_DECL PgfFlag {
 };
 
 struct PGF_INTERNAL_DECL PgfAbsFun {
-    size_t ref_count;
-
     ref<PgfDTyp> type;
 	int arity;
     ref<char> bytecode;
@@ -93,8 +90,6 @@ struct PGF_INTERNAL_DECL PgfAbsFun {
 };
 
 struct PGF_INTERNAL_DECL PgfAbsCat {
-    size_t ref_count;
-
 	ref<Vector<PgfHypo>> context;
 	prob_t prob;
     PgfText name;
@@ -116,6 +111,8 @@ struct PGF_INTERNAL_DECL PgfLParam {
         size_t factor;
         size_t var;
     } terms[];
+
+    static void release(ref<PgfLParam> param);
 };
 
 struct PGF_INTERNAL_DECL PgfVariableRange {
@@ -130,28 +127,21 @@ struct PGF_INTERNAL_DECL PgfPArg {
 struct PGF_INTERNAL_DECL PgfPResult {
     ref<Vector<PgfVariableRange>> vars; 
     PgfLParam param;
+
+    static void release(ref<PgfPResult> res);
 };
 
 typedef object PgfSymbol;
 
 struct PGF_INTERNAL_DECL PgfSequence {
-	size_t ref_count;
 	Vector<PgfSymbol> syms;
 
-    static void release(ref<PgfSequence> lincat);
+    static void release(ref<PgfSequence> seq);
 };
 
 struct PGF_INTERNAL_DECL PgfSequenceBackref {
     object container;
     size_t seq_index;
-};
-
-struct PGF_INTERNAL_DECL PgfSequenceBackrefs {
-    size_t ref_count;
-    Vector<PgfSequenceBackref> list;
-
-    static
-    void release(ref<PgfSequenceBackrefs> backrefs);
 };
 
 struct PGF_INTERNAL_DECL PgfSymbolCat {
@@ -215,13 +205,8 @@ struct PGF_INTERNAL_DECL PgfSymbolALLCAPIT {
     static const uint8_t tag = 10;
 };
 
-PGF_INTERNAL_DECL
-void pgf_symbol_free(PgfSymbol sym);
-
 struct PGF_INTERNAL_DECL PgfConcrLincat {
     static const uint8_t tag = 0;
-
-    size_t ref_count;
 
     ref<PgfAbsCat> abscat;
 
@@ -240,8 +225,6 @@ struct PGF_INTERNAL_DECL PgfConcrLincat {
 struct PGF_INTERNAL_DECL PgfConcrLin {
     static const uint8_t tag = 1;
 
-    size_t ref_count;
-
     ref<PgfAbsFun> absfun;
 
     ref<Vector<PgfPArg>> args;
@@ -254,7 +237,6 @@ struct PGF_INTERNAL_DECL PgfConcrLin {
 };
 
 struct PGF_INTERNAL_DECL PgfConcrPrintname {
-    size_t ref_count;
     ref<PgfText> printname;
     PgfText name;
 
@@ -262,8 +244,8 @@ struct PGF_INTERNAL_DECL PgfConcrPrintname {
 };
 
 struct PGF_INTERNAL_DECL PgfConcr {
-    size_t ref_count;
-    size_t ref_count_ex;
+    static const uint8_t tag = 1;
+
     Namespace<PgfFlag> cflags;
     Namespace<PgfConcrLin> lins;
     Namespace<PgfConcrLincat> lincats;
@@ -282,7 +264,7 @@ struct PGF_INTERNAL_DECL PgfConcr {
 };
 
 struct PGF_INTERNAL_DECL PgfPGF {
-    size_t ref_count;
+    static const uint8_t tag = 0;
 
 	uint16_t major_version;
 	uint16_t minor_version;
@@ -290,18 +272,7 @@ struct PGF_INTERNAL_DECL PgfPGF {
 	PgfAbstr abstract;
     Namespace<PgfConcr> concretes;
 
-    // If the revision is transient, then it is in a double-linked list
-    // with all other transient revisions.
-    ref<PgfPGF> prev, next;
-
-    // The name lets the user to find a particular revision in
-    // the database.
-    PgfText name;
-
     static void release(ref<PgfPGF> pgf);
 };
-
-extern PGF_INTERNAL_DECL size_t master_size;
-extern PGF_INTERNAL_DECL char master_text[];
 
 #endif

@@ -8,6 +8,7 @@ class PgfDB;
 extern PGF_INTERNAL_DECL __thread unsigned char* current_base __attribute__((tls_model("initial-exec")));
 extern PGF_INTERNAL_DECL __thread PgfDB*         current_db   __attribute__((tls_model("initial-exec")));
 
+struct block_descr;
 struct malloc_state;
 
 template<class A> class PGF_INTERNAL_DECL ref {
@@ -37,10 +38,9 @@ public:
 
     object as_object() const { return offset; }
 
-    static
-    object tagged(ref<A> ref) {
+    object tagged() {
         assert(A::tag < MALLOC_ALIGN_MASK + 1);
-        return (ref.offset | A::tag);
+        return (offset | A::tag);
     }
 
     static
@@ -56,16 +56,28 @@ public:
 
 enum DB_scope_mode {READER_SCOPE, WRITER_SCOPE};
 
+typedef size_t txn_t;
+
 class PgfDB {
 private:
     int fd;
     const char *filepath;
     malloc_state* ms;
-    size_t mmap_size;
+    unsigned char* base;
 
+    // The following four fields are normally equal to
+    // the corresponding fields in the malloc_state.
+    // The exception is when a transaction is active.
+    object top;         
+    object free_blocks;
+    object free_descriptors[2];
+
+    size_t mmap_size;
+    size_t page_size;
 #ifndef _WIN32
-    pthread_rwlock_t *rwlock;
+    pid_t pid;
 #else
+    DWORD pid;
     HANDLE hMap;
     HANDLE hRWEvent;
 #endif
@@ -80,48 +92,60 @@ public:
     PGF_INTERNAL_DECL PgfDB(const char* filepath, int flags, int mode);
     PGF_INTERNAL_DECL ~PgfDB();
 
+    PGF_INTERNAL_DECL static txn_t get_txn_id();
+
     template<class A>
     static ref<A> malloc(size_t extra_bytes=0) {
         return current_db->malloc_internal(sizeof(A)+extra_bytes);
     }
 
     template<class A>
-    static ref<A> realloc(ref<A> r, size_t extra_bytes) {
-        return current_db->realloc_internal(r.as_object(), sizeof(A)+extra_bytes);
+    static ref<A> realloc(ref<A> r, size_t old_extra_bytes, size_t new_extra_bytes) {
+        return current_db->realloc_internal(r.as_object(), sizeof(A)+old_extra_bytes, sizeof(A)+new_extra_bytes);
     }
 
     template<class A>
-    static void free(ref<A> o) {
-        current_db->free_internal(o.as_object());
+    static void free(ref<A> o, size_t extra_bytes=0) {
+        current_db->free_internal(o.as_object(), sizeof(A)+extra_bytes);
     }
 
 	PGF_INTERNAL_DECL void cleanup_revisions();
 
-    static PGF_INTERNAL_DECL ref<PgfPGF> get_revision(PgfText *name);
-    static PGF_INTERNAL_DECL void set_revision(ref<PgfPGF> pgf);
+    PGF_INTERNAL_DECL object get_active_revision();
+    PGF_INTERNAL_DECL void set_active_revision(object o);
+    PGF_INTERNAL_DECL void register_revision(object o);
+    PGF_INTERNAL_DECL void unregister_revision(object o);
 
-    static PGF_INTERNAL_DECL ref<PgfPGF> revision2pgf(PgfRevision revision);
-    static PGF_INTERNAL_DECL bool is_persistant_revision(ref<PgfPGF> pgf);
-    static PGF_INTERNAL_DECL void link_transient_revision(ref<PgfPGF> pgf);
-    static PGF_INTERNAL_DECL void unlink_transient_revision(ref<PgfPGF> pgf);
+    PGF_INTERNAL_DECL ref<PgfPGF> revision2pgf(PgfRevision revision);
+    PGF_INTERNAL_DECL ref<PgfConcr> revision2concr(PgfConcrRevision revision);
 
-    static PGF_INTERNAL_DECL ref<PgfConcr> revision2concr(PgfConcrRevision revision);
-    static PGF_INTERNAL_DECL bool is_persistant_revision(ref<PgfConcr> concr);
-    static PGF_INTERNAL_DECL void link_transient_revision(ref<PgfConcr> concr);
-    static PGF_INTERNAL_DECL void unlink_transient_revision(ref<PgfConcr> concr);
-
-    static PGF_INTERNAL_DECL void sync();
+    PGF_INTERNAL_DECL void start_transaction();
+    PGF_INTERNAL_DECL void commit();
+    PGF_INTERNAL_DECL void rollback();
 
 private:
-    PGF_INTERNAL_DECL void init_state(size_t size);
+    PGF_INTERNAL_DECL int init_state();
+
+    PGF_INTERNAL_DECL size_t block_descr_size(object map);
+    PGF_INTERNAL_DECL object new_block_descr(object o, size_t size);
+    PGF_INTERNAL_DECL object upd_block_descr(object map, object left, object right);
+    PGF_INTERNAL_DECL object balanceL_block_descriptor(object map);
+    PGF_INTERNAL_DECL object balanceR_block_descriptor(object map);
+    PGF_INTERNAL_DECL object pop_first_block_descriptor(object map, object *res);
+    PGF_INTERNAL_DECL object pop_last_block_descriptor(object map, object *res);
+    PGF_INTERNAL_DECL object insert_block_descriptor(object map, object o, size_t size);
+    PGF_INTERNAL_DECL object delete_block_descriptor(object map, size_t *psize, object *po);
+    
+#ifdef DEBUG_MEMORY_ALLOCATOR
+    PGF_INTERNAL_DECL void dump_free_blocks(object map);
+#endif
+    
 
     PGF_INTERNAL_DECL object malloc_internal(size_t bytes);
-    PGF_INTERNAL_DECL object realloc_internal(object oldo, size_t bytes);
 
-    PGF_INTERNAL_DECL void free_internal(object o);
+    PGF_INTERNAL_DECL object realloc_internal(object oldo, size_t old_bytes, size_t new_bytes);
 
-    PGF_INTERNAL_DECL void register_process();
-    PGF_INTERNAL_DECL void unregister_process();
+    PGF_INTERNAL_DECL void free_internal(object o, size_t bytes);
 
     PGF_INTERNAL_DECL void lock(DB_scope_mode m);
     PGF_INTERNAL_DECL void unlock();

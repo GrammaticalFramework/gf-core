@@ -9,13 +9,12 @@ main = do
   gr1 <- readPGF "tests/basic.pgf"
   let Just ty = readType "(N -> N) -> P (s z)"
 
-  gr2 <- modifyPGF gr1              (createFunction "foo" ty 0 [] pi >>
-                                     createCategory "Q" [(Explicit,"x",ty)] pi)
-  gr3 <- branchPGF gr1 "bar_branch" (createFunction "bar" ty 0 [] pi >>
-                                     createCategory "R" [(Explicit,"x",ty)] pi)
+  print 1
+  gr2 <- modifyPGF gr1 (createFunction "foo" ty 0 [] pi >>
+                        createCategory "Q" [(Explicit,"x",ty)] pi)
+  print 2
 
-  Just gr4 <- checkoutPGF gr1 "master"
-  Just gr5 <- checkoutPGF gr1 "bar_branch"
+  gr4 <- checkoutPGF gr1
 
   gr6 <- modifyPGF gr1 (dropFunction "ind" >> dropCategory "S")
 
@@ -28,14 +27,10 @@ main = do
     TestList $
       [TestCase (assertEqual "original functions" ["c","floatLit","ind","intLit","nat","s","stringLit","z"] (functions gr1))
       ,TestCase (assertEqual "extended functions" ["c","floatLit","foo","ind","intLit","nat","s","stringLit","z"] (functions gr2))
-      ,TestCase (assertEqual "branched functions" ["bar","c","floatLit","ind","intLit","nat","s","stringLit","z"] (functions gr3))
       ,TestCase (assertEqual "checked-out extended functions" ["c","floatLit","foo","ind","intLit","nat","s","stringLit","z"] (functions gr4))
-      ,TestCase (assertEqual "checked-out branched functions" ["bar","c","floatLit","ind","intLit","nat","s","stringLit","z"] (functions gr5))
       ,TestCase (assertEqual "original categories" ["Float","Int","N","P","S","String"] (categories gr1))
       ,TestCase (assertEqual "extended categories" ["Float","Int","N","P","Q","S","String"] (categories gr2))
-      ,TestCase (assertEqual "branched categories" ["Float","Int","N","P","R","S","String"] (categories gr3))
       ,TestCase (assertEqual "Q context" (Just [(Explicit,"x",ty)]) (categoryContext gr2 "Q"))
-      ,TestCase (assertEqual "R context" (Just [(Explicit,"x",ty)]) (categoryContext gr3 "R"))
       ,TestCase (assertEqual "reduced functions" ["c","floatLit","intLit","nat","s","stringLit","z"] (functions gr6))
       ,TestCase (assertEqual "reduced categories" ["Float","Int","N","P","String"] (categories gr6))
       ,TestCase (assertEqual "old function type" Nothing   (functionType gr1 "foo"))

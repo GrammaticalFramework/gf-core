@@ -154,8 +154,8 @@ execute1' s0 =
     checkout = do
       mb_pgf <- gets multigrammar
       case mb_pgf of
-        Just pgf -> do mb_pgf <- lift $ checkoutPGF pgf "master"
-                       modify $ \gfenv -> gfenv{pgfenv = (fst (pgfenv gfenv),mb_pgf)}
+        Just pgf -> do pgf <- lift $ checkoutPGF pgf
+                       modify $ \gfenv -> gfenv{pgfenv = (fst (pgfenv gfenv),Just pgf)}
         Nothing  -> return ()
 
     interruptible :: ShellM Bool -> ShellM Bool

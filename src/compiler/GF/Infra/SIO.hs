@@ -136,4 +136,4 @@ importSource      opts files = lift0 $ GF.importSource      opts files
 link opts pgf src = lift0 $ GF.link opts pgf src
 
 modifyPGF   gr t = lift0 (PGFT.modifyPGF gr t)
-checkoutPGF gr b = lift0 (PGFT.checkoutPGF gr b)
+checkoutPGF gr = lift0 (PGFT.checkoutPGF gr)

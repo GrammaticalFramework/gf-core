@@ -3,7 +3,6 @@ module PGF2.Transactions
 
             -- abstract syntax
           , modifyPGF
-          , branchPGF
           , checkoutPGF
           , createFunction
           , dropFunction
@@ -81,53 +80,39 @@ instance Monad (Transaction k) where
    the new function @foo@.
 -}
 modifyPGF :: PGF -> Transaction PGF a -> IO PGF
-modifyPGF = branchPGF_ nullPtr
-
-{- | @branchPGF gr branch_name t@ is similar to @modifyPGF gr t@,
-   except that it stores the result as a branch with the given name.
--}
-branchPGF :: PGF -> String -> Transaction PGF a -> IO PGF
-branchPGF p name t =
-  withText name $ \c_name ->
-    branchPGF_ c_name p t
-
-branchPGF_ :: Ptr PgfText -> PGF -> Transaction PGF a -> IO PGF
-branchPGF_ c_name p (Transaction f) =
+modifyPGF p (Transaction f) =
   withForeignPtr (a_revision p) $ \c_revision ->
-  withPgfExn "branchPGF" $ \c_exn ->
+  withPgfExn "modifyPGF" $ \c_exn ->
   mask $ \restore -> do
-    c_revision <- pgf_clone_revision (a_db p) c_revision c_name c_exn
+    c_revision <- pgf_start_transaction (a_db p) c_revision c_exn
     ex_type <- (#peek PgfExn, type) c_exn
     if (ex_type :: (#type PgfExnType)) == (#const PGF_EXN_NONE)
       then do ((restore (f (a_db p) c_revision c_revision c_exn))
                `catch`
                (\e -> do
-                    pgf_free_revision_ (a_db p) c_revision
+                    pgf_rollback_transaction (a_db p) c_revision
                     throwIO (e :: SomeException)))
               ex_type <- (#peek PgfExn, type) c_exn
               if (ex_type :: (#type PgfExnType)) == (#const PGF_EXN_NONE)
-                then do pgf_commit_revision (a_db p) c_revision c_exn
+                then do pgf_commit_transaction (a_db p) c_revision c_exn
                         ex_type <- (#peek PgfExn, type) c_exn
                         if (ex_type :: (#type PgfExnType)) == (#const PGF_EXN_NONE)
                           then do fptr <- newForeignPtrEnv pgf_free_revision (a_db p) c_revision
                                   langs <- getConcretes (a_db p) fptr
                                   return (PGF (a_db p) fptr langs)
-                          else do pgf_free_revision_ (a_db p) c_revision
+                          else do pgf_rollback_transaction (a_db p) c_revision
                                   return p
-                else do pgf_free_revision_ (a_db p) c_revision
+                else do pgf_rollback_transaction (a_db p) c_revision
                         return p
       else return p
 
 {- | Retrieves the branch with the given name -}
-checkoutPGF :: PGF -> String -> IO (Maybe PGF)
-checkoutPGF p name =
-  withText name $ \c_name -> do
-    c_revision <- withPgfExn "checkoutPGF" (pgf_checkout_revision (a_db p) c_name)
-    if c_revision == nullPtr
-      then return Nothing
-      else do fptr <- newForeignPtrEnv pgf_free_revision (a_db p) c_revision
-              langs <- getConcretes (a_db p) fptr
-              return (Just (PGF (a_db p) fptr langs))
+checkoutPGF :: PGF -> IO PGF
+checkoutPGF p = do
+  c_revision <- withPgfExn "checkoutPGF" (pgf_checkout_revision (a_db p))
+  fptr <- newForeignPtrEnv pgf_free_revision (a_db p) c_revision
+  langs <- getConcretes (a_db p) fptr
+  return (PGF (a_db p) fptr langs)
 
 createFunction :: Fun -> Type -> Int -> [[Instr]] -> Float -> Transaction PGF ()
 createFunction name ty arity bytecode prob = Transaction $ \c_db _ c_revision c_exn ->

@@ -12,169 +12,6 @@
 #include <errno.h>
 #include <pthread.h>
 
-typedef struct {
-    dev_t dev;
-    ino_t ino;
-    pthread_rwlock_t rwlock;
-} lock_entry;
-
-typedef struct {
-    pthread_mutex_t mutex;
-    size_t n_entries;
-    size_t n_max_entries;
-    lock_entry entries[];
-} file_locks;
-
-static char gf_runtime_locks[] = "/gf-runtime-locks";
-
-static file_locks *locks = NULL;
-
-static
-pthread_rwlock_t *ipc_rwlock_new(const char* file_path)
-{
-    int res;
-
-    if (file_path == NULL) {
-        pthread_rwlock_t *rwlock = (pthread_rwlock_t *)
-            malloc(sizeof(pthread_rwlock_t));
-        if (rwlock == NULL)
-            throw pgf_systemerror(ENOMEM);
-        if ((res = pthread_rwlock_init(rwlock, NULL)) != 0) {
-            throw pgf_systemerror(res);
-        }
-        return rwlock;
-    }
-
-    if (locks == NULL) {
-        int created = 0;
-
-        // Uncomment if you want a clean state
-        //shm_unlink(gf_runtime_locks);
-
-        int fd =
-            shm_open(gf_runtime_locks, O_RDWR, 0);
-        if (errno == ENOENT) {
-            created = 1;
-            fd = shm_open(gf_runtime_locks, O_RDWR | O_CREAT, S_IRUSR | S_IWUSR);
-        }
-        if (fd < 0) {
-            throw pgf_systemerror(errno);
-        }
-
-        int pagesize  = getpagesize();
-
-        if (ftruncate(fd, pagesize) != 0) {
-            close(fd);
-            throw pgf_systemerror(errno);
-        }
-
-        locks = (file_locks *)
-             mmap(NULL, pagesize,
-                  PROT_READ|PROT_WRITE,
-                  MAP_SHARED,
-                  fd,0);
-        close(fd);
-        if (locks == MAP_FAILED) {
-            locks = NULL;
-            throw pgf_systemerror(errno);
-        }
-
-        if (created) {
-            pthread_mutexattr_t attr;
-            if (pthread_mutexattr_init(&attr)) {
-                throw pgf_systemerror(errno);
-            }
-            if (pthread_mutexattr_setpshared(&attr, PTHREAD_PROCESS_SHARED)) {
-                throw pgf_systemerror(errno);
-            }
-            if (pthread_mutex_init(&locks->mutex, &attr)) {
-                throw pgf_systemerror(errno);
-            }
-            pthread_mutexattr_destroy(&attr);
-
-            locks->n_entries = 0;
-            locks->n_max_entries = (pagesize-sizeof(file_locks))/sizeof(lock_entry);
-        }
-    }
-
-    struct stat s;
-    if (stat(file_path, &s) != 0) {
-        throw pgf_systemerror(errno);
-    }
-
-    pthread_mutex_lock(&locks->mutex);
-
-    lock_entry *entry = NULL;
-    for (size_t i = 0; i < locks->n_entries; i++) {
-        if (locks->entries[i].dev == 0 && locks->entries[i].ino == 0) {
-            entry = &locks->entries[i];
-        }
-        if (locks->entries[i].dev == s.st_dev && locks->entries[i].ino == s.st_ino) {
-            entry = &locks->entries[i];
-            break;
-        }
-    }
-
-    if (entry == NULL) {
-        if (locks->n_entries >= locks->n_max_entries) {
-            pthread_mutex_unlock(&locks->mutex);
-            throw pgf_error("Too many open grammars");
-        }
-
-        entry = &locks->entries[locks->n_entries++];
-
-        pthread_rwlockattr_t attr;
-        if ((res = pthread_rwlockattr_init(&attr)) != 0) {
-            pthread_mutex_unlock(&locks->mutex);
-            throw pgf_systemerror(res);
-        }
-        if ((res = pthread_rwlockattr_setpshared(&attr, PTHREAD_PROCESS_SHARED)) != 0) {
-            pthread_rwlockattr_destroy(&attr);
-            pthread_mutex_unlock(&locks->mutex);
-            throw pgf_systemerror(res);
-        }
-        if ((res = pthread_rwlock_init(&entry->rwlock, &attr)) != 0) {
-            pthread_rwlockattr_destroy(&attr);
-            pthread_mutex_unlock(&locks->mutex);
-            throw pgf_systemerror(res);
-        }
-        pthread_rwlockattr_destroy(&attr);
-    }
-
-    entry->dev = s.st_dev;
-    entry->ino = s.st_ino;
-
-    pthread_mutex_unlock(&locks->mutex);
-
-    return &entry->rwlock;
-}
-
-static
-void ipc_rwlock_destroy(const char* file_path,
-                        pthread_rwlock_t *rwlock)
-{
-    if (file_path == NULL) {
-        pthread_rwlock_destroy(rwlock);
-        free(rwlock);
-        return;
-    }
-
-    if (locks == NULL)
-        return;
-
-    pthread_mutex_lock(&locks->mutex);
-
-    for (size_t i = 0; i < locks->n_entries; i++) {
-        if (&locks->entries[i].rwlock == rwlock) {
-            locks->entries[i].dev = 0;
-            locks->entries[i].ino = 0;
-            break;
-        }
-    }
-
-    pthread_mutex_unlock(&locks->mutex);
-}
-
 #else
 
 static
@@ -208,255 +45,12 @@ PGF_INTERNAL __thread unsigned char* current_base __attribute__((tls_model("init
 PGF_INTERNAL __thread PgfDB* current_db __attribute__((tls_model("initial-exec"))) = NULL;
 PGF_INTERNAL __thread DB_scope *last_db_scope __attribute__((tls_model("initial-exec"))) = NULL;
 
-#ifndef DEFAULT_TOP_PAD
-#define DEFAULT_TOP_PAD        (0)
-#endif
 
-#define ptr(ms,o) ((mchunk*) (((char*) (ms)) + (o)))
-#define ofs(ms,p) (((char*) (p)) - ((char*) (ms)))
-
-struct mchunk {
-  size_t mchunk_prev_size;  /* Size of previous chunk (if free).  */
-  size_t mchunk_size;       /* Size in bytes, including overhead. */
-
-  object fd;               /* double links -- used only if free. */
-  object bk;
-
-  /* Only used for large blocks: pointer to next larger size.     */
-  object fd_nextsize;      /* double links -- used only if free. */
-  object bk_nextsize;
-};
-
-#define POOL_ALIGNMENT (2 * sizeof(size_t) < __alignof__ (long double) \
-                          ? __alignof__ (long double) : 2 * sizeof(size_t))
-
-/*
-   Bins
-    An array of bin headers for free chunks. Each bin is doubly
-    linked.  The bins are approximately proportionally (log) spaced.
-    There are a lot of these bins (128). This may look excessive, but
-    works very well in practice.  Most bins hold sizes that are
-    unusual as allocation request sizes, but are more usual for fragments
-    and consolidated sets of chunks, which is what these bins hold, so
-    they can be found quickly.  All procedures maintain the invariant
-    that no consolidated chunk physically borders another one, so each
-    chunk in a list is known to be preceeded and followed by either
-    inuse chunks or the ends of memory.
-    Chunks in bins are kept in size order, with ties going to the
-    approximately least recently used chunk. Ordering isn't needed
-    for the small bins, which all contain the same-sized chunks, but
-    facilitates best-fit allocation for larger chunks. These lists
-    are just sequential. Keeping them in order almost never requires
-    enough traversal to warrant using fancier ordered data
-    structures.
-    Chunks of the same size are linked with the most
-    recently freed at the front, and allocations are taken from the
-    back.  This results in LRU (FIFO) allocation order, which tends
-    to give each chunk an equal opportunity to be consolidated with
-    adjacent freed chunks, resulting in larger free chunks and less
-    fragmentation.
-    To simplify use in double-linked lists, each bin header acts
-    as an mchunk. This avoids special-casing for headers.
-    But to conserve space and improve locality, we allocate
-    only the fd/bk pointers of bins, and then use repositioning tricks
-    to treat these as the fields of a mchunk*.
- */
-
-typedef struct mchunk mbin;
-
-/* addressing -- note that bin_at(0) does not exist */
-#define bin_at(m, i) \
-  (mbin*) (((char *) &((m)->bins[((i) - 1) * 2]))                              \
-           - offsetof (mchunk, fd))
-/* analog of ++bin */
-#define next_bin(b)  ((mbin*) ((char *) (b) + (sizeof(mchunk*) << 1)))
-/* Reminders about list directionality within bins */
-#define first(b)     ((b)->fd)
-#define last(b)      ((b)->bk)
-
-/*
-   Indexing
-    Bins for sizes < 512 bytes contain chunks of all the same size, spaced
-    8 bytes apart. Larger bins are approximately logarithmically spaced:
-    64 bins of size       8
-    32 bins of size      64
-    16 bins of size     512
-     8 bins of size    4096
-     4 bins of size   32768
-     2 bins of size  262144
-     1 bin  of size what's left
-    There is actually a little bit of slop in the numbers in bin_index
-    for the sake of speed. This makes no difference elsewhere.
-    The bins top out around 1MB because we expect to service large
-    requests via mmap.
-    Bin 0 does not exist.  Bin 1 is the unordered list; if that would be
-    a valid chunk size the small bins are bumped up one.
- */
-#define NBINS             128
-#define NSMALLBINS         64
-#define SMALLBIN_WIDTH    POOL_ALIGNMENT
-#define SMALLBIN_CORRECTION (POOL_ALIGNMENT > 2 * sizeof(size_t))
-#define MIN_LARGE_SIZE    ((NSMALLBINS - SMALLBIN_CORRECTION) * SMALLBIN_WIDTH)
-
-#define in_smallbin_range(sz)  \
-  ((unsigned long) (sz) < (unsigned long) MIN_LARGE_SIZE)
-#define smallbin_index(sz) \
-  ((SMALLBIN_WIDTH == 16 ? (((unsigned) (sz)) >> 4) : (((unsigned) (sz)) >> 3))\
-   + SMALLBIN_CORRECTION)
-#define largebin_index_32(sz)                                                \
-  (((((unsigned long) (sz)) >> 6) <= 38) ?  56 + (((unsigned long) (sz)) >> 6) :\
-   ((((unsigned long) (sz)) >> 9) <= 20) ?  91 + (((unsigned long) (sz)) >> 9) :\
-   ((((unsigned long) (sz)) >> 12) <= 10) ? 110 + (((unsigned long) (sz)) >> 12) :\
-   ((((unsigned long) (sz)) >> 15) <= 4) ? 119 + (((unsigned long) (sz)) >> 15) :\
-   ((((unsigned long) (sz)) >> 18) <= 2) ? 124 + (((unsigned long) (sz)) >> 18) :\
-   126)
-#define largebin_index_32_big(sz)                                            \
-  (((((unsigned long) (sz)) >> 6) <= 45) ?  49 + (((unsigned long) (sz)) >> 6) :\
-   ((((unsigned long) (sz)) >> 9) <= 20) ?  91 + (((unsigned long) (sz)) >> 9) :\
-   ((((unsigned long) (sz)) >> 12) <= 10) ? 110 + (((unsigned long) (sz)) >> 12) :\
-   ((((unsigned long) (sz)) >> 15) <= 4) ? 119 + (((unsigned long) (sz)) >> 15) :\
-   ((((unsigned long) (sz)) >> 18) <= 2) ? 124 + (((unsigned long) (sz)) >> 18) :\
-   126)
-// XXX It remains to be seen whether it is good to keep the widths of
-// XXX the buckets the same or whether it should be scaled by a factor
-// XXX of two as well.
-#define largebin_index_64(sz)                                                \
-  (((((unsigned long) (sz)) >> 6) <= 48) ?  48 + (((unsigned long) (sz)) >> 6) :\
-   ((((unsigned long) (sz)) >> 9) <= 20) ?  91 + (((unsigned long) (sz)) >> 9) :\
-   ((((unsigned long) (sz)) >> 12) <= 10) ? 110 + (((unsigned long) (sz)) >> 12) :\
-   ((((unsigned long) (sz)) >> 15) <= 4) ? 119 + (((unsigned long) (sz)) >> 15) :\
-   ((((unsigned long) (sz)) >> 18) <= 2) ? 124 + (((unsigned long) (sz)) >> 18) :\
-   126)
-#define largebin_index(sz) \
-  (sizeof(size_t) == 8 ? largebin_index_64 (sz)                            \
-   : POOL_ALIGNMENT == 16 ? largebin_index_32_big (sz)                     \
-   : largebin_index_32 (sz))
-
-
-/*
-   Unsorted chunks
-    All remainders from chunk splits, as well as all returned chunks,
-    are first placed in the "unsorted" bin. They are then placed
-    in regular bins after malloc gives them ONE chance to be used before
-    binning. So, basically, the unsorted_chunks list acts as a queue,
-    with chunks being placed on it in free (and pool_consolidate),
-    and taken off (to be either used or placed in bins) in malloc.
- */
-/* The otherwise unindexable 1-bin is used to hold unsorted chunks. */
-#define unsorted_chunks(M)          (bin_at (M, 1))
-
-/* conversion from malloc headers to user pointers, and back */
-#define chunk2mem(p)   ((void*)((char*)(p) + 2*sizeof(size_t)))
-#define mem2chunk(mem) ((mchunk*)((char*)(mem) - 2*sizeof(size_t)))
-
-#define MIN_CHUNK_SIZE (offsetof(mchunk, fd_nextsize))
-
-/* The smallest size we can malloc is an aligned minimal chunk */
-#define MINSIZE  \
-  (unsigned long)(((MIN_CHUNK_SIZE+MALLOC_ALIGN_MASK) & ~MALLOC_ALIGN_MASK))
+#define ptr(T,o) ((T*) (base + (o)))
 
 /* pad request bytes into a usable size -- internal version */
 #define request2size(req)                                         \
-  (((req) + sizeof(size_t) + MALLOC_ALIGN_MASK < MINSIZE)  ?             \
-   MINSIZE :                                                      \
-   ((req) + sizeof(size_t) + MALLOC_ALIGN_MASK) & ~MALLOC_ALIGN_MASK)
-
-/*
-   --------------- Physical chunk operations ---------------
- */
-/* size field is or'ed with PREV_INUSE when previous adjacent chunk in use */
-#define PREV_INUSE 0x1
-/* extract inuse bit of previous chunk */
-#define prev_inuse(p)       ((p)->mchunk_size & PREV_INUSE)
-
-/* Get size, ignoring use bits */
-#define chunksize(p) (p->mchunk_size & ~(PREV_INUSE))
-
-/* Size of the chunk below P.  Only valid if !prev_inuse (P).  */
-#define prev_size(p) ((p)->mchunk_prev_size)
-
-/* Treat space at ptr + offset as a chunk */
-#define chunk_at_offset(p, s)  ((mchunk*) (((char *) (p)) + (s)))
-
-/* extract p's inuse bit */
-#define inuse(p)                                                              \
-  ((((mchunk*) (((char *) (p)) + chunksize(p)))->mchunk_size) & PREV_INUSE)
-
-/* check/set/clear inuse bits in known places */
-#define inuse_bit_at_offset(p, s)                                     \
-  (((mchunk*) (((char *) (p)) + (s)))->mchunk_size & PREV_INUSE)
-
-#define set_inuse_bit_at_offset(p, s)                                 \
-  (((mchunk*) (((char *) (p)) + (s)))->mchunk_size |= PREV_INUSE)
-
-#define clear_inuse_bit_at_offset(p, s)                               \
-  (((mchunk*) (((char *) (p)) + (s)))->mchunk_size &= ~(PREV_INUSE))
-
-
-/* Set size at head, without disturbing its use bit */
-#define set_head_size(p, s)  ((p)->mchunk_size = (((p)->mchunk_size & PREV_INUSE) | (s)))
-
-/* Set size/use field */
-#define set_head(p, s)       ((p)->mchunk_size = (s))
-
-/* Set size at footer (only when chunk is not in use) */
-#define set_foot(p, s)       (((mchunk*) ((char *) (p) + (s)))->mchunk_prev_size = (s))
-
-/*
-   Binmap
-    To help compensate for the large number of bins, a one-level index
-    structure is used for bin-by-bin searching.  `binmap' is a
-    bitvector recording whether bins are definitely empty so they can
-    be skipped over during during traversals.  The bits are NOT always
-    cleared as soon as bins are empty, but instead only
-    when they are noticed to be empty during traversal in malloc.
- */
-/* Conservatively use 32 bits per map word, even if on 64bit system */
-#define BINMAPSHIFT      5
-#define BITSPERMAP       (1U << BINMAPSHIFT)
-#define BINMAPSIZE       (NBINS / BITSPERMAP)
-
-#define idx2block(i)     ((i) >> BINMAPSHIFT)
-#define idx2bit(i)       ((1U << ((i) & ((1U << BINMAPSHIFT) - 1))))
-#define mark_bin(ms, i)    ((ms)->binmap[idx2block(i)] |= idx2bit (i))
-#define unmark_bin(ms, i)  ((ms)->binmap[idx2block(i)] &= ~(idx2bit (i)))
-#define get_binmap(ms, i)  ((ms)->binmap[idx2block(i)] & idx2bit (i))
-
-/*
-   Fastbins
-    An array of lists holding recently freed small chunks.  Fastbins
-    are not doubly linked.  It is faster to single-link them, and
-    since chunks are never removed from the middles of these lists,
-    double linking is not necessary. Also, unlike regular bins, they
-    are not even processed in FIFO order (they use faster LIFO) since
-    ordering doesn't much matter in the transient contexts in which
-    fastbins are normally used.
-    Chunks in fastbins keep their inuse bit set, so they cannot
-    be consolidated with other free chunks. malloc_consolidate
-    releases all chunks in fastbins and consolidates them with
-    other free chunks.
- */
-
-#define DEFAULT_MXFAST    (64 * sizeof(size_t) / 4)
-
-/* offset 2 to use otherwise unindexable first 2 bins */
-#define fastbin_index(sz) \
-  ((((unsigned int) (sz)) >> (sizeof(size_t) == 8 ? 4 : 3)) - 2)
-/* The maximum fastbin request size we support */
-#define MAX_FAST_SIZE     (80 * sizeof(size_t) / 4)
-#define NFASTBINS    (fastbin_index (request2size (MAX_FAST_SIZE)) + 1)
-
-/*
-   FASTBIN_CONSOLIDATION_THRESHOLD is the size of a chunk in free()
-   that triggers automatic consolidation of possibly-surrounding
-   fastbin chunks. This is a heuristic, so the exact value should not
-   matter too much. It is defined at half the default trim threshold as a
-   compromise heuristic to only attempt consolidation if it is likely
-   to lead to trimming. However, it is not dynamically tunable, since
-   consolidation reduces fragmentation surrounding large chunks even
-   if trimming is not used.
- */
-#define FASTBIN_CONSOLIDATION_THRESHOLD  (65536UL)
+   (((req) + MALLOC_ALIGN_MASK) & ~MALLOC_ALIGN_MASK)
 
 static char slovo[5] = {'S','L','O','V','O'};
 
@@ -466,8 +60,22 @@ typedef struct {
 #else
     DWORD pid;
 #endif
-    object next;
-} process_entry;
+    object o;
+    txn_t txn_id;
+    size_t ref_count;
+} revision_entry;
+
+struct PGF_INTERNAL_DECL block_descr
+{
+    size_t sz;            // the size of the binary tree
+    size_t block_size;    // the size of the block
+    object o;             // the block itself
+    object left;
+    object right;
+    object chain;         // links descriptors that are not in use
+    txn_t  block_txn_id;  // transaction which released the block
+    txn_t  descr_txn_id;  // transaction which allocated the descriptor
+};
 
 struct PGF_INTERNAL_DECL malloc_state
 {
@@ -477,36 +85,31 @@ struct PGF_INTERNAL_DECL malloc_state
      */
     char sign[5];
 
-    /* Set if the fastbin chunks contain recently inserted free blocks.  */
-    bool have_fastchunks;
-    /* Fastbins */
-    object fastbins[NFASTBINS];
-    /* Base of the topmost chunk -- not otherwise kept in a bin */
-    object top;
-    /* The remainder from the most recent split of a small request */
-    object last_remainder;
-    /* Normal bins packed as described above */
-    object bins[NBINS * 2 - 2];
-    /* Bitmap of bins */
-    unsigned int binmap[BINMAPSIZE];
-
+    /* The current size is used to detect when the file was resized
+     * by another process. The file size doesn't include the first 4K */
     size_t file_size;
 
-    /* The namespace of all persistant grammar revisions */
-    Namespace<PgfPGF> revisions;
-
-    /* A reference to the first transient revisions in
-     * a double-linked list.
-     */
-    ref<PgfPGF>   transient_revisions;
-    ref<PgfConcr> transient_concr_revisions;
-
-#ifdef _WIN32
+#ifndef _WIN32
+    pthread_mutex_t mutex;
+    pthread_rwlock_t rwlock;
+#else
     /* Stores a Reader/Writer lock for Windows */
     LONG rwlock;
 #endif
-    process_entry p;
+
+    txn_t curr_txn_id;
+    txn_t min_txn_id;
+
+    /* The top address that is not allocated yet. */
+    object top;    
+    object free_blocks;  // a binary tree of descriptors for free blocks
+    object free_descriptors;
+
+    size_t n_revisions;
+    object active_revision;
+    revision_entry revisions[];
 };
+
 
 PGF_INTERNAL
 PgfDB::PgfDB(const char* filepath, int flags, int mode) {
@@ -515,10 +118,12 @@ PgfDB::PgfDB(const char* filepath, int flags, int mode) {
     fd = -1;
     ms = NULL;
     ref_count = 0;
+    page_size = getpagesize();
+    pid = getpid();
 
     if (filepath == NULL) {
         this->filepath = NULL;
-        mmap_size = getpagesize();
+        mmap_size = page_size*2;
         is_new    = true;
     } else {
         fd = open(filepath, flags, mode);
@@ -534,7 +139,7 @@ PgfDB::PgfDB(const char* filepath, int flags, int mode) {
 
         is_new = false;
         if (mmap_size == 0) {
-            mmap_size = getpagesize();
+            mmap_size = page_size*2;
             if (ftruncate(fd, mmap_size) < 0) {
                 int code = errno;
                 close(fd);
@@ -544,6 +149,10 @@ PgfDB::PgfDB(const char* filepath, int flags, int mode) {
         }
 
         this->filepath = strdup(filepath);
+        if (this->filepath == NULL) {
+            close(fd);
+            throw pgf_systemerror(ENOMEM);
+        }
     }
 
     int code = 0;
@@ -552,23 +161,44 @@ PgfDB::PgfDB(const char* filepath, int flags, int mode) {
     if (fd >= 0) {
         ms = (malloc_state*)
             mmap(NULL, mmap_size, PROT_READ | PROT_WRITE, MAP_SHARED, fd, 0);
-        code = errno;
+        if (ms == MAP_FAILED) {
+            code = errno;
+            ms = NULL; // mark that ms is not created.
+            base = NULL;
+            ::free((void *) this->filepath);
+            close(fd);
+            throw pgf_systemerror(code, filepath);
+        }
+
+        mmap_size -= page_size;
+        base = ((unsigned char *) ms) + page_size;
     } else {
-        ms = (malloc_state*) ::malloc(mmap_size);
-        code = ENOMEM;
+        ms = (malloc_state*) ::malloc(page_size);
+        if (ms == NULL)
+            throw pgf_systemerror(ENOMEM);
+
+        mmap_size -= page_size;
+
+        base = ::malloc(mmap_size);
+        if (base == NULL)
+            throw pgf_systemerror(ENOMEM);
     }
 #else
     int mflags = (fd < 0) ? (MAP_PRIVATE | MAP_ANONYMOUS) : MAP_SHARED;
     ms = (malloc_state*)
         mmap(NULL, mmap_size, PROT_READ | PROT_WRITE, mflags, fd, 0);
-    code = errno;
-#endif
-    if (ms == MAP_FAILED || ms == NULL) {
+    if (ms == MAP_FAILED) {
+        code = errno;
         ms = NULL; // mark that ms is not created.
+        base = NULL;
         ::free((void *) this->filepath);
         close(fd);
         throw pgf_systemerror(code, filepath);
     }
+
+    mmap_size -= page_size;
+    base = ((unsigned char *) ms) + page_size;
+#endif
 #else
     char *name;
     char buf[256];
@@ -599,24 +229,26 @@ PgfDB::PgfDB(const char* filepath, int flags, int mode) {
             if (ms == NULL) {
                 code = last_error_to_errno();
                 CloseHandle(hMap);
-                hMap = INVALID_HANDLE_VALUE;
+                ::free((void *) this->filepath);
+                close(fd);
+                throw pgf_systemerror(code, filepath);
             }
+            mmap_size -= page_size;
+            base = ((unsigned char *) ms) + page_size;
         } else {
             code = last_error_to_errno();
-            hMap = INVALID_HANDLE_VALUE;
-            ms   = NULL;
+            ::free((void *) this->filepath);
+            close(fd);
+            throw pgf_systemerror(code, filepath);
         }
     } else {
-        code = ENOMEM;
         name = NULL;
         hMap = INVALID_HANDLE_VALUE;
         ms   = (malloc_state*) ::malloc(mmap_size);
-    }
-
-    if (ms == NULL) {
-        ::free((void *) this->filepath);
-        close(fd);
-        throw pgf_systemerror(code, filepath);
+        if (ms == NULL)
+            throw pgf_systemerror(ENOMEM);
+        mmap_size -= page_size;
+        base = ((unsigned char *) ms) + page_size;
     }
 
     hRWEvent = CreateEvent(NULL, FALSE, FALSE, name);
@@ -633,21 +265,42 @@ PgfDB::PgfDB(const char* filepath, int flags, int mode) {
     }
 #endif
 
+    if (is_new) {
+        code = init_state();
+        if (code != 0) {
 #ifndef _WIN32
-    rwlock = ipc_rwlock_new(filepath);
+#ifndef MREMAP_MAYMOVE
+            if (fd < 0) {
+              ::free(ms);
+              ::free(base);
+            } else
+#endif
+            munmap(ms,page_size+mmap_size);
+#else
+            if (fd < 0) {
+                ::free(ms);
+            } else {
+                UnmapViewOfFile(ms);
+                CloseHandle(hMap);
+            }
+            CloseHandle(hRWEvent);
 #endif
 
-    if (is_new) {
-        init_state(mmap_size);
+            ::free((void *) this->filepath);
+            close(fd);
+
+            throw pgf_systemerror(code, filepath);
+        }
     } else {
         if (strncmp(ms->sign, slovo, sizeof(ms->sign)) != 0) {
 #ifndef _WIN32
 #ifndef MREMAP_MAYMOVE
             if (fd < 0) {
               ::free(ms);
+              ::free(base);
             } else
 #endif
-            munmap(ms,mmap_size);
+            munmap(ms,page_size+mmap_size);
 #else
             if (fd < 0) {
                 ::free(ms);
@@ -663,41 +316,42 @@ PgfDB::PgfDB(const char* filepath, int flags, int mode) {
             throw pgf_error("Invalid file content");
         }
 
-        register_process();
+        cleanup_revisions();
     }
+
+    top                 = ms->top;
+    free_blocks         = ms->free_blocks;
+    free_descriptors[0] = ms->free_descriptors;
+    free_descriptors[1] = 0;
 }
 
 PGF_INTERNAL
 PgfDB::~PgfDB()
 {
-    if (ms != NULL) {
-        unregister_process();
-
-#ifndef _WIN32
-        if (ms->p.pid == 0)
-            ipc_rwlock_destroy(filepath, rwlock);
-#endif
-
-        size_t size =
-            ms->top + chunksize(ptr(ms,ms->top)) + sizeof(size_t);
-
 #ifndef _WIN32
 #ifndef MREMAP_MAYMOVE
-        if (fd < 0) {
-          ::free(ms);
-        } else
+    if (fd < 0) {
+        pthread_rwlock_destroy(ms->rwlock);
+        pthread_mutex_destroy(ms->mutex);
+        ::free(ms);
+        ::free(base);
+    } else
 #endif
-        munmap(ms,size);
-#else
-        if (fd < 0) {
-            ::free(ms);
-        } else {
-            UnmapViewOfFile(ms);
-            CloseHandle(hMap);
-        }
-        CloseHandle(hRWEvent);
-#endif
+    {
+        if (ms != NULL)
+            munmap(ms,sizeof(*ms));
+        if (base != NULL)
+            munmap(base,mmap_size);
     }
+#else
+    if (fd < 0) {
+        ::free(ms);
+    } else {
+        UnmapViewOfFile(ms);
+        CloseHandle(hMap);
+    }
+    CloseHandle(hRWEvent);
+#endif
 
     if (fd >= 0)
         close(fd);
@@ -706,923 +360,817 @@ PgfDB::~PgfDB()
 }
 
 PGF_INTERNAL
-void PgfDB::register_process()
-{
-    process_entry *pentry = &ms->p;
-    object *plast = NULL;
+txn_t PgfDB::get_txn_id() {
+    return current_db->ms->curr_txn_id;
+}
 
-    if (ms->p.pid != 0) {
-        while (pentry != (process_entry *) ptr(ms,0)) {
+PGF_INTERNAL
+void PgfDB::register_revision(object o)
+{
+    pthread_mutex_lock(&ms->mutex);
+    
+    revision_entry *free_entry = NULL;
+
+    for (size_t i = 0; i < ms->n_revisions; i++) {
+        if (ms->revisions[i].ref_count == 0) {
+            if (free_entry == NULL)
+                free_entry = &ms->revisions[i];
+        } else if (ms->revisions[i].pid == pid &&
+                   ms->revisions[i].o   == o) {
+            ms->revisions[i].ref_count++;
+            goto done;
+        }
+    }
+
+    if (free_entry == NULL) {
+        size_t n_max = (page_size-sizeof(malloc_state))/sizeof(revision_entry);
+        if (ms->n_revisions >= n_max) {
+            pthread_mutex_unlock(&ms->mutex);
+            throw pgf_error("Too many retained database revisions");
+        }
+        free_entry = &ms->revisions[ms->n_revisions++];
+    }
+
+    free_entry->pid = pid;
+    free_entry->o   = o;
+    free_entry->ref_count = 1;
+    free_entry->txn_id = ms->curr_txn_id;
+
+done:
+    pthread_mutex_unlock(&ms->mutex);
+}
+
+PGF_INTERNAL
+void PgfDB::unregister_revision(object o)
+{
+    pthread_mutex_lock(&ms->mutex);
+
+    revision_entry *free_entry = NULL;
+
+    ms->min_txn_id = SIZE_MAX;
+    for (size_t i = 0; i < ms->n_revisions; i++) {
+        revision_entry *entry = &ms->revisions[i];
+        if (entry->ref_count > 0) {
+            if (entry->pid == pid && entry->o == o) {
+                if (--entry->ref_count == 0) {
+                    // Maybe this was the last revision in the list.
+                    // Decrement n_revisions if possible.
+                    while (ms->revisions[ms->n_revisions-1].ref_count == 0){
+                        ms->n_revisions--;
+                    }
+                    continue;  // We skip the update of min_txn_id
+                }
+            }
+            
+            if (ms->min_txn_id > entry->txn_id)
+                ms->min_txn_id = entry->txn_id;
+        }
+    }
+
+    pthread_mutex_unlock(&ms->mutex);
+}
+
+void PgfDB::cleanup_revisions()
+{
+    pthread_mutex_lock(&ms->mutex);
+
+    ms->min_txn_id = SIZE_MAX;
+    // If there are dead processes, set their reference counts to 0.
+    for (size_t i = 0; i < ms->n_revisions; i++) {
+        revision_entry *entry = &ms->revisions[i];
+        if (entry->ref_count > 0) {
 #ifndef _WIN32
             char proc_file[32];
-            sprintf(proc_file, "/proc/%d", pentry->pid);
+            sprintf(proc_file, "/proc/%d", entry->pid);
             bool alive = (access(proc_file, F_OK) == 0);
 #else
             HANDLE hProcess = OpenProcess(PROCESS_QUERY_INFORMATION,
-                                          FALSE,pentry->pid);
+                                          FALSE,entry->pid);
             DWORD dwExitCode = STILL_ACTIVE;
             if (hProcess != NULL)
                 GetExitCodeProcess(hProcess,&dwExitCode);
             bool alive = (dwExitCode == STILL_ACTIVE);
             CloseHandle(hProcess);
 #endif
-            if (!alive) {
-                // if there are dead processes -> remove them
-                if (plast == NULL) {
-                    if (ms->p.next == 0) {
-                        ms->p.pid = 0;
-                        break;
-                    } else {
-                        object next = pentry->next;
-                        *pentry   = *((process_entry *) ptr(ms,next));
-                        free_internal(next);
-                    }
-                } else {
-                    *plast = pentry->next;
-                    free_internal(ofs(ms,pentry));
-                    pentry = (process_entry *) ptr(ms, *plast);
-                }
+
+            if (alive) {
+                if (ms->min_txn_id > entry->txn_id)
+                    ms->min_txn_id = entry->txn_id;
             } else {
-                plast  = &pentry->next;
-                pentry = (process_entry *) ptr(ms, *plast);
+                entry->ref_count = 0;
             }
         }
     }
 
-    if (plast != NULL) {
-        *plast = malloc_internal(sizeof(process_entry));
-        pentry = (process_entry*) ptr(ms,*plast);
-        pentry->next = 0;
-    }
-    pentry->pid  = getpid();
+    pthread_mutex_unlock(&ms->mutex);
 }
 
 PGF_INTERNAL
-void PgfDB::unregister_process()
+object PgfDB::get_active_revision()
 {
-    auto pid = getpid();
-    process_entry *pentry = &ms->p;
-    object *plast = NULL;
-
-    while (pentry != (process_entry *) ptr(ms,0)) {
-        if (pentry->pid == pid) {
-            if (plast == NULL) {
-                if (ms->p.next == 0) {
-                    ms->p.pid = 0;
-                } else {
-                    object next = pentry->next;
-                    *pentry   = *((process_entry *) ptr(ms,next));
-                    free_internal(next);
-                }
-            } else {
-                *plast = pentry->next;
-                free_internal(ofs(ms,pentry));
-                pentry = (process_entry *) ptr(ms, *plast);
-            }
-            break;
-        } else {
-            plast  = &pentry->next;
-            pentry = (process_entry *) ptr(ms, *plast);
-        }
-    }
-}
-
-void PgfDB::cleanup_revisions()
-{
-	if (ms->p.next == 0) {
-		// The first process that opens this file makes sure that
-		// left-over transient revisions are released.
-		// They may be left-over of a client process that was killed
-		// or if the garbadge collector has not managed to run
-		// pgf_release_revision() before the process ended.
-
-		while (ms->transient_revisions != 0) {
-			pgf_free_revision(this, ms->transient_revisions.as_object());
-			ref<PgfPGF> pgf = ms->transient_revisions;
-			ref<PgfPGF> next = pgf->next;
-			PgfPGF::release(pgf);
-			ms->transient_revisions = next;
-		}
-
-		while (ms->transient_concr_revisions != 0) {
-			ref<PgfConcr> concr = ms->transient_concr_revisions;
-			ref<PgfConcr> next = concr->next;
-			concr->ref_count -= concr->ref_count_ex;
-			if (!concr->ref_count) {
-				PgfConcr::release(concr);
-			}
-			ms->transient_concr_revisions = next;
-		}
-	}
+    return current_db->ms->active_revision;
 }
 
 PGF_INTERNAL
-ref<PgfPGF> PgfDB::get_revision(PgfText *name)
+void PgfDB::set_active_revision(object o)
 {
-    return namespace_lookup(current_db->ms->revisions, name);
+    current_db->ms->active_revision = o;
 }
 
 PGF_INTERNAL
-void PgfDB::set_revision(ref<PgfPGF> pgf)
-{
-    pgf->ref_count++;
-    Namespace<PgfPGF> nmsp = namespace_insert(current_db->ms->revisions, pgf);
-    namespace_release(current_db->ms->revisions);
-    current_db->ms->revisions = nmsp;
-}
-
-PGF_INTERNAL
-void PgfDB::init_state(size_t size)
+int PgfDB::init_state()
 {
     memcpy(ms->sign, slovo, sizeof(ms->sign));
 
-    /* Init fastbins */
-    ms->have_fastchunks = false;
-    for (int i = 0; i < NFASTBINS; ++i) {
-        ms->fastbins[i] = 0;
-    }
-
-    size_t sz = (sizeof(*ms) + sizeof(size_t));
-    sz = (sz & ~MALLOC_ALIGN_MASK) + MALLOC_ALIGN_MASK + 1;
-
-    mchunk* top_chunk = mem2chunk(((char*) ms) + sz);
-    ms->top = ofs(ms,top_chunk);
-    set_head(top_chunk, (size - (sz - sizeof(size_t))) | PREV_INUSE);
-
-    ms->last_remainder = 0;
-
-    /* Establish circular links for normal bins */
-    for (int i = 1; i < NBINS; ++i) {
-        mbin *bin = bin_at(ms, i);
-        bin->fd = bin->bk = ofs(ms,bin);
-    }
-
-    memset(ms->binmap, 0, sizeof(ms->binmap));
-
-    ms->file_size = size;
-
-    ms->revisions = 0;
-    ms->transient_revisions = 0;
-    ms->transient_concr_revisions = 0;
+    ms->top = request2size(1);  // we don't want to start from 0
+    ms->file_size = mmap_size;
 
 #ifdef _WIN32
     ms->rwlock = 0;
+#else
+    int res;
+
+    {
+        pthread_mutexattr_t attr;
+        if ((res = pthread_mutexattr_init(&attr)) != 0) {
+            return res;
+        }
+        if ((res = pthread_mutexattr_setpshared(&attr, PTHREAD_PROCESS_SHARED)) != 0) {
+            return res;
+        }
+        if ((res = pthread_mutex_init(&ms->mutex, &attr)) != 0) {
+            return res;
+        }
+        pthread_mutexattr_destroy(&attr);
+    }
+
+    {
+        pthread_rwlockattr_t attr;
+        if ((res = pthread_rwlockattr_init(&attr)) != 0) {
+            return res;
+        }
+        if (fd >= 0 &&
+            (res = pthread_rwlockattr_setpshared(&attr, PTHREAD_PROCESS_SHARED)) != 0) {
+            pthread_rwlockattr_destroy(&attr);
+            return res;
+        }
+        if ((res = pthread_rwlock_init(&ms->rwlock, &attr)) != 0) {
+            pthread_rwlockattr_destroy(&attr);
+            return res;
+        }
+        pthread_rwlockattr_destroy(&attr);
+    }
 #endif
-    ms->p.pid  = getpid();
-    ms->p.next = 0;
+
+    ms->curr_txn_id = 0;
+    ms->min_txn_id  = 0;
+    ms->free_blocks = 0;
+    ms->free_descriptors = 0;
+    ms->n_revisions = 0;
+    return 0;
 }
 
-/* Take a chunk off a bin list.  */
-static void
-unlink_chunk (malloc_state* ms, mchunk* p)
+PGF_INTERNAL
+size_t PgfDB::block_descr_size(object map)
 {
-    mchunk* fd = ptr(ms,p->fd);
-    mchunk* bk = ptr(ms,p->bk);
-    fd->bk = ofs(ms,bk);
-    bk->fd = ofs(ms,fd);
-    if (!in_smallbin_range(p->mchunk_size) && p->fd_nextsize != 0) {
-        if (fd->fd_nextsize == 0) {
-            if (p->fd_nextsize == ofs(ms,p))
-                fd->fd_nextsize = fd->bk_nextsize = ofs(ms,fd);
-            else {
-                fd->fd_nextsize = p->fd_nextsize;
-                fd->bk_nextsize = p->bk_nextsize;
-                ptr(ms,p->fd_nextsize)->bk_nextsize = ofs(ms,fd);
-                ptr(ms,p->bk_nextsize)->fd_nextsize = ofs(ms,fd);
+    if (map == 0)
+        return 0;
+    return ptr(block_descr, map)->sz;
+}
+
+PGF_INTERNAL_DECL object PgfDB::new_block_descr(object o, size_t size)
+{
+    object odescr;
+    block_descr *descr;
+
+    if (free_descriptors[0] != 0) {
+        odescr = free_descriptors[0];
+        descr  = ptr(block_descr, odescr);
+        free_descriptors[0] = descr->chain;
+    } else {
+        size_t block_size = request2size(sizeof(block_descr));
+
+        size_t free_size = mmap_size - top;
+        if (block_size > free_size) {
+            size_t alloc_size =
+                ((block_size - free_size + page_size - 1) / page_size) * page_size;
+            size_t new_size =
+                ms->file_size + alloc_size;
+
+            resize_map(new_size);
+        }
+
+        odescr = top;
+        top += block_size;
+
+        descr  = ptr(block_descr, odescr);
+    }
+
+    descr->sz     = 1;
+    descr->left   = 0;
+    descr->right  = 0;
+    descr->chain  = 0;
+    descr->o      = o;
+    descr->block_size = size;
+    descr->block_txn_id = ms->curr_txn_id;
+    descr->descr_txn_id = ms->curr_txn_id;
+
+    return odescr;
+}
+
+PGF_INTERNAL
+object PgfDB::upd_block_descr(object map, object left, object right)
+{
+    block_descr *descr = ptr(block_descr, map);
+
+    if (descr->descr_txn_id != ms->curr_txn_id) {
+        block_descr *new_descr;
+
+        descr->chain = free_descriptors[1];
+        free_descriptors[1] = map;
+
+        if (free_descriptors[0] != 0) {
+            map = free_descriptors[0];
+            new_descr = ptr(block_descr, map);
+            free_descriptors[0] = new_descr->chain;
+        } else {
+            size_t block_size = request2size(sizeof(block_descr));
+
+            size_t free_size = mmap_size - top;
+            if (block_size > free_size) {
+                size_t alloc_size =
+                    ((block_size - free_size + page_size - 1) / page_size) * page_size;
+                size_t new_size =
+                    ms->file_size + alloc_size;
+
+                resize_map(new_size);
+
+                // refresh the pointer
+                descr = ptr(block_descr, map);
             }
-        } else {
-            ptr(ms,p->fd_nextsize)->bk_nextsize = p->bk_nextsize;
-            ptr(ms,p->bk_nextsize)->fd_nextsize = p->fd_nextsize;
+
+            map = top;
+            top += block_size;
+
+            new_descr = ptr(block_descr, map);
         }
+
+        new_descr->o      = descr->o;
+        new_descr->chain  = 0;
+        new_descr->block_txn_id = descr->block_txn_id;
+        new_descr->descr_txn_id = ms->curr_txn_id;
+
+        descr = new_descr;
     }
+
+    descr->sz    = 1+block_descr_size(left)+block_descr_size(right);
+    descr->left  = left;
+    descr->right = right;
+
+    return map;
 }
 
-/*
-  ------------------------- malloc_consolidate -------------------------
-  malloc_consolidate is a specialized version of free() that tears
-  down chunks held in fastbins.  Free itself cannot be used for this
-  purpose since, among other things, it might place chunks back onto
-  fastbins.  So, instead, we need to use a minor variant of the same
-  code.
-*/
-static void malloc_consolidate(malloc_state *ms)
+PGF_INTERNAL
+object PgfDB::balanceL_block_descriptor(object map)
 {
-  object* fb;                 /* current fastbin being consolidated */
-  object* maxfb;              /* last fastbin (for loop control) */
-  mchunk*  p;                 /* current chunk being consolidated */
-  object   next_fb;           /* next chunk to consolidate */
-  mchunk*  unsorted_bin;      /* bin header */
-  mchunk*  first_unsorted;    /* chunk to link to */
-  /* These have same use as in free() */
-  mchunk*  nextchunk;
-  size_t   size;
-  size_t   nextsize;
-  size_t   prevsize;
-  int      nextinuse;
-
-  ms->have_fastchunks = false;
-  unsorted_bin = unsorted_chunks(ms);
-  /*
-    Remove each chunk from fast bin and consolidate it, placing it
-    then in unsorted bin. Among other reasons for doing this,
-    placing in unsorted bin avoids needing to calculate actual bins
-    until malloc is sure that chunks aren't immediately going to be
-    reused anyway.
-  */
-  maxfb = &ms->fastbins[NFASTBINS - 1];
-  fb    = &ms->fastbins[0];
-  do {
-    if (*fb != 0) {
-      p   = ptr(ms,*fb);
-      *fb = 0;
-      for (;;) {
-        next_fb = p->fd;
-        /* Slightly streamlined version of consolidation code in free() */
-        size = chunksize(p);
-        nextchunk = chunk_at_offset(p, size);
-        nextsize = chunksize(nextchunk);
-        if (!prev_inuse(p)) {
-          prevsize = prev_size(p);
-          size += prevsize;
-          p = chunk_at_offset(p, -((long) prevsize));
-          unlink_chunk (ms, p);
-        }
-        if (nextchunk != ptr(ms,ms->top)) {
-          nextinuse = inuse_bit_at_offset(nextchunk, nextsize);
-          if (!nextinuse) {
-            size += nextsize;
-            unlink_chunk (ms, nextchunk);
-          } else
-            clear_inuse_bit_at_offset(nextchunk, 0);
-          first_unsorted = ptr(ms,unsorted_bin->fd);
-          unsorted_bin->fd = ofs(ms,p);
-          first_unsorted->bk = ofs(ms,p);
-          if (!in_smallbin_range(size)) {
-            p->fd_nextsize = 0;
-            p->bk_nextsize = 0;
-          }
-          set_head(p, size | PREV_INUSE);
-          p->bk = ofs(ms,unsorted_bin);
-          p->fd = ofs(ms,first_unsorted);
-          set_foot(p, size);
+    block_descr *descr = ptr(block_descr, map);
+    if (descr->right == 0) {
+        if (descr->left == 0) {
+            return map;
         } else {
-          size += nextsize;
-          set_head(p, size | PREV_INUSE);
-          ms->top = ofs(ms,p);
+            block_descr *left = ptr(block_descr, descr->left);
+            if (left->left == 0) {
+                if (left->right == 0) {
+                    return map;
+                } else {
+                    object left_right = left->right;
+                    object left  = upd_block_descr(descr->left,0,0);
+                    object right = upd_block_descr(map,0,0);
+                    return upd_block_descr(left_right,
+                                           left,
+                                           right);
+                }
+            } else {
+                if (left->right == 0) {
+                    object left_left = left->left;
+                    object left  = descr->left;
+                    object right = upd_block_descr(map,0,0);
+                    return upd_block_descr(left,
+                                           left_left,
+                                           right);
+                } else {
+                    object left_left  = left->left;
+                    object left_right = left->right;
+                    if (ptr(block_descr, left_right)->sz < 2 * ptr(block_descr, left_left)->sz) {
+                        object left  = descr->left;
+                        object right =
+                            upd_block_descr(map,
+                                            left_right,
+                                            0);
+                        return upd_block_descr(left,
+                                               left_left,
+                                               right);
+                    } else {
+                        object left  =
+                            upd_block_descr(descr->left,
+                                            left_left,
+                                            ptr(block_descr, left_right)->left);
+                        object right =
+                            upd_block_descr(map,
+                                            ptr(block_descr, left_right)->right,
+                                            0);
+                        return upd_block_descr(left_right,
+                                               left,
+                                               right);
+                    }
+                }
+            }
         }
+    } else {
+        if (descr->left == 0) {
+            return map;
+        } else {
+            if (ptr(block_descr, descr->left)->sz > 3*ptr(block_descr, descr->right)->sz) {
+                block_descr *left = ptr(block_descr, descr->left);
+                object left_left  = left->left;
+                object left_right = left->right;
 
-        if (next_fb == 0)
-            break;
-        p = ptr(ms,next_fb);
-      }
+                if (ptr(block_descr, left_right)->sz < 2*ptr(block_descr, left_left)->sz) {
+                    object left  = descr->left;
+                    object right =
+                        upd_block_descr(map,
+                                        left_right,
+                                        descr->right);
+                    return upd_block_descr(left,
+                                           left_left,
+                                           right);
+                } else {
+                    object left =
+                        upd_block_descr(descr->left,
+                                        left_left,
+                                        ptr(block_descr, left_right)->left);
+                    object right =
+                        upd_block_descr(map,
+                                        ptr(block_descr, left_right)->right,
+                                        ptr(block_descr, map)->right);
+                    return upd_block_descr(left_right,
+                                           left,
+                                           right);
+                }
+            } else {
+                return map;
+            }
+        }
     }
-  } while (fb++ != maxfb);
 }
+
+PGF_INTERNAL
+object PgfDB::balanceR_block_descriptor(object map)
+{
+    block_descr *descr = ptr(block_descr, map);
+    if (descr->left == 0) {
+        if (descr->right == 0) {
+            return map;
+        } else {
+            block_descr *right = ptr(block_descr, descr->right);
+            if (right->left == 0) {
+                if (right->right == 0) {
+                    return map;
+                } else {
+                    object right_right = right->right;
+                    object right = descr->right;
+                    object left  =
+                        upd_block_descr(map,
+                                        0,
+                                        0);
+                    return upd_block_descr(right,
+                                           left,
+                                           right_right);
+                }
+            } else {
+                if (right->right == 0) {
+                    object right_left = right->left;
+                    object right =
+                        upd_block_descr(descr->right,0,0);
+                    object left =
+                        upd_block_descr(map,0,0);
+                    return upd_block_descr(right_left,
+                                           left,
+                                           right);
+                } else {
+                    object right_left  = right->left;
+                    object right_right = right->right;
+                    if (ptr(block_descr,right_left)->sz < 2 * ptr(block_descr,right_right)->sz) {
+                        object right = descr->right;
+                        object left  =
+                            upd_block_descr(map,
+                                            0,
+                                            right_left);
+                        return upd_block_descr(right,
+                                               left,
+                                               right_right);
+                    } else {
+                        object right =
+                            upd_block_descr(descr->right,
+                                            ptr(block_descr,right_left)->right,
+                                            right_right);
+                        object left =
+                            upd_block_descr(map,
+                                            0,
+                                            ptr(block_descr,right_left)->left);
+                        return upd_block_descr(right_left,
+                                               left,
+                                               right);
+                    }
+                }
+            }
+        }
+    } else {
+        if (descr->right == 0) {
+            return map;
+        } else {
+            if (ptr(block_descr,descr->right)->sz > 3*ptr(block_descr,descr->left)->sz) {
+                block_descr *right = ptr(block_descr,descr->right);
+                object right_left  = right->left;
+                object right_right = right->right;
+                if (ptr(block_descr,right_left)->sz < 2*ptr(block_descr,right_right)->sz) {
+                    object right = descr->right;
+                    object left =
+                        upd_block_descr(map,
+                                        descr->left,
+                                        right_left);
+                    return upd_block_descr(right,
+                                           left,
+                                           right_right);
+                } else {
+                    object right =
+                        upd_block_descr(descr->right,
+                                        ptr(block_descr,right_left)->right,
+                                        right_right);
+                    object left =
+                        upd_block_descr(map,
+                                        descr->left,
+                                        ptr(block_descr,right_left)->left);
+                    return upd_block_descr(right_left,
+                                           left,
+                                           right);
+                }
+            } else {
+                return map;
+            }
+        }
+    }
+}
+
+PGF_INTERNAL
+object PgfDB::pop_first_block_descriptor(object map, object *res)
+{
+    block_descr *descr = ptr(block_descr, map);
+    if (map == 0) {
+        return 0;
+    } else if (descr->left == 0) {
+        *res = map;
+        return descr->right;
+    } else {
+        object right = descr->right;
+        object left  = pop_first_block_descriptor(descr->left, res);
+        map = upd_block_descr(map, left, right);
+        return balanceR_block_descriptor(map);
+    }
+}
+
+PGF_INTERNAL
+object PgfDB::pop_last_block_descriptor(object map, object *res)
+{
+    block_descr *descr = ptr(block_descr, map);
+    if (map == 0) {
+        return 0;
+    } else if (descr->right == 0) {
+        *res = map;
+        return descr->left;
+    } else {
+        object left  = descr->left;
+        object right = pop_last_block_descriptor(descr->right, res);
+        map = upd_block_descr(map, left, right);
+        return balanceL_block_descriptor(map);
+    }
+}
+
+PGF_INTERNAL
+object PgfDB::delete_block_descriptor(object map, size_t *psize, object *po)
+{
+    if (map == 0) {
+        *po = 0;
+        return 0;
+    }
+
+    block_descr *descr = ptr(block_descr, map);
+    int cmp = (*psize < descr->block_size) ? -1
+            : (*psize > descr->block_size) ? 1
+            : (descr->block_txn_id > ms->min_txn_id) ? -1
+            : 0;
+    if (cmp < 0) {
+        object right = descr->right;
+        object left  = delete_block_descriptor(descr->left, psize, po);
+        if (*po != 0) {
+            map = upd_block_descr(map,left,right);
+            map = balanceR_block_descriptor(map);
+        } else {
+            descr = ptr(block_descr, map);
+            if (descr->block_txn_id < ms->min_txn_id) {
+                *psize = descr->block_size;
+                goto fit;
+            }
+        }
+        return map;
+    } else if (cmp > 0) {
+        object left  = descr->left;
+        object right = delete_block_descriptor(descr->right, psize, po);
+        if (*po != 0) {
+            map = upd_block_descr(map,left,right);
+            map = balanceL_block_descriptor(map);
+        }
+        return map;
+    } else {
+fit:
+        *po = descr->o;
+
+        int index = (descr->descr_txn_id != ms->curr_txn_id);
+        descr->chain = free_descriptors[index];
+        free_descriptors[index] = map;
+
+        if (descr->left == 0) {
+            return descr->right;
+        } else if (descr->right == 0) {
+            return descr->left;
+        } else {
+            if (ptr(block_descr,descr->left)->sz > ptr(block_descr,descr->right)->sz) {
+                object right = descr->right;
+                object left  = pop_last_block_descriptor(descr->left, &map);
+                map = upd_block_descr(map, left, right);
+                return balanceR_block_descriptor(map);
+            } else {
+                object left  = descr->left;
+                object right = pop_first_block_descriptor(descr->right, &map);
+                map = upd_block_descr(map, left, right);
+                return balanceL_block_descriptor(map);
+            }
+        }
+    }
+}
+
+#ifdef DEBUG_MEMORY_ALLOCATOR
+PGF_INTERNAL void PgfDB::dump_free_blocks(object map)
+{
+    if (map == 0) {
+        printf(".");
+        return;
+    }
+
+    block_descr *descr = ptr(block_descr, map);
+    if (descr->left != 0 || descr->right != 0) {
+        printf("(");
+        dump_free_blocks(descr->left);
+        printf(" ");
+    }
+
+    printf("[%016lx %ld %ld]", descr->o, descr->block_size, descr->block_txn_id);
+
+    if (descr->left != 0 || descr->right != 0) {
+        printf(" ");
+        dump_free_blocks(descr->right);
+        printf(")");
+    }
+}
+#endif
 
 PGF_INTERNAL
 object PgfDB::malloc_internal(size_t bytes)
 {
-    unsigned int idx;                 /* associated bin index */
-    mbin* bin;                        /* associated bin */
-    mchunk* victim;                   /* inspected/selected chunk */
+    size_t block_size = request2size(bytes);
 
-    mchunk* remainder;                /* remainder from a split */
-    unsigned long remainder_size;     /* its size */
-
-    /*
-        Convert request size to internal form by adding SIZE_SZ bytes
-        overhead plus possibly more to obtain necessary alignment and/or
-        to obtain a size of at least MINSIZE, the smallest allocatable
-        size. Also, checked_request2size traps (returning 0) request sizes
-        that are so large that they wrap around zero when padded and
-        aligned.
-    */
-    size_t nb = request2size(bytes);
-
-    if (nb <= DEFAULT_MXFAST) {
-        idx = fastbin_index(nb);
-
-        if (ms->fastbins[idx] != 0) {
-            victim = ptr(ms,ms->fastbins[idx]);
-            ms->fastbins[idx] = victim->fd;
-            return ofs(ms,chunk2mem(victim));
+    object o;
+    size_t alloc_size = block_size;
+    free_blocks = delete_block_descriptor(free_blocks, &alloc_size, &o);
+    if (o != 0) {
+        if (alloc_size > block_size) {
+            free_blocks = insert_block_descriptor(free_blocks, o+block_size, alloc_size-block_size);
         }
+
+#ifdef DEBUG_MEMORY_ALLOCATOR
+        dump_free_blocks(free_blocks);
+        printf("\n");
+#endif
+
+        return o;
     }
 
-    /*
-     If a small request, check regular bin.  Since these "smallbins"
-     hold one size each, no searching within bins is necessary.
-     (For a large request, we need to wait until unsorted chunks are
-     processed to find best fit. But for small ones, fits are exact
-     anyway, so we can check now, which is faster.)
-   */
-    if (in_smallbin_range (nb)) {
-        idx = smallbin_index (nb);
-        bin = bin_at (ms, idx);
-        if ((victim = ptr(ms,last(bin))) != bin)
-        {
-            object bck = victim->bk;
-            set_inuse_bit_at_offset (victim, nb);
-            bin->bk = bck;
-            ptr(ms,bck)->fd = ofs(ms,bin);
-            return ofs(ms,chunk2mem(victim));
-        }
-    } else {
-        /*
-           If this is a large request, consolidate fastbins before continuing.
-           While it might look excessive to kill all fastbins before
-           even seeing if there is space available, this avoids
-           fragmentation problems normally associated with fastbins.
-           Also, in practice, programs tend to have runs of either small or
-           large requests, but less often mixtures, so consolidation is not
-           invoked all that often in most programs. And the programs that
-           it is called frequently in otherwise tend to fragment.
-        */
+    size_t free_size = mmap_size - top;
+    if (block_size > free_size) {
+        size_t alloc_size =
+            ((block_size - free_size + page_size - 1) / page_size) * page_size;
+        size_t new_size =
+            ms->file_size + alloc_size;
 
-        idx = largebin_index(nb);
-        if (ms->have_fastchunks)
-            malloc_consolidate(ms);
+        resize_map(new_size);
     }
 
-    /*
-     Process recently freed or remaindered chunks, taking one only if
-     it is exact fit, or, if this a small request, the chunk is remainder from
-     the most recent non-exact fit.  Place other traversed chunks in
-     bins.  Note that this step is the only place in any routine where
-     chunks are placed in bins.
-     The outer loop here is needed because we might not realize until
-     near the end of malloc that we should have consolidated, so must
-     do so and retry. This happens at most once, and only when we would
-     otherwise need to expand memory to service a "small" request.
-   */
-    for (;;)
-    {
-        size_t size;
-        mchunk *fwd, *bck;
+    o = top;
+    top += block_size;
 
-        int iters = 0;
-        while ((victim = ptr(ms,unsorted_chunks(ms)->bk)) != unsorted_chunks(ms)) {
-            bck  = ptr(ms,victim->bk);
-            size = chunksize(victim);
-            mchunk *next = chunk_at_offset(victim, size);
+    return o;
+}
 
-            /*
-             If a small request, try to use last remainder if it is the
-             only chunk in unsorted bin.  This helps promote locality for
-             runs of consecutive small requests. This is the only
-             exception to best-fit, and applies only when there is
-             no exact fit for a small chunk.
-           */
+PGF_INTERNAL
+object PgfDB::realloc_internal(object oldo, size_t old_bytes, size_t new_bytes)
+{
+    if (oldo == 0)
+        return malloc_internal(new_bytes);
 
-            if (in_smallbin_range(nb) &&
-                bck == unsorted_chunks(ms) &&
-                victim == ptr(ms,ms->last_remainder) &&
-                (unsigned long) (size) > (unsigned long) (nb + MINSIZE)) {
+    size_t old_nb = request2size(old_bytes);
+    size_t new_nb = request2size(new_bytes);
 
-                /* split and reattach remainder */
-                remainder_size = size - nb;
-                remainder = chunk_at_offset(victim, nb);
-                ms->last_remainder =
-                  unsorted_chunks(ms)->bk =
-                    unsorted_chunks(ms)->fd = ofs(ms,remainder);
-                remainder->bk = remainder->fd = ofs(ms,unsorted_chunks(ms));
-                if (!in_smallbin_range(remainder_size)) {
-                    remainder->fd_nextsize = 0;
-                    remainder->bk_nextsize = 0;
-                }
-                set_head(victim, nb | PREV_INUSE);
-                set_head(remainder, remainder_size | PREV_INUSE);
-                set_foot(remainder, remainder_size);
-                return ofs(ms,chunk2mem(victim));
-            }
+    if (oldo + old_nb == top) {
+        ssize_t nb        = new_nb-old_nb;
+        ssize_t free_size = mmap_size - top;
 
-            /* remove from unsorted list */
-            unsorted_chunks(ms)->bk = ofs(ms,bck);
-            bck->fd = ofs(ms,unsorted_chunks(ms));
-
-            /* Take now instead of binning if exact fit */
-            if (size == nb) {
-                set_inuse_bit_at_offset(victim, size);
-                return ofs(ms,chunk2mem(victim));
-            }
-
-            /* place chunk in bin */
-            size_t victim_index;
-            if (in_smallbin_range(size)) {
-                victim_index = smallbin_index(size);
-                bck = bin_at(ms, victim_index);
-                fwd = ptr(ms,bck->fd);
-            } else {
-                victim_index = largebin_index(size);
-                bck = bin_at(ms, victim_index);
-                fwd = ptr(ms,bck->fd);
-
-                /* maintain large bins in sorted order */
-                if (fwd != bck) {
-                    /* Or with inuse bit to speed comparisons */
-                    size |= PREV_INUSE;
-                    /* if smaller than smallest, bypass loop below */
-                    if ((unsigned long) (size) < (unsigned long) ptr(ms,bck->bk)->mchunk_size) {
-                        fwd = bck;
-                        bck = ptr(ms,bck->bk);
-                        victim->fd_nextsize = fwd->fd;
-                        victim->bk_nextsize = ptr(ms,fwd->fd)->bk_nextsize;
-                        ptr(ms,fwd->fd)->bk_nextsize = ptr(ms,victim->bk_nextsize)->fd_nextsize = ofs(ms,victim);
-                    } else {
-                        while ((unsigned long) size < fwd->mchunk_size) {
-                            fwd = ptr(ms,fwd->fd_nextsize);
-                        }
-                        if ((unsigned long) size == (unsigned long) fwd->mchunk_size)
-                            /* Always insert in the second position. */
-                            fwd = ptr(ms,fwd->fd);
-                        else {
-                            victim->fd_nextsize = ofs(ms,fwd);
-                            victim->bk_nextsize = fwd->bk_nextsize;
-                            fwd->bk_nextsize = ofs(ms,victim);
-                            ptr(ms,victim->bk_nextsize)->fd_nextsize = ofs(ms,victim);
-                        }
-                        bck = ptr(ms,fwd->bk);
-                    }
-                } else {
-                    victim->fd_nextsize = victim->bk_nextsize = ofs(ms,victim);
-                }
-            }
-
-            mark_bin(ms, victim_index);
-            victim->bk = ofs(ms,bck);
-            victim->fd = ofs(ms,fwd);
-            fwd->bk = ofs(ms,victim);
-            bck->fd = ofs(ms,victim);
-
-#define MAX_ITERS 10000
-            if (++iters >= MAX_ITERS)
-                break;
-        }
-
-        /*
-         If a large request, scan through the chunks of current bin in
-         sorted order to find smallest that fits.  Use the skip list for this.
-        */
-        if (!in_smallbin_range(nb)) {
-            bin = bin_at(ms, idx);
-
-            /* skip scan if empty or largest chunk is too small */
-            if ((victim = ptr(ms,first(bin))) != bin &&
-                (unsigned long) victim->mchunk_size >= (unsigned long) (nb)) {
-                size_t size;
-
-                victim = ptr(ms,victim->bk_nextsize);
-                while (((unsigned long) (size = chunksize(victim)) <
-                       (unsigned long) (nb)))
-                    victim = ptr(ms,victim->bk_nextsize);
-
-                /* Avoid removing the first entry for a size so that the skip
-                   list does not have to be rerouted.  */
-                if (victim != ptr(ms,last(bin)) &&
-                    victim->mchunk_size == ptr(ms,victim->fd)->mchunk_size)
-                  victim = ptr(ms,victim->fd);
-
-                remainder_size = size - nb;
-                unlink_chunk(ms, victim);
-
-                /* Exhaust */
-                if (remainder_size < MINSIZE) {
-                    set_inuse_bit_at_offset(victim, size);
-                } else {   /* Split */
-                    remainder = chunk_at_offset(victim, nb);
-
-                    /* We cannot assume the unsorted list is empty and therefore
-                       have to perform a complete insert here.  */
-                    bck = unsorted_chunks(ms);
-                    fwd = ptr(ms,bck->fd);
-                    remainder->bk = ofs(ms,bck);
-                    remainder->fd = ofs(ms,fwd);
-                    bck->fd = fwd->bk = ofs(ms,remainder);
-                    if (!in_smallbin_range(remainder_size)) {
-                        remainder->fd_nextsize = 0;
-                        remainder->bk_nextsize = 0;
-                    }
-                    set_head (victim, nb | PREV_INUSE);
-                    set_head (remainder, remainder_size | PREV_INUSE);
-                    set_foot (remainder, remainder_size);
-                }
-                return ofs(ms,chunk2mem(victim));
-            }
-        }
-
-        /*
-         Search for a chunk by scanning bins, starting with next largest
-         bin. This search is strictly by best-fit; i.e., the smallest
-         (with ties going to approximately the least recently used) chunk
-         that fits is selected.
-         The bitmap avoids needing to check that most blocks are nonempty.
-         The particular case of skipping all bins during warm-up phases
-         when no chunks have been returned yet is faster than it might look.
-        */
-
-        ++idx;
-        bin = bin_at(ms, idx);
-        unsigned int block = idx2block(idx);
-        unsigned int map = ms->binmap[block];
-        unsigned int bit = idx2bit(idx);
-
-        for (;;)
-        {
-            /* Skip rest of block if there are no more set bits in this block.  */
-            if (bit > map || bit == 0) {
-                do {
-                    if (++block >= BINMAPSIZE) /* out of bins */
-                        goto use_top;
-                } while ((map = ms->binmap[block]) == 0);
-                bin = bin_at(ms, (block << BINMAPSHIFT));
-                bit = 1;
-            }
-
-            /* Advance to bin with set bit. There must be one. */
-            while ((bit & map) == 0) {
-                bin = next_bin(bin);
-                bit <<= 1;
-            }
-            /* Inspect the bin. It is likely to be non-empty */
-            victim = ptr(ms,last(bin));
-            /*  If a false alarm (empty bin), clear the bit. */
-            if (victim == bin) {
-                ms->binmap[block] = map &= ~bit; /* Write through */
-                bin = next_bin(bin);
-                bit <<= 1;
-            } else {
-                size = chunksize(victim);
-                /*  We know the first chunk in this bin is big enough to use. */
-                remainder_size = size - nb;
-                /* unlink */
-                unlink_chunk (ms, victim);
-                /* Exhaust */
-                if (remainder_size < MINSIZE) {
-                    set_inuse_bit_at_offset(victim, size);
-                } else {   /* Split */
-                    remainder = chunk_at_offset(victim, nb);
-                    /* We cannot assume the unsorted list is empty and therefore
-                       have to perform a complete insert here.  */
-                    bck = unsorted_chunks(ms);
-                    fwd = ptr(ms,bck->fd);
-                    remainder->bk = ofs(ms,bck);
-                    remainder->fd = ofs(ms,fwd);
-                    bck->fd = fwd->bk = ofs(ms,remainder);
-
-                    /* advertise as last remainder */
-                    if (in_smallbin_range(nb))
-                        ms->last_remainder = ofs(ms,remainder);
-                    if (!in_smallbin_range(remainder_size)) {
-                        remainder->fd_nextsize = 0;
-                        remainder->bk_nextsize = 0;
-                    }
-                    set_head (victim, nb | PREV_INUSE);
-                    set_head (remainder, remainder_size | PREV_INUSE);
-                    set_foot (remainder, remainder_size);
-                }
-                return ofs(ms,chunk2mem(victim));
-            }
-        }
-
-    use_top:
-      /*
-         If large enough, split off the chunk bordering the end of memory
-         (held in ms->top). Note that this is in accord with the best-fit
-         search rule.  In effect, ms->top is treated as larger (and thus
-         less well fitting) than any other available chunk since it can
-         be extended to be as large as necessary (up to system
-         limitations).
-         We require that ms->top always exists (i.e., has size >=
-         MINSIZE) after initialization, so if it would otherwise be
-         exhausted by current request, it is replenished. (The main
-         reason for ensuring it exists is that we may need MINSIZE space
-         to put in fenceposts in sysmalloc.)
-       */
-        victim = ptr(ms,ms->top);
-        size = chunksize(victim);
-
-        if ((unsigned long) (size) >= (unsigned long) (nb + MINSIZE)) {
-            remainder_size = size - nb;
-            remainder = chunk_at_offset(victim, nb);
-            ms->top = ofs(ms,remainder);
-            set_head(victim, nb | PREV_INUSE);
-            set_head(remainder, remainder_size | PREV_INUSE);
-            return ofs(ms,chunk2mem(victim));
-        } else if (ms->have_fastchunks) {
-            malloc_consolidate (ms);
-            /* restore original bin index */
-            if (in_smallbin_range (nb))
-                idx = smallbin_index (nb);
-            else
-                idx = largebin_index (nb);
-        } else {  /* Otherwise, relay to handle system-dependent cases */
-            size_t page_size  = getpagesize();
+        if (nb > free_size) {
             size_t alloc_size =
-                ((nb + MINSIZE - size + page_size - 1) / page_size) * page_size;
-
+                ((nb - free_size + page_size - 1) / page_size) * page_size;
             size_t new_size =
                 ms->file_size + alloc_size;
 
-			resize_map(new_size);
-
-            victim = ptr(ms,ms->top);
-
-            size += alloc_size;
-
-            remainder_size = size - nb;
-            remainder = chunk_at_offset(victim, nb);
-            ms->top = ofs(ms,remainder);
-            set_head(victim, nb | PREV_INUSE);
-            set_head(remainder, remainder_size | PREV_INUSE);
-            return ofs(ms,chunk2mem(victim));
+            resize_map(new_size);
         }
+
+        // If the object is at the end of the allocation area
+        top += nb;
+
+        return oldo;
     }
+
+    object newo = malloc_internal(new_bytes);
+    memcpy(base+newo, base+oldo, old_bytes);
+    free_internal(oldo, old_bytes);
+    return newo;
 }
 
 PGF_INTERNAL
-object PgfDB::realloc_internal(object oldo, size_t bytes)
+object PgfDB::insert_block_descriptor(object map, object o, size_t size)
 {
-    if (oldo == 0)
-        return malloc_internal(bytes);
+    if (map == 0)
+        return new_block_descr(o, size);
 
-    mchunk *newp;            /* chunk to return */
-    size_t  newsize;         /* its size */
-    mchunk *remainder;       /* extra space at end of newp */
-    size_t  remainder_size;  /* its size */
+    txn_t txn_id = (o >= ms->top) ? 0 : ms->curr_txn_id;
 
-    size_t nb = request2size(bytes);
-
-    mchunk *oldp    = mem2chunk(ptr(ms,oldo));
-    size_t oldsize  = chunksize(oldp);
-    mchunk *next    = chunk_at_offset(oldp, oldsize);
-    size_t nextsize = chunksize(next);
-
-    if (oldsize >= nb) {
-        /* already big enough; split below */
-        newp = oldp;
-        newsize = oldsize;
+    block_descr *descr = ptr(block_descr, map);
+    int cmp = (size < descr->block_size) ? -1
+            : (size > descr->block_size) ? 1
+            : (txn_id < descr->block_txn_id) ? -1
+            : (txn_id > descr->block_txn_id) ? 1
+            : ptr(block_descr,descr->left)->sz < ptr(block_descr,descr->right)->sz ? -1
+            : 1;
+    if (cmp < 0) {
+        object right = descr->right;
+        object left  = insert_block_descriptor(descr->left, o, size);
+        map = upd_block_descr(map,left,right);
+        return balanceL_block_descriptor(map);
     } else {
-        /* Try to expand forward into top */
-        if (ofs(ms,next) == ms->top &&
-            (unsigned long) (newsize = oldsize + nextsize) >=
-            (unsigned long) (nb + MINSIZE))
-        {
-            set_head_size(oldp, nb);
-            remainder = chunk_at_offset(oldp, nb);
-            ms->top = ofs(ms,remainder);
-            set_head(remainder, (newsize - nb) | PREV_INUSE);
-            return oldo;
-        }
-        /* Try to expand forward into next chunk;  split off remainder below */
-        else if (ofs(ms,next) != ms->top &&
-                 !inuse(next) &&
-                 (unsigned long) (newsize = oldsize + nextsize) >=
-                 (unsigned long) (nb))
-        {
-            newp = oldp;
-            unlink_chunk(ms, next);
-        }
-        /* allocate, copy, free */
-        else
-        {
-            object newo = malloc_internal(bytes);
-            newp = mem2chunk(ptr(ms,newo));
-            newsize = chunksize(newp);
-            /*
-               Avoid copy if newp is next chunk after oldp.
-            */
-            if (newp == next) {
-                newsize += oldsize;
-                newp = oldp;
-            } else {
-                memcpy(ptr(ms,newo), ptr(ms,oldo), oldsize - sizeof(size_t));
-                free_internal(oldo);
-                return newo;
-            }
-        }
+        object left  = descr->left;
+        object right = insert_block_descriptor(descr->right, o, size);
+        map = upd_block_descr(map,left,right);
+        return balanceR_block_descriptor(map);
     }
-
-    /* If possible, free extra space in old or extended chunk */
-    assert(newsize >= nb);
-    remainder_size = newsize - nb;
-    if (remainder_size < MINSIZE) {  /* not enough extra to split off */
-        set_head_size(newp, newsize);
-        set_inuse_bit_at_offset(newp, newsize);
-    } else {  /* split remainder */
-        remainder = chunk_at_offset(newp, nb);
-        set_head_size(newp, nb);
-        set_head(remainder, remainder_size | PREV_INUSE);
-        /* Mark remainder as inuse so free() won't complain */
-        set_inuse_bit_at_offset(remainder, remainder_size);
-        free_internal(ofs(ms,chunk2mem(remainder)));
-    }
-    return ofs(ms,chunk2mem(newp));
 }
 
 PGF_INTERNAL
-void PgfDB::free_internal(object o)
+void PgfDB::free_internal(object o, size_t bytes)
 {
-    size_t size;                 /* its size */
-    object *fb;                  /* associated fastbin */
-    mchunk *nextchunk;           /* next contiguous chunk */
-    size_t nextsize;             /* its size */
-    int nextinuse;               /* true if nextchunk is used */
-    size_t prevsize;             /* size of previous contiguous chunk */
-    mchunk* bck;                 /* misc temp for linking */
-    mchunk* fwd;                 /* misc temp for linking */
+    if (o == 0)
+        return;
 
-    mchunk* p = mem2chunk(ptr(ms,o));
-    size = chunksize(p);
+    size_t block_size = request2size(bytes);
 
-
-    /*
-      If eligible, place chunk on a fastbin so it can be found
-      and used quickly in malloc.
-    */
-    if ((unsigned long)(size) <= (unsigned long)(DEFAULT_MXFAST)) {
-        ms->have_fastchunks = true;
-        unsigned int idx = fastbin_index(size);
-        fb = &ms->fastbins[idx];
-        /* Atomically link P to its fastbin: P->FD = *FB; *FB = P;  */
-        p->fd = *fb;
-        *fb = ofs(ms,p);
-    } else {     /* Consolidate other chunks as they arrive. */
-        nextchunk = chunk_at_offset(p, size);
-        nextsize = chunksize(nextchunk);
-        /* consolidate backward */
-        if (!prev_inuse(p)) {
-            prevsize = prev_size(p);
-            size += prevsize;
-            p = chunk_at_offset(p, -((long) prevsize));
-            unlink_chunk (ms, p);
-        }
-        if (nextchunk != ptr(ms,ms->top)) {
-            /* get and clear inuse bit */
-            nextinuse = inuse_bit_at_offset(nextchunk, nextsize);
-            /* consolidate forward */
-            if (!nextinuse) {
-                unlink_chunk (ms, nextchunk);
-                size += nextsize;
-            } else
-                clear_inuse_bit_at_offset(nextchunk, 0);
-            /*
-                Place the chunk in unsorted chunk list. Chunks are
-                not placed into regular bins until after they have
-                been given one chance to be used in malloc.
-            */
-            bck = unsorted_chunks(ms);
-            fwd = ptr(ms,bck->fd);
-            p->fd = ofs(ms,fwd);
-            p->bk = ofs(ms,bck);
-            if (!in_smallbin_range(size)) {
-                p->fd_nextsize = 0;
-                p->bk_nextsize = 0;
-            }
-            bck->fd = ofs(ms,p);
-            fwd->bk = ofs(ms,p);
-            set_head(p, size | PREV_INUSE);
-            set_foot(p, size);
-        } else {
-            /*
-                If the chunk borders the current high end of memory,
-                consolidate into top
-            */
-
-            size += nextsize;
-            set_head(p, size | PREV_INUSE);
-            ms->top = ofs(ms,p);
-        }
-
-        /*
-            If freeing a large space, consolidate possibly-surrounding
-            chunks. Then, if the total unused topmost memory exceeds trim
-            threshold, ask malloc_trim to reduce top.
-            Unless max_fast is 0, we don't know if there are fastbins
-            bordering top, so we cannot tell for sure whether threshold
-            has been reached unless fastbins are consolidated.  But we
-            don't want to consolidate on each free.  As a compromise,
-            consolidation is performed if FASTBIN_CONSOLIDATION_THRESHOLD
-            is reached.
-        */
-        if ((unsigned long)(size) >= FASTBIN_CONSOLIDATION_THRESHOLD) {
-            if (ms->have_fastchunks)
-                malloc_consolidate(ms);
-        }
+    if (o >= ms->top && o+block_size == top) {
+        // The block has been allocated in the current transaction
+        // and it is the last just before the top area. We can
+        // simply decrement top;
+        top -= block_size;
+        return;
     }
+
+    free_blocks = insert_block_descriptor(free_blocks, o, block_size);
+
+#ifdef DEBUG_MEMORY_ALLOCATOR
+    dump_free_blocks(free_blocks);
+    printf("\n");
+#endif
 }
 
 PGF_INTERNAL
 ref<PgfPGF> PgfDB::revision2pgf(PgfRevision revision)
 {
-    if (revision <= sizeof(*current_db->ms) || revision >= current_db->ms->top)
+    if (revision == 0 || ref<PgfPGF>::get_tag(revision) != PgfPGF::tag)
         throw pgf_error("Invalid revision");
 
-    mchunk *chunk = mem2chunk(ptr(current_db->ms,revision));
-    if (chunksize(chunk) < sizeof(PgfPGF))
-        throw pgf_error("Invalid revision");
-
-    ref<PgfPGF> pgf = revision;
-    if (chunksize(chunk) - request2size(sizeof(PgfPGF)+pgf->name.size+1) > MINSIZE)
+    ref<PgfPGF> pgf = ref<PgfPGF>::untagged(revision);
+    if (pgf.as_object() >= top)
         throw pgf_error("Invalid revision");
 
     return pgf;
 }
 
 PGF_INTERNAL
-bool PgfDB::is_persistant_revision(ref<PgfPGF> pgf)
-{
-    return (pgf->prev == 0 && pgf->next == 0 &&
-            current_db->ms->transient_revisions != pgf);
-}
-
-PGF_INTERNAL
-void PgfDB::link_transient_revision(ref<PgfPGF> pgf)
-{
-    pgf->next = current_db->ms->transient_revisions;
-    if (current_db->ms->transient_revisions != 0)
-        current_db->ms->transient_revisions->prev = pgf;
-    current_db->ms->transient_revisions = pgf;
-}
-
-PGF_INTERNAL
-void PgfDB::unlink_transient_revision(ref<PgfPGF> pgf)
-{
-    if (pgf->next != 0)
-        pgf->next->prev = pgf->prev;
-    if (pgf->prev != 0)
-        pgf->prev->next = pgf->next;
-    else if (current_db->ms->transient_revisions == pgf)
-        current_db->ms->transient_revisions = pgf->next;
-}
-
-PGF_INTERNAL
 ref<PgfConcr> PgfDB::revision2concr(PgfConcrRevision revision)
 {
-    if (revision <= sizeof(*current_db->ms) || revision >= current_db->ms->top)
+    if (revision == 0 || ref<PgfConcr>::get_tag(revision) != PgfConcr::tag)
         throw pgf_error("Invalid revision");
 
-    mchunk *chunk = mem2chunk(ptr(current_db->ms,revision));
-    if (chunksize(chunk) < sizeof(PgfConcr))
-        throw pgf_error("Invalid revision");
-
-    ref<PgfConcr> concr = revision;
-    if (chunksize(chunk) - request2size(sizeof(PgfConcr)+concr->name.size+1) > MINSIZE)
+    ref<PgfConcr> concr = ref<PgfConcr>::untagged(revision);
+    if (concr.as_object() >= top)
         throw pgf_error("Invalid revision");
 
     return concr;
 }
 
 PGF_INTERNAL
-bool PgfDB::is_persistant_revision(ref<PgfConcr> concr)
+void PgfDB::start_transaction()
 {
-    return (concr->prev == 0 && concr->next == 0 &&
-            current_db->ms->transient_concr_revisions != concr);
+    top = ms->top;
+    free_blocks = ms->free_blocks;
+    free_descriptors[0] = ms->free_descriptors;
+    free_descriptors[1] = 0;
 }
 
 PGF_INTERNAL
-void PgfDB::link_transient_revision(ref<PgfConcr> concr)
-{
-    concr->next = current_db->ms->transient_concr_revisions;
-    if (current_db->ms->transient_concr_revisions != 0)
-        current_db->ms->transient_concr_revisions->prev = concr;
-    current_db->ms->transient_concr_revisions = concr;
-}
-
-PGF_INTERNAL
-void PgfDB::unlink_transient_revision(ref<PgfConcr> concr)
-{
-    if (concr->next != 0)
-        concr->next->prev = concr->prev;
-    if (concr->prev != 0)
-        concr->prev->next = concr->next;
-    else if (current_db->ms->transient_concr_revisions == concr)
-        current_db->ms->transient_concr_revisions = concr->next;
-}
-
-PGF_INTERNAL
-void PgfDB::sync()
+void PgfDB::commit()
 {
     malloc_state *ms = current_db->ms;
-    size_t size =
-        ms->top + chunksize(ptr(ms,ms->top)) + sizeof(size_t);
+    object save_top = ms->top;
+    object save_free_blocks = ms->free_blocks;
+    object save_free_descriptors = ms->free_descriptors;
 
     int res;
 #ifndef _WIN32
 #ifndef MREMAP_MAYMOVE
     if (current_db->fd < 0) {
-      res = 0;
-    } else
+        ms->top = top;
+        ms->free_blocks = free_blocks;
+        ms->free_descriptors = free_descriptors[0];
+        free_descriptors[1] = 0;
+        ms->curr_txn_id++;
+        res = 0;
+    } else {
 #endif
-    res = msync((void *) ms, size, MS_SYNC | MS_INVALIDATE);
-    if (res != 0)
-        throw pgf_systemerror(errno);
+        res = msync((void *) base, mmap_size, MS_SYNC | MS_INVALIDATE);
+        if (res != 0)
+            throw pgf_systemerror(errno);
+
+        ms->top = top;
+        ms->free_blocks = free_blocks;
+        ms->free_descriptors = free_descriptors[0];
+        free_descriptors[1] = 0;
+        ms->curr_txn_id++;
+
+        res = msync((void *) ms, page_size, MS_SYNC | MS_INVALIDATE);
+        if (res != 0) {
+            ms->top = save_top;
+            ms->free_blocks = save_free_blocks;
+            ms->free_descriptors = save_free_descriptors;
+            ms->curr_txn_id--;
+            throw pgf_systemerror(errno);
+        }
+#ifndef MREMAP_MAYMOVE
+    }
+#endif
 #else
     if (current_db->fd > 0) {
-        if (!FlushViewOfFile(ms,size)) {
+        if (!FlushViewOfFile(base,mmap_size)) {
+            throw pgf_systemerror(last_error_to_errno());
+        }
+        ms->top = top;
+        ms->free_blocks = free_blocks;
+        ms->free_descriptors = free_descriptors[0];
+        free_descriptors[1] = 0;
+        ms->curr_txn_id++;
+        if (!FlushViewOfFile(ms,page_size)) {
+            ms->top = save_top;
+            ms->free_blocks = save_free_blocks;
+            ms->free_descriptors = save_free_descriptors;
+            ms->curr_txn_id--;
             throw pgf_systemerror(last_error_to_errno());
         }
     }
 #endif
+}
+
+PGF_INTERNAL
+void PgfDB::rollback()
+{
+    top = ms->top;
+    free_blocks = ms->free_blocks;
+    free_descriptors[0] = ms->free_descriptors;
+    free_descriptors[1] = 0;
 }
 
 #ifdef _WIN32
@@ -1671,8 +1219,8 @@ void PgfDB::lock(DB_scope_mode m)
 {
 #ifndef _WIN32
     int res =
-        (m == READER_SCOPE) ? pthread_rwlock_rdlock(rwlock)
-                            : pthread_rwlock_wrlock(rwlock);
+        (m == READER_SCOPE) ? pthread_rwlock_rdlock(&ms->rwlock)
+                            : pthread_rwlock_wrlock(&ms->rwlock);
     if (res != 0)
         throw pgf_systemerror(res);
 #else
@@ -1717,7 +1265,7 @@ void PgfDB::lock(DB_scope_mode m)
 void PgfDB::unlock()
 {
 #ifndef _WIN32
-    pthread_rwlock_unlock(rwlock);
+    pthread_rwlock_unlock(&ms->rwlock);
 #else
     while (true) {
         unsigned __int32 temp = ms->rwlock;
@@ -1756,43 +1304,47 @@ void PgfDB::unlock()
 
 void PgfDB::resize_map(size_t new_size)
 {
-	malloc_state* new_ms;
 #ifndef _WIN32
-// OSX do not implement mremap or MREMAP_MAYMOVE
+	unsigned char* new_base;
+
+// OSX does not implement mremap or MREMAP_MAYMOVE
 #ifndef MREMAP_MAYMOVE
 	if (fd >= 0) {
-		size_t old_file_size = ms->file_size;
-		if (munmap(ms, mmap_size) == -1)
+		if (munmap(base, mmap_size) == -1)
 			throw pgf_systemerror(errno);
-		ms = NULL;
-		if (old_file_size != new_size) {
-			if (ftruncate(fd, new_size) < 0)
+		base = NULL;
+		if (ms->file_size != new_size) {
+			if (ftruncate(fd, page_size+new_size) < 0)
 				throw pgf_systemerror(errno, filepath);
 		}
-		new_ms =
-			(malloc_state*) mmap(0, new_size, PROT_READ | PROT_WRITE, MAP_SHARED, fd, 0);
-		if (new_ms == MAP_FAILED)
+		new_base =
+			(unsigned char *) mmap(0, new_size, PROT_READ | PROT_WRITE, MAP_SHARED, fd, page_size);
+		if (new_base == MAP_FAILED)
 			throw pgf_systemerror(errno);
 	} else {
-		new_ms = (malloc_state*) ::realloc(ms, new_size);
-		if (new_ms == NULL)
+		new_base = ::realloc(base, new_size);
+		if (new_base == NULL)
 			throw pgf_systemerror(ENOMEM);
 	}
 #else
 	if (fd >= 0 && ms->file_size != new_size) {
-		if (ftruncate(fd, new_size) < 0)
+		if (ftruncate(fd, page_size+new_size) < 0)
 			throw pgf_systemerror(errno, filepath);
 	}
-	new_ms =
-		(malloc_state*) mremap(ms, mmap_size, new_size, MREMAP_MAYMOVE);
-	if (new_ms == MAP_FAILED)
+	new_base =
+		(unsigned char *) mremap(base, mmap_size, new_size, MREMAP_MAYMOVE);
+	if (new_base == MAP_FAILED)
 		throw pgf_systemerror(errno);
 #endif
+
+    base = new_base;
 #else
+    new_size += page_size;
 	if (fd >= 0) {
 		UnmapViewOfFile(ms);
 		CloseHandle(hMap);
 		ms = NULL;
+        base = NULL;
 
 		hMap = CreateFileMapping((HANDLE) _get_osfhandle(fd),
 								 NULL,
@@ -1814,10 +1366,12 @@ void PgfDB::resize_map(size_t new_size)
 		if (new_ms == NULL)
 			throw pgf_systemerror(ENOMEM);
 	}
-#endif
+    new_size -= page_size;
 
 	ms = new_ms;
-	current_base = (unsigned char*) ms;
+    base = ((unsigned char*) ms) + page_size;
+#endif
+    current_base = (unsigned char*) base;
 	mmap_size = new_size;
 	ms->file_size = new_size;
 }
@@ -1828,7 +1382,7 @@ DB_scope::DB_scope(PgfDB *db, DB_scope_mode m)
 
     save_db       = current_db;
     current_db    = db;
-    current_base  = (unsigned char*) current_db->ms;
+    current_base  = db->base;
 
     next_scope    = last_db_scope;
     last_db_scope = this;
@@ -1841,10 +1395,9 @@ DB_scope::~DB_scope()
     current_db->unlock();
 
     current_db    = save_db;
-    current_base  = current_db ? (unsigned char*) current_db->ms
+    current_base  = current_db ? current_db->base
                                : NULL;
 
     last_db_scope = next_scope;
-
 #pragma GCC diagnostic pop
 }

@@ -10,16 +10,12 @@
 PyObject *
 PGF_checkoutBranch(PGFObject *self, PyObject *args)
 {
-    const char *s = NULL;
-    Py_ssize_t size;
-    if (!PyArg_ParseTuple(args, "s#", &s, &size))
+    if (!PyArg_ParseTuple(args, ""))
         return NULL;
 
-    PgfText *name = CString_AsPgfText(s, size);
-
     PgfExn err;
-    PgfRevision rev = pgf_checkout_revision(self->db, name, &err);
-    FreePgfText(name);
+    PgfRevision rev = pgf_checkout_revision(self->db, &err);
+
     if (handleError(err) != PGF_EXN_NONE) {
         return NULL;
     }
@@ -38,21 +34,13 @@ PGF_checkoutBranch(PGFObject *self, PyObject *args)
 TransactionObject *
 PGF_newTransaction(PGFObject *self, PyObject *args)
 {
-    PgfText *name = NULL;
     const char *s = NULL;
     Py_ssize_t size;
     if (!PyArg_ParseTuple(args, "|s#", &s, &size))
         return NULL;
 
-    if (s != NULL) {
-        name = CString_AsPgfText(s, size);
-    }
-
     PgfExn err;
-    PgfRevision rev = pgf_clone_revision(self->db, self->revision, name, &err);
-    if (name != NULL) {
-        FreePgfText(name);
-    }
+    PgfRevision rev = pgf_start_transaction(self->db, self->revision, &err);
     if (handleError(err) != PGF_EXN_NONE) {
         return NULL;
     }
@@ -123,7 +111,7 @@ static PyObject *
 Transaction_commit(TransactionObject *self, PyObject *args)
 {
     PgfExn err;
-    pgf_commit_revision(self->pgf->db, self->revision, &err);
+    pgf_commit_transaction(self->pgf->db, self->revision, &err);
     if (handleError(err) != PGF_EXN_NONE) {
         return NULL;
     }

@@ -421,7 +421,7 @@ void PgfWriter::write_concrete(ref<PgfConcr> concr)
 void PgfWriter::write_pgf(ref<PgfPGF> pgf)
 {
     write_u16be(pgf->major_version);
-	write_u16be(pgf->minor_version);
+    write_u16be(pgf->minor_version);
 
     write_namespace<PgfFlag>(pgf->gflags, &PgfWriter::write_flag);
 

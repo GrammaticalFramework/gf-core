@@ -228,15 +228,15 @@ public:
  */
 
 PGF_INTERNAL_DECL
-void pgf_literal_free(PgfLiteral literal);
+void pgf_literal_release(PgfLiteral literal);
 
 PGF_INTERNAL_DECL
-void pgf_expr_free(PgfExpr expr);
+void pgf_expr_release(PgfExpr expr);
 
 PGF_INTERNAL_DECL
-void pgf_context_free(ref<Vector<PgfHypo>> hypos);
+void pgf_context_release(ref<Vector<PgfHypo>> hypos);
 
 PGF_INTERNAL_DECL
-void pgf_type_free(ref<PgfDTyp> dtyp);
+void pgf_type_release(ref<PgfDTyp> dtyp);
 
 #endif /* EXPR_H_ */

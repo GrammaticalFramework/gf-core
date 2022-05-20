@@ -23,6 +23,9 @@ PgfText* textdup(PgfText *t1);
 PGF_INTERNAL_DECL
 ref<PgfText> textdup_db(PgfText *t1);
 
+PGF_INTERNAL
+void text_db_release(ref<PgfText> text);
+
 PGF_API uint32_t
 pgf_utf8_decode(const uint8_t** src_inout);
 

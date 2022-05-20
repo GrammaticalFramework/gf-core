@@ -115,7 +115,11 @@ Namespace<V> PgfReader::read_namespace(ref<V> (PgfReader::*read_value)(), size_t
     ref<V> value = (this->*read_value)();
     Namespace<V> right = read_namespace(read_value, len-half-1);
 
-    return Node<ref<V>>::new_node(value, left, right);
+    Namespace<V> node = Node<ref<V>>::new_node(value);
+    node->sz   = 1+Node<ref<V>>::size(left)+Node<ref<V>>::size(right);
+    node->left  = left;
+    node->right = right;
+    return node;
 }
 
 template<class V>
@@ -166,7 +170,7 @@ PgfLiteral PgfReader::read_literal()
 	case PgfLiteralStr::tag: {
 		ref<PgfLiteralStr> lit_str =
             read_text<PgfLiteralStr>(&PgfLiteralStr::val);
-        lit = ref<PgfLiteralStr>::tagged(lit_str);
+        lit = lit_str.tagged();
 		break;
 	}
 	case PgfLiteralInt::tag: {
@@ -177,14 +181,14 @@ PgfLiteral PgfReader::read_literal()
         for (size_t i = 0; i < size; i++) {
             lit_int->val[i] = (uintmax_t) read_uint();
         }
-        lit = ref<PgfLiteralInt>::tagged(lit_int);
+        lit = lit_int.tagged();
 		break;
 	}
 	case PgfLiteralFlt::tag: {
 		ref<PgfLiteralFlt> lit_flt =
 			current_db->malloc<PgfLiteralFlt>();
 		lit_flt->val = read_double();
-        lit = ref<PgfLiteralFlt>::tagged(lit_flt);
+        lit = lit_flt.tagged();
 		break;
 	}
 	default:
@@ -196,7 +200,6 @@ PgfLiteral PgfReader::read_literal()
 ref<PgfFlag> PgfReader::read_flag()
 {
     ref<PgfFlag> flag = read_name(&PgfFlag::name);
-    flag->ref_count = 1;
     flag->value = read_literal();
     return flag;
 }
@@ -213,7 +216,7 @@ PgfExpr PgfReader::read_expr()
         eabs->bind_type = bind_type;
         PgfExpr body = read_expr();
         eabs->body = body;
-        expr = ref<PgfExprAbs>::tagged(eabs);
+        expr = eabs.tagged();
 		break;
 	}
 	case PgfExprApp::tag: {
@@ -222,31 +225,31 @@ PgfExpr PgfReader::read_expr()
         ref<PgfExprApp> eapp = PgfDB::malloc<PgfExprApp>();
         eapp->fun = fun;
         eapp->arg = arg;
-        expr = ref<PgfExprApp>::tagged(eapp);
+        expr = eapp.tagged();
 		break;
 	}
 	case PgfExprLit::tag: {
         PgfExpr lit = read_literal();
         ref<PgfExprLit> elit = PgfDB::malloc<PgfExprLit>();
         elit->lit = lit;
-        expr = ref<PgfExprLit>::tagged(elit);
+        expr = elit.tagged();
 		break;
 	}
 	case PgfExprMeta::tag: {
 		ref<PgfExprMeta> emeta = PgfDB::malloc<PgfExprMeta>();
 		emeta->id = read_int();
-		expr = ref<PgfExprMeta>::tagged(emeta);
+		expr = emeta.tagged();
 		break;
 	}
 	case PgfExprFun::tag: {
 		ref<PgfExprFun> efun = read_name(&PgfExprFun::name);
-        expr = ref<PgfExprFun>::tagged(efun);
+        expr = efun.tagged();
 		break;
 	}
 	case PgfExprVar::tag: {
         ref<PgfExprVar> evar = PgfDB::malloc<PgfExprVar>();
 		evar->var = read_int();
-        expr = ref<PgfExprVar>::tagged(evar);
+        expr = evar.tagged();
 		break;
 	}
 	case PgfExprTyped::tag: {
@@ -255,14 +258,14 @@ PgfExpr PgfReader::read_expr()
         ref<PgfExprTyped> etyped = PgfDB::malloc<PgfExprTyped>();
         etyped->expr = expr;
         etyped->type = type;
-        expr = ref<PgfExprTyped>::tagged(etyped);
+        expr = etyped.tagged();
         break;
 	}
 	case PgfExprImplArg::tag: {
         auto expr = read_expr();
         ref<PgfExprImplArg> eimpl = current_db->malloc<PgfExprImplArg>();
         eimpl->expr = expr;
-        expr = ref<PgfExprImplArg>::tagged(eimpl);
+        expr = eimpl.tagged();
 		break;
 	}
 	default:
@@ -297,7 +300,6 @@ ref<PgfAbsFun> PgfReader::read_absfun()
 {
     ref<PgfAbsFun> absfun =
         read_name<PgfAbsFun>(&PgfAbsFun::name);
-    absfun->ref_count = 1;
     ref<PgfExprFun> efun =
         ref<PgfExprFun>::from_ptr((PgfExprFun*) &absfun->name);
     absfun->type = read_type();
@@ -323,7 +325,6 @@ ref<PgfAbsFun> PgfReader::read_absfun()
 ref<PgfAbsCat> PgfReader::read_abscat()
 {
     ref<PgfAbsCat> abscat = read_name<PgfAbsCat>(&PgfAbsCat::name);
-    abscat->ref_count = 1;
     abscat->context = read_vector<PgfHypo>(&PgfReader::read_hypo);
     abscat->prob  = - log(read_double());
     return abscat;
@@ -345,7 +346,7 @@ void PgfReader::merge_abstract(ref<PgfAbstr> abstract)
 
     ref<PgfText> name = read_name();
     int cmp = textcmp(&(*abstract->name), &(*name));
-    PgfDB::free(name);
+    text_db_release(name);
     if (cmp != 0)
         throw pgf_error("The abstract syntax names doesn't match");
 
@@ -437,24 +438,24 @@ PgfSymbol PgfReader::read_symbol()
     switch (tag) {
 	case PgfSymbolCat::tag: {
         ref<PgfSymbolCat> sym_cat = read_symbol_idx<PgfSymbolCat>();
-        sym = ref<PgfSymbolCat>::tagged(sym_cat);
+        sym = sym_cat.tagged();
 		break;
     }
 	case PgfSymbolLit::tag: {
         ref<PgfSymbolLit> sym_lit = read_symbol_idx<PgfSymbolLit>();
-        sym = ref<PgfSymbolLit>::tagged(sym_lit);
+        sym = sym_lit.tagged();
 		break;
     }
 	case PgfSymbolVar::tag: {
         ref<PgfSymbolVar> sym_var = PgfDB::malloc<PgfSymbolVar>();
         sym_var->d = read_int();
         sym_var->r = read_int();
-        sym = ref<PgfSymbolVar>::tagged(sym_var);
+        sym = sym_var.tagged();
 		break;
     }
 	case PgfSymbolKS::tag: {
         ref<PgfSymbolKS> sym_ks = read_text(&PgfSymbolKS::token);
-        sym = ref<PgfSymbolKS>::tagged(sym_ks);
+        sym = sym_ks.tagged();
 		break;
     }
 	case PgfSymbolKP::tag: {
@@ -473,31 +474,31 @@ PgfSymbol PgfReader::read_symbol()
         auto default_form = read_seq();
         sym_kp->default_form = default_form;
 
-        sym = ref<PgfSymbolKP>::tagged(sym_kp);
+        sym = sym_kp.tagged();
 		break;
     }
 	case PgfSymbolBIND::tag: {
-        sym = ref<PgfSymbolBIND>::tagged(0);
+        sym = ref<PgfSymbolBIND>(0).tagged();
 		break;
     }
 	case PgfSymbolSOFTBIND::tag: {
-        sym = ref<PgfSymbolSOFTBIND>::tagged(0);
+        sym = ref<PgfSymbolSOFTBIND>(0).tagged();
 		break;
     }
 	case PgfSymbolNE::tag: {
-        sym = ref<PgfSymbolNE>::tagged(0);
+        sym = ref<PgfSymbolNE>(0).tagged();
 		break;
     }
 	case PgfSymbolSOFTSPACE::tag: {
-        sym = ref<PgfSymbolSOFTSPACE>::tagged(0);
+        sym = ref<PgfSymbolSOFTSPACE>(0).tagged();
 		break;
     }
 	case PgfSymbolCAPIT::tag: {
-        sym = ref<PgfSymbolCAPIT>::tagged(0);
+        sym = ref<PgfSymbolCAPIT>(0).tagged();
 		break;
     }
 	case PgfSymbolALLCAPIT::tag: {
-        sym = ref<PgfSymbolALLCAPIT>::tagged(0);
+        sym = ref<PgfSymbolALLCAPIT>(0).tagged();
 		break;
     }
 	default:
@@ -512,7 +513,6 @@ ref<PgfSequence> PgfReader::read_seq()
 	size_t n_syms = read_len();
 
 	ref<PgfSequence> seq = PgfDB::malloc<PgfSequence>(n_syms*sizeof(PgfSymbol));
-    seq->ref_count = 1;
     seq->syms.len  = n_syms;
 
     for (size_t i = 0; i < n_syms; i++) {
@@ -553,7 +553,11 @@ PgfPhrasetable PgfReader::read_phrasetable(size_t len)
     value.backrefs = 0;
     PgfPhrasetable right = read_phrasetable(len-half-1);
 
-    return Node<PgfPhrasetableEntry>::new_node(value, left, right);
+    PgfPhrasetable table = Node<PgfPhrasetableEntry>::new_node(value);
+    table->sz    = 1+Node<PgfPhrasetableEntry>::size(left)+Node<PgfPhrasetableEntry>::size(right);
+    table->left  = left;
+    table->right = right;
+    return table;
 }
 
 PgfPhrasetable PgfReader::read_phrasetable()
@@ -565,31 +569,28 @@ PgfPhrasetable PgfReader::read_phrasetable()
 ref<PgfConcrLincat> PgfReader::read_lincat()
 {
     ref<PgfConcrLincat> lincat = read_name(&PgfConcrLincat::name);
-    lincat->ref_count = 1;
     lincat->abscat = namespace_lookup(abstract->cats, &lincat->name);
     lincat->fields = read_vector(&PgfReader::read_text2);
     lincat->n_lindefs = read_len();
     lincat->args = read_vector(&PgfReader::read_parg);
     lincat->res  = read_vector(&PgfReader::read_presult2);
-    lincat->seqs = read_seq_ids(ref<PgfConcrLincat>::tagged(lincat));
+    lincat->seqs = read_seq_ids(lincat.tagged());
     return lincat;
 }
 
 ref<PgfConcrLin> PgfReader::read_lin()
 {
     ref<PgfConcrLin> lin = read_name(&PgfConcrLin::name);
-    lin->ref_count = 1;
     lin->absfun = namespace_lookup(abstract->funs, &lin->name);
     lin->args = read_vector(&PgfReader::read_parg);
     lin->res  = read_vector(&PgfReader::read_presult2);
-    lin->seqs = read_seq_ids(ref<PgfConcrLin>::tagged(lin));
+    lin->seqs = read_seq_ids(lin.tagged());
     return lin;
 }
 
 ref<PgfConcrPrintname> PgfReader::read_printname()
 {
     ref<PgfConcrPrintname> printname = read_name(&PgfConcrPrintname::name);
-    printname->ref_count = 1;
     printname->printname = read_text();
     return printname;
 }
@@ -597,8 +598,6 @@ ref<PgfConcrPrintname> PgfReader::read_printname()
 ref<PgfConcr> PgfReader::read_concrete()
 {
     concrete = read_name(&PgfConcr::name);
-    concrete->ref_count    = 1;
-    concrete->ref_count_ex = 0;
 	concrete->cflags = read_namespace<PgfFlag>(&PgfReader::read_flag);
 	concrete->phrasetable = read_phrasetable();
 	concrete->lincats = read_namespace<PgfConcrLincat>(&PgfReader::read_lincat);
@@ -611,9 +610,8 @@ ref<PgfConcr> PgfReader::read_concrete()
 
 ref<PgfPGF> PgfReader::read_pgf()
 {
-    ref<PgfPGF> pgf = PgfDB::malloc<PgfPGF>(master_size+1);
+    ref<PgfPGF> pgf = PgfDB::malloc<PgfPGF>();
 
-    pgf->ref_count = 1;
     pgf->major_version = read_u16be();
     pgf->minor_version = read_u16be();
 
@@ -627,12 +625,6 @@ ref<PgfPGF> PgfReader::read_pgf()
     read_abstract(ref<PgfAbstr>::from_ptr(&pgf->abstract));
 
     pgf->concretes = read_namespace<PgfConcr>(&PgfReader::read_concrete);
-
-    pgf->prev = 0;
-    pgf->next = 0;
-
-    pgf->name.size = master_size;
-    memcpy(&pgf->name.text, master_text, master_size+1);
 
     return pgf;
 }
@@ -654,9 +646,7 @@ void PgfReader::merge_pgf(ref<PgfPGF> pgf)
     size_t len = read_len();
     for (size_t i = 0; i < len; i++) {
         ref<PgfConcr> concr = PgfReader::read_concrete();
-        Namespace<PgfConcr> concrs =
+        pgf->concretes =
             namespace_insert(pgf->concretes, concr);
-        namespace_release(pgf->concretes);
-        pgf->concretes = concrs;
     }
 }

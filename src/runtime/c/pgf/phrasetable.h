@@ -2,14 +2,11 @@
 #define PHRASETABLE_H
 
 struct PgfSequence;
-struct PgfSequenceBackrefs;
+struct PgfSequenceBackref;
 
 struct PGF_INTERNAL_DECL PgfPhrasetableEntry {
     ref<PgfSequence> seq;
-    ref<PgfSequenceBackrefs> backrefs;
-
-    void add_ref();
-    void release_ref();
+    ref<Vector<PgfSequenceBackref>> backrefs;
 };
 
 class PgfSequenceItor;
@@ -52,9 +49,10 @@ private:
 
 PGF_INTERNAL_DECL
 PgfPhrasetable phrasetable_internalize(PgfPhrasetable table,
+                                       ref<PgfSequence> seq,
                                        object container,
                                        size_t seq_index,
-                                       ref<PgfSequence> *seq);
+                                       ref<PgfPhrasetableEntry> *pentry);
 
 PGF_INTERNAL_DECL
 ref<PgfSequence> phrasetable_relink(PgfPhrasetable table,

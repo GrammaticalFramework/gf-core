@@ -116,7 +116,7 @@ PgfExpr PgfDBUnmarshaller::eabs(PgfBindType bind_type, PgfText *name, PgfExpr bo
     eabs->bind_type = bind_type;
     eabs->body = m->match_expr(this, body);
     memcpy(&eabs->name, name, sizeof(PgfText)+name->size+1);
-    return ref<PgfExprAbs>::tagged(eabs);
+    return eabs.tagged();
 }
 
 PgfExpr PgfDBUnmarshaller::eapp(PgfExpr fun, PgfExpr arg)
@@ -124,21 +124,21 @@ PgfExpr PgfDBUnmarshaller::eapp(PgfExpr fun, PgfExpr arg)
     ref<PgfExprApp> eapp = PgfDB::malloc<PgfExprApp>();
     eapp->fun = m->match_expr(this, fun);
 	eapp->arg = m->match_expr(this, arg);
-    return ref<PgfExprApp>::tagged(eapp);
+    return eapp.tagged();
 }
 
 PgfExpr PgfDBUnmarshaller::elit(PgfLiteral lit)
 {
     ref<PgfExprLit> elit = PgfDB::malloc<PgfExprLit>();
     elit->lit = m->match_lit(this, lit);
-    return ref<PgfExprLit>::tagged(elit);
+    return elit.tagged();
 }
 
 PgfExpr PgfDBUnmarshaller::emeta(PgfMetaId meta_id)
 {
     ref<PgfExprMeta> emeta = PgfDB::malloc<PgfExprMeta>();
 	emeta->id = meta_id;
-	return ref<PgfExprMeta>::tagged(emeta);
+	return emeta.tagged();
 }
 
 PgfExpr PgfDBUnmarshaller::efun(PgfText *name)
@@ -146,14 +146,14 @@ PgfExpr PgfDBUnmarshaller::efun(PgfText *name)
     ref<PgfExprFun> efun =
         PgfDB::malloc<PgfExprFun>(name->size+1);
     memcpy(&efun->name, name, sizeof(PgfText)+name->size+1);
-    return ref<PgfExprFun>::tagged(efun);
+    return efun.tagged();
 }
 
 PgfExpr PgfDBUnmarshaller::evar(int index)
 {
     ref<PgfExprVar> evar = PgfDB::malloc<PgfExprVar>();
     evar->var = index;
-    return ref<PgfExprVar>::tagged(evar);
+    return evar.tagged();
 }
 
 PgfExpr PgfDBUnmarshaller::etyped(PgfExpr expr, PgfType ty)
@@ -161,14 +161,14 @@ PgfExpr PgfDBUnmarshaller::etyped(PgfExpr expr, PgfType ty)
     ref<PgfExprTyped> etyped = PgfDB::malloc<PgfExprTyped>();
     etyped->expr = m->match_expr(this, expr);
     etyped->type = m->match_type(this, ty);
-    return ref<PgfExprTyped>::tagged(etyped);
+    return etyped.tagged();
 }
 
 PgfExpr PgfDBUnmarshaller::eimplarg(PgfExpr expr)
 {
     ref<PgfExprImplArg> eimpl = current_db->malloc<PgfExprImplArg>();
 	eimpl->expr = m->match_expr(this, expr);
-    return ref<PgfExprImplArg>::tagged(eimpl);
+    return eimpl.tagged();
 }
 
 PgfLiteral PgfDBUnmarshaller::lint(size_t size, uintmax_t *val)
@@ -177,14 +177,14 @@ PgfLiteral PgfDBUnmarshaller::lint(size_t size, uintmax_t *val)
         PgfDB::malloc<PgfLiteralInt>(size*sizeof(uintmax_t));
     lit_int->size = size;
     memcpy(&lit_int->val, val, size*sizeof(uintmax_t));
-    return ref<PgfLiteralInt>::tagged(lit_int);
+    return lit_int.tagged();
 }
 
 PgfLiteral PgfDBUnmarshaller::lflt(double val)
 {
     ref<PgfLiteralFlt> lit_flt = PgfDB::malloc<PgfLiteralFlt>();
     lit_flt->val = val;
-    return ref<PgfLiteralFlt>::tagged(lit_flt);
+    return lit_flt.tagged();
 }
 
 PgfLiteral PgfDBUnmarshaller::lstr(PgfText *val)
@@ -192,7 +192,7 @@ PgfLiteral PgfDBUnmarshaller::lstr(PgfText *val)
     ref<PgfLiteralStr> lit_str =
         PgfDB::malloc<PgfLiteralStr>(val->size+1);
     memcpy(&lit_str->val, val, sizeof(PgfText)+val->size+1);
-    return ref<PgfLiteralStr>::tagged(lit_str);
+    return lit_str.tagged();
 }
 
 PgfType PgfDBUnmarshaller::dtyp(size_t n_hypos, PgfTypeHypo *hypos,
@@ -217,9 +217,8 @@ PgfType PgfDBUnmarshaller::dtyp(size_t n_hypos, PgfTypeHypo *hypos,
     return ty.as_object();
 }
 
-void PgfDBUnmarshaller::free_ref(object x)
+void PgfDBUnmarshaller::free_ref(object expr)
 {
-    PgfDB::free(ref<void>::untagged(x));
 }
 
 PgfLiteral PgfInternalMarshaller::match_lit(PgfUnmarshaller *u, PgfLiteral l)
@@ -1170,11 +1169,12 @@ void PgfExprProbEstimator::free_ref(object x)
 }
 
 PGF_INTERNAL
-void pgf_literal_free(PgfLiteral literal)
+void pgf_literal_release(PgfLiteral literal)
 {
     switch (ref<PgfLiteral>::get_tag(literal)) {
     case PgfLiteralInt::tag: {
-        PgfDB::free(ref<PgfLiteralInt>::untagged(literal));
+        auto lint = ref<PgfLiteralInt>::untagged(literal);
+        PgfDB::free(lint, lint->size*sizeof(uintmax_t));
         break;
     }
     case PgfLiteralFlt::tag: {
@@ -1182,7 +1182,8 @@ void pgf_literal_free(PgfLiteral literal)
         break;
     }
     case PgfLiteralStr::tag: {
-        PgfDB::free(ref<PgfLiteralStr>::untagged(literal));
+        auto lstr = ref<PgfLiteralStr>::untagged(literal);
+        PgfDB::free(lstr, lstr->val.size+1);
         break;
     }
 	default:
@@ -1191,25 +1192,25 @@ void pgf_literal_free(PgfLiteral literal)
 }
 
 PGF_INTERNAL
-void pgf_expr_free(PgfExpr expr)
+void pgf_expr_release(PgfExpr expr)
 {
     switch (ref<PgfExpr>::get_tag(expr)) {
     case PgfExprAbs::tag: {
         auto eabs = ref<PgfExprAbs>::untagged(expr);
-        pgf_expr_free(eabs->body);
-        PgfDB::free(eabs);
+        pgf_expr_release(eabs->body);
+        PgfDB::free(eabs, eabs->name.size+1);
         break;
     }
     case PgfExprApp::tag: {
         auto eapp = ref<PgfExprApp>::untagged(expr);
-        pgf_expr_free(eapp->fun);
-        pgf_expr_free(eapp->arg);
+        pgf_expr_release(eapp->fun);
+        pgf_expr_release(eapp->arg);
         PgfDB::free(eapp);
         break;
     }
     case PgfExprLit::tag: {
         auto elit = ref<PgfExprLit>::untagged(expr);
-        pgf_literal_free(elit->lit);
+        pgf_literal_release(elit->lit);
         PgfDB::free(elit);
         break;
     }
@@ -1218,7 +1219,8 @@ void pgf_expr_free(PgfExpr expr)
         break;
     }
 	case PgfExprFun::tag: {
-        PgfDB::free(ref<PgfExprFun>::untagged(expr));
+        auto efun = ref<PgfExprFun>::untagged(expr);
+        PgfDB::free(efun, efun->name.size+1);
         break;
     }
 	case PgfExprVar::tag: {
@@ -1227,14 +1229,14 @@ void pgf_expr_free(PgfExpr expr)
 	}
 	case PgfExprTyped::tag: {
         auto etyped = ref<PgfExprTyped>::untagged(expr);
-        pgf_expr_free(etyped->expr);
-        pgf_type_free(etyped->type);
+        pgf_expr_release(etyped->expr);
+        pgf_type_release(etyped->type);
         PgfDB::free(etyped);
         break;
 	}
 	case PgfExprImplArg::tag: {
         auto eimpl = ref<PgfExprImplArg>::untagged(expr);
-        pgf_expr_free(eimpl->expr);
+        pgf_expr_release(eimpl->expr);
         PgfDB::free(eimpl);
         break;
 	}
@@ -1244,25 +1246,25 @@ void pgf_expr_free(PgfExpr expr)
 }
 
 PGF_INTERNAL
-void pgf_context_free(ref<Vector<PgfHypo>> hypos)
+void pgf_context_release(ref<Vector<PgfHypo>> hypos)
 {
     for (size_t i = 0; i < hypos->len; i++) {
-        PgfDB::free(vector_elem(hypos, i)->cid);
-        pgf_type_free(vector_elem(hypos, i)->type);
+        text_db_release(vector_elem(hypos, i)->cid);
+        pgf_type_release(vector_elem(hypos, i)->type);
     }
 
-    PgfDB::free(hypos);
+    Vector<PgfHypo>::release(hypos);
 }
 
 PGF_INTERNAL
-void pgf_type_free(ref<PgfDTyp> dtyp)
+void pgf_type_release(ref<PgfDTyp> dtyp)
 {
-    pgf_context_free(dtyp->hypos);
+    pgf_context_release(dtyp->hypos);
 
     for (size_t i = 0; i < dtyp->exprs->len; i++) {
-        pgf_expr_free(*vector_elem(dtyp->exprs, i));
+        pgf_expr_release(*vector_elem(dtyp->exprs, i));
     }
-    PgfDB::free(dtyp->exprs);
+    Vector<PgfExpr>::release(dtyp->exprs);
 
-    PgfDB::free(dtyp);
+    PgfDB::free(dtyp, dtyp->name.size+1);
 }

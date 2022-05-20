@@ -462,17 +462,18 @@ void pgf_check_type(PgfDB *db, PgfRevision revision,
                     PgfExn *err);
 
 PGF_API_DECL
-PgfRevision pgf_clone_revision(PgfDB *db, PgfRevision revision,
-                               PgfText *name,
-                               PgfExn *err);
-
-PGF_API_DECL
-void pgf_commit_revision(PgfDB *db, PgfRevision revision,
-                         PgfExn *err);
-
-PGF_API_DECL
-PgfRevision pgf_checkout_revision(PgfDB *db, PgfText *name,
+PgfRevision pgf_start_transaction(PgfDB *db, PgfRevision revision,
                                   PgfExn *err);
+
+PGF_API_DECL
+void pgf_commit_transaction(PgfDB *db, PgfRevision revision,
+                            PgfExn *err);
+
+PGF_API_DECL
+void pgf_rollback_transaction(PgfDB *db, PgfRevision revision);
+
+PGF_API_DECL
+PgfRevision pgf_checkout_revision(PgfDB *db, PgfExn *err);
 
 PGF_API_DECL
 void pgf_create_function(PgfDB *db, PgfRevision revision,

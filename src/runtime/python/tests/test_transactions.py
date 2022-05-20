@@ -28,30 +28,12 @@ def gr3(gr1):
     yield gr
 
 @pytest.fixture(scope="function")
-def gr4(gr2):
-    gr = gr2
-    gr.checkoutBranch("master")
-    yield gr
-
-@pytest.fixture(scope="function")
-def gr5(gr3):
-    gr = gr3
-    gr.checkoutBranch("bar_branch")
-    yield gr
-
-@pytest.fixture(scope="function")
 def gr6(gr1):
     gr = gr1
     with gr.newTransaction() as t:
         t.dropFunction("ind")
         t.dropCategory("S")
     yield gr
-
-# general
-
-def test_checkout_non_existant(gr1):
-    with pytest.raises(KeyError):
-        gr1.checkoutBranch("abc")
 
 # gr1
 
@@ -117,14 +99,6 @@ def test_branched_category_context(gr3):
 
 def test_branched_function_type(gr3):
     assert gr3.functionType("bar") == ty
-
-# gr4, 5
-
-def test_branched_functions(gr4):
-    assert gr4.functions == ["c", "foo", "ind", "s", "z"]
-
-def test_branched_functions(gr5):
-    assert gr5.functions == ["bar", 'c', 'floatLit', 'ind', 'intLit', 'nat', 's', 'stringLit', 'z']
 
 # gr6
 

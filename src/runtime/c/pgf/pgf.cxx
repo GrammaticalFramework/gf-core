@@ -36,9 +36,6 @@ pgf_exn_clear(PgfExn* err)
         err->msg  = strdup(e.what()); \
     }
 
-PGF_INTERNAL size_t master_size = 6;
-PGF_INTERNAL char master_text[] = {'m','a','s','t','e','r',0};
-
 PGF_API
 PgfDB *pgf_read_pgf(const char* fpath,
                     PgfRevision *revision,
@@ -57,18 +54,21 @@ PgfDB *pgf_read_pgf(const char* fpath,
         {
             DB_scope scope(db, WRITER_SCOPE);
 
+            db->start_transaction();
+
             PgfReader rdr(in);
             ref<PgfPGF> pgf = rdr.read_pgf();
 
-            PgfDB::set_revision(pgf);
-            *revision = pgf.as_object();
+            db->set_active_revision(pgf.as_object());
+            db->register_revision(*revision = pgf.tagged());
+
+            db->commit();
         }
 
         db->ref_count++;
         return db;
     } PGF_API_END
 
-end:
     if (in != NULL)
         fclose(in);
 
@@ -103,13 +103,15 @@ PgfDB *pgf_boot_ngf(const char* pgf_path, const char* ngf_path,
         {
             DB_scope scope(db, WRITER_SCOPE);
 
+            db->start_transaction();
+
             PgfReader rdr(in);
             ref<PgfPGF> pgf = rdr.read_pgf();
 
-            PgfDB::set_revision(pgf);
-            *revision = pgf.as_object();
+            db->set_active_revision(pgf.as_object());
+            db->register_revision(*revision = pgf.tagged());
 
-            PgfDB::sync();
+            db->commit();
         }
 
         db->ref_count++;
@@ -137,18 +139,13 @@ PgfDB *pgf_read_ngf(const char *fpath,
     PGF_API_BEGIN {
         db = new PgfDB(fpath, O_RDWR, 0);
 
-        PgfText *master = (PgfText *)alloca(sizeof(PgfText)+master_size+1);
-        master->size = master_size;
-        memcpy(&master->text, master_text, master_size+1);
-
         {
             DB_scope scope(db, WRITER_SCOPE);
 
 			db->cleanup_revisions();
 
-            ref<PgfPGF> pgf = PgfDB::get_revision(master);
-            Node<ref<PgfPGF>>::add_value_ref(pgf);
-            *revision = pgf.as_object();
+            ref<PgfPGF> pgf = db->get_active_revision();
+            db->register_revision(*revision = pgf.tagged());
         }
 
         db->ref_count++;
@@ -181,8 +178,9 @@ PgfDB *pgf_new_ngf(PgfText *abstract_name,
         {
             DB_scope scope(db, WRITER_SCOPE);
 
-            ref<PgfPGF> pgf = PgfDB::malloc<PgfPGF>(master_size+1);
-            pgf->ref_count = 1;
+            db->start_transaction();
+
+            ref<PgfPGF> pgf = PgfDB::malloc<PgfPGF>();
             pgf->major_version = PGF_MAJOR_VERSION;
             pgf->minor_version = PGF_MINOR_VERSION;
             pgf->gflags = 0;
@@ -192,14 +190,10 @@ PgfDB *pgf_new_ngf(PgfText *abstract_name,
             pgf->abstract.funs = 0;
             pgf->abstract.cats = 0;
             pgf->concretes = 0;
-            pgf->prev = 0;
-            pgf->next = 0;
-            pgf->name.size = master_size;
-            memcpy(&pgf->name.text, master_text, master_size+1);
-            PgfDB::set_revision(pgf);
-            *revision = pgf.as_object();
+            db->set_active_revision(pgf.as_object());
+            db->register_revision(*revision = pgf.tagged());
 
-            PgfDB::sync();
+            db->commit();
         }
 
         db->ref_count++;
@@ -230,14 +224,13 @@ void pgf_merge_pgf(PgfDB *db, PgfRevision revision,
 
         {
             DB_scope scope(db, WRITER_SCOPE);
-            ref<PgfPGF> pgf = PgfDB::revision2pgf(revision);
+            ref<PgfPGF> pgf = db->revision2pgf(revision);
 
             PgfReader rdr(in);
             rdr.merge_pgf(pgf);
         }
     } PGF_API_END
 
-end:
     if (in != NULL)
         fclose(in);
 }
@@ -257,7 +250,7 @@ void pgf_write_pgf(const char* fpath,
 
         {
             DB_scope scope(db, READER_SCOPE);
-            ref<PgfPGF> pgf = PgfDB::revision2pgf(revision);
+            ref<PgfPGF> pgf = db->revision2pgf(revision);
 
             PgfWriter wtr(out);
             wtr.write_pgf(pgf);
@@ -273,22 +266,8 @@ PGF_API_DECL
 void pgf_free_revision(PgfDB *db, PgfRevision revision)
 {
     try {
-        DB_scope scope(db, READER_SCOPE);
-        ref<PgfPGF> pgf = PgfDB::revision2pgf(revision);
-
-        if (pgf->ref_count == 1 && PgfDB::is_persistant_revision(pgf)) {
-            // Someone is trying to release the last reference count
-            // to a persistant revision. Most likely this is an
-            // error in the reference counting for one of the clients.
-            // The best that we can do is to ignore the request.
-            return;
-        }
-
-        if (!(--pgf->ref_count)) {
-            PgfDB::unlink_transient_revision(pgf);
-            PgfPGF::release(pgf);
-        }
-
+        ref<PgfPGF> pgf = db->revision2pgf(revision);
+        db->unregister_revision(pgf.tagged());
         db->ref_count--;
     } catch (std::runtime_error& e) {
         // silently ignore and hope for the best
@@ -303,16 +282,8 @@ void pgf_free_concr_revision(PgfDB *db, PgfConcrRevision revision)
 {
     try {
         DB_scope scope(db, READER_SCOPE);
-        ref<PgfConcr> concr = PgfDB::revision2concr(revision);
-
-        if (!(--concr->ref_count_ex)) {
-            PgfDB::unlink_transient_revision(concr);
-        }
-
-        if (!(--concr->ref_count)) {
-            PgfConcr::release(concr);
-        }
-
+        ref<PgfConcr> concr = db->revision2concr(revision);
+        db->unregister_revision(concr.tagged());
         db->ref_count--;
     } catch (std::runtime_error& e) {
         // silently ignore and hope for the best
@@ -328,7 +299,7 @@ PgfText *pgf_abstract_name(PgfDB *db, PgfRevision revision,
 {
     PGF_API_BEGIN {
         DB_scope scope(db, READER_SCOPE);
-        ref<PgfPGF> pgf = PgfDB::revision2pgf(revision);
+        ref<PgfPGF> pgf = db->revision2pgf(revision);
 
         return textdup(&(*pgf->abstract.name));
     } PGF_API_END
@@ -342,7 +313,7 @@ void pgf_iter_categories(PgfDB *db, PgfRevision revision,
 {
     PGF_API_BEGIN {
         DB_scope scope(db, READER_SCOPE);
-        ref<PgfPGF> pgf = PgfDB::revision2pgf(revision);
+        ref<PgfPGF> pgf = db->revision2pgf(revision);
 
         namespace_iter(pgf->abstract.cats, itor, err);
     } PGF_API_END
@@ -359,10 +330,9 @@ void iter_concretes_helper(PgfItor *itor, PgfText *key, object value, PgfExn *er
 {
     PgfItorConcrHelper* helper = (PgfItorConcrHelper*) itor;
     ref<PgfConcr> concr = value;
-    concr->ref_count++;
-    concr->ref_count_ex++;
+    helper->db->register_revision(concr.tagged());
     helper->db->ref_count++;
-    helper->itor->fn(helper->itor, key, value, err);
+    helper->itor->fn(helper->itor, key, concr.tagged(), err);
 }
 
 PGF_API
@@ -371,7 +341,7 @@ void pgf_iter_concretes(PgfDB *db, PgfRevision revision,
 {
     PGF_API_BEGIN {
         DB_scope scope(db, READER_SCOPE);
-        ref<PgfPGF> pgf = PgfDB::revision2pgf(revision);
+        ref<PgfPGF> pgf = db->revision2pgf(revision);
 
         PgfItorConcrHelper helper;
         helper.fn   = iter_concretes_helper;
@@ -389,7 +359,7 @@ PgfType pgf_start_cat(PgfDB *db, PgfRevision revision,
 {
     PGF_API_BEGIN {
         DB_scope scope(db, READER_SCOPE);
-        ref<PgfPGF> pgf = PgfDB::revision2pgf(revision);
+        ref<PgfPGF> pgf = db->revision2pgf(revision);
 
         PgfText *startcat = (PgfText *)
             alloca(sizeof(PgfText)+9);
@@ -430,7 +400,7 @@ PgfTypeHypo *pgf_category_context(PgfDB *db, PgfRevision revision,
 {
     PGF_API_BEGIN {
         DB_scope scope(db, READER_SCOPE);
-        ref<PgfPGF> pgf = PgfDB::revision2pgf(revision);
+        ref<PgfPGF> pgf = db->revision2pgf(revision);
 
         ref<PgfAbsCat> abscat =
             namespace_lookup(pgf->abstract.cats, catname);
@@ -464,7 +434,7 @@ prob_t pgf_category_prob(PgfDB *db, PgfRevision revision,
 {
     PGF_API_BEGIN {
         DB_scope scope(db, READER_SCOPE);
-        ref<PgfPGF> pgf = PgfDB::revision2pgf(revision);
+        ref<PgfPGF> pgf = db->revision2pgf(revision);
 
         ref<PgfAbsCat> abscat =
             namespace_lookup(pgf->abstract.cats, catname);
@@ -484,7 +454,7 @@ void pgf_iter_functions(PgfDB *db, PgfRevision revision,
 {
     PGF_API_BEGIN {
         DB_scope scope(db, READER_SCOPE);
-        ref<PgfPGF> pgf = PgfDB::revision2pgf(revision);
+        ref<PgfPGF> pgf = db->revision2pgf(revision);
 
         pgf_exn_clear(err);
         namespace_iter(pgf->abstract.funs, itor, err);
@@ -512,7 +482,7 @@ void pgf_iter_functions_by_cat(PgfDB *db, PgfRevision revision,
 {
     PGF_API_BEGIN {
         DB_scope scope(db, READER_SCOPE);
-        ref<PgfPGF> pgf = PgfDB::revision2pgf(revision);
+        ref<PgfPGF> pgf = db->revision2pgf(revision);
 
         PgfItorCatHelper helper;
         helper.fn   = iter_by_cat_helper;
@@ -530,7 +500,7 @@ PgfType pgf_function_type(PgfDB *db, PgfRevision revision,
 {
     PGF_API_BEGIN {
         DB_scope scope(db, READER_SCOPE);
-        ref<PgfPGF> pgf = PgfDB::revision2pgf(revision);
+        ref<PgfPGF> pgf = db->revision2pgf(revision);
 
         ref<PgfAbsFun> absfun =
             namespace_lookup(pgf->abstract.funs, funname);
@@ -550,7 +520,7 @@ int pgf_function_is_constructor(PgfDB *db, PgfRevision revision,
 {
     PGF_API_BEGIN {
         DB_scope scope(db, READER_SCOPE);
-        ref<PgfPGF> pgf = PgfDB::revision2pgf(revision);
+        ref<PgfPGF> pgf = db->revision2pgf(revision);
 
         ref<PgfAbsFun> absfun =
             namespace_lookup(pgf->abstract.funs, funname);
@@ -570,7 +540,7 @@ prob_t pgf_function_prob(PgfDB *db, PgfRevision revision,
 {
     PGF_API_BEGIN {
         DB_scope scope(db, READER_SCOPE);
-        ref<PgfPGF> pgf = PgfDB::revision2pgf(revision);
+        ref<PgfPGF> pgf = db->revision2pgf(revision);
 
         ref<PgfAbsFun> absfun =
             namespace_lookup(pgf->abstract.funs, funname);
@@ -589,7 +559,7 @@ PgfText *pgf_concrete_name(PgfDB *db, PgfConcrRevision revision,
 {
     PGF_API_BEGIN {
         DB_scope scope(db, READER_SCOPE);
-        ref<PgfConcr> concr = PgfDB::revision2concr(revision);
+        ref<PgfConcr> concr = db->revision2concr(revision);
 
         return textdup(&concr->name);
     } PGF_API_END
@@ -604,7 +574,7 @@ PgfText *pgf_concrete_language_code(PgfDB *db, PgfConcrRevision revision,
     PGF_API_BEGIN {
         DB_scope scope(db, READER_SCOPE);
 
-        ref<PgfConcr> concr = PgfDB::revision2concr(revision);
+        ref<PgfConcr> concr = db->revision2concr(revision);
 
         size_t size = strlen("language");
         PgfText *language = (PgfText *) alloca(sizeof(PgfText)+size+1);
@@ -670,7 +640,7 @@ prob_t pgf_expr_prob(PgfDB *db, PgfRevision revision,
 {
     PGF_API_BEGIN {
         DB_scope scope(db, READER_SCOPE);
-        ref<PgfPGF> pgf = PgfDB::revision2pgf(revision);
+        ref<PgfPGF> pgf = db->revision2pgf(revision);
 
         PgfExprProbEstimator estimator(pgf, m);
         m->match_expr(&estimator, e);
@@ -763,7 +733,7 @@ PgfText *pgf_print_start_cat_internal(PgfDB *db, PgfRevision revision, PgfExn *e
 {
     PGF_API_BEGIN {
         DB_scope scope(db, READER_SCOPE);
-        ref<PgfPGF> pgf = PgfDB::revision2pgf(revision);
+        ref<PgfPGF> pgf = db->revision2pgf(revision);
 
         PgfText *startcat = (PgfText *)
             alloca(sizeof(PgfText)+9);
@@ -808,7 +778,7 @@ void pgf_iter_lincats(PgfDB *db, PgfConcrRevision cnc_revision,
 {
     PGF_API_BEGIN {
         DB_scope scope(db, READER_SCOPE);
-        ref<PgfConcr> concr = PgfDB::revision2concr(cnc_revision);
+        ref<PgfConcr> concr = db->revision2concr(cnc_revision);
 
         namespace_iter(concr->lincats, itor, err);
     } PGF_API_END
@@ -820,7 +790,7 @@ void pgf_iter_lins(PgfDB *db, PgfConcrRevision cnc_revision,
 {
     PGF_API_BEGIN {
         DB_scope scope(db, READER_SCOPE);
-        ref<PgfConcr> concr = PgfDB::revision2concr(cnc_revision);
+        ref<PgfConcr> concr = db->revision2concr(cnc_revision);
 
         namespace_iter(concr->lins, itor, err);
     } PGF_API_END
@@ -834,7 +804,7 @@ PgfPhrasetableIds *pgf_iter_sequences(PgfDB *db, PgfConcrRevision cnc_revision,
 {
     PGF_API_BEGIN {
         DB_scope scope(db, READER_SCOPE);
-        ref<PgfConcr> concr = PgfDB::revision2concr(cnc_revision);
+        ref<PgfConcr> concr = db->revision2concr(cnc_revision);
 
         PgfPhrasetableIds *seq_ids = new PgfPhrasetableIds();
         seq_ids->start(concr);
@@ -1045,7 +1015,7 @@ void pgf_check_expr(PgfDB *db, PgfRevision revision,
     PGF_API_BEGIN {
         DB_scope scope(db, READER_SCOPE);
 
-        ref<PgfPGF> pgf = PgfDB::revision2pgf(revision);
+        ref<PgfPGF> pgf = db->revision2pgf(revision);
 
         PgfTypechecker checker(pgf,u);
         *pe = m->match_expr(&checker, *pe);
@@ -1061,7 +1031,7 @@ PgfType pgf_infer_expr(PgfDB *db, PgfRevision revision,
     PGF_API_BEGIN {
         DB_scope scope(db, READER_SCOPE);
 
-        ref<PgfPGF> pgf = PgfDB::revision2pgf(revision);
+        ref<PgfPGF> pgf = db->revision2pgf(revision);
 
         PgfTypechecker checker(pgf,u);
         *pe = m->match_expr(&checker, *pe);
@@ -1083,7 +1053,7 @@ void pgf_check_type(PgfDB *db, PgfRevision revision,
     PGF_API_BEGIN {
         DB_scope scope(db, READER_SCOPE);
 
-        ref<PgfPGF> pgf = PgfDB::revision2pgf(revision);
+        ref<PgfPGF> pgf = db->revision2pgf(revision);
 
         PgfTypechecker checker(pgf,u);
         *pty = m->match_type(&checker, *pty);
@@ -1091,91 +1061,81 @@ void pgf_check_type(PgfDB *db, PgfRevision revision,
 }
 
 PGF_API
-PgfRevision pgf_clone_revision(PgfDB *db, PgfRevision revision,
-                               PgfText *name,
-                               PgfExn *err)
+PgfRevision pgf_start_transaction(PgfDB *db, PgfRevision revision,
+                                  PgfExn *err)
 {
     PGF_API_BEGIN {
         DB_scope scope(db, WRITER_SCOPE);
 
-        ref<PgfPGF> pgf = PgfDB::revision2pgf(revision);
+        ref<PgfPGF> pgf = db->revision2pgf(revision);
 
-        size_t name_size =
-            (name == NULL) ? pgf->name.size : name->size;
+        db->start_transaction();
 
-        ref<PgfPGF> new_pgf = PgfDB::malloc<PgfPGF>(name_size+1);
-        new_pgf->ref_count = 1;
+        ref<PgfPGF> new_pgf = PgfDB::malloc<PgfPGF>();
         new_pgf->major_version = pgf->major_version;
         new_pgf->minor_version = pgf->minor_version;
-
         new_pgf->gflags = pgf->gflags;
-        if (pgf->gflags != 0)
-            Node<ref<PgfFlag>>::add_node_ref(pgf->gflags);
-
         new_pgf->abstract.name = textdup_db(&(*pgf->abstract.name));
-
         new_pgf->abstract.aflags = pgf->abstract.aflags;
-        if (pgf->abstract.aflags != 0)
-            Node<ref<PgfFlag>>::add_node_ref(pgf->abstract.aflags);
-
         new_pgf->abstract.funs = pgf->abstract.funs;
-        if (pgf->abstract.funs != 0)
-            Node<ref<PgfAbsFun>>::add_node_ref(pgf->abstract.funs);
-
         new_pgf->abstract.cats = pgf->abstract.cats;
-        if (pgf->abstract.cats != 0)
-            Node<ref<PgfAbsCat>>::add_node_ref(pgf->abstract.cats);
-
         new_pgf->concretes = pgf->concretes;
-        if (pgf->concretes != 0)
-            Node<ref<PgfConcr>>::add_node_ref(pgf->concretes);
 
-        new_pgf->prev = 0;
-        new_pgf->next = 0;
-        PgfDB::link_transient_revision(new_pgf);
-
-        memcpy(&new_pgf->name, ((name == NULL) ? &pgf->name : name),
-                   sizeof(PgfText)+name_size+1);
+        db->register_revision(new_pgf.tagged());
 
         db->ref_count++;
-        return new_pgf.as_object();
+        return new_pgf.tagged();
     } PGF_API_END
 
     return 0;
 }
 
 PGF_API
-void pgf_commit_revision(PgfDB *db, PgfRevision revision,
-                         PgfExn *err)
+void pgf_commit_transaction(PgfDB *db, PgfRevision revision,
+                            PgfExn *err)
 {
     PGF_API_BEGIN {
         DB_scope scope(db, WRITER_SCOPE);
 
-        ref<PgfPGF> new_pgf = PgfDB::revision2pgf(revision);
-        ref<PgfPGF> old_pgf = PgfDB::get_revision(&new_pgf->name);
+        ref<PgfPGF> new_pgf = db->revision2pgf(revision);
+        ref<PgfPGF> old_pgf = db->get_active_revision();
 
-        PgfDB::unlink_transient_revision(new_pgf);
-        PgfDB::set_revision(new_pgf);
+        db->set_active_revision(new_pgf.as_object());
 
         if (old_pgf != 0)
-            PgfDB::link_transient_revision(old_pgf);
+            PgfPGF::release(old_pgf);
 
-        PgfDB::sync();
+        db->commit();
     } PGF_API_END
 }
 
 PGF_API
-PgfRevision pgf_checkout_revision(PgfDB *db, PgfText *name,
-                                  PgfExn *err)
+void pgf_rollback_transaction(PgfDB *db, PgfRevision revision)
+{
+    try {
+        ref<PgfPGF> pgf = db->revision2pgf(revision);
+        db->unregister_revision(pgf.tagged());
+        db->rollback();
+        db->ref_count--;
+    } catch (std::runtime_error& e) {
+        // silently ignore and hope for the best
+    }
+
+    if (!db->ref_count)
+        delete db;
+}
+
+PGF_API
+PgfRevision pgf_checkout_revision(PgfDB *db, PgfExn *err)
 {
     PGF_API_BEGIN {
         DB_scope scope(db, WRITER_SCOPE);
-        ref<PgfPGF> pgf = PgfDB::get_revision(name);
+        ref<PgfPGF> pgf = db->get_active_revision();
         if (pgf != 0) {
-            Node<ref<PgfPGF>>::add_value_ref(pgf);
+            db->register_revision(pgf.tagged());
             db->ref_count++;
         }
-        return pgf.as_object();
+        return pgf.tagged();
     } PGF_API_END
 
     return 0;
@@ -1194,9 +1154,8 @@ void pgf_create_function(PgfDB *db, PgfRevision revision,
 
         PgfDBUnmarshaller u(m);
 
-        ref<PgfPGF> pgf = PgfDB::revision2pgf(revision);
+        ref<PgfPGF> pgf = db->revision2pgf(revision);
         ref<PgfAbsFun> absfun = PgfDB::malloc<PgfAbsFun>(name->size+1);
-        absfun->ref_count = 1;
         absfun->type  = m->match_type(&u, ty);
         absfun->arity = arity;
         absfun->bytecode = bytecode ? PgfDB::malloc<char>(0) : 0;
@@ -1205,7 +1164,6 @@ void pgf_create_function(PgfDB *db, PgfRevision revision,
 
         Namespace<PgfAbsFun> funs =
             namespace_insert(pgf->abstract.funs, absfun);
-        namespace_release(pgf->abstract.funs);
         pgf->abstract.funs = funs;
     } PGF_API_END
 }
@@ -1218,11 +1176,13 @@ void pgf_drop_function(PgfDB *db, PgfRevision revision,
     PGF_API_BEGIN {
         DB_scope scope(db, WRITER_SCOPE);
 
-        ref<PgfPGF> pgf = PgfDB::revision2pgf(revision);
+        ref<PgfPGF> pgf = db->revision2pgf(revision);
 
+        ref<PgfAbsFun> fun;
         Namespace<PgfAbsFun> funs =
-            namespace_delete(pgf->abstract.funs, name);
-        namespace_release(pgf->abstract.funs);
+            namespace_delete(pgf->abstract.funs, name, &fun);
+        if (fun != 0)
+            PgfAbsFun::release(fun);
         pgf->abstract.funs = funs;
     } PGF_API_END
 }
@@ -1239,9 +1199,8 @@ void pgf_create_category(PgfDB *db, PgfRevision revision,
 
         PgfDBUnmarshaller u(m);
 
-        ref<PgfPGF> pgf = PgfDB::revision2pgf(revision);
+        ref<PgfPGF> pgf = db->revision2pgf(revision);
         ref<PgfAbsCat> abscat = PgfDB::malloc<PgfAbsCat>(name->size+1);
-        abscat->ref_count = 1;
         abscat->context = vector_new<PgfHypo>(n_hypos);
         abscat->prob    = prob;
         memcpy(&abscat->name, name, sizeof(PgfText)+name->size+1);
@@ -1254,7 +1213,6 @@ void pgf_create_category(PgfDB *db, PgfRevision revision,
 
         Namespace<PgfAbsCat> cats =
             namespace_insert(pgf->abstract.cats, abscat);
-        namespace_release(pgf->abstract.cats);
         pgf->abstract.cats = cats;
     } PGF_API_END
 }
@@ -1267,11 +1225,13 @@ void pgf_drop_category(PgfDB *db, PgfRevision revision,
     PGF_API_BEGIN {
         DB_scope scope(db, WRITER_SCOPE);
 
-        ref<PgfPGF> pgf = PgfDB::revision2pgf(revision);
+        ref<PgfPGF> pgf = db->revision2pgf(revision);
 
+        ref<PgfAbsCat> cat;
         Namespace<PgfAbsCat> cats =
-            namespace_delete(pgf->abstract.cats, name);
-        namespace_release(pgf->abstract.cats);
+            namespace_delete(pgf->abstract.cats, name, &cat);
+        if (cat != 0)
+            PgfAbsCat::release(cat);
         pgf->abstract.cats = cats;
     } PGF_API_END
 }
@@ -1284,7 +1244,7 @@ PgfConcrRevision pgf_create_concrete(PgfDB *db, PgfRevision revision,
     PGF_API_BEGIN {
         DB_scope scope(db, WRITER_SCOPE);
 
-        ref<PgfPGF> pgf = PgfDB::revision2pgf(revision);
+        ref<PgfPGF> pgf = db->revision2pgf(revision);
 
         ref<PgfConcr> concr =
             namespace_lookup(pgf->concretes, name);
@@ -1292,8 +1252,6 @@ PgfConcrRevision pgf_create_concrete(PgfDB *db, PgfRevision revision,
             throw pgf_error("The concrete syntax already exists");
 
         concr = PgfDB::malloc<PgfConcr>(name->size+1);
-        concr->ref_count    = 2;
-        concr->ref_count_ex = 1;
         concr->cflags = 0;
         concr->lins = 0;
         concr->lincats = 0;
@@ -1303,15 +1261,14 @@ PgfConcrRevision pgf_create_concrete(PgfDB *db, PgfRevision revision,
         concr->next = 0;
         memcpy(&concr->name, name, sizeof(PgfText)+name->size+1);
 
-        PgfDB::link_transient_revision(concr);
+        db->register_revision(concr.tagged());
 
         Namespace<PgfConcr> concrs =
             namespace_insert(pgf->concretes, concr);
-        namespace_release(pgf->concretes);
         pgf->concretes = concrs;
 
         db->ref_count++;
-        return concr.as_object();
+        return concr.tagged();
     } PGF_API_END
     return 0;
 }
@@ -1324,7 +1281,7 @@ PgfConcrRevision pgf_clone_concrete(PgfDB *db, PgfRevision revision,
     PGF_API_BEGIN {
         DB_scope scope(db, WRITER_SCOPE);
 
-        ref<PgfPGF> pgf = PgfDB::revision2pgf(revision);
+        ref<PgfPGF> pgf = db->revision2pgf(revision);
         
         ref<PgfConcr> concr =
             namespace_lookup(pgf->concretes, name);
@@ -1332,42 +1289,23 @@ PgfConcrRevision pgf_clone_concrete(PgfDB *db, PgfRevision revision,
             throw pgf_error("Unknown concrete syntax");
 
         ref<PgfConcr> clone = PgfDB::malloc<PgfConcr>(name->size+1);
-        clone->ref_count    = 2;
-        clone->ref_count_ex = 1;
-
         clone->cflags = concr->cflags;
-		if (clone->cflags != 0)
-            Node<ref<PgfFlag>>::add_node_ref(clone->cflags);
-
         clone->lins = concr->lins;
-		if (clone->lins != 0)
-            Node<ref<PgfConcrLin>>::add_node_ref(clone->lins);
-
         clone->lincats = concr->lincats;
-		if (clone->lincats != 0)
-            Node<ref<PgfConcrLincat>>::add_node_ref(clone->lincats);
-
         clone->phrasetable = concr->phrasetable;
-		if (clone->phrasetable != 0)
-            Node<PgfPhrasetableEntry>::add_node_ref(clone->phrasetable);
-
         clone->printnames = concr->printnames;
-		if (clone->printnames != 0)
-            Node<ref<PgfConcrPrintname>>::add_node_ref(clone->printnames);
-
         clone->prev = 0;
         clone->next = 0;
         memcpy(&clone->name, name, sizeof(PgfText)+name->size+1);
 
-        PgfDB::link_transient_revision(clone);
+        db->register_revision(clone.tagged());
 
         Namespace<PgfConcr> concrs =
             namespace_insert(pgf->concretes, clone);
-        namespace_release(pgf->concretes);
         pgf->concretes = concrs;
 
         db->ref_count++;
-        return clone.as_object();
+        return clone.tagged();
     } PGF_API_END
     return 0;
 }
@@ -1380,11 +1318,13 @@ void pgf_drop_concrete(PgfDB *db, PgfRevision revision,
     PGF_API_BEGIN {
         DB_scope scope(db, WRITER_SCOPE);
 
-        ref<PgfPGF> pgf = PgfDB::revision2pgf(revision);
+        ref<PgfPGF> pgf = db->revision2pgf(revision);
 
+        ref<PgfConcr> concr;
         Namespace<PgfConcr> concrs =
-            namespace_delete(pgf->concretes, name);
-        namespace_release(pgf->concretes);
+            namespace_delete(pgf->concretes, name, &concr);
+        if (concr != 0)
+            PgfConcr::release(concr);
         pgf->concretes = concrs;
     } PGF_API_END
 }
@@ -1456,7 +1396,6 @@ public:
 
         ref<PgfConcrLincat> lincat = PgfDB::malloc<PgfConcrLincat>(abscat->name.size+1);
         memcpy(&lincat->name, &abscat->name, sizeof(PgfText)+abscat->name.size+1);
-        lincat->ref_count = 1;
         lincat->abscat = abscat;
         lincat->args = args;
         lincat->res  = res;
@@ -1464,7 +1403,7 @@ public:
         lincat->fields = db_fields;
         lincat->n_lindefs = n_lindefs;
 
-        this->container = ref<PgfConcrLincat>::tagged(lincat);
+        this->container = lincat.tagged();
 
         build->build(this, err);
         if (err->type == PGF_EXN_NONE && res_index != res->len) {
@@ -1473,12 +1412,6 @@ public:
         }
 
         if (err->type != PGF_EXN_NONE) {
-            failed();
-            for (size_t i = 0; i < n_fields; i++) {
-                PgfDB::free(*vector_elem(db_fields, i));
-            }
-            PgfDB::free(db_fields);
-            PgfDB::free(lincat);
             return 0;
         }
 
@@ -1501,13 +1434,12 @@ public:
 
         ref<PgfConcrLin> lin = PgfDB::malloc<PgfConcrLin>(absfun->name.size+1);
         memcpy(&lin->name, &absfun->name, sizeof(PgfText)+absfun->name.size+1);
-        lin->ref_count = 1;
         lin->absfun = absfun;
         lin->args = args;
         lin->res  = res;
         lin->seqs = seqs;
 
-        this->container = ref<PgfConcrLin>::tagged(lin);
+        this->container = lin.tagged();
 
         build->build(this, err);
         if (err->type == PGF_EXN_NONE && res_index != res->len) {
@@ -1516,8 +1448,6 @@ public:
         }
 
         if (err->type != PGF_EXN_NONE) {
-            failed();
-            PgfDB::free(lin);
             return 0;
         }
 
@@ -1623,7 +1553,6 @@ public:
                 throw pgf_error(builder_error_msg);
 
 			seq = PgfDB::malloc<PgfSequence>(n_syms*sizeof(PgfSymbol));
-            seq->ref_count = 1;
             seq->syms.len  = n_syms;
 
             *vector_elem(seqs, seq_index) = seq;
@@ -1650,7 +1579,7 @@ public:
                 symcat->r.terms[i].var    = terms[2*i+1];
             }
 
-            *vector_elem(&seq->syms, sym_index) = ref<PgfSymbolCat>::tagged(symcat);
+            *vector_elem(&seq->syms, sym_index) = symcat.tagged();
             sym_index++;
         } PGF_API_END
     }
@@ -1674,7 +1603,7 @@ public:
                 symlit->r.terms[i].var    = terms[2*i+1];
             }
 
-            *vector_elem(&seq->syms, sym_index) = ref<PgfSymbolLit>::tagged(symlit);
+            *vector_elem(&seq->syms, sym_index) = symlit.tagged();
             sym_index++;
         } PGF_API_END
     }
@@ -1692,7 +1621,7 @@ public:
             symvar->d = d;
             symvar->r = r;
 
-            *vector_elem(&seq->syms, sym_index) = ref<PgfSymbolVar>::tagged(symvar);
+            *vector_elem(&seq->syms, sym_index) = symvar.tagged();
             sym_index++;
         } PGF_API_END
     }
@@ -1709,7 +1638,7 @@ public:
             ref<PgfSymbolKS> symtok = PgfDB::malloc<PgfSymbolKS>(token->size+1);
             memcpy(&symtok->token, token, sizeof(PgfText)+token->size+1);
 
-            *vector_elem(&seq->syms, sym_index) = ref<PgfSymbolKS>::tagged(symtok);
+            *vector_elem(&seq->syms, sym_index) = symtok.tagged();
             sym_index++;
         } PGF_API_END
     }
@@ -1724,14 +1653,13 @@ public:
                 throw pgf_error(builder_error_msg);
 
 			ref<PgfSequence> def = PgfDB::malloc<PgfSequence>(n_syms*sizeof(PgfSymbol));
-            def->ref_count = 1;
             def->syms.len  = n_syms;
 
             ref<PgfSymbolKP> symkp = PgfDB::malloc<PgfSymbolKP>(n_alts*sizeof(PgfAlternative));
             symkp->default_form = def;
             symkp->alts.len = n_alts;
 
-            *vector_elem(&seq->syms, sym_index) = ref<PgfSymbolKP>::tagged(symkp);
+            *vector_elem(&seq->syms, sym_index) = symkp.tagged();
 
             pre_sym_index = sym_index;
             seq = def;
@@ -1750,7 +1678,6 @@ public:
                 throw pgf_error(builder_error_msg);
 
 			ref<PgfSequence> form = PgfDB::malloc<PgfSequence>(n_syms*sizeof(PgfSymbol));
-            form->ref_count = 1;
             form->syms.len  = n_syms;
 
             ref<Vector<ref<PgfText>>> prefixes = vector_new<ref<PgfText>>(n_prefs);
@@ -1814,7 +1741,7 @@ public:
             if (seq == 0 || sym_index == (size_t) -1 || sym_index >= seq->syms.len)
                 throw pgf_error(builder_error_msg);
 
-            *vector_elem(&seq->syms, sym_index) = ref<PgfSymbolBIND>::tagged(0);
+            *vector_elem(&seq->syms, sym_index) = ref<PgfSymbolBIND>(0).tagged();
             sym_index++;
         } PGF_API_END
     }
@@ -1828,7 +1755,7 @@ public:
             if (seq == 0 || sym_index == (size_t) -1 || sym_index >= seq->syms.len)
                 throw pgf_error(builder_error_msg);
 
-            *vector_elem(&seq->syms, sym_index) = ref<PgfSymbolSOFTBIND>::tagged(0);
+            *vector_elem(&seq->syms, sym_index) = ref<PgfSymbolSOFTBIND>(0).tagged();
             sym_index++;
         } PGF_API_END
     }
@@ -1842,7 +1769,7 @@ public:
             if (seq == 0 || sym_index == (size_t) -1 || sym_index >= seq->syms.len)
                 throw pgf_error(builder_error_msg);
 
-            *vector_elem(&seq->syms, sym_index) = ref<PgfSymbolNE>::tagged(0);
+            *vector_elem(&seq->syms, sym_index) = ref<PgfSymbolNE>(0).tagged();
             sym_index++;
         } PGF_API_END
     }
@@ -1856,7 +1783,7 @@ public:
             if (seq == 0 || sym_index == (size_t) -1 || sym_index >= seq->syms.len)
                 throw pgf_error(builder_error_msg);
 
-            *vector_elem(&seq->syms, sym_index) = ref<PgfSymbolSOFTSPACE>::tagged(0);
+            *vector_elem(&seq->syms, sym_index) = ref<PgfSymbolSOFTSPACE>(0).tagged();
             sym_index++;
         } PGF_API_END
     }
@@ -1870,7 +1797,7 @@ public:
             if (seq == 0 || sym_index == (size_t) -1 || sym_index >= seq->syms.len)
                 throw pgf_error(builder_error_msg);
 
-            *vector_elem(&seq->syms, sym_index) = ref<PgfSymbolCAPIT>::tagged(0);
+            *vector_elem(&seq->syms, sym_index) = ref<PgfSymbolCAPIT>(0).tagged();
             sym_index++;
         } PGF_API_END
     }
@@ -1884,7 +1811,7 @@ public:
             if (seq == 0 || sym_index == (size_t) -1 || sym_index >= seq->syms.len)
                 throw pgf_error(builder_error_msg);
 
-            *vector_elem(&seq->syms, sym_index) = ref<PgfSymbolALLCAPIT>::tagged(0);
+            *vector_elem(&seq->syms, sym_index) = ref<PgfSymbolALLCAPIT>(0).tagged();
             sym_index++;
         } PGF_API_END
     }
@@ -1894,7 +1821,7 @@ public:
         if (err->type != PGF_EXN_NONE)
             return 0;
 
-		ref<PgfSequence> res = 0;
+        ref<PgfPhrasetableEntry> entry = 0;
 
         PGF_API_BEGIN {
             if (seq == 0 || sym_index != seq->syms.len)
@@ -1902,20 +1829,17 @@ public:
 
             PgfPhrasetable phrasetable =
 				phrasetable_internalize(concr->phrasetable,
-                                        container, seq_index,
-                                        &seq);
-            phrasetable_release(concr->phrasetable);
+                                        seq, container, seq_index,
+                                        &entry);
             concr->phrasetable = phrasetable;
-            *vector_elem(seqs, seq_index) = seq;
-
-			res = seq;
+            *vector_elem(seqs, seq_index) = entry->seq;
 
             sym_index = (size_t) -1;
             seq = 0;
             seq_index++;
         } PGF_API_END
 
-        return res.as_object();
+        return entry.as_object();
     }
 
     void add_sequence_id(object seq_id, PgfExn *err)
@@ -1927,16 +1851,16 @@ public:
             if (seq_index >= seqs->len)
                 throw pgf_error(builder_error_msg);
 
-            ref<PgfSequence> seq = seq_id;
-            seq->ref_count++;
+            ref<PgfPhrasetableEntry> entry = seq_id;
 
-            PgfPhrasetable phrasetable =
-				phrasetable_internalize(concr->phrasetable,
-                                        container, seq_index,
-                                        &seq);
-            phrasetable_release(concr->phrasetable);
-            concr->phrasetable = phrasetable;
-            *vector_elem(seqs, seq_index) = seq;
+            size_t len = entry->backrefs->len;
+            ref<Vector<PgfSequenceBackref>> backrefs =
+                vector_unsafe_resize<PgfSequenceBackref>(entry->backrefs, len+1);
+            backrefs->data[len].container = container;
+            backrefs->data[len].seq_index = seq_index;
+            entry->backrefs = backrefs;
+
+            *vector_elem(seqs, seq_index) = entry->seq;
 
             seq_index++;
         } PGF_API_END
@@ -1965,71 +1889,6 @@ public:
             res_index++;
         } PGF_API_END
     }
-    
-    void failed()
-    {
-        for (size_t i = 0; i < arg_index; i++) {
-            PgfDB::free(vector_elem(args, i)->param);
-        }
-        PgfDB::free(args);
-
-        for (size_t i = 0; i < res_index; i++) {
-            ref<PgfPResult> res_elem = *vector_elem(res, i);
-            PgfDB::free(res_elem->vars);
-            PgfDB::free(res_elem);
-        }
-        PgfDB::free(res);
-
-        for (size_t i = 0; i < seq_index; i++) {
-            ref<PgfSequence> seq = *vector_elem(seqs, i);
-            PgfSequence::release(seq);
-        }
-        
-        if (sym_index != (size_t) -1) {
-            ref<PgfSequence> seq = *vector_elem(seqs, seq_index);
-
-            if (pre_sym_index != (size_t) -1) {
-                auto sym_kp = ref<PgfSymbolKP>::untagged(*vector_elem(&seq->syms, pre_sym_index));
-
-                if (this->seq == sym_kp->default_form) {
-                    for (size_t i = 0; i < sym_index; i++) {
-                        PgfSymbol sym = *vector_elem(&seq->syms, i);
-                        pgf_symbol_free(sym);
-                    }
-                    PgfDB::free(seq);
-                } else {
-                    PgfSequence::release(sym_kp->default_form);
-                    for (size_t i = 0; i < alt_index; i++) {
-                        PgfSequence::release(sym_kp->alts.data[i].form);
-                        for (size_t j = 0; j < sym_kp->alts.data[i].prefixes->len; j++) {
-                            ref<PgfText> prefix = *vector_elem(sym_kp->alts.data[i].prefixes, j);
-                            PgfDB::free(prefix);
-                        }
-                    }
-                    for (size_t i = 0; i < sym_index; i++) {
-                        PgfSymbol sym = *vector_elem(&sym_kp->alts.data[alt_index].form->syms, i);
-                        pgf_symbol_free(sym);
-                    }
-                    PgfDB::free(sym_kp->alts.data[alt_index].form);
-                    for (size_t i = 0; i < sym_kp->alts.data[alt_index].prefixes->len; i++) {
-                        ref<PgfText> prefix = *vector_elem(sym_kp->alts.data[alt_index].prefixes, i);
-                        PgfDB::free(prefix);
-                    }
-                }
-                PgfDB::free(sym_kp);
-        
-                sym_index = pre_sym_index;
-            }
-
-            for (size_t j = 0; j < sym_index; j++) {
-                PgfSymbol sym = *vector_elem(&seq->syms, j);
-                pgf_symbol_free(sym);
-            }
-            PgfDB::free(seq);
-        }
-
-        PgfDB::free(seqs);
-    }
 };
 
 
@@ -2043,8 +1902,8 @@ void pgf_create_lincat(PgfDB *db,
     PGF_API_BEGIN {
         DB_scope scope(db, WRITER_SCOPE);
 
-        ref<PgfPGF> pgf = PgfDB::revision2pgf(revision);
-        ref<PgfConcr> concr = PgfDB::revision2concr(cnc_revision);
+        ref<PgfPGF> pgf = db->revision2pgf(revision);
+        ref<PgfConcr> concr = db->revision2concr(cnc_revision);
 
         ref<PgfAbsCat> abscat =
             namespace_lookup(pgf->abstract.cats, name);
@@ -2057,7 +1916,6 @@ void pgf_create_lincat(PgfDB *db,
         if (lincat != 0) {
             Namespace<PgfConcrLincat> lincats =
                 namespace_insert(concr->lincats, lincat);
-            namespace_release(concr->lincats);
             concr->lincats = lincats;
         }
     } PGF_API_END
@@ -2071,22 +1929,21 @@ void pgf_drop_lincat(PgfDB *db,
     PGF_API_BEGIN {
         DB_scope scope(db, WRITER_SCOPE);
 
-        ref<PgfConcr> concr = PgfDB::revision2concr(revision);
+        ref<PgfConcr> concr = db->revision2concr(revision);
 
         ref<PgfConcrLincat> lincat;
         Namespace<PgfConcrLincat> lincats =
             namespace_delete(concr->lincats, name, &lincat);
         if (lincat != 0) {
-            object container = ref<PgfConcrLincat>::tagged(lincat);
+            object container = lincat.tagged();
             for (size_t i = 0; i < lincat->seqs->len; i++) {
                 ref<PgfSequence> seq = *vector_elem(lincat->seqs, i);
-                PgfPhrasetable new_phrasetable =
+                PgfPhrasetable phrasetable =
                     phrasetable_delete(concr->phrasetable,container,i,seq);
-                phrasetable_release(concr->phrasetable);
-                concr->phrasetable = new_phrasetable;
+                concr->phrasetable = phrasetable;
             }
+            PgfConcrLincat::release(lincat);
         }
-        namespace_release(concr->lincats);
         concr->lincats = lincats;
     } PGF_API_END
 }
@@ -2104,8 +1961,8 @@ void pgf_create_lin(PgfDB *db,
     PGF_API_BEGIN {
         DB_scope scope(db, WRITER_SCOPE);
 
-        ref<PgfPGF> pgf = PgfDB::revision2pgf(revision);
-        ref<PgfConcr> concr = PgfDB::revision2concr(cnc_revision);
+        ref<PgfPGF> pgf = db->revision2pgf(revision);
+        ref<PgfConcr> concr = db->revision2concr(cnc_revision);
 
         ref<PgfAbsFun> absfun =
             namespace_lookup(pgf->abstract.funs, name);
@@ -2118,7 +1975,6 @@ void pgf_create_lin(PgfDB *db,
         if (lin != 0) {
             Namespace<PgfConcrLin> lins =
                 namespace_insert(concr->lins, lin);
-            namespace_release(concr->lins);
             concr->lins = lins;
         }
     } PGF_API_END
@@ -2132,22 +1988,21 @@ void pgf_drop_lin(PgfDB *db,
     PGF_API_BEGIN {
         DB_scope scope(db, WRITER_SCOPE);
 
-        ref<PgfConcr> concr = PgfDB::revision2concr(revision);
+        ref<PgfConcr> concr = db->revision2concr(revision);
 
         ref<PgfConcrLin> lin;
         Namespace<PgfConcrLin> lins =
             namespace_delete(concr->lins, name, &lin);
         if (lin != 0) {
-            object container = ref<PgfConcrLin>::tagged(lin);
+            object container = lin.tagged();
             for (size_t i = 0; i < lin->seqs->len; i++) {
                 ref<PgfSequence> seq = *vector_elem(lin->seqs, i);
-                PgfPhrasetable new_phrasetable =
+                PgfPhrasetable phrasetable =
                     phrasetable_delete(concr->phrasetable,container,i,seq);
-                phrasetable_release(concr->phrasetable);
-                concr->phrasetable = new_phrasetable;
+                concr->phrasetable = phrasetable;
             }
+            PgfConcrLin::release(lin);
         }
-        namespace_release(concr->lins);
         concr->lins = lins;
     } PGF_API_END
 }
@@ -2159,7 +2014,7 @@ int pgf_has_linearization(PgfDB *db, PgfConcrRevision revision,
     PGF_API_BEGIN {
         DB_scope scope(db, READER_SCOPE);
 
-        ref<PgfConcr> concr = PgfDB::revision2concr(revision);
+        ref<PgfConcr> concr = db->revision2concr(revision);
 
         ref<PgfConcrLin> lin =
             namespace_lookup(concr->lins, name);
@@ -2178,7 +2033,7 @@ PgfText **pgf_category_fields(PgfDB *db, PgfConcrRevision revision,
     PGF_API_BEGIN {
         DB_scope scope(db, READER_SCOPE);
 
-        ref<PgfConcr> concr = PgfDB::revision2concr(revision);
+        ref<PgfConcr> concr = db->revision2concr(revision);
 
         ref<PgfConcrLincat> lincat =
             namespace_lookup(concr->lincats, name);
@@ -2211,7 +2066,7 @@ PgfText *pgf_linearize(PgfDB *db, PgfConcrRevision revision,
     PGF_API_BEGIN {
         DB_scope scope(db, READER_SCOPE);
 
-        ref<PgfConcr> concr = PgfDB::revision2concr(revision);
+        ref<PgfConcr> concr = db->revision2concr(revision);
         PgfLinearizationOutput out;
         PgfLinearizer linearizer(ctxt, concr, m);
         m->match_expr(&linearizer, expr);
@@ -2237,7 +2092,7 @@ PgfText **pgf_linearize_all(PgfDB *db, PgfConcrRevision revision,
     PGF_API_BEGIN {
         DB_scope scope(db, READER_SCOPE);
 
-        ref<PgfConcr> concr = PgfDB::revision2concr(revision);
+        ref<PgfConcr> concr = db->revision2concr(revision);
         PgfLinearizationOutput out;
         PgfLinearizer linearizer(ctxt, concr, m);
         m->match_expr(&linearizer, expr);
@@ -2264,7 +2119,7 @@ PgfText **pgf_tabular_linearize(PgfDB *db, PgfConcrRevision revision,
     PGF_API_BEGIN {
         DB_scope scope(db, READER_SCOPE);
 
-        ref<PgfConcr> concr = PgfDB::revision2concr(revision);
+        ref<PgfConcr> concr = db->revision2concr(revision);
         PgfLinearizationOutput out;
         PgfLinearizer linearizer(ctxt, concr, m);
         m->match_expr(&linearizer, expr);
@@ -2304,7 +2159,7 @@ PgfText **pgf_tabular_linearize_all(PgfDB *db, PgfConcrRevision revision,
     PGF_API_BEGIN {
         DB_scope scope(db, READER_SCOPE);
 
-        ref<PgfConcr> concr = PgfDB::revision2concr(revision);
+        ref<PgfConcr> concr = db->revision2concr(revision);
         PgfLinearizationOutput out;
         PgfLinearizer linearizer(ctxt, concr, m);
         m->match_expr(&linearizer, expr);
@@ -2344,7 +2199,7 @@ void pgf_bracketed_linearize(PgfDB *db, PgfConcrRevision revision,
     PGF_API_BEGIN {
         DB_scope scope(db, READER_SCOPE);
 
-        ref<PgfConcr> concr = PgfDB::revision2concr(revision);
+        ref<PgfConcr> concr = db->revision2concr(revision);
         PgfLinearizer linearizer(ctxt, concr, m);
         m->match_expr(&linearizer, expr);
         linearizer.reverse_and_label(true);
@@ -2364,7 +2219,7 @@ void pgf_bracketed_linearize_all(PgfDB *db, PgfConcrRevision revision,
     PGF_API_BEGIN {
         DB_scope scope(db, READER_SCOPE);
 
-        ref<PgfConcr> concr = PgfDB::revision2concr(revision);
+        ref<PgfConcr> concr = db->revision2concr(revision);
         PgfLinearizer linearizer(ctxt, concr, m);
         m->match_expr(&linearizer, expr);
         linearizer.reverse_and_label(true);
@@ -2382,7 +2237,7 @@ PgfText *pgf_get_printname(PgfDB *db, PgfConcrRevision revision,
     PGF_API_BEGIN {
         DB_scope scope(db, READER_SCOPE);
 
-        ref<PgfConcr> concr = PgfDB::revision2concr(revision);
+        ref<PgfConcr> concr = db->revision2concr(revision);
         PgfText *printname = namespace_lookup(concr->printnames, fun)->printname;
         return textdup(printname);
     } PGF_API_END
@@ -2397,16 +2252,14 @@ void pgf_set_printname(PgfDB *db, PgfConcrRevision revision,
     PGF_API_BEGIN {
         DB_scope scope(db, WRITER_SCOPE);
 
-        ref<PgfConcr> concr = PgfDB::revision2concr(revision);
+        ref<PgfConcr> concr = db->revision2concr(revision);
 
         ref<PgfConcrPrintname> printname = PgfDB::malloc<PgfConcrPrintname>(fun->size+1);
-        printname->ref_count = 1;
         memcpy(&printname->name, fun, sizeof(PgfText)+fun->size+1);
         printname->printname = textdup_db(name);
 
         Namespace<PgfConcrPrintname> printnames =
             namespace_insert(concr->printnames, printname);
-        namespace_release(concr->printnames);
         concr->printnames = printnames;
     } PGF_API_END
 }
@@ -2420,7 +2273,7 @@ PgfLiteral pgf_get_global_flag(PgfDB *db, PgfRevision revision,
     PGF_API_BEGIN {
         DB_scope scope(db, READER_SCOPE);
 
-        ref<PgfPGF> pgf = PgfDB::revision2pgf(revision);
+        ref<PgfPGF> pgf = db->revision2pgf(revision);
 
         ref<PgfFlag> flag =
             namespace_lookup(pgf->gflags, name);
@@ -2444,16 +2297,14 @@ void pgf_set_global_flag(PgfDB *db, PgfRevision revision,
 
         PgfDBUnmarshaller u(m);
 
-        ref<PgfPGF> pgf = PgfDB::revision2pgf(revision);
+        ref<PgfPGF> pgf = db->revision2pgf(revision);
 
         ref<PgfFlag> flag = PgfDB::malloc<PgfFlag>(name->size+1);
-        flag->ref_count = 1;
         memcpy(&flag->name, name, sizeof(PgfText)+name->size+1);
         PgfLiteral lit = m->match_lit(&u, value);
         flag->value = lit;
         Namespace<PgfFlag> gflags =
             namespace_insert(pgf->gflags, flag);
-        namespace_release(pgf->gflags);
         pgf->gflags = gflags;
     } PGF_API_END
 }
@@ -2467,7 +2318,7 @@ PgfLiteral pgf_get_abstract_flag(PgfDB *db, PgfRevision revision,
     PGF_API_BEGIN {
         DB_scope scope(db, READER_SCOPE);
 
-        ref<PgfPGF> pgf = PgfDB::revision2pgf(revision);
+        ref<PgfPGF> pgf = db->revision2pgf(revision);
 
         ref<PgfFlag> flag =
             namespace_lookup(pgf->abstract.aflags, name);
@@ -2491,16 +2342,14 @@ void pgf_set_abstract_flag(PgfDB *db, PgfRevision revision,
 
         PgfDBUnmarshaller u(m);
 
-        ref<PgfPGF> pgf = PgfDB::revision2pgf(revision);
+        ref<PgfPGF> pgf = db->revision2pgf(revision);
 
         ref<PgfFlag> flag = PgfDB::malloc<PgfFlag>(name->size+1);
-        flag->ref_count = 1;
         memcpy(&flag->name, name, sizeof(PgfText)+name->size+1);
         PgfLiteral lit = m->match_lit(&u, value);
         flag->value = lit;
         Namespace<PgfFlag> aflags =
             namespace_insert(pgf->abstract.aflags, flag);
-        namespace_release(pgf->abstract.aflags);
         pgf->abstract.aflags = aflags;
     } PGF_API_END
 }
@@ -2514,7 +2363,7 @@ PgfLiteral pgf_get_concrete_flag(PgfDB *db, PgfConcrRevision revision,
     PGF_API_BEGIN {
         DB_scope scope(db, READER_SCOPE);
 
-        ref<PgfConcr> concr = PgfDB::revision2concr(revision);
+        ref<PgfConcr> concr = db->revision2concr(revision);
 
         ref<PgfFlag> flag =
             namespace_lookup(concr->cflags, name);
@@ -2538,16 +2387,14 @@ void pgf_set_concrete_flag(PgfDB *db, PgfConcrRevision revision,
 
         PgfDBUnmarshaller u(m);
 
-        ref<PgfConcr> concr = PgfDB::revision2concr(revision);
+        ref<PgfConcr> concr = db->revision2concr(revision);
 
         ref<PgfFlag> flag = PgfDB::malloc<PgfFlag>(name->size+1);
-        flag->ref_count = 1;
         memcpy(&flag->name, name, sizeof(PgfText)+name->size+1);
         PgfLiteral lit = m->match_lit(&u, value);
         flag->value = lit;
         Namespace<PgfFlag> cflags =
             namespace_insert(concr->cflags, flag);
-        namespace_release(concr->cflags);
         concr->cflags = cflags;
     } PGF_API_END
 }
@@ -2561,7 +2408,7 @@ pgf_graphviz_abstract_tree(PgfDB *db, PgfRevision revision,
     PGF_API_BEGIN {
         DB_scope scope(db, READER_SCOPE);
 
-        ref<PgfPGF> pgf = PgfDB::revision2pgf(revision);
+        ref<PgfPGF> pgf = db->revision2pgf(revision);
 
         PgfAbstractGraphvizOutput out(&pgf->abstract, opts, m);
         return out.generate_graphviz(expr);
@@ -2580,7 +2427,7 @@ pgf_graphviz_parse_tree(PgfDB *db, PgfConcrRevision revision,
     PGF_API_BEGIN {
         DB_scope scope(db, READER_SCOPE);
 
-        ref<PgfConcr> concr = PgfDB::revision2concr(revision);
+        ref<PgfConcr> concr = db->revision2concr(revision);
 
         PgfLinearizationGraphvizOutput out;
         PgfLinearizer linearizer(ctxt, concr, m);
