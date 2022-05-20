@@ -576,7 +576,7 @@ int PgfDB::init_state()
     }
 #endif
 
-    ms->curr_txn_id = 0;
+    ms->curr_txn_id = 1;
     ms->min_txn_id  = 0;
     ms->free_blocks = 0;
     ms->free_descriptors = 0;
@@ -669,6 +669,7 @@ object PgfDB::upd_block_descr(object map, object left, object right)
             new_descr = ptr(block_descr, map);
         }
 
+        new_descr->block_size = descr->block_size;
         new_descr->o      = descr->o;
         new_descr->chain  = 0;
         new_descr->block_txn_id = descr->block_txn_id;
