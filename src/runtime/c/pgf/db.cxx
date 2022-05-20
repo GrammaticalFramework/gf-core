@@ -415,7 +415,11 @@ void PgfDB::register_revision(object o)
     if (free_entry == NULL) {
         size_t n_max = (page_size-sizeof(malloc_state))/sizeof(revision_entry);
         if (ms->n_revisions >= n_max) {
+#ifndef _WIN32
             pthread_mutex_unlock(&ms->mutex);
+#else
+            ReleaseMutex(hMutex); 
+#endif
             throw pgf_error("Too many retained database revisions");
         }
         free_entry = &ms->revisions[ms->n_revisions++];
@@ -474,7 +478,11 @@ void PgfDB::unregister_revision(object o)
 
 void PgfDB::cleanup_revisions()
 {
+#ifndef _WIN32
     pthread_mutex_lock(&ms->mutex);
+#else
+    WaitForSingleObject(hMutex, INFINITE); 
+#endif
 
     ms->min_txn_id = SIZE_MAX;
     // If there are dead processes, set their reference counts to 0.
@@ -504,7 +512,11 @@ void PgfDB::cleanup_revisions()
         }
     }
 
+#ifndef _WIN32
     pthread_mutex_unlock(&ms->mutex);
+#else
+    ReleaseMutex(hMutex); 
+#endif
 }
 
 PGF_INTERNAL
