@@ -469,6 +469,8 @@ void PgfDB::unregister_revision(object o)
         }
     }
 
+    fprintf(stderr, "minimal revision %ld\n", ms->min_txn_id);
+
 #ifndef _WIN32
     pthread_mutex_unlock(&ms->mutex);
 #else
@@ -978,23 +980,23 @@ fit:
 PGF_INTERNAL void PgfDB::dump_free_blocks(object map)
 {
     if (map == 0) {
-        printf(".");
+        fprintf(stderr, ".");
         return;
     }
 
     block_descr *descr = ptr(block_descr, map);
     if (descr->left != 0 || descr->right != 0) {
-        printf("(");
+        fprintf(stderr, "(");
         dump_free_blocks(descr->left);
-        printf(" ");
+        fprintf(stderr, " ");
     }
 
-    printf("[%016lx %ld %ld]", descr->o, descr->block_size, descr->block_txn_id);
+    fprintf(stderr, "[%016lx %ld %ld]", descr->o, descr->block_size, descr->block_txn_id);
 
     if (descr->left != 0 || descr->right != 0) {
-        printf(" ");
+        fprintf(stderr, " ");
         dump_free_blocks(descr->right);
-        printf(")");
+        fprintf(stderr, ")");
     }
 }
 #endif
@@ -1002,6 +1004,10 @@ PGF_INTERNAL void PgfDB::dump_free_blocks(object map)
 PGF_INTERNAL
 object PgfDB::malloc_internal(size_t bytes)
 {
+#ifdef DEBUG_MEMORY_ALLOCATOR
+    fprintf(stderr, "malloc_internal(%ld)\n", bytes);
+#endif
+
     size_t block_size = request2size(bytes);
 
     object o;
@@ -1014,10 +1020,15 @@ object PgfDB::malloc_internal(size_t bytes)
 
 #ifdef DEBUG_MEMORY_ALLOCATOR
         dump_free_blocks(free_blocks);
-        printf("\n");
+        fprintf(stderr, "\n");
+        fprintf(stderr, "recycled %016lx\n", o);
 #endif
 
         return o;
+    } else {
+#ifdef DEBUG_MEMORY_ALLOCATOR
+        fprintf(stderr, "allocated from top %016lx\n", top);
+#endif
     }
 
     size_t free_size = mmap_size - top;
@@ -1061,6 +1072,8 @@ object PgfDB::realloc_internal(object oldo, size_t old_bytes, size_t new_bytes)
         // If the object is at the end of the allocation area
         top += nb;
 
+        fprintf(stderr, "realloc_internal(%016lx,%ld,%ld)\n", oldo, old_bytes, new_bytes);
+
         return oldo;
     }
 
@@ -1101,6 +1114,10 @@ object PgfDB::insert_block_descriptor(object map, object o, size_t size)
 PGF_INTERNAL
 void PgfDB::free_internal(object o, size_t bytes)
 {
+#ifdef DEBUG_MEMORY_ALLOCATOR
+    fprintf(stderr, "free_internal(%016lx,%ld)\n", o, bytes);
+#endif
+
     if (o == 0)
         return;
 
@@ -1118,7 +1135,7 @@ void PgfDB::free_internal(object o, size_t bytes)
 
 #ifdef DEBUG_MEMORY_ALLOCATOR
     dump_free_blocks(free_blocks);
-    printf("\n");
+    fprintf(stderr, "\n");
 #endif
 }
 
