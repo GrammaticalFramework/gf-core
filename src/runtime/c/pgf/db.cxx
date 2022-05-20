@@ -179,7 +179,7 @@ PgfDB::PgfDB(const char* filepath, int flags, int mode) {
 
         mmap_size -= page_size;
 
-        base = ::malloc(mmap_size);
+        base = (unsigned char *) ::malloc(mmap_size);
         if (base == NULL)
             throw pgf_systemerror(ENOMEM);
     }
@@ -331,8 +331,8 @@ PgfDB::~PgfDB()
 #ifndef _WIN32
 #ifndef MREMAP_MAYMOVE
     if (fd < 0) {
-        pthread_rwlock_destroy(ms->rwlock);
-        pthread_mutex_destroy(ms->mutex);
+        pthread_rwlock_destroy(&ms->rwlock);
+        pthread_mutex_destroy(&ms->mutex);
         ::free(ms);
         ::free(base);
     } else
@@ -1322,7 +1322,7 @@ void PgfDB::resize_map(size_t new_size)
 		if (new_base == MAP_FAILED)
 			throw pgf_systemerror(errno);
 	} else {
-		new_base = ::realloc(base, new_size);
+		new_base = (unsigned char *) ::realloc(base, new_size);
 		if (new_base == NULL)
 			throw pgf_systemerror(ENOMEM);
 	}
