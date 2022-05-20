@@ -261,7 +261,7 @@ PgfDB::PgfDB(const char* filepath, int flags, int mode) {
     }
 
     hMutex = CreateMutex(NULL, FALSE, mutex_name);
-    if (hМutex == NULL) {
+    if (hMutex == NULL) {
         if (fd < 0) {
             ::free(ms);
         } else {
