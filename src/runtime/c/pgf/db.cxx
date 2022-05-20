@@ -260,7 +260,7 @@ PgfDB::PgfDB(const char* filepath, int flags, int mode) {
         base = ((unsigned char *) ms) + page_size;
     }
 
-    hМutex = CreateMutex(NULL, FALSE, mutex_name);
+    hMutex = CreateMutex(NULL, FALSE, mutex_name);
     if (hМutex == NULL) {
         if (fd < 0) {
             ::free(ms);
@@ -1416,9 +1416,10 @@ void PgfDB::resize_map(size_t new_size)
 		if (ms == NULL)
 			throw pgf_systemerror(last_error_to_errno());
 	} else {
-		new_ms = (malloc_state*) ::realloc(ms, new_size);
+		malloc_state *new_ms = (malloc_state*) ::realloc(ms, new_size);
 		if (new_ms == NULL)
 			throw pgf_systemerror(ENOMEM);
+        ms = new_ms;
 	}
     new_size -= page_size;
 
