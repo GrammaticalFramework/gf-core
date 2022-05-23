@@ -349,6 +349,8 @@ PgfDB::PgfDB(const char* filepath, int flags, int mode) {
     free_descriptors[0] = ms->free_descriptors;
     free_descriptors[1] = 0;
     free_descriptors[2] = 0;
+    last_free_block     = 0;
+    last_free_block_size= 0;
 }
 
 PGF_INTERNAL
@@ -400,39 +402,63 @@ void PgfDB::register_revision(object o)
     WaitForSingleObject(hMutex, INFINITE); 
 #endif
 
+    bool found = false;
     revision_entry *free_entry = NULL;
 
+#ifdef DEBUG_MEMORY_ALLOCATOR
+    fprintf(stderr, "revisions");
+#endif
+
+    ms->min_txn_id = SIZE_MAX;
     for (size_t i = 0; i < ms->n_revisions; i++) {
         revision_entry *entry = &ms->revisions[i];
         if (entry->ref_count == 0) {
             if (free_entry == NULL)
                 free_entry = entry;
         } else {
+#ifdef DEBUG_MEMORY_ALLOCATOR
+            fprintf(stderr, " %ld:%s(%016lx):%ld",
+                            entry->txn_id,
+                            ((entry->o & MALLOC_ALIGN_MASK) == PgfPGF::tag) ? "pgf" : "concr",
+                            entry->o & ~MALLOC_ALIGN_MASK,
+                            entry->ref_count);
+#endif
+
             if (entry->pid == pid &&
                 entry->o   == o) {
                 entry->ref_count++;
-                goto done;
+                entry->txn_id = ms->curr_txn_id;
+                found = true;
             }
+
+            if (ms->min_txn_id > entry->txn_id)
+                ms->min_txn_id = entry->txn_id;
         }
     }
 
-    if (free_entry == NULL) {
-        size_t n_max = (page_size-sizeof(malloc_state))/sizeof(revision_entry);
-        if (ms->n_revisions >= n_max) {
+    if (!found) {
+        if (free_entry == NULL) {
+            size_t n_max = (page_size-sizeof(malloc_state))/sizeof(revision_entry);
+            if (ms->n_revisions >= n_max) {
 #ifndef _WIN32
-            pthread_mutex_unlock(&ms->mutex);
+                pthread_mutex_unlock(&ms->mutex);
 #else
-            ReleaseMutex(hMutex); 
+                ReleaseMutex(hMutex); 
 #endif
-            throw pgf_error("Too many retained database revisions");
+                throw pgf_error("Too many retained database revisions");
+            }
+            free_entry = &ms->revisions[ms->n_revisions++];
         }
-        free_entry = &ms->revisions[ms->n_revisions++];
+
+        free_entry->pid = pid;
+        free_entry->o   = o;
+        free_entry->ref_count = 1;
+        free_entry->txn_id = ms->curr_txn_id;
     }
 
-    free_entry->pid = pid;
-    free_entry->o   = o;
-    free_entry->ref_count = 1;
-    free_entry->txn_id = ms->curr_txn_id;
+#ifdef DEBUG_MEMORY_ALLOCATOR
+    fprintf(stderr, " minimal %ld\n", ms->min_txn_id);
+#endif
 
 done:
 #ifndef _WIN32
@@ -1175,6 +1201,24 @@ void PgfDB::free_internal(object o, size_t bytes)
         return;
     }
 
+    if (last_free_block != 0) {
+        if (last_free_block+last_free_block_size == o) {
+            last_free_block_size += block_size;
+#ifdef DEBUG_MEMORY_ALLOCATOR
+            fprintf(stderr, "merged block %016lx %ld\n", last_free_block, last_free_block_size);
+#endif
+        } else if (o+block_size == last_free_block) {
+            last_free_block = o;
+            last_free_block_size += block_size;
+#ifdef DEBUG_MEMORY_ALLOCATOR
+            fprintf(stderr, "merged block %016lx %ld\n", last_free_block, last_free_block_size);
+#endif
+        }
+    }
+
+    last_free_block = o;
+    last_free_block_size = block_size;
+
     free_blocks = insert_block_descriptor(free_blocks, o, block_size);
 
 #ifdef DEBUG_MEMORY_ALLOCATOR
@@ -1217,11 +1261,18 @@ void PgfDB::start_transaction()
     free_descriptors[0] = ms->free_descriptors;
     free_descriptors[1] = 0;
     free_descriptors[2] = 0;
+    last_free_block      = 0;
+    last_free_block_size = 0;
 }
 
 PGF_INTERNAL
 void PgfDB::commit(object o)
 {
+    if (last_free_block != 0) {
+        last_free_block      = 0;
+        last_free_block_size = 0;
+    }
+
     malloc_state *ms = current_db->ms;
     object save_top = ms->top;
     object save_free_blocks = ms->free_blocks;
@@ -1312,6 +1363,8 @@ void PgfDB::rollback()
     free_descriptors[0] = ms->free_descriptors;
     free_descriptors[1] = 0;
     free_descriptors[2] = 0;
+    last_free_block      = 0;
+    last_free_block_size = 0;
 }
 
 #ifdef _WIN32

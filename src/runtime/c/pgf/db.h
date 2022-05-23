@@ -68,9 +68,11 @@ private:
     // The following four fields are normally equal to
     // the corresponding fields in the malloc_state.
     // The exception is when a transaction is active.
-    object top;         
+    object top;
     object free_blocks;
     object free_descriptors[3];
+    object last_free_block;
+    size_t last_free_block_size;
 
     size_t mmap_size;
     size_t page_size;
