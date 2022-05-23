@@ -394,7 +394,7 @@ txn_t PgfDB::get_txn_id() {
 }
 
 PGF_INTERNAL
-void PgfDB::register_revision(object o)
+object PgfDB::register_revision(object o, txn_t txn_id)
 {
 #ifndef _WIN32
     pthread_mutex_lock(&ms->mutex);
@@ -403,7 +403,7 @@ void PgfDB::register_revision(object o)
 #endif
 
     bool found = false;
-    revision_entry *free_entry = NULL;
+    revision_entry *found_entry = NULL;
 
 #ifdef DEBUG_MEMORY_ALLOCATOR
     fprintf(stderr, "revisions");
@@ -413,8 +413,8 @@ void PgfDB::register_revision(object o)
     for (size_t i = 0; i < ms->n_revisions; i++) {
         revision_entry *entry = &ms->revisions[i];
         if (entry->ref_count == 0) {
-            if (free_entry == NULL)
-                free_entry = entry;
+            if (found_entry == NULL)
+                found_entry = entry;
         } else {
 #ifdef DEBUG_MEMORY_ALLOCATOR
             fprintf(stderr, " %ld:%s(%016lx):%ld",
@@ -427,7 +427,8 @@ void PgfDB::register_revision(object o)
             if (entry->pid == pid &&
                 entry->o   == o) {
                 entry->ref_count++;
-                entry->txn_id = ms->curr_txn_id;
+                entry->txn_id = txn_id;
+                found_entry = entry;
                 found = true;
             }
 
@@ -437,7 +438,7 @@ void PgfDB::register_revision(object o)
     }
 
     if (!found) {
-        if (free_entry == NULL) {
+        if (found_entry == NULL) {
             size_t n_max = (page_size-sizeof(malloc_state))/sizeof(revision_entry);
             if (ms->n_revisions >= n_max) {
 #ifndef _WIN32
@@ -447,35 +448,51 @@ void PgfDB::register_revision(object o)
 #endif
                 throw pgf_error("Too many retained database revisions");
             }
-            free_entry = &ms->revisions[ms->n_revisions++];
+            found_entry = &ms->revisions[ms->n_revisions++];
         }
 
-        free_entry->pid = pid;
-        free_entry->o   = o;
-        free_entry->ref_count = 1;
-        free_entry->txn_id = ms->curr_txn_id;
+        found_entry->pid = pid;
+        found_entry->o   = o;
+        found_entry->ref_count = 1;
+        found_entry->txn_id = txn_id;
     }
 
 #ifdef DEBUG_MEMORY_ALLOCATOR
     fprintf(stderr, " minimal %ld\n", ms->min_txn_id);
 #endif
 
-done:
 #ifndef _WIN32
     pthread_mutex_unlock(&ms->mutex);
 #else
     ReleaseMutex(hMutex); 
 #endif
+
+    return (found_entry - ms->revisions) + 1;
 }
 
 PGF_INTERNAL
-void PgfDB::unregister_revision(object o)
+void PgfDB::unregister_revision(object revision)
 {
+    if (revision == 0 || revision-1 >= ms->n_revisions)
+        throw pgf_error("Invalid revision");
+
+    revision_entry *entry = &ms->revisions[revision-1];
+    if (entry->ref_count == 0)
+        throw pgf_error("Invalid revision");
+
 #ifndef _WIN32
     pthread_mutex_lock(&ms->mutex);
 #else
     WaitForSingleObject(hMutex, INFINITE); 
 #endif
+
+    if (--entry->ref_count == 0) {
+        // Maybe this was the last revision in the list.
+        // Decrement n_revisions if possible.
+        while (ms->revisions[ms->n_revisions-1].ref_count == 0){
+            ms->n_revisions--;
+        }
+    }
 
 #ifdef DEBUG_MEMORY_ALLOCATOR
     fprintf(stderr, "revisions");
@@ -492,17 +509,7 @@ void PgfDB::unregister_revision(object o)
                             entry->o & ~MALLOC_ALIGN_MASK,
                             entry->ref_count);
 #endif
-            if (entry->pid == pid && entry->o == o) {
-                if (--entry->ref_count == 0) {
-                    // Maybe this was the last revision in the list.
-                    // Decrement n_revisions if possible.
-                    while (ms->revisions[ms->n_revisions-1].ref_count == 0){
-                        ms->n_revisions--;
-                    }
-                    continue;  // We skip the update of min_txn_id
-                }
-            }
-            
+
             if (ms->min_txn_id > entry->txn_id)
                 ms->min_txn_id = entry->txn_id;
         }
@@ -1228,27 +1235,47 @@ void PgfDB::free_internal(object o, size_t bytes)
 }
 
 PGF_INTERNAL
-ref<PgfPGF> PgfDB::revision2pgf(PgfRevision revision)
+ref<PgfPGF> PgfDB::revision2pgf(PgfRevision revision, size_t *p_txn_id)
 {
-    if (revision == 0 || ref<PgfPGF>::get_tag(revision) != PgfPGF::tag)
+    if (revision == 0 || revision-1 >= ms->n_revisions)
         throw pgf_error("Invalid revision");
 
-    ref<PgfPGF> pgf = ref<PgfPGF>::untagged(revision);
+    revision_entry *entry = &ms->revisions[revision-1];
+    if (entry->ref_count == 0)
+        throw pgf_error("Invalid revision");
+
+    if (ref<PgfPGF>::get_tag(entry->o) != PgfPGF::tag)
+        throw pgf_error("Invalid revision");
+
+    ref<PgfPGF> pgf = ref<PgfPGF>::untagged(entry->o);
     if (pgf.as_object() >= top)
         throw pgf_error("Invalid revision");
+
+    if (p_txn_id != NULL)
+        *p_txn_id = entry->txn_id;
 
     return pgf;
 }
 
 PGF_INTERNAL
-ref<PgfConcr> PgfDB::revision2concr(PgfConcrRevision revision)
+ref<PgfConcr> PgfDB::revision2concr(PgfConcrRevision revision, size_t *p_txn_id)
 {
-    if (revision == 0 || ref<PgfConcr>::get_tag(revision) != PgfConcr::tag)
+    if (revision == 0 || revision-1 >= ms->n_revisions)
         throw pgf_error("Invalid revision");
 
-    ref<PgfConcr> concr = ref<PgfConcr>::untagged(revision);
+    revision_entry *entry = &ms->revisions[revision-1];
+    if (entry->ref_count == 0)
+        throw pgf_error("Invalid revision");
+
+    if (ref<PgfPGF>::get_tag(entry->o) != PgfConcr::tag)
+        throw pgf_error("Invalid revision");
+
+    ref<PgfConcr> concr = ref<PgfConcr>::untagged(entry->o);
     if (concr.as_object() >= top)
         throw pgf_error("Invalid revision");
+
+    if (p_txn_id != NULL)
+        *p_txn_id = entry->txn_id;
 
     return concr;
 }
