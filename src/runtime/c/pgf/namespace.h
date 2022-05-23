@@ -260,7 +260,7 @@ public:
             return node->right;
         } else {
             ref<Node> left = pop_first(node->left, res);
-            ref<Node> node = upd_node(node, left, node->right);
+            node = upd_node(node, left, node->right);
             return balanceR(node);
         }
     }
@@ -275,7 +275,7 @@ public:
             return node->left;
         } else {
             ref<Node> right = pop_last(node->right, res);
-            ref<Node> node  = upd_node(node, node->left, right);
+            node = upd_node(node, node->left, right);
             return balanceL(node);
         }
     }

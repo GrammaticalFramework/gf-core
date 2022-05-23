@@ -40,7 +40,7 @@ PGF_newTransaction(PGFObject *self, PyObject *args)
         return NULL;
 
     PgfExn err;
-    PgfRevision rev = pgf_start_transaction(self->db, self->revision, &err);
+    PgfRevision rev = pgf_start_transaction(self->db, &err);
     if (handleError(err) != PGF_EXN_NONE) {
         return NULL;
     }

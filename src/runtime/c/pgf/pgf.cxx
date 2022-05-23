@@ -1057,13 +1057,12 @@ void pgf_check_type(PgfDB *db, PgfRevision revision,
 }
 
 PGF_API
-PgfRevision pgf_start_transaction(PgfDB *db, PgfRevision revision,
-                                  PgfExn *err)
+PgfRevision pgf_start_transaction(PgfDB *db, PgfExn *err)
 {
     PGF_API_BEGIN {
         DB_scope scope(db, WRITER_SCOPE);
 
-        ref<PgfPGF> pgf = db->revision2pgf(revision);
+        ref<PgfPGF> pgf = db->get_active_revision();
 
         db->start_transaction();
 
@@ -1078,6 +1077,8 @@ PgfRevision pgf_start_transaction(PgfDB *db, PgfRevision revision,
         new_pgf->concretes = pgf->concretes;
 
         object rev = db->register_revision(new_pgf.tagged(), PgfDB::get_txn_id());
+
+        PgfDB::free(pgf);
 
         db->ref_count++;
         return rev;

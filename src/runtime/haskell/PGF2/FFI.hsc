@@ -175,7 +175,7 @@ foreign import ccall pgf_infer_expr :: Ptr PgfDB -> Ptr PGF -> Ptr (StablePtr Ex
 
 foreign import ccall pgf_check_type :: Ptr PgfDB -> Ptr PGF -> Ptr (StablePtr Type) -> Ptr PgfMarshaller -> Ptr PgfUnmarshaller -> Ptr PgfExn -> IO ()
 
-foreign import ccall pgf_start_transaction :: Ptr PgfDB -> Ptr PGF -> Ptr PgfExn -> IO (Ptr PGF)
+foreign import ccall pgf_start_transaction :: Ptr PgfDB -> Ptr PgfExn -> IO (Ptr PGF)
 
 foreign import ccall pgf_commit_transaction :: Ptr PgfDB -> Ptr PGF -> Ptr PgfExn -> IO ()
 

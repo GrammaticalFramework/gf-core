@@ -84,7 +84,7 @@ modifyPGF p (Transaction f) =
   withForeignPtr (a_revision p) $ \c_revision ->
   withPgfExn "modifyPGF" $ \c_exn ->
   mask $ \restore -> do
-    c_revision <- pgf_start_transaction (a_db p) c_revision c_exn
+    c_revision <- pgf_start_transaction (a_db p) c_exn
     ex_type <- (#peek PgfExn, type) c_exn
     if (ex_type :: (#type PgfExnType)) == (#const PGF_EXN_NONE)
       then do ((restore (f (a_db p) c_revision c_revision c_exn))

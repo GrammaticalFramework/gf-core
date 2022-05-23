@@ -462,8 +462,7 @@ void pgf_check_type(PgfDB *db, PgfRevision revision,
                     PgfExn *err);
 
 PGF_API_DECL
-PgfRevision pgf_start_transaction(PgfDB *db, PgfRevision revision,
-                                  PgfExn *err);
+PgfRevision pgf_start_transaction(PgfDB *db, PgfExn *err);
 
 PGF_API_DECL
 void pgf_commit_transaction(PgfDB *db, PgfRevision revision,
