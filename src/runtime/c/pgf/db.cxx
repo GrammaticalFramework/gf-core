@@ -598,6 +598,10 @@ PGF_INTERNAL_DECL object PgfDB::new_block_descr(object o, size_t size, txn_t txn
         odescr = free_descriptors[0];
         descr  = ptr(block_descr, odescr);
         free_descriptors[0] = descr->chain;
+
+#ifdef DEBUG_MEMORY_ALLOCATOR
+        fprintf(stderr, "recycled block descriptor %016lx\n", odescr);
+#endif
     } else {
         size_t block_size = request2size(sizeof(block_descr));
 
@@ -613,6 +617,10 @@ PGF_INTERNAL_DECL object PgfDB::new_block_descr(object o, size_t size, txn_t txn
 
         odescr = top;
         top += block_size;
+
+#ifdef DEBUG_MEMORY_ALLOCATOR
+        fprintf(stderr, "allocated new block descriptor %016lx\n", odescr);
+#endif
 
         descr  = ptr(block_descr, odescr);
     }
@@ -646,6 +654,10 @@ object PgfDB::upd_block_descr(object map, object left, object right)
             map = free_descriptors[0];
             new_descr = ptr(block_descr, map);
             free_descriptors[0] = new_descr->chain;
+
+#ifdef DEBUG_MEMORY_ALLOCATOR
+            fprintf(stderr, "recycled block descriptor %016lx\n", map);
+#endif
         } else {
             size_t block_size = request2size(sizeof(block_descr));
 
@@ -664,6 +676,10 @@ object PgfDB::upd_block_descr(object map, object left, object right)
 
             map = top;
             top += block_size;
+
+#ifdef DEBUG_MEMORY_ALLOCATOR
+            fprintf(stderr, "allocated new block descriptor %016lx\n", map);
+#endif
 
             new_descr = ptr(block_descr, map);
         }
