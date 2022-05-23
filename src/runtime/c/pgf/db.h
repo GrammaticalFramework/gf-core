@@ -70,7 +70,7 @@ private:
     // The exception is when a transaction is active.
     object top;         
     object free_blocks;
-    object free_descriptors[2];
+    object free_descriptors[3];
 
     size_t mmap_size;
     size_t page_size;

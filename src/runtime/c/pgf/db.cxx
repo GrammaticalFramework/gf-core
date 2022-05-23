@@ -348,6 +348,7 @@ PgfDB::PgfDB(const char* filepath, int flags, int mode) {
     free_blocks         = ms->free_blocks;
     free_descriptors[0] = ms->free_descriptors;
     free_descriptors[1] = 0;
+    free_descriptors[2] = 0;
 }
 
 PGF_INTERNAL
@@ -644,6 +645,8 @@ object PgfDB::upd_block_descr(object map, object left, object right)
 
         descr->chain = free_descriptors[1];
         free_descriptors[1] = map;
+        if (free_descriptors[2] == 0)
+            free_descriptors[2] = map;
 
         if (free_descriptors[0] != 0) {
             map = free_descriptors[0];
@@ -955,6 +958,8 @@ fit:
         int index = (descr->descr_txn_id != ms->curr_txn_id);
         descr->chain = free_descriptors[index];
         free_descriptors[index] = map;
+        if (index == 1 && free_descriptors[2] == 0)
+            free_descriptors[2] = map;
 
         if (descr->left == 0) {
             return descr->right;
@@ -1172,6 +1177,7 @@ void PgfDB::start_transaction()
     free_blocks = ms->free_blocks;
     free_descriptors[0] = ms->free_descriptors;
     free_descriptors[1] = 0;
+    free_descriptors[2] = 0;
 }
 
 PGF_INTERNAL
@@ -1188,12 +1194,24 @@ void PgfDB::commit()
     if (current_db->fd < 0) {
         ms->top = top;
         ms->free_blocks = free_blocks;
+        if (free_descriptors[2] != 0) {
+            ptr(block_descr,free_descriptors[2])->chain = free_descriptors[0];
+            free_descriptors[0] = free_descriptors[1];
+            free_descriptors[1] = 0;
+            free_descriptors[2] = 0;
+        }
         ms->free_descriptors = free_descriptors[0];
-        free_descriptors[1] = 0;
         ms->curr_txn_id++;
         res = 0;
     } else {
 #endif
+        if (free_descriptors[2] != 0) {
+            ptr(block_descr,free_descriptors[2])->chain = free_descriptors[0];
+            free_descriptors[0] = free_descriptors[1];
+            free_descriptors[1] = 0;
+            free_descriptors[2] = 0;
+        }
+
         res = msync((void *) base, mmap_size, MS_SYNC | MS_INVALIDATE);
         if (res != 0)
             throw pgf_systemerror(errno);
@@ -1201,7 +1219,6 @@ void PgfDB::commit()
         ms->top = top;
         ms->free_blocks = free_blocks;
         ms->free_descriptors = free_descriptors[0];
-        free_descriptors[1] = 0;
         ms->curr_txn_id++;
 
         res = msync((void *) ms, page_size, MS_SYNC | MS_INVALIDATE);
@@ -1217,13 +1234,19 @@ void PgfDB::commit()
 #endif
 #else
     if (current_db->fd > 0) {
+        if (free_descriptors[2] != 0) {
+            ptr(block_descr,free_descriptors[2])->chain = free_descriptors[0];
+            free_descriptors[0] = free_descriptors[1];
+            free_descriptors[1] = 0;
+            free_descriptors[2] = 0;
+        }
+
         if (!FlushViewOfFile(base,mmap_size)) {
             throw pgf_systemerror(last_error_to_errno());
         }
         ms->top = top;
         ms->free_blocks = free_blocks;
         ms->free_descriptors = free_descriptors[0];
-        free_descriptors[1] = 0;
         ms->curr_txn_id++;
         if (!FlushViewOfFile(ms,page_size)) {
             ms->top = save_top;
@@ -1243,6 +1266,7 @@ void PgfDB::rollback()
     free_blocks = ms->free_blocks;
     free_descriptors[0] = ms->free_descriptors;
     free_descriptors[1] = 0;
+    free_descriptors[2] = 0;
 }
 
 #ifdef _WIN32
