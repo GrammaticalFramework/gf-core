@@ -1098,12 +1098,7 @@ void pgf_commit_transaction(PgfDB *db, PgfRevision revision,
         DB_scope scope(db, WRITER_SCOPE);
 
         ref<PgfPGF> new_pgf = db->revision2pgf(revision);
-        ref<PgfPGF> old_pgf = db->get_active_revision();
-
         db->set_active_revision(new_pgf.as_object());
-
-        if (old_pgf != 0)
-            PgfPGF::release(old_pgf);
 
         db->commit();
     } PGF_API_END
