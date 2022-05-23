@@ -1294,6 +1294,8 @@ PgfConcrRevision pgf_clone_concrete(PgfDB *db, PgfRevision revision,
             namespace_insert(pgf->concretes, clone);
         pgf->concretes = concrs;
 
+        PgfDB::free(concr, concr->name.size+1);
+
         db->ref_count++;
         return rev;
     } PGF_API_END
