@@ -403,13 +403,16 @@ void PgfDB::register_revision(object o)
     revision_entry *free_entry = NULL;
 
     for (size_t i = 0; i < ms->n_revisions; i++) {
-        if (ms->revisions[i].ref_count == 0) {
+        revision_entry *entry = &ms->revisions[i];
+        if (entry->ref_count == 0) {
             if (free_entry == NULL)
-                free_entry = &ms->revisions[i];
-        } else if (ms->revisions[i].pid == pid &&
-                   ms->revisions[i].o   == o) {
-            ms->revisions[i].ref_count++;
-            goto done;
+                free_entry = entry;
+        } else {
+            if (entry->pid == pid &&
+                entry->o   == o) {
+                entry->ref_count++;
+                goto done;
+            }
         }
     }
 
@@ -448,12 +451,21 @@ void PgfDB::unregister_revision(object o)
     WaitForSingleObject(hMutex, INFINITE); 
 #endif
 
-    revision_entry *free_entry = NULL;
+#ifdef DEBUG_MEMORY_ALLOCATOR
+    fprintf(stderr, "revisions");
+#endif
 
     ms->min_txn_id = SIZE_MAX;
     for (size_t i = 0; i < ms->n_revisions; i++) {
         revision_entry *entry = &ms->revisions[i];
         if (entry->ref_count > 0) {
+#ifdef DEBUG_MEMORY_ALLOCATOR
+            fprintf(stderr, " %ld:%s(%016lx):%ld",
+                            entry->txn_id,
+                            ((entry->o & MALLOC_ALIGN_MASK) == PgfPGF::tag) ? "pgf" : "concr",
+                            entry->o & ~MALLOC_ALIGN_MASK,
+                            entry->ref_count);
+#endif
             if (entry->pid == pid && entry->o == o) {
                 if (--entry->ref_count == 0) {
                     // Maybe this was the last revision in the list.
@@ -470,7 +482,9 @@ void PgfDB::unregister_revision(object o)
         }
     }
 
-    fprintf(stderr, "minimal revision %ld\n", ms->min_txn_id);
+#ifdef DEBUG_MEMORY_ALLOCATOR
+    fprintf(stderr, " minimal %ld\n", ms->min_txn_id);
+#endif
 
 #ifndef _WIN32
     pthread_mutex_unlock(&ms->mutex);
@@ -485,6 +499,10 @@ void PgfDB::cleanup_revisions()
     pthread_mutex_lock(&ms->mutex);
 #else
     WaitForSingleObject(hMutex, INFINITE); 
+#endif
+
+#ifdef DEBUG_MEMORY_ALLOCATOR
+    fprintf(stderr, "revisions");
 #endif
 
     ms->min_txn_id = SIZE_MAX;
@@ -507,6 +525,13 @@ void PgfDB::cleanup_revisions()
 #endif
 
             if (alive) {
+#ifdef DEBUG_MEMORY_ALLOCATOR
+                fprintf(stderr, " %ld:%s(%016lx):%ld",
+                                entry->txn_id,
+                                ((entry->o & MALLOC_ALIGN_MASK) == PgfPGF::tag) ? "pgf" : "concr",
+                                entry->o & ~MALLOC_ALIGN_MASK,
+                                entry->ref_count);
+#endif
                 if (ms->min_txn_id > entry->txn_id)
                     ms->min_txn_id = entry->txn_id;
             } else {
@@ -514,6 +539,10 @@ void PgfDB::cleanup_revisions()
             }
         }
     }
+
+#ifdef DEBUG_MEMORY_ALLOCATOR
+    fprintf(stderr, " minimal %ld\n", ms->min_txn_id);
+#endif
 
 #ifndef _WIN32
     pthread_mutex_unlock(&ms->mutex);
