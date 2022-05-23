@@ -113,7 +113,6 @@ public:
 	PGF_INTERNAL_DECL void cleanup_revisions();
 
     PGF_INTERNAL_DECL object get_active_revision();
-    PGF_INTERNAL_DECL void set_active_revision(object o);
     PGF_INTERNAL_DECL void register_revision(object o);
     PGF_INTERNAL_DECL void unregister_revision(object o);
 
@@ -121,7 +120,7 @@ public:
     PGF_INTERNAL_DECL ref<PgfConcr> revision2concr(PgfConcrRevision revision);
 
     PGF_INTERNAL_DECL void start_transaction();
-    PGF_INTERNAL_DECL void commit();
+    PGF_INTERNAL_DECL void commit(object o);
     PGF_INTERNAL_DECL void rollback();
 
 private:

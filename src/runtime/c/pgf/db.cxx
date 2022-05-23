@@ -529,12 +529,6 @@ object PgfDB::get_active_revision()
 }
 
 PGF_INTERNAL
-void PgfDB::set_active_revision(object o)
-{
-    current_db->ms->active_revision = o;
-}
-
-PGF_INTERNAL
 int PgfDB::init_state()
 {
     memcpy(ms->sign, slovo, sizeof(ms->sign));
@@ -1181,17 +1175,19 @@ void PgfDB::start_transaction()
 }
 
 PGF_INTERNAL
-void PgfDB::commit()
+void PgfDB::commit(object o)
 {
     malloc_state *ms = current_db->ms;
     object save_top = ms->top;
     object save_free_blocks = ms->free_blocks;
     object save_free_descriptors = ms->free_descriptors;
+    object save_active_revision = ms->active_revision;
 
     int res;
 #ifndef _WIN32
 #ifndef MREMAP_MAYMOVE
     if (current_db->fd < 0) {
+        ms->active_revision = o;
         ms->top = top;
         ms->free_blocks = free_blocks;
         if (free_descriptors[2] != 0) {
@@ -1216,6 +1212,7 @@ void PgfDB::commit()
         if (res != 0)
             throw pgf_systemerror(errno);
 
+        ms->active_revision = o;
         ms->top = top;
         ms->free_blocks = free_blocks;
         ms->free_descriptors = free_descriptors[0];
@@ -1223,6 +1220,7 @@ void PgfDB::commit()
 
         res = msync((void *) ms, page_size, MS_SYNC | MS_INVALIDATE);
         if (res != 0) {
+            ms->active_revision = save_active_revision;
             ms->top = save_top;
             ms->free_blocks = save_free_blocks;
             ms->free_descriptors = save_free_descriptors;
@@ -1244,11 +1242,13 @@ void PgfDB::commit()
         if (!FlushViewOfFile(base,mmap_size)) {
             throw pgf_systemerror(last_error_to_errno());
         }
+        ms->active_revision = o;
         ms->top = top;
         ms->free_blocks = free_blocks;
         ms->free_descriptors = free_descriptors[0];
         ms->curr_txn_id++;
         if (!FlushViewOfFile(ms,page_size)) {
+            ms->active_revision = save_active_revision;
             ms->top = save_top;
             ms->free_blocks = save_free_blocks;
             ms->free_descriptors = save_free_descriptors;

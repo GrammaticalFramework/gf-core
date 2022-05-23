@@ -59,10 +59,8 @@ PgfDB *pgf_read_pgf(const char* fpath,
             PgfReader rdr(in);
             ref<PgfPGF> pgf = rdr.read_pgf();
 
-            db->set_active_revision(pgf.as_object());
             db->register_revision(*revision = pgf.tagged());
-
-            db->commit();
+            db->commit(pgf.as_object());
         }
 
         db->ref_count++;
@@ -108,10 +106,8 @@ PgfDB *pgf_boot_ngf(const char* pgf_path, const char* ngf_path,
             PgfReader rdr(in);
             ref<PgfPGF> pgf = rdr.read_pgf();
 
-            db->set_active_revision(pgf.as_object());
             db->register_revision(*revision = pgf.tagged());
-
-            db->commit();
+            db->commit(pgf.as_object());
         }
 
         db->ref_count++;
@@ -190,10 +186,8 @@ PgfDB *pgf_new_ngf(PgfText *abstract_name,
             pgf->abstract.funs = 0;
             pgf->abstract.cats = 0;
             pgf->concretes = 0;
-            db->set_active_revision(pgf.as_object());
             db->register_revision(*revision = pgf.tagged());
-
-            db->commit();
+            db->commit(pgf.as_object());
         }
 
         db->ref_count++;
@@ -1098,9 +1092,7 @@ void pgf_commit_transaction(PgfDB *db, PgfRevision revision,
         DB_scope scope(db, WRITER_SCOPE);
 
         ref<PgfPGF> new_pgf = db->revision2pgf(revision);
-        db->set_active_revision(new_pgf.as_object());
-
-        db->commit();
+        db->commit(new_pgf.as_object());
     } PGF_API_END
 }
 
