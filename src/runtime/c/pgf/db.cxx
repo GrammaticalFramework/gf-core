@@ -1149,13 +1149,15 @@ object PgfDB::realloc_internal(object oldo, size_t old_bytes, size_t new_bytes)
         // If the object is at the end of the allocation area
         top += nb;
 
+#ifdef DEBUG_MEMORY_ALLOCATOR
         fprintf(stderr, "realloc_internal(%016lx,%ld,%ld)\n", oldo, old_bytes, new_bytes);
+#endif
 
         return oldo;
     }
 
     object newo = malloc_internal(new_bytes);
-    memcpy(base+newo, base+oldo, old_bytes);
+    memcpy(base+newo, base+oldo, std::min(old_bytes,new_bytes));
     free_internal(oldo, old_bytes);
     return newo;
 }
