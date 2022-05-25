@@ -1157,7 +1157,7 @@ object PgfDB::realloc_internal(object oldo, size_t old_bytes, size_t new_bytes)
     }
 
     object newo = malloc_internal(new_bytes);
-    memcpy(base+newo, base+oldo, std::min(old_bytes,new_bytes));
+    memcpy(base+newo, base+oldo, old_bytes < new_bytes ? old_bytes : new_bytes);
     free_internal(oldo, old_bytes);
     return newo;
 }
