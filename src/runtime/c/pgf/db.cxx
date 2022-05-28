@@ -1027,29 +1027,32 @@ object PgfDB::delete_block_descriptor(object map, size_t *psize, object *po)
 fit:
         *po = descr->o;
 
+        object new_map;
+        if (descr->left == 0) {
+            new_map = descr->right;
+        } else if (descr->right == 0) {
+            new_map = descr->left;
+        } else {
+            if (ptr(block_descr,descr->left)->sz > ptr(block_descr,descr->right)->sz) {
+                object right = descr->right;
+                object left  = pop_last_block_descriptor(descr->left, &new_map);
+                new_map = upd_block_descr(new_map, left, right);
+                new_map = balanceR_block_descriptor(new_map);
+            } else {
+                object left  = descr->left;
+                object right = pop_first_block_descriptor(descr->right, &new_map);
+                new_map = upd_block_descr(new_map, left, right);
+                new_map = balanceL_block_descriptor(new_map);
+            }
+        }
+
         int index = (descr->descr_txn_id != ms->curr_txn_id);
         descr->chain = free_descriptors[index];
         free_descriptors[index] = map;
         if (index == 1 && free_descriptors[2] == 0)
             free_descriptors[2] = map;
 
-        if (descr->left == 0) {
-            return descr->right;
-        } else if (descr->right == 0) {
-            return descr->left;
-        } else {
-            if (ptr(block_descr,descr->left)->sz > ptr(block_descr,descr->right)->sz) {
-                object right = descr->right;
-                object left  = pop_last_block_descriptor(descr->left, &map);
-                map = upd_block_descr(map, left, right);
-                return balanceR_block_descriptor(map);
-            } else {
-                object left  = descr->left;
-                object right = pop_first_block_descriptor(descr->right, &map);
-                map = upd_block_descr(map, left, right);
-                return balanceL_block_descriptor(map);
-            }
-        }
+        return new_map;
     }
 }
 
@@ -1125,7 +1128,7 @@ object PgfDB::malloc_internal(size_t bytes)
 }
 
 PGF_INTERNAL
-object PgfDB::realloc_internal(object oldo, size_t old_bytes, size_t new_bytes)
+object PgfDB::realloc_internal(object oldo, size_t old_bytes, size_t new_bytes, txn_t txn_id)
 {
     if (oldo == 0)
         return malloc_internal(new_bytes);
@@ -1133,31 +1136,36 @@ object PgfDB::realloc_internal(object oldo, size_t old_bytes, size_t new_bytes)
     size_t old_nb = request2size(old_bytes);
     size_t new_nb = request2size(new_bytes);
 
-    if (oldo + old_nb == top) {
-        ssize_t nb        = new_nb-old_nb;
-        ssize_t free_size = mmap_size - top;
+    if (txn_id == ms->curr_txn_id) {
+        if (old_nb == new_nb)
+            return oldo;
 
-        if (nb > free_size) {
-            size_t alloc_size =
-                ((nb - free_size + page_size - 1) / page_size) * page_size;
-            size_t new_size =
-                ms->file_size + alloc_size;
+        if (oldo + old_nb == top) {
+            ssize_t nb        = new_nb-old_nb;
+            ssize_t free_size = mmap_size - top;
 
-            resize_map(new_size);
-        }
+            if (nb > free_size) {
+                size_t alloc_size =
+                    ((nb - free_size + page_size - 1) / page_size) * page_size;
+                size_t new_size =
+                    ms->file_size + alloc_size;
 
-        // If the object is at the end of the allocation area
-        top += nb;
+                resize_map(new_size);
+            }
+
+            // If the object is at the end of the allocation area
+            top += nb;
 
 #ifdef DEBUG_MEMORY_ALLOCATOR
-        fprintf(stderr, "realloc_internal(%016lx,%ld,%ld)\n", oldo, old_bytes, new_bytes);
+            fprintf(stderr, "realloc_internal(%016lx,%ld,%ld)\n", oldo, old_bytes, new_bytes);
 #endif
 
-        return oldo;
+            return oldo;
+        }
     }
 
     object newo = malloc_internal(new_bytes);
-    memcpy(base+newo, base+oldo, old_bytes < new_bytes ? old_bytes : new_bytes);
+    memcpy(base+newo, base+oldo, (old_bytes < new_bytes) ? old_bytes : new_bytes);
     free_internal(oldo, old_bytes);
     return newo;
 }

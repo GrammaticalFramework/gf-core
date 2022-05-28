@@ -270,13 +270,12 @@ PgfPhrasetable phrasetable_internalize(PgfPhrasetable table,
                          : 0;
 
         ref<Vector<PgfSequenceBackref>> backrefs =
-            vector_copy<PgfSequenceBackref>(table->value.backrefs, len+1);
+            vector_resize<PgfSequenceBackref>(table->value.backrefs, len+1, table->txn_id);
         backrefs->data[len].container = container;
         backrefs->data[len].seq_index = seq_index;
 
         PgfPhrasetable new_table =
             Node<PgfPhrasetableEntry>::upd_node(table, table->left, table->right);
-        Vector<PgfSequenceBackref>::release(new_table->value.backrefs);
         new_table->value.backrefs = backrefs;
         *pentry = ref<PgfPhrasetableEntry>::from_ptr(&new_table->value);
         return new_table;
@@ -299,7 +298,7 @@ ref<PgfSequence> phrasetable_relink(PgfPhrasetable table,
                              : table->value.backrefs->len;
 
             ref<Vector<PgfSequenceBackref>> backrefs =
-                vector_unsafe_resize<PgfSequenceBackref>(table->value.backrefs, len+1);
+                vector_resize<PgfSequenceBackref>(table->value.backrefs, len+1, table->txn_id);
             backrefs->data[len].container = container;
             backrefs->data[len].seq_index = seq_index;
             table->value.backrefs = backrefs;
@@ -342,29 +341,25 @@ PgfPhrasetable phrasetable_delete(PgfPhrasetable table,
         size_t len = table->value.backrefs->len;
         if (len > 1) {
             ref<Vector<PgfSequenceBackref>> backrefs =
-                vector_new<PgfSequenceBackref>(len-1);
+                vector_resize<PgfSequenceBackref>(table->value.backrefs, len-1, table->txn_id);
             size_t i = 0;
             while (i < len) {
-                ref<PgfSequenceBackref> backref = 
-                    vector_elem(table->value.backrefs, i);
+                ref<PgfSequenceBackref> backref =
+                    vector_elem(backrefs, i);
                 if (backref->container == container &&
                     backref->seq_index == seq_index) {
                     break;
                 }
-                *vector_elem(backrefs, i) = *backref;
                 i++;
             }
             i++;
             while (i < len) {
-                ref<PgfSequenceBackref> backref =
-                    vector_elem(table->value.backrefs, i);
-                *vector_elem(backrefs, i-1) = *backref;
+                *vector_elem(backrefs, i-1) = *vector_elem(backrefs, i);
                 i++;
             }
 
             PgfPhrasetable new_table =
                 Node<PgfPhrasetableEntry>::upd_node(table, table->left, table->right);
-            Vector<PgfSequenceBackref>::release(new_table->value.backrefs);
             new_table->value.backrefs = backrefs;
             return new_table;
         } else {

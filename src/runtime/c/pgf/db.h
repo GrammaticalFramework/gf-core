@@ -103,8 +103,8 @@ public:
     }
 
     template<class A>
-    static ref<A> realloc(ref<A> r, size_t old_extra_bytes, size_t new_extra_bytes) {
-        return current_db->realloc_internal(r.as_object(), sizeof(A)+old_extra_bytes, sizeof(A)+new_extra_bytes);
+    static ref<A> realloc(ref<A> r, size_t old_extra_bytes, size_t new_extra_bytes, txn_t txn_id) {
+        return current_db->realloc_internal(r.as_object(), sizeof(A)+old_extra_bytes, sizeof(A)+new_extra_bytes, txn_id);
     }
 
     template<class A>
@@ -144,7 +144,7 @@ private:
 
     PGF_INTERNAL_DECL object malloc_internal(size_t bytes);
 
-    PGF_INTERNAL_DECL object realloc_internal(object oldo, size_t old_bytes, size_t new_bytes);
+    PGF_INTERNAL_DECL object realloc_internal(object oldo, size_t old_bytes, size_t new_bytes, txn_t txn_id);
 
     PGF_INTERNAL_DECL void free_internal(object o, size_t bytes);
 

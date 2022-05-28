@@ -1847,7 +1847,7 @@ public:
 
             size_t len = entry->backrefs->len;
             ref<Vector<PgfSequenceBackref>> backrefs =
-                vector_unsafe_resize<PgfSequenceBackref>(entry->backrefs, len+1);
+                vector_resize<PgfSequenceBackref>(entry->backrefs, len+1, PgfDB::get_txn_id());
             backrefs->data[len].container = container;
             backrefs->data[len].seq_index = seq_index;
             entry->backrefs = backrefs;
