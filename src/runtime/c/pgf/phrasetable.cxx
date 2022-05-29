@@ -343,7 +343,7 @@ PgfPhrasetable phrasetable_delete(PgfPhrasetable table,
             ref<Vector<PgfSequenceBackref>> backrefs =
                 vector_resize<PgfSequenceBackref>(table->value.backrefs, len-1, table->txn_id);
             size_t i = 0;
-            while (i < len) {
+            while (i < len-1) {
                 ref<PgfSequenceBackref> backref =
                     vector_elem(backrefs, i);
                 if (backref->container == container &&
@@ -354,7 +354,7 @@ PgfPhrasetable phrasetable_delete(PgfPhrasetable table,
             }
             i++;
             while (i < len) {
-                *vector_elem(backrefs, i-1) = *vector_elem(backrefs, i);
+                *vector_elem(backrefs, i-1) = *vector_elem(table->value.backrefs, i);
                 i++;
             }
 
