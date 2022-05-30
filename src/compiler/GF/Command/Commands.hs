@@ -32,7 +32,6 @@ import Data.List (sort)
 import Control.Monad(mplus)
 import qualified Control.Monad.Fail as Fail
 
-
 class (Functor m,Monad m,MonadSIO m) => HasPGF m where getPGF :: m (Maybe PGF)
 
 instance (Monad m,HasPGF m,Fail.MonadFail m) => TypeCheckArg m where
@@ -292,8 +291,8 @@ pgfCommands = Map.fromList [
                       morphoKnown concr .
                       concatMap words $ toStrings ts
                  _ -> return . fromString . unlines .
-                      map prMorphoAnalysis . concatMap (morphos pgf opts) .
-                      concatMap words $ toStrings ts,
+                      map prMorphoAnalysis . concatMap (morphos pgf opts) $
+                      toStrings ts,
      flags = [
        ("lang","the languages of analysis (comma-separated, no spaces)")
        ],

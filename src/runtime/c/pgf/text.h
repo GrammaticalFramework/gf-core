@@ -35,4 +35,7 @@ pgf_utf8_encode(uint32_t ucs, uint8_t** buf);
 PGF_INTERNAL_DECL
 uint32_t pgf_utf8_to_upper(uint32_t c);
 
+PGF_INTERNAL_DECL
+bool pgf_utf8_is_space(uint32_t c);
+
 #endif

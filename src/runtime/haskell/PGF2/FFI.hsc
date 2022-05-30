@@ -119,6 +119,8 @@ type MorphoCallback = Ptr PgfMorphoCallback -> Ptr PgfText -> Ptr PgfText -> (#t
 
 foreign import ccall "wrapper" wrapMorphoCallback :: Wrapper MorphoCallback
 
+foreign import ccall pgf_lookup_morpho :: Ptr PgfDB -> Ptr Concr -> Ptr PgfText -> Ptr PgfMorphoCallback -> Ptr PgfExn -> IO ()
+
 foreign import ccall pgf_iter_sequences :: Ptr PgfDB -> Ptr Concr -> Ptr PgfSequenceItor -> Ptr PgfMorphoCallback -> Ptr PgfExn -> IO (Ptr PgfPhrasetableIds)
 
 foreign import ccall pgf_get_lincat_counts_internal :: Ptr () -> Ptr CSize -> IO ()

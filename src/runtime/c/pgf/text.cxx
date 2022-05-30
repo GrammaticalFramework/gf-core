@@ -163,6 +163,7 @@ pgf_utf8_encode(uint32_t ucs, uint8_t **buf)
 	}
 }
 
+PGF_INTERNAL
 uint32_t pgf_utf8_to_upper(uint32_t c)
 {
   if (c >= 97 && c <= 122) return (c-32);
@@ -299,4 +300,27 @@ uint32_t pgf_utf8_to_upper(uint32_t c)
   if (c >= 66600 && c <= 66639) return (c-40);
   if (c >= 71872 && c <= 71903) return (c-32);
   return c;
+}
+
+PGF_INTERNAL
+bool pgf_utf8_is_space(uint32_t c)
+{
+    if (c >= 9 && c <= 13)
+        return true;
+    if (c == 32)
+        return true;
+    if (c == 160)
+        return true;
+    if (c == 5760)
+        return true;
+    if (c >= 8192 && c <= 8202)
+        return true;
+    if (c == 8239)
+        return true;
+    if (c == 8287)
+        return true;
+    if (c == 12288)
+        return true;
+
+    return false;
 }

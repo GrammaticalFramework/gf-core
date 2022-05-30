@@ -792,6 +792,43 @@ void pgf_iter_lins(PgfDB *db, PgfConcrRevision cnc_revision,
     } PGF_API_END
 }
 
+static bool
+pgf_is_case_sensitive(ref<PgfConcr> concr)
+{
+    PgfText *case_sensitive = (PgfText *)
+        alloca(sizeof(PgfText)+15);
+    case_sensitive->size = 14;
+    strcpy(case_sensitive->text, "case_sensitive");
+
+    ref<PgfFlag> flag =
+        namespace_lookup(concr->cflags, case_sensitive);
+    if (flag != 0) {
+        switch (ref<PgfLiteral>::get_tag(flag->value)) {
+        case PgfLiteralStr::tag: {
+			auto lstr = ref<PgfLiteralStr>::untagged(flag->value);
+			if (lstr->val.size == 3 && strcmp(lstr->val.text, "off") == 0)
+				return false;
+		}
+        }
+	}
+	return true;
+}
+
+PGF_API
+void pgf_lookup_morpho(PgfDB *db, PgfConcrRevision cnc_revision,
+                       PgfText *sentence,
+                       PgfMorphoCallback* callback, PgfExn* err)
+{
+    PGF_API_BEGIN {
+        DB_scope scope(db, READER_SCOPE);
+        ref<PgfConcr> concr = db->revision2concr(cnc_revision);
+
+        bool case_sensitive = pgf_is_case_sensitive(concr);
+
+        phrasetable_lookup(concr->phrasetable, sentence, case_sensitive, concr->lincats, callback, err);
+    } PGF_API_END
+}
+
 PGF_API
 PgfPhrasetableIds *pgf_iter_sequences(PgfDB *db, PgfConcrRevision cnc_revision,
                                       PgfSequenceItor *itor,

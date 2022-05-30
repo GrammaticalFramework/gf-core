@@ -484,7 +484,22 @@ type MorphoAnalysis = (Fun,String,Float)
 -- a multiword expression. It then computes the list of all possible
 -- morphological analyses.
 lookupMorpho :: Concr -> String -> [MorphoAnalysis]
-lookupMorpho = error "TODO: lookupMorpho"
+lookupMorpho c sent = unsafePerformIO $ do
+  ref <- newIORef []
+  (withText sent $ \c_sent ->
+   allocaBytes (#size PgfMorphoCallback) $ \itor ->
+   bracket (wrapMorphoCallback (getMorphology ref)) freeHaskellFunPtr $ \fptr ->
+   withForeignPtr (c_revision c) $ \c_revision -> do
+     (#poke PgfMorphoCallback, fn) itor fptr
+     withPgfExn "lookupMorpho" (pgf_lookup_morpho (c_db c) c_revision c_sent itor))
+  fmap reverse (readIORef ref)
+  where
+    getMorphology ref _ c_name c_field c_prob exn = do
+      name  <- peekText c_name
+      field <- peekText c_field
+      let prob = realToFrac c_prob
+          ann = (name,field,prob)
+      modifyIORef ref ((:) ann)
 
 -- | 'lookupCohorts' takes an arbitrary string an produces
 -- a list of all places where lexical items from the grammar have been
@@ -580,7 +595,7 @@ fullFormLexicon c = unsafePerformIO $ do
      (#poke PgfMorphoCallback, fn) itor2 fptr2
      seq_ids <- withPgfExn "fullFormLexicon" (pgf_iter_sequences (c_db c) c_revision itor1 itor2)
      pgf_release_phrasetable_ids seq_ids)
-  fmap reverse (readIORef ref)
+  fmap (reverse2 []) (readIORef ref)
   where
     getSequences ref _ seq_id val exn = do
       bracket (pgf_sequence_get_text_internal val) free $ \c_text ->
@@ -598,6 +613,9 @@ fullFormLexicon c = unsafePerformIO $ do
       let prob = realToFrac c_prob
           ann = (name,field,prob)
       modifyIORef ref (\((form,anns) : lexicon) -> (form,ann:anns) : lexicon)
+
+    reverse2 ys []           = ys
+    reverse2 ys ((x1,x2):xs) = reverse2 ((x1,reverse x2):ys) xs
 
 
 -- | This data type encodes the different outcomes which you could get from the parser.

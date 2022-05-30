@@ -69,6 +69,13 @@ PGF_INTERNAL_DECL
 size_t phrasetable_size(PgfPhrasetable table);
 
 PGF_INTERNAL_DECL
+void phrasetable_lookup(PgfPhrasetable table,
+                        PgfText *sentence,
+                        bool case_sensitive,
+                        Namespace<struct PgfConcrLincat> lincats,
+                        PgfMorphoCallback* callback, PgfExn* err);
+
+PGF_INTERNAL_DECL
 void phrasetable_iter(PgfConcr *concr,
                       PgfPhrasetable table,
                       PgfSequenceItor* itor,

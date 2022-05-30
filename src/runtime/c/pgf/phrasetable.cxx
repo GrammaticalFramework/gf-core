@@ -227,6 +227,77 @@ int sequence_cmp(ref<PgfSequence> seq1, ref<PgfSequence> seq2)
 	return 0;
 }
 
+static
+int text_cmp(PgfText *sentence, ref<PgfSequence> seq,
+             bool case_sensitive)
+{
+	int res1 = 0;
+
+    const uint8_t *s1 = (uint8_t *) &sentence->text;
+    const uint8_t *e1 = s1+sentence->size;
+
+    size_t i = 0;
+    const uint8_t *s2 = NULL;
+    const uint8_t *e2 = NULL;
+
+    size_t count = 0;
+
+    for (;;) {
+        if (s1 >= e1) {
+            if (s2 < e2 || i < seq->syms.len)
+                return -1;
+            return case_sensitive ? res1 : 0;
+        }
+
+        uint32_t ucs1  = pgf_utf8_decode(&s1);
+        uint32_t ucs1i = pgf_utf8_to_upper(ucs1);
+
+        if (s2 >= e2) {
+            if (i >= seq->syms.len)
+                return 1;
+
+            if (s2 != NULL) {
+                if (pgf_utf8_is_space(ucs1)) {
+                    count++;
+                    continue;
+                }
+
+                if (count == 0) {
+                    return (((int) ucs1) - ' ');
+                } else {
+                    count = 0;
+                }
+            }
+
+            uint8_t t = ref<PgfSymbol>::get_tag(seq->syms.data[i]);
+            if (t != PgfSymbolKS::tag) {
+                return ((int) PgfSymbolKS::tag) - ((int) t);
+            }
+
+            auto sym_ks = ref<PgfSymbolKS>::untagged(seq->syms.data[i]);
+            s2 = (uint8_t *) &sym_ks->token.text;
+            e2 = s2+sym_ks->token.size;
+
+            i++;
+        }
+
+        uint32_t ucs2  = pgf_utf8_decode(&s2);
+        uint32_t ucs2i = pgf_utf8_to_upper(ucs2);
+
+        if (ucs1i > ucs2i) {
+            return 1;
+        }
+        else if (ucs1i < ucs2i) {
+            return -1;
+        }
+        else if (ucs1 > ucs2) {
+            res1 =  1;
+        } else if (ucs1 < ucs2) {
+            res1 = -1;
+        }
+    }
+}
+
 PGF_INTERNAL
 PgfPhrasetable phrasetable_internalize(PgfPhrasetable table,
                                        ref<PgfSequence> seq,
@@ -392,6 +463,60 @@ PGF_INTERNAL
 size_t phrasetable_size(PgfPhrasetable table)
 {
     return Node<PgfPhrasetableEntry>::size(table);
+}
+
+PGF_INTERNAL
+void phrasetable_lookup(PgfPhrasetable table,
+                        PgfText *sentence,
+                        bool case_sensitive,
+                        Namespace<PgfConcrLincat> lincats,
+                        PgfMorphoCallback* callback, PgfExn* err)
+{
+    if (table == 0)
+        return;
+
+    int cmp = text_cmp(sentence,table->value.seq,case_sensitive);
+    if (cmp < 0) {
+        phrasetable_lookup(table->left,sentence,case_sensitive,lincats,callback,err);
+    } else if (cmp > 0) {
+        phrasetable_lookup(table->right,sentence,case_sensitive,lincats,callback,err);
+    } else {
+        auto backrefs = table->value.backrefs;
+        if (backrefs != 0) {
+            for (size_t i = 0; i < backrefs->len; i++) {
+                PgfSequenceBackref backref = *vector_elem<PgfSequenceBackref>(backrefs,i);
+                switch (ref<PgfConcrLin>::get_tag(backref.container)) {
+                case PgfConcrLin::tag: {
+                    ref<PgfConcrLin> lin = ref<PgfConcrLin>::untagged(backref.container);
+                    ref<PgfConcrLincat> lincat =
+                        namespace_lookup(lincats, &lin->absfun->type->name);
+                    if (lincat != 0) {
+                        ref<PgfText> field =
+                            *vector_elem(lincat->fields, backref.seq_index % lincat->fields->len);
+
+                        callback->fn(callback, &lin->absfun->name, &(*field), lincat->abscat->prob+lin->absfun->prob, err);
+                        if (err->type != PGF_EXN_NONE)
+                            return;
+                    }
+                    break;
+                }
+                case PgfConcrLincat::tag: {
+                    //ignore
+                    break;
+                }
+                }
+            }
+        }
+
+        if (!case_sensitive) {
+            phrasetable_lookup(table->left,sentence,false,lincats,callback,err);
+            if (err->type != PGF_EXN_NONE)
+                return;
+            phrasetable_lookup(table->right,sentence,false,lincats,callback,err);
+            if (err->type != PGF_EXN_NONE)
+                return;
+        }
+     }
 }
 
 PGF_INTERNAL

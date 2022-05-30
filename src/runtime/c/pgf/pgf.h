@@ -411,6 +411,11 @@ struct PgfMorphoCallback {
 };
 
 PGF_API_DECL
+void pgf_lookup_morpho(PgfDB *db, PgfConcrRevision cnc_revision,
+                       PgfText *sentence,
+                       PgfMorphoCallback* callback, PgfExn* err);
+
+PGF_API_DECL
 PgfPhrasetableIds *pgf_iter_sequences(PgfDB *db, PgfConcrRevision cnc_revision,
                                       PgfSequenceItor *itor,
                                       PgfMorphoCallback *callback,
