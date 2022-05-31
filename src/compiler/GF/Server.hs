@@ -166,8 +166,8 @@ handle logLn documentroot state0 cache execute1 stateVar
              -- This code runs without mutual exclusion, so it must *not*
              -- use/change the cwd. Access files by absolute paths only.
              case (takeDirectory path,takeFileName path,takeExtension path) of
-               (_  ,_             ,".pgf") -> do --debug $ "PGF service: "++path
-                                                 wrapCGI $ PS.cgiMain' cache path
+               (_  ,_             ,".pgf") -> wrapCGI $ PS.cgiMain' cache path
+               (_  ,_             ,".ngf") -> wrapCGI $ PS.cgiMain' cache path
                (dir,"grammars.cgi",_     ) -> grammarList dir (decoded qs)
                _ -> serveStaticFile rpath path
              where path = translatePath rpath

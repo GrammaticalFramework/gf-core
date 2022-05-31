@@ -42,7 +42,7 @@ import System.Exit
 import System.IO
 import System.IO.Error(isDoesNotExistError)
 import System.Directory(removeFile)
-import System.FilePath(dropExtension,takeDirectory,(</>),(<.>))
+import System.FilePath(takeExtension,dropExtension,takeDirectory,(</>),(<.>))
 import System.Mem(performGC)
 
 catchIOE :: IO a -> (E.IOException -> IO a) -> IO a
@@ -59,12 +59,18 @@ data Caches = Caches { qsem :: QSem,
 
 newPGFCache jobs = do let n = maybe 4 id jobs
                       qsem <- newQSem n
-                      pgfCache <- newCache' readPGF
+                      pgfCache <- newCache' readGrammar
                       lblCache <- newCache' (fmap getDepLabels . readFile)
                       return $ Caches qsem pgfCache lblCache
 flushPGFCache c = do flushCache (pgfCache c)
                      flushCache (labelsCache c)
 listPGFCache c = listCache (pgfCache c)
+
+readGrammar path =
+  case takeExtension path of
+    ".pgf" -> readPGF path
+    ".ngf" -> readNGF path
+    _      -> error "Extension must be .pgf or .ngf"
 
 newCache' rd = do c <- newCache rd
                   forkIO $ forever $ clean c
