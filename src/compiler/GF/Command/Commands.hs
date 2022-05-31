@@ -3,7 +3,8 @@ module GF.Command.Commands (
   HasPGF(..),pgfCommands,
   options,flags,
   ) where
-import Prelude hiding (putStrLn,(<>))
+import Prelude hiding (putStrLn,(<>)) -- GHC 8.4.1 clash with Text.PrettyPrint
+import System.Info(os)
 
 import PGF2
 
@@ -797,10 +798,14 @@ pgfCommands = Map.fromList [
                          Nothing -> error ("Can't parse '"++str++"' as a type")
      in maybeStrOpts "cat" (startCat pgf) readOpt opts
    optViewFormat opts = valStrOpts "format" "png" opts
-   optViewGraph opts = valStrOpts "view" "open" opts
+   optViewGraph opts = valStrOpts "view" open_cmd opts
    optNum opts = valIntOpts "number" 1 opts
    optNumInf opts = valIntOpts "number" 1000000000 opts ---- 10^9
    takeOptNum opts = take (optNumInf opts)
+
+   open_cmd | os == "linux"   = "xdg-open"
+            | os == "mingw32" = "start"
+            | otherwise       = "open"
 
    returnFromExprs show_p es =
      return $ 
