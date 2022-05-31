@@ -38,7 +38,7 @@ decodeUnicode :: TextEncoding -> ByteString -> String
 decodeUnicode enc bs = unsafePerformIO $ decodeUnicodeIO enc bs
 
 decodeUnicodeIO enc (PS fptr l len) = do
-    let bbuf = Buffer{bufRaw=fptr, bufState=ReadBuffer, bufSize=len, bufL=l, bufR=l+len}
+    let bbuf = (emptyBuffer fptr len ReadBuffer) { bufL=l, bufR=l+len }
     cbuf <- newCharBuffer 128 WriteBuffer
     case enc of
       TextEncoding {mkTextDecoder=mk} -> do decoder <- mk
