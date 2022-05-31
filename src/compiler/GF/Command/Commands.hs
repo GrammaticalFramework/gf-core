@@ -4,6 +4,7 @@ module GF.Command.Commands (
   options,flags,
   ) where
 import Prelude hiding (putStrLn,(<>)) -- GHC 8.4.1 clash with Text.PrettyPrint
+import System.Info(os)
 
 import PGF
 
@@ -882,10 +883,14 @@ pgfCommands = Map.fromList [
                        Right ty   -> ty
           Nothing -> error ("Can't parse '"++str++"' as a type")
    optViewFormat opts = valStrOpts "format" "png" opts
-   optViewGraph opts = valStrOpts "view" "open" opts
+   optViewGraph opts = valStrOpts "view" open_cmd opts
    optNum opts = valIntOpts "number" 1 opts
    optNumInf opts = valIntOpts "number" 1000000000 opts ---- 10^9
    takeOptNum opts = take (optNumInf opts)
+
+   open_cmd | os == "linux"   = "xdg-open"
+            | os == "mingw32" = "start"
+            | otherwise       = "open"
 
    returnFromExprs es = return $ case es of
      [] -> pipeMessage "no trees found"
