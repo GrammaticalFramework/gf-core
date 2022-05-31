@@ -540,7 +540,7 @@ value2term' stop loc xs v0 =
     var :: HasCallStack => Int -> Term
     var j
       | j<length xs = Vr (reverse xs !! j)
-      | otherwise   = bugloc loc ("variable #"++show j++" is out of scope")
+      | otherwise   = Error ("variable #"++show j++" is out of scope in expression " ++ show v0 ++ " with context " ++show (reverse xs))
 
 
     pushs xs e = foldr push e xs
