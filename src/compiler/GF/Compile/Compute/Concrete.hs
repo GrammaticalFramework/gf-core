@@ -538,7 +538,7 @@ value2term' stop loc xs v0 =
 
     var j
       | j<length xs = Vr (reverse xs !! j)
-      | otherwise   = error ("variable #"++show j++" is out of scope")
+      | otherwise   = bugloc loc ("variable #"++show j++" is out of scope")
 
 
     pushs xs e = foldr push e xs
