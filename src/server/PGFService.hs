@@ -457,6 +457,7 @@ instance JSON BracketedString where
     readJSON x = return (Leaf "")
     showJSON (Bracket cat fid index fun bs) =
         makeObj ["cat".=cat, "fid".=fid, "index".=index, "fun".=fun, "children".=bs]
+    showJSON BIND     = makeObj ["bind".=True]
     showJSON (Leaf s) = makeObj ["token".=s]
 
 -- * PGF utilities
