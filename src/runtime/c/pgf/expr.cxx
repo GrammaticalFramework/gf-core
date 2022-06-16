@@ -508,6 +508,12 @@ void PgfExprParser::token()
             if (ch == '\'') {
                 getc();
                 token_tag = PGF_TOKEN_IDENT;
+                if (token_value == NULL) {
+                    token_value = (PgfText*)
+                        malloc(sizeof(PgfText)+1);
+                    token_value->size    = 0;
+                    token_value->text[0] = 0;
+                }
             }
         }
 		break;
@@ -521,6 +527,12 @@ void PgfExprParser::token()
             if (ch == '"') {
                 getc();
                 token_tag = PGF_TOKEN_STR;
+                if (token_value == NULL) {
+                    token_value = (PgfText*)
+                        malloc(sizeof(PgfText)+1);
+                    token_value->size    = 0;
+                    token_value->text[0] = 0;
+                }
             }
         }
         break;
