@@ -4,6 +4,7 @@ module PGFService(cgiMain,cgiMain',getPath,
                   Caches,pgfCache,newPGFCache,flushPGFCache,listPGFCache) where
 
 import PGF2
+import PGF2.Transactions
 import GF.Text.Lexing
 import Cache
 import CGIUtils(outputJSONP,outputPlain,outputHTML,outputText,
@@ -60,16 +61,18 @@ data Caches = Caches { qsem :: QSem,
 newPGFCache jobs = do let n = maybe 4 id jobs
                       qsem <- newQSem n
                       pgfCache <- newCache' readGrammar
-                      lblCache <- newCache' (fmap getDepLabels . readFile)
+                      lblCache <- newCache' (const (fmap getDepLabels . readFile))
                       return $ Caches qsem pgfCache lblCache
 flushPGFCache c = do flushCache (pgfCache c)
                      flushCache (labelsCache c)
 listPGFCache c = listCache (pgfCache c)
 
-readGrammar path =
+readGrammar mb_pgf path =
   case takeExtension path of
     ".pgf" -> readPGF path
-    ".ngf" -> readNGF path
+    ".ngf" -> case mb_pgf of
+                Nothing -> readNGF path
+                Just gr -> putStrLn "CHECKOUT!!!" >> checkoutPGF gr
     _      -> error "Extension must be .pgf or .ngf"
 
 newCache' rd = do c <- newCache rd

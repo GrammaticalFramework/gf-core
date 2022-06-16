@@ -12,14 +12,14 @@ import Data.Time (UTCTime,getCurrentTime,diffUTCTime)
 --import Data.Time.Compat (toUTCTime)
 
 data Cache a = Cache {
-      cacheLoad :: FilePath -> IO a,
+      cacheLoad :: Maybe a -> FilePath -> IO a,
       cacheObjects :: MVar (Map FilePath (MVar (Maybe (FileInfo a))))
     }
 
 type FileInfo a = (UTCTime,UTCTime,a) -- modification time, access time, contents
 
 -- | Create a new cache that uses the given function to read and parse files
-newCache :: (FilePath -> IO a) -> IO (Cache a)
+newCache :: (Maybe a -> FilePath -> IO a) -> IO (Cache a)
 newCache load = 
     do objs <- newMVar Map.empty
        return $ Cache { cacheLoad = load, cacheObjects = objs }
@@ -66,6 +66,7 @@ readCache' c file =
     readObject m = do t' <- {-toUTCTime `fmap`-} getModificationTime file
                       now <- getCurrentTime
                       x' <- case m of
-                              Just (t,_,x) | t' == t -> return x
-                              _                      -> cacheLoad c file
+                              Just (t,_,x) | t' == t   -> return x
+                                           | otherwise -> cacheLoad c (Just x) file
+                              _                        -> cacheLoad c Nothing  file
                       return (Just (t',now,x'), (t',x'))
