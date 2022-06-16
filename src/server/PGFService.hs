@@ -72,7 +72,7 @@ readGrammar mb_pgf path =
     ".pgf" -> readPGF path
     ".ngf" -> case mb_pgf of
                 Nothing -> readNGF path
-                Just gr -> putStrLn "CHECKOUT!!!" >> checkoutPGF gr
+                Just gr -> checkoutPGF gr
     _      -> error "Extension must be .pgf or .ngf"
 
 newCache' rd = do c <- newCache rd
