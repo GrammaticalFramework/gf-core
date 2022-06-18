@@ -2,7 +2,7 @@
 Abstract syntax for the small subset of GF grammars supported
 in gfse, the JavaScript-based simple grammar editor.
 -}
-module SimpleEditor.Syntax where
+module GF.Server.SimpleEditor.Syntax where
 
 type Id    = String -- all sorts of identifiers
 type ModId = Id -- module name

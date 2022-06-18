@@ -13,12 +13,6 @@ homepage: https://www.grammaticalframework.org/
 bug-reports: https://github.com/GrammaticalFramework/gf-core/issues
 tested-with: GHC==7.10.3, GHC==8.0.2, GHC==8.10.4, GHC==9.0.2
 
-data-dir: src
-extra-source-files:
-  README.md
-  CHANGELOG.md
-  WebSetup.hs
-  doc/Logos/gf0.png
 data-files:
   www/*.html
   www/*.css
@@ -69,7 +63,6 @@ flag network-uri
    default: True
 
 executable gf
-  hs-source-dirs: src/programs, src/compiler
   main-is: gf-main.hs
   default-language:    Haskell2010
   build-depends: pgf2,
@@ -171,6 +164,7 @@ executable gf
     GF.Infra.Ident
     GF.Infra.Location
     GF.Infra.SIO
+    GF.Infra.Cache
     GF.JavaScript.AbsJS
     GF.JavaScript.PrintJS
     GF.Quiz
@@ -232,18 +226,14 @@ executable gf
     cpp-options: -DSERVER_MODE
     other-modules:
       GF.Server
-      PGFService
-      RunHTTP
-      SimpleEditor.Convert
-      SimpleEditor.JSON
-      SimpleEditor.Syntax
-      URLEncoding
-      CGI
-      CGIUtils
-      Cache
-    hs-source-dirs:
-      src/server
-      src/server/transfer
+      GF.Server.PGFService
+      GF.Server.RunHTTP
+      GF.Server.SimpleEditor.Convert
+      GF.Server.SimpleEditor.JSON
+      GF.Server.SimpleEditor.Syntax
+      GF.Server.URLEncoding
+      GF.Server.CGI
+      GF.Server.CGIUtils
 
   if flag(interrupt)
     cpp-options: -DUSE_INTERRUPT

@@ -1,13 +1,14 @@
-module RunHTTP(runHTTP,Options(..),cgiHandler) where
+module GF.Server.RunHTTP(runHTTP,Options(..),cgiHandler) where
+
+import GF.Server.CGI(ContentType(..),
+                     CGIResult(..),CGIRequest(..),Input(..),
+                     Headers,HeaderName(..),
+                     runCGIT)
+import GF.Server.URLEncoding(decodeQuery)
 import Network.URI(uriPath,uriQuery)
-import CGI(ContentType(..))
-import CGI(CGIResult(..),CGIRequest(..),Input(..),
-                            Headers,HeaderName(..))
-import CGI(runCGIT)
 import Network.Shed.Httpd(initServer,Request(..),Response(..))
 import qualified Data.ByteString.Lazy.Char8 as BS(pack,unpack,empty)
 import qualified Data.Map as M(fromList)
-import URLEncoding(decodeQuery)
 
 data Options = Options { documentRoot :: String, port :: Int } deriving Show
 

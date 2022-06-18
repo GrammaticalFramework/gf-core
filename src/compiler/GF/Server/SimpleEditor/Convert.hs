@@ -1,5 +1,5 @@
 {-# LANGUAGE NoMonomorphismRestriction #-}
-module SimpleEditor.Convert where
+module GF.Server.SimpleEditor.Convert where
 
 import Control.Monad(unless,foldM,ap,mplus)
 import Data.List(sortBy)
@@ -19,8 +19,8 @@ import GF.Grammar.Lexer(Posn(..))
 import GF.Data.ErrM
 import PGF2(Literal(LStr))
 
-import SimpleEditor.Syntax as S
-import SimpleEditor.JSON
+import GF.Server.SimpleEditor.Syntax as S
+import GF.Server.SimpleEditor.JSON
 
 
 parseModule (path,source) =

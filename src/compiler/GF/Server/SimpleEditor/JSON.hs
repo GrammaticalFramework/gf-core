@@ -1,8 +1,8 @@
-module SimpleEditor.JSON where
+module GF.Server.SimpleEditor.JSON where
 
 import Text.JSON
 
-import SimpleEditor.Syntax
+import GF.Server.SimpleEditor.Syntax
 
 
 instance JSON Grammar where

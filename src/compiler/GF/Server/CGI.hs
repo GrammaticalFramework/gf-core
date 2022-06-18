@@ -1,5 +1,5 @@
 -- | Isolate dependencies on the problematic cgi package to this module
-module CGI(module C) where
+module GF.Server.CGI(module C) where
 import Network.CGI as C(
        CGI,ContentType(..),Accept(..),Language(..),
        getVarWithDefault,readInput,negotiate,requestAcceptLanguage,getInput,

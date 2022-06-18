@@ -1,4 +1,4 @@
-module URLEncoding(urlDecodeUnicode,decodeQuery) where
+module GF.Server.URLEncoding(urlDecodeUnicode,decodeQuery) where
 
 import Data.Bits (shiftL, (.|.))
 import Data.Char (chr,digitToInt,isHexDigit)

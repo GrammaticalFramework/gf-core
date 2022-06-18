@@ -1,19 +1,19 @@
 {-# LANGUAGE CPP #-}
-module PGFService(cgiMain,cgiMain',getPath,
-                  logFile,stderrToFile,
-                  Caches,pgfCache,newPGFCache,flushPGFCache,listPGFCache) where
+module GF.Server.PGFService(cgiMain,cgiMain',getPath,
+                            logFile,stderrToFile,
+                            Caches,pgfCache,newPGFCache,flushPGFCache,listPGFCache) where
 
 import PGF2
 import PGF2.Transactions
 import GF.Text.Lexing
-import Cache
-import CGIUtils(outputJSONP,outputPlain,outputHTML,outputText,
-                outputBinary,outputBinary',
-                logError,handleCGIErrors,throwCGIError,stderrToFile)
-import CGI(CGI,readInput,getInput,getVarWithDefault,
-           CGIResult,requestAcceptLanguage,handleErrors,setHeader,
-           Accept(..),Language(..),negotiate,liftIO)
-import URLEncoding
+import GF.Infra.Cache
+import GF.Server.CGIUtils(outputJSONP,outputPlain,outputHTML,outputText,
+                          outputBinary,outputBinary',
+                          logError,handleCGIErrors,throwCGIError,stderrToFile)
+import GF.Server.CGI(CGI,readInput,getInput,getVarWithDefault,
+                     CGIResult,requestAcceptLanguage,handleErrors,setHeader,
+                     Accept(..),Language(..),negotiate,liftIO)
+import GF.Server.URLEncoding
 
 import Data.Time.Clock(UTCTime)
 import Data.Time.Format(formatTime)

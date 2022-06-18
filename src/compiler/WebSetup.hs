@@ -118,7 +118,7 @@ setupWeb dest (pkg,lbi) = do
 
     copyGFLogo =
       do createDirectoryIfMissing True logo_dir
-         copyFile ("doc"</>"Logos"</>gf_logo) (logo_dir</>gf_logo)
+         copyFile (".."</>".."</>"doc"</>"Logos"</>gf_logo) (logo_dir</>gf_logo)
 
 -- | Run an arbitrary system command, returning False on failure
 execute :: String -> [String] -> IO Bool

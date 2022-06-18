@@ -1,10 +1,10 @@
 {-# LANGUAGE DeriveDataTypeable, CPP #-}
 -- | CGI utility functions for output, error handling and logging
-module CGIUtils (throwCGIError, handleCGIErrors,
-                 stderrToFile,logError,
-                 outputJSONP,outputEncodedJSONP,
-                 outputPNG,outputBinary,outputBinary',
-                 outputHTML,outputPlain,outputText) where
+module GF.Server.CGIUtils (throwCGIError, handleCGIErrors,
+                           stderrToFile,logError,
+                           outputJSONP,outputEncodedJSONP,
+                           outputPNG,outputBinary,outputBinary',
+                           outputHTML,outputPlain,outputText) where
 
 import Control.Exception(Exception(..),SomeException(..),throw)
 import Data.Typeable(Typeable,cast)
@@ -14,8 +14,8 @@ import System.IO(hPutStrLn,stderr)
 import System.Posix
 #endif
 
-import CGI(CGI,CGIResult,setHeader,output,outputFPS,outputError,
-           getInput)
+import GF.Server.CGI(CGI,CGIResult,setHeader,output,outputFPS,outputError,
+                     getInput)
 
 import Text.JSON
 import qualified Codec.Binary.UTF8.String as UTF8 (encodeString)
