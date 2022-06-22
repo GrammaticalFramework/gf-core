@@ -1,49 +1,37 @@
 {-# LANGUAGE CPP #-}
-module GF.Server.PGFService(cgiMain,cgiMain',getPath,
-                            logFile,stderrToFile,
-                            Caches,pgfCache,newPGFCache,flushPGFCache,listPGFCache) where
+module PGFService(cgiMain,cgiMain',getPath,
+                  logFile,stderrToFile,
+                  Caches,pgfCache,newPGFCache,flushPGFCache,listPGFCache) where
 
 import PGF2
 import PGF2.Transactions
-import GF.Text.Lexing
-import GF.Infra.Cache
-import GF.Server.CGIUtils(outputJSONP,outputPlain,outputHTML,outputText,
-                          outputBinary,outputBinary',
-                          logError,handleCGIErrors,throwCGIError,stderrToFile)
-import GF.Server.CGI(CGI,readInput,getInput,getVarWithDefault,
-                     CGIResult,requestAcceptLanguage,handleErrors,setHeader,
-                     Accept(..),Language(..),negotiate,liftIO)
-import GF.Server.URLEncoding
+import Cache
+import Network.CGI(CGI,readInput,getInput,getVarWithDefault,
+                   CGIResult,handleErrors,setHeader,
+                   Accept(..),Language(..),negotiate,liftIO)
+import CGIUtils(outputJSONP,outputPlain,
+                outputBinary,outputBinary',
+                handleCGIErrors,throwCGIError,stderrToFile)
+import URLEncoding
 
-import Data.Time.Clock(UTCTime)
 import Data.Time.Format(formatTime)
-#if MIN_VERSION_time(1,5,0)
 import Data.Time.Format(defaultTimeLocale,rfc822DateFormat)
-#else
-import System.Locale(defaultTimeLocale,rfc822DateFormat)
-#endif
 import Text.JSON
-import Text.PrettyPrint as PP(render, text, (<+>))
 import qualified Codec.Binary.UTF8.String as UTF8 (decodeString)
 import qualified Data.ByteString.Lazy as BS
 
 import Control.Concurrent
 import qualified Control.Exception as E
 import Control.Monad
-import Control.Monad.State(State,evalState,get,put)
 import Control.Monad.Catch(bracket_)
 import Data.Char
---import Data.Function (on)
-import Data.List ({-sortBy,-}intersperse,mapAccumL,nub,isSuffixOf,nubBy,stripPrefix)
 import qualified Data.Map as Map
 import Data.Maybe
-import System.Random
 import System.Process
 import System.Exit
 import System.IO
 import System.IO.Error(isDoesNotExistError)
-import System.Directory(removeFile)
-import System.FilePath(takeExtension,dropExtension,takeDirectory,(</>),(<.>))
+import System.FilePath(takeExtension)
 import System.Mem(performGC)
 
 catchIOE :: IO a -> (E.IOException -> IO a) -> IO a
@@ -121,12 +109,12 @@ pgfMain qsem command (t,pgf) =
     "linearizeAll"  -> out t=<< linAll # tree % to
     "translate"     -> withQSem qsem $
                        out t=<<join(trans # input % cat % to % start % limit%treeopts)
-    "lookupmorpho"  -> out t=<< morpho # from1 % textInput
-    "lookupcohorts" -> out t=<< cohorts # from1 % getInput "filter" % textInput
+    "lookupmorpho"  -> out t=<< morpho # from % textInput
+    "lookupcohorts" -> out t=<< cohorts # from % getInput "filter" % textInput
     "flush"         -> out t=<< flush
     "grammar"       -> out t grammar
     "abstrtree"     -> outputGraphviz=<< graphvizAbstractTree pgf graphvizDefaults # tree
-    "parsetree"     -> outputGraphviz=<< (\cnc -> graphvizParseTree cnc graphvizDefaults) . snd # from1 %tree
+    "parsetree"     -> outputGraphviz=<< (\cnc -> graphvizParseTree cnc graphvizDefaults) . snd # from %tree
     "wordforword"   -> out t =<< wordforword # input % cat % to
     _               -> badRequest "Unknown command" command
   where
@@ -203,16 +191,16 @@ pgfMain qsem command (t,pgf) =
         mkChartPArg (PArg _ fid) = showJSON fid
 -}
     linAll tree to = showJSON (linAll' tree to)
-    linAll' tree (tos,unlex) =
+    linAll' tree tos =
         [makeObj ["to".=to,
-                  "texts".=map unlex (linearizeAll c tree)]|(to,c)<-tos]
+                  "texts".=linearizeAll c tree]|(to,c)<-tos]
 
     lin tree to = showJSON (lin' tree to)
-    lin' tree (tos,unlex) =
-        [makeObj ["to".=to,"text".=unlex (linearize c tree)]|(to,c)<-tos]
+    lin' tree tos =
+        [makeObj ["to".=to,"text".=linearize c tree]|(to,c)<-tos]
 
     bracketedLin tree to = showJSON (bracketedLin' tree to)
-    bracketedLin' tree (tos,unlex) =
+    bracketedLin' tree tos =
         [makeObj ["to".=to,"brackets".=showJSON (bracketedLinearize c tree)]|(to,c)<-tos]
 
     trans input@((from,_),_) cat to start mlimit (trie,jsontree) =
@@ -251,17 +239,17 @@ pgfMain qsem command (t,pgf) =
                                      (lookupCohorts concr input)]
 
     wordforword input@((from,_),_) cat = jsonWFW from . wordforword' input cat
+      where
+         jsonWFW from rs =
+           showJSON
+             [makeObj
+               ["from".=from,
+                "translations".=[makeObj ["linearizations".=
+                                             [makeObj["to".=to,"text".=text]
+                                                | (to,text)<-rs]]]]]
 
-    jsonWFW from rs =
-      showJSON
-        [makeObj
-          ["from".=from,
-           "translations".=[makeObj ["linearizations".=
-                                        [makeObj["to".=to,"text".=text]
-                                         | (to,text)<-rs]]]]]
-
-    wordforword' inp@((from,concr),input) cat (tos,unlex) =
-        [(to,unlex . unwords $ map (lin_word' c) pws)
+    wordforword' inp@((from,concr),input) cat tos =
+        [(to,unwords $ map (lin_word' c) pws)
          |let pws=map parse_word' (words input),(to,c)<-tos]
       where
         lin_word' c = either id (lin1 c)
@@ -294,21 +282,19 @@ pgfMain qsem command (t,pgf) =
 
     ---
 
-    input = lexit # from % textInput
-      where
-        lexit (from,lex) input = (from,lex input)
+    input = (,) # from % textInput
 
-        from = maybe (missing "from") getlexer =<< from'
-          where
-            getlexer f@(_,concr) = (,) f # c_lexer concr
+    from = maybe (missing "from") return =<< getLang "from"
 
-    from1 = maybe (missing "from") return =<< from'
-    from' = getLang "from"
+    to = getLangs "to"
 
-    to = (,) # getLangs "to" % unlexerC (const False)
+    getLangs i = mapM readLang . maybe [] words =<< getInput i
 
-    getLangs = getLangs' readLang
-    getLang = getLang' readLang
+    getLang i = do
+      mlang <- getInput i
+      case mlang of
+        Just lang@(_:_) -> Just # readLang lang
+        _               -> return Nothing
 
     readLang :: String -> CGI (String,Concr)
     readLang lang =
@@ -319,42 +305,6 @@ pgfMain qsem command (t,pgf) =
     tree = do s <- maybe (missing "tree") return =<< getInput1 "tree"
               maybe (badRequest "bad tree" s) return (readExpr s)
 
-    c_lexer concr = lexer (not . null . lookupMorpho concr)
-
-
---------------------------------------------------------------------------------
--- * Lexing
-
--- | Standard lexers
-lexer good = maybe (return id) lexerfun =<< getInput "lexer" 
-  where
-    lexerfun name =
-      case stringOp good ("lex"++name) of
-        Just fn -> return fn
-        Nothing -> badRequest "Unknown lexer" name
-
-
-type Unlexer = String->String
-
--- | Unlexing for the C runtime system, &+ is already applied
-unlexerC :: (String -> Bool) -> CGI Unlexer
-unlexerC = unlexer' id
-
--- | Unlexing for the Haskell runtime system, the default is to just apply &+
-unlexerH :: CGI Unlexer
-unlexerH = unlexer' (unwords . bindTok . words) (const False)
-
-unlexer' defaultUnlexer good =
-    maybe (return defaultUnlexer) unlexerfun =<< getInput "unlexer"
-  where
-    unlexerfun name =
-       case stringOp good ("unlex"++name) of
-         Just fn -> return (fn . cleanMarker)
-         Nothing -> badRequest "Unknown unlexer" name
-    
-    cleanMarker ('+':cs) = cs
-    cleanMarker ('*':cs) = cs
-    cleanMarker cs       = cs
 
 out t r = do let fmt = formatTime defaultTimeLocale rfc822DateFormat t
              setHeader "Last-Modified" fmt
@@ -366,15 +316,6 @@ nonEmpty r = r
 
 textInput :: CGI String
 textInput = liftM (maybe "" (urlDecodeUnicode . UTF8.decodeString)) $ getInput "input"
-
-getLangs' readLang i = mapM readLang . maybe [] words =<< getInput i
-
-getLang' readLang i =
-   do mlang <- getInput i
-      case mlang of
-        Just l@(_:_) -> Just # readLang l
-        _            -> return Nothing
-
 
 limit, depth :: CGI (Maybe Int)
 limit = readInput "limit"
@@ -401,7 +342,6 @@ throw code msg extra =
 format def = maybe def id # getInput "format"
 
 type From = (Maybe Concr,String)
-type To = ([Concr],Unlexer)
 type TreeOpts = (Bool,Bool) -- (trie,jsontree)
 
 outputGraphviz code =

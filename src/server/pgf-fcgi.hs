@@ -1,6 +1,6 @@
 {-# LANGUAGE CPP #-}
 import Control.Concurrent(forkIO)
-import Network.FastCGI(runFastCGI,runFastCGIConcurrent')
+import Network.FastCGI
 
 import PGFService(cgiMain,newPGFCache,stderrToFile,logFile)
 

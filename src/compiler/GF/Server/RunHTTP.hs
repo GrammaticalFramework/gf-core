@@ -1,10 +1,10 @@
 module GF.Server.RunHTTP(runHTTP,Options(..),cgiHandler) where
 
-import GF.Server.CGI(ContentType(..),
-                     CGIResult(..),CGIRequest(..),Input(..),
-                     Headers,HeaderName(..),
-                     runCGIT)
-import GF.Server.URLEncoding(decodeQuery)
+import Network.CGI(ContentType(..))
+import Network.CGI.Protocol(CGIResult(..),CGIRequest(..),Input(..),
+                            Headers,HeaderName(..))
+import Network.CGI.Monad(runCGIT)
+import URLEncoding(decodeQuery)
 import Network.URI(uriPath,uriQuery)
 import Network.Shed.Httpd(initServer,Request(..),Response(..))
 import qualified Data.ByteString.Lazy.Char8 as BS(pack,unpack,empty)

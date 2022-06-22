@@ -1,0 +1,74 @@
+name: pgf-service
+version: 1.0
+cabal-version: >= 1.8
+build-type: Simple
+license: GPL
+license-file: LICENSE
+synopsis: CGI library and FastCGI Service for Grammatical Framework
+
+flag fastcgi
+  Description: Build library & pgf-fcgi executable with fastcgi support
+  Default: True
+
+flag network-uri
+   description: Get Network.URI from the network-uri package
+   default: True
+
+Library
+  exposed-modules: PGFService URLEncoding CGIUtils Cache
+
+  build-depends:   base >=4.2 && <5,
+                   time,
+                   directory,
+                   filepath,
+                   containers,
+                   process,
+                   pgf2 >= 2,
+                   cgi >= 3001.1.7.3,
+                   httpd-shed>=0.4.0.2,
+                   mtl,
+                   exceptions,
+                   json >= 0.3.3,
+                   utf8-string >= 0.3.1.1,
+                   bytestring,
+                   pretty,
+                   random
+
+  if flag(network-uri)
+    build-depends: network-uri>=2.6, network>=2.6
+  else
+    build-depends: network>=2.3 && <2.6
+
+  ghc-options: -fwarn-unused-imports
+  if os(windows)
+    ghc-options: -optl-mwindows
+  else
+    build-depends: unix
+
+executable pgf-fcgi
+  main-is: pgf-fcgi.hs
+  other-modules: URLEncoding Cache CGIUtils PGFService
+  ghc-options: -threaded -fwarn-unused-imports
+  if impl(ghc>=7.0)
+    ghc-options: -rtsopts
+  if flag(fastcgi)
+    build-depends: fastcgi >= 3001.0.2.2
+       -- Install it in Ubuntu with: apt-get install libghc-fastcgi-dev
+  else
+    Buildable: False
+  build-depends: base >=4.2 && <5, pgf-service,
+                 time,
+                 directory,
+                 filepath,
+                 containers,
+                 process,
+                 pgf2 >= 2,
+                 cgi >= 3001.1.7.3,
+                 exceptions,
+                 json >= 0.3.3,
+                 utf8-string >= 0.3.1.1,
+                 bytestring
+  if os(windows)
+    ghc-options: -optl-mwindows
+  else
+    build-depends: unix

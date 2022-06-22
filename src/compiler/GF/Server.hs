@@ -32,7 +32,7 @@ import Network.URI(URI(..))
 import Network.Shed.Httpd(initServer,Request(..),Response(..),noCache)
 --import qualified Network.FastCGI as FCGI -- from hackage direct-fastcgi
 import Network.CGI(handleErrors,liftIO)
-import GF.Server.CGIUtils(handleCGIErrors)--,outputJSONP,stderrToFile
+import CGIUtils(handleCGIErrors)
 import Text.JSON(encode,showJSON,makeObj)
 --import System.IO.Silently(hCapture)
 import System.Process(readProcessWithExitCode)
@@ -41,13 +41,13 @@ import Codec.Binary.UTF8.String(decodeString,encodeString)
 import GF.Infra.UseIO(readBinaryFile,writeBinaryFile,ePutStrLn)
 import GF.Infra.SIO(captureSIO)
 import GF.Data.Utilities(apSnd,mapSnd)
-import qualified GF.Server.PGFService as PS
+import qualified PGFService as PS
 import Data.Version(showVersion)
 import Paths_gf(getDataDir,version)
 import GF.Infra.BuildInfo (buildInfo)
 import GF.Server.SimpleEditor.Convert(parseModule)
 import GF.Server.RunHTTP(cgiHandler)
-import GF.Server.URLEncoding(decodeQuery)
+import URLEncoding(decodeQuery)
 
 --logFile :: FilePath
 --logFile = "pgf-error.log"

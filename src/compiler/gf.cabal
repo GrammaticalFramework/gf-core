@@ -164,7 +164,6 @@ executable gf
     GF.Infra.Ident
     GF.Infra.Location
     GF.Infra.SIO
-    GF.Infra.Cache
     GF.JavaScript.AbsJS
     GF.JavaScript.PrintJS
     GF.Quiz
@@ -212,6 +211,7 @@ executable gf
 
   if flag(server)
     build-depends:
+      pgf-service,
       cgi >= 3001.3.0.2 && < 3001.6,
       httpd-shed >= 0.4.0 && < 0.5,
       network>=2.3 && <3.2
@@ -226,14 +226,10 @@ executable gf
     cpp-options: -DSERVER_MODE
     other-modules:
       GF.Server
-      GF.Server.PGFService
       GF.Server.RunHTTP
       GF.Server.SimpleEditor.Convert
       GF.Server.SimpleEditor.JSON
       GF.Server.SimpleEditor.Syntax
-      GF.Server.URLEncoding
-      GF.Server.CGI
-      GF.Server.CGIUtils
 
   if flag(interrupt)
     cpp-options: -DUSE_INTERRUPT

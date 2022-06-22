@@ -1,5 +1,5 @@
 -- | A file cache to avoid reading and parsing the same file many times
-module GF.Infra.Cache (Cache,newCache,flushCache,expireCache,listCache,readCache,readCache') where
+module Cache (Cache,newCache,flushCache,expireCache,listCache,readCache,readCache') where
 
 import Control.Concurrent.MVar
 import Data.Map (Map)
