@@ -1,5 +1,5 @@
 {-# LANGUAGE DeriveDataTypeable #-}
-module PGF2.Expr(Var, Cat, Fun, Var,
+module PGF2.Expr(Var, Cat, Fun,
                  BindType(..), Literal(..), Expr(..),
                  Type(..), Hypo,
                  Patt(..), Equation(..),
