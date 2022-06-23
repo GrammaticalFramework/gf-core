@@ -313,7 +313,6 @@ mkLinReference gr typ = do
                           Bad msg   -> fail msg
         Sort s | s == cStr -> return (Just trm)
         QC p       -> return Nothing
-        RecType [] -> return Nothing
         RecType rs -> traverse rs trm
         _ | Just _ <- isTypeInts ty -> return Nothing
         _ -> checkError ("a field in a linearization type cannot be" <+> typ)
