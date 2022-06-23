@@ -416,10 +416,71 @@ PgfLinearizer::TreeLinrefNode::TreeLinrefNode(PgfLinearizer *linearizer, TreeNod
 
 bool PgfLinearizer::TreeLinrefNode::resolve(PgfLinearizer *linearizer)
 {
-    ref<PgfConcrLincat> lincat = args->get_lincat(linearizer);
-    lin_index++;
-    if (lincat->n_lindefs+lin_index <= lincat->res->len)
-        return true;
+    TreeNode *root = args;
+    ref<PgfConcrLincat> lincat = root->get_lincat(linearizer);
+
+    while (lincat->n_lindefs+lin_index < lincat->res->len) {
+        // Unbind all variables
+        for (size_t j = 0; j < var_count; j++) {
+            var_values[j] = (size_t) -1;
+        }
+
+        ref<PgfPResult> pres = *vector_elem(lincat->res, lincat->n_lindefs+lin_index);
+        ref<PgfPArg> parg = vector_elem(lincat->args, lincat->n_lindefs+lin_index);
+
+        if (root->value < parg->param->i0)
+            break;
+
+        size_t value = root->value - parg->param->i0;
+        for (size_t j = 0; j < parg->param->n_terms; j++) {
+            size_t factor    = parg->param->terms[j].factor;
+            size_t var       = parg->param->terms[j].var;
+            size_t var_value;
+
+            if (var < var_count && var_values[var] != (size_t) -1) {
+                // The variable already has a value
+                var_value = var_values[var];
+            } else {
+                // The variable is not assigned yet
+                var_value = value / factor;
+
+                // find the range for the variable
+                size_t range = 0;
+                for (size_t k = 0; k < pres->vars->len; k++) {
+                    ref<PgfVariableRange> var_range = vector_elem(pres->vars, k);
+                    if (var_range->var == var) {
+                        range = var_range->range;
+                        break;
+                    }
+                }
+                if (range == 0)
+                    throw pgf_error("Unknown variable in resolving a linearization");
+
+                if (var_value >= range)
+                    break;
+
+                // Assign the variable;
+                if (var >= var_count) {
+                    var_values = (size_t*)
+                        realloc(var_values, (var+1)*sizeof(size_t));
+                    while (var_count < var) {
+                        var_values[var_count++] = (size_t) -1;
+                    }
+                    var_count++;
+                }
+                var_values[var] = var_value;
+            }
+
+            value -= var_value * factor;
+        }
+
+        lin_index++;
+        if (value == 0) {
+            value = eval_param(&pres->param);
+            return true;
+        }
+    }
+
     lin_index = 0;
     return false;
 }
