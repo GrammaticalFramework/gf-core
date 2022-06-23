@@ -1,7 +1,8 @@
 {-# LANGUAGE CPP #-}
 module PGFService(cgiMain,cgiMain',getPath,
                   logFile,stderrToFile,
-                  Caches,pgfCache,newPGFCache,flushPGFCache,listPGFCache) where
+                  Caches,newPGFCache,readCachedPGF,readCachedNGF,
+                  flushPGFCache,listPGFCache) where
 
 import PGF2
 import PGF2.Transactions
@@ -44,28 +45,33 @@ logFile = "pgf-error.log"
 
 data Caches = Caches { qsem :: QSem,
                        pgfCache :: Cache PGF,
+                       ngfCache :: Cache PGF,
                        labelsCache :: Cache Labels }
 
-newPGFCache jobs = do let n = maybe 4 id jobs
-                      qsem <- newQSem n
-                      pgfCache <- newCache' readGrammar
-                      lblCache <- newCache' (const (fmap getDepLabels . readFile))
-                      return $ Caches qsem pgfCache lblCache
+newPGFCache root jobs = do
+  let n = maybe 4 id jobs
+  qsem <- newQSem n
+  pgfCache <- newCache' root (const readPGF)
+  ngfCache <- newCache' root (maybe readNGF (const . checkoutPGF))
+  lblCache <- newCache' root (const (fmap getDepLabels . readFile))
+  return $ Caches qsem pgfCache ngfCache lblCache
+
+readCachedPGF :: Caches -> FilePath -> IO PGF
+readCachedPGF = readCache . pgfCache
+
+readCachedNGF :: Caches -> FilePath -> IO PGF
+readCachedNGF = readCache . ngfCache
+
 flushPGFCache c = do flushCache (pgfCache c)
+                     flushCache (ngfCache c)
                      flushCache (labelsCache c)
-listPGFCache c = listCache (pgfCache c)
 
-readGrammar mb_pgf path =
-  case takeExtension path of
-    ".pgf" -> readPGF path
-    ".ngf" -> case mb_pgf of
-                Nothing -> readNGF path
-                Just gr -> checkoutPGF gr
-    _      -> error "Extension must be .pgf or .ngf"
+listPGFCache c = liftM2 (++) (listCache (pgfCache c)) (listCache (ngfCache c))
 
-newCache' rd = do c <- newCache rd
-                  forkIO $ forever $ clean c
-                  return c
+newCache' root rd = do 
+  c <- newCache root rd
+  forkIO $ forever $ clean c
+  return c
   where
     clean c = do threadDelay 2000000000 -- 2000 seconds, i.e. ~33 minutes
                  expireCache (24*60*60) c -- 24 hours
@@ -86,15 +92,20 @@ cgiMain' cache path =
                         (getInput "command")
        case command of
          "download" -> outputBinary =<< getFile BS.readFile path
-         _ -> do tpgf <- getFile (readCache' (pgfCache cache)) path
+         _ -> do let get = case takeExtension path of
+                             ".pgf" -> pgfCache
+                             ".ngf" -> ngfCache
+                             _      -> error "Extension must be .pgf or .ngf"
+                 tpgf <- getFile (readCache' (get cache)) path
                  pgfMain (qsem cache) command tpgf
-
-getFile get path =
-   either failed return =<< liftIO (E.try (get path))
-  where
-    failed e = if isDoesNotExistError e
-               then notFound path
-               else liftIO $ ioError e
+    where
+      getFile get path =
+        either failed return =<< liftIO (E.try (get path))
+        where
+          failed e = 
+            if isDoesNotExistError e
+              then notFound path
+              else liftIO $ ioError e
 
 
 pgfMain qsem command (t,pgf) =

@@ -5,8 +5,7 @@ import Network.FastCGI
 import PGFService(cgiMain,newPGFCache,stderrToFile,logFile)
 
 main = do stderrToFile logFile
-          fcgiMain =<< newPGFCache Nothing
-
+          fcgiMain =<< newPGFCache "" Nothing
 
 fcgiMain cache =
 #ifndef mingw32_HOST_OS

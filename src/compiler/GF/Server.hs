@@ -1,13 +1,13 @@
 -- | GF server mode
 {-# LANGUAGE CPP #-}
 module GF.Server(server) where
+
 import Data.List(partition,stripPrefix,isInfixOf)
 import qualified Data.Map as M
 import Control.Monad(when)
 import Control.Monad.State(StateT(..),get,gets,put)
 import Control.Monad.Except(ExceptT(..),runExceptT)
 import System.Random(randomRIO)
---import System.IO(stderr,hPutStrLn)
 import GF.System.Catch(try)
 import Control.Exception(bracket_)
 import System.IO.Error(isAlreadyExistsError)
@@ -30,11 +30,9 @@ import System.Posix.Files(getSymbolicLinkStatus,isSymbolicLink,removeLink,
 import GF.Infra.Concurrency(newMVar,modifyMVar,newLog)
 import Network.URI(URI(..))
 import Network.Shed.Httpd(initServer,Request(..),Response(..),noCache)
---import qualified Network.FastCGI as FCGI -- from hackage direct-fastcgi
 import Network.CGI(handleErrors,liftIO)
 import CGIUtils(handleCGIErrors)
 import Text.JSON(encode,showJSON,makeObj)
---import System.IO.Silently(hCapture)
 import System.Process(readProcessWithExitCode)
 import System.Exit(ExitCode(..))
 import Codec.Binary.UTF8.String(decodeString,encodeString)
@@ -49,60 +47,29 @@ import GF.Server.SimpleEditor.Convert(parseModule)
 import GF.Server.RunHTTP(cgiHandler)
 import URLEncoding(decodeQuery)
 
---logFile :: FilePath
---logFile = "pgf-error.log"
-
 debug s = logPutStrLn s
 
 -- | Combined FastCGI and HTTP server
-server jobs port optroot execute1 state0 =
-  do --stderrToFile logFile
-     state <- newMVar M.empty
-     cache <- PS.newPGFCache jobs
-     datadir <- getDataDir
-     let root = maybe (datadir</>"www") id optroot
---   debug $ "document root="++root
-     setDir root
---   FCGI.acceptLoop forkIO (handle_fcgi execute1 state0 state cache)
-     -- if acceptLoop returns, then GF was not invoked as a FastCGI script
-     http_server execute1 state0 state cache root
+server jobs port optroot init execute1 = do
+  state <- newMVar M.empty
+  datadir <- getDataDir
+  let root = maybe (datadir</>"www") id optroot
+  cache <- PS.newPGFCache root jobs
+  setDir root
+  let readNGF = PS.readCachedNGF cache
+  state0 <- init readNGF
+  http_server (execute1 readNGF) state0 state cache root
   where
     -- | HTTP server
-    http_server execute1 state0 state cache root =
+    http_server execute state0 state cache root =
       do logLn <- newLog ePutStrLn -- to avoid intertwined log messages
          logLn gf_version
          logLn $ "Document root = "++root
          logLn $ "Starting HTTP server, open http://localhost:"
                  ++show port++"/ in your web browser."
-         initServer port (handle logLn root state0 cache execute1 state)
+         initServer port (handle logLn root state0 cache execute state)
 
 gf_version = "This is GF version "++showVersion version++".\n"++buildInfo
-
-{-
--- | FastCGI request handler
-handle_fcgi execute1 state0 stateM cache =
-  do Just method <- FCGI.getRequestMethod
-     debug $ "request method="++method
-     Just path <- FCGI.getPathInfo
---   debug $ "path info="++path
-     query <- maybe (return "") return =<< FCGI.getQueryString
---   debug $ "query string="++query
-     let uri = URI "" Nothing path query ""
-     headers <- fmap (mapFst show) FCGI.getAllRequestHeaders
-     body <- fmap BS.unpack FCGI.fGetContents
-     let req = Request method uri headers body
---   debug (show req)
-     (output,resp) <- liftIO $ hCapture [stdout] $ modifyMVar stateM $ handle state0 cache execute1 req
-     let Response code headers body = resp
---   debug output
-     debug $ "    "++show code++" "++show headers
-     FCGI.setResponseStatus code
-     mapM_ (uncurry (FCGI.setResponseHeader . toHeader)) headers
-     let pbody = BS.pack body
-         n = BS.length pbody
-     FCGI.fPut pbody
-     debug $ "done "++show n
--}
 
 -- * Request handler
 -- | Handler monad
@@ -132,7 +99,7 @@ hmbracket_ pre post m =
          Right (a,s) -> do put s;return a
 
 -- | HTTP request handler
-handle logLn documentroot state0 cache execute1 stateVar
+handle logLn documentroot state0 cache execute stateVar
        rq@(Request method URI{uriPath=upath,uriQuery=q} hdrs body) =
     addDate $
     case method of
@@ -141,7 +108,6 @@ handle logLn documentroot state0 cache execute1 stateVar
       _ -> return (resp501 $ "method "++method)
   where
     logPutStrLn msg = liftIO $ logLn msg
---  debug msg = logPutStrLn msg
 
     addDate m =
       do t <- getCurrentTime
@@ -157,8 +123,6 @@ handle logLn documentroot state0 cache execute1 stateVar
            "/new"     -> stateful $ new
            "/gfshell" -> stateful $ inDir command
            "/cloud"   -> stateful $ inDir cloud
---         "/stop"    ->
---         "/start"   ->
            "/parse"   -> parse (decoded qs)
            "/version" -> versionInfo `fmap` PS.listPGFCache cache
            "/flush"   -> do PS.flushPGFCache cache; return (ok200 "flushed")
@@ -229,7 +193,7 @@ handle logLn documentroot state0 cache execute1 stateVar
       do cmd <- look "command"
          state <- get_state
          let st = maybe state0 id $ M.lookup dir state
-         (output,st') <- liftIO $ captureSIO $ execute1 st cmd
+         (output,st') <- liftIO $ captureSIO $ execute st cmd
          let state' = maybe state (flip (M.insert dir) state) st'
          put_state state'
          return $ ok200 output

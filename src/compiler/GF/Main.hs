@@ -14,7 +14,6 @@ import System.Directory
 import System.Environment (getArgs)
 import System.Exit
 import GHC.IO.Encoding
--- import GF.System.Console (setConsoleEncoding)
 
 -- | Run the GF main program, taking arguments from the command line.
 -- (It calls 'setConsoleEncoding' and 'getOptions', then 'mainOpts'.)

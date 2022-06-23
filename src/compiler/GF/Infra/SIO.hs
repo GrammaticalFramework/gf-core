@@ -131,7 +131,7 @@ getLibraryDirectory  = lift0 . IO.getLibraryDirectory
 newStdGen            = lift0   IO.newStdGen
 runInterruptibly     = lift1   IO.runInterruptibly
 
-importGrammar pgf opts files = lift0 $ GF.importGrammar pgf opts files
+importGrammar readNGF pgf opts files = lift0 $ GF.importGrammar readNGF pgf opts files
 importSource      opts files = lift0 $ GF.importSource      opts files
 link opts pgf src = lift0 $ GF.link opts pgf src
 

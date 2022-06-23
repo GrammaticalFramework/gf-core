@@ -23,8 +23,8 @@ import Control.Monad(foldM)
 import Control.Exception(catch,throwIO)
 
 -- import a grammar in an environment where it extends an existing grammar
-importGrammar :: Maybe PGF -> Options -> [FilePath] -> IO (Maybe PGF)
-importGrammar pgf0 opts  _
+importGrammar :: (FilePath -> IO PGF) -> Maybe PGF -> Options -> [FilePath] -> IO (Maybe PGF)
+importGrammar readNGF pgf0 opts  _
   | Just name <- flag optBlank opts = do
         mb_ngf_file <- if snd (flag optLinkTargets opts)
                          then do let fname = name <.> ".ngf"
@@ -33,14 +33,14 @@ importGrammar pgf0 opts  _
                          else do return Nothing
         pgf <- newNGF name mb_ngf_file
         return (Just pgf)
-importGrammar pgf0 _    [] = return pgf0
-importGrammar pgf0 opts fs
+importGrammar readNGF pgf0 _    [] = return pgf0
+importGrammar readNGF pgf0 opts fs
   | all (extensionIs ".cf")   fs = fmap Just $ importCF opts fs getBNFCRules bnfc2cf
   | all (extensionIs ".ebnf") fs = fmap Just $ importCF opts fs getEBNFRules ebnf2cf
   | all (extensionIs ".gfm")  fs = do
         ascss <- mapM readMulti fs
         let cs = concatMap snd ascss
-        importGrammar pgf0 opts cs
+        importGrammar readNGF pgf0 opts cs
   | all (\f -> extensionIs ".gf" f || extensionIs ".gfo" f) fs = do
         res <- tryIOE $ compileToPGF opts pgf0 fs
         case res of

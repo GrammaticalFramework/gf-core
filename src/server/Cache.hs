@@ -6,12 +6,14 @@ import Data.Map (Map)
 import qualified Data.Map as Map 
 import Data.Foldable as T(mapM_)
 import Data.Maybe(mapMaybe)
-import System.Directory (getModificationTime)
+import System.Directory (getModificationTime, canonicalizePath)
+import System.FilePath (makeRelative)
 import System.Mem(performGC)
 import Data.Time (UTCTime,getCurrentTime,diffUTCTime)
 --import Data.Time.Compat (toUTCTime)
 
 data Cache a = Cache {
+      cacheRoot :: FilePath,
       cacheLoad :: Maybe a -> FilePath -> IO a,
       cacheObjects :: MVar (Map FilePath (MVar (Maybe (FileInfo a))))
     }
@@ -19,10 +21,13 @@ data Cache a = Cache {
 type FileInfo a = (UTCTime,UTCTime,a) -- modification time, access time, contents
 
 -- | Create a new cache that uses the given function to read and parse files
-newCache :: (Maybe a -> FilePath -> IO a) -> IO (Cache a)
-newCache load = 
-    do objs <- newMVar Map.empty
-       return $ Cache { cacheLoad = load, cacheObjects = objs }
+newCache :: FilePath -> (Maybe a -> FilePath -> IO a) -> IO (Cache a)
+newCache root load = do
+  objs <- newMVar Map.empty
+  return (Cache { cacheRoot = root
+                , cacheLoad = load
+                , cacheObjects = objs
+                })
 
 -- | Forget all cached objects
 flushCache :: Cache a -> IO ()
@@ -40,11 +45,10 @@ expireCache age c =
 -- | List currently cached files
 listCache :: Cache a -> IO [(FilePath,UTCTime)]
 listCache c =
-    fmap (mapMaybe id) . mapM check . Map.toList =<< readMVar (cacheObjects c)
+  fmap (mapMaybe id) . mapM check . Map.toList =<< readMVar (cacheObjects c)
   where
     check (path,v) = maybe Nothing (Just . (,) path . fst3) `fmap` readMVar v
-
-fst3 (x,y,z) = x
+    fst3 (x,y,z) = x
 
 -- | Lookup a cached object (or read the file if it is not in the cache or if
 -- it has been modified)
@@ -53,20 +57,24 @@ readCache c file = snd `fmap` readCache' c file
 
 -- | Like 'readCache', but also return the last modification time of the file
 readCache' :: Cache a -> FilePath -> IO (UTCTime,a)
-readCache' c file =
-    do v <- modifyMVar (cacheObjects c) findEntry
-       modifyMVar v readObject
+readCache' c file = do
+  file <- canonicalizePath file
+  v <- modifyMVar (cacheObjects c)
+                  (findEntry (makeRelative (cacheRoot c) file))
+  modifyMVar v (readObject file)
   where
     -- Find the cache entry, inserting a new one if neccessary.
-    findEntry objs = case Map.lookup file objs of
-                       Just v -> return (objs,v)
-                       Nothing -> do v <- newMVar Nothing
-                                     return (Map.insert file v objs, v)
+    findEntry file objs = case Map.lookup file objs of
+                            Just v  -> return (objs,v)
+                            Nothing -> do v <- newMVar Nothing
+                                          return (Map.insert file v objs, v)
+
     -- Check time stamp, and reload if different than the cache entry
-    readObject m = do t' <- {-toUTCTime `fmap`-} getModificationTime file
-                      now <- getCurrentTime
-                      x' <- case m of
-                              Just (t,_,x) | t' == t   -> return x
-                                           | otherwise -> cacheLoad c (Just x) file
-                              _                        -> cacheLoad c Nothing  file
-                      return (Just (t',now,x'), (t',x'))
+    readObject file m = do
+      t'  <- getModificationTime file
+      now <- getCurrentTime
+      x' <- case m of
+              Just (t,_,x) | t' == t   -> return x
+                           | otherwise -> cacheLoad c (Just x) file
+              _                        -> cacheLoad c Nothing  file
+      return (Just (t',now,x'), (t',x'))

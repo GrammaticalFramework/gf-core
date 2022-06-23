@@ -36,10 +36,12 @@ import System.Directory(getAppUserDataDirectory)
 import Control.Exception(SomeException,fromException,evaluate,try)
 import Control.Monad.State hiding (void)
 import qualified GF.System.Signal as IO(runInterruptibly)
+import GF.Command.Messages(welcome)
 #ifdef SERVER_MODE
 import GF.Server(server)
 #endif
-import GF.Command.Messages(welcome)
+
+type ReadNGF = FilePath -> IO PGF
 
 -- | Run the GF Shell in quiet mode (@gf -run@).
 mainRunGFI :: Options -> [FilePath] -> IO ()
@@ -53,38 +55,35 @@ mainGFI opts files = do
   P.putStrLn welcome
   shell opts files
 
-shell opts files = flip evalStateT (emptyGFEnv opts) $
-                   do mapStateT runSIO $ importInEnv opts files
-                      modify $ \ gfenv0 -> gfenv0 {history = [unwords ("i":files)]}
-                      loop
+shell opts files =
+  flip evalStateT (emptyGFEnv opts) $
+  do mapStateT runSIO $ importInEnv readNGF opts files
+     modify $ \ gfenv0 -> gfenv0 {history = [unwords ("i":files)]}
+     repeatM (mapStateT runSIO . execute1 readNGF =<< readCommand)
+
 
 #ifdef SERVER_MODE
 -- | Run the GF Server (@gf -server@).
 -- The 'Int' argument is the port number for the HTTP service.
 mainServerGFI opts0 port files =
-    server jobs port root execute1' . snd
-      =<< runSIO (runStateT (importInEnv opts files) (emptyGFEnv opts))
+  server jobs port root init execute
   where
     root = flag optDocumentRoot opts
     opts = beQuiet opts0
     jobs = join (flag optJobs opts)
 
-    execute1' gfenv0 cmd =
-       do (continue,gfenv) <- runStateT (execute1 cmd) gfenv0
-          return $ if continue then Just gfenv else Nothing
+    init readNGF = do
+      (_, gfenv) <- runSIO (runStateT (importInEnv readNGF opts files) (emptyGFEnv opts))
+      return gfenv
+
+    execute readNGF gfenv0 cmd = do
+      (continue,gfenv) <- runStateT (execute1 readNGF cmd) gfenv0
+      return $ if continue then Just gfenv else Nothing
+
 #else
-mainServerGFI opts port files =
+mainServerGFI readNGF opts port files =
   fail "GF has not been compiled with server mode support"
 #endif
-
--- | Read end execute commands until it is time to quit
-loop :: StateT GFEnv IO ()
-loop = repeatM readAndExecute1
-
--- | Read and execute one command, returning 'True' to continue execution,
--- | 'False' when it is time to quit
-readAndExecute1 :: StateT GFEnv IO Bool
-readAndExecute1 = mapStateT runSIO . execute1 =<< readCommand
 
 -- | Read a command
 readCommand :: StateT GFEnv IO String
@@ -113,13 +112,13 @@ type ShellM = StateT GFEnv SIO
 
 -- | Execute a given command line, returning 'True' to continue execution,
 -- | 'False' when it is time to quit
-execute1, execute1' :: String -> ShellM Bool
-execute1 s0 =
+execute1, execute1' :: ReadNGF -> String -> ShellM Bool
+execute1 readNGF s0 =
   do modify $ \ gfenv0 -> gfenv0 {history = s0 : history gfenv0}
-     execute1' s0
+     execute1' readNGF s0
 
 -- | Execute a given command line, without adding it to the history
-execute1' s0 =
+execute1' readNGF s0 =
   do opts <- gets startOpts
      interruptible $ optionallyShowCPUTime opts $
        case pwords s0 of
@@ -128,7 +127,16 @@ execute1' s0 =
          "q" :_   -> quit
          "!" :ws  -> system_command ws
          "eh":ws  -> execute_history ws
-         "i" :ws  -> do import_ ws; continue
+         "i" :ws  -> do import_ readNGF ws; continue
+         "r" :_   -> do gfenv0 <- get
+                        let imports = [(s,ws) | s <- history gfenv0, ("i":ws) <- [pwords s]]
+                        case imports of
+                          (s,ws):_ -> do
+                            putStrLnE $ "repeating latest import: " ++ s
+                            import_ readNGF ws
+                            continue
+                          _ -> do putStrLnE $ "no import in history"
+                                  continue
          (w  :ws) | w == "c" || w == "d" -> do
                         case readTransactionCommand s0 of
                           Just cmd -> do checkout
@@ -178,7 +186,7 @@ execute1' s0 =
          continue
       where
         execute []           = return ()
-        execute (line:lines) = whenM (execute1' line) (execute lines)
+        execute (line:lines) = whenM (execute1' readNGF line) (execute lines)
 
     execute_history _   =
        do putStrLnE "eh command not parsed"
@@ -219,13 +227,13 @@ pwords s = case words s of
              w:ws -> getCommandOp w :ws
              ws -> ws
 
-import_ args =
+import_ readNGF args =
   do case parseOptions args of
        Ok (opts',files) -> do
          opts <- gets startOpts
          curr_dir <- lift getCurrentDirectory
          lib_dir  <- lift $ getLibraryDirectory (addOptions opts opts')
-         importInEnv (addOptions opts (fixRelativeLibPaths curr_dir lib_dir opts')) files
+         importInEnv readNGF (addOptions opts (fixRelativeLibPaths curr_dir lib_dir opts')) files
        Bad err -> putStrLnE $ "Command parse error: " ++ err
 
 transactionCommand :: TransactionCommand -> PGF -> ShellM ()
@@ -353,17 +361,7 @@ moreCommands = [
      }),
   ("r",  emptyCommandInfo {
      longname = "reload",
-     synopsis = "repeat the latest import command",
-     exec = \ _ _ ->
-       do gfenv0 <- get
-          let imports = [(s,ws) | s <- history gfenv0, ("i":ws) <- [pwords s]]
-          case imports of
-            (s,ws):_ -> do
-              putStrLnE $ "repeating latest import: " ++ s
-              import_ ws
-              return void
-            _ -> do putStrLnE $ "no import in history"
-                    return void
+     synopsis = "repeat the latest import command"
      })
   ]
 
@@ -385,8 +383,8 @@ fetchCommand gfenv = do
     Right Nothing  -> return "q"
     Right (Just s) -> return s
 
-importInEnv :: Options -> [FilePath] -> ShellM ()
-importInEnv opts files =
+importInEnv :: ReadNGF -> Options -> [FilePath] -> ShellM ()
+importInEnv readNGF opts files =
   do pgf0 <- gets multigrammar
      case flag optRetainResource opts of
        RetainAll      -> do src <- lift $ importSource opts files
@@ -399,7 +397,7 @@ importInEnv opts files =
   where
     importPGF pgf0 =
       do let opts' = addOptions (setOptimization OptCSE False) opts
-         pgf1 <- importGrammar pgf0 opts' files
+         pgf1 <- importGrammar readNGF pgf0 opts' files
          if (verbAtLeast opts Normal)
            then case pgf1 of
                   Just pgf -> putStrLnFlush $ unwords $ "\nLanguages:" : Map.keys (languages pgf)

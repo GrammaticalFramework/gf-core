@@ -15,8 +15,8 @@ flag network-uri
    default: True
 
 Library
-  exposed-modules: PGFService URLEncoding CGIUtils Cache
-
+  exposed-modules: PGFService URLEncoding CGIUtils
+  other-modules:   Cache
   build-depends:   base >=4.2 && <5,
                    time,
                    directory,
