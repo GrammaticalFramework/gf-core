@@ -418,6 +418,8 @@ bool PgfLinearizer::TreeLinrefNode::resolve(PgfLinearizer *linearizer)
 {
     TreeNode *root = args;
     ref<PgfConcrLincat> lincat = root->get_lincat(linearizer);
+    if (lincat == 0)
+        return true;
 
     while (lincat->n_lindefs+lin_index < lincat->res->len) {
         // Unbind all variables
