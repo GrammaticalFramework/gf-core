@@ -133,7 +133,7 @@ eval env (Prod b x t1 t2)[] = do v1 <- eval env t1 []
                                  return (VProd b x v1 (VClosure env t2))
 eval env (Typed t ty)   vs  = eval env t vs
 eval env (RecType lbls) []  = do lbls <- mapM (\(lbl,ty) -> fmap ((,) lbl) (eval env ty [])) lbls
-                                 return (VRecType lbls)
+                                 return (VRecType (sortRec lbls))
 eval env (R as)         []  = do as <- mapM (\(lbl,(_,t)) -> fmap ((,) lbl) (newThunk env t)) as
                                  return (VR as)
 eval env (P t lbl)      vs  = do v <- eval env t []
