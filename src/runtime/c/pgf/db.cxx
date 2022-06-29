@@ -389,7 +389,7 @@ PgfDB::~PgfDB()
     if (fd < 0) {
         pthread_rwlock_destroy(&ms->rwlock);
         pthread_mutex_destroy(&ms->write_mutex);
-        pthread_mutex_destroy(&ms->rel_mutex);
+        pthread_mutex_destroy(&ms->rev_mutex);
         ::free(ms);
         ::free(base);
     } else
@@ -1676,6 +1676,7 @@ void PgfDB::resize_map(size_t new_size)
         throw pgf_systemerror(res);
 #else
     while(true) {
+        LONG temp;
         while(true) {
             temp = ms->rwlock;
             assert(Writer(temp));
