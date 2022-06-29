@@ -81,7 +81,8 @@ private:
 #else
     DWORD pid;
     HANDLE hMap;
-    HANDLE hMutex;
+    HANDLE hRevMutex;
+    HANDLE hWriteMutex;
     HANDLE hRWEvent;
 #endif
 
@@ -162,6 +163,7 @@ public:
     ~DB_scope();
 
 private:
+    DB_scope_mode mode;
     PgfDB* save_db;
     DB_scope* next_scope;
 };
