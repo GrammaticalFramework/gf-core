@@ -388,7 +388,8 @@ PgfDB::~PgfDB()
 #ifndef MREMAP_MAYMOVE
     if (fd < 0) {
         pthread_rwlock_destroy(&ms->rwlock);
-        pthread_mutex_destroy(&ms->mutex);
+        pthread_mutex_destroy(&ms->write_mutex);
+        pthread_mutex_destroy(&ms->rel_mutex);
         ::free(ms);
         ::free(base);
     } else
@@ -1675,19 +1676,21 @@ void PgfDB::resize_map(size_t new_size)
         throw pgf_systemerror(res);
 #else
     while(true) {
-        temp = ms->rwlock;
-        assert(Writer(temp));
-        if (WaitingCount(temp) == 0)
+        while(true) {
+            temp = ms->rwlock;
+            assert(Writer(temp));
+            if (WaitingCount(temp) == 0)
+                break;
+
+            //Note: this is thread-safe (there's guaranteed not to be another EndWrite simultaneously)
+            //Wake all waiting readers or writers, loop until wake confirmation is received
+            SetEvent(hRWEvent);
+        }
+
+        //Decrement writer count
+        if (InterlockedCompareExchange(&ms->rwlock, SetWriter(temp, false), temp) == temp)
             break;
-
-        //Note: this is thread-safe (there's guaranteed not to be another EndWrite simultaneously)
-        //Wake all waiting readers or writers, loop until wake confirmation is received
-        SetEvent(hRWEvent);
     }
-
-    //Decrement writer count
-    if (InterlockedCompareExchange(&ms->rwlock, SetWriter(temp, false), temp) == temp)
-        break;
 #endif
 }
 
