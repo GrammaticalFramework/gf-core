@@ -132,7 +132,7 @@ PgfDB::PgfDB(const char* filepath, int flags, int mode) {
             throw pgf_systemerror(errno, filepath);
 
         mmap_size = lseek(fd, 0, SEEK_END);
-        if (mmap_size == ((off_t) -1)) {
+        if (mmap_size == ((size_t) -1)) {
             int code = errno;
             close(fd);
             throw pgf_systemerror(code, filepath);
