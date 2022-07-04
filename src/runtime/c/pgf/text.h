@@ -38,4 +38,7 @@ uint32_t pgf_utf8_to_upper(uint32_t c);
 PGF_INTERNAL_DECL
 bool pgf_utf8_is_space(uint32_t c);
 
+PGF_INTERNAL
+bool pgf_utf8_is_digit(uint32_t c);
+
 #endif

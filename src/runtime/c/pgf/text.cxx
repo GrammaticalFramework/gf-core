@@ -324,3 +324,9 @@ bool pgf_utf8_is_space(uint32_t c)
 
     return false;
 }
+
+PGF_INTERNAL
+bool pgf_utf8_is_digit(uint32_t c)
+{
+    return (c >= '0' && c <= '9');
+}

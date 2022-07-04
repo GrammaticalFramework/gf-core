@@ -435,7 +435,7 @@ void PgfExprParser::token()
     token_pos   = pos;
 	token_value = NULL;
 
-	while (isspace(ch)) {
+	while (pgf_utf8_is_space(ch)) {
         token_pos   = pos;
         if (!getc()) {
             token_tag = PGF_TOKEN_EOF;
@@ -481,7 +481,7 @@ void PgfExprParser::token()
             if (ch == '>') {
                 getc();
                 token_tag = PGF_TOKEN_RARROW;
-            } else if (isdigit(ch)) {
+            } else if (pgf_utf8_is_digit(ch)) {
                 putc('-');
                 goto digit;
             }
@@ -548,18 +548,18 @@ void PgfExprParser::token()
                 token_tag = PGF_TOKEN_WILD;
             else
                 token_tag = PGF_TOKEN_IDENT;
-		} else if (isdigit(ch)) {
+		} else if (pgf_utf8_is_digit(ch)) {
 digit:
 			do {
 				putc(ch);
 				if (!getc())
                     break;
-			} while (isdigit(ch));
+			} while (pgf_utf8_is_digit(ch));
 
             if (ch == '.') {
                 putc(ch);
                 if (getc()) {
-                    while (isdigit(ch)) {
+                    while (pgf_utf8_is_digit(ch)) {
                         putc(ch);
                         if (!getc())
                             break;
@@ -577,7 +577,7 @@ digit:
 
 bool PgfExprParser::lookahead(int ch)
 {
-	while (isspace(this->ch)) {
+	while (pgf_utf8_is_space(this->ch)) {
         if (!getc())
             break;
 	}
