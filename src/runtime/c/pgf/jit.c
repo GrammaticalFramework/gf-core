@@ -8,6 +8,32 @@
 
 //#define PGF_JIT_DEBUG
 
+#ifdef EMSCRIPTEN
+
+PGF_INTERNAL PgfJitState*
+pgf_new_jit(PgfReader* rdr)
+{
+	return NULL;
+}
+
+PGF_INTERNAL PgfEvalGates*
+pgf_jit_gates(PgfReader* rdr)
+{
+    return NULL;
+}
+
+PGF_INTERNAL void
+pgf_jit_predicate(PgfReader* rdr, PgfAbstr* abstr,
+                  PgfAbsCat* abscat)
+{
+}
+
+PGF_INTERNAL void
+pgf_jit_done(PgfReader* rdr, PgfAbstr* abstr)
+{
+}
+
+#else
 
 struct PgfJitState {
 	jit_state jit;
@@ -1329,3 +1355,5 @@ pgf_jit_done(PgfReader* rdr, PgfAbstr* abstr)
 	
 	jit_flush_code(rdr->jit_state->buf, jit_get_ip().ptr);
 }
+
+#endif
