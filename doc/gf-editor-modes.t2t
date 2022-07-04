@@ -17,9 +17,10 @@ instructions inside.
 
 ==Visual Studio Code==
 
-[Grammatical Framework Language Server https://marketplace.visualstudio.com/items?itemName=anka-213.gf-vscode] by Andreas Källberg.
-
-This provides syntax highlighting and a client for the Grammatical Framework language server. Follow the installation instructions in the link.
+- [Grammatical Framework Language Server https://marketplace.visualstudio.com/items?itemName=anka-213.gf-vscode] by Andreas Källberg.
+  This provides syntax highlighting and a client for the Grammatical Framework language server. Follow the installation instructions in the link.
+- [Grammatical Framework https://marketplace.visualstudio.com/items?itemName=GrammaticalFramework.gf-vscode] is a simpler extension
+  without any external dependencies which provides only syntax highlighting.
 
 ==Eclipse==
 
