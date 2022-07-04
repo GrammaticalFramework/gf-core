@@ -16,6 +16,10 @@
 #include <sys/errno.h>
 #endif
 
+#ifdef EMSCRIPTEN
+#include <errno.h>
+#include <stdio.h>
+#endif
 
 class PGF_INTERNAL_DECL pgf_error : public std::runtime_error {
 public:

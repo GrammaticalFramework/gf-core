@@ -132,6 +132,9 @@ typedef struct {
 #elif defined(_WIN32)
 #define LINT_BASE 1000000000
 #define LINT_BASE_LOG 9
+#elif defined(EMSCRIPTEN)
+#define LINT_BASE 10000000000000000000UL
+#define LINT_BASE_LOG 19
 #else
 #error "Unsupported platform"
 #endif
