@@ -153,7 +153,7 @@ private:
     PGF_INTERNAL_DECL void lock(DB_scope_mode m);
     PGF_INTERNAL_DECL void unlock();
 
-    PGF_INTERNAL_DECL void resize_map(size_t new_size);
+    PGF_INTERNAL_DECL void resize_map(size_t new_size, bool writeable);
 
     friend class DB_scope;
 };

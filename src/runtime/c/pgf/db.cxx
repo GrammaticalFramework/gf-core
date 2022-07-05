@@ -163,11 +163,19 @@ PgfDB::PgfDB(const char* filepath, int flags, int mode) {
 #ifndef MREMAP_MAYMOVE
     if (fd >= 0) {
         ms = (malloc_state*)
-            mmap(NULL, mmap_size, PROT_READ | PROT_WRITE, MAP_SHARED, fd, 0);
+            mmap(NULL, mmap_size, PROT_READ, MAP_SHARED, fd, 0);
         if (ms == MAP_FAILED) {
             code = errno;
             ms = NULL; // mark that ms is not created.
             base = NULL;
+            ::free((void *) this->filepath);
+            close(fd);
+            throw pgf_systemerror(code, filepath);
+        }
+
+        if (mprotect(ms, page_size, PROT_READ | PROT_WRITE) == -1) {
+            code = errno;
+            munmap(ms,mmap_size);
             ::free((void *) this->filepath);
             close(fd);
             throw pgf_systemerror(code, filepath);
@@ -189,11 +197,19 @@ PgfDB::PgfDB(const char* filepath, int flags, int mode) {
 #else
     int mflags = (fd < 0) ? (MAP_PRIVATE | MAP_ANONYMOUS) : MAP_SHARED;
     ms = (malloc_state*)
-        mmap(NULL, mmap_size, PROT_READ | PROT_WRITE, mflags, fd, 0);
+        mmap(NULL, mmap_size, PROT_READ, mflags, fd, 0);
     if (ms == MAP_FAILED) {
         code = errno;
         ms = NULL; // mark that ms is not created.
         base = NULL;
+        ::free((void *) this->filepath);
+        close(fd);
+        throw pgf_systemerror(code, filepath);
+    }
+
+    if (mprotect(ms, page_size, PROT_READ | PROT_WRITE) == -1) {
+        code = errno;
+        munmap(ms,mmap_size);
         ::free((void *) this->filepath);
         close(fd);
         throw pgf_systemerror(code, filepath);
@@ -678,6 +694,7 @@ int PgfDB::init_state()
     ms->free_blocks = 0;
     ms->free_descriptors = 0;
     ms->n_revisions = 0;
+
     return 0;
 }
 
@@ -712,7 +729,7 @@ PGF_INTERNAL_DECL object PgfDB::new_block_descr(object o, size_t size, txn_t txn
             size_t new_size =
                 ms->file_size + alloc_size;
 
-            resize_map(new_size);
+            resize_map(new_size, true);
         }
 
         odescr = top;
@@ -768,7 +785,7 @@ object PgfDB::upd_block_descr(object map, object left, object right)
                 size_t new_size =
                     ms->file_size + alloc_size;
 
-                resize_map(new_size);
+                resize_map(new_size, true);
 
                 // refresh the pointer
                 descr = ptr(block_descr, map);
@@ -1181,7 +1198,7 @@ object PgfDB::malloc_internal(size_t bytes)
         size_t new_size =
             ms->file_size + alloc_size;
 
-        resize_map(new_size);
+        resize_map(new_size, true);
     }
 
     o = top;
@@ -1217,7 +1234,7 @@ object PgfDB::realloc_internal(object oldo, size_t old_bytes, size_t new_bytes, 
                 size_t new_size =
                     ms->file_size + alloc_size;
 
-                resize_map(new_size);
+                resize_map(new_size, true);
             }
 
             // If the object is at the end of the allocation area
@@ -1388,6 +1405,14 @@ void PgfDB::start_transaction()
 {
 #ifndef _WIN32
     pthread_mutex_lock(&ms->write_mutex);
+
+    if (
+#ifndef MREMAP_MAYMOVE
+        fd >= 0 &&
+#endif
+        mprotect(base, mmap_size, PROT_READ | PROT_WRITE) == -1)
+           throw pgf_systemerror(errno);
+
 #else
     WaitForSingleObject(hWriteMutex, INFINITE);
 #endif
@@ -1456,6 +1481,9 @@ void PgfDB::commit(object o)
         ms->free_descriptors = free_descriptors[0];
         ms->curr_txn_id++;
 
+        if (mprotect(base, mmap_size, PROT_READ) == -1)
+            throw pgf_systemerror(errno);
+
         res = msync((void *) ms, page_size, MS_SYNC | MS_INVALIDATE);
         if (res != 0) {
             ms->active_revision = save_active_revision;
@@ -1465,6 +1493,7 @@ void PgfDB::commit(object o)
             ms->curr_txn_id--;
             throw pgf_systemerror(errno);
         }
+
 #ifndef MREMAP_MAYMOVE
     }
 #endif
@@ -1514,6 +1543,13 @@ void PgfDB::rollback()
     last_free_block_txn_id = 0;
 
 #ifndef _WIN32
+    if (
+#ifndef MREMAP_MAYMOVE
+        fd >= 0 &&
+#endif
+        mprotect(base, mmap_size, PROT_READ) == -1)
+            throw pgf_systemerror(errno);
+
     pthread_mutex_unlock(&ms->write_mutex);
 #else
     ReleaseMutex(hWriteMutex);
@@ -1601,7 +1637,7 @@ void PgfDB::lock(DB_scope_mode m)
 
 	// If another process has resized the file we must resize the map
 	if (mmap_size != ms->file_size)
-		resize_map(ms->file_size);
+		resize_map(ms->file_size, m == WRITER_SCOPE);
 }
 
 void PgfDB::unlock()
@@ -1630,7 +1666,7 @@ void PgfDB::unlock()
 #endif
 }
 
-void PgfDB::resize_map(size_t new_size)
+void PgfDB::resize_map(size_t new_size, bool writeable)
 {
 #ifndef _WIN32
 	int res;
@@ -1649,8 +1685,9 @@ void PgfDB::resize_map(size_t new_size)
 			if (ftruncate(fd, page_size+new_size) < 0)
 				throw pgf_systemerror(errno, filepath);
 		}
-		new_base =
-			(unsigned char *) mmap(0, new_size, PROT_READ | PROT_WRITE, MAP_SHARED, fd, page_size);
+        int prot = writeable ? PROT_READ | PROT_WRITE : PROT_READ;
+        new_base =
+            (unsigned char *) mmap(0, new_size, prot, MAP_SHARED, fd, page_size);
 		if (new_base == MAP_FAILED)
 			throw pgf_systemerror(errno);
 	} else {
