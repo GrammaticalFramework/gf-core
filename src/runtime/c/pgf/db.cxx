@@ -1,3 +1,5 @@
+// #define DEBUG_MEMORY_ALLOCATOR
+
 #include <fcntl.h>
 #include <stdlib.h>
 #include <string.h>
@@ -372,13 +374,14 @@ PgfDB::PgfDB(const char* filepath, int flags, int mode) {
         cleanup_revisions();
     }
 
-    top                 = ms->top;
-    free_blocks         = ms->free_blocks;
-    free_descriptors[0] = ms->free_descriptors;
-    free_descriptors[1] = 0;
-    free_descriptors[2] = 0;
-    last_free_block     = 0;
-    last_free_block_size= 0;
+    top                   = ms->top;
+    free_blocks           = ms->free_blocks;
+    free_descriptors[0]   = ms->free_descriptors;
+    free_descriptors[1]   = 0;
+    free_descriptors[2]   = 0;
+    last_free_block       = 0;
+    last_free_block_size  = 0;
+    last_free_block_txn_id= 0;
 }
 
 PGF_INTERNAL
@@ -1024,7 +1027,7 @@ object PgfDB::pop_last_block_descriptor(object map, object *res)
 }
 
 PGF_INTERNAL
-object PgfDB::delete_block_descriptor(object map, size_t *psize, object *po)
+object PgfDB::delete_block_descriptor(object map, object *po, size_t *psize, txn_t *ptxn_id)
 {
     if (map == 0) {
         *po = 0;
@@ -1034,11 +1037,11 @@ object PgfDB::delete_block_descriptor(object map, size_t *psize, object *po)
     block_descr *descr = ptr(block_descr, map);
     int cmp = (*psize < descr->block_size) ? -1
             : (*psize > descr->block_size) ? 1
-            : (descr->block_txn_id > ms->min_txn_id) ? -1
+            : (ms->min_txn_id < descr->block_txn_id) ? -1
             : 0;
     if (cmp < 0) {
         object right = descr->right;
-        object left  = delete_block_descriptor(descr->left, psize, po);
+        object left  = delete_block_descriptor(descr->left, po, psize, ptxn_id);
         if (*po != 0) {
             map = upd_block_descr(map,left,right);
             map = balanceR_block_descriptor(map);
@@ -1052,7 +1055,7 @@ object PgfDB::delete_block_descriptor(object map, size_t *psize, object *po)
         return map;
     } else if (cmp > 0) {
         object left  = descr->left;
-        object right = delete_block_descriptor(descr->right, psize, po);
+        object right = delete_block_descriptor(descr->right, po, psize, ptxn_id);
         if (*po != 0) {
             map = upd_block_descr(map,left,right);
             map = balanceL_block_descriptor(map);
@@ -1061,6 +1064,7 @@ object PgfDB::delete_block_descriptor(object map, size_t *psize, object *po)
     } else {
 fit:
         *po = descr->o;
+        *ptxn_id = descr->block_txn_id;
 
         object new_map;
         if (descr->left == 0) {
@@ -1126,11 +1130,39 @@ object PgfDB::malloc_internal(size_t bytes)
     size_t block_size = request2size(bytes);
 
     object o;
+    if (last_free_block != 0 &&
+        last_free_block_size >= block_size &&
+        last_free_block_txn_id < ms->min_txn_id) {
+
+        /* We can grab a piece of the last free block */
+        o = last_free_block;
+        last_free_block += block_size;
+        last_free_block_size -= block_size;
+        if (last_free_block_size == 0) {
+            last_free_block = 0;
+            last_free_block_txn_id = 0;
+        }
+
+#ifdef DEBUG_MEMORY_ALLOCATOR
+        fprintf(stderr, "grabbed from the last block %016lx %ld\n", o, block_size);
+#endif
+        return o;
+    }
+
+    txn_t txn_id;
     size_t alloc_size = block_size;
-    free_blocks = delete_block_descriptor(free_blocks, &alloc_size, &o);
+    free_blocks = delete_block_descriptor(free_blocks, &o, &alloc_size, &txn_id);
     if (o != 0) {
         if (alloc_size > block_size) {
-            free_blocks = insert_block_descriptor(free_blocks, o+block_size, alloc_size-block_size);
+            if (last_free_block != 0) {
+                free_blocks = insert_block_descriptor(free_blocks,
+                                                      last_free_block,
+                                                      last_free_block_size,
+                                                      last_free_block_txn_id);
+            }
+            last_free_block = o+block_size;
+            last_free_block_size = alloc_size-block_size;
+            last_free_block_txn_id = txn_id;
         }
 
 #ifdef DEBUG_MEMORY_ALLOCATOR
@@ -1140,10 +1172,6 @@ object PgfDB::malloc_internal(size_t bytes)
 #endif
 
         return o;
-    } else {
-#ifdef DEBUG_MEMORY_ALLOCATOR
-        fprintf(stderr, "allocated from top %016lx\n", top);
-#endif
     }
 
     size_t free_size = mmap_size - top;
@@ -1158,6 +1186,10 @@ object PgfDB::malloc_internal(size_t bytes)
 
     o = top;
     top += block_size;
+
+#ifdef DEBUG_MEMORY_ALLOCATOR
+    fprintf(stderr, "allocated from top %016lx\n", o);
+#endif
 
     return o;
 }
@@ -1206,10 +1238,8 @@ object PgfDB::realloc_internal(object oldo, size_t old_bytes, size_t new_bytes, 
 }
 
 PGF_INTERNAL
-object PgfDB::insert_block_descriptor(object map, object o, size_t size)
+object PgfDB::insert_block_descriptor(object map, object o, size_t size, txn_t txn_id)
 {
-    txn_t txn_id = (o >= ms->top) ? 0 : ms->curr_txn_id;
-
     if (map == 0)
         return new_block_descr(o, size, txn_id);
 
@@ -1222,12 +1252,12 @@ object PgfDB::insert_block_descriptor(object map, object o, size_t size)
             : 1;
     if (cmp < 0) {
         object right = descr->right;
-        object left  = insert_block_descriptor(descr->left, o, size);
+        object left  = insert_block_descriptor(descr->left, o, size, txn_id);
         map = upd_block_descr(map,left,right);
         return balanceL_block_descriptor(map);
     } else {
         object left  = descr->left;
-        object right = insert_block_descriptor(descr->right, o, size);
+        object right = insert_block_descriptor(descr->right, o, size, txn_id);
         map = upd_block_descr(map,left,right);
         return balanceR_block_descriptor(map);
     }
@@ -1244,36 +1274,64 @@ void PgfDB::free_internal(object o, size_t bytes)
         return;
 
     size_t block_size = request2size(bytes);
+    txn_t txn_id = (o >= ms->top) ? 0 : ms->curr_txn_id;
 
-    if (o >= ms->top && o+block_size == top) {
+    if (txn_id == 0 && o+block_size == top) {
         // The block has been allocated in the current transaction
         // and it is the last just before the top area. We can
         // simply decrement top;
         top -= block_size;
+        if (last_free_block_txn_id == 0 &&
+            last_free_block != 0 &&
+            last_free_block+last_free_block_size == top) {
+            // After the merge of the current block, the last one is
+            // also on the border with top.
+            top -= last_free_block_size;
+#ifdef DEBUG_MEMORY_ALLOCATOR
+            fprintf(stderr, "merged with last free block and top %016lx\n", top);
+#endif
+            last_free_block = 0;
+            last_free_block_size = 0;
+            last_free_block_txn_id = 0;
+        } else {
+#ifdef DEBUG_MEMORY_ALLOCATOR
+            fprintf(stderr, "merged with top %016lx\n", top);
+#endif
+        }
         return;
     }
 
     if (last_free_block != 0) {
-        if (last_free_block+last_free_block_size == o) {
+        if (last_free_block_txn_id == txn_id && last_free_block+last_free_block_size == o) {
             last_free_block_size += block_size;
 #ifdef DEBUG_MEMORY_ALLOCATOR
             fprintf(stderr, "merged block %016lx %ld\n", last_free_block, last_free_block_size);
 #endif
-        } else if (o+block_size == last_free_block) {
+            return;
+        } else if (txn_id == last_free_block_txn_id && o+block_size == last_free_block) {
             last_free_block = o;
             last_free_block_size += block_size;
 #ifdef DEBUG_MEMORY_ALLOCATOR
             fprintf(stderr, "merged block %016lx %ld\n", last_free_block, last_free_block_size);
 #endif
+            return;
+        } else {
+            free_blocks = insert_block_descriptor(free_blocks,
+                                                  last_free_block,
+                                                  last_free_block_size,
+                                                  last_free_block_txn_id);
         }
     }
 
     last_free_block = o;
     last_free_block_size = block_size;
-
-    free_blocks = insert_block_descriptor(free_blocks, o, block_size);
+    last_free_block_txn_id = txn_id;
 
 #ifdef DEBUG_MEMORY_ALLOCATOR
+    fprintf(stderr, "last free block %016lx (size: %ld, txn_id: %ld)\n",
+                    last_free_block,
+                    last_free_block_size,
+                    last_free_block_txn_id);
     dump_free_blocks(free_blocks);
     fprintf(stderr, "\n");
 #endif
@@ -1341,14 +1399,20 @@ void PgfDB::start_transaction()
     free_descriptors[2] = 0;
     last_free_block      = 0;
     last_free_block_size = 0;
+    last_free_block_txn_id = 0;
 }
 
 PGF_INTERNAL
 void PgfDB::commit(object o)
 {
     if (last_free_block != 0) {
-        last_free_block      = 0;
+        free_blocks = insert_block_descriptor(free_blocks,
+                                              last_free_block,
+                                              last_free_block_size,
+                                              last_free_block_txn_id);
+        last_free_block = 0;
         last_free_block_size = 0;
+        last_free_block_txn_id = 0;
     }
 
     malloc_state *ms = current_db->ms;
@@ -1445,8 +1509,9 @@ void PgfDB::rollback()
     free_descriptors[0] = ms->free_descriptors;
     free_descriptors[1] = 0;
     free_descriptors[2] = 0;
-    last_free_block      = 0;
+    last_free_block = 0;
     last_free_block_size = 0;
+    last_free_block_txn_id = 0;
 
 #ifndef _WIN32
     pthread_mutex_unlock(&ms->write_mutex);

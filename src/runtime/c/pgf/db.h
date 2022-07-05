@@ -73,6 +73,7 @@ private:
     object free_descriptors[3];
     object last_free_block;
     size_t last_free_block_size;
+    txn_t last_free_block_txn_id;
 
     size_t mmap_size;
     size_t page_size;
@@ -136,8 +137,8 @@ private:
     PGF_INTERNAL_DECL object balanceR_block_descriptor(object map);
     PGF_INTERNAL_DECL object pop_first_block_descriptor(object map, object *res);
     PGF_INTERNAL_DECL object pop_last_block_descriptor(object map, object *res);
-    PGF_INTERNAL_DECL object insert_block_descriptor(object map, object o, size_t size);
-    PGF_INTERNAL_DECL object delete_block_descriptor(object map, size_t *psize, object *po);
+    PGF_INTERNAL_DECL object insert_block_descriptor(object map, object o, size_t size, txn_t txn_id);
+    PGF_INTERNAL_DECL object delete_block_descriptor(object map, object *po, size_t *psize, txn_t *ptxn_id);
     
 #ifdef DEBUG_MEMORY_ALLOCATOR
     PGF_INTERNAL_DECL void dump_free_blocks(object map);
