@@ -290,10 +290,12 @@ int text_cmp(PgfText *sentence, ref<PgfSequence> seq,
         else if (ucs1i < ucs2i) {
             return -1;
         }
-        else if (ucs1 > ucs2) {
-            res1 =  1;
-        } else if (ucs1 < ucs2) {
-            res1 = -1;
+        else if (res1 == 0) {
+            if (ucs1 > ucs2) {
+                res1 =  1;
+            } else if (ucs1 < ucs2) {
+                res1 = -1;
+            }
         }
     }
 }
