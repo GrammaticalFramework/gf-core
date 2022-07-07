@@ -229,7 +229,7 @@ int sequence_cmp(ref<PgfSequence> seq1, ref<PgfSequence> seq2)
 
 static
 int text_range_cmp(PgfTextRange *range, ref<PgfSequence> seq,
-                   bool case_sensitive)
+                   bool case_sensitive, bool full_match)
 {
 	int res1 = 0;
 
@@ -246,13 +246,13 @@ int text_range_cmp(PgfTextRange *range, ref<PgfSequence> seq,
             return case_sensitive ? res1 : 0;
         }
 
+        if (s2 >= e2 && i >= seq->syms.len)
+            return full_match ? 1 : 0;
+
         uint32_t ucs1  = pgf_utf8_decode(&range->begin); range->pos++;
         uint32_t ucs1i = pgf_utf8_to_upper(ucs1);
 
         if (s2 >= e2) {
-            if (i >= seq->syms.len)
-                return 1;
-
             if (s2 != NULL) {
                 if (pgf_utf8_is_space(ucs1)) {
                     count++;
@@ -475,7 +475,7 @@ void phrasetable_lookup(PgfPhrasetable table,
         return;
 
     PgfTextRange current = *sentence;
-    int cmp = text_range_cmp(&current,table->value.seq,case_sensitive);
+    int cmp = text_range_cmp(&current,table->value.seq,case_sensitive,true);
     if (cmp < 0) {
         phrasetable_lookup(table->left,sentence,case_sensitive,lincats,callback,err);
     } else if (cmp > 0) {
@@ -531,7 +531,7 @@ void phrasetable_lookup_prefixes(PgfPhrasetable table,
         return;
 
     PgfTextRange current = *sentence;
-    int cmp = text_range_cmp(&current,table->value.seq,case_sensitive);
+    int cmp = text_range_cmp(&current,table->value.seq,case_sensitive,false);
     if (cmp < 0) {
         phrasetable_lookup_prefixes(table->left,sentence,case_sensitive,lincats,min,max,callback,err);
     } else if (cmp > 0) {
@@ -549,7 +549,7 @@ void phrasetable_lookup_prefixes(PgfPhrasetable table,
             phrasetable_lookup_prefixes(table->left,sentence,case_sensitive,lincats,min,len,callback,err);
 
         auto backrefs = table->value.backrefs;
-        if (backrefs != 0) {
+        if (len > 0 && backrefs != 0) {
             for (size_t i = 0; i < backrefs->len; i++) {
                 PgfSequenceBackref backref = *vector_elem<PgfSequenceBackref>(backrefs,i);
                 switch (ref<PgfConcrLin>::get_tag(backref.container)) {
