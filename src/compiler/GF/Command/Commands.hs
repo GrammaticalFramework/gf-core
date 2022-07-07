@@ -288,15 +288,15 @@ pgfCommands = Map.fromList [
                case opts of
                  _ | isOpt "all" opts ->
                       return . fromString . unlines .
-                      map prMorphoAnalysis . concatMap (morphoCohorts id concr) $
+                      map prCohortAnalysis . concatMap (morphoCohorts id concr) $
                       toStrings ts
                  _ | isOpt "longest" opts ->
                       return . fromString . unlines .
-                      map prMorphoAnalysis . concatMap (morphoCohorts filterLongest concr) $
+                      map prCohortAnalysis . concatMap (morphoCohorts filterLongest concr) $
                       toStrings ts
                  _ | isOpt "best" opts ->
                       return . fromString . unlines .
-                      map prMorphoAnalysis . concatMap (morphoCohorts filterBest concr) $
+                      map prCohortAnalysis . concatMap (morphoCohorts filterBest concr) $
                       toStrings ts
                  _ | isOpt "known" opts ->
                       return . fromString . unwords .
@@ -857,8 +857,7 @@ pgfCommands = Map.fromList [
    morphos pgf opts s =
      [(s,lookupMorpho concr s) | concr <- optLangs pgf opts]
 
-   morphoCohorts f concr s =
-     [(w,ans) | (_,w,ans,_) <- f (lookupCohorts concr s)]
+   morphoCohorts f concr s = f (lookupCohorts concr s)
 
    morphoKnown = morphoClassify True
 
@@ -922,6 +921,9 @@ prAllWords concr =
 
 prMorphoAnalysis (w,lps) =
   unlines (w:[l ++ " : " ++ p ++ " " ++ show prob | (l,p,prob) <- lps])
+
+prCohortAnalysis (i,w,lps,j) =
+  unlines ((show i++"-"++show j++" "++w):[l ++ " : " ++ p ++ " " ++ show prob | (l,p,prob) <- lps])
 
 viewGraphviz :: String -> String -> String -> [String] -> SIO CommandOutput
 viewGraphviz view format name grphs = do
