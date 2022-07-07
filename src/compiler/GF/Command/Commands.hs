@@ -285,7 +285,15 @@ pgfCommands = Map.fromList [
                case opts of
                  _ | isOpt "all" opts ->
                       return . fromString . unlines .
-                      map prMorphoAnalysis . concatMap (morphoAll concr) $
+                      map prMorphoAnalysis . concatMap (morphoCohorts id concr) $
+                      toStrings ts
+                 _ | isOpt "longest" opts ->
+                      return . fromString . unlines .
+                      map prMorphoAnalysis . concatMap (morphoCohorts filterLongest concr) $
+                      toStrings ts
+                 _ | isOpt "best" opts ->
+                      return . fromString . unlines .
+                      map prMorphoAnalysis . concatMap (morphoCohorts filterBest concr) $
                       toStrings ts
                  _ | isOpt "known" opts ->
                       return . fromString . unwords .
@@ -303,8 +311,10 @@ pgfCommands = Map.fromList [
        ],
      options = [
        ("all",    "scan the text for all words, not just a single one"),
-       ("known",  "scan the text only for known words, in order of appearance"),
-       ("missing","scan the text for all unknown words, in order of appearance")
+       ("longest","scan the text for all words, and apply longest match filtering"),
+       ("best",   "scan the text for all words, and apply global best match filtering"),
+       ("known",  "list all known words, in order of appearance"),
+       ("missing","list all missing words, in order of appearance")
        ]
      }),
 
@@ -844,8 +854,8 @@ pgfCommands = Map.fromList [
    morphos pgf opts s =
      [(s,lookupMorpho concr s) | concr <- optLangs pgf opts]
 
-   morphoAll concr s =
-     [(w,ans) | (_,w,ans,_) <- lookupCohorts concr s]
+   morphoCohorts f concr s =
+     [(w,ans) | (_,w,ans,_) <- f (lookupCohorts concr s)]
 
    morphoKnown = morphoClassify True
 
