@@ -825,7 +825,37 @@ void pgf_lookup_morpho(PgfDB *db, PgfConcrRevision cnc_revision,
 
         bool case_sensitive = pgf_is_case_sensitive(concr);
 
-        phrasetable_lookup(concr->phrasetable, sentence, case_sensitive, concr->lincats, callback, err);
+        PgfTextRange range;
+        range.pos = 0;
+        range.begin = (uint8_t *) &sentence->text[0];
+        range.end   = (uint8_t *) &sentence->text[sentence->size];
+        phrasetable_lookup(concr->phrasetable,
+                           &range, case_sensitive,
+                           concr->lincats,
+                           callback, err);
+    } PGF_API_END
+}
+
+PGF_API
+void pgf_lookup_cohorts(PgfDB *db, PgfConcrRevision cnc_revision,
+                        PgfText *sentence,
+                        PgfCohortsCallback* callback, PgfExn* err)
+{
+    PGF_API_BEGIN {
+        DB_scope scope(db, READER_SCOPE);
+        ref<PgfConcr> concr = db->revision2concr(cnc_revision);
+
+        bool case_sensitive = pgf_is_case_sensitive(concr);
+
+        PgfTextRange range;
+        range.pos = 0;
+        range.begin = (uint8_t *) &sentence->text[0];
+        range.end   = (uint8_t *) &sentence->text[sentence->size];
+        phrasetable_lookup_prefixes(concr->phrasetable,
+                                    &range, case_sensitive,
+                                    concr->lincats,
+                                    1, sentence->size,
+                                    callback, err);
     } PGF_API_END
 }
 

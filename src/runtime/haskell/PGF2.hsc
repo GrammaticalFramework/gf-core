@@ -493,13 +493,6 @@ lookupMorpho c sent = unsafePerformIO $ do
      (#poke PgfMorphoCallback, fn) itor fptr
      withPgfExn "lookupMorpho" (pgf_lookup_morpho (c_db c) c_revision c_sent itor))
   fmap reverse (readIORef ref)
-  where
-    getMorphology ref _ c_name c_field c_prob exn = do
-      name  <- peekText c_name
-      field <- peekText c_field
-      let prob = realToFrac c_prob
-          ann = (name,field,prob)
-      modifyIORef ref ((:) ann)
 
 -- | 'lookupCohorts' takes an arbitrary string an produces
 -- a list of all places where lexical items from the grammar have been
@@ -511,7 +504,33 @@ lookupMorpho c sent = unsafePerformIO $ do
 -- by the @end@ position. This can be used for instance if you want to
 -- filter only the longest matches.
 lookupCohorts :: Concr -> String -> [(Int,String,[MorphoAnalysis],Int)]
-lookupCohorts = error "TODO: lookupCohorts"
+lookupCohorts c sent = unsafePerformIO $ do
+  morpho_ref  <- newIORef []
+  cohorts_ref <- newIORef []
+  (withText sent $ \c_sent ->
+   allocaBytes (#size PgfCohortsCallback) $ \itor ->
+   bracket (wrapMorphoCallback (getMorphology morpho_ref)) freeHaskellFunPtr $ \morpho_fptr ->
+   bracket (wrapCohortsCallback (getCohorts morpho_ref cohorts_ref)) freeHaskellFunPtr $ \cohorts_fptr ->
+   withForeignPtr (c_revision c) $ \c_revision -> do
+     (#poke PgfCohortsCallback, morpho.fn) itor morpho_fptr
+     (#poke PgfCohortsCallback, fn) itor cohorts_fptr
+     withPgfExn "lookupCohorts" (pgf_lookup_cohorts (c_db c) c_revision c_sent itor))
+  fmap reverse (readIORef cohorts_ref)
+  where
+    getCohorts morpho_ref cohorts_ref _ start' end' exn = do
+      ans <- readIORef morpho_ref
+      let start = fromIntegral start'
+          end   = fromIntegral end'
+          word  = take (end-start) (drop start sent)
+      modifyIORef cohorts_ref ((:) (start, word, reverse ans, end))
+      writeIORef morpho_ref []
+
+getMorphology ref _ c_name c_field c_prob exn = do
+  name  <- peekText c_name
+  field <- peekText c_field
+  let prob = realToFrac c_prob
+      ann = (name,field,prob)
+  modifyIORef ref ((:) ann)
 
 filterBest :: [(Int,String,[MorphoAnalysis],Int)] -> [(Int,String,[MorphoAnalysis],Int)]
 filterBest ans =

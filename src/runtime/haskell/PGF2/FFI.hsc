@@ -47,6 +47,7 @@ data PgfLinearizationOutputIface
 data PgfGraphvizOptions
 data PgfSequenceItor
 data PgfMorphoCallback
+data PgfCohortsCallback
 data PgfPhrasetableIds
 
 type Wrapper a = a -> IO (FunPtr a)
@@ -120,6 +121,12 @@ type MorphoCallback = Ptr PgfMorphoCallback -> Ptr PgfText -> Ptr PgfText -> (#t
 foreign import ccall "wrapper" wrapMorphoCallback :: Wrapper MorphoCallback
 
 foreign import ccall pgf_lookup_morpho :: Ptr PgfDB -> Ptr Concr -> Ptr PgfText -> Ptr PgfMorphoCallback -> Ptr PgfExn -> IO ()
+
+type CohortsCallback = Ptr PgfCohortsCallback -> CSize -> CSize -> Ptr PgfExn -> IO ()
+
+foreign import ccall "wrapper" wrapCohortsCallback :: Wrapper CohortsCallback
+
+foreign import ccall pgf_lookup_cohorts :: Ptr PgfDB -> Ptr Concr -> Ptr PgfText -> Ptr PgfCohortsCallback -> Ptr PgfExn -> IO ()
 
 foreign import ccall pgf_iter_sequences :: Ptr PgfDB -> Ptr Concr -> Ptr PgfSequenceItor -> Ptr PgfMorphoCallback -> Ptr PgfExn -> IO (Ptr PgfPhrasetableIds)
 

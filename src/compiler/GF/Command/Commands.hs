@@ -283,14 +283,18 @@ pgfCommands = Map.fromList [
      exec  = needPGF $ \opts ts pgf -> do
                concr <- optLang pgf opts
                case opts of
-                 _ | isOpt "missing" opts ->
-                      return . fromString . unwords .
-                      morphoMissing concr .
-                      concatMap words $ toStrings ts
+                 _ | isOpt "all" opts ->
+                      return . fromString . unlines .
+                      map prMorphoAnalysis . concatMap (morphoAll concr) $
+                      toStrings ts
                  _ | isOpt "known" opts ->
                       return . fromString . unwords .
-                      morphoKnown concr .
-                      concatMap words $ toStrings ts
+                      concatMap (morphoKnown concr) $
+                      toStrings ts
+                 _ | isOpt "missing" opts ->
+                      return . fromString . unwords .
+                      concatMap (morphoMissing concr) $
+                      toStrings ts
                  _ -> return . fromString . unlines .
                       map prMorphoAnalysis . concatMap (morphos pgf opts) $
                       toStrings ts,
@@ -298,8 +302,9 @@ pgfCommands = Map.fromList [
        ("lang","the languages of analysis (comma-separated, no spaces)")
        ],
      options = [
-       ("known",  "return only the known words, in order of appearance"),
-       ("missing","show the list of unknown words, in order of appearance")
+       ("all",    "scan the text for all words, not just a single one"),
+       ("known",  "scan the text only for known words, in order of appearance"),
+       ("missing","scan the text for all unknown words, in order of appearance")
        ]
      }),
 
@@ -839,6 +844,18 @@ pgfCommands = Map.fromList [
    morphos pgf opts s =
      [(s,lookupMorpho concr s) | concr <- optLangs pgf opts]
 
+   morphoAll concr s =
+     [(w,ans) | (_,w,ans,_) <- lookupCohorts concr s]
+
+   morphoKnown = morphoClassify True
+
+   morphoMissing = morphoClassify False
+
+   morphoClassify k concr s =
+     [w | (_,w,ans,_) <- lookupCohorts concr s, k /= null ans, notLiteral w]
+     where
+       notLiteral w = not (all isDigit w)
+
    optClitics opts = case valStrOpts "clitics" "" opts of
      "" -> []
      cs -> map reverse $ chunks ',' cs
@@ -852,16 +869,6 @@ pgfCommands = Map.fromList [
      app (OOpt  op)          | Just (Left  f) <- treeOp pgf op = f
      app (OFlag op (LStr x)) | Just (Right f) <- treeOp pgf op = f x
      app _                                                     = id
-
-morphoMissing  :: Concr -> [String] -> [String]
-morphoMissing = morphoClassify False
-
-morphoKnown    :: Concr -> [String] -> [String]
-morphoKnown = morphoClassify True
-
-morphoClassify :: Bool -> Concr -> [String] -> [String]
-morphoClassify k concr ws = [w | w <- ws, k /= null (lookupMorpho concr w), notLiteral w] where
-  notLiteral w = not (all isDigit w)
 
 treeOpOptions pgf = [(op,expl) | (op,(expl,Left  _)) <- allTreeOps pgf]
 treeOpFlags   pgf = [(op,expl) | (op,(expl,Right _)) <- allTreeOps pgf]
