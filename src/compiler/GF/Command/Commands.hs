@@ -275,10 +275,13 @@ pgfCommands = Map.fromList [
 
   ("ma", emptyCommandInfo {
      longname = "morpho_analyse",
-     synopsis = "print the morphological analyses of all words in the string",
+     synopsis = "print the morphological analyses of words in the string",
      explanation = unlines [
-       "Prints all the analyses of space-separated words in the input string,",
-       "using the morphological analyser of the actual grammar (see command pg)"
+       "Prints all the analyses of words in the input string.",
+       "By default it assumes that the input consists of a single lexical expression,",
+       "but if one of the options bellow is used then the command tries to",
+       "separate the text into units. Some of the units may be multi-word expressions,",
+       "others punctuations, or morphemes not separated by spaces."
        ],
      exec  = needPGF $ \opts ts pgf -> do
                concr <- optLang pgf opts
