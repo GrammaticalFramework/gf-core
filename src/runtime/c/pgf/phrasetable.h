@@ -68,26 +68,19 @@ PgfPhrasetable phrasetable_delete(PgfPhrasetable table,
 PGF_INTERNAL_DECL
 size_t phrasetable_size(PgfPhrasetable table);
 
-typedef struct {
-	size_t pos;            // position in Unicode characters
-	const uint8_t *begin;  // pointer into the beginning of the range
-	const uint8_t *end;    // pointer into the end of the range
-} PgfTextRange;
-
 PGF_INTERNAL_DECL
 void phrasetable_lookup(PgfPhrasetable table,
-                        PgfTextRange *sentence,
+                        PgfText *sentence,
                         bool case_sensitive,
                         Namespace<struct PgfConcrLincat> lincats,
                         PgfMorphoCallback* callback, PgfExn* err);
 
 PGF_INTERNAL_DECL
-void phrasetable_lookup_prefixes(PgfPhrasetable table,
-                                 PgfTextRange *sentence,
-                                 bool case_sensitive,
-                                 Namespace<PgfConcrLincat> lincats,
-                                 ptrdiff_t min, ptrdiff_t max,
-                                 PgfCohortsCallback* callback, PgfExn* err);
+void phrasetable_lookup_cohorts(PgfPhrasetable table,
+                                PgfText *sentence,
+                                bool case_sensitive,
+                                Namespace<PgfConcrLincat> lincats,
+                                PgfCohortsCallback* callback, PgfExn* err);
 
 PGF_INTERNAL_DECL
 void phrasetable_iter(PgfConcr *concr,

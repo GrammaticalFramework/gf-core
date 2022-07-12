@@ -7,13 +7,14 @@ public:
     Heap() {
         len   = 0;
         avail = 0;
+        values = NULL;
     }
 
     ~Heap() { free(values); }
 
     void push(A value) {
         if (len >= avail) {
-            avail = get_next_padovan(len);
+            avail = get_next_padovan(len+1);
             A *new_values = (A *) realloc(values, sizeof(A)*avail);
             if (new_values == NULL)
                 throw pgf_systemerror(errno);

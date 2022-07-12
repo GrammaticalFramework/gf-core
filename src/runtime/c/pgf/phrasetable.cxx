@@ -1,4 +1,5 @@
 #include "data.h"
+#include "heap.h"
 
 PgfPhrasetableIds::PgfPhrasetableIds()
 {
@@ -227,9 +228,19 @@ int sequence_cmp(ref<PgfSequence> seq1, ref<PgfSequence> seq2)
 	return 0;
 }
 
+struct PGF_INTERNAL_DECL PgfTextSpot {
+	size_t pos;          // position in Unicode characters
+	const uint8_t *ptr;  // pointer into the spot location
+
+    bool operator >= (PgfTextSpot const &obj) {
+         return pos >= obj.pos;
+    }
+};
+
 static
-int text_range_cmp(PgfTextRange *range, ref<PgfSequence> seq,
-                   bool case_sensitive, bool full_match)
+int text_sequence_cmp(PgfTextSpot *spot, const uint8_t *end,
+                      ref<PgfSequence> seq,
+                      bool case_sensitive, bool full_match)
 {
 	int res1 = 0;
 
@@ -240,7 +251,7 @@ int text_range_cmp(PgfTextRange *range, ref<PgfSequence> seq,
     size_t count = 0;
 
     for (;;) {
-        if (range->begin >= range->end) {
+        if (spot->ptr >= end) {
             if (s2 < e2 || i < seq->syms.len)
                 return -1;
             return case_sensitive ? res1 : 0;
@@ -249,7 +260,7 @@ int text_range_cmp(PgfTextRange *range, ref<PgfSequence> seq,
         if (s2 >= e2 && i >= seq->syms.len)
             return full_match ? 1 : 0;
 
-        uint32_t ucs1  = pgf_utf8_decode(&range->begin); range->pos++;
+        uint32_t ucs1  = pgf_utf8_decode(&spot->ptr); spot->pos++;
         uint32_t ucs1i = pgf_utf8_to_upper(ucs1);
 
         if (s2 >= e2) {
@@ -466,7 +477,7 @@ size_t phrasetable_size(PgfPhrasetable table)
 
 PGF_INTERNAL
 void phrasetable_lookup(PgfPhrasetable table,
-                        PgfTextRange *sentence,
+                        PgfText *sentence,
                         bool case_sensitive,
                         Namespace<PgfConcrLincat> lincats,
                         PgfMorphoCallback* callback, PgfExn* err)
@@ -474,8 +485,11 @@ void phrasetable_lookup(PgfPhrasetable table,
     if (table == 0)
         return;
 
-    PgfTextRange current = *sentence;
-    int cmp = text_range_cmp(&current,table->value.seq,case_sensitive,true);
+    PgfTextSpot current;
+    current.pos = 0;
+    current.ptr = (uint8_t *) sentence->text;
+    const uint8_t *end = current.ptr+sentence->size;
+    int cmp = text_sequence_cmp(&current,end,table->value.seq,case_sensitive,true);
     if (cmp < 0) {
         phrasetable_lookup(table->left,sentence,case_sensitive,lincats,callback,err);
     } else if (cmp > 0) {
@@ -519,50 +533,85 @@ void phrasetable_lookup(PgfPhrasetable table,
      }
 }
 
-PGF_INTERNAL
-void phrasetable_lookup_prefixes(PgfPhrasetable table,
-                                 PgfTextRange *sentence,
-                                 bool case_sensitive,
-                                 Namespace<PgfConcrLincat> lincats,
-                                 ptrdiff_t min, ptrdiff_t max,
-                                 PgfCohortsCallback* callback, PgfExn* err)
+struct PGF_INTERNAL_DECL PgfCohortsState {
+    PgfTextSpot spot;
+    Heap<PgfTextSpot> queue;
+    size_t last_pos;
+    size_t skip_pos;
+    const uint8_t *end;    // pointer into the end of the sentence
+
+    bool case_sensitive;
+    Namespace<PgfConcrLincat> lincats;
+    PgfCohortsCallback* callback;
+    PgfExn* err;
+};
+
+static
+void phrasetable_lookup_prefixes(PgfCohortsState *state,
+                                 PgfPhrasetable table,
+                                 ptrdiff_t min, ptrdiff_t max)
 {
     if (table == 0)
         return;
 
-    PgfTextRange current = *sentence;
-    int cmp = text_range_cmp(&current,table->value.seq,case_sensitive,false);
+    PgfTextSpot current = state->spot;
+    int cmp = text_sequence_cmp(&current,state->end,table->value.seq,state->case_sensitive,false);
     if (cmp < 0) {
-        phrasetable_lookup_prefixes(table->left,sentence,case_sensitive,lincats,min,max,callback,err);
+        phrasetable_lookup_prefixes(state,table->left,min,max);
     } else if (cmp > 0) {
-        ptrdiff_t len = current.begin - sentence->begin;
+        ptrdiff_t len = current.ptr - state->spot.ptr;
 
         if (min <= len)
-            phrasetable_lookup_prefixes(table->left,sentence,case_sensitive,lincats,min,len,callback,err);
+            phrasetable_lookup_prefixes(state,table->left,min,len);
 
         if (len <= max)
-            phrasetable_lookup_prefixes(table->right,sentence,case_sensitive,lincats,len,max,callback,err);
+            phrasetable_lookup_prefixes(state,table->right,len,max);
     } else {
-        ptrdiff_t len = current.begin - sentence->begin;
+        ptrdiff_t len = current.ptr - state->spot.ptr;
 
         if (min <= len)
-            phrasetable_lookup_prefixes(table->left,sentence,case_sensitive,lincats,min,len,callback,err);
+            phrasetable_lookup_prefixes(state,table->left,min,len);
 
         auto backrefs = table->value.backrefs;
         if (len > 0 && backrefs != 0) {
+            if (state->skip_pos != (size_t) -1) {
+                state->callback->fn(state->callback,
+                                    state->skip_pos,
+                                    state->spot.pos,
+                                    state->err);
+                if (state->err->type != PGF_EXN_NONE)
+                    return;
+                state->skip_pos = (size_t) -1;
+            }
+
+            if (state->last_pos > 0 && state->last_pos != current.pos) {
+                state->callback->fn(state->callback,
+                                    state->spot.pos,
+                                    state->last_pos,
+                                    state->err);
+                if (state->err->type != PGF_EXN_NONE)
+                    return;
+            }
+            state->last_pos = current.pos;
+            state->queue.push(current);
+
             for (size_t i = 0; i < backrefs->len; i++) {
                 PgfSequenceBackref backref = *vector_elem<PgfSequenceBackref>(backrefs,i);
                 switch (ref<PgfConcrLin>::get_tag(backref.container)) {
                 case PgfConcrLin::tag: {
                     ref<PgfConcrLin> lin = ref<PgfConcrLin>::untagged(backref.container);
                     ref<PgfConcrLincat> lincat =
-                        namespace_lookup(lincats, &lin->absfun->type->name);
+                        namespace_lookup(state->lincats, &lin->absfun->type->name);
                     if (lincat != 0) {
                         ref<PgfText> field =
                             *vector_elem(lincat->fields, backref.seq_index % lincat->fields->len);
 
-                        callback->morpho.fn(&callback->morpho, &lin->absfun->name, &(*field), lincat->abscat->prob+lin->absfun->prob, err);
-                        if (err->type != PGF_EXN_NONE)
+                        state->callback->morpho.fn(&state->callback->morpho,
+                                                   &lin->absfun->name,
+                                                   &(*field),
+                                                   lincat->abscat->prob+lin->absfun->prob,
+                                                   state->err);
+                        if (state->err->type != PGF_EXN_NONE)
                             return;
                     }
                     break;
@@ -573,15 +622,102 @@ void phrasetable_lookup_prefixes(PgfPhrasetable table,
                 }
                 }
             }
-
-            callback->fn(callback, sentence->pos, current.pos, err);
-            if (err->type != PGF_EXN_NONE)
-                return;
         }
 
         if (len <= max)
-            phrasetable_lookup_prefixes(table->right,sentence,case_sensitive,lincats,len,max,callback,err);
+            phrasetable_lookup_prefixes(state,table->right,len,max);
      }
+}
+
+PGF_INTERNAL
+void phrasetable_lookup_cohorts(PgfPhrasetable table,
+                                PgfText *sentence,
+                                bool case_sensitive,
+                                Namespace<PgfConcrLincat> lincats,
+                                PgfCohortsCallback* callback, PgfExn* err)
+{
+    PgfTextSpot spot;
+    spot.pos = 0;
+    spot.ptr = (uint8_t *) &sentence->text[0];
+
+    PgfCohortsState state;
+    state.spot.pos = -1;
+    state.spot.ptr = NULL;
+    state.queue.push(spot);
+    state.last_pos = 0;
+    state.skip_pos = (size_t) -1;
+    state.end = (uint8_t *) &sentence->text[sentence->size];
+    state.case_sensitive = case_sensitive;
+    state.lincats = lincats;
+    state.callback = callback;
+    state.err = err;
+
+    while (!state.queue.is_empty()) {
+        PgfTextSpot spot = state.queue.pop();
+        if (spot.pos != state.spot.pos) {
+            state.spot = spot;
+
+            // skip leading spaces
+            while (state.spot.ptr < state.end) {
+                const uint8_t *ptr = state.spot.ptr;
+                uint32_t ucs = pgf_utf8_decode(&ptr);
+                if (!pgf_utf8_is_space(ucs))
+                    break;
+                state.spot.pos++;
+                state.spot.ptr = ptr;
+            }
+
+            state.skip_pos = (size_t) -1;
+            while (state.spot.ptr < state.end) {
+                phrasetable_lookup_prefixes(&state, table, 1, sentence->size);
+
+                if (state.last_pos > 0) {
+                    // We found at least one match.
+                    // The last range is yet to be reported.
+                    state.callback->fn(state.callback,
+                                       state.spot.pos,
+                                       state.last_pos,
+                                       state.err);
+                    if (state.err->type != PGF_EXN_NONE)
+                        return;
+                    state.last_pos = 0;
+                    break;
+                } else {
+                    // We didn't find any matches at this position,
+                    // therefore we must skip one character and try again.
+                    if (state.skip_pos == (size_t) -1)
+                        state.skip_pos = state.spot.pos;
+                    const uint8_t *ptr = state.spot.ptr;
+                    uint32_t ucs = pgf_utf8_decode(&ptr);
+                    if (pgf_utf8_is_space(ucs)) {
+                        state.callback->fn(state.callback,
+                                           state.skip_pos,
+                                           state.spot.pos,
+                                           state.err);
+                        if (state.err->type != PGF_EXN_NONE)
+                            return;
+                        state.skip_pos = -1;
+                        state.queue.push(state.spot);
+                        break;
+                    }
+                    state.spot.pos++;
+                    state.spot.ptr = ptr;
+                }
+            }
+            
+            if (state.skip_pos != (size_t) -1) {
+                state.callback->fn(state.callback,
+                                   state.skip_pos,
+                                   state.spot.pos,
+                                   state.err);
+                if (state.err->type != PGF_EXN_NONE)
+                    return;
+                state.skip_pos = (size_t) -1;
+            }
+
+            state.spot = spot;
+        }
+    }
 }
 
 PGF_INTERNAL
