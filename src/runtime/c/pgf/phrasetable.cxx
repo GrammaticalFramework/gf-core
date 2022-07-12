@@ -504,7 +504,7 @@ void phrasetable_lookup(PgfPhrasetable table,
                     ref<PgfConcrLin> lin = ref<PgfConcrLin>::untagged(backref.container);
                     ref<PgfConcrLincat> lincat =
                         namespace_lookup(lincats, &lin->absfun->type->name);
-                    if (lincat != 0) {
+                    if (lin->absfun->type->hypos->len == 0 && lincat != 0) {
                         ref<PgfText> field =
                             *vector_elem(lincat->fields, backref.seq_index % lincat->fields->len);
 
@@ -602,7 +602,7 @@ void phrasetable_lookup_prefixes(PgfCohortsState *state,
                     ref<PgfConcrLin> lin = ref<PgfConcrLin>::untagged(backref.container);
                     ref<PgfConcrLincat> lincat =
                         namespace_lookup(state->lincats, &lin->absfun->type->name);
-                    if (lincat != 0) {
+                    if (lin->absfun->type->hypos->len == 0 && lincat != 0) {
                         ref<PgfText> field =
                             *vector_elem(lincat->fields, backref.seq_index % lincat->fields->len);
 
