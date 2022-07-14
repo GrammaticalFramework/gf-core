@@ -1467,26 +1467,26 @@ readContext str =
     n_hypos <- peek p_n_hypos
     if c_hypos == nullPtr && n_hypos /= 0
       then return Nothing
-      else do hypos <- peekHypos (castPtrToStablePtr nullPtr) n_hypos c_hypos
+      else do hypos <- peekHypos Nothing n_hypos c_hypos
               free c_hypos
               return (Just hypos)
   where
-    peekHypos last 0       p_hypo = do
-      if last /= castPtrToStablePtr nullPtr
-        then freeStablePtr last
-        else return ()
+    peekHypos mb_last 0       p_hypo = do
+      case mb_last of
+        Just last -> freeStablePtr last
+        _         -> return ()
       return []
-    peekHypos last n_hypos p_hypo = do
+    peekHypos mb_last n_hypos p_hypo = do
       bt  <- fmap unmarshalBindType ((#peek PgfTypeHypo, bind_type) p_hypo)
       c_cid <- (#peek PgfTypeHypo, cid) p_hypo
       cid <- peekText c_cid
       free c_cid
       c_ty <- (#peek PgfTypeHypo, type) p_hypo
       ty <- deRefStablePtr c_ty
-      if last /= c_ty
-        then freeStablePtr last
-        else return ()
-      hs  <- peekHypos c_ty (n_hypos-1) (p_hypo `plusPtr` (#size PgfTypeHypo))
+      case mb_last of
+        Just last | last /= c_ty -> freeStablePtr last
+        _                        -> return ()
+      hs  <- peekHypos (Just c_ty) (n_hypos-1) (p_hypo `plusPtr` (#size PgfTypeHypo))
       return ((bt,cid,ty):hs)
 
 readProbabilitiesFromFile :: FilePath -> IO (Map.Map String Double)
