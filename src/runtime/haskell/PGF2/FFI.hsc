@@ -46,6 +46,7 @@ data PgfLinBuilderIface
 data PgfLinearizationOutputIface
 data PgfGraphvizOptions
 data PgfSequenceItor
+data PgfProbsCallback
 data PgfMorphoCallback
 data PgfCohortsCallback
 data PgfPhrasetableIds
@@ -60,10 +61,14 @@ foreign import ccall unsafe "pgf_utf8_encode"
   pgf_utf8_encode :: Word32 -> Ptr CString -> IO ()
 
 foreign import ccall "pgf_read_pgf"
-  pgf_read_pgf :: CString -> Ptr (Ptr PGF) -> Ptr PgfExn -> IO (Ptr PgfDB)
+  pgf_read_pgf :: CString -> Ptr (Ptr PGF) -> Ptr PgfProbsCallback -> Ptr PgfExn -> IO (Ptr PgfDB)
 
 foreign import ccall "pgf_boot_ngf"
-  pgf_boot_ngf :: CString -> CString -> Ptr (Ptr PGF) -> Ptr PgfExn -> IO (Ptr PgfDB)
+  pgf_boot_ngf :: CString -> CString -> Ptr (Ptr PGF) -> Ptr PgfProbsCallback -> Ptr PgfExn -> IO (Ptr PgfDB)
+
+type ProbsCallback = Ptr PgfProbsCallback -> Ptr PgfText -> IO Double
+
+foreign import ccall "wrapper" wrapProbsCallback :: Wrapper ProbsCallback
 
 foreign import ccall "pgf_read_ngf"
   pgf_read_ngf :: CString -> Ptr (Ptr PGF) -> Ptr PgfExn -> IO (Ptr PgfDB)

@@ -3,9 +3,10 @@
 #include <math.h>
 #include <string.h>
 
-PgfReader::PgfReader(FILE *in)
+PgfReader::PgfReader(FILE *in,PgfProbsCallback *probs_callback)
 {
     this->in = in;
+    this->probs_callback = probs_callback;
     this->abstract = 0;
     this->concrete = 0;
 }
@@ -69,6 +70,15 @@ double PgfReader::read_double()
 		ret = ldexp((double) m, rawexp - 1075);
 	}
 	return sign ? copysign(ret, -1.0) : ret;
+}
+
+prob_t PgfReader::read_prob(PgfText *name)
+{
+    double d = read_double();
+    if (probs_callback != NULL) {
+        d = probs_callback->fn(probs_callback, name);
+    }
+    return - log(d);
 }
 
 uint64_t PgfReader::read_uint()
@@ -318,7 +328,7 @@ ref<PgfAbsFun> PgfReader::read_absfun()
     default:
         throw pgf_error("Unknown tag, 0 or 1 expected");
     }
-    absfun->prob = - log(read_double());
+    absfun->prob = read_prob(&absfun->name);
     return absfun;
 }
 
@@ -326,8 +336,74 @@ ref<PgfAbsCat> PgfReader::read_abscat()
 {
     ref<PgfAbsCat> abscat = read_name<PgfAbsCat>(&PgfAbsCat::name);
     abscat->context = read_vector<PgfHypo>(&PgfReader::read_hypo);
-    abscat->prob  = - log(read_double());
+    abscat->prob  = read_prob(&abscat->name);
     return abscat;
+}
+
+struct PGF_INTERNAL_DECL PgfAbsCatCounts
+{
+    PgfText *name;
+    size_t n_nan_probs;
+    double probs_sum;
+    prob_t prob;
+};
+
+struct PGF_INTERNAL_DECL PgfProbItor : PgfItor
+{
+    Vector<PgfAbsCatCounts> *cats;
+};
+
+static
+PgfAbsCatCounts *find_counts(Vector<PgfAbsCatCounts> *cats, PgfText *name)
+{
+    size_t i = 0;
+    size_t j = cats->len-1;
+    while (i <= j) {
+        size_t k = (i+j)/2;
+        PgfAbsCatCounts *counts = &cats->data[k];
+        int cmp = textcmp(name, counts->name);
+        if (cmp < 0) {
+            j = k-1;
+        } else if (cmp > 0) {
+            i = k+1;
+        } else {
+            return counts;
+        }
+    }
+
+    return NULL;
+}
+
+static
+void collect_counts(PgfItor *itor, PgfText *key, object value, PgfExn *err)
+{
+    PgfProbItor* prob_itor = (PgfProbItor*) itor;
+    ref<PgfAbsFun> absfun = value;
+
+    PgfAbsCatCounts *counts =
+        find_counts(prob_itor->cats, &absfun->type->name);
+    if (counts != NULL) {
+        if (isnan(absfun->prob)) {
+            counts->n_nan_probs++;
+        } else {
+            counts->probs_sum += exp(-absfun->prob);
+        }
+    }
+}
+
+static
+void pad_probs(PgfItor *itor, PgfText *key, object value, PgfExn *err)
+{
+    PgfProbItor* prob_itor = (PgfProbItor*) itor;
+    ref<PgfAbsFun> absfun = value;
+
+    if (isnan(absfun->prob)) {
+        PgfAbsCatCounts *counts =
+            find_counts(prob_itor->cats, &absfun->type->name);
+        if (counts != NULL) {
+            absfun->prob = counts->prob;
+        }
+    }
 }
 
 void PgfReader::read_abstract(ref<PgfAbstr> abstract)
@@ -338,6 +414,27 @@ void PgfReader::read_abstract(ref<PgfAbstr> abstract)
 	abstract->aflags = read_namespace<PgfFlag>(&PgfReader::read_flag);
     abstract->funs = read_namespace<PgfAbsFun>(&PgfReader::read_absfun);
     abstract->cats = read_namespace<PgfAbsCat>(&PgfReader::read_abscat);
+
+    if (probs_callback != NULL) {
+        PgfExn err;
+        err.type = PGF_EXN_NONE;
+
+        PgfProbItor itor;
+        itor.cats = namespace_to_sorted_names<PgfAbsCat,PgfAbsCatCounts>(abstract->cats);
+
+        itor.fn = collect_counts;
+        namespace_iter(abstract->funs, &itor, &err);
+
+        for (size_t i = 0; i < itor.cats->len; i++) {
+            PgfAbsCatCounts *counts = &itor.cats->data[i];
+            counts->prob = - log((1-counts->probs_sum) / counts->n_nan_probs);
+        }
+
+        itor.fn = pad_probs;
+        namespace_iter(abstract->funs, &itor, &err);
+
+        free(itor.cats);
+    }
 }
 
 void PgfReader::merge_abstract(ref<PgfAbstr> abstract)

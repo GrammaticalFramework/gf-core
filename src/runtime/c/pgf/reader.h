@@ -8,12 +8,13 @@
 class PGF_INTERNAL_DECL PgfReader
 {
 public:
-    PgfReader(FILE *in);
+    PgfReader(FILE *in,PgfProbsCallback *probs_callback);
 
     uint8_t read_uint8();
     uint16_t read_u16be();
     uint64_t read_u64be();
     double read_double();
+    prob_t read_prob(PgfText *name);
     uint64_t read_uint();
     int64_t read_int() { return (int64_t) read_uint(); };
     size_t  read_len() { return (size_t) read_uint(); };
@@ -87,6 +88,7 @@ public:
 
 private:
     FILE *in;
+    PgfProbsCallback *probs_callback;
     ref<PgfAbstr> abstract;
     ref<PgfConcr> concrete;
 

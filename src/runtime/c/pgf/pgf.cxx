@@ -37,8 +37,8 @@ pgf_exn_clear(PgfExn* err)
     }
 
 PGF_API
-PgfDB *pgf_read_pgf(const char* fpath,
-                    PgfRevision *revision,
+PgfDB *pgf_read_pgf(const char* fpath, PgfRevision *revision,
+                    PgfProbsCallback *probs_callback,
                     PgfExn* err)
 {
     PgfDB *db = NULL;
@@ -56,7 +56,7 @@ PgfDB *pgf_read_pgf(const char* fpath,
 
             db->start_transaction();
 
-            PgfReader rdr(in);
+            PgfReader rdr(in,probs_callback);
             ref<PgfPGF> pgf = rdr.read_pgf();
 
             *revision = db->register_revision(pgf.tagged(), PgfDB::get_txn_id());
@@ -79,6 +79,7 @@ PgfDB *pgf_read_pgf(const char* fpath,
 PGF_API
 PgfDB *pgf_boot_ngf(const char* pgf_path, const char* ngf_path,
                     PgfRevision *revision,
+                    PgfProbsCallback *probs_callback,
                     PgfExn* err)
 {
     PgfDB *db = NULL;
@@ -103,7 +104,7 @@ PgfDB *pgf_boot_ngf(const char* pgf_path, const char* ngf_path,
 
             db->start_transaction();
 
-            PgfReader rdr(in);
+            PgfReader rdr(in,probs_callback);
             ref<PgfPGF> pgf = rdr.read_pgf();
 
             *revision = db->register_revision(pgf.tagged(), PgfDB::get_txn_id());
@@ -220,7 +221,7 @@ void pgf_merge_pgf(PgfDB *db, PgfRevision revision,
             DB_scope scope(db, WRITER_SCOPE);
             ref<PgfPGF> pgf = db->revision2pgf(revision);
 
-            PgfReader rdr(in);
+            PgfReader rdr(in,NULL);
             rdr.merge_pgf(pgf);
         }
     } PGF_API_END

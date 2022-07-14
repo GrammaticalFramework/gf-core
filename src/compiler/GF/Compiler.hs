@@ -140,7 +140,10 @@ unionPGFFiles opts fs =
     doIt =
       case fs of
         []     -> return ()
-        (f:fs) -> do pgf <- if snd (flag optLinkTargets opts)
+        (f:fs) -> do mb_probs <- case flag optProbsFile opts of
+                                   Nothing   -> return Nothing
+                                   Just file -> fmap Just (readProbabilitiesFromFile file)
+                     pgf <- if snd (flag optLinkTargets opts)
                               then case flag optName opts of
                                      Just name -> do let fname = maybe id (</>) (flag optOutputDir opts) (name<.>"ngf")
                                                      putStrLnE ("(Boot image "++fname++")")
@@ -148,10 +151,10 @@ unionPGFFiles opts fs =
                                                      if exists
                                                        then removeFile fname
                                                        else return ()
-                                                     echo (\f -> bootNGF f fname) f
+                                                     echo (\f -> bootNGFWithProbs f mb_probs fname) f
                                      Nothing   -> do putStrLnE $ "To boot from a list of .pgf files add option -name"
-                                                     echo readPGF f
-                              else echo readPGF f
+                                                     echo (\f -> readPGFWithProbs f mb_probs) f
+                              else echo (\f -> readPGFWithProbs f mb_probs) f
                      pgf <- foldM (\pgf -> echo (modifyPGF pgf . mergePGF)) pgf fs
                      let pgfFile = outputPath opts (grammarName opts pgf <.> "pgf")
                      if pgfFile `elem` fs

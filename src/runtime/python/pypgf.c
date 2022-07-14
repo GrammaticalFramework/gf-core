@@ -515,7 +515,7 @@ pgf_readPGF(PyObject *self, PyObject *args)
     PGFObject *py_pgf = (PGFObject *)pgf_PGFType.tp_alloc(&pgf_PGFType, 0);
 
     PgfExn err;
-    py_pgf->db = pgf_read_pgf(fpath, &py_pgf->revision, &err);
+    py_pgf->db = pgf_read_pgf(fpath, &py_pgf->revision, NULL, &err);
     if (handleError(err) != PGF_EXN_NONE) {
         Py_DECREF(py_pgf);
         return NULL;
@@ -535,7 +535,7 @@ pgf_bootNGF(PyObject *self, PyObject *args)
     PGFObject *py_pgf = (PGFObject *)pgf_PGFType.tp_alloc(&pgf_PGFType, 0);
 
     PgfExn err;
-    py_pgf->db = pgf_boot_ngf(fpath, npath, &py_pgf->revision, &err);
+    py_pgf->db = pgf_boot_ngf(fpath, npath, &py_pgf->revision, NULL, &err);
     if (handleError(err) != PGF_EXN_NONE) {
         Py_DECREF(py_pgf);
         return NULL;

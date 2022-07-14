@@ -226,11 +226,17 @@ typedef struct PgfDB PgfDB;
 typedef object PgfRevision;
 typedef object PgfConcrRevision;
 
+typedef struct PgfProbsCallback PgfProbsCallback;
+struct PgfProbsCallback {
+	double (*fn)(PgfProbsCallback* self, PgfText *name);
+};
+
 /* Reads a PGF file and builds the database in memory.
  * If successful, *revision will contain the initial revision of
  * the grammar. */
 PGF_API_DECL
 PgfDB *pgf_read_pgf(const char* fpath, PgfRevision *revision,
+                    PgfProbsCallback *probs_callback,
                     PgfExn* err);
 
 /* Reads a PGF file and stores the unpacked data in an NGF file
@@ -240,6 +246,7 @@ PgfDB *pgf_read_pgf(const char* fpath, PgfRevision *revision,
 PGF_API_DECL
 PgfDB *pgf_boot_ngf(const char* pgf_path, const char* ngf_path,
                     PgfRevision *revision,
+                    PgfProbsCallback *probs_callback,
                     PgfExn* err);
 
 /* Tries to read the grammar from an already booted NGF file.

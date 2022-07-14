@@ -15,6 +15,7 @@
 
 module PGF2 (-- * PGF
              PGF,readPGF,bootNGF,readNGF,newNGF,writePGF,showPGF,
+             readPGFWithProbs, bootNGFWithProbs,
 
              -- * Abstract syntax
              AbsName,abstractName,globalFlag,abstractFlag,
@@ -109,11 +110,15 @@ import Text.PrettyPrint
 
 -- | Reads a PGF file and keeps it in memory.
 readPGF :: FilePath -> IO PGF
-readPGF fpath =
+readPGF fpath = readPGFWithProbs fpath Nothing
+
+readPGFWithProbs :: FilePath -> Maybe (Map.Map String Double) -> IO PGF
+readPGFWithProbs fpath mb_probs =
   withCString fpath $ \c_fpath ->
   alloca $ \p_revision ->
+  withProbsCallback mb_probs $ \c_pcallback ->
   mask_ $ do
-    c_db <- withPgfExn "readPGF" (pgf_read_pgf c_fpath p_revision)
+    c_db <- withPgfExn "readPGF" (pgf_read_pgf c_fpath p_revision c_pcallback)
     c_revision <- peek p_revision
     fptr <- newForeignPtrEnv pgf_free_revision c_db c_revision
     langs <- getConcretes c_db fptr
@@ -124,16 +129,36 @@ readPGF fpath =
 -- The NGF file is platform dependent and should not be copied
 -- between machines.
 bootNGF :: FilePath -> FilePath -> IO PGF
-bootNGF pgf_path ngf_path =
+bootNGF pgf_path ngf_path = bootNGFWithProbs pgf_path Nothing ngf_path
+
+bootNGFWithProbs :: FilePath -> Maybe (Map.Map String Double) -> FilePath -> IO PGF
+bootNGFWithProbs pgf_path mb_probs ngf_path =
   withCString pgf_path $ \c_pgf_path ->
   withCString ngf_path $ \c_ngf_path ->
   alloca $ \p_revision ->
+  withProbsCallback mb_probs $ \c_pcallback ->
   mask_ $ do
-    c_db <- withPgfExn "bootNGF" (pgf_boot_ngf c_pgf_path c_ngf_path p_revision)
+    c_db <- withPgfExn "bootNGF" (pgf_boot_ngf c_pgf_path c_ngf_path p_revision c_pcallback)
     c_revision <- peek p_revision
     fptr <- newForeignPtrEnv pgf_free_revision c_db c_revision
     langs <- getConcretes c_db fptr
     return (PGF c_db fptr langs)
+
+withProbsCallback :: Maybe (Map.Map String Double) -> (Ptr PgfProbsCallback -> IO a) -> IO a
+withProbsCallback Nothing      f = f nullPtr
+withProbsCallback (Just probs) f =
+  allocaBytes (#size PgfProbsCallback) $ \callback ->
+  bracket (wrapProbsCallback getProb) freeHaskellFunPtr $ \fptr -> do
+    (#poke PgfProbsCallback, fn) callback fptr
+    f callback
+  where
+    getProb _ c_name = do
+      name <- peekText c_name
+      case Map.lookup name probs of
+        Nothing -> return nan
+        Just p  -> return p
+
+    nan = log (-1)
 
 -- | Reads the grammar from an already booted NGF file.
 -- The function fails if the file does not exist.

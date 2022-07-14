@@ -64,15 +64,20 @@ importPGF opts Nothing    f
                                           then removeFile f'
                                           else return ()
                                         putStr ("(Boot image "++f'++") ")
-                                        fmap Just (bootNGF f f')
-  | otherwise                      = fmap Just (readPGF f)
+                                        mb_probs <- case flag optProbsFile opts of
+                                                      Nothing   -> return Nothing
+                                                      Just file -> fmap Just (readProbabilitiesFromFile file)
+                                        fmap Just (bootNGFWithProbs f mb_probs f')
+  | otherwise                      = do mb_probs <- case flag optProbsFile opts of
+                                                      Nothing   -> return Nothing
+                                                      Just file -> fmap Just (readProbabilitiesFromFile file)
+                                        fmap Just (readPGFWithProbs f mb_probs)
 importPGF opts (Just pgf) f        = fmap Just (modifyPGF pgf (mergePGF f) `catch`
                                                 (\e@(PGFError loc msg) ->
                                                       if msg == "The abstract syntax names doesn't match"
                                                         then do putStrLn (msg++", previous concretes discarded.")
                                                                 readPGF f
                                                         else throwIO e))
-
 
 importSource :: Options -> [FilePath] -> IO (ModuleName,SourceGrammar)
 importSource opts files = fmap snd (batchCompile opts files)
