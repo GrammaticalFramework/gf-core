@@ -33,6 +33,9 @@ const PgfDBPtr = ref.refType(PgfDB)
 const PgfRevision = ref.refType(ref.types.void)
 export const PgfRevisionPtr = ref.refType(PgfRevision)
 
+const PgfProbsCallback = ref.refType(ref.types.void)
+export const PgfProbsCallbackPtr = ref.refType(PgfProbsCallback)
+
 export const PgfExn = Struct({
   type: ref.types.int,
   code: ref.types.int,
@@ -103,8 +106,8 @@ const PgfMarshallerPtr = ref.refType(PgfMarshaller)
 // FFI
 
 export const runtime = ffi.Library('libpgf', {
-  pgf_read_pgf: [PgfDBPtr, [ref.types.CString, PgfRevisionPtr, PgfExnPtr]],
-  pgf_boot_ngf: [PgfDBPtr, [ref.types.CString, ref.types.CString, PgfRevisionPtr, PgfExnPtr]],
+  pgf_read_pgf: [PgfDBPtr, [ref.types.CString, PgfRevisionPtr, PgfProbsCallbackPtr, PgfExnPtr]],
+  pgf_boot_ngf: [PgfDBPtr, [ref.types.CString, ref.types.CString, PgfRevisionPtr, PgfProbsCallbackPtr, PgfExnPtr]],
   pgf_read_ngf: [PgfDBPtr, [ref.types.CString, PgfRevisionPtr, PgfExnPtr]],
   pgf_new_ngf: [PgfDBPtr, [PgfTextPtr, ref.types.CString, PgfRevisionPtr, PgfExnPtr]],
   pgf_write_pgf: [ref.types.void, [ref.types.CString, PgfDBPtr, PgfRevision, PgfExnPtr]],

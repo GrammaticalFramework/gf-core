@@ -180,7 +180,7 @@ class PGFGrammar {
 function readPGF (path: string): PGFGrammar {
   const rev = ref.alloc(PgfRevisionPtr)
   const err = new PgfExn()
-  const db = runtime.pgf_read_pgf(path, rev, err.ref())
+  const db = runtime.pgf_read_pgf(path, rev, null, err.ref())
   handleError(err)
   return new PGFGrammar(db, rev)
 }
@@ -188,7 +188,7 @@ function readPGF (path: string): PGFGrammar {
 function bootNGF (pgf_path: string, ngf_path: string): PGFGrammar {
   const rev = ref.alloc(PgfRevisionPtr)
   const err = new PgfExn()
-  const db = runtime.pgf_boot_ngf(pgf_path, ngf_path, rev, err.ref())
+  const db = runtime.pgf_boot_ngf(pgf_path, ngf_path, rev, null, err.ref())
   handleError(err)
   return new PGFGrammar(db, rev)
 }
