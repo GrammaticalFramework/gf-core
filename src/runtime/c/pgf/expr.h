@@ -164,6 +164,7 @@ class PGF_INTERNAL_DECL PgfExprParser {
     PgfText *inp;
     const char *token_pos, *pos;
     uint32_t ch;
+    PgfBind *bs;
 
     bool getc();
     void putc(uint32_t ch);
@@ -176,14 +177,15 @@ public:
     void token();
     bool lookahead(int ch);
 
-    PgfBind *parse_bind(PgfBind *next);
-    PgfBind *parse_binds(PgfBind *next);
+    bool parse_bind();
+    bool parse_binds();
+    void pop_binds(PgfBind *last);
 
     PgfExpr parse_arg();
     PgfExpr parse_term();
     PgfExpr parse_expr();
 
-    bool parse_hypos(size_t *n_hypos, PgfTypeHypo **hypos);
+    bool parse_hypos(size_t *n_hypos, PgfTypeHypo **hypos, PgfBind **pbs);
     PgfType parse_type();
     PgfTypeHypo *parse_context(size_t *p_n_hypos);
 

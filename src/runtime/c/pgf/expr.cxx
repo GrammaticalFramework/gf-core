@@ -302,6 +302,7 @@ PgfExprParser::PgfExprParser(PgfText *input, PgfUnmarshaller *unmarshaller)
     u   = unmarshaller;
     token_pos = NULL;
     token_value = NULL;
+    bs = NULL;
 
 	token();
 }
@@ -641,6 +642,18 @@ PgfExpr PgfExprParser::parse_term()
 		return u->emeta(id);
 	}
 	case PGF_TOKEN_IDENT: {
+        PgfBind *last = bs;
+        size_t index = 0;
+        while (last != NULL) {
+            if (textcmp(&last->var,token_value) == 0) {
+                PgfExpr e = u->evar(index);
+                token();
+                return e;
+            }
+            last = last->next;
+            index++;
+        }
+
         PgfExpr e = u->efun(token_value);
 		token();
         return e;
@@ -715,9 +728,9 @@ PgfExpr PgfExprParser::parse_arg()
 	return arg;
 }
 
-PgfBind *PgfExprParser::parse_bind(PgfBind *next)
+bool PgfExprParser::parse_bind()
 {
-    PgfBind *last = next;
+    PgfBind *last = bs;
 	PgfBindType bind_type = PGF_BIND_TYPE_EXPLICIT;
 
 	if (token_tag == PGF_TOKEN_LCURLY) {
@@ -734,10 +747,12 @@ PgfBind *PgfExprParser::parse_bind(PgfBind *next)
 		}
 
         PgfBind *bind = (PgfBind *) malloc(sizeof(PgfBind)+var->size+1);
+        if (bind == NULL)
+            goto error;
         bind->bind_type = bind_type;
-        bind->next      = last;
+        bind->next      = bs;
         memcpy(&bind->var, var, sizeof(PgfText)+var->size+1);
-        last = bind;
+        bs = bind;
 
         token();
 
@@ -755,31 +770,20 @@ PgfBind *PgfExprParser::parse_bind(PgfBind *next)
 		token();
 	}
 
-	return last;
+	return true;
 
 error:
-    while (last != next) {
-        PgfBind *tmp = last;
-        last = last->next;
-        free(tmp);
-    }
-    return NULL;
+    pop_binds(last);
+    return false;
 }
 
-PgfBind *PgfExprParser::parse_binds(PgfBind *next)
+bool PgfExprParser::parse_binds()
 {
+    PgfBind *last = bs;
 	for (;;) {
-        PgfBind *binds = parse_bind(next);
-        if (binds == NULL) {
-            while (next != NULL) {
-                PgfBind *tmp = next;
-                next = next->next;
-                free(tmp);
-            }
-            break;
+        if (!parse_bind()) {
+            goto error;
         }
-
-        next = binds;
 
 		if (token_tag != PGF_TOKEN_COMMA)
 			break;
@@ -787,7 +791,20 @@ PgfBind *PgfExprParser::parse_binds(PgfBind *next)
 		token();
 	}
 
-	return next;
+	return true;
+
+error:
+    pop_binds(last);
+    return false;
+}
+
+void PgfExprParser::pop_binds(PgfBind *last)
+{
+    while (bs != last) {
+        PgfBind *tmp = bs;
+        bs = bs->next;
+        free(tmp);
+    }
 }
 
 PgfExpr PgfExprParser::parse_expr()
@@ -797,8 +814,8 @@ PgfExpr PgfExprParser::parse_expr()
 	if (token_tag == PGF_TOKEN_LAMBDA) {
 		token();
 
-		PgfBind* bs = parse_binds(NULL);
-		if (bs == NULL)
+        PgfBind *last = bs;
+		if (!parse_binds())
 			return 0;
 
 		if (token_tag != PGF_TOKEN_RARROW) {
@@ -810,7 +827,7 @@ PgfExpr PgfExprParser::parse_expr()
 		if (expr == 0)
 			goto error;
 
-		while (bs != NULL) {
+		while (bs != last) {
             PgfExpr abs_expr = u->eabs(bs->bind_type, &bs->var, expr);
             u->free_ref(expr);
             expr = abs_expr;
@@ -823,12 +840,7 @@ PgfExpr PgfExprParser::parse_expr()
 		return expr;
 
 error:
-		while (bs != NULL) {
-            PgfBind *tmp = bs;
-            bs = bs->next;
-            free(tmp);
-		}
-
+		pop_binds(last);
 		return 0;
 	} else {
 		expr = parse_term();
@@ -854,11 +866,13 @@ error:
 	}
 }
 
-bool PgfExprParser::parse_hypos(size_t *n_hypos, PgfTypeHypo **hypos)
+bool PgfExprParser::parse_hypos(size_t *n_hypos, PgfTypeHypo **hypos,
+                                PgfBind **pbs)
 {
 	PgfText *var;
 	PgfBindType bind_type = PGF_BIND_TYPE_EXPLICIT;
 
+    *pbs = bs;
 	for (;;) {
 		if (bind_type == PGF_BIND_TYPE_EXPLICIT &&
 		    token_tag == PGF_TOKEN_LCURLY) {
@@ -870,7 +884,7 @@ bool PgfExprParser::parse_hypos(size_t *n_hypos, PgfTypeHypo **hypos)
 		if (token_tag == PGF_TOKEN_IDENT || token_tag == PGF_TOKEN_WILD) {
 			var = token_value;
 		} else {
-			return false;
+			goto error;
 		}
 
         *hypos = (PgfTypeHypo*) realloc(*hypos, sizeof(PgfTypeHypo)*(*n_hypos+1));
@@ -879,6 +893,14 @@ bool PgfExprParser::parse_hypos(size_t *n_hypos, PgfTypeHypo **hypos)
         bt->cid  = textdup(var);
         bt->type = 0;
         (*n_hypos)++;
+
+        PgfBind *bind = (PgfBind *) malloc(sizeof(PgfBind)+var->size+1);
+        if (bind == NULL)
+            goto error;
+        bind->bind_type = bind_type;
+        bind->next      = *pbs;
+        memcpy(&bind->var, var, sizeof(PgfText)+var->size+1);
+        *pbs = bind;
 
         token();
 
@@ -896,9 +918,17 @@ bool PgfExprParser::parse_hypos(size_t *n_hypos, PgfTypeHypo **hypos)
 	}
 
 	if (bind_type == PGF_BIND_TYPE_IMPLICIT)
-		return false;
+		goto error;
 
 	return true;
+
+error:
+    while (*pbs != bs) {
+        PgfBind *tmp = *pbs;
+        *pbs = (*pbs)->next;
+        free(tmp);
+    }
+    return false;
 }
 
 static
@@ -919,6 +949,7 @@ PgfType PgfExprParser::parse_type()
 
     size_t n_hypos = 0;
     PgfTypeHypo *hypos = NULL;
+    PgfBind *last = bs;
 
     PgfText *cat = NULL;
 
@@ -930,6 +961,7 @@ PgfType PgfExprParser::parse_type()
 			token();
 
             size_t n_start = n_hypos;
+            PgfBind *new_bs = bs;
 
 			if ((token_tag == PGF_TOKEN_IDENT &&
 			     (lookahead(',') ||
@@ -937,11 +969,13 @@ PgfType PgfExprParser::parse_type()
 				(token_tag == PGF_TOKEN_LCURLY) ||
 				(token_tag == PGF_TOKEN_WILD)) {
 
-				if (!parse_hypos(&n_hypos, &hypos))
+				if (!parse_hypos(&n_hypos, &hypos, &new_bs))
 					goto exit;
 
-				if (token_tag != PGF_TOKEN_COLON)
+				if (token_tag != PGF_TOKEN_COLON) {
+                    bs = new_bs; // to be recycled
 					goto exit;
+                }
 
 				token();
 			} else {
@@ -956,8 +990,10 @@ PgfType PgfExprParser::parse_type()
             size_t n_end = n_hypos;
 
 			PgfType type = parse_type();
-			if (type == 0)
+            bs = new_bs;
+			if (type == 0) {
 				goto exit;
+            }
 
 			if (token_tag != PGF_TOKEN_RPAR)
 				goto exit;
@@ -1026,6 +1062,8 @@ exit:
     }
     free(hypos);
 
+    pop_binds(last);
+
     free(cat);
 
     while (n_args > 0) {
@@ -1040,12 +1078,14 @@ PgfTypeHypo *PgfExprParser::parse_context(size_t *p_n_hypos)
 {
     size_t n_hypos = 0;
     PgfTypeHypo *hypos = NULL;
+    PgfBind *last = bs;
 
 	for (;;) {
 		if (token_tag == PGF_TOKEN_LPAR) {
 			token();
 
             size_t n_start = n_hypos;
+            PgfBind *new_bs = bs;
 
 			if ((token_tag == PGF_TOKEN_IDENT &&
 			     (lookahead(',') ||
@@ -1053,11 +1093,13 @@ PgfTypeHypo *PgfExprParser::parse_context(size_t *p_n_hypos)
 				(token_tag == PGF_TOKEN_LCURLY) ||
 				(token_tag == PGF_TOKEN_WILD)) {
 
-				if (!parse_hypos(&n_hypos, &hypos))
+				if (!parse_hypos(&n_hypos, &hypos, &new_bs))
 					goto exit;
 
-				if (token_tag != PGF_TOKEN_COLON)
+				if (token_tag != PGF_TOKEN_COLON) {
+                    bs = new_bs; // to be recycled
 					goto exit;
+                }
 
 				token();
 			} else {
@@ -1072,6 +1114,7 @@ PgfTypeHypo *PgfExprParser::parse_context(size_t *p_n_hypos)
             size_t n_end = n_hypos;
 
 			PgfType type = parse_type();
+            bs = new_bs;
 			if (type == 0)
 				goto exit;
 
@@ -1098,6 +1141,7 @@ PgfTypeHypo *PgfExprParser::parse_context(size_t *p_n_hypos)
 	}
 
 exit:
+    pop_binds(last);
     *p_n_hypos = n_hypos;
     return hypos;
 }
