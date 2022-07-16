@@ -1155,6 +1155,80 @@ Iter_fetch_expr(IterObject* self)
 	return res;
 }
 
+typedef struct {
+	PyObject_HEAD
+} BINDObject;
+
+static PyObject *BIND_instance = NULL;
+
+static void
+BIND_dealloc(PyTypeObject *self)
+{
+    BIND_instance = NULL;
+}
+
+static PyObject *
+BIND_repr(BINDObject *self)
+{
+	return PyString_FromString("pgf.BIND");
+}
+
+static PyObject *
+BIND_str(BINDObject *self)
+{
+	return PyString_FromString("&+");
+}
+
+static PyObject *
+BIND_alloc(PyTypeObject *self, Py_ssize_t nitems)
+{
+    if (BIND_instance == NULL)
+        BIND_instance = PyType_GenericAlloc(self, nitems);
+    return BIND_instance;
+}
+
+static PyTypeObject pgf_BINDType = {
+    PyVarObject_HEAD_INIT(NULL, 0)
+    //0,                       /*ob_size*/
+    "pgf.BINDType",            /*tp_name*/
+    sizeof(BINDObject),        /*tp_basicsize*/
+    0,                         /*tp_itemsize*/
+    (destructor) BIND_dealloc, /*tp_dealloc*/
+    0,                         /*tp_print*/
+    0,                         /*tp_getattr*/
+    0,                         /*tp_setattr*/
+    0,                         /*tp_compare*/
+    (reprfunc) BIND_repr,      /*tp_repr*/
+    0,                         /*tp_as_number*/
+    0,                         /*tp_as_sequence*/
+    0,                         /*tp_as_mapping*/
+    0,                         /*tp_hash */
+    0,                         /*tp_call*/
+    (reprfunc) BIND_str,       /*tp_str*/
+    0,                         /*tp_getattro*/
+    0,                         /*tp_setattro*/
+    0,                         /*tp_as_buffer*/
+    Py_TPFLAGS_DEFAULT | Py_TPFLAGS_BASETYPE, /*tp_flags*/
+    "a marker for BIND in a bracketed string", /*tp_doc*/
+    0,		                   /*tp_traverse */
+    0,		                   /*tp_clear */
+    0,		                   /*tp_richcompare */
+    0,		                   /*tp_weaklistoffset */
+    0,		                   /*tp_iter */
+    0,		                   /*tp_iternext */
+    0,                         /*tp_methods */
+    0,                         /*tp_members */
+    0,                         /*tp_getset */
+    0,                         /*tp_base */
+    0,                         /*tp_dict */
+    0,                         /*tp_descr_get */
+    0,                         /*tp_descr_set */
+    0,                         /*tp_dictoffset */
+    0,                         /*tp_init */
+    BIND_alloc,                /*tp_alloc */
+    0,                         /*tp_new */
+};
+
 static PyObject*
 Iter_fetch_token(IterObject* self)
 {
@@ -1162,7 +1236,9 @@ Iter_fetch_token(IterObject* self)
 	if (tp == NULL)
 		return NULL;
 
-	PyObject* py_tok = PyString_FromString(tp->tok);
+	PyObject* py_tok =
+        (tp->tok != NULL) ? PyString_FromString(tp->tok)
+                          : pgf_BINDType.tp_alloc(&pgf_BINDType, 0);
 	PyObject* py_cat = PyString_FromString(tp->cat);
 	PyObject* py_fun = PyString_FromString(tp->fun);
 	PyObject* res = Py_BuildValue("(f,O,O,O)", tp->prob, py_tok, py_cat, py_fun);
@@ -1599,16 +1675,18 @@ Concr_parse(ConcrObject* self, PyObject *args, PyObject *keywds)
 static IterObject*
 Concr_complete(ConcrObject* self, PyObject *args, PyObject *keywds)
 {
-	static char *kwlist[] = {"sentence", "cat", "prefix", "n", NULL};
+    static char *kwlist[] = {"sentence", "cat", "prefix", "n", NULL};
 
-	const char *sentence = NULL;
+	PyObject* sentence0 = NULL;
+	char* sentence = NULL;
 	PyObject* start = NULL;
-	GuString prefix = "";
-	int max_count = -1;
-	if (!PyArg_ParseTupleAndKeywords(args, keywds, "s|Osi", kwlist,
-	                                 &sentence, &start,
-	                                 &prefix, &max_count))
-		return NULL;
+    GuString prefix = "";
+    bool prefix_bind = false;
+    int max_count = -1;
+    if (!PyArg_ParseTupleAndKeywords(args, keywds, "O|Osi", kwlist,
+                                     &sentence0, &start,
+                                     &prefix, &max_count))
+        return NULL;
 
 	IterObject* pyres = (IterObject*) 
 		pgf_IterType.tp_alloc(&pgf_IterType, 0);
@@ -1630,6 +1708,20 @@ Concr_complete(ConcrObject* self, PyObject *args, PyObject *keywds)
 
 	GuExn* parse_err = gu_new_exn(tmp_pool);
 
+    if (PyTuple_Check(sentence0) && 
+        PyTuple_GET_SIZE(sentence0) == 2 && 
+        PyTuple_GET_ITEM(sentence0,1) == pgf_BINDType.tp_alloc(&pgf_BINDType, 0))
+    {
+        sentence0 = PyTuple_GET_ITEM(sentence0,0);
+        prefix_bind = true;
+    }
+
+    if (PyUnicode_Check(sentence0)) {
+        sentence = PyUnicode_AsUTF8(sentence0);
+    } else {
+        PyErr_SetString(PyExc_TypeError, "The sentence must be either a string or a tuple of string and pgf.BIND");
+    }
+
 	PgfType* type;
 	if (start == NULL) {
 		type = pgf_start_cat(self->grammar->pgf, pyres->pool);
@@ -1642,7 +1734,7 @@ Concr_complete(ConcrObject* self, PyObject *args, PyObject *keywds)
 	}
 
 	pyres->res =
-		pgf_complete(self->concr, type, sentence, prefix, parse_err, pyres->pool);
+		pgf_complete(self->concr, type, sentence, prefix, prefix_bind, parse_err, pyres->pool);
 
 	if (!gu_ok(parse_err)) {
 		Py_DECREF(pyres);
@@ -2066,58 +2158,6 @@ static PyTypeObject pgf_BracketType = {
     0,		                   /*tp_iternext */
     0,                         /*tp_methods */
     Bracket_members,           /*tp_members */
-    0,                         /*tp_getset */
-    0,                         /*tp_base */
-    0,                         /*tp_dict */
-    0,                         /*tp_descr_get */
-    0,                         /*tp_descr_set */
-    0,                         /*tp_dictoffset */
-    0,                         /*tp_init */
-    0,                         /*tp_alloc */
-    0,                         /*tp_new */
-};
-
-typedef struct {
-	PyObject_HEAD
-} BINDObject;
-
-static PyObject *
-BIND_repr(BINDObject *self)
-{
-	return PyString_FromString("&+");
-}
-
-static PyTypeObject pgf_BINDType = {
-    PyVarObject_HEAD_INIT(NULL, 0)
-    //0,                       /*ob_size*/
-    "pgf.BIND",                /*tp_name*/
-    sizeof(BINDObject),        /*tp_basicsize*/
-    0,                         /*tp_itemsize*/
-    0,                         /*tp_dealloc*/
-    0,                         /*tp_print*/
-    0,                         /*tp_getattr*/
-    0,                         /*tp_setattr*/
-    0,                         /*tp_compare*/
-    0,                         /*tp_repr*/
-    0,                         /*tp_as_number*/
-    0,                         /*tp_as_sequence*/
-    0,                         /*tp_as_mapping*/
-    0,                         /*tp_hash */
-    0,                         /*tp_call*/
-    (reprfunc) BIND_repr,      /*tp_str*/
-    0,                         /*tp_getattro*/
-    0,                         /*tp_setattro*/
-    0,                         /*tp_as_buffer*/
-    Py_TPFLAGS_DEFAULT | Py_TPFLAGS_BASETYPE, /*tp_flags*/
-    "a marker for BIND in a bracketed string", /*tp_doc*/
-    0,		                   /*tp_traverse */
-    0,		                   /*tp_clear */
-    0,		                   /*tp_richcompare */
-    0,		                   /*tp_weaklistoffset */
-    0,		                   /*tp_iter */
-    0,		                   /*tp_iternext */
-    0,                         /*tp_methods */
-    0,                         /*tp_members */
     0,                         /*tp_getset */
     0,                         /*tp_base */
     0,                         /*tp_dict */
@@ -2726,6 +2766,11 @@ static PyMethodDef Concr_methods[] = {
     },
     {"complete", (PyCFunction)Concr_complete, METH_VARARGS | METH_KEYWORDS,
      "Parses a partial string and returns a list with the top n possible next tokens"
+     "Named arguments:\n"
+     "- sentence (string or a (string,pgf.BIND) tuple. The later indicates that the sentence ends with a BIND token)\n"
+     "- cat (string); OPTIONAL, default: the startcat of the grammar\n"
+     "- prefix (string); OPTIONAL, the prefix of predicted tokens"
+     "- n (int), max. number of predicted tokens"
     },
     {"parseval", (PyCFunction)Concr_parseval, METH_VARARGS,
      "Computes precision, recall and exact match for the parser on a given abstract tree"
@@ -3670,7 +3715,7 @@ MOD_INIT(pgf)
     PyModule_AddObject(m, "Bracket", (PyObject *) &pgf_BracketType);
     Py_INCREF(&pgf_BracketType);
 
-    PyModule_AddObject(m, "BIND", (PyObject *) &pgf_BINDType);
+    PyModule_AddObject(m, "BIND", pgf_BINDType.tp_alloc(&pgf_BINDType, 0));
     Py_INCREF(&pgf_BINDType);
 
 	return MOD_SUCCESS_VAL(m);

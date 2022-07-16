@@ -251,7 +251,8 @@ typedef struct {
 
 PGF_API_DECL GuEnum*
 pgf_complete(PgfConcr* concr, PgfType* type, GuString string, 
-             GuString prefix, GuExn* err, GuPool* pool);
+             GuString prefix, bool prefix_bind,
+             GuExn* err, GuPool* pool);
 
 typedef struct PgfLiteralCallback PgfLiteralCallback;
 

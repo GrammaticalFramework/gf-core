@@ -44,6 +44,7 @@ typedef struct {
     PgfParseState *before;
     PgfParseState *after;
     PgfToken prefix;
+    bool prefix_bind;
     PgfTokenProb* tp;
     PgfExprEnum en;    // enumeration for the generated trees/tokens
 #ifdef PGF_COUNTS_DEBUG
@@ -1009,6 +1010,7 @@ pgf_new_parse_state(PgfParsing* ps, size_t start_offset,
 	                    (start_offset == end_offset);
 	state->start_offset = start_offset;
 	state->end_offset = end_offset;
+
 	state->viterbi_prob = viterbi_prob;
  	state->lexicon_idx =
 		gu_new_buf(PgfLexiconIdxEntry, ps->pool);
@@ -1381,20 +1383,30 @@ pgf_parsing_symbol(PgfParsing* ps, PgfItem* item, PgfSymbol sym)
 		break;
 	}
 	case PGF_SYMBOL_BIND: {
-		if (ps->before->start_offset == ps->before->end_offset &&
-		    ps->before->needs_bind) {
-			PgfParseState* state =
-				pgf_new_parse_state(ps, ps->before->end_offset, BIND_HARD,
-				                    item->inside_prob+item->conts->outside_prob);
-			if (state != NULL) {
-				pgf_item_advance(item, ps->pool);
-                gu_buf_heap_push(state->agenda, pgf_item_prob_order, &item);
-			} else {
-				pgf_item_free(ps, item);
-			}
-		} else {
-			pgf_item_free(ps, item);
-		}
+        if (!ps->prefix_bind && ps->prefix != NULL && *(ps->sentence + ps->before->end_offset) == 0) {
+            PgfProductionApply* papp = gu_variant_data(item->prod);
+
+			ps->tp = gu_new(PgfTokenProb, ps->out_pool);
+			ps->tp->tok  = NULL;
+			ps->tp->cat  = item->conts->ccat->cnccat->abscat->name;
+			ps->tp->fun  = papp->fun->absfun->name;
+			ps->tp->prob = item->inside_prob + item->conts->outside_prob;
+        } else {
+            if (ps->before->start_offset == ps->before->end_offset &&
+                ps->before->needs_bind) {
+                PgfParseState* state =
+                    pgf_new_parse_state(ps, ps->before->end_offset, BIND_HARD,
+                                        item->inside_prob+item->conts->outside_prob);
+                if (state != NULL) {
+                    pgf_item_advance(item, ps->pool);
+                    gu_buf_heap_push(state->agenda, pgf_item_prob_order, &item);
+                } else {
+                    pgf_item_free(ps, item);
+                }
+            } else {
+                pgf_item_free(ps, item);
+            }
+        }
 		break;
 	}
 	case PGF_SYMBOL_SOFT_BIND:
@@ -2337,7 +2349,8 @@ pgf_parser_completions_next(GuEnum* self, void* to, GuPool* pool)
 
 PGF_API GuEnum*
 pgf_complete(PgfConcr* concr, PgfType* type, GuString sentence, 
-             GuString prefix, GuExn *err, GuPool* pool)
+             GuString prefix, bool prefix_bind,
+             GuExn *err, GuPool* pool)
 {
 	if (concr->sequences == NULL ||
 	    concr->cnccats == NULL) {
@@ -2377,6 +2390,7 @@ pgf_complete(PgfConcr* concr, PgfType* type, GuString sentence,
 	// Now begin enumerating the completions
 	ps->en.next = pgf_parser_completions_next;
 	ps->prefix  = prefix;
+    ps->prefix_bind = prefix_bind;
 	ps->tp      = NULL;
 	return &ps->en;
 }

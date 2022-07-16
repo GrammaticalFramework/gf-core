@@ -1026,7 +1026,10 @@ complete lang (Type ctype _) sent pfx =
           touchConcr lang
           return []
         else do
-          tok <- peekUtf8CString =<< (#peek PgfTokenProb, tok) cmpEntry
+          p_tok <- (#peek PgfTokenProb, tok) cmpEntry
+          tok <- if p_tok == nullPtr
+                   then return "&+"
+                   else peekUtf8CString p_tok
           cat <- peekUtf8CString =<< (#peek PgfTokenProb, cat) cmpEntry
           fun <- peekUtf8CString =<< (#peek PgfTokenProb, fun) cmpEntry
           prob <- (#peek PgfTokenProb, prob) cmpEntry
