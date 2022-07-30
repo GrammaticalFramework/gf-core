@@ -564,8 +564,8 @@ void phrasetable_lookup_prefixes(PgfCohortsState *state,
         if (min <= len)
             phrasetable_lookup_prefixes(state,table->left,min,len);
 
-        if (len <= max)
-            phrasetable_lookup_prefixes(state,table->right,len,max);
+        if (len+1 <= max)
+            phrasetable_lookup_prefixes(state,table->right,len+1,max);
     } else {
         ptrdiff_t len = current.ptr - state->spot.ptr;
 
