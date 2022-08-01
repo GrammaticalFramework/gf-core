@@ -18,10 +18,22 @@ gu_exn_is_raised(GuExn* err) {
 	return err && (err->state == GU_EXN_RAISED);
 }
 
+GU_API_DECL void
+gu_exn_clear(GuExn* err) {
+	err->caught = NULL;
+	err->state = GU_EXN_OK;
+}
+
 GU_API bool
 gu_exn_caught_(GuExn* err, const char* type)
 {
 	return (err->caught && strcmp(err->caught, type) == 0);
+}
+
+GU_API_DECL void*
+gu_exn_caught_data(GuExn* err)
+{
+	return err->data.data;
 }
 
 GU_API void

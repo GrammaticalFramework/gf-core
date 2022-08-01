@@ -71,11 +71,13 @@ gu_new_exn(GuPool* pool);
 GU_API_DECL bool
 gu_exn_is_raised(GuExn* err);
 
-static inline void
-gu_exn_clear(GuExn* err) {
-	err->caught = NULL;
-	err->state = GU_EXN_OK;
-}
+// static inline void
+// gu_exn_clear(GuExn* err) {
+// 	err->caught = NULL;
+// 	err->state = GU_EXN_OK;
+// }
+GU_API_DECL void
+gu_exn_clear(GuExn* err);
 
 #define gu_exn_caught(err, type) \
 	(err->caught && strcmp(err->caught, #type) == 0)
@@ -83,11 +85,13 @@ gu_exn_clear(GuExn* err) {
 GU_API_DECL bool
 gu_exn_caught_(GuExn* err, const char* type);
 
-static inline const void*
-gu_exn_caught_data(GuExn* err)
-{
-	return err->data.data;
-}
+// static inline const void*
+// gu_exn_caught_data(GuExn* err)
+// {
+// 	return err->data.data;
+// }
+GU_API_DECL void*
+gu_exn_caught_data(GuExn* err);
 
 /// Temporarily block a raised exception.
 GU_API_DECL void

@@ -16,8 +16,7 @@ COPY \
 RUN autoreconf -i
 RUN emconfigure ./configure
 RUN emmake make
-RUN emcc .libs/libgu.a .libs/libpgf.a -o pgf.html \
-    -sFORCE_FILESYSTEM \
+RUN emcc .libs/libgu.a .libs/libpgf.a -o pgf.js \
     -sALLOW_MEMORY_GROWTH \
     -sEXPORTED_FUNCTIONS="\
         _pgf_read,\
