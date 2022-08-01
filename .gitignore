@@ -44,6 +44,8 @@ src/runtime/c/scripts/
 src/runtime/c/sg/.deps/
 src/runtime/c/sg/.dirstamp
 src/runtime/c/stamp-h1
+src/runtime/c/*.js
+src/runtime/c/*.wasm
 src/runtime/java/.libs/
 src/runtime/python/build/
 .cabal-sandbox
