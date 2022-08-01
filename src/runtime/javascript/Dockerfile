@@ -41,6 +41,7 @@ RUN emcc .libs/libgu.a .libs/libpgf.a -o pgf.js \
         ccall,\
         FS,\
         getValue,\
+        AsciiToString,\
         stringToUTF8,\
         UTF8ToString,\
         allocateUTF8\
