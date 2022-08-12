@@ -1184,6 +1184,8 @@ BIND_alloc(PyTypeObject *self, Py_ssize_t nitems)
 {
     if (BIND_instance == NULL)
         BIND_instance = PyType_GenericAlloc(self, nitems);
+    else
+        Py_INCREF(BIND_instance); 
     return BIND_instance;
 }
 
@@ -1720,6 +1722,7 @@ Concr_complete(ConcrObject* self, PyObject *args, PyObject *keywds)
         sentence = PyUnicode_AsUTF8(sentence0);
     } else {
         PyErr_SetString(PyExc_TypeError, "The sentence must be either a string or a tuple of string and pgf.BIND");
+        return NULL;
     }
 
 	PgfType* type;
