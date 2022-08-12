@@ -385,7 +385,7 @@ Expr_call(ExprObject* self, PyObject* args, PyObject* kw)
 	pyexpr->pool = gu_new_pool();
 	pyexpr->expr = self->expr;
 
-	for (Py_ssize_t i = 0; i < n_args; i++) {
+	for (size_t i = 0; i < n_args; i++) {
 		PyObject* obj = PyTuple_GetItem(args, i);
 		if (obj->ob_type != &pgf_ExprType) {
 			PyErr_SetString(PyExc_TypeError, "the arguments must be expressions");
@@ -549,7 +549,7 @@ Expr_visit(ExprObject* self, PyObject *args)
 				return NULL;
 			}
 
-			for (size_t i = 0; i < app->n_args; i++) {
+			for (size_t i = 0; i < (size_t) app->n_args; i++) {
 				ExprObject* pyarg = (ExprObject*) pgf_ExprType.tp_alloc(&pgf_ExprType, 0);
 				if (pyarg == NULL) {
 					Py_DECREF(args);
@@ -856,7 +856,7 @@ Type_init(TypeObject *self, PyObject *args, PyObject *kwds)
 	self->type->cid = gu_string_copy(catname_s, self->pool);
 
 	self->type->n_exprs = n_exprs;
-	for (Py_ssize_t i = 0; i < n_exprs; i++) {
+	for (size_t i = 0; i < n_exprs; i++) {
 		PyObject* obj = PyList_GetItem(py_exprs, i);
 		if (Py_TYPE(obj) != &pgf_ExprType) {
 			PyErr_SetString(PyExc_TypeError, "the arguments in the second list must be expressions");
@@ -1680,7 +1680,7 @@ Concr_complete(ConcrObject* self, PyObject *args, PyObject *keywds)
     static char *kwlist[] = {"sentence", "cat", "prefix", "n", NULL};
 
 	PyObject* sentence0 = NULL;
-	char* sentence = NULL;
+	const char* sentence = NULL;
 	PyObject* start = NULL;
     GuString prefix = "";
     bool prefix_bind = false;
@@ -1690,10 +1690,10 @@ Concr_complete(ConcrObject* self, PyObject *args, PyObject *keywds)
                                      &prefix, &max_count))
         return NULL;
 
-	IterObject* pyres = (IterObject*) 
-		pgf_IterType.tp_alloc(&pgf_IterType, 0);
-	if (pyres == NULL) {
-		return NULL;
+    IterObject* pyres = (IterObject*) 
+        pgf_IterType.tp_alloc(&pgf_IterType, 0);
+    if (pyres == NULL) {
+        return NULL;
 	}
 
 	pyres->source = (PyObject*) self->grammar;
