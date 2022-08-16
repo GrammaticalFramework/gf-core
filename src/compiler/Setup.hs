@@ -170,11 +170,9 @@ setupWeb dest (pkg,lbi) = do
   if contrib_exists
   then mapM_ copy_pgf example_grammars
   else return () -- message already displayed from buildWeb
-  copyGFLogo
   where
     grammars_dir = www_dir </> "grammars"
     cloud_dir = www_dir </> "tmp" -- hmm
-    logo_dir = www_dir </> "Logos"
     www_dir = datadir (absoluteInstallDirs pkg lbi dest) </> "www"
     gfo_dir = buildDir lbi </> "examples"
 
@@ -186,12 +184,6 @@ setupWeb dest (pkg,lbi) = do
          if ex then do putStrLn $ "Installing "++dst
                        copyFile src dst
                else putStrLn $ "Not installing "++dst
-
-    gf_logo = "gf0.png"
-
-    copyGFLogo =
-      do createDirectoryIfMissing True logo_dir
-         copyFile (".."</>".."</>"doc"</>"Logos"</>gf_logo) (logo_dir</>gf_logo)
 
 -- | Run an arbitrary system command, returning False on failure
 execute :: String -> [String] -> IO Bool
