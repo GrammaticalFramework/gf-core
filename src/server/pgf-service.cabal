@@ -17,7 +17,7 @@ flag network-uri
 Library
   exposed-modules: PGFService URLEncoding CGIUtils
   other-modules:   Cache
-  build-depends:   base >=4.2 && <5,
+  build-depends:   base >=4.2,
                    time,
                    directory,
                    filepath,
