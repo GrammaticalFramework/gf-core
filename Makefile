@@ -6,21 +6,15 @@ VERSION=$(shell sed -ne "s/^version: *\([0-9.]*\).*/\1/p" gf.cabal)
 # Check if stack is installed
 STACK=$(shell if hash stack 2>/dev/null; then echo "1"; else echo "0"; fi)
 
-# Check if cabal >= 2.4 is installed (with v1- and v2- commands)
-CABAL_NEW=$(shell if cabal v1-repl --help >/dev/null 2>&1 ; then echo "1"; else echo "0"; fi)
-
 ifeq ($(STACK),1)
   CMD=stack
 else
   CMD=cabal
-  ifeq ($(CABAL_NEW),1)
-    CMD_PFX=v1-
-  endif
   CMD_OPT="--force-reinstalls"
 endif
 
 all: src/runtime/c/libpgf.la
-	cabal install gf
+	${CMD} install gf
 
 src/runtime/c/libpgf.la: src/runtime/c/Makefile
 	(cd src/runtime/c; make; sudo make install)
@@ -32,10 +26,10 @@ src/runtime/c/Makefile.in src/runtime/c/configure: src/runtime/c/configure.ac sr
 	(cd src/runtime/c; autoreconf -i)
 
 doc:
-	${CMD} ${CMD_PFX}haddock
+	${CMD} haddock
 
 clean:
-	${CMD} ${CMD_PFX}clean
+	${CMD} clean
 	bash bin/clean_html
 
 html::
