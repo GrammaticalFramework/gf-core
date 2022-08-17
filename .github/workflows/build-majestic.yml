@@ -48,7 +48,11 @@ jobs:
     - name: Setup Haskell
       uses: haskell/actions/setup@v1
 
-    - name: Build & run testsuite
+    - name: Build
+      run: |
+        cabal install gf --extra-lib-dirs=/usr/local/lib
+
+    - name: run testsuite
       working-directory: ./src/runtime/haskell
       run: |
         cabal test --extra-lib-dirs=/usr/local/lib
