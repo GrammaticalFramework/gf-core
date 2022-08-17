@@ -19,7 +19,8 @@ else
   CMD_OPT="--force-reinstalls"
 endif
 
-all: src/runtime/c/libpgf.la src/runtime/haskell/dist/setup-config src/server/dist/setup-config src/compiler/dist/setup-config
+all: src/runtime/c/libpgf.la
+	cabal install gf
 
 src/runtime/c/libpgf.la: src/runtime/c/Makefile
 	(cd src/runtime/c; make; sudo make install)
@@ -29,15 +30,6 @@ src/runtime/c/Makefile: src/runtime/c/Makefile.in src/runtime/c/configure
 
 src/runtime/c/Makefile.in src/runtime/c/configure: src/runtime/c/configure.ac src/runtime/c/Makefile.am
 	(cd src/runtime/c; autoreconf -i)
-
-src/runtime/haskell/dist/setup-config: src/runtime/c/libpgf.la src/runtime/haskell/pgf2.cabal
-	(cd src/runtime/haskell; ${CMD} ${CMD_PFX}install ${CMD_OPT})
-
-src/server/dist/setup-config: src/server/pgf-service.cabal src/runtime/haskell/dist/setup-config
-	(cd src/server; ${CMD} ${CMD_PFX}install ${CMD_OPT})
-
-src/compiler/dist/setup-config: src/compiler/gf.cabal src/compiler/Setup.hs src/compiler/WebSetup.hs src/runtime/haskell/dist/setup-config src/server/dist/setup-config
-	(cd src/compiler; ${CMD} ${CMD_PFX}install ${CMD_OPT})
 
 doc:
 	${CMD} ${CMD_PFX}haddock
