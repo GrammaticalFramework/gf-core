@@ -41,7 +41,7 @@ data-files:
 
 custom-setup
   setup-depends:
-    base >= 4.9.1 && < 4.16,
+    base >= 4.9.1,
     Cabal >= 1.22.0.0,
     directory >= 1.3.0 && < 1.4,
     filepath >= 1.4.1 && < 1.5,
