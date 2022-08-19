@@ -414,7 +414,9 @@ inferExpr p e =
       (#const PGF_EXN_NONE) -> do
          c_e <- peek p_e
          e  <- deRefStablePtr c_e
+         freeStablePtr c_e
          ty <- deRefStablePtr c_ty
+         freeStablePtr c_ty
          return (Right (e,ty))
       (#const PGF_EXN_SYSTEM_ERROR) -> do
          errno <- (#peek PgfExn, code) c_exn
