@@ -335,6 +335,25 @@ PgfLinearizer::TreeLindefNode::TreeLindefNode(PgfLinearizer *linearizer, PgfText
     this->lincat    = 0;
     this->lin_index = 0;
     this->literal   = literal;
+
+    TreeNode *prev = linearizer->prev;
+
+    TreeNode *arg = args;
+    TreeNode **plast = &args;
+    while (arg != NULL) {
+        TreeNode *next = arg->next_arg;
+        arg->next_arg = NULL;
+
+        TreeLinrefNode *new_arg = new TreeLinrefNode(linearizer, arg);
+        new_arg->next = arg->next;
+        arg->next = new_arg;
+        *plast = new_arg;
+        plast = &new_arg->next_arg;
+
+        linearizer->prev = prev;
+
+        arg = next;
+    }
 }
 
 bool PgfLinearizer::TreeLindefNode::resolve(PgfLinearizer *linearizer)
@@ -363,6 +382,12 @@ void PgfLinearizer::TreeLindefNode::linearize_arg(PgfLinearizationOutputIface *o
 {
     linearizer->flush_pre_stack(out, literal);
     out->symbol_token(literal);
+
+    TreeNode *arg = args;
+    while (arg != NULL) {
+        arg->linearize(out,linearizer,0);
+        arg = arg->next_arg;
+    }
 }
 
 void PgfLinearizer::TreeLindefNode::linearize(PgfLinearizationOutputIface *out, PgfLinearizer *linearizer, size_t lindex)
