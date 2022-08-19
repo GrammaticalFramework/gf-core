@@ -214,29 +214,13 @@ wc.translate=function(redo) {
 	    //disable(false)
 	}
 
-	function word_for_word(text,cont) {
-	    function step3(tra) {
-		if(tra.length>=1) {
-		    var r=tra[0]
-		    r.prob = -1
-		    if(r.linearizations) showit(r,gftranslate.grammar)
-		    else if(r.error!=undefined)
-			show_error(r.error)
-		}
-		else if(so.rs.length==0)
-		    show_error("Unable to translate")
-	    }
-	    gftranslate.wordforword(text,f.from.value,wc.languages || f.to.value,step3)
-	}
-
 	function trans(text,i,count) {
 	    function step3(tra) {
 		if(tra.length>=1) {
 		    var r=tra[0]
 		    if(r.error!=undefined) {
 			if(i==0 && so.rs.length==0) {
-			    //show_error(r.error)
-			    word_for_word(text)
+			    show_error(r.error)
 			}
 		    }
 		    else {

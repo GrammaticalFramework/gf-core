@@ -332,27 +332,4 @@ See the source code for details.
 
 --------------------------------------------------------------------------------
 
-==Commands that use the C run-time system==
-
-GF includes two implementations of the PGF API: the traditional
-Haskell implementation and the newer C implementation. The commands documented
-above all use the Haskell implementation.
-The following commands use the C implementation instead:
-
-- ``c-parse``, ``c-linearize``, ``c-linearizeAll``, ``c-translate``,
-  ``c-lookupmorpho``, ``c-flush``, ``c-grammar``, ``c-abstrtree``,
-  ``c-parsetree``, ``c-wordforword``.
-
-
-They implement the same functionality as the corresponding commands
-without the ``c-`` prefix, although there are some restrictions in what
-parameters they support, and some differences in the JSON
-data structures they output.
-
-When using these commands, the grammar will be loaded and cached
-by the C run-time system. If you use commands from both the Haskell and C
-implementations with the same grammar, the grammar will be loaded twice.
-
---------------------------------------------------------------------------------
-
 [www.grammaticalframework.org http://www.grammaticalframework.org]

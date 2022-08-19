@@ -3,8 +3,8 @@
 
 var gftranslate = {}
 
-gftranslate.jsonurl="/robust/App16.pgf"
-gftranslate.grammar="App" // the name of the grammar
+gftranslate.jsonurl="/robust/Parse.ngf"
+gftranslate.grammar="Parse" // the name of the grammar
 
 gftranslate.documented_classes=
     ["N", "N2", "N3", "A", "A2", "V", "V2", "VV", "VS", "VQ", "VA", "V3", "V2V",
@@ -67,29 +67,10 @@ gftranslate.translate=function(source,from,to,start,limit,cont) {
     var too_long=check_limit(from,source)
     if(too_long) cont([{error:too_long}])
     else
-	gftranslate.call("?command=c-translate&jsontree=true&input="
+	gftranslate.call("?command=translate&jsontree=true&input="
 		      +encodeURIComponent(source)
 		      +lexer+"&unlexer=text&from="+g+from+"&to="+enc_langs(g,to)
 		      +"&start="+start+"&limit="+limit,extract,errcont)
-}
-
-// Translate a sentence word for word (if all else fails...)
-gftranslate.wordforword=function(source,from,to,cont) {
-    var g=gftranslate.grammar
-    var lexer="&lexer=text"
-    if(from=="Chi") lexer="",source=source.split("").join(" ")
-    function errcont(text,code) { cont([{error:code+" "+text}]) }
-    function extract(result) {
-	cont(unspace_translations(g,result[0].translations))
-    }
-    var enc_to = enc_langs(g,to)
-    var too_long=check_limit(from,source)
-    if(too_long) cont([{error:too_long}])
-    else
-	gftranslate.call("?command=c-wordforword&input="
-			 +encodeURIComponent(source)
-			 +lexer+"&unlexer=text&from="+g+from+"&to="+enc_to
-			 ,extract,errcont)
 }
 
 // Get list of supported languages
@@ -118,7 +99,7 @@ gftranslate.get_languages=function(cont,errcont) {
     else {
 	gftranslate.waiting.push({cont:cont,errcont:errcont})
 	if(gftranslate.waiting.length<2) 
-	    gftranslate.call("?command=c-grammar",init2,init2error)
+	    gftranslate.call("?command=grammar",init2,init2error)
     }
 }
 
