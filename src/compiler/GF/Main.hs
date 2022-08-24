@@ -44,7 +44,10 @@ getOptions = do
 mainOpts :: Options -> [FilePath] -> IO ()
 mainOpts opts files =
     case flag optMode opts of
-      ModeVersion     -> putStrLn $ "Grammatical Framework (GF) version " ++ showVersion version ++ "\n" ++ buildInfo
+      ModeVersion     -> do datadir <- getDataDir
+                            putStrLn $ "Grammatical Framework (GF) version " ++ showVersion version ++ "\n" ++ 
+                                       buildInfo ++ "\n" ++
+                                       "Shared folder: " ++ datadir
       ModeHelp        -> putStrLn helpMessage
       ModeServer port -> mainServerGFI opts port files
       ModeCompiler    -> mainGFC opts files

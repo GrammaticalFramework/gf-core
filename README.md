@@ -40,6 +40,21 @@ or:
 ```
 stack install
 ```
+Note that if you are unlucky to have Cabal 3.0 or later, then it uses
+the so-called Nix style commands. Using those for GF development is
+a pain. Every time when you change something in the source code, Cabal
+will generate a new folder for GF to look for the GF libraries and
+the GF cloud. Either reinstall everything with every change in the
+compiler, or be sane and stop using cabal-install. Instead you can do:
+```
+runghc Setup.hs configure
+runghc Setup.hs build
+sudo runghc Setup.hs install
+```
+The script will install the GF dependencies globally. The only solution
+to the Nix madness that I found is radical:
+
+  "No person, no problem" (Нет человека – нет проблемы).
 
 For more information, including links to precompiled binaries, see the [download page](https://www.grammaticalframework.org/download/index.html).
 
