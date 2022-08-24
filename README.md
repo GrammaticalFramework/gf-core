@@ -47,7 +47,7 @@ compiler, or be sane and stop using cabal-install. Instead you can do:
 ```
 runghc Setup.hs configure
 runghc Setup.hs build
-runghc Setup.hs install
+sudo runghc Setup.hs install
 ```
 The script will install the GF dependencies globally. The only solution
 to the Nix madness that I found is radical:
