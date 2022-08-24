@@ -4,42 +4,68 @@ import Distribution.Simple.LocalBuildInfo(LocalBuildInfo(..),absoluteInstallDirs
 import Distribution.Simple.Setup(BuildFlags(..),Flag(..),InstallFlags(..),CopyDest(..),CopyFlags(..),SDistFlags(..))
 import Distribution.PackageDescription(PackageDescription(..),emptyHookedBuildInfo)
 import Distribution.Simple.BuildPaths(exeExtension)
+import System.Directory
 import System.FilePath((</>),(<.>))
+import System.Process
+import Control.Monad(forM_,unless)
+import Control.Exception(bracket_)
+import Data.Char(isSpace)
 
 import WebSetup
 
--- | Notice about RGL not built anymore
-noRGLmsg :: IO ()
-noRGLmsg = putStrLn "Notice: the RGL is not built as part of GF anymore. See https://github.com/GrammaticalFramework/gf-rgl"
-
 main :: IO ()
 main = defaultMainWithHooks simpleUserHooks
-  { preBuild  = gfPreBuild
+  { preConf   = gfPreConf
+  , preBuild  = gfPreBuild
   , postBuild = gfPostBuild
   , preInst   = gfPreInst
   , postInst  = gfPostInst
   , postCopy  = gfPostCopy
   }
   where
-    gfPreBuild args  = gfPre args . buildDistPref
-    gfPreInst args = gfPre args . installDistPref
+    gfPreConf args flags = do
+      pkgs <- fmap (map (dropWhile isSpace) . tail . lines)
+                   (readProcess "ghc-pkg" ["list"] "")
+      forM_ dependencies $ \pkg -> do
+        let name = takeWhile (/='/') (drop 36 pkg)
+        unless (name `elem` pkgs) $ do
+          let fname = name <.> ".tar.gz"
+          callProcess "wget" [pkg,"-O",fname]
+          callProcess "tar"  ["-xzf",fname]
+          removeFile fname
+          bracket_ (setCurrentDirectory name) (setCurrentDirectory ".." >> removeDirectoryRecursive name) $ do
+            exists <- doesFileExist "Setup.hs"
+            unless exists $ do
+              writeFile "Setup.hs" (unlines [
+                  "import Distribution.Simple",
+                  "main = defaultMain"
+                ])
+            let to_descr = reverse .
+                           (++) (reverse ".cabal") . 
+                           drop 1 . 
+                           dropWhile (/='-') . 
+                           reverse
+            callProcess "wget"   [to_descr pkg, "-O", to_descr name]
+            callProcess "runghc" ["Setup.hs","configure"]
+            callProcess "runghc" ["Setup.hs","build"]
+            callProcess "sudo" ["runghc","Setup.hs","install"]
+          
+      preConf simpleUserHooks args flags
+
+    gfPreBuild args = gfPre args . buildDistPref
+    gfPreInst  args = gfPre args . installDistPref
 
     gfPre args distFlag = do
       return emptyHookedBuildInfo
 
     gfPostBuild args flags pkg lbi = do
-      -- noRGLmsg
       let gf = default_gf lbi
       buildWeb gf flags (pkg,lbi)
 
     gfPostInst args flags pkg lbi = do
-      -- noRGLmsg
-      saveInstallPath args flags (pkg,lbi)
       installWeb (pkg,lbi)
 
     gfPostCopy args flags  pkg lbi = do
-      -- noRGLmsg
-      saveCopyPath args flags (pkg,lbi)
       copyWeb flags (pkg,lbi)
 
     -- `cabal sdist` will not make a proper dist archive, for that see `make sdist`
@@ -47,27 +73,16 @@ main = defaultMainWithHooks simpleUserHooks
     gfSDist pkg lbi hooks flags = do
       return ()
 
-saveInstallPath :: [String] -> InstallFlags -> (PackageDescription, LocalBuildInfo) -> IO ()
-saveInstallPath args flags bi = do
-  let
-    dest = NoCopyDest
-    dir = datadir (uncurry absoluteInstallDirs bi dest)
-  writeFile dataDirFile dir
-
-saveCopyPath :: [String] -> CopyFlags -> (PackageDescription, LocalBuildInfo) -> IO ()
-saveCopyPath args flags bi = do
-  let
-    dest = case copyDest flags of
-      NoFlag -> NoCopyDest
-      Flag d -> d
-    dir = datadir (uncurry absoluteInstallDirs bi dest)
-  writeFile dataDirFile dir
-
--- | Name of file where installation's data directory is recording
--- This is a last-resort way in which the seprate RGL build script
--- can determine where to put the compiled RGL files
-dataDirFile :: String
-dataDirFile = "DATA_DIR"
+dependencies = [
+  "https://hackage.haskell.org/package/utf8-string-1.0.2/utf8-string-1.0.2.tar.gz",
+  "https://hackage.haskell.org/package/json-0.10/json-0.10.tar.gz",
+  "https://hackage.haskell.org/package/network-bsd-2.8.1.0/network-bsd-2.8.1.0.tar.gz",
+  "https://hackage.haskell.org/package/httpd-shed-0.4.1.1/httpd-shed-0.4.1.1.tar.gz",
+  "https://hackage.haskell.org/package/exceptions-0.10.5/exceptions-0.10.5.tar.gz",
+  "https://hackage.haskell.org/package/stringsearch-0.3.6.6/stringsearch-0.3.6.6.tar.gz",
+  "https://hackage.haskell.org/package/multipart-0.2.1/multipart-0.2.1.tar.gz",
+  "https://hackage.haskell.org/package/cgi-3001.5.0.0/cgi-3001.5.0.0.tar.gz"
+  ]
 
 -- | Get path to locally-built gf
 default_gf :: LocalBuildInfo -> FilePath
