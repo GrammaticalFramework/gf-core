@@ -5,7 +5,7 @@ Module.onRuntimeInitialized = () => {
       .then((response) => response.arrayBuffer())
       .then((data) => {
         const pgfPathFS = '/tmp/Foods.pgf';
-        Module.FS.writeFile(pgfPathFS, new DataView(data));
+        Module.FS.writeFile(pgfPathFS, new Uint8Array(data));
 
         // Read PGF
         const pgf = JSPGF.readPGF(pgfPathFS);
