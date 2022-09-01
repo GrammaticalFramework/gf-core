@@ -1,26 +1,15 @@
-Module.onRuntimeInitialized = () => {
-    const JSPGF = mkAPI(Module);
-
-    fetch('Foods.pgf')
-      .then((response) => response.arrayBuffer())
-      .then((data) => {
-        const pgfPathFS = '/tmp/Foods.pgf';
-        Module.FS.writeFile(pgfPathFS, new Uint8Array(data));
-
-        // Read PGF
-        const pgf = JSPGF.readPGF(pgfPathFS);
-
-        // Print its name
-        console.log(JSPGF.abstractName(pgf));
-      })
-    
+mkAPI().then((pgf) => {
     // Parse expression
-    const expr = JSPGF.readExpr("Pred (Another (x f))");
+    const expr = pgf.readExpr("Pred (Another (x f))");
 
     // Show it
-    console.log(JSPGF.showExpr(expr));
+    console.log(expr.toString());
 
     // Print its arity
-    console.log('arity', JSPGF.arity(expr));
-}
+    console.log('arity', expr.arity());
 
+    pgf.readPGF("Foods.pgf").then((gr) => {
+        // Print its name
+        console.log(gr.abstractName());
+    });
+});
