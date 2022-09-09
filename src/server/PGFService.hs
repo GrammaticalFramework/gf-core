@@ -1,44 +1,31 @@
 {-# LANGUAGE CPP #-}
-module PGFService(cgiMain,cgiMain',getPath,
-                  logFile,stderrToFile,
+module PGFService(pgfMain,
                   Caches,newPGFCache,readCachedPGF,readCachedNGF,
                   flushPGFCache,listPGFCache) where
 
 import PGF2
 import PGF2.Transactions
 import Cache
-import Network.CGI(CGI,readInput,getInput,getVarWithDefault,
-                   CGIResult,handleErrors,setHeader,
-                   Accept(..),Language(..),negotiate,liftIO)
-import CGIUtils(outputJSONP,outputPlain,
-                outputBinary,outputBinary',
-                handleCGIErrors,throwCGIError,stderrToFile)
-import URLEncoding
 
 import Data.Time.Format(formatTime)
 import Data.Time.Format(defaultTimeLocale,rfc822DateFormat)
 import Text.JSON
-import qualified Codec.Binary.UTF8.String as UTF8 (decodeString)
-import qualified Data.ByteString.Lazy as BS
 
 import Control.Concurrent
-import qualified Control.Exception as E
+import Control.Exception
 import Control.Monad
-import Control.Monad.Catch(bracket_)
 import Data.Char
 import qualified Data.Map as Map
 import Data.Maybe
+import Data.Time (UTCTime)
 import System.Process
 import System.Exit
 import System.IO
 import System.IO.Error(isDoesNotExistError)
 import System.FilePath(takeExtension)
 import System.Mem(performGC)
-
-catchIOE :: IO a -> (E.IOException -> IO a) -> IO a
-catchIOE = E.catch
-
-withQSem qsem = bracket_ (liftIO $ waitQSem qsem) (liftIO $ signalQSem qsem)
+import Network.HTTP
+import Network.FastCGI
 
 logFile :: FilePath
 logFile = "pgf-error.log"
@@ -76,71 +63,77 @@ newCache' root rd = do
     clean c = do threadDelay 2000000000 -- 2000 seconds, i.e. ~33 minutes
                  expireCache (24*60*60) c -- 24 hours
 
-getPath =
-    do path <- getVarWithDefault "PATH_TRANSLATED" "" -- apache mod_fastcgi
-       if null path
-          then getVarWithDefault "SCRIPT_FILENAME" "" -- lighttpd
-          else return path
-
-cgiMain :: Caches -> CGI CGIResult
-cgiMain cache = handleErrors . handleCGIErrors $
-                  cgiMain' cache =<< getPath
-
-cgiMain' :: Caches -> FilePath -> CGI CGIResult
-cgiMain' cache path =
-    do command <- liftM (maybe "grammar" (urlDecodeUnicode . UTF8.decodeString))
-                        (getInput "command")
-       case command of
-         "download" -> outputBinary =<< getFile BS.readFile path
-         _ -> do let get = case takeExtension path of
-                             ".pgf" -> pgfCache
-                             ".ngf" -> ngfCache
-                             _      -> error "Extension must be .pgf or .ngf"
-                 tpgf <- getFile (readCache' (get cache)) path
-                 pgfMain (qsem cache) command tpgf
+pgfMain :: Caches -> Env -> Request -> IO Response
+pgfMain cache env rq =
+  case fromMaybe "grammar" (lookup "command" query) of
+    "download"
+      | ext == ".pgf" -> do body <- getFile readBinaryFile path
+                            return (Response
+                                      { rspCode = 200
+                                      , rspReason = "OK"
+                                      , rspHeaders = [Header HdrServer defaultServer
+                                                     ,Header HdrContentType "application/pgf"
+                                                     ,Header HdrContentLength (show (length body))
+                                                     ]
+                                      , rspBody = body
+                                      })
+      | otherwise     -> httpError 415 "Only .pgf files can be downloaded" ""
+    command
+      | ext == ".pgf" -> do tpgf <- getFile (readCache' (pgfCache cache)) path
+                            pgfCommand (qsem cache) command query tpgf
+      | ext == ".ngf" -> do tpgf <- getFile (readCache' (ngfCache cache)) path
+                            pgfCommand (qsem cache) command query tpgf
+      | otherwise     -> httpError 415 "Extension must be .pgf or .ngf" ""
     where
+      path = fromMaybe "" (lookup "PATH_TRANSLATED" env `mplus`
+                           lookup "SCRIPT_FILENAME" env)
+      ext  = takeExtension path
+                           
+      query = rqQuery rq
+
       getFile get path =
-        either failed return =<< liftIO (E.try (get path))
-        where
-          failed e = 
+        (get path)
+        `catch`
+        (\e ->
             if isDoesNotExistError e
               then notFound path
-              else liftIO $ ioError e
+              else ioError e)
+              
+      readBinaryFile fpath = do
+        bracket (openBinaryFile fpath ReadMode) hClose hGetContents
 
 
-pgfMain qsem command (t,pgf) =
+pgfCommand qsem command q (t,pgf) =
   case command of
     "parse"         -> withQSem qsem $
-                       out t=<< join (parse # input % cat % start % limit % treeopts)
+                       out q t=<< join (parse # input % cat % start % limit % treeopts)
 --    "parseToChart"  -> withQSem qsem $
---                       out t=<< join (parseToChart # input % cat % limit)
-    "linearize"     -> out t=<< lin # tree % to
+--                       out q t=<< join (parseToChart # input % cat % limit)
+    "linearize"     -> out q t=<< lin # tree % to
     "bracketedLinearize"
-                    -> out t=<< bracketedLin # tree % to
-    "linearizeAll"  -> out t=<< linAll # tree % to
+                    -> out q t=<< bracketedLin # tree % to
+    "linearizeAll"  -> out q t=<< linAll # tree % to
     "translate"     -> withQSem qsem $
-                       out t=<<join(trans # input % cat % to % start % limit%treeopts)
-    "lookupmorpho"  -> out t=<< morpho # from % textInput
-    "lookupcohorts" -> out t=<< cohorts # from % getInput "filter" % textInput
-    "flush"         -> out t=<< flush
-    "grammar"       -> out t grammar
+                       out q t=<<join(trans # input % cat % to % start % limit%treeopts)
+    "lookupmorpho"  -> out q t=<< morpho # from % textInput
+    "lookupcohorts" -> out q t=<< cohorts # from % filter % textInput
+    "flush"         -> out q t=<< flush
+    "grammar"       -> out q t grammar
     "abstrtree"     -> outputGraphviz=<< graphvizAbstractTree pgf graphvizDefaults # tree
-    "parsetree"     -> outputGraphviz=<< (\cnc -> graphvizParseTree cnc graphvizDefaults) . snd # from %tree
-    "wordforword"   -> out t =<< wordforword # input % cat % to
+    "parsetree"     -> outputGraphviz=<< (\cnc -> graphvizParseTree cnc graphvizDefaults) . snd # from % tree
+    "wordforword"   -> out q t =<< wordforword # input % cat % to
     _               -> badRequest "Unknown command" command
   where
-    flush = liftIO $ do --modifyMVar_ pc $ const $ return Map.empty
-                        performGC
-                        return $ showJSON ()
+    flush = do performGC
+               return $ showJSON ()
 
-    cat :: CGI Type
+    cat :: IO Type
     cat =
-       do mcat  <- getInput1 "cat"
-          case mcat of
-            Nothing -> return (startCat pgf)
-            Just cat -> case readType cat of
-                          Nothing  -> badRequest "Bad category" cat
-                          Just typ -> return typ
+       case lookup "cat" q of
+         Nothing -> return (startCat pgf)
+         Just cat -> case readType cat of
+                       Nothing  -> badRequest "Bad category" cat
+                       Just typ -> return typ
 
     langs = languages pgf
 
@@ -201,6 +194,7 @@ pgfMain qsem command (t,pgf) =
 
         mkChartPArg (PArg _ fid) = showJSON fid
 -}
+
     linAll tree to = showJSON (linAll' tree to)
     linAll' tree tos =
         [makeObj ["to".=to,
@@ -212,7 +206,7 @@ pgfMain qsem command (t,pgf) =
 
     bracketedLin tree to = showJSON (bracketedLin' tree to)
     bracketedLin' tree tos =
-        [makeObj ["to".=to,"brackets".=showJSON (bracketedLinearize c tree)]|(to,c)<-tos]
+        [makeObj ["to".=to,"brackets".=bracketedLinearize c tree]|(to,c)<-tos]
 
     trans input@((from,_),_) cat to start mlimit (trie,jsontree) =
       do parses <- parse' cat start mlimit input
@@ -235,12 +229,12 @@ pgfMain qsem command (t,pgf) =
                      | (l,a,p)<-lookupMorpho concr input]
 
     cohorts (from,concr) filter input =
-      showJSON [makeObj ["start" .=showJSON s
-                        ,"word"  .=showJSON w
-                        ,"morpho".=showJSON [makeObj ["lemma".=l
-                                                     ,"analysis".=a
-                                                     ,"prob".=p] 
-                                                | (l,a,p)<-ms]
+      showJSON [makeObj ["start" .=s
+                        ,"word"  .=w
+                        ,"morpho".=[makeObj ["lemma".=l
+                                            ,"analysis".=a
+                                            ,"prob".=p]
+                                      | (l,a,p)<-ms]
                         ,"end"   .=showJSON e
                         ]
                    | (s,w,ms,e) <- (case filter of
@@ -299,79 +293,103 @@ pgfMain qsem command (t,pgf) =
 
     to = getLangs "to"
 
-    getLangs i = mapM readLang . maybe [] words =<< getInput i
+    getLangs i = mapM readLang (maybe [] words (lookup i q))
 
-    getLang i = do
-      mlang <- getInput i
-      case mlang of
-        Just lang@(_:_) -> Just # readLang lang
-        _               -> return Nothing
+    getLang i =
+      case lookup i q of
+        Just lang -> fmap Just (readLang lang)
+        _         -> return Nothing
 
-    readLang :: String -> CGI (String,Concr)
+    readLang :: String -> IO (String,Concr)
     readLang lang =
       case Map.lookup lang langs of
         Nothing -> badRequest "Bad language" lang
-        Just c -> return (lang,c)
+        Just c  -> return (lang,c)
 
-    tree = do s <- maybe (missing "tree") return =<< getInput1 "tree"
+    tree = do s <- maybe (missing "tree") return (lookup "tree" q)
               maybe (badRequest "bad tree" s) return (readExpr s)
 
+    textInput = maybe (missing "input") return (lookup "input" q)
+    
+    filter = return (lookup "filter" q)
+    
+    start = 
+      case lookup "start" q of
+        Just s  -> case reads s of
+                     [(val,"")] -> return val
+                     _          -> badRequest "bad start" s
+        Nothing -> return 0
 
-out t r = do let fmt = formatTime defaultTimeLocale rfc822DateFormat t
-             setHeader "Last-Modified" fmt
-             outputJSONP r
+    limit = 
+      case lookup "limit" q of
+        Just s  -> case reads s of
+                     [(val,"")] -> return (Just val)
+                     _          -> badRequest "bad limit" s
+        Nothing -> return Nothing
 
+    treeopts = (,) # getBool "trie" % getBool "jsontree"
+
+    getBool x = return (maybe False toBool (lookup x q))
+      where
+        toBool s = s `elem` ["","yes","true","True"]
+
+    outputGraphviz code
+      | fmt == "dot" = outputGraph code
+      | otherwise    = outputGraph =<< pipeIt2graphviz fmt code
+      where
+        fmt = fromMaybe "png" (lookup "format" q)
+
+        outputGraph body =
+          return (Response
+            { rspCode = 200
+            , rspReason = "OK"
+            , rspHeaders = [Header HdrServer defaultServer
+                           ,Header HdrContentType mimeType
+                           ,Header HdrContentLength (show (length body))
+                           ]
+            , rspBody = body
+            })
+
+        mimeType =
+          case fmt of
+            "png" -> "image/png"
+            "gif" -> "image/gif"
+            "svg" -> "image/svg+xml"
+            "dot" -> "text/x-graphviz; charset=UTF8"
+            _     -> "application/binary"
+
+out :: JSON a => Query -> UTCTime -> a -> IO Response
+out q t r = do
+  let (ty,str) = case lookup "jsonp" q of
+                   Nothing -> ("json",encode r)
+                   Just c  -> ("javascript",c ++ "(" ++ encode r ++ ")")
+      fmt = formatTime defaultTimeLocale rfc822DateFormat t
+  return (Response
+            { rspCode = 200
+            , rspReason = "OK"
+            , rspHeaders = [Header HdrServer defaultServer
+                           ,Header HdrContentType ("application/"++ty++"; charset=utf-8")
+                           ,Header HdrLastModified fmt
+                           ,Header HdrContentLength (show (length str))
+                           ]
+            , rspBody = str
+            })
+{-
 getInput1 x = nonEmpty # getInput x
 nonEmpty (Just "") = Nothing
 nonEmpty r = r
 
-textInput :: CGI String
-textInput = liftM (maybe "" (urlDecodeUnicode . UTF8.decodeString)) $ getInput "input"
-
 limit, depth :: CGI (Maybe Int)
 limit = readInput "limit"
 depth = readInput "depth"
-
-start :: CGI Int
-start = maybe 0 id # readInput "start"
-
-treeopts :: CGI TreeOpts
-treeopts = (,) # getBool "trie" % getBool "jsontree"
-
-getBool x = maybe False toBool # getInput x
-toBool s = s `elem` ["","yes","true","True"]
-
+-}
 missing = badRequest "Missing parameter"
 errorMissingId = badRequest "Missing identifier" ""
 
-notFound = throw 404 "Not found"
-badRequest = throw 400
+notFound = httpError 404 "Not found"
+badRequest = httpError 400
 
-throw code msg extra =
-    throwCGIError code msg [msg ++(if null extra then "" else ": "++extra)]
-
-format def = maybe def id # getInput "format"
-
-type From = (Maybe Concr,String)
-type TreeOpts = (Bool,Bool) -- (trie,jsontree)
-
-outputGraphviz code =
-  do fmt <- format "png"
-     case fmt of
-       "gv" -> outputPlain code
-       _ -> outputFPS' fmt =<< liftIO (pipeIt2graphviz fmt code)
-  where
-    outputFPS' = outputBinary' . mimeType
-
-    mimeType fmt =
-      case fmt of
-        "png" -> "image/png"
-        "gif" -> "image/gif"
-        "svg" -> "image/svg+xml"
-    -- ...
-        _     -> "application/binary"
-
-pipeIt2graphviz :: String -> String -> IO BS.ByteString
+pipeIt2graphviz :: String -> String -> IO String
 pipeIt2graphviz fmt code = do
     (Just inh, Just outh, _, pid) <-
         createProcess (proc "dot" ["-T",fmt])
@@ -380,12 +398,12 @@ pipeIt2graphviz fmt code = do
                         std_err = Inherit }
 
     hSetBinaryMode outh True
-    hSetEncoding inh  utf8
+    hSetEncoding inh utf8
 
     -- fork off a thread to start consuming the output
-    output  <- BS.hGetContents outh
+    output  <- hGetContents outh
     outMVar <- newEmptyMVar
-    _ <- forkIO $ E.evaluate (BS.length output) >> putMVar outMVar ()
+    _ <- forkIO $ evaluate (length output) >> putMVar outMVar ()
 
     -- now write and flush any input
     hPutStr inh code
@@ -415,7 +433,7 @@ instance JSON BracketedString where
     showJSON (Leaf s) = makeObj ["token".=s]
 
 -- * PGF utilities
-
+{-
 selectLanguage :: PGF -> Maybe (Accept Language) -> Concr
 selectLanguage pgf macc = case acceptable of
                             []  -> case Map.elems (languages pgf) of
@@ -427,6 +445,7 @@ selectLanguage pgf macc = case acceptable of
 
 langCodeLanguage :: PGF -> String -> Maybe Concr
 langCodeLanguage pgf code = listToMaybe [concr | concr <- Map.elems (languages pgf), languageCode concr == Just code]
+-}
 
 -- * General utilities
 
@@ -435,3 +454,6 @@ infixl 2 #,%
 f .= v = (f,showJSON v)
 f # x = fmap f x
 f % x = ap f x
+
+
+withQSem qsem = bracket_ (waitQSem qsem) (signalQSem qsem)

@@ -15,7 +15,7 @@ flag network-uri
    default: True
 
 Library
-  exposed-modules: PGFService URLEncoding CGIUtils
+  exposed-modules: PGFService
   other-modules:   Cache
   build-depends:   base >=4.2,
                    time,
@@ -24,12 +24,9 @@ Library
                    containers,
                    process,
                    pgf2 >= 2,
-                   cgi >= 3001.1.7.3,
-                   httpd-shed>=0.4.0.2,
+                   http-slim,
                    mtl,
-                   exceptions,
                    json >= 0.3.3,
-                   utf8-string >= 0.3.1.1,
                    bytestring,
                    pretty,
                    random
