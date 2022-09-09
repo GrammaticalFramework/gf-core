@@ -3,6 +3,7 @@
 module GF.Server(server) where
 
 import Data.List(partition,stripPrefix,isInfixOf)
+import Data.Maybe(fromMaybe)
 import qualified Data.Map as M
 import Control.Monad(when)
 import Control.Monad.State(StateT(..),get,gets,put)
@@ -29,13 +30,10 @@ import System.Posix.Files(getSymbolicLinkStatus,isSymbolicLink,removeLink,
 #endif
 import GF.Infra.Concurrency(newMVar,modifyMVar,newLog)
 import Network.URI(URI(..))
-import Network.Shed.Httpd(initServer,Request(..),Response(..),noCache)
-import Network.CGI(handleErrors,liftIO)
-import CGIUtils(handleCGIErrors)
+import Network.HTTP
 import Text.JSON(encode,showJSON,makeObj)
 import System.Process(readProcessWithExitCode)
 import System.Exit(ExitCode(..))
-import Codec.Binary.UTF8.String(decodeString,encodeString)
 import GF.Infra.UseIO(readBinaryFile,writeBinaryFile,ePutStrLn)
 import GF.Infra.SIO(captureSIO)
 import GF.Data.Utilities(apSnd,mapSnd)
@@ -44,8 +42,7 @@ import Data.Version(showVersion)
 import Paths_gf(getDataDir,version)
 import GF.Infra.BuildInfo (buildInfo)
 import GF.Server.SimpleEditor.Convert(parseModule)
-import GF.Server.RunHTTP(cgiHandler)
-import URLEncoding(decodeQuery)
+import Control.Monad.IO.Class
 
 debug s = logPutStrLn s
 
@@ -67,20 +64,20 @@ server jobs port optroot init execute1 = do
          logLn $ "Document root = "++root
          logLn $ "Starting HTTP server, open http://localhost:"
                  ++show port++"/ in your web browser."
-         initServer port (handle logLn root state0 cache execute state)
+         simpleServer (Just port) Nothing (handle logLn root state0 cache execute state)
 
 gf_version = "This is GF version "++showVersion version++".\n"++buildInfo
 
 -- * Request handler
 -- | Handler monad
-type HM s a = StateT (Q,s) (ExceptT Response IO) a
-run :: HM s Response -> (Q,s) -> IO (s,Response)
+type HM s a = StateT (Query,s) (ExceptT Response IO) a
+run :: HM s Response -> (Query,s) -> IO (s,Response)
 run m s = either bad ok =<< runExceptT (runStateT m s)
   where
     bad resp = return (snd s,resp)
     ok (resp,(qs,state)) = return (state,resp)
 
-get_qs :: HM s Q
+get_qs :: HM s Query
 get_qs = gets fst
 get_state :: HM s s
 get_state = gets snd
@@ -100,12 +97,8 @@ hmbracket_ pre post m =
 
 -- | HTTP request handler
 handle logLn documentroot state0 cache execute stateVar
-       rq@(Request method URI{uriPath=upath,uriQuery=q} hdrs body) =
-    addDate $
-    case method of
-      "POST" -> normal_request (utf8inputs body)
-      "GET"  -> normal_request (utf8inputs q)
-      _ -> return (resp501 $ "method "++method)
+       rq@(Request URI{uriPath=upath} method hdrs body) =
+    addDate $ normal_request rq 
   where
     logPutStrLn msg = liftIO $ logLn msg
 
@@ -113,33 +106,32 @@ handle logLn documentroot state0 cache execute stateVar
       do t <- getCurrentTime
          r <- m
          let fmt = formatTime defaultTimeLocale rfc822DateFormat t
-         return r{resHeaders=("Date",fmt):resHeaders r}
+         return (insertHeader HdrDate fmt r)
 
-    normal_request qs =
-      do logPutStrLn $ method++" "++upath++" "++show (mapSnd (take 500.fst) qs)
-         let stateful m = modifyMVar stateVar $ \ s -> run m (qs,s)
+    normal_request rq =
+      do let query = rqQuery rq
+         logPutStrLn $ show method++" "++upath++" "++show (mapSnd (take 500) query)
+         let stateful m = modifyMVar stateVar $ \s -> run m (query,s)
           -- stateful ensures mutual exclusion, so you can use/change the cwd
          case upath of
            "/new"     -> stateful $ new
            "/gfshell" -> stateful $ inDir command
            "/cloud"   -> stateful $ inDir cloud
-           "/parse"   -> parse (decoded qs)
+           "/parse"   -> parse query
            "/version" -> versionInfo `fmap` PS.listPGFCache cache
            "/flush"   -> do PS.flushPGFCache cache; return (ok200 "flushed")
            '/':rpath ->
              -- This code runs without mutual exclusion, so it must *not*
              -- use/change the cwd. Access files by absolute paths only.
              case (takeDirectory path,takeFileName path,takeExtension path) of
-               (_  ,_             ,".pgf") -> wrapCGI $ PS.cgiMain' cache path
-               (_  ,_             ,".ngf") -> wrapCGI $ PS.cgiMain' cache path
-               (dir,"grammars.cgi",_     ) -> grammarList dir (decoded qs)
+               (_  ,_             ,".pgf") -> PS.pgfMain cache [("PATH_TRANSLATED",path)] rq
+               (_  ,_             ,".ngf") -> PS.pgfMain cache [("PATH_TRANSLATED",path)] rq
+               (dir,"grammars.cgi",_     ) -> grammarList dir query
                _ -> serveStaticFile rpath path
              where path = translatePath rpath
            _ -> return $ resp400 upath
 
-    root = documentroot
-
-    translatePath rpath = root</>rpath -- hmm, check for ".."
+    translatePath rpath = documentroot </> rpath -- hmm, check for ".."
 
     versionInfo c =
         html200 . unlines $
@@ -161,15 +153,13 @@ handle logLn documentroot state0 cache execute stateVar
                 map sh1 gs++
                 ["</table>"]
 
-    wrapCGI cgi = cgiHandler root (handleErrors . handleCGIErrors $ cgi) rq
-
     look field =
       do qs <- get_qs
          case partition ((==field).fst) qs of
-           ((_,(value,_)):qs1,qs2) -> do put_qs (qs1++qs2)
-                                         return value
+           ((_,value):qs1,qs2) -> do put_qs (qs1++qs2)
+                                     return value
            _ -> err $ resp400 $ "no "++field++" in request"
-    
+
     inDir ok = cd =<< look "dir"
       where
         cd ('/':dir@('t':'m':'p':_)) =
@@ -203,11 +193,11 @@ handle logLn documentroot state0 cache execute stateVar
     cloud dir =
       do cmd <- look "command"
          case cmd of
-           "make" -> make id dir . raw =<< get_qs
-           "remake" -> make skip_empty dir . raw =<< get_qs
-           "upload" -> upload id . raw =<< get_qs
-           "ls" -> jsonList . maybe ".json" fst . lookup "ext" =<< get_qs
-           "ls-l" -> jsonListLong . maybe ".json" fst . lookup "ext" =<< get_qs
+           "make" -> make id dir =<< get_qs
+           "remake" -> make skip_empty dir =<< get_qs
+           "upload" -> upload id =<< get_qs
+           "ls"   -> jsonList     . fromMaybe ".json" . lookup "ext" =<< get_qs
+           "ls-l" -> jsonListLong . fromMaybe ".json" . lookup "ext" =<< get_qs
            "rm" -> rm =<< look_file
            "download" -> download =<< look_file
            "link_directories" ->  link_directories dir =<< look "newdir"
@@ -344,19 +334,19 @@ jsonp qs =  maybe json200 apply (lookup "jsonp" qs)
     apply f = jsonp200' $ \ json -> f++"("++json++")"
 
 -- * Standard HTTP responses
-ok200        = Response 200 [plainUTF8,noCache,xo] . encodeString
-ok200' t     = Response 200 [t,xo]
+ok200        = Response 200 "" [plainUTF8,noCache,xo]
+ok200' t     = Response 200 "" [t,xo]
 json200 x    = json200' id x
-json200' f   = ok200' jsonUTF8 . encodeString . f . encode
-jsonp200' f  = ok200' jsonpUTF8 . encodeString . f . encode
-html200    = ok200' htmlUTF8 . encodeString
-resp204      = Response 204 [xo] "" -- no content
-resp301 url  = Response 301 [plain,xo,location url] $
+json200' f   = ok200' jsonUTF8 . f . encode
+jsonp200' f  = ok200' jsonpUTF8 . f . encode
+html200    = ok200' htmlUTF8
+resp204      = Response 204 "" [xo] "" -- no content
+resp301 url  = Response 301 "" [plain,xo,location url] $
                "Moved permanently to "++url
-resp400 msg  = Response 400 [plain,xo] $ "Bad request: "++msg++"\n"
-resp404 path = Response 404 [plain,xo] $ "Not found: "++path++"\n"
-resp500 msg  = Response 500 [plain,xo] $ "Internal error: "++msg++"\n"
-resp501 msg  = Response 501 [plain,xo] $ "Not implemented: "++msg++"\n"
+resp400 msg  = Response 400 "" [plain,xo] $ "Bad request: "++msg++"\n"
+resp404 path = Response 404 "" [plain,xo] $ "Not found: "++path++"\n"
+resp500 msg  = Response 500 "" [plain,xo] $ "Internal error: "++msg++"\n"
+resp501 msg  = Response 501 "" [plain,xo] $ "Not implemented: "++msg++"\n"
 
 
 -- * Content types
@@ -366,11 +356,12 @@ jsonUTF8 = ct "application/json" csutf8 -- http://www.ietf.org/rfc/rfc4627.txt
 jsonpUTF8 = ct "application/javascript" csutf8
 htmlUTF8 = ct "text/html" csutf8
 
-ct t cs = ("Content-Type",t++cs)
+noCache = Header HdrCacheControl "no-cache"
+ct t cs = Header HdrContentType (t++cs)
 csutf8 = "; charset=UTF-8"
-xo = ("Access-Control-Allow-Origin","*") -- Allow cross origin requests
+xo = Header HdrAccessControlAllowOrigin "*" -- Allow cross origin requests
      -- https://developer.mozilla.org/en-US/docs/HTTP/Access_control_CORS
-location url = ("Location",url)
+location url = Header HdrLocation url
 
 contentTypeFromExt ext =
   case ext of
@@ -384,14 +375,12 @@ contentTypeFromExt ext =
     ".jpg" -> bin "image/jpg"
     _ -> bin "application/octet-stream"
   where
-     text subtype = ("text/"++subtype++"; charset=UTF-8",
-                     fmap encodeString . readFile)
+     text subtype = ("text/"++subtype++"; charset=UTF-8",readFile)
      bin t = (t,readBinaryFile)
 
 -- * IO utilities
 updateFile path new =
   do old <- try $ readBinaryFile path
---   let new = encodeString new0
      when (Right new/=old) $ do logPutStrLn $ "Updating "++path
                                 seq (either (const 0) length old) $
                                     writeBinaryFile path new
@@ -444,16 +433,6 @@ toHeader s = FCGI.HttpExtensionHeader s -- cheating a bit
 -}
 
 -- * misc utils
-
---utf8inputs = mapBoth decodeString . inputs
-type Q = [(String,(String,String))]
-utf8inputs :: String -> Q
-utf8inputs q = [(decodeString k,(decodeString v,v))|(k,v)<-inputs q]
-decoded = mapSnd fst
-raw = mapSnd snd
-
-inputs ('?':q) = decodeQuery q
-inputs q = decodeQuery q
 
 {-
 -- Stay clear of queryToArgument, which uses unEscapeString, which had

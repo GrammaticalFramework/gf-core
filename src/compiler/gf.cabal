@@ -75,7 +75,6 @@ executable gf
                  random,
                  pretty,
                  mtl,
-                 exceptions,
                  ghc-prim,
                  filepath, directory>=1.2, time,
                  process, haskeline, parallel>=3, json
@@ -213,8 +212,7 @@ executable gf
   if flag(server)
     build-depends:
       pgf-service,
-      cgi >= 3001.3.0.2 && < 3001.6,
-      httpd-shed >= 0.4.0 && < 0.5,
+      http-slim,
       network>=2.3 && <3.2
     if flag(network-uri)
       build-depends:
@@ -227,7 +225,6 @@ executable gf
     cpp-options: -DSERVER_MODE
     other-modules:
       GF.Server
-      GF.Server.RunHTTP
       GF.Server.SimpleEditor.Convert
       GF.Server.SimpleEditor.JSON
       GF.Server.SimpleEditor.Syntax
