@@ -71,10 +71,7 @@ pgfMain cache env rq =
                             return (Response
                                       { rspCode = 200
                                       , rspReason = "OK"
-                                      , rspHeaders = [Header HdrServer defaultServer
-                                                     ,Header HdrContentType "application/pgf"
-                                                     ,Header HdrContentLength (show (length body))
-                                                     ]
+                                      , rspHeaders = [Header HdrContentType "application/pgf"]
                                       , rspBody = body
                                       })
       | otherwise     -> httpError 415 "Only .pgf files can be downloaded" ""
@@ -159,12 +156,10 @@ pgfCommand qsem command q (t,pgf) =
 
     -- Without caching parse results:
     parse' cat start mlimit ((from,concr),input) =
-        case parseWithHeuristics concr cat input (-1) callbacks of
+        case PGF2.parse concr cat (init input) of
           ParseOk ts        -> return (Right (maybe id take mlimit (drop start ts)))
           ParseFailed _ tok -> return (Left tok)
           ParseIncomplete   -> return (Left "")
-        where
-          callbacks = undefined
 
     parseToChart ((from,concr),input) cat mlimit = undefined {-
       do r <- case C.parseToChart concr cat input (-1) callbacks (fromMaybe 5 mlimit) of
@@ -343,10 +338,7 @@ pgfCommand qsem command q (t,pgf) =
           return (Response
             { rspCode = 200
             , rspReason = "OK"
-            , rspHeaders = [Header HdrServer defaultServer
-                           ,Header HdrContentType mimeType
-                           ,Header HdrContentLength (show (length body))
-                           ]
+            , rspHeaders = [Header HdrContentType mimeType]
             , rspBody = body
             })
 
@@ -367,10 +359,8 @@ out q t r = do
   return (Response
             { rspCode = 200
             , rspReason = "OK"
-            , rspHeaders = [Header HdrServer defaultServer
-                           ,Header HdrContentType ("application/"++ty++"; charset=utf-8")
+            , rspHeaders = [Header HdrContentType ("application/"++ty++"; charset=utf-8")
                            ,Header HdrLastModified fmt
-                           ,Header HdrContentLength (show (length str))
                            ]
             , rspBody = str
             })
