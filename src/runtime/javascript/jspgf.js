@@ -129,6 +129,11 @@ async function mkAPI() {
       "setTempRet0":
             function (value) {
                 tempRet0 = value;
+            },
+
+      "__assert_fail":
+            function (condition, filename, line, func) {
+                abort('Assertion failed: ' + UTF8ToString(condition) + ', at: ' + [filename ? UTF8ToString(filename) : 'unknown filename', line, func ? UTF8ToString(func) : 'unknown function']);
             }
     };
 
@@ -386,17 +391,21 @@ async function mkAPI() {
       return ptr ? UTF8ArrayToString(HEAPU8, ptr, maxBytesToRead) : '';
     }
 
-    function checkError(err) {
-        if (asm.gu_exn_is_raised(err)) {
-            const isCaught = asm.gu_exn_caught_(err, 'GuErrno');
-            if (isCaught) {
-                errDataPtr = asm.gu_exn_caught_data(err);
-                errno = HEAP32[errDataPtr >> 2];
-            }
-            asm.gu_exn_clear(err);
-            return true;
+    const GuErrnoStrPtr = asm.malloc(8);
+    stringToUTF8Array("GuErrno", HEAP8, GuErrnoStrPtr, 8);
+
+    const PgfExnStrPtr = asm.malloc(8);
+    stringToUTF8Array("PgfExn", HEAP8, PgfExnStrPtr, 8);
+
+    function pgfError(err) {
+        if (asm.gu_exn_caught_(err, GuErrnoStrPtr)) {
+            errDataPtr = asm.gu_exn_caught_data(err);
+            return new Error("errno="+HEAP32[errDataPtr >> 2]);
+        } else if (asm.gu_exn_caught_(err, PgfExnStrPtr)) {
+            msgPtr = asm.gu_exn_caught_data(err);
+            return new Error(UTF8ToString(msgPtr));
         }
-        return false;
+        return new Error();
     }
 
     const registry = new FinalizationRegistry((pool) => {
@@ -411,9 +420,28 @@ async function mkAPI() {
         registry.register(this,pool);
     }
 
-    function Concr(pgf,name) {
+    function Concr(pgf,concrPtr,name) {
         this.pgf  = pgf;
         this.name = name;
+        this.concrPtr = concrPtr;
+    }
+    Concr.prototype.linearize = function(expr) {
+        const tmp_pool = asm.gu_new_pool();
+        const err = asm.gu_new_exn(tmp_pool);
+        const sb = asm.gu_new_string_buf(tmp_pool);
+        const out = asm.gu_string_buf_out(sb);
+
+        asm.pgf_linearize(this.concrPtr, expr.exprPtr, out, err);
+        if (asm.gu_exn_is_raised(err)) {
+            const e = pgfError(err);
+            asm.gu_pool_free(tmp_pool);
+            throw e;
+        }
+
+        const strPtr = asm.gu_string_buf_data(sb);
+        const len = asm.gu_string_buf_length(sb);
+        const str = UTF8ToString(strPtr,len);
+        asm.gu_pool_free(tmp_pool);
     }
 
     async function readPGF(pgfURL) {
@@ -426,9 +454,10 @@ async function mkAPI() {
         const err = asm.gu_new_exn(tmp_pool);
         const strPtr = allocateUTF8(tmp_pool,pgfURL);
         const pgfPtr = asm.pgf_read(strPtr,pool,err);
-        if (checkError(err)) {
+        if (asm.gu_exn_is_raised(err)) {
+            const e = pgfError(err);
             asm.gu_pool_free(tmp_pool);
-            throw new Error('Cannot read PGF');
+            throw e;
         }
 
         const namePtr = asm.pgf_abstract_name(pgfPtr);
@@ -439,9 +468,9 @@ async function mkAPI() {
         const itor = asm.gu_malloc(tmp_pool,sizeof_GuMapItor);
         const fn =
           addFunction(
-             (itor,namePtr,ptr,err) => {
+             (itor,namePtr,concrPtr,err) => {
                  const name = UTF8ToString(namePtr);
-                 pgf.languages[name] = new Concr(pgf,name);
+                 pgf.languages[name] = new Concr(pgf,concrPtr,name);
              },
              "viiii"
              );
@@ -453,8 +482,8 @@ async function mkAPI() {
         return pgf;
     }
 
-    function Expr(expr,pool) {
-        this.expr = expr;
+    function Expr(exprPtr,pool) {
+        this.exprPtr = exprPtr;
         this.pool = pool;
         registry.register(this,pool);
     }
@@ -464,10 +493,11 @@ async function mkAPI() {
         const sb = asm.gu_new_string_buf(tmp_pool);
         const out = asm.gu_string_buf_out(sb);
         const err = asm.gu_new_exn(tmp_pool);
-        asm.pgf_print_expr(this.expr, 0, 0, out, err);
-        if (checkError(err)) {
+        asm.pgf_print_expr(this.exprPtr, 0, 0, out, err);
+        if (asm.gu_exn_is_raised(err)) {
+            const e = pgfError(err);
             asm.gu_pool_free(tmp_pool);
-            throw new Error('Cannot print expression');
+            throw e;
         }
 
         const strPtr = asm.gu_string_buf_data(sb);
@@ -491,8 +521,8 @@ async function mkAPI() {
         const expr = asm.pgf_read_expr(in_, pool, tmp_pool, err);
         asm.gu_pool_free(tmp_pool);
 
-        if (checkError(err)) {
-            throw new Error();
+        if (asm.gu_exn_is_raised(err)) {
+            throw pgfError(err);
         }
         if (expr == 0) {
             throw new Error('Expression cannot be parsed');

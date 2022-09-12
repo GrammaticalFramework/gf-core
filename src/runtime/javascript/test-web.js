@@ -1,6 +1,6 @@
 mkAPI().then((pgf) => {
     // Parse expression
-    const expr = pgf.readExpr("Pred (Another (x f))");
+    const expr = pgf.readExpr("Pred (This Fish) Fresh");
 
     // Show it
     console.log(expr.toString());
@@ -11,5 +11,7 @@ mkAPI().then((pgf) => {
     pgf.readPGF("Foods.pgf").then((gr) => {
         // Print its name
         console.log(gr.abstractName);
+        console.log(gr.languages["FoodsEng"].name);
+        console.log(gr.languages["FoodsEng"].linearize(expr));
     });
 });
