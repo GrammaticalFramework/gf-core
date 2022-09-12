@@ -10,6 +10,6 @@ mkAPI().then((pgf) => {
 
     pgf.readPGF("Foods.pgf").then((gr) => {
         // Print its name
-        console.log(gr.abstractName());
+        console.log(gr.abstractName);
     });
 });

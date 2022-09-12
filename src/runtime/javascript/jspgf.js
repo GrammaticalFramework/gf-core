@@ -403,15 +403,12 @@ async function mkAPI() {
         asm.gu_pool_free(pool);
     });
 
-    function PGF(pgfPtr,pool) {
+    function PGF(pgfPtr,name,pool) {
         this.pgfPtr = pgfPtr;
+        this.abstractName = name;
         this.pool   = pool;
         this.languages = {};
         registry.register(this,pool);
-    }
-    PGF.prototype.abstractName = function() {
-        const namePtr = asm.pgf_abstract_name(this.pgfPtr);
-        return UTF8ToString(namePtr);
     }
 
     function Concr(pgf,name) {
@@ -434,7 +431,10 @@ async function mkAPI() {
             throw new Error('Cannot read PGF');
         }
 
-        const pgf = new PGF(pgfPtr,pool);
+        const namePtr = asm.pgf_abstract_name(pgfPtr);
+        const abstractName = UTF8ToString(namePtr);
+
+        const pgf = new PGF(pgfPtr,abstractName,pool);
 
         const itor = asm.gu_malloc(tmp_pool,sizeof_GuMapItor);
         const fn =
