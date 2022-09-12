@@ -442,6 +442,8 @@ async function mkAPI() {
         const len = asm.gu_string_buf_length(sb);
         const str = UTF8ToString(strPtr,len);
         asm.gu_pool_free(tmp_pool);
+
+        return str
     }
 
     async function readPGF(pgfURL) {
@@ -468,8 +470,9 @@ async function mkAPI() {
         const itor = asm.gu_malloc(tmp_pool,sizeof_GuMapItor);
         const fn =
           addFunction(
-             (itor,namePtr,concrPtr,err) => {
+             (itor,namePtr,concrPtrPtr,err) => {
                  const name = UTF8ToString(namePtr);
+                 const concrPtr = HEAP32[concrPtrPtr >> 2];
                  pgf.languages[name] = new Concr(pgf,concrPtr,name);
              },
              "viiii"
