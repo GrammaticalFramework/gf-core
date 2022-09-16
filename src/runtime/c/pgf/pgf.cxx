@@ -11,6 +11,7 @@
 #include "printer.h"
 #include "typechecker.h"
 #include "linearizer.h"
+#include "parser.h"
 #include "graphviz.h"
 
 static void
@@ -815,6 +816,35 @@ pgf_is_case_sensitive(ref<PgfConcr> concr)
 	return true;
 }
 
+class PGF_INTERNAL_DECL PgfMorphoScanner : public PgfPhraseScanner {
+public:
+    PgfMorphoScanner(PgfMorphoCallback* callback) {
+        this->callback = callback;
+    }
+
+	virtual void space(size_t start, size_t end, PgfExn* err)
+    {
+    }
+
+	virtual void start_matches(size_t end, PgfExn* err)
+    {
+    }
+
+    virtual void match(ref<PgfConcrLin> lin, size_t seq_index, PgfExn* err)
+    {
+        ref<PgfLincatField> field =
+            vector_elem(lin->lincat->fields, seq_index % lin->lincat->fields->len);
+        callback->fn(callback, &lin->absfun->name, &(*field->name), lin->lincat->abscat->prob+lin->absfun->prob, err);
+    }
+
+	virtual void end_matches(size_t end, PgfExn* err)
+    {
+    }
+
+private:
+    PgfMorphoCallback* callback;
+};
+
 PGF_API
 void pgf_lookup_morpho(PgfDB *db, PgfConcrRevision cnc_revision,
                        PgfText *sentence,
@@ -826,12 +856,44 @@ void pgf_lookup_morpho(PgfDB *db, PgfConcrRevision cnc_revision,
 
         bool case_sensitive = pgf_is_case_sensitive(concr);
 
+        PgfMorphoScanner scanner(callback);
         phrasetable_lookup(concr->phrasetable,
                            sentence, case_sensitive,
-                           concr->lincats,
-                           callback, err);
+                           &scanner, err);
     } PGF_API_END
 }
+
+class PGF_INTERNAL_DECL PgfCohortsScanner : public PgfPhraseScanner {
+public:
+    PgfCohortsScanner(PgfCohortsCallback* callback) {
+        this->callback = callback;
+    }
+
+	virtual void space(size_t start, size_t end, PgfExn* err)
+    {
+        match_start = end;
+    }
+
+	virtual void start_matches(size_t match_end, PgfExn* err)
+    {
+    }
+
+    virtual void match(ref<PgfConcrLin> lin, size_t seq_index, PgfExn* err)
+    {
+        ref<PgfLincatField> field =
+            vector_elem(lin->lincat->fields, seq_index % lin->lincat->fields->len);
+        callback->morpho.fn(&callback->morpho, &lin->absfun->name, &(*field->name), lin->lincat->abscat->prob+lin->absfun->prob, err);
+    }
+
+	virtual void end_matches(size_t match_end, PgfExn* err)
+    {
+        callback->fn(callback, match_start, match_end, err);
+    }
+
+private:
+    size_t match_start;
+    PgfCohortsCallback* callback;
+};
 
 PGF_API
 void pgf_lookup_cohorts(PgfDB *db, PgfConcrRevision cnc_revision,
@@ -844,10 +906,10 @@ void pgf_lookup_cohorts(PgfDB *db, PgfConcrRevision cnc_revision,
 
         bool case_sensitive = pgf_is_case_sensitive(concr);
 
+        PgfCohortsScanner scanner(callback);
         phrasetable_lookup_cohorts(concr->phrasetable,
                                    sentence, case_sensitive,
-                                   concr->lincats,
-                                   callback, err);
+                                   &scanner, err);
     } PGF_API_END
 }
 
@@ -885,7 +947,7 @@ PGF_API
 PgfText *pgf_get_lincat_field_internal(object o, size_t i)
 {
     ref<PgfConcrLincat> lincat = o;
-    return &(**vector_elem(lincat->fields, i));
+    return &*(vector_elem(lincat->fields, i)->name);
 }
 
 PGF_API
@@ -903,22 +965,18 @@ PgfText *pgf_print_lindef_internal(PgfPhrasetableIds *seq_ids, object o, size_t 
     PgfInternalMarshaller m;
     PgfPrinter printer(NULL,0,&m);
 
-    printer.efun(&lincat->name);
-    printer.puts(" : ");
-
     ref<PgfPResult> res = *vector_elem(lincat->res, i);
-
     if (res->vars != 0) {
         printer.lvar_ranges(res->vars);
         printer.puts(" . ");
     }
 
-    printer.puts(" String(0) -> ");
-
     printer.efun(&lincat->name);
     printer.puts("(");
     printer.lparam(ref<PgfLParam>::from_ptr(&res->param));
-    printer.puts(") = [");
+    printer.puts(") -> ");
+    printer.efun(&lincat->name);
+    printer.puts("[String(0)] = [");
 
     size_t n_seqs = lincat->fields->len;
     for (size_t j = 0; j < n_seqs; j++) {
@@ -942,20 +1000,19 @@ PgfText *pgf_print_linref_internal(PgfPhrasetableIds *seq_ids, object o, size_t 
     PgfInternalMarshaller m;
     PgfPrinter printer(NULL,0,&m);
 
-    printer.efun(&lincat->name);
-    printer.puts(" : ");
-
     ref<PgfPResult> res = *vector_elem(lincat->res, lincat->n_lindefs+i);
-
     if (res->vars != 0) {
         printer.lvar_ranges(res->vars);
         printer.puts(" . ");
     }
 
+    printer.puts("String(0) -> ");
+    printer.efun(&lincat->name);
+    printer.puts("[");
     printer.efun(&lincat->name);
     printer.puts("(");
     printer.lparam(vector_elem(lincat->args, lincat->n_lindefs+i)->param);
-    printer.puts(") -> String(0) = [");
+    printer.puts(")] = [");
 
 	size_t n_seqs = lincat->fields->len;
 	ref<PgfSequence> seq = *vector_elem(lincat->seqs, lincat->n_lindefs*n_seqs+i);
@@ -970,37 +1027,33 @@ PGF_API
 PgfText *pgf_print_lin_internal(PgfPhrasetableIds *seq_ids, object o, size_t i)
 {
     ref<PgfConcrLin> lin = o;
-    ref<PgfDTyp> ty = lin->absfun->type;
 
     PgfInternalMarshaller m;
     PgfPrinter printer(NULL,0,&m);
 
-    printer.efun(&lin->name);
-    printer.puts(" : ");
-
     ref<PgfPResult> res = *vector_elem(lin->res, i);
+    ref<PgfDTyp> ty = lin->absfun->type;
 
     if (res->vars != 0) {
         printer.lvar_ranges(res->vars);
         printer.puts(" . ");
     }
 
-    size_t n_args = lin->args->len / lin->res->len;
-    for (size_t j = 0; j < n_args; j++) {
-        if (j > 0)
-            printer.puts(" * ");
-
-        printer.parg(vector_elem(ty->hypos, j)->type,
-                     vector_elem(lin->args, i*n_args + j));
-    }
-
-    if (n_args > 0)
-        printer.puts(" -> ");
-
     printer.efun(&ty->name);
     printer.puts("(");
     printer.lparam(ref<PgfLParam>::from_ptr(&res->param));
-    printer.puts(") = [");
+    printer.puts(") -> ");
+
+    printer.efun(&lin->name);
+    printer.puts("[");
+    size_t n_args = lin->args->len / lin->res->len;
+    for (size_t j = 0; j < n_args; j++) {
+        if (j > 0)
+            printer.puts(",");
+        printer.parg(vector_elem(ty->hypos, j)->type,
+                     vector_elem(lin->args, i*n_args + j));
+    }
+    printer.puts("] = [");
 
     size_t n_seqs = lin->seqs->len / lin->res->len;
     for (size_t j = 0; j < n_seqs; j++) {
@@ -1439,10 +1492,11 @@ public:
         this->n_lindefs = n_lindefs;
         this->n_linrefs = n_linrefs;
 
-        ref<Vector<ref<PgfText>>> db_fields = vector_new<ref<PgfText>>(n_fields);
+        ref<Vector<PgfLincatField>> db_fields = vector_new<PgfLincatField>(n_fields);
         for (size_t i = 0; i < n_fields; i++) {
-            ref<PgfText> field = textdup_db(fields[i]);
-            *vector_elem(db_fields, i) = field;
+            ref<PgfText> name = textdup_db(fields[i]);
+            vector_elem(db_fields, i)->name     = name;
+            vector_elem(db_fields, i)->backrefs = 0;
         }
 
         ref<PgfConcrLincat> lincat = PgfDB::malloc<PgfConcrLincat>(abscat->name.size+1);
@@ -2098,7 +2152,7 @@ PgfText **pgf_category_fields(PgfDB *db, PgfConcrRevision revision,
 			if (fields == 0)
 				throw pgf_systemerror(ENOMEM);
 			for (size_t i = 0; i < n_fields; i++) {
-				fields[i] = textdup(lincat->fields->data[i]);
+				fields[i] = textdup(vector_elem(lincat->fields, i)->name);
 			}
 			*p_n_fields = n_fields;
 			return fields;
@@ -2188,7 +2242,7 @@ PgfText **pgf_tabular_linearize(PgfDB *db, PgfConcrRevision revision,
 
                     PgfText *text = out.get_text();
                     if (text != NULL) {
-                        res[pos++] = textdup(&(*lincat->fields->data[i]));
+                        res[pos++] = textdup(&*(vector_elem(lincat->fields,i)->name));
                         res[pos++] = text;
                     }
                 }
@@ -2227,7 +2281,7 @@ PgfText **pgf_tabular_linearize_all(PgfDB *db, PgfConcrRevision revision,
 
                 PgfText *text = out.get_text();
                 if (text != NULL) {
-                    res[pos++] = textdup(&(*lincat->fields->data[i]));
+                    res[pos++] = textdup(&*(vector_elem(lincat->fields, i)->name));
                     res[pos++] = text;
                 }
             }
@@ -2240,7 +2294,7 @@ PgfText **pgf_tabular_linearize_all(PgfDB *db, PgfConcrRevision revision,
     return NULL;
 }
 
-PGF_API_DECL
+PGF_API
 void pgf_bracketed_linearize(PgfDB *db, PgfConcrRevision revision,
                              PgfExpr expr, PgfPrintContext *ctxt,
                              PgfMarshaller *m,
@@ -2260,7 +2314,7 @@ void pgf_bracketed_linearize(PgfDB *db, PgfConcrRevision revision,
     } PGF_API_END
 }
 
-PGF_API_DECL
+PGF_API
 void pgf_bracketed_linearize_all(PgfDB *db, PgfConcrRevision revision,
                                  PgfExpr expr, PgfPrintContext *ctxt,
                                  PgfMarshaller *m,
@@ -2279,6 +2333,70 @@ void pgf_bracketed_linearize_all(PgfDB *db, PgfConcrRevision revision,
             out->flush();
         }
     } PGF_API_END
+}
+
+struct PGF_INTERNAL_DECL PgfLincatUnmarshaller : PgfUnmarshaller {
+    PgfLincatUnmarshaller(ref<PgfConcr> concr) {
+        this->concr  = concr;
+        this->lincat = 0;
+    }
+
+    virtual PgfExpr eabs(PgfBindType btype, PgfText *name, PgfExpr body) { return 0; }
+    virtual PgfExpr eapp(PgfExpr fun, PgfExpr arg) { return 0; }
+    virtual PgfExpr elit(PgfLiteral lit) { return 0; }
+    virtual PgfExpr emeta(PgfMetaId meta) { return 0; }
+    virtual PgfExpr efun(PgfText *name) { return 0; }
+    virtual PgfExpr evar(int index) { return 0; }
+    virtual PgfExpr etyped(PgfExpr expr, PgfType typ) { return 0; }
+    virtual PgfExpr eimplarg(PgfExpr expr) { return 0; }
+    virtual PgfLiteral lint(size_t size, uintmax_t *v) { return 0; }
+    virtual PgfLiteral lflt(double v) { return 0; }
+    virtual PgfLiteral lstr(PgfText *v) { return 0; }
+    virtual PgfType dtyp(size_t n_hypos, PgfTypeHypo *hypos,
+                         PgfText *cat,
+                         size_t n_exprs, PgfExpr *exprs) {
+        lincat =
+            namespace_lookup(concr->lincats, cat);
+        return 0;
+    }
+    virtual void free_ref(object x) {};
+
+    ref<PgfConcr> concr;
+    ref<PgfConcrLincat> lincat;
+};
+
+PGF_API
+PgfExprEnum *pgf_parse(PgfDB *db, PgfConcrRevision revision,
+                       PgfType ty, PgfMarshaller *m,
+                       PgfText *sentence,
+                       PgfExn * err)
+{
+    PGF_API_BEGIN {
+        DB_scope scope(db, READER_SCOPE);
+
+        ref<PgfConcr> concr = db->revision2concr(revision);
+
+        bool case_sensitive = pgf_is_case_sensitive(concr);
+
+        PgfLincatUnmarshaller u(concr);
+        m->match_type(&u, ty);
+        if (u.lincat == 0)
+            return 0;
+
+        PgfParser *parser = new PgfParser(u.lincat, sentence);
+        phrasetable_lookup_cohorts(concr->phrasetable,
+                                   sentence, case_sensitive,
+                                   parser, err);
+        return parser;
+    } PGF_API_END
+
+    return NULL;
+}
+
+PGF_API
+void pgf_free_expr_enum(PgfExprEnum *en)
+{
+    delete en;
 }
 
 PGF_API

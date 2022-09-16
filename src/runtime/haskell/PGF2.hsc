@@ -97,7 +97,7 @@ import Foreign
 import Foreign.C
 import Control.Monad(forM,forM_)
 import Control.Exception(bracket,mask_,throwIO)
-import System.IO.Unsafe(unsafePerformIO)
+import System.IO.Unsafe(unsafePerformIO, unsafeInterleaveIO)
 import System.Random
 import qualified Data.Map as Map
 import Data.IORef
@@ -673,7 +673,30 @@ data ParseOutput a
   | ParseIncomplete                -- ^ The sentence is not complete.
 
 parse :: Concr -> Type -> String -> ParseOutput [(Expr,Float)]
-parse lang ty sent = parseWithHeuristics lang ty sent (-1.0) []
+parse c ty sent =
+  unsafePerformIO $
+  withForeignPtr (c_revision c) $ \c_revision ->
+  withForeignPtr marshaller $ \m ->
+  bracket (newStablePtr ty) freeStablePtr $ \c_ty ->
+  withText sent $ \c_sent -> do
+    c_enum <- withPgfExn "parse" (pgf_parse (c_db c) c_revision c_ty m c_sent)
+    c_fetch <- (#peek PgfExprEnumVtbl, fetch) =<< (#peek PgfExprEnum, vtbl) c_enum
+    exprs <- unsafeInterleaveIO (fetchLazy c_fetch c_enum)
+    return (ParseOk exprs)
+  where
+    fetchLazy c_fetch c_enum =
+      withForeignPtr (c_revision c) $ \c_revision ->
+      withForeignPtr unmarshaller $ \u -> 
+      alloca $ \p_prob -> do
+        c_expr <- callFetch c_fetch c_enum (c_db c) u p_prob
+        if c_expr == castPtrToStablePtr nullPtr
+          then do pgf_free_expr_enum c_enum
+                  return []
+          else do expr <- deRefStablePtr c_expr
+                  freeStablePtr c_expr
+                  prob <- peek p_prob
+                  rest <- unsafeInterleaveIO (fetchLazy c_fetch c_enum)
+                  return ((expr,prob) : rest)
 
 parseWithHeuristics :: Concr      -- ^ the language with which we parse
                     -> Type       -- ^ the start category

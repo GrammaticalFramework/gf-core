@@ -98,6 +98,14 @@ class PGF_INTERNAL_DECL PgfLinearizer : public PgfUnmarshaller {
         ~TreeLitNode() { free(literal); };
     };
 
+    struct TreeChunksNode : public TreeNode {
+        TreeChunksNode(PgfLinearizer *linearizer);
+        virtual bool resolve(PgfLinearizer *linearizer);
+        virtual void check_category(PgfLinearizer *linearizer, PgfText *cat);
+        virtual void linearize(PgfLinearizationOutputIface *out, PgfLinearizer *linearizer, size_t lindex);
+        virtual ref<PgfConcrLincat> get_lincat(PgfLinearizer *linearizer);
+    };
+
     TreeNode *prev;
     TreeNode *next;
     TreeNode *args;

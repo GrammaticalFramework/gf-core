@@ -68,19 +68,27 @@ PgfPhrasetable phrasetable_delete(PgfPhrasetable table,
 PGF_INTERNAL_DECL
 size_t phrasetable_size(PgfPhrasetable table);
 
+class PgfConcrLin;
+
+class PGF_INTERNAL_DECL PgfPhraseScanner {
+public:
+    virtual void space(size_t start, size_t end, PgfExn* err)=0;
+	virtual void start_matches(size_t pos, PgfExn* err)=0;
+    virtual void match(ref<PgfConcrLin> lin, size_t seq_index, PgfExn* err)=0;
+	virtual void end_matches(size_t pos, PgfExn* err)=0;
+};
+
 PGF_INTERNAL_DECL
 void phrasetable_lookup(PgfPhrasetable table,
                         PgfText *sentence,
                         bool case_sensitive,
-                        Namespace<struct PgfConcrLincat> lincats,
-                        PgfMorphoCallback* callback, PgfExn* err);
+                        PgfPhraseScanner *scanner, PgfExn* err);
 
 PGF_INTERNAL_DECL
 void phrasetable_lookup_cohorts(PgfPhrasetable table,
                                 PgfText *sentence,
                                 bool case_sensitive,
-                                Namespace<PgfConcrLincat> lincats,
-                                PgfCohortsCallback* callback, PgfExn* err);
+                                PgfPhraseScanner *scanner, PgfExn* err);
 
 PGF_INTERNAL_DECL
 void phrasetable_iter(PgfConcr *concr,

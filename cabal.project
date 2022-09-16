@@ -1,3 +1,0 @@
-packages: src/runtime/haskell
-          src/server
-          src/compiler

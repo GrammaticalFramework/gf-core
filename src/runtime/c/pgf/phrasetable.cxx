@@ -1,5 +1,5 @@
 #include "data.h"
-#include "heap.h"
+#include <queue>
 
 PgfPhrasetableIds::PgfPhrasetableIds()
 {
@@ -231,10 +231,6 @@ int sequence_cmp(ref<PgfSequence> seq1, ref<PgfSequence> seq2)
 struct PGF_INTERNAL_DECL PgfTextSpot {
 	size_t pos;          // position in Unicode characters
 	const uint8_t *ptr;  // pointer into the spot location
-
-    bool operator >= (PgfTextSpot const &obj) {
-         return pos >= obj.pos;
-    }
 };
 
 static
@@ -479,8 +475,7 @@ PGF_INTERNAL
 void phrasetable_lookup(PgfPhrasetable table,
                         PgfText *sentence,
                         bool case_sensitive,
-                        Namespace<PgfConcrLincat> lincats,
-                        PgfMorphoCallback* callback, PgfExn* err)
+                        PgfPhraseScanner *scanner, PgfExn* err)
 {
     if (table == 0)
         return;
@@ -491,9 +486,9 @@ void phrasetable_lookup(PgfPhrasetable table,
     const uint8_t *end = current.ptr+sentence->size;
     int cmp = text_sequence_cmp(&current,end,table->value.seq,case_sensitive,true);
     if (cmp < 0) {
-        phrasetable_lookup(table->left,sentence,case_sensitive,lincats,callback,err);
+        phrasetable_lookup(table->left,sentence,case_sensitive,scanner,err);
     } else if (cmp > 0) {
-        phrasetable_lookup(table->right,sentence,case_sensitive,lincats,callback,err);
+        phrasetable_lookup(table->right,sentence,case_sensitive,scanner,err);
     } else {
         auto backrefs = table->value.backrefs;
         if (backrefs != 0) {
@@ -502,13 +497,8 @@ void phrasetable_lookup(PgfPhrasetable table,
                 switch (ref<PgfConcrLin>::get_tag(backref.container)) {
                 case PgfConcrLin::tag: {
                     ref<PgfConcrLin> lin = ref<PgfConcrLin>::untagged(backref.container);
-                    ref<PgfConcrLincat> lincat =
-                        namespace_lookup(lincats, &lin->absfun->type->name);
-                    if (lin->absfun->type->hypos->len == 0 && lincat != 0) {
-                        ref<PgfText> field =
-                            *vector_elem(lincat->fields, backref.seq_index % lincat->fields->len);
-
-                        callback->fn(callback, &lin->absfun->name, &(*field), lincat->abscat->prob+lin->absfun->prob, err);
+                    if (lin->absfun->type->hypos->len == 0) {
+                        scanner->match(lin, backref.seq_index, err);
                         if (err->type != PGF_EXN_NONE)
                             return;
                     }
@@ -523,10 +513,10 @@ void phrasetable_lookup(PgfPhrasetable table,
         }
 
         if (!case_sensitive) {
-            phrasetable_lookup(table->left,sentence,false,lincats,callback,err);
+            phrasetable_lookup(table->left,sentence,false,scanner,err);
             if (err->type != PGF_EXN_NONE)
                 return;
-            phrasetable_lookup(table->right,sentence,false,lincats,callback,err);
+            phrasetable_lookup(table->right,sentence,false,scanner,err);
             if (err->type != PGF_EXN_NONE)
                 return;
         }
@@ -534,17 +524,65 @@ void phrasetable_lookup(PgfPhrasetable table,
 }
 
 struct PGF_INTERNAL_DECL PgfCohortsState {
+    class PgfTextSpotComparator : std::less<PgfTextSpot> {
+    public:
+        bool operator()(PgfTextSpot &lhs, PgfTextSpot &rhs) const 
+        {
+            return lhs.pos > rhs.pos;
+        }
+    };
+
     PgfTextSpot spot;
-    Heap<PgfTextSpot> queue;
+    std::priority_queue<PgfTextSpot, std::vector<PgfTextSpot>, PgfTextSpotComparator> queue;
+
     size_t last_pos;
-    size_t skip_pos;
+    bool skipping;
     const uint8_t *end;    // pointer into the end of the sentence
 
     bool case_sensitive;
-    Namespace<PgfConcrLincat> lincats;
-    PgfCohortsCallback* callback;
+    PgfPhraseScanner *scanner;
     PgfExn* err;
 };
+
+static
+void finish_skipping(PgfCohortsState *state) {
+    if (state->skipping) {
+        while (!state->queue.empty()) {
+            PgfTextSpot spot = state->queue.top();
+            if (spot.pos >= state->spot.pos)
+                break;
+
+            if (spot.pos != state->last_pos) {
+                if (state->last_pos > 0) {
+                    state->scanner->space(spot.pos, spot.pos,
+                                          state->err);
+                    if (state->err->type != PGF_EXN_NONE)
+                        return;
+                }
+
+                state->scanner->start_matches(state->spot.pos,
+                                              state->err);
+                if (state->err->type != PGF_EXN_NONE)
+                    return;
+
+                state->scanner->end_matches(state->spot.pos,
+                                            state->err);
+                if (state->err->type != PGF_EXN_NONE)
+                    return;
+
+                state->last_pos = spot.pos;
+            }
+
+            state->queue.pop();
+        }
+
+        state->scanner->space(state->spot.pos, state->spot.pos,
+                              state->err);
+
+        state->last_pos = 0;
+        state->skipping = false;
+    }
+}
 
 static
 void phrasetable_lookup_prefixes(PgfCohortsState *state,
@@ -561,38 +599,38 @@ void phrasetable_lookup_prefixes(PgfCohortsState *state,
     } else if (cmp > 0) {
         ptrdiff_t len = current.ptr - state->spot.ptr;
 
-        if (min <= len)
-            phrasetable_lookup_prefixes(state,table->left,min,len);
+        if (min <= len-1)
+            phrasetable_lookup_prefixes(state,table->left,min,len-1);
 
-        if (len+1 <= max)
-            phrasetable_lookup_prefixes(state,table->right,len+1,max);
+        if (len <= max)
+            phrasetable_lookup_prefixes(state,table->right,len,max);
     } else {
         ptrdiff_t len = current.ptr - state->spot.ptr;
+
+        finish_skipping(state);
+        if (state->err->type != PGF_EXN_NONE)
+            return;
 
         if (min <= len)
             phrasetable_lookup_prefixes(state,table->left,min,len);
 
         auto backrefs = table->value.backrefs;
         if (len > 0 && backrefs != 0) {
-            if (state->skip_pos != (size_t) -1) {
-                state->callback->fn(state->callback,
-                                    state->skip_pos,
-                                    state->spot.pos,
-                                    state->err);
-                if (state->err->type != PGF_EXN_NONE)
-                    return;
-                state->skip_pos = (size_t) -1;
-            }
+            if (state->last_pos != current.pos) {
+                if (state->last_pos > 0) {
+                    state->scanner->end_matches(state->last_pos,
+                                                state->err);
+                    if (state->err->type != PGF_EXN_NONE)
+                        return;
+                }
 
-            if (state->last_pos > 0 && state->last_pos != current.pos) {
-                state->callback->fn(state->callback,
-                                    state->spot.pos,
-                                    state->last_pos,
-                                    state->err);
+                state->scanner->start_matches(current.pos,
+                                              state->err);
                 if (state->err->type != PGF_EXN_NONE)
                     return;
+
+                state->last_pos = current.pos;
             }
-            state->last_pos = current.pos;
             state->queue.push(current);
 
             for (size_t i = 0; i < backrefs->len; i++) {
@@ -600,17 +638,10 @@ void phrasetable_lookup_prefixes(PgfCohortsState *state,
                 switch (ref<PgfConcrLin>::get_tag(backref.container)) {
                 case PgfConcrLin::tag: {
                     ref<PgfConcrLin> lin = ref<PgfConcrLin>::untagged(backref.container);
-                    ref<PgfConcrLincat> lincat =
-                        namespace_lookup(state->lincats, &lin->absfun->type->name);
-                    if (lin->absfun->type->hypos->len == 0 && lincat != 0) {
-                        ref<PgfText> field =
-                            *vector_elem(lincat->fields, backref.seq_index % lincat->fields->len);
-
-                        state->callback->morpho.fn(&state->callback->morpho,
-                                                   &lin->absfun->name,
-                                                   &(*field),
-                                                   lincat->abscat->prob+lin->absfun->prob,
-                                                   state->err);
+                    if (lin->absfun->type->hypos->len == 0) {
+                        state->scanner->match(lin,
+                                              backref.seq_index,
+                                              state->err);
                         if (state->err->type != PGF_EXN_NONE)
                             return;
                     }
@@ -633,8 +664,7 @@ PGF_INTERNAL
 void phrasetable_lookup_cohorts(PgfPhrasetable table,
                                 PgfText *sentence,
                                 bool case_sensitive,
-                                Namespace<PgfConcrLincat> lincats,
-                                PgfCohortsCallback* callback, PgfExn* err)
+                                PgfPhraseScanner *scanner, PgfExn* err)
 {
     PgfTextSpot spot;
     spot.pos = 0;
@@ -645,15 +675,16 @@ void phrasetable_lookup_cohorts(PgfPhrasetable table,
     state.spot.ptr = NULL;
     state.queue.push(spot);
     state.last_pos = 0;
-    state.skip_pos = (size_t) -1;
+    state.skipping = false;
     state.end = (uint8_t *) &sentence->text[sentence->size];
     state.case_sensitive = case_sensitive;
-    state.lincats = lincats;
-    state.callback = callback;
+    state.scanner = scanner;
     state.err = err;
 
-    while (!state.queue.is_empty()) {
-        PgfTextSpot spot = state.queue.pop();
+    while (!state.queue.empty()) {
+        PgfTextSpot spot = state.queue.top();
+        state.queue.pop();
+
         if (spot.pos != state.spot.pos) {
             state.spot = spot;
 
@@ -667,36 +698,38 @@ void phrasetable_lookup_cohorts(PgfPhrasetable table,
                 state.spot.ptr = ptr;
             }
 
-            state.skip_pos = (size_t) -1;
+            state.scanner->space(spot.pos,state.spot.pos,state.err);
+            if (state.err->type != PGF_EXN_NONE)
+                return;
+
             while (state.spot.ptr < state.end) {
                 phrasetable_lookup_prefixes(&state, table, 1, sentence->size);
+                if (state.err->type != PGF_EXN_NONE)
+                    return;
 
                 if (state.last_pos > 0) {
                     // We found at least one match.
                     // The last range is yet to be reported.
-                    state.callback->fn(state.callback,
-                                       state.spot.pos,
-                                       state.last_pos,
-                                       state.err);
+                    state.scanner->end_matches(state.last_pos,
+                                               state.err);
                     if (state.err->type != PGF_EXN_NONE)
                         return;
                     state.last_pos = 0;
                     break;
                 } else {
-                    // We didn't find any matches at this position,
-                    // therefore we must skip one character and try again.
-                    if (state.skip_pos == (size_t) -1)
-                        state.skip_pos = state.spot.pos;
+                    // No matches were found, try the next position
+                    if (!state.skipping) {
+                        while (!state.queue.empty() &&
+                               state.queue.top().pos < state.spot.pos) {
+                            state.queue.pop();
+                        }
+                        state.queue.push(state.spot);
+                        state.skipping = true;
+                    }
+
                     const uint8_t *ptr = state.spot.ptr;
                     uint32_t ucs = pgf_utf8_decode(&ptr);
                     if (pgf_utf8_is_space(ucs)) {
-                        state.callback->fn(state.callback,
-                                           state.skip_pos,
-                                           state.spot.pos,
-                                           state.err);
-                        if (state.err->type != PGF_EXN_NONE)
-                            return;
-                        state.skip_pos = -1;
                         state.queue.push(state.spot);
                         break;
                     }
@@ -704,16 +737,10 @@ void phrasetable_lookup_cohorts(PgfPhrasetable table,
                     state.spot.ptr = ptr;
                 }
             }
-            
-            if (state.skip_pos != (size_t) -1) {
-                state.callback->fn(state.callback,
-                                   state.skip_pos,
-                                   state.spot.pos,
-                                   state.err);
-                if (state.err->type != PGF_EXN_NONE)
-                    return;
-                state.skip_pos = (size_t) -1;
-            }
+
+            finish_skipping(&state);
+            if (state.err->type != PGF_EXN_NONE)
+                return;
 
             state.spot = spot;
         }
@@ -748,10 +775,10 @@ void phrasetable_iter(PgfConcr *concr,
                 ref<PgfConcrLincat> lincat =
                     namespace_lookup(concr->lincats, &lin->absfun->type->name);
                 if (lincat != 0) {
-                    ref<PgfText> field =
-                        *vector_elem(lincat->fields, backref.seq_index % lincat->fields->len);
+                    ref<PgfLincatField> field =
+                        vector_elem(lincat->fields, backref.seq_index % lincat->fields->len);
 
-                    callback->fn(callback, &lin->absfun->name, &(*field), lincat->abscat->prob+lin->absfun->prob, err);
+                    callback->fn(callback, &lin->absfun->name, &(*field->name), lincat->abscat->prob+lin->absfun->prob, err);
                     if (err->type != PGF_EXN_NONE)
                         return;
                 }

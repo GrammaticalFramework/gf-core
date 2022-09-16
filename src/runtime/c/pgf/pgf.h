@@ -724,6 +724,31 @@ void pgf_bracketed_linearize_all(PgfDB *db, PgfConcrRevision revision,
                                  PgfLinearizationOutputIface *out,
                                  PgfExn* err);
 
+#ifdef __cplusplus
+struct PgfExprEnum {
+    virtual PgfExpr fetch(PgfDB *db, PgfUnmarshaller *u, prob_t *prob)=0;
+    virtual ~PgfExprEnum() {};
+};
+#else
+typedef struct PgfExprEnum PgfExprEnum;
+typedef struct PgfExprEnumVtbl PgfExprEnumVtbl;
+struct PgfExprEnumVtbl {
+    PgfExpr (*fetch)(PgfExprEnum *this, PgfDB *db, PgfUnmarshaller *u, prob_t *prob);
+};
+struct PgfExprEnum {
+    PgfExprEnumVtbl *vtbl;
+};
+#endif
+
+PGF_API_DECL
+PgfExprEnum *pgf_parse(PgfDB *db, PgfConcrRevision revision,
+                       PgfType ty, PgfMarshaller *m,
+                       PgfText *sentence,
+                       PgfExn * err);
+
+PGF_API_DECL
+void pgf_free_expr_enum(PgfExprEnum *en);
+
 PGF_API_DECL
 PgfText *pgf_get_printname(PgfDB *db, PgfConcrRevision revision,
                            PgfText *fun, PgfExn* err);

@@ -209,17 +209,25 @@ struct PGF_INTERNAL_DECL PgfSymbolALLCAPIT {
     static const uint8_t tag = 10;
 };
 
+struct PGF_INTERNAL_DECL PgfLincatBackref;
+
+struct PGF_INTERNAL_DECL PgfLincatField {
+    ref<PgfText> name;
+    ref<Vector<PgfLincatBackref>> backrefs;
+
+    static void release(ref<PgfLincatField> field);
+};
+
 struct PGF_INTERNAL_DECL PgfConcrLincat {
     static const uint8_t tag = 0;
 
     ref<PgfAbsCat> abscat;
 
-    ref<Vector<ref<PgfText>>> fields;
-
     size_t n_lindefs;
     ref<Vector<PgfPArg>> args;
     ref<Vector<ref<PgfPResult>>> res;
     ref<Vector<ref<PgfSequence>>> seqs;
+    ref<Vector<PgfLincatField>> fields;
 
     PgfText name;
 
@@ -230,6 +238,7 @@ struct PGF_INTERNAL_DECL PgfConcrLin {
     static const uint8_t tag = 1;
 
     ref<PgfAbsFun> absfun;
+    ref<PgfConcrLincat> lincat;
 
     ref<Vector<PgfPArg>> args;
     ref<Vector<ref<PgfPResult>>> res;
@@ -238,6 +247,12 @@ struct PGF_INTERNAL_DECL PgfConcrLin {
     PgfText name;
 
     static void release(ref<PgfConcrLin> lin);
+};
+
+struct PGF_INTERNAL_DECL PgfLincatBackref {
+    ref<PgfConcrLin> lin;
+    size_t seq_index;
+    size_t dot;
 };
 
 struct PGF_INTERNAL_DECL PgfConcrPrintname {

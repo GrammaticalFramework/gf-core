@@ -47,9 +47,9 @@ void PgfConcr::release(ref<PgfConcr> concr)
 void PgfConcrLincat::release(ref<PgfConcrLincat> lincat)
 {
     for (size_t i = 0; i < lincat->fields->len; i++) {
-        text_db_release(*vector_elem(lincat->fields, i));
+        PgfLincatField::release(vector_elem(lincat->fields, i));
     }
-    Vector<ref<PgfText>>::release(lincat->fields);
+    Vector<PgfLincatField>::release(lincat->fields);
 
 	for (size_t i = 0; i < lincat->args->len; i++) {
         PgfLParam::release(vector_elem(lincat->args, i)->param);
@@ -64,6 +64,13 @@ void PgfConcrLincat::release(ref<PgfConcrLincat> lincat)
     Vector<ref<PgfSequence>>::release(lincat->seqs);
 
     PgfDB::free(lincat, lincat->name.size+1);
+}
+
+void PgfLincatField::release(ref<PgfLincatField> field)
+{
+    text_db_release(field->name);
+    if (field->backrefs != 0)
+        Vector<PgfLincatBackref>::release(field->backrefs);
 }
 
 void PgfLParam::release(ref<PgfLParam> param)

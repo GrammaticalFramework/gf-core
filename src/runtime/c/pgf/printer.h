@@ -33,7 +33,7 @@ public:
     PgfPrinter(PgfPrintContext *context, int priority,
                PgfMarshaller *marshaller);
 
-    PgfPrinter() { free(res); }
+    ~PgfPrinter() { free(res); }
 
     // Push a new variable in the printing context. If the name
     // collides with an existing variable, the variable is renamed
@@ -51,6 +51,12 @@ public:
     void nprintf(size_t buf_size, const char *format, ...) __attribute__ ((format (printf, 3, 4)));
 
     PgfText *get_text();
+
+    void dump() {
+        PgfText *text = get_text();
+        fprintf(stderr, "%.*s", (int) text->size, text->text);
+        free(text);
+    };
 
     void hypo(PgfTypeHypo *hypo, int prio);
 

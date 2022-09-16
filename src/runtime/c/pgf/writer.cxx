@@ -383,11 +383,16 @@ void PgfWriter::write_phrasetable_helper(PgfPhrasetable table)
 void PgfWriter::write_lincat(ref<PgfConcrLincat> lincat)
 {
     write_name(&lincat->name);
-    write_vector(lincat->fields, &PgfWriter::write_text);
+    write_vector(lincat->fields, &PgfWriter::write_lincat_field);
     write_len(lincat->n_lindefs);
     write_vector(lincat->args, &PgfWriter::write_parg);
     write_vector(lincat->res, &PgfWriter::write_presult);
     write_vector(lincat->seqs, &PgfWriter::write_seq_id);
+}
+
+void PgfWriter::write_lincat_field(ref<PgfLincatField> field)
+{
+    write_text(field->name);
 }
 
 void PgfWriter::write_lin(ref<PgfConcrLin> lin)

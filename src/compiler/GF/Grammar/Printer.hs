@@ -168,11 +168,9 @@ ppPmcfgRule id arg_cats res_cat (Production vars args res seqids) =
              (if null vars
                 then empty
                 else "∀{" <> hsep (punctuate ',' [ppLVar v <> '<' <> m | (v,m) <- vars]) <> '}'  <+> '.') <+>
-             (if null args
-                then empty
-                else hsep (intersperse (pp '*') (zipWith ppPArg arg_cats args)) <+> "->") <+>
-             ppPmcfgCat res_cat res $$
-             '=' <+> brackets (hcat (intersperse (pp ',') (map ppSeqId seqids))))
+             ppPmcfgCat res_cat res <+> "->" <+>
+             brackets (hcat (intersperse (pp ',') (zipWith ppPArg arg_cats args))) <+> '=' <+> 
+             brackets (hcat (intersperse (pp ',') (map ppSeqId seqids))))
 
 ppPArg cat (PArg _ p) = ppPmcfgCat cat p
 

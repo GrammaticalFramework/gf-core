@@ -50,6 +50,7 @@ data PgfProbsCallback
 data PgfMorphoCallback
 data PgfCohortsCallback
 data PgfPhrasetableIds
+data PgfExprEnum
 
 type Wrapper a = a -> IO (FunPtr a)
 type Dynamic a = FunPtr a -> a
@@ -252,6 +253,12 @@ foreign import ccall pgf_tabular_linearize_all :: Ptr PgfDB -> Ptr Concr -> Stab
 foreign import ccall pgf_bracketed_linearize :: Ptr PgfDB -> Ptr Concr -> StablePtr Expr -> Ptr PgfPrintContext -> Ptr PgfMarshaller -> Ptr PgfLinearizationOutputIface -> Ptr PgfExn -> IO ()
 
 foreign import ccall pgf_bracketed_linearize_all :: Ptr PgfDB -> Ptr Concr -> StablePtr Expr -> Ptr PgfPrintContext -> Ptr PgfMarshaller -> Ptr PgfLinearizationOutputIface -> Ptr PgfExn -> IO ()
+
+foreign import ccall pgf_parse :: Ptr PgfDB -> Ptr Concr -> StablePtr Type -> Ptr PgfMarshaller -> Ptr PgfText -> Ptr PgfExn -> IO (Ptr PgfExprEnum)
+
+foreign import ccall "dynamic" callFetch :: Dynamic (Ptr PgfExprEnum -> Ptr PgfDB -> Ptr PgfUnmarshaller -> Ptr (#type prob_t) -> IO (StablePtr Expr))
+
+foreign import ccall pgf_free_expr_enum :: Ptr PgfExprEnum -> IO ()
 
 foreign import ccall "wrapper" wrapSymbol0 :: Wrapper (Ptr PgfLinearizationOutputIface -> IO ())
 
