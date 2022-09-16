@@ -334,9 +334,11 @@ wc.translate=function(redo) {
 		wc.o.appendChild(o.target)
 	    }
 	    else { // text segment to be translated
-		o.target=span_class("placeholder",text(is[i]))
-		wc.o.appendChild(o.target)
-		translate_segment(o)
+            if (is[i] != "") {
+                o.target=span_class("placeholder",text(is[i]))
+                wc.o.appendChild(o.target)
+                translate_segment(o)
+            }
 	    }
 	}
     }
