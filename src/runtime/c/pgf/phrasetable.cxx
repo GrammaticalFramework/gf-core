@@ -359,7 +359,7 @@ PgfPhrasetable phrasetable_internalize(PgfPhrasetable table,
      }
 }
 
-PGF_INTERNAL_DECL
+PGF_INTERNAL
 ref<PgfSequence> phrasetable_relink(PgfPhrasetable table,
                                     object container,
                                     size_t seq_index,
