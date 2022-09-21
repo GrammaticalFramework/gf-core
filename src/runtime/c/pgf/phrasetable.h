@@ -60,6 +60,7 @@ ref<PgfSequence> phrasetable_relink(PgfPhrasetable table,
                                     size_t seq_index,
                                     size_t seq_id);
 
+PGF_INTERNAL_DECL
 PgfPhrasetable phrasetable_delete(PgfPhrasetable table,
                                   object container,
                                   size_t seq_index,
