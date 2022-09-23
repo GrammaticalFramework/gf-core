@@ -3,13 +3,14 @@
 
 class PGF_INTERNAL_DECL PgfParser : public PgfPhraseScanner, public PgfExprEnum {
 public:
-    PgfParser(ref<PgfConcrLincat> start, PgfText *sentence);
+    PgfParser(ref<PgfConcrLincat> start, PgfText *sentence, PgfMarshaller *m);
 
 	void space(size_t start, size_t end, PgfExn* err);
     void start_matches(size_t end, PgfExn* err);
     void match(ref<PgfConcrLin> lin, size_t seq_index, PgfExn* err);
 	void end_matches(size_t end, PgfExn* err);
 
+    void prepare();
     PgfExpr fetch(PgfDB *db, PgfUnmarshaller *u, prob_t *prob);
 
     virtual ~PgfParser();
@@ -17,35 +18,40 @@ public:
 private:
     class CFGCat;
     class State;
-    class Item;
-    class ItemConts;
     class Choice;
     class Production;
 
-    class Result {
+    class ParseItemConts;
+
+    class Item {
     public:
-        virtual prob_t  prob() = 0;
-        virtual PgfExpr expr(PgfUnmarshaller *u) = 0;
-        virtual void    proceed(PgfParser *parser, PgfUnmarshaller *u) = 0;
+        prob_t get_prob() { return inside_prob + outside_prob; };
+
+        virtual bool    proceed(PgfParser *parser, PgfUnmarshaller *u) = 0;
+        virtual void    combine(PgfParser *parser, ParseItemConts *conts, PgfExpr expr, prob_t inside_prob, PgfUnmarshaller *u) = 0;
+        virtual void    print1(PgfPrinter *printer, State *state, PgfMarshaller *m) = 0;
+        virtual void    print2(PgfPrinter *printer, State *state, PgfMarshaller *m) = 0;
+        virtual PgfExpr get_expr(PgfUnmarshaller *u) = 0;
+
+        void trace(State *state, PgfMarshaller *m);
+
+    protected:
+        prob_t inside_prob;
+        prob_t outside_prob;
     };
 
-    class ResultExpr;
-    class ResultMeta;
-
-    class ResultComparator : std::less<Result*> {
-    public:
-        bool operator()(Result* &lhs, Result* &rhs) const 
-        {
-            return lhs->prob() > rhs->prob();
-        }
-    };
+    class ParseItem;
+    class ExprItem;
+    class MetaItem;
 
     ref<PgfConcrLincat> start;
     PgfText *sentence;
 
     size_t last_choice_id;
-    
+
     State *before, *after, *fetch_state;
+
+    PgfMarshaller *m;
 };
 
 #endif

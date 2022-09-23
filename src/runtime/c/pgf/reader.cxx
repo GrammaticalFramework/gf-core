@@ -667,7 +667,7 @@ ref<PgfConcrLincat> PgfReader::read_lincat()
 {
     ref<PgfConcrLincat> lincat = read_name(&PgfConcrLincat::name);
     lincat->abscat = namespace_lookup(abstract->cats, &lincat->name);
-    lincat->fields = read_vector(&PgfReader::read_lincat_field);
+    lincat->fields = read_lincat_fields(lincat);
     lincat->n_lindefs = read_len();
     lincat->args = read_vector(&PgfReader::read_parg);
     lincat->res  = read_vector(&PgfReader::read_presult2);
@@ -675,10 +675,17 @@ ref<PgfConcrLincat> PgfReader::read_lincat()
     return lincat;
 }
 
-void PgfReader::read_lincat_field(ref<PgfLincatField> field)
+ref<Vector<PgfLincatField>> PgfReader::read_lincat_fields(ref<PgfConcrLincat> lincat)
 {
-    field->name = read_text();
-    field->backrefs = 0;
+    size_t len = read_len();
+    ref<Vector<PgfLincatField>> fields = vector_new<PgfLincatField>(len);
+    for (size_t i = 0; i < len; i++) {
+        ref<PgfLincatField> field = vector_elem(fields,i);
+        field->lincat = lincat;
+        field->name = read_text();
+        field->backrefs = 0;
+    }
+    return fields;
 }
 
 ref<PgfConcrLin> PgfReader::read_lin()

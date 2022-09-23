@@ -25,178 +25,56 @@ public:
     }
 };
 
-struct PGF_INTERNAL_DECL PgfParser::Choice {
+struct PGF_INTERNAL_DECL PgfParser::Choice
+{
+    ParseItemConts* conts;
     size_t id;
+    prob_t viterbi_prob;
+    bool is_chunk;
     std::vector<Production*> prods;
-    
-    Choice(size_t id) {
-        this->id = id;
-    }
-};
+    std::vector<Item*> items;
+    std::vector<std::pair<PgfExpr,prob_t>> exprs;
 
+    Choice(ParseItemConts* conts, size_t id, prob_t prob)
+    {
+        this->conts = conts;
+        this->id = id;
+        this->viterbi_prob = prob;
+        this->is_chunk = true;
+    }
+
+    void trace(State *state);
+};
 
 class PGF_INTERNAL_DECL PgfParser::Production
 {
 public:
-    static
-    void predict(Choice *choice, ref<PgfConcrLin> lin, size_t seq_index)
-    {
-        size_t n_args = lin->absfun->type->hypos->len;
-
-        Production *prod = (Production*)
-            malloc(sizeof(Production)+sizeof(Choice*)*n_args);
-        prod->lin       = lin;
-        prod->seq_index = seq_index;
-        memset(prod->args, 0, sizeof(Choice*)*n_args);
-
-        prod->log(choice);
-        choice->prods.push_back(prod);
-    }
-
-    void log(Choice *res) {
-#ifdef PARSER_DEBUG
-        PgfPrinter printer(NULL,0,NULL);
-        printer.nprintf(10, "?%ld = ", res->id);
-        printer.puts(&lin->name);
-        
-        auto hypos = lin->absfun->type->hypos;
-        for (size_t i = 0; i < hypos->len; i++) {
-            if (args[i] == NULL)
-                printer.efun(&hypos->data[i].type->name);
-            else
-                printer.nprintf(10, " ?%ld", args[i]->id);
-        }
-        printer.puts("\n");
-        printer.dump();
-#endif
-    }
+    void trace(Choice *res);
 
     ref<PgfConcrLin> lin;
     size_t seq_index;
     Choice *args[];
 };
 
-struct PGF_INTERNAL_DECL PgfParser::ItemConts {
+struct PGF_INTERNAL_DECL PgfParser::ParseItemConts {
     State *state;
-    std::vector<Item> items;
-};
-
-class PGF_INTERNAL_DECL PgfParser::Item
-{
-public:
-    static
-    void combine(State *state, PgfLincatBackref *backref, Choice *choice)
-    {
-        ref<PgfSequence> seq = 
-            *vector_elem(backref->lin->seqs, backref->seq_index);
-
-        size_t index = backref->seq_index % backref->lin->lincat->fields->len;
-        ref<PgfLincatField> field = vector_elem(backref->lin->lincat->fields, index);
-
-//        state->get_conts(field, 0);
-        if (backref->dot+1 < seq->syms.len) {
-            size_t n_args = backref->lin->absfun->type->hypos->len;
-
-            Item *item = (Item*)
-                malloc(sizeof(Item)+sizeof(Choice*)*n_args);
-            item->lin       = backref->lin;
-            item->seq_index = backref->seq_index;
-            item->dot       = backref->dot+1;
-
-            memset(item->args, 0, sizeof(Choice*)*n_args);
-            ref<PgfSequence> seq = 
-                *vector_elem(item->lin->seqs, backref->seq_index);
-            PgfSymbol sym = seq->syms.data[backref->dot];
-            ref<PgfSymbolCat> symcat = ref<PgfSymbolCat>::untagged(sym);
-            item->args[symcat->d] = choice;
-            
-            item->log();
-        } else {
-            Production::predict(choice, backref->lin, backref->seq_index);
-        }
-    }
-
-    Production *complete()
-    {
-        size_t n_args = lin->absfun->type->hypos->len;
-
-        Production *prod = (Production*)
-            malloc(sizeof(Production)+sizeof(Choice*)*n_args);
-        prod->lin       = lin;
-        prod->seq_index = seq_index;
-        memcpy(prod->args, args, sizeof(Choice*)*n_args);
-
-        return prod;
-    }
-
-    void log() {
-#ifdef PARSER_DEBUG
-        PgfPrinter printer(NULL,0,NULL);
-
-        size_t index = seq_index / lin->lincat->fields->len;
-        ref<PgfPResult> res = *vector_elem(lin->res, index);
-        ref<PgfDTyp> ty = lin->absfun->type;
-
-        if (res->vars != 0) {
-            printer.lvar_ranges(res->vars);
-            printer.puts(" . ");
-        }
-
-        printer.efun(&ty->name);
-        printer.puts("(");
-        printer.lparam(ref<PgfLParam>::from_ptr(&res->param));
-        printer.puts(") -> ");
-
-        printer.efun(&lin->name);
-        printer.puts("[");
-        size_t n_args = lin->args->len / lin->res->len;
-        for (size_t i = 0; i < n_args; i++) {
-            if (i > 0)
-                printer.puts(",");
-
-            if (args[i] == NULL)
-                printer.parg(vector_elem(ty->hypos, i)->type,
-                             vector_elem(lin->args, index*n_args + i));
-            else
-                printer.nprintf(10, "?%ld", args[i]->id);
-        }
-
-        printer.nprintf(10, "]; %ld : ", seq_index % lin->lincat->fields->len);
-        ref<PgfSequence> seq = *vector_elem(lin->seqs, seq_index);
-        for (size_t i = 0; i < seq->syms.len; i++) {
-            if (i > 0)
-                printer.puts(" ");
-            if (i == dot)
-                printer.puts(". ");
-            printer.symbol(*vector_elem(&seq->syms, i));
-        }
-        printer.puts("\n");
-
-        printer.dump();
-#endif
-    }
-
-
-private:
-    ItemConts *conts;
-    ref<PgfConcrLin> lin;
-    size_t seq_index;
-    size_t dot;
-    Choice *args[];
+    ref<PgfLincatField> field;
+    std::vector<ParseItem> items;
 };
 
 class PGF_INTERNAL_DECL PgfParser::State
 {
 public:
-    ItemConts *get_conts(ref<PgfLincatField> field, size_t value)
+    ParseItemConts *get_conts(ref<PgfLincatField> field, size_t value)
     {
-        ItemConts *conts;
+        ParseItemConts *conts;
         CFGCat cfg_cat = {field, value};
         auto itr1 = contss.find(cfg_cat);
         if (itr1 == contss.end()) {
-            conts = new ItemConts();
+            conts = new ParseItemConts();
             conts->state = this;
-            contss.insert(std::pair<CFGCat,ItemConts*>(cfg_cat, conts));
+            conts->field = field;
+            contss.insert(std::pair<CFGCat,ParseItemConts*>(cfg_cat, conts));
         } else {
             conts = itr1->second;
         }
@@ -207,78 +85,345 @@ public:
     size_t start, end;
     State *prev, *next;
 
-    std::map<CFGCat,ItemConts*> contss;
-    std::map<ItemConts*,Choice*> choices;
-    std::priority_queue<PgfParser::Result*,std::vector<PgfParser::Result*>,PgfParser::ResultComparator> queue;
+    prob_t viterbi_prob;
+
+    class ResultComparator : std::less<Item*> {
+    public:
+        bool operator()(Item* &lhs, Item* &rhs) const
+        {
+            return lhs->get_prob() > rhs->get_prob();
+        }
+    };
+
+    std::map<CFGCat,ParseItemConts*> contss;
+    std::map<ParseItemConts*,Choice*> choices;
+    std::priority_queue<Item*,std::vector<Item*>,ResultComparator> queue;
 };
 
-
-class PgfParser::ResultExpr : public Result
+class PGF_INTERNAL_DECL PgfParser::ParseItem : public Item
 {
-public:    
-    ResultExpr(Production *prod)
+public:
+    void* operator new(size_t size, size_t n_args)
     {
-        this->inside_prob  = prod->lin->absfun->prob;
-        this->outside_prob = prod->lin->lincat->abscat->prob;
-        this->prod         = prod;
-        this->arg_index    = 0;
+        size += sizeof(Choice*)*n_args;
+        void *p = malloc(size);
+        if (p) memset(p, 0, size);
+        return p;
     }
 
-    virtual prob_t prob()
+    ParseItem(ParseItemConts *conts, ref<PgfConcrLin> lin, size_t seq_index)
     {
-        return inside_prob+outside_prob;
+        this->outside_prob = lin->lincat->abscat->prob;
+        this->inside_prob  = lin->absfun->prob;
+        this->conts        = conts;
+        this->lin          = lin;
+        this->seq_index    = seq_index;
+        this->dot          = lin->seqs->data[seq_index]->syms.len;
     }
 
-    virtual PgfExpr expr(PgfUnmarshaller *u)
+    ParseItem(ParseItemConts *conts, PgfLincatBackref *backref,
+              size_t d, Choice *choice)
     {
-        return u->efun(&prod->lin->name);
+        this->outside_prob = backref->lin->lincat->abscat->prob;
+        this->inside_prob  = backref->lin->absfun->prob + choice->viterbi_prob;
+        this->conts        = conts;
+        this->lin          = backref->lin;
+        this->seq_index    = backref->seq_index;
+        this->dot          = backref->dot+1;
+        this->args[d]      = choice;
     }
 
-    virtual void proceed(PgfParser *parser, PgfUnmarshaller *u)
+    void bu_predict(PgfLincatBackref *backref, Choice *choice)
     {
+        ref<PgfSequence> seq =
+            *vector_elem(backref->lin->seqs, backref->seq_index);
+        PgfSymbol sym = seq->syms.data[backref->dot];
+        ref<PgfSymbolCat> symcat = ref<PgfSymbolCat>::untagged(sym);
+
+        size_t index = backref->seq_index % backref->lin->lincat->fields->len;
+        ref<PgfLincatField> field = vector_elem(backref->lin->lincat->fields, index);
+        ParseItemConts *conts1 = conts->state->get_conts(field, 0);
+
+        size_t n_args = backref->lin->absfun->type->hypos->len;
+        conts->state->queue.push(new(n_args) ParseItem(conts1, backref,
+                                                       symcat->d, choice));
+    }
+
+    void complete(PgfParser *parser, ref<PgfSequence> seq)
+    {
+        // the last child as a non-chunk
+        size_t dot = seq->syms.len;
+        while (dot > 0) {
+            dot--;
+            PgfSymbol sym = *vector_elem(&seq->syms,dot);
+            if (ref<PgfSymbol>::get_tag(sym) == PgfSymbolCat::tag) {
+                auto sym_cat = ref<PgfSymbolCat>::untagged(sym);
+                Choice *last = args[sym_cat->d];
+                if (last != NULL) {
+                    if (last->conts == conts)
+                        continue;
+                    last->is_chunk = false;
+                }
+            }
+            break;
+        }
+
+        // Create a new choice
+        Choice *choice;
+        auto itr2 = parser->after->choices.find(conts);
+        if (itr2 == parser->after->choices.end()) {
+            if (parser->after->choices.empty()) {
+                parser->after->viterbi_prob = conts->state->viterbi_prob+inside_prob+outside_prob;
+            }
+            choice = new Choice(conts, ++parser->last_choice_id, inside_prob);
+            choice->trace(parser->after);
+            parser->after->choices.insert(std::pair<ParseItemConts*,Choice*>(conts, choice));
+        } else {
+            choice = itr2->second;
+        }
+
+        // Create a new production
+        size_t n_args = lin->absfun->type->hypos->len;
+
+        Production *prod = (Production*)
+            malloc(sizeof(Production)+sizeof(Choice*)*n_args);
+        prod->lin       = lin;
+        prod->seq_index = seq_index;
+        memcpy(prod->args, args, sizeof(Choice*)*n_args);
+
+        prod->trace(choice);
+        choice->prods.push_back(prod);
+
+        // Bottom up prediction if it has not been done already
+        if (itr2 == parser->after->choices.end()) {
+            for (size_t i = 0; i < conts->field->backrefs->len; i++) {
+                ref<PgfLincatBackref> backref = vector_elem(conts->field->backrefs, i);
+                bu_predict(backref,choice);
+            }
+        }
+    }
+
+    void symbol(PgfParser *parser, PgfSymbol sym) {
+    }
+
+    virtual bool proceed(PgfParser *parser, PgfUnmarshaller *u)
+    {
+        ref<PgfSequence> seq = lin->seqs->data[seq_index];
+
+        if (dot >= seq->syms.len) {
+            complete(parser, seq);
+        } else {
+            PgfSymbol sym = *vector_elem(&seq->syms,dot);
+            symbol(parser, sym);
+        }
+
+        return true;
+    }
+
+    virtual void combine(PgfParser *parser, ParseItemConts *conts, PgfExpr expr, prob_t prob, PgfUnmarshaller *u)
+    {
+    }
+
+    virtual void print1(PgfPrinter *printer, State *state, PgfMarshaller *m)
+    {
+#ifdef PARSER_DEBUG
+        printer->nprintf(32,"%ld-%ld; ", conts->state->end, state->start);
+
+        size_t index = seq_index / lin->lincat->fields->len;
+        ref<PgfPResult> res = *vector_elem(lin->res, index);
+        ref<PgfDTyp> ty = lin->absfun->type;
+
+        if (res->vars != 0) {
+            printer->lvar_ranges(res->vars);
+            printer->puts(" . ");
+        }
+
+        printer->efun(&ty->name);
+        printer->puts("(");
+        printer->lparam(ref<PgfLParam>::from_ptr(&res->param));
+        printer->puts(") -> ");
+
+        printer->efun(&lin->name);
+        printer->puts("[");
+        size_t n_args = lin->args->len / lin->res->len;
+        for (size_t i = 0; i < n_args; i++) {
+            if (i > 0)
+                printer->puts(",");
+
+            if (args[i] == NULL)
+                printer->parg(vector_elem(ty->hypos, i)->type,
+                              vector_elem(lin->args, index*n_args + i));
+            else
+                printer->nprintf(10, "?%ld", args[i]->id);
+        }
+
+        printer->nprintf(10, "]; %ld : ", seq_index % lin->lincat->fields->len);
+        ref<PgfSequence> seq = *vector_elem(lin->seqs, seq_index);
+        for (size_t i = 0; i < seq->syms.len; i++) {
+            if (i > 0)
+                printer->puts(" ");
+            if (dot == i)
+                printer->puts(". ");
+            printer->symbol(*vector_elem(&seq->syms, i));
+        }
+
+        if (dot == seq->syms.len)
+            printer->puts(" . ");
+#endif
+    }
+
+    virtual void print2(PgfPrinter *printer, State *state, PgfMarshaller *m)
+    {
+    }
+
+    virtual PgfExpr get_expr(PgfUnmarshaller *u)
+    {
+        return 0;
     }
 
 private:
-    prob_t inside_prob;
-    prob_t outside_prob;
-
-    Production *prod;
-    size_t arg_index;
+    ParseItemConts *conts;
+    ref<PgfConcrLin> lin;
+    size_t seq_index;
+    size_t dot;
+    Choice *args[];
 };
 
-class PgfParser::ResultMeta : public Result
+class PgfParser::ExprItem : public Item
 {
 public:
-    ResultMeta(State *state,
-               PgfExpr arg, prob_t prob,
-               ResultMeta *next)
+    ExprItem(Choice *parent, Production *prod, prob_t outside_prob, PgfUnmarshaller *u)
     {
-        this->inside_prob = prob + (next ? next->inside_prob : 0);
-        this->state       = state;
-        this->arg         = arg;
-        this->next        = next;
-    }
+        this->parent       = parent;
+        this->outside_prob = outside_prob;
+        this->inside_prob  = prod->lin->absfun->prob;
+        this->prod         = prod;
+        this->arg_index    = 0;
+        this->expr         = u->efun(&prod->lin->name);
 
-    virtual prob_t prob()
-    {
-        return inside_prob;
-    }
-
-    virtual PgfExpr expr(PgfUnmarshaller *u)
-    {
-        ResultMeta *res = this;        
-        PgfExpr expr = u->emeta(0);
-        while (res->arg != 0) {
-            PgfExpr expr1 = u->eapp(expr, res->arg);
-            u->free_ref(expr);
-            expr = expr1;
-            res  = res->next;
+        size_t n_args = prod->lin->absfun->type->hypos->len;
+        for (size_t i = 0; i < n_args; i++) {
+            if (prod->args[i] != NULL)
+                this->inside_prob += prod->args[i]->viterbi_prob;
         }
+    }
+
+    ExprItem(ExprItem *prev, PgfExpr arg, prob_t prob, PgfUnmarshaller *u)
+    {
+        this->parent       = prev->parent;
+        this->outside_prob = prev->outside_prob;
+        this->inside_prob  = prev->inside_prob;
+        this->prod         = prev->prod;
+        this->arg_index    = prev->arg_index + 1;
+        this->expr         = u->eapp(prev->expr,arg);
+
+        this->inside_prob -= prod->args[prev->arg_index]->viterbi_prob;
+        this->inside_prob += prob;
+    }
+
+    virtual bool proceed(PgfParser *parser, PgfUnmarshaller *u)
+    {
+        size_t n_args = prod->lin->absfun->type->hypos->len;
+        while (arg_index < n_args) {
+            Choice *choice = prod->args[arg_index];
+
+            if (choice != NULL) {
+                choice->items.push_back(this);
+
+                if (choice->items.size() == 1) {
+                    for (auto prod : choice->prods) {
+                        parser->fetch_state->queue.push(new ExprItem(choice,prod,get_prob(),u));
+                    }
+                } else {
+                    for (auto ep : choice->exprs) {
+                        combine(parser,choice->conts,ep.first,ep.second,u);
+                    }
+                }
+                return true;
+            }
+
+            PgfExpr arg = u->emeta(0);
+            expr = u->eapp(expr,arg);
+            u->free_ref(arg);
+            arg_index++;
+        }
+
+        parent->exprs.push_back(std::pair<PgfExpr,prob_t>(expr,inside_prob));
+        for (auto item : parent->items) {
+            item->combine(parser,parent->conts,expr,inside_prob,u);
+        }
+
+        return true;
+    }
+
+    virtual void combine(PgfParser *parser, ParseItemConts *conts, PgfExpr expr, prob_t prob, PgfUnmarshaller *u)
+    {
+        parser->fetch_state->queue.push(new ExprItem(this,expr,prob,u));
+    }
+
+    virtual void print1(PgfPrinter *printer, State *state, PgfMarshaller *m)
+    {
+#ifdef PARSER_DEBUG
+        parent->items[0]->print1(printer,state,m);
+
+        printer->puts(" ");
+
+        size_t n_args = prod->lin->absfun->type->hypos->len;
+        if (n_args > 0)
+            printer->puts("(");
+        m->match_expr(printer,expr);
+#endif
+    }
+
+    virtual void print2(PgfPrinter *printer, State *state, PgfMarshaller *m)
+    {
+#ifdef PARSER_DEBUG
+        size_t n_args = prod->lin->absfun->type->hypos->len;
+        for (size_t i = arg_index; i < n_args; i++) {
+            if (prod->args[i])
+                printer->nprintf(10," ?%ld",prod->args[i]->id);
+            else
+                printer->puts(" ?");
+        }
+        if (n_args > 0)
+            printer->puts(")");
+
+        parent->items[0]->print2(printer,state,m);
+#endif
+    }
+
+    virtual PgfExpr get_expr(PgfUnmarshaller *u)
+    {
         return expr;
     }
 
-    virtual void proceed(PgfParser *parser, PgfUnmarshaller *u)
+private:
+    Choice *parent;
+    Production *prod;
+    size_t arg_index;
+    PgfExpr expr;
+};
+
+class PgfParser::MetaItem : public Item
+{
+public:
+    MetaItem(State *state,
+               PgfExpr arg,
+               prob_t inside_prob,
+               MetaItem *next)
     {
+        this->outside_prob = state->viterbi_prob;
+        this->inside_prob  = inside_prob;
+        this->state        = state;
+        this->arg          = arg;
+        this->next         = next;
+    }
+
+    virtual bool proceed(PgfParser *parser, PgfUnmarshaller *u)
+    {
+        if (state->prev == NULL)
+            return false;
+
         if (state->choices.size() == 0) {
             State *prev = state;
             while (prev->prev != NULL && prev->choices.size() == 0) {
@@ -290,36 +435,131 @@ public:
             token->size = size;
             memcpy(token->text,parser->sentence->text+prev->end,size);
             token->text[size] = 0;
-            
+
             PgfExpr expr = u->elit(u->lstr(token));
-            prev->queue.push(new ResultMeta(prev,
-                                            expr, 0,
-                                            this));
+            prev->queue.push(new MetaItem(prev, expr,
+                                          inside_prob,
+                                          this));
         } else {
             for (auto it : state->choices) {
-                ItemConts *conts = it.first;
+                ParseItemConts *conts = it.first;
                 Choice *choice = it.second;
 
-                for (Production *prod : choice->prods) {
-                    PgfExpr expr = u->efun(&prod->lin->name);
-                    prob_t prob = prod->lin->absfun->prob +
-                                  prod->lin->lincat->abscat->prob;
-                    conts->state->queue.push(new ResultMeta(conts->state,
-                                                            expr, prob,
-                                                            this));
+                if (!choice->is_chunk)
+                    continue;
+
+                choice->items.push_back(this);
+
+                if (choice->items.size() == 1) {
+                    prob_t prob = conts->state->viterbi_prob+inside_prob;
+                    for (Production *prod : choice->prods) {
+                        conts->state->queue.push(new ExprItem(choice,
+                                                              prod, prob+prod->lin->lincat->abscat->prob, u));
+                    }
+                } else {
+                    for (auto ep : choice->exprs) {
+                        combine(parser,conts,ep.first,ep.second,u);
+                    }
                 }
             }
         }
+        return false;
+    }
+
+    virtual void combine(PgfParser *parser, ParseItemConts *conts, PgfExpr expr, prob_t prob, PgfUnmarshaller *u)
+    {
+        conts->state->queue.push(new MetaItem(conts->state,
+                                              expr,
+                                              this->inside_prob+conts->field->lincat->abscat->prob+prob,
+                                              this));
+    }
+
+    virtual void print1(PgfPrinter *printer, State *state, PgfMarshaller *m)
+    {
+#ifdef PARSER_DEBUG
+        printer->nprintf(10, "<%ld> ?", state->end);
+#endif
+    }
+
+    virtual void print2(PgfPrinter *printer, State *state, PgfMarshaller *m)
+    {
+#ifdef PARSER_DEBUG
+        MetaItem *res = this;
+        while (res->arg != 0) {
+            printer->puts(" ");
+            m->match_expr(printer, res->arg);
+            res = res->next;
+        }
+#endif
+    }
+
+    virtual PgfExpr get_expr(PgfUnmarshaller *u)
+    {
+        MetaItem *res = this;
+        PgfExpr expr = u->emeta(0);
+        while (res->arg != 0) {
+            PgfExpr expr1 = u->eapp(expr, res->arg);
+            u->free_ref(expr);
+            expr = expr1;
+            res  = res->next;
+        }
+        return expr;
     }
 
 private:
-    prob_t inside_prob;
     State *state;
     PgfExpr arg;
-    ResultMeta *next;
+    MetaItem *next;
 };
 
-PgfParser::PgfParser(ref<PgfConcrLincat> start, PgfText *sentence)
+void PgfParser::Item::trace(State *state, PgfMarshaller *m)
+{
+#ifdef PARSER_DEBUG
+    PgfPrinter printer(NULL,0,m);
+    printer.puts("[");
+    print1(&printer, state, m);
+    print2(&printer, state, m);
+    printer.nprintf(40,"; %f+%f=%f]\n",inside_prob,outside_prob,inside_prob+outside_prob);
+    printer.dump();
+#endif
+}
+
+void PgfParser::Choice::trace(State *state)
+{
+#ifdef PARSER_DEBUG
+    PgfPrinter printer(NULL,0,NULL);
+    printer.nprintf(40,"[%ld-%ld; ", conts->state->end, state->start);
+    printer.efun(&conts->field->lincat->name);
+    printer.puts("; ");
+    printer.puts(conts->field->name);
+    printer.nprintf(40,"; ?%ld; %f]\n", id, viterbi_prob);
+    printer.dump();
+#endif
+}
+
+void PgfParser::Production::trace(PgfParser::Choice *res) {
+#ifdef PARSER_DEBUG
+    PgfPrinter printer(NULL,0,NULL);
+    printer.nprintf(10, "?%ld = ", res->id);
+    printer.puts(&lin->name);
+
+    printer.puts("[");
+    auto hypos = lin->absfun->type->hypos;
+    for (size_t i = 0; i < hypos->len; i++) {
+        if (i > 0)
+            printer.puts(",");
+
+        if (args[i] == NULL)
+            printer.efun(&hypos->data[i].type->name);
+        else
+            printer.nprintf(10, "?%ld", args[i]->id);
+    }
+    printer.puts("]\n");
+    printer.dump();
+#endif
+}
+
+PgfParser::PgfParser(ref<PgfConcrLincat> start, PgfText *sentence, PgfMarshaller *m)
 {
     this->start = start;
     this->sentence = textdup(sentence);
@@ -327,6 +567,7 @@ PgfParser::PgfParser(ref<PgfConcrLincat> start, PgfText *sentence)
     this->before = NULL;
     this->after  = NULL;
     this->fetch_state = NULL;
+    this->m = m;
 }
 
 void PgfParser::space(size_t start, size_t end, PgfExn* err)
@@ -344,17 +585,13 @@ void PgfParser::space(size_t start, size_t end, PgfExn* err)
         before->end   = end;
         before->prev  = prev;
         before->next  = next;
+        before->viterbi_prob = prev ? prev->viterbi_prob : 0;
 
         if (prev != NULL) prev->next = before;
         if (next != NULL) next->prev = before;
     } else {
         before = next;
         before->end = end;
-    }
-
-    if (end == sentence->size) {
-        fetch_state = after;
-        fetch_state->queue.push(new ResultMeta(after,0,0,NULL));
     }
 }
 
@@ -373,6 +610,7 @@ void PgfParser::start_matches(size_t end, PgfExn* err)
         after->end   = end;
         after->prev  = prev;
         after->next  = next;
+        after->viterbi_prob = prev ? prev->viterbi_prob : 0;
 
         if (prev != NULL) prev->next = after;
         if (next != NULL) next->prev = after;
@@ -386,33 +624,25 @@ void PgfParser::match(ref<PgfConcrLin> lin, size_t seq_index, PgfExn* err)
     size_t index = seq_index % lin->lincat->fields->len;
     ref<PgfLincatField> field = vector_elem(lin->lincat->fields, index);
 
-    ItemConts *conts = before->get_conts(field, 0);
-
-    Choice *choice;
-    auto itr2 = after->choices.find(conts);
-    if (itr2 == after->choices.end()) {
-        choice = new Choice(++last_choice_id);
-        after->choices.insert(std::pair<ItemConts*,Choice*>(conts, choice));
-    } else {
-        choice = itr2->second;
-    }
-
-    Production::predict(choice,lin,seq_index);
-/*
-    if (itr2 == after->choices.end()) {
-        for (size_t i = 0; i < field->backrefs->len; i++) {
-            PgfLincatBackref *backref = vector_elem(field->backrefs, i);
-            Item::combine(before, backref, choice);
-        }
-    }*/
+    ParseItemConts *conts = before->get_conts(field, 0);
+    before->queue.push(new(0) ParseItem(conts, lin, seq_index));
 }
 
 void PgfParser::end_matches(size_t end, PgfExn* err)
 {
-    if (end == sentence->size) {
-        fetch_state = after;
-        fetch_state->queue.push(new ResultMeta(after,0,0,NULL));
+    while (!before->queue.empty()) {
+        Item *item = before->queue.top();
+        before->queue.pop();
+
+        item->trace(after,m);
+        item->proceed(this,NULL);
     }
+}
+
+void PgfParser::prepare()
+{
+    fetch_state = after;
+    fetch_state->queue.push(new MetaItem(after,0,0,NULL));
 }
 
 PgfExpr PgfParser::fetch(PgfDB *db, PgfUnmarshaller *u, prob_t *prob)
@@ -423,29 +653,25 @@ PgfExpr PgfParser::fetch(PgfDB *db, PgfUnmarshaller *u, prob_t *prob)
         fetch_state = fetch_state->next;
     }
 
-    if (fetch_state == NULL) {
-        return 0;
-    }
-
-    while (fetch_state->prev != NULL) {
-        if (!fetch_state->queue.empty()) {
-            Result *res = fetch_state->queue.top();
+    while (fetch_state != NULL) {
+        while (!fetch_state->queue.empty()) {
+            Item *item = fetch_state->queue.top();
             fetch_state->queue.pop();
-            res->proceed(this,u);
+
+            item->trace(after,m);
+            if (!item->proceed(this,u)) {
+                if (fetch_state->prev == NULL) {
+                    *prob = item->get_prob();
+                    return item->get_expr(u);
+                }
+                break;
+            }
         }
 
         fetch_state = fetch_state->prev;
     }
 
-    if (fetch_state->queue.empty()) {
-        return 0;
-    }
-
-    Result *res = fetch_state->queue.top();
-    fetch_state->queue.pop();
-    *prob = res->prob();
-    
-    return res->expr(u);
+    return 0;
 }
 
 PgfParser::~PgfParser()

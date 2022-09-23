@@ -1492,21 +1492,22 @@ public:
         this->n_lindefs = n_lindefs;
         this->n_linrefs = n_linrefs;
 
-        ref<Vector<PgfLincatField>> db_fields = vector_new<PgfLincatField>(n_fields);
-        for (size_t i = 0; i < n_fields; i++) {
-            ref<PgfText> name = textdup_db(fields[i]);
-            vector_elem(db_fields, i)->name     = name;
-            vector_elem(db_fields, i)->backrefs = 0;
-        }
-
         ref<PgfConcrLincat> lincat = PgfDB::malloc<PgfConcrLincat>(abscat->name.size+1);
         memcpy(&lincat->name, &abscat->name, sizeof(PgfText)+abscat->name.size+1);
         lincat->abscat = abscat;
         lincat->args = args;
         lincat->res  = res;
         lincat->seqs = seqs;
-        lincat->fields = db_fields;
         lincat->n_lindefs = n_lindefs;
+
+        ref<Vector<PgfLincatField>> db_fields = vector_new<PgfLincatField>(n_fields);
+        for (size_t i = 0; i < n_fields; i++) {
+            ref<PgfText> name = textdup_db(fields[i]);
+            vector_elem(db_fields, i)->lincat   = lincat;
+            vector_elem(db_fields, i)->name     = name;
+            vector_elem(db_fields, i)->backrefs = 0;
+        }
+        lincat->fields = db_fields;
 
         this->container = lincat.tagged();
 
@@ -1540,6 +1541,7 @@ public:
         ref<PgfConcrLin> lin = PgfDB::malloc<PgfConcrLin>(absfun->name.size+1);
         memcpy(&lin->name, &absfun->name, sizeof(PgfText)+absfun->name.size+1);
         lin->absfun = absfun;
+        lin->lincat = lincat;
         lin->args = args;
         lin->res  = res;
         lin->seqs = seqs;
@@ -2383,10 +2385,11 @@ PgfExprEnum *pgf_parse(PgfDB *db, PgfConcrRevision revision,
         if (u.lincat == 0)
             return 0;
 
-        PgfParser *parser = new PgfParser(u.lincat, sentence);
+        PgfParser *parser = new PgfParser(u.lincat, sentence, m);
         phrasetable_lookup_cohorts(concr->phrasetable,
                                    sentence, case_sensitive,
                                    parser, err);
+        parser->prepare();
         return parser;
     } PGF_API_END
 

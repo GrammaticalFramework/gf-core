@@ -209,9 +209,11 @@ struct PGF_INTERNAL_DECL PgfSymbolALLCAPIT {
     static const uint8_t tag = 10;
 };
 
+struct PGF_INTERNAL_DECL PgfConcrLincat;
 struct PGF_INTERNAL_DECL PgfLincatBackref;
 
 struct PGF_INTERNAL_DECL PgfLincatField {
+    ref<PgfConcrLincat> lincat;
     ref<PgfText> name;
     ref<Vector<PgfLincatBackref>> backrefs;
 
