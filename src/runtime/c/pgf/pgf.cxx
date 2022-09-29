@@ -2385,7 +2385,7 @@ PgfExprEnum *pgf_parse(PgfDB *db, PgfConcrRevision revision,
         if (u.lincat == 0)
             return 0;
 
-        PgfParser *parser = new PgfParser(u.lincat, sentence, m);
+        PgfParser *parser = new PgfParser(concr, u.lincat, sentence, m);
         phrasetable_lookup_cohorts(concr->phrasetable,
                                    sentence, case_sensitive,
                                    parser, err);

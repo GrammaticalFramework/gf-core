@@ -3,7 +3,7 @@
 
 class PGF_INTERNAL_DECL PgfParser : public PgfPhraseScanner, public PgfExprEnum {
 public:
-    PgfParser(ref<PgfConcrLincat> start, PgfText *sentence, PgfMarshaller *m);
+    PgfParser(ref<PgfConcr> concr, ref<PgfConcrLincat> start, PgfText *sentence, PgfMarshaller *m);
 
 	void space(size_t start, size_t end, PgfExn* err);
     void start_matches(size_t end, PgfExn* err);
@@ -44,6 +44,7 @@ private:
     class ExprItem;
     class MetaItem;
 
+    ref<PgfConcr> concr;
     ref<PgfConcrLincat> start;
     PgfText *sentence;
 
