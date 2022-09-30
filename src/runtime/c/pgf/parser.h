@@ -30,7 +30,7 @@ private:
         virtual bool    proceed(PgfParser *parser, PgfUnmarshaller *u) = 0;
         virtual void    combine(PgfParser *parser, ParseItemConts *conts, PgfExpr expr, prob_t inside_prob, PgfUnmarshaller *u) = 0;
         virtual void    print1(PgfPrinter *printer, State *state, PgfMarshaller *m) = 0;
-        virtual void    print2(PgfPrinter *printer, State *state, PgfMarshaller *m) = 0;
+        virtual void    print2(PgfPrinter *printer, State *state, int x, PgfMarshaller *m) = 0;
         virtual PgfExpr get_expr(PgfUnmarshaller *u) = 0;
 
         void trace(State *state, PgfMarshaller *m);

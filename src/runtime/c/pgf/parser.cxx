@@ -330,7 +330,7 @@ public:
 #endif
     }
 
-    virtual void print2(PgfPrinter *printer, State *state, PgfMarshaller *m)
+    virtual void print2(PgfPrinter *printer, State *state, int x, PgfMarshaller *m)
     {
     }
 
@@ -434,11 +434,11 @@ public:
 #endif
     }
 
-    virtual void print2(PgfPrinter *printer, State *state, PgfMarshaller *m)
+    virtual void print2(PgfPrinter *printer, State *state, int x, PgfMarshaller *m)
     {
 #ifdef PARSER_DEBUG
         size_t n_args = prod->lin->absfun->type->hypos->len;
-        for (size_t i = arg_index; i < n_args; i++) {
+        for (size_t i = arg_index+x; i < n_args; i++) {
             if (prod->args[i])
                 printer->nprintf(10," ?%ld",prod->args[i]->id);
             else
@@ -447,7 +447,7 @@ public:
         if (n_args > 0)
             printer->puts(")");
 
-        parent->items[0]->print2(printer,state,m);
+        parent->items[0]->print2(printer,state,1,m);
 #endif
     }
 
@@ -540,7 +540,7 @@ public:
 #endif
     }
 
-    virtual void print2(PgfPrinter *printer, State *state, PgfMarshaller *m)
+    virtual void print2(PgfPrinter *printer, State *state, int x, PgfMarshaller *m)
     {
 #ifdef PARSER_DEBUG
         MetaItem *res = this;
@@ -577,7 +577,7 @@ void PgfParser::Item::trace(State *state, PgfMarshaller *m)
     PgfPrinter printer(NULL,0,m);
     printer.puts("[");
     print1(&printer, state, m);
-    print2(&printer, state, m);
+    print2(&printer, state, 0, m);
     printer.nprintf(40,"; %f+%f=%f]\n",inside_prob,outside_prob,inside_prob+outside_prob);
     printer.dump();
 #endif
