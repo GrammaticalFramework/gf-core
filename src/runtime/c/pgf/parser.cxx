@@ -83,7 +83,7 @@ public:
     }
 
 public:
-    size_t start, end;
+    PgfTextSpot start, end;
     State *prev, *next;
 
     prob_t viterbi_prob;
@@ -495,10 +495,10 @@ public:
                 prev = prev->prev;
             }
 
-            size_t size = state->start-prev->end;
+            size_t size = state->start.ptr-prev->end.ptr;
             PgfText *token = (PgfText *) alloca(sizeof(PgfText)+size+1);
             token->size = size;
-            memcpy(token->text,parser->sentence->text+prev->end,size);
+            memcpy(token->text,prev->end.ptr,size);
             token->text[size] = 0;
 
             PgfExpr expr = u->elit(u->lstr(token));
@@ -638,19 +638,19 @@ PgfParser::PgfParser(ref<PgfConcr> concr, ref<PgfConcrLincat> start, PgfText *se
     this->m = m;
 }
 
-void PgfParser::space(size_t start, size_t end, PgfExn* err)
+void PgfParser::space(PgfTextSpot *start, PgfTextSpot *end, PgfExn* err)
 {
     State *prev = NULL;
     State *next = before;
-    while (next != NULL && next->start < start) {
+    while (next != NULL && next->start.pos < start->pos) {
         prev = next;
         next = next->next;
     }
 
-    if (next == NULL || next->start != start) {
+    if (next == NULL || next->start.pos != start->pos) {
         before = new State();
-        before->start = start;
-        before->end   = end;
+        before->start = *start;
+        before->end   = *end;
         before->prev  = prev;
         before->next  = next;
         before->viterbi_prob = prev ? prev->viterbi_prob : 0;
@@ -659,23 +659,23 @@ void PgfParser::space(size_t start, size_t end, PgfExn* err)
         if (next != NULL) next->prev = before;
     } else {
         before = next;
-        before->end = end;
+        before->end = *end;
     }
 }
 
-void PgfParser::start_matches(size_t end, PgfExn* err)
+void PgfParser::start_matches(PgfTextSpot *end, PgfExn* err)
 {
     State *prev = NULL;
     State *next = before;
-    while (next != NULL && next->start < end) {
+    while (next != NULL && next->start.pos < end->pos) {
         prev = next;
         next = next->next;
     }
 
-    if (next == NULL || next->start != end) {
+    if (next == NULL || next->start.pos != end->pos) {
         after = new State();
-        after->start = end;
-        after->end   = end;
+        after->start = *end;
+        after->end   = *end;
         after->prev  = prev;
         after->next  = next;
         after->viterbi_prob = prev ? prev->viterbi_prob : 0;
@@ -696,7 +696,7 @@ void PgfParser::match(ref<PgfConcrLin> lin, size_t seq_index, PgfExn* err)
     after->queue.push(new(0) ParseItem(conts, lin, seq_index));
 }
 
-void PgfParser::end_matches(size_t end, PgfExn* err)
+void PgfParser::end_matches(PgfTextSpot *end, PgfExn* err)
 {
     while (!after->queue.empty()) {
         Item *item = after->queue.top();

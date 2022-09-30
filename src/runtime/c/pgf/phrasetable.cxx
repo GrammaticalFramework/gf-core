@@ -228,11 +228,6 @@ int sequence_cmp(ref<PgfSequence> seq1, ref<PgfSequence> seq2)
 	return 0;
 }
 
-struct PGF_INTERNAL_DECL PgfTextSpot {
-	size_t pos;          // position in Unicode characters
-	const uint8_t *ptr;  // pointer into the spot location
-};
-
 static
 int text_sequence_cmp(PgfTextSpot *spot, const uint8_t *end,
                       ref<PgfSequence> seq,
@@ -535,7 +530,7 @@ struct PGF_INTERNAL_DECL PgfCohortsState {
     PgfTextSpot spot;
     std::priority_queue<PgfTextSpot, std::vector<PgfTextSpot>, PgfTextSpotComparator> queue;
 
-    size_t last_pos;
+    PgfTextSpot last;
     bool skipping;
     const uint8_t *end;    // pointer into the end of the sentence
 
@@ -552,34 +547,35 @@ void finish_skipping(PgfCohortsState *state) {
             if (spot.pos >= state->spot.pos)
                 break;
 
-            if (spot.pos != state->last_pos) {
-                if (state->last_pos > 0) {
-                    state->scanner->space(spot.pos, spot.pos,
+            if (spot.pos != state->last.pos) {
+                if (state->last.pos > 0) {
+                    state->scanner->space(&spot, &spot,
                                           state->err);
                     if (state->err->type != PGF_EXN_NONE)
                         return;
                 }
 
-                state->scanner->start_matches(state->spot.pos,
+                state->scanner->start_matches(&state->spot,
                                               state->err);
                 if (state->err->type != PGF_EXN_NONE)
                     return;
 
-                state->scanner->end_matches(state->spot.pos,
+                state->scanner->end_matches(&state->spot,
                                             state->err);
                 if (state->err->type != PGF_EXN_NONE)
                     return;
 
-                state->last_pos = spot.pos;
+                state->last = spot;
             }
 
             state->queue.pop();
         }
 
-        state->scanner->space(state->spot.pos, state->spot.pos,
+        state->scanner->space(&state->spot, &state->spot,
                               state->err);
 
-        state->last_pos = 0;
+        state->last.pos = 0;
+        state->last.ptr = NULL;
         state->skipping = false;
     }
 }
@@ -616,20 +612,20 @@ void phrasetable_lookup_prefixes(PgfCohortsState *state,
 
         auto backrefs = table->value.backrefs;
         if (len > 0 && backrefs != 0) {
-            if (state->last_pos != current.pos) {
-                if (state->last_pos > 0) {
-                    state->scanner->end_matches(state->last_pos,
+            if (state->last.pos != current.pos) {
+                if (state->last.pos > 0) {
+                    state->scanner->end_matches(&state->last,
                                                 state->err);
                     if (state->err->type != PGF_EXN_NONE)
                         return;
                 }
 
-                state->scanner->start_matches(current.pos,
+                state->scanner->start_matches(&current,
                                               state->err);
                 if (state->err->type != PGF_EXN_NONE)
                     return;
 
-                state->last_pos = current.pos;
+                state->last = current;
             }
             state->queue.push(current);
 
@@ -668,13 +664,13 @@ void phrasetable_lookup_cohorts(PgfPhrasetable table,
 {
     PgfTextSpot spot;
     spot.pos = 0;
-    spot.ptr = (uint8_t *) &sentence->text[0];
+    spot.ptr = (uint8_t *) sentence->text;
 
     PgfCohortsState state;
     state.spot.pos = -1;
     state.spot.ptr = NULL;
     state.queue.push(spot);
-    state.last_pos = 0;
+    state.last = spot;
     state.skipping = false;
     state.end = (uint8_t *) &sentence->text[sentence->size];
     state.case_sensitive = case_sensitive;
@@ -698,7 +694,7 @@ void phrasetable_lookup_cohorts(PgfPhrasetable table,
                 state.spot.ptr = ptr;
             }
 
-            state.scanner->space(spot.pos,state.spot.pos,state.err);
+            state.scanner->space(&spot,&state.spot,state.err);
             if (state.err->type != PGF_EXN_NONE)
                 return;
 
@@ -707,14 +703,15 @@ void phrasetable_lookup_cohorts(PgfPhrasetable table,
                 if (state.err->type != PGF_EXN_NONE)
                     return;
 
-                if (state.last_pos > 0) {
+                if (state.last.pos > 0) {
                     // We found at least one match.
                     // The last range is yet to be reported.
-                    state.scanner->end_matches(state.last_pos,
+                    state.scanner->end_matches(&state.last,
                                                state.err);
                     if (state.err->type != PGF_EXN_NONE)
                         return;
-                    state.last_pos = 0;
+                    state.last.pos = 0;
+                    state.last.ptr = (uint8_t*) sentence->text;
                     break;
                 } else {
                     // No matches were found, try the next position

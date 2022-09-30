@@ -5,10 +5,10 @@ class PGF_INTERNAL_DECL PgfParser : public PgfPhraseScanner, public PgfExprEnum 
 public:
     PgfParser(ref<PgfConcr> concr, ref<PgfConcrLincat> start, PgfText *sentence, PgfMarshaller *m);
 
-	void space(size_t start, size_t end, PgfExn* err);
-    void start_matches(size_t end, PgfExn* err);
+	void space(PgfTextSpot *start, PgfTextSpot *end, PgfExn* err);
+    void start_matches(PgfTextSpot *end, PgfExn* err);
     void match(ref<PgfConcrLin> lin, size_t seq_index, PgfExn* err);
-	void end_matches(size_t end, PgfExn* err);
+	void end_matches(PgfTextSpot *end, PgfExn* err);
 
     void prepare();
     PgfExpr fetch(PgfDB *db, PgfUnmarshaller *u, prob_t *prob);

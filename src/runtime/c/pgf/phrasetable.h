@@ -71,12 +71,17 @@ size_t phrasetable_size(PgfPhrasetable table);
 
 class PgfConcrLin;
 
+struct PGF_INTERNAL_DECL PgfTextSpot {
+	size_t pos;          // position in Unicode characters
+	const uint8_t *ptr;  // pointer into the spot location
+};
+
 class PGF_INTERNAL_DECL PgfPhraseScanner {
 public:
-    virtual void space(size_t start, size_t end, PgfExn* err)=0;
-	virtual void start_matches(size_t pos, PgfExn* err)=0;
+    virtual void space(PgfTextSpot *start, PgfTextSpot *end, PgfExn* err)=0;
+    virtual void start_matches(PgfTextSpot *spot, PgfExn* err)=0;
     virtual void match(ref<PgfConcrLin> lin, size_t seq_index, PgfExn* err)=0;
-	virtual void end_matches(size_t pos, PgfExn* err)=0;
+    virtual void end_matches(PgfTextSpot *spot, PgfExn* err)=0;
 };
 
 PGF_INTERNAL_DECL

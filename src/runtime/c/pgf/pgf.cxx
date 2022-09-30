@@ -822,11 +822,11 @@ public:
         this->callback = callback;
     }
 
-	virtual void space(size_t start, size_t end, PgfExn* err)
+	virtual void space(PgfTextSpot *start, PgfTextSpot *end, PgfExn* err)
     {
     }
 
-	virtual void start_matches(size_t end, PgfExn* err)
+	virtual void start_matches(PgfTextSpot *end, PgfExn* err)
     {
     }
 
@@ -837,7 +837,7 @@ public:
         callback->fn(callback, &lin->absfun->name, &(*field->name), lin->lincat->abscat->prob+lin->absfun->prob, err);
     }
 
-	virtual void end_matches(size_t end, PgfExn* err)
+	virtual void end_matches(PgfTextSpot *end, PgfExn* err)
     {
     }
 
@@ -869,12 +869,12 @@ public:
         this->callback = callback;
     }
 
-	virtual void space(size_t start, size_t end, PgfExn* err)
+	virtual void space(PgfTextSpot *start, PgfTextSpot *end, PgfExn* err)
     {
-        match_start = end;
+        match_start = end->pos;
     }
 
-	virtual void start_matches(size_t match_end, PgfExn* err)
+	virtual void start_matches(PgfTextSpot *end, PgfExn* err)
     {
     }
 
@@ -885,9 +885,9 @@ public:
         callback->morpho.fn(&callback->morpho, &lin->absfun->name, &(*field->name), lin->lincat->abscat->prob+lin->absfun->prob, err);
     }
 
-	virtual void end_matches(size_t match_end, PgfExn* err)
+	virtual void end_matches(PgfTextSpot *end, PgfExn* err)
     {
-        callback->fn(callback, match_start, match_end, err);
+        callback->fn(callback, match_start, end->pos, err);
     }
 
 private:
