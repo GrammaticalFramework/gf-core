@@ -78,6 +78,7 @@ import PGF.Internal (FId, FunId, SeqId, LIndex, Sequence, BindType(..))
 import Data.Array.IArray(Array)
 import Data.Array.Unboxed(UArray)
 import qualified Data.Map as Map
+import qualified Data.Set as Set
 import GF.Text.Pretty
 
 
@@ -125,10 +126,12 @@ extends :: ModuleInfo -> [ModuleName]
 extends = map fst . mextend
 
 isInherited :: MInclude -> Ident -> Bool
-isInherited c i = case c of
-  MIAll -> True
-  MIOnly is -> elem i is
-  MIExcept is -> notElem i is
+isInherited c =
+  case c of
+    MIAll -> const True
+    MIOnly is -> let is' = Set.fromList is in (`Set.member` is')
+    MIExcept is -> let is' = Set.fromList is in (`Set.notMember` is')
+
 
 inheritAll :: ModuleName -> (ModuleName,MInclude)
 inheritAll i = (i,MIAll)
