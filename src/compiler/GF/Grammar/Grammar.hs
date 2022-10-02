@@ -129,9 +129,17 @@ isInherited :: MInclude -> Ident -> Bool
 isInherited c =
   case c of
     MIAll -> const True
-    MIOnly is -> let is' = Set.fromList is in (`Set.member` is')
-    MIExcept is -> let is' = Set.fromList is in (`Set.notMember` is')
+    MIOnly is -> elemOrd is
+    MIExcept is -> not . elemOrd is
 
+-- | Faster version of `elem`, using a `Set`.
+-- Make sure you give this the first argument _outside_ of the inner loop
+--
+-- Example:
+-- > myIntersection xs ys = filter (elemOrd xs) ys
+elemOrd :: Ord a => [a] -> a -> Bool
+elemOrd list = (`Set.member` set)
+  where set = Set.fromList list
 
 inheritAll :: ModuleName -> (ModuleName,MInclude)
 inheritAll i = (i,MIAll)
