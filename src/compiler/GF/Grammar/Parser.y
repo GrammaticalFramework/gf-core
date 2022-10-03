@@ -430,6 +430,7 @@ Exp3
                                          RecType xs -> RecType (xs ++ [(tupleLabel (length xs+1),$3)])
                                          t          -> RecType [(tupleLabel 1,$1), (tupleLabel 2,$3)]  }
   | Exp3 '**' Exp4                   { ExtR $1 $3    }
+  | Exp3 '**'  '{' ListCase '}'      { let v = identS "vvv" in T TRaw ($4 ++ [(PV v, S $1 (Vr v))]) }
   | Exp4                             { $1            }
 
 Exp4 :: { Term }
