@@ -50,7 +50,7 @@ private:
 
     size_t last_choice_id;
 
-    State *before, *after, *fetch_state;
+    State *before, *after;
 
     PgfMarshaller *m;
 };

@@ -210,7 +210,6 @@ public:
             }
             choice = new Choice(conts, ++parser->last_choice_id, inside_prob);
             choice->trace(parser->after);
-
             parser->after->choices.insert(std::pair<ParseItemConts*,Choice*>(conts, choice));
         } else {
             choice = itr2->second;
@@ -393,14 +392,14 @@ public:
                 if (choice->items.size() == 1) {
                     prob_t outside_prob = get_prob()-choice->viterbi_prob;
                     for (auto prod : choice->prods) {
-                        parser->fetch_state->queue.push(new ExprItem(choice,prod,outside_prob,u));
+                        parser->before->queue.push(new ExprItem(choice,prod,outside_prob,u));
                     }
                 } else {
                     for (auto ep : choice->exprs) {
                         combine(parser,choice->conts,ep.first,ep.second,u);
                     }
                 }
-                return parser->fetch_state;
+                return parser->before;
             }
 
             PgfExpr arg = u->emeta(0);
@@ -409,7 +408,7 @@ public:
             arg_index++;
         }
 
-        State *prev = parser->fetch_state;
+        State *prev = parser->before;
         parent->exprs.push_back(std::pair<PgfExpr,prob_t>(expr,inside_prob));
         for (auto item : parent->items) {
             if (item->combine(parser,parent->conts,expr,inside_prob,u)) {
@@ -422,7 +421,7 @@ public:
 
     virtual bool combine(PgfParser *parser, ParseItemConts *conts, PgfExpr expr, prob_t prob, PgfUnmarshaller *u)
     {
-        parser->fetch_state->queue.push(new ExprItem(this,expr,prob,u));
+        parser->before->queue.push(new ExprItem(this,expr,prob,u));
         return false;
     }
 
@@ -519,8 +518,8 @@ public:
                 if (choice->items.size() == 1) {
                     prob_t prob = conts->state->viterbi_prob+inside_prob;
                     for (Production *prod : choice->prods) {
-                        parser->fetch_state->queue.push(new ExprItem(choice,
-                                                                     prod, prob+prod->lin->lincat->abscat->prob, u));
+                        parser->before->queue.push(new ExprItem(choice,
+                                                                prod, prob+prod->lin->lincat->abscat->prob, u););
                     }
                 } else {
                     for (auto ep : choice->exprs) {
@@ -528,7 +527,7 @@ public:
                     }
                 }
             }
-            return parser->fetch_state;
+            return parser->before;
         }
     }
 
@@ -635,7 +634,6 @@ PgfParser::PgfParser(ref<PgfConcr> concr, ref<PgfConcrLincat> start, PgfText *se
     this->last_choice_id = 0;
     this->before = NULL;
     this->after  = NULL;
-    this->fetch_state = NULL;
     this->m = m;
 }
 
@@ -710,30 +708,30 @@ void PgfParser::end_matches(PgfTextSpot *end, PgfExn* err)
 
 void PgfParser::prepare()
 {
-    fetch_state = after;
-    fetch_state->queue.push(new MetaItem(after,0,0,NULL));
+    after->queue.push(new MetaItem(after,0,0,NULL));
+    before = after;
 }
 
 PgfExpr PgfParser::fetch(PgfDB *db, PgfUnmarshaller *u, prob_t *prob)
 {    
     DB_scope scope(db, READER_SCOPE);
 
-    while (fetch_state != NULL && fetch_state->queue.empty()) {
-        fetch_state = fetch_state->next;
+    while (before != NULL && before->queue.empty()) {
+        before = before->next;
     }
 
-    while (!fetch_state->queue.empty()) {
-        Item *item = fetch_state->queue.top();
-        fetch_state->queue.pop();
+    while (!before->queue.empty()) {
+        Item *item = before->queue.top();
+        before->queue.pop();
 
         item->trace(after,m);
 
-        if (fetch_state->prev == NULL) {
+        if (before->prev == NULL) {
             *prob = item->get_prob();
             return item->get_expr(u);
         }
 
-        fetch_state = item->proceed(this,u);
+        before = item->proceed(this,u);
     }
 
     return 0;
