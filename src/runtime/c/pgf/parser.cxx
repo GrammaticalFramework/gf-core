@@ -553,8 +553,9 @@ public:
 #ifdef PARSER_DEBUG
         MetaItem *res = this;
         while (res->arg != 0) {
-            printer->puts(" ");
+            printer->puts(" (");
             m->match_expr(printer, res->arg);
+            printer->puts(")");
             res = res->next;
         }
 #endif
