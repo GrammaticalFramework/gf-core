@@ -198,12 +198,16 @@ class PGF_INTERNAL_DECL PgfExprProbEstimator : public PgfUnmarshaller {
     PgfPGF *pgf;
     PgfMarshaller *m;
     prob_t prob;
+    prob_t cat_prob;
+    prob_t cat_prob_total;
 
 public:
     PgfExprProbEstimator(PgfPGF *pgf, PgfMarshaller *marshaller) {
         this->pgf = pgf;
         this->m = marshaller;
-        this->prob = 0;
+        this->prob     = 0;
+        this->cat_prob = 0;
+        this->cat_prob_total = 0;
     }
 
     virtual PgfExpr eabs(PgfBindType bind_type, PgfText *name, PgfExpr body);

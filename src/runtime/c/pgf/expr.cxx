@@ -1149,23 +1149,30 @@ exit:
 PgfExpr PgfExprProbEstimator::eabs(PgfBindType bind_type, PgfText *name, PgfExpr body)
 {
     m->match_expr(this, body);
+    cat_prob = 0;
     return 0;
 }
 
 PgfExpr PgfExprProbEstimator::eapp(PgfExpr fun, PgfExpr arg)
 {
-    m->match_expr(this, fun);
+    prob_t tmp = cat_prob_total;
+    cat_prob_total = 0;
     m->match_expr(this, arg);
+    cat_prob_total = tmp + cat_prob;
+    m->match_expr(this, fun);
     return 0;
 }
 
 PgfExpr PgfExprProbEstimator::elit(PgfLiteral lit)
 {
+    cat_prob = 0;
     return 0;
 }
 
 PgfExpr PgfExprProbEstimator::emeta(PgfMetaId meta_id)
 {
+    prob += cat_prob_total;
+    cat_prob = 0;
     return 0;
 }
 
@@ -1173,16 +1180,25 @@ PgfExpr PgfExprProbEstimator::efun(PgfText *name)
 {
     ref<PgfAbsFun> absfun =
         namespace_lookup(pgf->abstract.funs, name);
-    if (absfun == 0)
+    if (absfun == 0) {
         prob = INFINITY;
-    else
+        cat_prob = INFINITY;
+    } else {
         prob += absfun->prob;
 
+        ref<PgfAbsCat> abscat =
+            namespace_lookup(pgf->abstract.cats, &absfun->type->name);
+        if (abscat == 0)
+            cat_prob = INFINITY;
+        else
+            cat_prob = abscat->prob;
+    }
     return 0;
 }
 
 PgfExpr PgfExprProbEstimator::evar(int index)
 {
+    cat_prob = 0;
     return 0;
 }
 
