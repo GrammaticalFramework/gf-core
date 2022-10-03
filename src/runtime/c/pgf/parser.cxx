@@ -287,7 +287,7 @@ public:
     virtual void print1(PgfPrinter *printer, State *state, PgfMarshaller *m)
     {
 #ifdef PARSER_DEBUG
-        printer->nprintf(32,"%ld-%ld; ", conts->state->end, state->start);
+        printer->nprintf(32,"%ld-%ld; ", conts->state->end.pos, state->start.pos);
 
         size_t index = seq_index / lin->lincat->fields->len;
         ref<PgfPResult> res = *vector_elem(lin->res, index);
@@ -595,7 +595,7 @@ void PgfParser::Choice::trace(State *state)
 {
 #ifdef PARSER_DEBUG
     PgfPrinter printer(NULL,0,NULL);
-    printer.nprintf(40,"[%ld-%ld; ", conts->state->end, state->start);
+    printer.nprintf(40,"[%ld-%ld; ", conts->state->end.pos, state->start.pos);
     printer.efun(&conts->field->lincat->name);
     printer.puts("; ");
     printer.puts(conts->field->name);
