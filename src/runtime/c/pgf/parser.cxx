@@ -205,9 +205,6 @@ public:
         Choice *choice;
         auto itr2 = parser->after->choices.find(conts);
         if (itr2 == parser->after->choices.end()) {
-            if (parser->after->choices.empty()) {
-                parser->after->viterbi_prob = conts->state->viterbi_prob+inside_prob+outside_prob;
-            }
             choice = new Choice(conts, ++parser->last_choice_id, inside_prob);
             choice->trace(parser->after);
             parser->after->choices.insert(std::pair<ParseItemConts*,Choice*>(conts, choice));
@@ -519,7 +516,7 @@ public:
                     prob_t prob = conts->state->viterbi_prob+inside_prob;
                     for (Production *prod : choice->prods) {
                         parser->before->queue.push(new ExprItem(choice,
-                                                                prod, prob+prod->lin->lincat->abscat->prob, u););
+                                                                prod, prob+prod->lin->lincat->abscat->prob, u));
                     }
                 } else {
                     for (auto ep : choice->exprs) {
@@ -677,7 +674,7 @@ void PgfParser::start_matches(PgfTextSpot *end, PgfExn* err)
         after->end   = *end;
         after->prev  = prev;
         after->next  = next;
-        after->viterbi_prob = prev ? prev->viterbi_prob : 0;
+        after->viterbi_prob = INFINITY;
 
         if (prev != NULL) prev->next = after;
         if (next != NULL) next->prev = after;
@@ -704,6 +701,22 @@ void PgfParser::end_matches(PgfTextSpot *end, PgfExn* err)
         item->trace(after,m);
         item->proceed(this,NULL);
     }
+
+    for (auto i : after->choices) {
+        ParseItemConts *conts  = i.first;
+        Choice *choice = i.second;
+
+        if (choice->is_chunk) {
+            prob_t viterbi_prob = conts->state->viterbi_prob+
+                                  conts->field->lincat->abscat->prob+
+                                  choice->viterbi_prob;
+            if (after->viterbi_prob > viterbi_prob)
+                after->viterbi_prob = viterbi_prob;
+        }
+    }
+
+    if (isinf(after->viterbi_prob))
+        after->viterbi_prob = before->viterbi_prob;
 }
 
 void PgfParser::prepare()
