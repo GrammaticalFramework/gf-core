@@ -38,6 +38,8 @@ import GF.Server(server)
 #endif
 
 import GF.Command.Messages(welcome)
+-- Needed to make it compile on GHC < 8
+import Control.Monad.Trans.Instances ()
 
 -- | Run the GF Shell in quiet mode (@gf -run@).
 mainRunGFI :: Options -> [FilePath] -> IO ()
