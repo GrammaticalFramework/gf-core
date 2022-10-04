@@ -167,6 +167,9 @@ public:
 
     static void bu_predict(ref<PgfLincatField> field, State *state, Choice *choice)
     {
+        if (field->backrefs == 0)
+            return;
+
         for (size_t i = 0; i < field->backrefs->len; i++) {
             ref<PgfLincatBackref> backref = vector_elem(field->backrefs, i);
 
@@ -187,6 +190,9 @@ public:
 
     static void eps_predict(ref<PgfLincatField> field, State *state, ParseItemConts *conts, prob_t outside_prob)
     {
+        if (field->epsilons == 0)
+            return;
+
         for (size_t i = 0; i < field->epsilons->len; i++) {
             ref<PgfLincatEpsilon> epsilon = vector_elem(field->epsilons, i);
             size_t n_args = epsilon->lin->absfun->type->hypos->len;
