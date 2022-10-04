@@ -1,3 +1,5 @@
+{-# LANGUAGE CPP #-}
+{-# LANGUAGE DeriveFunctor #-}
 -- BNF Converter: Error Monad
 -- Copyright (C) 2004  Author:  Aarne Ranta
 
@@ -6,12 +8,17 @@ module GFCC.ErrM where
 
 -- Control.Monad.Fail import will become redundant in GHC 8.8+
 import qualified Control.Monad.Fail as Fail
+import Control.Monad (ap)
 
 
 -- the Error monad: like Maybe type with error msgs
 
 data Err a = Ok a | Bad String
-  deriving (Read, Show, Eq)
+  deriving (Read, Show, Eq, Functor)
+
+instance Applicative Err where
+  pure = Ok
+  (<*>) = ap
 
 instance Monad Err where
   return      = Ok
