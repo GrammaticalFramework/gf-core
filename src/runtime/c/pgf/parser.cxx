@@ -137,6 +137,19 @@ public:
         this->args[d]      = choice;
     }
 
+    ParseItem(ParseItemConts *conts, PgfLincatEpsilon *epsilon, prob_t outside_prob)
+    {
+        this->outside_prob = outside_prob;
+        this->inside_prob  = epsilon->lin->absfun->prob;
+        this->conts        = conts;
+        this->lin          = epsilon->lin;
+        this->seq_index    = epsilon->seq_index;
+        this->dot          = 0;
+
+        size_t n_args = epsilon->lin->absfun->type->hypos->len;
+        memset(this->args, 0, sizeof(Choice*)*n_args);
+    }
+
     ParseItem(ParseItem *item,
               size_t d, Choice *choice)
     {
@@ -152,20 +165,33 @@ public:
         this->args[d]      = choice;
     }
 
-    static void bu_predict(PgfLincatBackref *backref, State *state, Choice *choice)
+    static void bu_predict(ref<PgfLincatField> field, State *state, Choice *choice)
     {
-        ref<PgfSequence> seq =
-            *vector_elem(backref->lin->seqs, backref->seq_index);
-        PgfSymbol sym = seq->syms.data[backref->dot];
-        ref<PgfSymbolCat> symcat = ref<PgfSymbolCat>::untagged(sym);
+        for (size_t i = 0; i < field->backrefs->len; i++) {
+            ref<PgfLincatBackref> backref = vector_elem(field->backrefs, i);
 
-        size_t index = backref->seq_index % backref->lin->lincat->fields->len;
-        ref<PgfLincatField> field = vector_elem(backref->lin->lincat->fields, index);
-        ParseItemConts *conts = choice->conts->state->get_conts(field, 0);
+            ref<PgfSequence> seq =
+                *vector_elem(backref->lin->seqs, backref->seq_index);
+            PgfSymbol sym = seq->syms.data[backref->dot];
+            ref<PgfSymbolCat> symcat = ref<PgfSymbolCat>::untagged(sym);
 
-        size_t n_args = backref->lin->absfun->type->hypos->len;
-        state->queue.push(new(n_args) ParseItem(conts, backref,
-                                                symcat->d, choice));
+            size_t index = backref->seq_index % backref->lin->lincat->fields->len;
+            ref<PgfLincatField> up_field = vector_elem(backref->lin->lincat->fields, index);
+            ParseItemConts *conts = choice->conts->state->get_conts(up_field, 0);
+
+            size_t n_args = backref->lin->absfun->type->hypos->len;
+            state->queue.push(new(n_args) ParseItem(conts, backref,
+                                                    symcat->d, choice));
+        }
+    }
+
+    static void eps_predict(ref<PgfLincatField> field, State *state, ParseItemConts *conts, prob_t outside_prob)
+    {
+        for (size_t i = 0; i < field->epsilons->len; i++) {
+            ref<PgfLincatEpsilon> epsilon = vector_elem(field->epsilons, i);
+            size_t n_args = epsilon->lin->absfun->type->hypos->len;
+            state->queue.push(new(n_args) ParseItem(conts, epsilon, outside_prob));
+        }
     }
 
     void combine(State *state, Choice *choice)
@@ -229,10 +255,7 @@ public:
             for (ParseItem *item : conts->items) {
                 item->combine(parser->after,choice);
             }
-            for (size_t i = 0; i < conts->field->backrefs->len; i++) {
-                ref<PgfLincatBackref> backref = vector_elem(conts->field->backrefs, i);
-                bu_predict(backref,parser->after,choice);
-            }
+            bu_predict(conts->field,parser->after,choice);
         }
     }
 
@@ -254,6 +277,8 @@ public:
 
                 ParseItemConts *conts = parser->after->get_conts(field, 0);
                 conts->items.push_back(this);
+
+                eps_predict(field, parser->after, conts, inside_prob+outside_prob);
             }
         }
         default:;

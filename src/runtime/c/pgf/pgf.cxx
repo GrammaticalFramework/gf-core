@@ -1506,6 +1506,7 @@ public:
             vector_elem(db_fields, i)->lincat   = lincat;
             vector_elem(db_fields, i)->name     = name;
             vector_elem(db_fields, i)->backrefs = 0;
+            vector_elem(db_fields, i)->epsilons = 0;
         }
         lincat->fields = db_fields;
 

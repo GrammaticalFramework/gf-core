@@ -684,6 +684,7 @@ ref<Vector<PgfLincatField>> PgfReader::read_lincat_fields(ref<PgfConcrLincat> li
         field->lincat = lincat;
         field->name = read_text();
         field->backrefs = 0;
+        field->epsilons = 0;
     }
     return fields;
 }
@@ -717,7 +718,19 @@ ref<PgfConcrLin> PgfReader::read_lin()
         ref<PgfPResult> result = *vector_elem(lin->res, seq_index / n_fields);
 
         size_t dot = 0;
-        if (dot < seq->syms.len) {
+        if (dot >= seq->syms.len) {
+            size_t index = seq_index % n_fields;
+            ref<Vector<PgfLincatEpsilon>> epsilons =
+                vector_elem(lin->lincat->fields,index)->epsilons;
+            epsilons =
+                vector_resize(epsilons, epsilons->len+1,
+                              PgfDB::get_txn_id());
+            vector_elem(lin->lincat->fields,index)->epsilons = epsilons;
+            ref<PgfLincatEpsilon> epsilon =
+                vector_elem(epsilons,epsilons->len-1);
+            epsilon->lin = lin;
+            epsilon->seq_index = seq_index;
+        } else {
             PgfSymbol sym = *vector_elem(&seq->syms,dot);
             switch (ref<PgfSymbol>::get_tag(sym)) {
             case PgfSymbolCat::tag: {

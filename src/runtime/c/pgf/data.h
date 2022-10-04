@@ -211,11 +211,13 @@ struct PGF_INTERNAL_DECL PgfSymbolALLCAPIT {
 
 struct PGF_INTERNAL_DECL PgfConcrLincat;
 struct PGF_INTERNAL_DECL PgfLincatBackref;
+struct PGF_INTERNAL_DECL PgfLincatEpsilon;
 
 struct PGF_INTERNAL_DECL PgfLincatField {
     ref<PgfConcrLincat> lincat;
     ref<PgfText> name;
     ref<Vector<PgfLincatBackref>> backrefs;
+    ref<Vector<PgfLincatEpsilon>> epsilons;
 
     static void release(ref<PgfLincatField> field);
 };
@@ -255,6 +257,11 @@ struct PGF_INTERNAL_DECL PgfLincatBackref {
     ref<PgfConcrLin> lin;
     size_t seq_index;
     size_t dot;
+};
+
+struct PGF_INTERNAL_DECL PgfLincatEpsilon {
+    ref<PgfConcrLin> lin;
+    size_t seq_index;
 };
 
 struct PGF_INTERNAL_DECL PgfConcrPrintname {
