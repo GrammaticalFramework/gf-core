@@ -101,6 +101,9 @@ import Data.STRef
 import GHC.Base
 import GHC.Word
 --import GHC.Int
+#if MIN_VERSION_base(4,16,0)
+import GHC.Exts (wordToWord16#, word16ToWord#, wordToWord32#, word32ToWord#)
+#endif
 #endif
 
 -- Control.Monad.Fail import will become redundant in GHC 8.8+
@@ -532,8 +535,13 @@ shiftl_w32 :: Word32 -> Int -> Word32
 shiftl_w64 :: Word64 -> Int -> Word64
 
 #if defined(__GLASGOW_HASKELL__) && !defined(__HADDOCK__)
+#if MIN_VERSION_base(4,16,0)
+shiftl_w16 (W16# w) (I# i) = W16# (wordToWord16# ((word16ToWord# w) `uncheckedShiftL#`   i))
+shiftl_w32 (W32# w) (I# i) = W32# (wordToWord32# ((word32ToWord# w) `uncheckedShiftL#`   i))
+#else
 shiftl_w16 (W16# w) (I# i) = W16# (w `uncheckedShiftL#`   i)
 shiftl_w32 (W32# w) (I# i) = W32# (w `uncheckedShiftL#`   i)
+#endif
 
 #if WORD_SIZE_IN_BITS < 64
 shiftl_w64 (W64# w) (I# i) = W64# (w `uncheckedShiftL64#` i)
