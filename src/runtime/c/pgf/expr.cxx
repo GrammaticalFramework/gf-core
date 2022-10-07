@@ -855,11 +855,15 @@ error:
 		       token_tag != PGF_TOKEN_COMMA &&
 		       token_tag != PGF_TOKEN_SEMI &&
 		       token_tag != PGF_TOKEN_UNKNOWN) {
+			PgfExpr fun = expr;
 			PgfExpr arg = parse_arg();
 			if (arg == 0)
 				return expr;
 
-            expr = u->eapp(expr, arg);
+            expr = u->eapp(fun, arg);
+
+            u->free_ref(fun);
+            u->free_ref(arg);
 		}
 
 		return expr;
