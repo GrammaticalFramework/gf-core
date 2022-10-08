@@ -399,9 +399,26 @@ pgf_embed_funs(PgfItor* fn, PgfText* name, object value, PgfExn* err)
 static PyObject*
 PGF_embed(PGFObject* self, PyObject *modname)
 {
-	PyObject *m = PyImport_AddModuleObject(modname);
-	if (m == NULL)
-		return NULL;
+    PyObject *m = PyImport_Import(modname);
+    if (m == NULL) {
+        PyObject *globals = PyEval_GetGlobals();
+        if (globals != NULL) {
+            PyObject *exc = PyDict_GetItemString(globals, "ModuleNotFoundError");
+            if (exc != NULL) {
+                if (PyErr_ExceptionMatches(exc)) {
+                    PyErr_Clear();
+                    m = PyImport_AddModuleObject(modname);
+                    Py_INCREF(m);
+                }
+            }
+        }
+    }
+    if (m == NULL)
+        return NULL;
+
+    if (PyModule_AddObjectRef(m, "__pgf__", (PyObject*) self) != 0) {
+        return NULL;
+    }
 
     PgfExn err;
     PyPGFClosure clo = { { pgf_embed_funs }, self, m };
@@ -411,7 +428,6 @@ PGF_embed(PGFObject* self, PyObject *modname)
         return NULL;
     }
 
-    Py_INCREF(m);
     return m;
 }
 
