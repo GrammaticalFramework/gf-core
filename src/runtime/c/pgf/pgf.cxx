@@ -615,7 +615,8 @@ PgfExpr pgf_read_expr(PgfText *input, PgfUnmarshaller *u)
     PgfExprParser parser(input, u);
     PgfExpr res = parser.parse_expr();
     if (!parser.eof()) {
-        u->free_ref(res);
+        if (res != 0)
+            u->free_ref(res);
         return 0;
     }
     return res;
