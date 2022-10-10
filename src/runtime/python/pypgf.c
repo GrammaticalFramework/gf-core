@@ -401,7 +401,7 @@ PGF_embed(PGFObject* self, PyObject *modname)
 {
     PyObject *m = PyImport_Import(modname);
     if (m == NULL) {
-        PyObject *globals = PyEval_GetGlobals();
+        PyObject *globals = PyEval_GetBuiltins();
         if (globals != NULL) {
             PyObject *exc = PyDict_GetItemString(globals, "ModuleNotFoundError");
             if (exc != NULL) {
