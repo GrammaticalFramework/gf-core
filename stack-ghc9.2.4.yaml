@@ -1,0 +1,7 @@
+resolver: nightly-2022-09-30 # GHC-9.2.4
+
+extra-deps:
+- multipart-0.2.0@sha256:b8770e3ff6089be4dd089a8250894b31287cca671f3d258190a505f9351fa8a9,1084
+- cgi-3001.5.0.0@sha256:3d1193a328d5f627a021a0ef3927c1ae41dd341e32dba612fed52d0e3a6df056,2990
+
+allow-newer: true
