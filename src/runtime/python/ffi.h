@@ -12,6 +12,12 @@ typedef struct {
     PgfRevision revision;
 } PGFObject;
 
+typedef struct {
+    PyObject_HEAD
+    PGFObject* grammar;
+    PgfConcrRevision concr;
+} ConcrObject;
+
 extern PyObject *PGFError;
 PgfExnType handleError(PgfExn err);
 

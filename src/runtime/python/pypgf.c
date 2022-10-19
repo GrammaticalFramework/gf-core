@@ -7,6 +7,199 @@
 #include "./ffi.h"
 #include "./transactions.h"
 
+static ConcrObject*
+Concr_new(PyTypeObject *type, PyObject *args, PyObject *kwds)
+{
+    ConcrObject* self = (ConcrObject *)type->tp_alloc(type, 0);
+    if (self != NULL) {
+        self->grammar = 0;
+        self->concr   = 0;
+    }
+
+    return self;
+}
+
+static void
+Concr_dealloc(ConcrObject* self)
+{
+    if (self->grammar != NULL && self->concr != 0)
+        pgf_free_revision(self->grammar->db, self->concr);
+    Py_XDECREF(self->grammar);
+}
+
+static int
+Concr_init(ConcrObject *self, PyObject *args, PyObject *kwds)
+{
+    return -1;
+}
+
+static PyObject*
+Concr_getName(ConcrObject *self, void *closure)
+{
+    PgfExn err;
+    PgfText *name = pgf_concrete_name(self->grammar->db, self->concr, &err);
+    PyObject *pyname = PyUnicode_FromStringAndSize(name->text, name->size);
+    free(name);
+    return pyname;
+}
+
+/*
+static PyObject*
+Concr_getLanguageCode(ConcrObject *self, void *closure)
+{
+    PgfExn err;
+    PgfText *code = pgf_language_code(self->grammar->db, self->concr, &err);
+    PyObject *pycode = PyUnicode_FromStringAndSize(code->text, code->size);
+    free(code);
+    return pycode;
+}
+*/
+
+static PyObject*
+Concr_linearize(ConcrObject* self, PyObject *args)
+{
+	ExprObject* pyexpr;
+	if (!PyArg_ParseTuple(args, "O!", &pgf_ExprType, &pyexpr))
+        return NULL;
+
+	PgfExn err;
+	PgfText *text = 
+        pgf_linearize(self->grammar->db, self->concr, (PgfExpr) pyexpr, NULL,
+                      &marshaller, &err);
+	if (handleError(err) != PGF_EXN_NONE) {
+        return NULL;
+	}
+
+	PyObject* pystr = PyUnicode_FromStringAndSize(text->text, text->size);
+
+	free(text);
+	return pystr;
+}
+
+static PyGetSetDef Concr_getseters[] = {
+    {"name", 
+     (getter)Concr_getName, NULL,
+     "the name of the concrete syntax",
+    },
+/*    {"languageCode", 
+     (getter)Concr_getLanguageCode, NULL,
+     "the language code for this concrete syntax",
+    },*/
+    {NULL}  /* Sentinel */
+};
+
+static PyMethodDef Concr_methods[] = {
+/*    {"printName", (PyCFunction)Concr_printName, METH_VARARGS,
+     "Returns the print name of a function or category"
+    },
+    {"parse", (PyCFunction)Concr_parse, METH_VARARGS | METH_KEYWORDS,
+     "Parses a string and returns an iterator over the abstract trees for this sentence\n\n"
+     "Named arguments:\n"
+     "- sentence (string)\n"
+     "- cat (string); OPTIONAL, default: the startcat of the grammar\n"
+     "- n (int), max. trees; OPTIONAL, default: extract all trees\n"
+     "- heuristics (double >= 0.0); OPTIONAL, default: taken from the flags in the grammar\n"
+     "- callbacks (list of category and callback); OPTIONAL, default: built-in callbacks only for Int, String and Float"
+    },
+    {"complete", (PyCFunction)Concr_complete, METH_VARARGS | METH_KEYWORDS,
+     "Parses a partial string and returns a list with the top n possible next tokens"
+     "Named arguments:\n"
+     "- sentence (string or a (string,pgf.BIND) tuple. The later indicates that the sentence ends with a BIND token)\n"
+     "- cat (string); OPTIONAL, default: the startcat of the grammar\n"
+     "- prefix (string); OPTIONAL, the prefix of predicted tokens"
+     "- n (int), max. number of predicted tokens"
+    },
+    {"parseval", (PyCFunction)Concr_parseval, METH_VARARGS,
+     "Computes precision, recall and exact match for the parser on a given abstract tree"
+    },
+    {"lookupSentence", (PyCFunction)Concr_lookupSentence, METH_VARARGS | METH_KEYWORDS,
+     "Looks up a sentence from the grammar by a sequence of keywords\n\n"
+     "Named arguments:\n"
+     "- sentence (string) or tokens (list of strings)\n"
+     "- cat (string); OPTIONAL, default: the startcat of the grammar\n"
+     "- n (int), max. trees; OPTIONAL, default: extract all trees"
+    },*/
+    {"linearize", (PyCFunction)Concr_linearize, METH_VARARGS,
+     "Takes an abstract tree and linearizes it to a string"
+    },
+    /*{"linearizeAll", (PyCFunction)Concr_linearizeAll, METH_VARARGS | METH_KEYWORDS,
+     "Takes an abstract tree and linearizes with all variants"
+    },
+    {"tabularLinearize", (PyCFunction)Concr_tabularLinearize, METH_VARARGS,
+     "Takes an abstract tree and linearizes it to a table containing all fields"
+	},
+    {"bracketedLinearize", (PyCFunction)Concr_bracketedLinearize, METH_VARARGS,
+     "Takes an abstract tree and linearizes it to a bracketed string"
+    },
+    {"bracketedLinearizeAll", (PyCFunction)Concr_bracketedLinearizeAll, METH_VARARGS | METH_KEYWORDS,
+     "Takes an abstract tree and linearizes all variants into bracketed strings"
+    },
+    {"hasLinearization", (PyCFunction)Concr_hasLinearization, METH_VARARGS,
+     "hasLinearization(f) returns true if the function f has linearization in the concrete syntax"
+    },
+    {"graphvizParseTree", (PyCFunction)Concr_graphvizParseTree, METH_VARARGS,
+     "Renders an abstract syntax tree as a parse tree in Graphviz format"
+    },
+    {"lookupMorpho", (PyCFunction)Concr_lookupMorpho, METH_VARARGS,
+     "Looks up a word in the lexicon of the grammar"
+    },
+    {"lookupCohorts", (PyCFunction)Concr_lookupCohorts, METH_VARARGS,
+     "Takes a sentence and returns all matches for lexical items from the grammar in that sentence"
+    },
+    {"fullFormLexicon", (PyCFunction)Concr_fullFormLexicon, METH_VARARGS,
+     "Enumerates all words in the lexicon (useful for extracting full form lexicons)"
+    },
+    {"load", (PyCFunction)Concr_load, METH_VARARGS,
+     "Loads the concrete syntax from a .pgf_c file"
+    },
+    {"unload", (PyCFunction)Concr_unload, METH_VARARGS,
+     "Unloads the concrete syntax"
+    },*/
+    {NULL}  /* Sentinel */
+};
+
+static PyTypeObject pgf_ConcrType = {
+    PyVarObject_HEAD_INIT(NULL, 0)
+    //0,                         /*ob_size*/
+    "pgf.Concr",               /*tp_name*/
+    sizeof(ConcrObject),       /*tp_basicsize*/
+    0,                         /*tp_itemsize*/
+    (destructor)Concr_dealloc, /*tp_dealloc*/
+    0,                         /*tp_print*/
+    0,                         /*tp_getattr*/
+    0,                         /*tp_setattr*/
+    0,                         /*tp_compare*/
+    0,                         /*tp_repr*/
+    0,                         /*tp_as_number*/
+    0,                         /*tp_as_sequence*/
+    0,                         /*tp_as_mapping*/
+    0,                         /*tp_hash */
+    0,                         /*tp_call*/
+    0,                         /*tp_str*/
+    0,                         /*tp_getattro*/
+    0,                         /*tp_setattro*/
+    0,                         /*tp_as_buffer*/
+    Py_TPFLAGS_DEFAULT | Py_TPFLAGS_BASETYPE, /*tp_flags*/
+    "concrete syntax",         /*tp_doc*/
+    0,		                   /*tp_traverse */
+    0,		                   /*tp_clear */
+    0,		                   /*tp_richcompare */
+    0,		                   /*tp_weaklistoffset */
+    0,		                   /*tp_iter */
+    0,		                   /*tp_iternext */
+    Concr_methods,             /*tp_methods */
+    0,                         /*tp_members */
+    Concr_getseters,           /*tp_getset */
+    0,                         /*tp_base */
+    0,                         /*tp_dict */
+    0,                         /*tp_descr_get */
+    0,                         /*tp_descr_set */
+    0,                         /*tp_dictoffset */
+    (initproc)Concr_init,      /*tp_init */
+    0,                         /*tp_alloc */
+    (newfunc)Concr_new,        /*tp_new */
+};
+
 // ----------------------------------------------------------------------------
 // PGF: the grammar object
 
@@ -88,6 +281,64 @@ PGF_getAbstractName(PGFObject *self, void *closure)
     PyObject *name = PyUnicode_FromStringAndSize(txt->text, txt->size);
     free(txt);
     return name;
+}
+
+static void
+pgf_collect_langs(PgfItor *fn, PgfText *name, PgfConcrRevision concr, PgfExn *err)
+{
+    PyPGFClosure* clo = (PyPGFClosure*) fn;
+    
+    PyObject* py_name = NULL;
+    PyObject* py_lang = NULL;
+
+	py_name = PyUnicode_FromStringAndSize(name->text, name->size);
+	if (py_name == NULL) {
+		err->type = PGF_EXN_OTHER_ERROR;
+		goto end;
+	}
+
+	py_lang = pgf_ConcrType.tp_alloc(&pgf_ConcrType, 0);
+	if (py_lang == NULL) {
+		err->type = PGF_EXN_OTHER_ERROR;
+		goto end;
+	}
+
+	((ConcrObject *) py_lang)->concr = concr;
+	((ConcrObject *) py_lang)->grammar = clo->grammar;
+	Py_INCREF(clo->grammar);
+
+    if (PyDict_SetItem((PyObject*) clo->collection, py_name, py_lang) != 0) {
+		err->type = PGF_EXN_OTHER_ERROR;
+		goto end;
+	}
+
+end:
+    Py_XDECREF(py_lang);
+    Py_XDECREF(py_name);
+}
+
+static PyObject*
+PGF_getLanguages(PGFObject *self, void *closure)
+{
+	PyObject* languages = PyDict_New();
+	if (languages == NULL)
+		return NULL;
+
+	PgfExn err;
+
+	PyPGFClosure clo = { { pgf_collect_langs }, self, languages };
+
+	pgf_iter_concretes(self->db, self->revision, &clo.fn, &err);
+    if (handleError(err) != PGF_EXN_NONE) {
+        Py_DECREF(languages);
+        return NULL;
+    }
+
+	PyObject* proxy = PyDictProxy_New(languages);
+	
+	Py_DECREF(languages);
+
+    return proxy;
 }
 
 static void
@@ -355,6 +606,10 @@ static PyGetSetDef PGF_getseters[] = {
     {"abstractName",
      (getter)PGF_getAbstractName, NULL,
      "the abstract syntax name",
+     NULL},
+    {"languages", 
+     (getter)PGF_getLanguages, NULL,
+     "a map containing all concrete languages in the grammar",
      NULL},
     {"categories",
      (getter)PGF_getCategories, NULL,
@@ -813,6 +1068,7 @@ MOD_INIT(pgf)
     PyObject *m;
 
     TYPE_READY(pgf_PGFType);
+    TYPE_READY(pgf_ConcrType);
     TYPE_READY(pgf_TransactionType);
     TYPE_READY(pgf_ExprType);
     TYPE_READY(pgf_ExprAbsType);
@@ -833,6 +1089,7 @@ MOD_INIT(pgf)
     ADD_TYPE_DIRECT("PGFError", PGFError);
 
     ADD_TYPE("PGF", pgf_PGFType);
+    ADD_TYPE("Concr", pgf_ConcrType);
     ADD_TYPE("Transaction", pgf_TransactionType);
     ADD_TYPE("Expr", pgf_ExprType);
     ADD_TYPE("ExprAbs", pgf_ExprAbsType);
