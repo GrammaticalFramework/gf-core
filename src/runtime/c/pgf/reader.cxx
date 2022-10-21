@@ -693,6 +693,9 @@ ref<PgfConcrLin> PgfReader::read_lin()
 {
     ref<PgfConcrLin> lin = read_name(&PgfConcrLin::name);
     lin->absfun = namespace_lookup(abstract->funs, &lin->name);
+    if (lin->absfun == 0)
+        throw pgf_error("Found a lin without a fun");
+
     lin->args = read_vector(&PgfReader::read_parg);
     lin->res  = read_vector(&PgfReader::read_presult2);
     lin->seqs = read_seq_ids(lin.tagged());
