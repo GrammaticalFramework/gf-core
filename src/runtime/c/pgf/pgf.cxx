@@ -60,6 +60,8 @@ PgfDB *pgf_read_pgf(const char* fpath, PgfRevision *revision,
             PgfReader rdr(in,probs_callback);
             ref<PgfPGF> pgf = rdr.read_pgf();
 
+            db->set_transaction_object(pgf.as_object());
+
             *revision = db->register_revision(pgf.tagged(), PgfDB::get_txn_id());
             db->commit(pgf.as_object());
         }
@@ -107,6 +109,8 @@ PgfDB *pgf_boot_ngf(const char* pgf_path, const char* ngf_path,
 
             PgfReader rdr(in,probs_callback);
             ref<PgfPGF> pgf = rdr.read_pgf();
+
+            db->set_transaction_object(pgf.as_object());
 
             *revision = db->register_revision(pgf.tagged(), PgfDB::get_txn_id());
             db->commit(pgf.as_object());
@@ -188,6 +192,9 @@ PgfDB *pgf_new_ngf(PgfText *abstract_name,
             pgf->abstract.funs = 0;
             pgf->abstract.cats = 0;
             pgf->concretes = 0;
+
+            db->set_transaction_object(pgf.as_object());
+
             *revision = db->register_revision(pgf.tagged(), PgfDB::get_txn_id());
             db->commit(pgf.as_object());
         }
@@ -262,6 +269,8 @@ PGF_API_DECL
 void pgf_free_revision(PgfDB *db, PgfRevision revision)
 {
     try {
+        ref<PgfPGF> pgf = db->revision2pgf(revision);
+        db->rollback(pgf.as_object());
         db->unregister_revision(revision);
         db->ref_count--;
     } catch (std::runtime_error& e) {
@@ -1189,6 +1198,8 @@ PgfRevision pgf_start_transaction(PgfDB *db, PgfExn *err)
         new_pgf->abstract.cats = pgf->abstract.cats;
         new_pgf->concretes = pgf->concretes;
 
+        db->set_transaction_object(new_pgf.as_object());
+
         object rev = db->register_revision(new_pgf.tagged(), PgfDB::get_txn_id());
 
         PgfDB::free(pgf);
@@ -1210,21 +1221,6 @@ void pgf_commit_transaction(PgfDB *db, PgfRevision revision,
         ref<PgfPGF> new_pgf = db->revision2pgf(revision);
         db->commit(new_pgf.as_object());
     } PGF_API_END
-}
-
-PGF_API
-void pgf_rollback_transaction(PgfDB *db, PgfRevision revision)
-{
-    try {
-        db->unregister_revision(revision);
-        db->rollback();
-        db->ref_count--;
-    } catch (std::runtime_error& e) {
-        // silently ignore and hope for the best
-    }
-
-    if (!db->ref_count)
-        delete db;
 }
 
 PGF_API
@@ -1391,24 +1387,26 @@ PgfConcrRevision pgf_clone_concrete(PgfDB *db, PgfRevision revision,
         if (concr == 0)
             throw pgf_error("Unknown concrete syntax");
 
-        ref<PgfConcr> clone = PgfDB::malloc<PgfConcr>(name->size+1);
-        clone->cflags = concr->cflags;
-        clone->lins = concr->lins;
-        clone->lincats = concr->lincats;
-        clone->phrasetable = concr->phrasetable;
-        clone->printnames = concr->printnames;
-        clone->prev = 0;
-        clone->next = 0;
-        memcpy(&clone->name, name, sizeof(PgfText)+name->size+1);
+        ref<PgfConcr> clone = concr;
+        if (!current_db->is_transient_object(clone.as_object())) {
+            clone = PgfDB::malloc<PgfConcr>(name->size+1);
+            clone->cflags = concr->cflags;
+            clone->lins = concr->lins;
+            clone->lincats = concr->lincats;
+            clone->phrasetable = concr->phrasetable;
+            clone->printnames = concr->printnames;
+            clone->prev = 0;
+            clone->next = 0;
+            memcpy(&clone->name, name, sizeof(PgfText)+name->size+1);
+
+            Namespace<PgfConcr> concrs =
+                namespace_insert(pgf->concretes, clone);
+            pgf->concretes = concrs;
+
+            PgfDB::free(concr, concr->name.size+1);
+        }
 
         object rev = db->register_revision(clone.tagged(), PgfDB::get_txn_id());
-
-        Namespace<PgfConcr> concrs =
-            namespace_insert(pgf->concretes, clone);
-        pgf->concretes = concrs;
-
-        PgfDB::free(concr, concr->name.size+1);
-
         db->ref_count++;
         return rev;
     } PGF_API_END

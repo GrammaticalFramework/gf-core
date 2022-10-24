@@ -80,6 +80,8 @@ foreign import ccall pgf_merge_pgf :: Ptr PgfDB -> Ptr PGF -> CString -> Ptr Pgf
 
 foreign import ccall pgf_write_pgf :: CString -> Ptr PgfDB -> Ptr PGF -> Ptr PgfExn -> IO ()
 
+foreign import ccall "pgf_free_revision" pgf_free_revision_ :: Ptr PgfDB -> Ptr PGF -> IO ()
+
 foreign import ccall "&pgf_free_revision" pgf_free_revision :: FinalizerEnvPtr PgfDB PGF
 
 foreign import ccall "pgf_free_concr_revision" pgf_free_concr_revision_ :: Ptr PgfDB -> Ptr Concr -> IO ()
@@ -193,8 +195,6 @@ foreign import ccall pgf_check_type :: Ptr PgfDB -> Ptr PGF -> Ptr (StablePtr Ty
 foreign import ccall pgf_start_transaction :: Ptr PgfDB -> Ptr PgfExn -> IO (Ptr PGF)
 
 foreign import ccall pgf_commit_transaction :: Ptr PgfDB -> Ptr PGF -> Ptr PgfExn -> IO ()
-
-foreign import ccall pgf_rollback_transaction :: Ptr PgfDB -> Ptr PGF -> IO ()
 
 foreign import ccall pgf_checkout_revision :: Ptr PgfDB -> Ptr PgfExn -> IO (Ptr PGF)
 

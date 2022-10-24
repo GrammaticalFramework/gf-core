@@ -689,6 +689,91 @@ ref<Vector<PgfLincatField>> PgfReader::read_lincat_fields(ref<PgfConcrLincat> li
     return fields;
 }
 
+static void add_to_index(ref<PgfConcr> concrete, ref<PgfConcrLin> lin, size_t seq_index, size_t dot)
+{
+    size_t n_fields = lin->lincat->fields->len;
+    ref<PgfSequence> seq = *vector_elem(lin->seqs,seq_index);
+    ref<PgfPResult> result = *vector_elem(lin->res, seq_index / n_fields);
+    ref<PgfLincatField> field = vector_elem(lin->lincat->fields, seq_index % n_fields);
+
+    if (dot >= seq->syms.len) {
+        ref<Vector<PgfLincatEpsilon>> epsilons = field->epsilons;
+        epsilons =
+            vector_resize(epsilons, ((epsilons == 0) ? 0 : epsilons->len)+1,
+                          PgfDB::get_txn_id());
+        field->epsilons = epsilons;
+        ref<PgfLincatEpsilon> epsilon =
+            vector_elem(epsilons,epsilons->len-1);
+        epsilon->lin = lin;
+        epsilon->seq_index = seq_index;
+
+        if (epsilons->len == 1 && field->backrefs != 0) {
+            for (size_t i = 0; i < field->backrefs->len; i++) {
+                ref<PgfLincatBackref> backref = vector_elem(field->backrefs,i);
+                add_to_index(concrete,backref->lin,backref->seq_index,backref->dot+1);
+            }
+        }
+    } else {
+        PgfSymbol sym = *vector_elem(&seq->syms,dot);
+        switch (ref<PgfSymbol>::get_tag(sym)) {
+        case PgfSymbolCat::tag: {
+            auto sym_cat = ref<PgfSymbolCat>::untagged(sym);
+
+            ref<PgfHypo> hypo =
+                vector_elem(lin->absfun->type->hypos,sym_cat->d);
+            ref<PgfConcrLincat> lincat =
+                namespace_lookup(concrete->lincats,
+                                 &hypo->type->name);
+            if (lincat == 0)
+                throw pgf_error("Found a lin which uses a category without a lincat");
+
+            size_t max_values = 1;
+            size_t ranges[sym_cat->r.n_terms];
+            for (size_t i = 0; i < sym_cat->r.n_terms; i++) {
+                for (size_t j = 0; j < result->vars->len; j++) {
+                    auto var_range = vector_elem(result->vars, j);
+                    if (var_range->var == sym_cat->r.terms[i].var) {
+                        ranges[i] = vector_elem(result->vars, j)->range;
+                        max_values *= var_range->range;
+                        break;
+                    }
+                }
+            }
+
+            bool is_epsilon = false;
+            for (size_t values = 0; values < max_values; values++) {
+                size_t v = values;
+                size_t index = sym_cat->r.i0;
+                for (size_t i = 0; i < sym_cat->r.n_terms; i++) {
+                    index += sym_cat->r.terms[i].factor * (v % ranges[i]);
+                    v = v / ranges[i];
+                }
+
+                ref<Vector<PgfLincatBackref>> backrefs =
+                    vector_elem(lincat->fields,index)->backrefs;
+                backrefs =
+                    vector_resize(backrefs, ((backrefs == 0) ? 0 : backrefs->len)+1,
+                                  PgfDB::get_txn_id());
+                vector_elem(lincat->fields,index)->backrefs = backrefs;
+                ref<PgfLincatBackref> backref =
+                    vector_elem(backrefs,backrefs->len-1);
+                backref->lin = lin;
+                backref->seq_index = seq_index;
+                backref->dot = dot;
+
+                if (vector_elem(lincat->fields,index)->epsilons != 0)
+                    is_epsilon = true;
+            }
+
+            if (is_epsilon)
+                add_to_index(concrete,lin,seq_index,dot+1);
+
+            break;
+        }
+        }
+    }
+};
+
 ref<PgfConcrLin> PgfReader::read_lin()
 {
     ref<PgfConcrLin> lin = read_name(&PgfConcrLin::name);
@@ -705,82 +790,10 @@ ref<PgfConcrLin> PgfReader::read_lin()
     if (lin->lincat == 0)
         throw pgf_error("Found a lin which uses a category without a lincat");
 
-    ref<Vector<PgfHypo>> hypos = lin->absfun->type->hypos;
-    ref<PgfConcrLincat> lincats[hypos->len];
-    for (size_t d = 0; d < hypos->len; d++) {
-        lincats[d] =
-            namespace_lookup(concrete->lincats, 
-                             &vector_elem(hypos,d)->type->name);
-        if (lincats[d] == 0)
-            throw pgf_error("Found a lin which uses a category without a lincat");
-    }
-
-    size_t n_fields = lin->lincat->fields->len;
     for (size_t seq_index = 0; seq_index < lin->seqs->len; seq_index++) {
-        ref<PgfSequence> seq = *vector_elem(lin->seqs,seq_index);
-        ref<PgfPResult> result = *vector_elem(lin->res, seq_index / n_fields);
-
-        size_t dot = 0;
-        if (dot >= seq->syms.len) {
-            size_t index = seq_index % n_fields;
-            ref<Vector<PgfLincatEpsilon>> epsilons =
-                vector_elem(lin->lincat->fields,index)->epsilons;
-            epsilons =
-                vector_resize(epsilons, epsilons->len+1,
-                              PgfDB::get_txn_id());
-            vector_elem(lin->lincat->fields,index)->epsilons = epsilons;
-            ref<PgfLincatEpsilon> epsilon =
-                vector_elem(epsilons,epsilons->len-1);
-            epsilon->lin = lin;
-            epsilon->seq_index = seq_index;
-        } else {
-            PgfSymbol sym = *vector_elem(&seq->syms,dot);
-            switch (ref<PgfSymbol>::get_tag(sym)) {
-            case PgfSymbolCat::tag: {
-                auto sym_cat = ref<PgfSymbolCat>::untagged(sym);
-                ref<PgfConcrLincat> lincat = lincats[sym_cat->d];
-
-                size_t max_values = 1;
-                size_t ranges[sym_cat->r.n_terms];
-                for (size_t i = 0; i < sym_cat->r.n_terms; i++) {
-                    size_t range = 1;
-                    for (size_t j = 0; j < result->vars->len; j++) {
-                        auto var_range = vector_elem(result->vars, j);
-                        if (var_range->var == sym_cat->r.terms[i].var) {
-                            range = var_range->range;
-                            break;
-                        }
-                    }
-
-                    ranges[i]   = range;
-                    max_values *= range;
-                }
-
-                for (size_t values = 0; values < max_values; values++) {
-                    size_t v = values;
-                    size_t index = sym_cat->r.i0;
-                    for (size_t i = 0; i < sym_cat->r.n_terms; i++) {
-                        index += sym_cat->r.terms[i].factor * (v % ranges[i]);
-                        v = v / ranges[i];
-                    }
-
-                    ref<Vector<PgfLincatBackref>> backrefs =
-                        vector_elem(lincat->fields,index)->backrefs;
-                    backrefs =
-                        vector_resize(backrefs, backrefs->len+1,
-                                      PgfDB::get_txn_id());
-                    vector_elem(lincat->fields,index)->backrefs = backrefs;
-                    ref<PgfLincatBackref> backref =
-                        vector_elem(backrefs,backrefs->len-1);
-                    backref->lin = lin;
-                    backref->seq_index = seq_index;
-                    backref->dot = dot;
-                }
-                break;
-            }
-            }
-        }
+        add_to_index(concrete, lin, seq_index, 0);
     }
+
     return lin;
 }
 

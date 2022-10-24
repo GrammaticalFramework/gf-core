@@ -1,5 +1,11 @@
 module PGF2.Transactions
-          ( Transaction
+          ( -- transactions
+            TxnID
+          , Transaction
+          , startTransaction
+          , commitTransaction
+          , rollbackTransaction
+          , inTransaction
 
             -- abstract syntax
           , modifyPGF
@@ -64,24 +70,38 @@ instance Monad (Transaction k) where
              Transaction g -> g c_db c_abstr c_revision c_exn
       else return undefined
 
+data TxnID = TxnID (Ptr PgfDB) (ForeignPtr PGF)
+
+startTransaction :: PGF -> IO TxnID
+startTransaction p = do
+  c_revision <- withPgfExn "startTransaction" (pgf_start_transaction (a_db p))
+  fptr <- newForeignPtrEnv pgf_free_revision (a_db p) c_revision
+  return (TxnID (a_db p) fptr)
+
+commitTransaction :: TxnID -> IO PGF
+commitTransaction (TxnID db fptr) = do
+  withForeignPtr fptr $ \c_revision ->
+    withPgfExn "commitTransaction" (pgf_commit_transaction db c_revision)
+  langs <- getConcretes db fptr
+  return (PGF db fptr langs)
+
+rollbackTransaction :: TxnID -> IO ()
+rollbackTransaction (TxnID db fptr) =
+  finalizeForeignPtr fptr
+
+inTransaction :: TxnID -> Transaction PGF a -> IO a
+inTransaction (TxnID db fptr) (Transaction f) =
+  withForeignPtr fptr $ \c_revision -> do
+  withPgfExn "inTransaction" $ \c_exn ->
+    f db c_revision c_revision c_exn
+
 {- | @modifyPGF gr t@ updates the grammar @gr@ by performing the
    transaction @t@. The changes are applied to the new grammar
    returned by the function, while any further operations with @gr@
-   will still work with the old grammar. The newly created grammar
-   also replaces the corresponding branch. In the example:
-   
-   > do gr <- readPGF "my_grammar.pgf"
-   >    Just ty = readType "S"
-   >    gr1 <- modifyPGF gr (createFunction "foo" ty)
-   >    gr2 <- checkoutPGF gr "master"
-   >    print (functionType gr2 "foo")
-
-   both @gr1@ and @gr2@ will refer to the new grammar which contains
-   the new function @foo@.
+   will still access the old grammar.
 -}
 modifyPGF :: PGF -> Transaction PGF a -> IO PGF
 modifyPGF p (Transaction f) =
-  withForeignPtr (a_revision p) $ \c_revision ->
   withPgfExn "modifyPGF" $ \c_exn ->
   mask $ \restore -> do
     c_revision <- pgf_start_transaction (a_db p) c_exn
@@ -90,7 +110,7 @@ modifyPGF p (Transaction f) =
       then do ((restore (f (a_db p) c_revision c_revision c_exn))
                `catch`
                (\e -> do
-                    pgf_rollback_transaction (a_db p) c_revision
+                    pgf_free_revision_ (a_db p) c_revision
                     throwIO (e :: SomeException)))
               ex_type <- (#peek PgfExn, type) c_exn
               if (ex_type :: (#type PgfExnType)) == (#const PGF_EXN_NONE)
@@ -100,9 +120,9 @@ modifyPGF p (Transaction f) =
                           then do fptr <- newForeignPtrEnv pgf_free_revision (a_db p) c_revision
                                   langs <- getConcretes (a_db p) fptr
                                   return (PGF (a_db p) fptr langs)
-                          else do pgf_rollback_transaction (a_db p) c_revision
+                          else do pgf_free_revision_ (a_db p) c_revision
                                   return p
-                else do pgf_rollback_transaction (a_db p) c_revision
+                else do pgf_free_revision_ (a_db p) c_revision
                         return p
       else return p
 

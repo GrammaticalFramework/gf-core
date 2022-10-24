@@ -496,9 +496,6 @@ void pgf_commit_transaction(PgfDB *db, PgfRevision revision,
                             PgfExn *err);
 
 PGF_API_DECL
-void pgf_rollback_transaction(PgfDB *db, PgfRevision revision);
-
-PGF_API_DECL
 PgfRevision pgf_checkout_revision(PgfDB *db, PgfExn *err);
 
 PGF_API_DECL

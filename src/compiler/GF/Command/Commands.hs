@@ -730,6 +730,19 @@ pgfCommands = Map.fromList [
        ("lang","the language from which to remove the lin or the lincat")
        ],
      needsTypeCheck = False
+     }),
+  ("t", emptyCommandInfo {
+     longname = "transaction",
+     syntax = "transaction (start|commit|rollback)",
+     synopsis = "Starts, commits or rollbacks a transaction",
+     explanation = unlines [
+       "If there is no active transaction, each create and drop command",
+       "starts its own transaction. Start it manually",
+       "if you want to perform several operations in one transaction.",
+       "This also makes batch operations a lot faster."
+       ],
+     flags = [],
+     needsTypeCheck = False
      })
   ]
  where

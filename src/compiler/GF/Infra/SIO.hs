@@ -14,6 +14,8 @@ module GF.Infra.SIO(
        importGrammar,importSource, link,
        putStrLnFlush,runInterruptibly,
        modifyPGF, checkoutPGF,
+       startTransaction, commitTransaction, rollbackTransaction,
+       inTransaction,
        -- * Restricted accesss to arbitrary (potentially unsafe) IO operations
        -- | If the environment variable GF_RESTRICTED is defined, these
        -- operations will fail. Otherwise, they will be executed normally.
@@ -137,3 +139,7 @@ link opts pgf src = lift0 $ GF.link opts pgf src
 
 modifyPGF   gr t = lift0 (PGFT.modifyPGF gr t)
 checkoutPGF gr = lift0 (PGFT.checkoutPGF gr)
+startTransaction gr = lift0 (PGFT.startTransaction gr)
+commitTransaction tr = lift0 (PGFT.commitTransaction tr)
+rollbackTransaction tr = lift0 (PGFT.rollbackTransaction tr)
+inTransaction tr f = lift0 (PGFT.inTransaction tr f)

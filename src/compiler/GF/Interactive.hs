@@ -25,7 +25,10 @@ import GF.Infra.CheckM
 import qualified System.Console.Haskeline as Haskeline
 
 import PGF2
-import PGF2.Transactions hiding (modifyPGF,checkoutPGF)
+import PGF2.Transactions hiding (modifyPGF,checkoutPGF,
+                                 startTransaction,
+                                 commitTransaction,rollbackTransaction,
+                                 inTransaction)
 
 import Data.Char
 import Data.List(isPrefixOf,sortOn)
@@ -140,12 +143,37 @@ execute1' readNGF s0 =
          (w  :ws) | w == "c" || w == "d" -> do
                         case readTransactionCommand s0 of
                           Just cmd -> do checkout
-                                         mb_pgf <- getPGF
-                                         case mb_pgf of
-                                           Just pgf -> transactionCommand cmd pgf
-                                           Nothing  -> fail "Import a grammar before using this command"
+                                         env <- gets pgfenv
+                                         case env of
+                                           (_,Just pgf,mb_txnid) -> transactionCommand cmd pgf mb_txnid
+                                           _                     -> fail "Import a grammar before using this command"
                           Nothing  -> putStrLnE $ "command not parsed: "++s0
                         continue
+                  | w == "t" -> do
+                        env <- gets pgfenv
+                        case env of
+                          (gr,Just pgf,mb_txnid) ->
+                              case ws of
+                                ["start"]     ->
+                                    case mb_txnid of
+                                      Just _  -> fail "You have already started a transaction"
+                                      Nothing -> do txnid <- lift $ startTransaction pgf
+                                                    modify (\gfenv -> gfenv{pgfenv=(gr,Just pgf,Just txnid)})
+                                ["commit"]    ->
+                                    case mb_txnid of
+                                      Just id -> do lift $ commitTransaction id
+                                                    modify (\gfenv -> gfenv{pgfenv=(gr,Just pgf,Nothing)})
+                                      Nothing -> fail "There is no active transaction"
+                                ["rollback"]  ->
+                                    case mb_txnid of
+                                      Just id -> do lift $ rollbackTransaction id
+                                                    modify (\gfenv -> gfenv{pgfenv=(gr,Just pgf,Nothing)})
+                                      Nothing -> fail "There is no active transaction"
+                                []            -> fail "The transaction command expects start, commit or rollback as an argument"
+                                _             -> fail "The only arguments to the transaction command are start, commit and rollback"
+                          _                   -> fail "Import a grammar before using this command"
+                        continue
+                                           
       -- other special commands, working on GFEnv
          "dc":ws  -> define_command ws
          "dt":ws  -> define_tree ws
@@ -160,11 +188,11 @@ execute1' readNGF s0 =
     stop = return False
 
     checkout = do
-      mb_pgf <- gets multigrammar
-      case mb_pgf of
-        Just pgf -> do pgf <- lift $ checkoutPGF pgf
-                       modify $ \gfenv -> gfenv{pgfenv = (fst (pgfenv gfenv),Just pgf)}
-        Nothing  -> return ()
+      gfenv <- get
+      case pgfenv gfenv of
+        (gr,Just pgf,Nothing) -> do pgf <- lift $ checkoutPGF pgf
+                                    put (gfenv{pgfenv = (gr,Just pgf,Nothing)})
+        _                     -> return ()
 
     interruptible :: ShellM Bool -> ShellM Bool
     interruptible act =
@@ -175,9 +203,13 @@ execute1' readNGF s0 =
 
   -- Special commands:
 
-    quit = do opts <- gets startOpts
-              when (verbAtLeast opts Normal) $ putStrLnE "See you."
-              stop
+    quit = do
+      env <- gets pgfenv
+      case env of
+        (_,_,Just _) -> fail "Commit or rollback the transaction first!"
+        _            -> do opts <- gets startOpts
+                           when (verbAtLeast opts Normal) $ putStrLnE "See you."
+                           stop
 
     system_command ws = do lift $ restrictedSystem $ unwords ws ; continue
 
@@ -236,23 +268,23 @@ import_ readNGF args =
          importInEnv readNGF (addOptions opts (fixRelativeLibPaths curr_dir lib_dir opts')) files
        Bad err -> putStrLnE $ "Command parse error: " ++ err
 
-transactionCommand :: TransactionCommand -> PGF -> ShellM ()
-transactionCommand (CreateFun opts f ty) pgf = do
+transactionCommand :: TransactionCommand -> PGF -> Maybe TxnID -> ShellM ()
+transactionCommand (CreateFun opts f ty) pgf mb_txnid = do
   let prob = realToFrac (valFltOpts "prob" (1/0) opts)
   case checkType pgf ty of
     Left msg -> putStrLnE msg
-    Right ty -> do lift $ modifyPGF pgf (createFunction f ty 0 [] prob)
+    Right ty -> do lift $ updatePGF pgf mb_txnid (createFunction f ty 0 [] prob)
                    return ()
-transactionCommand (CreateCat opts c ctxt) pgf = do
+transactionCommand (CreateCat opts c ctxt) pgf mb_txnid = do
   let prob = realToFrac (valFltOpts "prob" (1/0) opts)
   case checkContext pgf ctxt of
     Left msg -> putStrLnE msg
-    Right ty -> do lift $ modifyPGF pgf (createCategory c ctxt prob)
+    Right ty -> do lift $ updatePGF pgf mb_txnid (createCategory c ctxt prob)
                    return ()
-transactionCommand (CreateConcrete opts name) pgf = do
-  lift $ modifyPGF pgf (createConcrete name (return ()))
+transactionCommand (CreateConcrete opts name) pgf mb_txnid = do
+  lift $ updatePGF pgf mb_txnid (createConcrete name (return ()))
   return ()
-transactionCommand (CreateLin opts f t) pgf = do
+transactionCommand (CreateLin opts f t) pgf mb_txnid = do
   sgr <- getGrammar
   lang <- optLang pgf opts
   mo <- maybe (fail "no source grammar in scope") return $
@@ -267,7 +299,7 @@ transactionCommand (CreateLin opts f t) pgf = do
   case runCheck (compileLinTerm sgr mo t ty) of
     Ok ((prods,seqtbl,fields'),_)
          | fields == fields' ->
-                    do lift $ modifyPGF pgf (alterConcrete lang (createLin f prods seqtbl >> return ()))
+                    do lift $ updatePGF pgf mb_txnid (alterConcrete lang (createLin f prods seqtbl >> return ()))
                        return ()
          | otherwise -> fail "The linearization categories in the resource and the compiled grammar does not match"
     Bad msg      -> fail msg
@@ -286,13 +318,13 @@ transactionCommand (CreateLin opts f t) pgf = do
       where
         mapToSequence m = Seq.fromList (map (Left . fst) (sortOn snd (Map.toList m)))
 
-transactionCommand (CreateLincat opts c t) pgf = do
+transactionCommand (CreateLincat opts c t) pgf mb_txnid = do
   sgr <- getGrammar
   lang <- optLang pgf opts
   mo <- maybe (fail "no source grammar in scope") return $
            greatestResource sgr
   case runCheck (compileLincatTerm sgr mo t) of
-    Ok (fields,_)-> do lift $ modifyPGF pgf (alterConcrete lang (createLincat c fields [] [] Seq.empty >> return ()))
+    Ok (fields,_)-> do lift $ updatePGF pgf mb_txnid (alterConcrete lang (createLincat c fields [] [] Seq.empty >> return ()))
                        return ()
     Bad msg      -> fail msg
   where
@@ -300,23 +332,28 @@ transactionCommand (CreateLincat opts c t) pgf = do
       t <- renameSourceTerm sgr mo t
       (t,_) <- inferLType sgr [] t
       return (type2fields sgr t)
-transactionCommand (DropFun opts f) pgf = do
-  lift $ modifyPGF pgf (dropFunction f)
+transactionCommand (DropFun opts f) pgf mb_txnid = do
+  lift $ updatePGF pgf mb_txnid (dropFunction f)
   return ()
-transactionCommand (DropCat opts c) pgf = do
-  lift $ modifyPGF pgf (dropCategory c)
+transactionCommand (DropCat opts c) pgf mb_txnid = do
+  lift $ updatePGF pgf mb_txnid (dropCategory c)
   return ()
-transactionCommand (DropConcrete opts name) pgf = do
-  lift $ modifyPGF pgf (dropConcrete name)
+transactionCommand (DropConcrete opts name) pgf mb_txnid = do
+  lift $ updatePGF pgf mb_txnid (dropConcrete name)
   return ()
-transactionCommand (DropLin opts f) pgf = do
+transactionCommand (DropLin opts f) pgf mb_txnid = do
   lang <- optLang pgf opts
-  lift $ modifyPGF pgf (alterConcrete lang (dropLin f))
+  lift $ updatePGF pgf mb_txnid (alterConcrete lang (dropLin f))
   return ()
-transactionCommand (DropLincat opts c) pgf = do
+transactionCommand (DropLincat opts c) pgf mb_txnid = do
   lang <- optLang pgf opts
-  lift $ modifyPGF pgf (alterConcrete lang (dropLincat c))
+  lift $ updatePGF pgf mb_txnid (alterConcrete lang (dropLincat c))
   return ()
+
+updatePGF pgf mb_txnid f = do
+  maybe (modifyPGF pgf f >> return ())
+                                 (\txnid -> inTransaction txnid f)
+                                 mb_txnid
 
 optLang pgf opts =
   case Map.keys (languages pgf) of
@@ -385,15 +422,18 @@ fetchCommand gfenv = do
 
 importInEnv :: ReadNGF -> Options -> [FilePath] -> ShellM ()
 importInEnv readNGF opts files =
-  do pgf0 <- gets multigrammar
-     case flag optRetainResource opts of
-       RetainAll      -> do src <- lift $ importSource opts files
-                            pgf <- lift $ link opts pgf0 src
-                            modify $ \gfenv -> gfenv{pgfenv = (snd src,Just pgf)}
-       RetainSource   -> do src <- lift $ importSource opts files
-                            modify $ \gfenv -> gfenv{pgfenv = (snd src,snd (pgfenv gfenv))}
-       RetainCompiled -> do pgf <- lift $ importPGF pgf0
-                            modify $ \gfenv -> gfenv{pgfenv = (emptyGrammar,pgf)}
+  do env <- gets pgfenv
+     case env of
+       (_,pgf0,Nothing) ->
+           case flag optRetainResource opts of
+             RetainAll      -> do src <- lift $ importSource opts files
+                                  pgf <- lift $ link opts pgf0 src
+                                  modify $ \gfenv -> gfenv{pgfenv = (snd src,Just pgf,Nothing)}
+             RetainSource   -> do src <- lift $ importSource opts files
+                                  modify $ \gfenv -> gfenv{pgfenv = (snd src,pgf0,Nothing)}
+             RetainCompiled -> do pgf <- lift $ importPGF pgf0
+                                  modify $ \gfenv -> gfenv{pgfenv = (emptyGrammar,pgf,Nothing)}
+       _ -> fail "You must commit/rollback the transaction before loading a new grammar"
   where
     importPGF pgf0 =
       do let opts' = addOptions (setOptimization OptCSE False) opts
@@ -411,11 +451,14 @@ tryGetLine = do
    Left (e :: SomeException) -> return "q"
    Right l -> return l
 
-prompt env = case multigrammar env of
-               Just pgf -> abstractName pgf ++ "> "
-               Nothing  -> "> "
+prompt env = 
+  case pgfenv env of
+    (_,mb_pgf,mb_tr) -> 
+         maybe "" abstractName mb_pgf ++ 
+         maybe "" (const " (transaction)") mb_tr ++
+         "> "
 
-type CmdEnv = (Grammar,Maybe PGF)
+type CmdEnv = (Grammar,Maybe PGF,Maybe TxnID)
 
 data GFEnv = GFEnv {
     startOpts :: Options,
@@ -426,26 +469,33 @@ data GFEnv = GFEnv {
 
 emptyGFEnv opts = GFEnv opts emptyCmdEnv emptyCommandEnv []
 
-emptyCmdEnv = (emptyGrammar,Nothing)
+emptyCmdEnv = (emptyGrammar,Nothing,Nothing)
 
 emptyCommandEnv = mkCommandEnv allCommands
-multigrammar = snd . pgfenv
 
 allCommands =
   extend pgfCommands (helpCommand allCommands:moreCommands)
   `Map.union` sourceCommands
   `Map.union` commonCommands
 
-instance HasGrammar ShellM where getGrammar = gets (fst . pgfenv)
-instance HasPGF ShellM where getPGF = gets (snd . pgfenv)
+instance HasGrammar ShellM where
+  getGrammar = gets $ \gfenv ->
+    case pgfenv gfenv of
+      (gr,_,_) -> gr
+
+instance HasPGF ShellM where
+  getPGF = gets $ \gfenv ->
+    case pgfenv gfenv of
+      (_,mb_pgf,_) -> mb_pgf
 
 wordCompletion gfenv (left,right) = do
   case wc_type (reverse left) of
     CmplCmd pref
       -> ret (length pref) [Haskeline.simpleCompletion name | name <- Map.keys (commands cmdEnv), isPrefixOf pref name]
     CmplStr (Just (Command _ opts _)) s0
-      -> case multigrammar gfenv of
-           Just pgf -> let langs = languages pgf
+      -> case pgfenv gfenv of
+           (_,Just pgf,_) ->
+                       let langs = languages pgf
                            optLang opts = case valStrOpts "lang" "" opts of
                                             ""   -> case Map.minView langs of
                                                       Nothing        -> Nothing
@@ -465,7 +515,7 @@ wordCompletion gfenv (left,right) = do
                             (Just lang,Just cat) -> let compls = [t | ParseOk res <- [complete lang cat s prefix], (t,_,_,_) <- res]
                                                     in ret (length prefix) (map Haskeline.simpleCompletion compls)
                             _                    -> ret 0 []
-           Nothing  -> ret 0 []
+           _        -> ret 0 []
     CmplOpt (Just (Command n _ _)) pref
       -> case Map.lookup n (commands cmdEnv) of
            Just inf -> do let flg_compls = [Haskeline.Completion ('-':flg++"=") ('-':flg) False | (flg,_) <- flags   inf, isPrefixOf pref flg]
@@ -476,9 +526,9 @@ wordCompletion gfenv (left,right) = do
     CmplIdent (Just (Command "i" _ _)) _        -- HACK: file name completion for command i
       -> Haskeline.completeFilename (left,right)
     CmplIdent _ pref
-      -> case multigrammar gfenv of
-           Just pgf -> ret (length pref) [Haskeline.simpleCompletion name | name <- functions pgf, isPrefixOf pref name]
-           Nothing  -> ret (length pref) []
+      -> case pgfenv gfenv of
+           (_,Just pgf,_) -> ret (length pref) [Haskeline.simpleCompletion name | name <- functions pgf, isPrefixOf pref name]
+           _              -> ret (length pref) []
     _ -> ret 0 []
   where
     cmdEnv = commandenv gfenv

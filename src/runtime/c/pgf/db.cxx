@@ -1429,8 +1429,18 @@ void PgfDB::start_transaction()
 }
 
 PGF_INTERNAL
+void PgfDB::set_transaction_object(object o)
+{
+    transaction_object = o;
+}
+
+PGF_INTERNAL
 void PgfDB::commit(object o)
 {
+    if (transaction_object != o) {
+        return;
+    }
+
     if (last_free_block != 0) {
         free_blocks = insert_block_descriptor(free_blocks,
                                               last_free_block,
@@ -1450,7 +1460,7 @@ void PgfDB::commit(object o)
     int res;
 #ifndef _WIN32
 #ifndef MREMAP_MAYMOVE
-    if (current_db->fd < 0) {
+    if (fd < 0) {
         ms->active_revision = o;
         ms->top = top;
         ms->free_blocks = free_blocks;
@@ -1501,7 +1511,7 @@ void PgfDB::commit(object o)
 
     pthread_mutex_unlock(&ms->write_mutex);
 #else
-    if (current_db->fd > 0) {
+    if (fd > 0) {
         if (free_descriptors[2] != 0) {
             ptr(block_descr,free_descriptors[2])->chain = free_descriptors[0];
             free_descriptors[0] = free_descriptors[1];
@@ -1529,12 +1539,19 @@ void PgfDB::commit(object o)
 
     ReleaseMutex(hWriteMutex);
 #endif
+
+    transaction_object = 0;
 }
 
 PGF_INTERNAL
-void PgfDB::rollback()
+void PgfDB::rollback(object o)
 {
+    if (transaction_object != o) {
+        return;
+    }
+
     top = ms->top;
+    transaction_object = 0;
     free_blocks = ms->free_blocks;
     free_descriptors[0] = ms->free_descriptors;
     free_descriptors[1] = 0;
@@ -1796,6 +1813,11 @@ void PgfDB::resize_map(size_t new_size, bool writeable)
             break;
     }
 #endif
+}
+
+bool PgfDB::is_transient_object(object o)
+{
+    return o > ms->top;
 }
 
 DB_scope::DB_scope(PgfDB *db, DB_scope_mode m)

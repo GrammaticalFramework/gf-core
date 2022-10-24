@@ -69,6 +69,7 @@ private:
     // the corresponding fields in the malloc_state.
     // The exception is when a transaction is active.
     object top;
+    object transaction_object;
     object free_blocks;
     object free_descriptors[3];
     object last_free_block;
@@ -124,8 +125,11 @@ public:
     PGF_INTERNAL_DECL ref<PgfConcr> revision2concr(PgfConcrRevision revision, size_t *p_txn_id = NULL);
 
     PGF_INTERNAL_DECL void start_transaction();
+    PGF_INTERNAL_DECL void set_transaction_object(object o);
     PGF_INTERNAL_DECL void commit(object o);
-    PGF_INTERNAL_DECL void rollback();
+    PGF_INTERNAL_DECL void rollback(object o);
+
+    PGF_INTERNAL_DECL bool is_transient_object(object o);
 
 private:
     PGF_INTERNAL_DECL int init_state();
