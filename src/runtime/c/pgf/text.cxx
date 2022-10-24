@@ -93,6 +93,14 @@ ref<PgfText> textdup_db(PgfText *t1)
 }
 
 PGF_INTERNAL
+ref<PgfText> textdup_db(ref<PgfText> t1)
+{
+    ref<PgfText> t2 = PgfDB::malloc<PgfText>(t1->size+1);
+    memcpy(&(*t2), &(*t1), sizeof(PgfText)+t1->size+1);
+    return t2;
+}
+
+PGF_INTERNAL
 void text_db_release(ref<PgfText> text)
 {
     PgfDB::free(text,text->size+1);

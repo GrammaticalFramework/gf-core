@@ -1102,6 +1102,7 @@ fit:
             }
         }
 
+        descr = ptr(block_descr, map);
         int index = (descr->descr_txn_id != ms->curr_txn_id);
         descr->chain = free_descriptors[index];
         free_descriptors[index] = map;
