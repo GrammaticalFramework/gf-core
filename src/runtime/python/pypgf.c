@@ -70,6 +70,10 @@ Concr_linearize(ConcrObject* self, PyObject *args)
         return NULL;
 	}
 
+    if (text == NULL) {
+        Py_RETURN_NONE;
+    }
+
 	PyObject* pystr = PyUnicode_FromStringAndSize(text->text, text->size);
 
 	free(text);
