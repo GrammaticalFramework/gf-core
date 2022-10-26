@@ -675,7 +675,10 @@ PGF_embed(PGFObject* self, PyObject *modname)
     if (m == NULL)
         return NULL;
 
-    if (PyModule_AddObjectRef(m, "__pgf__", (PyObject*) self) != 0) {
+    Py_INCREF(self);
+    if (PyModule_AddObject(m, "__pgf__", (PyObject*) self) != 0) {
+        Py_DECREF(self);
+        Py_DECREF(m);
         return NULL;
     }
 
