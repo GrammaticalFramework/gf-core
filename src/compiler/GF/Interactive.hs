@@ -94,7 +94,10 @@ readCommand =
   do opts <- gets startOpts
      case flag optMode opts of
        ModeRun -> lift tryGetLine
-       _       -> lift . fetchCommand =<< get
+       _       -> do gfenv <- get
+                     s <- lift (fetchCommand gfenv)
+                     put $ gfenv {history = s : history gfenv}
+                     return s
 
 timeIt act =
   do t1 <- liftSIO $ getCPUTime
@@ -115,13 +118,8 @@ type ShellM = StateT GFEnv SIO
 
 -- | Execute a given command line, returning 'True' to continue execution,
 -- | 'False' when it is time to quit
-execute1, execute1' :: ReadNGF -> String -> ShellM Bool
+execute1 :: ReadNGF -> String -> ShellM Bool
 execute1 readNGF s0 =
-  do modify $ \ gfenv0 -> gfenv0 {history = s0 : history gfenv0}
-     execute1' readNGF s0
-
--- | Execute a given command line, without adding it to the history
-execute1' readNGF s0 =
   do opts <- gets startOpts
      interruptible $ optionallyShowCPUTime opts $
        case pwords s0 of
@@ -218,7 +216,7 @@ execute1' readNGF s0 =
          continue
       where
         execute []           = return ()
-        execute (line:lines) = whenM (execute1' readNGF line) (execute lines)
+        execute (line:lines) = whenM (execute1 readNGF line) (execute lines)
 
     execute_history _   =
        do putStrLnE "eh command not parsed"
