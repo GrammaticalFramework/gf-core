@@ -289,20 +289,22 @@ transactionCommand (CreateLin opts f t) pgf mb_txnid = do
   lang <- optLang pgf opts
   mo <- maybe (fail "no source grammar in scope") return $
            greatestResource sgr
-  (fields,ty) <-
-    case functionType pgf f of
-      Just ty -> let DTyp _ cat _ = ty
-                     Just cnc     = Map.lookup lang (languages pgf)
-                     Just fields  = categoryFields cnc cat
-                 in return (fields,type2term mo ty)
-      Nothing -> fail ("Function "++f++" is not in the abstract syntax")
-  case runCheck (compileLinTerm sgr mo t ty) of
-    Ok ((prods,seqtbl,fields'),_)
-         | fields == fields' ->
-                    do lift $ updatePGF pgf mb_txnid (alterConcrete lang (createLin f prods seqtbl >> return ()))
-                       return ()
-         | otherwise -> fail "The linearization categories in the resource and the compiled grammar does not match"
-    Bad msg      -> fail msg
+  lift $ updatePGF pgf mb_txnid $ do
+    mb_ty <- getFunctionType f
+    case mb_ty of
+      Just ty@(DTyp _ cat _) -> 
+         alterConcrete lang $ do
+           mb_fields <- getCategoryFields cat
+           case mb_fields of
+             Just fields -> case runCheck (compileLinTerm sgr mo t (type2term mo ty)) of
+                              Ok ((prods,seqtbl,fields'),_)
+                                   | fields == fields' -> do
+                                       createLin f prods seqtbl
+                                       return ()
+                                   | otherwise -> fail "The linearization categories in the resource and the compiled grammar does not match"
+                              Bad msg      -> fail msg
+             Nothing     -> fail ("Category "++cat++" is not in the concrete syntax")
+      _ -> fail ("Function "++f++" is not in the abstract syntax")
   where
     type2term mo (DTyp hypos cat _) =
       foldr (\(b,x,ty1) ty2 -> Prod b (identS x) (type2term mo ty1) ty2)
@@ -422,17 +424,15 @@ fetchCommand gfenv = do
 
 importInEnv :: ReadNGF -> Options -> [FilePath] -> ShellM ()
 importInEnv readNGF opts files =
-  do env <- gets pgfenv
-     case env of
-       (_,pgf0,Nothing) ->
-           case flag optRetainResource opts of
-             RetainAll      -> do src <- lift $ importSource opts files
-                                  pgf <- lift $ link opts pgf0 src
-                                  modify $ \gfenv -> gfenv{pgfenv = (snd src,Just pgf,Nothing)}
-             RetainSource   -> do src <- lift $ importSource opts files
-                                  modify $ \gfenv -> gfenv{pgfenv = (snd src,pgf0,Nothing)}
-             RetainCompiled -> do pgf <- lift $ importPGF pgf0
-                                  modify $ \gfenv -> gfenv{pgfenv = (emptyGrammar,pgf,Nothing)}
+  do (_,pgf0,mb_txnid) <- gets pgfenv
+     case (flag optRetainResource opts,mb_txnid) of
+       (RetainAll,Nothing)      -> do src <- lift $ importSource opts files
+                                      pgf <- lift $ link opts pgf0 src
+                                      modify $ \gfenv -> gfenv{pgfenv = (snd src,Just pgf,Nothing)}
+       (RetainSource,mb_txn)    -> do src <- lift $ importSource opts files
+                                      modify $ \gfenv -> gfenv{pgfenv = (snd src,pgf0,mb_txn)}
+       (RetainCompiled,Nothing) -> do pgf <- lift $ importPGF pgf0
+                                      modify $ \gfenv -> gfenv{pgfenv = (emptyGrammar,pgf,Nothing)}
        _ -> fail "You must commit/rollback the transaction before loading a new grammar"
   where
     importPGF pgf0 =

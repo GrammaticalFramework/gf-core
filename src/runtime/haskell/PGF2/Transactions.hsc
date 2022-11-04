@@ -32,6 +32,8 @@ module PGF2.Transactions
           , createLin
           , dropLin
           , setPrintName
+          , getFunctionType
+          , getCategoryFields
           ) where
 
 import PGF2.FFI
@@ -41,6 +43,7 @@ import PGF2.ByteCode
 import Foreign
 import Foreign.C
 import Control.Exception
+import qualified Control.Monad.Fail as Fail
 import qualified Data.Sequence as Seq
 import Data.IORef
 
@@ -69,6 +72,14 @@ instance Monad (Transaction k) where
       then case g res of
              Transaction g -> g c_db c_abstr c_revision c_exn
       else return undefined
+
+#if !(MIN_VERSION_base(4,13,0))
+  -- Monad(fail) will be removed in GHC 8.8+
+  fail = Fail.fail
+#endif
+
+instance Fail.MonadFail (Transaction k) where
+  fail msg = Transaction $ \c_db c_abstr c_revision c_exn -> fail msg
 
 data TxnID = TxnID (Ptr PgfDB) (ForeignPtr PGF)
 
@@ -166,7 +177,7 @@ createConcrete name (Transaction f) = Transaction $ \c_db c_abstr c_revision c_e
           (pgf_free_concr_revision_ c_db) $ \c_concr_revision ->
     f c_db c_abstr c_concr_revision c_exn
 
-alterConcrete :: ConcName -> Transaction Concr () -> Transaction PGF ()
+alterConcrete :: ConcName -> Transaction Concr a -> Transaction PGF a
 alterConcrete name (Transaction f) = Transaction $ \c_db c_abstr c_revision c_exn ->
   withText name $ \c_name -> do
   bracket (pgf_clone_concrete c_db c_revision c_name c_exn)
@@ -383,4 +394,45 @@ setPrintName :: Fun -> String -> Transaction Concr ()
 setPrintName fun name = Transaction $ \c_db _ c_revision c_exn ->
   withText fun $ \c_fun ->
   withText name $ \c_name -> do
-    withPgfExn "setPrintName" (pgf_set_printname c_db c_revision c_fun c_name)
+    pgf_set_printname c_db c_revision c_fun c_name c_exn
+
+-- | A monadic version of 'functionType' which returns the type of
+-- the function in the current transaction.
+getFunctionType :: Fun -> Transaction PGF (Maybe Type)
+getFunctionType fun = Transaction $ \c_db c_revision _ c_exn -> do
+  c_typ <- withForeignPtr unmarshaller $ \u ->
+           withText fun $ \c_fun ->
+             pgf_function_type c_db c_revision c_fun u c_exn
+  ex_type <- (#peek PgfExn, type) c_exn
+  if (ex_type :: (#type PgfExnType)) == (#const PGF_EXN_NONE)
+    then if c_typ == castPtrToStablePtr nullPtr
+           then return Nothing
+           else do typ <- deRefStablePtr c_typ
+                   freeStablePtr c_typ
+                   return (Just typ)
+    else return undefined
+
+-- | A monadic version of 'categoryFields' which returns the fields of
+-- a category from grammar in the current transaction.
+getCategoryFields :: Cat -> Transaction Concr (Maybe [String])
+getCategoryFields cat = Transaction $ \c_db _ c_revision c_exn ->
+  withText cat $ \c_cat ->
+  alloca $ \p_n_fields -> do
+    c_fields <- pgf_category_fields c_db c_revision c_cat p_n_fields c_exn
+    ex_type <- (#peek PgfExn, type) c_exn
+    if (ex_type :: (#type PgfExnType)) == (#const PGF_EXN_NONE)
+      then if c_fields == nullPtr
+             then return Nothing
+             else do n_fields <- peek p_n_fields
+                     fs <- peekFields n_fields c_fields
+                     free c_fields
+                     return (Just fs)
+      else return undefined
+  where
+    peekFields n_fields c_fields
+      | n_fields == 0 = return []
+      | otherwise     = do c_text <- peek c_fields
+                           f  <- peekText c_text
+                           free c_text
+                           fs <- peekFields (n_fields-1) (c_fields `plusPtr` (#size PgfText*))
+                           return (f:fs)
