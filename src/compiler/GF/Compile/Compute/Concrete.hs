@@ -584,11 +584,19 @@ instance Functor ConstValue where
 instance Applicative ConstValue where
   pure = Const
 
+  (Const f) <*> (Const x) = Const (f x)
+  NonExist  <*> _         = NonExist
+  _         <*> NonExist  = NonExist
+  RunTime   <*>  _        = RunTime
+  _         <*>  RunTime  = RunTime
+
+#if MIN_VERSION_base(4,10,0)
   liftA2 f (Const a) (Const b) = Const (f a b)
   liftA2 f NonExist  _         = NonExist
   liftA2 f _         NonExist  = NonExist
   liftA2 f RunTime   _         = RunTime
   liftA2 f _         RunTime   = RunTime
+#endif
 
 value2string v = fmap (unwords.snd) (value2string v False [])
   where

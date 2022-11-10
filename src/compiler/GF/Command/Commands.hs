@@ -43,7 +43,7 @@ instance (Monad m,HasPGF m,Fail.MonadFail m) => TypeCheckArg m where
                                            (inferExpr pgf e)
                         Nothing  -> fail "Import a grammar before using this command"
 
-pgfCommands :: (HasPGF m, MonadFail m) => Map.Map String (CommandInfo m)
+pgfCommands :: (HasPGF m, Fail.MonadFail m) => Map.Map String (CommandInfo m)
 pgfCommands = Map.fromList [
   ("aw", emptyCommandInfo {
      longname = "align_words",
