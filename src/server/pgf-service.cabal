@@ -23,7 +23,7 @@ Library
                    filepath,
                    containers,
                    process,
-                   pgf2 >= 2,
+                   pgf2 >= 4.0.0,
                    http-slim,
                    mtl,
                    json >= 0.3.3,

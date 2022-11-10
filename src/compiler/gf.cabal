@@ -58,7 +58,7 @@ flag network-uri
 executable gf
   main-is: gf-main.hs
   default-language:    Haskell2010
-  build-depends: pgf2,
+  build-depends: pgf2 >= 4.0.0,
                  base >= 4.6 && <5,
                  array,
                  containers,
