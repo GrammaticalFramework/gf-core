@@ -1,5 +1,5 @@
 name: gf
-version: 3.11.0-git
+version: 4.0.0
 
 cabal-version: 1.22
 build-type: Simple
