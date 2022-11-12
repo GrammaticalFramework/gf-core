@@ -504,6 +504,9 @@ object PgfDB::register_revision(object o, txn_t txn_id)
         found_entry->o   = o;
         found_entry->ref_count = 1;
         found_entry->txn_id = txn_id;
+
+        if (ms->min_txn_id > txn_id)
+            ms->min_txn_id = txn_id;
     }
 
 #ifdef DEBUG_MEMORY_ALLOCATOR
@@ -690,7 +693,7 @@ int PgfDB::init_state()
 #endif
 
     ms->curr_txn_id = 1;
-    ms->min_txn_id  = 0;
+    ms->min_txn_id  = 1;
     ms->free_blocks = 0;
     ms->free_descriptors = 0;
     ms->n_revisions = 0;
