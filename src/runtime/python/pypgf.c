@@ -23,7 +23,7 @@ static void
 Concr_dealloc(ConcrObject* self)
 {
     if (self->grammar != NULL && self->concr != 0)
-        pgf_free_revision(self->grammar->db, self->concr);
+        pgf_free_concr_revision(self->grammar->db, self->concr);
     Py_XDECREF(self->grammar);
 }
 
