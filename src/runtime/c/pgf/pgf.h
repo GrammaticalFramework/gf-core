@@ -267,7 +267,7 @@ PgfDB *pgf_new_ngf(PgfText *abstract_name,
                    PgfRevision *revision,
                    PgfExn* err);
 
-PGF_API
+PGF_API_DECL
 void pgf_merge_pgf(PgfDB *db, PgfRevision revision,
                    const char* fpath,
                    PgfExn* err);
@@ -276,6 +276,9 @@ PGF_API_DECL
 void pgf_write_pgf(const char* fpath,
                    PgfDB *db, PgfRevision revision,
                    PgfExn* err);
+
+PGF_API_DECL
+const char *pgf_file_path(PgfDB *db);
 
 /* Release a revision. If this is the last revision for the given
  * database, then the database is released as well. */

@@ -630,67 +630,155 @@ static PyGetSetDef PGF_getseters[] = {
     {NULL}  /* Sentinel */
 };
 
-static void
-pgf_embed_funs(PgfItor* fn, PgfText* name, object value, PgfExn* err)
+typedef struct {
+    PyObject_HEAD
+    PyObject* dict;
+    PyObject* modname;
+    PGFObject* grammar;
+} EmbeddedGrammarObject;
+
+static PyObject *EmbeddedGrammar_getattro(EmbeddedGrammarObject *self, PyObject *py_attr)
 {
-    PyPGFClosure *clo = (PyPGFClosure*) fn;
+    PgfText *name = PyUnicode_AsPgfText(py_attr);
+    if (!name)
+        return NULL;
 
-	ExprFunObject *pyexpr = (ExprFunObject *)
-        pgf_ExprFunType.tp_alloc(&pgf_ExprFunType, 0);
-	if (pyexpr == NULL) {
-		err->type = PGF_EXN_OTHER_ERROR;
-		return;
-	}
+    PgfExn err;
+    prob_t prob = pgf_function_prob(self->grammar->db, self->grammar->revision, name, &err);
+    PyMem_RawFree(name);
 
-	pyexpr->name = PyUnicode_FromStringAndSize(name->text, name->size);
-    if (pyexpr->name == NULL) {
-        Py_DECREF(pyexpr);
-        err->type = PGF_EXN_OTHER_ERROR;
-        return;
+    if (handleError(err) != PGF_EXN_NONE)
+        return NULL;
+
+    if (prob != INFINITY) {
+        ExprFunObject *pyexpr = (ExprFunObject *)
+            pgf_ExprFunType.tp_alloc(&pgf_ExprFunType, 0);
+        if (pyexpr == NULL)
+            return NULL;
+
+        pyexpr->name = py_attr; Py_INCREF(py_attr);
+        return (PyObject*) pyexpr;
     }
 
-    if (PyModule_AddObject(clo->collection, name->text, (PyObject*) pyexpr) != 0) {
-		Py_DECREF(pyexpr);
-        err->type = PGF_EXN_OTHER_ERROR;
-	}
+    return PyObject_GenericGetAttr((PyObject*) self, py_attr);
 }
+
+static PyObject *
+EmbeddedGrammar_getFilePath(EmbeddedGrammarObject *self, void *closure)
+{
+    return PyUnicode_FromString(pgf_file_path(self->grammar->db));
+}
+
+static PyObject*
+EmbeddedGrammar_str(EmbeddedGrammarObject *self)
+{
+    return PyUnicode_FromFormat("<embedded grammar '%U' from '%s'>", self->modname, pgf_file_path(self->grammar->db));
+}
+
+static void
+EmbeddedGrammar_dealloc(EmbeddedGrammarObject* self)
+{
+    Py_XDECREF(self->dict);
+    Py_XDECREF(self->modname);
+    Py_XDECREF(self->grammar);
+}
+
+static PyMemberDef EmbeddedGrammar_members[] = {
+    {"__name__", T_OBJECT, offsetof(EmbeddedGrammarObject, modname), READONLY, NULL},
+    {"__dict__", T_OBJECT, offsetof(EmbeddedGrammarObject, dict),    READONLY, NULL},
+    {"__pgf__",  T_OBJECT, offsetof(EmbeddedGrammarObject, grammar), READONLY, NULL},
+    {NULL}
+};
+
+static PyGetSetDef EmbeddedGrammar_getseters[] = {
+    {"__file__",
+     (getter)EmbeddedGrammar_getFilePath, NULL,
+     "the path to the grammar file",
+     NULL},
+    {NULL}  /* Sentinel */
+};
+
+static PyTypeObject pgf_EmbeddedGrammarType = {
+    PyVarObject_HEAD_INIT(NULL, 0)
+    "pgf.EmbeddedGrammar",                    /*tp_name*/
+    sizeof(EmbeddedGrammarObject),            /*tp_basicsize*/
+    0,                                        /*tp_itemsize*/
+    (destructor)EmbeddedGrammar_dealloc,      /*tp_dealloc*/
+    0,                                        /*tp_print*/
+    0,                                        /*tp_getattr*/
+    0,                                        /*tp_setattr*/
+    0,                                        /*tp_compare*/
+    (reprfunc) EmbeddedGrammar_str,           /*tp_repr*/
+    0,                                        /*tp_as_number*/
+    0,                                        /*tp_as_sequence*/
+    0,                                        /*tp_as_mapping*/
+    0,                                        /*tp_hash */
+    0,                                        /*tp_call*/
+    (reprfunc) EmbeddedGrammar_str,           /*tp_str*/
+    (getattrofunc) EmbeddedGrammar_getattro,  /*tp_getattro*/
+    0,                                        /*tp_setattro*/
+    0,                                        /*tp_as_buffer*/
+    Py_TPFLAGS_DEFAULT | Py_TPFLAGS_BASETYPE, /*tp_flags*/
+    "a grammar embeded in Python as a module",/*tp_doc*/
+    0,		                                  /*tp_traverse */
+    0,	            	                      /*tp_clear */
+    0,		                                  /*tp_richcompare */
+    0,		                                  /*tp_weaklistoffset */
+    0,		                                  /*tp_iter */
+    0,		                                  /*tp_iternext */
+    0,                                        /*tp_methods */
+    EmbeddedGrammar_members,                  /*tp_members */
+    EmbeddedGrammar_getseters,                /*tp_getset */
+    0,                                        /*tp_base */
+    0,                                        /*tp_dict */
+    0,                                        /*tp_descr_get */
+    0,                                        /*tp_descr_set */
+    offsetof(EmbeddedGrammarObject,dict),     /*tp_dictoffset */
+    0,                                        /*tp_init */
+    0,                                        /*tp_alloc */
+    0,                                        /*tp_new */
+};
 
 static PyObject*
 PGF_embed(PGFObject* self, PyObject *modname)
 {
-    PyObject *m = PyImport_Import(modname);
-    if (m == NULL) {
+    PyObject *module = PyImport_Import(modname);
+    if (module == NULL) {
         PyObject *globals = PyEval_GetBuiltins();
-        if (globals != NULL) {
-            PyObject *exc = PyDict_GetItemString(globals, "ModuleNotFoundError");
-            if (exc != NULL) {
-                if (PyErr_ExceptionMatches(exc)) {
-                    PyErr_Clear();
-                    m = PyImport_AddModuleObject(modname);
-                    Py_INCREF(m);
-                }
-            }
-        }
-    }
-    if (m == NULL)
-        return NULL;
+        if (globals == NULL)
+            return NULL;
 
-    Py_INCREF(self);
-    if (PyModule_AddObject(m, "__pgf__", (PyObject*) self) != 0) {
-        Py_DECREF(self);
-        Py_DECREF(m);
-        return NULL;
+        PyObject *exc = PyDict_GetItemString(globals, "ModuleNotFoundError");
+        if (exc == NULL)
+            return NULL;
+
+        if (!PyErr_ExceptionMatches(exc))
+            return NULL;
+
+        PyErr_Clear();
     }
 
-    PgfExn err;
-    PyPGFClosure clo = { { pgf_embed_funs }, self, m };
-    pgf_iter_functions(self->db, self->revision, &clo.fn, &err);
-    if (handleError(err) != PGF_EXN_NONE) {
-        Py_DECREF(m);
+    EmbeddedGrammarObject *py_embedding = 
+        (EmbeddedGrammarObject *) pgf_EmbeddedGrammarType.tp_alloc(&pgf_EmbeddedGrammarType, 0);
+	if (py_embedding == NULL) {
+		return NULL;
+	}
+
+    py_embedding->modname = modname; Py_INCREF(modname);
+    py_embedding->grammar = self;    Py_INCREF(self);
+
+    if (module == NULL) {
+        py_embedding->dict = PyDict_New();
+    } else {
+        py_embedding->dict = PyModule_GetDict(module);
+        Py_INCREF(py_embedding->dict);
+    }
+
+    if (_PyImport_SetModule(modname, (PyObject*) py_embedding) < 0) {
         return NULL;
     }
 
-    return m;
+    return (PyObject*) py_embedding;
 }
 
 static PyMethodDef PGF_methods[] = {
@@ -1087,6 +1175,7 @@ MOD_INIT(pgf)
     TYPE_READY(pgf_ExprTypedType);
     TYPE_READY(pgf_ExprImplArgType);
     TYPE_READY(pgf_TypeType);
+    TYPE_READY(pgf_EmbeddedGrammarType);
 
     MOD_DEF(m, "pgf", "The Runtime for Portable Grammar Format in Python", module_methods);
     if (m == NULL)

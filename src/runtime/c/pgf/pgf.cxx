@@ -265,7 +265,13 @@ end:
         fclose(out);
 }
 
-PGF_API_DECL
+PGF_API
+const char *pgf_file_path(PgfDB *db)
+{
+    return db->get_file_path();
+}
+
+PGF_API
 void pgf_free_revision(PgfDB *db, PgfRevision revision)
 {
     try {
@@ -281,7 +287,7 @@ void pgf_free_revision(PgfDB *db, PgfRevision revision)
         delete db;
 }
 
-PGF_API_DECL
+PGF_API
 void pgf_free_concr_revision(PgfDB *db, PgfConcrRevision revision)
 {
     try {
