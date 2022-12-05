@@ -502,12 +502,12 @@ PGF_API_DECL
 PgfRevision pgf_checkout_revision(PgfDB *db, PgfExn *err);
 
 PGF_API_DECL
-void pgf_create_function(PgfDB *db, PgfRevision revision,
-                         PgfText *name,
-                         PgfType ty, size_t arity, char *bytecode,
-                         prob_t prob,
-                         PgfMarshaller *m,
-                         PgfExn *err);
+PgfText *pgf_create_function(PgfDB *db, PgfRevision revision,
+                             PgfText *name_pattern,
+                             PgfType ty, size_t arity, char *bytecode,
+                             prob_t prob,
+                             PgfMarshaller *m,
+                             PgfExn *err);
 
 PGF_API_DECL
 void pgf_drop_function(PgfDB *db, PgfRevision revision,

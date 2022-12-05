@@ -325,6 +325,136 @@ Namespace<V> namespace_insert(Namespace<V> map, ref<V> value)
 }
 
 template <class V>
+class PgfNameAllocator {
+    size_t available;
+    size_t fixed;
+    size_t base;
+    ref<V> value;
+    PgfText *name;
+
+public:
+    PgfNameAllocator(PgfText *name_pattern)
+    {
+        available = name_pattern->size;
+        fixed     = 0;
+        base      = 0;
+        value     = 0;
+        name      = (PgfText *) malloc(sizeof(PgfText)+name_pattern->size+1);
+        if (name == NULL)
+            throw pgf_systemerror(ENOMEM);
+
+        size_t i = 0, j = 0;
+        while (i < name_pattern->size) {
+            if (name_pattern->text[i] == '%') {
+                i++;
+                if (name_pattern->text[i] == 'd') {
+                    base  = 10;
+                } else if (name_pattern->text[i] == 'x') {
+                    base  = 16;
+                } else if (name_pattern->text[i] == 'a') {
+                    base  = 36;
+                } else if (name_pattern->text[i] == '%') {
+                    name->text[j++] = '%'; i++;
+                    continue;
+                } else {
+                    name->text[j++] = '%';
+                    continue;
+                }
+                i++;
+
+                name->text[j++] = '1' + PgfDB::rand() % 9;
+                fixed = j;
+            } else {
+                name->text[j++] = name_pattern->text[i++];
+            }
+        }
+        name->size = j;
+        name->text[j] = 0;
+    }
+
+    ~PgfNameAllocator() {
+        if (name) free(name);
+    }
+
+    void fetch_name_value(PgfText **pname, ref<V> *pvalue) {
+        *pname  = name;   name  = NULL;
+        *pvalue = value;  value = 0;
+    }
+
+    Namespace<V> allocate(Namespace<V> map)
+    {
+        static char alphabet[] = "0123456789abcdefghijklmnopqrstuvwxyz";
+
+        if (map == 0) {
+            value = PgfDB::malloc<V>(name->size+1);
+            memcpy(&value->name, name, sizeof(PgfText)+name->size+1);
+            return Node<ref<V>>::new_node(value);
+        }
+
+        for (;;) {
+            int cmp;
+            size_t i;
+            for (i = 0; ; i++) {
+                if (i >= name->size) {
+                    cmp = -(i < map->value->name.size);
+                    break;
+                }
+                if (i >= map->value->name.size) {
+                    cmp = 1;
+                    break;
+                }
+
+                if (name->text[i] > map->value->name.text[i]) {
+                    cmp = 1;
+                    break;
+                } else if (name->text[i] < map->value->name.text[i]) {
+                    cmp = -1;
+                    break;
+                }
+            }
+
+            if (cmp < 0) {
+                Namespace<V> left = allocate(map->left);
+                if (left != 0) {
+                    map = Node<ref<V>>::upd_node(map,left,map->right);
+                    return Node<ref<V>>::balanceL(map);
+                }
+            } else if (cmp > 0) {
+                Namespace<V> right = allocate(map->right);
+                if (right != 0) {
+                    map = Node<ref<V>>::upd_node(map,map->left,right);
+                    return Node<ref<V>>::balanceR(map);
+                }
+            } else {
+                return 0;
+            }
+
+            if (i >= fixed)
+                return 0;
+
+            if (name->size >= available) {
+                size_t new_size = name->size + 10;
+                PgfText *new_name = (PgfText *)
+                    realloc(name, sizeof(PgfText)+new_size+1);
+                if (new_name == NULL) {
+                    throw pgf_systemerror(ENOMEM);
+                }
+                name = new_name;
+                available = new_size;
+            }
+
+            i = name->size++;
+            while (i >= fixed) {
+                name->text[i+1] = name->text[i];
+                i--;
+            }
+            name->text[i+1] = alphabet[PgfDB::rand() % base];
+            fixed++;
+        }
+    }
+};
+
+template <class V>
 Namespace<V> namespace_delete(Namespace<V> map, PgfText* name,
                               ref<V> *pvalue)
 {

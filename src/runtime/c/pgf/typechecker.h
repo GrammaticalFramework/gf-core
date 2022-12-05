@@ -3,11 +3,15 @@
 
 class PGF_INTERNAL_DECL PgfTypechecker : public PgfUnmarshaller {
     ref<PgfPGF> gr;
+    ref<PgfDTyp> type;
+    size_t n_args;
+    PgfMarshaller *m;
     PgfUnmarshaller *u;
 
 public:
-    PgfTypechecker(ref<PgfPGF> gr, PgfUnmarshaller *u) {
+    PgfTypechecker(ref<PgfPGF> gr, PgfMarshaller *m, PgfUnmarshaller *u) {
         this->gr = gr;
+        this->m  = m;
         this->u  = u;
     };
 

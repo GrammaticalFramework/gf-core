@@ -7,7 +7,7 @@
 #include <vector>
 #include <queue>
 
-// #define PARSER_DEBUG
+#define PARSER_DEBUG
 
 class PGF_INTERNAL_DECL PgfParser::CFGCat {
 public:
@@ -60,6 +60,7 @@ public:
 struct PGF_INTERNAL_DECL PgfParser::ParseItemConts {
     State *state;
     ref<PgfLincatField> field;
+    size_t value;
     std::vector<ParseItem*> items;
 };
 
@@ -75,6 +76,7 @@ public:
             conts = new ParseItemConts();
             conts->state = this;
             conts->field = field;
+            conts->value = value;
             contss.insert(std::pair<CFGCat,ParseItemConts*>(cfg_cat, conts));
         } else {
             conts = itr1->second;
@@ -104,12 +106,25 @@ public:
 class PGF_INTERNAL_DECL PgfParser::ParseItem : public Item
 {
 public:
-    void* operator new(size_t size, size_t n_args)
+    void* operator new(size_t size, PgfLinSeqIndex *r)
     {
-        return malloc(size+sizeof(Choice*)*n_args);
+        size_t n_args = r->lin->absfun->type->hypos->len;
+        size_t ex_size = sizeof(Choice*)*n_args;
+        ParseItem *item = (ParseItem *) malloc(size+ex_size);
+        memset(item->args, 0, ex_size);
+        return item;
     }
 
-    ParseItem(ParseItemConts *conts, ref<PgfConcrLin> lin, size_t seq_index)
+    void* operator new(size_t size, ParseItem *item)
+    {
+        size_t n_args = item->lin->absfun->type->hypos->len;
+        size_t ex_size = sizeof(Choice*)*n_args;
+        ParseItem *new_item = (ParseItem *) malloc(size+ex_size);
+        memcpy(new_item, item, size+ex_size);
+        return new_item;
+    }
+
+    ParseItem(ParseItemConts *conts, size_t values, ref<PgfConcrLin> lin, size_t seq_index)
     {
         this->outside_prob = lin->lincat->abscat->prob;
         this->inside_prob  = lin->absfun->prob;
@@ -117,9 +132,7 @@ public:
         this->lin          = lin;
         this->seq_index    = seq_index;
         this->dot          = lin->seqs->data[seq_index]->syms.len;
-
-        size_t n_args = lin->absfun->type->hypos->len;
-        memset(this->args, 0, sizeof(Choice*)*n_args);
+        this->values       = values;
     }
 
     ParseItem(ParseItemConts *conts, PgfLincatBackref *backref,
@@ -131,9 +144,6 @@ public:
         this->lin          = backref->lin;
         this->seq_index    = backref->seq_index;
         this->dot          = backref->dot+1;
-
-        size_t n_args = backref->lin->absfun->type->hypos->len;
-        memset(this->args, 0, sizeof(Choice*)*n_args);
         this->args[d]      = choice;
     }
 
@@ -145,24 +155,13 @@ public:
         this->lin          = epsilon->lin;
         this->seq_index    = epsilon->seq_index;
         this->dot          = 0;
-
-        size_t n_args = epsilon->lin->absfun->type->hypos->len;
-        memset(this->args, 0, sizeof(Choice*)*n_args);
     }
 
-    ParseItem(ParseItem *item,
-              size_t d, Choice *choice)
+    ParseItem(size_t d, Choice *choice)
     {
-        this->outside_prob = item->outside_prob;
-        this->inside_prob  = item->inside_prob+choice->viterbi_prob;
-        this->conts        = item->conts;
-        this->lin          = item->lin;
-        this->seq_index    = item->seq_index;
-        this->dot          = item->dot+1;
-
-        size_t n_args = item->lin->absfun->type->hypos->len;
-        memcpy(this->args, item->args, sizeof(Choice*)*n_args);
-        this->args[d]      = choice;
+        this->inside_prob += choice->viterbi_prob;
+        this->dot         += 1;
+        this->args[d]     = choice;
     }
 
     static void bu_predict(ref<PgfLincatField> field, State *state, Choice *choice)
@@ -182,9 +181,8 @@ public:
             ref<PgfLincatField> up_field = vector_elem(backref->lin->lincat->fields, index);
             ParseItemConts *conts = choice->conts->state->get_conts(up_field, 0);
 
-            size_t n_args = backref->lin->absfun->type->hypos->len;
-            state->queue.push(new(n_args) ParseItem(conts, backref,
-                                                    symcat->d, choice));
+            state->queue.push(new(&*backref) ParseItem(conts, backref,
+                                                       symcat->d, choice));
         }
     }
 
@@ -195,8 +193,7 @@ public:
 
         for (size_t i = 0; i < field->epsilons->len; i++) {
             ref<PgfLincatEpsilon> epsilon = vector_elem(field->epsilons, i);
-            size_t n_args = epsilon->lin->absfun->type->hypos->len;
-            state->queue.push(new(n_args) ParseItem(conts, epsilon, outside_prob));
+            state->queue.push(new(&*epsilon) ParseItem(conts, epsilon, outside_prob));
         }
     }
 
@@ -205,8 +202,7 @@ public:
         ref<PgfSequence> seq = lin->seqs->data[seq_index];
         PgfSymbol sym = *vector_elem(&seq->syms,dot);
         auto sym_cat = ref<PgfSymbolCat>::untagged(sym);
-        size_t n_args = lin->absfun->type->hypos->len;
-        state->queue.push(new(n_args) ParseItem(this, sym_cat->d, choice));
+        state->queue.push(new(this) ParseItem(sym_cat->d, choice));
     }
 
     void complete(PgfParser *parser, ref<PgfSequence> seq)
@@ -251,17 +247,21 @@ public:
             malloc(sizeof(Production)+sizeof(Choice*)*n_args);
         prod->lin       = lin;
         prod->seq_index = seq_index;
-        memcpy(prod->args, args, sizeof(Choice*)*n_args);
+        memcpy(prod->args, this+1, sizeof(Choice*)*n_args);
 
         prod->trace(choice);
         choice->prods.push_back(prod);
 
-        // Bottom up prediction if it has not been done already
+        // If this the first time when we complete this category
         if (itr2 == parser->after->choices.end()) {
+            // Combine with top-down predicted rules
             for (ParseItem *item : conts->items) {
                 item->combine(parser->after,choice);
             }
-            bu_predict(conts->field,parser->after,choice);
+            if (conts->state != parser->after) {
+                // Bottom up prediction if this is not an epsilon rule
+                bu_predict(conts->field,parser->after,choice);
+            }
         }
     }
 
@@ -275,16 +275,15 @@ public:
                     vector_elem(lin->absfun->type->hypos, sym_cat->d)->type;
                 ref<PgfConcrLincat> lincat =
                     namespace_lookup(parser->concr->lincats, &ty->name);
-                ref<PgfLincatField> field = vector_elem(lincat->fields, sym_cat->r.i0);
+                if (lincat != 0) {
+                    ref<PgfLincatField> field = vector_elem(lincat->fields, sym_cat->r.i0);
+                    ParseItemConts *conts = parser->after->get_conts(field, 0);
+                    conts->items.push_back(this);
 
-                size_t index = seq_index / lin->lincat->fields->len;
-                size_t n_args = lin->args->len / lin->res->len;
-                ref<PgfPArg> parg = vector_elem(lin->args, index*n_args + sym_cat->d);
-
-                ParseItemConts *conts = parser->after->get_conts(field, 0);
-                conts->items.push_back(this);
-
-                eps_predict(field, parser->after, conts, inside_prob+outside_prob);
+                    if (conts->items.size() == 1) {
+                        eps_predict(field, parser->after, conts, inside_prob+outside_prob);
+                    }
+                }
             }
         }
         default:;
@@ -321,8 +320,19 @@ public:
         ref<PgfDTyp> ty = lin->absfun->type;
 
         if (res->vars != 0) {
-            printer->lvar_ranges(res->vars);
-            printer->puts(" . ");
+            printer->puts("{");
+            size_t values = this->values;
+            for (size_t i = 0; i < res->vars->len; i++) {
+                if (i > 0)
+                    printer->puts(", ");
+
+                printer->lvar(res->vars->data[i].var);
+                size_t val = values / res->vars->data[i].range;
+                printer->nprintf(32,"=%ld",val);
+
+                values = values % res->vars->data[i].range;
+            }
+            printer->puts("} . ");
         }
 
         printer->efun(&ty->name);
@@ -373,6 +383,7 @@ private:
     ref<PgfConcrLin> lin;
     size_t seq_index;
     size_t dot;
+    size_t values;
     Choice *args[];
 };
 
@@ -622,11 +633,12 @@ void PgfParser::Item::trace(State *state, PgfMarshaller *m)
 void PgfParser::Choice::trace(State *state)
 {
 #ifdef PARSER_DEBUG
+    size_t seq_index = conts->field-conts->field->lincat->fields->data;
+
     PgfPrinter printer(NULL,0,NULL);
     printer.nprintf(40,"[%ld-%ld; ", conts->state->end.pos, state->start.pos);
     printer.efun(&conts->field->lincat->name);
-    printer.puts("; ");
-    printer.puts(conts->field->name);
+    printer.nprintf(30,"(%ld); %ld", conts->value, seq_index);
     printer.nprintf(40,"; ?%ld; %f]\n", id, viterbi_prob);
     printer.dump();
 #endif
@@ -716,11 +728,12 @@ void PgfParser::start_matches(PgfTextSpot *end, PgfExn* err)
 
 void PgfParser::match(ref<PgfConcrLin> lin, size_t seq_index, PgfExn* err)
 {
-    size_t index = seq_index % lin->lincat->fields->len;
-    ref<PgfLincatField> field = vector_elem(lin->lincat->fields, index);
+    ref<PgfLincatField> field  = vector_elem(lin->lincat->fields, seq_index % lin->lincat->fields->len);
+    ref<PgfPResult> result = *vector_elem(lin->res, seq_index / lin->lincat->fields->len);
 
-    ParseItemConts *conts = before->get_conts(field, 0);
-    after->queue.push(new(0) ParseItem(conts, lin, seq_index));
+    ParseItemConts *conts = before->get_conts(field, result->param.i0);
+    PgfLinSeqIndex r = {lin, seq_index};
+    after->queue.push(new(&r) ParseItem(conts, result->param.i0, lin, seq_index));
 }
 
 void PgfParser::end_matches(PgfTextSpot *end, PgfExn* err)

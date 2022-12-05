@@ -398,6 +398,7 @@ PgfDB::PgfDB(const char* filepath, int flags, int mode) {
     last_free_block       = 0;
     last_free_block_size  = 0;
     last_free_block_txn_id= 0;
+    seed                  = time(NULL);
 }
 
 PGF_INTERNAL

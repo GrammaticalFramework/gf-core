@@ -145,13 +145,24 @@ checkoutPGF p = do
   langs <- getConcretes (a_db p) fptr
   return (PGF (a_db p) fptr langs)
 
-createFunction :: Fun -> Type -> Int -> [[Instr]] -> Float -> Transaction PGF ()
+{- | 'createFunction name ty arity bytecode prob' creates a new abstract
+     syntax function with the given name, type, arity, etc. If the name
+     contains %d, %x or %a then the pattern is replaced with a random
+     number in base 10, 16, or 36, which guarantees that the name is
+     unique. The returned name is the final name after the substitution.
+-}
+createFunction :: Fun -> Type -> Int -> [[Instr]] -> Float -> Transaction PGF Fun
 createFunction name ty arity bytecode prob = Transaction $ \c_db _ c_revision c_exn ->
   withText name $ \c_name ->
   bracket (newStablePtr ty) freeStablePtr $ \c_ty ->
   (if null bytecode then (\f -> f nullPtr) else (allocaBytes 0)) $ \c_bytecode ->
   withForeignPtr marshaller $ \m -> do
-    pgf_create_function c_db c_revision c_name c_ty (fromIntegral arity) c_bytecode prob m c_exn
+    c_name <- pgf_create_function c_db c_revision c_name c_ty (fromIntegral arity) c_bytecode prob m c_exn
+    if c_name == nullPtr
+      then return ""
+      else do name  <- peekText c_name
+              free c_name
+              return name
 
 dropFunction :: Fun -> Transaction PGF ()
 dropFunction name = Transaction $ \c_db _ c_revision c_exn ->

@@ -134,16 +134,23 @@ Transaction_createFunction(TransactionObject *self, PyObject *args)
     if (!PyArg_ParseTuple(args, "s#O!nf", &s, &size, &pgf_TypeType, &type, &arity, &prob))
         return NULL;
 
-    PgfText *funname = CString_AsPgfText(s, size);
+    PgfText *name_pattern = CString_AsPgfText(s, size);
 
     PgfExn err;
-    pgf_create_function(self->pgf->db, self->revision, funname, (PgfType) type, arity, NULL, prob, &marshaller, &err);
-    FreePgfText(funname);
+    PgfText *name =
+        pgf_create_function(self->pgf->db, self->revision, name_pattern, (PgfType) type, arity, NULL, prob, &marshaller, &err);
+
+    FreePgfText(name_pattern);
+
     if (handleError(err) != PGF_EXN_NONE) {
         return NULL;
     }
 
-    Py_RETURN_NONE;
+    PyObject *py_name = PyUnicode_FromPgfText(name);
+
+    FreePgfText(name);
+
+    return py_name;
 }
 
 static PyObject *
@@ -340,7 +347,11 @@ static PyMethodDef Transaction_methods[] = {
     {"__exit__", (PyCFunction)(void(*)(void))Transaction_exit, METH_FASTCALL, ""},
 
     {"createFunction", (PyCFunction)Transaction_createFunction, METH_VARARGS,
-     "Create function"
+     "'createFunction(name,ty,arity,bytecode,prob)' creates a new abstract"
+     "syntax function with the given name, type, arity, etc. If the name"
+     "contains %d, %x or %a then the pattern is replaced with a random"
+     "number in base 10, 16, or 36, which guarantees that the name is"
+     "unique. The returned name is the final name after the substitution."
     },
     {"dropFunction", (PyCFunction)Transaction_dropFunction, METH_VARARGS,
      "Drop function"

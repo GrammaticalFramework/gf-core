@@ -64,6 +64,7 @@ private:
     const char *filepath;
     malloc_state* ms;
     unsigned char* base;
+    unsigned long int seed;
 
     // The following four fields are normally equal to
     // the corresponding fields in the malloc_state.
@@ -132,6 +133,11 @@ public:
     PGF_INTERNAL_DECL void rollback(object o);
 
     PGF_INTERNAL_DECL bool is_transient_object(object o);
+
+    PGF_INTERNAL_DECL static int rand() {
+        current_db->seed = current_db->seed * 1103515245 + 12345;
+        return (unsigned int)(current_db->seed/65536) % 32768;
+    }
 
 private:
     PGF_INTERNAL_DECL int init_state();

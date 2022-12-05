@@ -1141,7 +1141,7 @@ void pgf_check_expr(PgfDB *db, PgfRevision revision,
 
         ref<PgfPGF> pgf = db->revision2pgf(revision);
 
-        PgfTypechecker checker(pgf,u);
+        PgfTypechecker checker(pgf,m,u);
         *pe = m->match_expr(&checker, *pe);
     } PGF_API_END
 }
@@ -1157,7 +1157,7 @@ PgfType pgf_infer_expr(PgfDB *db, PgfRevision revision,
 
         ref<PgfPGF> pgf = db->revision2pgf(revision);
 
-        PgfTypechecker checker(pgf,u);
+        PgfTypechecker checker(pgf,m,u);
         *pe = m->match_expr(&checker, *pe);
     } PGF_API_END
 
@@ -1179,7 +1179,7 @@ void pgf_check_type(PgfDB *db, PgfRevision revision,
 
         ref<PgfPGF> pgf = db->revision2pgf(revision);
 
-        PgfTypechecker checker(pgf,u);
+        PgfTypechecker checker(pgf,m,u);
         *pty = m->match_type(&checker, *pty);
     } PGF_API_END
 }
@@ -1247,12 +1247,12 @@ PgfRevision pgf_checkout_revision(PgfDB *db, PgfExn *err)
 }
 
 PGF_API
-void pgf_create_function(PgfDB *db, PgfRevision revision,
-                         PgfText *name,
-                         PgfType ty, size_t arity, char *bytecode,
-                         prob_t prob,
-                         PgfMarshaller *m,
-                         PgfExn *err)
+PgfText *pgf_create_function(PgfDB *db, PgfRevision revision,
+                             PgfText *name_pattern,
+                             PgfType ty, size_t arity, char *bytecode,
+                             prob_t prob,
+                             PgfMarshaller *m,
+                             PgfExn *err)
 {
     PGF_API_BEGIN {
         DB_scope scope(db, WRITER_SCOPE);
@@ -1260,17 +1260,25 @@ void pgf_create_function(PgfDB *db, PgfRevision revision,
         PgfDBUnmarshaller u(m);
 
         ref<PgfPGF> pgf = db->revision2pgf(revision);
-        ref<PgfAbsFun> absfun = PgfDB::malloc<PgfAbsFun>(name->size+1);
+
+        PgfNameAllocator<PgfAbsFun> nalloc(name_pattern);
+        Namespace<PgfAbsFun> funs =
+            nalloc.allocate(pgf->abstract.funs);
+
+        PgfText *name; ref<PgfAbsFun> absfun;
+        nalloc.fetch_name_value(&name, &absfun);
+
         absfun->type  = m->match_type(&u, ty);
         absfun->arity = arity;
         absfun->bytecode = bytecode ? PgfDB::malloc<char>(0) : 0;
         absfun->prob = prob;
-        memcpy(&absfun->name, name, sizeof(PgfText)+name->size+1);
 
-        Namespace<PgfAbsFun> funs =
-            namespace_insert(pgf->abstract.funs, absfun);
         pgf->abstract.funs = funs;
+
+        return name;
     } PGF_API_END
+
+    return NULL;
 }
 
 PGF_API

@@ -8,6 +8,12 @@ PgfExpr PgfTypechecker::eabs(PgfBindType btype, PgfText *name, PgfExpr body)
 
 PgfExpr PgfTypechecker::eapp(PgfExpr fun, PgfExpr arg)
 {
+    fun = m->match_expr(this, fun);
+
+    size_t       fun_n_args = n_args;
+    ref<PgfDTyp> fun_type   = type;
+
+    arg = m->match_expr(this, arg);
     return u->eapp(fun, arg);
 }
 
@@ -23,6 +29,13 @@ PgfExpr PgfTypechecker::emeta(PgfMetaId meta)
 
 PgfExpr PgfTypechecker::efun(PgfText *name)
 {
+    ref<PgfAbsFun> absfun =
+        namespace_lookup(gr->abstract.funs, name);
+    if (absfun == 0)
+        throw pgf_error("Unknown function");
+
+    type   = absfun->type;
+    n_args = 0;
     return u->efun(name);
 }
 
@@ -33,11 +46,13 @@ PgfExpr PgfTypechecker::evar(int index)
 
 PgfExpr PgfTypechecker::etyped(PgfExpr expr, PgfType ty)
 {
+    expr = m->match_expr(this, expr);
     return u->etyped(expr,ty);
 }
 
 PgfExpr PgfTypechecker::eimplarg(PgfExpr expr)
 {
+    expr = m->match_expr(this, expr);
     return u->eimplarg(expr);
 }
 

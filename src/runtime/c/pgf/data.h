@@ -253,15 +253,16 @@ struct PGF_INTERNAL_DECL PgfConcrLin {
     static void release(ref<PgfConcrLin> lin);
 };
 
-struct PGF_INTERNAL_DECL PgfLincatBackref {
+struct PGF_INTERNAL_DECL PgfLinSeqIndex {
     ref<PgfConcrLin> lin;
     size_t seq_index;
+};
+
+struct PGF_INTERNAL_DECL PgfLincatBackref : public PgfLinSeqIndex {
     size_t dot;
 };
 
-struct PGF_INTERNAL_DECL PgfLincatEpsilon {
-    ref<PgfConcrLin> lin;
-    size_t seq_index;
+struct PGF_INTERNAL_DECL PgfLincatEpsilon : public PgfLinSeqIndex {
 };
 
 struct PGF_INTERNAL_DECL PgfConcrPrintname {
