@@ -324,6 +324,8 @@ Namespace<V> namespace_insert(Namespace<V> map, ref<V> value)
     }
 }
 
+static constexpr char alphabet[] = "0123456789abcdefghijklmnopqrstuvwxyz";
+
 template <class V>
 class PgfNameAllocator {
     size_t available;
@@ -331,6 +333,32 @@ class PgfNameAllocator {
     size_t base;
     ref<V> value;
     PgfText *name;
+
+    Namespace<V> insert(Namespace<V> map)
+    {
+        if (map == 0) {
+            value = PgfDB::malloc<V>(name->size+1);
+            memcpy(&value->name, name, sizeof(PgfText)+name->size+1);
+            return Node<ref<V>>::new_node(value);
+        }
+
+        int cmp = textcmp(name,&map->value->name);
+        if (cmp < 0) {
+            Namespace<V> left = insert(map->left);
+            if (left != 0) {
+                map = Node<ref<V>>::upd_node(map,left,map->right);
+                return Node<ref<V>>::balanceL(map);
+            }
+        } else if (cmp > 0) {
+            Namespace<V> right = insert(map->right);
+            if (right != 0) {
+                map = Node<ref<V>>::upd_node(map,map->left,right);
+                return Node<ref<V>>::balanceR(map);
+            }
+        }
+
+        return 0;
+    }
 
 public:
     PgfNameAllocator(PgfText *name_pattern)
@@ -383,54 +411,10 @@ public:
 
     Namespace<V> allocate(Namespace<V> map)
     {
-        static char alphabet[] = "0123456789abcdefghijklmnopqrstuvwxyz";
-
-        if (map == 0) {
-            value = PgfDB::malloc<V>(name->size+1);
-            memcpy(&value->name, name, sizeof(PgfText)+name->size+1);
-            return Node<ref<V>>::new_node(value);
-        }
-
         for (;;) {
-            int cmp;
-            size_t i;
-            for (i = 0; ; i++) {
-                if (i >= name->size) {
-                    cmp = -(i < map->value->name.size);
-                    break;
-                }
-                if (i >= map->value->name.size) {
-                    cmp = 1;
-                    break;
-                }
-
-                if (name->text[i] > map->value->name.text[i]) {
-                    cmp = 1;
-                    break;
-                } else if (name->text[i] < map->value->name.text[i]) {
-                    cmp = -1;
-                    break;
-                }
-            }
-
-            if (cmp < 0) {
-                Namespace<V> left = allocate(map->left);
-                if (left != 0) {
-                    map = Node<ref<V>>::upd_node(map,left,map->right);
-                    return Node<ref<V>>::balanceL(map);
-                }
-            } else if (cmp > 0) {
-                Namespace<V> right = allocate(map->right);
-                if (right != 0) {
-                    map = Node<ref<V>>::upd_node(map,map->left,right);
-                    return Node<ref<V>>::balanceR(map);
-                }
-            } else {
-                return 0;
-            }
-
-            if (i >= fixed)
-                return 0;
+            Namespace<V> new_map = insert(map);
+            if (new_map != 0)
+                return new_map;
 
             if (name->size >= available) {
                 size_t new_size = name->size + 10;
@@ -443,7 +427,7 @@ public:
                 available = new_size;
             }
 
-            i = name->size++;
+            size_t i = name->size++;
             while (i >= fixed) {
                 name->text[i+1] = name->text[i];
                 i--;
