@@ -923,7 +923,7 @@ bracketedLinearize c e = unsafePerformIO $ do
 
     symbol_ne ref _ = do
       (ne,stack,bs) <- readIORef ref
-      writeIORef ref (True,[],[])
+      writeIORef ref (True,stack,bs)
 
     flush _ _ = return ()
 
