@@ -271,7 +271,7 @@ transactionCommand (CreateFun opts f ty) pgf mb_txnid = do
   let prob = realToFrac (valFltOpts "prob" (1/0) opts)
   case checkType pgf ty of
     Left msg -> putStrLnE msg
-    Right ty -> do lift $ updatePGF pgf mb_txnid (createFunction f ty 0 [] prob)
+    Right ty -> do lift $ updatePGF pgf mb_txnid (createFunction f ty 0 [] prob >> return ())
                    return ()
 transactionCommand (CreateCat opts c ctxt) pgf mb_txnid = do
   let prob = realToFrac (valFltOpts "prob" (1/0) opts)
