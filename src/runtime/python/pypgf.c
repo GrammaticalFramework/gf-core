@@ -334,7 +334,7 @@ pypgf_lin_out_symbol_ne(PyPgfLinearizationOutput *this)
 static void
 pypgf_lin_out_symbol_bind(PyPgfLinearizationOutput *this)
 {
-    PyList_Append(this->bs, BIND_instance);
+    PyList_Append(this->bs, pgf_BINDType.tp_alloc(&pgf_BINDType, 0));
 }
 
 static void
