@@ -80,6 +80,307 @@ Concr_linearize(ConcrObject* self, PyObject *args)
 	return pystr;
 }
 
+typedef struct {
+	PyObject_HEAD
+	PyObject* cat;
+	int fid;
+	PyObject* ann;
+	PyObject* fun;
+	PyObject* children;
+} BracketObject;
+
+static void
+Bracket_dealloc(BracketObject* self)
+{
+	Py_XDECREF(self->cat);
+	Py_XDECREF(self->fun);
+	Py_XDECREF(self->children);
+    Py_TYPE(self)->tp_free((PyObject*)self);
+}
+
+static PyObject *
+Bracket_repr(BracketObject *self)
+{
+	PyObject *repr =
+		PyUnicode_FromFormat("(%U:%d", self->cat, self->fid);
+	if (repr == NULL) {
+		return NULL;
+	}
+
+	PyObject *space = PyUnicode_FromFormat(" ");
+
+	PyObject *new_repr;
+    size_t len = PyList_Size(self->children);
+	for (size_t i = 0; i < len; i++) {
+        PyObject *child = PyList_GetItem(self->children, i);
+
+		new_repr = PyUnicode_Concat(repr, space); Py_DECREF(repr);
+		if (new_repr == NULL) {
+			Py_DECREF(space);
+			return NULL;
+		}
+        repr = new_repr;
+
+		PyObject *child_str = Py_TYPE(child)->tp_str(child);
+		if (child_str == NULL) {
+			Py_DECREF(repr);
+			Py_DECREF(space);
+			return NULL;
+		}
+
+		new_repr = PyUnicode_Concat(repr, child_str); Py_DECREF(repr);
+		if (new_repr == NULL) {
+			Py_DECREF(space);
+			return NULL;
+		}
+        repr = new_repr;
+
+		Py_DECREF(child_str);
+	}
+
+	Py_DECREF(space);
+
+	PyObject *str = PyUnicode_FromFormat(")");
+	new_repr = PyUnicode_Concat(repr, str); Py_DECREF(repr); Py_DECREF(str);
+    repr = new_repr;
+
+	return repr;
+}
+
+static PyMemberDef Bracket_members[] = {
+    {"cat", T_OBJECT_EX, offsetof(BracketObject, cat), 0,
+     "the syntactic category for this bracket"},
+    {"fun", T_OBJECT_EX, offsetof(BracketObject, fun), 0,
+     "the abstract function for this bracket"},
+    {"fid", T_INT, offsetof(BracketObject, fid), 0,
+     "an id which identifies this bracket in the bracketed string. If there are discontinuous phrases this id will be shared for all brackets belonging to the same phrase."},
+    {"ann", T_OBJECT_EX, offsetof(BracketObject, ann), 0,
+     "the analysis of the constituent"},
+    {"children", T_OBJECT_EX, offsetof(BracketObject, children), 0,
+     "a list with the children of this bracket"},
+    {NULL}  /* Sentinel */
+};
+
+static PyTypeObject pgf_BracketType = {
+    PyVarObject_HEAD_INIT(NULL, 0)
+    //0,                         /*ob_size*/
+    "pgf.Bracket",             /*tp_name*/
+    sizeof(BracketObject),     /*tp_basicsize*/
+    0,                         /*tp_itemsize*/
+    (destructor)Bracket_dealloc,/*tp_dealloc*/
+    0,                         /*tp_print*/
+    0,                         /*tp_getattr*/
+    0,                         /*tp_setattr*/
+    0,                         /*tp_compare*/
+    0,                         /*tp_repr*/
+    0,                         /*tp_as_number*/
+    0,                         /*tp_as_sequence*/
+    0,                         /*tp_as_mapping*/
+    0,                         /*tp_hash */
+    0,                         /*tp_call*/
+    (reprfunc) Bracket_repr,   /*tp_str*/
+    0,                         /*tp_getattro*/
+    0,                         /*tp_setattro*/
+    0,                         /*tp_as_buffer*/
+    Py_TPFLAGS_DEFAULT | Py_TPFLAGS_BASETYPE, /*tp_flags*/
+    "a linearization bracket", /*tp_doc*/
+    0,		                   /*tp_traverse */
+    0,		                   /*tp_clear */
+    0,		                   /*tp_richcompare */
+    0,		                   /*tp_weaklistoffset */
+    0,		                   /*tp_iter */
+    0,		                   /*tp_iternext */
+    0,                         /*tp_methods */
+    Bracket_members,           /*tp_members */
+    0,                         /*tp_getset */
+    0,                         /*tp_base */
+    0,                         /*tp_dict */
+    0,                         /*tp_descr_get */
+    0,                         /*tp_descr_set */
+    0,                         /*tp_dictoffset */
+    0,                         /*tp_init */
+    0,                         /*tp_alloc */
+    0,                         /*tp_new */
+};
+
+typedef struct {
+	PyObject_HEAD
+} BINDObject;
+
+static PyObject *BIND_instance = NULL;
+
+static void
+BIND_dealloc(PyTypeObject *self)
+{
+    BIND_instance = NULL;
+}
+
+static PyObject *
+BIND_repr(BINDObject *self)
+{
+	return PyUnicode_FromString("pgf.BIND");
+}
+
+static PyObject *
+BIND_str(BINDObject *self)
+{
+	return PyUnicode_FromString("&+");
+}
+
+static PyObject *
+BIND_alloc(PyTypeObject *self, Py_ssize_t nitems)
+{
+    if (BIND_instance == NULL)
+        BIND_instance = PyType_GenericAlloc(self, nitems);
+    else
+        Py_INCREF(BIND_instance); 
+    return BIND_instance;
+}
+
+static PyTypeObject pgf_BINDType = {
+    PyVarObject_HEAD_INIT(NULL, 0)
+    //0,                       /*ob_size*/
+    "pgf.BINDType",            /*tp_name*/
+    sizeof(BINDObject),        /*tp_basicsize*/
+    0,                         /*tp_itemsize*/
+    (destructor) BIND_dealloc, /*tp_dealloc*/
+    0,                         /*tp_print*/
+    0,                         /*tp_getattr*/
+    0,                         /*tp_setattr*/
+    0,                         /*tp_compare*/
+    (reprfunc) BIND_repr,      /*tp_repr*/
+    0,                         /*tp_as_number*/
+    0,                         /*tp_as_sequence*/
+    0,                         /*tp_as_mapping*/
+    0,                         /*tp_hash */
+    0,                         /*tp_call*/
+    (reprfunc) BIND_str,       /*tp_str*/
+    0,                         /*tp_getattro*/
+    0,                         /*tp_setattro*/
+    0,                         /*tp_as_buffer*/
+    Py_TPFLAGS_DEFAULT | Py_TPFLAGS_BASETYPE, /*tp_flags*/
+    "a marker for BIND in a bracketed string", /*tp_doc*/
+    0,		                   /*tp_traverse */
+    0,		                   /*tp_clear */
+    0,		                   /*tp_richcompare */
+    0,		                   /*tp_weaklistoffset */
+    0,		                   /*tp_iter */
+    0,		                   /*tp_iternext */
+    0,                         /*tp_methods */
+    0,                         /*tp_members */
+    0,                         /*tp_getset */
+    0,                         /*tp_base */
+    0,                         /*tp_dict */
+    0,                         /*tp_descr_get */
+    0,                         /*tp_descr_set */
+    0,                         /*tp_dictoffset */
+    0,                         /*tp_init */
+    BIND_alloc,                /*tp_alloc */
+    0,                         /*tp_new */
+};
+
+typedef struct
+{
+    PgfLinearizationOutputIface iface;
+    int non_exist;
+    PyObject *stack;
+    PyObject *bs;
+} PyPgfLinearizationOutput;
+
+static void
+pypgf_lin_out_symbol_token(PyPgfLinearizationOutput *this, PgfText *tok)
+{
+    PyObject *py_tok = PyUnicode_FromPgfText(tok);
+    PyList_Append(this->bs, py_tok);
+    Py_DECREF(py_tok);
+}
+
+static void
+pypgf_lin_out_begin_phrase(PyPgfLinearizationOutput *this, PgfText *cat, int fid, PgfText *ann, PgfText *fun)
+{
+    PyList_Append(this->stack, this->bs);
+    this->bs = PyList_New(0);
+}
+
+static void
+pypgf_lin_out_end_phrase(PyPgfLinearizationOutput *this, PgfText *cat, int fid, PgfText *ann, PgfText *fun)
+{
+    PyObject *parent = PyObject_CallMethod(this->stack, "pop", "");
+    if (PyList_Size(this->bs) > 0) {
+        BracketObject* bracket = (BracketObject *)
+			pgf_BracketType.tp_alloc(&pgf_BracketType, 0);
+		if (bracket != NULL) {
+            bracket->cat = PyUnicode_FromPgfText(cat);
+			bracket->fid = fid;
+			bracket->ann = PyUnicode_FromPgfText(ann);
+			bracket->fun = PyUnicode_FromPgfText(fun);
+			bracket->children = this->bs;
+			PyList_Append(parent, (PyObject*) bracket);
+			Py_DECREF(bracket);
+        }
+    } else {
+        Py_DECREF(this->bs);
+    }
+
+    this->bs = parent;
+}
+
+static void
+pypgf_lin_out_symbol_ne(PyPgfLinearizationOutput *this)
+{
+    this->non_exist = 1;
+}
+
+static void
+pypgf_lin_out_symbol_bind(PyPgfLinearizationOutput *this)
+{
+    PyList_Append(this->bs, BIND_instance);
+}
+
+static void
+pypgf_lin_out_flush(PyPgfLinearizationOutput *this)
+{
+}
+
+PgfLinearizationOutputIfaceVtbl pypgf_lin_out_iface_vtbl =
+{
+    (void*) pypgf_lin_out_symbol_token,
+    (void*) pypgf_lin_out_begin_phrase,
+    (void*) pypgf_lin_out_end_phrase,
+    (void*) pypgf_lin_out_symbol_ne,
+    (void*) pypgf_lin_out_symbol_bind,
+    (void*) pypgf_lin_out_flush
+};
+
+static PyObject*
+Concr_bracketedLinearize(ConcrObject* self, PyObject *args)
+{
+	ExprObject* pyexpr;
+	if (!PyArg_ParseTuple(args, "O!", &pgf_ExprType, &pyexpr))
+        return NULL;
+
+    PyPgfLinearizationOutput lin_out;
+    lin_out.iface.vtbl = &pypgf_lin_out_iface_vtbl;
+    lin_out.non_exist = 0;
+    lin_out.stack = PyList_New(0);
+    lin_out.bs    = PyList_New(0);
+
+	PgfExn err;
+    pgf_bracketed_linearize(self->grammar->db, self->concr, (PgfExpr) pyexpr, NULL,
+                            &marshaller, &lin_out.iface, &err);
+    Py_DECREF(lin_out.stack);
+	if (handleError(err) != PGF_EXN_NONE) {
+        return NULL;
+	}
+
+    if (lin_out.non_exist) {
+        Py_DECREF(lin_out.bs);
+        Py_RETURN_NONE;
+    }
+
+	return lin_out.bs;
+}
+
 static PyGetSetDef Concr_getseters[] = {
     {"name", 
      (getter)Concr_getName, NULL,
@@ -131,11 +432,11 @@ static PyMethodDef Concr_methods[] = {
     },
     {"tabularLinearize", (PyCFunction)Concr_tabularLinearize, METH_VARARGS,
      "Takes an abstract tree and linearizes it to a table containing all fields"
-	},
+	},*/
     {"bracketedLinearize", (PyCFunction)Concr_bracketedLinearize, METH_VARARGS,
      "Takes an abstract tree and linearizes it to a bracketed string"
     },
-    {"bracketedLinearizeAll", (PyCFunction)Concr_bracketedLinearizeAll, METH_VARARGS | METH_KEYWORDS,
+/*    {"bracketedLinearizeAll", (PyCFunction)Concr_bracketedLinearizeAll, METH_VARARGS | METH_KEYWORDS,
      "Takes an abstract tree and linearizes all variants into bracketed strings"
     },
     {"hasLinearization", (PyCFunction)Concr_hasLinearization, METH_VARARGS,
@@ -1176,6 +1477,8 @@ MOD_INIT(pgf)
     TYPE_READY(pgf_ExprImplArgType);
     TYPE_READY(pgf_TypeType);
     TYPE_READY(pgf_EmbeddedGrammarType);
+    TYPE_READY(pgf_BracketType);
+    TYPE_READY(pgf_BINDType);
 
     MOD_DEF(m, "pgf", "The Runtime for Portable Grammar Format in Python", module_methods);
     if (m == NULL)
@@ -1197,6 +1500,8 @@ MOD_INIT(pgf)
     ADD_TYPE("ExprTyped", pgf_ExprTypedType);
     ADD_TYPE("ExprImplArg", pgf_ExprImplArgType);
     ADD_TYPE("Type", pgf_TypeType);
+    ADD_TYPE("Bracket", pgf_BracketType);
+    ADD_TYPE("BIND", pgf_BINDType);
 
     Py_INCREF(Py_True);
     ADD_TYPE_DIRECT("BIND_TYPE_EXPLICIT", Py_True);
