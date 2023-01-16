@@ -325,11 +325,12 @@ ref<PgfConcrLincat> PgfLinearizer::TreeLinNode::get_lincat(PgfLinearizer *linear
     return namespace_lookup(linearizer->concr->lincats, &lin->absfun->type->name);
 }
 
-PgfLinearizer::TreeLindefNode::TreeLindefNode(PgfLinearizer *linearizer, PgfText *literal)
+PgfLinearizer::TreeLindefNode::TreeLindefNode(PgfLinearizer *linearizer, PgfText *fun, PgfText *literal)
   : TreeNode(linearizer)
 {
     this->lincat    = 0;
     this->lin_index = 0;
+    this->fun       = fun;
     this->literal   = literal;
 
     TreeNode *prev = linearizer->prev;
@@ -391,7 +392,7 @@ void PgfLinearizer::TreeLindefNode::linearize(PgfLinearizationOutputIface *out, 
     if (lincat != 0) {
         PgfText *field = &*(vector_elem(lincat->fields, lindex)->name);
         if (linearizer->pre_stack == NULL)
-            out->begin_phrase(&lincat->name, fid, field, linearizer->wild);
+            out->begin_phrase(&lincat->name, fid, field, fun);
         else {
             BracketStack *bracket = new BracketStack();
             bracket->next  = linearizer->pre_stack->bracket_stack;
@@ -399,7 +400,7 @@ void PgfLinearizer::TreeLindefNode::linearize(PgfLinearizationOutputIface *out, 
             bracket->fid   = fid;
             bracket->cat   = &lincat->name;
             bracket->field = field;
-            bracket->field = linearizer->wild;
+            bracket->fun   = fun;
             linearizer->pre_stack->bracket_stack = bracket;
         }
 
@@ -407,7 +408,7 @@ void PgfLinearizer::TreeLindefNode::linearize(PgfLinearizationOutputIface *out, 
         linearize_seq(out, linearizer, seq);
 
         if (linearizer->pre_stack == NULL)
-            out->end_phrase(&lincat->name, fid, field, linearizer->wild);
+            out->end_phrase(&lincat->name, fid, field, fun);
         else {
             BracketStack *bracket = new BracketStack();
             bracket->next  = linearizer->pre_stack->bracket_stack;
@@ -415,7 +416,7 @@ void PgfLinearizer::TreeLindefNode::linearize(PgfLinearizationOutputIface *out, 
             bracket->fid   = fid;
             bracket->cat   = &lincat->name;
             bracket->field = field;
-            bracket->field = linearizer->wild;
+            bracket->fun   = fun;
             linearizer->pre_stack->bracket_stack = bracket;
         }
     } else {
@@ -726,7 +727,7 @@ PgfExpr PgfLinearizer::elit(PgfLiteral lit)
 PgfExpr PgfLinearizer::emeta(PgfMetaId meta)
 {
     printer.emeta(meta);
-    return (PgfExpr) new TreeLindefNode(this, printer.get_text());
+    return (PgfExpr) new TreeLindefNode(this, NULL, printer.get_text());
 }
 
 PgfExpr PgfLinearizer::efun(PgfText *name)
@@ -738,14 +739,15 @@ PgfExpr PgfLinearizer::efun(PgfText *name)
         printer.puts("[");
         printer.efun(name);
         printer.puts("]");
-        return (PgfExpr) new TreeLindefNode(this, printer.get_text());
+        return (PgfExpr) new TreeLindefNode(this, textdup(name), printer.get_text());
     }
 }
 
 PgfExpr PgfLinearizer::evar(int index)
 {
     printer.evar(index);
-    return (PgfExpr) new TreeLindefNode(this, printer.get_text());
+    PgfText *name = printer.get_text();
+    return (PgfExpr) new TreeLindefNode(this, textdup(name), name);
 }
 
 PgfExpr PgfLinearizer::etyped(PgfExpr expr, PgfType ty)

@@ -66,15 +66,16 @@ class PGF_INTERNAL_DECL PgfLinearizer : public PgfUnmarshaller {
     struct TreeLindefNode : public TreeNode {
         ref<PgfConcrLincat> lincat;
         size_t lin_index;
+        PgfText *fun;
         PgfText *literal;
 
-        TreeLindefNode(PgfLinearizer *linearizer, PgfText *lit);
+        TreeLindefNode(PgfLinearizer *linearizer, PgfText *fun, PgfText *lit);
         virtual bool resolve(PgfLinearizer *linearizer);
         virtual void check_category(PgfLinearizer *linearizer, PgfText *cat);
         virtual void linearize_arg(PgfLinearizationOutputIface *out, PgfLinearizer *linearizer, size_t d, PgfLParam *r);
         virtual void linearize(PgfLinearizationOutputIface *out, PgfLinearizer *linearizer, size_t lindex);
         virtual ref<PgfConcrLincat> get_lincat(PgfLinearizer *linearizer);
-        ~TreeLindefNode() { free(literal); };
+        ~TreeLindefNode() { free(fun); free(literal); };
     };
 
     struct TreeLinrefNode : public TreeNode {
