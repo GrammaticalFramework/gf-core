@@ -727,7 +727,8 @@ PgfExpr PgfLinearizer::elit(PgfLiteral lit)
 PgfExpr PgfLinearizer::emeta(PgfMetaId meta)
 {
     printer.emeta(meta);
-    return (PgfExpr) new TreeLindefNode(this, NULL, printer.get_text());
+    return (PgfExpr) new TreeLindefNode(this, textdup(wild),
+                                        printer.get_text());
 }
 
 PgfExpr PgfLinearizer::efun(PgfText *name)
