@@ -16,6 +16,8 @@
 
 #else
 
+#include <time.h>
+
 static
 size_t getpagesize()
 {
