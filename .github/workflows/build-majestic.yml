@@ -188,10 +188,10 @@ jobs:
         sudo mv lib/* /usr/local/lib/
         sudo mv include/* /usr/local/include/
 
-    - uses: actions/setup-python@v2
+    - uses: actions/setup-python@v3
       name: Install Python
       with:
-        python-version: '3.7'
+        python-version: '3.10'
 
     - name: Install bindings
       working-directory: ./src/runtime/python
