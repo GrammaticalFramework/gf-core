@@ -188,14 +188,10 @@ jobs:
         sudo mv lib/* /usr/local/lib/
         sudo mv include/* /usr/local/include/
 
-    - uses: actions/setup-python@v1
+    - uses: actions/setup-python@v2
       name: Install Python
       with:
         python-version: '3.7'
-
-    - name: Install cibuildwheel
-      run: |
-        python -m pip install git+https://github.com/joerick/cibuildwheel.git@main
 
     - name: Install bindings
       working-directory: ./src/runtime/python
