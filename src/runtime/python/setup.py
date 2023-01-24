@@ -22,7 +22,7 @@ pgf_module = Extension(
     libraries = ['pgf'])
 
 setup(
-    name = 'pgf',
+    name = 'tpgf',
     version = '2.0',
     description = 'Python bindings to the Grammatical Framework\'s PGF runtime',
     long_description="""\
