@@ -46,7 +46,7 @@ jobs:
         sudo mv include/* /usr/local/include/
 
     - name: Setup Haskell
-      uses: haskell/actions/setup@v1
+      uses: haskell/actions/setup@v2
       with:
         ghc-version: 8
 
@@ -161,7 +161,7 @@ jobs:
         sudo mv include/* /usr/local/include/
 
     - name: Setup Haskell
-      uses: haskell/actions/setup@v1
+      uses: haskell/actions/setup@v2
       with:
         ghc-version: 8
 
