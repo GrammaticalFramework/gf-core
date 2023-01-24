@@ -116,7 +116,7 @@ jobs:
 
   macos-runtime:
     name: Runtime (macOS)
-    runs-on: macOS-10
+    runs-on: macOS-11
 
     steps:
     - uses: actions/checkout@v3
@@ -147,7 +147,7 @@ jobs:
 
   macos-haskell:
     name: Haskell (macOS)
-    runs-on: macOS-10
+    runs-on: macOS-11
     needs: macos-runtime
 
     steps:
@@ -172,7 +172,7 @@ jobs:
 
   macos-python:
     name: Python (macOS)
-    runs-on: macOS-10
+    runs-on: macOS-11
     needs: macos-runtime
     env:
       EXTRA_INCLUDE_DIRS: /usr/local/include
@@ -202,7 +202,7 @@ jobs:
 
 #  macos-javascript:
 #   name: JavaScript (macOS)
-#    runs-on: macOS-10
+#    runs-on: macOS-11
 #    needs: macos-runtime
 #
 #    steps:
