@@ -931,7 +931,7 @@ static PyGetSetDef PGF_getseters[] = {
     {NULL}  /* Sentinel */
 };
 
-#if PY_VERSION_HEX < 0x03070000
+#if PY_VERSION_HEX < 0x03080000
 
 static void
 pgf_embed_funs(PgfItor* fn, PgfText* name, object value, PgfExn* err)
@@ -1545,7 +1545,7 @@ MOD_INIT(pgf)
     TYPE_READY(pgf_ExprTypedType);
     TYPE_READY(pgf_ExprImplArgType);
     TYPE_READY(pgf_TypeType);
-#if PY_VERSION_HEX >= 0x03070000
+#if PY_VERSION_HEX >= 0x03080000
     TYPE_READY(pgf_EmbeddedGrammarType);
 #endif
     TYPE_READY(pgf_BracketType);
