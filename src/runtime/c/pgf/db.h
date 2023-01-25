@@ -186,6 +186,10 @@ private:
     DB_scope* next_scope;
 };
 
+#if defined(_MSC_VER)
+extern PGF_INTERNAL_DECL __declspec( thread ) DB_scope *last_db_scope;
+#else
 extern PGF_INTERNAL_DECL __thread DB_scope *last_db_scope __attribute__((tls_model("initial-exec")));
+#endif
 
 #endif
