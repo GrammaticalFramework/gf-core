@@ -287,8 +287,8 @@ jobs:
     runs-on: windows-latest
     needs: windows-runtime
     env:
-      EXTRA_INCLUDE_DIRS: include
-      EXTRA_LIB_DIRS: lib
+      EXTRA_INCLUDE_DIRS: D:\a\gf-core\gf-core\include
+      EXTRA_LIB_DIRS: D:\a\gf-core\gf-core\lib
 
     steps:
     - uses: actions/checkout@v3
