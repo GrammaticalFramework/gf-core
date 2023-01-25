@@ -631,7 +631,7 @@ match_type(PgfMarshaller *this, PgfUnmarshaller *u, PgfType ty)
     }
 
     Py_ssize_t n_exprs = PySequence_Size(type->exprs);
-    PgfExpr exprs[n_exprs];
+    PgfExpr *exprs = (PgfExpr *) alloca(n_exprs*sizeof(PgfExpr));
     for (Py_ssize_t i = 0; i < n_exprs; i++) {
         exprs[i] = (PgfExpr)PySequence_ITEM(type->exprs, i);
     }
