@@ -16,6 +16,9 @@
 
 #if defined(_MSC_VER)
 #include <io.h>
+#define open _open
+#define lseek _lseek
+#define close _close
 #endif
 
 #else
