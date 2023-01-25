@@ -195,7 +195,7 @@ jobs:
     - name: Install bindings
       env:
         CIBW_TEST_REQUIRES: pytest
-        CIBW_TEST_COMMAND: "pytest tests"
+        CIBW_TEST_COMMAND: "pytest {project}/tests"
       run: |
         python3 -m cibuildwheel src/runtime/python --output-dir wheelhouse
 
