@@ -2,12 +2,19 @@ from setuptools import setup, Extension
 import os
 import platform
 
+on_windows = platform.system() == 'Windows'
+
 includes = os.getenv('EXTRA_INCLUDE_DIRS','').split(':')
 if includes==['']:
     includes=[]
 libraries = os.getenv('EXTRA_LIB_DIRS','').split(':')
 if libraries==['']:
     libraries=[]
+
+if on_windows:
+    extra_sources = [f for f in os.listdir('../c/pgf') if f.endswith('.cxx')]
+else:
+    extra_sources = []
 
 pgf_module = Extension(
     'pgf',
@@ -16,11 +23,11 @@ pgf_module = Extension(
         'expr.c',
         'ffi.c',
         'transactions.c'
-    ],
-    extra_compile_args = [] if platform.system() == 'Windows' else ['-std=c99', '-Werror', '-Wno-error=unused-variable', '-Wno-comment'],
+    ]+extra_sources,
+    extra_compile_args = [] if on_windows else ['-std=c99', '-Werror', '-Wno-error=unused-variable', '-Wno-comment'],
     include_dirs = includes,
     library_dirs = libraries,
-    libraries = ['pgf'])
+    libraries = [] if on_windows else ['pgf'])
 
 setup(
     name = 'pgf',
