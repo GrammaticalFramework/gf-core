@@ -639,7 +639,7 @@ PGF_API_DECL
 int pgf_has_linearization(PgfDB *db, PgfConcrRevision revision,
                           PgfText *name, PgfExn *err);
 
-PGF_API
+PGF_API_DECL
 PgfText **pgf_category_fields(PgfDB *db, PgfConcrRevision revision,
                               PgfText *name, size_t *p_n_fields,
                               PgfExn *err);
@@ -804,7 +804,7 @@ typedef struct {
     const char *leafEdgeStyle;
 } PgfGraphvizOptions;
 
-PGF_API PgfText *
+PGF_API_DECL PgfText *
 pgf_graphviz_parse_tree(PgfDB *db, PgfConcrRevision revision,
                         PgfExpr expr, PgfPrintContext *ctxt,
                         PgfMarshaller *m,
