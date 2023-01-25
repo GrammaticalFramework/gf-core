@@ -32,10 +32,10 @@ ref<PgfText> textdup_db(ref<PgfText> t1);
 PGF_INTERNAL_DECL
 void text_db_release(ref<PgfText> text);
 
-PGF_API uint32_t
+PGF_API_DECL uint32_t
 pgf_utf8_decode(const uint8_t** src_inout);
 
-PGF_API void
+PGF_API_DECL void
 pgf_utf8_encode(uint32_t ucs, uint8_t** buf);
 
 PGF_INTERNAL_DECL
