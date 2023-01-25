@@ -282,6 +282,50 @@ jobs:
           ${{runner.temp}}/msys64/mingw64/lib/libpgf*
           ${{runner.temp}}/msys64/mingw64/include/pgf
 
+  windows-python:
+    name: Python (Windows)
+    runs-on: windows-latest
+    needs: windows-runtime
+
+    steps:
+    - uses: actions/checkout@v3
+
+    - name: Setup MSYS2
+      uses: msys2/setup-msys2@v2
+      with:
+        msystem: MINGW64
+        install: >-
+          base-devel
+          autoconf
+          automake
+          libtool
+          mingw-w64-x86_64-toolchain
+          mingw-w64-x86_64-libtool
+
+    - name: Download artifact
+      uses: actions/download-artifact@master
+      with:
+        name: libpgf-windows
+
+    - name: Install cibuildwheel
+      shell: msys2 {0}
+      run: |
+        python3 -m pip install git+https://github.com/joerick/cibuildwheel.git@main
+
+    - name: Install and test bindings
+      shell: msys2 {0}
+      env:
+        CIBW_TEST_REQUIRES: pytest
+        CIBW_TEST_COMMAND: "(cd {project}/src/runtime/python; pytest)"
+        CIBW_SKIP: pp*
+      run: |
+        python3 -m cibuildwheel src/runtime/python --output-dir wheelhouse
+
+    - uses: actions/upload-artifact@master
+      with:
+        name: python-windows
+        path: ./wheelhouse
+
   upload_pypi:
     name: Upload to PyPI
     needs: [linux-python, macos-python]
