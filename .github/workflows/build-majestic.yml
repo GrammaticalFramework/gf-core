@@ -22,7 +22,7 @@ jobs:
         autoreconf -i
         ./configure
         make
-        sudo make install
+        make install
 
     - name: Upload artifact
       uses: actions/upload-artifact@master
