@@ -14,13 +14,6 @@
 #include <errno.h>
 #include <pthread.h>
 
-#if defined(_MSC_VER)
-#include <io.h>
-#define open _open
-#define lseek _lseek
-#define close _close
-#endif
-
 #else
 
 #include <time.h>
@@ -32,6 +25,13 @@ size_t getpagesize()
     GetSystemInfo(&si);
     return si.dwPageSize;
 }
+
+#if defined(_MSC_VER)
+#include <io.h>
+#define open _open
+#define lseek _lseek
+#define close _close
+#endif
 
 #define ftruncate _chsize
 #define getpid GetCurrentProcessId
