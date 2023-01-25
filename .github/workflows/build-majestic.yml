@@ -9,7 +9,7 @@ jobs:
 
   linux-runtime:
     name: Runtime (Linux)
-    runs-on: linux-20.04
+    runs-on: ubuntu-20.04
     container:
       image: quay.io/pypa/manylinux2014_x86_64:2023-01-14-103cb93
 
@@ -34,7 +34,7 @@ jobs:
 
   linux-haskell:
     name: Haskell (Linux)
-    runs-on: linux-20.04
+    runs-on: ubuntu-20.04
     needs: linux-runtime
 
     steps:
@@ -59,7 +59,7 @@ jobs:
 
   linux-python:
     name: Python (Linux)
-    runs-on: linux-20.04
+    runs-on: ubuntu-20.04
     needs: linux-runtime
 
     steps:
@@ -89,7 +89,7 @@ jobs:
 
 #  linux-javascript:
 #    name: JavaScript (Linux)
-#    runs-on: linux-20.04
+#    runs-on: ubuntu-20.04
 #    needs: linux-runtime
 #
 #    steps:
