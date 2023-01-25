@@ -31,6 +31,9 @@ size_t getpagesize()
 #define open _open
 #define lseek _lseek
 #define close _close
+
+#include <BaseTsd.h>
+typedef SSIZE_T ssize_t;
 #endif
 
 #define ftruncate _chsize
