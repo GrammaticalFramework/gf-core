@@ -193,17 +193,23 @@ jobs:
       with:
         python-version: '3.10'
 
-    - name: Install bindings
-      working-directory: ./src/runtime/python
+    - name: Install cibuildwheel
       run: |
-        python3 setup.py build
-        sudo python3 setup.py install
+        python -m pip install git+https://github.com/joerick/cibuildwheel.git@main
+
+    - name: Install bindings
+      run: |
+        python -m cibuildwheel src/runtime/python --output-dir wheelhouse
 
     - name: Run testsuite
       working-directory: ./src/runtime/python
       run: |
         pip3 install pytest
         pytest
+
+    - uses: actions/upload-artifact@v2
+      with:
+        path: ./wheelhouse
 
 #  macos-javascript:
 #   name: JavaScript (macOS)
