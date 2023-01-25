@@ -192,10 +192,10 @@ jobs:
       run: |
         python3 -m pip install git+https://github.com/joerick/cibuildwheel.git@main
 
-    - name: Install bindings
+    - name: Install and test bindings
       env:
         CIBW_TEST_REQUIRES: pytest
-        CIBW_TEST_COMMAND: "pytest {project}/src/runtime/python/tests"
+        CIBW_TEST_COMMAND: "(cd {project}/src/runtime/python; pytest)"
       run: |
         python3 -m cibuildwheel src/runtime/python --output-dir wheelhouse
 
