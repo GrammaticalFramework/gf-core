@@ -12,7 +12,8 @@ if libraries==['']:
     libraries=[]
 
 if on_windows:
-    extra_sources = [f for f in os.listdir('../c/pgf') if f.endswith('.cxx')]
+    cpath = '../c/pgf/'
+    extra_sources = [cpath+f for f in os.listdir(cpath) if f.endswith('.cxx')]
 else:
     extra_sources = []
 
