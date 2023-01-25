@@ -38,4 +38,8 @@ void FreePgfPrintContext(PgfPrintContext *ctxt);
 extern PgfUnmarshaller unmarshaller;
 extern PgfMarshaller marshaller;
 
+#if defined(_MSC_VER)
+#define alloca _alloca
+#endif
+
 #endif // PYPGF_FFI_H_
