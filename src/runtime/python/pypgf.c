@@ -1040,6 +1040,8 @@ static PyTypeObject pgf_EmbeddedGrammarType = {
     0,                                        /*tp_new */
 };
 
+PyAPI_FUNC(int) _PyImport_SetModule(PyObject *name, PyObject *module);
+
 static PyObject*
 PGF_embed(PGFObject* self, PyObject *modname)
 {
