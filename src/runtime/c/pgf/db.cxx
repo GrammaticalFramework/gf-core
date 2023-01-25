@@ -14,6 +14,10 @@
 #include <errno.h>
 #include <pthread.h>
 
+#if defined(_MSC_VER)
+#include <io.h>
+#endif
+
 #else
 
 #include <time.h>
