@@ -931,6 +931,73 @@ static PyGetSetDef PGF_getseters[] = {
     {NULL}  /* Sentinel */
 };
 
+#if PY_VERSION_HEX < 0x03070000
+
+static void
+pgf_embed_funs(PgfItor* fn, PgfText* name, object value, PgfExn* err)
+{
+    PyPGFClosure *clo = (PyPGFClosure*) fn;
+
+	ExprFunObject *pyexpr = (ExprFunObject *)
+        pgf_ExprFunType.tp_alloc(&pgf_ExprFunType, 0);
+	if (pyexpr == NULL) {
+		err->type = PGF_EXN_OTHER_ERROR;
+		return;
+	}
+
+	pyexpr->name = PyUnicode_FromStringAndSize(name->text, name->size);
+    if (pyexpr->name == NULL) {
+        Py_DECREF(pyexpr);
+        err->type = PGF_EXN_OTHER_ERROR;
+        return;
+    }
+
+    if (PyModule_AddObject(clo->collection, name->text, (PyObject*) pyexpr) != 0) {
+		Py_DECREF(pyexpr);
+        err->type = PGF_EXN_OTHER_ERROR;
+	}
+}
+
+static PyObject*
+PGF_embed(PGFObject* self, PyObject *modname)
+{
+    PyObject *m = PyImport_Import(modname);
+    if (m == NULL) {
+        PyObject *globals = PyEval_GetBuiltins();
+        if (globals != NULL) {
+            PyObject *exc = PyDict_GetItemString(globals, "ModuleNotFoundError");
+            if (exc != NULL) {
+                if (PyErr_ExceptionMatches(exc)) {
+                    PyErr_Clear();
+                    m = PyImport_AddModuleObject(modname);
+                    Py_INCREF(m);
+                }
+            }
+        }
+    }
+    if (m == NULL)
+        return NULL;
+
+    Py_INCREF(self);
+    if (PyModule_AddObject(m, "__pgf__", (PyObject*) self) != 0) {
+        Py_DECREF(self);
+        Py_DECREF(m);
+        return NULL;
+    }
+
+    PgfExn err;
+    PyPGFClosure clo = { { pgf_embed_funs }, self, m };
+    pgf_iter_functions(self->db, self->revision, &clo.fn, &err);
+    if (handleError(err) != PGF_EXN_NONE) {
+        Py_DECREF(m);
+        return NULL;
+    }
+
+    return m;
+}
+
+#else
+
 typedef struct {
     PyObject_HEAD
     PyObject* dict;
@@ -1040,8 +1107,6 @@ static PyTypeObject pgf_EmbeddedGrammarType = {
     0,                                        /*tp_new */
 };
 
-PyAPI_FUNC(int) _PyImport_SetModule(PyObject *name, PyObject *module);
-
 static PyObject*
 PGF_embed(PGFObject* self, PyObject *modname)
 {
@@ -1083,6 +1148,8 @@ PGF_embed(PGFObject* self, PyObject *modname)
 
     return (PyObject*) py_embedding;
 }
+
+#endif
 
 static PyMethodDef PGF_methods[] = {
     {"writePGF", (PyCFunction)PGF_writePGF, METH_VARARGS,
