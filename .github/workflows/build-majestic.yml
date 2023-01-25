@@ -59,6 +59,9 @@ jobs:
     name: Python (Ubuntu)
     runs-on: ubuntu-20.04
     needs: ubuntu-runtime
+    env:
+      EXTRA_INCLUDE_DIRS: /usr/local/include
+      EXTRA_LIB_DIRS: /usr/local/lib
 
     steps:
     - uses: actions/checkout@v3
@@ -66,9 +69,6 @@ jobs:
       uses: actions/download-artifact@master
       with:
         name: libpgf-ubuntu
-    - run: |
-        sudo mv lib/* /usr/local/lib/
-        sudo mv include/* /usr/local/include/
 
     - name: Install cibuildwheel
       run: |
@@ -78,6 +78,7 @@ jobs:
       env:
         CIBW_TEST_REQUIRES: pytest
         CIBW_TEST_COMMAND: "(cd {project}/src/runtime/python; pytest)"
+        CIBW_SKIP: pp*
       run: |
         python3 -m cibuildwheel src/runtime/python --output-dir wheelhouse
 
@@ -200,6 +201,7 @@ jobs:
       env:
         CIBW_TEST_REQUIRES: pytest
         CIBW_TEST_COMMAND: "(cd {project}/src/runtime/python; pytest)"
+        CIBW_SKIP: pp*
       run: |
         python3 -m cibuildwheel src/runtime/python --output-dir wheelhouse
 
