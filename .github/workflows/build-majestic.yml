@@ -296,6 +296,7 @@ jobs:
         msystem: MINGW64
         install: >-
           base-devel
+          git
           mingw-w64-x86_64-python-pip
 
     - name: Download artifact
