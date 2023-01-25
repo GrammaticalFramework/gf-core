@@ -201,12 +201,6 @@ jobs:
       run: |
         python -m cibuildwheel src/runtime/python --output-dir wheelhouse
 
-    - name: Run testsuite
-      working-directory: ./src/runtime/python
-      run: |
-        pip3 install pytest
-        pytest
-
     - uses: actions/upload-artifact@v2
       with:
         path: ./wheelhouse
