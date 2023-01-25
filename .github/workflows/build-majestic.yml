@@ -73,7 +73,7 @@ jobs:
 
     - name: Install and test bindings
       env:
-        CIBW_BEFORE_BUILD: export EXTRA_INCLUDE_DIRS=$(pwd)/lib && export EXTRA_LIB_DIRS=$(pwd)/include
+        CIBW_BEFORE_BUILD: mv lib/* /usr/lib/ && mv include/* /usr/include/
         CIBW_TEST_REQUIRES: pytest
         CIBW_TEST_COMMAND: "(cd {project}/src/runtime/python; pytest)"
         CIBW_SKIP: pp*
