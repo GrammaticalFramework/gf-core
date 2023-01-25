@@ -10,6 +10,8 @@ jobs:
   ubuntu-runtime:
     name: Runtime (Ubuntu)
     runs-on: ubuntu-20.04
+    container:
+      image: quay.io/pypa/manylinux2014_x86_64:2023-01-14-103cb93
 
     steps:
     - uses: actions/checkout@v3
@@ -77,7 +79,6 @@ jobs:
         CIBW_TEST_REQUIRES: pytest
         CIBW_TEST_COMMAND: "(cd {project}/src/runtime/python; pytest)"
         CIBW_SKIP: pp*
-        CIBW_BUILD_VERBOSITY: 3
       run: |
         python3 -m cibuildwheel src/runtime/python --output-dir wheelhouse
 
