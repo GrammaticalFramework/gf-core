@@ -1545,7 +1545,9 @@ MOD_INIT(pgf)
     TYPE_READY(pgf_ExprTypedType);
     TYPE_READY(pgf_ExprImplArgType);
     TYPE_READY(pgf_TypeType);
+#if PY_VERSION_HEX >= 0x03070000
     TYPE_READY(pgf_EmbeddedGrammarType);
+#endif
     TYPE_READY(pgf_BracketType);
     TYPE_READY(pgf_BINDType);
 
