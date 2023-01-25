@@ -300,6 +300,11 @@ jobs:
       with:
         python-version: '3.10'
 
+    - name: Install and test bindings
+      run: |
+        cd src/runtime/python
+        python3 setup.py build
+
     - uses: actions/upload-artifact@master
       with:
         name: python-windows
