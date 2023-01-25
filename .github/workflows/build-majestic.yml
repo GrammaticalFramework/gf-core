@@ -70,8 +70,8 @@ jobs:
       with:
         name: libpgf-ubuntu
     - run: |
-        sudo mv lib/* /usr/local/lib/
-        sudo mv include/* /usr/local/include/
+        sudo mv lib/* /usr/lib/
+        sudo mv include/* /usr/include/
 
     - name: Install cibuildwheel
       run: |
