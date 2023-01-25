@@ -18,6 +18,9 @@ PGF_INTERNAL_DECL
 bool textstarts(PgfText *t, PgfText *prefix);
 
 PGF_INTERNAL_DECL
+PgfText* string2text(const char *s);
+
+PGF_INTERNAL_DECL
 PgfText* textdup(PgfText *t1);
 
 PGF_INTERNAL_DECL
@@ -26,7 +29,7 @@ ref<PgfText> textdup_db(PgfText *t1);
 PGF_INTERNAL_DECL
 ref<PgfText> textdup_db(ref<PgfText> t1);
 
-PGF_INTERNAL
+PGF_INTERNAL_DECL
 void text_db_release(ref<PgfText> text);
 
 PGF_API uint32_t
@@ -41,7 +44,7 @@ uint32_t pgf_utf8_to_upper(uint32_t c);
 PGF_INTERNAL_DECL
 bool pgf_utf8_is_space(uint32_t c);
 
-PGF_INTERNAL
+PGF_INTERNAL_DECL
 bool pgf_utf8_is_digit(uint32_t c);
 
 #endif
