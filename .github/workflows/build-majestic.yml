@@ -70,8 +70,8 @@ jobs:
       with:
         name: libpgf-ubuntu
     - run: |
-        sudo mv lib/* /usr/lib/
-        sudo mv include/* /usr/include/
+        sudo mv lib/* /usr/local/lib/
+        sudo mv include/* /usr/local/include/
 
     - name: Install cibuildwheel
       run: |
@@ -79,6 +79,7 @@ jobs:
 
     - name: Install and test bindings
       env:
+        CIBW_ENVIRONMENT: EXTRA_INCLUDE_DIRS=/usr/local/include EXTRA_LIB_DIRS=/usr/local/lib
         CIBW_TEST_REQUIRES: pytest
         CIBW_TEST_COMMAND: "(cd {project}/src/runtime/python; pytest)"
         CIBW_SKIP: pp*
