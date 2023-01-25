@@ -78,7 +78,7 @@ jobs:
         CIBW_BEFORE_BUILD: cp -r lib/* /usr/lib/ && cp -r include/* /usr/include/
         CIBW_TEST_REQUIRES: pytest
         CIBW_TEST_COMMAND: "(cd {project}/src/runtime/python; pytest)"
-        CIBW_SKIP: "pp* *i686"
+        CIBW_SKIP: "pp* *i686 *musllinux_x86_64"
       run: |
         python3 -m cibuildwheel src/runtime/python --output-dir wheelhouse
 
