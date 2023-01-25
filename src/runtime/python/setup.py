@@ -1,5 +1,6 @@
 from setuptools import setup, Extension
 import os
+import platform
 
 includes = os.getenv('EXTRA_INCLUDE_DIRS','').split(':')
 if includes==['']:
@@ -16,7 +17,7 @@ pgf_module = Extension(
         'ffi.c',
         'transactions.c'
     ],
-    extra_compile_args = ['-std=c99', '-Werror', '-Wno-error=unused-variable', '-Wno-comment'],
+    extra_compile_args = [] if platform.system() == 'Windows' else ['-std=c99', '-Werror', '-Wno-error=unused-variable', '-Wno-comment'],
     include_dirs = includes,
     library_dirs = libraries,
     libraries = ['pgf'])
