@@ -78,7 +78,7 @@ jobs:
         CIBW_BEFORE_BUILD: cp -r lib/* /usr/lib/ && cp -r include/* /usr/include/
         CIBW_TEST_REQUIRES: pytest
         CIBW_TEST_COMMAND: "(cd {project}/src/runtime/python; pytest)"
-        CIBW_SKIP: pp*
+        CIBW_SKIP: pp* cp36
       run: |
         python3 -m cibuildwheel src/runtime/python --output-dir wheelhouse
 
