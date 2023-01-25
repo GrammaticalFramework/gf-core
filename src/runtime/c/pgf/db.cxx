@@ -45,10 +45,15 @@ int last_error_to_errno()
 }
 #endif
 
+#if defined(_MSC_VER)
+PGF_INTERNAL __declspec( thread ) unsigned char* current_base = NULL;
+PGF_INTERNAL __declspec( thread ) PgfDB* current_db = NULL;
+PGF_INTERNAL __declspec( thread ) DB_scope *last_db_scope = NULL;
+#else
 PGF_INTERNAL __thread unsigned char* current_base __attribute__((tls_model("initial-exec"))) = NULL;
 PGF_INTERNAL __thread PgfDB* current_db __attribute__((tls_model("initial-exec"))) = NULL;
 PGF_INTERNAL __thread DB_scope *last_db_scope __attribute__((tls_model("initial-exec"))) = NULL;
-
+#endif
 
 #define ptr(T,o) ((T*) (base + (o)))
 

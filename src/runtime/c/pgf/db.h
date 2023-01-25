@@ -5,8 +5,13 @@
 
 class PgfDB;
 
+#if defined(_MSC_VER)
+extern PGF_INTERNAL_DECL __declspec( thread ) unsigned char* current_base;
+extern PGF_INTERNAL_DECL __declspec( thread ) PgfDB*         current_db;
+#else
 extern PGF_INTERNAL_DECL __thread unsigned char* current_base __attribute__((tls_model("initial-exec")));
 extern PGF_INTERNAL_DECL __thread PgfDB*         current_db   __attribute__((tls_model("initial-exec")));
+#endif
 
 struct block_descr;
 struct malloc_state;
