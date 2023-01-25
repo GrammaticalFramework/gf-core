@@ -295,9 +295,9 @@ jobs:
       with:
         msystem: MINGW64
         install: >-
-          base-devel
           git
-          mingw-w64-x86_64-python-pip
+          mingw-w64-x86_64-python3
+          mingw-w64-x86_64-python3-pip
 
     - name: Download artifact
       uses: actions/download-artifact@master
