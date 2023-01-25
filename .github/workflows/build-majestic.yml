@@ -7,9 +7,9 @@ env:
 
 jobs:
 
-  ubuntu-runtime:
-    name: Runtime (Ubuntu)
-    runs-on: ubuntu-20.04
+  linux-runtime:
+    name: Runtime (Linux)
+    runs-on: linux-20.04
     container:
       image: quay.io/pypa/manylinux2014_x86_64:2023-01-14-103cb93
 
@@ -27,22 +27,22 @@ jobs:
     - name: Upload artifact
       uses: actions/upload-artifact@master
       with:
-        name: libpgf-ubuntu
+        name: libpgf-linux
         path: |
           /usr/local/lib/libpgf*
           /usr/local/include/pgf
 
-  ubuntu-haskell:
-    name: Haskell (Ubuntu)
-    runs-on: ubuntu-20.04
-    needs: ubuntu-runtime
+  linux-haskell:
+    name: Haskell (Linux)
+    runs-on: linux-20.04
+    needs: linux-runtime
 
     steps:
     - uses: actions/checkout@v3
     - name: Download artifact
       uses: actions/download-artifact@master
       with:
-        name: libpgf-ubuntu
+        name: libpgf-linux
     - run: |
         sudo mv lib/* /usr/local/lib/
         sudo mv include/* /usr/local/include/
@@ -57,17 +57,17 @@ jobs:
       run: |
         cabal test --extra-lib-dirs=/usr/local/lib
 
-  ubuntu-python:
-    name: Python (Ubuntu)
-    runs-on: ubuntu-20.04
-    needs: ubuntu-runtime
+  linux-python:
+    name: Python (Linux)
+    runs-on: linux-20.04
+    needs: linux-runtime
 
     steps:
     - uses: actions/checkout@v3
     - name: Download artifact
       uses: actions/download-artifact@master
       with:
-        name: libpgf-ubuntu
+        name: libpgf-linux
 
     - name: Install cibuildwheel
       run: |
@@ -75,7 +75,7 @@ jobs:
 
     - name: Install and test bindings
       env:
-        CIBW_BEFORE_BUILD: cp lib/* /usr/lib/ && cp include/* /usr/include/
+        CIBW_BEFORE_BUILD: cp -r lib/* /usr/lib/ && cp -r include/* /usr/include/
         CIBW_TEST_REQUIRES: pytest
         CIBW_TEST_COMMAND: "(cd {project}/src/runtime/python; pytest)"
         CIBW_SKIP: pp*
@@ -87,17 +87,17 @@ jobs:
         name: python-linux
         path: ./wheelhouse
 
-#  ubuntu-javascript:
-#    name: JavaScript (Ubuntu)
-#    runs-on: ubuntu-20.04
-#    needs: ubuntu-runtime
+#  linux-javascript:
+#    name: JavaScript (Linux)
+#    runs-on: linux-20.04
+#    needs: linux-runtime
 #
 #    steps:
 #    - uses: actions/checkout@v3
 #    - name: Download artifact
 #      uses: actions/download-artifact@master
 #      with:
-#        name: libpgf-ubuntu
+#        name: libpgf-linux
 #    - run: |
 #        sudo mv lib/* /usr/local/lib/
 #        sudo mv include/* /usr/local/include/
