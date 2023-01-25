@@ -69,9 +69,6 @@ jobs:
       uses: actions/download-artifact@master
       with:
         name: libpgf-ubuntu
-    - run: |
-        sudo mv lib/* /usr/local/lib/
-        sudo mv include/* /usr/local/include/
 
     - name: Install cibuildwheel
       run: |
@@ -79,6 +76,7 @@ jobs:
 
     - name: Install and test bindings
       env:
+        CIBW_BEFORE_BUILD: ls
         CIBW_ENVIRONMENT: EXTRA_INCLUDE_DIRS=/usr/local/include EXTRA_LIB_DIRS=/usr/local/lib
         CIBW_TEST_REQUIRES: pytest
         CIBW_TEST_COMMAND: "(cd {project}/src/runtime/python; pytest)"
