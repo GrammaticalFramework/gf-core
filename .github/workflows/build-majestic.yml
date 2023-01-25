@@ -70,17 +70,21 @@ jobs:
         sudo mv lib/* /usr/local/lib/
         sudo mv include/* /usr/local/include/
 
-    - name: Install bindings
-      working-directory: ./src/runtime/python
+    - name: Install cibuildwheel
       run: |
-        python setup.py build
-        sudo python setup.py install
+        python3 -m pip install git+https://github.com/joerick/cibuildwheel.git@main
 
-    - name: Run testsuite
-      working-directory: ./src/runtime/python
+    - name: Install and test bindings
+      env:
+        CIBW_TEST_REQUIRES: pytest
+        CIBW_TEST_COMMAND: "(cd {project}/src/runtime/python; pytest)"
       run: |
-        pip install pytest
-        pytest
+        python3 -m cibuildwheel src/runtime/python --output-dir wheelhouse
+
+    - uses: actions/upload-artifact@master
+      with:
+        name: python-linux
+        path: ./wheelhouse
 
 #  ubuntu-javascript:
 #    name: JavaScript (Ubuntu)
@@ -199,7 +203,7 @@ jobs:
       run: |
         python3 -m cibuildwheel src/runtime/python --output-dir wheelhouse
 
-    - uses: actions/upload-artifact@v2
+    - uses: actions/upload-artifact@master
       with:
         name: python-macos
         path: ./wheelhouse
