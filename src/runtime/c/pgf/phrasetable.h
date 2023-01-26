@@ -9,7 +9,7 @@ struct PGF_INTERNAL_DECL PgfPhrasetableEntry {
     ref<Vector<PgfSequenceBackref>> backrefs;
 };
 
-class PgfSequenceItor;
+struct PgfSequenceItor;
 typedef ref<Node<PgfPhrasetableEntry>> PgfPhrasetable;
 
 #pragma GCC diagnostic push
