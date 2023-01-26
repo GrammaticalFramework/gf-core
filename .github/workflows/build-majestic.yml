@@ -301,10 +301,10 @@ jobs:
     - name: Install and test bindings
       env:
         CIBW_TEST_REQUIRES: pytest
-        CIBW_TEST_COMMAND: "cd {project}/src/runtime/python; pytest"
+        CIBW_TEST_COMMAND: "cd {project}\src\runtime\python; pytest"
         CIBW_SKIP: pp*
       run: |
-        python3 -m cibuildwheel src/runtime/python --output-dir wheelhouse
+        python3 -m cibuildwheel src\runtime\python --output-dir wheelhouse
 
     - name: Install and test bindings
       run: |
