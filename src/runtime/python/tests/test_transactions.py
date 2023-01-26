@@ -1,13 +1,16 @@
+import os.path
 import pytest
 from pgf import *
 import math
+
+pgf_path = os.path.dirname(os.path.dirname(os.path.dirname(__file__)))+"/haskell/tests/"
 
 ty = readType("(N -> N) -> P (s z)")
 prob = math.pi
 
 @pytest.fixture(scope="function")
 def gr1():
-    gr = readPGF("../haskell/tests/basic.pgf")
+    gr = readPGF(pgf_path+"basic.pgf")
     yield gr
 
 @pytest.fixture(scope="function")

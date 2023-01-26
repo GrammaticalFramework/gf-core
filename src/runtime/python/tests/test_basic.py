@@ -1,20 +1,24 @@
 import os
+import os.path
 import pytest
 from pgf import *
+
+
+pgf_path = os.path.dirname(os.path.dirname(os.path.dirname(__file__)))+"/haskell/tests/"
 
 # readPGF
 
 @pytest.fixture(scope="module")
 def PGF():
-    return readPGF("../haskell/tests/basic.pgf")
+    return readPGF(pgf_path+"basic.pgf")
 
 def test_readPGF_non_existent():
     with pytest.raises(FileNotFoundError):
-        readPGF("../haskell/tests/abc.pgf")
+        readPGF(pgf_path+"abc.pgf")
 
 def test_readPGF_GF():
     with pytest.raises(PGFError):
-        readPGF("../haskell/tests/basic.gf")
+        readPGF(pgf_path+"basic.gf")
 
 def test_readPGF_NGF(NGF):
     with pytest.raises(PGFError):
@@ -24,17 +28,17 @@ def test_readPGF_NGF(NGF):
 
 @pytest.fixture(scope="module")
 def NGF():
-    ngf = bootNGF("../haskell/tests/basic.pgf", "./basic.ngf")
+    ngf = bootNGF(pgf_path+"basic.pgf", "./basic.ngf")
     yield ngf
     os.remove("./basic.ngf")
 
 def test_bootNGF_non_existent():
     with pytest.raises(FileNotFoundError):
-        bootNGF("../haskell/tests/abc.pgf", "./abc.ngf")
+        bootNGF(pgf_path+"abc.pgf", "./abc.ngf")
 
 def test_bootNGF_GF():
     with pytest.raises(PGFError):
-        bootNGF("../haskell/tests/basic.gf", "./abc.ngf")
+        bootNGF(pgf_path+"basic.gf", "./abc.ngf")
 
 def test_bootNGF_NGF(NGF):
     with pytest.raises(PGFError):
@@ -42,7 +46,7 @@ def test_bootNGF_NGF(NGF):
 
 def test_bootNGF_existing(NGF):
     with pytest.raises(FileExistsError):
-        bootNGF("../haskell/tests/basic.pgf", "./basic.ngf")
+        bootNGF(pgf_path+"basic.pgf", "./basic.ngf")
 
 # readNGF
 
@@ -52,11 +56,11 @@ def test_readNGF_non_existent():
 
 def test_readNGF_GF():
     with pytest.raises(PGFError):
-        readNGF("../haskell/tests/basic.gf")
+        readNGF(pgf_path+"basic.gf")
 
 def test_readNGF_PGF():
     with pytest.raises(PGFError):
-        readNGF("../haskell/tests/basic.pgf")
+        readNGF(pgf_path+"basic.pgf")
 
 def test_readNGF(NGF):
     PGF = readNGF("./basic.ngf")
