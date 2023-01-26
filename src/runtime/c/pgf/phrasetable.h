@@ -74,7 +74,7 @@ PgfPhrasetable phrasetable_delete(PgfPhrasetable table,
 PGF_INTERNAL_DECL
 size_t phrasetable_size(PgfPhrasetable table);
 
-class PgfConcrLin;
+struct PgfConcrLin;
 
 struct PGF_INTERNAL_DECL PgfTextSpot {
 	size_t pos;          // position in Unicode characters
