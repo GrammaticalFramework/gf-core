@@ -15,8 +15,10 @@ if on_windows:
     cpath = '../c/pgf/'
     extra_sources = [cpath+f for f in os.listdir(cpath) if f.endswith('.cxx')]
     includes+=["../c"]
+    flags = ['/DCOMPILING_STATIC_PGF=1']
 else:
     extra_sources = []
+    flags = ['-std=c99', '-Werror', '-Wno-error=unused-variable', '-Wno-comment']
 
 pgf_module = Extension(
     'pgf',
@@ -26,7 +28,7 @@ pgf_module = Extension(
         'ffi.c',
         'transactions.c'
     ]+extra_sources,
-    extra_compile_args = [] if on_windows else ['-std=c99', '-Werror', '-Wno-error=unused-variable', '-Wno-comment'],
+    extra_compile_args = flags,
     include_dirs = includes,
     library_dirs = libraries,
     libraries = [] if on_windows else ['pgf'])

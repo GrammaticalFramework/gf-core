@@ -12,6 +12,9 @@
 #if defined(COMPILING_PGF)
 #define PGF_API_DECL EXTERN_C __declspec(dllexport)
 #define PGF_API      EXTERN_C __declspec(dllexport)
+#elif defined(COMPILING_STATIC_PGF)
+#define PGF_API_DECL
+#define PGF_API
 #else
 #define PGF_API_DECL __declspec(dllimport)
 #define PGF_API      ERROR_NOT_COMPILING_LIBPGF
@@ -68,6 +71,7 @@ typedef enum {
     PGF_EXN_NONE,
     PGF_EXN_SYSTEM_ERROR,
     PGF_EXN_PGF_ERROR,
+    PGF_EXN_TYPE_ERROR,
     PGF_EXN_OTHER_ERROR
 }  PgfExnType;
 
@@ -474,10 +478,10 @@ PGF_API_DECL
 void pgf_release_phrasetable_ids(PgfPhrasetableIds *seq_ids);
 
 PGF_API_DECL
-void pgf_check_expr(PgfDB *db, PgfRevision revision,
-                    PgfExpr* pe, PgfType ty,
-                    PgfMarshaller *m, PgfUnmarshaller *u,
-                    PgfExn *err);
+PgfExpr pgf_check_expr(PgfDB *db, PgfRevision revision,
+                       PgfExpr e, PgfType ty,
+                       PgfMarshaller *m, PgfUnmarshaller *u,
+                       PgfExn *err);
 
 PGF_API_DECL
 PgfType pgf_infer_expr(PgfDB *db, PgfRevision revision,
@@ -486,10 +490,10 @@ PgfType pgf_infer_expr(PgfDB *db, PgfRevision revision,
                        PgfExn *err);
 
 PGF_API_DECL
-void pgf_check_type(PgfDB *db, PgfRevision revision,
-                    PgfType* pty,
-                    PgfMarshaller *m, PgfUnmarshaller *u,
-                    PgfExn *err);
+PgfType pgf_check_type(PgfDB *db, PgfRevision revision,
+                       PgfType ty,
+                       PgfMarshaller *m, PgfUnmarshaller *u,
+                       PgfExn *err);
 
 PGF_API_DECL
 PgfRevision pgf_start_transaction(PgfDB *db, PgfExn *err);
