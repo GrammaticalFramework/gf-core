@@ -48,7 +48,20 @@ public:
 
     // buf_size is the expected buffer size. If larger is needed,
     // it will be allocated automatically.
+#if defined(_MSC_VER)
+#if _MSC_VER >= 1400
+# include <sal.h>
+# if _MSC_VER > 1400
+    void nprintf(size_t buf_size, _Printf_format_string_ const char *format, ...);
+# else
+    void nprintf(size_t buf_size, __format_string const char *format, ...);
+# endif /* FORMAT_STRING */
+#else
+    void nprintf(size_t buf_size, const char *format, ...);
+#endif /* _MSC_VER */
+#else
     void nprintf(size_t buf_size, const char *format, ...) __attribute__ ((format (printf, 3, 4)));
+#endif
 
     PgfText *get_text();
 
