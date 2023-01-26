@@ -486,10 +486,10 @@ PGF_API_DECL
 void pgf_release_phrasetable_ids(PgfPhrasetableIds *seq_ids);
 
 PGF_API_DECL
-PgfExpr pgf_check_expr(PgfDB *db, PgfRevision revision,
-                       PgfExpr e, PgfType ty,
-                       PgfMarshaller *m, PgfUnmarshaller *u,
-                       PgfExn *err);
+void pgf_check_expr(PgfDB *db, PgfRevision revision,
+                    PgfExpr* pe, PgfType ty,
+                    PgfMarshaller *m, PgfUnmarshaller *u,
+                    PgfExn *err);
 
 PGF_API_DECL
 PgfType pgf_infer_expr(PgfDB *db, PgfRevision revision,
@@ -498,10 +498,10 @@ PgfType pgf_infer_expr(PgfDB *db, PgfRevision revision,
                        PgfExn *err);
 
 PGF_API_DECL
-PgfType pgf_check_type(PgfDB *db, PgfRevision revision,
-                       PgfType ty,
-                       PgfMarshaller *m, PgfUnmarshaller *u,
-                       PgfExn *err);
+void pgf_check_type(PgfDB *db, PgfRevision revision,
+                    PgfType* pty,
+                    PgfMarshaller *m, PgfUnmarshaller *u,
+                    PgfExn *err);
 
 PGF_API_DECL
 PgfRevision pgf_start_transaction(PgfDB *db, PgfExn *err);
