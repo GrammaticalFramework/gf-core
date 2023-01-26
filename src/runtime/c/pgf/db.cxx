@@ -1752,7 +1752,7 @@ void PgfDB::resize_map(size_t new_size, bool writeable)
         unsigned __int32 temp = ms->rwlock;
         if (AllClear(temp)) {
             if (InterlockedCompareExchange(&ms->rwlock, SetWriter(temp, true), temp) == temp)
-                return;
+                break;
             else
                 continue;
         } else {
