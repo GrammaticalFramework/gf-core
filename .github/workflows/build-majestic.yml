@@ -308,7 +308,7 @@ jobs:
 
     - uses: actions/upload-artifact@master
       with:
-        name: windows-python
+        name: python-windows
         path: ./wheelhouse
 
   upload_pypi:
