@@ -24,6 +24,7 @@
 #ifdef _MSC_VER
 #include <malloc.h>
 #define alloca _alloca
+#define strdup _strdup
 #endif
 
 
