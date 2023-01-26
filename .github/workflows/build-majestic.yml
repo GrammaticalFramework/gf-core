@@ -328,17 +328,17 @@ jobs:
       - name: Install twine
         run: pip install twine
 
-      - uses: actions/download-artifact@v2
+      - uses: actions/download-artifact@master
         with:
           name: python-linux
           path: ./dist
 
-      - uses: actions/download-artifact@v2
+      - uses: actions/download-artifact@master
         with:
           name: python-macos
           path: ./dist
 
-      - uses: actions/download-artifact@v2
+      - uses: actions/download-artifact@master
         with:
           name: python-windows
           path: ./dist
