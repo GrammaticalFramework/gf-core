@@ -207,9 +207,9 @@ struct PgfUnmarshallerVtbl {
     PgfLiteral (*lflt)(PgfUnmarshaller *this, double v);
     PgfLiteral (*lstr)(PgfUnmarshaller *this, PgfText *v);
     PgfType (*dtyp)(PgfUnmarshaller *this,
-                    int n_hypos, PgfTypeHypo *hypos,
+                    size_t n_hypos, PgfTypeHypo *hypos,
                     PgfText *cat,
-                    int n_exprs, PgfExpr *exprs);
+                    size_t n_exprs, PgfExpr *exprs);
     void (*free_ref)(PgfUnmarshaller *this, object x);
 };
 struct PgfUnmarshaller {

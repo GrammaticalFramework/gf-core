@@ -417,14 +417,14 @@ PgfType PgfPrinter::dtyp(size_t n_hypos, PgfTypeHypo *hypos,
 
     PgfPrintContext *save_ctxt = ctxt;
 
-    for (int i = 0; i < n_hypos; i++) {
+    for (size_t i = 0; i < n_hypos; i++) {
         hypo(&hypos[i],1);
         puts(" -> ");
     }
 
     efun(cat);
 
-    for (int i = 0; i < n_exprs; i++) {
+    for (size_t i = 0; i < n_exprs; i++) {
         puts(" ");
         prio = 4;
         m->match_expr(this, exprs[i]);
