@@ -340,7 +340,7 @@ jobs:
 
       - uses: actions/download-artifact@v2
         with:
-          name: windows-macos
+          name: python-windows
           path: ./dist
 
       - name: Publish
