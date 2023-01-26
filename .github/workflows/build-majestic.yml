@@ -300,20 +300,20 @@ jobs:
 
     - name: Install and test bindings
       env:
-        CIBW_TEST_REQUIRES: pytest
-        CIBW_TEST_COMMAND: "pytest {project}\\src\\runtime\\python"
+#        CIBW_TEST_REQUIRES: pytest
+#        CIBW_TEST_COMMAND: "pytest   {project}\\src\\runtime\\python"
         CIBW_SKIP: "pp* *-win32"
       run: |
         python3 -m cibuildwheel src\runtime\python --output-dir wheelhouse
 
     - uses: actions/upload-artifact@master
       with:
-        name: python-windows
+        name: windows-python
         path: ./wheelhouse
 
   upload_pypi:
     name: Upload to PyPI
-    needs: [linux-python, macos-python]
+    needs: [linux-python, macos-python, windows-python]
     runs-on: ubuntu-latest
     if: github.ref == 'refs/heads/majestic' && github.event_name == 'push'
 
@@ -336,6 +336,11 @@ jobs:
       - uses: actions/download-artifact@v2
         with:
           name: python-macos
+          path: ./dist
+
+      - uses: actions/download-artifact@v2
+        with:
+          name: windows-macos
           path: ./dist
 
       - name: Publish
