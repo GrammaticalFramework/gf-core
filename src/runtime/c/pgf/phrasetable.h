@@ -12,8 +12,11 @@ struct PGF_INTERNAL_DECL PgfPhrasetableEntry {
 struct PgfSequenceItor;
 typedef ref<Node<PgfPhrasetableEntry>> PgfPhrasetable;
 
+
+#if __GNUC__
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wattributes"
+#endif
 
 struct PgfPhrasetableIds {
 public:
@@ -45,7 +48,9 @@ private:
 	SeqIdChain *chains;
 };
 
+#if __GNUC__
 #pragma GCC diagnostic pop
+#endif
 
 PGF_INTERNAL_DECL
 PgfPhrasetable phrasetable_internalize(PgfPhrasetable table,
