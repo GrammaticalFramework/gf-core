@@ -22,7 +22,7 @@
 #endif
 
 #ifdef _MSC_VER
-#include <alloca.h>
+#include <malloc.h>
 #define alloca _alloca
 #endif
 
