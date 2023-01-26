@@ -77,7 +77,7 @@ jobs:
       env:
         CIBW_BEFORE_BUILD: cp -r lib/* /usr/lib/ && cp -r include/* /usr/include/
         CIBW_TEST_REQUIRES: pytest
-        CIBW_TEST_COMMAND: "(cd {project}/src/runtime/python; pytest)"
+        CIBW_TEST_COMMAND: "pytest {project}/src/runtime/python"
         CIBW_SKIP: "pp* *i686 *musllinux_x86_64"
       run: |
         python3 -m cibuildwheel src/runtime/python --output-dir wheelhouse
@@ -200,7 +200,7 @@ jobs:
     - name: Install and test bindings
       env:
         CIBW_TEST_REQUIRES: pytest
-        CIBW_TEST_COMMAND: "(cd {project}/src/runtime/python; pytest)"
+        CIBW_TEST_COMMAND: "pytest {project}/src/runtime/python"
         CIBW_SKIP: pp*
       run: |
         python3 -m cibuildwheel src/runtime/python --output-dir wheelhouse
@@ -301,8 +301,8 @@ jobs:
     - name: Install and test bindings
       env:
         CIBW_TEST_REQUIRES: pytest
-        CIBW_TEST_COMMAND: "cd {project}\\src\\runtime\\python && pytest"
-        CIBW_SKIP: pp*
+        CIBW_TEST_COMMAND: "pytest {project}\\src\\runtime\\python"
+        CIBW_SKIP: "pp* *-win32"
       run: |
         python3 -m cibuildwheel src\runtime\python --output-dir wheelhouse
 
