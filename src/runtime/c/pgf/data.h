@@ -72,8 +72,8 @@ private:
     const char *m_filepath;
 };
 
-class PgfPGF;
-class PgfConcr;
+struct PgfPGF;
+struct PgfConcr;
 
 #include "db.h"
 #include "text.h"
