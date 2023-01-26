@@ -21,6 +21,12 @@
 #include <stdio.h>
 #endif
 
+#ifdef _MSC_VER
+#include <alloca.h>
+#define alloca _alloca
+#endif
+
+
 class PGF_INTERNAL_DECL pgf_error : public std::runtime_error {
 public:
     pgf_error(const char *msg) : std::runtime_error(msg)

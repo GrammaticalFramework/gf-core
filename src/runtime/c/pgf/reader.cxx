@@ -728,7 +728,8 @@ static void add_to_index(ref<PgfConcr> concrete, ref<PgfConcrLin> lin, size_t se
                 throw pgf_error("Found a lin which uses a category without a lincat");
 
             size_t max_values = 1;
-            size_t ranges[sym_cat->r.n_terms];
+            size_t *ranges = (size_t *)
+                alloca(sym_cat->r.n_terms*sizeof(size_t));
             for (size_t i = 0; i < sym_cat->r.n_terms; i++) {
                 for (size_t j = 0; j < result->vars->len; j++) {
                     auto var_range = vector_elem(result->vars, j);
