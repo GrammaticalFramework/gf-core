@@ -32,6 +32,10 @@
 
 #endif
 
+#if defined(_MSC_VER)
+#pragma warning(disable : 4200)
+#endif
+
 #include <stdint.h>
 #include <sys/types.h>
 
