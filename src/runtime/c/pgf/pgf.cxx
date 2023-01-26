@@ -59,6 +59,7 @@ PgfDB *pgf_read_pgf(const char* fpath, PgfRevision *revision,
 
             PgfReader rdr(in,probs_callback);
             ref<PgfPGF> pgf = rdr.read_pgf();
+            fclose(in);
 
             db->set_transaction_object(pgf.as_object());
 
@@ -109,6 +110,7 @@ PgfDB *pgf_boot_ngf(const char* pgf_path, const char* ngf_path,
 
             PgfReader rdr(in,probs_callback);
             ref<PgfPGF> pgf = rdr.read_pgf();
+            fclose(in);
 
             db->set_transaction_object(pgf.as_object());
 
@@ -231,6 +233,7 @@ void pgf_merge_pgf(PgfDB *db, PgfRevision revision,
 
             PgfReader rdr(in,NULL);
             rdr.merge_pgf(pgf);
+            fclose(in);
         }
     } PGF_API_END
 
