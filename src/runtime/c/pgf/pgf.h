@@ -226,7 +226,11 @@ struct PgfMarshaller {
 
 typedef float prob_t;
 
+#ifdef __cplusplus
+class PgfDB;
+#else
 typedef struct PgfDB PgfDB;
+#endif
 typedef object PgfRevision;
 typedef object PgfConcrRevision;
 
