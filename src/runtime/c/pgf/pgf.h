@@ -13,8 +13,8 @@
 #define PGF_API_DECL EXTERN_C __declspec(dllexport)
 #define PGF_API      EXTERN_C __declspec(dllexport)
 #elif defined(COMPILING_STATIC_PGF)
-#define PGF_API_DECL
-#define PGF_API
+#define PGF_API_DECL EXTERN_C
+#define PGF_API      EXTERN_C
 #else
 #define PGF_API_DECL __declspec(dllimport)
 #define PGF_API      ERROR_NOT_COMPILING_LIBPGF
