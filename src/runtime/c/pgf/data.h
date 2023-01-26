@@ -25,6 +25,7 @@
 #include <malloc.h>
 #define alloca _alloca
 #define strdup _strdup
+#pragma warning(disable : 4996)
 #endif
 
 
