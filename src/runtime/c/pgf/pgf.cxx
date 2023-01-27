@@ -1201,7 +1201,9 @@ PgfRevision pgf_start_transaction(PgfDB *db, PgfExn *err)
         new_pgf->major_version = pgf->major_version;
         new_pgf->minor_version = pgf->minor_version;
         new_pgf->gflags = pgf->gflags;
-        new_pgf->abstract.name = textdup_db(ref<PgfText>::from_ptr(&(*pgf->abstract.name)));
+        ref<PgfText> new_name =
+            textdup_db(ref<PgfText>::from_ptr(&(*pgf->abstract.name)));
+        new_pgf->abstract.name = new_name;
         new_pgf->abstract.aflags = pgf->abstract.aflags;
         new_pgf->abstract.funs = pgf->abstract.funs;
         new_pgf->abstract.cats = pgf->abstract.cats;
