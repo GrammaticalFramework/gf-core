@@ -71,6 +71,7 @@ def test_readNGF(NGF):
 def test_newNGF_file(NGF):
     PGF = newNGF("empty", "./empty.ngf")
     assert len(PGF.categories) == 0
+    del PGF # closes the file
     os.remove("./empty.ngf") # cleanup
 
 def test_newNGF_memory(NGF):
