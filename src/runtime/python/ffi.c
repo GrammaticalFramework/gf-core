@@ -346,12 +346,12 @@ lint(PgfUnmarshaller *this, size_t size, uintmax_t *v)
         return (PgfLiteral) PyLong_FromLong(0);
     } else {
         intmax_t *v0 = (intmax_t *)v;
-        PyObject *i = PyLong_FromLong(*v0);
+        PyObject *i = PyLong_FromLongLong(*v0);
         if (!i)
             return 0;
 
         if (size > 1) {
-            PyObject *intShifter = PyLong_FromUnsignedLong(LINT_BASE);
+            PyObject *intShifter = PyLong_FromUnsignedLongLong(LINT_BASE);
             if (!intShifter) {
                 Py_DECREF(i);
                 return 0;
@@ -365,7 +365,7 @@ lint(PgfUnmarshaller *this, size_t size, uintmax_t *v)
                     break;
                 }
 
-                PyObject *py_v = PyLong_FromUnsignedLong(v[n]);
+                PyObject *py_v = PyLong_FromUnsignedLongLong(v[n]);
                 if (!py_v) {
                     Py_DECREF(i);
                     i = NULL;
