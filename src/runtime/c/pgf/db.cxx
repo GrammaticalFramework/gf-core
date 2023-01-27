@@ -1532,14 +1532,14 @@ void PgfDB::commit(object o)
 
     pthread_mutex_unlock(&ms->write_mutex);
 #else
-    if (fd > 0) {
-        if (free_descriptors[2] != 0) {
-            ptr(block_descr,free_descriptors[2])->chain = free_descriptors[0];
-            free_descriptors[0] = free_descriptors[1];
-            free_descriptors[1] = 0;
-            free_descriptors[2] = 0;
-        }
+    if (free_descriptors[2] != 0) {
+        ptr(block_descr,free_descriptors[2])->chain = free_descriptors[0];
+        free_descriptors[0] = free_descriptors[1];
+        free_descriptors[1] = 0;
+        free_descriptors[2] = 0;
+    }
 
+    if (fd > 0) {
         if (!FlushViewOfFile(base,mmap_size)) {
             throw pgf_systemerror(last_error_to_errno());
         }
@@ -1556,6 +1556,12 @@ void PgfDB::commit(object o)
             ms->curr_txn_id--;
             throw pgf_systemerror(last_error_to_errno());
         }
+    } else {
+        ms->active_revision = o;
+        ms->top = top;
+        ms->free_blocks = free_blocks;
+        ms->free_descriptors = free_descriptors[0];
+        ms->curr_txn_id++;
     }
 
     ReleaseMutex(hWriteMutex);
