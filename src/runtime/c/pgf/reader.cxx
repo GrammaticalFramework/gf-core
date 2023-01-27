@@ -666,12 +666,19 @@ PgfPhrasetable PgfReader::read_phrasetable()
 ref<PgfConcrLincat> PgfReader::read_lincat()
 {
     ref<PgfConcrLincat> lincat = read_name(&PgfConcrLincat::name);
+
+    auto fields = read_lincat_fields(lincat);
+    auto n_lindefs = read_len();
+    auto args = read_vector(&PgfReader::read_parg);
+    auto res  = read_vector(&PgfReader::read_presult2);
+    auto seqs = read_seq_ids(lincat.tagged());
+
     lincat->abscat = namespace_lookup(abstract->cats, &lincat->name);
-    lincat->fields = read_lincat_fields(lincat);
-    lincat->n_lindefs = read_len();
-    lincat->args = read_vector(&PgfReader::read_parg);
-    lincat->res  = read_vector(&PgfReader::read_presult2);
-    lincat->seqs = read_seq_ids(lincat.tagged());
+    lincat->fields = fields;
+    lincat->n_lindefs = n_lindefs;
+    lincat->args = args;
+    lincat->res  = res;
+    lincat->seqs = seqs;
     return lincat;
 }
 
@@ -680,9 +687,11 @@ ref<Vector<PgfLincatField>> PgfReader::read_lincat_fields(ref<PgfConcrLincat> li
     size_t len = read_len();
     ref<Vector<PgfLincatField>> fields = vector_new<PgfLincatField>(len);
     for (size_t i = 0; i < len; i++) {
+        auto name = read_text();
+
         ref<PgfLincatField> field = vector_elem(fields,i);
         field->lincat = lincat;
-        field->name = read_text();
+        field->name = name;
         field->backrefs = 0;
         field->epsilons = 0;
     }
@@ -782,10 +791,13 @@ ref<PgfConcrLin> PgfReader::read_lin()
     if (lin->absfun == 0)
         throw pgf_error("Found a lin without a fun");
 
-    lin->args = read_vector(&PgfReader::read_parg);
-    lin->res  = read_vector(&PgfReader::read_presult2);
-    lin->seqs = read_seq_ids(lin.tagged());
+    auto args = read_vector(&PgfReader::read_parg);
+    auto res  = read_vector(&PgfReader::read_presult2);
+    auto seqs = read_seq_ids(lin.tagged());
 
+    lin->args = args;
+    lin->res  = res;
+    lin->seqs = seqs;
     lin->lincat =
         namespace_lookup(concrete->lincats, &lin->absfun->type->name);
     if (lin->lincat == 0)
