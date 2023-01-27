@@ -474,7 +474,7 @@ match_lit(PgfMarshaller *this, PgfUnmarshaller *u, PgfLiteral lit)
     PyObject *pyobj = (PyObject *)lit;
 
     if (PyLong_Check(pyobj)) {
-        PyObject *intShifter = PyLong_FromUnsignedLong(LINT_BASE);
+        PyObject *intShifter = PyLong_FromUnsignedLongLong(LINT_BASE);
         if (!intShifter)
             return 0;
 
@@ -525,7 +525,7 @@ match_lit(PgfMarshaller *this, PgfUnmarshaller *u, PgfLiteral lit)
                 Py_DECREF(intShifter);
                 return 0;
             }
-            i[n] = PyLong_AsUnsignedLong(rem);
+            i[n] = PyLong_AsUnsignedLongLong(rem);
             Py_DECREF(rem);
             PyObject *tmp = PyNumber_FloorDivide(x, intShifter);
             Py_DECREF(x);
@@ -541,9 +541,9 @@ match_lit(PgfMarshaller *this, PgfUnmarshaller *u, PgfLiteral lit)
 
         // first chunk, re-applying polarity
         if (isPos)
-            i[0] = PyLong_AsLong(x);
+            i[0] = PyLong_AsLongLong(x);
         else
-            i[0] = -PyLong_AsLong(x);
+            i[0] = -PyLong_AsLongLong(x);
 
         Py_DECREF(x);
 
