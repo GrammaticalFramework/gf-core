@@ -6,6 +6,11 @@ from pgf import *
 
 pgf_path = os.path.dirname(os.path.dirname(os.path.dirname(__file__)))+"/haskell/tests/"
 
+try:
+    os.remove("./basic.ngf")
+except:
+    pass
+
 # readPGF
 
 @pytest.fixture(scope="module")
@@ -28,9 +33,7 @@ def test_readPGF_NGF(NGF):
 
 @pytest.fixture(scope="module")
 def NGF():
-    ngf = bootNGF(pgf_path+"basic.pgf", "./basic.ngf")
-    yield ngf
-    os.remove("./basic.ngf")
+    return bootNGF(pgf_path+"basic.pgf", "./basic.ngf")
 
 def test_bootNGF_non_existent():
     with pytest.raises(FileNotFoundError):
