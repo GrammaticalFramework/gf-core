@@ -407,7 +407,7 @@ lstr(PgfUnmarshaller *this, PgfText *v)
 }
 
 static PgfType
-dtyp(PgfUnmarshaller *this, int n_hypos, PgfTypeHypo *hypos, PgfText *cat, int n_exprs, PgfExpr *exprs)
+dtyp(PgfUnmarshaller *this, size_t n_hypos, PgfTypeHypo *hypos, PgfText *cat, size_t n_exprs, PgfExpr *exprs)
 {
     TypeObject *pytype = (TypeObject *)pgf_TypeType.tp_alloc(&pgf_TypeType, 0);
     if (!pytype)
