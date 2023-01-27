@@ -175,7 +175,7 @@ PgfDB *pgf_new_ngf(PgfText *abstract_name,
 #ifndef _WIN32
          S_IRUSR | S_IWUSR
 #else
-         0
+         _S_IREAD | _S_IWRITE
 #endif
 );
 
