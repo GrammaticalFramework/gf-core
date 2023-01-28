@@ -847,7 +847,7 @@ pgfCommands = Map.fromList [
    prGrammar pgf opts
      | isOpt "pgf"      opts = do
           let outfile = valStrOpts "file" (abstractName pgf ++ ".pgf") opts
-          restricted $ writePGF outfile pgf
+          restricted $ writePGF outfile pgf (Just (map concreteName (optLangs pgf opts)))
           putStrLn $ "wrote file " ++ outfile
           return void
      | isOpt "cats"     opts = return $ fromString $ unwords $ categories pgf

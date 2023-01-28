@@ -78,7 +78,7 @@ foreign import ccall pgf_new_ngf :: Ptr PgfText -> CString -> Ptr (Ptr PGF) -> P
 
 foreign import ccall pgf_merge_pgf :: Ptr PgfDB -> Ptr PGF -> CString -> Ptr PgfExn -> IO ()
 
-foreign import ccall pgf_write_pgf :: CString -> Ptr PgfDB -> Ptr PGF -> Ptr PgfExn -> IO ()
+foreign import ccall pgf_write_pgf :: CString -> Ptr PgfDB -> Ptr PGF -> Ptr (Ptr PgfText) -> Ptr PgfExn -> IO ()
 
 foreign import ccall "pgf_free_revision" pgf_free_revision_ :: Ptr PgfDB -> Ptr PGF -> IO ()
 

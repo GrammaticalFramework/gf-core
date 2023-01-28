@@ -2,9 +2,10 @@
 #include "data.h"
 #include "writer.h"
 
-PgfWriter::PgfWriter(FILE *out)
+PgfWriter::PgfWriter(PgfText **langs, FILE *out)
 {
     this->out = out;
+    this->langs = langs;
     this->abstract = 0;
 }
 
@@ -411,6 +412,22 @@ void PgfWriter::write_printname(ref<PgfConcrPrintname> printname)
 
 void PgfWriter::write_concrete(ref<PgfConcr> concr)
 {
+    if (langs != NULL) {
+        bool found = false;
+        PgfText** p = langs;
+        while (*p) {
+            if (textcmp(*p, &concr->name) == 0) {
+                found = true;
+                break;
+            }
+            p++;
+        }
+
+        if (!found) {
+            return;
+        }
+    }
+
 	seq_ids.start(concr);
 
     write_name(&concr->name);
@@ -431,5 +448,16 @@ void PgfWriter::write_pgf(ref<PgfPGF> pgf)
     write_namespace<PgfFlag>(pgf->gflags, &PgfWriter::write_flag);
 
     write_abstract(ref<PgfAbstr>::from_ptr(&pgf->abstract));
-    write_namespace<PgfConcr>(pgf->concretes, &PgfWriter::write_concrete);
+
+    if (langs == NULL)
+        write_len(namespace_size(pgf->concretes));
+    else {
+        size_t len = 0;
+        PgfText** p = langs;
+        while (*p) {
+            len++; p++;
+        }
+        write_len(len);
+    }
+    write_namespace_helper<PgfConcr>(pgf->concretes, &PgfWriter::write_concrete);
 }

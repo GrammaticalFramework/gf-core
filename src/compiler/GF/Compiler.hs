@@ -180,7 +180,7 @@ writeGrammar :: Options -> PGF -> IOE ()
 writeGrammar opts pgf =
   if fst (flag optLinkTargets opts)
     then do let outfile = outputPath opts (grammarName opts pgf <.> "pgf")
-            writing opts outfile (writePGF outfile pgf)
+            writing opts outfile (writePGF outfile pgf Nothing)
     else return ()
 
 writeOutput :: Options -> FilePath-> String -> IOE ()

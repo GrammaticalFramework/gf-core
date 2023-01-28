@@ -188,11 +188,15 @@ newNGF abs_name mb_fpath =
     fptr <- newForeignPtrEnv pgf_free_revision c_db c_revision
     return (PGF c_db fptr Map.empty)
 
-writePGF :: FilePath -> PGF -> IO ()
-writePGF fpath p =
+writePGF :: FilePath -> PGF -> Maybe [ConcName] -> IO ()
+writePGF fpath p mb_langs =
   withCString fpath $ \c_fpath ->
   withForeignPtr (a_revision p) $ \c_revision ->
-    withPgfExn "writePGF" (pgf_write_pgf c_fpath (a_db p) c_revision)
+  maybe (\f -> f nullPtr) (withLangs []) mb_langs $ \c_langs ->
+    withPgfExn "writePGF" (pgf_write_pgf c_fpath (a_db p) c_revision c_langs)
+  where
+    withLangs clangs []           f = withArray0 nullPtr (reverse clangs) f
+    withLangs clangs (lang:langs) f = withText lang $ \clang -> withLangs (clang:clangs) langs f
 
 showPGF :: PGF -> String
 showPGF p =

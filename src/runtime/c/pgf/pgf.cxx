@@ -244,6 +244,7 @@ void pgf_merge_pgf(PgfDB *db, PgfRevision revision,
 PGF_API
 void pgf_write_pgf(const char* fpath,
                    PgfDB *db, PgfRevision revision,
+                   PgfText **langs,
                    PgfExn* err)
 {
     FILE *out = NULL;
@@ -258,7 +259,7 @@ void pgf_write_pgf(const char* fpath,
             DB_scope scope(db, READER_SCOPE);
             ref<PgfPGF> pgf = db->revision2pgf(revision);
 
-            PgfWriter wtr(out);
+            PgfWriter wtr(langs, out);
             wtr.write_pgf(pgf);
         }
     } PGF_API_END

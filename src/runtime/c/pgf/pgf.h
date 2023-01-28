@@ -287,6 +287,7 @@ void pgf_merge_pgf(PgfDB *db, PgfRevision revision,
 PGF_API_DECL
 void pgf_write_pgf(const char* fpath,
                    PgfDB *db, PgfRevision revision,
+                   PgfText **langs, // null terminated list or null
                    PgfExn* err);
 
 PGF_API_DECL

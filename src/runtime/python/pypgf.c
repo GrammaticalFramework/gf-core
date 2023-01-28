@@ -517,16 +517,43 @@ PGF_dealloc(PGFObject *self)
 }
 
 static PyObject *
-PGF_writePGF(PGFObject *self, PyObject *args)
+PGF_writePGF(PGFObject *self, PyObject *args, PyObject *kwargs)
 {
+    char *kwds[] = {"","langs",NULL};
+
     const char *fpath;
-    if (!PyArg_ParseTuple(args, "s", &fpath))
+    PyObject *py_langs = NULL;
+    if (!PyArg_ParseTupleAndKeywords(args, kwargs, "s|O!", &kwds[0], &fpath, &PyList_Type, &py_langs))
         return NULL;
 
+    PgfText **langs = NULL;
+    if (py_langs != NULL) {
+        size_t len = PyList_Size(py_langs);
+        langs = (PgfText **) alloca((len+1)*sizeof(PgfText*));
+        for (size_t i = 0; i < len; i++) {
+            langs[i] = PyUnicode_AsPgfText(PyList_GetItem(py_langs,i));
+            if (!langs[i]) {
+                while (i > 0) {
+                    FreePgfText(langs[--i]);
+                }
+                return NULL;
+            }
+        }
+        langs[len] = NULL;
+    }
+
     PgfExn err;
-    pgf_write_pgf(fpath, self->db, self->revision, &err);
+    pgf_write_pgf(fpath, self->db, self->revision, langs, &err);
     if (handleError(err) != PGF_EXN_NONE) {
         return NULL;
+    }
+
+    if (langs != NULL) {
+        PgfText **p = langs;
+        while (*p) {
+            FreePgfText(*p);
+            p++;
+        }
     }
 
     Py_RETURN_NONE;
@@ -1152,7 +1179,7 @@ PGF_embed(PGFObject* self, PyObject *modname)
 #endif
 
 static PyMethodDef PGF_methods[] = {
-    {"writePGF", (PyCFunction)PGF_writePGF, METH_VARARGS,
+    {"writePGF", (PyCFunction)PGF_writePGF, METH_VARARGS | METH_KEYWORDS,
      "Writes to a PGF file"},
     {"categoryContext", (PyCFunction)PGF_categoryContext, METH_VARARGS,
      "Returns the context for a given category"

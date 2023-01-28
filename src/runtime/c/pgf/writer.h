@@ -4,7 +4,7 @@
 class PGF_INTERNAL_DECL PgfWriter
 {
 public:
-    PgfWriter(FILE *out);
+    PgfWriter(PgfText **langs, FILE *out);
 
     void write_uint8(uint8_t b);
     void write_u16be(uint16_t u);
@@ -66,6 +66,7 @@ private:
     void write_presult(ref<ref<PgfPResult>> r) { write_presult(*r); };
 
     FILE *out;
+    PgfText **langs;
 
     ref<PgfAbstr> abstract;
     PgfPhrasetableIds seq_ids;
