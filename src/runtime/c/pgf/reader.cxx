@@ -267,7 +267,7 @@ PgfExpr PgfReader::read_expr()
         auto type = read_type();
         ref<PgfExprTyped> etyped = PgfDB::malloc<PgfExprTyped>();
         etyped->expr = expr;
-        etyped->type = type;
+        etyped->type = type.as_object();
         expr = etyped.tagged();
         break;
 	}
@@ -310,9 +310,8 @@ ref<PgfAbsFun> PgfReader::read_absfun()
 {
     ref<PgfAbsFun> absfun =
         read_name<PgfAbsFun>(&PgfAbsFun::name);
-    ref<PgfExprFun> efun =
-        ref<PgfExprFun>::from_ptr((PgfExprFun*) &absfun->name);
-    absfun->type = read_type();
+    auto type = read_type();
+    absfun->type = type;
 	absfun->arity = read_int();
 
     uint8_t tag = read_tag();
@@ -322,7 +321,8 @@ ref<PgfAbsFun> PgfReader::read_absfun()
         break;
     case 1: {
         read_len();
-        absfun->bytecode = PgfDB::malloc<char>(0);
+        auto dummy = PgfDB::malloc<char>(0);
+        absfun->bytecode = dummy;
         break;
     }
     default:
@@ -335,7 +335,8 @@ ref<PgfAbsFun> PgfReader::read_absfun()
 ref<PgfAbsCat> PgfReader::read_abscat()
 {
     ref<PgfAbsCat> abscat = read_name<PgfAbsCat>(&PgfAbsCat::name);
-    abscat->context = read_vector<PgfHypo>(&PgfReader::read_hypo);
+    auto context = read_vector<PgfHypo>(&PgfReader::read_hypo);
+    abscat->context = context;
     abscat->prob  = read_prob(&abscat->name);
     return abscat;
 }
@@ -410,10 +411,15 @@ void PgfReader::read_abstract(ref<PgfAbstr> abstract)
 {
     this->abstract = abstract;
 
-    abstract->name = read_name();
-	abstract->aflags = read_namespace<PgfFlag>(&PgfReader::read_flag);
-    abstract->funs = read_namespace<PgfAbsFun>(&PgfReader::read_absfun);
-    abstract->cats = read_namespace<PgfAbsCat>(&PgfReader::read_abscat);
+    auto name = read_name();
+    auto aflags = read_namespace<PgfFlag>(&PgfReader::read_flag);
+    auto funs = read_namespace<PgfAbsFun>(&PgfReader::read_absfun);
+    auto cats = read_namespace<PgfAbsCat>(&PgfReader::read_abscat);
+
+    abstract->name = name;
+    abstract->aflags = aflags;
+    abstract->funs = funs;
+    abstract->cats = cats;
 
     if (probs_callback != NULL) {
         PgfExn err;
@@ -477,7 +483,7 @@ void PgfReader::read_variable_range(ref<PgfVariableRange> var_info)
 
 void PgfReader::read_parg(ref<PgfPArg> parg)
 {
-    parg->param  = read_lparam();
+    auto param = read_lparam(); parg->param = param;
 }
 
 ref<PgfPResult> PgfReader::read_presult()
@@ -820,13 +826,25 @@ ref<PgfConcrPrintname> PgfReader::read_printname()
 ref<PgfConcr> PgfReader::read_concrete()
 {
     concrete = read_name(&PgfConcr::name);
-	concrete->cflags = read_namespace<PgfFlag>(&PgfReader::read_flag);
-	concrete->phrasetable = read_phrasetable();
-	concrete->lincats = read_namespace<PgfConcrLincat>(&PgfReader::read_lincat);
-	concrete->lins = read_namespace<PgfConcrLin>(&PgfReader::read_lin);
-	concrete->printnames = read_namespace<PgfConcrPrintname>(&PgfReader::read_printname);
+
+	auto cflags = read_namespace<PgfFlag>(&PgfReader::read_flag);
+	concrete->cflags = cflags;
+
+	auto phrasetable = read_phrasetable();
+	concrete->phrasetable = phrasetable;
+
+	auto lincats = read_namespace<PgfConcrLincat>(&PgfReader::read_lincat);
+	concrete->lincats = lincats;
+
+	auto lins = read_namespace<PgfConcrLin>(&PgfReader::read_lin);
+	concrete->lins = lins;
+
+	auto printnames = read_namespace<PgfConcrPrintname>(&PgfReader::read_printname);
+	concrete->printnames = printnames;
+
     concrete->prev = 0;
     concrete->next = 0;
+
     return concrete;
 }
 
@@ -842,11 +860,13 @@ ref<PgfPGF> PgfReader::read_pgf()
         throw pgf_error("Unsupported format version");
     }
 
-    pgf->gflags = read_namespace<PgfFlag>(&PgfReader::read_flag);
+    auto gflags = read_namespace<PgfFlag>(&PgfReader::read_flag);
+    pgf->gflags = gflags;
 
     read_abstract(ref<PgfAbstr>::from_ptr(&pgf->abstract));
 
-    pgf->concretes = read_namespace<PgfConcr>(&PgfReader::read_concrete);
+    auto concretes = read_namespace<PgfConcr>(&PgfReader::read_concrete);
+    pgf->concretes = concretes;
 
     return pgf;
 }
