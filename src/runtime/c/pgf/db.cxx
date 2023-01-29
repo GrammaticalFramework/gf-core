@@ -134,9 +134,16 @@ struct PGF_INTERNAL_DECL malloc_state
     revision_entry revisions[];
 };
 
+static inline ssize_t get_mmap_size(size_t init_size, size_t page_size)
+{
+    size_t mmap_size = ((init_size+page_size-1)/page_size)*page_size;
+    if (mmap_size < page_size*2)
+        mmap_size = page_size*2;
+    return mmap_size;
+}
 
 PGF_INTERNAL
-PgfDB::PgfDB(const char* filepath, int flags, int mode) {
+PgfDB::PgfDB(const char* filepath, int flags, int mode, size_t init_size) {
     bool is_new = false;
 
     fd = -1;
@@ -147,7 +154,7 @@ PgfDB::PgfDB(const char* filepath, int flags, int mode) {
 
     if (filepath == NULL) {
         this->filepath = NULL;
-        mmap_size = page_size*2;
+        mmap_size = get_mmap_size(init_size, page_size);
         is_new    = true;
     } else {
         fd = open(filepath, flags, mode);
@@ -163,7 +170,7 @@ PgfDB::PgfDB(const char* filepath, int flags, int mode) {
 
         is_new = false;
         if (mmap_size == 0) {
-            mmap_size = page_size*2;
+            mmap_size = get_mmap_size(init_size, page_size);
             if (ftruncate(fd, mmap_size) < 0) {
                 int code = errno;
                 close(fd);

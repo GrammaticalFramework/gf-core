@@ -523,7 +523,7 @@ PGF_writePGF(PGFObject *self, PyObject *args, PyObject *kwargs)
 
     const char *fpath;
     PyObject *py_langs = NULL;
-    if (!PyArg_ParseTupleAndKeywords(args, kwargs, "s|O!", &kwds[0], &fpath, &PyList_Type, &py_langs))
+    if (!PyArg_ParseTupleAndKeywords(args, kwargs, "s|O!", kwds, &fpath, &PyList_Type, &py_langs))
         return NULL;
 
     PgfText **langs = NULL;
@@ -1327,20 +1327,22 @@ pgf_readNGF(PyObject *self, PyObject *args)
 }
 
 static PGFObject *
-pgf_newNGF(PyObject *self, PyObject *args)
+pgf_newNGF(PyObject *self, PyObject *args, PyObject *kwargs)
 {
+    char *kwds[] = {"","file","size",NULL};
+
     const char *s;
     Py_ssize_t size;
     const char *fpath = NULL;
-    if (!PyArg_ParseTuple(args, "s#|s", &s, &size, &fpath))
+    Py_ssize_t init_size = 0;
+    if (!PyArg_ParseTupleAndKeywords(args, kwargs, "s#|sn", kwds, &s, &size, &fpath, &init_size))
         return NULL;
-
     PgfText *absname = CString_AsPgfText(s, size);
 
     PGFObject *py_pgf = (PGFObject *)pgf_PGFType.tp_alloc(&pgf_PGFType, 0);
 
     PgfExn err;
-    py_pgf->db = pgf_new_ngf(absname, fpath, &py_pgf->revision, &err);
+    py_pgf->db = pgf_new_ngf(absname, fpath, init_size, &py_pgf->revision, &err);
     FreePgfText(absname);
     if (handleError(err) != PGF_EXN_NONE) {
         Py_DECREF(py_pgf);
@@ -1508,7 +1510,7 @@ static PyMethodDef module_methods[] = {
      "Reads a PGF file into memory and stores the unpacked data in an NGF file"},
     {"readNGF",  (void*)pgf_readNGF,  METH_VARARGS,
      "Reads an NGF file into memory"},
-    {"newNGF",   (void*)pgf_newNGF,  METH_VARARGS,
+    {"newNGF",   (void*)pgf_newNGF,  METH_VARARGS | METH_KEYWORDS,
      "Creates a new NGF file with the given name"},
 
     {"readExpr", (void*)pgf_readExpr, METH_VARARGS,

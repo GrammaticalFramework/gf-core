@@ -31,7 +31,7 @@ importGrammar readNGF pgf0 opts  _
                                  putStr ("(Boot image "++fname++") ")
                                  return (Just fname)
                          else do return Nothing
-        pgf <- newNGF name mb_ngf_file
+        pgf <- newNGF name mb_ngf_file 0
         return (Just pgf)
 importGrammar readNGF pgf0 _    [] = return pgf0
 importGrammar readNGF pgf0 opts fs

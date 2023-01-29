@@ -101,7 +101,7 @@ public:
     // When the count is zero we release the database.
     size_t ref_count;
 
-    PGF_INTERNAL_DECL PgfDB(const char* filepath, int flags, int mode);
+    PGF_INTERNAL_DECL PgfDB(const char* filepath, int flags, int mode, size_t init_size);
     PGF_INTERNAL_DECL ~PgfDB();
 
     PGF_INTERNAL_DECL static txn_t get_txn_id();

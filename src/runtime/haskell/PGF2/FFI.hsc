@@ -74,7 +74,7 @@ foreign import ccall "wrapper" wrapProbsCallback :: Wrapper ProbsCallback
 foreign import ccall "pgf_read_ngf"
   pgf_read_ngf :: CString -> Ptr (Ptr PGF) -> Ptr PgfExn -> IO (Ptr PgfDB)
 
-foreign import ccall pgf_new_ngf :: Ptr PgfText -> CString -> Ptr (Ptr PGF) -> Ptr PgfExn -> IO (Ptr PgfDB)
+foreign import ccall pgf_new_ngf :: Ptr PgfText -> CString -> CSize -> Ptr (Ptr PGF) -> Ptr PgfExn -> IO (Ptr PgfDB)
 
 foreign import ccall pgf_merge_pgf :: Ptr PgfDB -> Ptr PGF -> CString -> Ptr PgfExn -> IO ()
 

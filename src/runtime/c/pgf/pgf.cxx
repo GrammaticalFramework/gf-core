@@ -46,11 +46,15 @@ PgfDB *pgf_read_pgf(const char* fpath, PgfRevision *revision,
     FILE *in = NULL;
 
     PGF_API_BEGIN {
-        db = new PgfDB(NULL, 0, 0);
         in = fopen(fpath, "rb");
         if (!in) {
             throw pgf_systemerror(errno, fpath);
         }
+
+        fseek(in, 0, SEEK_END);
+        size_t pgf_size = ftell(in);
+        fseek(in, 0, SEEK_SET);
+        db = new PgfDB(NULL, 0, 0, pgf_size*7);
 
         {
             DB_scope scope(db, WRITER_SCOPE);
@@ -71,11 +75,11 @@ PgfDB *pgf_read_pgf(const char* fpath, PgfRevision *revision,
         return db;
     } PGF_API_END
 
-    if (in != NULL)
-        fclose(in);
-
     if (db != NULL)
         delete db;
+
+    if (in != NULL)
+        fclose(in);
 
     return NULL;
 }
@@ -90,18 +94,22 @@ PgfDB *pgf_boot_ngf(const char* pgf_path, const char* ngf_path,
     FILE *in = NULL;
 
     PGF_API_BEGIN {
-        db = new PgfDB(ngf_path, O_CREAT | O_EXCL | O_RDWR,
-#ifndef _WIN32
-         S_IRUSR | S_IWUSR
-#else
-         _S_IREAD | _S_IWRITE
-#endif
-         );
-
         in = fopen(pgf_path, "rb");
         if (!in) {
             throw pgf_systemerror(errno, pgf_path);
         }
+
+        fseek(in, 0, SEEK_END);
+        size_t pgf_size = ftell(in);
+        fseek(in, 0, SEEK_SET);
+
+        db = new PgfDB(ngf_path, O_CREAT | O_EXCL | O_RDWR,
+#ifndef _WIN32
+                       S_IRUSR | S_IWUSR,
+#else
+                       _S_IREAD | _S_IWRITE,
+#endif
+                       pgf_size*7);
 
         {
             DB_scope scope(db, WRITER_SCOPE);
@@ -141,7 +149,7 @@ PgfDB *pgf_read_ngf(const char *fpath,
     PgfDB *db = NULL;
 
     PGF_API_BEGIN {
-        db = new PgfDB(fpath, O_RDWR, 0);
+        db = new PgfDB(fpath, O_RDWR, 0, 0);
 
         {
             DB_scope scope(db, WRITER_SCOPE);
@@ -165,6 +173,7 @@ PgfDB *pgf_read_ngf(const char *fpath,
 PGF_API
 PgfDB *pgf_new_ngf(PgfText *abstract_name,
                    const char *fpath,
+                   size_t init_size,
                    PgfRevision *revision,
                    PgfExn* err)
 {
@@ -173,11 +182,11 @@ PgfDB *pgf_new_ngf(PgfText *abstract_name,
     PGF_API_BEGIN {
         db = new PgfDB(fpath, O_CREAT | O_EXCL | O_RDWR,
 #ifndef _WIN32
-         S_IRUSR | S_IWUSR
+                       S_IRUSR | S_IWUSR,
 #else
-         _S_IREAD | _S_IWRITE
+                       _S_IREAD | _S_IWRITE,
 #endif
-);
+                       init_size);
 
         {
             DB_scope scope(db, WRITER_SCOPE);

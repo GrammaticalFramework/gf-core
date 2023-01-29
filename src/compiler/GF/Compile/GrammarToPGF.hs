@@ -45,9 +45,9 @@ grammar2PGF opts mb_pgf gr am probs = do
                               then removeFile fname
                               else return ()
                             putStr ("(Boot image "++fname++") ")
-                            newNGF abs_name (Just fname)
+                            newNGF abs_name (Just fname) 0
                     | otherwise ->
-                         do newNGF abs_name Nothing
+                         do newNGF abs_name Nothing 0
 
   pgf <- modifyPGF pgf $ do
     sequence_ [setAbstractFlag name value | (name,value) <- optionsPGF aflags]

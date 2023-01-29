@@ -276,6 +276,7 @@ PgfDB *pgf_read_ngf(const char* fpath,
 PGF_API_DECL
 PgfDB *pgf_new_ngf(PgfText *abstract_name,
                    const char *fpath,
+                   size_t init_size,
                    PgfRevision *revision,
                    PgfExn* err);
 

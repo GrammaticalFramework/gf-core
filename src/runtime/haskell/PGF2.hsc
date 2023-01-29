@@ -177,13 +177,13 @@ readNGF fpath =
 -- Aside from the name, the grammar is otherwise empty but can be later
 -- populated with new functions and categories. If fpath is Nothing then
 -- the file is not stored on the disk but only in memory.
-newNGF :: AbsName -> Maybe FilePath -> IO PGF
-newNGF abs_name mb_fpath =
+newNGF :: AbsName -> Maybe FilePath -> Int -> IO PGF
+newNGF abs_name mb_fpath init_size =
   withText abs_name $ \c_abs_name ->
   maybe (\f -> f nullPtr) withCString mb_fpath $ \c_fpath ->
   alloca $ \p_revision ->
   mask_ $ do
-    c_db <- withPgfExn "newNGF" (pgf_new_ngf c_abs_name c_fpath p_revision)
+    c_db <- withPgfExn "newNGF" (pgf_new_ngf c_abs_name c_fpath (fromIntegral init_size) p_revision)
     c_revision <- peek p_revision
     fptr <- newForeignPtrEnv pgf_free_revision c_db c_revision
     return (PGF c_db fptr Map.empty)
