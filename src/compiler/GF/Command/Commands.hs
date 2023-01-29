@@ -386,7 +386,7 @@ pgfCommands = Map.fromList [
      exec  = needPGF $ \opts _ pgf -> prGrammar pgf opts,
      flags = [
        ("file",   "set the file name when printing with -pgf option"),
-       ("lang",   "select languages for the some options (default all languages)"),
+       ("lang",   "select languages for some options (default all languages)"),
        ("printer","select the printing format (see flag values above)")
        ],
      options = [
@@ -397,7 +397,7 @@ pgfCommands = Map.fromList [
        ("lexc", "print the lexicon in Xerox LEXC format"),
        ("missing","show just the names of functions that have no linearization"),
        ("opt",    "optimize the generated pgf"),
-       ("pgf",    "write current pgf image in file"),
+       ("pgf",    "write the current pgf image in a file"),
        ("words", "print the list of words")
        ],
      examples = [
@@ -691,7 +691,7 @@ pgfCommands = Map.fromList [
                                                   Nothing    -> do putStrLn ("unknown category of function identifier "++show id)
                                                                    return void
                   _             -> case inferExpr pgf e of
-                                     Left err     -> error err
+                                     Left err     -> errorWithoutStackTrace err
                                      Right (e,ty) -> do putStrLn ("Expression:  "++showExpr [] e)
                                                         putStrLn ("Type:        "++showType [] ty)
                                                         putStrLn ("Probability: "++show (exprProbability pgf e))
