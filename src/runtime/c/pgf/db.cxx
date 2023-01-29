@@ -53,6 +53,10 @@ int last_error_to_errno()
         return EINVAL;
     }
 }
+
+#define LODWORD(_qw)    ((DWORD)(_qw))
+#define HIDWORD(_qw)    ((DWORD)(((_qw) >> 32) & 0xffffffff))
+
 #endif
 
 #if defined(_MSC_VER)
@@ -271,7 +275,7 @@ PgfDB::PgfDB(const char* filepath, int flags, int mode) {
         hMap = CreateFileMapping((HANDLE) _get_osfhandle(fd),
                                  NULL,
                                  PAGE_READWRITE,
-                                 HIWORD(mmap_size), LOWORD(mmap_size),
+                                 HIDWORD(mmap_size), LODWORD(mmap_size),
                                  NULL);
         if (hMap != NULL) {
             ms = (malloc_state*) MapViewOfFile(hMap,
@@ -1791,7 +1795,7 @@ void PgfDB::resize_map(size_t new_size, bool writeable)
 		hMap = CreateFileMapping((HANDLE) _get_osfhandle(fd),
 								 NULL,
 								 PAGE_READWRITE,
-								 HIWORD(new_size), LOWORD(new_size),
+								 HIDWORD(new_size), LODWORD(new_size),
 								 NULL);
 		if (hMap == NULL) {
 			hMap = INVALID_HANDLE_VALUE;
