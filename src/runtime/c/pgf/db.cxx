@@ -29,7 +29,7 @@ size_t getpagesize()
 #if defined(_MSC_VER)
 #include <io.h>
 #define open _open
-#define lseek _lseek
+#define lseek _lseeki64
 #define close _close
 
 #include <BaseTsd.h>
