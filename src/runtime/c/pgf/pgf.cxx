@@ -242,7 +242,6 @@ void pgf_merge_pgf(PgfDB *db, PgfRevision revision,
 
             PgfReader rdr(in,NULL);
             rdr.merge_pgf(pgf);
-            fclose(in);
         }
     } PGF_API_END
 
