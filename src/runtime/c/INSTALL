@@ -44,7 +44,7 @@ $ make install
 For Windows users
 -----------------
 
-- Install MinGW: http://www.mingw.org/. From the installer you need
+- Install MinGW: http://www.mingw-w64.org/. From the installer you need
   to select at least the following packages:
      - Mingw-developer-toolkit
      - Mingw-base
