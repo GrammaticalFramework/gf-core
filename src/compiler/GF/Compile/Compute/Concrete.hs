@@ -747,11 +747,13 @@ getVariables = EvalM $ \gr k mt r -> do
     metas2params gr (tnk:tnks) = do
       st <- readSTRef tnk
       case st of
-        Narrowing i ty -> do let range = case allParamValues gr ty of
-                                           Ok ts   -> length ts
-                                           Bad msg -> error msg
+        Narrowing i ty -> do let cnt = case allParamValues gr ty of
+                                         Ok ts   -> length ts
+                                         Bad msg -> error msg
                              params <- metas2params gr tnks
-                             return ((i-1,range):params)
+                             if cnt > 1
+                               then return ((i-1,cnt):params)
+                               else return params
         _              -> metas2params gr tnks
 
 getRef tnk = EvalM $ \gr k mt r -> readSTRef tnk >>= \st -> k st mt r
