@@ -104,7 +104,7 @@ pmcfgForm gr t ctxt ty seqs = do
     compute ((v,ty):params) = do
       (r, rs ,cnt ) <- param2int v ty
       (r',rs',cnt') <- compute params
-      return (r*cnt'+r',combine cnt rs cnt' rs',cnt*cnt')
+      return (r*cnt'+r',combine' cnt rs cnt' rs',cnt*cnt')
 
     mkProduction (vars,args,res,lins) = do
       lins <- mapM getSeqId lins
@@ -127,13 +127,17 @@ type2metaTerm gr d ms r rs (RecType lbls) =
                                                                   in ((ms',r'),(lbl,(Just ty,t))))
                                  (ms,r) lbls
   in (ms',r',R ass)  
-type2metaTerm gr d ms r rs (Table p q) =
-  let pv = varX (length rs+1)
-      (ms',r',t) = type2metaTerm gr d ms r ((r'-r,(pv,p)):rs) q
-      count = case allParamValues gr p of
-                Ok ts   -> length ts
-                Bad msg -> error msg
-  in (ms',r+(r'-r)*count,T (TTyped p) [(PV pv,t)])
+type2metaTerm gr d ms r rs (Table p q)
+  | count == 1 = let (ms',r',t) = type2metaTerm gr d ms r rs q
+                 in (ms',r+(r'-r),T (TTyped p) [(PW,t)])
+  | otherwise  = let pv    = varX (length rs+1)
+                     delta = r'-r
+                     (ms',r',t) = type2metaTerm gr d ms r ((delta,(pv,p)):rs) q
+                 in (ms',r+delta*count,T (TTyped p) [(PV pv,t)])
+  where
+    count = case allParamValues gr p of
+              Ok ts   -> length ts
+              Bad msg -> error msg
 type2metaTerm gr d ms r rs ty@(QC q) =
   let i = Map.size ms + 1
   in (Map.insert i ty ms,r,Meta i)
@@ -201,7 +205,7 @@ str2lin (VSymCat d r rs) = do (r, rs) <- compute r rs
       v <- force tnk
       (r, rs, cnt) <- param2int v ty
       (r',rs') <- compute r' tnks
-      return (r*cnt'+r',combine cnt rs cnt' rs')
+      return (r*cnt'+r',combine cnt' rs rs')
 str2lin (VSymVar d r)    = return [SymVar d r]
 str2lin VEmpty           = return []
 str2lin (VC v1 v2)       = liftM2 (++) (str2lin v1) (str2lin v2)
@@ -222,7 +226,7 @@ param2int (VR as) (RecType lbls) = compute lbls
         Just tnk -> do v <- force tnk
                        (r, rs ,cnt ) <- param2int v ty
                        (r',rs',cnt') <- compute lbls
-                       return (r*cnt'+r',combine cnt rs cnt' rs',cnt*cnt')
+                       return (r*cnt'+r',combine' cnt rs cnt' rs',cnt*cnt')
         Nothing  -> evalError ("Missing value for label" <+> pp lbl $$
                                "among" <+> hsep (punctuate (pp ',') (map fst as)))
 param2int (VApp q tnks) ty = do
@@ -241,7 +245,7 @@ param2int (VApp q tnks) ty = do
       v <- force tnk
       (r, rs ,cnt ) <- param2int v ty
       (r',rs',cnt') <- compute ctxt tnks
-      return (r*cnt'+r',combine cnt rs cnt' rs',cnt*cnt')
+      return (r*cnt'+r',combine' cnt rs cnt' rs',cnt*cnt')
 param2int (VInt n)        ty
   | Just max <- isTypeInts ty= return (fromIntegral n,[],fromIntegral max+1)
 param2int (VMeta tnk _ _) ty = do
@@ -254,18 +258,18 @@ param2int v ty = do t <- value2term [] v
                     evalError ("the parameter:" <+> ppTerm Unqualified 0 t $$
                                "cannot be evaluated at compile time.")
 
-combine 1   rs 1    rs' = []
-combine 1   rs cnt' rs' = rs'
-combine cnt rs 1    rs' = rs
-combine cnt rs cnt' rs' = merge rs rs'
-  where
-    merge          []            rs' = rs'
-    merge         rs              [] = [(r*cnt',pv) | (r,pv) <- rs]
-    merge ((r,pv):rs) ((r',pv'):rs') =
-      case compare pv pv' of
-        LT -> (r*cnt',   pv ) : merge rs ((r',pv'):rs')
-        EQ -> (r*cnt'+r',pv ) : merge rs ((r',pv'):rs')
-        GT -> (       r',pv') : merge ((r,pv):rs) rs'
+combine' 1   rs 1    rs' = []
+combine' 1   rs cnt' rs' = rs'
+combine' cnt rs 1    rs' = rs
+combine' cnt rs cnt' rs' = combine cnt' rs rs'
+
+combine cnt'          []            rs' = rs'
+combine cnt'          rs             [] = [(r*cnt',pv) | (r,pv) <- rs]
+combine cnt' ((r,pv):rs) ((r',pv'):rs') =
+  case compare pv pv' of
+    LT -> (r*cnt',   pv ) : combine cnt' rs ((r',pv'):rs')
+    EQ -> (r*cnt'+r',pv ) : combine cnt' rs ((r',pv'):rs')
+    GT -> (       r',pv') : combine cnt' ((r,pv):rs) rs'
 
 order = sortBy (\(r1,_) (r2,_) -> compare r2 r1)
 
