@@ -28,7 +28,6 @@ import qualified Data.Map.Strict as Map
 import qualified Data.Sequence as Seq
 import Data.List(mapAccumL,sortOn,sortBy)
 import Data.Maybe(fromMaybe,isNothing)
-import Debug.Trace
 
 generatePMCFG :: Options -> FilePath -> SourceGrammar -> SourceModule -> Check SourceModule
 generatePMCFG opts cwd gr cmo@(cm,cmi)
