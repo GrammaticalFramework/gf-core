@@ -458,7 +458,7 @@ susp i env ki = EvalM $ \gr k mt r -> do
       return (mt,tnk:tnks)
 
     bindInt gr k mt r s iv max
-      | iv < max = do
+      | iv <= max = do
          let v = VInt iv
          writeSTRef i (Evaluated v)
          res <- case ki v of
