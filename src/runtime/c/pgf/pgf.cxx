@@ -2235,8 +2235,11 @@ PgfText **pgf_linearize_all(PgfDB *db, PgfConcrRevision revision,
 
         while (linearizer.resolve()) {
             linearizer.linearize(&out, 0);
-            variants = (PgfText **) realloc(variants, ((*n_variants)+1)*sizeof(PgfText **));
-            variants[(*n_variants)++] = out.get_text();
+            PgfText *text = out.get_text();
+            if (text != NULL) {
+                variants = (PgfText **) realloc(variants, ((*n_variants)+1)*sizeof(PgfText **));
+                variants[(*n_variants)++] = out.get_text();
+            }
         }
 
         return variants;
