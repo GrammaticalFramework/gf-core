@@ -2238,7 +2238,7 @@ PgfText **pgf_linearize_all(PgfDB *db, PgfConcrRevision revision,
             PgfText *text = out.get_text();
             if (text != NULL) {
                 variants = (PgfText **) realloc(variants, ((*n_variants)+1)*sizeof(PgfText **));
-                variants[(*n_variants)++] = out.get_text();
+                variants[(*n_variants)++] = text;
             }
         }
 
