@@ -153,9 +153,6 @@ PgfDB *pgf_read_ngf(const char *fpath,
 
         {
             DB_scope scope(db, WRITER_SCOPE);
-
-			db->cleanup_revisions();
-
             ref<PgfPGF> pgf = db->get_active_revision();
             *revision = db->register_revision(pgf.tagged(), PgfDB::get_txn_id());
         }

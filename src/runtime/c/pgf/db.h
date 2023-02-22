@@ -123,8 +123,6 @@ public:
         current_db->free_internal(o.as_object(), sizeof(A)+extra_bytes);
     }
 
-	PGF_INTERNAL_DECL void cleanup_revisions();
-
     PGF_INTERNAL_DECL object get_active_revision();
     PGF_INTERNAL_DECL object register_revision(object o, txn_t txn_id);
     PGF_INTERNAL_DECL void unregister_revision(object o);
@@ -145,7 +143,11 @@ public:
     }
 
 private:
+    PGF_INTERNAL_DECL int init_rev_mutex();
+    PGF_INTERNAL_DECL int init_write_mutex();
+    PGF_INTERNAL_DECL int init_rwlock_mutex();
     PGF_INTERNAL_DECL int init_state();
+    PGF_INTERNAL_DECL void cleanup_state();
 
     PGF_INTERNAL_DECL size_t block_descr_size(object map);
     PGF_INTERNAL_DECL object new_block_descr(object o, size_t size, txn_t txn_id);
