@@ -825,4 +825,25 @@ pgf_graphviz_parse_tree(PgfDB *db, PgfConcrRevision revision,
                         PgfGraphvizOptions* opts,
                         PgfExn *err);
 
+PGF_API_DECL PgfText *
+pgf_graphviz_word_alignment(PgfDB *db, PgfConcrRevision* revisions, size_t n_revisions,
+                            PgfExpr expr, PgfPrintContext *ctxt,
+                            PgfMarshaller *m,
+                            PgfGraphvizOptions* opts,
+                            PgfExn* err);
+
+typedef struct {
+    PgfText *phrase;
+    int n_fids;
+    int fids[];
+} PgfAlignmentPhrase;
+
+PGF_API_DECL
+PgfAlignmentPhrase **
+pgf_align_words(PgfDB *db, PgfConcrRevision revision,
+                PgfExpr expr, PgfPrintContext *ctxt,
+                PgfMarshaller *m,
+                size_t *n_phrases /* out */,
+                PgfExn* err);
+
 #endif // PGF_H_

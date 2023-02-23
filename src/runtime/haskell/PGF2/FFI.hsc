@@ -51,6 +51,7 @@ data PgfMorphoCallback
 data PgfCohortsCallback
 data PgfPhrasetableIds
 data PgfExprEnum
+data PgfAlignmentPhrase
 
 type Wrapper a = a -> IO (FunPtr a)
 type Dynamic a = FunPtr a -> a
@@ -254,6 +255,8 @@ foreign import ccall pgf_bracketed_linearize :: Ptr PgfDB -> Ptr Concr -> Stable
 
 foreign import ccall pgf_bracketed_linearize_all :: Ptr PgfDB -> Ptr Concr -> StablePtr Expr -> Ptr PgfPrintContext -> Ptr PgfMarshaller -> Ptr PgfLinearizationOutputIface -> Ptr PgfExn -> IO ()
 
+foreign import ccall pgf_align_words :: Ptr PgfDB -> Ptr Concr -> StablePtr Expr -> Ptr PgfPrintContext -> Ptr PgfMarshaller -> Ptr CSize -> Ptr PgfExn -> IO (Ptr (Ptr PgfAlignmentPhrase))
+
 foreign import ccall pgf_parse :: Ptr PgfDB -> Ptr Concr -> StablePtr Type -> Ptr PgfMarshaller -> Ptr PgfText -> Ptr PgfExn -> IO (Ptr PgfExprEnum)
 
 foreign import ccall "dynamic" callFetch :: Dynamic (Ptr PgfExprEnum -> Ptr PgfDB -> Ptr PgfUnmarshaller -> Ptr (#type prob_t) -> IO (StablePtr Expr))
@@ -287,6 +290,8 @@ foreign import ccall pgf_set_concrete_flag :: Ptr PgfDB -> Ptr Concr -> Ptr PgfT
 foreign import ccall pgf_graphviz_abstract_tree :: Ptr PgfDB -> Ptr PGF -> StablePtr Expr -> Ptr PgfMarshaller -> Ptr PgfGraphvizOptions -> Ptr PgfExn -> IO (Ptr PgfText)
 
 foreign import ccall pgf_graphviz_parse_tree :: Ptr PgfDB -> Ptr Concr -> StablePtr Expr -> Ptr PgfPrintContext -> Ptr PgfMarshaller -> Ptr PgfGraphvizOptions -> Ptr PgfExn -> IO (Ptr PgfText)
+
+foreign import ccall pgf_graphviz_word_alignment :: Ptr PgfDB -> Ptr (Ptr Concr) -> CSize -> StablePtr Expr -> Ptr PgfPrintContext -> Ptr PgfMarshaller -> Ptr PgfGraphvizOptions -> Ptr PgfExn -> IO (Ptr PgfText)
 
 
 -----------------------------------------------------------------------

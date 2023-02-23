@@ -13,6 +13,7 @@
 #include "linearizer.h"
 #include "parser.h"
 #include "graphviz.h"
+#include "aligner.h"
 
 static void
 pgf_exn_clear(PgfExn* err)
@@ -2636,6 +2637,124 @@ pgf_graphviz_parse_tree(PgfDB *db, PgfConcrRevision revision,
         if (linearizer.resolve()) {
             linearizer.linearize(&out, 0);
             return out.generate_graphviz(opts);
+        }
+    } PGF_API_END
+
+    return NULL;
+}
+
+PGF_API PgfText *
+pgf_graphviz_word_alignment(PgfDB *db, PgfConcrRevision* revisions, size_t n_revisions,
+                            PgfExpr expr, PgfPrintContext *ctxt,
+                            PgfMarshaller *m,
+                            PgfGraphvizOptions* opts,
+                            PgfExn* err)
+{
+    PGF_API_BEGIN {
+        DB_scope scope(db, READER_SCOPE);
+
+        PgfPrinter printer(NULL, 0, NULL);
+        
+        printer.puts("digraph {\n");
+        printer.puts("rankdir=LR ;\n");
+        printer.puts("node [shape = record");
+        if (opts->leafFont != NULL && *opts->leafFont)
+            printer.nprintf(40, ", fontname = \"%s\"", opts->leafFont);
+        if (opts->leafColor != NULL && *opts->leafColor)
+            printer.nprintf(40, ", fontcolor = \"%s\"", opts->leafColor);
+        printer.puts("] ;\n\n");
+        if (opts->leafEdgeStyle != NULL && *opts->leafEdgeStyle)
+            printer.nprintf(40, "edge [style = %s];\n", opts->leafEdgeStyle);
+        printer.puts("\n");
+
+        size_t last_n_phrases = 0;
+        PgfAlignmentPhrase **last_phrases = NULL;
+        for (size_t i = 0; i < n_revisions; i++) {
+            ref<PgfConcr> concr = db->revision2concr(revisions[i]);
+
+            PgfAlignerOutput out;
+            PgfLinearizer linearizer(ctxt, concr, m);
+            m->match_expr(&linearizer, expr);
+            linearizer.reverse_and_label(true);
+            if (linearizer.resolve()) {
+                linearizer.linearize(&out, 0);
+                out.flush();
+
+                printer.nprintf(40, "  struct%zu[label=\"", i);
+
+                size_t n_phrases;
+                PgfAlignmentPhrase **phrases = 
+                    out.get_phrases(&n_phrases);
+
+                for (size_t j = 0; j < n_phrases; j++) {
+                    PgfAlignmentPhrase* phrase = phrases[j];
+                    if (j > 0)
+                        printer.puts(" | ");
+                    printer.nprintf(16, "<n%zu> ", j);
+                    printer.puts(phrase->phrase);
+                }
+
+                printer.puts("\"] ;\n");
+
+                if (last_phrases != NULL) {
+                    for (size_t j = 0; j < n_phrases; j++) {
+                        PgfAlignmentPhrase* phrase = phrases[j];
+
+                        for (size_t k = 0; k < phrase->n_fids; k++) {
+                            int fid = phrase->fids[k];
+
+                            for (size_t l = 0; l < last_n_phrases; l++) {
+                                PgfAlignmentPhrase* last_phrase = last_phrases[l];
+
+                                for (size_t r = 0; r < last_phrase->n_fids; r++) {
+                                    int last_fid = last_phrase->fids[r];
+                                    if (fid == last_fid) {
+                                        printer.nprintf(50, "struct%zu:n%zu:e -> struct%zu:n%zu:w ;\n",i-1,l,i,j);
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+
+                PgfAlignerOutput::free_phrases(last_phrases, last_n_phrases);
+
+                last_n_phrases = n_phrases;
+                last_phrases = phrases;
+            }
+        }
+
+        PgfAlignerOutput::free_phrases(last_phrases, last_n_phrases);
+
+        printer.puts("}");
+
+        return printer.get_text();
+    } PGF_API_END
+
+    return NULL;
+}
+
+PGF_API
+PgfAlignmentPhrase **
+pgf_align_words(PgfDB *db, PgfConcrRevision revision,
+                PgfExpr expr, PgfPrintContext *ctxt,
+                PgfMarshaller *m,
+                size_t *n_phrases /* out */,
+                PgfExn* err)
+{
+    PGF_API_BEGIN {
+        DB_scope scope(db, READER_SCOPE);
+
+        ref<PgfConcr> concr = db->revision2concr(revision);
+
+        PgfAlignerOutput out;
+        PgfLinearizer linearizer(ctxt, concr, m);
+        m->match_expr(&linearizer, expr);
+        linearizer.reverse_and_label(true);
+        if (linearizer.resolve()) {
+            linearizer.linearize(&out, 0);
+            out.flush();
+            return out.get_phrases(n_phrases);
         }
     } PGF_API_END
 

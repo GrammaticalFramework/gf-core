@@ -489,7 +489,26 @@ printName c fun =
       else return Nothing
 
 alignWords :: Concr -> Expr -> [(String, [Int])]
-alignWords = error "TODO: alignWords"
+alignWords c e = unsafePerformIO $
+  withForeignPtr (c_revision c) $ \c_revision ->
+  bracket (newStablePtr e) freeStablePtr $ \c_e ->
+  withForeignPtr marshaller $ \m ->
+  alloca $ \p_n_phrases -> do
+    c_phrases <-  withPgfExn "alignWords" (pgf_align_words (c_db c) c_revision c_e nullPtr m p_n_phrases)
+    n_phrases <- peek p_n_phrases
+    arr <- peekArray (fromIntegral n_phrases) c_phrases
+    free c_phrases
+    mapM peekAlignmentPhrase arr
+  where
+    peekAlignmentPhrase :: Ptr PgfAlignmentPhrase -> IO (String, [Int])
+    peekAlignmentPhrase ptr = do
+      c_phrase <- (#peek PgfAlignmentPhrase, phrase) ptr
+      phrase <- peekText c_phrase
+      n_fids <- (#peek PgfAlignmentPhrase, n_fids) ptr
+      (fids :: [CInt]) <- peekArray (fromIntegral (n_fids :: CInt)) (ptr `plusPtr` (#offset PgfAlignmentPhrase, fids))
+      free c_phrase
+      free ptr
+      return (phrase, map fromIntegral fids)
 
 gizaAlignment = error "TODO: gizaAlignment"
 
@@ -989,7 +1008,6 @@ bracketedLinearizeAll c e = unsafePerformIO $ do
         then writeIORef ref (False,[],[],all)
         else writeIORef ref (False,[],[],reverse bs:all)
 
-
 generateAll :: PGF -> Type -> [(Expr,Float)]
 generateAll p ty = error "TODO: generateAll"
 
@@ -1184,7 +1202,32 @@ graphvizParseTree c opts e =
       else peekText c_text
 
 graphvizWordAlignment :: [Concr] -> GraphvizOptions -> Expr -> String
-graphvizWordAlignment cs opts e = error "TODO: graphvizWordAlignment"
+graphvizWordAlignment [] opts e = ""
+graphvizWordAlignment cs opts e =
+  unsafePerformIO $
+  withPgfConcrs cs $ \c_db c_revisions n_revisions ->
+  bracket (newStablePtr e) freeStablePtr $ \c_e ->
+  withForeignPtr marshaller $ \m ->
+  withGraphvizOptions opts $ \c_opts ->
+  bracket (withPgfExn "graphvizWordAlignment" (pgf_graphviz_word_alignment c_db c_revisions n_revisions c_e nullPtr m c_opts)) free $ \c_text ->
+    if c_text == nullPtr
+      then return ""
+      else peekText c_text
+  where
+    withPgfConcrs cs f =
+      allocaArray len $ \array ->
+        pokeAll array nullPtr array cs
+      where
+        len = length cs
+
+        pokeAll ptr c_db0 array []     = f c_db0 array (fromIntegral len)
+        pokeAll ptr c_db0 array (c:cs)
+          | c_db0 /= nullPtr && c_db0 /= c_db c =
+                throwIO (PGFError "graphvizWordAlignment" "The concrete languages must be from the same grammar")
+          | otherwise =
+              withForeignPtr (c_revision c) $ \c_revision -> do
+                poke ptr c_revision
+                pokeAll (ptr `plusPtr` (#size PgfConcrRevision)) (c_db c) array cs
 
 
 type Labels = Map.Map Fun [String]
