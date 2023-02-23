@@ -12,6 +12,7 @@ PgfLinearizationGraphvizOutput::PgfLinearizationGraphvizOutput()
     internals = NULL;
     leaves.n_nodes = 0;
     leaves.nodes = NULL;
+    nonexist = false;
 
     meta = (PgfText*) malloc(sizeof(PgfText)+2);
     meta->text[0] = '?';
@@ -20,6 +21,20 @@ PgfLinearizationGraphvizOutput::PgfLinearizationGraphvizOutput()
 
 PgfLinearizationGraphvizOutput::~PgfLinearizationGraphvizOutput()
 {
+    for (size_t i = 0; i < n_internals; i++) {
+        ParseLevel *internal = internals[i];
+        for (size_t j = 0; j < internal->n_nodes; j++) {
+            delete internal->nodes[j];
+        }
+        delete(internal->nodes);
+        delete[] internal;
+    }
+
+    for (size_t j = 0; j < leaves.n_nodes; j++) {
+        delete leaves.nodes[j];
+    }
+    delete(leaves.nodes);
+
     free(meta);
 }
 
@@ -85,6 +100,7 @@ void PgfLinearizationGraphvizOutput::end_phrase(PgfText *cat, int fid, PgfText *
 
 void PgfLinearizationGraphvizOutput::symbol_ne()
 {
+    nonexist = true;
 }
 
 void PgfLinearizationGraphvizOutput::symbol_bind()
@@ -174,6 +190,9 @@ void PgfLinearizationGraphvizOutput::generate_graphviz_level(PgfPrinter *printer
 
 PgfText *PgfLinearizationGraphvizOutput::generate_graphviz(PgfGraphvizOptions* opts)
 {
+    if (nonexist)
+        return NULL;
+
     PgfPrinter printer(NULL, 0, NULL);
 
 	printer.puts("graph {\n");

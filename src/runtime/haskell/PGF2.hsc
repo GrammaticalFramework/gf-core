@@ -1179,7 +1179,9 @@ graphvizParseTree c opts e =
   withForeignPtr marshaller $ \m ->
   withGraphvizOptions opts $ \c_opts ->
   bracket (withPgfExn "graphvizParseTree" (pgf_graphviz_parse_tree  (c_db c) c_revision c_e nullPtr m c_opts)) free $ \c_text ->
-    peekText c_text
+    if c_text == nullPtr
+      then return ""
+      else peekText c_text
 
 graphvizWordAlignment :: [Concr] -> GraphvizOptions -> Expr -> String
 graphvizWordAlignment cs opts e = error "TODO: graphvizWordAlignment"

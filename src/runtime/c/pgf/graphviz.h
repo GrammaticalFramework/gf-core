@@ -28,6 +28,8 @@ class PGF_INTERNAL_DECL PgfLinearizationGraphvizOutput : public PgfLinearization
 
     PgfText *meta;
 
+    bool nonexist;
+
     void generate_graphviz_level(PgfPrinter *printer, PgfGraphvizOptions* opts, ParseLevel *level);
 
 public:
