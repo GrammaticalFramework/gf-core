@@ -75,6 +75,29 @@ bool textstarts(PgfText *t, PgfText *prefix)
 }
 
 PGF_INTERNAL
+bool textistarts(PgfText *t, PgfText *prefix)
+{
+    const uint8_t *s1 = (uint8_t*) &t->text;
+	const uint8_t *e1 = s1+t->size;
+
+	const uint8_t *s2 = (uint8_t*) &prefix->text;
+	const uint8_t *e2 = s2+prefix->size;
+
+    for (;;) {
+        if (s1 >= e1)
+            return false;
+        if (s2 >= e2)
+			return true;
+
+		uint32_t ucs1  = pgf_utf8_to_upper(pgf_utf8_decode(&s1));
+		uint32_t ucs2  = pgf_utf8_to_upper(pgf_utf8_decode(&s2));
+
+        if (ucs1 != ucs2)
+            return false;
+    }
+}
+
+PGF_INTERNAL
 PgfText* textdup(PgfText *t1)
 {
     size_t size = sizeof(PgfText)+t1->size+1;

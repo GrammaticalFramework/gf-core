@@ -646,8 +646,14 @@ void PgfLinearizer::reverse_and_label(bool add_linref)
     }
 }
 
+PGF_INTERNAL_DECL bool
+pgf_is_case_sensitive(ref<PgfConcr> concr);
+
 void PgfLinearizer::flush_pre_stack(PgfLinearizationOutputIface *out, PgfText *token)
 {
+    bool (*cmp)(PgfText *t, PgfText *prefix) =
+        pgf_is_case_sensitive(concr) ? textstarts : textistarts;
+
     while (pre_stack != NULL) {
         PreStack *pre = pre_stack;
         pre_stack = pre->next;
@@ -657,7 +663,7 @@ void PgfLinearizer::flush_pre_stack(PgfLinearizationOutputIface *out, PgfText *t
                 PgfAlternative *alt = &pre->sym_kp->alts.data[i];
                 for (size_t j = 0; j < alt->prefixes->len; j++) {
                     ref<PgfText> prefix = *vector_elem(alt->prefixes,j);
-                    if (textstarts(token, &(*prefix))) {
+                    if (cmp(token, &(*prefix))) {
                         pre->node->linearize_seq(out, this, alt->form);
                         goto done;
                     }

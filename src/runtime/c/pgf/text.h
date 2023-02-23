@@ -17,6 +17,9 @@ void texticmp(PgfText *t1, PgfText *t2, int res[2]);
 PGF_INTERNAL_DECL
 bool textstarts(PgfText *t, PgfText *prefix);
 
+PGF_INTERNAL
+bool textistarts(PgfText *t, PgfText *prefix);
+
 PGF_INTERNAL_DECL
 PgfText* string2text(const char *s);
 

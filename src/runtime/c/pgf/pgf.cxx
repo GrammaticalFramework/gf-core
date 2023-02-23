@@ -819,7 +819,7 @@ void pgf_iter_lins(PgfDB *db, PgfConcrRevision cnc_revision,
     } PGF_API_END
 }
 
-static bool
+PGF_INTERNAL bool
 pgf_is_case_sensitive(ref<PgfConcr> concr)
 {
     PgfText *case_sensitive = (PgfText *)
