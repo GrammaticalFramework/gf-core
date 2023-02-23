@@ -1224,14 +1224,15 @@ modules.
 
 Here are some flags commonly included in grammars.
 
-  flag         value                description                        module
-  ------------ -------------------- ---------------------------------- ----------
-  `coding`     character encoding   encoding used in string literals   concrete
-  `startcat`   category             default target of parsing          abstract
+  flag             value                description                        module
+  ------------     -------------------- ---------------------------------- ----------
+  `coding`         character encoding   encoding used in string literals   concrete
+  `startcat`       category             default target of parsing          abstract
+  `case_sensitive` on/off               controlls the case sensitiveness   concrete
 
 The possible values of these flags are specified [here](#flagvalues).
 Note that the `lexer` and `unlexer` flags are deprecated. If you need
-their functionality, you should use supply them to GF shell commands
+their functionality, you should supply them to GF shell commands
 like so:
 
     put_string -lextext "страви, напої" | parse
@@ -2293,6 +2294,12 @@ The flag `startcat` in abstract syntax sets the default start category
 for parsing, random generation, and any other grammar operation that
 depends on category. Its legal values are the categories defined or
 inherited in the abstract syntax.
+
+The flag `case_sensitive` has value `on` by default which means that
+the parser will always match the input with the grammar predictions
+in a case sensitive manner. This can be overriden by setting the flag
+to `off`. The flag also controlls how the linearizer matches the
+prefixes in the `pre` construction.
 
 
 ### Compiler pragmas
