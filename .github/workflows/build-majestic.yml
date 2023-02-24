@@ -52,6 +52,10 @@ jobs:
       with:
         ghc-version: 8
 
+    - name: Install Haskell build tools
+      run: |
+        cabal v1-install alex happy
+
     - name: build and test the runtime
       working-directory: ./src/runtime/haskell
       run: |
