@@ -55,13 +55,13 @@ jobs:
     - name: build and test the runtime
       working-directory: ./src/runtime/haskell
       run: |
-        cabal install --extra-lib-dirs=/usr/local/lib
-        cabal test --extra-lib-dirs=/usr/local/lib
+        cabal v1-install --extra-lib-dirs=/usr/local/lib
+        cabal v1-test --extra-lib-dirs=/usr/local/lib
 
     - name: build the compiler
       working-directory: ./src/compiler
       run: |
-        cabal install
+        cabal v1-install
 
     - name: Upload artifact
       uses: actions/upload-artifact@master
