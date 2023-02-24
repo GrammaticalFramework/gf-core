@@ -72,7 +72,7 @@ jobs:
       with:
         name: compiler-linux
         path: |
-          /usr/local/bin/gf
+          ~/.cabal/bin/gf
 
   linux-python:
     name: Python (Linux)
