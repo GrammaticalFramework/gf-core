@@ -52,10 +52,23 @@ jobs:
       with:
         ghc-version: 8
 
-    - name: run testsuite
+    - name: build and test the runtime
       working-directory: ./src/runtime/haskell
       run: |
+        cabal install --extra-lib-dirs=/usr/local/lib
         cabal test --extra-lib-dirs=/usr/local/lib
+
+    - name: build the compiler
+      working-directory: ./src/compiler
+      run: |
+        cabal install
+
+    - name: Upload artifact
+      uses: actions/upload-artifact@master
+      with:
+        name: compiler-linux
+        path: |
+          /usr/local/bin/gf
 
   linux-python:
     name: Python (Linux)
