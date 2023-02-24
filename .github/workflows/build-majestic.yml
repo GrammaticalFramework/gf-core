@@ -56,7 +56,7 @@ jobs:
       working-directory: ./src/runtime/haskell
       run: |
         cabal v1-install --extra-lib-dirs=/usr/local/lib
-        cabal v1-test --extra-lib-dirs=/usr/local/lib
+        cabal test --extra-lib-dirs=/usr/local/lib
 
     - name: build the compiler
       working-directory: ./src/compiler
