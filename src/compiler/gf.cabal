@@ -181,7 +181,6 @@ executable gf
     GF.System.NoSignal
     GF.Text.Clitics
     GF.Text.Coding
-    GF.Text.Lexing
     GF.Text.Transliterations
     Paths_gf
 
