@@ -184,16 +184,25 @@ dropCategory name = Transaction $ \c_db _ c_revision c_exn ->
 createConcrete :: ConcName -> Transaction Concr () -> Transaction PGF ()
 createConcrete name (Transaction f) = Transaction $ \c_db c_abstr c_revision c_exn ->
   withText name $ \c_name -> do
-  bracket (pgf_create_concrete c_db c_revision c_name c_exn)
-          (pgf_free_concr_revision_ c_db) $ \c_concr_revision ->
+  bracketPtr (pgf_create_concrete c_db c_revision c_name c_exn)
+             (pgf_free_concr_revision_ c_db) $ \c_concr_revision ->
     f c_db c_abstr c_concr_revision c_exn
 
 alterConcrete :: ConcName -> Transaction Concr a -> Transaction PGF a
 alterConcrete name (Transaction f) = Transaction $ \c_db c_abstr c_revision c_exn ->
   withText name $ \c_name -> do
-  bracket (pgf_clone_concrete c_db c_revision c_name c_exn)
-          (pgf_free_concr_revision_ c_db) $ \c_concr_revision ->
+  bracketPtr (pgf_clone_concrete c_db c_revision c_name c_exn)
+             (pgf_free_concr_revision_ c_db) $ \c_concr_revision ->
     f c_db c_abstr c_concr_revision c_exn
+
+bracketPtr before after thing =
+  mask $ \restore -> do
+    a <- before
+    if a == nullPtr
+      then return undefined
+      else do r <- restore (thing a) `onException` after a
+              _ <- after a
+              return r
 
 dropConcrete :: ConcName -> Transaction PGF ()
 dropConcrete name = Transaction $ \c_db _ c_revision c_exn ->
