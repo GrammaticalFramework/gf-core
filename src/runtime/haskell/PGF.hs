@@ -31,7 +31,7 @@ module PGF(
            languages, abstractName, languageCode,
 
            -- * Types
-           Type, Hypo,
+           Type, Hypo, BindType(..),
            showType, readType,
            mkType, mkHypo, mkDepHypo, mkImplHypo,
            unType,
