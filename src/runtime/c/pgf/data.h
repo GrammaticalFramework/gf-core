@@ -5,6 +5,7 @@
 #include <assert.h>
 #include <exception>
 #include <stdexcept>
+#include <functional>
 
 #include "pgf.h"
 
@@ -75,6 +76,7 @@ private:
 };
 
 struct PgfPGF;
+struct PgfAbsFun;
 struct PgfConcr;
 
 #include "db.h"
@@ -82,6 +84,7 @@ struct PgfConcr;
 #include "vector.h"
 #include "namespace.h"
 #include "phrasetable.h"
+#include "probspace.h"
 #include "expr.h"
 
 struct PGF_INTERNAL_DECL PgfFlag {
@@ -114,6 +117,7 @@ typedef struct {
     Namespace<PgfFlag> aflags;
     Namespace<PgfAbsFun> funs;
     Namespace<PgfAbsCat> cats;
+    PgfProbspace funs_by_cat;
 } PgfAbstr;
 
 struct PGF_INTERNAL_DECL PgfLParam {
@@ -288,12 +292,6 @@ struct PGF_INTERNAL_DECL PgfConcr {
     Namespace<PgfConcrLincat> lincats;
     PgfPhrasetable phrasetable;
     Namespace<PgfConcrPrintname> printnames;
-
-    // If there are references from the host language to this concrete,
-    // then it is included in a double-linked list. If a process
-    // dies without releasing the reference, it will be released by
-    // the first process who have an exclusive access to the database.
-    ref<PgfConcr> prev, next;
 
     PgfText name;
 

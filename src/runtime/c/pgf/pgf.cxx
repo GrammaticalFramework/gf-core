@@ -144,8 +144,8 @@ PgfDB *pgf_boot_ngf(const char* pgf_path, const char* ngf_path,
 
 PGF_API
 PgfDB *pgf_read_ngf(const char *fpath,
-                     PgfRevision *revision,
-                     PgfExn* err)
+                    PgfRevision *revision,
+                    PgfExn* err)
 {
     PgfDB *db = NULL;
 
@@ -487,21 +487,6 @@ void pgf_iter_functions(PgfDB *db, PgfRevision revision,
     } PGF_API_END
 }
 
-struct PgfItorCatHelper : PgfItor
-{
-    PgfText *cat;
-    PgfItor *itor;
-};
-
-static
-void iter_by_cat_helper(PgfItor *itor, PgfText *key, object value, PgfExn *err)
-{
-    PgfItorCatHelper* helper = (PgfItorCatHelper*) itor;
-    ref<PgfAbsFun> absfun = value;
-    if (textcmp(helper->cat, &absfun->type->name) == 0)
-        helper->itor->fn(helper->itor, key, value, err);
-}
-
 PGF_API
 void pgf_iter_functions_by_cat(PgfDB *db, PgfRevision revision,
                                PgfText *cat, PgfItor *itor, PgfExn *err)
@@ -510,12 +495,7 @@ void pgf_iter_functions_by_cat(PgfDB *db, PgfRevision revision,
         DB_scope scope(db, READER_SCOPE);
         ref<PgfPGF> pgf = db->revision2pgf(revision);
 
-        PgfItorCatHelper helper;
-        helper.fn   = iter_by_cat_helper;
-        helper.cat  = cat;
-        helper.itor = itor;
-
-        namespace_iter(pgf->abstract.funs, &helper, err);
+        probspace_iter(pgf->abstract.funs_by_cat, cat, itor, false, err);
     } PGF_API_END
 }
 
@@ -1217,6 +1197,7 @@ PgfRevision pgf_start_transaction(PgfDB *db, PgfExn *err)
         new_pgf->abstract.aflags = pgf->abstract.aflags;
         new_pgf->abstract.funs = pgf->abstract.funs;
         new_pgf->abstract.cats = pgf->abstract.cats;
+        new_pgf->abstract.funs_by_cat = pgf->abstract.funs_by_cat;
         new_pgf->concretes = pgf->concretes;
 
         db->set_transaction_object(new_pgf.as_object());
@@ -1279,6 +1260,8 @@ PgfText *pgf_create_function(PgfDB *db, PgfRevision revision,
         PgfNameAllocator<PgfAbsFun> nalloc(name_pattern);
         Namespace<PgfAbsFun> funs =
             nalloc.allocate(pgf->abstract.funs);
+        if (funs == 0)
+            throw pgf_error("A function with that name already exists");
 
         PgfText *name; ref<PgfAbsFun> absfun;
         nalloc.fetch_name_value(&name, &absfun);
@@ -1290,10 +1273,55 @@ PgfText *pgf_create_function(PgfDB *db, PgfRevision revision,
 
         pgf->abstract.funs = funs;
 
+        PgfProbspace funs_by_cat =
+            probspace_insert(pgf->abstract.funs_by_cat, absfun);
+        pgf->abstract.funs_by_cat = funs_by_cat;
+
         return name;
     } PGF_API_END
 
     return NULL;
+}
+
+static
+ref<PgfConcr> clone_concrete(ref<PgfPGF> pgf, ref<PgfConcr> concr)
+{
+    ref<PgfConcr> clone = concr;
+    if (!current_db->is_transient_object(clone.as_object())) {
+        clone = PgfDB::malloc<PgfConcr>(concr->name.size+1);
+        clone->cflags = concr->cflags;
+        clone->lins = concr->lins;
+        clone->lincats = concr->lincats;
+        clone->phrasetable = concr->phrasetable;
+        clone->printnames = concr->printnames;
+        memcpy(&clone->name, &concr->name, sizeof(PgfText)+concr->name.size+1);
+
+        Namespace<PgfConcr> concrs =
+            namespace_update(pgf->concretes, clone);
+        pgf->concretes = concrs;
+
+        PgfDB::free(concr, concr->name.size+1);
+    }
+    return clone;
+}
+
+static
+void drop_lin(ref<PgfConcr> concr, PgfText *name)
+{
+    ref<PgfConcrLin> lin;
+    Namespace<PgfConcrLin> lins =
+        namespace_delete(concr->lins, name, &lin);
+    if (lin != 0) {
+        object container = lin.tagged();
+        for (size_t i = 0; i < lin->seqs->len; i++) {
+            ref<PgfSequence> seq = *vector_elem(lin->seqs, i);
+            PgfPhrasetable phrasetable =
+                phrasetable_delete(concr->phrasetable,container,i,seq);
+            concr->phrasetable = phrasetable;
+        }
+        PgfConcrLin::release(lin);
+    }
+    concr->lins = lins;
 }
 
 PGF_API
@@ -1309,8 +1337,21 @@ void pgf_drop_function(PgfDB *db, PgfRevision revision,
         ref<PgfAbsFun> fun;
         Namespace<PgfAbsFun> funs =
             namespace_delete(pgf->abstract.funs, name, &fun);
-        if (fun != 0)
+        if (fun != 0) {
+            PgfProbspace funs_by_cat =
+                probspace_delete(pgf->abstract.funs_by_cat, fun);
+            pgf->abstract.funs_by_cat = funs_by_cat;
+
+            std::function<ref<PgfConcr>(ref<PgfConcr>)> f =
+                            [name,pgf](ref<PgfConcr> concr){
+                concr = clone_concrete(pgf, concr);
+                drop_lin(concr,name);
+                return concr;
+            };
+            namespace_map(pgf->concretes, f);
+
             PgfAbsFun::release(fun);
+        }
         pgf->abstract.funs = funs;
     } PGF_API_END
 }
@@ -1341,8 +1382,47 @@ void pgf_create_category(PgfDB *db, PgfRevision revision,
 
         Namespace<PgfAbsCat> cats =
             namespace_insert(pgf->abstract.cats, abscat);
+        if (cats == 0) {
+            throw pgf_error("A category with that name already exists");
+        }
         pgf->abstract.cats = cats;
     } PGF_API_END
+}
+
+struct PGF_INTERNAL_DECL PgfDropItor : PgfItor
+{
+    ref<PgfPGF> pgf;
+    ref<PgfConcr> concrete;
+    PgfText *name;
+};
+
+static
+void iter_drop_cat_helper2(PgfItor *itor, PgfText *key, object value, PgfExn *err)
+{
+    ref<PgfConcr> concr = value;
+    PgfText* name = ((PgfDropItor*) itor)->name;
+
+    drop_lin(concr, name);
+}
+
+static
+void iter_drop_cat_helper(PgfItor *itor, PgfText *key, object value, PgfExn *err)
+{
+    ref<PgfPGF> pgf = ((PgfDropItor*) itor)->pgf;
+
+    PgfDropItor itor2;
+    itor2.fn       = iter_drop_cat_helper2;
+    itor2.pgf      = 0;
+    itor2.concrete = 0;
+    itor2.name     = key;
+    namespace_iter(pgf->concretes, &itor2, err);
+
+    ref<PgfAbsFun> fun;
+    Namespace<PgfAbsFun> funs =
+        namespace_delete(pgf->abstract.funs, key, &fun);
+    fun = value;
+    PgfAbsFun::release(fun);
+    pgf->abstract.funs = funs;
 }
 
 PGF_API
@@ -1358,8 +1438,31 @@ void pgf_drop_category(PgfDB *db, PgfRevision revision,
         ref<PgfAbsCat> cat;
         Namespace<PgfAbsCat> cats =
             namespace_delete(pgf->abstract.cats, name, &cat);
-        if (cat != 0)
+        if (cat != 0) {
+            std::function<ref<PgfConcr>(ref<PgfConcr>)> f =
+                                        [name,pgf](ref<PgfConcr> concr){
+                concr = clone_concrete(pgf, concr);
+
+                ref<PgfConcrLincat> lincat;
+                Namespace<PgfConcrLincat> lincats =
+                    namespace_delete(concr->lincats, name, &lincat);
+                concr->lincats = lincats;
+
+                return concr;
+            };
+            namespace_map(pgf->concretes, f);
+
+            PgfDropItor itor;
+            itor.fn       = iter_drop_cat_helper;
+            itor.pgf      = pgf;
+            itor.concrete = 0;
+            itor.name     = name;
+            PgfProbspace funs_by_cat =
+                probspace_delete_by_cat(pgf->abstract.funs_by_cat, &cat->name,
+                                        &itor, err);
+            pgf->abstract.funs_by_cat = funs_by_cat;
             PgfAbsCat::release(cat);
+        }
         pgf->abstract.cats = cats;
     } PGF_API_END
 }
@@ -1385,14 +1488,15 @@ PgfConcrRevision pgf_create_concrete(PgfDB *db, PgfRevision revision,
         concr->lincats = 0;
         concr->phrasetable = 0;
         concr->printnames = 0;
-        concr->prev = 0;
-        concr->next = 0;
         memcpy(&concr->name, name, sizeof(PgfText)+name->size+1);
 
         object rev = db->register_revision(concr.tagged(), PgfDB::get_txn_id());
 
         Namespace<PgfConcr> concrs =
             namespace_insert(pgf->concretes, concr);
+        if (concrs == 0) {
+            throw pgf_error("A concrete language with that name already exists");
+        }
         pgf->concretes = concrs;
 
         db->ref_count++;
@@ -1416,26 +1520,9 @@ PgfConcrRevision pgf_clone_concrete(PgfDB *db, PgfRevision revision,
         if (concr == 0)
             throw pgf_error("Unknown concrete syntax");
 
-        ref<PgfConcr> clone = concr;
-        if (!current_db->is_transient_object(clone.as_object())) {
-            clone = PgfDB::malloc<PgfConcr>(name->size+1);
-            clone->cflags = concr->cflags;
-            clone->lins = concr->lins;
-            clone->lincats = concr->lincats;
-            clone->phrasetable = concr->phrasetable;
-            clone->printnames = concr->printnames;
-            clone->prev = 0;
-            clone->next = 0;
-            memcpy(&clone->name, name, sizeof(PgfText)+name->size+1);
+        concr = clone_concrete(pgf, concr);
 
-            Namespace<PgfConcr> concrs =
-                namespace_insert(pgf->concretes, clone);
-            pgf->concretes = concrs;
-
-            PgfDB::free(concr, concr->name.size+1);
-        }
-
-        object rev = db->register_revision(clone.tagged(), PgfDB::get_txn_id());
+        object rev = db->register_revision(concr.tagged(), PgfDB::get_txn_id());
         db->ref_count++;
         return rev;
     } PGF_API_END
@@ -2052,32 +2139,59 @@ void pgf_create_lincat(PgfDB *db,
         if (lincat != 0) {
             Namespace<PgfConcrLincat> lincats =
                 namespace_insert(concr->lincats, lincat);
+            if (lincats == 0) {
+                throw pgf_error("A linearization category with that name already exists");
+            }
             concr->lincats = lincats;
         }
     } PGF_API_END
 }
 
+static
+void iter_drop_lincat_helper(PgfItor *itor, PgfText *key, object value, PgfExn *err)
+{
+    ref<PgfConcr> concr = ((PgfDropItor*) itor)->concrete;
+    drop_lin(concr, key);
+}
+
 PGF_API
 void pgf_drop_lincat(PgfDB *db,
-                     PgfConcrRevision revision,
+                     PgfRevision revision,PgfConcrRevision cnc_revision,
                      PgfText *name, PgfExn *err)
 {
     PGF_API_BEGIN {
         DB_scope scope(db, WRITER_SCOPE);
 
-        ref<PgfConcr> concr = db->revision2concr(revision);
+        ref<PgfPGF>   pgf   = db->revision2pgf(revision);
+        ref<PgfConcr> concr = db->revision2concr(cnc_revision);
 
         ref<PgfConcrLincat> lincat;
         Namespace<PgfConcrLincat> lincats =
             namespace_delete(concr->lincats, name, &lincat);
         if (lincat != 0) {
+            // The lincat was indeed in the concrete syntax.
+
+            // Remove the linearizations of all functions that
+            // depend on it.
+            PgfDropItor itor;
+            itor.fn       = iter_drop_lincat_helper;
+            itor.pgf      = pgf;
+            itor.concrete = concr;
+            itor.name     = name;
+            probspace_iter(pgf->abstract.funs_by_cat, name,
+                           &itor, true, err);
+
+            // Remove the sequences comprizing the lindef and linref
             object container = lincat.tagged();
+            PgfPhrasetable phrasetable = concr->phrasetable;
             for (size_t i = 0; i < lincat->seqs->len; i++) {
                 ref<PgfSequence> seq = *vector_elem(lincat->seqs, i);
-                PgfPhrasetable phrasetable =
-                    phrasetable_delete(concr->phrasetable,container,i,seq);
-                concr->phrasetable = phrasetable;
+                phrasetable =
+                    phrasetable_delete(phrasetable,container,i,seq);
             }
+            concr->phrasetable = phrasetable;
+
+            // Finaly remove the lincat object itself.
             PgfConcrLincat::release(lincat);
         }
         concr->lincats = lincats;
@@ -2111,6 +2225,9 @@ void pgf_create_lin(PgfDB *db,
         if (lin != 0) {
             Namespace<PgfConcrLin> lins =
                 namespace_insert(concr->lins, lin);
+            if (lins == 0) {
+                throw pgf_error("A linearization function with that name already exists");
+            }
             concr->lins = lins;
         }
     } PGF_API_END
@@ -2118,28 +2235,16 @@ void pgf_create_lin(PgfDB *db,
 
 PGF_API
 void pgf_drop_lin(PgfDB *db,
-                  PgfConcrRevision revision,
+                  PgfRevision revision, PgfConcrRevision cnc_revision,
                   PgfText *name, PgfExn *err)
 {
     PGF_API_BEGIN {
         DB_scope scope(db, WRITER_SCOPE);
 
-        ref<PgfConcr> concr = db->revision2concr(revision);
+        ref<PgfPGF> pgf = db->revision2pgf(revision);
+        ref<PgfConcr> concr = db->revision2concr(cnc_revision);
 
-        ref<PgfConcrLin> lin;
-        Namespace<PgfConcrLin> lins =
-            namespace_delete(concr->lins, name, &lin);
-        if (lin != 0) {
-            object container = lin.tagged();
-            for (size_t i = 0; i < lin->seqs->len; i++) {
-                ref<PgfSequence> seq = *vector_elem(lin->seqs, i);
-                PgfPhrasetable phrasetable =
-                    phrasetable_delete(concr->phrasetable,container,i,seq);
-                concr->phrasetable = phrasetable;
-            }
-            PgfConcrLin::release(lin);
-        }
-        concr->lins = lins;
+        drop_lin(concr, name);
     } PGF_API_END
 }
 
@@ -2463,7 +2568,7 @@ void pgf_set_printname(PgfDB *db, PgfConcrRevision revision,
         printname->printname = textdup_db(name);
 
         Namespace<PgfConcrPrintname> printnames =
-            namespace_insert(concr->printnames, printname);
+            namespace_update(concr->printnames, printname);
         concr->printnames = printnames;
     } PGF_API_END
 }
@@ -2508,7 +2613,7 @@ void pgf_set_global_flag(PgfDB *db, PgfRevision revision,
         PgfLiteral lit = m->match_lit(&u, value);
         flag->value = lit;
         Namespace<PgfFlag> gflags =
-            namespace_insert(pgf->gflags, flag);
+            namespace_update(pgf->gflags, flag);
         pgf->gflags = gflags;
     } PGF_API_END
 }
@@ -2553,7 +2658,7 @@ void pgf_set_abstract_flag(PgfDB *db, PgfRevision revision,
         PgfLiteral lit = m->match_lit(&u, value);
         flag->value = lit;
         Namespace<PgfFlag> aflags =
-            namespace_insert(pgf->abstract.aflags, flag);
+            namespace_update(pgf->abstract.aflags, flag);
         pgf->abstract.aflags = aflags;
     } PGF_API_END
 }
@@ -2598,7 +2703,7 @@ void pgf_set_concrete_flag(PgfDB *db, PgfConcrRevision revision,
         PgfLiteral lit = m->match_lit(&u, value);
         flag->value = lit;
         Namespace<PgfFlag> cflags =
-            namespace_insert(concr->cflags, flag);
+            namespace_update(concr->cflags, flag);
         concr->cflags = cflags;
     } PGF_API_END
 }

@@ -329,6 +329,11 @@ ref<PgfAbsFun> PgfReader::read_absfun()
         throw pgf_error("Unknown tag, 0 or 1 expected");
     }
     absfun->prob = read_prob(&absfun->name);
+
+    PgfProbspace funs_by_cat =
+        probspace_insert(abstract->funs_by_cat, absfun);
+    abstract->funs_by_cat = funs_by_cat;
+
     return absfun;
 }
 
@@ -410,6 +415,7 @@ void pad_probs(PgfItor *itor, PgfText *key, object value, PgfExn *err)
 void PgfReader::read_abstract(ref<PgfAbstr> abstract)
 {
     this->abstract = abstract;
+    abstract->funs_by_cat = 0;
 
     auto name = read_name();
     auto aflags = read_namespace<PgfFlag>(&PgfReader::read_flag);
@@ -842,9 +848,6 @@ ref<PgfConcr> PgfReader::read_concrete()
 	auto printnames = read_namespace<PgfConcrPrintname>(&PgfReader::read_printname);
 	concrete->printnames = printnames;
 
-    concrete->prev = 0;
-    concrete->next = 0;
-
     return concrete;
 }
 
@@ -889,6 +892,6 @@ void PgfReader::merge_pgf(ref<PgfPGF> pgf)
     for (size_t i = 0; i < len; i++) {
         ref<PgfConcr> concr = PgfReader::read_concrete();
         pgf->concretes =
-            namespace_insert(pgf->concretes, concr);
+            namespace_update(pgf->concretes, concr);
     }
 }

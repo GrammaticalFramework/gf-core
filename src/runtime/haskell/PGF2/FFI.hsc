@@ -233,11 +233,11 @@ foreign import ccall "dynamic" callLinBuilder7 :: Dynamic (Ptr PgfLinBuilderIfac
 
 foreign import ccall pgf_create_lincat :: Ptr PgfDB -> Ptr PGF -> Ptr Concr -> Ptr PgfText -> CSize -> Ptr (Ptr PgfText) -> CSize -> CSize -> Ptr PgfBuildLinIface -> Ptr PgfExn -> IO ()
 
-foreign import ccall pgf_drop_lincat :: Ptr PgfDB -> Ptr Concr -> Ptr PgfText -> Ptr PgfExn -> IO ()
+foreign import ccall pgf_drop_lincat :: Ptr PgfDB -> Ptr PGF -> Ptr Concr -> Ptr PgfText -> Ptr PgfExn -> IO ()
 
 foreign import ccall pgf_create_lin :: Ptr PgfDB -> Ptr PGF -> Ptr Concr -> Ptr PgfText -> CSize -> Ptr PgfBuildLinIface -> Ptr PgfExn -> IO ()
 
-foreign import ccall pgf_drop_lin :: Ptr PgfDB -> Ptr Concr -> Ptr PgfText -> Ptr PgfExn -> IO ()
+foreign import ccall pgf_drop_lin :: Ptr PgfDB -> Ptr PGF -> Ptr Concr -> Ptr PgfText -> Ptr PgfExn -> IO ()
 
 foreign import ccall pgf_has_linearization :: Ptr PgfDB -> Ptr Concr -> Ptr PgfText -> Ptr PgfExn -> IO CInt
 
@@ -371,7 +371,7 @@ utf8Length s = count 0 s
 -- Exceptions
 
 data PGFError = PGFError String String
-     deriving Typeable
+     deriving (Eq,Typeable)
 
 instance Show PGFError where
   show (PGFError loc msg) = loc++": "++msg

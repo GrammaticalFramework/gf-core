@@ -150,6 +150,8 @@ checkoutPGF p = do
      contains %d, %x or %a then the pattern is replaced with a random
      number in base 10, 16, or 36, which guarantees that the name is
      unique. The returned name is the final name after the substitution.
+     If there is no substitution pattern in the name, and there is
+     already a function with the same name then an exception is thrown.
 -}
 createFunction :: Fun -> Type -> Int -> [[Instr]] -> Float -> Transaction PGF Fun
 createFunction name ty arity bytecode prob = Transaction $ \c_db _ c_revision c_exn ->
@@ -284,9 +286,9 @@ createLincat name fields lindefs linrefs seqtbl = Transaction $ \c_db c_abstr c_
         withTexts p (i+1) ss f
 
 dropLincat :: Cat -> Transaction Concr ()
-dropLincat name = Transaction $ \c_db _ c_revision c_exn ->
+dropLincat name = Transaction $ \c_db  c_abstr c_revision c_exn ->
   withText name $ \c_name ->
-    pgf_drop_lincat c_db c_revision c_name c_exn
+    pgf_drop_lincat c_db  c_abstr c_revision c_name c_exn
 
 createLin :: Fun -> [Production] -> SeqTable -> Transaction Concr SeqTable
 createLin name prods seqtbl = Transaction $ \c_db c_abstr c_revision c_exn ->
@@ -406,9 +408,9 @@ withBuildLinIface prods seqtbl f = do
           pokeTerms (c_terms `plusPtr` (2*(#size size_t))) terms
 
 dropLin :: Fun -> Transaction Concr ()
-dropLin name = Transaction $ \c_db _ c_revision c_exn ->
+dropLin name = Transaction $ \c_db c_abstr c_revision c_exn ->
   withText name $ \c_name ->
-    pgf_drop_lin c_db c_revision c_name c_exn
+    pgf_drop_lin c_db c_abstr c_revision c_name c_exn
 
 setPrintName :: Fun -> String -> Transaction Concr ()
 setPrintName fun name = Transaction $ \c_db _ c_revision c_exn ->

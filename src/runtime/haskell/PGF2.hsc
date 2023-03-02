@@ -340,7 +340,7 @@ abstractName :: PGF -> AbsName
 abstractName p =
   unsafePerformIO $
   withForeignPtr (a_revision p) $ \c_revision ->
-  bracket (withPgfExn "abstractName" (pgf_abstract_name (a_db p) c_revision)) free $ \c_text ->
+  bracket (withPgfExn "abstractName" (pgf_abstract_name (a_db p) c_revision)) free $ \c_text -> do
     peekText c_text
 
 -- | The start category is defined in the grammar with

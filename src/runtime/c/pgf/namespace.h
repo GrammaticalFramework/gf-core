@@ -18,6 +18,9 @@ using Namespace = ref<Node<ref<V>>>;
 template <class V>
 class PGF_INTERNAL_DECL Node
 {
+    const static size_t DELTA = 3;
+    const static size_t RATIO = 2;
+
 public:
     txn_t txn_id;
 
@@ -89,7 +92,7 @@ public:
                                         left->left,
                                         right);
                     } else {
-                        if (node->left->right->sz < 2 * node->left->left->sz) {
+                        if (node->left->right->sz < RATIO * node->left->left->sz) {
                             ref<Node<V>> left  = node->left;
                             ref<Node<V>> right =
                                 upd_node(node,
@@ -119,8 +122,8 @@ public:
             if (node->left == 0) {
                 return node;
             } else {
-                if (node->left->sz > 3*node->right->sz) {
-                    if (node->left->right->sz < 2*node->left->left->sz) {
+                if (node->left->sz > DELTA*node->right->sz) {
+                    if (node->left->right->sz < RATIO*node->left->left->sz) {
                         ref<Node<V>> left  = node->left;
                         ref<Node<V>> right =
                             upd_node(node,
@@ -181,7 +184,7 @@ public:
                                         left,
                                         right);
                     } else {
-                        if (node->right->left->sz < 2 * node->right->right->sz) {
+                        if (node->right->left->sz < RATIO * node->right->right->sz) {
                             ref<Node<V>> right = node->right;
                             ref<Node<V>> left  =
                                 upd_node(node,
@@ -211,8 +214,8 @@ public:
             if (node->right == 0) {
                 return node;
             } else {
-                if (node->right->sz > 3*node->left->sz) {
-                    if (node->right->left->sz < 2*node->right->right->sz) {
+                if (node->right->sz > DELTA*node->left->sz) {
+                    if (node->right->left->sz < RATIO*node->right->right->sz) {
                         ref<Node<V>> right = node->right;
                         ref<Node<V>> left =
                             upd_node(node,
@@ -281,6 +284,82 @@ public:
     }
 
     static
+    ref<Node> link(ref<Node> node, ref<Node> left, ref<Node> right)
+    {
+        if (left == 0)
+            return insert_min(node,right);
+        if (right == 0)
+            return insert_max(node,left);
+
+        if (DELTA*left->sz < right->sz) {
+            left = link(node,left,right->left);
+            ref<Node> node = upd_node(node,left,right->right);
+            return balanceL(node);
+        }
+
+        if (left->sz > DELTA*right->sz) {
+            right = link(node,left->right,right);
+            ref<Node> node = upd_node(node,left->left,right);
+            return balanceR(node);
+        }
+
+        return upd_node(node,left,right);
+    }
+
+    static
+    ref<Node> insert_max(ref<Node> node, ref<Node> t)
+    {
+        if (t == 0)
+            return upd_node(node,0,0);
+        ref<Node> right = insert_max(node,t->right);
+        node = upd_node(node,t->left,right);
+        return balanceR(node);
+    }
+
+    static
+    ref<Node> insert_min(ref<Node> node, ref<Node> t)
+    {
+        if (t == 0)
+            return upd_node(node,0,0);
+        ref<Node> left = insert_min(node,t->left);
+        node = upd_node(node,left,t->right);
+        return balanceL(node);
+    }
+
+    static
+    ref<Node> link(ref<Node> left, ref<Node> right)
+    {
+        if (left == 0)
+            return right;
+        if (right == 0)
+            return left;
+
+        if (DELTA*left->sz < right->sz) {
+            left = link(left,right->left);
+            ref<Node> node = upd_node(right,left,right->right);
+            return balanceL(node);
+        }
+
+        if (left->sz > DELTA*right->sz) {
+            right = link(left->right,right);
+            ref<Node> node = upd_node(left,left->left,right);
+            return balanceR(node);
+        }
+
+        if (left->sz > right->sz) {
+            ref<Node> node;
+            left = pop_last(left, &node);
+            node = upd_node(node, left, right);
+            return balanceR(node);
+        } else {
+            ref<Node> node;
+            right = pop_first(right, &node);
+            node  = upd_node(node, left, right);
+            return balanceL(node);
+        }
+    }
+
+    static
     void release(ref<Node> node)
     {
 #ifdef DEBUG_NAMESPACE
@@ -311,10 +390,34 @@ Namespace<V> namespace_insert(Namespace<V> map, ref<V> value)
     int cmp = textcmp(&value->name,&map->value->name);
     if (cmp < 0) {
         Namespace<V> left = namespace_insert(map->left, value);
+        if (left != 0) {
+            map = Node<ref<V>>::upd_node(map,left,map->right);
+            return Node<ref<V>>::balanceL(map);
+        }
+    } else if (cmp > 0) {
+        Namespace<V> right = namespace_insert(map->right, value);
+        if (right != 0) {
+            map = Node<ref<V>>::upd_node(map,map->left,right);
+            return Node<ref<V>>::balanceR(map);
+        }
+    }
+
+    return 0;
+}
+
+template <class V>
+Namespace<V> namespace_update(Namespace<V> map, ref<V> value)
+{
+    if (map == 0)
+        return Node<ref<V>>::new_node(value);
+
+    int cmp = textcmp(&value->name,&map->value->name);
+    if (cmp < 0) {
+        Namespace<V> left = namespace_update(map->left, value);
         map = Node<ref<V>>::upd_node(map,left,map->right);
         return Node<ref<V>>::balanceL(map);
     } else if (cmp > 0) {
-        Namespace<V> right = namespace_insert(map->right, value);
+        Namespace<V> right = namespace_update(map->right, value);
         map = Node<ref<V>>::upd_node(map,map->left,right);
         return Node<ref<V>>::balanceR(map);
     } else {
@@ -415,6 +518,9 @@ public:
             Namespace<V> new_map = insert(map);
             if (new_map != 0)
                 return new_map;
+
+            if (base == 0)
+                return 0;
 
             if (name->size >= available) {
                 size_t new_size = name->size + 10;
@@ -519,6 +625,21 @@ void namespace_iter(Namespace<V> map, PgfItor* itor, PgfExn *err)
     namespace_iter(map->right, itor, err);
     if (err->type != PGF_EXN_NONE)
         return;
+}
+
+template <class V>
+Namespace<V> namespace_map(Namespace<V> map, std::function<ref<V>(ref<V>)> f)
+{
+    if (map != 0) {
+        auto left  = namespace_map(map->left, f);
+        auto value = f(map->value);
+        auto right = namespace_map(map->right, f);
+
+        map = Node<ref<V>>::upd_node(map,left,right);
+        map->value = value;
+    }
+
+    return map;
 }
 
 template <class V,class A>

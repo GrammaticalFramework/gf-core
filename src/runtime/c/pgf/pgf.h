@@ -635,7 +635,8 @@ void pgf_create_lincat(PgfDB *db,
                        PgfExn *err);
 
 PGF_API_DECL
-void pgf_drop_lincat(PgfDB *db, PgfConcrRevision revision,
+void pgf_drop_lincat(PgfDB *db,
+                     PgfRevision revision, PgfConcrRevision cnc_revision,
                      PgfText *name, PgfExn *err);
 
 PGF_API_DECL
@@ -646,7 +647,8 @@ void pgf_create_lin(PgfDB *db,
                     PgfExn *err);
 
 PGF_API_DECL
-void pgf_drop_lin(PgfDB *db, PgfConcrRevision revision,
+void pgf_drop_lin(PgfDB *db,
+                  PgfRevision revision, PgfConcrRevision cnc_revision,
                   PgfText *name, PgfExn *err);
 
 PGF_API_DECL

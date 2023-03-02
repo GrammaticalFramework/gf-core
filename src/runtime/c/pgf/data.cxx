@@ -30,6 +30,7 @@ void PgfPGF::release(ref<PgfPGF> pgf)
     namespace_release(pgf->abstract.aflags);
     namespace_release(pgf->abstract.funs);
     namespace_release(pgf->abstract.cats);
+    probspace_release(pgf->abstract.funs_by_cat);
     namespace_release(pgf->concretes);
     PgfDB::free(pgf);
 }
