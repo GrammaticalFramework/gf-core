@@ -153,12 +153,15 @@ PgfDB *pgf_read_ngf(const char *fpath,
         db = new PgfDB(fpath, O_RDWR, 0, 0);
 
         {
-            DB_scope scope(db, WRITER_SCOPE);
+            DB_scope scope(db, READER_SCOPE);
             ref<PgfPGF> pgf = db->get_active_revision();
-            *revision = db->register_revision(pgf.tagged(), PgfDB::get_txn_id());
+            *revision = 0;
+            if (pgf != 0) {
+                *revision = db->register_revision(pgf.tagged(), PgfDB::get_txn_id()-1);
+                db->ref_count++;
+            }
         }
 
-        db->ref_count++;
         return db;
     } PGF_API_END
 
@@ -1245,11 +1248,11 @@ PGF_API
 PgfRevision pgf_checkout_revision(PgfDB *db, PgfExn *err)
 {
     PGF_API_BEGIN {
-        DB_scope scope(db, WRITER_SCOPE);
+        DB_scope scope(db, READER_SCOPE);
         ref<PgfPGF> pgf = db->get_active_revision();
         object rev = 0;
         if (pgf != 0) {
-            rev = db->register_revision(pgf.tagged(), PgfDB::get_txn_id());
+            rev = db->register_revision(pgf.tagged(), PgfDB::get_txn_id()-1);
             db->ref_count++;
         }
         return rev;
