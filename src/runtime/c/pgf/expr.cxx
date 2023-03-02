@@ -659,14 +659,21 @@ PgfExpr PgfExprParser::parse_term()
         return e;
 	}
 	case PGF_TOKEN_INT: {
-        size_t size = (token_value->size + LINT_BASE_LOG - 1)/LINT_BASE_LOG;
+        size_t n_digits = token_value->size;
+        char  *p_digits = token_value->text;
+        if (*p_digits == '-') {
+            n_digits--;
+            p_digits++;
+        }
+
+        size_t size = (n_digits + LINT_BASE_LOG - 1)/LINT_BASE_LOG;
         uintmax_t *value = (uintmax_t *) alloca(size*sizeof(uintmax_t));
         char *p = token_value->text + token_value->size;
         for (size_t i = size; i > 0; i--) {
             char tmp = *p; *p = 0;
 
             char *s = p - LINT_BASE_LOG;
-            if (s < token_value->text)
+            if (s <= p_digits)
                 s = token_value->text;
             value[i-1] = (uintmax_t)
                 (s == token_value->text) ? strtoll(s, NULL, 10)
