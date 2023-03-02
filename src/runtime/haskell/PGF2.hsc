@@ -24,7 +24,7 @@ module PGF2 (-- * PGF
              Cat,categories,categoryContext,categoryProbability,
 
              -- ** Functions
-             Fun, functions, functionsByCat,
+             Fun, functions, functionsByPrefix, functionsByCat,
              functionType, functionIsConstructor, functionProbability,
 
              -- ** Expressions
@@ -1085,6 +1085,26 @@ functions p =
      withForeignPtr (a_revision p) $ \c_revision -> do
       (#poke PgfItor, fn) itor fptr
       withPgfExn "functions" (pgf_iter_functions (a_db p) c_revision itor)
+      fs <- readIORef ref
+      return (reverse fs))
+  where
+    getFunctions :: IORef [String] -> ItorCallback
+    getFunctions ref itor key _ exn = do
+      names <- readIORef ref
+      name  <- peekText key
+      writeIORef ref $ (name : names)
+
+-- | List of all functions whose names start with a given prefix
+functionsByPrefix :: PGF -> String -> [Fun]
+functionsByPrefix p prefix =
+  unsafePerformIO $ do
+    ref <- newIORef []
+    (withText prefix $ \c_prefix ->
+     allocaBytes (#size PgfItor) $ \itor ->
+     bracket (wrapItorCallback (getFunctions ref)) freeHaskellFunPtr $ \fptr ->
+     withForeignPtr (a_revision p) $ \c_revision -> do
+      (#poke PgfItor, fn) itor fptr
+      withPgfExn "functions" (pgf_iter_functions_by_prefix (a_db p) c_revision c_prefix itor)
       fs <- readIORef ref
       return (reverse fs))
   where

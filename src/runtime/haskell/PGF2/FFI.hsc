@@ -173,6 +173,8 @@ foreign import ccall pgf_category_prob :: Ptr PgfDB -> Ptr PGF -> Ptr PgfText ->
 
 foreign import ccall pgf_iter_functions :: Ptr PgfDB -> Ptr PGF -> Ptr PgfItor -> Ptr PgfExn -> IO ()
 
+foreign import ccall pgf_iter_functions_by_prefix :: Ptr PgfDB -> Ptr PGF -> Ptr PgfText -> Ptr PgfItor -> Ptr PgfExn -> IO ()
+
 foreign import ccall pgf_iter_functions_by_cat :: Ptr PgfDB -> Ptr PGF -> Ptr PgfText -> Ptr PgfItor -> Ptr PgfExn -> IO ()
 
 foreign import ccall pgf_function_type :: Ptr PgfDB -> Ptr PGF -> Ptr PgfText -> Ptr PgfUnmarshaller -> Ptr PgfExn -> IO (StablePtr Type)

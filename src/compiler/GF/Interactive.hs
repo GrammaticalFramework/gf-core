@@ -525,7 +525,7 @@ wordCompletion gfenv (left,right) = do
       -> Haskeline.completeFilename (left,right)
     CmplIdent _ pref
       -> case pgfenv gfenv of
-           (_,Just pgf,_) -> ret (length pref) [Haskeline.simpleCompletion name | name <- functions pgf, isPrefixOf pref name]
+           (_,Just pgf,_) -> ret (length pref) [Haskeline.simpleCompletion name | name <- functionsByPrefix pgf pref]
            _              -> ret (length pref) []
     _ -> ret 0 []
   where

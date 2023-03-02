@@ -628,6 +628,32 @@ void namespace_iter(Namespace<V> map, PgfItor* itor, PgfExn *err)
 }
 
 template <class V>
+void namespace_iter_prefix(Namespace<V> map, PgfText *prefix, PgfItor* itor, PgfExn *err)
+{
+    if (map == 0)
+        return;
+
+    int cmp = textcmp_prefix(prefix,&map->value->name);
+    if (cmp < 0)
+        namespace_iter_prefix(map->left, prefix, itor, err);
+    else if (cmp > 0)
+        namespace_iter_prefix(map->right, prefix, itor, err);
+    else {
+        namespace_iter_prefix(map->left, prefix, itor, err);
+        if (err->type != PGF_EXN_NONE)
+            return;
+
+        itor->fn(itor, &map->value->name, map->value.as_object(), err);
+        if (err->type != PGF_EXN_NONE)
+            return;
+
+        namespace_iter_prefix(map->right, prefix, itor, err);
+        if (err->type != PGF_EXN_NONE)
+            return;
+    }
+}
+
+template <class V>
 Namespace<V> namespace_map(Namespace<V> map, std::function<ref<V>(ref<V>)> f)
 {
     if (map != 0) {

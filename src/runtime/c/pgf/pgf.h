@@ -337,6 +337,10 @@ void pgf_iter_functions(PgfDB *db, PgfRevision revision,
                         PgfItor *itor, PgfExn *err);
 
 PGF_API_DECL
+void pgf_iter_functions_by_prefix(PgfDB *db, PgfRevision revision,
+                                  PgfText *prefix, PgfItor *itor, PgfExn *err);
+
+PGF_API_DECL
 void pgf_iter_functions_by_cat(PgfDB *db, PgfRevision revision,
                                PgfText *cat, PgfItor *itor, PgfExn *err);
 

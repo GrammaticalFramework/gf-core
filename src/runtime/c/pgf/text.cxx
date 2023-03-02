@@ -17,6 +17,22 @@ int textcmp(PgfText *t1, PgfText *t2)
 }
 
 PGF_INTERNAL
+int textcmp_prefix(PgfText *t1, PgfText *t2)
+{
+    for (size_t i = 0; ; i++) {
+        if (i >= t1->size)
+            return 0;
+        if (i >= t2->size)
+            return 1;
+
+        if (t1->text[i] > t2->text[i])
+            return 1;
+        else if (t1->text[i] < t2->text[i])
+            return -1;
+    }
+}
+
+PGF_INTERNAL
 void texticmp(PgfText *t1, PgfText *t2, int res[2])
 {
 	const uint8_t *s1 = (uint8_t*) &t1->text;

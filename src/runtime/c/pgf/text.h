@@ -5,6 +5,10 @@
 PGF_INTERNAL_DECL
 int textcmp(PgfText *t1, PgfText *t2);
 
+/* The same as textcmp but returns 0 if t1 is a prefix of t2. */
+PGF_INTERNAL_DECL
+int textcmp_prefix(PgfText *t1, PgfText *t2);
+
 /* Performs both case-insensitive and case-sensitive comparison. 
  * The first element in res contains the result from
  * the case-insensitive comparison. The second the result 

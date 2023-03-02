@@ -488,6 +488,19 @@ void pgf_iter_functions(PgfDB *db, PgfRevision revision,
 }
 
 PGF_API
+void pgf_iter_functions_by_prefix(PgfDB *db, PgfRevision revision,
+                                  PgfText *prefix, PgfItor *itor, PgfExn *err)
+{
+    PGF_API_BEGIN {
+        DB_scope scope(db, READER_SCOPE);
+        ref<PgfPGF> pgf = db->revision2pgf(revision);
+
+        pgf_exn_clear(err);
+        namespace_iter_prefix(pgf->abstract.funs, prefix, itor, err);
+    } PGF_API_END
+}
+
+PGF_API
 void pgf_iter_functions_by_cat(PgfDB *db, PgfRevision revision,
                                PgfText *cat, PgfItor *itor, PgfExn *err)
 {
