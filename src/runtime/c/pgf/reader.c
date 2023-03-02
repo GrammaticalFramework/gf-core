@@ -1326,7 +1326,7 @@ pgf_read_concretes(PgfReader* rdr, PgfAbstr* abstr, bool with_content)
 PGF_INTERNAL PgfPGF*
 pgf_read_pgf(PgfReader* rdr) {
 	PgfPGF* pgf = gu_new(PgfPGF, rdr->opool);
-	
+
 	pgf->major_version = gu_in_u16be(rdr->in, rdr->err);
 	gu_return_on_exn(rdr->err, NULL);
 
@@ -1335,7 +1335,7 @@ pgf_read_pgf(PgfReader* rdr) {
 
 	pgf->gflags = pgf_read_flags(rdr);
 	gu_return_on_exn(rdr->err, NULL);
-		
+
 	pgf_read_abstract(rdr, &pgf->abstract);
 	gu_return_on_exn(rdr->err, NULL);
 

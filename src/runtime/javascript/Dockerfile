@@ -1,0 +1,48 @@
+FROM emscripten/emsdk:latest
+
+RUN apt update
+RUN apt install -y autoconf automake libtool make
+
+WORKDIR /tmp/c
+COPY gu/*.c gu/*.h /tmp/c/gu/
+COPY pgf/*.c pgf/*.h /tmp/c/pgf/
+COPY pgf/lightning/i386/*.h /tmp/c/pgf/lightning/i386/
+COPY pgf/lightning/*.h /tmp/c/pgf/lightning/
+COPY \
+    Makefile.am \
+    configure.ac \
+    lib*.pc.in \
+    /tmp/c/
+RUN autoreconf -i
+RUN emconfigure ./configure
+RUN emmake make
+RUN emcc .libs/libgu.a .libs/libpgf.a -o pgf.js \
+    -sALLOW_MEMORY_GROWTH \
+    -sEXPORTED_FUNCTIONS="\
+        _pgf_read,\
+        _pgf_abstract_name,\
+        _pgf_read_expr,\
+        _pgf_print_expr,\
+        _pgf_expr_arity,\
+        _gu_new_pool,\
+        _gu_new_exn,\
+        _gu_data_in,\
+        _gu_exn_is_raised,\
+        _gu_exn_caught_,\
+        _gu_exn_caught_data,\
+        _gu_exn_clear,\
+        _gu_new_string_buf,\
+        _gu_string_buf_out,\
+        _gu_string_buf_data,\
+        _malloc,\
+        _free\
+        "\
+    -sEXPORTED_RUNTIME_METHODS="\
+        ccall,\
+        FS,\
+        getValue,\
+        AsciiToString,\
+        stringToUTF8,\
+        UTF8ToString,\
+        allocateUTF8\
+        "
