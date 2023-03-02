@@ -106,7 +106,7 @@ def test_branched_function_type(gr3):
 # gr6
 
 def test_reduced_functions(gr6):
-    assert gr6.functions == ['c', 'floatLit', 'intLit', 'nat', 's', 'stringLit', 'z']
+    assert gr6.functions == ['nat', 's', 'z']
 
 def test_reduced_categories(gr6):
     assert gr6.categories == ["Float","Int","N","P","String"]
