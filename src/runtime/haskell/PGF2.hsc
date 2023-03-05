@@ -55,7 +55,10 @@ module PGF2 (-- * PGF
              compute,
 
              -- ** Generation
-             generateAll, generateAllFrom, generateRandom, generateRandomFrom,
+             generateAll, generateAllDepth,
+             generateAllFrom, generateAllFromDepth,
+             generateRandom, generateRandomDepth,
+             generateRandomFrom, generateRandomFromDepth,
 
              -- ** Morphological Analysis
              MorphoAnalysis, lookupMorpho, lookupCohorts, fullFormLexicon,
@@ -1009,16 +1012,73 @@ bracketedLinearizeAll c e = unsafePerformIO $ do
         else writeIORef ref (False,[],[],reverse bs:all)
 
 generateAll :: PGF -> Type -> [(Expr,Float)]
-generateAll p ty = error "TODO: generateAll"
+generateAll p ty = generateAllDepth p ty maxBound
+
+generateAllDepth :: PGF -> Type -> Int -> [(Expr,Float)]
+generateAllDepth p ty dp = error "TODO: generateAllDepth"
 
 generateAllFrom :: PGF -> Expr -> [(Expr,Float)]
-generateAllFrom p ty = error "TODO: generateAllFrom"
+generateAllFrom p ty = generateAllFromDepth p ty maxBound
 
-generateRandom :: StdGen -> PGF -> Type -> [a]
-generateRandom = error "TODO: generateRandom"
+generateAllFromDepth :: PGF -> Expr -> Int -> [(Expr,Float)]
+generateAllFromDepth p ty = error "TODO: generateFromDepth"
 
-generateRandomFrom :: StdGen -> PGF -> Expr -> [a]
-generateRandomFrom = error "TODO: generateRandomFrom"
+-- | Generates a potentially infinite list of random 
+-- abstract syntax expressions. This is usefull for tree bank generation
+-- which after that can be used for grammar testing.
+generateRandom :: RandomGen g => g -> PGF -> Type -> [(Expr,Float)]
+generateRandom g pgf ty = generateRandomDepth g pgf ty maxBound
+
+generateRandomDepth :: RandomGen g => g -> PGF -> Type -> Int -> [(Expr,Float)]
+generateRandomDepth g p ty dp =
+  let (seed,_) = random g
+  in generate seed
+  where
+    generate seed =
+      unsafePerformIO $
+      bracket (newStablePtr ty) freeStablePtr $ \c_ty ->
+      withForeignPtr marshaller $ \m ->
+      withForeignPtr unmarshaller $ \u ->
+      withForeignPtr (a_revision p) $ \c_revision ->
+      alloca $ \p_seed ->
+      alloca $ \p_prob ->
+      mask_ $ do
+        poke p_seed seed
+        c_expr <- withPgfExn "generateRandomDepth" (pgf_generate_random (a_db p) c_revision c_ty (fromIntegral dp) p_seed p_prob m u)
+        if castStablePtrToPtr c_expr == nullPtr
+          then return []
+          else do expr <- deRefStablePtr c_expr
+                  freeStablePtr c_expr
+                  seed <- peek p_seed
+                  prob <- peek p_prob
+                  return ((expr,prob):generate seed)
+
+generateRandomFrom :: RandomGen g => g -> PGF -> Expr -> [(Expr,Float)]
+generateRandomFrom g p e = generateRandomFromDepth g p e maxBound
+
+generateRandomFromDepth :: RandomGen g => g -> PGF -> Expr -> Int -> [(Expr,Float)]
+generateRandomFromDepth g p e dp =
+  let (seed,_) = random g
+  in generate seed
+  where
+    generate seed =
+      unsafePerformIO $
+      bracket (newStablePtr e) freeStablePtr $ \c_e ->
+      withForeignPtr marshaller $ \m ->
+      withForeignPtr unmarshaller $ \u ->
+      withForeignPtr (a_revision p) $ \c_revision ->
+      alloca $ \p_seed ->
+      alloca $ \p_prob ->
+      mask_ $ do
+        poke p_seed seed
+        c_expr <- withPgfExn "generateRandomFromDepth" (pgf_generate_random_from (a_db p) c_revision c_e (fromIntegral dp) p_seed p_prob m u)
+        if castStablePtrToPtr c_expr == nullPtr
+          then return []
+          else do expr <- deRefStablePtr c_expr
+                  freeStablePtr c_expr
+                  seed <- peek p_seed
+                  prob <- peek p_prob
+                  return ((expr,prob):generate seed)
 
 -- | List of all functions defined in the abstract syntax
 categories :: PGF -> [Cat]

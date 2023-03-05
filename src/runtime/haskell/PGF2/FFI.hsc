@@ -195,6 +195,10 @@ foreign import ccall pgf_infer_expr :: Ptr PgfDB -> Ptr PGF -> Ptr (StablePtr Ex
 
 foreign import ccall pgf_check_type :: Ptr PgfDB -> Ptr PGF -> Ptr (StablePtr Type) -> Ptr PgfMarshaller -> Ptr PgfUnmarshaller -> Ptr PgfExn -> IO ()
 
+foreign import ccall pgf_generate_random :: Ptr PgfDB -> Ptr PGF -> StablePtr Type -> CSize -> Ptr Word64 -> Ptr (#type prob_t) -> Ptr PgfMarshaller -> Ptr PgfUnmarshaller -> Ptr PgfExn -> IO (StablePtr Expr)
+
+foreign import ccall pgf_generate_random_from :: Ptr PgfDB -> Ptr PGF -> StablePtr Expr -> CSize -> Ptr Word64 -> Ptr (#type prob_t) -> Ptr PgfMarshaller -> Ptr PgfUnmarshaller -> Ptr PgfExn -> IO (StablePtr Expr)
+
 foreign import ccall pgf_start_transaction :: Ptr PgfDB -> Ptr PgfExn -> IO (Ptr PGF)
 
 foreign import ccall pgf_commit_transaction :: Ptr PgfDB -> Ptr PGF -> Ptr PgfExn -> IO ()

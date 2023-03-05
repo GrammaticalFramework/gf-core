@@ -1,4 +1,5 @@
 #include "data.h"
+#include "math.h"
 
 static
 int entry_cmp(PgfProbspaceEntry *entry1, PgfProbspaceEntry *entry2)
@@ -197,6 +198,52 @@ void probspace_iter(PgfProbspace space, PgfText *cat,
         if (err->type != PGF_EXN_NONE)
             return;
     }
+}
+
+static
+ref<PgfAbsFun> probspace_random(PgfProbspace space,
+                                PgfText *cat, prob_t *rand, 
+                                bool is_last)
+{
+    if (space == 0)
+        return 0;
+
+    int cmp = textcmp(cat,&(*space->value.cat));
+    if (cmp < 0) {
+        return probspace_random(space->left, cat, rand, true);
+    } else if (cmp > 0) {
+        return probspace_random(space->right, cat, rand, true);
+    } else {
+        ref<PgfAbsFun> fun;
+        
+        fun = probspace_random(space->left, cat, rand, false);
+        if (fun != 0)
+            return fun;
+
+        bool is_res = (space->value.cat == ref<PgfText>::from_ptr(&space->value.fun->type->name));
+        if (is_res) {
+            *rand -= exp(-space->value.fun->prob);
+            if (*rand <= 0)
+                return space->value.fun;
+        }
+
+        fun = probspace_random(space->right, cat, rand, is_last);
+        if (fun != 0)
+            return fun;
+        if (is_last && is_res) {
+            // necessary due to floating point rounding
+            return space->value.fun;
+        }
+    }
+
+    return 0;
+}
+
+PGF_INTERNAL
+ref<PgfAbsFun> probspace_random(PgfProbspace space,
+                                PgfText *cat, prob_t rand)
+{
+    return probspace_random(space,cat,&rand,true);
 }
 
 PGF_INTERNAL

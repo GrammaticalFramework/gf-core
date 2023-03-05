@@ -41,8 +41,8 @@ translationList mex pgf ig og typ number = do
                              Nothing -> generateRandom     gen pgf typ
   return $ map mkOne $ ts
  where
-   mkOne t = (norml (linearize ig t), 
-              map norml (concatMap lins (homonyms t)))
+   mkOne (t,p) = (norml (linearize ig t), 
+                  map norml (concatMap lins (homonyms t)))
    homonyms t = 
      case (parse ig typ . linearize ig) t of
        ParseOk res -> map fst res
@@ -56,7 +56,7 @@ morphologyList mex pgf ig typ number = do
   let ts   = take (max 1 number) $ case mex of
                                      Just ex -> generateRandomFrom gen pgf ex
                                      Nothing -> generateRandom     gen pgf typ
-  let ss    = map (tabularLinearizeAll ig) ts
+  let ss    = map (tabularLinearizeAll ig . fst) ts
   let size  = length (head (head ss))
   let forms = take number $ randomRs (0,size-1) gen
   return [(snd (head pws0) +++ fst (pws0 !! i), ws) | 

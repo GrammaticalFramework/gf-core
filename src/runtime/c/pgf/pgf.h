@@ -510,6 +510,21 @@ void pgf_check_type(PgfDB *db, PgfRevision revision,
                     PgfExn *err);
 
 PGF_API_DECL
+PgfExpr pgf_generate_random(PgfDB *db, PgfRevision revision,
+                            PgfType type, size_t depth,
+                            uint64_t *seed, prob_t *prob,
+                            PgfMarshaller *m, PgfUnmarshaller *u,
+                            PgfExn *err);
+
+PGF_API_DECL
+PgfExpr pgf_generate_random_from
+                           (PgfDB *db, PgfRevision revision,
+                            PgfExpr expr, size_t depth,
+                            uint64_t *seed, prob_t *prob,
+                            PgfMarshaller *m, PgfUnmarshaller *u,
+                            PgfExn *err);
+
+PGF_API_DECL
 PgfRevision pgf_start_transaction(PgfDB *db, PgfExn *err);
 
 PGF_API_DECL

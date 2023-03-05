@@ -1,6 +1,7 @@
 #include <fcntl.h>
 #include <math.h>
 #include <errno.h>
+#include <limits.h>
 #ifdef _WIN32
 #include <sys\stat.h>
 #endif
@@ -14,6 +15,7 @@
 #include "parser.h"
 #include "graphviz.h"
 #include "aligner.h"
+#include "generator.h"
 
 static void
 pgf_exn_clear(PgfExn* err)
@@ -1188,6 +1190,61 @@ void pgf_check_type(PgfDB *db, PgfRevision revision,
         PgfTypechecker checker(pgf,m,u);
         *pty = m->match_type(&checker, *pty);
     } PGF_API_END
+}
+
+PGF_API
+PgfExpr pgf_generate_random(PgfDB *db, PgfRevision revision,
+                            PgfType type, size_t depth,
+                            uint64_t *seed, prob_t *prob,
+                            PgfMarshaller *m, PgfUnmarshaller *u,
+                            PgfExn *err)
+{
+    PGF_API_BEGIN {
+        DB_scope scope(db, READER_SCOPE);
+
+        ref<PgfPGF> pgf = db->revision2pgf(revision);
+
+        // Generation may fail for certain random choices, but succeed
+        // for others. We try 10 time to increase the chance of succeess.
+        for (size_t i = 0; i < 10; i++) {
+            PgfRandomGenerator gen(pgf, depth, seed, m, u);
+            PgfExpr expr = m->match_type(&gen, type);
+            if (expr != 0) {
+                *prob = gen.getProb();
+                return expr;
+            }
+        }
+    } PGF_API_END
+
+    return 0;
+}
+
+PGF_API
+PgfExpr pgf_generate_random_from
+                           (PgfDB *db, PgfRevision revision,
+                            PgfExpr expr, size_t depth,
+                            uint64_t *seed, prob_t *prob,
+                            PgfMarshaller *m, PgfUnmarshaller *u,
+                            PgfExn *err)
+{
+    PGF_API_BEGIN {
+        DB_scope scope(db, READER_SCOPE);
+
+        ref<PgfPGF> pgf = db->revision2pgf(revision);
+
+        // Generation may fail for certain random choices, but succeed
+        // for others. We try 10 time to increase the chance of succeess.
+        for (size_t i = 0; i < 10; i++) {
+            PgfRandomGenerator gen(pgf, depth, seed, m, u);
+            PgfExpr new_expr = m->match_expr(&gen, expr);
+            if (new_expr != 0) {
+                *prob = gen.getProb();
+                return new_expr;
+            }
+        }
+    } PGF_API_END
+
+    return 0;
 }
 
 PGF_API

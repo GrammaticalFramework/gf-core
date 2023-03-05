@@ -67,6 +67,12 @@ PGF_INTERNAL_DECL
 void probspace_iter(PgfProbspace space, PgfText *cat,
                     PgfItor* itor, bool all, PgfExn *err);
 
+/* Given a random number from 0 to 1, select a random function from
+ * the given category */
+PGF_INTERNAL_DECL
+ref<PgfAbsFun> probspace_random(PgfProbspace space,
+                                PgfText *cat, prob_t rand);
+
 PGF_INTERNAL_DECL
 void probspace_release(PgfProbspace space);
 
