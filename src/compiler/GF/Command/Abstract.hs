@@ -17,7 +17,7 @@ data TransactionCommand
    = CreateFun [Option] Fun Type
    | CreateCat [Option] Cat [Hypo]
    | CreateConcrete [Option] ConcName
-   | CreateLin [Option] Fun Term
+   | CreateLin [Option] Fun Term Bool
    | CreateLincat [Option] Cat Term
    | DropFun [Option] Fun
    | DropCat [Option] Cat

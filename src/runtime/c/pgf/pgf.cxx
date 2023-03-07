@@ -1364,8 +1364,9 @@ ref<PgfConcr> clone_concrete(ref<PgfPGF> pgf, ref<PgfConcr> concr)
         clone->printnames = concr->printnames;
         memcpy(&clone->name, &concr->name, sizeof(PgfText)+concr->name.size+1);
 
+        ref<PgfConcr> old_concr;
         Namespace<PgfConcr> concrs =
-            namespace_update(pgf->concretes, clone);
+            namespace_replace(pgf->concretes, clone, &old_concr);
         pgf->concretes = concrs;
 
         PgfDB::free(concr, concr->name.size+1);
@@ -2302,6 +2303,47 @@ void pgf_create_lin(PgfDB *db,
 }
 
 PGF_API
+void pgf_alter_lin(PgfDB *db,
+                   PgfRevision revision, PgfConcrRevision cnc_revision,
+                   PgfText *name, size_t n_prods,
+                   PgfBuildLinIface *build,
+                   PgfExn *err)
+{
+    PGF_API_BEGIN {
+        DB_scope scope(db, WRITER_SCOPE);
+
+        ref<PgfPGF> pgf = db->revision2pgf(revision);
+        ref<PgfConcr> concr = db->revision2concr(cnc_revision);
+
+        ref<PgfAbsFun> absfun =
+            namespace_lookup(pgf->abstract.funs, name);
+        if (absfun == 0) {
+            throw pgf_error("There is no corresponding function in the abstract syntax");
+        }
+
+        ref<PgfConcrLin> lin =
+            PgfLinBuilder(concr).build(absfun, n_prods, build, err);
+        if (lin != 0) {
+            ref<PgfConcrLin> old_lin;
+            Namespace<PgfConcrLin> lins =
+                namespace_replace(concr->lins, lin, &old_lin);
+            concr->lins = lins;
+            if (old_lin != 0) {
+                object container = old_lin.tagged();
+                PgfPhrasetable phrasetable = concr->phrasetable;
+                for (size_t i = 0; i < old_lin->seqs->len; i++) {
+                    ref<PgfSequence> seq = *vector_elem(old_lin->seqs, i);
+                    phrasetable =
+                        phrasetable_delete(phrasetable,container,i,seq);
+                }
+                concr->phrasetable = phrasetable;
+                PgfConcrLin::release(old_lin);
+            }
+        }
+    } PGF_API_END
+}
+
+PGF_API
 void pgf_drop_lin(PgfDB *db,
                   PgfRevision revision, PgfConcrRevision cnc_revision,
                   PgfText *name, PgfExn *err)
@@ -2635,8 +2677,12 @@ void pgf_set_printname(PgfDB *db, PgfConcrRevision revision,
         memcpy(&printname->name, fun, sizeof(PgfText)+fun->size+1);
         printname->printname = textdup_db(name);
 
+        ref<PgfConcrPrintname> old_printname;
         Namespace<PgfConcrPrintname> printnames =
-            namespace_update(concr->printnames, printname);
+            namespace_replace(concr->printnames, printname, &old_printname);
+        if (old_printname != 0) {
+            PgfConcrPrintname::release(old_printname);
+        }
         concr->printnames = printnames;
     } PGF_API_END
 }
@@ -2680,8 +2726,13 @@ void pgf_set_global_flag(PgfDB *db, PgfRevision revision,
         memcpy(&flag->name, name, sizeof(PgfText)+name->size+1);
         PgfLiteral lit = m->match_lit(&u, value);
         flag->value = lit;
+
+        ref<PgfFlag> old_flag;
         Namespace<PgfFlag> gflags =
-            namespace_update(pgf->gflags, flag);
+            namespace_replace(pgf->gflags, flag, &old_flag);
+        if (old_flag != 0) {
+            PgfFlag::release(old_flag);
+        }
         pgf->gflags = gflags;
     } PGF_API_END
 }
@@ -2725,8 +2776,13 @@ void pgf_set_abstract_flag(PgfDB *db, PgfRevision revision,
         memcpy(&flag->name, name, sizeof(PgfText)+name->size+1);
         PgfLiteral lit = m->match_lit(&u, value);
         flag->value = lit;
+
+        ref<PgfFlag> old_flag;
         Namespace<PgfFlag> aflags =
-            namespace_update(pgf->abstract.aflags, flag);
+            namespace_replace(pgf->abstract.aflags, flag, &old_flag);
+        if (old_flag != 0) {
+            PgfFlag::release(old_flag);
+        }
         pgf->abstract.aflags = aflags;
     } PGF_API_END
 }
@@ -2770,8 +2826,13 @@ void pgf_set_concrete_flag(PgfDB *db, PgfConcrRevision revision,
         memcpy(&flag->name, name, sizeof(PgfText)+name->size+1);
         PgfLiteral lit = m->match_lit(&u, value);
         flag->value = lit;
+
+        ref<PgfFlag> old_flag;
         Namespace<PgfFlag> cflags =
-            namespace_update(concr->cflags, flag);
+            namespace_replace(concr->cflags, flag, &old_flag);
+        if (old_flag != 0) {
+            PgfFlag::release(old_flag);
+        }
         concr->cflags = cflags;
     } PGF_API_END
 }

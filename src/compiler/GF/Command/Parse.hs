@@ -82,7 +82,7 @@ pTransactionCommand = do
           | take 1 cmd == "d" -> do
                name <- pIdent
                return (DropConcrete opts name)
-    "lin" | take 1 cmd == "c" -> do
+    "lin" | elem (take 1 cmd) ["c","a"] -> do
                f <- pIdent
                skipSpaces
                args <- sepBy pIdent skipSpaces
@@ -92,7 +92,7 @@ pTransactionCommand = do
                t  <- readS_to_P (\s -> case runPartial pTerm s of
                                          Right (s,t) -> [(t,s)]
                                          _ -> [])
-               return (CreateLin opts f (foldr (Abs Explicit . identS) t args))
+               return (CreateLin opts f (foldr (Abs Explicit . identS) t args) (take 1 cmd == "a"))
           | take 1 cmd == "d" -> do
                 f <- pIdent
                 return (DropLin opts f)

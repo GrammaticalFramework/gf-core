@@ -29,7 +29,7 @@ module PGF2.Transactions
           , SeqTable
           , createLincat
           , dropLincat
-          , createLin
+          , createLin, alterLin
           , dropLin
           , setPrintName
           , getFunctionType
@@ -295,6 +295,12 @@ createLin name prods seqtbl = Transaction $ \c_db c_abstr c_revision c_exn ->
   withText name $ \c_name ->
   withBuildLinIface prods seqtbl $ \c_build ->
     pgf_create_lin c_db c_abstr c_revision c_name (fromIntegral (length prods)) c_build c_exn
+
+alterLin :: Fun -> [Production] -> SeqTable -> Transaction Concr SeqTable
+alterLin name prods seqtbl = Transaction $ \c_db c_abstr c_revision c_exn ->
+  withText name $ \c_name ->
+  withBuildLinIface prods seqtbl $ \c_build ->
+    pgf_alter_lin c_db c_abstr c_revision c_name (fromIntegral (length prods)) c_build c_exn
 
 withBuildLinIface prods seqtbl f = do
   ref <- newIORef seqtbl

@@ -406,22 +406,26 @@ Namespace<V> namespace_insert(Namespace<V> map, ref<V> value)
 }
 
 template <class V>
-Namespace<V> namespace_update(Namespace<V> map, ref<V> value)
+Namespace<V> namespace_replace(Namespace<V> map,
+                               ref<V> value, ref<V> *old_value)
 {
-    if (map == 0)
+    if (map == 0) {
+        *old_value = 0;
         return Node<ref<V>>::new_node(value);
+    }
 
     int cmp = textcmp(&value->name,&map->value->name);
     if (cmp < 0) {
-        Namespace<V> left = namespace_update(map->left, value);
+        Namespace<V> left = namespace_replace(map->left, value, old_value);
         map = Node<ref<V>>::upd_node(map,left,map->right);
         return Node<ref<V>>::balanceL(map);
     } else if (cmp > 0) {
-        Namespace<V> right = namespace_update(map->right, value);
+        Namespace<V> right = namespace_replace(map->right, value, old_value);
         map = Node<ref<V>>::upd_node(map,map->left,right);
         return Node<ref<V>>::balanceR(map);
     } else {
         map = Node<ref<V>>::upd_node(map,map->left,map->right);
+        *old_value = map->value;
         map->value = value;
         return map;
     }

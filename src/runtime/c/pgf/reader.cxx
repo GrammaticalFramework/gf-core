@@ -891,7 +891,10 @@ void PgfReader::merge_pgf(ref<PgfPGF> pgf)
     size_t len = read_len();
     for (size_t i = 0; i < len; i++) {
         ref<PgfConcr> concr = PgfReader::read_concrete();
-        pgf->concretes =
-            namespace_update(pgf->concretes, concr);
+        Namespace<PgfConcr> concretes =
+            namespace_insert(pgf->concretes, concr);
+        if (concretes != 0)
+            throw pgf_error("One and the same concrete syntax is included in several PGF files");
+        pgf->concretes = concretes;
     }
 }

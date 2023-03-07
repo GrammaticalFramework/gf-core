@@ -138,7 +138,7 @@ execute1 readNGF s0 =
                             continue
                           _ -> do putStrLnE $ "no import in history"
                                   continue
-         (w  :ws) | w == "c" || w == "d" -> do
+         (w  :ws) | elem w ["c","a","d"] -> do
                         case readTransactionCommand s0 of
                           Just cmd -> do checkout
                                          env <- gets pgfenv
@@ -282,7 +282,7 @@ transactionCommand (CreateCat opts c ctxt) pgf mb_txnid = do
 transactionCommand (CreateConcrete opts name) pgf mb_txnid = do
   lift $ updatePGF pgf mb_txnid (createConcrete name (return ()))
   return ()
-transactionCommand (CreateLin opts f t) pgf mb_txnid = do
+transactionCommand (CreateLin opts f t is_alter) pgf mb_txnid = do
   sgr <- getGrammar
   lang <- optLang pgf opts
   mo <- maybe (fail "no source grammar in scope") return $
@@ -297,7 +297,7 @@ transactionCommand (CreateLin opts f t) pgf mb_txnid = do
              Just fields -> case runCheck (compileLinTerm sgr mo t (type2term mo ty)) of
                               Ok ((prods,seqtbl,fields'),_)
                                    | fields == fields' -> do
-                                       createLin f prods seqtbl
+                                       (if is_alter then alterLin else createLin) f prods seqtbl
                                        return ()
                                    | otherwise -> fail "The linearization categories in the resource and the compiled grammar does not match"
                               Bad msg      -> fail msg

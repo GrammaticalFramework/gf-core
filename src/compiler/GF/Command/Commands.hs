@@ -716,6 +716,20 @@ pgfCommands = Map.fromList [
        ],
      needsTypeCheck = False
      }),
+  ("a", emptyCommandInfo {
+     longname = "alter",
+     syntax = "alter lin f = ..",
+     synopsis = "Dynamically updates the linearization of a function in the current grammar.",
+     explanation = unlines [
+       "The syntax is the same as if the definition was in a module. If you want to use",
+       "any operations inside the lin definition, you should import them",
+       "by using the command `i -resource <file path>`."
+       ],
+     flags = [
+       ("lang","the language in which to alter the lin")
+       ],
+     needsTypeCheck = False
+     }),
   ("d", emptyCommandInfo {
      longname = "drop",
      syntax = "drop fun f; drop cat c; drop concrete l; drop lin c; or drop lincat c",
