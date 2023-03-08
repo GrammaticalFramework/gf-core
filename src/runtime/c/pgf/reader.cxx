@@ -893,7 +893,7 @@ void PgfReader::merge_pgf(ref<PgfPGF> pgf)
         ref<PgfConcr> concr = PgfReader::read_concrete();
         Namespace<PgfConcr> concretes =
             namespace_insert(pgf->concretes, concr);
-        if (concretes != 0)
+        if (concretes == 0)
             throw pgf_error("One and the same concrete syntax is included in several PGF files");
         pgf->concretes = concretes;
     }
