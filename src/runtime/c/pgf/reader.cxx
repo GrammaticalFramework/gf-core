@@ -306,7 +306,7 @@ ref<PgfDTyp> PgfReader::read_type()
     return tp;
 }
 
-ref<PgfAbsFun> PgfReader::read_absfun()
+ref<PgfAbsFun> PgfReader::read_absfun_only()
 {
     ref<PgfAbsFun> absfun =
         read_name<PgfAbsFun>(&PgfAbsFun::name);
@@ -330,9 +330,27 @@ ref<PgfAbsFun> PgfReader::read_absfun()
     }
     absfun->prob = read_prob(&absfun->name);
 
+    return absfun;
+}
+
+ref<PgfAbsFun> PgfReader::read_absfun()
+{
+    ref<PgfAbsFun> absfun = read_absfun_only();
+
     PgfProbspace funs_by_cat =
         probspace_insert(abstract->funs_by_cat, absfun);
     abstract->funs_by_cat = funs_by_cat;
+
+    return absfun;
+}
+
+ref<PgfAbsFun> PgfReader::merge_absfun()
+{
+    ref<PgfAbsFun> absfun = read_absfun_only();
+
+    if (namespace_lookup(abstract->funs, &absfun->name) == 0) {
+        throw pgf_error("The set of abstract functions is merged PGFs must be the same");
+    }
 
     return absfun;
 }
@@ -460,7 +478,7 @@ void PgfReader::merge_abstract(ref<PgfAbstr> abstract)
         throw pgf_error("The abstract syntax names doesn't match");
 
 	merge_namespace<PgfFlag>(&PgfReader::read_flag);
-    merge_namespace<PgfAbsFun>(&PgfReader::read_absfun);
+    merge_namespace<PgfAbsFun>(&PgfReader::merge_absfun);
     merge_namespace<PgfAbsCat>(&PgfReader::read_abscat);
 }
 

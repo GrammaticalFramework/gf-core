@@ -64,6 +64,8 @@ public:
     ref<PgfFlag> read_flag();
 
     ref<PgfAbsFun> read_absfun();
+    ref<PgfAbsFun> merge_absfun();
+    ref<PgfAbsFun> read_absfun_only();
     ref<PgfAbsCat> read_abscat();
     void read_abstract(ref<PgfAbstr> abstract);
     void merge_abstract(ref<PgfAbstr> abstract);
