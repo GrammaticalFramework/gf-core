@@ -103,9 +103,8 @@ pExpr =
   unsafePerformIO $
   withText str $ \c_str ->
   alloca  $ \c_pos ->
-  withForeignPtr unmarshaller $ \u ->
   mask_ $ do
-    c_expr <- pgf_read_expr_ex c_str c_pos u
+    c_expr <- pgf_read_expr_ex c_str c_pos unmarshaller
     if c_expr == castPtrToStablePtr nullPtr
       then return []
       else do expr <- deRefStablePtr c_expr

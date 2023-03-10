@@ -411,279 +411,255 @@ withPgfExn loc f =
 
 type CBindType = (#type PgfBindType)
 
+foreign export ccall haskell_match_lit :: Ptr PgfMarshaller -> Ptr PgfUnmarshaller -> StablePtr Literal -> IO (StablePtr Literal)
+
+haskell_match_lit this u c_lit = do
+  vtbl <- (#peek PgfUnmarshaller, vtbl) u
+  lit <- deRefStablePtr c_lit
+  case lit of
+    LStr s -> withText s $ \c_s -> do
+                 fun <- (#peek PgfUnmarshallerVtbl, lstr) vtbl
+                 callLStrFun fun u c_s
+    LInt n -> let abs_n = abs n
+                  size  = I## (integerLogBase## (#const LINT_BASE) abs_n +## 1##)
+              in allocaArray size $ \c_v -> do
+                   pokeValue c_v (c_v `plusPtr` ((#size uintmax_t) * (size - 1)))
+                             (fromIntegral (signum n)) abs_n
+                   fun <- (#peek PgfUnmarshallerVtbl, lint) vtbl
+                   callLIntFun fun u (fromIntegral size) c_v
+    LFlt d -> do fun <- (#peek PgfUnmarshallerVtbl, lflt) vtbl
+                 callLFltFun fun u (realToFrac d)
+  where
+    pokeValue c_v p sign abs_n
+      | c_v == p  = poke p (sign * fromIntegral abs_n)
+      | otherwise = do let (q,r) = quotRem abs_n (#const LINT_BASE)
+                       poke p (fromIntegral r)
+                       pokeValue c_v (p `plusPtr` (- #size uintmax_t)) sign q
+
+
+foreign export ccall haskell_match_expr :: Ptr PgfMarshaller -> Ptr PgfUnmarshaller -> StablePtr Expr -> IO (StablePtr Expr)
+
+haskell_match_expr this u c_expr = do
+  vtbl <- (#peek PgfUnmarshaller, vtbl) u
+  expr <- deRefStablePtr c_expr
+  case expr of
+    EAbs bt var e-> withText var $ \c_var ->
+                    bracket (newStablePtr e) freeStablePtr $ \c_e -> do
+                       fun <- (#peek PgfUnmarshallerVtbl, eabs) vtbl
+                       callEAbsFun fun u (marshalBindType bt) c_var c_e
+    EApp fun arg -> bracket (newStablePtr fun) freeStablePtr $ \c_fun ->
+                    bracket (newStablePtr arg) freeStablePtr $ \c_arg -> do
+                       fun <- (#peek PgfUnmarshallerVtbl, eapp) vtbl
+                       callEAppFun fun u c_fun c_arg
+    ELit lit     -> bracket (newStablePtr lit) freeStablePtr $ \c_lit -> do
+                       fun <- (#peek PgfUnmarshallerVtbl, elit) vtbl
+                       callELitFun fun u c_lit
+    EMeta id     -> do fun <- (#peek PgfUnmarshallerVtbl, emeta) vtbl
+                       callEMetaFun fun u (fromIntegral id)
+    EFun name    -> withText name $ \c_name -> do
+                       fun <- (#peek PgfUnmarshallerVtbl, efun) vtbl
+                       callEFunFun fun u c_name
+    EVar index   -> do fun <- (#peek PgfUnmarshallerVtbl, evar) vtbl
+                       callEVarFun fun u (fromIntegral index)
+    ETyped e ty  -> bracket (newStablePtr e)  freeStablePtr $ \c_e  ->
+                    bracket (newStablePtr ty) freeStablePtr $ \c_ty -> do
+                       fun <- (#peek PgfUnmarshallerVtbl, etyped) vtbl
+                       callETypedFun fun u c_e c_ty
+    EImplArg arg -> bracket (newStablePtr arg) freeStablePtr $ \c_arg -> do
+                       fun <- (#peek PgfUnmarshallerVtbl, eimplarg) vtbl
+                       callEImplArgFun fun u c_arg
+
+
+foreign export ccall haskell_match_type :: Ptr PgfMarshaller -> Ptr PgfUnmarshaller -> StablePtr Type -> IO (StablePtr Type)
+
+haskell_match_type this u c_ty = do
+  vtbl <- (#peek PgfUnmarshaller, vtbl) u
+  ty   <- deRefStablePtr c_ty
+  case ty of
+    DTyp hypos cat es -> let n_hypos = length hypos
+                         in withHypos hypos $ \n_hypos c_hypos ->
+                            withText cat $ \c_cat ->
+                            mask_ $ do
+                              c_es <- mapM newStablePtr es
+                              res <- withArray c_es $ \c_exprs -> do
+                                       fun <- (#peek PgfUnmarshallerVtbl, dtyp) vtbl
+                                       callDTypFun fun u
+                                                   n_hypos
+                                                   c_hypos
+                                                   c_cat
+                                                   (fromIntegral (length es))
+                                                   c_exprs
+                              mapM_ freeStablePtr c_es
+                              return res
+  where
+    marshalHypos _   []               = return ()
+    marshalHypos ptr ((bt,var,ty):hs) = do
+      (#poke PgfTypeHypo, bind_type) ptr (marshalBindType bt)
+      newText var     >>= (#poke PgfTypeHypo, cid)  ptr
+      newStablePtr ty >>= (#poke PgfTypeHypo, type) ptr
+      marshalHypos (ptr `plusPtr` (#size PgfTypeHypo)) hs
+
+    freeHypos ptr 0 = return ()
+    freeHypos ptr n = do
+      (#peek PgfTypeHypo, cid)  ptr >>= free
+      (#peek PgfTypeHypo, type) ptr >>= freeStablePtr
+      freeHypos (ptr `plusPtr` (#size PgfTypeHypo)) (n-1)
+
+
+foreign import ccall "&haskell_marshaller" marshaller :: Ptr PgfMarshaller
+
+
 type EAbsFun = Ptr PgfUnmarshaller -> (#type PgfBindType) -> Ptr PgfText -> StablePtr Expr -> IO (StablePtr Expr)
 
 foreign import ccall "dynamic" callEAbsFun :: Dynamic EAbsFun
+foreign export ccall haskell_eabs :: EAbsFun
 
-foreign import ccall "wrapper" wrapEAbsFun :: Wrapper EAbsFun
+haskell_eabs this c_btype c_var c_body = do
+  let btype = unmarshalBindType c_btype
+  var <- peekText c_var
+  body <- deRefStablePtr c_body
+  newStablePtr (EAbs btype var body)
+
 
 type EAppFun = Ptr PgfUnmarshaller -> StablePtr Expr -> StablePtr Expr -> IO (StablePtr Expr)
 
 foreign import ccall "dynamic" callEAppFun :: Dynamic EAppFun
+foreign export ccall haskell_eapp :: EAppFun
 
-foreign import ccall "wrapper" wrapEAppFun :: Wrapper EAppFun
+haskell_eapp this c_fun c_arg = do
+  fun <- deRefStablePtr c_fun
+  arg <- deRefStablePtr c_arg
+  newStablePtr (EApp fun arg)
+
 
 type ELitFun = Ptr PgfUnmarshaller -> StablePtr Literal -> IO (StablePtr Expr)
 
 foreign import ccall "dynamic" callELitFun :: Dynamic ELitFun
+foreign export ccall haskell_elit :: ELitFun
 
-foreign import ccall "wrapper" wrapELitFun :: Wrapper ELitFun
+haskell_elit this c_lit = do
+  lit <- deRefStablePtr c_lit
+  newStablePtr (ELit lit)
+
 
 type EMetaFun = Ptr PgfUnmarshaller -> (#type PgfMetaId) -> IO (StablePtr Expr)
 
 foreign import ccall "dynamic" callEMetaFun :: Dynamic EMetaFun
+foreign export ccall haskell_emeta :: EMetaFun
 
-foreign import ccall "wrapper" wrapEMetaFun :: Wrapper EMetaFun
+haskell_emeta this c_metaid = do
+  newStablePtr (EMeta (fromIntegral c_metaid))
+
 
 type EFunFun = Ptr PgfUnmarshaller -> Ptr PgfText -> IO (StablePtr Expr)
 
 foreign import ccall "dynamic" callEFunFun :: Dynamic EFunFun
+foreign export ccall haskell_efun :: EFunFun
 
-foreign import ccall "wrapper" wrapEFunFun :: Wrapper EFunFun
+haskell_efun this c_name = do
+  name <- peekText c_name
+  newStablePtr (EFun name)
+
 
 type EVarFun = Ptr PgfUnmarshaller -> CInt -> IO (StablePtr Expr)
 
 foreign import ccall "dynamic" callEVarFun :: Dynamic EVarFun
+foreign export ccall haskell_evar :: EVarFun
 
-foreign import ccall "wrapper" wrapEVarFun :: Wrapper EVarFun
+haskell_evar this c_var = do
+  newStablePtr (EVar (fromIntegral c_var))
+
 
 type ETypedFun = Ptr PgfUnmarshaller -> StablePtr Expr -> StablePtr Type -> IO (StablePtr Expr)
 
 foreign import ccall "dynamic" callETypedFun :: Dynamic ETypedFun
+foreign export ccall haskell_etyped :: ETypedFun
 
-foreign import ccall "wrapper" wrapETypedFun :: Wrapper ETypedFun
+haskell_etyped this c_expr c_typ = do
+  expr <- deRefStablePtr c_expr
+  typ  <- deRefStablePtr c_typ
+  newStablePtr (ETyped expr typ)
+
 
 type EImplArgFun = Ptr PgfUnmarshaller -> StablePtr Expr -> IO (StablePtr Expr)
 
 foreign import ccall "dynamic" callEImplArgFun :: Dynamic EImplArgFun
+foreign export ccall haskell_eimplarg :: EImplArgFun
 
-foreign import ccall "wrapper" wrapEImplArgFun :: Wrapper EImplArgFun
+haskell_eimplarg this c_expr = do
+  expr <- deRefStablePtr c_expr
+  newStablePtr (EImplArg expr)
+
 
 type LIntFun = Ptr PgfUnmarshaller -> (#type size_t) -> Ptr (#type uintmax_t) -> IO (StablePtr Literal)
 
 foreign import ccall "dynamic" callLIntFun :: Dynamic LIntFun
+foreign export ccall haskell_lint :: LIntFun
 
-foreign import ccall "wrapper" wrapLIntFun :: Wrapper LIntFun
+haskell_lint this c_size c_v = do
+  n <- if c_size == 0
+         then return 0
+         else do v     <- peek (castPtr c_v :: Ptr (#type intmax_t))
+                 abs_n <- peekValue (c_size-1)
+                                    (c_v `plusPtr` (#size uintmax_t))
+                                    (fromIntegral (abs v))
+                 return (fromIntegral (signum v) * abs_n)
+  newStablePtr (LInt n)
+  where
+    peekValue 0      c_v value = return value
+    peekValue c_size c_v value = do
+      v <- peek (castPtr c_v :: Ptr (#type uintmax_t))
+      peekValue (c_size-1)
+                (c_v `plusPtr` (#size uintmax_t))
+                (value*(#const LINT_BASE)+fromIntegral v)
+
 
 type LFltFun = Ptr PgfUnmarshaller -> CDouble -> IO (StablePtr Literal)
 
 foreign import ccall "dynamic" callLFltFun :: Dynamic LFltFun
+foreign export ccall haskell_lflt :: LFltFun
 
-foreign import ccall "wrapper" wrapLFltFun :: Wrapper LFltFun
+haskell_lflt this c_v = do
+  newStablePtr (LFlt (realToFrac c_v))
+
 
 type LStrFun = Ptr PgfUnmarshaller -> Ptr PgfText -> IO (StablePtr Literal)
 
 foreign import ccall "dynamic" callLStrFun :: Dynamic LStrFun
+foreign export ccall haskell_lstr :: LStrFun
 
-foreign import ccall "wrapper" wrapLStrFun :: Wrapper LStrFun
+haskell_lstr this c_v = do
+  s <- peekText c_v
+  newStablePtr (LStr s)
+
 
 type DTypFun = Ptr PgfUnmarshaller -> CSize -> Ptr PgfTypeHypo -> Ptr PgfText -> CSize -> Ptr (StablePtr Expr) -> IO (StablePtr Type)
 
 foreign import ccall "dynamic" callDTypFun :: Dynamic DTypFun
+foreign export ccall haskell_dtyp :: DTypFun
 
-foreign import ccall "wrapper" wrapDTypFun :: Wrapper DTypFun
-
-foreign import ccall "&hs_free_reference" hs_free_reference :: FunPtr (Ptr a -> StablePtr a -> IO ())
-
-foreign import ccall "&hs_free_marshaller" hs_free_marshaller :: FinalizerPtr PgfMarshaller
-
-foreign import ccall "&hs_free_unmarshaller" hs_free_unmarshaller :: FinalizerPtr PgfUnmarshaller
-
-foreign import ccall "wrapper" wrapMatchFun :: Wrapper (Ptr PgfMarshaller -> Ptr PgfUnmarshaller -> StablePtr a -> IO (StablePtr a))
-
-{-# NOINLINE marshaller #-}
-marshaller = unsafePerformIO $ do
-  vtbl <- mallocBytes (#size PgfMarshallerVtbl)
-  wrapMatchFun matchLit  >>= (#poke PgfMarshallerVtbl, match_lit)  vtbl
-  wrapMatchFun matchExpr >>= (#poke PgfMarshallerVtbl, match_expr) vtbl
-  wrapMatchFun matchType >>= (#poke PgfMarshallerVtbl, match_type) vtbl
-  ptr <- mallocBytes (#size PgfMarshaller)
-  (#poke PgfMarshaller, vtbl) ptr vtbl
-  newForeignPtr hs_free_marshaller ptr
+haskell_dtyp this n_hypos hypos c_cat n_exprs exprs = do
+  hypos <- peekHypos n_hypos hypos
+  cat <- peekText c_cat
+  exprs <- peekExprs n_exprs exprs
+  newStablePtr (DTyp hypos cat exprs)
   where
-    matchLit this u c_lit = do
-      vtbl <- (#peek PgfUnmarshaller, vtbl) u
-      lit <- deRefStablePtr c_lit
-      case lit of
-        LStr s -> withText s $ \c_s -> do
-                     fun <- (#peek PgfUnmarshallerVtbl, lstr) vtbl
-                     callLStrFun fun u c_s
-        LInt n -> let abs_n = abs n
-                      size  = I## (integerLogBase## (#const LINT_BASE) abs_n +## 1##)
-                  in allocaArray size $ \c_v -> do
-                       pokeValue c_v (c_v `plusPtr` ((#size uintmax_t) * (size - 1)))
-                                 (fromIntegral (signum n)) abs_n
-                       fun <- (#peek PgfUnmarshallerVtbl, lint) vtbl
-                       callLIntFun fun u (fromIntegral size) c_v
-        LFlt d -> do fun <- (#peek PgfUnmarshallerVtbl, lflt) vtbl
-                     callLFltFun fun u (realToFrac d)
-      where
-        pokeValue c_v p sign abs_n
-          | c_v == p  = poke p (sign * fromIntegral abs_n)
-          | otherwise = do let (q,r) = quotRem abs_n (#const LINT_BASE)
-                           poke p (fromIntegral r)
-                           pokeValue c_v (p `plusPtr` (- #size uintmax_t)) sign q
+    peekHypos 0       p_hypo = return []
+    peekHypos n_hypos p_hypo = do
+      bt  <- fmap unmarshalBindType ((#peek PgfTypeHypo, bind_type) p_hypo)
+      cid <- (#peek PgfTypeHypo, cid) p_hypo >>= peekText
+      ty  <- (#peek PgfTypeHypo, type) p_hypo >>= deRefStablePtr
+      hs  <- peekHypos (n_hypos-1) (p_hypo `plusPtr` (#size PgfTypeHypo))
+      return ((bt,cid,ty):hs)
 
-    matchExpr this u c_expr = do
-      vtbl <- (#peek PgfUnmarshaller, vtbl) u
-      expr <- deRefStablePtr c_expr
-      case expr of
-        EAbs bt var e-> withText var $ \c_var ->
-                        bracket (newStablePtr e) freeStablePtr $ \c_e -> do
-                           fun <- (#peek PgfUnmarshallerVtbl, eabs) vtbl
-                           callEAbsFun fun u (marshalBindType bt) c_var c_e
-        EApp fun arg -> bracket (newStablePtr fun) freeStablePtr $ \c_fun ->
-                        bracket (newStablePtr arg) freeStablePtr $ \c_arg -> do
-                           fun <- (#peek PgfUnmarshallerVtbl, eapp) vtbl
-                           callEAppFun fun u c_fun c_arg
-        ELit lit     -> bracket (newStablePtr lit) freeStablePtr $ \c_lit -> do
-                           fun <- (#peek PgfUnmarshallerVtbl, elit) vtbl
-                           callELitFun fun u c_lit
-        EMeta id     -> do fun <- (#peek PgfUnmarshallerVtbl, emeta) vtbl
-                           callEMetaFun fun u (fromIntegral id)
-        EFun name    -> withText name $ \c_name -> do
-                           fun <- (#peek PgfUnmarshallerVtbl, efun) vtbl
-                           callEFunFun fun u c_name
-        EVar index   -> do fun <- (#peek PgfUnmarshallerVtbl, evar) vtbl
-                           callEVarFun fun u (fromIntegral index)
-        ETyped e ty  -> bracket (newStablePtr e)  freeStablePtr $ \c_e  ->
-                        bracket (newStablePtr ty) freeStablePtr $ \c_ty -> do
-                           fun <- (#peek PgfUnmarshallerVtbl, etyped) vtbl
-                           callETypedFun fun u c_e c_ty
-        EImplArg arg -> bracket (newStablePtr arg) freeStablePtr $ \c_arg -> do
-                           fun <- (#peek PgfUnmarshallerVtbl, eimplarg) vtbl
-                           callEImplArgFun fun u c_arg
+    peekExprs 0       p_expr = return []
+    peekExprs n_exprs p_expr = do
+      e  <- peek p_expr >>= deRefStablePtr
+      es <- peekExprs (n_exprs-1) (p_expr `plusPtr` (#size uintptr_t))
+      return (e:es)
 
-    matchType this u c_ty = do
-      vtbl <- (#peek PgfUnmarshaller, vtbl) u
-      ty   <- deRefStablePtr c_ty
-      case ty of
-        DTyp hypos cat es -> let n_hypos = length hypos
-                             in withHypos hypos $ \n_hypos c_hypos ->
-                                withText cat $ \c_cat ->
-                                mask_ $ do
-                                  c_es <- mapM newStablePtr es
-                                  res <- withArray c_es $ \c_exprs -> do
-                                           fun <- (#peek PgfUnmarshallerVtbl, dtyp) vtbl
-                                           callDTypFun fun u
-                                                       n_hypos
-                                                       c_hypos
-                                                       c_cat
-                                                       (fromIntegral (length es))
-                                                       c_exprs
-                                  mapM_ freeStablePtr c_es
-                                  return res
-      where
-        marshalHypos _   []               = return ()
-        marshalHypos ptr ((bt,var,ty):hs) = do
-          (#poke PgfTypeHypo, bind_type) ptr (marshalBindType bt)
-          newText var     >>= (#poke PgfTypeHypo, cid)  ptr
-          newStablePtr ty >>= (#poke PgfTypeHypo, type) ptr
-          marshalHypos (ptr `plusPtr` (#size PgfTypeHypo)) hs
 
-        freeHypos ptr 0 = return ()
-        freeHypos ptr n = do
-          (#peek PgfTypeHypo, cid)  ptr >>= free
-          (#peek PgfTypeHypo, type) ptr >>= freeStablePtr
-          freeHypos (ptr `plusPtr` (#size PgfTypeHypo)) (n-1)
-
-{-# NOINLINE unmarshaller #-}
-unmarshaller = unsafePerformIO $ do
-  vtbl <- mallocBytes (#size PgfUnmarshallerVtbl)
-  wrapEAbsFun     unmarshalEAbs     >>= (#poke PgfUnmarshallerVtbl, eabs)     vtbl
-  wrapEAppFun     unmarshalEApp     >>= (#poke PgfUnmarshallerVtbl, eapp)     vtbl
-  wrapELitFun     unmarshalELit     >>= (#poke PgfUnmarshallerVtbl, elit)     vtbl
-  wrapEMetaFun    unmarshalEMeta    >>= (#poke PgfUnmarshallerVtbl, emeta)    vtbl
-  wrapEFunFun     unmarshalEFun     >>= (#poke PgfUnmarshallerVtbl, efun)     vtbl
-  wrapEVarFun     unmarshalEVar     >>= (#poke PgfUnmarshallerVtbl, evar)     vtbl
-  wrapETypedFun   unmarshalETyped   >>= (#poke PgfUnmarshallerVtbl, etyped)   vtbl
-  wrapEImplArgFun unmarshalEImplArg >>= (#poke PgfUnmarshallerVtbl, eimplarg) vtbl
-  wrapLIntFun     unmarshalLInt     >>= (#poke PgfUnmarshallerVtbl, lint)     vtbl
-  wrapLFltFun     unmarshalLFlt     >>= (#poke PgfUnmarshallerVtbl, lflt)     vtbl
-  wrapLStrFun     unmarshalLStr     >>= (#poke PgfUnmarshallerVtbl, lstr)     vtbl
-  wrapDTypFun     unmarshalDTyp     >>= (#poke PgfUnmarshallerVtbl, dtyp)     vtbl
-  (#poke PgfUnmarshallerVtbl, free_ref) vtbl hs_free_reference
-  ptr <- mallocBytes (#size PgfUnmarshaller)
-  (#poke PgfUnmarshaller, vtbl) ptr vtbl
-  newForeignPtr hs_free_unmarshaller ptr
-  where
-    unmarshalEAbs this c_btype c_var c_body = do
-      let btype = unmarshalBindType c_btype
-      var <- peekText c_var
-      body <- deRefStablePtr c_body
-      newStablePtr (EAbs btype var body)
-
-    unmarshalEApp this c_fun c_arg = do
-      fun <- deRefStablePtr c_fun
-      arg <- deRefStablePtr c_arg
-      newStablePtr (EApp fun arg)
-
-    unmarshalELit this c_lit = do
-      lit <- deRefStablePtr c_lit
-      newStablePtr (ELit lit)
-
-    unmarshalEMeta this c_metaid = do
-      newStablePtr (EMeta (fromIntegral c_metaid))
-
-    unmarshalEFun this c_name = do
-      name <- peekText c_name
-      newStablePtr (EFun name)
-
-    unmarshalEVar this c_var = do
-      newStablePtr (EVar (fromIntegral c_var))
-
-    unmarshalETyped this c_expr c_typ = do
-      expr <- deRefStablePtr c_expr
-      typ  <- deRefStablePtr c_typ
-      newStablePtr (ETyped expr typ)
-
-    unmarshalEImplArg this c_expr = do
-      expr <- deRefStablePtr c_expr
-      newStablePtr (EImplArg expr)
-
-    unmarshalLInt this c_size c_v = do
-      n <- if c_size == 0
-             then return 0
-             else do v     <- peek (castPtr c_v :: Ptr (#type intmax_t))
-                     abs_n <- peekValue (c_size-1)
-                                        (c_v `plusPtr` (#size uintmax_t))
-                                        (fromIntegral (abs v))
-                     return (fromIntegral (signum v) * abs_n)
-      newStablePtr (LInt n)
-      where
-        peekValue 0      c_v value = return value
-        peekValue c_size c_v value = do
-          v <- peek (castPtr c_v :: Ptr (#type uintmax_t))
-          peekValue (c_size-1)
-                    (c_v `plusPtr` (#size uintmax_t))
-                    (value*(#const LINT_BASE)+fromIntegral v)
-
-    unmarshalLFlt this c_v = do
-      newStablePtr (LFlt (realToFrac c_v))
-
-    unmarshalLStr this c_v = do
-      s <- peekText c_v
-      newStablePtr (LStr s)
-
-    unmarshalDTyp this n_hypos hypos c_cat n_exprs exprs = do
-      hypos <- peekHypos n_hypos hypos
-      cat <- peekText c_cat
-      exprs <- peekExprs n_exprs exprs
-      newStablePtr (DTyp hypos cat exprs)
-      where
-        peekHypos 0       p_hypo = return []
-        peekHypos n_hypos p_hypo = do
-          bt  <- fmap unmarshalBindType ((#peek PgfTypeHypo, bind_type) p_hypo)
-          cid <- (#peek PgfTypeHypo, cid) p_hypo >>= peekText
-          ty  <- (#peek PgfTypeHypo, type) p_hypo >>= deRefStablePtr
-          hs  <- peekHypos (n_hypos-1) (p_hypo `plusPtr` (#size PgfTypeHypo))
-          return ((bt,cid,ty):hs)
-
-        peekExprs 0       p_expr = return []
-        peekExprs n_exprs p_expr = do
-          e  <- peek p_expr >>= deRefStablePtr
-          es <- peekExprs (n_exprs-1) (p_expr `plusPtr` (#size uintptr_t))
-          return (e:es)
+foreign import ccall "&haskell_unmarshaller" unmarshaller :: Ptr PgfUnmarshaller
 
 
 marshalBindType :: BindType -> (#type PgfBindType)

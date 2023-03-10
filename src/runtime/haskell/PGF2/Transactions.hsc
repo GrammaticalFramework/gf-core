@@ -157,9 +157,8 @@ createFunction :: Fun -> Type -> Int -> [[Instr]] -> Float -> Transaction PGF Fu
 createFunction name ty arity bytecode prob = Transaction $ \c_db _ c_revision c_exn ->
   withText name $ \c_name ->
   bracket (newStablePtr ty) freeStablePtr $ \c_ty ->
-  (if null bytecode then (\f -> f nullPtr) else (allocaBytes 0)) $ \c_bytecode ->
-  withForeignPtr marshaller $ \m -> do
-    c_name <- pgf_create_function c_db c_revision c_name c_ty (fromIntegral arity) c_bytecode prob m c_exn
+  (if null bytecode then (\f -> f nullPtr) else (allocaBytes 0)) $ \c_bytecode -> do
+    c_name <- pgf_create_function c_db c_revision c_name c_ty (fromIntegral arity) c_bytecode prob marshaller c_exn
     if c_name == nullPtr
       then return ""
       else do name  <- peekText c_name
@@ -174,9 +173,8 @@ dropFunction name = Transaction $ \c_db _ c_revision c_exn ->
 createCategory :: Cat -> [Hypo] -> Float -> Transaction PGF ()
 createCategory name hypos prob = Transaction $ \c_db _ c_revision c_exn ->
   withText name $ \c_name ->
-  withHypos hypos $ \n_hypos c_hypos ->
-  withForeignPtr marshaller $ \m -> do
-    pgf_create_category c_db c_revision c_name n_hypos c_hypos prob m c_exn
+  withHypos hypos $ \n_hypos c_hypos -> do
+    pgf_create_category c_db c_revision c_name n_hypos c_hypos prob marshaller c_exn
 
 dropCategory :: Cat -> Transaction PGF ()
 dropCategory name = Transaction $ \c_db _ c_revision c_exn ->
@@ -220,22 +218,19 @@ setGlobalFlag :: String -> Literal -> Transaction PGF ()
 setGlobalFlag name value = Transaction $ \c_db _ c_revision c_exn ->
   withText name $ \c_name ->
   bracket (newStablePtr value) freeStablePtr $ \c_value ->
-  withForeignPtr marshaller $ \m ->
-    pgf_set_global_flag c_db c_revision c_name c_value m c_exn
+    pgf_set_global_flag c_db c_revision c_name c_value marshaller c_exn
 
 setAbstractFlag :: String -> Literal -> Transaction PGF ()
 setAbstractFlag name value = Transaction $ \c_db _ c_revision c_exn ->
   withText name $ \c_name ->
   bracket (newStablePtr value) freeStablePtr $ \c_value ->
-  withForeignPtr marshaller $ \m ->
-    pgf_set_abstract_flag c_db c_revision c_name c_value m c_exn
+    pgf_set_abstract_flag c_db c_revision c_name c_value marshaller c_exn
 
 setConcreteFlag :: String -> Literal -> Transaction Concr ()
 setConcreteFlag name value = Transaction $ \c_db _ c_revision c_exn ->
   withText name $ \c_name ->
   bracket (newStablePtr value) freeStablePtr $ \c_value ->
-  withForeignPtr marshaller $ \m ->
-    pgf_set_concrete_flag c_db c_revision c_name c_value m c_exn
+    pgf_set_concrete_flag c_db c_revision c_name c_value marshaller c_exn
 
 type Token  = String
 
@@ -428,9 +423,8 @@ setPrintName fun name = Transaction $ \c_db _ c_revision c_exn ->
 -- the function in the current transaction.
 getFunctionType :: Fun -> Transaction PGF (Maybe Type)
 getFunctionType fun = Transaction $ \c_db c_revision _ c_exn -> do
-  c_typ <- withForeignPtr unmarshaller $ \u ->
-           withText fun $ \c_fun ->
-             pgf_function_type c_db c_revision c_fun u c_exn
+  c_typ <- withText fun $ \c_fun ->
+             pgf_function_type c_db c_revision c_fun unmarshaller c_exn
   ex_type <- (#peek PgfExn, type) c_exn
   if (ex_type :: (#type PgfExnType)) == (#const PGF_EXN_NONE)
     then if c_typ == castPtrToStablePtr nullPtr

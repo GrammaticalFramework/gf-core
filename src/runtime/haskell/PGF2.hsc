@@ -354,9 +354,8 @@ abstractName p =
 startCat :: PGF -> Type
 startCat p =
   unsafePerformIO $
-  withForeignPtr unmarshaller $ \u ->
   withForeignPtr (a_revision p) $ \c_revision -> do
-    c_typ <- withPgfExn "startCat" (pgf_start_cat (a_db p) c_revision u)
+    c_typ <- withPgfExn "startCat" (pgf_start_cat (a_db p) c_revision unmarshaller)
     typ <- deRefStablePtr c_typ
     freeStablePtr c_typ
     return typ
@@ -365,10 +364,9 @@ startCat p =
 functionType :: PGF -> Fun -> Maybe Type
 functionType p fn =
   unsafePerformIO $
-  withForeignPtr unmarshaller $ \u ->
   withForeignPtr (a_revision p) $ \c_revision ->
   withText fn $ \c_fn -> do
-    c_typ <- withPgfExn "functionType" (pgf_function_type (a_db p) c_revision c_fn u)
+    c_typ <- withPgfExn "functionType" (pgf_function_type (a_db p) c_revision c_fn unmarshaller)
     if c_typ == castPtrToStablePtr nullPtr
       then return Nothing
       else do typ <- deRefStablePtr c_typ
@@ -395,8 +393,7 @@ exprProbability p e =
   unsafePerformIO $
   withForeignPtr (a_revision p) $ \c_revision ->
   bracket (newStablePtr e) freeStablePtr $ \c_e ->
-  withForeignPtr marshaller $ \m ->
-    withPgfExn "exprProbability" (pgf_expr_prob (a_db p) c_revision c_e m)
+    withPgfExn "exprProbability" (pgf_expr_prob (a_db p) c_revision c_e marshaller)
 
 checkExpr :: PGF -> Expr -> Type -> Either String Expr
 checkExpr = error "TODO: checkExpr"
@@ -408,14 +405,12 @@ checkExpr = error "TODO: checkExpr"
 inferExpr :: PGF -> Expr -> Either String (Expr, Type)
 inferExpr p e =
   unsafePerformIO $
-  withForeignPtr marshaller $ \m ->
-  withForeignPtr unmarshaller $ \u ->
   withForeignPtr (a_revision p) $ \c_revision ->
   bracket (newStablePtr e) freeStablePtr $ \c_e ->
   alloca $ \p_e ->
   allocaBytes (#size PgfExn) $ \c_exn -> do
     poke p_e c_e
-    c_ty <- pgf_infer_expr (a_db p) c_revision p_e m u c_exn
+    c_ty <- pgf_infer_expr (a_db p) c_revision p_e marshaller unmarshaller c_exn
     ex_type <- (#peek PgfExn, type) c_exn :: IO (#type PgfExnType)
     case ex_type of
       (#const PGF_EXN_NONE) -> do
@@ -472,9 +467,8 @@ concreteFlag :: Concr -> String -> Maybe Literal
 concreteFlag c name =
   unsafePerformIO $
   withText name $ \c_name ->
-  withForeignPtr (c_revision c) $ \c_revision ->
-  withForeignPtr unmarshaller $ \u -> do
-    c_lit <- withPgfExn "concreteFlag" (pgf_get_concrete_flag (c_db c) c_revision c_name u)
+  withForeignPtr (c_revision c) $ \c_revision -> do
+    c_lit <- withPgfExn "concreteFlag" (pgf_get_concrete_flag (c_db c) c_revision c_name unmarshaller)
     if c_lit == castPtrToStablePtr nullPtr
       then return Nothing
       else do lit <- deRefStablePtr c_lit
@@ -495,9 +489,8 @@ alignWords :: Concr -> Expr -> [(String, [Int])]
 alignWords c e = unsafePerformIO $
   withForeignPtr (c_revision c) $ \c_revision ->
   bracket (newStablePtr e) freeStablePtr $ \c_e ->
-  withForeignPtr marshaller $ \m ->
   alloca $ \p_n_phrases -> do
-    c_phrases <-  withPgfExn "alignWords" (pgf_align_words (c_db c) c_revision c_e nullPtr m p_n_phrases)
+    c_phrases <-  withPgfExn "alignWords" (pgf_align_words (c_db c) c_revision c_e nullPtr marshaller p_n_phrases)
     n_phrases <- peek p_n_phrases
     arr <- peekArray (fromIntegral n_phrases) c_phrases
     free c_phrases
@@ -702,19 +695,17 @@ parse :: Concr -> Type -> String -> ParseOutput [(Expr,Float)]
 parse c ty sent =
   unsafePerformIO $
   withForeignPtr (c_revision c) $ \c_revision ->
-  withForeignPtr marshaller $ \m ->
   bracket (newStablePtr ty) freeStablePtr $ \c_ty ->
   withText sent $ \c_sent -> do
-    c_enum <- withPgfExn "parse" (pgf_parse (c_db c) c_revision c_ty m c_sent)
+    c_enum <- withPgfExn "parse" (pgf_parse (c_db c) c_revision c_ty marshaller c_sent)
     c_fetch <- (#peek PgfExprEnumVtbl, fetch) =<< (#peek PgfExprEnum, vtbl) c_enum
     exprs <- unsafeInterleaveIO (fetchLazy c_fetch c_enum)
     return (ParseOk exprs)
   where
     fetchLazy c_fetch c_enum =
       withForeignPtr (c_revision c) $ \c_revision ->
-      withForeignPtr unmarshaller $ \u -> 
       alloca $ \p_prob -> do
-        c_expr <- callFetch c_fetch c_enum (c_db c) u p_prob
+        c_expr <- callFetch c_fetch c_enum (c_db c) unmarshaller p_prob
         if c_expr == castPtrToStablePtr nullPtr
           then do pgf_free_expr_enum c_enum
                   return []
@@ -785,8 +776,7 @@ linearize c e =
   unsafePerformIO $
   withForeignPtr (c_revision c) $ \c_revision ->
   bracket (newStablePtr e) freeStablePtr $ \c_e ->
-  withForeignPtr marshaller $ \m ->
-  bracket (withPgfExn "linearize" (pgf_linearize (c_db c) c_revision c_e nullPtr m)) free $ \c_text ->
+  bracket (withPgfExn "linearize" (pgf_linearize (c_db c) c_revision c_e nullPtr marshaller)) free $ \c_text ->
     if c_text == nullPtr
       then return ""
       else peekText c_text
@@ -797,9 +787,8 @@ linearizeAll c e =
   unsafePerformIO $
   withForeignPtr (c_revision c) $ \c_revision ->
   bracket (newStablePtr e) freeStablePtr $ \c_e ->
-  withForeignPtr marshaller $ \m ->
   alloca $ \p_n_fields ->
-  bracket (withPgfExn "linearizeAll" (pgf_linearize_all (c_db c) c_revision c_e nullPtr m p_n_fields)) free $ \c_texts -> do
+  bracket (withPgfExn "linearizeAll" (pgf_linearize_all (c_db c) c_revision c_e nullPtr marshaller p_n_fields)) free $ \c_texts -> do
     n_fields <- peek p_n_fields
     peekTexts n_fields c_texts
   where
@@ -817,8 +806,7 @@ tabularLinearize c e =
   unsafePerformIO $
   withForeignPtr (c_revision c) $ \c_revision ->
   bracket (newStablePtr e) freeStablePtr $ \c_e ->
-  withForeignPtr marshaller $ \m ->
-  bracket (withPgfExn "tabularLinearize" (pgf_tabular_linearize (c_db c) c_revision c_e nullPtr m)) free $ \c_texts -> do
+  bracket (withPgfExn "tabularLinearize" (pgf_tabular_linearize (c_db c) c_revision c_e nullPtr marshaller)) free $ \c_texts -> do
     if c_texts == nullPtr
       then return []
       else peekTable c_texts
@@ -841,8 +829,7 @@ tabularLinearizeAll c e =
   unsafePerformIO $
   withForeignPtr (c_revision c) $ \c_revision ->
   bracket (newStablePtr e) freeStablePtr $ \c_e ->
-  withForeignPtr marshaller $ \m ->
-  bracket (withPgfExn "tabularLinearizeAll" (pgf_tabular_linearize_all (c_db c) c_revision c_e nullPtr m)) free peekTables
+  bracket (withPgfExn "tabularLinearizeAll" (pgf_tabular_linearize_all (c_db c) c_revision c_e nullPtr marshaller)) free peekTables
   where
     peekTables c_texts = do
       c_field <- peekElemOff c_texts 0
@@ -902,7 +889,6 @@ bracketedLinearize c e = unsafePerformIO $ do
   ref <- newIORef (False,[],[])
   (withForeignPtr (c_revision c) $ \c_revision ->
    bracket (newStablePtr e) freeStablePtr $ \c_e ->
-   withForeignPtr marshaller $ \m ->
    allocaBytes (#size PgfLinearizationOutputIface) $ \c_out ->
    allocaBytes (#size PgfLinearizationOutputIfaceVtbl) $ \vtbl ->
    bracket (wrapSymbol1 (symbol_token ref)) freeHaskellFunPtr $ \c_symbol_token ->
@@ -918,7 +904,7 @@ bracketedLinearize c e = unsafePerformIO $ do
      (#poke PgfLinearizationOutputIfaceVtbl, symbol_ne) vtbl c_symbol_ne
      (#poke PgfLinearizationOutputIfaceVtbl, flush) vtbl c_flush
      (#poke PgfLinearizationOutputIface, vtbl) c_out vtbl
-     withPgfExn "bracketedLinearize" (pgf_bracketed_linearize (c_db c) c_revision c_e nullPtr m c_out))
+     withPgfExn "bracketedLinearize" (pgf_bracketed_linearize (c_db c) c_revision c_e nullPtr marshaller c_out))
   (ne,_,bs) <- readIORef ref
   (if ne
      then return []
@@ -958,7 +944,6 @@ bracketedLinearizeAll c e = unsafePerformIO $ do
   ref <- newIORef (False,[],[],[])
   (withForeignPtr (c_revision c) $ \c_revision ->
    bracket (newStablePtr e) freeStablePtr $ \c_e ->
-   withForeignPtr marshaller $ \m ->
    allocaBytes (#size PgfLinearizationOutputIface) $ \c_out ->
    allocaBytes (#size PgfLinearizationOutputIfaceVtbl) $ \vtbl ->
    bracket (wrapSymbol1 (symbol_token ref)) freeHaskellFunPtr $ \c_symbol_token ->
@@ -974,7 +959,7 @@ bracketedLinearizeAll c e = unsafePerformIO $ do
      (#poke PgfLinearizationOutputIfaceVtbl, symbol_ne) vtbl c_symbol_ne
      (#poke PgfLinearizationOutputIfaceVtbl, flush) vtbl c_flush
      (#poke PgfLinearizationOutputIface, vtbl) c_out vtbl
-     withPgfExn "bracketedLinearizeAll" (pgf_bracketed_linearize_all (c_db c) c_revision c_e nullPtr m c_out))
+     withPgfExn "bracketedLinearizeAll" (pgf_bracketed_linearize_all (c_db c) c_revision c_e nullPtr marshaller c_out))
   (_,_,_,all) <- readIORef ref
   return all
   where
@@ -1037,14 +1022,12 @@ generateRandomDepth g p ty dp =
     generate seed =
       unsafePerformIO $
       bracket (newStablePtr ty) freeStablePtr $ \c_ty ->
-      withForeignPtr marshaller $ \m ->
-      withForeignPtr unmarshaller $ \u ->
       withForeignPtr (a_revision p) $ \c_revision ->
       alloca $ \p_seed ->
       alloca $ \p_prob ->
       mask_ $ do
         poke p_seed seed
-        c_expr <- withPgfExn "generateRandomDepth" (pgf_generate_random (a_db p) c_revision c_ty (fromIntegral dp) p_seed p_prob m u)
+        c_expr <- withPgfExn "generateRandomDepth" (pgf_generate_random (a_db p) c_revision c_ty (fromIntegral dp) p_seed p_prob marshaller unmarshaller)
         if castStablePtrToPtr c_expr == nullPtr
           then return []
           else do expr <- deRefStablePtr c_expr
@@ -1064,14 +1047,12 @@ generateRandomFromDepth g p e dp =
     generate seed =
       unsafePerformIO $
       bracket (newStablePtr e) freeStablePtr $ \c_e ->
-      withForeignPtr marshaller $ \m ->
-      withForeignPtr unmarshaller $ \u ->
       withForeignPtr (a_revision p) $ \c_revision ->
       alloca $ \p_seed ->
       alloca $ \p_prob ->
       mask_ $ do
         poke p_seed seed
-        c_expr <- withPgfExn "generateRandomFromDepth" (pgf_generate_random_from (a_db p) c_revision c_e (fromIntegral dp) p_seed p_prob m u)
+        c_expr <- withPgfExn "generateRandomFromDepth" (pgf_generate_random_from (a_db p) c_revision c_e (fromIntegral dp) p_seed p_prob marshaller unmarshaller)
         if castStablePtrToPtr c_expr == nullPtr
           then return []
           else do expr <- deRefStablePtr c_expr
@@ -1104,10 +1085,9 @@ categoryContext p cat =
   unsafePerformIO $
   withText cat $ \c_cat ->
   alloca $ \p_n_hypos ->
-  withForeignPtr unmarshaller $ \u ->
   withForeignPtr (a_revision p) $ \c_revision ->
   mask_ $ do
-    c_hypos <- withPgfExn "categoryContext" (pgf_category_context (a_db p) c_revision c_cat p_n_hypos u)
+    c_hypos <- withPgfExn "categoryContext" (pgf_category_context (a_db p) c_revision c_cat p_n_hypos unmarshaller)
     if c_hypos == nullPtr
       then return Nothing
       else do n_hypos <- peek p_n_hypos
@@ -1198,9 +1178,8 @@ globalFlag :: PGF -> String -> Maybe Literal
 globalFlag p name =
   unsafePerformIO $
   withText name $ \c_name ->
-  withForeignPtr (a_revision p) $ \c_revision ->
-  withForeignPtr unmarshaller $ \u -> do
-    c_lit <- withPgfExn "globalFlag" (pgf_get_global_flag (a_db p) c_revision c_name u)
+  withForeignPtr (a_revision p) $ \c_revision -> do
+    c_lit <- withPgfExn "globalFlag" (pgf_get_global_flag (a_db p) c_revision c_name unmarshaller)
     if c_lit == castPtrToStablePtr nullPtr
       then return Nothing
       else do lit <- deRefStablePtr c_lit
@@ -1211,9 +1190,8 @@ abstractFlag :: PGF -> String -> Maybe Literal
 abstractFlag p name =
   unsafePerformIO $
   withText name $ \c_name ->
-  withForeignPtr (a_revision p) $ \c_revision ->
-  withForeignPtr unmarshaller $ \u -> do
-    c_lit <- withPgfExn "abstractFlag" (pgf_get_abstract_flag (a_db p) c_revision c_name u)
+  withForeignPtr (a_revision p) $ \c_revision -> do
+    c_lit <- withPgfExn "abstractFlag" (pgf_get_abstract_flag (a_db p) c_revision c_name unmarshaller)
     if c_lit == castPtrToStablePtr nullPtr
       then return Nothing
       else do lit <- deRefStablePtr c_lit
@@ -1264,9 +1242,8 @@ graphvizAbstractTree p opts e =
   unsafePerformIO $
   withForeignPtr (a_revision p) $ \c_revision ->
   bracket (newStablePtr e) freeStablePtr $ \c_e ->
-  withForeignPtr marshaller $ \m ->
   withGraphvizOptions opts $ \c_opts ->
-  bracket (withPgfExn "graphvizAbstractTree" (pgf_graphviz_abstract_tree (a_db p) c_revision c_e m c_opts)) free $ \c_text ->
+  bracket (withPgfExn "graphvizAbstractTree" (pgf_graphviz_abstract_tree (a_db p) c_revision c_e marshaller c_opts)) free $ \c_text ->
     peekText c_text
 
 graphvizParseTree :: Concr -> GraphvizOptions -> Expr -> String
@@ -1274,9 +1251,8 @@ graphvizParseTree c opts e =
   unsafePerformIO $
   withForeignPtr (c_revision c) $ \c_revision ->
   bracket (newStablePtr e) freeStablePtr $ \c_e ->
-  withForeignPtr marshaller $ \m ->
   withGraphvizOptions opts $ \c_opts ->
-  bracket (withPgfExn "graphvizParseTree" (pgf_graphviz_parse_tree  (c_db c) c_revision c_e nullPtr m c_opts)) free $ \c_text ->
+  bracket (withPgfExn "graphvizParseTree" (pgf_graphviz_parse_tree  (c_db c) c_revision c_e nullPtr marshaller c_opts)) free $ \c_text ->
     if c_text == nullPtr
       then return ""
       else peekText c_text
@@ -1287,9 +1263,8 @@ graphvizWordAlignment cs opts e =
   unsafePerformIO $
   withPgfConcrs cs $ \c_db c_revisions n_revisions ->
   bracket (newStablePtr e) freeStablePtr $ \c_e ->
-  withForeignPtr marshaller $ \m ->
   withGraphvizOptions opts $ \c_opts ->
-  bracket (withPgfExn "graphvizWordAlignment" (pgf_graphviz_word_alignment c_db c_revisions n_revisions c_e nullPtr m c_opts)) free $ \c_text ->
+  bracket (withPgfExn "graphvizWordAlignment" (pgf_graphviz_word_alignment c_db c_revisions n_revisions c_e nullPtr marshaller c_opts)) free $ \c_text ->
     if c_text == nullPtr
       then return ""
       else peekText c_text
@@ -1542,10 +1517,9 @@ printCoNLL = unlines . map (concat . intersperse "\t")
 showExpr :: [Var] -> Expr -> String
 showExpr scope e =
   unsafePerformIO $
-  withForeignPtr marshaller $ \m ->
   bracket (newPrintCtxt scope) freePrintCtxt $ \pctxt ->
   bracket (newStablePtr e) freeStablePtr $ \c_e ->
-  bracket (pgf_print_expr c_e pctxt 1 m) free $ \c_text ->
+  bracket (pgf_print_expr c_e pctxt 1 marshaller) free $ \c_text ->
     peekText c_text
 
 newPrintCtxt :: [Var] -> IO (Ptr PgfPrintContext)
@@ -1567,9 +1541,8 @@ readExpr :: String -> Maybe Expr
 readExpr str =
   unsafePerformIO $
   withText str $ \c_str ->
-  withForeignPtr unmarshaller $ \u ->
   mask_ $ do
-    c_expr <- pgf_read_expr c_str u
+    c_expr <- pgf_read_expr c_str unmarshaller
     if c_expr == castPtrToStablePtr nullPtr
       then return Nothing
       else do expr <- deRefStablePtr c_expr
@@ -1583,10 +1556,9 @@ readExpr str =
 showType :: [Var] -> Type -> String
 showType scope ty =
   unsafePerformIO $
-  withForeignPtr marshaller $ \m ->
   bracket (newPrintCtxt scope) freePrintCtxt $ \pctxt ->
   bracket (newStablePtr ty) freeStablePtr $ \c_ty ->
-  bracket (pgf_print_type c_ty pctxt 0 m) free $ \c_text ->
+  bracket (pgf_print_type c_ty pctxt 0 marshaller) free $ \c_text ->
     peekText c_text
 
 showContext :: [Var] -> [(BindType,Var,Type)] -> String
@@ -1594,17 +1566,15 @@ showContext scope hypos =
   unsafePerformIO $
   withHypos hypos $ \n_hypos c_hypos ->
   bracket (newPrintCtxt scope) freePrintCtxt $ \pctxt ->
-  withForeignPtr marshaller $ \m ->
-  bracket (pgf_print_context n_hypos c_hypos pctxt 0 m) free $ \c_text ->
+  bracket (pgf_print_context n_hypos c_hypos pctxt 0 marshaller) free $ \c_text ->
     peekText c_text
 
 -- | parses a 'String' as a type
 readType :: String -> Maybe Type
 readType str =
   unsafePerformIO $
-  withText str $ \c_str ->
-  withForeignPtr unmarshaller $ \u -> do
-    c_ty <- pgf_read_type c_str u
+  withText str $ \c_str -> do
+    c_ty <- pgf_read_type c_str unmarshaller
     if c_ty == castPtrToStablePtr nullPtr
       then return Nothing
       else do ty <- deRefStablePtr c_ty
@@ -1615,9 +1585,8 @@ readContext :: String -> Maybe [Hypo]
 readContext str =
   unsafePerformIO $
   withText str $ \c_str ->
-  withForeignPtr unmarshaller $ \u ->
   alloca $ \p_n_hypos -> do
-    c_hypos <- pgf_read_context c_str u p_n_hypos
+    c_hypos <- pgf_read_context c_str unmarshaller p_n_hypos
     n_hypos <- peek p_n_hypos
     if c_hypos == nullPtr && n_hypos /= 0
       then return Nothing
