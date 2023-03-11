@@ -698,19 +698,21 @@ parse c ty sent =
   bracket (newStablePtr ty) freeStablePtr $ \c_ty ->
   withText sent $ \c_sent -> do
     c_enum <- withPgfExn "parse" (pgf_parse (c_db c) c_revision c_ty marshaller c_sent)
-    c_fetch <- (#peek PgfExprEnumVtbl, fetch) =<< (#peek PgfExprEnum, vtbl) c_enum
-    exprs <- unsafeInterleaveIO (fetchLazy c_fetch c_enum)
+    exprs <- enumerateExprs (c_db c) c_enum
     return (ParseOk exprs)
+
+enumerateExprs c_db c_enum_ptr = do
+  c_enum <- newForeignPtrEnv pgf_free_expr_enum unmarshaller c_enum_ptr
+  c_fetch <- (#peek PgfExprEnumVtbl, fetch) =<< (#peek PgfExprEnum, vtbl) c_enum_ptr
+  unsafeInterleaveIO (fetchLazy c_fetch c_enum)
   where
     fetchLazy c_fetch c_enum =
-      withForeignPtr (c_revision c) $ \c_revision ->
+      withForeignPtr c_enum $ \c_enum_ptr -> 
       alloca $ \p_prob -> do
-        c_expr <- callFetch c_fetch c_enum (c_db c) unmarshaller p_prob
+        c_expr <- callFetch c_fetch c_enum_ptr c_db unmarshaller p_prob
         if c_expr == castPtrToStablePtr nullPtr
-          then do pgf_free_expr_enum c_enum
-                  return []
+          then do return []
           else do expr <- deRefStablePtr c_expr
-                  freeStablePtr c_expr
                   prob <- peek p_prob
                   rest <- unsafeInterleaveIO (fetchLazy c_fetch c_enum)
                   return ((expr,prob) : rest)
@@ -1000,7 +1002,13 @@ generateAll :: PGF -> Type -> [(Expr,Float)]
 generateAll p ty = generateAllDepth p ty maxBound
 
 generateAllDepth :: PGF -> Type -> Int -> [(Expr,Float)]
-generateAllDepth p ty dp = error "TODO: generateAllDepth"
+generateAllDepth p ty dp =
+  unsafePerformIO $
+  bracket (newStablePtr ty) freeStablePtr $ \c_ty ->
+  withForeignPtr (a_revision p) $ \c_revision ->
+  mask_ $ do
+    c_enum <- withPgfExn "generateAllDepth" (pgf_generate_all (a_db p) c_revision c_ty (fromIntegral dp) marshaller unmarshaller)
+    enumerateExprs (a_db p) c_enum
 
 generateAllFrom :: PGF -> Expr -> [(Expr,Float)]
 generateAllFrom p ty = generateAllFromDepth p ty maxBound

@@ -199,6 +199,8 @@ foreign import ccall pgf_generate_random :: Ptr PgfDB -> Ptr PGF -> StablePtr Ty
 
 foreign import ccall pgf_generate_random_from :: Ptr PgfDB -> Ptr PGF -> StablePtr Expr -> CSize -> Ptr Word64 -> Ptr (#type prob_t) -> Ptr PgfMarshaller -> Ptr PgfUnmarshaller -> Ptr PgfExn -> IO (StablePtr Expr)
 
+foreign import ccall pgf_generate_all :: Ptr PgfDB -> Ptr PGF -> StablePtr Type -> CSize -> Ptr PgfMarshaller -> Ptr PgfUnmarshaller -> Ptr PgfExn -> IO (Ptr PgfExprEnum)
+
 foreign import ccall pgf_start_transaction :: Ptr PgfDB -> Ptr PgfExn -> IO (Ptr PGF)
 
 foreign import ccall pgf_commit_transaction :: Ptr PgfDB -> Ptr PGF -> Ptr PgfExn -> IO ()
@@ -269,7 +271,7 @@ foreign import ccall pgf_parse :: Ptr PgfDB -> Ptr Concr -> StablePtr Type -> Pt
 
 foreign import ccall "dynamic" callFetch :: Dynamic (Ptr PgfExprEnum -> Ptr PgfDB -> Ptr PgfUnmarshaller -> Ptr (#type prob_t) -> IO (StablePtr Expr))
 
-foreign import ccall pgf_free_expr_enum :: Ptr PgfExprEnum -> IO ()
+foreign import ccall "&pgf_free_expr_enum" pgf_free_expr_enum :: FunPtr (Ptr PgfUnmarshaller -> Ptr PgfExprEnum -> IO ())
 
 foreign import ccall "wrapper" wrapSymbol0 :: Wrapper (Ptr PgfLinearizationOutputIface -> IO ())
 
