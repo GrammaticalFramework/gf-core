@@ -524,6 +524,29 @@ PgfExpr pgf_generate_random_from
                             PgfMarshaller *m, PgfUnmarshaller *u,
                             PgfExn *err);
 
+#ifdef __cplusplus
+struct PgfExprEnum {
+    virtual PgfExpr fetch(PgfDB *db, PgfUnmarshaller *u, prob_t *prob)=0;
+    virtual void free_refs(PgfUnmarshaller *u)=0;
+    virtual ~PgfExprEnum() {};
+};
+#else
+typedef struct PgfExprEnum PgfExprEnum;
+typedef struct PgfExprEnumVtbl PgfExprEnumVtbl;
+struct PgfExprEnumVtbl {
+    PgfExpr (*fetch)(PgfExprEnum *this, PgfDB *db, PgfUnmarshaller *u, prob_t *prob);
+};
+struct PgfExprEnum {
+    PgfExprEnumVtbl *vtbl;
+};
+#endif
+
+PGF_API_DECL
+PgfExprEnum *pgf_generate_all(PgfDB *db, PgfRevision revision,
+                              PgfType type, size_t depth,
+                              PgfMarshaller *m, PgfUnmarshaller *u,
+                              PgfExn *err);
+
 PGF_API_DECL
 PgfRevision pgf_start_transaction(PgfDB *db, PgfExn *err);
 
@@ -759,22 +782,6 @@ void pgf_bracketed_linearize_all(PgfDB *db, PgfConcrRevision revision,
                                  PgfLinearizationOutputIface *out,
                                  PgfExn* err);
 
-#ifdef __cplusplus
-struct PgfExprEnum {
-    virtual PgfExpr fetch(PgfDB *db, PgfUnmarshaller *u, prob_t *prob)=0;
-    virtual ~PgfExprEnum() {};
-};
-#else
-typedef struct PgfExprEnum PgfExprEnum;
-typedef struct PgfExprEnumVtbl PgfExprEnumVtbl;
-struct PgfExprEnumVtbl {
-    PgfExpr (*fetch)(PgfExprEnum *this, PgfDB *db, PgfUnmarshaller *u, prob_t *prob);
-};
-struct PgfExprEnum {
-    PgfExprEnumVtbl *vtbl;
-};
-#endif
-
 PGF_API_DECL
 PgfExprEnum *pgf_parse(PgfDB *db, PgfConcrRevision revision,
                        PgfType ty, PgfMarshaller *m,
@@ -782,7 +789,7 @@ PgfExprEnum *pgf_parse(PgfDB *db, PgfConcrRevision revision,
                        PgfExn * err);
 
 PGF_API_DECL
-void pgf_free_expr_enum(PgfExprEnum *en);
+void pgf_free_expr_enum(PgfUnmarshaller *u, PgfExprEnum *en);
 
 PGF_API_DECL
 PgfText *pgf_get_printname(PgfDB *db, PgfConcrRevision revision,

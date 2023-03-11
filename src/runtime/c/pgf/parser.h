@@ -13,6 +13,7 @@ public:
     void prepare();
     PgfExpr fetch(PgfDB *db, PgfUnmarshaller *u, prob_t *prob);
 
+    virtual void free_refs(PgfUnmarshaller *u);
     virtual ~PgfParser();
 
 private:

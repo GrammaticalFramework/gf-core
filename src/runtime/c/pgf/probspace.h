@@ -47,6 +47,8 @@
 struct PGF_INTERNAL_DECL PgfProbspaceEntry {
     ref<PgfText> cat;
     ref<PgfAbsFun> fun;
+    
+    bool is_result();
 };
 
 typedef ref<Node<PgfProbspaceEntry>> PgfProbspace;

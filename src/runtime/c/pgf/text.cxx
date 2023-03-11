@@ -114,6 +114,18 @@ bool textistarts(PgfText *t, PgfText *prefix)
 }
 
 PGF_INTERNAL
+PgfText* string2text(const char *s)
+{
+    size_t size = strlen(s);
+    PgfText *text = (PgfText *) malloc(sizeof(PgfText)+size+1);
+    if (text != NULL) {
+        text->size = size;
+        strcpy(text->text, s);
+    }
+    return text;
+}
+
+PGF_INTERNAL
 PgfText* textdup(PgfText *t1)
 {
     size_t size = sizeof(PgfText)+t1->size+1;

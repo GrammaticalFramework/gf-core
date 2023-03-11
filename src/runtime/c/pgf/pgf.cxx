@@ -1248,6 +1248,25 @@ PgfExpr pgf_generate_random_from
 }
 
 PGF_API
+PgfExprEnum *pgf_generate_all(PgfDB *db, PgfRevision revision,
+                              PgfType type, size_t depth,
+                              PgfMarshaller *m, PgfUnmarshaller *u,
+                              PgfExn *err)
+{
+    PGF_API_BEGIN {
+        DB_scope scope(db, READER_SCOPE);
+
+        ref<PgfPGF> pgf = db->revision2pgf(revision);
+
+        PgfExhaustiveGenerator *gen = new PgfExhaustiveGenerator(pgf, depth, m, u);
+        m->match_type(gen, type);
+        return gen;
+    } PGF_API_END
+
+    return NULL;
+}
+
+PGF_API
 PgfRevision pgf_start_transaction(PgfDB *db, PgfExn *err)
 {
     PGF_API_BEGIN {
@@ -2644,8 +2663,9 @@ PgfExprEnum *pgf_parse(PgfDB *db, PgfConcrRevision revision,
 }
 
 PGF_API
-void pgf_free_expr_enum(PgfExprEnum *en)
+void pgf_free_expr_enum(PgfUnmarshaller *u, PgfExprEnum *en)
 {
+    en->free_refs(u);
     delete en;
 }
 

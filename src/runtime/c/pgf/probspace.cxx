@@ -1,6 +1,10 @@
 #include "data.h"
 #include "math.h"
 
+bool PgfProbspaceEntry::is_result() {
+    return cat == ref<PgfText>::from_ptr(&fun->type->name);
+}
+
 static
 int entry_cmp(PgfProbspaceEntry *entry1, PgfProbspaceEntry *entry2)
 {
@@ -37,7 +41,7 @@ PgfProbspace probspace_insert(PgfProbspace space,
         space = Node<PgfProbspaceEntry>::upd_node(space,space->left,space->right);
         space->value = *entry;
         return space;
-     }
+    }
 }
 
 static
@@ -188,7 +192,7 @@ void probspace_iter(PgfProbspace space, PgfText *cat,
         if (err->type != PGF_EXN_NONE)
             return;
 
-        if (all || space->value.cat == ref<PgfText>::from_ptr(&space->value.fun->type->name)) {
+        if (all || space->value.is_result()) {
             itor->fn(itor, &space->value.fun->name, space->value.fun.as_object(), err);
             if (err->type != PGF_EXN_NONE)
                 return;
@@ -220,7 +224,7 @@ ref<PgfAbsFun> probspace_random(PgfProbspace space,
         if (fun != 0)
             return fun;
 
-        bool is_res = (space->value.cat == ref<PgfText>::from_ptr(&space->value.fun->type->name));
+        bool is_res = space->value.is_result();
         if (is_res) {
             *rand -= exp(-space->value.fun->prob);
             if (*rand <= 0)

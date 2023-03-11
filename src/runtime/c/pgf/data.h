@@ -6,6 +6,8 @@
 #include <exception>
 #include <stdexcept>
 #include <functional>
+#include <queue>
+#include <map>
 
 #include "pgf.h"
 

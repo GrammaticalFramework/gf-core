@@ -794,6 +794,10 @@ PgfExpr PgfParser::fetch(PgfDB *db, PgfUnmarshaller *u, prob_t *prob)
     return 0;
 }
 
+void PgfParser::free_refs(PgfUnmarshaller *u)
+{
+}
+
 PgfParser::~PgfParser()
 {
     free(sentence);
