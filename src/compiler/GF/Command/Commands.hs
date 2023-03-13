@@ -164,29 +164,31 @@ pgfCommands = Map.fromList [
        mkEx "gr                     -- one tree in the startcat of the current grammar",
        mkEx "gr -cat=NP -number=16  -- 16 trees in the category NP",
        mkEx "gr -lang=LangHin,LangTha -cat=Cl  -- Cl, both in LangHin and LangTha",
-       mkEx "gr -probs=FILE         -- generate with bias",
-       mkEx "gr (AdjCN ? (UseN ?))  -- generate trees of form (AdjCN ? (UseN ?))"
+       mkEx "gr (AdjCN ? (UseN ?))  -- fills in the metavariables in the expression"
        ],
      explanation = unlines [
        "Generates a list of random trees, by default one tree.",
-       "If a tree argument is given, the command completes the Tree with values to",
-       "all metavariables in the tree. The generation can be biased by probabilities",
-       "if the grammar was compiled with option -probs"
+       "If a tree argument is given, the command fills in",
+       "the metavariables in the tree with values. The generation is",
+       "biased by probabilities if the grammar was compiled with",
+       "option -probs."
        ],
      options = [
        ("show_probs", "show the probability of each result")
        ],
      flags = [
        ("cat","generation category"),
+       ("depth","the maximum generation depth, default 4"),
        ("lang","uses only functions that have linearizations in all these languages"),
        ("number","number of trees generated")
        ],
      exec = needPGF $ \opts arg pgf -> do
        gen <- newStdGen
-       let ts  = case mexp (toExprs arg) of
-                   Just ex -> generateRandomFrom gen pgf ex
-                   Nothing -> generateRandom     gen pgf (optType pgf opts)
-       returnFromExprs (isOpt "show_probs" opts) $ take (optNum opts) ts
+       let dp = valIntOpts "depth" 4 opts
+           es = case mexp (toExprs arg) of
+                   Just ex -> generateRandomFromDepth gen pgf ex dp
+                   Nothing -> generateRandomDepth     gen pgf (optType pgf opts) dp
+       returnFromExprs (isOpt "show_probs" opts) $ take (optNum opts) es
      }),
 
   ("gt", emptyCommandInfo {
@@ -194,26 +196,31 @@ pgfCommands = Map.fromList [
      synopsis = "generates a list of trees, by default exhaustive",
      explanation = unlines [
        "Generates all trees of a given category.",
-       "If a Tree argument is given, the command completes the Tree with values",
-       "to all metavariables in the tree."
+       "If a tree argument is given, the command completes",
+       "the metavariables in the tree with values.",
+       "The generated trees are listed in decreasing probability order",
+       "(increasing negated log-probability)."
        ],
      options = [
        ("show_probs", "show the probability of each result")
        ],
      flags = [
        ("cat","the generation category"),
+       ("depth","the maximum generation depth, default 4"),
        ("lang","excludes functions that have no linearization in this language"),
        ("number","the number of trees generated")
        ],
      examples = [
-       mkEx "gt                     -- all trees in the startcat",
-       mkEx "gt -cat=NP -number=16  -- 16 trees in the category NP",
+       mkEx "gt                     -- all trees in the startcat with maximal depth 4",
+       mkEx "gt -cat=NP -number=16  -- 16 trees in the category NP with maximal depth 4",
+       mkEx "gt -cat=NP -depth=2    -- all trees in the category NP with up to depth 2",
        mkEx "gt (AdjCN ? (UseN ?))  -- trees of form (AdjCN ? (UseN ?))"
        ],
      exec = needPGF $ \opts arg pgf -> do
-       let es = case mexp (toExprs arg) of
-                  Just ex -> generateAllFrom pgf ex
-                  Nothing -> generateAll     pgf (optType pgf opts)
+       let dp = valIntOpts "depth" 4 opts
+           es = case mexp (toExprs arg) of
+                  Just ex -> generateAllFromDepth pgf ex dp
+                  Nothing -> generateAllDepth     pgf (optType pgf opts) dp
        returnFromExprs (isOpt "show_probs" opts) $ takeOptNum opts es
      }),
 
