@@ -1,10 +1,10 @@
 // minibar_online.js, assumes that minibar.js and pgf_online.js have been loaded.
 
 var online_options={
-  //grammars_url: "http://www.grammaticalframework.org/grammars/",
+  grammars_url: "http://www.grammaticalframework.org/grammars/",
   //grammars_url: "http://tournesol.cs.chalmers.se:41296/grammars/",
   //grammars_url: "http://localhost:41296/grammars/",
-  //grammar_list: ["Foods.pgf"], // leave undefined to get list from server
+  grammar_list: ["Foods.pgf"], // leave undefined to get list from server
 }
 
 if(window.grammar_list) online_options.grammar_list=grammar_list
