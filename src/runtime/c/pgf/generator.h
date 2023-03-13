@@ -1,10 +1,18 @@
 #ifndef GENERATOR_H
 #define GENERATOR_H
 
+struct PGF_INTERNAL_DECL Scope {
+    constexpr static prob_t VAR_PROB = 0.1;
+
+    Scope *next;
+    PgfType type;
+    PgfMarshaller *m;
+    PgfBindType bind_type;
+    PgfText var;
+};
+
 class PGF_INTERNAL_DECL PgfRandomGenerator : public PgfUnmarshaller
 {
-    const static int VAR_PROB = 0.1;
-
     ref<PgfPGF> pgf;
     size_t depth;
     uint64_t *seed;
@@ -12,14 +20,6 @@ class PGF_INTERNAL_DECL PgfRandomGenerator : public PgfUnmarshaller
     PgfMarshaller *m;
     PgfInternalMarshaller i_m;
     PgfUnmarshaller *u;
-
-    struct Scope {
-        Scope *next;
-        PgfType type;
-        PgfMarshaller *m;
-        PgfBindType bind_type;
-        PgfText var;
-    };
 
     Scope *scope;
     size_t scope_len;
@@ -61,6 +61,7 @@ class PGF_INTERNAL_DECL PgfExhaustiveGenerator : public PgfUnmarshaller, public 
     ref<PgfPGF> pgf;
     size_t depth;
     PgfMarshaller *m;
+    PgfInternalMarshaller i_m;
     Result *top_res;
     size_t top_res_index;
 
@@ -85,22 +86,50 @@ class PGF_INTERNAL_DECL PgfExhaustiveGenerator : public PgfUnmarshaller, public 
         virtual bool process(PgfExhaustiveGenerator *gen, PgfUnmarshaller *u);
         virtual void free_refs(PgfUnmarshaller *u);
         void combine(PgfExhaustiveGenerator *gen, 
-                     PgfExpr expr, prob_t prob,
+                     Scope *scope, PgfExpr expr, prob_t prob,
                      PgfUnmarshaller *u);
         void complete(PgfExhaustiveGenerator *gen, PgfUnmarshaller *u);
     };
 
-    struct Result {
+    struct Goal {
+        ref<PgfText> cat;
+        Scope *scope;
+        size_t scope_len;
+
+        Goal(ref<PgfText> cat) {
+            this->cat       = cat;
+            this->scope     = NULL;
+            this->scope_len = 0;
+        }
+
+        Goal(ref<PgfText> cat, Goal &g) {
+            this->cat       = cat;
+            this->scope     = g.scope;
+            this->scope_len = g.scope_len;
+        }
+
+        Goal(Goal &g) {
+            this->cat       = g.cat;
+            this->scope     = g.scope;
+            this->scope_len = g.scope_len;
+        }
+    };
+
+    struct Result : Goal {
         size_t ref_count;
         std::vector<State1*> states;
         std::vector<std::pair<PgfExpr,prob_t>> exprs;
 
-        Result();
+        Result(ref<PgfText> cat) : Goal(cat) {
+            this->ref_count = 0;
+        }
 
-        prob_t outside_prob(PgfExhaustiveGenerator *gen) {
-            if (this == gen->top_res)
-                return 0;
-            return states[0]->prob;
+        Result(ref<PgfText> cat, Goal &g) : Goal(cat,g) {
+            this->ref_count = 0;
+        }
+
+        Result(Goal &g) : Goal(g) {
+            this->ref_count = 0;
         }
     };
 
@@ -111,17 +140,29 @@ class PGF_INTERNAL_DECL PgfExhaustiveGenerator : public PgfUnmarshaller, public 
         }
     };
 
-    class CompareText : public std::less<ref<PgfText>> {
-    public:
-        bool operator() (const ref<PgfText> t1, const ref<PgfText> t2) const {
-            return textcmp(t1, t2) < 0;
+    struct CompareGoal : public std::less<Goal> {
+        bool operator() (const Goal &g1, const Goal &g2) const {
+            int cmp = textcmp(g1.cat, g2.cat);
+            if (cmp < 0)
+                return true;
+            else if (cmp > 0)
+                return false;
+            else
+                return (g1.scope < g2.scope);
         }
     };
 
-    std::map<ref<PgfText>, Result*, CompareText> results;
-    std::priority_queue<State*, std::vector<State*>, CompareState> queue;
+    struct Result2Goal {
+        Goal &operator()(Result *res) {
+            return *res;
+        }
+    };
 
-    void push_left_states(PgfProbspace space, PgfText *cat, Result *res);
+    std::_Rb_tree<Goal&, Result*, Result2Goal, CompareGoal> results;
+    std::priority_queue<State*, std::vector<State*>, CompareState> queue;
+    std::vector<Scope*> scopes;
+
+    void push_left_states(PgfProbspace space, PgfText *cat, Result *res, prob_t outside_prob);
 
 public:
     PgfExhaustiveGenerator(ref<PgfPGF> pgf, size_t depth,
