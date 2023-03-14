@@ -282,55 +282,9 @@ PgfExhaustiveGenerator::PgfExhaustiveGenerator(ref<PgfPGF> pgf,
     this->pgf = pgf;
     this->depth = depth;
     this->m = m;
+    this->u = u;
     this->top_res = NULL;
     this->top_res_index = 0;
-    
-    PgfText *text_Int = string2text("Int");
-    ref<PgfAbsCat> cat_Int =
-        namespace_lookup(pgf->abstract.cats, text_Int);
-    free(text_Int);
-    if (cat_Int != 0) {
-        uintmax_t value = 999;
-        PgfLiteral lint = u->lint(1,&value);
-        PgfExpr expr = u->elit(lint);
-        u->free_ref(lint);
-        Goal g(ref<PgfText>::from_ptr(&cat_Int->name),NULL);
-        Result *res = new Result();
-        res->exprs.push_back(std::pair<PgfExpr,prob_t>(expr,0));
-        results[g] = res;
-    }
-
-    PgfText *text_Float = string2text("Float");
-    ref<PgfAbsCat> cat_Float =
-        namespace_lookup(pgf->abstract.cats, text_Float);
-    free(text_Float);
-    if (cat_Float != 0) {
-        PgfLiteral lflt = u->lflt(3.14);
-        PgfExpr expr = u->elit(lflt);
-        u->free_ref(lflt);
-        Goal g(ref<PgfText>::from_ptr(&cat_Float->name),NULL);
-        Result *res = new Result();
-        res->exprs.push_back(std::pair<PgfExpr,prob_t>(expr,0));
-        results[g] = res;
-    }
-
-    PgfText *text_String = string2text("String");
-    ref<PgfAbsCat> cat_String =
-        namespace_lookup(pgf->abstract.cats, text_String);
-    free(text_String);
-    if (cat_String != 0) {
-        PgfText *value = (PgfText *) alloca(sizeof(PgfText)+4);
-        value->size = 3;
-        strcpy(value->text, "Foo");
-
-        PgfLiteral lstr = u->lstr(value);
-        PgfExpr expr = u->elit(lstr);
-        u->free_ref(lstr);
-        Goal g(ref<PgfText>::from_ptr(&cat_String->name),NULL);
-        Result *res = new Result();
-        res->exprs.push_back(std::pair<PgfExpr,prob_t>(expr,0));
-        results[g] = res;
-    }
 }
 
 PgfExpr PgfExhaustiveGenerator::eabs(PgfBindType btype, PgfText *name, PgfExpr body)
@@ -430,8 +384,40 @@ PgfType PgfExhaustiveGenerator::dtyp(size_t n_hypos, PgfTypeHypo *hypos,
     }
     top_res = res;
 
+    predict_literal(g.first, res, u);
     push_left_states(pgf->abstract.funs_by_cat, cat, top_res, 0);
     return 0;
+}
+
+void PgfExhaustiveGenerator::predict_literal(ref<PgfText> cat, Result *res, PgfUnmarshaller *u)
+{
+    PgfExpr expr;
+    if (strcmp(cat->text, "Int") == 0) {
+        uintmax_t value = 999;
+        PgfLiteral lint = u->lint(1,&value);
+        expr = u->elit(lint);
+        u->free_ref(lint);
+    } else if (strcmp(cat->text, "Float") == 0) {
+        PgfLiteral lflt = u->lflt(3.14);
+        expr = u->elit(lflt);
+        u->free_ref(lflt);
+    } else if (strcmp(cat->text, "String") == 0) {
+        PgfText *value = (PgfText *) alloca(sizeof(PgfText)+4);
+        value->size = 3;
+        strcpy(value->text, "Foo");
+
+        PgfLiteral lstr = u->lstr(value);
+        expr = u->elit(lstr);
+        u->free_ref(lstr);
+    } else {
+        return;
+    }
+
+    res->exprs.push_back(std::pair<PgfExpr,prob_t>(expr,0));
+
+    for (State1 *state : res->states) {
+        state->combine(this,res->scope,expr,0,u);
+    }
 }
 
 void PgfExhaustiveGenerator::free_ref(object x)
@@ -550,6 +536,9 @@ again:  {
             index++;
             s = s->next;
         }
+
+        // predict literals
+        gen->predict_literal(g.first, arg_res, u);
 
         // predict global functions
         gen->push_left_states(gen->pgf->abstract.funs_by_cat, g.first, arg_res, outside_prob);

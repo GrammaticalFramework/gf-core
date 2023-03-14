@@ -61,6 +61,7 @@ class PGF_INTERNAL_DECL PgfExhaustiveGenerator : public PgfUnmarshaller, public 
     ref<PgfPGF> pgf;
     size_t depth;
     PgfMarshaller *m;
+    PgfUnmarshaller *u;
     PgfInternalMarshaller i_m;
     Result *top_res;
     size_t top_res_index;
@@ -124,6 +125,7 @@ class PGF_INTERNAL_DECL PgfExhaustiveGenerator : public PgfUnmarshaller, public 
     std::priority_queue<State*, std::vector<State*>, CompareState> queue;
     std::vector<Scope*> scopes;
 
+    void predict_literal(ref<PgfText> cat, Result *res, PgfUnmarshaller *u);
     void push_left_states(PgfProbspace space, PgfText *cat, Result *res, prob_t outside_prob);
 
 public:
