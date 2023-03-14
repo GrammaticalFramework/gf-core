@@ -666,7 +666,8 @@ void PgfParser::Production::trace(PgfParser::Choice *res) {
 #endif
 }
 
-PgfParser::PgfParser(ref<PgfConcr> concr, ref<PgfConcrLincat> start, PgfText *sentence, PgfMarshaller *m)
+PgfParser::PgfParser(ref<PgfConcr> concr, ref<PgfConcrLincat> start, PgfText *sentence,
+                     PgfMarshaller *m, PgfUnmarshaller *u)
 {
     this->concr = concr;
     this->start = start;
@@ -675,6 +676,7 @@ PgfParser::PgfParser(ref<PgfConcr> concr, ref<PgfConcrLincat> start, PgfText *se
     this->before = NULL;
     this->after  = NULL;
     this->m = m;
+    this->u = u;
 }
 
 void PgfParser::space(PgfTextSpot *start, PgfTextSpot *end, PgfExn* err)
@@ -769,7 +771,7 @@ void PgfParser::prepare()
     before = after;
 }
 
-PgfExpr PgfParser::fetch(PgfDB *db, PgfUnmarshaller *u, prob_t *prob)
+PgfExpr PgfParser::fetch(PgfDB *db, prob_t *prob)
 {    
     DB_scope scope(db, READER_SCOPE);
 
@@ -792,10 +794,6 @@ PgfExpr PgfParser::fetch(PgfDB *db, PgfUnmarshaller *u, prob_t *prob)
     }
 
     return 0;
-}
-
-void PgfParser::free_refs(PgfUnmarshaller *u)
-{
 }
 
 PgfParser::~PgfParser()

@@ -2,16 +2,86 @@
 #include "data.h"
 #include "generator.h"
 
+PgfExpr PgfGenerator::eabs(PgfBindType btype, PgfText *name, PgfExpr body)
+{
+    body = m->match_expr(this, body);
+    return u->eabs(btype, name, body);
+}
+
+PgfExpr PgfGenerator::eapp(PgfExpr fun, PgfExpr arg)
+{
+    fun = m->match_expr(this, fun);
+    arg = m->match_expr(this, arg);
+    return u->eapp(fun, arg);
+}
+
+PgfExpr PgfGenerator::elit(PgfLiteral lit)
+{
+    lit = m->match_lit(this, lit);
+    return u->elit(lit);
+}
+
+PgfExpr PgfGenerator::emeta(PgfMetaId meta)
+{
+    return u->emeta(meta);
+}
+
+PgfExpr PgfGenerator::efun(PgfText *name)
+{
+    return u->efun(name);
+}
+
+PgfExpr PgfGenerator::evar(int index)
+{
+    return u->evar(index);
+}
+
+PgfExpr PgfGenerator::etyped(PgfExpr expr, PgfType typ)
+{
+    expr = m->match_expr(this, expr);
+    typ  = m->match_type(u, typ);
+    return u->etyped(expr, typ);
+}
+
+PgfExpr PgfGenerator::eimplarg(PgfExpr expr)
+{
+    expr = m->match_expr(this, expr);
+    return u->eimplarg(expr);
+}
+
+PgfLiteral PgfGenerator::lint(size_t size, uintmax_t *v)
+{
+    return u->lint(size,v);
+}
+
+PgfLiteral PgfGenerator::lflt(double v)
+{
+    return u->lflt(v);
+}
+
+PgfLiteral PgfGenerator::lstr(PgfText *v)
+{
+    return u->lstr(v);
+}
+
+PgfType PgfGenerator::dtyp(size_t n_hypos, PgfTypeHypo *hypos,
+                           PgfText *cat,
+                           size_t n_exprs, PgfExpr *exprs)
+{
+    return u->dtyp(n_hypos, hypos, cat, n_exprs, exprs);
+}
+
+void PgfGenerator::free_ref(object o)
+{
+    u->free_ref(o);
+}
 
 PgfRandomGenerator::PgfRandomGenerator(ref<PgfPGF> pgf,
                                        size_t depth, uint64_t *seed,
                                        PgfMarshaller *m, PgfUnmarshaller *u)
+   : PgfGenerator(pgf,depth,m,u)
 {
-    this->pgf  = pgf;
-    this->depth = depth;
     this->seed = seed;
-    this->m = m;
-    this->u = u;
     this->prob  = 0;
     this->scope = NULL;
     this->scope_len = 0;
@@ -19,68 +89,6 @@ PgfRandomGenerator::PgfRandomGenerator(ref<PgfPGF> pgf,
 
 PgfRandomGenerator::~PgfRandomGenerator()
 {
-}
-
-PgfExpr PgfRandomGenerator::eabs(PgfBindType btype, PgfText *name, PgfExpr body)
-{
-    body = m->match_expr(this, body);
-    return u->eabs(btype, name, body);
-}
-
-PgfExpr PgfRandomGenerator::eapp(PgfExpr fun, PgfExpr arg)
-{
-    fun = m->match_expr(this, fun);
-    arg = m->match_expr(this, arg);
-    return u->eapp(fun, arg);
-}
-
-PgfExpr PgfRandomGenerator::elit(PgfLiteral lit)
-{
-    lit = m->match_lit(this, lit);
-    return u->elit(lit);
-}
-
-PgfExpr PgfRandomGenerator::emeta(PgfMetaId meta)
-{
-    return 0;
-}
-
-PgfExpr PgfRandomGenerator::efun(PgfText *name)
-{
-    return u->efun(name);
-}
-
-PgfExpr PgfRandomGenerator::evar(int index)
-{
-    return u->evar(index);
-}
-
-PgfExpr PgfRandomGenerator::etyped(PgfExpr expr, PgfType typ)
-{
-    expr = m->match_expr(this, expr);
-    typ  = m->match_type(u, typ);
-    return u->etyped(expr, typ);
-}
-
-PgfExpr PgfRandomGenerator::eimplarg(PgfExpr expr)
-{
-    expr = m->match_expr(this, expr);
-    return u->eimplarg(expr);
-}
-
-PgfLiteral PgfRandomGenerator::lint(size_t size, uintmax_t *v)
-{
-    return u->lint(size,v);
-}
-
-PgfLiteral PgfRandomGenerator::lflt(double v)
-{
-    return u->lflt(v);
-}
-
-PgfLiteral PgfRandomGenerator::lstr(PgfText *v)
-{
-    return u->lstr(v);
 }
 
 class PGF_INTERNAL_DECL PgfVarGenerator : public PgfDBUnmarshaller
@@ -160,11 +168,11 @@ again:  {
         PgfVarGenerator v_gen(this, index, cat, n_exprs, exprs);
         expr = m->match_type(&v_gen, sc->type);
         if (expr != 0) {
-            if (rand() < Scope::VAR_PROB) {
-                prob += -log(Scope::VAR_PROB);
+            if (rand() < VAR_PROB) {
+                prob += -log(VAR_PROB);
                 break;
             } else {
-                prob += -log(1-Scope::VAR_PROB);
+                prob += -log(1-VAR_PROB);
                 if (var_expr != 0)
                     u->free_ref(var_expr);
                 var_expr = expr;
@@ -200,7 +208,7 @@ again:  {
             ref<PgfAbsFun> fun = probspace_random(pgf->abstract.funs_by_cat, cat, rand_value);
             if (fun == 0) {
                 if (var_expr != 0) {
-                    prob += -log(Scope::VAR_PROB/(1-Scope::VAR_PROB));
+                    prob += -log(VAR_PROB/(1-VAR_PROB));
                     expr = var_expr;
                 }
             } else {
@@ -239,11 +247,6 @@ again:  {
     return expr;
 }
 
-void PgfRandomGenerator::free_ref(object x)
-{
-    u->free_ref(x);
-}
-
 PgfExpr PgfRandomGenerator::descend(PgfExpr expr,
                                     size_t n_hypos, PgfTypeHypo *hypos)
 {
@@ -278,68 +281,10 @@ PgfExpr PgfRandomGenerator::descend(PgfExpr expr,
 PgfExhaustiveGenerator::PgfExhaustiveGenerator(ref<PgfPGF> pgf,
                                                size_t depth,
                                                PgfMarshaller *m, PgfUnmarshaller *u)
+   : PgfGenerator(pgf,depth,m,u)
 {
-    this->pgf = pgf;
-    this->depth = depth;
-    this->m = m;
-    this->u = u;
     this->top_res = NULL;
     this->top_res_index = 0;
-}
-
-PgfExpr PgfExhaustiveGenerator::eabs(PgfBindType btype, PgfText *name, PgfExpr body)
-{
-    return 0;
-}
-
-PgfExpr PgfExhaustiveGenerator::eapp(PgfExpr fun, PgfExpr arg)
-{
-    return 0;
-}
-
-PgfExpr PgfExhaustiveGenerator::elit(PgfLiteral lit)
-{
-    return 0;
-}
-
-PgfExpr PgfExhaustiveGenerator::emeta(PgfMetaId meta)
-{
-    return 0;
-}
-
-PgfExpr PgfExhaustiveGenerator::efun(PgfText *name)
-{
-    return 0;
-}
-
-PgfExpr PgfExhaustiveGenerator::evar(int index)
-{
-    return 0;
-}
-
-PgfExpr PgfExhaustiveGenerator::etyped(PgfExpr expr, PgfType typ)
-{
-    return 0;
-}
-
-PgfExpr PgfExhaustiveGenerator::eimplarg(PgfExpr expr)
-{
-    return 0;
-}
-
-PgfLiteral PgfExhaustiveGenerator::lint(size_t size, uintmax_t *v)
-{
-    return 0;
-}
-
-PgfLiteral PgfExhaustiveGenerator::lflt(double v)
-{
-    return 0;
-}
-
-PgfLiteral PgfExhaustiveGenerator::lstr(PgfText *v)
-{
-    return 0;
 }
 
 void PgfExhaustiveGenerator::push_left_states(PgfProbspace space, PgfText *cat, Result *res, prob_t outside_prob)
@@ -384,12 +329,12 @@ PgfType PgfExhaustiveGenerator::dtyp(size_t n_hypos, PgfTypeHypo *hypos,
     }
     top_res = res;
 
-    predict_literal(g.first, res, u);
+    predict_literal(g.first, res);
     push_left_states(pgf->abstract.funs_by_cat, cat, top_res, 0);
     return 0;
 }
 
-void PgfExhaustiveGenerator::predict_literal(ref<PgfText> cat, Result *res, PgfUnmarshaller *u)
+void PgfExhaustiveGenerator::predict_literal(ref<PgfText> cat, Result *res)
 {
     PgfExpr expr;
     if (strcmp(cat->text, "Int") == 0) {
@@ -416,12 +361,8 @@ void PgfExhaustiveGenerator::predict_literal(ref<PgfText> cat, Result *res, PgfU
     res->exprs.push_back(std::pair<PgfExpr,prob_t>(expr,0));
 
     for (State1 *state : res->states) {
-        state->combine(this,res->scope,expr,0,u);
+        state->combine(this,res->scope,expr,0);
     }
-}
-
-void PgfExhaustiveGenerator::free_ref(object x)
-{
 }
 
 void PgfExhaustiveGenerator::State::free_refs(PgfUnmarshaller *u)
@@ -444,14 +385,14 @@ void PgfExhaustiveGenerator::State::release(State *state, PgfUnmarshaller *u)
     delete state;
 }
 
-bool PgfExhaustiveGenerator::State0::process(PgfExhaustiveGenerator *gen, PgfUnmarshaller *u)
+bool PgfExhaustiveGenerator::State0::process(PgfExhaustiveGenerator *gen)
 {
     ref<PgfAbsFun> fun = space->value.fun;
     prob_t outside_prob = this->prob-fun->prob;
 
     gen->push_left_states(space->right, &(*space->value.cat), res, outside_prob);
 
-    PgfExpr expr = u->efun(&fun->name);
+    PgfExpr expr = gen->u->efun(&fun->name);
 
     res->ref_count++;
 
@@ -462,17 +403,17 @@ bool PgfExhaustiveGenerator::State0::process(PgfExhaustiveGenerator *gen, PgfUnm
     state->n_args = 0;
     state->expr   = expr;
 
-    if (state->process(gen, u)) {
-        State::release(state,u);
+    if (state->process(gen)) {
+        State::release(state,gen->u);
     }
 
     return true;
 }
 
-bool PgfExhaustiveGenerator::State1::process(PgfExhaustiveGenerator *gen, PgfUnmarshaller *u)
+bool PgfExhaustiveGenerator::State1::process(PgfExhaustiveGenerator *gen)
 {
     if (n_args >= type->hypos->len) {
-        complete(gen, u);
+        complete(gen);
         return true;
     }
 
@@ -524,13 +465,13 @@ again:  {
             if (textcmp(&type->name, g.first) == 0) {
                 State1 *var_state = new State1();
                 var_state->res    = arg_res;
-                var_state->prob   = outside_prob - log(Scope::VAR_PROB);
+                var_state->prob   = outside_prob - log(VAR_PROB);
                 var_state->type   = type;
                 var_state->n_args = 0;
-                var_state->expr   = u->evar(index);
+                var_state->expr   = gen->u->evar(index);
                 gen->queue.push(var_state);
 
-                outside_prob += -log(1-Scope::VAR_PROB);
+                outside_prob += -log(1-VAR_PROB);
             }
 
             index++;
@@ -538,13 +479,13 @@ again:  {
         }
 
         // predict literals
-        gen->predict_literal(g.first, arg_res, u);
+        gen->predict_literal(g.first, arg_res);
 
         // predict global functions
         gen->push_left_states(gen->pgf->abstract.funs_by_cat, g.first, arg_res, outside_prob);
     } else {
         for (std::pair<PgfExpr,prob_t> p : arg_res->exprs) {
-            this->combine(gen,arg_res->scope,p.first,p.second,u);
+            this->combine(gen,arg_res->scope,p.first,p.second);
         }
     }
 
@@ -552,15 +493,14 @@ again:  {
 }
 
 void PgfExhaustiveGenerator::State1::combine(PgfExhaustiveGenerator *gen, 
-                                             Scope *scope, PgfExpr expr, prob_t prob,
-                                             PgfUnmarshaller *u)
+                                             Scope *scope, PgfExpr expr, prob_t prob)
 {
     Scope *s = scope;
     while (s != res->scope) {
-        PgfExpr abs = u->eabs(s->bind_type, &s->var, expr);
+        PgfExpr abs = gen->u->eabs(s->bind_type, &s->var, expr);
         if (s != scope) {
             // if expr is a lambda created in the previous iteration
-            u->free_ref(expr);
+            gen->u->free_ref(expr);
         }
         expr = abs;
         s = s->next;
@@ -569,19 +509,19 @@ void PgfExhaustiveGenerator::State1::combine(PgfExhaustiveGenerator *gen,
     PgfBindType bind_type = vector_elem(type->hypos, n_args)->bind_type;
 
     if (bind_type == PGF_BIND_TYPE_IMPLICIT) {
-        PgfExpr implarg = u->eimplarg(expr);
+        PgfExpr implarg = gen->u->eimplarg(expr);
         if (scope != res->scope) {
             // if expr is a lambda created in the previous loop
-            u->free_ref(expr);
+            gen->u->free_ref(expr);
         }
         expr = implarg;
     }
 
-    PgfExpr app = u->eapp(this->expr, expr);
+    PgfExpr app = gen->u->eapp(this->expr, expr);
 
     if (bind_type == PGF_BIND_TYPE_IMPLICIT || scope != res->scope) {
         // if expr is either a lambda or an implicit argument
-        u->free_ref(expr);
+        gen->u->free_ref(expr);
     }
 
     res->ref_count++;
@@ -595,7 +535,7 @@ void PgfExhaustiveGenerator::State1::combine(PgfExhaustiveGenerator *gen,
     gen->queue.push(app_state);
 }
 
-void PgfExhaustiveGenerator::State1::complete(PgfExhaustiveGenerator *gen, PgfUnmarshaller *u)
+void PgfExhaustiveGenerator::State1::complete(PgfExhaustiveGenerator *gen)
 {
     prob_t outside_prob;
     if (res == gen->top_res)
@@ -606,7 +546,7 @@ void PgfExhaustiveGenerator::State1::complete(PgfExhaustiveGenerator *gen, PgfUn
     prob_t inside_prob = prob-outside_prob;
     res->exprs.push_back(std::pair<PgfExpr,prob_t>(expr,inside_prob));
     for (State1 *state : res->states) {
-        state->combine(gen,res->scope,expr,inside_prob,u);
+        state->combine(gen,res->scope,expr,inside_prob);
     }
 }
 
@@ -615,7 +555,7 @@ void PgfExhaustiveGenerator::State1::free_refs(PgfUnmarshaller *u)
     u->free_ref(expr);
 }
 
-PgfExpr PgfExhaustiveGenerator::fetch(PgfDB *db, PgfUnmarshaller *u, prob_t *prob)
+PgfExpr PgfExhaustiveGenerator::fetch(PgfDB *db, prob_t *prob)
 {
     DB_scope scope(db, READER_SCOPE);
 
@@ -634,13 +574,13 @@ PgfExpr PgfExhaustiveGenerator::fetch(PgfDB *db, PgfUnmarshaller *u, prob_t *pro
 
         State *state = queue.top(); queue.pop();
 
-        if (state->process(this, u)) {
+        if (state->process(this)) {
             State::release(state, u);
         }
     }
 }
 
-void PgfExhaustiveGenerator::free_refs(PgfUnmarshaller *u)
+PgfExhaustiveGenerator::~PgfExhaustiveGenerator()
 {
     while (!queue.empty()) {
         State  *state = queue.top(); queue.pop();
@@ -653,10 +593,7 @@ void PgfExhaustiveGenerator::free_refs(PgfUnmarshaller *u)
             free_ref(j.first);
         }
     }
-}
 
-PgfExhaustiveGenerator::~PgfExhaustiveGenerator()
-{
     while (!scopes.empty()) {
         Scope *scope = scopes.back(); scopes.pop_back();
         delete scope;

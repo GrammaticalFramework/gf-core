@@ -702,14 +702,14 @@ parse c ty sent =
     return (ParseOk exprs)
 
 enumerateExprs c_db c_enum_ptr = do
-  c_enum <- newForeignPtrEnv pgf_free_expr_enum unmarshaller c_enum_ptr
+  c_enum <- newForeignPtr pgf_free_expr_enum c_enum_ptr
   c_fetch <- (#peek PgfExprEnumVtbl, fetch) =<< (#peek PgfExprEnum, vtbl) c_enum_ptr
   unsafeInterleaveIO (fetchLazy c_fetch c_enum)
   where
     fetchLazy c_fetch c_enum =
       withForeignPtr c_enum $ \c_enum_ptr -> 
       alloca $ \p_prob -> do
-        c_expr <- callFetch c_fetch c_enum_ptr c_db unmarshaller p_prob
+        c_expr <- callFetch c_fetch c_enum_ptr c_db p_prob
         if c_expr == castPtrToStablePtr nullPtr
           then do return []
           else do expr <- deRefStablePtr c_expr

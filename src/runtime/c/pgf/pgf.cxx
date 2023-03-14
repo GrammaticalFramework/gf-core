@@ -2635,7 +2635,7 @@ struct PGF_INTERNAL_DECL PgfLincatUnmarshaller : PgfUnmarshaller {
 
 PGF_API
 PgfExprEnum *pgf_parse(PgfDB *db, PgfConcrRevision revision,
-                       PgfType ty, PgfMarshaller *m,
+                       PgfType ty, PgfMarshaller *m, PgfUnmarshaller *u,
                        PgfText *sentence,
                        PgfExn * err)
 {
@@ -2646,12 +2646,12 @@ PgfExprEnum *pgf_parse(PgfDB *db, PgfConcrRevision revision,
 
         bool case_sensitive = pgf_is_case_sensitive(concr);
 
-        PgfLincatUnmarshaller u(concr);
-        m->match_type(&u, ty);
-        if (u.lincat == 0)
+        PgfLincatUnmarshaller lincat_u(concr);
+        m->match_type(&lincat_u, ty);
+        if (lincat_u.lincat == 0)
             return 0;
 
-        PgfParser *parser = new PgfParser(concr, u.lincat, sentence, m);
+        PgfParser *parser = new PgfParser(concr, lincat_u.lincat, sentence, m, u);
         phrasetable_lookup_cohorts(concr->phrasetable,
                                    sentence, case_sensitive,
                                    parser, err);
@@ -2663,9 +2663,8 @@ PgfExprEnum *pgf_parse(PgfDB *db, PgfConcrRevision revision,
 }
 
 PGF_API
-void pgf_free_expr_enum(PgfUnmarshaller *u, PgfExprEnum *en)
+void pgf_free_expr_enum(PgfExprEnum *en)
 {
-    en->free_refs(u);
     delete en;
 }
 
