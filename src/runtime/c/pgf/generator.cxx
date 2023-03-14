@@ -294,9 +294,10 @@ PgfExhaustiveGenerator::PgfExhaustiveGenerator(ref<PgfPGF> pgf,
         PgfLiteral lint = u->lint(1,&value);
         PgfExpr expr = u->elit(lint);
         u->free_ref(lint);
-        Result *res = new Result(ref<PgfText>::from_ptr(&cat_Int->name));
+        Goal g(ref<PgfText>::from_ptr(&cat_Int->name),NULL);
+        Result *res = new Result();
         res->exprs.push_back(std::pair<PgfExpr,prob_t>(expr,0));
-        results._M_insert_unique(res);
+        results[g] = res;
     }
 
     PgfText *text_Float = string2text("Float");
@@ -307,9 +308,10 @@ PgfExhaustiveGenerator::PgfExhaustiveGenerator(ref<PgfPGF> pgf,
         PgfLiteral lflt = u->lflt(3.14);
         PgfExpr expr = u->elit(lflt);
         u->free_ref(lflt);
-        Result *res = new Result(ref<PgfText>::from_ptr(&cat_Float->name));
+        Goal g(ref<PgfText>::from_ptr(&cat_Float->name),NULL);
+        Result *res = new Result();
         res->exprs.push_back(std::pair<PgfExpr,prob_t>(expr,0));
-        results._M_insert_unique(res);
+        results[g] = res;
     }
 
     PgfText *text_String = string2text("String");
@@ -324,9 +326,10 @@ PgfExhaustiveGenerator::PgfExhaustiveGenerator(ref<PgfPGF> pgf,
         PgfLiteral lstr = u->lstr(value);
         PgfExpr expr = u->elit(lstr);
         u->free_ref(lstr);
-        Result *res = new Result(ref<PgfText>::from_ptr(&cat_String->name));
+        Goal g(ref<PgfText>::from_ptr(&cat_String->name),NULL);
+        Result *res = new Result();
         res->exprs.push_back(std::pair<PgfExpr,prob_t>(expr,0));
-        results._M_insert_unique(res);
+        results[g] = res;
     }
 }
 
@@ -420,15 +423,12 @@ PgfType PgfExhaustiveGenerator::dtyp(size_t n_hypos, PgfTypeHypo *hypos,
     if (abscat == 0)
         return 0;
 
-    Goal g(ref<PgfText>::from_ptr(&abscat->name));
-
-    auto i = results.lower_bound(g);
-    if (i == results.end() || results.key_comp()(g, **i)) {
-        top_res = new Result(g);
-        results._M_emplace_hint_unique(i, top_res);
-    } else {
-        top_res = *i;
+    Goal g(ref<PgfText>::from_ptr(&abscat->name), NULL);
+    Result *&res = results[g];
+    if (res == NULL) {
+        res = new Result();
     }
+    top_res = res;
 
     push_left_states(pgf->abstract.funs_by_cat, cat, top_res, 0);
     return 0;
@@ -490,14 +490,15 @@ bool PgfExhaustiveGenerator::State1::process(PgfExhaustiveGenerator *gen, PgfUnm
         return true;
     }
 
+    Scope *scope = res->scope;
+    size_t scope_len = res->scope_len;
     ref<PgfDTyp> arg_type = vector_elem(type->hypos, n_args)->type;
-    Goal g(ref<PgfText>::from_ptr(&arg_type->name), *res);
     for (size_t i = 0; i < arg_type->hypos->len; i++) {
         ref<PgfHypo> hypo = vector_elem(arg_type->hypos, i);
-        
+
         size_t buf_size = 16;
         Scope *new_scope = (Scope *) malloc(sizeof(Scope)+buf_size);
-        new_scope->next = g.scope;
+        new_scope->next = scope;
         new_scope->type = hypo->type.as_object();
         new_scope->m    = &gen->i_m;
         new_scope->bind_type = hypo->bind_type;
@@ -505,7 +506,7 @@ bool PgfExhaustiveGenerator::State1::process(PgfExhaustiveGenerator *gen, PgfUnm
         size_t out;
 again:  {
             new_scope->var.size =
-                snprintf(new_scope->var.text, buf_size, "v%zu", g.scope_len+1);
+                snprintf(new_scope->var.text, buf_size, "v%zu", res->scope_len+1);
             if (new_scope->var.size >= buf_size) {
                 buf_size = new_scope->var.size+1;
                 new_scope = (Scope*)
@@ -515,31 +516,26 @@ again:  {
         }
 
         gen->scopes.push_back(new_scope);
-        g.scope = new_scope;
-        g.scope_len++;
+        scope = new_scope;
+        scope_len++;
     }
 
-    Result *arg_res;
-    Result *tmp  = NULL;
-    auto i = gen->results.lower_bound(g);
-	if (i == gen->results.end() || gen->results.key_comp()(g, **i)) {
-        arg_res = new Result(g);
-        gen->results._M_emplace_hint_unique(i, res);
-    } else {
-        arg_res = *i;
-        tmp = res;
+    Goal g(ref<PgfText>::from_ptr(&arg_type->name), scope);
+    Result *&arg_res = gen->results[g];
+    Result *tmp      = arg_res;
+    if (arg_res == NULL) {
+        arg_res = new Result(scope, scope_len);
     }
-
     arg_res->states.push_back(this);
 
     if (tmp == NULL) {
         // predict local variables
         size_t index = 0;
-        Scope *s = g.scope;
+        Scope *s = scope;
         prob_t outside_prob = this->prob;
         while (s != NULL) {
             ref<PgfDTyp> type = s->type;
-            if (textcmp(&type->name, g.cat) == 0) {
+            if (textcmp(&type->name, g.first) == 0) {
                 State1 *var_state = new State1();
                 var_state->res    = arg_res;
                 var_state->prob   = outside_prob - log(Scope::VAR_PROB);
@@ -556,7 +552,7 @@ again:  {
         }
 
         // predict global functions
-        gen->push_left_states(gen->pgf->abstract.funs_by_cat, g.cat, arg_res, outside_prob);
+        gen->push_left_states(gen->pgf->abstract.funs_by_cat, g.first, arg_res, outside_prob);
     } else {
         for (std::pair<PgfExpr,prob_t> p : arg_res->exprs) {
             this->combine(gen,arg_res->scope,p.first,p.second,u);
@@ -664,7 +660,7 @@ void PgfExhaustiveGenerator::free_refs(PgfUnmarshaller *u)
     }
 
     for (auto i : results) {
-        for (auto j : i->exprs) {
+        for (auto j : i.second->exprs) {
             free_ref(j.first);
         }
     }

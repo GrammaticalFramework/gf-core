@@ -91,45 +91,25 @@ class PGF_INTERNAL_DECL PgfExhaustiveGenerator : public PgfUnmarshaller, public 
         void complete(PgfExhaustiveGenerator *gen, PgfUnmarshaller *u);
     };
 
-    struct Goal {
-        ref<PgfText> cat;
+    typedef std::pair<ref<PgfText>,Scope*> Goal;
+
+    struct Result {
+        size_t ref_count;
         Scope *scope;
         size_t scope_len;
+        std::vector<State1*> states;
+        std::vector<std::pair<PgfExpr,prob_t>> exprs;
 
-        Goal(ref<PgfText> cat) {
-            this->cat       = cat;
+        Result() {
+            this->ref_count = 0;
             this->scope     = NULL;
             this->scope_len = 0;
         }
 
-        Goal(ref<PgfText> cat, Goal &g) {
-            this->cat       = cat;
-            this->scope     = g.scope;
-            this->scope_len = g.scope_len;
-        }
-
-        Goal(Goal &g) {
-            this->cat       = g.cat;
-            this->scope     = g.scope;
-            this->scope_len = g.scope_len;
-        }
-    };
-
-    struct Result : Goal {
-        size_t ref_count;
-        std::vector<State1*> states;
-        std::vector<std::pair<PgfExpr,prob_t>> exprs;
-
-        Result(ref<PgfText> cat) : Goal(cat) {
+        Result(Scope *scope, size_t scope_len) {
             this->ref_count = 0;
-        }
-
-        Result(ref<PgfText> cat, Goal &g) : Goal(cat,g) {
-            this->ref_count = 0;
-        }
-
-        Result(Goal &g) : Goal(g) {
-            this->ref_count = 0;
+            this->scope     = scope;
+            this->scope_len = scope_len;
         }
     };
 
@@ -140,25 +120,7 @@ class PGF_INTERNAL_DECL PgfExhaustiveGenerator : public PgfUnmarshaller, public 
         }
     };
 
-    struct CompareGoal : public std::less<Goal> {
-        bool operator() (const Goal &g1, const Goal &g2) const {
-            int cmp = textcmp(g1.cat, g2.cat);
-            if (cmp < 0)
-                return true;
-            else if (cmp > 0)
-                return false;
-            else
-                return (g1.scope < g2.scope);
-        }
-    };
-
-    struct Result2Goal {
-        Goal &operator()(Result *res) {
-            return *res;
-        }
-    };
-
-    std::_Rb_tree<Goal&, Result*, Result2Goal, CompareGoal> results;
+    std::map<Goal, Result*> results;
     std::priority_queue<State*, std::vector<State*>, CompareState> queue;
     std::vector<Scope*> scopes;
 

@@ -7,7 +7,7 @@
 #include <stdexcept>
 #include <functional>
 #include <queue>
-#include <bits/stl_tree.h>
+#include <map>
 
 #include "pgf.h"
 
