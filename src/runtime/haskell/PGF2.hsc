@@ -55,10 +55,10 @@ module PGF2 (-- * PGF
              compute,
 
              -- ** Generation
-             generateAll, generateAllDepth,
-             generateAllFrom, generateAllFromDepth,
-             generateRandom, generateRandomDepth,
-             generateRandomFrom, generateRandomFromDepth,
+             generateAll, generateAllDepth, generateAllExt,
+             generateAllFrom, generateAllFromDepth, generateAllFromExt,
+             generateRandom, generateRandomDepth, generateRandomExt,
+             generateRandomFrom, generateRandomFromDepth, generateRandomFromExt,
 
              -- ** Morphological Analysis
              MorphoAnalysis, lookupMorpho, lookupCohorts, fullFormLexicon,
@@ -999,43 +999,54 @@ bracketedLinearizeAll c e = unsafePerformIO $ do
         else writeIORef ref (False,[],[],reverse bs:all)
 
 generateAll :: PGF -> Type -> [(Expr,Float)]
-generateAll p ty = generateAllDepth p ty maxBound
+generateAll p ty = generateAllExt p ty maxBound []
 
 generateAllDepth :: PGF -> Type -> Int -> [(Expr,Float)]
-generateAllDepth p ty dp =
+generateAllDepth p ty dp = generateAllExt p ty dp []
+
+generateAllExt :: PGF -> Type -> Int -> [Concr] -> [(Expr,Float)]
+generateAllExt p ty dp cs =
   unsafePerformIO $
   bracket (newStablePtr ty) freeStablePtr $ \c_ty ->
-  withForeignPtr (a_revision p) $ \c_revision ->
+  withForeignPtr (a_revision p) $ \a_revision ->
+  withPgfConcrs cs $ \c_db c_revisions n_revisions ->
   mask_ $ do
-    c_enum <- withPgfExn "generateAllDepth" (pgf_generate_all (a_db p) c_revision c_ty (fromIntegral dp) marshaller unmarshaller)
+    c_enum <- withPgfExn "generateAllExt" (pgf_generate_all (a_db p) a_revision c_revisions n_revisions c_ty (fromIntegral dp) marshaller unmarshaller)
     enumerateExprs (a_db p) c_enum
 
 generateAllFrom :: PGF -> Expr -> [(Expr,Float)]
-generateAllFrom p ty = generateAllFromDepth p ty maxBound
+generateAllFrom p ty = generateAllFromExt p ty maxBound []
 
 generateAllFromDepth :: PGF -> Expr -> Int -> [(Expr,Float)]
-generateAllFromDepth p ty = error "TODO: generateFromDepth"
+generateAllFromDepth p ty dp = generateAllFromExt p ty dp []
+
+generateAllFromExt :: PGF -> Expr -> Int -> [Concr] -> [(Expr,Float)]
+generateAllFromExt p ty dp concrs = error "TODO: generateAllFromEx"
 
 -- | Generates a potentially infinite list of random 
 -- abstract syntax expressions. This is usefull for tree bank generation
 -- which after that can be used for grammar testing.
 generateRandom :: RandomGen g => g -> PGF -> Type -> [(Expr,Float)]
-generateRandom g pgf ty = generateRandomDepth g pgf ty maxBound
+generateRandom g pgf ty = generateRandomExt g pgf ty maxBound []
 
 generateRandomDepth :: RandomGen g => g -> PGF -> Type -> Int -> [(Expr,Float)]
-generateRandomDepth g p ty dp =
+generateRandomDepth g p ty dp = generateRandomExt g p ty dp []
+
+generateRandomExt :: RandomGen g => g -> PGF -> Type -> Int -> [Concr] -> [(Expr,Float)]
+generateRandomExt g p ty dp cs =
   let (seed,_) = random g
   in generate seed
   where
     generate seed =
       unsafePerformIO $
       bracket (newStablePtr ty) freeStablePtr $ \c_ty ->
-      withForeignPtr (a_revision p) $ \c_revision ->
+      withForeignPtr (a_revision p) $ \a_revision ->
+      withPgfConcrs cs $ \c_db c_revisions n_revisions ->
       alloca $ \p_seed ->
       alloca $ \p_prob ->
       mask_ $ do
         poke p_seed seed
-        c_expr <- withPgfExn "generateRandomDepth" (pgf_generate_random (a_db p) c_revision c_ty (fromIntegral dp) p_seed p_prob marshaller unmarshaller)
+        c_expr <- withPgfExn "generateRandomExt" (pgf_generate_random (a_db p) a_revision c_revisions n_revisions c_ty (fromIntegral dp) p_seed p_prob marshaller unmarshaller)
         if castStablePtrToPtr c_expr == nullPtr
           then return []
           else do expr <- deRefStablePtr c_expr
@@ -1045,22 +1056,26 @@ generateRandomDepth g p ty dp =
                   return ((expr,prob):generate seed)
 
 generateRandomFrom :: RandomGen g => g -> PGF -> Expr -> [(Expr,Float)]
-generateRandomFrom g p e = generateRandomFromDepth g p e maxBound
+generateRandomFrom g p e = generateRandomFromExt g p e maxBound []
 
 generateRandomFromDepth :: RandomGen g => g -> PGF -> Expr -> Int -> [(Expr,Float)]
-generateRandomFromDepth g p e dp =
+generateRandomFromDepth g p e dp = generateRandomFromExt g p e dp []
+
+generateRandomFromExt :: RandomGen g => g -> PGF -> Expr -> Int -> [Concr] -> [(Expr,Float)]
+generateRandomFromExt g p e dp cs =
   let (seed,_) = random g
   in generate seed
   where
     generate seed =
       unsafePerformIO $
       bracket (newStablePtr e) freeStablePtr $ \c_e ->
-      withForeignPtr (a_revision p) $ \c_revision ->
+      withForeignPtr (a_revision p) $ \a_revision ->
+      withPgfConcrs cs $ \c_db c_revisions n_revisions ->
       alloca $ \p_seed ->
       alloca $ \p_prob ->
       mask_ $ do
         poke p_seed seed
-        c_expr <- withPgfExn "generateRandomFromDepth" (pgf_generate_random_from (a_db p) c_revision c_e (fromIntegral dp) p_seed p_prob marshaller unmarshaller)
+        c_expr <- withPgfExn "generateRandomFromExt" (pgf_generate_random_from (a_db p) a_revision c_revisions n_revisions c_e (fromIntegral dp) p_seed p_prob marshaller unmarshaller)
         if castStablePtrToPtr c_expr == nullPtr
           then return []
           else do expr <- deRefStablePtr c_expr
@@ -1276,22 +1291,6 @@ graphvizWordAlignment cs opts e =
     if c_text == nullPtr
       then return ""
       else peekText c_text
-  where
-    withPgfConcrs cs f =
-      allocaArray len $ \array ->
-        pokeAll array nullPtr array cs
-      where
-        len = length cs
-
-        pokeAll ptr c_db0 array []     = f c_db0 array (fromIntegral len)
-        pokeAll ptr c_db0 array (c:cs)
-          | c_db0 /= nullPtr && c_db0 /= c_db c =
-                throwIO (PGFError "graphvizWordAlignment" "The concrete languages must be from the same grammar")
-          | otherwise =
-              withForeignPtr (c_revision c) $ \c_revision -> do
-                poke ptr c_revision
-                pokeAll (ptr `plusPtr` (#size PgfConcrRevision)) (c_db c) array cs
-
 
 type Labels = Map.Map Fun [String]
 

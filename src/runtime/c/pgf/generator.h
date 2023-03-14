@@ -20,6 +20,7 @@ protected:
     PgfMarshaller *m;
     PgfInternalMarshaller i_m;
     PgfUnmarshaller *u;
+    std::vector<ref<PgfConcr>> concrs;
 
     PgfGenerator(ref<PgfPGF> pgf,
                  size_t depth,
@@ -31,7 +32,11 @@ protected:
         this->u = u;
     }
 
+    bool function_has_lins(PgfText *);
+
 public:
+    void addConcr(ref<PgfConcr> concr);
+
     virtual PgfExpr eabs(PgfBindType btype, PgfText *name, PgfExpr body);
     virtual PgfExpr eapp(PgfExpr fun, PgfExpr arg);
     virtual PgfExpr elit(PgfLiteral lit);

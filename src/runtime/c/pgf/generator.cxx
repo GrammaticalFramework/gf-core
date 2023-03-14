@@ -2,6 +2,21 @@
 #include "data.h"
 #include "generator.h"
 
+bool PgfGenerator::function_has_lins(PgfText *name)
+{
+    for (ref<PgfConcr> concr : concrs) {
+        ref<PgfConcrLin> lin =
+            namespace_lookup(concr->lins, name);
+        if (lin == 0)
+            return false;
+    }
+    return true;
+}
+
+void PgfGenerator::addConcr(ref<PgfConcr> concr) {
+    concrs.push_back(concr);
+}
+
 PgfExpr PgfGenerator::eabs(PgfBindType btype, PgfText *name, PgfExpr body)
 {
     body = m->match_expr(this, body);
@@ -206,6 +221,10 @@ again:  {
             prob_t rand_value = rand();
 
             ref<PgfAbsFun> fun = probspace_random(pgf->abstract.funs_by_cat, cat, rand_value);
+
+            if (!function_has_lins(&fun->name))
+                fun = 0;
+
             if (fun == 0) {
                 if (var_expr != 0) {
                     prob += -log(VAR_PROB/(1-VAR_PROB));
@@ -391,6 +410,9 @@ bool PgfExhaustiveGenerator::State0::process(PgfExhaustiveGenerator *gen)
     prob_t outside_prob = this->prob-fun->prob;
 
     gen->push_left_states(space->right, &(*space->value.cat), res, outside_prob);
+
+    if (!gen->function_has_lins(&fun->name))
+        return true;
 
     PgfExpr expr = gen->u->efun(&fun->name);
 

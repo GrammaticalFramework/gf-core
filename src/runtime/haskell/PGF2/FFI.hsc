@@ -195,11 +195,11 @@ foreign import ccall pgf_infer_expr :: Ptr PgfDB -> Ptr PGF -> Ptr (StablePtr Ex
 
 foreign import ccall pgf_check_type :: Ptr PgfDB -> Ptr PGF -> Ptr (StablePtr Type) -> Ptr PgfMarshaller -> Ptr PgfUnmarshaller -> Ptr PgfExn -> IO ()
 
-foreign import ccall pgf_generate_random :: Ptr PgfDB -> Ptr PGF -> StablePtr Type -> CSize -> Ptr Word64 -> Ptr (#type prob_t) -> Ptr PgfMarshaller -> Ptr PgfUnmarshaller -> Ptr PgfExn -> IO (StablePtr Expr)
+foreign import ccall pgf_generate_random :: Ptr PgfDB -> Ptr PGF -> Ptr (Ptr Concr) -> CSize -> StablePtr Type -> CSize -> Ptr Word64 -> Ptr (#type prob_t) -> Ptr PgfMarshaller -> Ptr PgfUnmarshaller -> Ptr PgfExn -> IO (StablePtr Expr)
 
-foreign import ccall pgf_generate_random_from :: Ptr PgfDB -> Ptr PGF -> StablePtr Expr -> CSize -> Ptr Word64 -> Ptr (#type prob_t) -> Ptr PgfMarshaller -> Ptr PgfUnmarshaller -> Ptr PgfExn -> IO (StablePtr Expr)
+foreign import ccall pgf_generate_random_from :: Ptr PgfDB -> Ptr PGF -> Ptr (Ptr Concr) -> CSize -> StablePtr Expr -> CSize -> Ptr Word64 -> Ptr (#type prob_t) -> Ptr PgfMarshaller -> Ptr PgfUnmarshaller -> Ptr PgfExn -> IO (StablePtr Expr)
 
-foreign import ccall pgf_generate_all :: Ptr PgfDB -> Ptr PGF -> StablePtr Type -> CSize -> Ptr PgfMarshaller -> Ptr PgfUnmarshaller -> Ptr PgfExn -> IO (Ptr PgfExprEnum)
+foreign import ccall pgf_generate_all :: Ptr PgfDB -> Ptr PGF -> Ptr (Ptr Concr) -> CSize -> StablePtr Type -> CSize -> Ptr PgfMarshaller -> Ptr PgfUnmarshaller -> Ptr PgfExn -> IO (Ptr PgfExprEnum)
 
 foreign import ccall pgf_start_transaction :: Ptr PgfDB -> Ptr PgfExn -> IO (Ptr PGF)
 
@@ -407,6 +407,21 @@ withPgfExn loc f =
          free c_msg
          throwIO (PGFError loc msg)
       _ -> throwIO (PGFError loc "An unidentified error occurred")
+
+withPgfConcrs cs f =
+  allocaArray len $ \array ->
+    pokeAll array nullPtr array cs
+  where
+    len = length cs
+
+    pokeAll ptr c_db0 array []     = f c_db0 array (fromIntegral len)
+    pokeAll ptr c_db0 array (c:cs)
+      | c_db0 /= nullPtr && c_db0 /= c_db c =
+            throwIO (PGFError "graphvizWordAlignment" "The concrete languages must be from the same grammar")
+      | otherwise =
+          withForeignPtr (c_revision c) $ \c_revision -> do
+            poke ptr c_revision
+            pokeAll (ptr `plusPtr` (#size PgfConcrRevision)) (c_db c) array cs
 
 -----------------------------------------------------------------------
 -- Marshalling

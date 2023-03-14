@@ -185,9 +185,10 @@ pgfCommands = Map.fromList [
      exec = needPGF $ \opts arg pgf -> do
        gen <- newStdGen
        let dp = valIntOpts "depth" 4 opts
+           langs = optLangs pgf opts
            es = case mexp (toExprs arg) of
-                   Just ex -> generateRandomFromDepth gen pgf ex dp
-                   Nothing -> generateRandomDepth     gen pgf (optType pgf opts) dp
+                   Just ex -> generateRandomFromExt gen pgf ex dp langs
+                   Nothing -> generateRandomExt     gen pgf (optType pgf opts) dp langs
        returnFromExprs (isOpt "show_probs" opts) $ take (optNum opts) es
      }),
 
@@ -207,7 +208,7 @@ pgfCommands = Map.fromList [
      flags = [
        ("cat","the generation category"),
        ("depth","the maximum generation depth, default 4"),
-       ("lang","excludes functions that have no linearization in this language"),
+       ("lang","uses only functions that have linearizations in all these languages"),
        ("number","the number of trees generated")
        ],
      examples = [
@@ -218,9 +219,10 @@ pgfCommands = Map.fromList [
        ],
      exec = needPGF $ \opts arg pgf -> do
        let dp = valIntOpts "depth" 4 opts
+           langs = optLangs pgf opts
            es = case mexp (toExprs arg) of
-                  Just ex -> generateAllFromDepth pgf ex dp
-                  Nothing -> generateAllDepth     pgf (optType pgf opts) dp
+                  Just ex -> generateAllFromExt pgf ex dp langs
+                  Nothing -> generateAllExt     pgf (optType pgf opts) dp langs
        returnFromExprs (isOpt "show_probs" opts) $ takeOptNum opts es
      }),
 
@@ -831,8 +833,9 @@ pgfCommands = Map.fromList [
 
    optLangsFlag flag pgf opts =
      case valStrOpts flag "" opts of
-       ""  -> Map.elems langs
-       str -> mapMaybe (completeLang pgf) (chunks ',' str)
+       "no" -> []
+       ""   -> Map.elems langs
+       str  -> mapMaybe (completeLang pgf) (chunks ',' str)
      where
        langs = languages pgf
 

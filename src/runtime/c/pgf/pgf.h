@@ -511,6 +511,7 @@ void pgf_check_type(PgfDB *db, PgfRevision revision,
 
 PGF_API_DECL
 PgfExpr pgf_generate_random(PgfDB *db, PgfRevision revision,
+                            PgfConcrRevision *concr_revisions, size_t n_concr_revisions,
                             PgfType type, size_t depth,
                             uint64_t *seed, prob_t *prob,
                             PgfMarshaller *m, PgfUnmarshaller *u,
@@ -519,6 +520,7 @@ PgfExpr pgf_generate_random(PgfDB *db, PgfRevision revision,
 PGF_API_DECL
 PgfExpr pgf_generate_random_from
                            (PgfDB *db, PgfRevision revision,
+                            PgfConcrRevision *concr_revisions, size_t n_concr_revisions,
                             PgfExpr expr, size_t depth,
                             uint64_t *seed, prob_t *prob,
                             PgfMarshaller *m, PgfUnmarshaller *u,
@@ -542,6 +544,7 @@ struct PgfExprEnum {
 
 PGF_API_DECL
 PgfExprEnum *pgf_generate_all(PgfDB *db, PgfRevision revision,
+                              PgfConcrRevision *concr_revisions, size_t n_concr_revisions,
                               PgfType type, size_t depth,
                               PgfMarshaller *m, PgfUnmarshaller *u,
                               PgfExn *err);

@@ -1194,6 +1194,7 @@ void pgf_check_type(PgfDB *db, PgfRevision revision,
 
 PGF_API
 PgfExpr pgf_generate_random(PgfDB *db, PgfRevision revision,
+                            PgfConcrRevision *concr_revisions, size_t n_concr_revisions,
                             PgfType type, size_t depth,
                             uint64_t *seed, prob_t *prob,
                             PgfMarshaller *m, PgfUnmarshaller *u,
@@ -1208,6 +1209,9 @@ PgfExpr pgf_generate_random(PgfDB *db, PgfRevision revision,
         // for others. We try 10 time to increase the chance of succeess.
         for (size_t i = 0; i < 10; i++) {
             PgfRandomGenerator gen(pgf, depth, seed, m, u);
+            for (size_t i = 0; i < n_concr_revisions; i++) {
+                gen.addConcr(db->revision2concr(concr_revisions[i]));
+            }
             PgfExpr expr = m->match_type(&gen, type);
             if (expr != 0) {
                 *prob = gen.getProb();
@@ -1222,6 +1226,7 @@ PgfExpr pgf_generate_random(PgfDB *db, PgfRevision revision,
 PGF_API
 PgfExpr pgf_generate_random_from
                            (PgfDB *db, PgfRevision revision,
+                            PgfConcrRevision *concr_revisions, size_t n_concr_revisions,
                             PgfExpr expr, size_t depth,
                             uint64_t *seed, prob_t *prob,
                             PgfMarshaller *m, PgfUnmarshaller *u,
@@ -1236,6 +1241,9 @@ PgfExpr pgf_generate_random_from
         // for others. We try 10 time to increase the chance of succeess.
         for (size_t i = 0; i < 10; i++) {
             PgfRandomGenerator gen(pgf, depth, seed, m, u);
+            for (size_t i = 0; i < n_concr_revisions; i++) {
+                gen.addConcr(db->revision2concr(concr_revisions[i]));
+            }
             PgfExpr new_expr = m->match_expr(&gen, expr);
             if (new_expr != 0) {
                 *prob = gen.getProb();
@@ -1249,6 +1257,7 @@ PgfExpr pgf_generate_random_from
 
 PGF_API
 PgfExprEnum *pgf_generate_all(PgfDB *db, PgfRevision revision,
+                              PgfConcrRevision *concr_revisions, size_t n_concr_revisions,
                               PgfType type, size_t depth,
                               PgfMarshaller *m, PgfUnmarshaller *u,
                               PgfExn *err)
@@ -1259,6 +1268,9 @@ PgfExprEnum *pgf_generate_all(PgfDB *db, PgfRevision revision,
         ref<PgfPGF> pgf = db->revision2pgf(revision);
 
         PgfExhaustiveGenerator *gen = new PgfExhaustiveGenerator(pgf, depth, m, u);
+        for (size_t i = 0; i < n_concr_revisions; i++) {
+            gen->addConcr(db->revision2concr(concr_revisions[i]));
+        }
         m->match_type(gen, type);
         return gen;
     } PGF_API_END
