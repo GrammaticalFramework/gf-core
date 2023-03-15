@@ -1733,6 +1733,10 @@ __forceinline bool AllClear(unsigned __int32 lock)
 
 void PgfDB::lock(DB_scope_mode m)
 {
+	// If another process has resized the file we must resize the map
+	if (mmap_size != ms->file_size)
+		resize_map(ms->file_size, m == WRITER_SCOPE);
+
     if (m == READER_SCOPE) {
 #ifndef _WIN32
         int res = pthread_rwlock_rdlock(&ms->rwlock);
@@ -1767,10 +1771,6 @@ void PgfDB::lock(DB_scope_mode m)
         }
 #endif
     }
-
-	// If another process has resized the file we must resize the map
-	if (mmap_size != ms->file_size)
-		resize_map(ms->file_size, m == WRITER_SCOPE);
 }
 
 void PgfDB::unlock()
