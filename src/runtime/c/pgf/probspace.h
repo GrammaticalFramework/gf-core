@@ -73,7 +73,8 @@ void probspace_iter(PgfProbspace space, PgfText *cat,
  * the given category */
 PGF_INTERNAL_DECL
 ref<PgfAbsFun> probspace_random(PgfProbspace space,
-                                PgfText *cat, prob_t rand);
+                                PgfText *cat, prob_t rand,
+                                const std::set<ref<PgfAbsFun>> &excluded);
 
 PGF_INTERNAL_DECL
 void probspace_release(PgfProbspace space);

@@ -173,42 +173,49 @@ again:  {
     }
 
     PgfExpr expr = 0;
-    PgfExpr var_expr = 0;
+    std::set<ref<PgfAbsFun>> excluded;
 
-    int index = 0;
-    Scope *sc = scope;
-    auto tmp = m;
-    while (sc != NULL) {
-        m = sc->m;
-        PgfVarGenerator v_gen(this, index, cat, n_exprs, exprs);
-        expr = m->match_type(&v_gen, sc->type);
-        if (expr != 0) {
-            if (rand() < VAR_PROB) {
-                prob += -log(VAR_PROB);
-                break;
-            } else {
-                prob += -log(1-VAR_PROB);
-                if (var_expr != 0)
-                    u->free_ref(var_expr);
-                var_expr = expr;
-                expr = 0;
+    prob_t save_prob = prob;
+    prob_t total_prob = 1;
+    for (;;) {
+        prob = save_prob;
+
+        int index = 0;
+        Scope *sc = scope;
+        auto tmp = m;
+        while (sc != NULL) {
+            m = sc->m;
+            PgfVarGenerator v_gen(this, index, cat, n_exprs, exprs);
+            expr = m->match_type(&v_gen, sc->type);
+            if (expr != 0) {
+                if (rand() < VAR_PROB) {
+                    prob += -log(VAR_PROB);
+                    break;
+                } else {
+                    prob += -log(1-VAR_PROB);
+                    u->free_ref(expr);
+                    expr = 0;
+                }
             }
+            sc = sc->next;
+            index++;
         }
-        sc = sc->next;
-        index++;
-    }
-    m = tmp;
+        m = tmp;
 
-    if (expr == 0) {
+        if (expr != 0)
+            break;
+
         if (strcmp(cat->text, "Int") == 0) {
             uintmax_t value = 999;
             PgfLiteral lint = u->lint(1,&value);
             expr = u->elit(lint);
             u->free_ref(lint);
+            break;
         } else if (strcmp(cat->text, "Float") == 0) {
             PgfLiteral lflt = u->lflt(3.14);
             expr = u->elit(lflt);
             u->free_ref(lflt);
+            break;
         } else if (strcmp(cat->text, "String") == 0) {
             PgfText *value = (PgfText *) alloca(sizeof(PgfText)+4);
             value->size = 3;
@@ -217,25 +224,26 @@ again:  {
             PgfLiteral lstr = u->lstr(value);
             expr = u->elit(lstr);
             u->free_ref(lstr);
+            break;
         } else {
-            prob_t rand_value = rand();
+            prob_t rand_value = rand() * total_prob;
 
-            ref<PgfAbsFun> fun = probspace_random(pgf->abstract.funs_by_cat, cat, rand_value);
+            ref<PgfAbsFun> fun =
+                probspace_random(pgf->abstract.funs_by_cat, cat, rand_value, excluded);
+            if (fun == 0)
+                return 0;
 
-            if (!function_has_lins(&fun->name))
-                fun = 0;
-
-            if (fun == 0) {
-                if (var_expr != 0) {
-                    prob += -log(VAR_PROB/(1-VAR_PROB));
-                    expr = var_expr;
-                }
+            if (!function_has_lins(&fun->name)) {
+                excluded.insert(fun);
+                total_prob -= exp(-fun->prob);
+                if (total_prob < 0)  // possible because of rounding
+                    total_prob = 0;
             } else {
-                if (depth > 0 || fun->type->hypos->len > 0) {
+                ref<Vector<PgfHypo>> hypos = fun->type->hypos;
+                if (depth > ((hypos->len > 0) ? 1 : 0)) {
                     prob += fun->prob;
                     expr = u->efun(&fun->name);
 
-                    ref<Vector<PgfHypo>> hypos = fun->type->hypos;
                     PgfTypeHypo *t_hypos = (PgfTypeHypo *)
                         alloca(hypos->len * sizeof(PgfTypeHypo));
                     for (size_t i = 0; i < hypos->len; i++) {
@@ -248,19 +256,25 @@ again:  {
                     expr = descend(expr, hypos->len, t_hypos);
                     this->m = tmp;
                 }
+
+                if (expr != 0)
+                    break;
+
+                excluded.insert(fun);
+                total_prob -= exp(-fun->prob);
+                if (total_prob < 0)  // possible because of rounding
+                    total_prob = 0;
             }
         }
     }
 
-    if (expr != 0) {
-        while (scope != entry_scope) {
-            PgfExpr abs_expr = u->eabs(scope->bind_type, &scope->var, expr);
-            u->free_ref(expr);
-            expr = abs_expr;
-            Scope *next = scope->next;
-            free(scope);
-            scope = next;
-        }
+    while (scope != entry_scope) {
+        PgfExpr abs_expr = u->eabs(scope->bind_type, &scope->var, expr);
+        u->free_ref(expr);
+        expr = abs_expr;
+        Scope *next = scope->next;
+        free(scope);
+        scope = next;
     }
 
     return expr;
@@ -269,9 +283,10 @@ again:  {
 PgfExpr PgfRandomGenerator::descend(PgfExpr expr,
                                     size_t n_hypos, PgfTypeHypo *hypos)
 {
-    depth--;
     for (size_t i = 0; i < n_hypos; i++) {
+        depth--;
         PgfExpr arg = m->match_type(this, hypos[i].type);
+        depth++;
         if (arg == 0) {
             u->free_ref(expr);
             return 0;
@@ -287,7 +302,6 @@ PgfExpr PgfRandomGenerator::descend(PgfExpr expr,
         u->free_ref(expr);
         expr = app;
     }
-    depth++;
 
     return expr;
 }

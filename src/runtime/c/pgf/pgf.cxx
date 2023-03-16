@@ -1205,18 +1205,14 @@ PgfExpr pgf_generate_random(PgfDB *db, PgfRevision revision,
 
         ref<PgfPGF> pgf = db->revision2pgf(revision);
 
-        // Generation may fail for certain random choices, but succeed
-        // for others. We try 10 time to increase the chance of succeess.
-        for (size_t i = 0; i < 10; i++) {
-            PgfRandomGenerator gen(pgf, depth, seed, m, u);
-            for (size_t i = 0; i < n_concr_revisions; i++) {
-                gen.addConcr(db->revision2concr(concr_revisions[i]));
-            }
-            PgfExpr expr = m->match_type(&gen, type);
-            if (expr != 0) {
-                *prob = gen.getProb();
-                return expr;
-            }
+        PgfRandomGenerator gen(pgf, depth, seed, m, u);
+        for (size_t i = 0; i < n_concr_revisions; i++) {
+            gen.addConcr(db->revision2concr(concr_revisions[i]));
+        }
+        PgfExpr expr = m->match_type(&gen, type);
+        if (expr != 0) {
+            *prob = gen.getProb();
+            return expr;
         }
     } PGF_API_END
 
@@ -1237,18 +1233,14 @@ PgfExpr pgf_generate_random_from
 
         ref<PgfPGF> pgf = db->revision2pgf(revision);
 
-        // Generation may fail for certain random choices, but succeed
-        // for others. We try 10 time to increase the chance of succeess.
-        for (size_t i = 0; i < 10; i++) {
-            PgfRandomGenerator gen(pgf, depth, seed, m, u);
-            for (size_t i = 0; i < n_concr_revisions; i++) {
-                gen.addConcr(db->revision2concr(concr_revisions[i]));
-            }
-            PgfExpr new_expr = m->match_expr(&gen, expr);
-            if (new_expr != 0) {
-                *prob = gen.getProb();
-                return new_expr;
-            }
+        PgfRandomGenerator gen(pgf, depth, seed, m, u);
+        for (size_t i = 0; i < n_concr_revisions; i++) {
+            gen.addConcr(db->revision2concr(concr_revisions[i]));
+        }
+        PgfExpr new_expr = m->match_expr(&gen, expr);
+        if (new_expr != 0) {
+            *prob = gen.getProb();
+            return new_expr;
         }
     } PGF_API_END
 

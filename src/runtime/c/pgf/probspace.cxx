@@ -204,50 +204,51 @@ void probspace_iter(PgfProbspace space, PgfText *cat,
     }
 }
 
+struct PGF_INTERNAL RSState {
+    const std::set<ref<PgfAbsFun>> &excluded;
+    prob_t rand;
+    ref<PgfAbsFun> result;
+};
+                      
 static
-ref<PgfAbsFun> probspace_random(PgfProbspace space,
-                                PgfText *cat, prob_t *rand, 
-                                bool is_last)
+bool probspace_random(PgfProbspace space, PgfText *cat, 
+                      RSState *st)
 {
     if (space == 0)
-        return 0;
+        return false;
 
     int cmp = textcmp(cat,&(*space->value.cat));
     if (cmp < 0) {
-        return probspace_random(space->left, cat, rand, true);
+        return probspace_random(space->left, cat, st);
     } else if (cmp > 0) {
-        return probspace_random(space->right, cat, rand, true);
+        return probspace_random(space->right, cat, st);
     } else {
-        ref<PgfAbsFun> fun;
-        
-        fun = probspace_random(space->left, cat, rand, false);
-        if (fun != 0)
-            return fun;
+        if (probspace_random(space->left, cat, st))
+            return true;
 
         bool is_res = space->value.is_result();
-        if (is_res) {
-            *rand -= exp(-space->value.fun->prob);
-            if (*rand <= 0)
-                return space->value.fun;
+        if (is_res && !st->excluded.count(space->value.fun)) {
+            st->rand  -= exp(-space->value.fun->prob);
+            st->result = space->value.fun;
+            if (st->rand <= 0)
+                return true;
         }
 
-        fun = probspace_random(space->right, cat, rand, is_last);
-        if (fun != 0)
-            return fun;
-        if (is_last && is_res) {
-            // necessary due to floating point rounding
-            return space->value.fun;
-        }
+        if (probspace_random(space->right, cat, st))
+            return true;
     }
 
-    return 0;
+    return false;
 }
 
 PGF_INTERNAL
 ref<PgfAbsFun> probspace_random(PgfProbspace space,
-                                PgfText *cat, prob_t rand)
+                                PgfText *cat, prob_t rand,
+                                const std::set<ref<PgfAbsFun>> &excluded)
 {
-    return probspace_random(space,cat,&rand,true);
+    RSState st = {excluded, rand, 0};
+    probspace_random(space,cat,&st);
+    return st.result;
 }
 
 PGF_INTERNAL

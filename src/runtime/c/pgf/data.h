@@ -8,6 +8,7 @@
 #include <functional>
 #include <queue>
 #include <map>
+#include <set>
 
 #include "pgf.h"
 

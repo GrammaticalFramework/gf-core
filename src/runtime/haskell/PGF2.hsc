@@ -1005,14 +1005,16 @@ generateAllDepth :: PGF -> Type -> Int -> [(Expr,Float)]
 generateAllDepth p ty dp = generateAllExt p ty dp []
 
 generateAllExt :: PGF -> Type -> Int -> [Concr] -> [(Expr,Float)]
-generateAllExt p ty dp cs =
-  unsafePerformIO $
-  bracket (newStablePtr ty) freeStablePtr $ \c_ty ->
-  withForeignPtr (a_revision p) $ \a_revision ->
-  withPgfConcrs cs $ \c_db c_revisions n_revisions ->
-  mask_ $ do
-    c_enum <- withPgfExn "generateAllExt" (pgf_generate_all (a_db p) a_revision c_revisions n_revisions c_ty (fromIntegral dp) marshaller unmarshaller)
-    enumerateExprs (a_db p) c_enum
+generateAllExt p ty dp cs
+  | dp <= 0   = []
+  | otherwise = 
+      unsafePerformIO $
+      bracket (newStablePtr ty) freeStablePtr $ \c_ty ->
+      withForeignPtr (a_revision p) $ \a_revision ->
+      withPgfConcrs cs $ \c_db c_revisions n_revisions ->
+      mask_ $ do
+        c_enum <- withPgfExn "generateAllExt" (pgf_generate_all (a_db p) a_revision c_revisions n_revisions c_ty (fromIntegral dp) marshaller unmarshaller)
+        enumerateExprs (a_db p) c_enum
 
 generateAllFrom :: PGF -> Expr -> [(Expr,Float)]
 generateAllFrom p ty = generateAllFromExt p ty maxBound []
@@ -1033,9 +1035,10 @@ generateRandomDepth :: RandomGen g => g -> PGF -> Type -> Int -> [(Expr,Float)]
 generateRandomDepth g p ty dp = generateRandomExt g p ty dp []
 
 generateRandomExt :: RandomGen g => g -> PGF -> Type -> Int -> [Concr] -> [(Expr,Float)]
-generateRandomExt g p ty dp cs =
-  let (seed,_) = random g
-  in generate seed
+generateRandomExt g p ty dp cs
+  | dp <= 0   = []
+  | otherwise = let (seed,_) = random g
+                in generate seed
   where
     generate seed =
       unsafePerformIO $
@@ -1062,9 +1065,10 @@ generateRandomFromDepth :: RandomGen g => g -> PGF -> Expr -> Int -> [(Expr,Floa
 generateRandomFromDepth g p e dp = generateRandomFromExt g p e dp []
 
 generateRandomFromExt :: RandomGen g => g -> PGF -> Expr -> Int -> [Concr] -> [(Expr,Float)]
-generateRandomFromExt g p e dp cs =
-  let (seed,_) = random g
-  in generate seed
+generateRandomFromExt g p e dp cs
+  | dp <= 0   = []
+  | otherwise = let (seed,_) = random g
+                in generate seed
   where
     generate seed =
       unsafePerformIO $
