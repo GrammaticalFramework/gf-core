@@ -574,7 +574,7 @@ void PgfExhaustiveGenerator::State1::combine(PgfExhaustiveGenerator *gen,
     app_state->type   = type;
     app_state->n_args = n_args+1;
     app_state->expr   = app;
-    app_state->depth  = std::max(this->depth,p.depth+1);
+    app_state->depth  = std::max<size_t>(this->depth,p.depth+1);
     gen->queue.push(app_state);
 }
 
