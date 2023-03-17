@@ -100,15 +100,28 @@ class PGF_INTERNAL_DECL PgfExhaustiveGenerator : public PgfGenerator, public Pgf
         virtual bool process(PgfExhaustiveGenerator *gen);
     };
 
+    struct ExprInstance {
+        PgfExpr expr;
+        prob_t prob;
+        size_t depth;
+
+        ExprInstance(PgfExpr expr, prob_t prob, size_t depth) {
+            this->expr = expr;
+            this->prob = prob;
+            this->depth = depth;
+        }
+    };
+
     struct State1 : State {
         ref<PgfDTyp> type;
         size_t n_args;
         PgfExpr expr;
+        size_t depth;
 
         virtual bool process(PgfExhaustiveGenerator *gen);
         virtual void free_refs(PgfUnmarshaller *u);
         void combine(PgfExhaustiveGenerator *gen, 
-                     Scope *scope, PgfExpr expr, prob_t prob);
+                     Scope *scope, ExprInstance &p);
         void complete(PgfExhaustiveGenerator *gen);
     };
 
@@ -119,7 +132,7 @@ class PGF_INTERNAL_DECL PgfExhaustiveGenerator : public PgfGenerator, public Pgf
         Scope *scope;
         size_t scope_len;
         std::vector<State1*> states;
-        std::vector<std::pair<PgfExpr,prob_t>> exprs;
+        std::vector<ExprInstance> exprs;
 
         Result() {
             this->ref_count = 0;
