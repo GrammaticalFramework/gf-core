@@ -127,6 +127,19 @@ class PGF_INTERNAL_DECL PgfExhaustiveGenerator : public PgfGenerator, public Pgf
 
     typedef std::pair<ref<PgfText>,Scope*> Goal;
 
+    class CompareGoal : public std::less<Goal> {
+    public:
+        bool operator() (const Goal &g1, const Goal &g2) const {
+            int cmp = textcmp(g1.first,g2.first);
+            if (cmp < 0)
+                return true;
+            else if (cmp > 0)
+                return false;
+
+            return (g1.second < g2.second);
+        }
+    };
+
     struct Result {
         size_t ref_count;
         Scope *scope;
@@ -154,7 +167,7 @@ class PGF_INTERNAL_DECL PgfExhaustiveGenerator : public PgfGenerator, public Pgf
         }
     };
 
-    std::map<Goal, Result*> results;
+    std::map<Goal, Result*, CompareGoal> results;
     std::priority_queue<State*, std::vector<State*>, CompareState> queue;
     std::vector<Scope*> scopes;
 
