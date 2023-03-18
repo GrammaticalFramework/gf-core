@@ -510,7 +510,12 @@ void pgf_iter_functions_by_cat(PgfDB *db, PgfRevision revision,
         DB_scope scope(db, READER_SCOPE);
         ref<PgfPGF> pgf = db->revision2pgf(revision);
 
-        probspace_iter(pgf->abstract.funs_by_cat, cat, itor, false, err);
+        std::function<bool(ref<PgfAbsFun>)> f =
+            [itor,err](ref<PgfAbsFun> fun) {
+                itor->fn(itor, &fun->name, fun.as_object(), err);
+                return (err->type == PGF_EXN_NONE);
+            };
+        probspace_iter(pgf->abstract.funs_by_cat, cat, f, false);
     } PGF_API_END
 }
 
@@ -2239,13 +2244,6 @@ void pgf_create_lincat(PgfDB *db,
     } PGF_API_END
 }
 
-static
-void iter_drop_lincat_helper(PgfItor *itor, PgfText *key, object value, PgfExn *err)
-{
-    ref<PgfConcr> concr = ((PgfDropItor*) itor)->concrete;
-    drop_lin(concr, key);
-}
-
 PGF_API
 void pgf_drop_lincat(PgfDB *db,
                      PgfRevision revision,PgfConcrRevision cnc_revision,
@@ -2265,13 +2263,12 @@ void pgf_drop_lincat(PgfDB *db,
 
             // Remove the linearizations of all functions that
             // depend on it.
-            PgfDropItor itor;
-            itor.fn       = iter_drop_lincat_helper;
-            itor.pgf      = pgf;
-            itor.concrete = concr;
-            itor.name     = name;
-            probspace_iter(pgf->abstract.funs_by_cat, name,
-                           &itor, true, err);
+            std::function<bool(ref<PgfAbsFun>)> f =
+                [concr](ref<PgfAbsFun> fun) {
+                    drop_lin(concr, &fun->name);
+                    return true;
+                };
+            probspace_iter(pgf->abstract.funs_by_cat, name, f, true);
 
             // Remove the sequences comprizing the lindef and linref
             object container = lincat.tagged();

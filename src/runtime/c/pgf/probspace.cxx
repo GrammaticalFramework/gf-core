@@ -172,35 +172,27 @@ PgfProbspace probspace_delete_by_cat(PgfProbspace space, PgfText *cat,
     }
 }
 
-void probspace_iter(PgfProbspace space, PgfText *cat,
-                    PgfItor* itor, bool all, PgfExn *err)
+bool probspace_iter(PgfProbspace space, PgfText *cat,
+                    std::function<bool(ref<PgfAbsFun>)> &f, bool all)
 {
     if (space == 0)
-        return;
+        return true;
 
     int cmp = textcmp(cat,&(*space->value.cat));
     if (cmp < 0) {
-        probspace_iter(space->left, cat, itor, all, err);
-        if (err->type != PGF_EXN_NONE)
-            return;
+        return probspace_iter(space->left, cat, f, all);
     } else if (cmp > 0) {
-        probspace_iter(space->right, cat, itor, all, err);
-        if (err->type != PGF_EXN_NONE)
-            return;
+        return probspace_iter(space->right, cat, f, all);
     } else {
-        probspace_iter(space->left, cat, itor, all, err);
-        if (err->type != PGF_EXN_NONE)
-            return;
+        if (!probspace_iter(space->left, cat, f, all))
+            return false;
 
         if (all || space->value.is_result()) {
-            itor->fn(itor, &space->value.fun->name, space->value.fun.as_object(), err);
-            if (err->type != PGF_EXN_NONE)
-                return;
+            if (!f(space->value.fun))
+                return false;
         }
 
-        probspace_iter(space->right, cat, itor, all, err);
-        if (err->type != PGF_EXN_NONE)
-            return;
+        return probspace_iter(space->right, cat, f, all);
     }
 }
 

@@ -658,7 +658,7 @@ void namespace_iter_prefix(Namespace<V> map, PgfText *prefix, PgfItor* itor, Pgf
 }
 
 template <class V>
-Namespace<V> namespace_map(Namespace<V> map, std::function<ref<V>(ref<V>)> f)
+Namespace<V> namespace_map(Namespace<V> map, std::function<ref<V>(ref<V>)> &f)
 {
     if (map != 0) {
         auto left  = namespace_map(map->left, f);

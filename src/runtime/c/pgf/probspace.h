@@ -66,8 +66,8 @@ PgfProbspace probspace_delete_by_cat(PgfProbspace space, PgfText *cat,
                                      PgfItor* itor, PgfExn *err);
 
 PGF_INTERNAL_DECL
-void probspace_iter(PgfProbspace space, PgfText *cat,
-                    PgfItor* itor, bool all, PgfExn *err);
+bool probspace_iter(PgfProbspace space, PgfText *cat,
+                    std::function<bool(ref<PgfAbsFun>)> &f, bool all);
 
 /* Given a random number from 0 to 1, select a random function from
  * the given category */
