@@ -1865,7 +1865,7 @@ MOD_INIT(pgf)
         PyObject *meta_path = PyObject_GetAttrString(sys, "meta_path");
         Py_DECREF(sys);
         if (meta_path != NULL) {
-            PyList_Insert(meta_path, 0, (PyObject*) &pgf_GrammarImporterType);
+            PyList_Append(meta_path, (PyObject*) &pgf_GrammarImporterType);
             Py_DECREF(meta_path);
         }
     }
