@@ -6,7 +6,9 @@
 #include "./expr.h"
 #include "./ffi.h"
 #include "./transactions.h"
+#ifndef _WIN32
 #include <dirent.h>
+#endif
 
 static ConcrObject*
 Concr_new(PyTypeObject *type, PyObject *args, PyObject *kwds)
