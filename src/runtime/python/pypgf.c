@@ -1297,7 +1297,11 @@ GrammarImporter_find_spec(PyTypeObject *class, PyObject *args)
                 (PyUnicode_GET_LENGTH(dir) == 0) ? PyUnicode_FromFormat("%U.pgf", name)
                                                  : PyUnicode_FromFormat("%U/%U.pgf", dir, name);
             const char *fpath = PyUnicode_AsUTF8(py_fpath);
+#ifdef _WIN32
+            if (access(fpath, 0) == 0) {
+#else
             if (access(fpath, F_OK) == 0) {
+#endif
                 py_importer = (GrammarImporterObject *)class->tp_alloc(class, 0);
                 py_importer->package_path = get_package_path(dir,name);
                 py_importer->grammar_path = py_fpath;
