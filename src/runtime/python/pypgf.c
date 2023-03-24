@@ -6,6 +6,7 @@
 #include "./expr.h"
 #include "./ffi.h"
 #include "./transactions.h"
+#include <dirent.h>
 
 static ConcrObject*
 Concr_new(PyTypeObject *type, PyObject *args, PyObject *kwds)
@@ -1029,6 +1030,8 @@ typedef struct {
     PyObject_HEAD
     PyObject* dict;
     PyObject* modname;
+    PyObject* package_path;
+    PyObject* grammar_path;
     PGFObject* grammar;
 } EmbeddedGrammarObject;
 
@@ -1058,16 +1061,14 @@ static PyObject *EmbeddedGrammar_getattro(EmbeddedGrammarObject *self, PyObject 
     return PyObject_GenericGetAttr((PyObject*) self, py_attr);
 }
 
-static PyObject *
-EmbeddedGrammar_getFilePath(EmbeddedGrammarObject *self, void *closure)
-{
-    return PyUnicode_FromString(pgf_file_path(self->grammar->db));
-}
-
 static PyObject*
 EmbeddedGrammar_str(EmbeddedGrammarObject *self)
 {
-    return PyUnicode_FromFormat("<embedded grammar '%U' from '%s'>", self->modname, pgf_file_path(self->grammar->db));
+    if (self->grammar_path == Py_None) {
+        return PyUnicode_FromFormat("<embedded grammar '%U'>", self->modname);
+    } else {
+        return PyUnicode_FromFormat("<embedded grammar '%U' from '%U'>", self->modname, self->grammar_path);
+    }
 }
 
 static void
@@ -1075,22 +1076,18 @@ EmbeddedGrammar_dealloc(EmbeddedGrammarObject* self)
 {
     Py_XDECREF(self->dict);
     Py_XDECREF(self->modname);
+    Py_XDECREF(self->package_path);
+    Py_XDECREF(self->grammar_path);
     Py_XDECREF(self->grammar);
 }
 
 static PyMemberDef EmbeddedGrammar_members[] = {
     {"__name__", T_OBJECT, offsetof(EmbeddedGrammarObject, modname), READONLY, NULL},
+    {"__path__", T_OBJECT, offsetof(EmbeddedGrammarObject, package_path), READONLY, NULL},
+    {"__file__", T_OBJECT, offsetof(EmbeddedGrammarObject, grammar_path), READONLY, NULL},
     {"__dict__", T_OBJECT, offsetof(EmbeddedGrammarObject, dict),    READONLY, NULL},
     {"__pgf__",  T_OBJECT, offsetof(EmbeddedGrammarObject, grammar), READONLY, NULL},
     {NULL}
-};
-
-static PyGetSetDef EmbeddedGrammar_getseters[] = {
-    {"__file__",
-     (getter)EmbeddedGrammar_getFilePath, NULL,
-     "the path to the grammar file",
-     NULL},
-    {NULL}  /* Sentinel */
 };
 
 static PyTypeObject pgf_EmbeddedGrammarType = {
@@ -1123,7 +1120,7 @@ static PyTypeObject pgf_EmbeddedGrammarType = {
     0,		                                  /*tp_iternext */
     0,                                        /*tp_methods */
     EmbeddedGrammar_members,                  /*tp_members */
-    EmbeddedGrammar_getseters,                /*tp_getset */
+    0,                                        /*tp_getset */
     0,                                        /*tp_base */
     0,                                        /*tp_dict */
     0,                                        /*tp_descr_get */
@@ -1153,7 +1150,7 @@ PGF_embed(PGFObject* self, PyObject *modname)
         PyErr_Clear();
     }
 
-    EmbeddedGrammarObject *py_embedding = 
+    EmbeddedGrammarObject *py_embedding =
         (EmbeddedGrammarObject *) pgf_EmbeddedGrammarType.tp_alloc(&pgf_EmbeddedGrammarType, 0);
 	if (py_embedding == NULL) {
 		return NULL;
@@ -1161,6 +1158,19 @@ PGF_embed(PGFObject* self, PyObject *modname)
 
     py_embedding->modname = modname; Py_INCREF(modname);
     py_embedding->grammar = self;    Py_INCREF(self);
+
+    const char *fpath = pgf_file_path(self->db);
+    if (fpath == NULL) {
+        py_embedding->grammar_path = Py_None; Py_INCREF(Py_None);
+    } else {
+        py_embedding->grammar_path = PyUnicode_FromString(fpath);
+    }
+
+    if (module == NULL) {
+        py_embedding->package_path = PyList_New(0);
+    } else {
+        py_embedding->package_path = PyObject_GetAttrString(module, "__path__");
+    }
 
     if (module == NULL) {
         py_embedding->dict = PyDict_New();
@@ -1175,6 +1185,194 @@ PGF_embed(PGFObject* self, PyObject *modname)
 
     return (PyObject*) py_embedding;
 }
+
+typedef struct {
+    PyObject_HEAD
+    PyObject *package_path;
+    PyObject *grammar_path;
+    int is_pgf;
+} GrammarImporterObject;
+
+static void
+GrammarImporter_dealloc(GrammarImporterObject* self)
+{
+    Py_DECREF(self->package_path);
+    Py_DECREF(self->grammar_path);
+}
+
+static PyObject *get_package_path(PyObject *dir,PyObject *name)
+{
+    PyObject *py_fpath = 
+        (PyUnicode_GET_LENGTH(dir) == 0) ? PyUnicode_FromFormat("%U", name)
+                                         : PyUnicode_FromFormat("%U/%U", dir, name);
+    const char *fpath = PyUnicode_AsUTF8(py_fpath);
+    DIR* dirent = opendir(fpath);
+    if (dirent) {
+        closedir(dirent);
+        PyObject *path = PyList_New(1);
+        PyList_SET_ITEM(path, 0, py_fpath);
+        return path;
+    } else {
+        Py_DECREF(py_fpath);
+        return PyList_New(0);
+    }
+}
+
+static PyObject *
+GrammarImporter_find_spec(PyTypeObject *class, PyObject *args)
+{
+    PyObject *name, *path, *target;
+    if (!PyArg_ParseTuple(args, "UOO", &name, &path, &target))
+        return NULL;
+
+    PyObject *parts = PyObject_CallMethod(name, "rpartition", "s", ".");
+    if (parts == NULL)
+        return NULL;
+    name = PyTuple_GET_ITEM(parts, 2);
+
+    if (path == Py_None) {
+        PyObject *sys = PyImport_ImportModule("sys");
+        if (sys == NULL) {
+            Py_DECREF(parts);
+            return NULL;
+        }
+        path = PyObject_GetAttrString(sys, "path");
+        Py_DECREF(sys);
+    } else {
+        Py_INCREF(path);
+    }
+
+    PyObject *iterator = PyObject_GetIter(path);
+    if (iterator == NULL) {
+        Py_DECREF(parts);
+        Py_DECREF(path);
+        return NULL;
+    }
+
+    GrammarImporterObject *py_importer = NULL;
+
+    for (;;) {
+        PyObject *dir = PyIter_Next(iterator);
+        if (dir == NULL)
+            break;
+
+        {
+            PyObject *py_fpath = 
+                (PyUnicode_GET_LENGTH(dir) == 0) ? PyUnicode_FromFormat("%U.pgf", name)
+                                                 : PyUnicode_FromFormat("%U/%U.pgf", dir, name);
+            const char *fpath = PyUnicode_AsUTF8(py_fpath);
+            if (access(fpath, F_OK) == 0) {
+                py_importer = (GrammarImporterObject *)class->tp_alloc(class, 0);
+                py_importer->package_path = get_package_path(dir,name);
+                py_importer->grammar_path = py_fpath;
+                py_importer->is_pgf = 1;
+                Py_DECREF(dir);
+                break;
+            }
+            Py_DECREF(py_fpath);
+        }
+
+        {
+            PyObject *py_fpath = 
+                (PyUnicode_GET_LENGTH(dir) == 0) ? PyUnicode_FromFormat("%U.ngf", name)
+                                                 : PyUnicode_FromFormat("%U/%U.ngf", dir, name);
+            const char *fpath = PyUnicode_AsUTF8(py_fpath);
+            if (access(fpath, F_OK) == 0) {
+                py_importer = (GrammarImporterObject *)class->tp_alloc(class, 0);
+                py_importer->package_path = get_package_path(dir,name);
+                py_importer->grammar_path = py_fpath;
+                py_importer->is_pgf = 0;
+                Py_DECREF(dir);
+                break;
+            }
+            Py_DECREF(py_fpath);
+        }
+
+        Py_DECREF(dir);
+    }
+
+    Py_DECREF(iterator);
+    Py_DECREF(path);
+
+    if (py_importer == NULL) {
+        Py_DECREF(parts);
+        Py_RETURN_NONE;
+    }
+
+    PyObject *machinery = PyImport_ImportModule("importlib.machinery");
+    if (machinery == NULL) {
+        Py_DECREF(parts);
+        return NULL;
+    }
+
+    PyObject *py_spec =
+        PyObject_CallMethod(machinery, "ModuleSpec", "OO", name, py_importer);
+
+    Py_DECREF(py_importer);
+    Py_DECREF(parts);
+
+    return py_spec;
+}
+
+static PyObject *
+GrammarImporter_create_module(GrammarImporterObject *self, PyObject *spec);
+
+static PyObject *
+GrammarImporter_exec_module(PyTypeObject *class, PyObject *module)
+{
+    Py_RETURN_NONE;
+}
+
+static PyMethodDef GrammarImporter_methods[] = {
+    {"find_spec", (PyCFunction)GrammarImporter_find_spec, METH_VARARGS | METH_CLASS,
+     "Finds a grammar and returns a module specification"},
+    {"create_module", (PyCFunction)GrammarImporter_create_module, METH_O,
+     "Creates a module"},
+    {"exec_module", (PyCFunction)GrammarImporter_exec_module, METH_O,
+     "Executes a module"},
+    {NULL}  /* Sentinel */
+};
+
+static PyTypeObject pgf_GrammarImporterType = {
+    PyVarObject_HEAD_INIT(NULL, 0)
+    "pgf.GrammarImporter",                    /*tp_name*/
+    sizeof(GrammarImporterObject),            /*tp_basicsize*/
+    0,                                        /*tp_itemsize*/
+    (destructor)GrammarImporter_dealloc,      /*tp_dealloc*/
+    0,                                        /*tp_print*/
+    0,                                        /*tp_getattr*/
+    0,                                        /*tp_setattr*/
+    0,                                        /*tp_compare*/
+    0,                                        /*tp_repr*/
+    0,                                        /*tp_as_number*/
+    0,                                        /*tp_as_sequence*/
+    0,                                        /*tp_as_mapping*/
+    0,                                        /*tp_hash */
+    0,                                        /*tp_call*/
+    0,                                        /*tp_str*/
+    0,                                        /*tp_getattro*/
+    0,                                        /*tp_setattro*/
+    0,                                        /*tp_as_buffer*/
+    Py_TPFLAGS_DEFAULT | Py_TPFLAGS_BASETYPE, /*tp_flags*/
+    "a finder for grammars as Python modules",/*tp_doc*/
+    0,		                                  /*tp_traverse */
+    0,	            	                      /*tp_clear */
+    0,		                                  /*tp_richcompare */
+    0,		                                  /*tp_weaklistoffset */
+    0,		                                  /*tp_iter */
+    0,		                                  /*tp_iternext */
+    GrammarImporter_methods,                  /*tp_methods */
+    0,                                        /*tp_members */
+    0,                                        /*tp_getset */
+    0,                                        /*tp_base */
+    0,                                        /*tp_dict */
+    0,                                        /*tp_descr_get */
+    0,                                        /*tp_descr_set */
+    0,                                        /*tp_dictoffset */
+    0,                                        /*tp_init */
+    0,                                        /*tp_alloc */
+    0,                                        /*tp_new */
+};
 
 #endif
 
@@ -1264,6 +1462,38 @@ static PyTypeObject pgf_PGFType = {
     0,                         /*tp_alloc */
     0,                         /*tp_new */
 };
+
+#if PY_VERSION_HEX >= 0x03080000
+static PyObject *
+GrammarImporter_create_module(GrammarImporterObject *self, PyObject *spec)
+{
+    PGFObject *py_pgf = (PGFObject *)pgf_PGFType.tp_alloc(&pgf_PGFType, 0);
+
+    PgfExn err;
+    const char *fpath = PyUnicode_AsUTF8(self->grammar_path);
+    py_pgf->db = self->is_pgf ? pgf_read_pgf(fpath, &py_pgf->revision, NULL, &err)
+                              : pgf_read_ngf(fpath, &py_pgf->revision, &err);
+    if (handleError(err) != PGF_EXN_NONE) {
+        Py_DECREF(py_pgf);
+        return NULL;
+    }
+
+    EmbeddedGrammarObject *py_embedding =
+        (EmbeddedGrammarObject *) pgf_EmbeddedGrammarType.tp_alloc(&pgf_EmbeddedGrammarType, 0);
+	if (py_embedding == NULL) {
+        Py_DECREF(py_pgf);
+		return NULL;
+	}
+
+    py_embedding->modname = PyObject_GetAttrString(spec, "name");
+    py_embedding->package_path = self->package_path; Py_INCREF(self->package_path);
+    py_embedding->grammar_path = self->grammar_path; Py_INCREF(self->grammar_path);
+    py_embedding->grammar = py_pgf;
+    py_embedding->dict = PyDict_New();
+
+    return (PyObject*) py_embedding;
+}
+#endif
 
 // ----------------------------------------------------------------------------
 // pgf: the module
@@ -1576,11 +1806,12 @@ MOD_INIT(pgf)
     TYPE_READY(pgf_TypeType);
 #if PY_VERSION_HEX >= 0x03080000
     TYPE_READY(pgf_EmbeddedGrammarType);
+    TYPE_READY(pgf_GrammarImporterType);
 #endif
     TYPE_READY(pgf_BracketType);
     TYPE_READY(pgf_BINDType);
 
-    MOD_DEF(m, "pgf", "The Runtime for Portable Grammar Format in Python", module_methods);
+    MOD_DEF(m, "pgf", "The Runtime for the Portable Grammar Format in Python", module_methods);
     if (m == NULL)
         return MOD_ERROR_VAL;
 
@@ -1607,6 +1838,18 @@ MOD_INIT(pgf)
     ADD_TYPE_DIRECT("BIND_TYPE_EXPLICIT", Py_True);
     Py_INCREF(Py_False);
     ADD_TYPE_DIRECT("BIND_TYPE_IMPLICIT", Py_False);
+
+#if PY_VERSION_HEX >= 0x03080000
+    PyObject *sys = PyImport_ImportModule("sys");
+    if (sys != NULL) {
+        PyObject *meta_path = PyObject_GetAttrString(sys, "meta_path");
+        Py_DECREF(sys);
+        if (meta_path != NULL) {
+            PyList_Insert(meta_path, 0, (PyObject*) &pgf_GrammarImporterType);
+            Py_DECREF(meta_path);
+        }
+    }
+#endif
 
     return MOD_SUCCESS_VAL(m);
 }
