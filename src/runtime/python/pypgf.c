@@ -1258,22 +1258,6 @@ GrammarImporter_find_spec(PyTypeObject *class, PyObject *args)
 
         {
             PyObject *py_fpath = 
-                (PyUnicode_GET_LENGTH(dir) == 0) ? PyUnicode_FromFormat("%U.pgf", name)
-                                                 : PyUnicode_FromFormat("%U/%U.pgf", dir, name);
-            const char *fpath = PyUnicode_AsUTF8(py_fpath);
-            if (access(fpath, F_OK) == 0) {
-                py_importer = (GrammarImporterObject *)class->tp_alloc(class, 0);
-                py_importer->package_path = get_package_path(dir,name);
-                py_importer->grammar_path = py_fpath;
-                py_importer->is_pgf = 1;
-                Py_DECREF(dir);
-                break;
-            }
-            Py_DECREF(py_fpath);
-        }
-
-        {
-            PyObject *py_fpath = 
                 (PyUnicode_GET_LENGTH(dir) == 0) ? PyUnicode_FromFormat("%U.ngf", name)
                                                  : PyUnicode_FromFormat("%U/%U.ngf", dir, name);
             const char *fpath = PyUnicode_AsUTF8(py_fpath);
@@ -1282,6 +1266,22 @@ GrammarImporter_find_spec(PyTypeObject *class, PyObject *args)
                 py_importer->package_path = get_package_path(dir,name);
                 py_importer->grammar_path = py_fpath;
                 py_importer->is_pgf = 0;
+                Py_DECREF(dir);
+                break;
+            }
+            Py_DECREF(py_fpath);
+        }
+
+        {
+            PyObject *py_fpath = 
+                (PyUnicode_GET_LENGTH(dir) == 0) ? PyUnicode_FromFormat("%U.pgf", name)
+                                                 : PyUnicode_FromFormat("%U/%U.pgf", dir, name);
+            const char *fpath = PyUnicode_AsUTF8(py_fpath);
+            if (access(fpath, F_OK) == 0) {
+                py_importer = (GrammarImporterObject *)class->tp_alloc(class, 0);
+                py_importer->package_path = get_package_path(dir,name);
+                py_importer->grammar_path = py_fpath;
+                py_importer->is_pgf = 1;
                 Py_DECREF(dir);
                 break;
             }
