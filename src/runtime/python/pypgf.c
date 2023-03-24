@@ -1206,9 +1206,23 @@ static PyObject *get_package_path(PyObject *dir,PyObject *name)
         (PyUnicode_GET_LENGTH(dir) == 0) ? PyUnicode_FromFormat("%U", name)
                                          : PyUnicode_FromFormat("%U/%U", dir, name);
     const char *fpath = PyUnicode_AsUTF8(py_fpath);
+
+    int exists = 0;
+#ifdef _WIN32
+    if (_access(fpath, 0) == 0) {
+        struct _stat status;
+        _stat(fpath, &status);
+        exists = ((status.st_mode & S_IFDIR) != 0);
+    }
+#else
     DIR* dirent = opendir(fpath);
     if (dirent) {
+        exists = 1;
         closedir(dirent);
+    }
+#endif
+
+    if (exists) {
         PyObject *path = PyList_New(1);
         PyList_SET_ITEM(path, 0, py_fpath);
         return path;
@@ -1261,7 +1275,11 @@ GrammarImporter_find_spec(PyTypeObject *class, PyObject *args)
                 (PyUnicode_GET_LENGTH(dir) == 0) ? PyUnicode_FromFormat("%U.ngf", name)
                                                  : PyUnicode_FromFormat("%U/%U.ngf", dir, name);
             const char *fpath = PyUnicode_AsUTF8(py_fpath);
+#ifdef _WIN32
+            if (access(fpath, 0) == 0) {
+#else
             if (access(fpath, F_OK) == 0) {
+#endif
                 py_importer = (GrammarImporterObject *)class->tp_alloc(class, 0);
                 py_importer->package_path = get_package_path(dir,name);
                 py_importer->grammar_path = py_fpath;
