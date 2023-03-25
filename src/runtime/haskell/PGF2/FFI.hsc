@@ -267,7 +267,7 @@ foreign import ccall pgf_bracketed_linearize_all :: Ptr PgfDB -> Ptr Concr -> St
 
 foreign import ccall pgf_align_words :: Ptr PgfDB -> Ptr Concr -> StablePtr Expr -> Ptr PgfPrintContext -> Ptr PgfMarshaller -> Ptr CSize -> Ptr PgfExn -> IO (Ptr (Ptr PgfAlignmentPhrase))
 
-foreign import ccall pgf_parse :: Ptr PgfDB -> Ptr Concr -> StablePtr Type -> Ptr PgfMarshaller -> Ptr PgfText -> Ptr PgfExn -> IO (Ptr PgfExprEnum)
+foreign import ccall pgf_parse :: Ptr PgfDB -> Ptr Concr -> StablePtr Type -> Ptr PgfMarshaller -> Ptr PgfUnmarshaller -> Ptr PgfText -> Ptr PgfExn -> IO (Ptr PgfExprEnum)
 
 foreign import ccall "dynamic" callFetch :: Dynamic (Ptr PgfExprEnum -> Ptr PgfDB -> Ptr (#type prob_t) -> IO (StablePtr Expr))
 

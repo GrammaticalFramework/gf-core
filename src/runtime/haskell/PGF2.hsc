@@ -697,7 +697,7 @@ parse c ty sent =
   withForeignPtr (c_revision c) $ \c_revision ->
   bracket (newStablePtr ty) freeStablePtr $ \c_ty ->
   withText sent $ \c_sent -> do
-    c_enum <- withPgfExn "parse" (pgf_parse (c_db c) c_revision c_ty marshaller c_sent)
+    c_enum <- withPgfExn "parse" (pgf_parse (c_db c) c_revision c_ty marshaller unmarshaller c_sent)
     exprs <- enumerateExprs (c_db c) c_enum
     return (ParseOk exprs)
 
