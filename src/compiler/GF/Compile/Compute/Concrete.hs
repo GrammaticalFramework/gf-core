@@ -192,11 +192,13 @@ eval env t@(Glue t1 t2) []  = do v1 <- eval env t1 []
                                  let glue v =
                                       case value2string' v False [] [] of
                                         Const (_,ws,qs) -> case value2string' v1 True ws qs of
-                                                             Const (_,ws,qs) -> Just (foldl (\v q->VC v (VApp q [])) (string2value' ws) qs)
+                                                             Const (b,ws,qs) -> Just (bind b ws (foldl (\v q->VC v (VApp q [])) (string2value' ws) qs))
                                                              NonExist        -> Just (VApp (cPredef,cNonExist) [])
                                                              RunTime         -> Nothing
                                         NonExist     -> Just (VApp (cPredef,cNonExist) [])
                                         RunTime      -> Nothing
+                                     bind True  (_:_) v = VC (VApp (cPredef,cBIND) []) v
+                                     bind _     _     v = v
                                  case (case v2 of
                                         (VAlts d vas) -> do d <- glue d
                                                             vas <- mapM (\(v,ss) -> glue v >>= \v -> return (v,ss)) vas
