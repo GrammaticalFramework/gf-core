@@ -189,10 +189,21 @@ eval env (C t1 t2)      []  = do v1 <- eval env t1 []
                                    _               -> return (VC v1 v2)
 eval env t@(Glue t1 t2) []  = do v1 <- eval env t1 []
                                  v2 <- eval env t2 []
-                                 case liftA2 (++) (value2string v1) (value2string v2) of
-                                   Const s  -> return (string2value s)
-                                   RunTime  -> return (VGlue v1 v2)
-                                   NonExist -> return (VApp (cPredef,cNonExist) [])
+                                 let glue v =
+                                      case value2string' v False [] [] of
+                                        Const (_,ws,qs) -> case value2string' v1 True ws qs of
+                                                             Const (_,ws,qs) -> Just (foldl (\v q->VC v (VApp q [])) (string2value' ws) qs)
+                                                             NonExist        -> Just (VApp (cPredef,cNonExist) [])
+                                                             RunTime         -> Nothing
+                                        NonExist     -> Just (VApp (cPredef,cNonExist) [])
+                                        RunTime      -> Nothing
+                                 case (case v2 of
+                                        (VAlts d vas) -> do d <- glue d
+                                                            vas <- mapM (\(v,ss) -> glue v >>= \v -> return (v,ss)) vas
+                                                            return (VAlts d vas)
+                                        _             -> do glue v2) of
+                                   Just v  -> return v
+                                   Nothing -> return (VGlue v1 v2)
 eval env (EPatt min max p) [] = return (VPatt min max p)
 eval env (EPattType t)  []  = do v <- eval env t []
                                  return (VPattType v)
@@ -598,41 +609,47 @@ instance Applicative ConstValue where
   liftA2 f _         RunTime   = RunTime
 #endif
 
-value2string v = fmap (unwords.snd) (value2string v False [])
+value2string v = fmap (\(_,ws,_) -> unwords ws) (value2string' v False [] [])
+
+value2string' (VStr w1)   True (w2:ws) qs = Const (False,(w1++w2):ws,qs)
+value2string' (VStr w)    _    ws      qs = Const (False,w       :ws,qs)
+value2string' VEmpty      b    ws      qs = Const (b,ws,qs)
+value2string' (VC v1 v2)  b    ws      qs =
+  case value2string' v2 b ws qs of
+    Const (b,ws,qs) -> value2string' v1 b ws qs
+    res             -> res
+value2string' (VApp q []) b    ws      qs
+  | q == (cPredef,cNonExist)              = NonExist
+value2string' (VApp q []) b    ws      qs
+  | q == (cPredef,cSOFT_SPACE)            = if null ws
+                                              then Const (b,ws,q:qs)
+                                              else Const (b,ws,qs)
+value2string' (VApp q []) b     ws     qs
+  | q == (cPredef,cBIND) || q == (cPredef,cSOFT_BIND) 
+                                          = if null ws
+                                              then Const (True,ws,q:qs)
+                                              else Const (True,ws,qs)
+value2string' (VApp q []) b     ws     qs
+  | q == (cPredef,cCAPIT) = capit ws
   where
-    value2string (VStr w1)   True  (w2:ws) = Const (False,(w1++w2):ws)
-    value2string (VStr w)    _     ws      = Const (False,w       :ws)
-    value2string VEmpty      b     ws      = Const (b,ws)
-    value2string (VC v1 v2)  b     ws      =
-      case value2string v2 b ws of
-        Const (b,ws) -> value2string v1 b ws
-        st           -> st
-    value2string (VApp q []) b     ws
-      | q == (cPredef,cNonExist)           = NonExist
-    value2string (VApp q []) b     ws
-      | q == (cPredef,cSOFT_SPACE)         = Const (b,ws)
-    value2string (VApp q []) b     ws
-      | q == (cPredef,cBIND) || q == (cPredef,cSOFT_BIND) = Const (True,ws)
-    value2string (VApp q []) b     ws
-      | q == (cPredef,cCAPIT) = Const (b,capit ws)
-      where
-        capit ((c:cs) : ws) = (toUpper c : cs) : ws
-        capit ws            = ws
-    value2string (VApp q []) b     ws
-      | q == (cPredef,cALL_CAPIT) = Const (b,all_capit ws)
-      where
-        all_capit (w : ws) = map toUpper w : ws
-        all_capit ws       = ws
-    value2string (VAlts vd vas) b  ws =
-      case ws of
-        []    -> value2string vd b ws
-        (w:_) -> pre vd vas w b ws
-      where
-        pre vd []                 w            = value2string vd
-        pre vd ((v,VStrs ss):vas) w
-          | or [startsWith s w | VStr s <- ss] = value2string v
-          | otherwise                          = pre vd vas w
-    value2string _ _ _  = RunTime
+    capit []            = Const (b,[],q:qs)
+    capit ((c:cs) : ws) = Const (b,(toUpper c : cs) : ws,qs)
+    capit ws            = Const (b,ws,qs)
+value2string' (VApp q []) b     ws     qs
+  | q == (cPredef,cALL_CAPIT) = all_capit ws
+  where
+    all_capit []       = Const (b,[],q:qs)
+    all_capit (w : ws) = Const (b,map toUpper w : ws,qs)
+value2string' (VAlts vd vas) b  ws     qs =
+  case ws of
+    []    -> value2string' vd b ws qs
+    (w:_) -> pre vd vas w b ws qs
+  where
+    pre vd []                 w            = value2string' vd
+    pre vd ((v,VStrs ss):vas) w
+      | or [startsWith s w | VStr s <- ss] = value2string' v
+      | otherwise                          = pre vd vas w
+value2string' _ _ _ _ = RunTime
 
 startsWith []          _ = True
 startsWith (x:xs) (y:ys)
@@ -640,11 +657,11 @@ startsWith (x:xs) (y:ys)
 startsWith      _      _ = False
 
 
-string2value s = string2value (words s)
-  where
-    string2value []     = VEmpty
-    string2value [w]    = VStr w
-    string2value (w:ws) = VC (VStr w) (string2value ws)
+string2value s = string2value' (words s)
+
+string2value' []     = VEmpty
+string2value' [w]    = VStr w
+string2value' (w:ws) = VC (VStr w) (string2value' ws)
 
 value2int (VInt n) = Const n
 value2int _        = RunTime
