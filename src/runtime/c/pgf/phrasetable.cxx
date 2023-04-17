@@ -397,16 +397,12 @@ PgfPhrasetable phrasetable_delete(PgfPhrasetable table,
         PgfPhrasetable left = phrasetable_delete(table->left,
                                                  container, seq_index,
                                                  seq);
-        if (left == table->left)
-            return table;
         table = Node<PgfPhrasetableEntry>::upd_node(table,left,table->right);
         return Node<PgfPhrasetableEntry>::balanceR(table);
     } else if (cmp > 0) {
         PgfPhrasetable right = phrasetable_delete(table->right, 
                                                   container, seq_index,
                                                   seq);
-        if (right == table->right)
-            return table;
         table = Node<PgfPhrasetableEntry>::upd_node(table,table->left,right);
         return Node<PgfPhrasetableEntry>::balanceL(table);
     } else {
