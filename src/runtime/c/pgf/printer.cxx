@@ -162,8 +162,9 @@ PgfExpr PgfPrinter::eabs(PgfBindType btype, PgfText *name, PgfExpr body)
     this->btype = btype;
     puts(&ctxt->name);
 
-    prio = 1;
+    int save_prio = prio; prio = 1;
     m->match_expr(this, body);
+    prio = save_prio;
 
     pop_variable();
 
@@ -179,13 +180,14 @@ PgfExpr PgfPrinter::eapp(PgfExpr fun, PgfExpr arg)
     bool p = (prio > 3);
     if (p) puts("(");
 
-    prio = 3;
+    int save_prio = prio; prio = 3;
     m->match_expr(this, fun);
 
     puts(" ");
 
     prio = 4;
     m->match_expr(this, arg);
+    prio = save_prio;
 
     if (p) puts(")");
 
@@ -300,11 +302,12 @@ PgfExpr PgfPrinter::etyped(PgfExpr expr, PgfType ty)
     flush_lambdas();
 
     puts("<");
-    prio = 0;
+    int save_prio = prio; prio = 0;
     m->match_expr(this, expr);
     puts(" : ");
     prio = 0;
     m->match_type(this, ty);
+    prio = save_prio;
     puts(">");
     return 0;
 }
@@ -314,8 +317,9 @@ PgfExpr PgfPrinter::eimplarg(PgfExpr expr)
     flush_lambdas();
 
     puts("{");
-    prio = 0;
+    int save_prio = prio; prio = 0;
     m->match_expr(this, expr);
+    prio = save_prio;
     puts("}");
     return 0;
 }
@@ -389,8 +393,9 @@ PgfLiteral PgfPrinter::lstr(PgfText *v)
 void PgfPrinter::hypo(PgfTypeHypo *hypo, int prio)
 {
     if (hypo->cid->size == 1 && strcmp(hypo->cid->text, "_") == 0) {
-        this->prio = prio;
+        int save_prio = this->prio; this->prio = prio;
         m->match_type(this, hypo->type);
+        this->prio = save_prio;
     } else {
         puts("(");
         if (hypo->bind_type == PGF_BIND_TYPE_IMPLICIT)
@@ -399,8 +404,9 @@ void PgfPrinter::hypo(PgfTypeHypo *hypo, int prio)
         if (hypo->bind_type == PGF_BIND_TYPE_IMPLICIT)
             puts("}");
         puts(" : ");
-        this->prio = 0;
+        int save_prio = this->prio; this->prio = 0;
         m->match_type(this, hypo->type);
+        this->prio = save_prio;
         puts(")");
 
         push_variable(hypo->cid);
@@ -424,11 +430,13 @@ PgfType PgfPrinter::dtyp(size_t n_hypos, PgfTypeHypo *hypos,
 
     efun(cat);
 
+    int save_prio = prio;
     for (size_t i = 0; i < n_exprs; i++) {
         puts(" ");
         prio = 4;
         m->match_expr(this, exprs[i]);
     }
+    prio = save_prio;
 
     while (ctxt != save_ctxt) {
         pop_variable();
