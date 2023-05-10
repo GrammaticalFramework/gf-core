@@ -39,7 +39,7 @@ PgfLinearizationGraphvizOutput::~PgfLinearizationGraphvizOutput()
 }
 
 PgfLinearizationGraphvizOutput::ParseNode::ParseNode(ParseLevel *level,
-                                                     int id,
+                                                     size_t id,
                                                      ParseNode *parent,
                                                      PgfText *fun,
                                                      PgfText *label)
@@ -121,7 +121,7 @@ void PgfLinearizationGraphvizOutput::generate_graphviz_level(PgfPrinter *printer
 	for (size_t i = 0; i < level->n_nodes; i++) {
 		ParseNode* node = level->nodes[i];
 		if (node->fun != NULL) {
-			printer->nprintf(32, "    n%d[label=\"", node->id);
+			printer->nprintf(32, "    n%zu[label=\"", node->id);
 			if (!opts->noFun)
 				printer->efun(node->fun);
 			if (!opts->noFun && !opts->noCat)
@@ -136,9 +136,9 @@ void PgfLinearizationGraphvizOutput::generate_graphviz_level(PgfPrinter *printer
 			printer->puts("]\n");
 		} else {
 			if (opts->noLeaves)
-				printer->nprintf(25, "    n%d[label=\"\"]\n", node->id);
+				printer->nprintf(25, "    n%zu[label=\"\"]\n", node->id);
 			else {
-				printer->nprintf(25, "    n%d[label=\"", node->id);
+				printer->nprintf(25, "    n%zu[label=\"", node->id);
                 printer->puts(node->label);
                 printer->puts("\"");
 				if (opts->leafColor != NULL && *opts->leafColor)
@@ -155,7 +155,7 @@ void PgfLinearizationGraphvizOutput::generate_graphviz_level(PgfPrinter *printer
 			ParseNode* node = level->nodes[i];		
 		
 			printer->puts((i == 0) ? "    " : " -- ");
-			printer->nprintf(32, "n%d", node->id);
+			printer->nprintf(32, "n%zu", node->id);
 		}
 		printer->puts("\n");
 	}
@@ -165,7 +165,7 @@ void PgfLinearizationGraphvizOutput::generate_graphviz_level(PgfPrinter *printer
 	for (size_t i = 0; i < level->n_nodes; i++) {
         ParseNode* node = level->nodes[i];
 		if (node->parent != NULL) {
-			printer->nprintf(40, "  n%d -- n%d", node->parent->id, node->id);
+			printer->nprintf(40, "  n%zu -- n%zu", node->parent->id, node->id);
 
 			const char *edgeStyle, *color;
 			if (node->fun == NULL) {
@@ -239,10 +239,10 @@ PgfExpr PgfAbstractGraphvizOutput::eabs(PgfBindType bind_type, PgfText *name, Pg
 
 PgfExpr PgfAbstractGraphvizOutput::eapp(PgfExpr fun, PgfExpr arg)
 {
-    int fun_id = (int) m->match_expr(this, fun);
-	int arg_id = (int) m->match_expr(this, arg);
+    size_t fun_id = (size_t) m->match_expr(this, fun);
+	size_t arg_id = (size_t) m->match_expr(this, arg);
 
-    printer.nprintf(32, "n%d -- n%d", fun_id, arg_id);
+    printer.nprintf(32, "n%zu -- n%zu", fun_id, arg_id);
     if (opts->nodeEdgeStyle != NULL && *opts->nodeEdgeStyle && opts->nodeColor != NULL && *opts->nodeColor)
         printer.nprintf(50, " [style = \"%s\", color = \"%s\"]", opts->nodeEdgeStyle, opts->nodeColor);
     else if (opts->nodeEdgeStyle != NULL && *opts->nodeEdgeStyle)
@@ -256,8 +256,8 @@ PgfExpr PgfAbstractGraphvizOutput::eapp(PgfExpr fun, PgfExpr arg)
 
 PgfExpr PgfAbstractGraphvizOutput::elit(PgfLiteral lit)
 {
-    int id = this->id++;
-	printer.nprintf(20, "n%d[label = \"", id);
+    size_t id = this->id++;
+	printer.nprintf(20, "n%zu[label = \"", id);
     m->match_lit(this, lit);
     printer.puts("\", style = \"solid\", shape = \"plaintext\"]\n");
     return id;
@@ -265,8 +265,8 @@ PgfExpr PgfAbstractGraphvizOutput::elit(PgfLiteral lit)
 
 PgfExpr PgfAbstractGraphvizOutput::emeta(PgfMetaId meta_id)
 {
-    int id = this->id++;
-	printer.nprintf(20, "n%d[label = \"", id);
+    size_t id = this->id++;
+	printer.nprintf(20, "n%zu[label = \"", id);
     PgfExpr res = printer.emeta(meta_id);
     printer.puts(", style = \"solid\", shape = \"plaintext\"]\n");
     return res;
@@ -274,11 +274,11 @@ PgfExpr PgfAbstractGraphvizOutput::emeta(PgfMetaId meta_id)
 
 PgfExpr PgfAbstractGraphvizOutput::efun(PgfText *name)
 {
-    int id = this->id++;
+    size_t id = this->id++;
 	if (opts->noFun && opts->noCat) {
-        printer.nprintf(32, "n%d[shape = \"point\"]\n", id);
+        printer.nprintf(32, "n%zu[shape = \"point\"]\n", id);
     } else {
-		printer.nprintf(20, "n%d[label = \"", id);
+		printer.nprintf(20, "n%zu[label = \"", id);
         ref<PgfAbsFun> absfun =
             (opts->noCat) ? 0 : namespace_lookup(abstr->funs, name);
         if (!opts->noFun) {
@@ -307,11 +307,11 @@ PgfExpr PgfAbstractGraphvizOutput::efun(PgfText *name)
 
 PgfExpr PgfAbstractGraphvizOutput::evar(int index)
 {
-    int id = this->id++;
+    size_t id = this->id++;
 	if (opts->noFun && opts->noCat) {
-        printer.nprintf(32, "n%d[shape = \"point\"]\n", id);
+        printer.nprintf(32, "n%zu[shape = \"point\"]\n", id);
     } else {
-		printer.nprintf(20, "n%d[label = \"", id);
+		printer.nprintf(20, "n%zu[label = \"", id);
         if (!opts->noFun) {
             if (n_vars > 0) {
                 printer.puts("\\\\");

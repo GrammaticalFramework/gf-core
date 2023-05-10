@@ -10,12 +10,12 @@ class PGF_INTERNAL_DECL PgfLinearizationGraphvizOutput : public PgfLinearization
     };
 
     struct ParseNode {
-        int id;
+        size_t id;
         ParseNode* parent;
         PgfText *fun;
         PgfText *label;
 
-        ParseNode(ParseLevel *level, int id, ParseNode *parent, PgfText *fun, PgfText *label);
+        ParseNode(ParseLevel *level, size_t id, ParseNode *parent, PgfText *fun, PgfText *label);
     };
 
 	ParseNode* parent;
@@ -52,7 +52,7 @@ class PGF_INTERNAL_DECL PgfAbstractGraphvizOutput : public PgfUnmarshaller {
     PgfPrinter printer;
     PgfGraphvizOptions* opts;
 
-    int id;
+    size_t id;
     size_t n_vars;
 
 public:
