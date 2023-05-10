@@ -52,15 +52,19 @@ private:
 #pragma GCC diagnostic pop
 #endif
 
+struct PgfConcrLincat;
+
 PGF_INTERNAL_DECL
 PgfPhrasetable phrasetable_internalize(PgfPhrasetable table,
                                        ref<PgfSequence> seq,
+                                       ref<PgfConcrLincat> lincat,
                                        object container,
                                        size_t seq_index,
                                        ref<PgfPhrasetableEntry> *pentry);
 
 PGF_INTERNAL_DECL
 ref<PgfSequence> phrasetable_relink(PgfPhrasetable table,
+                                    ref<PgfConcrLincat> lincat,
                                     object container,
                                     size_t seq_index,
                                     size_t seq_id);
@@ -100,6 +104,11 @@ void phrasetable_lookup_cohorts(PgfPhrasetable table,
                                 PgfText *sentence,
                                 bool case_sensitive,
                                 PgfPhraseScanner *scanner, PgfExn* err);
+
+PGF_INTERNAL_DECL
+void phrasetable_lookup_epsilons(PgfPhrasetable table,
+                                 ref<PgfConcrLincat> lincat, size_t r,
+                                 std::function<void(ref<PgfConcrLin>, size_t)> &f);
 
 PGF_INTERNAL_DECL
 void phrasetable_iter(PgfConcr *concr,

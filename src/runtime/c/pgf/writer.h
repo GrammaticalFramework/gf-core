@@ -39,7 +39,7 @@ public:
     void write_abstract(ref<PgfAbstr> abstract);
 
     void write_lincat(ref<PgfConcrLincat> lincat);
-    void write_lincat_field(ref<PgfLincatField> field);
+    void write_lincat_field(ref<ref<PgfText>> field);
     void write_variable_range(ref<PgfVariableRange> var);
     void write_lparam(ref<PgfLParam> lparam);
     void write_parg(ref<PgfPArg> linarg);

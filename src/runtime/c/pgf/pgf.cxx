@@ -861,9 +861,9 @@ public:
 
     virtual void match(ref<PgfConcrLin> lin, size_t seq_index, PgfExn* err)
     {
-        ref<PgfLincatField> field =
-            vector_elem(lin->lincat->fields, seq_index % lin->lincat->fields->len);
-        callback->fn(callback, &lin->absfun->name, &(*field->name), lin->lincat->abscat->prob+lin->absfun->prob, err);
+        ref<PgfText> field =
+            *vector_elem(lin->lincat->fields, seq_index % lin->lincat->fields->len);
+        callback->fn(callback, &lin->absfun->name, field, lin->lincat->abscat->prob+lin->absfun->prob, err);
     }
 
 	virtual void end_matches(PgfTextSpot *end, PgfExn* err)
@@ -909,9 +909,9 @@ public:
 
     virtual void match(ref<PgfConcrLin> lin, size_t seq_index, PgfExn* err)
     {
-        ref<PgfLincatField> field =
-            vector_elem(lin->lincat->fields, seq_index % lin->lincat->fields->len);
-        callback->morpho.fn(&callback->morpho, &lin->absfun->name, &(*field->name), lin->lincat->abscat->prob+lin->absfun->prob, err);
+        ref<PgfText> field =
+            *vector_elem(lin->lincat->fields, seq_index % lin->lincat->fields->len);
+        callback->morpho.fn(&callback->morpho, &lin->absfun->name, field, lin->lincat->abscat->prob+lin->absfun->prob, err);
     }
 
 	virtual void end_matches(PgfTextSpot *end, PgfExn* err)
@@ -976,7 +976,7 @@ PGF_API
 PgfText *pgf_get_lincat_field_internal(object o, size_t i)
 {
     ref<PgfConcrLincat> lincat = o;
-    return &*(vector_elem(lincat->fields, i)->name);
+    return &**vector_elem(lincat->fields, i);
 }
 
 PGF_API
@@ -1654,6 +1654,7 @@ class PGF_INTERNAL PgfLinBuilder : public PgfLinBuilderIface
     ref<Vector<ref<PgfSequence>>> seqs;
 
     object container; // what are we building?
+    ref<PgfConcrLincat> container_lincat;
 
     size_t var_index;
     size_t arg_index;
@@ -1712,17 +1713,15 @@ public:
         lincat->seqs = seqs;
         lincat->n_lindefs = n_lindefs;
 
-        ref<Vector<PgfLincatField>> db_fields = vector_new<PgfLincatField>(n_fields);
+        ref<Vector<ref<PgfText>>> db_fields = vector_new<ref<PgfText>>(n_fields);
         for (size_t i = 0; i < n_fields; i++) {
             ref<PgfText> name = textdup_db(fields[i]);
-            vector_elem(db_fields, i)->lincat   = lincat;
-            vector_elem(db_fields, i)->name     = name;
-            vector_elem(db_fields, i)->backrefs = 0;
-            vector_elem(db_fields, i)->epsilons = 0;
+            *vector_elem(db_fields, i) = name;
         }
         lincat->fields = db_fields;
 
         this->container = lincat.tagged();
+        this->container_lincat = 0;
 
         build->build(this, err);
         if (err->type == PGF_EXN_NONE && res_index != res->len) {
@@ -1760,6 +1759,7 @@ public:
         lin->seqs = seqs;
 
         this->container = lin.tagged();
+        this->container_lincat = lincat;
 
         build->build(this, err);
         if (err->type == PGF_EXN_NONE && res_index != res->len) {
@@ -2149,7 +2149,7 @@ public:
 
             PgfPhrasetable phrasetable =
 				phrasetable_internalize(concr->phrasetable,
-                                        seq, container, seq_index,
+                                        seq, container_lincat, container, seq_index,
                                         &entry);
             concr->phrasetable = phrasetable;
             *vector_elem(seqs, seq_index) = entry->seq;
@@ -2418,7 +2418,7 @@ PgfText **pgf_category_fields(PgfDB *db, PgfConcrRevision revision,
 			if (fields == 0)
 				throw pgf_systemerror(ENOMEM);
 			for (size_t i = 0; i < n_fields; i++) {
-				fields[i] = textdup(vector_elem(lincat->fields, i)->name);
+				fields[i] = textdup(*vector_elem(lincat->fields, i));
 			}
 			*p_n_fields = n_fields;
 			return fields;
@@ -2511,7 +2511,7 @@ PgfText **pgf_tabular_linearize(PgfDB *db, PgfConcrRevision revision,
 
                     PgfText *text = out.get_text();
                     if (text != NULL) {
-                        res[pos++] = textdup(&*(vector_elem(lincat->fields,i)->name));
+                        res[pos++] = textdup(&**vector_elem(lincat->fields,i));
                         res[pos++] = text;
                     }
                 }
@@ -2550,7 +2550,7 @@ PgfText **pgf_tabular_linearize_all(PgfDB *db, PgfConcrRevision revision,
 
                 PgfText *text = out.get_text();
                 if (text != NULL) {
-                    res[pos++] = textdup(&*(vector_elem(lincat->fields, i)->name));
+                    res[pos++] = textdup(&**vector_elem(lincat->fields, i));
                     res[pos++] = text;
                 }
             }
@@ -2656,7 +2656,6 @@ PgfExprEnum *pgf_parse(PgfDB *db, PgfConcrRevision revision,
         phrasetable_lookup_cohorts(concr->phrasetable,
                                    sentence, case_sensitive,
                                    parser, err);
-        parser->prepare();
         return parser;
     } PGF_API_END
 

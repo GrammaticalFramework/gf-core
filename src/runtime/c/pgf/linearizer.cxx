@@ -287,7 +287,7 @@ void PgfLinearizer::TreeLinNode::check_category(PgfLinearizer *linearizer, PgfTe
 void PgfLinearizer::TreeLinNode::linearize(PgfLinearizationOutputIface *out, PgfLinearizer *linearizer, size_t lindex)
 {
     PgfText *cat = &lin->absfun->type->name;
-    PgfText *field = &*(vector_elem(lin->lincat->fields, lindex)->name);
+    PgfText *field = &**vector_elem(lin->lincat->fields, lindex);
 
     if (linearizer->pre_stack == NULL)
         out->begin_phrase(cat, fid, field, &lin->name);
@@ -390,7 +390,7 @@ void PgfLinearizer::TreeLindefNode::linearize_arg(PgfLinearizationOutputIface *o
 void PgfLinearizer::TreeLindefNode::linearize(PgfLinearizationOutputIface *out, PgfLinearizer *linearizer, size_t lindex)
 {
     if (lincat != 0) {
-        PgfText *field = &*(vector_elem(lincat->fields, lindex)->name);
+        PgfText *field = &**vector_elem(lincat->fields, lindex);
         if (linearizer->pre_stack == NULL)
             out->begin_phrase(&lincat->name, fid, field, fun);
         else {
@@ -543,7 +543,7 @@ void PgfLinearizer::TreeLitNode::linearize(PgfLinearizationOutputIface *out, Pgf
 {    
     PgfText *field = NULL;
     if (lincat != 0) {
-        field = &*(vector_elem(lincat->fields, lindex)->name);
+        field = &**vector_elem(lincat->fields, lindex);
     }
 
     linearizer->flush_pre_stack(out, literal);

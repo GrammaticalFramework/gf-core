@@ -391,9 +391,9 @@ void PgfWriter::write_lincat(ref<PgfConcrLincat> lincat)
     write_vector(lincat->seqs, &PgfWriter::write_seq_id);
 }
 
-void PgfWriter::write_lincat_field(ref<PgfLincatField> field)
+void PgfWriter::write_lincat_field(ref<ref<PgfText>> field)
 {
-    write_text(field->name);
+    write_text(*field);
 }
 
 void PgfWriter::write_lin(ref<PgfConcrLin> lin)

@@ -224,19 +224,6 @@ struct PGF_INTERNAL_DECL PgfSymbolALLCAPIT {
     static const uint8_t tag = 10;
 };
 
-struct PGF_INTERNAL_DECL PgfConcrLincat;
-struct PGF_INTERNAL_DECL PgfLincatBackref;
-struct PGF_INTERNAL_DECL PgfLincatEpsilon;
-
-struct PGF_INTERNAL_DECL PgfLincatField {
-    ref<PgfConcrLincat> lincat;
-    ref<PgfText> name;
-    ref<Vector<PgfLincatBackref>> backrefs;
-    ref<Vector<PgfLincatEpsilon>> epsilons;
-
-    static void release(ref<PgfLincatField> field);
-};
-
 struct PGF_INTERNAL_DECL PgfConcrLincat {
     static const uint8_t tag = 0;
 
@@ -246,7 +233,7 @@ struct PGF_INTERNAL_DECL PgfConcrLincat {
     ref<Vector<PgfPArg>> args;
     ref<Vector<ref<PgfPResult>>> res;
     ref<Vector<ref<PgfSequence>>> seqs;
-    ref<Vector<PgfLincatField>> fields;
+    ref<Vector<ref<PgfText>>> fields;
 
     PgfText name;
 
@@ -268,24 +255,31 @@ struct PGF_INTERNAL_DECL PgfConcrLin {
     static void release(ref<PgfConcrLin> lin);
 };
 
-struct PGF_INTERNAL_DECL PgfLinSeqIndex {
-    ref<PgfConcrLin> lin;
-    size_t seq_index;
-};
-
-struct PGF_INTERNAL_DECL PgfLincatBackref : public PgfLinSeqIndex {
-    size_t dot;
-};
-
-struct PGF_INTERNAL_DECL PgfLincatEpsilon : public PgfLinSeqIndex {
-};
-
 struct PGF_INTERNAL_DECL PgfConcrPrintname {
     ref<PgfText> printname;
     PgfText name;
 
     static void release(ref<PgfConcrPrintname> printname);
 };
+
+struct PGF_INTERNAL_DECL PgfLRShift {
+    size_t next_state;
+    ref<PgfConcrLincat> lincat;
+    size_t r;
+    bool is_epsilon;
+};
+
+struct PGF_INTERNAL_DECL PgfLRReduce {
+    object lin_obj;
+    size_t seq_index;
+};
+
+struct PGF_INTERNAL_DECL PgfLRState {
+    ref<Vector<PgfLRShift>> shifts;
+    ref<Vector<PgfLRReduce>> reductions;
+};
+
+typedef Vector<PgfLRState> PgfLRTable;
 
 struct PGF_INTERNAL_DECL PgfConcr {
     static const uint8_t tag = 1;
@@ -295,6 +289,8 @@ struct PGF_INTERNAL_DECL PgfConcr {
     Namespace<PgfConcrLincat> lincats;
     PgfPhrasetable phrasetable;
     Namespace<PgfConcrPrintname> printnames;
+
+    ref<PgfLRTable> lrtable;
 
     PgfText name;
 

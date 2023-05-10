@@ -299,9 +299,87 @@ int text_sequence_cmp(PgfTextSpot *spot, const uint8_t *end,
     }
 }
 
+static
+int backref_cmp(ref<PgfSequenceBackref> backref, ref<PgfConcrLincat> lincat, size_t r)
+{
+    int cmp = 0;
+    switch (ref<PgfConcrLin>::get_tag(backref->container)) {
+    case PgfConcrLin::tag: {
+        ref<PgfConcrLin> lin = ref<PgfConcrLin>::untagged(backref->container);
+        if (lincat.as_object() < lin->lincat.as_object())
+            cmp = -1;
+        else if (lincat.as_object() > lin->lincat.as_object())
+            cmp = 1;
+        break;
+        }
+    case PgfConcrLincat::tag: {
+        if (lincat.as_object() > 0)
+            cmp = 1;
+        break;
+    }
+    }
+
+    if (cmp == 0) {
+        size_t r1 = 
+           (lincat == 0) ? 0
+                         : backref->seq_index % lincat->fields->len;
+        if (r < r1)
+            cmp = -1;
+        else if (r > r1)
+            cmp = 1;
+    }
+
+    return cmp;
+}
+
+static
+ref<Vector<PgfSequenceBackref>> phrasetable_update_backrefs(PgfPhrasetable table,
+                                                            ref<PgfConcrLincat> lincat,
+                                                            object container,
+                                                            size_t seq_index)
+{
+    size_t len = (table->value.backrefs != 0)
+                    ? table->value.backrefs->len
+                    : 0;
+
+    ref<Vector<PgfSequenceBackref>> backrefs =
+        vector_resize<PgfSequenceBackref>(table->value.backrefs, len+1, table->txn_id);
+    ssize_t i = 0;
+    ssize_t j = len-1;
+    if (table->value.seq->syms.len == 0 && len > 0) {
+        // The backrefs for the epsilon sequence are sorted by lincat and r
+
+        size_t r = (lincat!=0) ? (seq_index % lincat->fields->len) : 0;
+        while (i <= j) {
+            ssize_t k = (i + j) / 2;
+            ref<PgfSequenceBackref> backref = vector_elem(backrefs, k);
+
+            int cmp = backref_cmp(backref, lincat, r);
+            if (cmp < 0) {
+                while (j >= k) {
+                    backrefs->data[j+1] = backrefs->data[j];
+                    j--;
+                }
+            } else if (cmp > 0) {
+                i = k+1;
+            } else {
+                while (j > k) {
+                    backrefs->data[j+1] = backrefs->data[j];
+                    j--;
+                }
+                break;
+            }
+        }
+    }
+    backrefs->data[j+1].container = container;
+    backrefs->data[j+1].seq_index = seq_index;
+    return backrefs;
+}
+
 PGF_INTERNAL
 PgfPhrasetable phrasetable_internalize(PgfPhrasetable table,
                                        ref<PgfSequence> seq,
+                                       ref<PgfConcrLincat> lincat,
                                        object container,
                                        size_t seq_index,
                                        ref<PgfPhrasetableEntry> *pentry)
@@ -321,6 +399,7 @@ PgfPhrasetable phrasetable_internalize(PgfPhrasetable table,
     if (cmp < 0) {
         PgfPhrasetable left = phrasetable_internalize(table->left,
                                                       seq,
+                                                      lincat,
                                                       container,
                                                       seq_index,
                                                       pentry);
@@ -329,6 +408,7 @@ PgfPhrasetable phrasetable_internalize(PgfPhrasetable table,
     } else if (cmp > 0) {
         PgfPhrasetable right = phrasetable_internalize(table->right,
                                                        seq,
+                                                       lincat,
                                                        container,
                                                        seq_index,
                                                        pentry);
@@ -342,9 +422,7 @@ PgfPhrasetable phrasetable_internalize(PgfPhrasetable table,
                          : 0;
 
         ref<Vector<PgfSequenceBackref>> backrefs =
-            vector_resize<PgfSequenceBackref>(table->value.backrefs, len+1, table->txn_id);
-        backrefs->data[len].container = container;
-        backrefs->data[len].seq_index = seq_index;
+            phrasetable_update_backrefs(table,lincat,container,seq_index);
 
         PgfPhrasetable new_table =
             Node<PgfPhrasetableEntry>::upd_node(table, table->left, table->right);
@@ -356,6 +434,7 @@ PgfPhrasetable phrasetable_internalize(PgfPhrasetable table,
 
 PGF_INTERNAL
 ref<PgfSequence> phrasetable_relink(PgfPhrasetable table,
+                                    ref<PgfConcrLincat> lincat,
                                     object container,
                                     size_t seq_index,
                                     size_t seq_id)
@@ -370,9 +449,7 @@ ref<PgfSequence> phrasetable_relink(PgfPhrasetable table,
                              : table->value.backrefs->len;
 
             ref<Vector<PgfSequenceBackref>> backrefs =
-                vector_resize<PgfSequenceBackref>(table->value.backrefs, len+1, table->txn_id);
-            backrefs->data[len].container = container;
-            backrefs->data[len].seq_index = seq_index;
+                phrasetable_update_backrefs(table,lincat,container,seq_index);
             table->value.backrefs = backrefs;
 
 			return table->value.seq;
@@ -397,12 +474,16 @@ PgfPhrasetable phrasetable_delete(PgfPhrasetable table,
         PgfPhrasetable left = phrasetable_delete(table->left,
                                                  container, seq_index,
                                                  seq);
+        if (left == table->left)
+            return table;
         table = Node<PgfPhrasetableEntry>::upd_node(table,left,table->right);
         return Node<PgfPhrasetableEntry>::balanceR(table);
     } else if (cmp > 0) {
         PgfPhrasetable right = phrasetable_delete(table->right, 
                                                   container, seq_index,
                                                   seq);
+        if (right == table->right)
+            return table;
         table = Node<PgfPhrasetableEntry>::upd_node(table,table->left,right);
         return Node<PgfPhrasetableEntry>::balanceL(table);
     } else {
@@ -566,10 +647,10 @@ void finish_skipping(PgfCohortsState *state) {
 
             state->queue.pop();
         }
-
+/*
         state->scanner->space(&state->spot, &state->spot,
                               state->err);
-
+*/
         state->last.pos = 0;
         state->last.ptr = NULL;
         state->skipping = false;
@@ -741,6 +822,56 @@ void phrasetable_lookup_cohorts(PgfPhrasetable table,
 }
 
 PGF_INTERNAL
+void phrasetable_lookup_epsilons(PgfPhrasetable table,
+                                 ref<PgfConcrLincat> lincat, size_t r,
+                                 std::function<void(ref<PgfConcrLin>,size_t)> &f)
+{
+    while (table->left != 0) {
+        table = table->left;
+    }
+
+    if (table->value.seq->syms.len > 0)
+        return;
+
+    size_t len = (table->value.backrefs != 0)
+            ? table->value.backrefs->len
+            : 0;
+
+    ssize_t i = 0;
+    ssize_t j = len-1;
+    while (i <= j) {
+        ssize_t k = (i + j) / 2;
+        ref<PgfSequenceBackref> backref = vector_elem(table->value.backrefs, k);
+
+        int cmp = backref_cmp(backref, lincat, r);
+        if (cmp < 0) {
+            j = k-1;
+        } else if (cmp > 0) {
+            i = k+1;
+        } else {
+            i = k;
+            while (i > 0) {
+                ref<PgfSequenceBackref> backref = vector_elem(table->value.backrefs, i-1);
+                if (backref_cmp(backref, lincat, r) != 0)
+                    break;
+                f(ref<PgfConcrLin>::untagged(backref->container),backref->seq_index);
+                i--;
+            }
+            f(ref<PgfConcrLin>::untagged(backref->container),backref->seq_index);
+            j = k;
+            while (j < len-1) {
+                ref<PgfSequenceBackref> backref = vector_elem(table->value.backrefs, j+1);
+                if (backref_cmp(backref, lincat, r) != 0)
+                    break;
+                f(ref<PgfConcrLin>::untagged(backref->container),backref->seq_index);
+                j++;
+            }
+            break;
+        }
+    }
+}
+
+PGF_INTERNAL
 void phrasetable_iter(PgfConcr *concr,
                       PgfPhrasetable table,
                       PgfSequenceItor* itor,
@@ -768,10 +899,10 @@ void phrasetable_iter(PgfConcr *concr,
                 ref<PgfConcrLincat> lincat =
                     namespace_lookup(concr->lincats, &lin->absfun->type->name);
                 if (lincat != 0) {
-                    ref<PgfLincatField> field =
-                        vector_elem(lincat->fields, backref.seq_index % lincat->fields->len);
+                    ref<PgfText> field =
+                        *vector_elem(lincat->fields, backref.seq_index % lincat->fields->len);
 
-                    callback->fn(callback, &lin->absfun->name, &(*field->name), lincat->abscat->prob+lin->absfun->prob, err);
+                    callback->fn(callback, &lin->absfun->name, &*field, lincat->abscat->prob+lin->absfun->prob, err);
                     if (err->type != PGF_EXN_NONE)
                         return;
                 }

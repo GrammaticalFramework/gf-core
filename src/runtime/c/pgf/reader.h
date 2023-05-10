@@ -71,14 +71,14 @@ public:
     void merge_abstract(ref<PgfAbstr> abstract);
 
     ref<PgfConcrLincat> read_lincat();
-    ref<Vector<PgfLincatField>> read_lincat_fields(ref<PgfConcrLincat> lincat);
+    ref<Vector<ref<PgfText>>> read_lincat_fields(ref<PgfConcrLincat> lincat);
     ref<PgfLParam> read_lparam();
     void read_variable_range(ref<PgfVariableRange> var_info);
     void read_parg(ref<PgfPArg> parg);
     ref<PgfPResult> read_presult();
     PgfSymbol read_symbol();
     ref<PgfSequence> read_seq();
-    ref<Vector<ref<PgfSequence>>> read_seq_ids(object container);
+    ref<Vector<ref<PgfSequence>>> read_seq_ids(ref<PgfConcrLincat> lincat, object container);
     PgfPhrasetable read_phrasetable(size_t len);
     PgfPhrasetable read_phrasetable();
     ref<PgfConcrLin> read_lin();
