@@ -33,7 +33,6 @@ size_t getpagesize()
 #define close _close
 
 #include <BaseTsd.h>
-typedef SSIZE_T ssize_t;
 #endif
 
 #define ftruncate _chsize

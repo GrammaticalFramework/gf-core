@@ -14,6 +14,7 @@
 
 #ifdef _WIN32
 #include <windows.h>
+typedef SSIZE_T ssize_t;
 #endif
 
 #ifdef __APPLE__
