@@ -33,7 +33,7 @@ class PGF_INTERNAL_DECL PgfLRTableMaker
     std::map<MD5Digest,State*> states;
     std::map<Key,Predictions*,CompareKey> predictions;
     std::map<Predictions*,State*> continuations;
-    std::vector<Item*> completed;
+    std::vector<PgfLRReduce> *reductions;
 
     void process(Item *item);
     void symbol(Item *item, PgfSymbol sym);
@@ -48,6 +48,7 @@ class PGF_INTERNAL_DECL PgfLRTableMaker
 public:
     PgfLRTableMaker(ref<PgfAbstr> abstr, ref<PgfConcr> concr);
     ref<PgfLRTable> make();
+    ~PgfLRTableMaker();
 };
 
 class PgfPrinter;

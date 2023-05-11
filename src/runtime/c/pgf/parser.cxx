@@ -10,7 +10,7 @@
 struct PgfLRTableMaker::State {
     size_t id;
     Predictions *preds;
-    std::vector<Item*> seed;
+    std::vector<Item*> items;
     std::vector<PgfLRShift> shifts;
     std::vector<PgfLRReduce> reductions;
 
@@ -21,7 +21,6 @@ struct PgfLRTableMaker::State {
 };
 
 struct PgfLRTableMaker::Item {
-    Item *next;
     object lin_obj;
     size_t seq_index;
     ref<PgfSequence> seq;
@@ -32,7 +31,13 @@ struct PgfLRTableMaker::Predictions {
     ref<PgfConcrLincat> lincat;
     size_t r;
     bool is_epsilon;
-    Item *items;
+    std::vector<Item*> items;
+
+    ~Predictions() {
+        for (Item *item : items) {
+            delete item;
+        }
+    }
 };
 
 struct PgfLRTableMaker::CompareItem : std::less<Item*> {
@@ -50,6 +55,8 @@ struct PgfLRTableMaker::CompareItem : std::less<Item*> {
         return (item1->dot < item2->dot);
     }
 };
+
+const PgfLRTableMaker::CompareItem PgfLRTableMaker::compare_item;
 
 PgfLRTableMaker::PgfLRTableMaker(ref<PgfAbstr> abstr, ref<PgfConcr> concr)
 {
@@ -83,7 +90,6 @@ PgfLRTableMaker::PgfLRTableMaker(ref<PgfAbstr> abstr, ref<PgfConcr> concr)
                     lincat->n_lindefs*lincat->fields->len + i-lincat->n_lindefs;
                 ref<PgfSequence> seq = *vector_elem(lincat->seqs, seq_index);
                 Item *item = new Item;
-                item->next = NULL;
                 item->lin_obj = lincat.tagged();
                 item->seq_index = seq_index;
                 item->seq = seq;
@@ -93,7 +99,7 @@ PgfLRTableMaker::PgfLRTableMaker(ref<PgfAbstr> abstr, ref<PgfConcr> concr)
                 ctxt.update(item->seq_index);
                 ctxt.update(item->dot);
 
-                state->seed.push_back(item);
+                state->items.push_back(item);
             }
 
             MD5Digest digest;
@@ -103,6 +109,19 @@ PgfLRTableMaker::PgfLRTableMaker(ref<PgfAbstr> abstr, ref<PgfConcr> concr)
             todo.push_back(state);
         }
         }
+    }
+
+    this->reductions = NULL;
+}
+
+PgfLRTableMaker::~PgfLRTableMaker()
+{
+    for (auto p : states) {
+        delete p.second;
+    }
+
+    for (auto p : predictions) {
+        delete p.second;
     }
 }
 
@@ -257,11 +276,10 @@ void PgfLRTableMaker::predict(Item *item, ref<PgfText> cat, size_t r)
     Predictions *&preds = predictions[Key(cat,r)];
     Predictions *tmp_preds = preds;
     if (preds == NULL) {
-        preds = new Predictions();
+        preds = new Predictions;
         preds->lincat = 0;
         preds->r = r;
         preds->is_epsilon = false;
-        preds->items = NULL;
     }
 
     State *&next_state = continuations[preds];
@@ -269,14 +287,13 @@ void PgfLRTableMaker::predict(Item *item, ref<PgfText> cat, size_t r)
     if (next_state == NULL) {
         next_state = new State(preds);
     }
-    Item *next_item = new Item();
-    next_item->next = NULL;
+    Item *next_item = new Item;
     next_item->lin_obj = item->lin_obj;
     next_item->seq_index = item->seq_index;
     next_item->seq = item->seq;
     next_item->dot = item->dot+1;
-    next_state->seed.push_back(next_item);
-    push_heap(next_state->seed.begin(), next_state->seed.end(), compare_item);
+    next_state->items.push_back(next_item);
+    push_heap(next_state->items.begin(), next_state->items.end(), compare_item);
 
     if (tmp == NULL) {
         if (tmp_preds == NULL) {
@@ -287,10 +304,8 @@ void PgfLRTableMaker::predict(Item *item, ref<PgfText> cat, size_t r)
                 };
             probspace_iter(abstr->funs_by_cat, cat, f, false);
         } else {
-            Item *new_item = preds->items;
-            while (new_item != NULL) {
+            for (Item *new_item : preds->items) {
                 process(new_item);
-                new_item = new_item->next;
             }
         }
     }
@@ -314,12 +329,11 @@ void PgfLRTableMaker::predict(ref<PgfAbsFun> absfun, Predictions *preds)
                 preds->is_epsilon = true;
             } else {
                 Item *item = new Item;
-                item->next = preds->items;
                 item->lin_obj = lin.tagged();
                 item->seq_index = seq_index;
                 item->seq = seq;
                 item->dot = 0;
-                preds->items  = item;
+                preds->items.push_back(item);
                 process(item);
             }
         }
@@ -328,7 +342,26 @@ void PgfLRTableMaker::predict(ref<PgfAbsFun> absfun, Predictions *preds)
 
 void PgfLRTableMaker::complete(Item *item)
 {
-    completed.push_back(item);
+    PgfLRReduce red;
+    red.lin_obj = item->lin_obj;
+    red.seq_index = item->seq_index;
+    reductions->push_back(red);
+#if defined(DEBUG_AUTOMATON)
+    switch (ref<PgfConcrLin>::get_tag(red.lin_obj)) {
+    case PgfConcrLin::tag: {
+        auto lin =
+            ref<PgfConcrLin>::untagged(red.lin_obj);
+        fprintf(stderr, "reduce %s/%zu\n", lin->name.text, red.seq_index);
+        break;
+    }
+    case PgfConcrLincat::tag: {
+        auto lincat =
+            ref<PgfConcrLincat>::untagged(red.lin_obj);
+        fprintf(stderr, "reduce linref %s/%zu\n", lincat->name.text, red.seq_index);
+        break;
+    }
+    }
+#endif
 }
 
 ref<PgfLRTable> PgfLRTableMaker::make()
@@ -341,24 +374,26 @@ ref<PgfLRTable> PgfLRTableMaker::make()
         fprintf(stderr, "--------------- state %ld ---------------\n", state->id);
 #endif
 
-        while (!state->seed.empty()) {
-            Item *item = state->seed.back(); state->seed.pop_back();
+        reductions = &state->reductions;
+        while (!state->items.empty()) {
+            Item *item = state->items.back(); state->items.pop_back();
 
 #if defined(DEBUG_AUTOMATON) && !defined(DEBUG_STATE_CREATION)
             // The order in which we process the items should not matter,
             // For debugging however it is useful to see them in the same order.
-            pop_heap(state->seed.begin(),state->seed.end(),compare_item);
+            pop_heap(state->items.begin(),state->items.end(),compare_item);
             print_item(item);
 #endif
 
-            process(item);
+           process(item);
+           delete item;
         }
-        state->seed.shrink_to_fit();
+        state->items.shrink_to_fit();
 
         for (auto i : continuations) {
             MD5Context ctxt;
-            auto begin = i.second->seed.begin();
-            auto end   = i.second->seed.end();
+            auto begin = i.second->items.begin();
+            auto end   = i.second->items.end();
             while (begin != end) {
                 Item *item = *(--end);
                 ctxt.update(item->lin_obj);
@@ -377,7 +412,8 @@ ref<PgfLRTable> PgfLRTableMaker::make()
                 next_state->id = ++state_id;
                 todo.push_back(next_state);
             } else {
-                delete i.second;    
+                delete i.second;
+                i.second = next_state;
             }
 
             PgfLRShift shift;
@@ -394,30 +430,6 @@ ref<PgfLRTable> PgfLRTableMaker::make()
 #endif
         }
         continuations.clear();
-
-        for (Item *item : completed) {
-            PgfLRReduce red;
-            red.lin_obj = item->lin_obj;
-            red.seq_index = item->seq_index;
-            state->reductions.push_back(red);
-#if defined(DEBUG_AUTOMATON)
-            switch (ref<PgfConcrLin>::get_tag(red.lin_obj)) {
-            case PgfConcrLin::tag: {
-                auto lin =
-                    ref<PgfConcrLin>::untagged(red.lin_obj);
-                fprintf(stderr, "reduce %s/%zu\n", lin->name.text, red.seq_index);
-                break;
-            }
-            case PgfConcrLincat::tag: {
-                auto lincat =
-                    ref<PgfConcrLincat>::untagged(red.lin_obj);
-                fprintf(stderr, "reduce linref %s/%zu\n", lincat->name.text, red.seq_index);
-                break;
-            }
-            }
-#endif
-        }
-        completed.clear();
     }
 
     ref<PgfLRTable> lrtable = vector_new<PgfLRState>(states.size());
