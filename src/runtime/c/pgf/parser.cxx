@@ -873,7 +873,7 @@ void PgfParser::print_expr_state_before(PgfPrinter *printer, ExprState *state)
 
 void PgfParser::print_expr_state_after(PgfPrinter *printer, ExprState *state)
 {
-    for (size_t i = state->n_args; i < state->prod->n_args; i++) {
+    for (size_t i = state->n_args+1; i < state->prod->n_args; i++) {
         printer->puts(" ?");
     }
 
@@ -890,6 +890,8 @@ void PgfParser::print_expr_state(ExprState *state)
 
     printer.nprintf(16, "[%f] ", state->prob);
     print_expr_state_before(&printer, state);
+    if (state->prod->n_args > 0)
+        printer.puts(" ?");
     print_expr_state_after(&printer, state);
     printer.puts("\n");
 
