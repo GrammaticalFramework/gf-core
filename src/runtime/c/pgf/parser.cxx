@@ -7,6 +7,13 @@
 //#define DEBUG_PARSER
 //#define DEBUG_GENERATOR
 
+struct PgfLRTableMaker::Item {
+    object lin_obj;
+    size_t seq_index;
+    ref<PgfSequence> seq;
+    size_t dot;
+};
+
 struct PgfLRTableMaker::State {
     size_t id;
     Predictions *preds;
@@ -18,13 +25,12 @@ struct PgfLRTableMaker::State {
         this->id = 0;
         this->preds = preds;
     }
-};
 
-struct PgfLRTableMaker::Item {
-    object lin_obj;
-    size_t seq_index;
-    ref<PgfSequence> seq;
-    size_t dot;
+    ~State() {
+        for (Item *item : items) {
+            delete item;
+        }
+    }
 };
 
 struct PgfLRTableMaker::Predictions {
