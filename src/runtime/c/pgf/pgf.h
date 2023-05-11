@@ -864,7 +864,7 @@ pgf_graphviz_word_alignment(PgfDB *db, PgfConcrRevision* revisions, size_t n_rev
 
 typedef struct {
     PgfText *phrase;
-    int n_fids;
+    size_t n_fids;
     int fids[];
 } PgfAlignmentPhrase;
 

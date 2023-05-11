@@ -220,7 +220,7 @@ bool probspace_random(PgfProbspace space, PgfText *cat,
 
         bool is_res = space->value.is_result();
         if (is_res && !st->excluded.count(space->value.fun)) {
-            st->rand  -= exp(-space->value.fun->prob);
+            st->rand  -= expf(-space->value.fun->prob);
             st->result = space->value.fun;
             if (st->rand <= 0)
                 return true;
