@@ -51,6 +51,8 @@ struct PgfLRTableMaker::CompareItem : std::less<Item*> {
     }
 };
 
+const PgfLRTableMaker::CompareItem PgfLRTableMaker::compare_item;
+
 PgfLRTableMaker::PgfLRTableMaker(ref<PgfAbstr> abstr, ref<PgfConcr> concr)
 {
     this->abstr = abstr;
