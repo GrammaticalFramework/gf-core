@@ -501,7 +501,7 @@ alignWords c e = unsafePerformIO $
       c_phrase <- (#peek PgfAlignmentPhrase, phrase) ptr
       phrase <- peekText c_phrase
       n_fids <- (#peek PgfAlignmentPhrase, n_fids) ptr
-      (fids :: [CInt]) <- peekArray (fromIntegral (n_fids :: CInt)) (ptr `plusPtr` (#offset PgfAlignmentPhrase, fids))
+      (fids :: [CInt]) <- peekArray (fromIntegral (n_fids :: CSize)) (ptr `plusPtr` (#offset PgfAlignmentPhrase, fids))
       free c_phrase
       free ptr
       return (phrase, map fromIntegral fids)

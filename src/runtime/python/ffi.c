@@ -517,7 +517,7 @@ match_lit(PgfMarshaller *this, PgfUnmarshaller *u, PgfLiteral lit)
             Py_DECREF(intShifter);
             return 0;
         }
-        for (int n = size-1; n > 0; n--) {
+        for (size_t n = size-1; n > 0; n--) {
             PyObject *rem = PyNumber_Remainder(x, intShifter);
             if (!rem) {
                 PyMem_RawFree(i);

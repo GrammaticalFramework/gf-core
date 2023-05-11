@@ -79,7 +79,7 @@ prob_t PgfReader::read_prob(PgfText *name)
     if (probs_callback != NULL) {
         d = probs_callback->fn(probs_callback, name);
     }
-    return - log(d);
+    return - logf(d);
 }
 
 uint64_t PgfReader::read_uint()
@@ -458,7 +458,7 @@ void PgfReader::read_abstract(ref<PgfAbstr> abstract)
 
         for (size_t i = 0; i < itor.cats->len; i++) {
             PgfAbsCatCounts *counts = &itor.cats->data[i];
-            counts->prob = - log((1-counts->probs_sum) / counts->n_nan_probs);
+            counts->prob = - logf((1-counts->probs_sum) / counts->n_nan_probs);
         }
 
         itor.fn = pad_probs;

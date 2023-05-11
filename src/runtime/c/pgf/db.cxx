@@ -1559,8 +1559,8 @@ void PgfDB::commit(object o)
     object save_free_descriptors = ms->free_descriptors;
     object save_active_revision = ms->active_revision;
 
-    int res;
 #ifndef _WIN32
+    int res;
 #ifndef MREMAP_MAYMOVE
     if (fd < 0) {
         ms->active_revision = o;
