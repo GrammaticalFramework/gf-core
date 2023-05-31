@@ -660,7 +660,7 @@ PyTypeObject pgf_ExprType = {
     0,                         /*tp_as_number*/
     0,                         /*tp_as_sequence*/
     0,                         /*tp_as_mapping*/
-    0, //(hashfunc) Expr_hash,      /*tp_hash */
+    0,                         /*tp_hash */
     0,                         /*tp_call*/
     (reprfunc) Expr_str,       /*tp_str*/
     0,                         /*tp_getattro*/
@@ -716,6 +716,13 @@ ExprAbs_dealloc(ExprAbsObject *self)
     Py_TYPE(self)->tp_free(self);
 }
 
+static Py_hash_t
+ExprAbs_hash(ExprAbsObject *eabs)
+{
+    return PyObject_Hash((PyObject*) eabs->name) * 101 + 
+           PyObject_Hash((PyObject*) eabs->body);
+}
+
 static PyObject *
 ExprAbs_richcompare(ExprAbsObject *e1, PyObject *p2, int op)
 {
@@ -761,7 +768,7 @@ PyTypeObject pgf_ExprAbsType = {
     0,                         /*tp_as_number*/
     0,                         /*tp_as_sequence*/
     0,                         /*tp_as_mapping*/
-    0,                         /*tp_hash */
+    (hashfunc) ExprAbs_hash,   /*tp_hash */
     (ternaryfunc) Expr_call,   /*tp_call*/
     0,                         /*tp_str*/
     0,                         /*tp_getattro*/
@@ -870,6 +877,13 @@ ExprApp_dealloc(ExprAppObject *self)
     Py_TYPE(self)->tp_free(self);
 }
 
+static Py_hash_t
+ExprApp_hash(ExprAppObject *eapp)
+{
+    return PyObject_Hash((PyObject*) eapp->fun) * 101 +
+           PyObject_Hash((PyObject*) eapp->arg);
+}
+
 static PyObject *
 ExprApp_richcompare(ExprAppObject *e1, PyObject *p2, int op)
 {
@@ -913,7 +927,7 @@ PyTypeObject pgf_ExprAppType = {
     0,                         /*tp_as_number*/
     0,                         /*tp_as_sequence*/
     0,                         /*tp_as_mapping*/
-    0,                         /*tp_hash */
+    (hashfunc) ExprApp_hash,   /*tp_hash */
     (ternaryfunc) Expr_call,   /*tp_call*/
     0,                         /*tp_str*/
     0,                         /*tp_getattro*/
@@ -964,6 +978,12 @@ ExprLit_dealloc(ExprLitObject *self)
 {
     Py_XDECREF(self->lit);
     Py_TYPE(self)->tp_free(self);
+}
+
+static Py_hash_t
+ExprLit_hash(ExprLitObject *elit)
+{
+    return PyObject_Hash(elit->lit);
 }
 
 static PyObject *
@@ -1023,7 +1043,7 @@ PyTypeObject pgf_ExprLitType = {
     0,                         /*tp_as_number*/
     0,                         /*tp_as_sequence*/
     0,                         /*tp_as_mapping*/
-    0,                         /*tp_hash */
+    (hashfunc) ExprLit_hash,   /*tp_hash */
     0,                         /*tp_call*/
     0,                         /*tp_str*/
     0,                         /*tp_getattro*/
@@ -1081,6 +1101,12 @@ ExprMeta_dealloc(ExprMetaObject *self)
     Py_TYPE(self)->tp_free(self);
 }
 
+static Py_hash_t
+ExprMeta_hash(ExprMetaObject *emeta)
+{
+    return PyObject_Hash(emeta->id);
+}
+
 static PyObject *
 ExprMeta_richcompare(ExprMetaObject *e1, PyObject *p2, int op)
 {
@@ -1122,7 +1148,7 @@ PyTypeObject pgf_ExprMetaType = {
     0,                         /*tp_as_number*/
     0,                         /*tp_as_sequence*/
     0,                         /*tp_as_mapping*/
-    0,                         /*tp_hash */
+    (hashfunc) ExprMeta_hash,  /*tp_hash */
     (ternaryfunc) Expr_call,   /*tp_call*/
     0,                         /*tp_str*/
     0,                         /*tp_getattro*/
@@ -1173,6 +1199,12 @@ ExprFun_dealloc(ExprFunObject *self)
     Py_TYPE(self)->tp_free(self);
 }
 
+static Py_hash_t
+ExprFun_hash(ExprFunObject *efun)
+{
+    return PyObject_Hash(efun->name);
+}
+
 static PyObject *
 ExprFun_richcompare(ExprFunObject *e1, PyObject *p2, int op)
 {
@@ -1214,7 +1246,7 @@ PyTypeObject pgf_ExprFunType = {
     0,                         /*tp_as_number*/
     0,                         /*tp_as_sequence*/
     0,                         /*tp_as_mapping*/
-    0,                         /*tp_hash */
+    (hashfunc) ExprFun_hash,   /*tp_hash */
     (ternaryfunc) Expr_call,   /*tp_call*/
     0,                         /*tp_str*/
     0,                         /*tp_getattro*/
@@ -1272,6 +1304,12 @@ ExprVar_dealloc(ExprVarObject *self)
     Py_TYPE(self)->tp_free(self);
 }
 
+static Py_hash_t
+ExprVar_hash(ExprVarObject *efun)
+{
+    return (Py_hash_t) efun->var;
+}
+
 static PyObject *
 ExprVar_richcompare(ExprVarObject *e1, PyObject *p2, int op)
 {
@@ -1313,7 +1351,7 @@ PyTypeObject pgf_ExprVarType = {
     0,                         /*tp_as_number*/
     0,                         /*tp_as_sequence*/
     0,                         /*tp_as_mapping*/
-    0,                         /*tp_hash */
+    (hashfunc) ExprVar_hash,   /*tp_hash */
     (ternaryfunc) Expr_call,   /*tp_call*/
     0,                         /*tp_str*/
     0,                         /*tp_getattro*/
@@ -1365,6 +1403,12 @@ ExprTyped_dealloc(ExprTypedObject *self)
     Py_TYPE(self)->tp_free(self);
 }
 
+static Py_hash_t
+ExprTyped_hash(ExprTypedObject *etyped)
+{
+    return PyObject_Hash((PyObject*) etyped->expr);
+}
+
 static PyObject *
 ExprTyped_richcompare(ExprTypedObject *e1, PyObject *p2, int op)
 {
@@ -1408,7 +1452,7 @@ PyTypeObject pgf_ExprTypedType = {
     0,                         /*tp_as_number*/
     0,                         /*tp_as_sequence*/
     0,                         /*tp_as_mapping*/
-    0,                         /*tp_hash */
+    (hashfunc) ExprTyped_hash, /*tp_hash */
     (ternaryfunc) Expr_call,   /*tp_call*/
     0,                         /*tp_str*/
     0,                         /*tp_getattro*/
@@ -1456,6 +1500,12 @@ ExprImplArg_dealloc(ExprImplArgObject *self)
     Py_TYPE(self)->tp_free(self);
 }
 
+static Py_hash_t
+ExprImplArg_hash(ExprImplArgObject *eimpl)
+{
+    return PyObject_Hash((PyObject*) eimpl->expr);
+}
+
 static PyObject *
 ExprImplArg_richcompare(ExprImplArgObject *e1, PyObject *p2, int op)
 {
@@ -1497,7 +1547,7 @@ PyTypeObject pgf_ExprImplArgType = {
     0,                         /*tp_as_number*/
     0,                         /*tp_as_sequence*/
     0,                         /*tp_as_mapping*/
-    0,                         /*tp_hash */
+    (hashfunc)ExprImplArg_hash,/*tp_hash */
     0,                         /*tp_call*/
     0,                         /*tp_str*/
     0,                         /*tp_getattro*/
