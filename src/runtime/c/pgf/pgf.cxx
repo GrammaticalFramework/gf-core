@@ -2656,6 +2656,7 @@ PgfExprEnum *pgf_parse(PgfDB *db, PgfConcrRevision revision,
         phrasetable_lookup_cohorts(concr->phrasetable,
                                    sentence, case_sensitive,
                                    parser, err);
+        parser->prepare();
         return parser;
     } PGF_API_END
 

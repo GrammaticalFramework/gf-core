@@ -63,30 +63,30 @@ class PGF_INTERNAL_DECL PgfParser : public PgfPhraseScanner, public PgfExprEnum
     struct Choice;
     struct Production;
     struct StackNode;
-    struct ParseState;
+    struct Stage;
     struct ExprState;
     struct ExprInstance;
-    struct Result;
     struct CompareExprState : std::less<ExprState*> {
         bool operator() (const ExprState *state1, const ExprState *state2) const;
     };
 
-    ParseState *before, *after, *ahead;
+    Stage *before, *after, *ahead;
     std::priority_queue<ExprState*, std::vector<ExprState*>, CompareExprState> queue;
     int last_fid;
 
-    Result *top_res;
-    size_t top_res_index;
+    Choice *top_choice;
+    size_t top_choice_index;
 
     void shift(StackNode *parent, ref<PgfConcrLincat> lincat, size_t r, Production *prod,
-               ParseState *state);
+               Stage *before, Stage *after);
     void reduce(StackNode *parent, ref<PgfConcrLin> lin, size_t seq_index,
-                size_t n, std::vector<Choice*> &args);
+                size_t n, std::vector<Choice*> &args,
+                Stage *before, Stage *after);
     void complete(StackNode *parent, ref<PgfConcrLincat> lincat, size_t seq_index,
                   size_t n, std::vector<Choice*> &args);
     void reduce_all(StackNode *state);
     void print_prod(Choice *choice, Production *prod);
-    void print_transition(StackNode *source, StackNode *target, ParseState *state);
+    void print_transition(StackNode *source, StackNode *target, Stage *stage);
 
     typedef std::map<std::pair<Choice*,Choice*>,Choice*> intersection_map;
 
@@ -109,6 +109,8 @@ public:
     virtual void start_matches(PgfTextSpot *end, PgfExn* err);
     virtual void match(ref<PgfConcrLin> lin, size_t seq_index, PgfExn* err);
 	virtual void end_matches(PgfTextSpot *end, PgfExn* err);
+
+    void prepare();
 
     PgfExpr fetch(PgfDB *db, prob_t *prob);
 };

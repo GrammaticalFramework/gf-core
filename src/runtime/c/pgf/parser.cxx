@@ -1,11 +1,12 @@
 #include "data.h"
 #include "printer.h"
 #include "parser.h"
+#include <algorithm>
 
 //#define DEBUG_STATE_CREATION
 //#define DEBUG_AUTOMATON
-//#define DEBUG_PARSER
-//#define DEBUG_GENERATOR
+#define DEBUG_PARSER
+#define DEBUG_GENERATOR
 
 struct PgfLRTableMaker::Item {
     object lin_obj;
@@ -459,11 +460,11 @@ ref<PgfLRTable> PgfLRTableMaker::make()
 struct PgfParser::Choice {
     int fid;
     std::vector<Production*> prods;
-    Result* res;
+    std::vector<ExprState*> states;
+    std::vector<ExprInstance> exprs;
 
     Choice(int fid) {
         this->fid = fid;
-        this->res = NULL;
     }
 };
 
@@ -495,23 +496,25 @@ struct PgfParser::Production {
 };
 
 struct PgfParser::StackNode {
+    Stage *stage;
     size_t state_id;
     Choice *choice;
     std::vector<StackNode*> parents;
 
-    StackNode(size_t state_id) {
+    StackNode(Stage *stage, size_t state_id) {
+        this->stage    = stage;
         this->state_id = state_id;
-        this->choice = NULL;
+        this->choice   = NULL;
     }
 };
 
-struct PgfParser::ParseState {
-    ParseState *next;
+struct PgfParser::Stage {
+    Stage *next;
     PgfTextSpot start;
     PgfTextSpot end;
-    std::vector<StackNode*> stacks;
+    std::vector<StackNode*> nodes;
 
-    ParseState(PgfTextSpot spot) {
+    Stage(PgfTextSpot spot) {
         next = NULL;
         start = spot;
         end   = spot;
@@ -519,9 +522,9 @@ struct PgfParser::ParseState {
 };
 
 struct PgfParser::ExprState {
-    Result *res;
     prob_t prob;
 
+    Choice *choice;
     Production *prod;
     size_t n_args;
     PgfExpr expr;
@@ -535,11 +538,6 @@ struct PgfParser::ExprInstance {
         this->expr = expr;
         this->prob = prob;
     }
-};
-
-struct PgfParser::Result {
-    std::vector<ExprState*> states;
-    std::vector<ExprInstance> exprs;
 };
 
 #if defined(DEBUG_STATE_CREATION) || defined(DEBUG_AUTOMATON) || defined(DEBUG_PARSER)
@@ -570,12 +568,12 @@ void PgfParser::print_prod(Choice *choice, Production *prod)
     free(text);
 }
 
-void PgfParser::print_transition(StackNode *source, StackNode *target, ParseState *state)
+void PgfParser::print_transition(StackNode *source, StackNode *target, Stage *stage)
 {
-    fprintf(stderr, "state %ld --- ?%d ---> state %ld (position %zu-%zu, count %zu)\n",
+    fprintf(stderr, "state %ld --- ?%d ---> state %ld (position %zu-%zu, nodes %zu)\n",
                 source->state_id, target->choice->fid, target->state_id,
-                state->start.pos, state->end.pos,
-                state->stacks.size());
+                stage->start.pos, stage->end.pos,
+                stage->nodes.size());
 }
 #endif
 
@@ -586,8 +584,8 @@ PgfParser::PgfParser(ref<PgfConcr> concr, ref<PgfConcrLincat> start, PgfText *se
     this->m = m;
     this->u = u;
     this->last_fid = 0;
-    this->top_res = NULL;
-    this->top_res_index = 0;
+    this->top_choice = NULL;
+    this->top_choice_index = 0;
 
     PgfTextSpot spot;
     spot.pos = 0;
@@ -595,38 +593,46 @@ PgfParser::PgfParser(ref<PgfConcr> concr, ref<PgfConcrLincat> start, PgfText *se
 
     this->before = NULL;
     this->after  = NULL;
-    this->ahead  = new ParseState(spot);
+    this->ahead  = new Stage(spot);
 
-    StackNode *node = new StackNode(0);
-    this->ahead->stacks.push_back(node);
+    StackNode *node = new StackNode(ahead, 0);
+    this->ahead->nodes.push_back(node);
 }
 
 void PgfParser::shift(StackNode *parent, ref<PgfConcrLincat> lincat, size_t r, Production *prod,
-                      ParseState *state)
-{ 
+                      Stage *before, Stage *after)
+{
     ref<Vector<PgfLRShift>> shifts = vector_elem(concr->lrtable,parent->state_id)->shifts;
     for (size_t i = 0; i < shifts->len; i++) {
         ref<PgfLRShift> shift = vector_elem(shifts,i);
         if (lincat == shift->lincat && r == shift->r) {
             StackNode *node = NULL;
-            for (StackNode *n : state->stacks) {
-                if (n->state_id == shift->next_state) {
+            for (StackNode *n : after->nodes) {
+                if (n->stage == before && n->state_id == shift->next_state) {
                     node = n;
                     break;
                 }
             }
             if (node == NULL) {
-                node = new StackNode(shift->next_state);
+                node = new StackNode(before, shift->next_state);
                 node->choice = new Choice(++last_fid);
-                node->parents.push_back(parent);
-                state->stacks.push_back(node);
+                after->nodes.push_back(node);
             }
-            node->choice->prods.push_back(prod);
 
+            if (std::find(node->choice->prods.begin(), node->choice->prods.end(), prod) == node->choice->prods.end()) {
+                node->choice->prods.push_back(prod);
 #ifdef DEBUG_PARSER
-            print_prod(node->choice, prod);
-            print_transition(parent,node,state);
+                print_prod(node->choice, prod);
 #endif
+            }
+
+            if (std::find(node->parents.begin(), node->parents.end(), parent) == node->parents.end()) {
+                node->parents.push_back(parent);
+#ifdef DEBUG_PARSER
+                print_transition(parent,node,after);
+#endif
+            }
+
             break;
         }
     }
@@ -671,7 +677,8 @@ PgfParser::Choice *PgfParser::intersect_choice(Choice *choice1, Choice *choice2,
 }
 
 void PgfParser::reduce(StackNode *parent, ref<PgfConcrLin> lin, size_t seq_index,
-                       size_t n, std::vector<Choice*> &args)
+                       size_t n, std::vector<Choice*> &args,
+                       Stage *before, Stage *after)
 {
     if (n == 0) {
         ref<PgfConcrLincat> lincat = lin->lincat;
@@ -699,13 +706,13 @@ void PgfParser::reduce(StackNode *parent, ref<PgfConcrLin> lin, size_t seq_index
             }
         }
 
-        shift(parent, lincat, r, prod, before);
+        shift(parent, lincat, r, prod, before, after);
         return;
     }
 
     args.push_back(parent->choice);
     for (auto node : parent->parents) {
-        reduce(node, lin, seq_index, n-1, args);
+        reduce(node, lin, seq_index, n-1, args, parent->stage, after);
     }
     args.pop_back();
 }
@@ -714,11 +721,7 @@ void PgfParser::complete(StackNode *parent, ref<PgfConcrLincat> lincat, size_t s
                          size_t n, std::vector<Choice*> &args)
 {
     if (n == 0) {
-        Choice *choice = args[0];
-        if (top_res == NULL)
-            top_res = new Result();
-        choice->res = top_res;
-        predict_expr_states(choice, 0);
+        top_choice = args[0];
         return;
     }
 
@@ -736,18 +739,17 @@ void PgfParser::reduce_all(StackNode *node)
         ref<PgfLRShift> shift = vector_elem(shifts,j);
         if (shift->is_epsilon) {
             StackNode *new_node = NULL;
-            for (StackNode *n : before->stacks) {
-                if (n->state_id == shift->next_state) {
+            for (StackNode *n : before->nodes) {
+                if (n->stage == before && n->state_id == shift->next_state) {
                     new_node = n;
                     break;
                 }
             }
 
             if (new_node == NULL) {
-                new_node = new StackNode(shift->next_state);
+                new_node = new StackNode(before, shift->next_state);
                 new_node->choice = new Choice(++last_fid);
-                new_node->parents.push_back(node);
-                before->stacks.push_back(new_node);
+                before->nodes.push_back(new_node);
 
                 std::function<void(ref<PgfConcrLin>, size_t seq_index)> f =
                     [this,new_node](ref<PgfConcrLin> lin, size_t seq_index) {
@@ -761,9 +763,12 @@ void PgfParser::reduce_all(StackNode *node)
                                             shift->lincat, shift->r, f);
             }
 
+            if (std::find(new_node->parents.begin(), new_node->parents.end(), node) == new_node->parents.end()) {
+                new_node->parents.push_back(node);
 #ifdef DEBUG_PARSER
-            print_transition(node,new_node,before);
+                print_transition(node,new_node,before);
 #endif
+            }
         }
     }
 
@@ -776,7 +781,7 @@ void PgfParser::reduce_all(StackNode *node)
                 ref<PgfConcrLin>::untagged(red->lin_obj);
             ref<PgfSequence> seq = *vector_elem(lin->seqs,red->seq_index);
             std::vector<Choice*> args;
-            reduce(node, lin, red->seq_index, seq->syms.len, args);
+            reduce(node, lin, red->seq_index, seq->syms.len, args, before, before);
             break;
         }
         case PgfConcrLincat::tag: {
@@ -800,7 +805,7 @@ void PgfParser::space(PgfTextSpot *start, PgfTextSpot *end, PgfExn* err)
 #endif
 
     while (ahead != NULL && ahead->start.pos <= start->pos) {
-        ParseState *tmp = ahead->next;
+        Stage *tmp = ahead->next;
         ahead->next = before;
         before = ahead;
         ahead = tmp;
@@ -809,21 +814,21 @@ void PgfParser::space(PgfTextSpot *start, PgfTextSpot *end, PgfExn* err)
     before->end = *end;
 
     size_t i = 0;
-    while (i < before->stacks.size()) {
-        StackNode *node = before->stacks[i++];
+    while (i < before->nodes.size()) {
+        StackNode *node = before->nodes[i++];
         reduce_all(node);
     }
 }
 
 void PgfParser::start_matches(PgfTextSpot *end, PgfExn* err)
 {
-    ParseState **last = &ahead; after = *last;
+    Stage **last = &ahead; after = *last;
     while (after != NULL && after->start.pos < end->pos) {
         last = &after->next; after = *last;
     }
 
     if (after == NULL) {
-        *last = new ParseState(*end);
+        *last = new Stage(*end);
         after = *last;
     }
 }
@@ -834,8 +839,8 @@ void PgfParser::match(ref<PgfConcrLin> lin, size_t seq_index, PgfExn* err)
 
     Production *prod = new(lin) Production();
 
-    for (StackNode *parent : before->stacks) {
-        shift(parent, lin->lincat, r, prod, after);
+    for (StackNode *parent : before->nodes) {
+        shift(parent, lin->lincat, r, prod, before, after);
     }
 }
 
@@ -847,11 +852,17 @@ bool PgfParser::CompareExprState::operator() (const ExprState *state1, const Exp
     return state1->prob > state2->prob;
 }
 
+void PgfParser::prepare()
+{
+    if (top_choice != NULL)
+        predict_expr_states(top_choice, 0);
+}
+
 void PgfParser::predict_expr_states(Choice *choice, prob_t outside_prob)
 {
     for (Production *prod : choice->prods) {
         ExprState *state = new ExprState;
-        state->res = choice->res;
+        state->choice = choice;
         state->prod = prod;
         state->n_args = 0;
         state->expr = u->efun(&prod->lin->name);
@@ -863,8 +874,8 @@ void PgfParser::predict_expr_states(Choice *choice, prob_t outside_prob)
 #ifdef DEBUG_GENERATOR
 void PgfParser::print_expr_state_before(PgfPrinter *printer, ExprState *state)
 {
-    if (state->res->states.size() > 0) {
-        ExprState *parent = state->res->states[0];
+    if (state->choice->states.size() > 0) {
+        ExprState *parent = state->choice->states[0];
         print_expr_state_before(printer, parent);
         printer->puts(" [");
     }
@@ -874,12 +885,12 @@ void PgfParser::print_expr_state_before(PgfPrinter *printer, ExprState *state)
 void PgfParser::print_expr_state_after(PgfPrinter *printer, ExprState *state)
 {
     for (size_t i = state->n_args+1; i < state->prod->n_args; i++) {
-        printer->puts(" ?");
+        printer->nprintf(32, " ?%d", state->prod->args[i]->fid);
     }
 
-    if (state->res->states.size() > 0) {
+    if (state->choice->states.size() > 0) {
         printer->puts("]");
-        ExprState *parent = state->res->states[0];
+        ExprState *parent = state->choice->states[0];
         print_expr_state_after(printer, parent);
     }
 }
@@ -890,8 +901,13 @@ void PgfParser::print_expr_state(ExprState *state)
 
     printer.nprintf(16, "[%f] ", state->prob);
     print_expr_state_before(&printer, state);
-    if (state->prod->n_args > 0)
-        printer.puts(" ?");
+    if (state->n_args < state->prod->n_args) {
+        Choice *choice = state->prod->args[state->n_args];
+        if (choice == NULL)
+            printer.puts(" ?");
+        else
+            printer.nprintf(32, " ?%d", state->prod->args[state->n_args]->fid);
+    }
     print_expr_state_after(&printer, state);
     printer.puts("\n");
 
@@ -916,16 +932,12 @@ bool PgfParser::process_expr_state(ExprState *state)
         u->free_ref(meta);
         state->expr = app;
     } else {
-        Result *tmp    = choice->res;
-        if (choice->res == NULL) {
-            choice->res = new Result();
-        }
-        choice->res->states.push_back(state);
+        choice->states.push_back(state);
 
-        if (tmp == NULL) {
+        if (choice->states.size() == 1) {
             predict_expr_states(choice, state->prob);
         } else {
-            for (ExprInstance p : choice->res->exprs) {
+            for (ExprInstance p : choice->exprs) {
                 combine_expr_state(state,p);
             }
         }
@@ -936,18 +948,18 @@ bool PgfParser::process_expr_state(ExprState *state)
 
 void PgfParser::complete_expr_state(ExprState *state)
 {
-    Result *res = state->res;
+    Choice *choice = state->choice;
 
     prob_t outside_prob;
-    if (res == top_res)
+    if (choice == top_choice)
         outside_prob = 0;
     else
-        outside_prob = res->states[0]->prob;
+        outside_prob = choice->states[0]->prob;
 
     prob_t inside_prob = state->prob-outside_prob;
-    res->exprs.emplace_back(state->expr,inside_prob);
-    for (ExprState *state : res->states) {
-        combine_expr_state(state,res->exprs.back());
+    choice->exprs.emplace_back(state->expr,inside_prob);
+    for (ExprState *state : choice->states) {
+        combine_expr_state(state,choice->exprs.back());
     }
 }
 
@@ -956,8 +968,8 @@ void PgfParser::combine_expr_state(ExprState *state, ExprInstance &inst)
     PgfExpr app = u->eapp(state->expr, inst.expr);
 
     ExprState *app_state = new ExprState();
-    app_state->res    = state->res;
     app_state->prob   = state->prob + inst.prob;
+    app_state->choice = state->choice;
     app_state->prod   = state->prod;
     app_state->n_args = state->n_args+1;
     app_state->expr   = app;
@@ -973,12 +985,12 @@ PgfExpr PgfParser::fetch(PgfDB *db, prob_t *prob)
 {
     DB_scope scope(db, READER_SCOPE);
 
-    if (top_res == NULL)
+    if (top_choice == NULL)
         return 0;
 
     for (;;) {
-        if (top_res_index < top_res->exprs.size()) {
-            auto inst = top_res->exprs[top_res_index++];
+        if (top_choice_index < top_choice->exprs.size()) {
+            auto inst = top_choice->exprs[top_choice_index++];
             *prob = inst.prob;
             return inst.expr;
         }
