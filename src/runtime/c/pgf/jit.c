@@ -4,7 +4,10 @@
 #include <pgf/data.h>
 #include <pgf/reasoner.h>
 #include <pgf/reader.h>
+
+#if !defined(LIGHTNING_AARCH64)
 #include "lightning.h"
+#endif
 
 //#define PGF_JIT_DEBUG
 
