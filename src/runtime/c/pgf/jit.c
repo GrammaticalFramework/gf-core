@@ -5,7 +5,7 @@
 #include <pgf/reasoner.h>
 #include <pgf/reader.h>
 
-#if !defined(LIGHTNING_AARCH64)
+#if !defined(__aarch64__)
 #include "lightning.h"
 #endif
 
