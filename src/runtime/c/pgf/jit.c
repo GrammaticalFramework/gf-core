@@ -11,7 +11,7 @@
 
 //#define PGF_JIT_DEBUG
 
-#if defined(EMSCRIPTEN) || defined(LIGHTNING_AARCH64)
+#if defined(EMSCRIPTEN) || defined(__aarch64__)
 
 PGF_INTERNAL PgfJitState*
 pgf_new_jit(PgfReader* rdr)
