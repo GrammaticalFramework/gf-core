@@ -29,6 +29,14 @@ PGF_INTERNAL void
 pgf_jit_predicate(PgfReader* rdr, PgfAbstr* abstr,
                   PgfAbsCat* abscat)
 {
+	size_t n_funs = pgf_read_len(rdr);
+	gu_return_on_exn(rdr->err, );
+
+	for (size_t i = 0; i < n_funs; i++) {
+		gu_in_f64be(rdr->in, rdr->err);  // ignore
+		gu_return_on_exn(rdr->err,);
+		pgf_read_cid(rdr, rdr->tmp_pool);
+	}
 }
 
 PGF_INTERNAL void
