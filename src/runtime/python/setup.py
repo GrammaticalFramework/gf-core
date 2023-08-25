@@ -46,4 +46,5 @@ parse and generate text using GF grammars compiled into the PGF format.
     author='Krasimir Angelov',
     author_email='kr.angelov@gmail.com',
     license='BSD',
-    ext_modules = [pgf_module])
+    ext_modules = [pgf_module],
+    data_files = ["pgf.pyi"])
