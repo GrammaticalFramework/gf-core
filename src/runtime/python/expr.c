@@ -865,7 +865,7 @@ ExprApp_init(ExprAppObject *self, PyObject *args, PyObject *kwds)
         return 0;
     }
 
-    PyErr_SetString(PyExc_TypeError, "The arguments must two expressions");
+    PyErr_SetString(PyExc_TypeError, "The arguments must be two expressions");
     return -1;
 }
 
