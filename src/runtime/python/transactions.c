@@ -10,18 +10,10 @@
 PyObject *
 PGF_checkoutBranch(PGFObject *self, PyObject *args)
 {
-    if (!PyArg_ParseTuple(args, ""))
-        return NULL;
-
     PgfExn err;
     PgfRevision rev = pgf_checkout_revision(self->db, &err);
 
     if (handleError(err) != PGF_EXN_NONE) {
-        return NULL;
-    }
-    if (rev == 0) {
-        // is this possible?
-        PyErr_SetString(PyExc_KeyError, "unknown branch name");
         return NULL;
     }
 

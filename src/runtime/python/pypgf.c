@@ -1424,7 +1424,7 @@ static PyMethodDef PGF_methods[] = {
     {"exprProbability", (PyCFunction)PGF_exprProbability, METH_VARARGS,
      "Returns the probability of an expression"
     },
-    {"checkoutBranch", (PyCFunction)PGF_checkoutBranch, METH_VARARGS,
+    {"checkoutBranch", (PyCFunction)PGF_checkoutBranch, METH_NOARGS,
      "Checks out the latest branch of the repository"
     },
     {"newTransaction", (PyCFunction)PGF_newTransaction, METH_VARARGS,
