@@ -384,6 +384,29 @@ Concr_bracketedLinearize(ConcrObject* self, PyObject *args)
 	return lin_out.bs;
 }
 
+static PyObject*
+Concr_hasLinearization(ConcrObject* self, PyObject *args)
+{
+    const char *s;
+    Py_ssize_t size;
+    if (!PyArg_ParseTuple(args, "s#", &s, &size))
+        return NULL;
+
+    PgfExn err;
+    PgfText *fun = CString_AsPgfText(s, size);
+    int res = pgf_has_linearization(self->grammar->db, self->concr, fun, &err);
+    FreePgfText(fun);
+
+    if (handleError(err) != PGF_EXN_NONE) {
+        return NULL;
+    }
+
+	if (res)
+		Py_RETURN_TRUE;
+	else
+		Py_RETURN_FALSE;
+}
+
 typedef struct {
 	PgfMorphoCallback fn;
 	PyObject* analyses;
@@ -417,14 +440,14 @@ Concr_lookupMorpho(ConcrObject* self, PyObject *args) {
     if (!PyArg_ParseTuple(args, "s#", &s, &size))
         return NULL;
 
-    PgfText *sent = CString_AsPgfText(s, size);
-
-	PyObject* analyses = PyList_New(0);
+    PyObject* analyses = PyList_New(0);
 
     PgfExn err;
-    err.type = PGF_EXN_NONE;
+    PgfText *sent = CString_AsPgfText(s, size);
 	PyMorphoCallback callback = { { pypgf_collect_morpho }, analyses };
 	pgf_lookup_morpho(self->grammar->db, self->concr, sent, &callback.fn, &err);
+    FreePgfText(sent);
+
 	if (err.type != PGF_EXN_NONE) {
         if (err.type == PGF_EXN_PGF_ERROR) {
 			PyErr_SetString(PGFError, err.msg);
@@ -493,10 +516,10 @@ static PyMethodDef Concr_methods[] = {
     },
 /*    {"bracketedLinearizeAll", (PyCFunction)Concr_bracketedLinearizeAll, METH_VARARGS | METH_KEYWORDS,
      "Takes an abstract tree and linearizes all variants into bracketed strings"
-    },
+    },*/
     {"hasLinearization", (PyCFunction)Concr_hasLinearization, METH_VARARGS,
      "hasLinearization(f) returns true if the function f has linearization in the concrete syntax"
-    },
+    },/*
     {"graphvizParseTree", (PyCFunction)Concr_graphvizParseTree, METH_VARARGS,
      "Renders an abstract syntax tree as a parse tree in Graphviz format"
     },*/
