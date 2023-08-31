@@ -384,6 +384,58 @@ Concr_bracketedLinearize(ConcrObject* self, PyObject *args)
 	return lin_out.bs;
 }
 
+typedef struct {
+	PgfMorphoCallback fn;
+	PyObject* analyses;
+} PyMorphoCallback;
+
+static void
+pypgf_collect_morpho(PgfMorphoCallback* self,
+                     PgfText *lemma, PgfText *analysis, prob_t prob,
+	                 PgfExn* err)
+{
+	PyMorphoCallback* callback = (PyMorphoCallback*) self;
+
+	PyObject* py_lemma = PyUnicode_FromStringAndSize(lemma->text, lemma->size);
+	PyObject* py_analysis = PyUnicode_FromStringAndSize(analysis->text, analysis->size);
+	PyObject* res = 
+		Py_BuildValue("OOf", py_lemma, py_analysis, prob);
+
+    if (PyList_Append(callback->analyses, res) != 0) {
+		err->type = PGF_EXN_OTHER_ERROR;
+	}
+
+	Py_DECREF(py_lemma);
+	Py_DECREF(py_analysis);
+	Py_DECREF(res);
+}
+
+static PyObject*
+Concr_lookupMorpho(ConcrObject* self, PyObject *args) {
+    const char *s;
+    Py_ssize_t size;
+    if (!PyArg_ParseTuple(args, "s#", &s, &size))
+        return NULL;
+
+    PgfText *sent = CString_AsPgfText(s, size);
+
+	PyObject* analyses = PyList_New(0);
+
+    PgfExn err;
+    err.type = PGF_EXN_NONE;
+	PyMorphoCallback callback = { { pypgf_collect_morpho }, analyses };
+	pgf_lookup_morpho(self->grammar->db, self->concr, sent, &callback.fn, &err);
+	if (err.type != PGF_EXN_NONE) {
+        if (err.type == PGF_EXN_PGF_ERROR) {
+			PyErr_SetString(PGFError, err.msg);
+		}
+		Py_DECREF(analyses);
+		analyses = NULL;
+	}
+
+    return analyses;
+}
+
 static PyGetSetDef Concr_getseters[] = {
     {"name", 
      (getter)Concr_getName, NULL,
@@ -447,10 +499,10 @@ static PyMethodDef Concr_methods[] = {
     },
     {"graphvizParseTree", (PyCFunction)Concr_graphvizParseTree, METH_VARARGS,
      "Renders an abstract syntax tree as a parse tree in Graphviz format"
-    },
+    },*/
     {"lookupMorpho", (PyCFunction)Concr_lookupMorpho, METH_VARARGS,
      "Looks up a word in the lexicon of the grammar"
-    },
+    },/*
     {"lookupCohorts", (PyCFunction)Concr_lookupCohorts, METH_VARARGS,
      "Takes a sentence and returns all matches for lexical items from the grammar in that sentence"
     },
