@@ -628,6 +628,170 @@ Expr_reduce_ex(ExprObject* self, PyObject *args)
     return py_tuple;
 }
 
+static PyObject*
+Expr_deserialize(PyTypeObject* expr_type, PyObject *args)
+{
+    long index;
+    PyObject *py_db, *py_capsule;
+    if (!PyArg_ParseTuple(args, "OlO", &py_db, &index, &py_capsule))
+        return NULL;
+
+    PyObject *py_expr = NULL;
+    switch (index) {
+    case 1: {
+        PyObject *var =
+            PyObject_CallMethod(py_db, "__deserialize__", "OO", &PyUnicode_Type, py_capsule);
+        if (var == NULL)
+            return NULL;
+        PyObject *bind_type =
+            PyObject_CallMethod(py_db, "__deserialize__", "OO", &PyBool_Type, py_capsule);
+        if (bind_type == NULL) {
+            Py_DECREF(var);
+            return NULL;
+        }
+        PyObject *body =
+            PyObject_CallMethod(py_db, "__deserialize__", "OO", &pgf_ExprType, py_capsule);
+        if (body == NULL) {
+            Py_DECREF(bind_type);
+            Py_DECREF(var);
+            return NULL;
+        }
+
+        ExprAbsObject *abs_expr =
+            (ExprAbsObject *) pgf_ExprAbsType.tp_alloc(&pgf_ExprAbsType, 0);
+        if (abs_expr == NULL) {
+            Py_DECREF(body);
+            Py_DECREF(bind_type);
+            Py_DECREF(var);
+            return NULL;
+        }
+        abs_expr->name      = var;
+        abs_expr->bind_type = bind_type;
+        abs_expr->body      = (ExprObject *) body;
+        py_expr = (PyObject *) abs_expr;
+        break;
+    }
+    case 2: {
+        PyObject *fun =
+            PyObject_CallMethod(py_db, "__deserialize__", "OO", &pgf_ExprType, py_capsule);
+        if (fun == NULL)
+            return NULL;
+        PyObject *arg =
+            PyObject_CallMethod(py_db, "__deserialize__", "OO", &pgf_ExprType, py_capsule);
+        if (arg == NULL) {
+            Py_DECREF(fun);
+            return NULL;
+        }
+
+        ExprAppObject *app_expr =
+            (ExprAppObject *) pgf_ExprAppType.tp_alloc(&pgf_ExprAppType, 0);
+        if (app_expr == NULL) {
+            Py_DECREF(fun);
+            Py_DECREF(arg);
+            return NULL;
+        }
+        app_expr->fun = (ExprObject *) fun;
+        app_expr->arg = (ExprObject *) arg;
+        py_expr = (PyObject *) app_expr;
+        break;
+    }
+    case 3: {
+        // TODO
+        break;
+    }
+    case 4: {
+        PyObject *id =
+            PyObject_CallMethod(py_db, "__deserialize__", "OO", &PyLong_Type, py_capsule);
+        if (id == NULL)
+            return NULL;
+
+        ExprMetaObject *meta_expr =
+            (ExprMetaObject *) pgf_ExprMetaType.tp_alloc(&pgf_ExprMetaType, 0);
+        if (meta_expr == NULL) {
+            Py_DECREF(id);
+            return NULL;
+        }
+        meta_expr->id = id;
+        py_expr = (PyObject *) meta_expr;
+        break;
+    }
+    case 5: {
+        PyObject *name =
+            PyObject_CallMethod(py_db, "__deserialize__", "OO", &PyUnicode_Type, py_capsule);
+        if (name == NULL)
+            return NULL;
+
+        ExprFunObject *fun_expr =
+            (ExprFunObject *) pgf_ExprFunType.tp_alloc(&pgf_ExprFunType, 0);
+        if (fun_expr == NULL) {
+            Py_DECREF(name);
+            return NULL;
+        }
+        fun_expr->name = name;
+        py_expr = (PyObject *) fun_expr;
+        break;
+    }
+    case 6: {
+        PyObject *var =
+            PyObject_CallMethod(py_db, "__deserialize__", "OO", &PyLong_Type, py_capsule);
+        if (var == NULL)
+            return NULL;
+
+        ExprVarObject *var_expr =
+            (ExprVarObject *) pgf_ExprVarType.tp_alloc(&pgf_ExprVarType, 0);
+        if (var_expr == NULL) {
+            Py_DECREF(var);
+            return NULL;
+        }
+        var_expr->var = var;
+        py_expr = (PyObject *) var_expr;
+        break;
+    }
+    case 7: {
+        PyObject *expr =
+            PyObject_CallMethod(py_db, "__deserialize__", "OO", &pgf_ExprType, py_capsule);
+        if (expr == NULL)
+            return NULL;
+        PyObject *type =
+            PyObject_CallMethod(py_db, "__deserialize__", "OO", &pgf_TypeType, py_capsule);
+        if (type == NULL) {
+            Py_DECREF(expr);
+            return NULL;
+        }
+
+        ExprTypedObject *typed_expr =
+            (ExprTypedObject *) pgf_ExprTypedType.tp_alloc(&pgf_ExprTypedType, 0);
+        if (typed_expr == NULL) {
+            Py_DECREF(expr);
+            Py_DECREF(type);
+            return NULL;
+        }
+        typed_expr->expr = (ExprObject *) expr;
+        typed_expr->type = (TypeObject *) type;
+        py_expr = (PyObject *) typed_expr;
+        break;
+    }
+    case 8: {
+        PyObject *expr =
+            PyObject_CallMethod(py_db, "__deserialize__", "OO", &pgf_ExprType, py_capsule);
+        if (expr == NULL)
+            return NULL;
+
+        ExprImplArgObject *impl_expr =
+            (ExprImplArgObject *) pgf_ExprImplArgType.tp_alloc(&pgf_ExprImplArgType, 0);
+        if (impl_expr == NULL) {
+            Py_DECREF(expr);
+            return NULL;
+        }
+        impl_expr->expr = (ExprObject *) expr;
+        py_expr = (PyObject *) impl_expr;
+        break;
+    }
+    }
+
+    return py_expr;
+}
+
 static PyMethodDef Expr_methods[] = {
     {"unpack", (PyCFunction)Expr_unpack, METH_VARARGS,
      "Decomposes an expression into its components"
@@ -641,6 +805,9 @@ static PyMethodDef Expr_methods[] = {
     },
     {"__reduce_ex__", (PyCFunction)Expr_reduce_ex, METH_VARARGS,
      "This method allows for transparent pickling/unpickling of expressions."
+    },
+    {"__deserialize__", (PyCFunction)Expr_deserialize, METH_VARARGS | METH_CLASS,
+     "This method allows for deserialization of expressions with daison."
     },
     {NULL}  /* Sentinel */
 };
