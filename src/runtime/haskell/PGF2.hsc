@@ -16,6 +16,9 @@
 module PGF2 (-- * PGF
              PGF,readPGF,bootNGF,readNGF,newNGF,writePGF,showPGF,
              readPGFWithProbs, bootNGFWithProbs,
+#ifdef __linux__
+             writePGF_,
+#endif
 
              -- * Abstract syntax
              AbsName,abstractName,globalFlag,abstractFlag,
@@ -109,6 +112,10 @@ import Data.Char(isUpper,isSpace,isPunctuation)
 import Data.Maybe(maybe)
 import Text.PrettyPrint
 
+#ifdef __linux__
+#define _GNU_SOURCE
+#include <stdio.h>
+#endif
 #include <pgf/pgf.h>
 
 -- | Reads a PGF file and keeps it in memory.
@@ -200,6 +207,39 @@ writePGF fpath p mb_langs =
   where
     withLangs clangs []           f = withArray0 nullPtr (reverse clangs) f
     withLangs clangs (lang:langs) f = withText lang $ \clang -> withLangs (clang:clangs) langs f
+
+#ifdef __linux__
+writePGF_ :: (Ptr Word8 -> CSize -> IO CSize) -> PGF -> Maybe [ConcName] -> IO ()
+writePGF_ callback p mb_langs =
+  allocaBytes (#size cookie_io_functions_t) $ \io_functions ->
+  withForeignPtr (a_revision p) $ \c_revision ->
+  maybe (\f -> f nullPtr) (withLangs []) mb_langs $ \c_langs -> do
+    cookie <- fmap castStablePtrToPtr (newStablePtr callback)
+    (#poke cookie_io_functions_t, read) io_functions nullPtr
+    (#poke cookie_io_functions_t, write) io_functions cookie_write_ptr
+    (#poke cookie_io_functions_t, seek) io_functions nullPtr
+    (#poke cookie_io_functions_t, close) io_functions cookie_close_ptr
+    withPgfExn "writePGF_" (pgf_write_pgf_cookie cookie io_functions (a_db p) c_revision c_langs)
+  where
+    withLangs clangs []           f = withArray0 nullPtr (reverse clangs) f
+    withLangs clangs (lang:langs) f = withText lang $ \clang -> withLangs (clang:clangs) langs f
+#endif
+
+cookie_write :: Ptr () -> Ptr Word8 -> CSize -> IO CSize
+cookie_write cookie buf size = do
+  callback <- deRefStablePtr (castPtrToStablePtr cookie)
+  callback buf size
+
+foreign export ccall cookie_write :: Ptr () -> Ptr Word8 -> CSize -> IO CSize
+foreign import ccall "&cookie_write" cookie_write_ptr :: FunPtr (Ptr () -> Ptr Word8 -> CSize -> IO CSize)
+
+cookie_close :: Ptr () -> IO CInt
+cookie_close cookie = do
+  freeStablePtr (castPtrToStablePtr cookie)
+  return 0
+
+foreign export ccall cookie_close :: Ptr () -> IO CInt
+foreign import ccall "&cookie_close" cookie_close_ptr :: FunPtr (Ptr () -> IO CInt)
 
 showPGF :: PGF -> String
 showPGF p =

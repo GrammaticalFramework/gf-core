@@ -17,6 +17,10 @@ import System.IO.Unsafe(unsafePerformIO)
 
 import PGF2.Expr
 
+#ifdef __linux__
+#define _GNU_SOURCE
+#include <stdio.h>
+#endif
 #include <pgf/pgf.h>
 
 type AbsName  = String -- ^ Name of abstract syntax
@@ -52,6 +56,7 @@ data PgfCohortsCallback
 data PgfPhrasetableIds
 data PgfExprEnum
 data PgfAlignmentPhrase
+data CookieIOFunctions
 
 type Wrapper a = a -> IO (FunPtr a)
 type Dynamic a = FunPtr a -> a
@@ -80,6 +85,10 @@ foreign import ccall pgf_new_ngf :: Ptr PgfText -> CString -> CSize -> Ptr (Ptr 
 foreign import ccall pgf_merge_pgf :: Ptr PgfDB -> Ptr PGF -> CString -> Ptr PgfExn -> IO ()
 
 foreign import ccall pgf_write_pgf :: CString -> Ptr PgfDB -> Ptr PGF -> Ptr (Ptr PgfText) -> Ptr PgfExn -> IO ()
+
+#ifdef _GNU_SOURCE
+foreign import ccall pgf_write_pgf_cookie :: Ptr () -> Ptr CookieIOFunctions -> Ptr PgfDB -> Ptr PGF -> Ptr (Ptr PgfText) -> Ptr PgfExn -> IO ()
+#endif
 
 foreign import ccall "pgf_free_revision" pgf_free_revision_ :: Ptr PgfDB -> Ptr PGF -> IO ()
 

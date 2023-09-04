@@ -291,6 +291,15 @@ void pgf_write_pgf(const char* fpath,
                    PgfText **langs, // null terminated list or null
                    PgfExn* err);
 
+#ifdef _GNU_SOURCE
+PGF_API_DECL
+void pgf_write_pgf_cookie
+                  (void *cookie, cookie_io_functions_t *io_funcs,
+                   PgfDB *db, PgfRevision revision,
+                   PgfText **langs, // null terminated list or null
+                   PgfExn* err);
+#endif
+
 PGF_API_DECL
 const char *pgf_file_path(PgfDB *db);
 
