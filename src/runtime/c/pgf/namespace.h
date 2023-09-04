@@ -293,13 +293,13 @@ public:
 
         if (DELTA*left->sz < right->sz) {
             left = link(node,left,right->left);
-            ref<Node> node = upd_node(node,left,right->right);
+            node = upd_node(node,left,right->right);
             return balanceL(node);
         }
 
         if (left->sz > DELTA*right->sz) {
             right = link(node,left->right,right);
-            ref<Node> node = upd_node(node,left->left,right);
+            node = upd_node(node,left->left,right);
             return balanceR(node);
         }
 
