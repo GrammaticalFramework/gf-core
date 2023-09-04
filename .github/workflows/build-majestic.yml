@@ -9,12 +9,12 @@ jobs:
 
   linux-runtime:
     name: Runtime (Linux)
-    runs-on: ubuntu-20.04
+    runs-on: ubuntu-latest
     container:
       image: quay.io/pypa/manylinux2014_x86_64:2023-01-14-103cb93
 
     steps:
-    - uses: actions/checkout@v4
+    - uses: actions/checkout@v3
 
     - name: Build runtime
       working-directory: ./src/runtime/c
@@ -34,7 +34,7 @@ jobs:
 
   linux-haskell:
     name: Haskell (Linux)
-    runs-on: ubuntu-20.04
+    runs-on: ubuntu-latest
     needs: linux-runtime
 
     steps:
@@ -76,7 +76,7 @@ jobs:
 
   linux-python:
     name: Python (Linux)
-    runs-on: ubuntu-20.04
+    runs-on: ubuntu-latest
     needs: linux-runtime
 
     steps:
@@ -106,7 +106,7 @@ jobs:
 
 #  linux-javascript:
 #    name: JavaScript (Linux)
-#    runs-on: ubuntu-20.04
+#    runs-on: ubuntu-latest
 #    needs: linux-runtime
 #
 #    steps:
