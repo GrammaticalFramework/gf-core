@@ -17,10 +17,6 @@ import System.IO.Unsafe(unsafePerformIO)
 
 import PGF2.Expr
 
-#ifdef __linux__
-#define _GNU_SOURCE
-#include <stdio.h>
-#endif
 #include <pgf/pgf.h>
 
 type AbsName  = String -- ^ Name of abstract syntax
@@ -86,10 +82,9 @@ foreign import ccall pgf_merge_pgf :: Ptr PgfDB -> Ptr PGF -> CString -> Ptr Pgf
 foreign import ccall pgf_write_pgf :: CString -> Ptr PgfDB -> Ptr PGF -> Ptr (Ptr PgfText) -> Ptr PgfExn -> IO ()
 
 #if defined(__linux__)
-data CookieIOFunctions
-foreign import ccall pgf_write_pgf_cookie :: Ptr () -> Ptr CookieIOFunctions -> Ptr PgfDB -> Ptr PGF -> Ptr (Ptr PgfText) -> Ptr PgfExn -> IO ()
+foreign import ccall pgf_write_pgf_cookie :: Ptr () -> FunPtr (Ptr () -> Ptr Word8 -> CSize -> IO CSize) -> Ptr PgfDB -> Ptr PGF -> Ptr (Ptr PgfText) -> Ptr PgfExn -> IO ()
 #elif defined(__APPLE__)
-foreign import ccall pgf_write_pgf_cookie :: Ptr () -> FunPtr (Ptr () -> Ptr Word8 -> CInt -> IO CInt) -> FunPtr (Ptr () -> IO CInt) -> Ptr PgfDB -> Ptr PGF -> Ptr (Ptr PgfText) -> Ptr PgfExn -> IO ()
+foreign import ccall pgf_write_pgf_cookie :: Ptr () -> FunPtr (Ptr () -> Ptr Word8 -> CInt -> IO CInt) -> Ptr PgfDB -> Ptr PGF -> Ptr (Ptr PgfText) -> Ptr PgfExn -> IO ()
 #endif
 
 foreign import ccall "pgf_free_revision" pgf_free_revision_ :: Ptr PgfDB -> Ptr PGF -> IO ()
