@@ -294,7 +294,7 @@ void pgf_write_pgf(const char* fpath,
 #if defined(__linux__)
 PGF_API_DECL
 void pgf_write_pgf_cookie
-                  (void *cookie, cookie_io_functions_t *io_funcs,
+                  (void *cookie, ssize_t (*writefn)(void *, const char *, size_t),
                    PgfDB *db, PgfRevision revision,
                    PgfText **langs, // null terminated list or null
                    PgfExn* err);
@@ -302,7 +302,6 @@ void pgf_write_pgf_cookie
 PGF_API_DECL
 void pgf_write_pgf_cookie
                   (void *cookie, int (*writefn)(void *, const char *, int),
-                                 int (*closefn)(void *),
                    PgfDB *db, PgfRevision revision,
                    PgfText **langs, // null terminated list or null
                    PgfExn* err);

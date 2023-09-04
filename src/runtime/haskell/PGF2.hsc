@@ -16,7 +16,7 @@
 module PGF2 (-- * PGF
              PGF,readPGF,bootNGF,readNGF,newNGF,writePGF,showPGF,
              readPGFWithProbs, bootNGFWithProbs,
-#ifdef __linux__
+#if defined(__linux__) || defined(__APPLE__)
              writePGF_,
 #endif
 
