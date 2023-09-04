@@ -208,8 +208,8 @@ writePGF fpath p mb_langs =
     withLangs clangs []           f = withArray0 nullPtr (reverse clangs) f
     withLangs clangs (lang:langs) f = withText lang $ \clang -> withLangs (clang:clangs) langs f
 
-#ifdef __linux__
-writePGF_ :: (Ptr Word8 -> CSize -> IO CSize) -> PGF -> Maybe [ConcName] -> IO ()
+#if defined(__linux__)
+writePGF_ :: (Ptr Word8 -> Int -> IO Int) -> PGF -> Maybe [ConcName] -> IO ()
 writePGF_ callback p mb_langs =
   allocaBytes (#size cookie_io_functions_t) $ \io_functions ->
   withForeignPtr (a_revision p) $ \c_revision ->
@@ -223,12 +223,11 @@ writePGF_ callback p mb_langs =
   where
     withLangs clangs []           f = withArray0 nullPtr (reverse clangs) f
     withLangs clangs (lang:langs) f = withText lang $ \clang -> withLangs (clang:clangs) langs f
-#endif
 
 cookie_write :: Ptr () -> Ptr Word8 -> CSize -> IO CSize
 cookie_write cookie buf size = do
   callback <- deRefStablePtr (castPtrToStablePtr cookie)
-  callback buf size
+  fmap fromIntegral $ (callback :: Ptr Word8 -> Int -> IO Int) buf (fromIntegral size)
 
 foreign export ccall cookie_write :: Ptr () -> Ptr Word8 -> CSize -> IO CSize
 foreign import ccall "&cookie_write" cookie_write_ptr :: FunPtr (Ptr () -> Ptr Word8 -> CSize -> IO CSize)
@@ -240,6 +239,36 @@ cookie_close cookie = do
 
 foreign export ccall cookie_close :: Ptr () -> IO CInt
 foreign import ccall "&cookie_close" cookie_close_ptr :: FunPtr (Ptr () -> IO CInt)
+
+#elif defined(__APPLE__)
+
+writePGF_ :: (Ptr Word8 -> Int -> IO Int) -> PGF -> Maybe [ConcName] -> IO ()
+writePGF_ callback p mb_langs =
+  withForeignPtr (a_revision p) $ \c_revision ->
+  maybe (\f -> f nullPtr) (withLangs []) mb_langs $ \c_langs -> do
+    cookie <- fmap castStablePtrToPtr (newStablePtr callback)
+    withPgfExn "writePGF_" (pgf_write_pgf_cookie cookie cookie_write_ptr cookie_close_ptr (a_db p) c_revision c_langs)
+  where
+    withLangs clangs []           f = withArray0 nullPtr (reverse clangs) f
+    withLangs clangs (lang:langs) f = withText lang $ \clang -> withLangs (clang:clangs) langs f
+
+cookie_write :: Ptr () -> Ptr Word8 -> CInt -> IO CInt
+cookie_write cookie buf size = do
+  callback <- deRefStablePtr (castPtrToStablePtr cookie)
+  fmap fromIntegral $ (callback :: Ptr Word8 -> Int -> IO Int) buf (fromIntegral size)
+
+foreign export ccall cookie_write :: Ptr () -> Ptr Word8 -> CInt -> IO CInt
+foreign import ccall "&cookie_write" cookie_write_ptr :: FunPtr (Ptr () -> Ptr Word8 -> CInt -> IO CInt)
+
+cookie_close :: Ptr () -> IO CInt
+cookie_close cookie = do
+  freeStablePtr (castPtrToStablePtr cookie)
+  return 0
+
+foreign export ccall cookie_close :: Ptr () -> IO CInt
+foreign import ccall "&cookie_close" cookie_close_ptr 
+
+#endif
 
 showPGF :: PGF -> String
 showPGF p =

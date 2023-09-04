@@ -280,7 +280,7 @@ end:
         fclose(out);
 }
 
-#ifdef _GNU_SOURCE
+#if defined(__linux__)
 PGF_API
 void pgf_write_pgf_cookie
                   (void *cookie, cookie_io_functions_t *io_funcs,
@@ -292,6 +292,35 @@ void pgf_write_pgf_cookie
 
     PGF_API_BEGIN {
         out = fopencookie(cookie, "wb", *io_funcs);
+        if (!out) {
+            throw pgf_systemerror(errno, "<cookie>");
+        }
+
+        {
+            DB_scope scope(db, READER_SCOPE);
+            ref<PgfPGF> pgf = db->revision2pgf(revision);
+
+            PgfWriter wtr(langs, out);
+            wtr.write_pgf(pgf);
+        }
+    } PGF_API_END
+
+    if (out != NULL)
+        fclose(out);
+}
+#elif defined(__APPLE__)
+PGF_API
+void pgf_write_pgf_cookie
+                  (void *cookie, int (*writefn)(void *, const char *, int),
+                                 int (*closefn)(void *),
+                   PgfDB *db, PgfRevision revision,
+                   PgfText **langs, // null terminated list or null
+                   PgfExn* err)
+{
+    FILE *out = NULL;
+
+    PGF_API_BEGIN {
+        out = funopen(cookie, NULL, writefn, NULL, closefn);
         if (!out) {
             throw pgf_systemerror(errno, "<cookie>");
         }
