@@ -280,10 +280,15 @@ end:
         fclose(out);
 }
 
+#if defined(__linux__) || defined(__APPLE__)
+PGF_API
+void pgf_write_pgf_cookie
+                  (void *cookie,
 #if defined(__linux__)
-PGF_API
-void pgf_write_pgf_cookie
-                  (void *cookie, cookie_io_functions_t *io_funcs,
+                   ssize_t (*writefn)(void *, const char *, size_t),
+#else
+                   int (*writefn)(void *, const char *, int),
+#endif
                    PgfDB *db, PgfRevision revision,
                    PgfText **langs, // null terminated list or null
                    PgfExn* err)
@@ -291,36 +296,18 @@ void pgf_write_pgf_cookie
     FILE *out = NULL;
 
     PGF_API_BEGIN {
-        out = fopencookie(cookie, "wb", *io_funcs);
-        if (!out) {
-            throw pgf_systemerror(errno, "<cookie>");
-        }
+#if defined(__linux__)
+        cookie_io_functions_t io_funcs = {
+            NULL,
+            writefn,
+            NULL,
+            NULL
+        };
 
-        {
-            DB_scope scope(db, READER_SCOPE);
-            ref<PgfPGF> pgf = db->revision2pgf(revision);
-
-            PgfWriter wtr(langs, out);
-            wtr.write_pgf(pgf);
-        }
-    } PGF_API_END
-
-    if (out != NULL)
-        fclose(out);
-}
-#elif defined(__APPLE__)
-PGF_API
-void pgf_write_pgf_cookie
-                  (void *cookie, int (*writefn)(void *, const char *, int),
-                                 int (*closefn)(void *),
-                   PgfDB *db, PgfRevision revision,
-                   PgfText **langs, // null terminated list or null
-                   PgfExn* err)
-{
-    FILE *out = NULL;
-
-    PGF_API_BEGIN {
-        out = funopen(cookie, NULL, writefn, NULL, closefn);
+        out = fopencookie(cookie, "wb", io_funcs);
+#else
+        out = fwopen(cookie, writefn);
+#endif
         if (!out) {
             throw pgf_systemerror(errno, "<cookie>");
         }
