@@ -14,7 +14,7 @@ jobs:
       image: quay.io/pypa/manylinux2014_x86_64:2023-01-14-103cb93
 
     steps:
-    - uses: actions/checkout@v3
+    - uses: actions/checkout@v4
 
     - name: Build runtime
       working-directory: ./src/runtime/c
