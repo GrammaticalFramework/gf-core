@@ -22,7 +22,9 @@ pgf_new_jit(PgfReader* rdr)
 PGF_INTERNAL PgfEvalGates*
 pgf_jit_gates(PgfReader* rdr)
 {
-    return NULL;
+    PgfEvalGates* gates = gu_new(PgfEvalGates, rdr->opool);
+    memset(gates, 0, sizeof(*gates));
+    return gates;
 }
 
 PGF_INTERNAL void
