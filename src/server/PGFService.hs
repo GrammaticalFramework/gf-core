@@ -359,9 +359,9 @@ pgfDownload conn query (t,pgf) = do
   where
     writeChunk conn ptr len =
       (do writeAscii conn (showHex len "\r\n")
-          n <- writeBytes conn ptr len
+          writeBytes conn ptr len
           writeAscii conn "\r\n"
-          return n)
+          return len)
       `catch`
       (\(e :: SomeException) -> return (-1))
 
