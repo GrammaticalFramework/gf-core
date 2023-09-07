@@ -154,6 +154,44 @@ bootNGFWithProbs pgf_path mb_probs ngf_path =
     langs <- getConcretes c_db fptr
     return (PGF c_db fptr langs)
 
+#if defined(__linux__) || defined(__APPLE__)
+-- | Similar to 'bootPGF' but instead of reading from a file,
+-- it calls the given callback each time when more data is needed.
+-- This makes it possible to read the file over a socket or
+-- an HTTP connection.
+bootNGF_ :: (Ptr Word8 -> Int -> IO Int) -> FilePath -> IO PGF
+bootNGF_ callback ngf_path = bootNGFWithProbs_ callback Nothing ngf_path
+
+bootNGFWithProbs_ :: (Ptr Word8 -> Int -> IO Int) -> Maybe (Map.Map String Double) -> FilePath -> IO PGF
+bootNGFWithProbs_ callback mb_probs ngf_path =
+  withCString ngf_path $ \c_ngf_path ->
+  alloca $ \p_revision ->
+  withProbsCallback mb_probs $ \c_pcallback ->
+  bracket (newStablePtr callback) freeStablePtr $ \cookie ->
+  mask_ $ do
+    c_db <- withPgfExn "bootNGF" (pgf_boot_ngf_cookie (castStablePtrToPtr cookie) cookie_read_ptr c_ngf_path p_revision c_pcallback)
+    c_revision <- peek p_revision
+    fptr <- newForeignPtrEnv pgf_free_revision c_db c_revision
+    langs <- getConcretes c_db fptr
+    return (PGF c_db fptr langs)
+
+#if defined(__linux__)
+foreign export ccall cookie_read :: Ptr () -> Ptr Word8 -> CSize -> IO CSize
+foreign import ccall "&cookie_read" cookie_read_ptr :: FunPtr (Ptr () -> Ptr Word8 -> CSize -> IO CSize)
+
+cookie_read :: Ptr () -> Ptr Word8 -> CSize -> IO CSize
+#else
+foreign export ccall cookie_read :: Ptr () -> Ptr Word8 -> CInt -> IO CInt
+foreign import ccall "&cookie_read" cookie_read_ptr :: FunPtr (Ptr () -> Ptr Word8 -> CInt -> IO CInt)
+
+cookie_read :: Ptr () -> Ptr Word8 -> CInt -> IO CInt
+#endif
+
+cookie_read cookie buf size = do
+  callback <- deRefStablePtr (castPtrToStablePtr cookie)
+  fmap fromIntegral $ (callback :: Ptr Word8 -> Int -> IO Int) buf (fromIntegral size)
+#endif
+
 withProbsCallback :: Maybe (Map.Map String Double) -> (Ptr PgfProbsCallback -> IO a) -> IO a
 withProbsCallback Nothing      f = f nullPtr
 withProbsCallback (Just probs) f =
@@ -209,6 +247,10 @@ writePGF fpath p mb_langs =
     withLangs clangs (lang:langs) f = withText lang $ \clang -> withLangs (clang:clangs) langs f
 
 #if defined(__linux__) || defined(__APPLE__)
+-- | Similar to 'writePGF' but instead of saving to a file,
+-- it calls the given callback each time when more data is ready.
+-- This makes it possible to send the file over a socket or
+-- an HTTP connection.
 writePGF_ :: (Ptr Word8 -> Int -> IO Int) -> PGF -> Maybe [ConcName] -> IO ()
 writePGF_ callback p mb_langs =
   withForeignPtr (a_revision p) $ \c_revision ->

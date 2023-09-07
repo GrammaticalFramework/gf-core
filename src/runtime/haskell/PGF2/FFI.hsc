@@ -68,6 +68,12 @@ foreign import ccall "pgf_read_pgf"
 foreign import ccall "pgf_boot_ngf"
   pgf_boot_ngf :: CString -> CString -> Ptr (Ptr PGF) -> Ptr PgfProbsCallback -> Ptr PgfExn -> IO (Ptr PgfDB)
 
+#if defined(__linux__)
+foreign import ccall pgf_boot_ngf_cookie :: Ptr () -> FunPtr (Ptr () -> Ptr Word8 -> CSize -> IO CSize) -> CString -> Ptr (Ptr PGF) -> Ptr PgfProbsCallback -> Ptr PgfExn -> IO (Ptr PgfDB)
+#elif defined(__APPLE__)
+foreign import ccall pgf_boot_ngf_cookie :: Ptr () -> FunPtr (Ptr () -> Ptr Word8 -> CInt -> IO CInt) -> CString -> Ptr (Ptr PGF) -> Ptr PgfProbsCallback -> Ptr PgfExn -> IO (Ptr PgfDB)
+#endif
+
 type ProbsCallback = Ptr PgfProbsCallback -> Ptr PgfText -> IO Double
 
 foreign import ccall "wrapper" wrapProbsCallback :: Wrapper ProbsCallback

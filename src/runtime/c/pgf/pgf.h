@@ -261,6 +261,20 @@ PgfDB *pgf_boot_ngf(const char* pgf_path, const char* ngf_path,
                     PgfProbsCallback *probs_callback,
                     PgfExn* err);
 
+#if defined(__linux__) || defined(__APPLE__)
+PGF_API_DECL
+PgfDB *pgf_boot_ngf_cookie(void *cookie,
+#if defined(__linux__)
+                           ssize_t (*readfn)(void *, char *, size_t),
+#else
+                           int (*readfn)(void *, const char *, int),
+#endif
+                           const char* ngf_path,
+                           PgfRevision *revision,
+                           PgfProbsCallback *probs_callback,
+                           PgfExn* err);
+#endif
+
 /* Tries to read the grammar from an already booted NGF file.
  * The function fails if the file does not exist. The default grammar
  * revision is stored in *revision. */

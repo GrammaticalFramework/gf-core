@@ -1616,18 +1616,75 @@ pgf_readPGF(PyObject *self, PyObject *args)
     return py_pgf;
 }
 
+#if defined(__linux__) || defined(__APPLE__)
+static
+#if defined(__linux__)
+ssize_t py_readfn(void *cookie, char *mem, size_t size)
+#else
+int py_readfn(void *cookie, char *mem, int size)
+#endif
+{
+    PyObject *source = (PyObject *) cookie;
+
+    PyObject *mv =
+        PyMemoryView_FromMemory(mem, (Py_ssize_t) size, PyBUF_WRITE);
+
+    PyObject *res =
+        PyObject_CallOneArg(source, mv);
+
+    Py_DECREF(mv);
+
+    if (res == NULL) {
+        PyErr_PrintEx(0);
+        errno = EINVAL;
+        return -1;
+    }
+    if (!PyLong_Check(res)) {
+        Py_DECREF(res);
+        errno = EINVAL;
+        return -1;
+    }
+
+    ssize_t n = PyLong_AsSsize_t(res);
+    Py_DECREF(res);
+
+    return n;
+}
+#endif
+
 static PGFObject *
 pgf_bootNGF(PyObject *self, PyObject *args)
 {
-    const char *fpath; // pgf
+#if defined(__linux__) || defined(__APPLE__)
+    PyObject *source;
+    const char *npath; // ngf
+    if (!PyArg_ParseTuple(args, "Os", &source, &npath))
+        return NULL;
+
+    PgfExn err;
+    PGFObject *py_pgf = (PGFObject *)pgf_PGFType.tp_alloc(&pgf_PGFType, 0);
+
+    if (PyUnicode_Check(source)) {        
+        const char *fpath = PyUnicode_AsUTF8(source);
+        py_pgf->db = pgf_boot_ngf(fpath, npath, &py_pgf->revision, NULL, &err);
+    } else if (PyCallable_Check(source)) {
+        py_pgf->db = pgf_boot_ngf_cookie(source, py_readfn, npath, &py_pgf->revision, NULL, &err);
+    } else {
+        Py_DECREF(py_pgf);
+        PyErr_SetString(PyExc_TypeError, "The first argument must be a string or a callable function");
+        return NULL;
+    }
+#else
+    const char *fpath  // pgf
     const char *npath; // ngf
     if (!PyArg_ParseTuple(args, "ss", &fpath, &npath))
         return NULL;
 
-    PGFObject *py_pgf = (PGFObject *)pgf_PGFType.tp_alloc(&pgf_PGFType, 0);
-
     PgfExn err;
+    PGFObject *py_pgf = (PGFObject *)pgf_PGFType.tp_alloc(&pgf_PGFType, 0);
     py_pgf->db = pgf_boot_ngf(fpath, npath, &py_pgf->revision, NULL, &err);
+#endif
+
     if (handleError(err) != PGF_EXN_NONE) {
         Py_DECREF(py_pgf);
         return NULL;

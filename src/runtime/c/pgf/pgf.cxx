@@ -144,6 +144,80 @@ PgfDB *pgf_boot_ngf(const char* pgf_path, const char* ngf_path,
     return NULL;
 }
 
+#if defined(__linux__) || defined(__APPLE__)
+#include <unistd.h>
+
+PGF_API
+PgfDB *pgf_boot_ngf_cookie(void *cookie,
+#if defined(__linux__)
+                           ssize_t (*readfn)(void *, char *, size_t),
+#else
+                           int (*readfn)(void *, const char *, int),
+#endif
+                           const char* ngf_path,
+                           PgfRevision *revision,
+                           PgfProbsCallback *probs_callback,
+                           PgfExn* err)
+{
+    PgfDB *db = NULL;
+    FILE *in = NULL;
+
+    PGF_API_BEGIN {
+#if defined(__linux__)
+        cookie_io_functions_t io_funcs = {
+            readfn,
+            NULL,
+            NULL,
+            NULL
+        };
+
+        FILE *in = fopencookie(cookie, "rb", io_funcs);
+#else
+        FILE *in = fropen(cookie, readfn);
+#endif
+        if (!in) {
+            throw pgf_systemerror(errno);
+        }
+
+        db = new PgfDB(ngf_path, O_CREAT | O_EXCL | O_RDWR,
+#ifndef _WIN32
+                       S_IRUSR | S_IWUSR,
+#else
+                       _S_IREAD | _S_IWRITE,
+#endif
+                       getpagesize());
+
+        {
+            DB_scope scope(db, WRITER_SCOPE);
+
+            db->start_transaction();
+
+            PgfReader rdr(in,probs_callback);
+            ref<PgfPGF> pgf = rdr.read_pgf();
+            fclose(in);
+
+            db->set_transaction_object(pgf.as_object());
+
+            *revision = db->register_revision(pgf.tagged(), PgfDB::get_txn_id());
+            db->commit(pgf.as_object());
+        }
+
+        db->ref_count++;
+        return db;
+    } PGF_API_END
+
+    if (in != NULL)
+        fclose(in);
+
+    if (db != NULL) {
+        delete db;
+        remove(ngf_path);
+    }
+
+    return NULL;
+}
+#endif
+
 PGF_API
 PgfDB *pgf_read_ngf(const char *fpath,
                     PgfRevision *revision,
