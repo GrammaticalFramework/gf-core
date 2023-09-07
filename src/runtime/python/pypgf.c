@@ -1630,7 +1630,7 @@ int py_readfn(void *cookie, char *mem, int size)
         PyMemoryView_FromMemory(mem, (Py_ssize_t) size, PyBUF_WRITE);
 
     PyObject *res =
-        PyObject_CallOneArg(source, mv);
+        PyObject_CallFunction(source, "O", mv);
 
     Py_DECREF(mv);
 
