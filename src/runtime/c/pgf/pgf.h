@@ -267,7 +267,7 @@ PgfDB *pgf_boot_ngf_cookie(void *cookie,
 #if defined(__linux__)
                            ssize_t (*readfn)(void *, char *, size_t),
 #else
-                           int (*readfn)(void *, const char *, int),
+                           int (*readfn)(void *, char *, int),
 #endif
                            const char* ngf_path,
                            PgfRevision *revision,
