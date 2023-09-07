@@ -1675,7 +1675,7 @@ pgf_bootNGF(PyObject *self, PyObject *args)
         return NULL;
     }
 #else
-    const char *fpath  // pgf
+    const char *fpath;  // pgf
     const char *npath; // ngf
     if (!PyArg_ParseTuple(args, "ss", &fpath, &npath))
         return NULL;
