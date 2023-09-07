@@ -1,5 +1,5 @@
 -- | GF server mode
-{-# LANGUAGE CPP #-}
+{-# LANGUAGE CPP, ScopedTypeVariables #-}
 module GF.Server(GF.Server.server) where
 
 import Data.List(partition,stripPrefix,isInfixOf)
@@ -10,8 +10,10 @@ import Control.Monad.State(StateT(..),get,gets,put)
 import Control.Monad.Except(ExceptT(..),runExceptT)
 import System.Random(randomRIO)
 import GF.System.Catch(try)
-import Control.Exception(bracket_)
-import System.IO.Error(isAlreadyExistsError)
+import Control.Exception(bracket,bracket_,catch,throw)
+import System.IO (openFile,IOMode(ReadMode),hGetBuf,hFileSize,hClose)
+import System.IO.Error(isAlreadyExistsError,isDoesNotExistError)
+import Foreign(allocaBytes)
 import GF.System.Directory(doesDirectoryExist,doesFileExist,createDirectory,
                            setCurrentDirectory,getCurrentDirectory,
                            getDirectoryContents,removeFile,removeDirectory,
@@ -118,8 +120,7 @@ handle logLn documentroot state0 cache execute stateVar conn = do
                (_  ,_             ,".pgf") -> PS.pgfMain logLn conn cache [("PATH_TRANSLATED",path)] rq
                (_  ,_             ,".ngf") -> PS.pgfMain logLn conn cache [("PATH_TRANSLATED",path)] rq
                (dir,"grammars.cgi",_     ) -> addDate (grammarList dir query)
-               _                           -> do rsp <- serveStaticFile rpath path
-                                                 respondHTTP conn rsp
+               _                           -> serveStaticFile conn rpath path
     _ -> addDate (return $ resp400 upath)
   where
     addDate m =
@@ -196,7 +197,6 @@ handle logLn documentroot state0 cache execute stateVar conn = do
            "ls"   -> jsonList     . fromMaybe ".json" . lookup "ext" =<< get_qs
            "ls-l" -> jsonListLong . fromMaybe ".json" . lookup "ext" =<< get_qs
            "rm" -> rm =<< look_file
-           "download" -> download =<< look_file
            "link_directories" ->  link_directories dir =<< look "newdir"
            _ -> err $ resp400 $ "cloud command "++cmd
 
@@ -247,8 +247,6 @@ handle logLn documentroot state0 cache execute stateVar conn = do
                    return $ ok200 ""
            else err $ resp404 path
     rm path = err $ resp400 $ "unacceptable extension "++path
-
-    download path = liftIO $ serveStaticFile' path
 
     link_directories olddir newdir@('/':'t':'m':'p':'/':_) | old/=new =
         hmInDir ".." $ liftIO $
@@ -301,27 +299,43 @@ jsonresult cwd dir cmd (ecode,stdout,stderr) files =
 
 -- * Static content
 
-serveStaticFile rpath path =
+serveStaticFile conn rpath path =
   do b <- doesDirectoryExist path
      if b
        then if rpath `elem` ["","."] || last path=='/'
-            then serveStaticFile' (path </> "index.html")
-            else return (resp301 ('/':rpath++"/"))
-       else serveStaticFile' path
+            then serveStaticFile' conn (path </> "index.html")
+            else respondHTTP conn (resp301 ('/':rpath++"/"))
+       else serveStaticFile' conn path
 
-serveStaticFile' path =
+serveStaticFile' conn path =
   do let ext = takeExtension path
-         (t,rdFile) = contentTypeFromExt ext
+         t   = contentTypeFromExt ext
      if ext `elem` [".cgi",".fcgi",".sh",".php"]
-       then return $ resp400 $ "Unsupported file type: "++ext
-       else do b <- doesFileExist path
-               if b then do time <- getModificationTime path
-                            let fmt = formatTime defaultTimeLocale rfc822DateFormat time
-                            body <- rdFile path
-                            return (insertHeader HdrDate fmt (ok200' (ct t "") body))
-                    else do cwd <- getCurrentDirectory
-                            logPutStrLn $ "Not found: "++path++" cwd="++cwd
-                            return (resp404 path)
+       then respondHTTP conn $ resp400 $ "Unsupported file type: "++ext
+       else (bracket (openFile path ReadMode) hClose $ \h -> do
+                size <- hFileSize h
+                time <- getModificationTime path
+                let fmt = formatTime defaultTimeLocale rfc822DateFormat time
+                writeHeaders conn (insertHeader HdrContentLength (show size) $
+                                   insertHeader HdrDate fmt $
+                                   ok200' (ct t "") "")
+                allocaBytes buf_size $ transmit h conn size)
+              `catch`
+              (\(e :: IOError) ->
+                   if isDoesNotExistError e
+                     then do cwd <- getCurrentDirectory
+                             logPutStrLn $ "Not found: "++path++" cwd="++cwd
+                             respondHTTP conn (resp404 path)
+                     else throw e)
+     where
+       buf_size = 4096
+
+       transmit h conn 0    buf = return ()
+       transmit h conn size buf = do
+         n <- hGetBuf h buf buf_size
+         writeBytes conn buf n
+         transmit h conn (size-fromIntegral n) buf
+
 
 -- * Logging
 logPutStrLn s = ePutStrLn s
@@ -374,8 +388,8 @@ contentTypeFromExt ext =
     ".jpg" -> bin "image/jpg"
     _ -> bin "application/octet-stream"
   where
-     text subtype = ("text/"++subtype++"; charset=UTF-8",readFile)
-     bin t = (t,readBinaryFile)
+     text subtype = "text/"++subtype++"; charset=UTF-8"
+     bin t = t
 
 -- * IO utilities
 updateFile path new =
