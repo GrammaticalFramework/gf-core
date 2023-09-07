@@ -1,6 +1,6 @@
 -- | GF server mode
 {-# LANGUAGE CPP #-}
-module GF.Server(server) where
+module GF.Server(GF.Server.server) where
 
 import Data.List(partition,stripPrefix,isInfixOf)
 import Data.Maybe(fromMaybe)
@@ -64,7 +64,7 @@ server jobs port optroot init execute1 = do
          logLn $ "Document root = "++root
          logLn $ "Starting HTTP server, open http://localhost:"
                  ++show port++"/ in your web browser."
-         simpleServer (Just port) Nothing (handle logLn root state0 cache execute state)
+         Network.HTTP.server (Just port) Nothing (handle logLn root state0 cache execute state)
 
 gf_version = "This is GF version "++showVersion version++".\n"++buildInfo
 
@@ -96,40 +96,37 @@ hmbracket_ pre post m =
          Right (a,s) -> do put s;return a
 
 -- | HTTP request handler
-handle logLn documentroot state0 cache execute stateVar
-       rq@(Request URI{uriPath=upath} method hdrs body) =
-    addDate $ normal_request rq 
+handle logLn documentroot state0 cache execute stateVar conn = do
+  rq <- receiveHTTP conn
+  let query = rqQuery rq
+      upath = uriPath (rqURI rq)
+  logLn $ show (rqMethod rq) ++" "++upath++" "++show (mapSnd (take 500) query)
+  let stateful m = modifyMVar stateVar $ \s -> run m (query,s)
+  -- stateful ensures mutual exclusion, so you can use/change the cwd
+  case upath of
+    "/new"     -> addDate (stateful $ new)
+    "/gfshell" -> addDate (stateful $ inDir command)
+    "/cloud"   -> addDate (stateful $ inDir cloud)
+    "/parse"   -> addDate (parse query)
+    "/version" -> addDate (versionInfo `fmap` PS.listPGFCache cache)
+    "/flush"   -> addDate (PS.flushPGFCache cache >> return (ok200 "flushed"))
+    '/':rpath  ->
+           -- This code runs without mutual exclusion, so it must *not*
+           -- use/change the cwd. Access files by absolute paths only.
+           let path = translatePath rpath
+           in case (takeDirectory path,takeFileName path,takeExtension path) of
+               (_  ,_             ,".pgf") -> PS.pgfMain logLn conn cache [("PATH_TRANSLATED",path)] rq
+               (_  ,_             ,".ngf") -> PS.pgfMain logLn conn cache [("PATH_TRANSLATED",path)] rq
+               (dir,"grammars.cgi",_     ) -> addDate (grammarList dir query)
+               _                           -> do rsp <- serveStaticFile rpath path
+                                                 respondHTTP conn rsp
+    _ -> addDate (return $ resp400 upath)
   where
-    logPutStrLn msg = liftIO $ logLn msg
-
     addDate m =
       do t <- getCurrentTime
          r <- m
          let fmt = formatTime defaultTimeLocale rfc822DateFormat t
-         return (insertHeader HdrDate fmt r)
-
-    normal_request rq =
-      do let query = rqQuery rq
-         logPutStrLn $ show method++" "++upath++" "++show (mapSnd (take 500) query)
-         let stateful m = modifyMVar stateVar $ \s -> run m (query,s)
-          -- stateful ensures mutual exclusion, so you can use/change the cwd
-         case upath of
-           "/new"     -> stateful $ new
-           "/gfshell" -> stateful $ inDir command
-           "/cloud"   -> stateful $ inDir cloud
-           "/parse"   -> parse query
-           "/version" -> versionInfo `fmap` PS.listPGFCache cache
-           "/flush"   -> do PS.flushPGFCache cache; return (ok200 "flushed")
-           '/':rpath ->
-             -- This code runs without mutual exclusion, so it must *not*
-             -- use/change the cwd. Access files by absolute paths only.
-             case (takeDirectory path,takeFileName path,takeExtension path) of
-               (_  ,_             ,".pgf") -> PS.pgfMain cache [("PATH_TRANSLATED",path)] rq
-               (_  ,_             ,".ngf") -> PS.pgfMain cache [("PATH_TRANSLATED",path)] rq
-               (dir,"grammars.cgi",_     ) -> grammarList dir query
-               _ -> serveStaticFile rpath path
-             where path = translatePath rpath
-           _ -> return $ resp400 upath
+         respondHTTP conn (insertHeader HdrDate fmt r)
 
     translatePath rpath = documentroot </> rpath -- hmm, check for ".."
 
@@ -217,9 +214,9 @@ handle logLn documentroot state0 cache execute stateVar
              flag (n,"") = n
              flag (n,v) = n++"="++v
              cmd = unwords ("gf":args)
-         logPutStrLn cmd
+         liftIO $ logLn cmd
          out@(ecode,_,_) <- liftIO $ readProcessWithExitCode "gf" args ""
-         logPutStrLn $ show ecode
+         liftIO (logLn $ show ecode)
          cwd <- getCurrentDirectory
          return $ json200 (jsonresult cwd ('/':dir++"/") cmd out files)
 
@@ -305,8 +302,7 @@ jsonresult cwd dir cmd (ecode,stdout,stderr) files =
 -- * Static content
 
 serveStaticFile rpath path =
-  do --logPutStrLn $ "Serving static file "++path
-     b <- doesDirectoryExist path
+  do b <- doesDirectoryExist path
      if b
        then if rpath `elem` ["","."] || last path=='/'
             then serveStaticFile' (path </> "index.html")
@@ -319,7 +315,10 @@ serveStaticFile' path =
      if ext `elem` [".cgi",".fcgi",".sh",".php"]
        then return $ resp400 $ "Unsupported file type: "++ext
        else do b <- doesFileExist path
-               if b then fmap (ok200' (ct t "")) $ rdFile path
+               if b then do time <- getModificationTime path
+                            let fmt = formatTime defaultTimeLocale rfc822DateFormat time
+                            body <- rdFile path
+                            return (insertHeader HdrDate fmt (ok200' (ct t "") body))
                     else do cwd <- getCurrentDirectory
                             logPutStrLn $ "Not found: "++path++" cwd="++cwd
                             return (resp404 path)

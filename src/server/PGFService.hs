@@ -1,4 +1,4 @@
-{-# LANGUAGE CPP #-}
+{-# LANGUAGE CPP, ScopedTypeVariables #-}
 module PGFService(pgfMain,
                   Caches,newPGFCache,readCachedPGF,readCachedNGF,
                   flushPGFCache,listPGFCache) where
@@ -26,9 +26,8 @@ import System.FilePath(takeExtension)
 import System.Mem(performGC)
 import Network.HTTP
 import Network.FastCGI
+import Numeric(showHex)
 
-logFile :: FilePath
-logFile = "pgf-error.log"
 
 data Caches = Caches { qsem :: QSem,
                        pgfCache :: Cache PGF,
@@ -63,24 +62,20 @@ newCache' root rd = do
     clean c = do threadDelay 2000000000 -- 2000 seconds, i.e. ~33 minutes
                  expireCache (24*60*60) c -- 24 hours
 
-pgfMain :: Caches -> Env -> Request -> IO Response
-pgfMain cache env rq =
+pgfMain :: (String -> IO ()) -> Connection -> Caches -> Env -> Request -> IO ()
+pgfMain logLn conn cache env rq =
   case fromMaybe "grammar" (lookup "command" query) of
     "download"
-      | ext == ".pgf" -> do body <- getFile readBinaryFile path
-                            return (Response
-                                      { rspCode = 200
-                                      , rspReason = "OK"
-                                      , rspHeaders = [Header HdrContentType "application/pgf"]
-                                      , rspBody = body
-                                      })
-      | otherwise     -> httpError 415 "Only .pgf files can be downloaded" ""
+      | ext == ".pgf" -> do tpgf <- getFile (readCache' (pgfCache cache)) path
+                            pgfDownload conn query tpgf
+      | ext == ".ngf" -> do tpgf <- getFile (readCache' (ngfCache cache)) path
+                            pgfDownload conn query tpgf
     command
       | ext == ".pgf" -> do tpgf <- getFile (readCache' (pgfCache cache)) path
-                            pgfCommand (qsem cache) command query tpgf
+                            handleErrors logLn (pgfCommand (qsem cache) command query tpgf) >>= respondHTTP conn
       | ext == ".ngf" -> do tpgf <- getFile (readCache' (ngfCache cache)) path
-                            pgfCommand (qsem cache) command query tpgf
-      | otherwise     -> httpError 415 "Extension must be .pgf or .ngf" ""
+                            handleErrors logLn (pgfCommand (qsem cache) command query tpgf) >>= respondHTTP conn
+    _                 -> respondHTTP conn (Response 415 "Bad Request" [] "Extension must be .pgf or .ngf")
     where
       path = fromMaybe "" (lookup "PATH_TRANSLATED" env `mplus`
                            lookup "SCRIPT_FILENAME" env)
@@ -95,10 +90,6 @@ pgfMain cache env rq =
             if isDoesNotExistError e
               then notFound path
               else ioError e)
-              
-      readBinaryFile fpath = do
-        bracket (openBinaryFile fpath ReadMode) hClose hGetContents
-
 
 pgfCommand qsem command q (t,pgf) =
   case command of
@@ -349,6 +340,30 @@ pgfCommand qsem command q (t,pgf) =
             "svg" -> "image/svg+xml"
             "dot" -> "text/x-graphviz; charset=UTF8"
             _     -> "application/binary"
+
+pgfDownload conn query (t,pgf) = do
+  let fmt      = formatTime defaultTimeLocale rfc822DateFormat t
+      mb_langs = fmap words (lookup "lang" query)
+  writeHeaders conn (Response
+                        { rspCode = 200
+                        , rspReason = "OK"
+                        , rspHeaders = [ Header HdrContentType "application/pgf"
+                                       , Header HdrContentDisposition ("attachment; filename=\""++abstractName pgf++".pgf\"")
+                                       , Header HdrTransferEncoding "chunked"
+                                       , Header HdrDate fmt
+                                       ]
+                        , rspBody = ""
+                        })
+  writePGF_ (writeChunk conn) pgf mb_langs
+  writeAscii conn "0\r\n\r\n"
+  where
+    writeChunk conn ptr len =
+      (do writeAscii conn (showHex len "\r\n")
+          n <- writeBytes conn ptr len
+          writeAscii conn "\r\n"
+          return n)
+      `catch`
+      (\(e :: SomeException) -> return (-1))
 
 out :: JSON a => Query -> UTCTime -> a -> IO Response
 out q t r = do
