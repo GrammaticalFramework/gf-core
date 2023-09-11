@@ -37,6 +37,9 @@ import PGF(mkCId)
 %name pBNFCRules ListCFRule
 %name pEBNFRules ListEBNFRule
 
+%errorhandlertype explist
+%error { happyError }
+
 -- no lexer declaration
 %monad { P } { >>= } { return }
 %lexer { lexer } { T_EOF }
@@ -702,8 +705,18 @@ Posn
 
 {
 
-happyError :: P a
-happyError = fail "syntax error"
+happyError :: (Token, [String]) -> P a
+happyError (t,strs) = fail $ 
+  "Syntax error:\n     Unexpected " ++ showToken t ++ ".\n     Expected one of:\n" 
+    ++ unlines (map (("     - "++).cleanupToken) strs)
+  
+  where
+    cleanupToken "Ident" = "an identifier"
+    cleanupToken x = x
+    showToken (T_Ident i) = "identifier '" ++ showIdent i ++ "'"
+    showToken t = case Map.lookup t invMap of 
+      Nothing -> show t
+      Just s -> "token '" ++ s ++"'"
 
 mkListId,mkConsId,mkBaseId  :: Ident -> Ident
 mkListId = prefixIdent "List"
