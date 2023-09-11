@@ -62,7 +62,7 @@ jobs:
 
   stack:
     name: stack / ghc ${{ matrix.ghc }}
-    runs-on: ubuntu-latest
+    runs-on: ${{ matrix.ghc == '7.10.3' && 'ubuntu-2004' || 'ubuntu-latest' }}
     strategy:
       matrix:
         stack: ["latest"]
