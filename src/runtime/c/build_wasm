@@ -1,0 +1,10 @@
+#!/bin/bash
+
+emcc .libs/libpgf.so.4 -o ../javascript/pgf.wasm --no-entry \
+    -sALLOW_MEMORY_GROWTH \
+    -sALLOW_TABLE_GROWTH \
+    -sEXPORTED_FUNCTIONS="\
+        _pgf_read_expr,\
+        _malloc,\
+        _free\
+        "
