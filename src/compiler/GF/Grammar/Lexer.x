@@ -4,7 +4,7 @@
 module GF.Grammar.Lexer
          ( Token(..), Posn(..)
          , P, runP, runPartial, token, lexer, getPosn, failLoc
-         , isReservedWord
+         , isReservedWord, invMap
          ) where
 
 import Control.Applicative
@@ -134,7 +134,7 @@ data Token
  | T_Double  Double          -- double precision float literals
  | T_Ident   Ident
  | T_EOF
--- deriving Show -- debug
+  deriving (Eq, Ord, Show) -- debug
 
 res = eitherResIdent
 eitherResIdent :: (Ident -> Token) -> Ident -> Token
@@ -223,6 +223,13 @@ resWords = Map.fromList
  , b "nonempty"   T_nonempty
  ]
  where b s t = (identS s, t)
+
+invMap :: Map.Map Token String
+invMap = res
+  where
+    lst = Map.toList resWords
+    flp = map (\(k,v) -> (v,showIdent k)) lst
+    res = Map.fromList flp
 
 unescapeInitTail :: String -> String
 unescapeInitTail = unesc . tail where
