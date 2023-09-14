@@ -1,6 +1,7 @@
 mkAPI().then((pgf) => {
     // Parse expression
     console.log(pgf.readExpr("Pred (This Fish) Fresh"));
+    console.log(pgf.readExpr('<foo "abc" : (x:A) -> X 1 d>'));
 /*
     // Show it
     console.log(expr.toString());

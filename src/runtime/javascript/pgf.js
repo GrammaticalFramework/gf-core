@@ -7,9 +7,21 @@ async function mkAPI() {
     const sizeof_PgfText = 4;
     const sizeof_PgfUnmarshaller = 4;
     const sizeof_PgfUnmarshallerVtbl = 4*13;
-    const offsetof_PgfUnmarshallerVtbl_eapp = 4;
-    const offsetof_PgfUnmarshallerVtbl_efun = 16;
+    const offsetof_PgfUnmarshallerVtbl_eabs     = 0;
+    const offsetof_PgfUnmarshallerVtbl_eapp     = 4;
+    const offsetof_PgfUnmarshallerVtbl_elit     = 8;
+    const offsetof_PgfUnmarshallerVtbl_emeta    = 12;
+    const offsetof_PgfUnmarshallerVtbl_efun     = 16;
+    const offsetof_PgfUnmarshallerVtbl_evar     = 20;
+    const offsetof_PgfUnmarshallerVtbl_etyped   = 24;
+    const offsetof_PgfUnmarshallerVtbl_eimplarg = 28;
+    const offsetof_PgfUnmarshallerVtbl_lint     = 32;
+    const offsetof_PgfUnmarshallerVtbl_lflt     = 36;
+    const offsetof_PgfUnmarshallerVtbl_lstr     = 40;
+    const offsetof_PgfUnmarshallerVtbl_dtyp     = 44;
     const offsetof_PgfUnmarshallerVtbl_free_ref = 48;
+    const sizeof_PgfExpr = 4
+    const sizeof_PgfHypo = 12
 
     let asm = null;
     let wasmTable = null;
@@ -413,11 +425,25 @@ async function mkAPI() {
 
     class Expr {
     }
+    class ExprAbs extends Expr {
+        constructor(btype,name,body) {
+            super();
+            this.btype = btype;
+            this.name  = name;
+            this.body  = body;
+        }
+    }
     class ExprApp extends Expr {
         constructor(fun,arg) {
             super();
             this.fun = fun;
             this.arg = arg;
+        }
+    }
+    class ExprLit extends Expr {
+        constructor(value) {
+            super();
+            this.value = value;
         }
     }
     class ExprFun extends Expr {
@@ -426,9 +452,44 @@ async function mkAPI() {
             this.name = name;
         }
     }
+    class ExprVar extends Expr {
+        constructor(index) {
+            super();
+            this.index = index;
+        }
+    }
+    class ExprTyped extends Expr {
+        constructor(expr,type) {
+            super();
+            this.expr = expr;
+            this.type = type;
+        }
+    }
+    class ExprImplArg extends Expr {
+        constructor(expr) {
+            super();
+            this.expr = expr;
+        }
+    }
+
+    class Type {
+        constructor(hypos,cat,exprs) {
+            this.hypos = hypos;
+            this.cat   = cat;
+            this.exprs = exprs;
+        }
+    }
 
     const jsUnmarshaller = asm.malloc(sizeof_PgfUnmarshaller);
     const jsUnmarshallerVtbl = asm.malloc(sizeof_PgfUnmarshallerVtbl);
+    HEAP32[(jsUnmarshallerVtbl+offsetof_PgfUnmarshallerVtbl_eabs) >> 2] =
+          addFunction(
+             (self,btype,name,bodyRef) => {
+                 const body = getRef(bodyRef);
+                 return newRef(new ExprAbs(btype,name,body));
+             },
+             "iiiii"
+             );
     HEAP32[(jsUnmarshallerVtbl+offsetof_PgfUnmarshallerVtbl_eapp) >> 2] =
           addFunction(
              (self,funRef,argRef) => {
@@ -438,12 +499,87 @@ async function mkAPI() {
              },
              "iiii"
              );
+    HEAP32[(jsUnmarshallerVtbl+offsetof_PgfUnmarshallerVtbl_elit) >> 2] =
+          addFunction(
+             (self,litRef) => {
+                 const lit = getRef(litRef);
+                 return newRef(new ExprLit(lit));
+             },
+             "iii"
+             );
     HEAP32[(jsUnmarshallerVtbl+offsetof_PgfUnmarshallerVtbl_efun) >> 2] =
           addFunction(
              (self,namePtr) => {
                  return newRef(new ExprFun(textToString(namePtr)));
              },
              "iii"
+             );
+    HEAP32[(jsUnmarshallerVtbl+offsetof_PgfUnmarshallerVtbl_evar) >> 2] =
+          addFunction(
+             (self,index) => {
+                 return newRef(new ExprVar(index));
+             },
+             "iii"
+             );
+    HEAP32[(jsUnmarshallerVtbl+offsetof_PgfUnmarshallerVtbl_etyped) >> 2] =
+          addFunction(
+             (self,exprRef,typeRef) => {
+                 const expr = getRef(exprRef);
+                 const type = getRef(typeRef);
+                 return newRef(new ExprTyped(expr,type));
+             },
+             "iiii"
+             );
+    HEAP32[(jsUnmarshallerVtbl+offsetof_PgfUnmarshallerVtbl_eimplarg) >> 2] =
+          addFunction(
+             (self,exprRef) => {
+                 const expr = getRef(exprRef);
+                 return newRef(new ExprImplArg(expr));
+             },
+             "iii"
+             );
+    HEAP32[(jsUnmarshallerVtbl+offsetof_PgfUnmarshallerVtbl_lint) >> 2] =
+          addFunction(
+             (self,size,ptr) => {
+                 if (size > 1)
+                    throw new Error("The integer is too large for JavaScript");
+                 return newRef(HEAP32[ptr >> 2]);
+             },
+             "iiii"
+             );
+    HEAP32[(jsUnmarshallerVtbl+offsetof_PgfUnmarshallerVtbl_lflt) >> 2] =
+          addFunction(
+             (self,v) => {
+                 return newRef(v);
+             },
+             "iid"
+             );
+    HEAP32[(jsUnmarshallerVtbl+offsetof_PgfUnmarshallerVtbl_lstr) >> 2] =
+          addFunction(
+             (self,ptr) => {
+                 return newRef(textToString(ptr));
+             },
+             "iii"
+             );
+    HEAP32[(jsUnmarshallerVtbl+offsetof_PgfUnmarshallerVtbl_dtyp) >> 2] =
+          addFunction(
+             (self,n_hypos,hyposPtr,catPtr,n_exprs,exprsPtr) => {
+                 const hypos = []
+                 for (let i = 0; i < n_hypos; i++) {
+                     const hypoPtr = hyposPtr+i*sizeof_PgfHypo
+                     const bind_type = HEAP32[hypoPtr >> 2]
+                     const varPtr    = HEAP32[(hypoPtr >> 2) + 1]
+                     const typeRef   = HEAP32[(hypoPtr >> 2) + 2]
+                     hypos.push([bind_type==0,textToString(varPtr),getRef(typeRef)])
+                 }
+                 const exprs = []
+                 for (let i = 0; i < n_exprs; i++) {
+                     const exprRef = HEAP32[(exprsPtr+i*sizeof_PgfExpr) >> 2]
+                     exprs.push(getRef(exprRef))
+                 }
+                 return newRef(new Type(hypos,textToString(catPtr),exprs));
+             },
+             "iiiiiii"
              );
     HEAP32[(jsUnmarshallerVtbl+offsetof_PgfUnmarshallerVtbl_free_ref) >> 2] =
           addFunction(
@@ -466,7 +602,9 @@ async function mkAPI() {
         return expr;
     }
 
-    return { readExpr };
+    return { Expr, ExprAbs, ExprApp, ExprLit, ExprFun, ExprVar,
+             ExprTyped, ExprImplArg, Type,
+             readExpr };
 }
 
 // This allows us to use both from Node and in browser
