@@ -5,17 +5,18 @@
 
 class PGF_INTERNAL_DECL PgfLRTableMaker
 {
-    struct State;
+    struct CCat;
+    struct Production;
     struct Item;
-    struct Predictions;
+    struct State;
 
     struct CompareItem;
     static const CompareItem compare_item;
 
-    typedef std::pair<ref<PgfText>,size_t> Key;
+    typedef std::pair<ref<PgfText>,size_t> Key0;
 
-    struct PGF_INTERNAL_DECL CompareKey : std::less<Key> {
-        bool operator() (const Key& k1, const Key& k2) const {
+    struct PGF_INTERNAL_DECL CompareKey0 : std::less<Key0> {
+        bool operator() (const Key0& k1, const Key0& k2) const {
             int cmp = textcmp(k1.first,k2.first);
             if (cmp < 0)
                 return true;
@@ -26,24 +27,65 @@ class PGF_INTERNAL_DECL PgfLRTableMaker
         }
     };
 
+    typedef std::pair<ref<PgfConcrLincat>,size_t> Key1;
+
+    struct PGF_INTERNAL_DECL CompareKey1 : std::less<Key1> {
+        bool operator() (const Key1& k1, const Key1& k2) const {
+            if (k1.first < k2.first)
+                return true;
+            else if (k1.first > k2.first)
+                return false;
+
+            return (k1.second < k2.second);
+        }
+    };
+
+    typedef std::pair<CCat*,size_t> Key2;
+
+    struct PGF_INTERNAL_DECL CompareKey2 : std::less<Key2> {
+        bool operator() (const Key2& k1, const Key2& k2) const {
+            if (k1.first < k2.first)
+                return true;
+            else if (k1.first > k2.first)
+                return false;
+
+            return (k1.second < k2.second);
+        }
+    };
+
     ref<PgfAbstr> abstr;
     ref<PgfConcr> concr;
 
-    std::vector<State*> todo;
+    size_t ccat_id;
+
+    std::queue<State*> todo;
     std::map<MD5Digest,State*> states;
-    std::map<Key,Predictions*,CompareKey> predictions;
-    std::map<Predictions*,State*> continuations;
-    std::vector<PgfLRReduce> *reductions;
+    std::map<Key0,CCat*,CompareKey0> ccats1;
+    std::map<Key2,CCat*,CompareKey2> ccats2;
+
+    void process(State *state, Item *item, bool is_initial);
+    void symbol(State *state, Item *item, bool is_initial, PgfSymbol sym);
+
+    template<class T>
+    void predict(State *state, Item *item, bool is_initial, T cat,
+                 ref<Vector<PgfVariableRange>> vars, PgfLParam *r);
+    void predict(State *state, Item *item, bool is_initial, ref<PgfText> cat, size_t lin_idx);
+    void predict(State *state, Item *item, bool is_initial, CCat *ccat, size_t lin_idx);
+    void complete(State *state, Item *item);
 
     void process(Item *item);
     void symbol(Item *item, PgfSymbol sym);
-    void predict(Item *item, ref<PgfText> cat,
+
+    template<class T>
+    void predict(Item *item, T cat,
                  ref<Vector<PgfVariableRange>> vars, PgfLParam *r);
-    void predict(Item *item, ref<PgfText> cat, size_t r);
-    void predict(ref<PgfAbsFun> absfun, Predictions *preds);
+    CCat *predict(Item *item, ref<PgfText> cat, size_t lin_idx);
+    CCat *predict(Item *item, CCat *ccat, size_t lin_idx);
+    void predict(ref<PgfAbsFun> absfun, CCat *ccat);
     void complete(Item *item);
 
-    static void print_item(Item *item);
+    void print_production(CCat *ccat, Production *prod);
+    void print_item(Item *item);
 
 public:
     PgfLRTableMaker(ref<PgfAbstr> abstr, ref<PgfConcr> concr);
@@ -79,7 +121,7 @@ class PGF_INTERNAL_DECL PgfParser : public PgfPhraseScanner, public PgfExprEnum
 
     void shift(StackNode *parent, ref<PgfConcrLincat> lincat, size_t r, Production *prod,
                Stage *before, Stage *after);
-    void reduce(StackNode *parent, ref<PgfConcrLin> lin, size_t seq_index,
+    void reduce(StackNode *parent, ref<PgfConcrLin> lin, ref<PgfLRReduce> red,
                 size_t n, std::vector<Choice*> &args,
                 Stage *before, Stage *after);
     void complete(StackNode *parent, ref<PgfConcrLincat> lincat, size_t seq_index,

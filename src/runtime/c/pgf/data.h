@@ -267,12 +267,12 @@ struct PGF_INTERNAL_DECL PgfLRShift {
     size_t next_state;
     ref<PgfConcrLincat> lincat;
     size_t r;
-    bool is_epsilon;
 };
 
 struct PGF_INTERNAL_DECL PgfLRReduce {
     object lin_obj;
-    size_t seq_index;
+    size_t seq_idx;
+    ref<Vector<bool>> args;
 };
 
 struct PGF_INTERNAL_DECL PgfLRState {
