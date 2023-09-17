@@ -5,9 +5,9 @@
 
 //#define DEBUG_STATE_CREATION
 //#define DEBUG_EPSILON_CREATION
-#define DEBUG_AUTOMATON
-#define DEBUG_PARSER
-#define DEBUG_GENERATOR
+//#define DEBUG_AUTOMATON
+//#define DEBUG_PARSER
+//#define DEBUG_GENERATOR
 
 struct PgfLRTableMaker::CCat {
     CCat *parent;
@@ -773,7 +773,7 @@ ref<PgfLRTable> PgfLRTableMaker::make()
             // delete item;
         }
 
-        for (auto i : state->ccats1) {
+        for (auto &i : state->ccats1) {
             MD5Context ctxt;
             auto begin = i.second->items.begin();
             auto end = i.second->items.end();
@@ -798,7 +798,7 @@ ref<PgfLRTable> PgfLRTableMaker::make()
                 next_state->id = ++state_id;
                 todo.push(next_state);
             } else {
-                //delete i.second;
+                delete i.second;
                 i.second = next_state;
             }
             
