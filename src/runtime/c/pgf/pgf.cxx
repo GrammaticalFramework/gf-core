@@ -3137,3 +3137,30 @@ pgf_align_words(PgfDB *db, PgfConcrRevision revision,
 
     return NULL;
 }
+
+PGF_API PgfText *
+pgf_graphviz_lr_automaton(PgfDB *db, PgfConcrRevision revision,
+                          PgfExn *err)
+{
+    PGF_API_BEGIN {
+        DB_scope scope(db, READER_SCOPE);
+
+        ref<PgfConcr> concr = db->revision2concr(revision);
+
+        PgfPrinter printer(NULL,0,NULL);
+        
+        printer.puts("digraph {");
+        for (size_t i = 0; i < concr->lrtable->len; i++) {
+            ref<PgfLRState> state = vector_elem(concr->lrtable, i);
+            for (size_t j = 0; j < state->shifts->len; j++) {
+                ref<PgfLRShift> shift = vector_elem(state->shifts, j);
+                printer.nprintf(16, "  s%zu -> s%zu;\n", i, shift->next_state);
+            }
+        }
+        printer.puts("}");
+
+        return printer.get_text();
+    } PGF_API_END
+
+    return NULL;
+}

@@ -72,7 +72,7 @@ module PGF2 (-- * PGF
              graphvizAbstractTree, graphvizParseTree,
              Labels, getDepLabels,
              graphvizDependencyTree, conlls2latexDoc, getCncDepLabels,
-             graphvizWordAlignment,
+             graphvizWordAlignment, graphvizLRAutomaton,
 
              -- * Concrete syntax
              ConcName,Concr,languages,concreteName,languageCode,concreteFlag,
@@ -1388,6 +1388,15 @@ graphvizDependencyTree
   -> Expr
   -> String -- ^ Rendered output in the specified format
 graphvizDependencyTree format debug mlab mclab concr t = error "TODO: graphvizDependencyTree"
+
+graphvizLRAutomaton :: Concr -> String
+graphvizLRAutomaton c =
+  unsafePerformIO $
+  withForeignPtr (c_revision c) $ \c_revision ->
+  bracket (withPgfExn "graphvizLRAutomaton" (pgf_graphviz_lr_automaton (c_db c) c_revision)) free $ \c_text ->
+    if c_text == nullPtr
+      then return ""
+      else peekText c_text
 
 ---------------------- should be a separate module?
 

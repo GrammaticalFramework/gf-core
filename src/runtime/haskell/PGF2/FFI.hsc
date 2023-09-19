@@ -315,6 +315,8 @@ foreign import ccall pgf_graphviz_parse_tree :: Ptr PgfDB -> Ptr Concr -> Stable
 
 foreign import ccall pgf_graphviz_word_alignment :: Ptr PgfDB -> Ptr (Ptr Concr) -> CSize -> StablePtr Expr -> Ptr PgfPrintContext -> Ptr PgfMarshaller -> Ptr PgfGraphvizOptions -> Ptr PgfExn -> IO (Ptr PgfText)
 
+foreign import ccall pgf_graphviz_lr_automaton :: Ptr PgfDB -> Ptr Concr -> Ptr PgfExn -> IO (Ptr PgfText)
+
 
 -----------------------------------------------------------------------
 -- Texts

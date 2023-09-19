@@ -906,4 +906,8 @@ pgf_align_words(PgfDB *db, PgfConcrRevision revision,
                 size_t *n_phrases /* out */,
                 PgfExn* err);
 
+PGF_API PgfText *
+pgf_graphviz_lr_automaton(PgfDB *db, PgfConcrRevision revision,
+                          PgfExn *err);
+
 #endif // PGF_H_

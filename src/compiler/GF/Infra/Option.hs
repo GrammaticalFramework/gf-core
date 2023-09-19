@@ -106,6 +106,7 @@ data OutputFormat = FmtPGFPretty
                   | FmtSLF
                   | FmtRegExp
                   | FmtFA
+                  | FmtLR
   deriving (Eq,Ord)
 
 data SISRFormat =
@@ -490,7 +491,8 @@ outputFormatsExpl =
      (("vxml",         FmtVoiceXML),"Voice XML based on abstract syntax"),
      (("slf",          FmtSLF),"SLF speech recognition format"),
      (("regexp",       FmtRegExp),"regular expression"),
-     (("fa",           FmtFA),"finite automaton in graphviz format")
+     (("fa",           FmtFA),"finite automaton in graphviz format"),
+     (("lr",           FmtLR),"LR(0) automaton for PMCFG in graphviz format")
      ]
 
 instance Show OutputFormat where
