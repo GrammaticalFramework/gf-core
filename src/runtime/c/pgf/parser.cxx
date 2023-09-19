@@ -4,7 +4,6 @@
 #include <algorithm>
 
 //#define DEBUG_STATE_CREATION
-//#define DEBUG_EPSILON_CREATION
 //#define DEBUG_AUTOMATON
 //#define DEBUG_PARSER
 //#define DEBUG_GENERATOR
@@ -279,7 +278,7 @@ PgfLRTableMaker::~PgfLRTableMaker()
     }*/
 }
 
-#if defined(DEBUG_STATE_CREATION) || defined(DEBUG_EPSILON_CREATION) || defined(DEBUG_AUTOMATON)
+#if defined(DEBUG_STATE_CREATION) || defined(DEBUG_AUTOMATON)
 void PgfLRTableMaker::print_production(CCat *ccat, Production *prod)
 {
     PgfPrinter printer(NULL, 0, NULL);
@@ -409,7 +408,7 @@ void PgfLRTableMaker::print_item(Item *item)
 }
 #endif
 
-void PgfLRTableMaker::process(State *state, Item *item, bool is_initial)
+void PgfLRTableMaker::process(State *state, Fold fold, Item *item)
 {
 #if defined(DEBUG_STATE_CREATION)
     print_item(item);
@@ -417,13 +416,13 @@ void PgfLRTableMaker::process(State *state, Item *item, bool is_initial)
 
     if (item->sym_idx < item->seq->syms.len) {
         PgfSymbol sym = item->seq->syms.data[item->sym_idx];
-        symbol(state, item, is_initial, sym);
+        symbol(state, fold, item, sym);
     } else {
-        complete(state, item);
+        complete(state, fold, item);
     }
 }
 
-void PgfLRTableMaker::symbol(State *state, Item *item, bool is_initial, PgfSymbol sym)
+void PgfLRTableMaker::symbol(State *state, Fold fold, Item *item, PgfSymbol sym)
 {
     switch (ref<PgfSymbol>::get_tag(sym)) {
     case PgfSymbolCat::tag: {
@@ -437,10 +436,10 @@ void PgfLRTableMaker::symbol(State *state, Item *item, bool is_initial, PgfSymbo
                 *vector_elem(lin->res, item->seq_idx / lin->lincat->fields->len);
             CCat *arg = item->args[symcat->d];
             if (arg != NULL) {
-                predict(state, item, is_initial, arg, res->vars, &symcat->r);
+                predict(state, fold, item, arg, res->vars, &symcat->r);
             } else {
                 ref<PgfHypo> hypo = vector_elem(lin->absfun->type->hypos, symcat->d);
-                predict(state, item, is_initial, ref<PgfText>::from_ptr(&hypo->type->name), res->vars, &symcat->r);
+                predict(state, fold, item, ref<PgfText>::from_ptr(&hypo->type->name), res->vars, &symcat->r);
             }
             break;
         }
@@ -451,9 +450,9 @@ void PgfLRTableMaker::symbol(State *state, Item *item, bool is_initial, PgfSymbo
                 *vector_elem(lincat->res, lincat->n_lindefs + item->seq_idx - lincat->n_lindefs*lincat->fields->len);
             CCat *arg = item->args[symcat->d];
             if (arg != NULL) {
-                predict(state, item, is_initial, arg, res->vars, &symcat->r);
+                predict(state, fold, item, arg, res->vars, &symcat->r);
             } else {
-                predict(state, item, is_initial, ref<PgfText>::from_ptr(&lincat->name), res->vars, &symcat->r);
+                predict(state, fold, item, ref<PgfText>::from_ptr(&lincat->name), res->vars, &symcat->r);
             }
             break;
         }
@@ -462,6 +461,9 @@ void PgfLRTableMaker::symbol(State *state, Item *item, bool is_initial, PgfSymbo
     }
     case PgfSymbolKS::tag: {
         auto symks = ref<PgfSymbolKS>::untagged(sym);
+        if (fold == PROBE) {
+            item->ccat->productive = true;
+        }
     }
     }
 }
@@ -472,7 +474,7 @@ struct PGF_INTERNAL_DECL PgfVariableValue {
 };
 
 template<class T>
-void PgfLRTableMaker::predict(State *state, Item *item, bool is_initial, T cat,
+void PgfLRTableMaker::predict(State *state, Fold fold, Item *item, T cat,
                               ref<Vector<PgfVariableRange>> vars, PgfLParam *r)
 {
     PgfVariableValue *values = (PgfVariableValue *)
@@ -493,7 +495,7 @@ void PgfLRTableMaker::predict(State *state, Item *item, bool is_initial, T cat,
 
     size_t index = r->i0;
     for (;;) {
-        predict(state, item, is_initial, cat, index);
+        predict(state, fold, item, cat, index);
 
         size_t i = r->n_terms;
         while (i > 0) {
@@ -515,164 +517,17 @@ void PgfLRTableMaker::predict(State *state, Item *item, bool is_initial, T cat,
     }
 }
 
-void PgfLRTableMaker::predict(State *state, Item *item, bool is_initial, ref<PgfText> cat, size_t lin_idx)
-{
-    CCat *ccat = predict(NULL, cat, lin_idx);
-
-    if (ccat->productive) {
-        State *&new_state = state->ccats1[Key1(ccat->lincat,lin_idx)];
-        if (new_state == NULL) {
-            new_state = new State;
-        }
-        new_state->push_item(new(item,NULL) Item);
-
-        if (new_state->items.size() == 1) {
-            for (size_t i = 0; i < ccat->items.size(); i++) {
-                process(state, ccat->items[i], false);
-            }
-        }
-    }
-
-    if (is_initial && ccat->prods.size() > 0) {
-        Item *new_item = new (item, ccat) Item;
-        process(state, new_item, is_initial);
-    }
-}
-
-void PgfLRTableMaker::predict(State *state, Item *item, bool is_initial, CCat *ccat, size_t lin_idx)
-{
-    CCat *new_ccat = predict(NULL, ccat, lin_idx);
-
-    if (new_ccat->items.size() > 0) {
-
-    }
-    if (is_initial && new_ccat->prods.size() > 0) {
-        Item *new_item = new (item, new_ccat) Item;
-        process(state, new_item, is_initial);
-    }
-}
-
-void PgfLRTableMaker::complete(State *state, Item *item)
-{
-    state->completed.push_back(item);
-
-#if defined(DEBUG_AUTOMATON)
-    fprintf(stderr, "reduce ");
-    print_item(item);
-#endif
-}
-
-void PgfLRTableMaker::process(Item *item)
-{
-#if defined(DEBUG_EPSILON_CREATION)
-    print_item(item);
-#endif
-
-    if (item->sym_idx < item->seq->syms.len) {
-        PgfSymbol sym = item->seq->syms.data[item->sym_idx];
-        symbol(item, sym);
-    } else {
-        complete(item);
-    }
-}
-
-void PgfLRTableMaker::symbol(Item *item, PgfSymbol sym)
-{
-    switch (ref<PgfSymbol>::get_tag(sym)) {
-    case PgfSymbolCat::tag: {
-        auto symcat = ref<PgfSymbolCat>::untagged(sym);
-
-        switch (ref<PgfConcrLin>::get_tag(item->lin_obj)) {
-        case PgfConcrLin::tag: {
-            auto lin =
-                ref<PgfConcrLin>::untagged(item->lin_obj);
-            ref<PgfPResult> res =
-                *vector_elem(lin->res, item->seq_idx / lin->lincat->fields->len);
-            CCat *arg = item->args[symcat->d];
-            if (arg != NULL) {
-                predict(item, arg, res->vars, &symcat->r);
-            } else {
-                ref<PgfHypo> hypo = vector_elem(lin->absfun->type->hypos, symcat->d);
-                predict(item, ref<PgfText>::from_ptr(&hypo->type->name), res->vars, &symcat->r);
-            }
-            break;
-        }
-        case PgfConcrLincat::tag: {
-            auto lincat =
-                ref<PgfConcrLincat>::untagged(item->lin_obj);
-            ref<PgfPResult> res =
-                *vector_elem(lincat->res, lincat->n_lindefs + item->seq_idx - lincat->n_lindefs*lincat->fields->len);
-            CCat *arg = item->args[symcat->d];
-            if (arg != NULL) {
-                predict(item, arg, res->vars, &symcat->r);
-            } else {
-                predict(item, ref<PgfText>::from_ptr(&lincat->name), res->vars, &symcat->r);
-            }
-            break;
-        }
-        }
-        break;
-    }
-    case PgfSymbolKS::tag: {
-        auto symks = ref<PgfSymbolKS>::untagged(sym);
-        item->ccat->productive = true;
-    }
-    }
-}
-
-template<class T>
-void PgfLRTableMaker::predict(Item *item, T cat,
-                              ref<Vector<PgfVariableRange>> vars, PgfLParam *r)
-{
-    PgfVariableValue *values = (PgfVariableValue *)
-        alloca(sizeof(PgfVariableValue)*r->n_terms);
-    for (size_t i = 0; i < r->n_terms; i++)
-    {
-        size_t var = r->terms[i].var;
-        for (size_t j = 0; j < vars->len; j++)
-        {
-            ref<PgfVariableRange> range = vector_elem(vars, j);
-            if (range->var == var) {
-                values[i].range = range->range;
-                values[i].value = 0;
-                break;
-            }
-        }
-    }
-
-    size_t index = r->i0;
-    for (;;) {
-        predict(item,cat,index);
-
-        size_t i = r->n_terms;
-        while (i > 0) {
-            i--;
-            values[i].value++;
-            if (values[i].value < values[i].range) {
-                index += r->terms[i].factor;
-                i++;
-                break;
-            }
-
-            index -= (values[i].value-1) * r->terms[i].factor;
-            values[i].value = 0;
-        }
-
-        if (i == 0) {
-            break;
-        }
-    }
-}
-
-PgfLRTableMaker::CCat *PgfLRTableMaker::predict(Item *item, ref<PgfText> cat, size_t lin_idx)
+void PgfLRTableMaker::predict(State *state, Fold fold, Item *item, ref<PgfText> cat, size_t lin_idx)
 {
     CCat *&ccat = ccats1[Key0(cat,lin_idx)];
+    CCat *tmp = ccat;
     if (ccat == NULL) {
         ccat = new CCat(++ccat_id, NULL, lin_idx);
     }
-    ccat->suspended.push_back(item);
-
-    if (ccat->suspended.size() == 1) {
+    if (fold == PROBE) {
+        ccat->suspended.push_back(item);
+    }
+    if (tmp == NULL) {
         std::function<bool(ref<PgfAbsFun>)> f =
             [this,ccat](ref<PgfAbsFun> fun) {
                 predict(fun, ccat);
@@ -681,29 +536,76 @@ PgfLRTableMaker::CCat *PgfLRTableMaker::predict(Item *item, ref<PgfText> cat, si
         probspace_iter(abstr->funs_by_cat, cat, f, false);
     }
 
-    if (item != NULL && ccat->productive) {
-        item->ccat->productive = true;
-        item->ccat->items.push_back(item);
-    }
+    if (fold == PROBE) {
+        if (item->ccat != NULL && ccat->productive) {
+            item->ccat->productive = true;
+            item->ccat->items.push_back(item);
+        }
+    } else {
+        if (ccat->productive) {
+            State *&new_state = state->ccats1[Key1(ccat->lincat,lin_idx)];
+            if (new_state == NULL) {
+                new_state = new State;
+            }
+            new_state->push_item(new(item,NULL) Item);
 
-    return ccat;
+            if (new_state->items.size() == 1) {
+                for (size_t i = 0; i < ccat->items.size(); i++) {
+                    process(state, REPEAT, ccat->items[i]);
+                }
+            }
+        }
+
+        if (fold == INIT && ccat->prods.size() > 0) {
+            Item *new_item = new (item, ccat) Item;
+            process(state, fold, new_item);
+        }
+    }
 }
 
-PgfLRTableMaker::CCat *PgfLRTableMaker::predict(Item *item, CCat *ccat, size_t lin_idx)
+void PgfLRTableMaker::predict(State *state, Fold fold, Item *item, CCat *ccat, size_t lin_idx)
 {
     CCat *&new_ccat = ccats2[Key2(ccat,lin_idx)];
+    CCat *tmp = new_ccat;
     if (new_ccat == NULL) {
         new_ccat = new CCat(++ccat_id, ccat, lin_idx);
-
+    }
+    if (fold == PROBE) {
+        new_ccat->suspended.push_back(item);
+    }
+    if (tmp == NULL) {
         size_t n_prods = ccat->prods.size();
         for (size_t i = 0; i < n_prods; i++) {
             Production *prod = ccat->prods[i];
-            Item *item = new(ccat, prod, lin_idx) Item;
-            process(item);
+            Item *item = new(new_ccat, prod, lin_idx) Item;
+            process(NULL, PROBE, item);
         }
     }
 
-    return new_ccat;
+    if (fold == PROBE) {
+        if (item->ccat != NULL && new_ccat->productive) {
+            item->ccat->productive = true;
+            item->ccat->items.push_back(item);
+        }
+    } else {
+        if (new_ccat->productive) {
+            State *&new_state = state->ccats2[Key2(new_ccat,lin_idx)];
+            if (new_state == NULL) {
+                new_state = new State;
+            }
+            new_state->push_item(new(item,NULL) Item);
+
+            if (new_state->items.size() == 1) {
+                for (size_t i = 0; i < new_ccat->items.size(); i++) {
+                    process(state, REPEAT, new_ccat->items[i]);
+                }
+            }
+        }
+        if (fold == INIT && new_ccat->prods.size() > 0) {
+            Item *new_item = new (item, new_ccat) Item;
+            process(state, fold, new_item);
+        }
+    }
 }
 
 void PgfLRTableMaker::predict(ref<PgfAbsFun> absfun, CCat *ccat)
@@ -718,34 +620,43 @@ void PgfLRTableMaker::predict(ref<PgfAbsFun> absfun, CCat *ccat)
         for (size_t i = 0; i < lin->res->len; i++) {
             size_t seq_idx = n_fields * i + ccat->lin_idx;
             Item *item = new(ccat, lin, seq_idx) Item;
-            process(item);
+            process(NULL, PROBE, item);
         }
     }
 }
 
-void PgfLRTableMaker::complete(Item *item)
+void PgfLRTableMaker::complete(State *state, Fold fold, Item *item)
 {
-    Production *prod = new(item) Production;
-    item->ccat->prods.push_back(prod);
+    if (fold == PROBE) {
+        Production *prod = new(item) Production;
+        item->ccat->prods.push_back(prod);
 
 #if defined(DEBUG_STATE_CREATION) || defined(DEBUG_AUTOMATON)
-    print_production(item->ccat, prod);
+        print_production(item->ccat, prod);
 #endif
 
-    if (item->ccat->prods.size() == 1) {
-        // If this is the first epsilon production,
-        // resume the suspended items.
+        if (item->ccat->prods.size() == 1) {
+            // If this is the first epsilon production,
+            // resume the suspended items.
 
-        // We don't use an iterator here since the vector suspended,
-        // may get updated in the recursion.
-        size_t n_susp = item->ccat->suspended.size();
-        for (size_t i = 0; i < n_susp; i++) {
-            Item *susp = item->ccat->suspended[i];
-            if (susp != NULL) {
-                Item *new_item = new (susp, item->ccat) Item;
-                process(new_item);
+            // We don't use an iterator here since the vector suspended,
+            // may get updated in the recursion.
+            size_t n_susp = item->ccat->suspended.size();
+            for (size_t i = 0; i < n_susp; i++) {
+                Item *susp = item->ccat->suspended[i];
+                if (susp != NULL) {
+                    Item *new_item = new (susp, item->ccat) Item;
+                    process(state, PROBE, new_item);
+                }
             }
         }
+    } else {
+        state->completed.push_back(item);
+
+#if defined(DEBUG_AUTOMATON)
+        fprintf(stderr, "reduce ");
+        print_item(item);
+#endif
     }
 }
 
@@ -769,7 +680,7 @@ ref<PgfLRTable> PgfLRTableMaker::make()
             print_item(item);
 #endif
 
-            process(state, item, true);
+            process(state, INIT, item);
             // delete item;
         }
 

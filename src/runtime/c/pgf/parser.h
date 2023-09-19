@@ -63,26 +63,19 @@ class PGF_INTERNAL_DECL PgfLRTableMaker
     std::map<Key0,CCat*,CompareKey0> ccats1;
     std::map<Key2,CCat*,CompareKey2> ccats2;
 
-    void process(State *state, Item *item, bool is_initial);
-    void symbol(State *state, Item *item, bool is_initial, PgfSymbol sym);
+    // The Threefold Way of building an automaton
+    typedef enum { INIT, PROBE, REPEAT } Fold;
+
+    void process(State *state, Fold fold, Item *item);
+    void symbol(State *state, Fold fold, Item *item, PgfSymbol sym);
 
     template<class T>
-    void predict(State *state, Item *item, bool is_initial, T cat,
+    void predict(State *state, Fold fold, Item *item, T cat,
                  ref<Vector<PgfVariableRange>> vars, PgfLParam *r);
-    void predict(State *state, Item *item, bool is_initial, ref<PgfText> cat, size_t lin_idx);
-    void predict(State *state, Item *item, bool is_initial, CCat *ccat, size_t lin_idx);
-    void complete(State *state, Item *item);
-
-    void process(Item *item);
-    void symbol(Item *item, PgfSymbol sym);
-
-    template<class T>
-    void predict(Item *item, T cat,
-                 ref<Vector<PgfVariableRange>> vars, PgfLParam *r);
-    CCat *predict(Item *item, ref<PgfText> cat, size_t lin_idx);
-    CCat *predict(Item *item, CCat *ccat, size_t lin_idx);
+    void predict(State *state, Fold fold, Item *item, ref<PgfText> cat, size_t lin_idx);
+    void predict(State *state, Fold fold, Item *item, CCat *ccat, size_t lin_idx);
     void predict(ref<PgfAbsFun> absfun, CCat *ccat);
-    void complete(Item *item);
+    void complete(State *state, Fold fold, Item *item);
 
     void print_production(CCat *ccat, Production *prod);
     void print_item(Item *item);
