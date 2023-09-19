@@ -266,6 +266,7 @@ struct PGF_INTERNAL_DECL PgfConcrPrintname {
 struct PGF_INTERNAL_DECL PgfLRShift {
     size_t next_state;
     ref<PgfConcrLincat> lincat;
+    bool exact;
     size_t r;
 };
 
