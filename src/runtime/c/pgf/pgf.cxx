@@ -3149,12 +3149,40 @@ pgf_graphviz_lr_automaton(PgfDB *db, PgfConcrRevision revision,
 
         PgfPrinter printer(NULL,0,NULL);
         
-        printer.puts("digraph {");
+        printer.puts("digraph {\n");
         for (size_t i = 0; i < concr->lrtable->len; i++) {
             ref<PgfLRState> state = vector_elem(concr->lrtable, i);
+
+            printer.nprintf(16, "  s%zu [label=\"", i);
+            for (size_t j = 0; j < state->reductions->len; j++) {
+                ref<PgfLRReduce> reduce = vector_elem(state->reductions, j);
+                
+                switch (ref<PgfConcrLin>::get_tag(reduce->lin_obj)) {
+                case PgfConcrLin::tag: {
+                    auto lin =
+                        ref<PgfConcrLin>::untagged(reduce->lin_obj);
+                    printer.efun(&lin->name);
+                    break;
+                }
+                case PgfConcrLincat::tag: {
+                    auto lincat =
+                        ref<PgfConcrLincat>::untagged(reduce->lin_obj);
+                    printer.puts("linref ");
+                    printer.efun(&lincat->name);
+                    break;
+                }
+                }
+                printer.puts("\n");
+            }
+            printer.puts("\"");
+            if (i == 0) printer.puts(",penwidth=3");
+            printer.nprintf(16, "]\n");
+
             for (size_t j = 0; j < state->shifts->len; j++) {
                 ref<PgfLRShift> shift = vector_elem(state->shifts, j);
-                printer.nprintf(16, "  s%zu -> s%zu;\n", i, shift->next_state);
+                printer.nprintf(16, "  s%zu -> s%zu [label=\"", i, shift->next_state);
+                printer.efun(&shift->lincat->name);
+                printer.nprintf(16, ".%zu\"];\n", shift->r);
             }
         }
         printer.puts("}");
