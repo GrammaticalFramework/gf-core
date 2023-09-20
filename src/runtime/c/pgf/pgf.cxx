@@ -3162,6 +3162,11 @@ pgf_graphviz_lr_automaton(PgfDB *db, PgfConcrRevision revision,
                     auto lin =
                         ref<PgfConcrLin>::untagged(reduce->lin_obj);
                     printer.efun(&lin->name);
+                    printer.nprintf(32,"/%zd[",reduce->seq_idx);
+                    for (size_t i = 0; i < reduce->args->len; i++) {
+                        printer.puts(reduce->args->data[i] ? "t" : "f");
+                    }
+                    printer.puts("]");
                     break;
                 }
                 case PgfConcrLincat::tag: {
@@ -3182,7 +3187,10 @@ pgf_graphviz_lr_automaton(PgfDB *db, PgfConcrRevision revision,
                 ref<PgfLRShift> shift = vector_elem(state->shifts, j);
                 printer.nprintf(16, "  s%zu -> s%zu [label=\"", i, shift->next_state);
                 printer.efun(&shift->lincat->name);
-                printer.nprintf(16, ".%zu\"];\n", shift->r);
+                printer.nprintf(16, ".%zu\"", shift->r);
+                if (!shift->exact)
+                    printer.puts(", style=dashed");
+                printer.puts("];\n");
             }
         }
         printer.puts("}");
