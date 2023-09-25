@@ -42,11 +42,12 @@ getSourceModule opts file0 =
      raw <- liftIO $ keepTemp tmp
    --ePutStrLn $ "1 "++file0
      (optCoding,parsed) <- parseSource opts pModDef raw
+     let indentLines = unlines . map ("   "++) . lines
      case parsed of
        Left (Pn l c,msg) -> do file <- liftIO $ writeTemp tmp
                                cwd <- getCurrentDirectory
                                let location = makeRelative cwd file++":"++show l++":"++show c
-                               raise (location++":\n   "++msg)
+                               raise (location++":\n" ++ indentLines msg)
        Right (i,mi0) ->
          do liftIO $ removeTemp tmp
             let mi =mi0 {mflags=mflags mi0 `addOptions` opts, msrc=file0}
