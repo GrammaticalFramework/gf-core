@@ -171,7 +171,7 @@ batchCompile1 lib_dir (opts,filepaths) =
                    <+>length (nub (map (dropFileName.fst) ds))<+>"directories."
      let n = length es
      if n>0
-       then fail $ "Errors prevented "++show n++" module"++['s'|n/=1]++
+       then fail $ "Errors prevented "++show n++" module"++['s' | n/=1] ++
                    " from being compiled."
        else return (maximum ts,(cnc,gr))
 
