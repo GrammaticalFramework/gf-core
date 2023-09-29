@@ -92,18 +92,64 @@ whnf th v = ---- errIn ("whnf" +++ prt v) $ ---- debug
 
 app :: Theory -> Val -> Val -> Err Val
 app th u v = case u of
-  VClos env (Abs _ x e) -> eval th ((x,v):env) e
+  VClos env (Abs _ x e) -> do 
+    traceM "app: VClos"
+    evalDef th =<< eval th ((x,v):env) e
   VApp u' v' -> do
     let val = VApp u' (v' ++ [v])
     traceM . render $ "\napp: Extended app:" <+>
       (ppValue Unqualified 0 u <+> "applied to" <+> ppValue Unqualified 0 v
        $$ take 150 (show val))
-    return val
+    evalDef th val
   _ -> do
     traceM . render $ "\napp: Unchanged app:" <+>
       (ppValue Unqualified 0 u <+> "applied to" <+> ppValue Unqualified 0 v
        $$ take 100 (show u))
     return $ VApp u [v]
+
+evalDef :: Theory -> Val -> Err Val
+evalDef th e = case e of
+  VApp (VCn c (Just (n, eqs))) xs | length xs == n -> do
+    traceM . render $ ("\nevalDef:" <+>) $ "Found def:" <+> snd c
+            $$ "with equations:" <+> vcat
+              [ snd c <+> hsep [ppPatt Unqualified 2 p | p <- pat] <+> "=>" <+> val
+              | (pat, val) <- eqs
+              ]
+            $$ ("applied to:" <+> (ppValue Unqualified 0 e))
+            $$ "raw equations:" <+> vcat
+              [ snd c <+> hsep [showsPrec 11 p "" | p <- pat] <+> "=>" <+> val | (pat, val) <- eqs ]
+            $$ ("applied to:" <+> (show (VApp (VCn c Nothing) xs)))
+    e' <- tryMatchEqns eqs xs
+    traceM . render $ ("\nevalDef:" <+>) $ "Evaluated:" <+> show e'
+    case e' of
+      Just (VClos env tm) -> eval th env tm
+      _ -> return e
+  _ -> return e
+
+tryMatchEqns :: [Equation] -> [Val] -> Err (Maybe Val)
+tryMatchEqns ((pts,repl):eqs) xs = do
+  me' <- tryMatchEqn [] pts xs repl
+  case me' of
+    Nothing -> tryMatchEqns eqs xs
+    Just e' -> return $ Just e'
+tryMatchEqns [] xs = return Nothing
+
+tryMatchEqn :: Env -> [Patt] -> [Val] -> Term -> Err (Maybe Val)
+tryMatchEqn env [] [] repl = return $ Just $ VClos env repl -- TODO: eval?
+tryMatchEqn env (PW: ps) (v: vs) repl = do
+  traceM . render $ "Matching wildcard" <+> ppValue Unqualified 0 v
+  tryMatchEqn env ps vs repl
+tryMatchEqn env (PV c: ps) (v: vs) repl = do
+  traceM . render $ "Matching variable" <+> c <+> ":" <+> ppValue Unqualified 0 v
+  tryMatchEqn ((c,v):env) ps vs repl -- TODO: Is this sound?
+tryMatchEqn env (PP (q,p) pp: ps) (VApp (VCn (r,f) _) tt: vs) repl 
+  | p == f && length pp == length tt = tryMatchEqn env (pp ++ ps) (tt ++ vs) repl
+-- tryMatchEqn env (p: ps) (v: vs) repl = _
+tryMatchEqn env (a:_) (b:_) _ = do
+  traceM . render $ ("\ntryMatchEqn:" <+>) $ "Failed to match" <+> a <+> "with" <+> ppValue Unqualified 0 b
+    $$ "raw:" <+> (show a $$ show b) 
+  return Nothing
+tryMatchEqn env _ _ _ = Bad "tryMatchEqn: Non-matching length"
 
 eval :: Theory -> Env -> Term -> Err Val
 eval th env e = ---- errIn ("eval" +++ prt e +++ "in" +++ prEnv env) $
