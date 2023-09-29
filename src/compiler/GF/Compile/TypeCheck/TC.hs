@@ -74,17 +74,16 @@ whnf th v = ---- errIn ("whnf" +++ prt v) $ ---- debug
          case v of
   VApp u w -> do
     u' <- whnf th u
-    w' <- whnf th w
-    v' <- app u' w'
-    traceM . render $ "\nwhnf: Normalized app" <+> vcat 
-      ["" <+> ppValue Unqualified 0 u <+> "to" <+> ppValue Unqualified 0 u' 
-      , ppValue Unqualified 0 w <+> "to" <+> ppValue Unqualified 0 w' 
-      , ppValue Unqualified 0 v <+> "to" <+> ppValue Unqualified 0 v' 
-      ]
+    w' <- mapM (whnf th) w
+    v' <- foldM app u' w'
+    traceM . render $ "\nwhnf: Normalized app" <+> vcat (
+      ["" <+> ppValue Unqualified 0 u <+> "to" <+> ppValue Unqualified 0 u' ] ++
+      zipWith (\w w' -> ppValue Unqualified 0 w <+> "to" <+> ppValue Unqualified 0 w') w w' ++
+      [ ppValue Unqualified 0 v <+> "to" <+> ppValue Unqualified 0 v' ])
     return v
   VClos env e -> do
     e' <- eval env e
-    traceM . render $ "\nwhnf: Normalized Closure" <+> vcat 
+    traceM . render $ "\nwhnf: Normalized Closure" <+> vcat
       ["" <+> ppTerm Unqualified 0 e <+> "to" <+> ppValue Unqualified 0 e' ]
     return e'
   _ -> do
@@ -94,11 +93,17 @@ whnf th v = ---- errIn ("whnf" +++ prt v) $ ---- debug
 app :: Val -> Val -> Err Val
 app u v = case u of
   VClos env (Abs _ x e) -> eval ((x,v):env) e
+  VApp u' v' -> do
+    let val = VApp u' (v' ++ [v])
+    traceM . render $ "\napp: Extended app:" <+>
+      (ppValue Unqualified 0 u <+> "applied to" <+> ppValue Unqualified 0 v
+       $$ take 150 (show val))
+    return val
   _ -> do
-    traceM . render $ "\napp: Unchanged app:" <+> 
+    traceM . render $ "\napp: Unchanged app:" <+>
       (ppValue Unqualified 0 u <+> "applied to" <+> ppValue Unqualified 0 v
        $$ take 100 (show u))
-    return $ VApp u v
+    return $ VApp u [v]
 
 eval :: Env -> Term -> Err Val
 eval env e = ---- errIn ("eval" +++ prt e +++ "in" +++ prEnv env) $
@@ -119,7 +124,7 @@ eqVal th k u1 u2 = ---- errIn (prt u1 +++ "<>" +++ prBracket (show k) +++ prt u2
   w2 <- whnf th u2
   let v = VGen k
   case (w1,w2) of
-    (VApp f1 a1, VApp f2 a2) -> liftM2 (++) (eqVal th k f1 f2) (eqVal th k a1 a2)
+    (VApp f1 a1, VApp f2 a2) -> liftM2 (++) (eqVal th k f1 f2) (fmap concat $ zipWithM (eqVal th k) a1 a2)
     (VClos env1 (Abs _ x1 e1), VClos env2 (Abs _ x2 e2)) ->
       eqVal th (k+1) (VClos ((x1,v x1):env1) e1) (VClos ((x2,v x1):env2) e2)
     (VClos env1 (Prod _ x1 a1 e1), VClos env2 (Prod _ x2 a2 e2)) ->

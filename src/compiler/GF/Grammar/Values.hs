@@ -29,7 +29,7 @@ import GF.Grammar.Predef
 
 -- values used in TC type checking
 
-data Val = VGen Int Ident | VApp Val Val | VCn QIdent | VRecType [(Label,Val)] | VType | VClos Env Term
+data Val = VGen Int Ident | VApp Val [Val] | VCn QIdent | VRecType [(Label,Val)] | VType | VClos Env Term
   deriving (Eq,Show)
 
 type Env = [(Ident,Val)]

@@ -276,7 +276,7 @@ ppPatt q d (PTilde t)   = prec d 2 ('~' <> ppTerm q 6 t)
 
 ppValue :: TermPrintQual -> Int -> Val -> Doc
 ppValue q d (VGen i x)    = x <> "{-" <> i <> "-}" ---- latter part for debugging
-ppValue q d (VApp u v)    = prec d 4 (ppValue q 4 u <+> ppValue q 5 v)
+ppValue q d (VApp u v)    = prec d 4 (ppValue q 4 u <+> hsep (ppValue q 5 <$> v))
 ppValue q d (VCn (_,c))   = pp c
 ppValue q d (VClos env e) = case e of
                               Meta _ -> ppTerm q d e <> ppEnv env
