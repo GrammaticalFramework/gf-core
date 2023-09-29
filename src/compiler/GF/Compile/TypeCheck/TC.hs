@@ -109,8 +109,12 @@ eval :: Theory -> Env -> Term -> Err Val
 eval th env e = ---- errIn ("eval" +++ prt e +++ "in" +++ prEnv env) $
              case e of
   Vr x    -> lookupVar env x
-  Q c   -> return $ VCn c Nothing -- TODO
-  QC c  -> return $ VCn c Nothing ---- == Q ?
+  Q c   -> do
+    (_ty, defEqns) <- lookupConst th c
+    return $ VCn c defEqns
+  QC c  -> do
+    (_ty, defEqns) <- lookupConst th c
+    return $ VCn c defEqns ---- == Q ?
   Sort c  -> return $ VType --- the only sort is Type
   App f a -> join $ liftM2 (app th) (eval th env f) (eval th env a)
   RecType xs -> do xs <- mapM (\(l,e) -> eval th env e >>= \e -> return (l,e)) xs
