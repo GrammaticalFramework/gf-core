@@ -30,6 +30,7 @@ import GF.Grammar.Unify
 import GF.Compile.TypeCheck.TC
 
 import GF.Text.Pretty
+import Debug.Trace (traceM)
 --import Control.Monad (foldM, liftM, liftM2)
 
 -- | invariant way of creating TCEnv from context
@@ -61,9 +62,11 @@ notJustMeta (c,k) = case (c,k) of
 
 grammar2theory :: SourceGrammar -> Theory
 grammar2theory gr (m,f) = case lookupFunType gr m f of
-  Ok t -> return $ type2val t
+  Ok t -> case lookupAbsDef gr m f of -- TODO: Don't lookup twice
+            Ok (n, Just eqs) -> return (type2val t, eqs)
+            _ -> return (type2val t, [])
   Bad s -> case lookupCatContext gr m f of
-    Ok cont -> return $ cont2val cont
+    Ok cont -> return (cont2val cont,[]) 
     _ -> Bad s
 
 checkContext :: SourceGrammar -> Context -> [Message]
@@ -74,7 +77,11 @@ checkTyp gr typ = err (\x -> [pp x]) ppConstrs $ justTypeCheck gr typ vType
 
 checkDef :: SourceGrammar -> Fun -> Type -> Equation -> [Message]
 checkDef gr (m,fun) typ eq = err (\x -> [pp x]) ppConstrs $ do
+  traceM . render $ "\nchecking def: " <+> pp fun <+> ":" <+> pp typ
+                   $$ "with equation:" <+> pp fun <+> hsep [ppPatt Unqualified 2 p | p <- fst eq] <+> "=>" <+> snd eq
   (b,cs) <- checkBranch (grammar2theory gr) (initTCEnv []) eq (type2val typ)
+  traceM . render $ "\ngot branches" {- <+> pp (show $ snd b) -} <+> ": with :" <+> pp (vcat $ fst b)
+        $$ "with constraints:" <+> vcat [ppValue Unqualified 0 a <+> " = " <+> ppValue Unqualified 0 b | (a,b) <- cs]
   (constrs,_) <- unifyVal cs
   return $ filter notJustMeta constrs
 
