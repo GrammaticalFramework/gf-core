@@ -75,14 +75,14 @@ whnf th v = ---- errIn ("whnf" +++ prt v) $ ---- debug
   VApp u w -> do
     u' <- whnf th u
     w' <- mapM (whnf th) w
-    v' <- foldM app u' w'
+    v' <- foldM (app th) u' w'
     traceM . render $ "\nwhnf: Normalized app" <+> vcat (
       ["" <+> ppValue Unqualified 0 u <+> "to" <+> ppValue Unqualified 0 u' ] ++
       zipWith (\w w' -> ppValue Unqualified 0 w <+> "to" <+> ppValue Unqualified 0 w') w w' ++
       [ ppValue Unqualified 0 v <+> "to" <+> ppValue Unqualified 0 v' ])
     return v
   VClos env e -> do
-    e' <- eval env e
+    e' <- eval th env e
     traceM . render $ "\nwhnf: Normalized Closure" <+> vcat
       ["" <+> ppTerm Unqualified 0 e <+> "to" <+> ppValue Unqualified 0 e' ]
     return e'
@@ -90,9 +90,9 @@ whnf th v = ---- errIn ("whnf" +++ prt v) $ ---- debug
     traceM . render $ "\nwhnf: unchanged" <+> ppValue Unqualified 0 v
     return v
 
-app :: Val -> Val -> Err Val
-app u v = case u of
-  VClos env (Abs _ x e) -> eval ((x,v):env) e
+app :: Theory -> Val -> Val -> Err Val
+app th u v = case u of
+  VClos env (Abs _ x e) -> eval th ((x,v):env) e
   VApp u' v' -> do
     let val = VApp u' (v' ++ [v])
     traceM . render $ "\napp: Extended app:" <+>
@@ -105,15 +105,15 @@ app u v = case u of
        $$ take 100 (show u))
     return $ VApp u [v]
 
-eval :: Env -> Term -> Err Val
-eval env e = ---- errIn ("eval" +++ prt e +++ "in" +++ prEnv env) $
+eval :: Theory -> Env -> Term -> Err Val
+eval th env e = ---- errIn ("eval" +++ prt e +++ "in" +++ prEnv env) $
              case e of
   Vr x    -> lookupVar env x
   Q c   -> return $ VCn c Nothing -- TODO
   QC c  -> return $ VCn c Nothing ---- == Q ?
   Sort c  -> return $ VType --- the only sort is Type
-  App f a -> join $ liftM2 app (eval env f) (eval env a)
-  RecType xs -> do xs <- mapM (\(l,e) -> eval env e >>= \e -> return (l,e)) xs
+  App f a -> join $ liftM2 (app th) (eval th env f) (eval th env a)
+  RecType xs -> do xs <- mapM (\(l,e) -> eval th env e >>= \e -> return (l,e)) xs
                    return (VRecType xs)
   _ -> return $ VClos env e
 
@@ -161,7 +161,7 @@ checkExp th tenv@(k,rho,gamma) e ty = do
     Let (x, (mb_typ, e1)) e2 -> do
       (val,e1,cs1) <- case mb_typ of
                         Just typ -> do (_,cs1) <- checkType th tenv typ
-                                       val <- eval rho typ
+                                       val <- eval th rho typ
                                        (e1,cs2) <- checkExp th tenv e1 val
                                        return (val,e1,cs1++cs2)
                         Nothing  -> do (e1,val,cs) <- inferExp th tenv e1
@@ -217,7 +217,7 @@ inferExp th tenv@(k,rho,gamma) e = case e of
    Let (x, (mb_typ, e1)) e2 -> do
     (val1,e1,cs1) <- case mb_typ of
                        Just typ -> do (_,cs1) <- checkType th tenv typ
-                                      val <- eval rho typ
+                                      val <- eval th rho typ
                                       (e1,cs2) <- checkExp th tenv e1 val
                                       return (val,e1,cs1++cs2)
                        Nothing  -> do (e1,val,cs) <- inferExp th tenv e1
@@ -243,7 +243,7 @@ checkLabelling th tenv (lbl,typ) = do
 checkAssign :: Theory -> TCEnv -> [(Label,Val)] -> Assign -> Err (AAssign, [(Val,Val)])
 checkAssign th tenv@(k,rho,gamma) typs (lbl,(Just typ,exp)) = do
   (atyp,cs1) <- checkType th tenv typ
-  val <- eval rho typ
+  val <- eval th rho typ
   cs2 <- case lookup lbl typs of
            Nothing   -> return []
            Just val0 -> eqVal th k val val0
