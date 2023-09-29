@@ -55,9 +55,9 @@ data AExp =
 type ALabelling = (Label, AExp)
 type AAssign = (Label, (Val, AExp))
 
-type Theory = QIdent -> Err (Val, [Equation])
+type Theory = QIdent -> Err (Val, Maybe (Int, [Equation]))
 
-lookupConst :: Theory -> QIdent -> Err (Val, [Equation])
+lookupConst :: Theory -> QIdent -> Err (Val, Maybe (Int, [Equation]))
 lookupConst th f = th f
 
 lookupVar :: Env -> Ident -> Err Val
@@ -109,8 +109,8 @@ eval :: Env -> Term -> Err Val
 eval env e = ---- errIn ("eval" +++ prt e +++ "in" +++ prEnv env) $
              case e of
   Vr x    -> lookupVar env x
-  Q c   -> return $ VCn c
-  QC c  -> return $ VCn c ---- == Q ?
+  Q c   -> return $ VCn c Nothing -- TODO
+  QC c  -> return $ VCn c Nothing ---- == Q ?
   Sort c  -> return $ VType --- the only sort is Type
   App f a -> join $ liftM2 app (eval env f) (eval env a)
   RecType xs -> do xs <- mapM (\(l,e) -> eval env e >>= \e -> return (l,e)) xs
@@ -132,7 +132,7 @@ eqVal th k u1 u2 = ---- errIn (prt u1 +++ "<>" +++ prBracket (show k) +++ prt u2
         (eqVal th k     (VClos            env1  a1) (VClos            env2  a2))
         (eqVal th (k+1) (VClos ((x1,v x1):env1) e1) (VClos ((x2,v x1):env2) e2))
     (VGen i _, VGen j _) -> return [(w1,w2) | i /= j]
-    (VCn (_, i), VCn (_,j)) -> return [(w1,w2) | i /= j]
+    (VCn (_, i) _, VCn (_,j) _) -> return [(w1,w2) | i /= j]
     --- thus ignore qualifications; valid because inheritance cannot
     --- be qualified. Simplifies annotation. AR 17/3/2005
     _ -> return [(w1,w2) | w1 /= w2]

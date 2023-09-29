@@ -63,10 +63,10 @@ notJustMeta (c,k) = case (c,k) of
 grammar2theory :: SourceGrammar -> Theory
 grammar2theory gr (m,f) = case lookupFunType gr m f of
   Ok t -> case lookupAbsDef gr m f of -- TODO: Don't lookup twice
-            Ok (n, Just eqs) -> return (type2val t, eqs)
-            _ -> return (type2val t, [])
+            Ok (Just n, Just eqs) -> return (type2val t, Just (n, eqs))
+            _ -> return (type2val t, Nothing)
   Bad s -> case lookupCatContext gr m f of
-    Ok cont -> return (cont2val cont,[]) 
+    Ok cont -> return (cont2val cont,Nothing) 
     _ -> Bad s
 
 checkContext :: SourceGrammar -> Context -> [Message]
