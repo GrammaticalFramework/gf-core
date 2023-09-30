@@ -244,7 +244,8 @@ checkExp th tenv@(k,rho,gamma) e typ = do
     Prod _ x a b -> do
       testErr (typ == vType) "expected Type"
       (a',csa) <- checkType th tenv a
-      (b',csb) <- checkType th (k+1, (x,v x):rho, (x,VClos rho a):gamma) b -- TODO: Valid VClos?
+      aWhnf <- whnf th (NVClos rho a)
+      (b',csb) <- checkType th (k+1, (x,v x):rho, (x,aWhnf):gamma) b
       return (AProd x a' b', csa ++ csb)
 
     R xs ->
