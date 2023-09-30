@@ -31,8 +31,10 @@ import Control.Monad
 --import Data.List (sortBy)
 import Data.Maybe
 import GF.Text.Pretty
-import Debug.Trace (traceM)
+-- import Debug.Trace (traceM)
 import GHC.Stack (HasCallStack)
+
+traceM _ = return ()
 
 data AExp =
      AVr   Ident Val
