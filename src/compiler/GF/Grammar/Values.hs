@@ -32,7 +32,7 @@ import GF.Grammar.Predef
 data Val = VGen Int Ident | VApp Val [Val] | VCn QIdent (Maybe (Int, [Equation])) | VRecType [(Label,Val)] | VType | VClos Env Term
   deriving (Eq,Show)
 
-data NotVal = NVClos Env Term
+data NotVal = NVClos Env Term | NVVal Val
   deriving (Show)
 
 type Env = [(Ident,Val)]

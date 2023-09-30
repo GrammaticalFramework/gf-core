@@ -39,8 +39,8 @@ initTCEnv gamma =
 
 -- interface to TC type checker
 
-type2val :: Type -> Val
-type2val = VClos []
+type2val :: Type -> NotVal
+type2val = NVClos []
 
 type2nval :: Type -> NotVal
 type2nval = NVClos []
@@ -48,7 +48,7 @@ type2nval = NVClos []
 cont2exp :: Context -> Term
 cont2exp c = mkProd c eType [] -- to check a context
 
-cont2val :: Context -> Val
+cont2val :: Context -> NotVal
 cont2val = type2val . cont2exp
 
 -- some top-level batch-mode checkers for the compiler

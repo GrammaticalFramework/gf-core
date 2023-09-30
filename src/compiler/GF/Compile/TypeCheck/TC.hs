@@ -56,10 +56,15 @@ data AExp =
 type ALabelling = (Label, AExp)
 type AAssign = (Label, (Val, AExp))
 
-type Theory = QIdent -> Err (Val, Maybe (Int, [Equation]))
+type Theory = QIdent -> Err (NotVal, Maybe (Int, [Equation]))
 
-lookupConst :: Theory -> QIdent -> Err (Val, Maybe (Int, [Equation]))
-lookupConst th f = th f
+lookupConst :: HasCallStack => Theory -> QIdent -> Err (Val, Maybe (Int, [Equation]))
+lookupConst th f = do
+  (nv,info) <- th f
+  -- checkWhnf (pp (snd f)) th v
+  v <- whnf th nv
+  return (v, info)
+
 
 lookupVar :: Env -> Ident -> Err Val
 lookupVar g x = maybe (Bad (render ("unknown variable" <+> x))) return $ lookup x ((identW,VClos [] (Meta 0)):g)
