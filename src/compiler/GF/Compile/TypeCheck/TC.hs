@@ -339,7 +339,8 @@ inferExp th tenv@(k,rho,gamma) e = do
     case typ of
       VClos env (Prod _ x a b) -> do
         (a',csa) <- checkNExp th tenv t (NVClos env a)
-        b' <- whnf th $ NVClos ((x,VClos rho t):env) b -- Valid VClos?
+        rhoT <- whnf th $ NVClos rho t -- New whnf
+        b' <- whnf th $ NVClos ((x,rhoT):env) b
         return $ (AApp f' a' b', b', csf ++ csa)
       _ -> Bad (render ("Prod expected for function" <+> ppTerm Unqualified 0 f <+> "instead of" <+> ppValue Unqualified 0 typ))
    _ -> Bad (render ("cannot infer type of expression" <+> ppTerm Unqualified 0 e))
@@ -393,10 +394,11 @@ checkBranch th tenv b@(ps,t) ty = errIn ("branch" +++ show b) $
   checkP env@(k,rho,gamma) t x a = do
      (delta,cs) <- checkPatt th env t a
      let sigma = [(x, VGen i x) | ((x,_),i) <- zip delta [k..]]
-     traceM . render $ ("\ncheckP:" <+>) 
-        $ "Making closure:" <+> vcat ["" <+> ppTerm Unqualified 0 t , pp $ show (VClos sigma t)]
-        $$ "In context:" <+> show tenv
-     return (VClos sigma t, sigma, delta, cs) -- TODO: Valid VClos?
+    --  traceM . render $ ("\ncheckP:" <+>) 
+    --     $ "Making closure:" <+> vcat ["" <+> ppTerm Unqualified 0 t , pp $ show (VClos sigma t)]
+    --     $$ "In context:" <+> show tenv
+     sigmaT <- whnf th $ NVClos sigma t -- New whnf
+     return (sigmaT, sigma, delta, cs)
 
   ps2ts k = foldr p2t ([],0,[],k)
   p2t p (ps,i,g,k) = case p of
@@ -447,11 +449,12 @@ checkPatt th tenv exp val = do
        let typ = w -- Already normalized
        case typ of
          VClos env (Prod _ x a b) -> do
-           traceM . render $ ("\ncheckPatt:" <+>) 
-              $ "Making closure:" <+> vcat ["" <+> ppTerm Unqualified 0 t , pp $ show (VClos env t)]
-              --  $$ "In context:" <+> show tenv
-           (a',_,csa) <- checkExpP tenv t (VClos env a) -- TODO: Valid VClos?
-           b' <- whnf th $ NVClos ((x,VClos rho t):env) b -- TODO: Valid VClos?
+          --  traceM . render $ ("\ncheckPatt:" <+>) 
+          --     $ "Making closure:" <+> vcat ["" <+> ppTerm Unqualified 0 t , pp $ show (VClos env t)]
+           envA <- whnf th $ NVClos env a -- New whnf
+           (a',_,csa) <- checkExpP tenv t envA
+           rhoT <- whnf th $ NVClos rho t -- New whnf
+           b' <- whnf th $ NVClos ((x,rhoT):env) b
            checkWhnf (pp "checkPatt") th b'
            return $ (AApp f' a' b', b', csf ++ csa)
          _ -> Bad (render ("Prod expected for function" <+> ppTerm Unqualified 0 f <+> "instead of" <+> ppValue Unqualified 0 typ))
