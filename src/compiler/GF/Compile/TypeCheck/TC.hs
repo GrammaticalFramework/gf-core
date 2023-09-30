@@ -83,7 +83,7 @@ whnf th v = ---- errIn ("whnf" +++ prt v) $ ---- debug
       ["" <+> ppValue Unqualified 0 u <+> "to" <+> ppValue Unqualified 0 u' ] ++
       zipWith (\w w' -> ppValue Unqualified 0 w <+> "to" <+> ppValue Unqualified 0 w') w w' ++
       [ ppValue Unqualified 0 v <+> "to" <+> ppValue Unqualified 0 v' ])
-    return v
+    return v'
   VClos env e -> do
     e' <- eval th env e
     traceM . render $ "\nwhnf: Normalized Closure" <+> vcat
