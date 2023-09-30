@@ -75,6 +75,9 @@ whnf th v = ---- errIn ("whnf" +++ prt v) $ ---- debug
   VApp u w -> do
     u' <- whnf th u
     w' <- mapM (whnf th) w
+    traceM . render $ "\nwhnf: Normalized app 2" <+> vcat (
+      ("" <+> ppValue Unqualified 0 u <+> "to" <+> ppValue Unqualified 0 u' ) :
+      zipWith (\w w' -> ppValue Unqualified 0 w <+> "to" <+> ppValue Unqualified 0 w') w w')
     v' <- foldM (app th) u' w'
     traceM . render $ "\nwhnf: Normalized app" <+> vcat (
       ["" <+> ppValue Unqualified 0 u <+> "to" <+> ppValue Unqualified 0 u' ] ++
@@ -94,17 +97,19 @@ app :: Theory -> Val -> Val -> Err Val
 app th u v = case u of
   VClos env (Abs _ x e) -> do 
     traceM "app: VClos"
-    evalDef th =<< eval th ((x,v):env) e
+    val <- eval th ((x,v):env) e
+    traceM "app: VClos 2"
+    evalDef th val
   VApp u' v' -> do
     let val = VApp u' (v' ++ [v])
     traceM . render $ "\napp: Extended app:" <+>
       (ppValue Unqualified 0 u <+> "applied to" <+> ppValue Unqualified 0 v
-       $$ take 150 (show val))
+       $$ take 300 (show val))
     evalDef th val
   _ -> do
     traceM . render $ "\napp: Unchanged app:" <+>
       (ppValue Unqualified 0 u <+> "applied to" <+> ppValue Unqualified 0 v
-       $$ take 100 (show u))
+       $$ take 300 (show u))
     return $ VApp u [v]
 
 evalDef :: Theory -> Val -> Err Val
@@ -124,7 +129,9 @@ evalDef th e = case e of
     case e' of
       Just (VClos env tm) -> eval th env tm
       _ -> return e
-  _ -> return e
+  _ -> do
+    traceM "evalDef: not yet"
+    return e
 
 tryMatchEqns :: [Equation] -> [Val] -> Err (Maybe Val)
 tryMatchEqns ((pts,repl):eqs) xs = do
@@ -162,10 +169,14 @@ eval th env e = ---- errIn ("eval" +++ prt e +++ "in" +++ prEnv env) $
     (_ty, defEqns) <- lookupConst th c
     return $ VCn c defEqns ---- == Q ?
   Sort c  -> return $ VType --- the only sort is Type
-  App f a -> join $ liftM2 (app th) (eval th env f) (eval th env a)
+  App f a -> do 
+    traceM "eval: App"
+    join $ liftM2 (app th) (eval th env f) (eval th env a)
   RecType xs -> do xs <- mapM (\(l,e) -> eval th env e >>= \e -> return (l,e)) xs
                    return (VRecType xs)
-  _ -> return $ VClos env e
+  _ -> do
+    traceM . render . ("eval:" <+>) $ "not evaling: " <+> show e --  $$ "in context" <+> env
+    return $ VClos env e
 
 eqVal :: Theory -> Int -> Val -> Val -> Err [(Val,Val)]
 eqVal th k u1 u2 = ---- errIn (prt u1 +++ "<>" +++ prBracket (show k) +++ prt u2) $
