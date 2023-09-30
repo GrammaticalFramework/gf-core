@@ -230,7 +230,6 @@ eqVal th k u1 u2 = ---- errIn (prt u1 +++ "<>" +++ prBracket (show k) +++ prt u2
           ["" <+> ppValue Unqualified 0 w1 , ppValue Unqualified 0 w2
           ,pp $ show w1 , pp $ show w2
           ]
-        error "not equal"
       return [(w1,w2) | w1 /= w2]
 -- invariant: constraints are in whnf
 
