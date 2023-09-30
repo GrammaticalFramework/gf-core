@@ -31,8 +31,6 @@ import Control.Monad
 --import Data.List (sortBy)
 import Data.Maybe
 import GF.Text.Pretty
--- import Debug.Trace (traceM)
-import GHC.Stack (HasCallStack)
 
 traceM _ = return ()
 
@@ -61,14 +59,14 @@ type AAssign = (Label, (Val, AExp))
 
 type Theory = QIdent -> Err (NotVal, Maybe (Int, [Equation]))
 
-lookupConst :: HasCallStack => Theory -> QIdent -> Err (Val, Maybe (Int, [Equation]))
+lookupConst ::  Theory -> QIdent -> Err (Val, Maybe (Int, [Equation]))
 lookupConst th f = do
   (nv,info) <- th f
   -- checkWhnf (pp (snd f)) th v
   v <- whnf th nv
   return (v, info)
 
-checkWhnf :: HasCallStack => Doc -> Theory -> Val -> Err ()
+checkWhnf ::  Doc -> Theory -> Val -> Err ()
 checkWhnf ctx th v = do
   v' <- whnf th (unVal v)
   when (v /= v') $ error . render $ ("Not whnf:" <+>) $
@@ -206,7 +204,7 @@ eqNVal th k u1 u2 = do
   w2 <- whnf th u2
   eqVal th k w1 w2
 
-eqVal :: HasCallStack => Theory -> Int -> Val -> Val -> Err [(Val,Val)]
+eqVal ::  Theory -> Int -> Val -> Val -> Err [(Val,Val)]
 eqVal th k u1 u2 = ---- errIn (prt u1 +++ "<>" +++ prBracket (show k) +++ prt u2) $
                 do
   -- w1 <- whnf th u1
@@ -238,14 +236,14 @@ eqVal th k u1 u2 = ---- errIn (prt u1 +++ "<>" +++ prBracket (show k) +++ prt u2
 checkType :: Theory -> TCEnv -> Term -> Err (AExp,[(Val,Val)])
 checkType th tenv e = checkExp th tenv e vType
 
-checkNExp :: HasCallStack => Theory -> TCEnv -> Term -> NotVal -> Err (AExp, [(Val,Val)])
+checkNExp ::  Theory -> TCEnv -> Term -> NotVal -> Err (AExp, [(Val,Val)])
 checkNExp th tenv@(k,rho,gamma) e ty = do
   typ <- whnf th ty
   checkWhnf (pp "checkNExp:") th typ
   traceM . render $ "\ncheckExp: Normalized" <+> vcat ["" <+> ppNValue Unqualified 0 ty , ppValue Unqualified 0 typ]
   checkExp th tenv e typ
 
-checkExp :: HasCallStack => Theory -> TCEnv -> Term -> Val -> Err (AExp, [(Val,Val)])
+checkExp ::  Theory -> TCEnv -> Term -> Val -> Err (AExp, [(Val,Val)])
 checkExp th tenv@(k,rho,gamma) e typ = do
   let v = VGen k
   traceM . render $ "\ncheckExp: checking" <+> vcat ["" <+> e , pp (take 30 $ show e)]
@@ -297,7 +295,7 @@ checkExp th tenv@(k,rho,gamma) e typ = do
                    return (AGlue x y,cs1++cs2++cs3)
     _ -> checkInferExp th tenv e typ
 
-checkInferExp :: HasCallStack => Theory -> TCEnv -> Term -> Val -> Err (AExp, [(Val,Val)])
+checkInferExp ::  Theory -> TCEnv -> Term -> Val -> Err (AExp, [(Val,Val)])
 checkInferExp th tenv@(k,_,_) e typ = do
   (e',w,cs1) <- inferExp th tenv e
   checkWhnf (pp "checkInferExp w:") th w
