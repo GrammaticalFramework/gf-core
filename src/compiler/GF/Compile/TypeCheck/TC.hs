@@ -16,6 +16,7 @@ module GF.Compile.TypeCheck.TC (
     AExp(..),
     Theory,
     checkExp,
+    checkNExp,
     inferExp,
     checkBranch,
     eqVal,
@@ -69,29 +70,29 @@ type TCEnv = (Int,Env,Env)
 --emptyTCEnv :: TCEnv
 --emptyTCEnv = (0,[],[])
 
-whnf :: Theory -> Val -> Err Val
+whnf :: Theory -> NotVal -> Err Val
 whnf th v = ---- errIn ("whnf" +++ prt v) $ ---- debug
          case v of
-  VApp u w -> do
-    u' <- whnf th u
-    w' <- mapM (whnf th) w
-    traceM . render $ "\nwhnf: Normalized app 2" <+> vcat (
-      ("" <+> ppValue Unqualified 0 u <+> "to" <+> ppValue Unqualified 0 u' ) :
-      zipWith (\w w' -> ppValue Unqualified 0 w <+> "to" <+> ppValue Unqualified 0 w') w w')
-    v' <- foldM (app th) u' w'
-    traceM . render $ "\nwhnf: Normalized app" <+> vcat (
-      ["" <+> ppValue Unqualified 0 u <+> "to" <+> ppValue Unqualified 0 u' ] ++
-      zipWith (\w w' -> ppValue Unqualified 0 w <+> "to" <+> ppValue Unqualified 0 w') w w' ++
-      [ ppValue Unqualified 0 v <+> "to" <+> ppValue Unqualified 0 v' ])
-    return v'
-  VClos env e -> do
+  -- VApp u w -> do
+  --   u' <- whnf th u
+  --   w' <- mapM (whnf th) w
+  --   traceM . render $ "\nwhnf: Normalized app 2" <+> vcat (
+  --     ("" <+> ppValue Unqualified 0 u <+> "to" <+> ppValue Unqualified 0 u' ) :
+  --     zipWith (\w w' -> ppValue Unqualified 0 w <+> "to" <+> ppValue Unqualified 0 w') w w')
+  --   v' <- foldM (app th) u' w'
+  --   traceM . render $ "\nwhnf: Normalized app" <+> vcat (
+  --     ["" <+> ppValue Unqualified 0 u <+> "to" <+> ppValue Unqualified 0 u' ] ++
+  --     zipWith (\w w' -> ppValue Unqualified 0 w <+> "to" <+> ppValue Unqualified 0 w') w w' ++
+  --     [ ppValue Unqualified 0 v <+> "to" <+> ppValue Unqualified 0 v' ])
+  --   return v'
+  NVClos env e -> do
     e' <- eval th env e
     traceM . render $ "\nwhnf: Normalized Closure" <+> vcat
       ["" <+> ppTerm Unqualified 0 e <+> "to" <+> ppValue Unqualified 0 e' ]
     return e'
-  _ -> do
-    traceM . render $ "\nwhnf: unchanged" <+> ppValue Unqualified 0 v
-    return v
+  -- _ -> do
+  --   traceM . render $ "\nwhnf: unchanged" <+> ppValue Unqualified 0 v
+  --   return v
 
 app :: Theory -> Val -> Val -> Err Val
 app th u v = case u of
@@ -127,13 +128,13 @@ evalDef th e = case e of
     e' <- tryMatchEqns eqs xs
     traceM . render $ ("\nevalDef:" <+>) $ "Evaluated:" <+> show e'
     case e' of
-      Just (VClos env tm) -> eval th env tm
+      Just (NVClos env tm) -> eval th env tm
       _ -> return e
   _ -> do
     traceM "evalDef: not yet"
     return e
 
-tryMatchEqns :: [Equation] -> [Val] -> Err (Maybe Val)
+tryMatchEqns :: [Equation] -> [Val] -> Err (Maybe NotVal)
 tryMatchEqns ((pts,repl):eqs) xs = do
   me' <- tryMatchEqn [] pts xs repl
   case me' of
@@ -141,8 +142,8 @@ tryMatchEqns ((pts,repl):eqs) xs = do
     Just e' -> return $ Just e'
 tryMatchEqns [] xs = return Nothing
 
-tryMatchEqn :: Env -> [Patt] -> [Val] -> Term -> Err (Maybe Val)
-tryMatchEqn env [] [] repl = return $ Just $ VClos env repl -- TODO: eval?
+tryMatchEqn :: Env -> [Patt] -> [Val] -> Term -> Err (Maybe NotVal)
+tryMatchEqn env [] [] repl = return $ Just $ NVClos env repl
 tryMatchEqn env (PW: ps) (v: vs) repl = do
   traceM . render $ "Matching wildcard" <+> ppValue Unqualified 0 v
   tryMatchEqn env ps vs repl
@@ -178,20 +179,27 @@ eval th env e = ---- errIn ("eval" +++ prt e +++ "in" +++ prEnv env) $
     traceM . render . ("eval:" <+>) $ "not evaling: " <+> show e --  $$ "in context" <+> env
     return $ VClos env e
 
+eqNVal :: Theory -> Int -> NotVal -> NotVal -> Err [(Val,Val)]
+eqNVal th k u1 u2 = do
+  w1 <- whnf th u1
+  w2 <- whnf th u2
+  eqVal th k w1 w2
+
 eqVal :: Theory -> Int -> Val -> Val -> Err [(Val,Val)]
 eqVal th k u1 u2 = ---- errIn (prt u1 +++ "<>" +++ prBracket (show k) +++ prt u2) $
                 do
-  w1 <- whnf th u1
-  w2 <- whnf th u2
+  -- w1 <- whnf th u1
+  -- w2 <- whnf th u2
+  let (w1,w2) = (u1,u2)
   let v = VGen k
   case (w1,w2) of
     (VApp f1 a1, VApp f2 a2) -> liftM2 (++) (eqVal th k f1 f2) (fmap concat $ zipWithM (eqVal th k) a1 a2)
     (VClos env1 (Abs _ x1 e1), VClos env2 (Abs _ x2 e2)) ->
-      eqVal th (k+1) (VClos ((x1,v x1):env1) e1) (VClos ((x2,v x1):env2) e2)
+      eqNVal th (k+1) (NVClos ((x1,v x1):env1) e1) (NVClos ((x2,v x1):env2) e2)
     (VClos env1 (Prod _ x1 a1 e1), VClos env2 (Prod _ x2 a2 e2)) ->
       liftM2 (++)
-        (eqVal th k     (VClos            env1  a1) (VClos            env2  a2))
-        (eqVal th (k+1) (VClos ((x1,v x1):env1) e1) (VClos ((x2,v x1):env2) e2))
+        (eqNVal th k     (NVClos            env1  a1) (NVClos            env2  a2))
+        (eqNVal th (k+1) (NVClos ((x1,v x1):env1) e1) (NVClos ((x2,v x1):env2) e2))
     (VGen i _, VGen j _) -> return [(w1,w2) | i /= j]
     (VCn (_, i) _, VCn (_,j) _) -> return [(w1,w2) | i /= j]
     --- thus ignore qualifications; valid because inheritance cannot
@@ -202,10 +210,13 @@ eqVal th k u1 u2 = ---- errIn (prt u1 +++ "<>" +++ prBracket (show k) +++ prt u2
 checkType :: Theory -> TCEnv -> Term -> Err (AExp,[(Val,Val)])
 checkType th tenv e = checkExp th tenv e vType
 
-checkExp :: Theory -> TCEnv -> Term -> Val -> Err (AExp, [(Val,Val)])
-checkExp th tenv@(k,rho,gamma) e ty = do
+checkNExp :: Theory -> TCEnv -> Term -> NotVal -> Err (AExp, [(Val,Val)])
+checkNExp th tenv@(k,rho,gamma) e ty = do
   typ <- whnf th ty
-  traceM . render $ "\ncheckExp: Normalized" <+> vcat ["" <+> ppValue Unqualified 0 ty , ppValue Unqualified 0 typ]
+  traceM . render $ "\ncheckExp: Normalized" <+> vcat ["" <+> ppNValue Unqualified 0 ty , ppValue Unqualified 0 typ]
+  checkExp th tenv e typ
+checkExp :: Theory -> TCEnv -> Term -> Val -> Err (AExp, [(Val,Val)])
+checkExp th tenv@(k,rho,gamma) e typ = do
   let v = VGen k
   traceM . render $ "\ncheckExp: checking" <+> vcat ["" <+> e , pp (take 30 $ show e)]
   case e of
@@ -213,9 +224,9 @@ checkExp th tenv@(k,rho,gamma) e ty = do
 
     Abs _ x t -> case typ of
       VClos env (Prod _ y a b) -> do
-                           a' <- whnf th $ VClos env a ---
-                           (t',cs) <- checkExp th
-                                          (k+1,(x,v x):rho, (x,a'):gamma) t (VClos ((y,v x):env) b)
+                           a' <- whnf th $ NVClos env a ---
+                           (t',cs) <- checkNExp th
+                                          (k+1,(x,v x):rho, (x,a'):gamma) t (NVClos ((y,v x):env) b)
                            return (AAbs x a' t', cs)
       _ -> Bad (render ("function type expected for" <+> ppTerm Unqualified 0 e <+> "instead of" <+> ppValue Unqualified 0 typ))
 
@@ -233,7 +244,7 @@ checkExp th tenv@(k,rho,gamma) e ty = do
     Prod _ x a b -> do
       testErr (typ == vType) "expected Type"
       (a',csa) <- checkType th tenv a
-      (b',csb) <- checkType th (k+1, (x,v x):rho, (x,VClos rho a):gamma) b
+      (b',csb) <- checkType th (k+1, (x,v x):rho, (x,VClos rho a):gamma) b -- TODO: Valid VClos?
       return (AProd x a' b', csa ++ csb)
 
     R xs ->
@@ -287,11 +298,12 @@ inferExp th tenv@(k,rho,gamma) e = case e of
     return (ALet (x,(val1,e1)) e2, val2, cs1++cs2)
    App f t -> do
     (f',w,csf) <- inferExp th tenv f
-    typ <- whnf th w
+    -- typ <- whnf th w
+    let typ = w
     case typ of
       VClos env (Prod _ x a b) -> do
-        (a',csa) <- checkExp th tenv t (VClos env a)
-        b' <- whnf th $ VClos ((x,VClos rho t):env) b
+        (a',csa) <- checkNExp th tenv t (NVClos env a)
+        b' <- whnf th $ NVClos ((x,VClos rho t):env) b -- Valid VClos?
         return $ (AApp f' a' b', b', csf ++ csa)
       _ -> Bad (render ("Prod expected for function" <+> ppTerm Unqualified 0 f <+> "instead of" <+> ppValue Unqualified 0 typ))
    _ -> Bad (render ("cannot infer type of expression" <+> ppTerm Unqualified 0 e))
@@ -317,7 +329,7 @@ checkAssign th tenv@(k,rho,gamma) typs (lbl,(Nothing,exp)) = do
     Just val -> do (aexp,cs) <- checkExp th tenv exp val
                    return ((lbl,(val,aexp)),cs)
 
-checkBranch :: Theory -> TCEnv -> Equation -> Val -> Err (([Term],AExp),[(Val,Val)])
+checkBranch :: Theory -> TCEnv -> Equation -> NotVal -> Err (([Term],AExp),[(Val,Val)])
 checkBranch th tenv b@(ps,t) ty = errIn ("branch" +++ show b) $
                                   chB tenv' ps' ty
  where
@@ -326,25 +338,26 @@ checkBranch th tenv b@(ps,t) ty = errIn ("branch" +++ show b) $
   tenv' = (k, rho2++rho, gamma) ---- k' ?
   (k,rho,gamma) = tenv
 
+  chB :: (Int, [(Ident, Val)], [(Ident, Val)]) -> [Term] -> NotVal -> Err (([Term], AExp), [(Val, Val)])
   chB tenv@(k,rho,gamma) ps ty = case ps of
     p:ps2 -> do
       typ <- whnf th ty
-      traceM . render $ "\ncheckBranch: Normalized " <+> vcat [ppValue Unqualified 0 ty , ppValue Unqualified 0 typ]
+      traceM . render $ "\ncheckBranch: Normalized " <+> vcat [ppNValue Unqualified 0 ty , ppValue Unqualified 0 typ]
       case typ of
         VClos env (Prod _ y a b) -> do
-          a' <- whnf th $ VClos env a
+          a' <- whnf th $ NVClos env a
           (p', sigma, binds, cs1) <- checkP tenv p y a'
           let tenv' = (length binds, sigma ++ rho, binds ++ gamma)
-          ((ps',exp),cs2) <- chB tenv' ps2 (VClos ((y,p'):env) b)
+          ((ps',exp),cs2) <- chB tenv' ps2 (NVClos ((y,p'):env) b)
           return ((p:ps',exp), cs1 ++ cs2) -- don't change the patt
         _ -> Bad (render ("Product expected for definiens" <+> ppTerm Unqualified 0 t <+> "instead of" <+> ppValue Unqualified 0 typ))
     [] -> do
-      (e,cs) <- checkExp th tenv t ty
+      (e,cs) <- checkNExp th tenv t ty
       return (([],e),cs)
   checkP env@(k,rho,gamma) t x a = do
      (delta,cs) <- checkPatt th env t a
      let sigma = [(x, VGen i x) | ((x,_),i) <- zip delta [k..]]
-     return (VClos sigma t, sigma, delta, cs)
+     return (VClos sigma t, sigma, delta, cs) -- TODO: Valid VClos?
 
   ps2ts k = foldr p2t ([],0,[],k)
   p2t p (ps,i,g,k) = case p of
@@ -375,6 +388,7 @@ checkPatt th tenv exp val = do
      _ -> [] -- no other cases are possible
 
 --- ad hoc, to find types of variables
+   checkExpP :: (a, Env, c) -> Term -> Val -> Err (AExp, Val, [a2])
    checkExpP tenv@(k,rho,gamma) exp val = case exp of
      Meta m -> return $ (AMeta m val, val, [])
      Vr x   -> return $ (AVr   x val, val, [])
@@ -390,11 +404,12 @@ checkPatt th tenv exp val = do
        return $ (ACn c typ, typ, []) ----
      App f t -> do
        (f',w,csf) <- checkExpP tenv f val
-       typ <- whnf th w
+      --  typ <- whnf th w
+       let typ = w -- Already normalized
        case typ of
          VClos env (Prod _ x a b) -> do
-           (a',_,csa) <- checkExpP tenv t (VClos env a)
-           b' <- whnf th $ VClos ((x,VClos rho t):env) b
+           (a',_,csa) <- checkExpP tenv t (VClos env a) -- TODO: Valid VClos?
+           b' <- whnf th $ NVClos ((x,VClos rho t):env) b -- TODO: Valid VClos?
            return $ (AApp f' a' b', b', csf ++ csa)
          _ -> Bad (render ("Prod expected for function" <+> ppTerm Unqualified 0 f <+> "instead of" <+> ppValue Unqualified 0 typ))
      _ -> Bad (render ("cannot typecheck pattern" <+> ppTerm Unqualified 0 exp))

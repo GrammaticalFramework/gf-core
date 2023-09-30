@@ -42,6 +42,9 @@ initTCEnv gamma =
 type2val :: Type -> Val
 type2val = VClos []
 
+type2nval :: Type -> NotVal
+type2nval = NVClos []
+
 cont2exp :: Context -> Term
 cont2exp c = mkProd c eType [] -- to check a context
 
@@ -79,7 +82,7 @@ checkDef :: SourceGrammar -> Fun -> Type -> Equation -> [Message]
 checkDef gr (m,fun) typ eq = err (\x -> [pp x]) ppConstrs $ do
   traceM . render $ "\nchecking def: " <+> pp fun <+> ":" <+> pp typ
                    $$ "with equation:" <+> pp fun <+> hsep [ppPatt Unqualified 2 p | p <- fst eq] <+> "=>" <+> snd eq
-  (b,cs) <- checkBranch (grammar2theory gr) (initTCEnv []) eq (type2val typ)
+  (b,cs) <- checkBranch (grammar2theory gr) (initTCEnv []) eq (type2nval typ)
   traceM . render $ "\ngot branches" {- <+> pp (show $ snd b) -} <+> ": with :" <+> pp (vcat $ fst b)
         $$ "with constraints:" <+> vcat [ppValue Unqualified 0 a <+> " = " <+> ppValue Unqualified 0 b | (a,b) <- cs]
   (constrs,_) <- unifyVal cs

@@ -14,7 +14,7 @@
 
 module GF.Grammar.Values (
                -- ** Values used in TC type checking
-               Val(..), Env,
+               Val(..), NotVal(..), Env,
                -- ** Annotated tree used in editing
                Binds, Constraints, MetaSubst,
                -- ** For TC
@@ -31,6 +31,9 @@ import GF.Grammar.Predef
 
 data Val = VGen Int Ident | VApp Val [Val] | VCn QIdent (Maybe (Int, [Equation])) | VRecType [(Label,Val)] | VType | VClos Env Term
   deriving (Eq,Show)
+
+data NotVal = NVClos Env Term
+  deriving (Show)
 
 type Env = [(Ident,Val)]
 

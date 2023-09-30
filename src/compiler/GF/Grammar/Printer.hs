@@ -17,6 +17,7 @@ module GF.Grammar.Printer
            , ppTerm
            , ppPatt
            , ppValue
+           , ppNValue
            , ppConstrs
            , ppQIdent
            , ppMeta
@@ -283,6 +284,9 @@ ppValue q d (VClos env e) = case e of
                               _      -> ppTerm q d e ---- ++ prEnv env ---- for debugging
 ppValue q d (VRecType xs) = braces (hsep (punctuate ',' [l <> '=' <> ppValue q 0 v | (l,v) <- xs]))
 ppValue q d VType         = pp "Type"
+
+ppNValue :: TermPrintQual -> Int -> NotVal -> Doc
+ppNValue q d (NVClos env e) = ppValue q d (VClos env e)
 
 ppConstrs :: Constraints -> [Doc]
 ppConstrs = map (\(v,w) -> braces (ppValue Unqualified 0 v <+> "<>" <+> ppValue Unqualified 0 w))
