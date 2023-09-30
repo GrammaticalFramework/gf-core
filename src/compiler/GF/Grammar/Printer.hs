@@ -289,7 +289,8 @@ ppNValue :: TermPrintQual -> Int -> NotVal -> Doc
 ppNValue q d (NVClos env e) = ppValue q d (VClos env e)
 
 ppConstrs :: Constraints -> [Doc]
-ppConstrs = map (\(v,w) -> braces (ppValue Unqualified 0 v <+> "<>" <+> ppValue Unqualified 0 w))
+ppConstrs = map $ \(v,w) -> braces (ppValue Unqualified 0 v <+> "<>" <+> ppValue Unqualified 0 w)
+  $$ braces(show v <+> "<>" <+> show w)
 
 ppEnv :: Env -> Doc
 ppEnv e = hcat (map (\(x,t) -> braces (x <> ":=" <> ppValue Unqualified 0 t)) e)
