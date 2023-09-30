@@ -32,7 +32,6 @@ import Control.Monad
 import Data.Maybe
 import GF.Text.Pretty
 
-traceM _ = return ()
 
 data AExp =
      AVr   Ident Val
@@ -91,66 +90,28 @@ type TCEnv = (Int,Env,Env)
 whnf :: Theory -> NotVal -> Err Val
 whnf th v = ---- errIn ("whnf" +++ prt v) $ ---- debug
          case v of
-  -- VApp u w -> do
-  --   u' <- whnf th u
-  --   w' <- mapM (whnf th) w
-  --   traceM . render $ "\nwhnf: Normalized app 2" <+> vcat (
-  --     ("" <+> ppValue Unqualified 0 u <+> "to" <+> ppValue Unqualified 0 u' ) :
-  --     zipWith (\w w' -> ppValue Unqualified 0 w <+> "to" <+> ppValue Unqualified 0 w') w w')
-  --   v' <- foldM (app th) u' w'
-  --   traceM . render $ "\nwhnf: Normalized app" <+> vcat (
-  --     ["" <+> ppValue Unqualified 0 u <+> "to" <+> ppValue Unqualified 0 u' ] ++
-  --     zipWith (\w w' -> ppValue Unqualified 0 w <+> "to" <+> ppValue Unqualified 0 w') w w' ++
-  --     [ ppValue Unqualified 0 v <+> "to" <+> ppValue Unqualified 0 v' ])
-  --   return v'
   NVVal v -> return v
-  NVClos env e -> do
-    e' <- eval th env e
-    traceM . render $ "\nwhnf: Normalized Closure" <+> vcat
-      ["" <+> ppTerm Unqualified 0 e <+> "to" <+> ppValue Unqualified 0 e' ]
-    return e'
-  -- _ -> do
-  --   traceM . render $ "\nwhnf: unchanged" <+> ppValue Unqualified 0 v
-  --   return v
+  NVClos env e -> eval th env e
 
 app :: Theory -> Val -> Val -> Err Val
 app th u v = case u of
   VClos env (Abs _ x e) -> do
-    traceM "app: VClos"
     val <- eval th ((x,v):env) e
-    traceM "app: VClos 2"
     evalDef th val
   VApp u' v' -> do
     let val = VApp u' (v' ++ [v])
-    traceM . render $ "\napp: Extended app:" <+>
-      (ppValue Unqualified 0 u <+> "applied to" <+> ppValue Unqualified 0 v
-       $$ take 300 (show val))
     evalDef th val
   _ -> do
-    traceM . render $ "\napp: Unchanged app:" <+>
-      (ppValue Unqualified 0 u <+> "applied to" <+> ppValue Unqualified 0 v
-       $$ take 300 (show u))
     return $ VApp u [v]
 
 evalDef :: Theory -> Val -> Err Val
 evalDef th e = case e of
   VApp (VCn c (Just (n, eqs))) xs | length xs == n -> do
-    traceM . render $ ("\nevalDef:" <+>) $ "Found def:" <+> snd c
-            $$ "with equations:" <+> vcat
-              [ snd c <+> hsep [ppPatt Unqualified 2 p | p <- pat] <+> "=>" <+> val
-              | (pat, val) <- eqs
-              ]
-            $$ ("applied to:" <+> (ppValue Unqualified 0 e))
-            $$ "raw equations:" <+> vcat
-              [ snd c <+> hsep [showsPrec 11 p "" | p <- pat] <+> "=>" <+> val | (pat, val) <- eqs ]
-            $$ ("applied to:" <+> (show (VApp (VCn c Nothing) xs)))
     e' <- tryMatchEqns eqs xs
-    traceM . render $ ("\nevalDef:" <+>) $ "Evaluated:" <+> show e'
     case e' of
       Just (NVClos env tm) -> eval th env tm
       _ -> return e
   _ -> do
-    traceM "evalDef: not yet"
     return e
 
 tryMatchEqns :: [Equation] -> [Val] -> Err (Maybe NotVal)
@@ -163,18 +124,14 @@ tryMatchEqns [] xs = return Nothing
 
 tryMatchEqn :: Env -> [Patt] -> [Val] -> Term -> Err (Maybe NotVal)
 tryMatchEqn env [] [] repl = return $ Just $ NVClos env repl
-tryMatchEqn env (PW: ps) (v: vs) repl = do
-  traceM . render $ "Matching wildcard" <+> ppValue Unqualified 0 v
+tryMatchEqn env (PW: ps) (v: vs) repl =
   tryMatchEqn env ps vs repl
-tryMatchEqn env (PV c: ps) (v: vs) repl = do
-  traceM . render $ "Matching variable" <+> c <+> ":" <+> ppValue Unqualified 0 v
+tryMatchEqn env (PV c: ps) (v: vs) repl =
   tryMatchEqn ((c,v):env) ps vs repl -- TODO: Is this sound?
 tryMatchEqn env (PP (q,p) pp: ps) (VApp (VCn (r,f) _) tt: vs) repl
   | p == f && length pp == length tt = tryMatchEqn env (pp ++ ps) (tt ++ vs) repl
 -- tryMatchEqn env (p: ps) (v: vs) repl = _
 tryMatchEqn env (a:_) (b:_) _ = do
-  traceM . render $ ("\ntryMatchEqn:" <+>) $ "Failed to match" <+> a <+> "with" <+> ppValue Unqualified 0 b
-    $$ "raw:" <+> (show a $$ show b)
   return Nothing
 tryMatchEqn env _ _ _ = Bad "tryMatchEqn: Non-matching length"
 
@@ -190,12 +147,10 @@ eval th env e = ---- errIn ("eval" +++ prt e +++ "in" +++ prEnv env) $
     return $ VCn c defEqns ---- == Q ?
   Sort c  -> return $ VType --- the only sort is Type
   App f a -> do
-    traceM "eval: App"
     join $ liftM2 (app th) (eval th env f) (eval th env a)
   RecType xs -> do xs <- mapM (\(l,e) -> eval th env e >>= \e -> return (l,e)) xs
                    return (VRecType xs)
   _ -> do
-    traceM . render . ("eval:" <+>) $ "not evaling: " <+> show e --  $$ "in context" <+> env
     return $ VClos env e
 
 eqNVal :: Theory -> Int -> NotVal -> NotVal -> Err [(Val,Val)]
@@ -210,7 +165,6 @@ eqVal th k u1 u2 = ---- errIn (prt u1 +++ "<>" +++ prBracket (show k) +++ prt u2
   -- w1 <- whnf th u1
   -- w2 <- whnf th u2
   let (w1,w2) = (u1,u2)
-  traceM . render $ "\neqVal comparing:" <+> vcat ["" <+> ppValue Unqualified 0 w1 , ppValue Unqualified 0 w2]
   let v = VGen k
   case (w1,w2) of
     (VApp f1 a1, VApp f2 a2) -> liftM2 (++) (eqVal th k f1 f2) (fmap concat $ zipWithM (eqVal th k) a1 a2)
@@ -225,11 +179,6 @@ eqVal th k u1 u2 = ---- errIn (prt u1 +++ "<>" +++ prBracket (show k) +++ prt u2
     --- thus ignore qualifications; valid because inheritance cannot
     --- be qualified. Simplifies annotation. AR 17/3/2005
     _ -> do
-      when (w1 /= w2) $ do
-        traceM . render $ "\neqVal not equal" <+> vcat 
-          ["" <+> ppValue Unqualified 0 w1 , ppValue Unqualified 0 w2
-          ,pp $ show w1 , pp $ show w2
-          ]
       return [(w1,w2) | w1 /= w2]
 -- invariant: constraints are in whnf
 
@@ -240,13 +189,11 @@ checkNExp ::  Theory -> TCEnv -> Term -> NotVal -> Err (AExp, [(Val,Val)])
 checkNExp th tenv@(k,rho,gamma) e ty = do
   typ <- whnf th ty
   checkWhnf (pp "checkNExp:") th typ
-  traceM . render $ "\ncheckExp: Normalized" <+> vcat ["" <+> ppNValue Unqualified 0 ty , ppValue Unqualified 0 typ]
   checkExp th tenv e typ
 
 checkExp ::  Theory -> TCEnv -> Term -> Val -> Err (AExp, [(Val,Val)])
 checkExp th tenv@(k,rho,gamma) e typ = do
   let v = VGen k
-  traceM . render $ "\ncheckExp: checking" <+> vcat ["" <+> e , pp (take 30 $ show e)]
   case e of
     Meta m -> return $ (AMeta m typ,[])
 
@@ -304,10 +251,7 @@ checkInferExp th tenv@(k,_,_) e typ = do
   return (e',cs1 ++ cs2)
 
 inferExp :: Theory -> TCEnv -> Term -> Err (AExp, Val, [(Val,Val)])
-inferExp th tenv@(k,rho,gamma) e = do
-  traceM . render $ ("\ninferExp:" <+>) 
-    $ "Inferring type of:" <+> vcat ["" <+> ppTerm Unqualified 0 e , pp $ show e]
-    $$ "In context:" <+> show tenv
+inferExp th tenv@(k,rho,gamma) e =
   case e of
    Vr x -> mkAnnot (AVr x) $ noConstr $ lookupVar gamma x
    Q (m,c) | m == cPredefAbs && isPredefCat c
@@ -378,7 +322,6 @@ checkBranch th tenv b@(ps,t) ty = errIn ("branch" +++ show b) $
   chB tenv@(k,rho,gamma) ps ty = case ps of
     p:ps2 -> do
       typ <- whnf th ty
-      traceM . render $ "\ncheckBranch: Normalized " <+> vcat [ppNValue Unqualified 0 ty , ppValue Unqualified 0 typ]
       case typ of
         VClos env (Prod _ y a b) -> do
           a' <- whnf th $ NVClos env a
