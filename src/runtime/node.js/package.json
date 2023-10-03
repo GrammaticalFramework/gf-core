@@ -1,0 +1,16 @@
+{
+  "name": "pgf",
+  "version": "1.0.0",
+  "description": "A Node.js binding to the GF runtime",
+  "exports": ["./build/Debug/pgf.node"],
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "Krasimir Angelov",
+  "license": "BSD3",
+  "dependencies": {
+    "node-gyp": "^9.4.0",
+    "nodejs": "^0.0.0",
+    "nopt": "^7.2.0"
+  }
+}
