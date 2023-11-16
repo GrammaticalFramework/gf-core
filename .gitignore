@@ -74,3 +74,8 @@ download/*.html
 gf-book/index.html
 src/www/gf-web-api.html
 .devenv
+.direnv
+result
+.vscode
+.envrc
+.pre-commit-config.yaml
