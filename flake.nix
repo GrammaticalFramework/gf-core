@@ -59,8 +59,6 @@
             if pkgs.stdenv.isDarwin then [ Cocoa pkgs.clang ] else [ ];
         in {
 
-          defaultPackage = self.packages.${system}.${packageName};
-
           default = devenv.lib.mkShell {
             inherit inputs pkgs;
             modules = [{
