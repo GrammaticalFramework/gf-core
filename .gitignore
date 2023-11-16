@@ -73,3 +73,4 @@ doc/icfp-2012.html
 download/*.html
 gf-book/index.html
 src/www/gf-web-api.html
+.devenv
