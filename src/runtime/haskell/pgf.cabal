@@ -9,16 +9,16 @@ synopsis: Grammatical Framework
 description: A library for interpreting the Portable Grammar Format (PGF)
 homepage: https://www.grammaticalframework.org/
 bug-reports: https://github.com/GrammaticalFramework/gf-core/issues
-tested-with: GHC==7.10.3, GHC==8.0.2, GHC==8.10.4
+tested-with: GHC==7.10.3, GHC==8.0.2, GHC==8.10.4, GHC==9.4.5
 
 library
   default-language: Haskell2010
   build-depends:
-    array >= 0.5.1 && < 0.6,
-    base >= 4.9.1 && < 4.16,
-    bytestring >= 0.10.8 && < 0.11,
-    containers >= 0.5.7 && < 0.7,
-    ghc-prim >= 0.5.0 && < 0.7,
+    array >= 0.5.1 && < 0.7,
+    base >= 4.9.1 && < 5.0,
+    bytestring >= 0.10.8 && < 0.12,
+    containers >= 0.5.7 && < 0.8,
+    ghc-prim >= 0.5.0 && < 0.10,
     mtl >= 2.2.1 && < 2.3,
     pretty >= 1.1.3 && < 1.2,
     random >= 1.1 && < 1.3,

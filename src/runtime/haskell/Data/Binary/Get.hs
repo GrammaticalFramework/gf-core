@@ -104,6 +104,9 @@ import GHC.Word
 #if MIN_VERSION_base(4,16,0)
 import GHC.Exts (wordToWord16#, word16ToWord#, wordToWord32#, word32ToWord#)
 #endif
+#if __GLASGOW_HASKELL__ >= 900 
+import GHC.Word (uncheckedShiftL64#)
+#endif
 #endif
 
 -- Control.Monad.Fail import will become redundant in GHC 8.8+
@@ -553,7 +556,12 @@ foreign import ccall unsafe "stg_uncheckedShiftL64"
 #endif
 
 #else
+#if __GLASGOW_HASKELL__ <= 810
 shiftl_w64 (W64# w) (I# i) = W64# (w `uncheckedShiftL#` i)
+#else
+shiftl_w64 (W64# w) (I# i) = W64# (w `uncheckedShiftL64#` i)
+#endif
+
 #endif
 
 #else
