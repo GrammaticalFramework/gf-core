@@ -1,4 +1,4 @@
-{-# LANGUAGE CPP #-}
+{-# LANGUAGE RankNTypes, CPP #-}
 module GF.Compile.TypeCheck.ConcreteNew( checkLType, inferLType ) where
 
 -- The code here is based on the paper:
@@ -14,69 +14,70 @@ import GF.Compile.Compute.Concrete
 import GF.Infra.CheckM
 import GF.Data.Operations
 import Control.Applicative(Applicative(..))
-import Control.Monad(ap,liftM,mplus)
+import Control.Monad(ap,liftM,mplus,foldM)
+import Control.Monad.ST
 import GF.Text.Pretty
 import Data.List (nub, (\\), tails)
-import qualified Data.IntMap as IntMap
+import qualified Data.Map as Map
 import Data.Maybe(fromMaybe,isNothing)
 import qualified Control.Monad.Fail as Fail
 
 checkLType :: Grammar -> Term -> Type -> Check (Term, Type)
-checkLType ge t ty = error "TODO: checkLType" {- runTcM $ do
-  vty <- liftErr (eval ge [] ty)
-  (t,_) <- tcRho ge [] t (Just vty)
+checkLType gr t ty = runTcM gr $ do
+  vty <- liftEvalM (eval [] ty [])
+  (t,_) <- tcRho [] t (Just vty)
   t <- zonkTerm t
-  return (t,ty) -}
+  return (t,ty)
 
 inferLType :: Grammar -> Term -> Check (Term, Type)
-inferLType ge t = error "TODO: inferLType" {- runTcM $ do
-  (t,ty) <- inferSigma ge [] t
+inferLType gr t = runTcM gr $ do
+  (t,ty) <- inferSigma [] t
   t  <- zonkTerm t
-  ty <- zonkTerm =<< tc_value2term (geLoc ge) [] ty
-  return (t,ty) -}
-{-
-inferSigma :: GlobalEnv -> Scope -> Term -> TcM (Term,Sigma)
-inferSigma ge scope t = do                                      -- GEN1
-  (t,ty) <- tcRho ge scope t Nothing
-  env_tvs <- getMetaVars (geLoc ge) (scopeTypes scope)
-  res_tvs <- getMetaVars (geLoc ge) [(scope,ty)]
-  let forall_tvs = res_tvs \\ env_tvs
-  quantify ge scope t forall_tvs ty
+  ty <- zonkTerm =<< liftEvalM (value2term [] ty)
+  return (t,ty)
 
-Just vtypeInt   = fmap (flip VApp []) (predef cInt)
-Just vtypeFloat = fmap (flip VApp []) (predef cFloat)
-Just vtypeInts  = fmap (\p i -> VApp p [VInt i]) (predef cInts)
+inferSigma :: Scope s -> Term -> TcM s (Term,Sigma s)
+inferSigma scope t = do                                      -- GEN1
+  (t,ty) <- tcRho scope t Nothing
+  env_tvs <- getMetaVars (scopeTypes scope)
+  res_tvs <- getMetaVars [(scope,ty)]
+  let forall_tvs = res_tvs \\ env_tvs
+  quantify scope t forall_tvs ty
+
+vtypeInt   = VApp (cPredef,cInt) []
+vtypeFloat = VApp (cPredef,cFloat) []
+vtypeInts i= liftEvalM (newEvaluatedThunk (VInt i)) >>= \tnk -> return (VApp (cPredef,cInts) [tnk])
 vtypeStr   = VSort cStr
 vtypeStrs  = VSort cStrs
 vtypeType  = VSort cType
 vtypePType = VSort cPType
 
-tcRho :: GlobalEnv -> Scope -> Term -> Maybe Rho -> TcM (Term, Rho)
-tcRho ge scope t@(EInt i)   mb_ty = instSigma ge scope t (vtypeInts i) mb_ty -- INT
-tcRho ge scope t@(EFloat _) mb_ty = instSigma ge scope t vtypeFloat mb_ty    -- FLOAT
-tcRho ge scope t@(K _)      mb_ty = instSigma ge scope t vtypeStr   mb_ty    -- STR
-tcRho ge scope t@(Empty)    mb_ty = instSigma ge scope t vtypeStr   mb_ty
-tcRho ge scope t@(Vr v)     mb_ty = do                          -- VAR
+tcRho :: Scope s -> Term -> Maybe (Rho s) -> TcM s (Term, Rho s)
+tcRho scope t@(EInt i)   mb_ty = vtypeInts i >>= \sigma -> instSigma scope t sigma mb_ty -- INT
+tcRho scope t@(EFloat _) mb_ty = instSigma scope t vtypeFloat mb_ty    -- FLOAT
+tcRho scope t@(K _)      mb_ty = instSigma scope t vtypeStr   mb_ty    -- STR
+tcRho scope t@(Empty)    mb_ty = instSigma scope t vtypeStr   mb_ty
+tcRho scope t@(Vr v)     mb_ty = do                          -- VAR
   case lookup v scope of
-    Just v_sigma -> instSigma ge scope t v_sigma mb_ty
+    Just v_sigma -> instSigma scope t v_sigma mb_ty
     Nothing      -> tcError ("Unknown variable" <+> v)
-tcRho ge scope t@(Q id)     mb_ty =
+tcRho scope t@(Q id)     mb_ty =
   runTcA (tcOverloadFailed t) $
-    tcApp ge scope t `bindTcA` \(t,ty) ->
-      instSigma ge scope t ty mb_ty
-tcRho ge scope t@(QC id)    mb_ty =
+    tcApp scope t `bindTcA` \(t,ty) ->
+      instSigma scope t ty mb_ty
+tcRho scope t@(QC id)    mb_ty =
   runTcA (tcOverloadFailed t) $
-    tcApp ge scope t `bindTcA` \(t,ty) ->
-      instSigma ge scope t ty mb_ty
-tcRho ge scope t@(App fun arg) mb_ty = do
+    tcApp scope t `bindTcA` \(t,ty) ->
+      instSigma scope t ty mb_ty
+tcRho scope t@(App fun arg) mb_ty = do
   runTcA (tcOverloadFailed t) $
-    tcApp ge scope t `bindTcA` \(t,ty) ->
-      instSigma ge scope t ty mb_ty
-tcRho ge scope (Abs bt var body) Nothing = do                   -- ABS1
+    tcApp scope t `bindTcA` \(t,ty) ->
+      instSigma scope t ty mb_ty
+{-tcRho scope (Abs bt var body) Nothing = do                   -- ABS1
   i <- newMeta scope vtypeType
   let arg_ty = VMeta i (scopeEnv scope) []
-  (body,body_ty) <- tcRho ge ((var,arg_ty):scope) body Nothing
-  return (Abs bt var body, (VProd bt arg_ty identW (Bind (const body_ty))))
+  (body,body_ty) <- tcRho ((var,arg_ty):scope) body Nothing
+  return (Abs bt var body, (VProd bt arg_ty identW body_ty))
 tcRho ge scope t@(Abs Implicit var body) (Just ty) = do         -- ABS2
   (bt, var_ty, body_ty) <- unifyFun ge scope ty
   if bt == Implicit
@@ -257,9 +258,9 @@ tcCases ge scope ((p,t):cs) p_ty mb_res_ty = do
   (t,res_ty)     <- tcRho ge scope' t mb_res_ty
   (cs,mb_res_ty) <- tcCases ge scope cs p_ty (Just res_ty)
   return ((p,t):cs,mb_res_ty)
+-}
 
-
-tcApp ge scope t@(App fun (ImplArg arg)) = do                   -- APP1
+tcApp scope t@(App fun (ImplArg arg)) = undefined {- do                   -- APP1
   tcApp ge scope fun `bindTcA` \(fun,fun_ty) ->
      do (bt, arg_ty, res_ty) <- unifyFun ge scope fun_ty
         if (bt == Implicit)
@@ -286,13 +287,13 @@ tcApp ge scope (QC id) =                                         -- VAR (global)
 tcApp ge scope t =
   singleTcA (tcRho ge scope t Nothing)
 
-
+-}
 tcOverloadFailed t ttys =
   tcError ("Overload resolution failed" $$
            "of term   " <+> pp t $$
            "with types" <+> vcat [ppTerm Terse 0 ty | (_,ty) <- ttys])
 
-
+{-
 tcPatt ge scope PW        ty0 =
   return scope
 tcPatt ge scope (PV x)    ty0 =
@@ -393,18 +394,18 @@ tcRecTypeFields ge scope ((l,ty):rs) mb_ty = do
                                             "cannot be of type" <+> ppTerm Unqualified 0 sort)
   (rs,mb_ty) <- tcRecTypeFields ge scope rs mb_ty
   return ((l,ty):rs,mb_ty)
-
+-}
 -- | Invariant: if the third argument is (Just rho),
 --              then rho is in weak-prenex form
-instSigma :: GlobalEnv -> Scope -> Term -> Sigma -> Maybe Rho -> TcM (Term, Rho)
-instSigma ge scope t ty1 Nothing    = return (t,ty1)           -- INST1
-instSigma ge scope t ty1 (Just ty2) = do                       -- INST2
-  t <- subsCheckRho ge scope t ty1 ty2
+instSigma :: Scope s -> Term -> Sigma s -> Maybe (Rho s) -> TcM s (Term, Rho s)
+instSigma scope t ty1 Nothing    = return (t,ty1)           -- INST1
+instSigma scope t ty1 (Just ty2) = do                       -- INST2
+  t <- subsCheckRho scope t ty1 ty2
   return (t,ty2)
 
 -- | Invariant: the second argument is in weak-prenex form
-subsCheckRho :: GlobalEnv -> Scope -> Term -> Sigma -> Rho -> TcM Term
-subsCheckRho ge scope t ty1@(VMeta i env vs) ty2 = do
+subsCheckRho :: Scope s -> Term -> Sigma s -> Rho s -> TcM s Term
+subsCheckRho scope t ty1@(VMeta i env vs) ty2 = undefined {- do
   mv <- getMeta i
   case mv of
     Unbound _ _ -> do unify ge scope ty1 ty2
@@ -601,10 +602,10 @@ skolemise ge scope (VProd Implicit ty1 x (Bind ty2)) = do
   return (scope,Abs Implicit v . f,ty2)
 skolemise ge scope ty = do
   return (scope,id,ty)
-
+-}
 -- | Quantify over the specified type variables (all flexible)
-quantify :: GlobalEnv -> Scope -> Term -> [MetaId] -> Rho -> TcM (Term,Sigma)
-quantify ge scope t tvs ty0 = do
+quantify :: Scope s -> Term -> [MetaId] -> Rho s -> TcM s (Term,Sigma s)
+quantify scope t tvs ty0 = undefined {- do
   ty <- tc_value2term (geLoc ge) (scopeVars scope) ty0
   let used_bndrs = nub (bndrs ty)  -- Avoid quantified type variables in use
       new_bndrs  = take (length tvs) (allBinders \\ used_bndrs)
@@ -622,72 +623,84 @@ allBinders :: [Ident]    -- a,b,..z, a1, b1,... z1, a2, b2,...
 allBinders = [ identS [x]          | x <- ['a'..'z'] ] ++
              [ identS (x : show i) | i <- [1 :: Integer ..], x <- ['a'..'z']]
 
-
+-}
 -----------------------------------------------------------------------
 -- The Monad
 -----------------------------------------------------------------------
 
-type Scope = [(Ident,Value)]
+type Scope s = [(Ident,Value s)]
+type Sigma s = Value s
+type Rho s   = Value s -- No top-level ForAll
+type Tau s   = Value s -- No ForAlls anywhere
 
-type Sigma = Value
-type Rho   = Value -- No top-level ForAll
-type Tau   = Value -- No ForAlls anywhere
+data TcResult s a
+  = TcOk   a (MetaThunks s) [Message]
+  | TcFail                  [Message] -- First msg is error, the rest are warnings?
+newtype TcM s a = TcM {unTcM :: Grammar -> MetaThunks s -> [Message] -> ST s (TcResult s a)}
 
-data MetaValue
-  = Unbound Scope Sigma
-  | Bound   Term
-type MetaStore = IntMap.IntMap MetaValue
-data TcResult a
-  = TcOk   a MetaStore [Message]
-  | TcFail             [Message] -- First msg is error, the rest are warnings?
-newtype TcM a = TcM {unTcM :: MetaStore -> [Message] -> TcResult a}
-
-instance Monad TcM where
-  return x = TcM (\ms msgs -> TcOk x ms msgs)
-  f >>= g  = TcM (\ms msgs -> case unTcM f ms msgs of
-                                TcOk x ms msgs -> unTcM (g x) ms msgs
-                                TcFail    msgs -> TcFail msgs)
+instance Monad (TcM s) where
+  return x = TcM (\gr ms msgs -> return (TcOk x ms msgs))
+  f >>= g  = TcM $ \gr ms msgs -> do
+    res <- unTcM f gr ms msgs
+    case res of
+      TcOk x ms msgs -> unTcM (g x) gr ms msgs
+      TcFail    msgs -> return (TcFail msgs)
 
 #if !(MIN_VERSION_base(4,13,0))
   -- Monad(fail) will be removed in GHC 8.8+
   fail = Fail.fail
 #endif
 
-instance Fail.MonadFail TcM where
+instance Fail.MonadFail (TcM s) where
   fail     = tcError . pp
 
 
-instance Applicative TcM where
+instance Applicative (TcM s) where
   pure = return
   (<*>) = ap
 
-instance Functor TcM where
-  fmap f g = TcM (\ms msgs -> case unTcM g ms msgs of
-                           TcOk x ms msgs -> TcOk (f x) ms msgs
-                           TcFail msgs    -> TcFail msgs)
+instance Functor (TcM s) where
+  fmap f g = TcM $ \gr ms msgs -> do
+    res <- unTcM g gr ms msgs
+    case res of
+      TcOk x ms msgs -> return (TcOk (f x) ms msgs)
+      TcFail msgs    -> return (TcFail msgs)
 
-instance ErrorMonad TcM where
+instance ErrorMonad (TcM s) where
   raise  = tcError . pp
-  handle f g = TcM (\ms msgs -> case unTcM f ms msgs of
-                                  TcFail (msg:msgs) -> unTcM (g (render msg)) ms msgs
-                                  r                 -> r)
+  handle f g = TcM $ \gr ms msgs -> do
+    res <- unTcM f gr ms msgs
+    case res of
+      TcFail (msg:msgs) -> unTcM (g (render msg)) gr ms msgs
+      r                 -> return r
 
-tcError :: Message -> TcM a
-tcError msg = TcM (\ms msgs -> TcFail (msg : msgs))
+tcError :: Message -> TcM s a
+tcError msg = TcM (\gr ms msgs -> return (TcFail (msg : msgs)))
 
-tcWarn :: Message -> TcM ()
-tcWarn msg = TcM (\ms msgs -> TcOk () ms (msg : msgs))
+tcWarn :: Message -> TcM s ()
+tcWarn msg = TcM (\gr ms msgs -> return (TcOk () ms (msg : msgs)))
 
 unimplemented str = fail ("Unimplemented: "++str)
 
 
-runTcM :: TcM a -> Check a
-runTcM f = case unTcM f IntMap.empty [] of
-             TcOk x _ msgs -> do checkWarnings msgs; return x
-             TcFail (msg:msgs) -> do checkWarnings msgs; checkError msg
+runTcM :: Grammar -> (forall s . TcM s a) -> Check a
+runTcM gr f = Check $ \(errs,wngs) -> runST $ do
+  res <- unTcM f gr Map.empty []
+  case res of
+    TcOk x _ msgs     -> return ((errs, wngs++msgs),Success x)
+    TcFail (msg:msgs) -> return ((errs, wngs++msgs),Fail msg)
 
-newMeta :: Scope -> Sigma -> TcM MetaId
-newMeta scope ty = TcM (\ms msgs ->
+liftEvalM :: EvalM s a -> TcM s a
+liftEvalM (EvalM f) = TcM $ \gr ms msgs -> do
+  res <- f gr (\x ms r -> return (Success (x,ms))) ms undefined
+  case res of
+    Success (x,ms) -> return (TcOk x ms [])
+    Fail msg       -> return (TcFail [msg])
+
+
+
+newMeta :: Scope s -> Sigma s -> TcM s MetaId
+newMeta scope ty = undefined {- TcM (\ms msgs ->
   let i = IntMap.size ms
   in TcOk i (IntMap.insert i (Unbound scope ty) ms) msgs)
 
@@ -707,15 +720,15 @@ newVar scope = head [x | i <- [1..],
   where
     isFree []            x = True
     isFree ((y,_):scope) x = x /= y && isFree scope x
-
+-}
 scopeEnv   scope = zipWith (\(x,ty) i -> (x,VGen i [])) (reverse scope) [0..]
 scopeVars  scope = map fst scope
 scopeTypes scope = zipWith (\(_,ty) scope -> (scope,ty)) scope (tails scope)
 
 -- | This function takes account of zonking, and returns a set
 -- (no duplicates) of unbound meta-type variables
-getMetaVars :: GLocation -> [(Scope,Sigma)] -> TcM [MetaId]
-getMetaVars loc sc_tys = do
+getMetaVars :: [(Scope s,Sigma s)] -> TcM s [MetaId]
+getMetaVars sc_tys = undefined {- do
   tys <- mapM (\(scope,ty) -> zonkTerm =<< tc_value2term loc (scopeVars scope) ty) sc_tys
   return (foldr go [] tys)
   where
@@ -751,10 +764,10 @@ getFreeVars loc sc_tys = do
     go bound (Prod _ x arg res) acc = go bound arg (go (x : bound) res acc)
     go bound (RecType rs) acc = foldl (\acc (l,ty) -> go bound ty acc) acc rs
     go bound (Table p t)        acc = go bound p (go bound t acc)
-
+-}
 -- | Eliminate any substitutions in a term
-zonkTerm :: Term -> TcM Term
-zonkTerm (Meta i) = do
+zonkTerm :: Term -> TcM s Term
+zonkTerm (Meta i) = undefined {- do
   mv <- getMeta i
   case mv of
     Unbound _ _ -> return (Meta i)
@@ -763,40 +776,37 @@ zonkTerm (Meta i) = do
                       return t
 zonkTerm t = composOp zonkTerm t
 
-tc_value2term loc xs v =
-  return $ value2term loc xs v
-    -- Old value2term error message:
-    -- Left i  -> tcError ("Variable #" <+> pp i <+> "has escaped")
+-}
 
+data TcA s x a
+  = TcSingle   (Grammar -> MetaThunks s -> [Message] -> ST s (TcResult s a))
+  | TcMany [x] (Grammar -> MetaThunks s -> [Message] -> ST s [(a,MetaThunks s,[Message])])
 
-
-data TcA x a
-  = TcSingle   (MetaStore -> [Message] -> TcResult a)
-  | TcMany [x] (MetaStore -> [Message] -> [(a,MetaStore,[Message])])
-
-mkTcA :: Err [a] -> TcA a a
+mkTcA :: Err [a] -> TcA s a a
 mkTcA f = case f of
-            Bad msg -> TcSingle  (\ms msgs -> TcFail (pp msg : msgs))
-            Ok  [x] -> TcSingle  (\ms msgs -> TcOk x ms msgs)
-            Ok  xs  -> TcMany xs (\ms msgs -> [(x,ms,msgs) | x <- xs])
+            Bad msg -> TcSingle  (\gr ms msgs -> return (TcFail (pp msg : msgs)))
+            Ok  [x] -> TcSingle  (\gr ms msgs -> return (TcOk x ms msgs))
+            Ok  xs  -> TcMany xs (\gr ms msgs -> return [(x,ms,msgs) | x <- xs])
 
-singleTcA :: TcM a -> TcA x a
+singleTcA :: TcM s a -> TcA s x a
 singleTcA = TcSingle . unTcM
 
-bindTcA :: TcA x a -> (a -> TcM b) -> TcA x b
+bindTcA :: TcA s x a -> (a -> TcM s b) -> TcA s x b
 bindTcA f g = case f of
                 TcSingle  f -> TcSingle (unTcM (TcM f >>= g))
-                TcMany xs f -> TcMany xs (\ms msgs -> foldr add [] (f ms msgs))
+                TcMany xs f -> TcMany xs (\gr ms msgs -> f gr ms msgs >>= foldM (add gr) [])
   where
-    add (y,ms,msgs) rs =
-      case unTcM (g y) ms msgs of
-        TcFail _       -> rs
-        TcOk y ms msgs -> (y,ms,msgs):rs
+    add gr rs (y,ms,msgs) = do
+      res <- unTcM (g y) gr ms msgs
+      case res of
+        TcFail _       -> return rs
+        TcOk y ms msgs -> return ((y,ms,msgs):rs)
 
-runTcA :: ([x] -> TcM a) -> TcA x a -> TcM a
-runTcA g f = TcM (\ms msgs -> case f of
-                                TcMany xs f -> case f ms msgs of
-                                                 [(x,ms,msgs)] -> TcOk x ms msgs
-                                                 rs            -> unTcM (g xs) ms msgs
-                                TcSingle f                     -> f ms msgs)
--}
+runTcA :: ([x] -> TcM s a) -> TcA s x a -> TcM s a
+runTcA g f = TcM (\gr ms msgs -> case f of
+                                   TcMany xs f -> do rs <- f gr ms msgs
+                                                     case rs of
+                                                       [(x,ms,msgs)] -> return (TcOk x ms msgs)
+                                                       rs            -> unTcM (g xs) gr ms msgs
+                                   TcSingle f                        -> f gr ms msgs)
+

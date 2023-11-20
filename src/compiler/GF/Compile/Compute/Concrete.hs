@@ -5,7 +5,8 @@
 module GF.Compile.Compute.Concrete
            ( normalForm
            , Value(..), Thunk, ThunkState(..), Env, showValue
-           , EvalM, runEvalM, evalError
+           , MetaThunks
+           , EvalM(..), runEvalM, evalError
            , eval, apply, force, value2term, patternMatch
            , newThunk, newEvaluatedThunk
            , newResiduation, newNarrowing, getVariables
