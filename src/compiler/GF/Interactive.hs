@@ -14,6 +14,7 @@ import GF.Command.Abstract
 import GF.Command.Parse(readCommandLine,pCommand,readTransactionCommand)
 import GF.Compile.Rename(renameSourceTerm)
 import GF.Compile.TypeCheck.Concrete(inferLType)
+import GF.Compile.TypeCheck.Primitives(predefMod)
 import GF.Compile.GeneratePMCFG(pmcfgForm,type2fields)
 import GF.Data.Operations (Err(..))
 import GF.Data.Utilities(whenM,repeatM)
@@ -283,10 +284,11 @@ transactionCommand (CreateConcrete opts name) pgf mb_txnid = do
   lift $ updatePGF pgf mb_txnid (createConcrete name (return ()))
   return ()
 transactionCommand (CreateLin opts f t is_alter) pgf mb_txnid = do
-  sgr <- getGrammar
+  sgr0 <- getGrammar
+  let (sgr,mo) = case greatestResource sgr0 of
+                   Nothing -> (mGrammar [predefMod], fst predefMod)
+                   Just mo -> (sgr0,mo)
   lang <- optLang pgf opts
-  mo <- maybe (fail "no source grammar in scope") return $
-           greatestResource sgr
   lift $ updatePGF pgf mb_txnid $ do
     mb_ty <- getFunctionType f
     case mb_ty of
@@ -319,10 +321,11 @@ transactionCommand (CreateLin opts f t is_alter) pgf mb_txnid = do
         mapToSequence m = Seq.fromList (map (Left . fst) (sortOn snd (Map.toList m)))
 
 transactionCommand (CreateLincat opts c t) pgf mb_txnid = do
-  sgr <- getGrammar
+  sgr0 <- getGrammar
+  let (sgr,mo) = case greatestResource sgr0 of
+                   Nothing -> (mGrammar [predefMod], fst predefMod)
+                   Just mo -> (sgr0,mo)
   lang <- optLang pgf opts
-  mo <- maybe (fail "no source grammar in scope") return $
-           greatestResource sgr
   case runCheck (compileLincatTerm sgr mo t) of
     Ok (fields,_)-> do lift $ updatePGF pgf mb_txnid (alterConcrete lang (createLincat c fields [] [] Seq.empty >> return ()))
                        return ()

@@ -1,5 +1,6 @@
-module GF.Compile.TypeCheck.Primitives where
+module GF.Compile.TypeCheck.Primitives(typPredefined,predefMod) where
 
+import GF.Infra.Option
 import GF.Grammar
 import GF.Grammar.Predef
 import qualified Data.Map as Map
@@ -10,6 +11,21 @@ typPredefined f = case Map.lookup f primitives of
                     Just (ResParam _ _)              -> Just typePType
                     Just (ResValue (L _ ty) _)       -> Just ty
                     _                                -> Nothing
+
+predefMod = (cPredef, modInfo)
+  where
+    modInfo = ModInfo {
+       mtype   = MTResource,
+       mstatus = MSComplete,
+       mflags  = noOptions,
+       mextend = [],
+       mwith   = Nothing,
+       mopens  = [],
+       mexdeps = [],
+       msrc    = "Predef.gfo",
+       mseqs   = Nothing,
+       jments  = primitives
+    }
 
 primitives = Map.fromList
   [ (cErrorType, ResOper (Just (noLoc typeType)) Nothing)
