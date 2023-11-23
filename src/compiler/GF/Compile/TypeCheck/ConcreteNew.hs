@@ -692,7 +692,7 @@ runTcM gr f = Check $ \(errs,wngs) -> runST $ do
 
 liftEvalM :: EvalM s a -> TcM s a
 liftEvalM (EvalM f) = TcM $ \gr ms msgs -> do
-  res <- f gr (\x ms r -> return (Success (x,ms))) ms undefined
+  res <- f gr (\x ms b r -> return (Success (x,ms))) ms maxBound undefined
   case res of
     Success (x,ms) -> return (TcOk x ms [])
     Fail msg       -> return (TcFail [msg])

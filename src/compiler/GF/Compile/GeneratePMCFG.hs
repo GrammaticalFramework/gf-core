@@ -250,7 +250,7 @@ param2int (VInt n)        ty
 param2int (VMeta tnk _ _) ty = do
   tnk_st <- getRef tnk
   case tnk_st of
-    Evaluated v    -> param2int v ty
+    Evaluated _ v  -> param2int v ty
     Narrowing j ty -> do ts <- getAllParamValues ty
                          return (0,[(1,j-1)],length ts)
 param2int v ty = do t <- value2term [] v
