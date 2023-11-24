@@ -31,7 +31,7 @@ import qualified Data.Map as Map
 %name pModDef ModDef
 %name pTopDef TopDef
 %partial pModHeader ModHeader
-%partial pTerm Exp1
+%partial pTerm Exp
 %name pExp Exp
 %name pBNFCRules ListCFRule
 %name pEBNFRules ListEBNFRule
