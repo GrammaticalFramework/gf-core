@@ -4,20 +4,22 @@
 -- | preparation for PMCFG generation.
 module GF.Compile.Compute.Concrete
            ( normalForm
-           , Value(..), Thunk, ThunkState(..), Env, showValue
+           , Value(..), Thunk, ThunkState(..), Env, Scope, showValue
            , MetaThunks
            , EvalM(..), runEvalM, evalError
            , eval, apply, force, value2term, patternMatch
            , newThunk, newEvaluatedThunk
            , newResiduation, newNarrowing, getVariables
-           , getRef
-           , getResDef, getInfo, getAllParamValues
+           , getRef, setRef
+           , getResDef, getInfo, getResType, getAllParamValues
            ) where
 
 import Prelude hiding ((<>)) -- GHC 8.4.1 clash with Text.PrettyPrint
 
 import GF.Grammar hiding (Env, VGen, VApp, VRecType)
-import GF.Grammar.Lookup(lookupResDef,lookupOrigInfo,allParamValues)
+import GF.Grammar.Lookup(lookupResDef,lookupResType,
+                         lookupOrigInfo,lookupOverloadTypes,
+                         allParamValues)
 import GF.Grammar.Predef
 import GF.Grammar.Lockfield(lockLabel)
 import GF.Grammar.Printer
@@ -45,14 +47,18 @@ normalForm gr t =
     mkFV [t] = t
     mkFV ts  = FV ts
 
+type Sigma s = Value s
+
 data ThunkState s
   = Unevaluated (Env s) Term
   | Evaluated {-# UNPACK #-} !Int (Value s)
-  | Residuation {-# UNPACK #-} !MetaId
+  | Hole        {-# UNPACK #-} !MetaId
+  | Residuation {-# UNPACK #-} !MetaId (Scope s) (Value s)
   | Narrowing   {-# UNPACK #-} !MetaId Type
 
 type Thunk s = STRef s (ThunkState s)
 type Env s = [(Ident,Thunk s)]
+type Scope s = [(Ident,Value s)]
 
 data Value s
   = VApp QIdent [Thunk s]
@@ -131,7 +137,7 @@ eval env (App t1 t2)    vs  = do tnk <- newThunk env t2
                                  eval env t1 (tnk : vs)
 eval env (Abs b x t)    []  = return (VClosure env (Abs b x t))
 eval env (Abs b x t) (v:vs) = eval ((x,v):env) t vs
-eval env (Meta i)       vs  = do tnk <- newResiduation i
+eval env (Meta i)       vs  = do tnk <- newHole i
                                  return (VMeta tnk env vs)
 eval env (ImplArg t)    []  = eval env t []
 eval env (Prod b x t1 t2)[] = do v1 <- eval env t1 []
@@ -733,6 +739,12 @@ getInfo q = EvalM $ \gr k mt d r -> do
     Ok res  -> k res mt d r
     Bad msg -> return (Fail (pp msg))
 
+getResType :: QIdent -> EvalM s Type
+getResType q = EvalM $ \gr k mt d r -> do
+  case lookupResType gr q of
+    Ok t    -> k t mt d r
+    Bad msg -> return (Fail (pp msg))
+
 getAllParamValues :: Type -> EvalM s [Term]
 getAllParamValues ty = EvalM $ \gr k mt d r ->
   case allParamValues gr ty of
@@ -747,14 +759,18 @@ newEvaluatedThunk v = EvalM $ \gr k mt d r -> do
  tnk <- newSTRef (Evaluated maxBound v)
  k tnk mt d r
 
-newResiduation i = EvalM $ \gr k mt d r ->
+newHole i = EvalM $ \gr k mt d r ->
   if i == 0
-    then do tnk <- newSTRef (Residuation i)
+    then do tnk <- newSTRef (Hole i)
             k tnk mt d r
     else case Map.lookup i mt of
            Just tnk -> k tnk mt d r
-           Nothing  -> do tnk <- newSTRef (Residuation i)
+           Nothing  -> do tnk <- newSTRef (Hole i)
                           k tnk (Map.insert i tnk mt) d r
+
+newResiduation scope ty = EvalM $ \gr k mt d r -> do
+  tnk <- newSTRef (Residuation 0 scope ty)
+  k tnk mt d r
 
 newNarrowing i ty = EvalM $ \gr k mt d r ->
   if i == 0
@@ -788,6 +804,7 @@ getVariables = EvalM $ \gr k mt d r -> do
         _              -> metas2params gr tnks
 
 getRef tnk = EvalM $ \gr k mt d r -> readSTRef tnk >>= \st -> k st mt d r
+setRef tnk st = EvalM $ \gr k mt d r -> writeSTRef tnk st >>= \st -> k () mt d r
 
 force tnk = EvalM $ \gr k mt d r -> do
   s <- readSTRef tnk
@@ -799,7 +816,8 @@ force tnk = EvalM $ \gr k mt d r -> do
                                                             writeSTRef tnk s
                                                             return r) mt d r
     Evaluated d v     -> k v mt d r
-    Residuation _     -> k (VMeta tnk [] []) mt d r
+    Hole _            -> k (VMeta tnk [] []) mt d r
+    Residuation _ _ _ -> k (VMeta tnk [] []) mt d r
     Narrowing _ _     -> k (VMeta tnk [] []) mt d r
 
 tnk2term xs tnk = EvalM $ \gr k mt d r ->
@@ -835,13 +853,15 @@ tnk2term xs tnk = EvalM $ \gr k mt d r ->
                                     Fail msg         -> return (Fail msg)
                                     Success (r,0,xs) -> k (FV []) mt d r
                                     Success (r,c,xs) -> flush xs (\mt r -> return (Success r)) mt r
-          Residuation i     -> k (Meta i) mt d r
+          Hole i            -> k (Meta i) mt d r
+          Residuation i _ _ -> k (Meta i) mt d r
           Narrowing i _     -> k (Meta i) mt d r
 
 zonk tnk vs = EvalM $ \gr k mt d r -> do
   s <- readSTRef tnk
   case s of
-    Evaluated _ v -> case apply v vs of
-                       EvalM f -> f gr (k . Left) mt d r
-    Residuation i -> k (Right i) mt d r
-    Narrowing i _ -> k (Right i) mt d r
+    Evaluated _ v     -> case apply v vs of
+                           EvalM f -> f gr (k . Left) mt d r
+    Hole i            -> k (Right i) mt d r
+    Residuation i _ _ -> k (Right i) mt d r
+    Narrowing i _     -> k (Right i) mt d r
