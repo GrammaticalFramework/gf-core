@@ -24,10 +24,12 @@ import GF.Data.Operations(Err(..))
 import PGF2.Transactions
 import Control.Monad
 import Control.Monad.State
+import Control.Monad.ST
 import qualified Data.Map.Strict as Map
 import qualified Data.Sequence as Seq
 import Data.List(mapAccumL,sortOn,sortBy)
 import Data.Maybe(fromMaybe,isNothing)
+import Data.STRef
 
 generatePMCFG :: Options -> FilePath -> SourceGrammar -> SourceModule -> Check SourceModule
 generatePMCFG opts cwd gr cmo@(cm,cmi)
@@ -77,12 +79,12 @@ addPMCFG opts cwd gr cmi id info seqs = return (info,seqs)
 pmcfgForm :: Grammar -> Term -> Context -> Type -> SequenceSet -> Check ([Production],SequenceSet)
 pmcfgForm gr t ctxt ty seqs = do
   res <- runEvalM gr $ do
-           ((_,ms),args) <- mapAccumM (\(d,ms) (_,_,ty) -> do
-                                          let (ms',_,t) = type2metaTerm gr d ms 0 [] ty
+           (_,args) <- mapAccumM (\arg_no (_,_,ty) -> do
+                                          t <- EvalM (\gr k mt d r msgs -> do (mt,_,t) <- type2metaTerm gr arg_no mt 0 [] ty
+                                                                              k t mt d r msgs)
                                           tnk <- newThunk [] t
-                                          return ((d+1,ms'),tnk))
-                                      (0,Map.empty) ctxt
-           sequence_ [newNarrowing i ty | (i,ty) <- Map.toList ms]
+                                          return (arg_no+1,tnk))
+                                      0 ctxt
            v <- eval [] t args
            (lins,params) <- flatten v ty ([],[])
            lins <- fmap reverse $ mapM str2lin lins
@@ -116,34 +118,38 @@ pmcfgForm gr t ctxt ty seqs = do
             Nothing    -> let seqid = Map.size m
                           in (seqid,Map.insert lin seqid m)
 
-type2metaTerm :: SourceGrammar -> Int -> Map.Map MetaId Type -> LIndex -> [(LIndex,(Ident,Type))] -> Type -> (Map.Map MetaId Type,Int,Term)
+type2metaTerm :: SourceGrammar -> Int -> MetaThunks s -> LIndex -> [(LIndex,(Ident,Type))] -> Type -> ST s (MetaThunks s,Int,Term)
 type2metaTerm gr d ms r rs (Sort s) | s == cStr =
-  (ms,r+1,TSymCat d r rs)
-type2metaTerm gr d ms r rs (RecType lbls) =
-  let ((ms',r'),ass) = mapAccumL (\(ms,r) (lbl,ty) -> case lbl of
-                                                        LVar j -> ((ms,r),(lbl,(Just ty,TSymVar d j)))
-                                                        lbl    -> let (ms',r',t) = type2metaTerm gr d ms r rs ty
-                                                                  in ((ms',r'),(lbl,(Just ty,t))))
+  return (ms,r+1,TSymCat d r rs)
+type2metaTerm gr d ms r rs (RecType lbls) = do
+  ((ms',r'),ass) <- mapAccumM (\(ms,r) (lbl,ty) -> case lbl of
+                                                        LVar j -> return ((ms,r),(lbl,(Just ty,TSymVar d j)))
+                                                        lbl    -> do (ms',r',t) <- type2metaTerm gr d ms r rs ty
+                                                                     return ((ms',r'),(lbl,(Just ty,t))))
                                  (ms,r) lbls
-  in (ms',r',R ass)  
+  return (ms',r',R ass)
 type2metaTerm gr d ms r rs (Table p q)
-  | count == 1 = let (ms',r',t) = type2metaTerm gr d ms r rs q
-                 in (ms',r+(r'-r),T (TTyped p) [(PW,t)])
-  | otherwise  = let pv    = varX (length rs+1)
-                     delta = r'-r
-                     (ms',r',t) = type2metaTerm gr d ms r ((delta,(pv,p)):rs) q
-                 in (ms',r+delta*count,T (TTyped p) [(PV pv,t)])
+  | count == 1 = do (ms',r',t) <- type2metaTerm gr d ms r rs q
+                    return (ms',r+(r'-r),T (TTyped p) [(PW,t)])
+  | otherwise  = do let pv    = varX (length rs+1)
+                    (ms',delta,t) <-
+                        fixST $ \(~(_,delta,_)) ->
+                                     do (ms',r',t) <- type2metaTerm gr d ms r ((delta,(pv,p)):rs) q
+                                        return (ms',r'-r,t)
+                    return (ms',r+delta*count,T (TTyped p) [(PV pv,t)])
   where
     count = case allParamValues gr p of
               Ok ts   -> length ts
               Bad msg -> error msg
-type2metaTerm gr d ms r rs ty@(QC q) =
+type2metaTerm gr d ms r rs ty@(QC q) = do
   let i = Map.size ms + 1
-  in (Map.insert i ty ms,r,Meta i)
+  tnk <- newSTRef (Narrowing i ty)
+  return (Map.insert i tnk ms,r,Meta i)
 type2metaTerm gr d ms r rs ty
-  | Just n <- isTypeInts ty =
+  | Just n <- isTypeInts ty = do
       let i = Map.size ms + 1
-      in (Map.insert i ty ms,r,Meta i)
+      tnk <- newSTRef (Narrowing i ty)
+      return (Map.insert i tnk ms,r,Meta i)
 
 flatten (VR as) (RecType lbls) st = do
   foldM collect st lbls
