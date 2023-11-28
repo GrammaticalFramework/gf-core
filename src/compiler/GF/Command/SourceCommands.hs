@@ -212,9 +212,8 @@ sourceCommands = Map.fromList [
                          return $ allOpersTo sgr ty
                _   -> return $ allOpers sgr
       let sigs = [(op,ty) | ((mo,op),ty,pos) <- ops]
-          printer = if isOpt "raw" os
-                      then showTerm sgr TermPrintDefault Qualified
-                      else (render . TC.ppType)
+          printer = showTerm sgr TermPrintDefault
+                             (if isOpt "raw" os then Qualified else Unqualified)
           printed = [unwords [showIdent op, ":", printer ty] | (op,ty) <- sigs]
       return . fromString $ unlines [l | l <- printed, all (`isInfixOf` l) greps]
 
