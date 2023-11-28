@@ -253,7 +253,7 @@ param2int (VApp q tnks) ty = do
       return (r*cnt'+r',combine' cnt rs cnt' rs',cnt*cnt')
 param2int (VInt n)        ty
   | Just max <- isTypeInts ty= return (fromIntegral n,[],fromIntegral max+1)
-param2int (VMeta tnk _ _) ty = do
+param2int (VMeta tnk _) ty = do
   tnk_st <- getRef tnk
   case tnk_st of
     Evaluated _ v  -> param2int v ty

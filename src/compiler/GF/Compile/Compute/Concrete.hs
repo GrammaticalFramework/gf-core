@@ -56,7 +56,6 @@ data ThunkState s
   | Hole        {-# UNPACK #-} !MetaId
   | Narrowing   {-# UNPACK #-} !MetaId Type
   | Residuation {-# UNPACK #-} !MetaId (Scope s) (Sigma s)
-  | Bound       Term
 
 type Thunk s = STRef s (ThunkState s)
 type Env s = [(Ident,Thunk s)]
@@ -64,8 +63,8 @@ type Scope s = [(Ident,Value s)]
 
 data Value s
   = VApp QIdent [Thunk s]
-  | VMeta (Thunk s) (Env s) [Thunk s]
-  | VSusp (Thunk s) (Env s) (Value s -> EvalM s (Value s)) [Thunk s]
+  | VMeta (Thunk s) [Thunk s]
+  | VSusp (Thunk s) (Value s -> EvalM s (Value s)) [Thunk s]
   | VGen  {-# UNPACK #-} !Int [Thunk s]
   | VClosure (Env s) Term
   | VProd BindType Ident (Value s) (Value s)
@@ -95,9 +94,9 @@ data Value s
 
 
 showValue (VApp q tnks) = "(VApp "++unwords (show q : map (const "_") tnks) ++ ")"
-showValue (VMeta _ _ _) = "VMeta"
-showValue (VSusp _ _ _ _) = "VSusp"
-showValue (VGen _ _) = "VGen"
+showValue (VMeta _ _) = "VMeta"
+showValue (VSusp _ _ _) = "VSusp"
+showValue (VGen i _) = "(VGen "++show i++")"
 showValue (VClosure _ _) = "VClosure"
 showValue (VProd _ x v1 v2) = "VProd ("++show x++") ("++showValue v1++") ("++showValue v2++")"
 showValue (VRecType _) = "VRecType"
@@ -108,7 +107,7 @@ showValue (VTable v1 v2) = "VTable ("++showValue v1++") ("++showValue v2++")"
 showValue (VT _ _ cs) = "(VT "++show cs++")"
 showValue (VV _ _) = "VV"
 showValue (VS v _ _) = "(VS "++showValue v++")"
-showValue (VSort _) = "VSort"
+showValue (VSort s) = "(VSort "++show s++")"
 showValue (VInt _) = "VInt"
 showValue (VFlt _) = "VFlt"
 showValue (VStr s) = "(VStr "++show s++")"
@@ -142,7 +141,7 @@ eval env (App t1 t2)    vs  = do tnk <- newThunk env t2
 eval env (Abs b x t)    []  = return (VClosure env (Abs b x t))
 eval env (Abs b x t) (v:vs) = eval ((x,v):env) t vs
 eval env (Meta i)       vs  = do tnk <- newHole i
-                                 return (VMeta tnk env vs)
+                                 return (VMeta tnk vs)
 eval env (ImplArg t)    []  = eval env t []
 eval env (Prod b x t1 t2)[] = do v1 <- eval env t1 []
                                  return (VProd b x v1 (VClosure env t2))
@@ -256,8 +255,8 @@ eval env (TSymCat d r rs) []= do rs <- forM rs $ \(i,(pv,ty)) ->
 eval env (TSymVar d r)  []  = do return (VSymVar d r)
 eval env t              vs  = evalError ("Cannot reduce term" <+> pp t)
 
-apply (VMeta m env vs0)             vs  = return (VMeta m env   (vs0++vs))
-apply (VSusp m env k vs0)           vs  = return (VSusp m env k (vs0++vs))
+apply (VMeta m vs0)                 vs  = return (VMeta m   (vs0++vs))
+apply (VSusp m k vs0)               vs  = return (VSusp m k (vs0++vs))
 apply (VApp f  vs0)                 vs  = return (VApp f (vs0++vs))
 apply (VGen i  vs0)                 vs  = return (VGen i (vs0++vs))
 apply (VClosure env (Abs b x t)) (v:vs) = eval ((x,v):env) t vs
@@ -345,9 +344,9 @@ patternMatch v0 ((env0,ps,args0,t):eqs) = match env0 ps eqs args0
 
     match' env p ps eqs arg v args = do
       case (p,v) of
-        (p,       VMeta i envi   vs) -> susp i envi (\v -> apply v vs >>= \v -> match' env p ps eqs arg v args)
-        (p,       VGen  i vs       ) -> return v0
-        (p,       VSusp i envi k vs) -> susp i envi (\v -> k v >>= \v -> apply v vs >>= \v -> match' env p ps eqs arg v args)
+        (p,       VMeta i   vs) -> susp i (\v -> apply v vs >>= \v -> match' env p ps eqs arg v args)
+        (p,       VGen  i   vs) -> return v0
+        (p,       VSusp i k vs) -> susp i (\v -> k v >>= \v -> apply v vs >>= \v -> match' env p ps eqs arg v args)
         (PP q qs, VApp r tnks)
           | q == r        -> match env (qs++ps) eqs (tnks++args)
         (PR pas, VR as)   -> matchRec env (reverse pas) as ps eqs args
@@ -443,18 +442,18 @@ vtableSelect v0 ty tnks tnk2 vs = do
           return (r*cnt'+r',cnt*cnt')
     value2index (VInt n)          ty
       | Just max <- isTypeInts ty    = return (fromIntegral n,fromIntegral max+1)
-    value2index (VMeta i envi vs) ty = do
-      v <- susp i envi (\v -> apply v vs)
+    value2index (VMeta i vs) ty = do
+      v <- susp i (\v -> apply v vs)
       value2index v ty
-    value2index (VSusp i envi k vs) ty = do
-      v <- susp i envi (\v -> k v >>= \v -> apply v vs)
+    value2index (VSusp i k vs) ty = do
+      v <- susp i (\v -> k v >>= \v -> apply v vs)
       value2index v ty
     value2index v ty = do t <- value2term [] v
                           evalError ("the parameter:" <+> ppTerm Unqualified 0 t $$
                                      "cannot be evaluated at compile time.")
 
 
-susp i env ki = EvalM $ \gr k mt d r msgs -> do
+susp i ki = EvalM $ \gr k mt d r msgs -> do
   s <- readSTRef i
   case s of
     Narrowing id (QC q) -> case lookupOrigInfo gr q of
@@ -465,13 +464,13 @@ susp i env ki = EvalM $ \gr k mt d r msgs -> do
                         -> bindInt gr k mt d r msgs s 0 max
     Evaluated _ v       -> case ki v of
                              EvalM f -> f gr k mt d r msgs
-    _                   -> k (VSusp i env ki []) mt d r msgs
+    _                   -> k (VSusp i ki []) mt d r msgs
   where
     bindParam gr k mt d r msgs s m []             = return (Success r msgs)
     bindParam gr k mt d r msgs s m ((p, ctxt):ps) = do
       (mt',tnks) <- mkArgs mt ctxt
       let v = VApp (m,p) tnks
-      writeSTRef i (Evaluated (length env) v)
+      writeSTRef i (Evaluated 0 v)
       res <- case ki v of
                EvalM f -> f gr k mt' d r msgs
       writeSTRef i s
@@ -491,7 +490,7 @@ susp i env ki = EvalM $ \gr k mt d r msgs -> do
     bindInt gr k mt d r msgs s iv max
       | iv <= max = do
          let v = VInt iv
-         writeSTRef i (Evaluated (length env) v)
+         writeSTRef i (Evaluated 0 v)
          res <- case ki v of
                   EvalM f -> f gr k mt d r msgs
          writeSTRef i s
@@ -503,19 +502,17 @@ susp i env ki = EvalM $ \gr k mt d r msgs -> do
 
 value2term xs (VApp q tnks) =
   foldM (\e1 tnk -> fmap (App e1) (tnk2term xs tnk)) (if fst q == cPredef then Q q else QC q) tnks
-value2term xs (VMeta m env vs) = do
+value2term xs (VMeta m vs) = do
   s <- getRef m
   case s of
     Evaluated _ v     -> do v <- apply v vs
                             value2term xs v
     Unevaluated env t -> do v <- eval env t vs
                             value2term xs v
-    Bound t           -> do v <- eval env t vs
-                            value2term xs v
     Hole i            -> foldM (\e1 tnk -> fmap (App e1) (tnk2term xs tnk)) (Meta i) vs
     Residuation i _ _ -> foldM (\e1 tnk -> fmap (App e1) (tnk2term xs tnk)) (Meta i) vs
     Narrowing i _     -> foldM (\e1 tnk -> fmap (App e1) (tnk2term xs tnk)) (Meta i) vs
-value2term xs (VSusp j env k vs) = do
+value2term xs (VSusp j k vs) = do
   v <- k (VGen maxBound vs)
   value2term xs v
 value2term xs (VGen j tnks) =
@@ -861,9 +858,9 @@ force tnk = EvalM $ \gr k mt d r msgs -> do
                                                                  writeSTRef tnk s
                                                                  return r) mt d r msgs
     Evaluated d v     -> k v mt d r msgs
-    Hole _            -> k (VMeta tnk [] []) mt d r msgs
-    Residuation _ _ _ -> k (VMeta tnk [] []) mt d r msgs
-    Narrowing _ _     -> k (VMeta tnk [] []) mt d r msgs
+    Hole _            -> k (VMeta tnk []) mt d r msgs
+    Residuation _ _ _ -> k (VMeta tnk []) mt d r msgs
+    Narrowing _ _     -> k (VMeta tnk []) mt d r msgs
 
 tnk2term xs tnk = EvalM $ \gr k mt d r msgs ->
   let join f g = do res <- f
