@@ -503,11 +503,18 @@ susp i env ki = EvalM $ \gr k mt d r msgs -> do
 
 value2term xs (VApp q tnks) =
   foldM (\e1 tnk -> fmap (App e1) (tnk2term xs tnk)) (if fst q == cPredef then Q q else QC q) tnks
-value2term xs (VMeta m env tnks) = do
-  res <- zonk xs m tnks
-  case res of
-    Right i -> foldM (\e1 tnk -> fmap (App e1) (tnk2term xs tnk)) (Meta i) tnks
-    Left  v -> value2term xs v
+value2term xs (VMeta m env vs) = do
+  s <- getRef m
+  case s of
+    Evaluated _ v     -> do v <- apply v vs
+                            value2term xs v
+    Unevaluated env t -> do v <- eval env t vs
+                            value2term xs v
+    Bound t           -> do v <- eval env t vs
+                            value2term xs v
+    Hole i            -> foldM (\e1 tnk -> fmap (App e1) (tnk2term xs tnk)) (Meta i) vs
+    Residuation i _ _ -> foldM (\e1 tnk -> fmap (App e1) (tnk2term xs tnk)) (Meta i) vs
+    Narrowing i _     -> foldM (\e1 tnk -> fmap (App e1) (tnk2term xs tnk)) (Meta i) vs
 value2term xs (VSusp j env k vs) = do
   v <- k (VGen maxBound vs)
   value2term xs v
@@ -896,16 +903,3 @@ tnk2term xs tnk = EvalM $ \gr k mt d r msgs ->
           Narrowing i _     -> k (Meta i) mt d r msgs
 
 scopeEnv   scope = zipWithM (\x i -> newEvaluatedThunk (VGen i []) >>= \tnk -> return (x,tnk)) (reverse scope) [0..]
-
-zonk scope tnk vs = EvalM $ \gr k mt d r msgs -> do
-  s <- readSTRef tnk
-  case s of
-    Evaluated _ v     -> case apply v vs of
-                           EvalM f -> f gr (k . Left) mt d r msgs
-    Unevaluated env t -> case eval env t vs of
-                           EvalM f -> f gr (k . Left) mt d r msgs
-    Bound t           -> case scopeEnv scope >>= \env -> eval env t vs of
-                           EvalM f -> f gr (k . Left) mt d r msgs
-    Hole i            -> k (Right i) mt d r msgs
-    Residuation i _ _ -> k (Right i) mt d r msgs
-    Narrowing i _     -> k (Right i) mt d r msgs
