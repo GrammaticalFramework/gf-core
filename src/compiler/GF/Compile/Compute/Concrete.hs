@@ -11,7 +11,8 @@ module GF.Compile.Compute.Concrete
            , newThunk, newEvaluatedThunk
            , newResiduation, newNarrowing, getVariables
            , getRef, setRef
-           , getResDef, getInfo, getResType, getAllParamValues
+           , getResDef, getInfo, getResType, getOverload
+           , getAllParamValues
            ) where
 
 import Prelude hiding ((<>)) -- GHC 8.4.1 clash with Text.PrettyPrint
@@ -53,8 +54,9 @@ data ThunkState s
   = Unevaluated (Env s) Term
   | Evaluated {-# UNPACK #-} !Int (Value s)
   | Hole        {-# UNPACK #-} !MetaId
-  | Residuation {-# UNPACK #-} !MetaId (Scope s) (Value s)
   | Narrowing   {-# UNPACK #-} !MetaId Type
+  | Residuation {-# UNPACK #-} !MetaId (Scope s) (Sigma s)
+  | Bound       Term
 
 type Thunk s = STRef s (ThunkState s)
 type Env s = [(Ident,Thunk s)]
@@ -97,12 +99,12 @@ showValue (VMeta _ _ _) = "VMeta"
 showValue (VSusp _ _ _ _) = "VSusp"
 showValue (VGen _ _) = "VGen"
 showValue (VClosure _ _) = "VClosure"
-showValue (VProd _ _ _ _) = "VProd"
+showValue (VProd _ x v1 v2) = "VProd ("++show x++") ("++showValue v1++") ("++showValue v2++")"
 showValue (VRecType _) = "VRecType"
 showValue (VR lbls) = "(VR {"++unwords (map (\(lbl,_) -> show lbl) lbls)++"})"
 showValue (VP v l _) = "(VP "++showValue v++" "++show l++")"
 showValue (VExtR _ _) = "VExtR"
-showValue (VTable _ _) = "VTable"
+showValue (VTable v1 v2) = "VTable ("++showValue v1++") ("++showValue v2++")"
 showValue (VT _ _ cs) = "(VT "++show cs++")"
 showValue (VV _ _) = "VV"
 showValue (VS v _ _) = "(VS "++showValue v++")"
@@ -128,7 +130,9 @@ eval env (Vr x)         vs  = do (tnk,depth) <- lookup x env
                                 lookup x ((y,tnk):env)
                                   | x == y    = return (tnk,length env)
                                   | otherwise = lookup x env
-eval env (Sort s)       []  = return (VSort s)
+eval env (Sort s)       []
+  | s == cTok               = return (VSort cStr)
+  | otherwise               = return (VSort s)
 eval env (EInt n)       []  = return (VInt n)
 eval env (EFloat d)     []  = return (VFlt d)
 eval env (K t)          []  = return (VStr t)
@@ -500,7 +504,7 @@ susp i env ki = EvalM $ \gr k mt d r msgs -> do
 value2term xs (VApp q tnks) =
   foldM (\e1 tnk -> fmap (App e1) (tnk2term xs tnk)) (if fst q == cPredef then Q q else QC q) tnks
 value2term xs (VMeta m env tnks) = do
-  res <- zonk m tnks
+  res <- zonk xs m tnks
   case res of
     Right i -> foldM (\e1 tnk -> fmap (App e1) (tnk2term xs tnk)) (Meta i) tnks
     Left  v -> value2term xs v
@@ -515,14 +519,18 @@ value2term xs (VClosure env (Abs b x t)) = do
   let x' = mkFreshVar xs x
   t <- value2term (x':xs) v
   return (Abs b x' t)
-value2term xs (VProd b x v1 (VClosure env t2))
+value2term xs (VProd b x v1 v2)
   | x == identW = do t1 <- value2term xs v1
-                     v2 <- eval env t2 []
+                     v2 <- case v2 of
+                             VClosure env t2 -> eval env t2 []
+                             v2              -> return v2
                      t2 <- value2term xs v2
                      return (Prod b x t1 t2)
   | otherwise   = do t1 <- value2term xs v1
                      tnk <- newEvaluatedThunk (VGen (length xs) [])
-                     v2 <- eval ((x,tnk):env) t2 []
+                     v2 <- case v2 of
+                             VClosure env t2 -> eval ((x,tnk):env) t2 []
+                             v2              -> return v2
                      t2 <- value2term (x:xs) v2
                      return (Prod b (mkFreshVar xs x) t1 t2)
 value2term xs (VRecType lbls) = do
@@ -582,6 +590,7 @@ value2term xs (VAlts vd vas) = do
 value2term xs (VStrs vs) = do
   ts <- mapM (value2term xs) vs
   return (Strs ts)
+value2term xs v = error (showValue v)
 
 pattVars st (PP _ ps)    = foldM pattVars st ps
 pattVars st (PV x)       = case st of
@@ -756,6 +765,22 @@ getResType q = EvalM $ \gr k mt d r msgs -> do
     Ok t    -> k t mt d r msgs
     Bad msg -> return (Fail (pp msg) msgs)
 
+getOverload :: Term -> QIdent -> EvalM s (Term,Type)
+getOverload t q = EvalM $ \gr k mt d r msgs -> do
+  case lookupOverloadTypes gr q of
+    Ok ttys -> let err = "Overload resolution failed" $$
+                         "of term   " <+> pp t $$
+                         "with types" <+> vcat [ppTerm Terse 0 ty | (_,ty) <- ttys]
+
+                   go []         = return (Fail err msgs)
+                   go (tty:ttys) = do res <- k tty mt d r msgs
+                                      case res of
+                                        Fail _ _       -> return res -- go ttys
+                                        Success r msgs -> return (Success r msgs)
+
+               in go ttys
+    Bad msg -> return (Fail (pp msg) msgs)
+
 getAllParamValues :: Type -> EvalM s [Term]
 getAllParamValues ty = EvalM $ \gr k mt d r msgs ->
   case allParamValues gr ty of
@@ -780,17 +805,14 @@ newHole i = EvalM $ \gr k mt d r msgs ->
                           k tnk (Map.insert i tnk mt) d r msgs
 
 newResiduation scope ty = EvalM $ \gr k mt d r msgs -> do
-  tnk <- newSTRef (Residuation 0 scope ty)
-  k tnk mt d r msgs
+  let i = Map.size mt + 1
+  tnk <- newSTRef (Residuation i scope ty)
+  k (i,tnk) (Map.insert i tnk mt) d r msgs
 
-newNarrowing i ty = EvalM $ \gr k mt d r msgs ->
-  if i == 0
-    then do tnk <- newSTRef (Narrowing i ty)
-            k tnk mt d r msgs
-    else case Map.lookup i mt of
-           Just tnk -> k tnk mt d r msgs
-           Nothing  -> do tnk <- newSTRef (Narrowing i ty)
-                          k tnk (Map.insert i tnk mt) d r msgs
+newNarrowing ty = EvalM $ \gr k mt d r msgs -> do
+  let i = Map.size mt + 1
+  tnk <- newSTRef (Narrowing i ty)
+  k (i,tnk) (Map.insert i tnk mt) d r msgs
 
 withVar d0 (EvalM f) = EvalM $ \gr k mt d1 r msgs ->
                                   let !d = min d0 d1
@@ -814,8 +836,13 @@ getVariables = EvalM $ \gr k mt d ws r -> do
                                else return params
         _              -> metas2params gr tnks
 
-getRef tnk = EvalM $ \gr k mt d ws r -> readSTRef tnk >>= \st -> k st mt d ws r
-setRef tnk st = EvalM $ \gr k mt d ws r -> writeSTRef tnk st >>= \st -> k () mt d ws r
+getRef tnk = EvalM $ \gr k mt d r msgs -> readSTRef tnk >>= \st -> k st mt d r msgs
+setRef tnk st = EvalM $ \gr k mt d r msgs -> do
+  old <- readSTRef tnk
+  writeSTRef tnk st
+  res <- k () mt d r msgs
+  writeSTRef tnk old
+  return res
 
 force tnk = EvalM $ \gr k mt d r msgs -> do
   s <- readSTRef tnk
@@ -868,10 +895,16 @@ tnk2term xs tnk = EvalM $ \gr k mt d r msgs ->
           Residuation i _ _ -> k (Meta i) mt d r msgs
           Narrowing i _     -> k (Meta i) mt d r msgs
 
-zonk tnk vs = EvalM $ \gr k mt d r msgs -> do
+scopeEnv   scope = zipWithM (\x i -> newEvaluatedThunk (VGen i []) >>= \tnk -> return (x,tnk)) (reverse scope) [0..]
+
+zonk scope tnk vs = EvalM $ \gr k mt d r msgs -> do
   s <- readSTRef tnk
   case s of
     Evaluated _ v     -> case apply v vs of
+                           EvalM f -> f gr (k . Left) mt d r msgs
+    Unevaluated env t -> case eval env t vs of
+                           EvalM f -> f gr (k . Left) mt d r msgs
+    Bound t           -> case scopeEnv scope >>= \env -> eval env t vs of
                            EvalM f -> f gr (k . Left) mt d r msgs
     Hole i            -> k (Right i) mt d r msgs
     Residuation i _ _ -> k (Right i) mt d r msgs

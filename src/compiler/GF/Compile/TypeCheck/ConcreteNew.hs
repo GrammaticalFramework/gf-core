@@ -17,6 +17,7 @@ import Control.Applicative(Applicative(..))
 import Control.Monad(ap,liftM,mplus,foldM,zipWithM)
 import Control.Monad.ST
 import GF.Text.Pretty
+import Data.STRef
 import Data.List (nub, (\\), tails)
 import qualified Data.Map as Map
 import Data.Maybe(fromMaybe,isNothing)
@@ -61,26 +62,23 @@ tcRho scope t@(Vr v)     mb_ty = do                          -- VAR
   case lookup v scope of
     Just v_sigma -> instSigma scope t v_sigma mb_ty
     Nothing      -> evalError ("Unknown variable" <+> v)
-tcRho scope t@(Q id)     mb_ty =
-  runTcA (tcOverloadFailed t) $ \gr ->
-    tcApp gr scope t `bindTcA` \(t,ty) ->
-      instSigma scope t ty mb_ty
-tcRho scope t@(QC id)    mb_ty =
-  runTcA (tcOverloadFailed t) $ \gr ->
-    tcApp gr scope t `bindTcA` \(t,ty) ->
-      instSigma scope t ty mb_ty
+tcRho scope t@(Q id)     mb_ty = do
+  (t,ty) <- tcApp scope t t
+  instSigma scope t ty mb_ty
+tcRho scope t@(QC id)    mb_ty = do
+  (t,ty) <- tcApp scope t t
+  instSigma scope t ty mb_ty
 tcRho scope t@(App fun arg) mb_ty = do
-  runTcA (tcOverloadFailed t) $ \gr ->
-    tcApp gr scope t `bindTcA` \(t,ty) ->
-      instSigma scope t ty mb_ty
+  (t,ty) <- tcApp scope t t
+  instSigma scope t ty mb_ty
 tcRho scope (Abs bt var body) Nothing = do                   -- ABS1
-  tnk <- newResiduation scope vtypeType
+  (_,tnk) <- newResiduation scope vtypeType
   env <- scopeEnv scope
   let arg_ty = VMeta tnk env []
   (body,body_ty) <- tcRho ((var,arg_ty):scope) body Nothing
   return (Abs bt var body, (VProd bt identW arg_ty body_ty))
 tcRho scope t@(Abs Implicit var body) (Just ty) = do         -- ABS2
-  (bt, var_ty, body_ty) <- unifyFun scope ty
+  (bt, _, var_ty, body_ty) <- unifyFun scope ty
   if bt == Implicit
     then return ()
     else evalError (ppTerm Unqualified 0 t <+> "is an implicit function, but no implicit function is expected")
@@ -88,9 +86,18 @@ tcRho scope t@(Abs Implicit var body) (Just ty) = do         -- ABS2
   return (Abs Implicit var body,ty)
 tcRho scope (Abs Explicit var body) (Just ty) = do           -- ABS3
   (scope,f,ty') <- skolemise scope ty
-  (_,var_ty,body_ty) <- unifyFun scope ty'
+  (_,_,var_ty,body_ty) <- unifyFun scope ty'
   (body, body_ty) <- tcRho ((var,var_ty):scope) body (Just body_ty)
   return (f (Abs Explicit var body),ty)
+tcRho scope (Meta i) (Just ty) = do
+  (i,_) <- newResiduation scope ty
+  return (Meta i, ty)
+tcRho scope (Meta _) Nothing = do
+  (_,tnk) <- newResiduation scope vtypeType
+  env <- scopeEnv scope
+  let vty = VMeta tnk env []
+  (i,_) <- newResiduation scope vty
+  return (Meta i, vty)
 tcRho scope (Let (var, (mb_ann_ty, rhs)) body) mb_ty = do    -- LET
   (rhs,var_ty) <- case mb_ann_ty of
                     Nothing     -> inferSigma scope rhs
@@ -110,9 +117,9 @@ tcRho scope (Typed body ann_ty) mb_ty = do                   -- ANNOT
   instSigma scope (Typed body ann_ty) v_ann_ty mb_ty
 tcRho scope (FV ts) mb_ty = do
   case ts of
-    []     -> do i <- newResiduation scope vtypeType
+    []     -> do (i,tnk) <- newResiduation scope vtypeType
                  env <- scopeEnv scope
-                 instSigma scope (FV []) (VMeta i env []) mb_ty
+                 instSigma scope (FV []) (VMeta tnk env []) mb_ty
     (t:ts) -> do (t,ty) <- tcRho scope t mb_ty
 
                  let go []     ty = return ([],ty)
@@ -153,9 +160,10 @@ tcRho scope (Prod bt x ty1 ty2) mb_ty = do
   instSigma scope (Prod bt x ty1 ty2) vtypeType mb_ty
 tcRho scope (S t p) mb_ty = do
   env <- scopeEnv scope
-  p_ty   <- fmap (\i -> VMeta i env []) $ newEvaluatedThunk vtypePType
+  let mk_val (_,tnk) = VMeta tnk env []
+  p_ty   <- fmap mk_val $ newResiduation scope vtypePType
   res_ty <- case mb_ty of
-              Nothing -> fmap (\i -> VMeta i env []) $ newEvaluatedThunk vtypeType
+              Nothing -> fmap mk_val $ newResiduation scope vtypeType
               Just ty -> return ty
   let t_ty = VTable p_ty res_ty
   (t,t_ty) <- tcRho scope t (Just t_ty)
@@ -163,14 +171,15 @@ tcRho scope (S t p) mb_ty = do
   return (S t p, res_ty)
 tcRho scope (T tt ps) Nothing = do                           -- ABS1/AABS1 for tables
   env <- scopeEnv scope
+  let mk_val (_,tnk) = VMeta tnk env []
   p_ty   <- case tt of
-              TRaw      -> fmap (\i -> VMeta i env []) $ newEvaluatedThunk vtypePType
+              TRaw      -> fmap mk_val $ newResiduation scope vtypePType
               TTyped ty -> do (ty, _) <- tcRho scope ty (Just vtypeType)
                               eval env ty []
   (ps,mb_res_ty) <- tcCases scope ps p_ty Nothing
   res_ty <- case mb_res_ty of
               Just res_ty -> return res_ty
-              Nothing     -> fmap (\i -> VMeta i env []) $ newEvaluatedThunk vtypeType
+              Nothing     -> fmap mk_val $ newResiduation scope vtypeType
   p_ty_t <- value2term [] p_ty
   return (T (TTyped p_ty_t) ps, VTable p_ty res_ty)
 tcRho scope (T tt ps) (Just ty) = do                         -- ABS2/AABS2 for tables
@@ -206,8 +215,8 @@ tcRho scope (P t l) mb_ty = do
   l_ty   <- case mb_ty of
               Just ty -> return ty
               Nothing -> do env <- scopeEnv scope
-                            i <- newEvaluatedThunk vtypeType
-                            return (VMeta i env [])
+                            (i,tnk) <- newResiduation scope vtypeType
+                            return (VMeta tnk env [])
   (t,t_ty) <- tcRho scope t (Just (VRecType [(l,l_ty)]))
   return (P t l,l_ty)
 tcRho scope (C t1 t2) mb_ty = do
@@ -251,8 +260,8 @@ tcRho scope (EPattType ty) mb_ty = do
 tcRho scope t@(EPatt min max p) mb_ty = do
   (scope,f,ty) <- case mb_ty of
                     Nothing -> do env <- scopeEnv scope
-                                  i <- newEvaluatedThunk vtypeType
-                                  return (scope,id,VMeta i env [])
+                                  (i,tnk) <- newResiduation scope vtypeType
+                                  return (scope,id,VMeta tnk env [])
                     Just ty -> do (scope,f,ty) <- skolemise scope ty
                                   case ty of
                                     VPattType ty -> return (scope,f,ty)
@@ -268,35 +277,36 @@ tcCases scope ((p,t):cs) p_ty mb_res_ty = do
   (cs,mb_res_ty) <- tcCases scope cs p_ty (Just res_ty)
   return ((p,t):cs,mb_res_ty)
 
-tcApp gr scope t@(App fun (ImplArg arg)) = do                   -- APP1
-  tcApp gr scope fun `bindTcA` \(fun,fun_ty) ->
-     do (bt, arg_ty, res_ty) <- unifyFun scope fun_ty
-        if (bt == Implicit)
-          then return ()
-          else evalError (ppTerm Unqualified 0 t <+> "is an implicit argument application, but no implicit argument is expected")
-        (arg,_) <- tcRho scope arg (Just arg_ty)
-        env <- scopeEnv scope
-        varg <- eval env arg []
-        return (App fun (ImplArg arg), res_ty)
-tcApp gr scope (App fun arg) =                                  -- APP2
-  tcApp gr scope fun `bindTcA` \(fun,fun_ty) ->
-     do (fun,fun_ty) <- instantiate scope fun fun_ty
-        (_, arg_ty, res_ty) <- unifyFun scope fun_ty
-        (arg,_) <- tcRho scope arg (Just arg_ty)
-        env <- scopeEnv scope
-        varg <- eval env arg []
-        return (App fun arg, res_ty)
-tcApp gr scope (Q id) = do                                         -- VAR (global)
-  mkTcA (lookupOverloadTypes gr id) `bindTcA` \(t,ty) ->
-     do ty <- eval [] ty []
-        return (t,ty)
-tcApp gr scope (QC id) =                                         -- VAR (global)
-  mkTcA (lookupOverloadTypes gr id) `bindTcA` \(t,ty) ->
-     do ty <- eval [] ty []
-        return (t,ty)
-tcApp gr scope t =
-  singleTcA (tcRho scope t Nothing)
-
+tcApp scope t0 t@(App fun (ImplArg arg)) = do                  -- APP1
+  (fun,fun_ty) <- tcApp scope t0 fun
+  (bt, _, arg_ty, res_ty) <- unifyFun scope fun_ty
+  if (bt == Implicit)
+    then return ()
+    else evalError (ppTerm Unqualified 0 t <+> "is an implicit argument application, but no implicit argument is expected")
+  (arg,_) <- tcRho scope arg (Just arg_ty)
+  env <- scopeEnv scope
+  varg <- eval env arg []
+  return (App fun (ImplArg arg), res_ty)
+tcApp scope t0 (App fun arg) = do                              -- APP2
+  (fun,fun_ty) <- tcApp scope t0 fun
+  (fun,fun_ty) <- instantiate scope fun fun_ty
+  (_, x, arg_ty, res_ty) <- unifyFun scope fun_ty
+  (arg,_) <- tcRho scope arg (Just arg_ty)
+  res_ty <- case res_ty of
+              VClosure res_env res_ty -> do env <- scopeEnv scope
+                                            tnk <- newThunk env arg
+                                            eval ((x,tnk):res_env) res_ty []
+              res_ty                  -> return res_ty
+  return (App fun arg, res_ty)
+tcApp scope t0 (Q id)  = do                                    -- VAR (global)
+  (t,ty) <- getOverload t0 id
+  vty <- eval [] ty []
+  return (t,vty)
+tcApp scope t0 (QC id) = do                                    -- VAR (global)
+  (t,ty) <- getOverload t0 id
+  vty <- eval [] ty []
+  return (t,vty)
+tcApp scope t0 t = tcRho scope t Nothing
 
 tcOverloadFailed t ttys =
   evalError ("Overload resolution failed" $$
@@ -311,7 +321,7 @@ tcPatt scope (PV x)    ty0 =
 tcPatt scope (PP c ps) ty0 = do
   ty <- getResType c
   let go scope ty []     = return (scope,ty)
-      go scope ty (p:ps) = do (_,arg_ty,res_ty) <- unifyFun scope ty
+      go scope ty (p:ps) = do (_,_,arg_ty,res_ty) <- unifyFun scope ty
                               scope <- tcPatt scope p arg_ty
                               go scope res_ty ps
   vty <- eval [] ty []
@@ -337,10 +347,10 @@ tcPatt scope (PAs x p) ty0 = do
   tcPatt ((x,ty0):scope) p ty0
 tcPatt scope (PR rs) ty0 = do
   let mk_ltys  []            = return []
-      mk_ltys  ((l,p):rs)    = do i <- newEvaluatedThunk vtypePType
+      mk_ltys  ((l,p):rs)    = do (_,tnk) <- newResiduation scope vtypePType
                                   ltys <- mk_ltys rs
                                   env <- scopeEnv scope
-                                  return ((l,p,VMeta i env []) : ltys)
+                                  return ((l,p,VMeta tnk env []) : ltys)
       go scope []            = return scope
       go scope ((l,p,ty):rs) = do scope <- tcPatt scope p ty
                                   go scope rs
@@ -422,44 +432,53 @@ subsCheckRho scope t ty1@(VMeta i env vs) ty2 = do
   case mv of
     Residuation _ _ _ -> do unify scope ty1 ty2
                             return t
-    Evaluated _ vty1  -> do vty1 <- apply vty1 vs
+    Bound ty1         -> do vty1 <- eval env ty1 vs
                             subsCheckRho scope t vty1 ty2
 subsCheckRho scope t ty1 ty2@(VMeta i env vs) = do
   mv <- getRef i
   case mv of
     Residuation _ _ _ -> do unify scope ty1 ty2
                             return t
-    Evaluated _ vty2  -> do vty2 <- apply vty2 vs
+    Bound ty2         -> do vty2 <- eval env ty2 vs
                             subsCheckRho scope t ty1 vty2
-{-subsCheckRho ge scope t (VProd Implicit ty1 x (Bind ty2)) rho2 = do     -- Rule SPEC
-  i <- newMeta scope ty1
-  subsCheckRho ge scope (App t (ImplArg (Meta i))) (ty2 (VMeta i [] [])) rho2
-subsCheckRho ge scope t rho1 (VProd Implicit ty1 x (Bind ty2)) = do     -- Rule SKOL
+subsCheckRho scope t (VProd Implicit x ty1 ty2) rho2 = do     -- Rule SPEC
+  (i,tnk) <- newResiduation scope ty1
+  ty2 <- case ty2 of
+           VClosure env ty2 -> eval ((x,tnk):env) ty2 []
+           ty2              -> return ty2
+  subsCheckRho scope (App t (ImplArg (Meta i))) ty2 rho2
+subsCheckRho scope t rho1 (VProd Implicit x ty1 ty2) = do     -- Rule SKOL
   let v = newVar scope
-  t <- subsCheckRho ge ((v,ty1):scope) t rho1 (ty2 (VGen (length scope) []))
+  ty2 <- case ty2 of
+           VClosure env ty2 -> do tnk <- newEvaluatedThunk (VGen (length scope) [])
+                                  eval ((x,tnk):env) ty2 []
+           ty2              -> return ty2
+  t <- subsCheckRho ((v,ty1):scope) t rho1 ty2
   return (Abs Implicit v t)
-subsCheckRho ge scope t rho1 (VProd Explicit a2 _ (Bind r2)) = do       -- Rule FUN
-  (_,a1,r1) <- unifyFun ge scope rho1
-  subsCheckFun ge scope t a1 r1 a2 r2
-subsCheckRho ge scope t (VProd Explicit a1 _ (Bind r1)) rho2 = do       -- Rule FUN
-  (bt,a2,r2) <- unifyFun ge scope rho2
-  subsCheckFun ge scope t a1 r1 a2 r2
-subsCheckRho ge scope t rho1 (VTblType p2 r2) = do                      -- Rule TABLE
-  (p1,r1) <- unifyTbl ge scope rho1
-  subsCheckTbl ge scope t p1 r1 p2 r2
-subsCheckRho ge scope t (VTblType p1 r1) rho2 = do                      -- Rule TABLE
-  (p2,r2) <- unifyTbl ge scope rho2
-  subsCheckTbl ge scope t p1 r1 p2 r2
-subsCheckRho ge scope t (VSort s1) (VSort s2)                           -- Rule PTYPE
+subsCheckRho scope t rho1 (VProd Explicit _ a2 r2) = do       -- Rule FUN
+  (_,_,a1,r1) <- unifyFun scope rho1
+  subsCheckFun scope t a1 r1 a2 r2
+subsCheckRho scope t (VProd Explicit _ a1 r1) rho2 = do       -- Rule FUN
+  (_,_,a2,r2) <- unifyFun scope rho2
+  subsCheckFun scope t a1 r1 a2 r2
+subsCheckRho scope t rho1 (VTable p2 r2) = do                 -- Rule TABLE
+  (p1,r1) <- unifyTbl scope rho1
+  subsCheckTbl scope t p1 r1 p2 r2
+subsCheckRho scope t (VTable p1 r1) rho2 = do                 -- Rule TABLE
+  (p2,r2) <- unifyTbl scope rho2
+  subsCheckTbl scope t p1 r1 p2 r2
+subsCheckRho scope t (VSort s1) (VSort s2)                    -- Rule PTYPE
   | s1 == cPType && s2 == cType = return t
-subsCheckRho ge scope t (VApp p1 _) (VApp p2 _)                         -- Rule INT1
-  | predefName p1 == cInts && predefName p2 == cInt = return t
-subsCheckRho ge scope t (VApp p1 [VInt i]) (VApp p2 [VInt j])           -- Rule INT2
-  | predefName p1 == cInts && predefName p2 == cInts =
+subsCheckRho scope t (VApp p1 _) (VApp p2 _)                  -- Rule INT1
+  | p1 == (cPredef,cInts) && p2 == (cPredef,cInt) = return t
+subsCheckRho scope t (VApp p1 [tnk1]) (VApp p2 [tnk2])        -- Rule INT2
+  | p1 == (cPredef,cInts) && p2 == (cPredef,cInts) = do
+      VInt i <- force tnk1
+      VInt j <- force tnk2
       if i <= j
         then return t
         else evalError ("Ints" <+> i <+> "is not a subtype of" <+> "Ints" <+> j)
-subsCheckRho ge scope t ty1@(VRecType rs1) ty2@(VRecType rs2) = do      -- Rule REC
+subsCheckRho scope t ty1@(VRecType rs1) ty2@(VRecType rs2) = do      -- Rule REC
   let mkAccess scope t =
         case t of
           ExtR t1 t2 -> do (scope,mkProj1,mkWrap1) <- mkAccess scope t1
@@ -468,7 +487,7 @@ subsCheckRho ge scope t ty1@(VRecType rs1) ty2@(VRecType rs2) = do      -- Rule 
                                   ,\l -> mkProj2 l `mplus` mkProj1 l
                                   ,mkWrap1 . mkWrap2
                                   )
-          R rs -> do sequence_ [tcWarn ("Discarded field:" <+> l) | (l,_) <- rs, isNothing (lookup l rs2)]
+          R rs -> do sequence_ [evalWarn ("Discarded field:" <+> l) | (l,_) <- rs, isNothing (lookup l rs2)]
                      return (scope
                             ,\l -> lookup l rs
                             ,id
@@ -486,7 +505,7 @@ subsCheckRho ge scope t ty1@(VRecType rs1) ty2@(VRecType rs2) = do      -- Rule 
                             )
 
       mkField scope l (mb_ty,t) ty1 ty2 = do
-        t <- subsCheckRho ge scope t ty1 ty2
+        t <- subsCheckRho scope t ty1 ty2
         return (l, (mb_ty,t))
 
   (scope,mkProj,mkWrap) <- mkAccess scope t
@@ -498,94 +517,103 @@ subsCheckRho ge scope t ty1@(VRecType rs1) ty2@(VRecType rs2) = do      -- Rule 
                           "there are no values for fields:" <+> hsep missing)
   rs <- sequence [mkField scope l t ty1 ty2 | (l,ty2,Just ty1) <- fields, Just t <- [mkProj l]]
   return (mkWrap (R rs))
-subsCheckRho ge scope t tau1 tau2 = do                                  -- Rule EQ
-  unify ge scope tau1 tau2                                 -- Revert to ordinary unification
+subsCheckRho scope t tau1 tau2 = do                           -- Rule EQ
+  unify scope tau1 tau2                                 -- Revert to ordinary unification
   return t
 
-subsCheckFun :: GlobalEnv -> Scope -> Term -> Sigma -> (Value -> Rho) -> Sigma -> (Value -> Rho) -> EvalM Term
-subsCheckFun ge scope t a1 r1 a2 r2 = do
+subsCheckFun :: Scope s -> Term -> Sigma s -> Value s -> Sigma s -> Value s -> EvalM s Term
+subsCheckFun scope t a1 r1 a2 r2 = do
   let v   = newVar scope
-  vt <- subsCheckRho ge ((v,a2):scope) (Vr v) a2 a1
-  val1 <- liftErr (eval ge (scopeEnv ((v,vtypeType):scope)) vt)
-  val2 <- return  (VGen (length scope) [])
-  t  <- subsCheckRho ge ((v,vtypeType):scope) (App t vt) (r1 val1) (r2 val2)
+  vt <- subsCheckRho ((v,a2):scope) (Vr v) a2 a1
+  tnk <- newEvaluatedThunk (VGen (length scope) [])
+  r1 <- case r1 of
+          VClosure env r1 -> eval ((v,tnk):env) r1 []
+          r1              -> return r1
+  r2 <- case r2 of
+          VClosure env r2 -> eval ((v,tnk):env) r2 []
+          r2              -> return r2
+  t  <- subsCheckRho ((v,vtypeType):scope) (App t vt) r1 r2
   return (Abs Explicit v t)
 
-subsCheckTbl :: GlobalEnv -> Scope -> Term -> Sigma -> Rho -> Sigma -> Rho -> EvalM Term
-subsCheckTbl ge scope t p1 r1 p2 r2 = do
+subsCheckTbl :: Scope s -> Term -> Sigma s -> Rho s -> Sigma s -> Rho s -> EvalM s Term
+subsCheckTbl scope t p1 r1 p2 r2 = do
   let x = newVar scope
-  xt <- subsCheckRho ge scope (Vr x) p2 p1
-  t  <- subsCheckRho ge ((x,vtypePType):scope) (S t xt) r1 r2 ;
-  p2 <- tc_value2term (geLoc ge) (scopeVars scope) p2
+  xt <- subsCheckRho scope (Vr x) p2 p1
+  t  <- subsCheckRho ((x,vtypePType):scope) (S t xt) r1 r2
+  p2 <- value2term (scopeVars scope) p2
   return (T (TTyped p2) [(PV x,t)])
--}
+
 -----------------------------------------------------------------------
 -- Unification
 -----------------------------------------------------------------------
 
-unifyFun :: Scope s -> Rho s -> EvalM s (BindType, Sigma s, Rho s)
+unifyFun :: Scope s -> Rho s -> EvalM s (BindType, Ident, Sigma s, Rho s)
 unifyFun scope (VProd bt x arg res) =
-  return (bt,arg,res)
+  return (bt,x,arg,res)
 unifyFun scope tau = do
-  let mk_val ty = VMeta ty [] []
-  arg <- fmap mk_val $ newEvaluatedThunk vtypeType
-  res <- fmap mk_val $ newEvaluatedThunk vtypeType
+  let mk_val (_,tnk) = VMeta tnk [] []
+  arg <- fmap mk_val $ newResiduation scope vtypeType
+  res <- fmap mk_val $ newResiduation scope vtypeType
   let bt = Explicit
   unify scope tau (VProd bt identW arg res)
-  return (bt,arg,res)
+  return (bt,identW,arg,res)
 
 unifyTbl :: Scope s -> Rho s -> EvalM s (Sigma s, Rho s)
 unifyTbl scope (VTable arg res) =
   return (arg,res)
 unifyTbl scope tau = do
   env <- scopeEnv scope
-  let mk_val ty = VMeta ty env []
-  arg <- fmap mk_val $ newEvaluatedThunk vtypePType
-  res <- fmap mk_val $ newEvaluatedThunk vtypeType
+  let mk_val (i,tnk) = VMeta tnk env []
+  arg <- fmap mk_val $ newResiduation scope vtypePType
+  res <- fmap mk_val $ newResiduation scope vtypeType
   unify scope tau (VTable arg res)
   return (arg,res)
 
 unify scope (VApp f1 vs1)      (VApp f2 vs2)
-  | f1 == f2                   = undefined {- sequence_ (zipWith (unify ge scope) vs1 vs2)
-unify ge scope (VCApp f1 vs1)     (VCApp f2 vs2)
-  | f1 == f2                   = sequence_ (zipWith (unify ge scope) vs1 vs2)
-unify ge scope (VSort s1)         (VSort s2)
+  | f1 == f2                   = sequence_ (zipWith (unifyThunk scope) vs1 vs2)
+unify scope (VSort s1)         (VSort s2)
   | s1 == s2                   = return ()
-unify ge scope (VGen i vs1)       (VGen j vs2)
-  | i == j                     = sequence_ (zipWith (unify ge scope) vs1 vs2)
-unify ge scope (VTblType p1 res1) (VTblType p2 res2) = do
-  unify ge scope p1   p2
-  unify ge scope res1 res2
-unify ge scope (VMeta i env1 vs1) (VMeta j env2 vs2)
-  | i  == j                    = sequence_ (zipWith (unify ge scope) vs1 vs2)
-  | otherwise                  = do mv <- getMeta j
+unify scope (VGen i vs1)       (VGen j vs2)
+  | i == j                     = sequence_ (zipWith (unifyThunk scope) vs1 vs2)
+unify scope (VTable p1 res1) (VTable p2 res2) = do
+  unify scope p1   p2
+  unify scope res1 res2
+unify scope (VMeta i env1 vs1) (VMeta j env2 vs2)
+  | i  == j                    = sequence_ (zipWith (unifyThunk scope) vs1 vs2)
+  | otherwise                  = do mv <- getRef j
                                     case mv of
-                                      Bound t2    -> do v2 <- liftErr (eval ge env2 t2)
-                                                        unify ge scope (VMeta i env1 vs1) (vapply (geLoc ge) v2 vs2)
-                                      Unbound _ _ -> setMeta i (Bound (Meta j))
-unify ge scope (VInt i)       (VInt j)
+                                      Bound t2          -> do v2 <- eval env2 t2 vs2
+                                                              unify scope (VMeta i env1 vs1) v2
+                                      Residuation j _ _ -> setRef i (Bound (Meta j))
+unify scope (VInt i)       (VInt j)
   | i == j                     = return ()
-unify ge scope (VMeta i env vs) v = unifyVar ge scope i env vs v
-unify ge scope v (VMeta i env vs) = unifyVar ge scope i env vs v
-unify ge scope v1 v2 = do
-  t1 <- zonkTerm =<< tc_value2term (geLoc ge) (scopeVars scope) v1
-  t2 <- zonkTerm =<< tc_value2term (geLoc ge) (scopeVars scope) v2
+unify scope (VMeta i env vs) v = unifyVar scope i env vs v
+unify scope v (VMeta i env vs) = unifyVar scope i env vs v
+unify scope v1 v2 = do
+  t1 <- value2term (scopeVars scope) v1
+  t2 <- value2term (scopeVars scope) v2
   evalError ("Cannot unify terms:" <+> (ppTerm Unqualified 0 t1 $$
                                         ppTerm Unqualified 0 t2))
--}
+
+unifyThunk scope tnk1 tnk2 = do
+  res1 <- getRef tnk1
+  res2 <- getRef tnk2
+  case (res1,res2) of
+    (Evaluated _ v1,Evaluated _ v2) -> unify scope v1 v2
+
 -- | Invariant: tv1 is a flexible type variable
 unifyVar :: Scope s -> Thunk s -> Env s -> [Thunk s] -> Tau s -> EvalM s ()
 unifyVar scope tnk env vs ty2 = do            -- Check whether i is bound
   mv <- getRef tnk
   case mv of
-    Unevaluated _ ty1 -> do v <- eval env ty1 [] >>= \v -> apply v vs
-                            unify scope v ty2
+    Bound ty1              -> do v <- eval env ty1 vs
+                                 unify scope v ty2
     Residuation i scope' _ -> do ty2' <- value2term (scopeVars scope') ty2
                                  ms2 <- getMetaVars [(scope,ty2)]
-                                 if i `elem` ms2
+                                 if tnk `elem` ms2
                                    then evalError ("Occurs check for" <+> ppMeta i <+> "in:" $$
                                                    nest 2 (ppTerm Unqualified 0 ty2'))
-                                   else setRef tnk (Unevaluated env ty2')
+                                   else setRef tnk (Bound ty2')
 
 -----------------------------------------------------------------------
 -- Instantiation and quantification
@@ -593,43 +621,49 @@ unifyVar scope tnk env vs ty2 = do            -- Check whether i is bound
 
 -- | Instantiate the topmost implicit arguments with metavariables
 instantiate :: Scope s -> Term -> Sigma s -> EvalM s (Term,Rho s)
-instantiate scope t (VProd Implicit x ty1 ty2) = undefined {- do
-  i <- newMeta scope ty1
-  instantiate scope (App t (ImplArg (Meta i))) (ty2 (VMeta i [] [])) -}
+instantiate scope t (VProd Implicit x ty1 ty2) = do
+  (i,tnk) <- newResiduation scope ty1
+  ty2 <- case ty2 of
+           VClosure env ty2 -> eval ((x,tnk):env) ty2 []
+           ty2              -> return ty2
+  instantiate scope (App t (ImplArg (Meta i))) ty2
 instantiate scope t ty = do
   return (t,ty)
 
 -- | Build fresh lambda abstractions for the topmost implicit arguments
 skolemise :: Scope s -> Sigma s -> EvalM s (Scope s, Term->Term, Rho s)
-skolemise scope ty@(VMeta i env vs) = undefined {-do
+skolemise scope ty@(VMeta i env vs) = do
   mv <- getRef i
   case mv of
     Residuation _ _ _ -> return (scope,id,ty)                   -- guarded constant?
-    Evaluated _ vty   -> do vty <- apply vty vs
-                            skolemise scope vty
-skolemise scope (VProd Implicit ty1 x ty2) = do
+    Bound ty          -> do ty <- eval env ty vs
+                            skolemise scope ty
+skolemise scope (VProd Implicit x ty1 ty2) = do
   let v = newVar scope
-  (scope,f,ty2) <- skolemise ((v,ty1):scope) (ty2 (VGen (length scope) []))
-  return (scope,undefined {-Abs Implicit v . f-},ty2)
+  ty2 <- case ty2 of
+           VClosure env ty2 -> do tnk <- newEvaluatedThunk (VGen (length scope) [])
+                                  eval ((x,tnk) : env) ty2 []
+           ty2              -> return ty2
+  (scope,f,ty2) <- skolemise ((v,ty1):scope) ty2
+  return (scope,Abs Implicit v . f,ty2)
 skolemise scope ty = do
-  return (scope,undefined,ty)-}
+  return (scope,id,ty)
 
 -- | Quantify over the specified type variables (all flexible)
-quantify :: Scope s -> Term -> [MetaId] -> Rho s -> EvalM s (Term,Sigma s)
-quantify scope t tvs ty0 = undefined {- do
-  ty <- tc_value2term (geLoc ge) (scopeVars scope) ty0
+quantify :: Scope s -> Term -> [Thunk s] -> Rho s -> EvalM s (Term,Sigma s)
+quantify scope t tvs ty = do
   let used_bndrs = nub (bndrs ty)  -- Avoid quantified type variables in use
       new_bndrs  = take (length tvs) (allBinders \\ used_bndrs)
-  mapM_ bind (tvs `zip` new_bndrs)   -- 'bind' is just a cunning way
-  ty <- zonkTerm ty                  -- of doing the substitution
-  vty <- liftErr (eval ge [] (foldr (\v ty -> Prod Implicit v typeType ty) ty new_bndrs))
+  env <- scopeEnv ([(v,vtypeType) | v <- new_bndrs]++scope)
+  mapM_ (bind env) (zip tvs new_bndrs)
+  let vty = foldr (\v -> VProd Implicit v vtypeType) ty new_bndrs
   return (foldr (Abs Implicit) t new_bndrs,vty)
   where
-    bind (i, name) = setMeta i (Bound (Vr name))
+    bind env (tnk, name) = setRef tnk (Bound (Vr name))
 
-    bndrs (Prod _ x t1 t2) = [x] ++ bndrs t1  ++ bndrs t2
-    bndrs _                = []
--}
+    bndrs (VProd _ x v1 v2) = [x] ++ bndrs v1  ++ bndrs v2
+    bndrs _                 = []
+
 allBinders :: [Ident]    -- a,b,..z, a1, b1,... z1, a2, b2,...
 allBinders = [ identS [x]          | x <- ['a'..'z'] ] ++
              [ identS (x : show i) | i <- [1 :: Integer ..], x <- ['a'..'z']]
@@ -659,86 +693,40 @@ scopeTypes scope = zipWith (\(_,ty) scope -> (scope,ty)) scope (tails scope)
 
 -- | This function takes account of zonking, and returns a set
 -- (no duplicates) of unbound meta-type variables
-getMetaVars :: [(Scope s,Sigma s)] -> EvalM s [MetaId]
-getMetaVars sc_tys = do
-  tys <- mapM (\(scope,ty) -> zonkTerm =<< value2term (scopeVars scope) ty) sc_tys
-  return (foldr go [] tys)
+getMetaVars :: [(Scope s,Sigma s)] -> EvalM s [Thunk s]
+getMetaVars sc_tys = foldM (\acc (scope,ty) -> go ty acc) [] sc_tys
   where
-    -- Get the MetaIds from a term; no duplicates in result
-    go (Vr tv)    acc = acc
-    go (App x y)  acc = go x (go y acc)
-    go (Meta i)   acc
-      | i `elem` acc  = acc
-      | otherwise     = i : acc
-    go (Q _)      acc = acc
-    go (QC _)     acc = acc
-    go (Sort _)   acc = acc
-    go (Prod _ _ arg res) acc = go arg (go res acc)
-    go (Table p t) acc = go p (go t acc)
-    go (RecType rs) acc = foldl (\acc (l,ty) -> go ty acc) acc rs
-    go t acc = unimplemented ("go "++show t)
+    follow acc tnk = force tnk >>= \v -> go v acc
 
--- | This function takes account of zonking, and returns a set
--- (no duplicates) of free type variables
-getFreeVars :: [(Scope s,Sigma s)] -> EvalM s [Ident]
-getFreeVars sc_tys = do
-  tys <- mapM (\(scope,ty) -> zonkTerm =<< value2term (scopeVars scope) ty) sc_tys
-  return (foldr (go []) [] tys)
-  where
-    go bound (Vr tv)            acc
-      | tv `elem` bound             = acc
-      | tv `elem` acc               = acc
-      | otherwise                   = tv : acc
-    go bound (App x y)          acc = go bound x (go bound y acc)
-    go bound (Meta _)           acc = acc
-    go bound (Q _)              acc = acc
-    go bound (QC _)             acc = acc
-    go bound (Prod _ x arg res) acc = go bound arg (go (x : bound) res acc)
-    go bound (RecType rs) acc = foldl (\acc (l,ty) -> go bound ty acc) acc rs
-    go bound (Table p t)        acc = go bound p (go bound t acc)
+    -- Get the MetaIds from a term; no duplicates in result
+    go (VSort s)          acc = return acc
+    go (VInt _)           acc = return acc
+    go (VRecType as)      acc = foldM (\acc (lbl,v) -> go v acc) acc as
+    go (VClosure _ _)     acc = return acc
+    go (VProd b x v1 v2)  acc = go v2 acc >>= go v1
+    go (VTable v1 v2)     acc = go v2 acc >>= go v1
+    go (VMeta m env args) acc
+      | m `elem` acc          = return acc
+      | otherwise             = do res <- getRef m
+                                   case res of
+                                     Bound _ -> return acc
+                                     _       -> foldM follow (m:acc) args
+    go (VApp f args)      acc = foldM follow acc args
+    go v                  acc = unimplemented ("go "++showValue v)
 
 -- | Eliminate any substitutions in a term
 zonkTerm :: Term -> EvalM s Term
-zonkTerm (Meta i) = undefined {- do
-  mv <- getMeta i
-  case mv of
-    Unbound _ _ -> return (Meta i)
-    Bound t     -> do t <- zonkTerm t
-                      setMeta i (Bound t)       -- "Short out" multiple hops
-                      return t
+zonkTerm (Meta i) = do
+  tnk <- EvalM $ \gr k mt d r msgs -> 
+           case Map.lookup i mt of
+             Just v  -> k v mt d r msgs
+             Nothing -> return (Fail (pp "Undefined meta variable") msgs)
+  st <- getRef tnk
+  case st of
+    Hole _            -> return (Meta i)
+    Residuation _ _ _ -> return (Meta i)
+    Narrowing _ _     -> return (Meta i)
+    Bound t           -> do t <- zonkTerm t
+                            setRef tnk (Bound t)     -- "Short out" multiple hops
+                            return t
 zonkTerm t = composOp zonkTerm t
-
--}
-
-data TcA s x a
-  = TcSingle   (Grammar -> MetaThunks s -> [Message] -> ST s (CheckResult s a))
-  | TcMany [x] (Grammar -> MetaThunks s -> [Message] -> ST s [(a,MetaThunks s,[Message])])
-
-mkTcA :: Err [a] -> TcA s a a
-mkTcA f = undefined {- case f of
-            Bad msg -> TcSingle  (\gr ms msgs -> return (TcFail (pp msg : msgs)))
-            Ok  [x] -> TcSingle  (\gr ms msgs -> return (TcOk x ms msgs))
-            Ok  xs  -> TcMany xs (\gr ms msgs -> return [(x,ms,msgs) | x <- xs])
--}
-singleTcA :: EvalM s a -> TcA s x a
-singleTcA = undefined {- TcSingle . unTcM -}
-
-bindTcA :: TcA s x a -> (a -> EvalM s b) -> TcA s x b
-bindTcA f g = undefined {- case f of
-                TcSingle  f -> TcSingle (unTcM (EvalM f >>= g))
-                TcMany xs f -> TcMany xs (\gr ms msgs -> f gr ms msgs >>= foldM (add gr) [])
-  where
-    add gr rs (y,ms,msgs) = do
-      res <- unTcM (g y) gr ms msgs
-      case res of
-        Fail _ _       -> return rs
-        Success y msgs -> return ((y,ms,msgs):rs)
--}
-runTcA :: ([x] -> EvalM s a) -> (SourceGrammar -> TcA s x a) -> EvalM s a
-runTcA g f = undefined {- EvalM (\gr ms msgs -> case f gr of
-                                     TcMany xs f -> do rs <- f gr ms msgs
-                                                       case rs of
-                                                         [(x,ms,msgs)] -> return (Success x msgs)
-                                                         rs            -> unTcM (g xs) gr ms msgs
-                                     TcSingle f                        -> f gr ms msgs)
--}
