@@ -167,7 +167,6 @@ tcRho scope (Meta i) (Just ty) = do
   return (Meta i, ty)
 tcRho scope (Meta _) Nothing = do
   (_,tnk) <- newResiduation scope vtypeType
-  env <- scopeEnv scope
   let vty = VMeta tnk []
   (i,_) <- newResiduation scope vty
   return (Meta i, vty)
@@ -232,7 +231,6 @@ tcRho scope (Prod bt x ty1 ty2) mb_ty = do
   (ty2,ty2_ty) <- tcRho ((x,vty1):scope) ty2 (Just vtypeType)
   instSigma scope (Prod bt x ty1 ty2) vtypeType mb_ty
 tcRho scope (S t p) mb_ty = do
-  env <- scopeEnv scope
   let mk_val (_,tnk) = VMeta tnk []
   p_ty   <- fmap mk_val $ newResiduation scope vtypePType
   res_ty <- case mb_ty of
@@ -243,11 +241,11 @@ tcRho scope (S t p) mb_ty = do
   (p,_) <- tcRho scope p (Just p_ty)
   return (S t p, res_ty)
 tcRho scope (T tt ps) Nothing = do                           -- ABS1/AABS1 for tables
-  env <- scopeEnv scope
   let mk_val (_,tnk) = VMeta tnk []
   p_ty   <- case tt of
               TRaw      -> fmap mk_val $ newResiduation scope vtypePType
               TTyped ty -> do (ty, _) <- tcRho scope ty (Just vtypeType)
+                              env <- scopeEnv scope
                               eval env ty []
   (ps,mb_res_ty) <- tcCases scope ps p_ty Nothing
   res_ty <- case mb_res_ty of
@@ -261,10 +259,38 @@ tcRho scope (T tt ps) (Just ty) = do                         -- ABS2/AABS2 for t
   case tt of
     TRaw      -> return ()
     TTyped ty -> do (ty, _) <- tcRho scope ty (Just vtypeType)
-                    return ()--subsCheckRho ge scope -> Term ty res_ty
+                    env <- scopeEnv scope
+                    ty <- eval env ty []
+                    subsCheckRho scope (Meta 0) ty p_ty
+                    return ()
   (ps,Just res_ty) <- tcCases scope ps p_ty (Just res_ty)
-  p_ty_t <- value2term [] p_ty
+  p_ty_t <- value2term (scopeVars scope) p_ty
   return (f (T (TTyped p_ty_t) ps), VTable p_ty res_ty)
+tcRho scope (V p_ty ts) Nothing = do
+  (p_ty, _) <- tcRho scope p_ty (Just vtypeType)
+  case ts of
+    []     -> do (i,tnk) <- newResiduation scope vtypeType
+                 return (V p_ty [],VMeta tnk [])
+    (t:ts) -> do (t,ty) <- tcRho scope t Nothing
+
+                 let go []     ty = return ([],ty)
+                     go (t:ts) ty = do (t, ty) <- tcRho scope t (Just ty)
+                                       (ts,ty) <- go ts ty
+                                       return (t:ts,ty)
+
+                 (ts,ty) <- go ts ty
+                 env <- scopeEnv scope
+                 p_vty <- eval env p_ty []
+                 return (V p_ty (t:ts), VTable p_vty ty)
+tcRho scope (V p_ty0 ts) (Just ty) = do
+  (scope,f,ty') <- skolemise scope ty
+  (p_ty, res_ty) <- unifyTbl scope ty'
+  (p_ty0, _) <- tcRho scope p_ty0 (Just vtypeType)
+  env <- scopeEnv scope
+  p_vty0 <- eval env p_ty0 []
+  subsCheckRho scope (Meta 0) p_vty0 p_ty
+  ts <- mapM (\t -> fmap fst $ tcRho scope t (Just res_ty)) ts
+  return (V p_ty0 ts, VTable p_ty res_ty)
 tcRho scope (R rs) Nothing = do
   lttys <- inferRecFields scope rs
   rs <- mapM (\(l,t,ty) -> value2term (scopeVars scope) ty >>= \ty -> return (l, (Just ty, t))) lttys
@@ -331,8 +357,7 @@ tcRho scope (EPattType ty) mb_ty = do
   instSigma scope (EPattType ty) vtypeType mb_ty
 tcRho scope t@(EPatt min max p) mb_ty = do
   (scope,f,ty) <- case mb_ty of
-                    Nothing -> do env <- scopeEnv scope
-                                  (i,tnk) <- newResiduation scope vtypeType
+                    Nothing -> do (i,tnk) <- newResiduation scope vtypeType
                                   return (scope,id,VMeta tnk [])
                     Just ty -> do (scope,f,ty) <- skolemise scope ty
                                   case ty of
