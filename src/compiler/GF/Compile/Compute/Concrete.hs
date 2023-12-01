@@ -5,7 +5,7 @@
 module GF.Compile.Compute.Concrete
            ( normalForm
            , Value(..), Thunk, ThunkState(..), Env, Scope, showValue
-           , MetaThunks
+           , MetaThunks, Constraint
            , EvalM(..), runEvalM, runEvalOneM, evalError, evalWarn
            , eval, apply, force, value2term, patternMatch
            , newThunk, newEvaluatedThunk
@@ -49,13 +49,14 @@ normalForm gr t =
     mkFV ts  = FV ts
 
 type Sigma s = Value s
+type Constraint s = Value s
 
 data ThunkState s
   = Unevaluated (Env s) Term
   | Evaluated {-# UNPACK #-} !Int (Value s)
   | Hole        {-# UNPACK #-} !MetaId
   | Narrowing   {-# UNPACK #-} !MetaId Type
-  | Residuation {-# UNPACK #-} !MetaId (Scope s) (Sigma s)
+  | Residuation {-# UNPACK #-} !MetaId (Scope s) (Maybe (Constraint s))
 
 type Thunk s = STRef s (ThunkState s)
 type Env s = [(Ident,Thunk s)]
@@ -87,10 +88,14 @@ data Value s
   | VPattType (Value s)
   | VAlts (Value s) [(Value s, Value s)]
   | VStrs [Value s]
-    -- These last constructors are only generated internally
+    -- These two constructors are only used internally
     -- in the PMCFG generator.
   | VSymCat Int LIndex [(LIndex, (Thunk s, Type))]
   | VSymVar Int Int
+    -- These two constructors are only used internally
+    -- in the type checker.
+  | VCRecType [(Label, Bool, Constraint s)]
+  | VCInts (Maybe Integer) (Maybe Integer)
 
 
 showValue (VApp q tnks) = "(VApp "++unwords (show q : map (const "_") tnks) ++ ")"
@@ -505,13 +510,15 @@ value2term xs (VApp q tnks) =
 value2term xs (VMeta m vs) = do
   s <- getRef m
   case s of
-    Evaluated _ v     -> do v <- apply v vs
-                            value2term xs v
-    Unevaluated env t -> do v <- eval env t vs
-                            value2term xs v
-    Hole i            -> foldM (\e1 tnk -> fmap (App e1) (tnk2term xs tnk)) (Meta i) vs
-    Residuation i _ _ -> foldM (\e1 tnk -> fmap (App e1) (tnk2term xs tnk)) (Meta i) vs
-    Narrowing i _     -> foldM (\e1 tnk -> fmap (App e1) (tnk2term xs tnk)) (Meta i) vs
+    Evaluated _ v       -> do v <- apply v vs
+                              value2term xs v
+    Unevaluated env t   -> do v <- eval env t vs
+                              value2term xs v
+    Hole i              -> foldM (\e1 tnk -> fmap (App e1) (tnk2term xs tnk)) (Meta i) vs
+    Residuation i _ ctr -> case ctr of
+                             Just ctr -> value2term xs ctr
+                             Nothing  -> foldM (\e1 tnk -> fmap (App e1) (tnk2term xs tnk)) (Meta i) vs
+    Narrowing i _       -> foldM (\e1 tnk -> fmap (App e1) (tnk2term xs tnk)) (Meta i) vs
 value2term xs (VSusp j k vs) = do
   v <- k (VGen maxBound vs)
   value2term xs v
@@ -594,6 +601,11 @@ value2term xs (VAlts vd vas) = do
 value2term xs (VStrs vs) = do
   ts <- mapM (value2term xs) vs
   return (Strs ts)
+value2term xs (VCInts (Just i) Nothing) = return (App (Q (cPredef,cInts)) (EInt i))
+value2term xs (VCInts Nothing (Just j)) = return (App (Q (cPredef,cInts)) (EInt j))
+value2term xs (VCRecType lctrs) = do
+  ltys <- mapM (\(l,o,ctr) -> value2term xs ctr >>= \ty -> return (l,ty)) lctrs
+  return (RecType ltys)
 value2term xs v = error (showValue v)
 
 pattVars st (PP _ ps)    = foldM pattVars st ps
@@ -808,9 +820,9 @@ newHole i = EvalM $ \gr k mt d r msgs ->
            Nothing  -> do tnk <- newSTRef (Hole i)
                           k tnk (Map.insert i tnk mt) d r msgs
 
-newResiduation scope ty = EvalM $ \gr k mt d r msgs -> do
+newResiduation scope = EvalM $ \gr k mt d r msgs -> do
   let i = Map.size mt + 1
-  tnk <- newSTRef (Residuation i scope ty)
+  tnk <- newSTRef (Residuation i scope Nothing)
   k (i,tnk) (Map.insert i tnk mt) d r msgs
 
 newNarrowing ty = EvalM $ \gr k mt d r msgs -> do

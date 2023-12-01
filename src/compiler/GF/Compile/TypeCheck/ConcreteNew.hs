@@ -72,7 +72,7 @@ tcRho scope t@(App fun arg) mb_ty = do
   (t,ty) <- tcApp scope t t
   instSigma scope t ty mb_ty
 tcRho scope (Abs bt var body) Nothing = do                   -- ABS1
-  (i,tnk) <- newResiduation scope vtypeType
+  (i,tnk) <- newResiduation scope
   let arg_ty = VMeta tnk []
   (body,body_ty) <- tcRho ((var,arg_ty):scope) body Nothing
   let m = length scope
@@ -162,14 +162,13 @@ tcRho scope (Abs Explicit var body) (Just ty) = do           -- ABS3
                body_ty              -> return body_ty
   (body, body_ty) <- tcRho ((var,var_ty):scope) body (Just body_ty)
   return (f (Abs Explicit var body),ty)
-tcRho scope (Meta i) (Just ty) = do
-  (i,_) <- newResiduation scope ty
+tcRho scope (Meta _) mb_ty = do
+  (i,_) <- newResiduation scope
+  ty <- case mb_ty of
+          Just ty -> return ty
+          Nothing -> do (_,tnk) <- newResiduation scope
+                        return (VMeta tnk [])
   return (Meta i, ty)
-tcRho scope (Meta _) Nothing = do
-  (_,tnk) <- newResiduation scope vtypeType
-  let vty = VMeta tnk []
-  (i,_) <- newResiduation scope vty
-  return (Meta i, vty)
 tcRho scope (Let (var, (mb_ann_ty, rhs)) body) mb_ty = do    -- LET
   (rhs,var_ty) <- case mb_ann_ty of
                     Nothing     -> inferSigma scope rhs
@@ -189,18 +188,18 @@ tcRho scope (Typed body ann_ty) mb_ty = do                   -- ANNOT
   (res1,res2) <- instSigma scope (Typed body ann_ty) v_ann_ty mb_ty
   return (res1,res2)
 tcRho scope (FV ts) mb_ty = do
-  case ts of
-    []     -> do (i,tnk) <- newResiduation scope vtypeType
-                 instSigma scope (FV []) (VMeta tnk []) mb_ty
-    (t:ts) -> do (t,ty) <- tcRho scope t mb_ty
+  (ty,subsume) <-
+    case mb_ty of
+      Just ty -> do return (ty, \t ty' -> return t)
+      Nothing -> do (i,tnk) <- newResiduation scope
+                    let ty = VMeta tnk []
+                    return (ty, \t ty' -> subsCheckRho scope t ty' ty)
 
-                 let go []     ty = return ([],ty)
-                     go (t:ts) ty = do (t, ty) <- tcRho scope t (Just ty)
-                                       (ts,ty) <- go ts ty
-                                       return (t:ts,ty)
+  let go t = do (t, ty) <- tcRho scope t mb_ty
+                subsume t ty
 
-                 (ts,ty) <- go ts ty
-                 return (FV (t:ts), ty)
+  ts <- mapM go ts
+  return (FV ts, ty)
 tcRho scope t@(Sort s) mb_ty = do
   instSigma scope t vtypeType mb_ty
 tcRho scope t@(RecType rs) Nothing   = do
@@ -232,9 +231,9 @@ tcRho scope (Prod bt x ty1 ty2) mb_ty = do
   instSigma scope (Prod bt x ty1 ty2) vtypeType mb_ty
 tcRho scope (S t p) mb_ty = do
   let mk_val (_,tnk) = VMeta tnk []
-  p_ty   <- fmap mk_val $ newResiduation scope vtypePType
+  p_ty   <- fmap mk_val $ newResiduation scope
   res_ty <- case mb_ty of
-              Nothing -> fmap mk_val $ newResiduation scope vtypeType
+              Nothing -> fmap mk_val $ newResiduation scope
               Just ty -> return ty
   let t_ty = VTable p_ty res_ty
   (t,t_ty) <- tcRho scope t (Just t_ty)
@@ -243,14 +242,12 @@ tcRho scope (S t p) mb_ty = do
 tcRho scope (T tt ps) Nothing = do                           -- ABS1/AABS1 for tables
   let mk_val (_,tnk) = VMeta tnk []
   p_ty   <- case tt of
-              TRaw      -> fmap mk_val $ newResiduation scope vtypePType
+              TRaw      -> fmap mk_val $ newResiduation scope
               TTyped ty -> do (ty, _) <- tcRho scope ty (Just vtypeType)
                               env <- scopeEnv scope
                               eval env ty []
-  (ps,mb_res_ty) <- tcCases scope ps p_ty Nothing
-  res_ty <- case mb_res_ty of
-              Just res_ty -> return res_ty
-              Nothing     -> fmap mk_val $ newResiduation scope vtypeType
+  res_ty <- fmap mk_val $ newResiduation scope
+  ps <- tcCases scope ps p_ty res_ty
   p_ty_t <- value2term [] p_ty
   return (T (TTyped p_ty_t) ps, VTable p_ty res_ty)
 tcRho scope (T tt ps) (Just ty) = do                         -- ABS2/AABS2 for tables
@@ -261,34 +258,29 @@ tcRho scope (T tt ps) (Just ty) = do                         -- ABS2/AABS2 for t
     TTyped ty -> do (ty, _) <- tcRho scope ty (Just vtypeType)
                     env <- scopeEnv scope
                     ty <- eval env ty []
-                    subsCheckRho scope (Meta 0) ty p_ty
-                    return ()
-  (ps,Just res_ty) <- tcCases scope ps p_ty (Just res_ty)
+                    unify scope ty p_ty
+  ps <- tcCases scope ps p_ty res_ty
   p_ty_t <- value2term (scopeVars scope) p_ty
   return (f (T (TTyped p_ty_t) ps), VTable p_ty res_ty)
 tcRho scope (V p_ty ts) Nothing = do
   (p_ty, _) <- tcRho scope p_ty (Just vtypeType)
-  case ts of
-    []     -> do (i,tnk) <- newResiduation scope vtypeType
-                 return (V p_ty [],VMeta tnk [])
-    (t:ts) -> do (t,ty) <- tcRho scope t Nothing
+  (i,tnk) <- newResiduation scope
+  let res_ty = VMeta tnk []
 
-                 let go []     ty = return ([],ty)
-                     go (t:ts) ty = do (t, ty) <- tcRho scope t (Just ty)
-                                       (ts,ty) <- go ts ty
-                                       return (t:ts,ty)
+  let go t = do (t, ty) <- tcRho scope t Nothing
+                subsCheckRho scope t ty res_ty
 
-                 (ts,ty) <- go ts ty
-                 env <- scopeEnv scope
-                 p_vty <- eval env p_ty []
-                 return (V p_ty (t:ts), VTable p_vty ty)
+  ts <- mapM go ts
+  env <- scopeEnv scope
+  p_vty <- eval env p_ty []
+  return (V p_ty ts, VTable p_vty res_ty)
 tcRho scope (V p_ty0 ts) (Just ty) = do
   (scope,f,ty') <- skolemise scope ty
   (p_ty, res_ty) <- unifyTbl scope ty'
   (p_ty0, _) <- tcRho scope p_ty0 (Just vtypeType)
   env <- scopeEnv scope
   p_vty0 <- eval env p_ty0 []
-  subsCheckRho scope (Meta 0) p_vty0 p_ty
+  unify scope p_ty p_vty0
   ts <- mapM (\t -> fmap fst $ tcRho scope t (Just res_ty)) ts
   return (V p_ty0 ts, VTable p_ty res_ty)
 tcRho scope (R rs) Nothing = do
@@ -313,7 +305,7 @@ tcRho scope (R rs) (Just ty) = do
 tcRho scope (P t l) mb_ty = do
   l_ty   <- case mb_ty of
               Just ty -> return ty
-              Nothing -> do (i,tnk) <- newResiduation scope vtypeType
+              Nothing -> do (i,tnk) <- newResiduation scope
                             return (VMeta tnk [])
   (t,t_ty) <- tcRho scope t (Just (VRecType [(l,l_ty)]))
   return (P t l,l_ty)
@@ -357,7 +349,7 @@ tcRho scope (EPattType ty) mb_ty = do
   instSigma scope (EPattType ty) vtypeType mb_ty
 tcRho scope t@(EPatt min max p) mb_ty = do
   (scope,f,ty) <- case mb_ty of
-                    Nothing -> do (i,tnk) <- newResiduation scope vtypeType
+                    Nothing -> do (i,tnk) <- newResiduation scope
                                   return (scope,id,VMeta tnk [])
                     Just ty -> do (scope,f,ty) <- skolemise scope ty
                                   case ty of
@@ -367,12 +359,12 @@ tcRho scope t@(EPatt min max p) mb_ty = do
   return (f (EPatt min max p), ty)
 tcRho scope t _ = unimplemented ("tcRho "++show t)
 
-tcCases scope []         p_ty mb_res_ty = return ([],mb_res_ty)
-tcCases scope ((p,t):cs) p_ty mb_res_ty = do
+tcCases scope []         p_ty res_ty = return []
+tcCases scope ((p,t):cs) p_ty res_ty = do
   scope' <- tcPatt scope p p_ty
-  (t,res_ty)     <- tcRho scope' t mb_res_ty
-  (cs,mb_res_ty) <- tcCases scope cs p_ty (Just res_ty)
-  return ((p,t):cs,mb_res_ty)
+  (t,_)  <- tcRho scope' t (Just res_ty)
+  cs <- tcCases scope cs p_ty res_ty
+  return ((p,t):cs)
 
 tcApp scope t0 t@(App fun (ImplArg arg)) = do                  -- APP1
   (fun,fun_ty) <- tcApp scope t0 fun
@@ -430,7 +422,7 @@ tcPatt scope (PP c ps) ty0 = do
   return scope
 tcPatt scope (PInt i) ty0 = do
   ty <- vtypeInts i
-  subsCheckRho scope (EInt i) ty ty0
+  unify scope ty ty0
   return scope
 tcPatt scope (PString s) ty0 = do
   unify scope ty0 vtypeStr
@@ -447,7 +439,7 @@ tcPatt scope (PAs x p) ty0 = do
   tcPatt ((x,ty0):scope) p ty0
 tcPatt scope (PR rs) ty0 = do
   let mk_ltys  []            = return []
-      mk_ltys  ((l,p):rs)    = do (_,tnk) <- newResiduation scope vtypePType
+      mk_ltys  ((l,p):rs)    = do (_,tnk) <- newResiduation scope
                                   ltys <- mk_ltys rs
                                   return ((l,p,VMeta tnk []) : ltys)
       go scope []            = return scope
@@ -526,22 +518,53 @@ instSigma scope t ty1 (Just ty2) = do                       -- INST2
 
 -- | Invariant: the second argument is in weak-prenex form
 subsCheckRho :: Scope s -> Term -> Sigma s -> Rho s -> EvalM s Term
-subsCheckRho scope t ty1@(VMeta i vs) ty2 = do
-  mv <- getRef i
+subsCheckRho scope t (VMeta i vs1) (VMeta j vs2)
+  | i  == j   = do sequence_ (zipWith (unifyThunk scope) vs1 vs2)
+                   return t
+  | otherwise = do
+      mv <- getRef i
+      case mv of
+        Evaluated _ v1 -> do
+          v1 <- apply v1 vs1
+          subsCheckRho scope t v1 (VMeta j vs2)
+        Residuation _ scope1 _ -> do
+          mv <- getRef j
+          case mv of
+            Evaluated _ v2 -> do
+              v2 <- apply v2 vs2
+              subsCheckRho scope t (VMeta i vs1) v2
+            Residuation _ scope2 _
+              | m > n     -> do setRef i (Evaluated m (VMeta j vs2))
+                                return t
+              | otherwise -> do setRef j (Evaluated n (VMeta i vs2))
+                                return t
+              where
+                m = length scope1
+                n = length scope2
+subsCheckRho scope t ty1@(VMeta tnk vs) ty2 = do
+  mv <- getRef tnk
   case mv of
-    Residuation _ _ _ -> do unify scope ty1 ty2
-                            return t
-    Evaluated _ ty1   -> do ty1 <- apply ty1 vs
-                            subsCheckRho scope t ty1 ty2
-subsCheckRho scope t ty1 ty2@(VMeta i vs) = do
-  mv <- getRef i
+    Evaluated _ ty1 -> do
+      ty1 <- apply ty1 vs
+      subsCheckRho scope t ty1 ty2
+    Residuation i scope' ctr -> do
+      occursCheck scope' tnk scope ty2
+      ctr <- subtype scope ctr ty2
+      setRef tnk (Residuation i scope' (Just ctr))
+      return t
+subsCheckRho scope t ty1 ty2@(VMeta tnk vs) = do
+  mv <- getRef tnk
   case mv of
-    Residuation _ _ _ -> do unify scope ty1 ty2
-                            return t
-    Evaluated _ ty2   -> do ty2 <- apply ty2 vs
-                            subsCheckRho scope t ty1 ty2
+    Evaluated _ ty2 -> do
+      ty2 <- apply ty2 vs
+      subsCheckRho scope t ty1 ty2
+    Residuation i scope' ctr -> do
+      occursCheck scope' tnk scope ty1
+      ctr <- supertype scope ctr ty1
+      setRef tnk (Residuation i scope' (Just ctr))
+      return t
 subsCheckRho scope t (VProd Implicit x ty1 ty2) rho2 = do     -- Rule SPEC
-  (i,tnk) <- newResiduation scope ty1
+  (i,tnk) <- newResiduation scope
   ty2 <- case ty2 of
            VClosure env ty2 -> eval ((x,tnk):env) ty2 []
            ty2              -> return ty2
@@ -642,6 +665,59 @@ subsCheckTbl scope t p1 r1 p2 r2 = do
   p2 <- value2term (scopeVars scope) p2
   return (T (TTyped p2) [(PV x,t)])
 
+subtype scope Nothing (VApp p [tnk])
+  | p == (cPredef,cInts) = do
+      VInt i <- force tnk
+      return (VCInts Nothing (Just i))
+subtype scope (Just (VCInts i j)) (VApp p [tnk])
+  | p == (cPredef,cInts) = do
+      VInt k <- force tnk
+      return (VCInts j (Just (maybe k (min k) i)))
+subtype scope Nothing (VRecType ltys) = do
+  lctrs <- mapM (\(l,ty) -> supertype scope Nothing ty >>= \ctr -> return (l,True,ctr)) ltys
+  return (VCRecType lctrs)
+subtype scope (Just (VCRecType lctrs)) (VRecType ltys) = do
+  lctrs <- foldM (\lctrs (l,ty) -> union l ty lctrs) lctrs ltys
+  return (VCRecType lctrs)
+  where
+    union l ty [] = do ctr <- subtype scope Nothing ty
+                       return [(l,True,ctr)]
+    union l ty ((l',o,ctr):lctrs)
+      | l == l'   = do ctr <- subtype scope (Just ctr) ty
+                       return ((l,True,ctr):lctrs)
+      | otherwise = do lctrs <- union l ty lctrs
+                       return ((l',o,ctr):lctrs)
+subtype scope Nothing    ty = return ty
+subtype scope (Just ctr) ty = do
+  unify scope ctr ty
+  return ty
+
+supertype scope Nothing (VApp p [tnk])
+  | p == (cPredef,cInts) = do
+      VInt i <- force tnk
+      return (VCInts (Just i) Nothing)
+supertype scope (Just (VCInts i j)) (VApp p [tnk])
+  | p == (cPredef,cInts) = do
+      VInt k <- force tnk
+      return (VCInts (Just (maybe k (max k) i)) j)
+supertype scope Nothing (VRecType ltys) = do
+  lctrs <- mapM (\(l,ty) -> supertype scope Nothing ty >>= \ctr -> return (l,False,ctr)) ltys
+  return (VCRecType lctrs)
+supertype scope (Just (VCRecType lctrs)) (VRecType ltys) = do
+  lctrs <- foldM (\lctrs (l,o,ctr) -> intersect l o ctr lctrs ltys) [] lctrs
+  return (VCRecType lctrs)
+  where
+    intersect l o ctr lctrs [] = return lctrs
+    intersect l o ctr lctrs ((l',ty):ltys2)
+      | l == l'   = do ctr <- supertype scope (Just ctr) ty
+                       return ((l,o,ctr):lctrs)
+      | otherwise = do intersect l o ctr lctrs ltys2
+supertype scope Nothing    ty = return ty
+supertype scope (Just ctr) ty = do
+  unify scope ctr ty
+  return ty
+
+
 -----------------------------------------------------------------------
 -- Unification
 -----------------------------------------------------------------------
@@ -651,8 +727,8 @@ unifyFun scope (VProd bt x arg res) =
   return (bt,x,arg,res)
 unifyFun scope tau = do
   let mk_val (_,tnk) = VMeta tnk []
-  arg <- fmap mk_val $ newResiduation scope vtypeType
-  res <- fmap mk_val $ newResiduation scope vtypeType
+  arg <- fmap mk_val $ newResiduation scope
+  res <- fmap mk_val $ newResiduation scope
   let bt = Explicit
   unify scope tau (VProd bt identW arg res)
   return (bt,identW,arg,res)
@@ -662,20 +738,13 @@ unifyTbl scope (VTable arg res) =
   return (arg,res)
 unifyTbl scope tau = do
   let mk_val (i,tnk) = VMeta tnk []
-  arg <- fmap mk_val $ newResiduation scope vtypePType
-  res <- fmap mk_val $ newResiduation scope vtypeType
+  arg <- fmap mk_val $ newResiduation scope
+  res <- fmap mk_val $ newResiduation scope
   unify scope tau (VTable arg res)
   return (arg,res)
 
-unify scope (VApp f1 vs1)      (VApp f2 vs2)
-  | f1 == f2                   = sequence_ (zipWith (unifyThunk scope) vs1 vs2)
-unify scope (VSort s1)         (VSort s2)
-  | s1 == s2                   = return ()
-unify scope (VGen i vs1)       (VGen j vs2)
-  | i == j                     = sequence_ (zipWith (unifyThunk scope) vs1 vs2)
-unify scope (VTable p1 res1) (VTable p2 res2) = do
-  unify scope p1   p2
-  unify scope res1 res2
+unify scope (VApp f1 vs1) (VApp f2 vs2)
+  | f1 == f2  = sequence_ (zipWith (unifyThunk scope) vs1 vs2)
 unify scope (VMeta i vs1) (VMeta j vs2)
   | i  == j   = sequence_ (zipWith (unifyThunk scope) vs1 vs2)
   | otherwise = do 
@@ -696,10 +765,22 @@ unify scope (VMeta i vs1) (VMeta j vs2)
               where
                 m = length scope1
                 n = length scope2 
-unify scope (VInt i)       (VInt j)
-  | i == j                     = return ()
 unify scope (VMeta i vs) v = unifyVar scope i vs v
 unify scope v (VMeta i vs) = unifyVar scope i vs v
+unify scope (VGen i vs1)       (VGen j vs2)
+  | i == j                     = sequence_ (zipWith (unifyThunk scope) vs1 vs2)
+unify scope (VTable p1 res1) (VTable p2 res2) = do
+  unify scope p2   p1
+  unify scope res1 res2
+unify scope (VSort s1) (VSort s2)
+  | s1 == s2                   = return ()
+unify scope (VInt i)  (VInt j)
+  | i == j                     = return ()
+unify scope (VFlt x)  (VFlt y)
+  | x == y                     = return ()
+unify scope (VStr s1) (VStr s2)
+  | s1 == s2                   = return ()
+unify scope VEmpty VEmpty      = return ()
 unify scope v1 v2 = do
   t1 <- value2term (scopeVars scope) v1
   t2 <- value2term (scopeVars scope) v2
@@ -719,15 +800,18 @@ unifyVar scope tnk vs ty2 = do            -- Check whether i is bound
   case mv of
     Evaluated _ ty1        -> do ty1 <- apply ty1 vs
                                  unify scope ty1 ty2
-    Residuation i scope' _ -> do let m = length scope'
-                                     n = length scope
-                                 check m n ty2
-                                 setRef tnk (Evaluated m ty2)
+    Residuation i scope' _ -> do occursCheck scope' tnk scope ty2
+                                 setRef tnk (Evaluated (length scope') ty2)
+
+occursCheck scope' tnk scope v =
+  let m = length scope'
+      n = length scope
+  in check m n v
   where
     check m n (VApp f vs) = mapM_ (follow m n) vs
     check m n (VMeta i vs)
-      | tnk == i  = do ty1 <- value2term (scopeVars scope) (VMeta tnk vs)
-                       ty2 <- value2term (scopeVars scope) ty2
+      | tnk == i  = do ty1 <- value2term (scopeVars scope) (VMeta i vs)
+                       ty2 <- value2term (scopeVars scope) v
                        evalError ("Occurs check for" <+> ppTerm Unqualified 0 ty1 <+> "in:" $$
                                   nest 2 (ppTerm Unqualified 0 ty2))
       | otherwise = do
@@ -793,7 +877,7 @@ unifyVar scope tnk vs ty2 = do            -- Check whether i is bound
 -- | Instantiate the topmost implicit arguments with metavariables
 instantiate :: Scope s -> Term -> Sigma s -> EvalM s (Term,Rho s)
 instantiate scope t (VProd Implicit x ty1 ty2) = do
-  (i,tnk) <- newResiduation scope ty1
+  (i,tnk) <- newResiduation scope
   ty2 <- case ty2 of
            VClosure env ty2 -> eval ((x,tnk):env) ty2 []
            ty2              -> return ty2
@@ -976,8 +1060,9 @@ getMetaVars sc_tys = foldM (\acc (scope,ty) -> go ty acc) [] sc_tys
       | m `elem` acc         = return acc
       | otherwise            = do res <- getRef m
                                   case res of
-                                    Evaluated _ v -> go v acc
-                                    _             -> foldM follow (m:acc) args
+                                    Evaluated _ v           -> go v acc
+                                    Residuation _ _ Nothing -> foldM follow (m:acc) args
+                                    _                       -> return acc
     go (VApp f args)     acc = foldM follow acc args
     go v                 acc = unimplemented ("go "++showValue v)
 
