@@ -1,22 +1,26 @@
-{-# LANGUAGE RankNTypes, CPP #-}
+{-# LANGUAGE RankNTypes, BangPatterns, CPP #-}
 
 -- | Functions for computing the values of terms in the concrete syntax, in
 -- | preparation for PMCFG generation.
 module GF.Compile.Compute.Concrete
            ( normalForm
-           , Value(..), Thunk, ThunkState(..), Env, showValue
-           , EvalM, runEvalM, evalError
+           , Value(..), Thunk, ThunkState(..), Env, Scope, showValue
+           , MetaThunks, Constraint
+           , EvalM(..), runEvalM, runEvalOneM, evalError, evalWarn
            , eval, apply, force, value2term, patternMatch
            , newThunk, newEvaluatedThunk
            , newResiduation, newNarrowing, getVariables
-           , getRef
-           , getResDef, getInfo, getAllParamValues
+           , getRef, setRef
+           , getResDef, getInfo, getResType, getOverload
+           , getAllParamValues
            ) where
 
 import Prelude hiding ((<>)) -- GHC 8.4.1 clash with Text.PrettyPrint
 
 import GF.Grammar hiding (Env, VGen, VApp, VRecType)
-import GF.Grammar.Lookup(lookupResDef,lookupOrigInfo,allParamValues)
+import GF.Grammar.Lookup(lookupResDef,lookupResType,
+                         lookupOrigInfo,lookupOverloadTypes,
+                         allParamValues)
 import GF.Grammar.Predef
 import GF.Grammar.Lockfield(lockLabel)
 import GF.Grammar.Printer
@@ -44,20 +48,24 @@ normalForm gr t =
     mkFV [t] = t
     mkFV ts  = FV ts
 
+type Sigma s = Value s
+type Constraint s = Value s
 
 data ThunkState s
   = Unevaluated (Env s) Term
-  | Evaluated (Value s)
-  | Residuation {-# UNPACK #-} !MetaId
+  | Evaluated {-# UNPACK #-} !Int (Value s)
+  | Hole        {-# UNPACK #-} !MetaId
   | Narrowing   {-# UNPACK #-} !MetaId Type
+  | Residuation {-# UNPACK #-} !MetaId (Scope s) (Maybe (Constraint s))
 
 type Thunk s = STRef s (ThunkState s)
 type Env s = [(Ident,Thunk s)]
+type Scope s = [(Ident,Value s)]
 
 data Value s
   = VApp QIdent [Thunk s]
-  | VMeta (Thunk s) (Env s) [Thunk s]
-  | VSusp (Thunk s) (Env s) (Value s -> EvalM s (Value s)) [Thunk s]
+  | VMeta (Thunk s) [Thunk s]
+  | VSusp (Thunk s) (Value s -> EvalM s (Value s)) [Thunk s]
   | VGen  {-# UNPACK #-} !Int [Thunk s]
   | VClosure (Env s) Term
   | VProd BindType Ident (Value s) (Value s)
@@ -80,27 +88,31 @@ data Value s
   | VPattType (Value s)
   | VAlts (Value s) [(Value s, Value s)]
   | VStrs [Value s]
-    -- These last constructors are only generated internally
+    -- These two constructors are only used internally
     -- in the PMCFG generator.
   | VSymCat Int LIndex [(LIndex, (Thunk s, Type))]
   | VSymVar Int Int
+    -- These two constructors are only used internally
+    -- in the type checker.
+  | VCRecType [(Label, Bool, Constraint s)]
+  | VCInts (Maybe Integer) (Maybe Integer)
 
 
 showValue (VApp q tnks) = "(VApp "++unwords (show q : map (const "_") tnks) ++ ")"
-showValue (VMeta _ _ _) = "VMeta"
-showValue (VSusp _ _ _ _) = "VSusp"
-showValue (VGen _ _) = "VGen"
+showValue (VMeta _ _) = "VMeta"
+showValue (VSusp _ _ _) = "VSusp"
+showValue (VGen i _) = "(VGen "++show i++")"
 showValue (VClosure _ _) = "VClosure"
-showValue (VProd _ _ _ _) = "VProd"
+showValue (VProd _ x v1 v2) = "VProd ("++show x++") ("++showValue v1++") ("++showValue v2++")"
 showValue (VRecType _) = "VRecType"
 showValue (VR lbls) = "(VR {"++unwords (map (\(lbl,_) -> show lbl) lbls)++"})"
 showValue (VP v l _) = "(VP "++showValue v++" "++show l++")"
 showValue (VExtR _ _) = "VExtR"
-showValue (VTable _ _) = "VTable"
+showValue (VTable v1 v2) = "VTable ("++showValue v1++") ("++showValue v2++")"
 showValue (VT _ _ cs) = "(VT "++show cs++")"
 showValue (VV _ _) = "VV"
 showValue (VS v _ _) = "(VS "++showValue v++")"
-showValue (VSort _) = "VSort"
+showValue (VSort s) = "(VSort "++show s++")"
 showValue (VInt _) = "VInt"
 showValue (VFlt _) = "VFlt"
 showValue (VStr s) = "(VStr "++show s++")"
@@ -113,11 +125,18 @@ showValue (VAlts _ _) = "VAlts"
 showValue (VStrs _) = "VStrs"
 showValue (VSymCat _ _ _) = "VSymCat"
 
-eval env (Vr x)         vs  = case lookup x env of
-                                Just tnk -> do v <- force tnk
-                                               apply v vs
-                                Nothing  -> evalError ("Variable" <+> pp x <+> "is not in scope")
-eval env (Sort s)       []  = return (VSort s)
+eval env (Vr x)         vs  = do (tnk,depth) <- lookup x env
+                                 withVar depth $ do
+                                   v <- force tnk
+                                   apply v vs
+                              where
+                                lookup x []   = evalError ("Variable" <+> pp x <+> "is not in scope")
+                                lookup x ((y,tnk):env)
+                                  | x == y    = return (tnk,length env)
+                                  | otherwise = lookup x env
+eval env (Sort s)       []
+  | s == cTok               = return (VSort cStr)
+  | otherwise               = return (VSort s)
 eval env (EInt n)       []  = return (VInt n)
 eval env (EFloat d)     []  = return (VFlt d)
 eval env (K t)          []  = return (VStr t)
@@ -126,8 +145,8 @@ eval env (App t1 t2)    vs  = do tnk <- newThunk env t2
                                  eval env t1 (tnk : vs)
 eval env (Abs b x t)    []  = return (VClosure env (Abs b x t))
 eval env (Abs b x t) (v:vs) = eval ((x,v):env) t vs
-eval env (Meta i)       vs  = do tnk <- newResiduation i
-                                 return (VMeta tnk env vs)
+eval env (Meta i)       vs  = do tnk <- newHole i
+                                 return (VMeta tnk vs)
 eval env (ImplArg t)    []  = eval env t []
 eval env (Prod b x t1 t2)[] = do v1 <- eval env t1 []
                                  return (VProd b x v1 (VClosure env t2))
@@ -241,8 +260,8 @@ eval env (TSymCat d r rs) []= do rs <- forM rs $ \(i,(pv,ty)) ->
 eval env (TSymVar d r)  []  = do return (VSymVar d r)
 eval env t              vs  = evalError ("Cannot reduce term" <+> pp t)
 
-apply (VMeta m env vs0)             vs  = return (VMeta m env   (vs0++vs))
-apply (VSusp m env k vs0)           vs  = return (VSusp m env k (vs0++vs))
+apply (VMeta m vs0)                 vs  = return (VMeta m   (vs0++vs))
+apply (VSusp m k vs0)               vs  = return (VSusp m k (vs0++vs))
 apply (VApp f  vs0)                 vs  = return (VApp f (vs0++vs))
 apply (VGen i  vs0)                 vs  = return (VGen i (vs0++vs))
 apply (VClosure env (Abs b x t)) (v:vs) = eval ((x,v):env) t vs
@@ -330,9 +349,9 @@ patternMatch v0 ((env0,ps,args0,t):eqs) = match env0 ps eqs args0
 
     match' env p ps eqs arg v args = do
       case (p,v) of
-        (p,       VMeta i envi   vs) -> susp i envi (\v -> apply v vs >>= \v -> match' env p ps eqs arg v args)
-        (p,       VGen  i vs       ) -> return v0
-        (p,       VSusp i envi k vs) -> susp i envi (\v -> k v >>= \v -> apply v vs >>= \v -> match' env p ps eqs arg v args)
+        (p,       VMeta i   vs) -> susp i (\v -> apply v vs >>= \v -> match' env p ps eqs arg v args)
+        (p,       VGen  i   vs) -> return v0
+        (p,       VSusp i k vs) -> susp i (\v -> k v >>= \v -> apply v vs >>= \v -> match' env p ps eqs arg v args)
         (PP q qs, VApp r tnks)
           | q == r        -> match env (qs++ps) eqs (tnks++args)
         (PR pas, VR as)   -> matchRec env (reverse pas) as ps eqs args
@@ -428,41 +447,41 @@ vtableSelect v0 ty tnks tnk2 vs = do
           return (r*cnt'+r',cnt*cnt')
     value2index (VInt n)          ty
       | Just max <- isTypeInts ty    = return (fromIntegral n,fromIntegral max+1)
-    value2index (VMeta i envi vs) ty = do
-      v <- susp i envi (\v -> apply v vs)
+    value2index (VMeta i vs) ty = do
+      v <- susp i (\v -> apply v vs)
       value2index v ty
-    value2index (VSusp i envi k vs) ty = do
-      v <- susp i envi (\v -> k v >>= \v -> apply v vs)
+    value2index (VSusp i k vs) ty = do
+      v <- susp i (\v -> k v >>= \v -> apply v vs)
       value2index v ty
     value2index v ty = do t <- value2term [] v
                           evalError ("the parameter:" <+> ppTerm Unqualified 0 t $$
                                      "cannot be evaluated at compile time.")
 
 
-susp i env ki = EvalM $ \gr k mt r -> do
+susp i ki = EvalM $ \gr k mt d r msgs -> do
   s <- readSTRef i
   case s of
     Narrowing id (QC q) -> case lookupOrigInfo gr q of
-                             Ok (m,ResParam (Just (L _ ps)) _) -> bindParam gr k mt r s m ps
-                             Bad msg -> return (Fail (pp msg))
+                             Ok (m,ResParam (Just (L _ ps)) _) -> bindParam gr k mt d r msgs s m ps
+                             Bad msg -> return (Fail (pp msg) msgs)
     Narrowing id ty
       | Just max <- isTypeInts ty
-                        -> bindInt gr k mt r s 0 max
-    Evaluated v         -> case ki v of
-                             EvalM f -> f gr k mt r
-    _                   -> k (VSusp i env ki []) mt r
+                        -> bindInt gr k mt d r msgs s 0 max
+    Evaluated _ v       -> case ki v of
+                             EvalM f -> f gr k mt d r msgs
+    _                   -> k (VSusp i ki []) mt d r msgs
   where
-    bindParam gr k mt r s m []             = return (Success r)
-    bindParam gr k mt r s m ((p, ctxt):ps) = do
+    bindParam gr k mt d r msgs s m []             = return (Success r msgs)
+    bindParam gr k mt d r msgs s m ((p, ctxt):ps) = do
       (mt',tnks) <- mkArgs mt ctxt
       let v = VApp (m,p) tnks
-      writeSTRef i (Evaluated v)
+      writeSTRef i (Evaluated 0 v)
       res <- case ki v of
-               EvalM f -> f gr k mt' r
+               EvalM f -> f gr k mt' d r msgs
       writeSTRef i s
       case res of
-        Fail msg  -> return (Fail msg)
-        Success r -> bindParam gr k mt r s m ps
+        Fail msg  msgs -> return (Fail msg msgs)
+        Success r msgs -> bindParam gr k mt d r msgs s m ps
 
     mkArgs mt []              = return (mt,[])
     mkArgs mt ((_,_,ty):ctxt) = do
@@ -473,56 +492,67 @@ susp i env ki = EvalM $ \gr k mt r -> do
       (mt,tnks) <- mkArgs (Map.insert i tnk mt) ctxt
       return (mt,tnk:tnks)
 
-    bindInt gr k mt r s iv max
+    bindInt gr k mt d r msgs s iv max
       | iv <= max = do
          let v = VInt iv
-         writeSTRef i (Evaluated v)
+         writeSTRef i (Evaluated 0 v)
          res <- case ki v of
-                  EvalM f -> f gr k mt r
+                  EvalM f -> f gr k mt d r msgs
          writeSTRef i s
          case res of
-           Fail msg  -> return (Fail msg)
-           Success r -> bindInt gr k mt r s (iv+1) max
-      | otherwise = return (Success r)
+           Fail msg  msgs -> return (Fail msg msgs)
+           Success r msgs -> bindInt gr k mt d r msgs s (iv+1) max
+      | otherwise = return (Success r msgs)
 
 
 value2term xs (VApp q tnks) =
-  foldM (\e1 tnk -> fmap (App e1) (force tnk >>= value2term xs)) (if fst q == cPredef then Q q else QC q) tnks
-value2term xs (VMeta m env tnks) = do
-  res <- zonk m tnks
-  case res of
-    Right i -> foldM (\e1 tnk -> fmap (App e1) (force tnk >>= value2term xs)) (Meta i) tnks
-    Left  v -> value2term xs v
-value2term xs (VSusp j env k vs) = do
+  foldM (\e1 tnk -> fmap (App e1) (tnk2term xs tnk)) (if fst q == cPredef then Q q else QC q) tnks
+value2term xs (VMeta m vs) = do
+  s <- getRef m
+  case s of
+    Evaluated _ v       -> do v <- apply v vs
+                              value2term xs v
+    Unevaluated env t   -> do v <- eval env t vs
+                              value2term xs v
+    Hole i              -> foldM (\e1 tnk -> fmap (App e1) (tnk2term xs tnk)) (Meta i) vs
+    Residuation i _ ctr -> case ctr of
+                             Just ctr -> value2term xs ctr
+                             Nothing  -> foldM (\e1 tnk -> fmap (App e1) (tnk2term xs tnk)) (Meta i) vs
+    Narrowing i _       -> foldM (\e1 tnk -> fmap (App e1) (tnk2term xs tnk)) (Meta i) vs
+value2term xs (VSusp j k vs) = do
   v <- k (VGen maxBound vs)
   value2term xs v
 value2term xs (VGen j tnks) =
-  foldM (\e1 tnk -> fmap (App e1) (force tnk >>= value2term xs)) (Vr (reverse xs !! j)) tnks
+  foldM (\e1 tnk -> fmap (App e1) (tnk2term xs tnk)) (Vr (reverse xs !! j)) tnks
 value2term xs (VClosure env (Abs b x t)) = do
   tnk <- newEvaluatedThunk (VGen (length xs) [])
   v <- eval ((x,tnk):env) t []
   let x' = mkFreshVar xs x
   t <- value2term (x':xs) v
   return (Abs b x' t)
-value2term xs (VProd b x v1 (VClosure env t2))
+value2term xs (VProd b x v1 v2)
   | x == identW = do t1 <- value2term xs v1
-                     v2 <- eval env t2 []
+                     v2 <- case v2 of
+                             VClosure env t2 -> eval env t2 []
+                             v2              -> return v2
                      t2 <- value2term xs v2
                      return (Prod b x t1 t2)
   | otherwise   = do t1 <- value2term xs v1
                      tnk <- newEvaluatedThunk (VGen (length xs) [])
-                     v2 <- eval ((x,tnk):env) t2 []
+                     v2 <- case v2 of
+                             VClosure env t2 -> eval ((x,tnk):env) t2 []
+                             v2              -> return v2
                      t2 <- value2term (x:xs) v2
                      return (Prod b (mkFreshVar xs x) t1 t2)
 value2term xs (VRecType lbls) = do
   lbls <- mapM (\(lbl,v) -> fmap ((,) lbl) (value2term xs v)) lbls
   return (RecType lbls)
 value2term xs (VR as) = do
-  as <- mapM (\(lbl,tnk) -> fmap (\t -> (lbl,(Nothing,t))) (force tnk >>= value2term xs)) as
+  as <- mapM (\(lbl,tnk) -> fmap (\t -> (lbl,(Nothing,t))) (tnk2term xs tnk)) as
   return (R as)
 value2term xs (VP v lbl tnks) = do
   t <- value2term xs v
-  foldM (\e1 tnk -> fmap (App e1) (force tnk >>= value2term xs)) (P t lbl) tnks
+  foldM (\e1 tnk -> fmap (App e1) (tnk2term xs tnk)) (P t lbl) tnks
 value2term xs (VExtR v1 v2) = do
   t1 <- value2term xs v1
   t2 <- value2term xs v2
@@ -540,11 +570,11 @@ value2term xs (VT vty env cs)= do
           return (p,t)
   return (T (TTyped ty) cs)
 value2term xs (VV vty tnks)= do ty <- value2term xs vty
-                                ts <- mapM (\tnk -> force tnk >>= value2term xs) tnks
+                                ts <- mapM (tnk2term xs) tnks
                                 return (V ty ts)
 value2term xs (VS v1 tnk2 tnks) = do t1 <- value2term xs v1
-                                     t2 <- force tnk2 >>= value2term xs
-                                     foldM (\e1 tnk -> fmap (App e1) (force tnk >>= value2term xs)) (S t1 t2) tnks
+                                     t2 <- tnk2term xs tnk2
+                                     foldM (\e1 tnk -> fmap (App e1) (tnk2term xs tnk)) (S t1 t2) tnks
 value2term xs (VSort s) = return (Sort s)
 value2term xs (VStr tok) = return (K tok)
 value2term xs (VInt n) = return (EInt n)
@@ -571,6 +601,12 @@ value2term xs (VAlts vd vas) = do
 value2term xs (VStrs vs) = do
   ts <- mapM (value2term xs) vs
   return (Strs ts)
+value2term xs (VCInts (Just i) Nothing) = return (App (Q (cPredef,cInts)) (EInt i))
+value2term xs (VCInts Nothing (Just j)) = return (App (Q (cPredef,cInts)) (EInt j))
+value2term xs (VCRecType lctrs) = do
+  ltys <- mapM (\(l,o,ctr) -> value2term xs ctr >>= \ty -> return (l,ty)) lctrs
+  return (RecType ltys)
+value2term xs v = error (showValue v)
 
 pattVars st (PP _ ps)    = foldM pattVars st ps
 pattVars st (PV x)       = case st of
@@ -675,7 +711,7 @@ value2int _        = RunTime
 -- * Evaluation monad
 
 type MetaThunks s = Map.Map MetaId (Thunk s)
-type Cont s r = MetaThunks s -> r -> ST s (CheckResult r)
+type Cont s r = MetaThunks s -> Int -> r -> [Message] -> ST s (CheckResult r [Message])
 newtype EvalM s a = EvalM (forall r . Grammar -> (a -> Cont s r) -> Cont s r)
 
 instance Functor (EvalM s) where
@@ -694,76 +730,114 @@ instance Monad (EvalM s) where
 #endif
 
 instance Fail.MonadFail (EvalM s) where
-  fail msg = EvalM (\gr k _ r -> return (Fail (pp msg)))
+  fail msg = EvalM (\gr k _ _ r msgs -> return (Fail (pp msg) msgs))
 
 instance Alternative (EvalM s) where
-  empty = EvalM (\gr k _ r -> return (Success r))
-  (EvalM f) <|> (EvalM g) = EvalM $ \gr k mt r -> do
-     res <- f gr k mt r
+  empty = EvalM (\gr k _ _ r msgs -> return (Success r msgs))
+  (EvalM f) <|> (EvalM g) = EvalM $ \gr k mt b r msgs -> do
+     res <- f gr k mt b r msgs
      case res of
-       Fail msg  -> return (Fail msg)
-       Success r -> g gr k mt r
+       Fail msg  msgs -> return (Fail msg msgs)
+       Success r msgs -> g gr k mt b r msgs
 
 instance MonadPlus (EvalM s) where
 
 runEvalM :: Grammar -> (forall s . EvalM s a) -> Check [a]
-runEvalM gr f =
+runEvalM gr f = Check $ \(es,ws) ->
   case runST (case f of
-                EvalM f -> f gr (\x mt xs -> return (Success (x:xs))) Map.empty []) of
-    Fail msg   -> checkError msg
-    Success xs -> return (reverse xs)
+                EvalM f -> f gr (\x mt _ xs ws -> return (Success (x:xs) ws)) Map.empty maxBound [] ws) of
+    Fail msg   ws -> Fail msg (es,ws)
+    Success xs ws -> Success (reverse xs) (es,ws)
 
-evalError :: Doc -> EvalM s a
-evalError msg = EvalM (\gr k _ r -> return (Fail msg))
+runEvalOneM :: Grammar -> (forall s . EvalM s a) -> Check a
+runEvalOneM gr f = Check $ \(es,ws) ->
+  case runST (case f of
+                EvalM f -> f gr (\x mt _ xs ws -> return (Success (x:xs) ws)) Map.empty maxBound [] ws) of
+    Fail msg      ws -> Fail msg (es,ws)
+    Success []    ws -> Fail (pp "The evaluation produced no results") (es,ws)
+    Success (x:_) ws -> Success x (es,ws)
+
+evalError :: Message -> EvalM s a
+evalError msg = EvalM (\gr k _ _ r msgs -> return (Fail msg msgs))
   
+evalWarn :: Message -> EvalM s ()
+evalWarn msg = EvalM (\gr k mt d r msgs -> k () mt d r (msg:msgs))
+
 getResDef :: QIdent -> EvalM s Term
-getResDef q = EvalM $ \gr k mt r -> do
+getResDef q = EvalM $ \gr k mt d r msgs -> do
   case lookupResDef gr q of
-    Ok t    -> k t mt r
-    Bad msg -> return (Fail (pp msg))
+    Ok t    -> k t mt d r msgs
+    Bad msg -> return (Fail (pp msg) msgs)
 
 getInfo :: QIdent -> EvalM s (ModuleName,Info)
-getInfo q = EvalM $ \gr k mt r -> do
+getInfo q = EvalM $ \gr k mt d r msgs -> do
   case lookupOrigInfo gr q of
-    Ok res  -> k res mt r
-    Bad msg -> return (Fail (pp msg))
+    Ok res  -> k res mt d r msgs
+    Bad msg -> return (Fail (pp msg) msgs)
+
+getResType :: QIdent -> EvalM s Type
+getResType q = EvalM $ \gr k mt d r msgs -> do
+  case lookupResType gr q of
+    Ok t    -> k t mt d r msgs
+    Bad msg -> return (Fail (pp msg) msgs)
+
+getOverload :: Term -> QIdent -> EvalM s (Term,Type)
+getOverload t q = EvalM $ \gr k mt d r msgs -> do
+  case lookupOverloadTypes gr q of
+    Ok ttys -> let err = "Overload resolution failed" $$
+                         "of term   " <+> pp t $$
+                         "with types" <+> vcat [ppTerm Terse 0 ty | (_,ty) <- ttys]
+
+                   go []         = return (Fail err msgs)
+                   go (tty:ttys) = do res <- k tty mt d r msgs
+                                      case res of
+                                        Fail _ _       -> return res -- go ttys
+                                        Success r msgs -> return (Success r msgs)
+
+               in go ttys
+    Bad msg -> return (Fail (pp msg) msgs)
 
 getAllParamValues :: Type -> EvalM s [Term]
-getAllParamValues ty = EvalM $ \gr k mt r ->
+getAllParamValues ty = EvalM $ \gr k mt d r msgs ->
   case allParamValues gr ty of
-    Ok ts   -> k ts mt r
-    Bad msg -> return (Fail (pp msg))
+    Ok ts   -> k ts mt d r msgs
+    Bad msg -> return (Fail (pp msg) msgs)
 
-newThunk env t = EvalM $ \gr k mt r -> do
+newThunk env t = EvalM $ \gr k mt d r msgs -> do
  tnk <- newSTRef (Unevaluated env t)
- k tnk mt r
+ k tnk mt d r msgs
 
-newEvaluatedThunk v = EvalM $ \gr k mt r -> do
- tnk <- newSTRef (Evaluated v)
- k tnk mt r
+newEvaluatedThunk v = EvalM $ \gr k mt d r msgs -> do
+ tnk <- newSTRef (Evaluated maxBound v)
+ k tnk mt d r msgs
 
-newResiduation i = EvalM $ \gr k mt r ->
+newHole i = EvalM $ \gr k mt d r msgs ->
   if i == 0
-    then do tnk <- newSTRef (Residuation i)
-            k tnk mt r
+    then do tnk <- newSTRef (Hole i)
+            k tnk mt d r msgs
     else case Map.lookup i mt of
-           Just tnk -> k tnk mt r
-           Nothing  -> do tnk <- newSTRef (Residuation i)
-                          k tnk (Map.insert i tnk mt) r
+           Just tnk -> k tnk mt d r msgs
+           Nothing  -> do tnk <- newSTRef (Hole i)
+                          k tnk (Map.insert i tnk mt) d r msgs
 
-newNarrowing i ty = EvalM $ \gr k mt r ->
-  if i == 0
-    then do tnk <- newSTRef (Narrowing i ty)
-            k tnk mt r
-    else case Map.lookup i mt of
-           Just tnk -> k tnk mt r
-           Nothing  -> do tnk <- newSTRef (Narrowing i ty)
-                          k tnk (Map.insert i tnk mt) r
+newResiduation scope = EvalM $ \gr k mt d r msgs -> do
+  let i = Map.size mt + 1
+  tnk <- newSTRef (Residuation i scope Nothing)
+  k (i,tnk) (Map.insert i tnk mt) d r msgs
+
+newNarrowing ty = EvalM $ \gr k mt d r msgs -> do
+  let i = Map.size mt + 1
+  tnk <- newSTRef (Narrowing i ty)
+  k (i,tnk) (Map.insert i tnk mt) d r msgs
+
+withVar d0 (EvalM f) = EvalM $ \gr k mt d1 r msgs ->
+                                  let !d = min d0 d1
+                                  in f gr k mt d r msgs
 
 getVariables :: EvalM s [(LVar,LIndex)]
-getVariables = EvalM $ \gr k mt r -> do
+getVariables = EvalM $ \gr k mt d ws r -> do
   ps <- metas2params gr (Map.elems mt)
-  k ps mt r
+  k ps mt d ws r
   where
     metas2params gr []         = return []
     metas2params gr (tnk:tnks) = do
@@ -778,24 +852,63 @@ getVariables = EvalM $ \gr k mt r -> do
                                else return params
         _              -> metas2params gr tnks
 
-getRef tnk = EvalM $ \gr k mt r -> readSTRef tnk >>= \st -> k st mt r
+getRef tnk = EvalM $ \gr k mt d r msgs -> readSTRef tnk >>= \st -> k st mt d r msgs
+setRef tnk st = EvalM $ \gr k mt d r msgs -> do
+  old <- readSTRef tnk
+  writeSTRef tnk st
+  res <- k () mt d r msgs
+  writeSTRef tnk old
+  return res
 
-force tnk = EvalM $ \gr k mt r -> do 
+force tnk = EvalM $ \gr k mt d r msgs -> do
   s <- readSTRef tnk
   case s of
     Unevaluated env t -> case eval env t [] of
-                           EvalM f -> f gr (\v mt r -> do writeSTRef tnk (Evaluated v)
-                                                          r <- k v mt r
-                                                          writeSTRef tnk s
-                                                          return r) mt r
-    Evaluated v       -> k v mt r
-    Residuation _     -> k (VMeta tnk [] []) mt r
-    Narrowing _ _     -> k (VMeta tnk [] []) mt r
+                           EvalM f -> f gr (\v mt b r msgs -> do let d = length env
+                                                                 writeSTRef tnk (Evaluated d v)
+                                                                 r <- k v mt d r msgs
+                                                                 writeSTRef tnk s
+                                                                 return r) mt d r msgs
+    Evaluated d v     -> k v mt d r msgs
+    Hole _            -> k (VMeta tnk []) mt d r msgs
+    Residuation _ _ _ -> k (VMeta tnk []) mt d r msgs
+    Narrowing _ _     -> k (VMeta tnk []) mt d r msgs
 
-zonk tnk vs = EvalM $ \gr k mt r -> do
-  s <- readSTRef tnk
-  case s of
-    Evaluated v   -> case apply v vs of
-                       EvalM f -> f gr (k . Left) mt r
-    Residuation i -> k (Right i) mt r
-    Narrowing i _ -> k (Right i) mt r
+tnk2term xs tnk = EvalM $ \gr k mt d r msgs ->
+  let join f g = do res <- f
+                    case res of
+                      Fail msg  msgs -> return (Fail msg msgs)
+                      Success r msgs -> g r msgs
+
+      flush []  k1 mt r msgs = k1 mt r msgs
+      flush [x] k1 mt r msgs = join (k x mt d r msgs) (k1 mt)
+      flush xs  k1 mt r msgs = join (k (FV (reverse xs)) mt d r msgs) (k1 mt)
+
+      acc d0 x mt d (r,!c,xs) msgs
+        | d < d0    = flush xs (\mt r msgs -> join (k x mt d r msgs) (\r msgs -> return (Success (r,c+1,[]) msgs))) mt r msgs
+        | otherwise = return (Success (r,c+1,x:xs) msgs)
+
+  in do s <- readSTRef tnk
+        case s of
+          Unevaluated env t -> do let d0 = length env
+                                  res <- case eval env t [] of
+                                           EvalM f -> f gr (\v mt d msgs r -> do writeSTRef tnk (Evaluated d0 v)
+                                                                                 r <- case value2term xs v of
+                                                                                        EvalM f -> f gr (acc d0) mt d msgs r
+                                                                                 writeSTRef tnk s
+                                                                                 return r) mt maxBound (r,0,[]) msgs
+                                  case res of
+                                    Fail msg msgs         -> return (Fail msg msgs)
+                                    Success (r,0,xs) msgs -> k (FV []) mt d r msgs
+                                    Success (r,c,xs) msgs -> flush xs (\mt msgs r -> return (Success msgs r)) mt r msgs
+          Evaluated d0 v    -> do res <- case value2term xs v of
+                                           EvalM f -> f gr (acc d0) mt maxBound (r,0,[]) msgs
+                                  case res of
+                                    Fail msg msgs         -> return (Fail msg msgs)
+                                    Success (r,0,xs) msgs -> k (FV []) mt d r msgs
+                                    Success (r,c,xs) msgs -> flush xs (\mt r msgs -> return (Success r msgs)) mt r msgs
+          Hole i            -> k (Meta i) mt d r msgs
+          Residuation i _ _ -> k (Meta i) mt d r msgs
+          Narrowing i _     -> k (Meta i) mt d r msgs
+
+scopeEnv   scope = zipWithM (\x i -> newEvaluatedThunk (VGen i []) >>= \tnk -> return (x,tnk)) (reverse scope) [0..]

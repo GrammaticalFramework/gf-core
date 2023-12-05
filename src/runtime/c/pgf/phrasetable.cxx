@@ -474,16 +474,12 @@ PgfPhrasetable phrasetable_delete(PgfPhrasetable table,
         PgfPhrasetable left = phrasetable_delete(table->left,
                                                  container, seq_index,
                                                  seq);
-        if (left == table->left)
-            return table;
         table = Node<PgfPhrasetableEntry>::upd_node(table,left,table->right);
         return Node<PgfPhrasetableEntry>::balanceR(table);
     } else if (cmp > 0) {
         PgfPhrasetable right = phrasetable_delete(table->right, 
                                                   container, seq_index,
                                                   seq);
-        if (right == table->right)
-            return table;
         table = Node<PgfPhrasetableEntry>::upd_node(table,table->left,right);
         return Node<PgfPhrasetableEntry>::balanceL(table);
     } else {
@@ -817,56 +813,6 @@ void phrasetable_lookup_cohorts(PgfPhrasetable table,
                 return;
 
             state.spot = spot;
-        }
-    }
-}
-
-PGF_INTERNAL
-void phrasetable_lookup_epsilons(PgfPhrasetable table,
-                                 ref<PgfConcrLincat> lincat, size_t r,
-                                 std::function<void(ref<PgfConcrLin>,size_t)> &f)
-{
-    while (table->left != 0) {
-        table = table->left;
-    }
-
-    if (table->value.seq->syms.len > 0)
-        return;
-
-    size_t len = (table->value.backrefs != 0)
-            ? table->value.backrefs->len
-            : 0;
-
-    ssize_t i = 0;
-    ssize_t j = len-1;
-    while (i <= j) {
-        ssize_t k = (i + j) / 2;
-        ref<PgfSequenceBackref> backref = vector_elem(table->value.backrefs, k);
-
-        int cmp = backref_cmp(backref, lincat, r);
-        if (cmp < 0) {
-            j = k-1;
-        } else if (cmp > 0) {
-            i = k+1;
-        } else {
-            i = k;
-            while (i > 0) {
-                ref<PgfSequenceBackref> backref = vector_elem(table->value.backrefs, i-1);
-                if (backref_cmp(backref, lincat, r) != 0)
-                    break;
-                f(ref<PgfConcrLin>::untagged(backref->container),backref->seq_index);
-                i--;
-            }
-            f(ref<PgfConcrLin>::untagged(backref->container),backref->seq_index);
-            j = k;
-            while (j < len-1) {
-                ref<PgfSequenceBackref> backref = vector_elem(table->value.backrefs, j+1);
-                if (backref_cmp(backref, lincat, r) != 0)
-                    break;
-                f(ref<PgfConcrLin>::untagged(backref->container),backref->seq_index);
-                j++;
-            }
-            break;
         }
     }
 }

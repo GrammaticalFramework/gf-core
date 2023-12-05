@@ -106,11 +106,6 @@ void phrasetable_lookup_cohorts(PgfPhrasetable table,
                                 PgfPhraseScanner *scanner, PgfExn* err);
 
 PGF_INTERNAL_DECL
-void phrasetable_lookup_epsilons(PgfPhrasetable table,
-                                 ref<PgfConcrLincat> lincat, size_t r,
-                                 std::function<void(ref<PgfConcrLin>, size_t)> &f);
-
-PGF_INTERNAL_DECL
 void phrasetable_iter(PgfConcr *concr,
                       PgfPhrasetable table,
                       PgfSequenceItor* itor,

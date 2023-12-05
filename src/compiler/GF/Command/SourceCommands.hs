@@ -1,5 +1,6 @@
 -- | Commands requiring source grammar in env
 module GF.Command.SourceCommands(HasGrammar(..),sourceCommands) where
+
 import Prelude hiding (putStrLn)
 import qualified Prelude as P(putStrLn)
 import Data.List(nub,isInfixOf,isPrefixOf)
@@ -21,6 +22,7 @@ import GF.Grammar.Lookup (allOpers,allOpersTo)
 import GF.Compile.Rename(renameSourceTerm)
 import GF.Compile.Compute.Concrete(normalForm)
 import GF.Compile.TypeCheck.Concrete as TC(inferLType,ppType)
+import GF.Compile.TypeCheck.Primitives(predefMod)
 
 import GF.Command.Abstract(Option(..),isOpt,listFlags,valueString,valStrOpts)
 import GF.Command.CommandInfo
@@ -37,8 +39,8 @@ sourceCommands = Map.fromList [
      explanation = unlines [
        "Compute TERM by concrete syntax definitions. Uses the topmost",
        "module (the last one imported) to resolve constant names.",
-       "N.B.1 You need the flag -retain when importing the grammar, if you want",
-       "the definitions to be retained after compilation.",
+       "N.B.1 You need the flag -retain or -resource when importing the grammar,",
+       "if you want the definitions to be available after compilation.",
        "N.B.2 The resulting term is not a tree in the sense of abstract syntax",
        "and hence not a valid input to a Tree-expecting command.",
        "This command must be a line of its own, and thus cannot be a part",
@@ -109,8 +111,9 @@ sourceCommands = Map.fromList [
      synopsis = "show all operations in scope, possibly restricted to a value type",
      explanation = unlines [
        "Show the names and type signatures of all operations available in the current resource.",
-       "This command requires a source grammar to be in scope, imported with 'import -retain'.",
-       "The operations include the parameter constructors that are in scope.",
+       "If no grammar is loaded with 'import -retain' or 'import -resource',",
+       "then only the predefined operations are in scope.",
+       "The operations include also the parameter constructors that are in scope.",
        "The optional TYPE filters according to the value type.",
        "The grep STRINGs filter according to other substrings of the type signatures."{-,
        "This command must be a line of its own, and thus cannot be a part",
@@ -198,24 +201,21 @@ sourceCommands = Map.fromList [
                 | otherwise = unwords $ map prTerm ops
           return $ fromString printed
 
-    show_operations os ts sgr = fmap fst $ runCheck $
-      case greatestResource sgr of
-        Nothing -> checkError (pp "no source grammar in scope; did you import with -retain?")
-        Just mo -> do
-          let greps = map valueString (listFlags "grep" os)
-          let isRaw = isOpt "raw" os
-          ops <- case ts of
-             _:_ -> do
-               let Right t = runP pExp (UTF8.fromString (unwords ts))
-               ty <- checkComputeTerm os sgr t
-               return $ allOpersTo sgr ty
-             _   -> return $ allOpers sgr
-          let sigs = [(op,ty) | ((mo,op),ty,pos) <- ops]
-          let printer = if isRaw
-                          then showTerm sgr TermPrintDefault Qualified
-                          else (render . TC.ppType)
-          let printed = [unwords [showIdent op, ":", printer ty] | (op,ty) <- sigs]
-          return . fromString $ unlines [l | l <- printed, all (`isInfixOf` l) greps]
+    show_operations os ts sgr0 = fmap fst $ runCheck $ do
+      let (sgr,mo) = case greatestResource sgr0 of
+                       Nothing -> (mGrammar [predefMod], fst predefMod)
+                       Just mo -> (sgr0,mo)
+          greps = map valueString (listFlags "grep" os)
+      ops <- case ts of
+               _:_ -> do let Right t = runP pExp (UTF8.fromString (unwords ts))
+                         ty <- checkComputeTerm os sgr t
+                         return $ allOpersTo sgr ty
+               _   -> return $ allOpers sgr
+      let sigs = [(op,ty) | ((mo,op),ty,pos) <- ops]
+          printer = showTerm sgr TermPrintDefault
+                             (if isOpt "raw" os then Qualified else Unqualified)
+          printed = [unwords [showIdent op, ":", printer ty] | (op,ty) <- sigs]
+      return . fromString $ unlines [l | l <- printed, all (`isInfixOf` l) greps]
 
     show_source os ts sgr = do
       let strip = if isOpt "strip" os then stripSourceGrammar else id
@@ -251,9 +251,10 @@ sourceCommands = Map.fromList [
                P.putStrLn "wrote graph in file _gfdepgraph.dot"
          return void
 
-checkComputeTerm os sgr t =
-  do mo <- maybe (checkError (pp "no source grammar in scope")) return $
-           greatestResource sgr
+checkComputeTerm os sgr0 t =
+  do let (sgr,mo) = case greatestResource sgr0 of
+                      Nothing -> (mGrammar [predefMod], fst predefMod)
+                      Just mo -> (sgr0,mo)
      t <- renameSourceTerm sgr mo t
      (t,_) <- inferLType sgr [] t
      fmap evalStr (normalForm sgr t)
