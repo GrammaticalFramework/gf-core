@@ -129,7 +129,7 @@ void md5Step(uint32_t *buffer, uint32_t *input){
  * If the input fills out a block of 512 bits, apply the algorithm (md5Step)
  * and save the result in the buffer. Also updates the overall size.
  */
-void MD5Context::update(uint8_t *input_buffer, size_t input_len)
+void MD5Context::update(const uint8_t *input_buffer, size_t input_len)
 {
     uint32_t input[16];
     unsigned int offset = this->size % 64;

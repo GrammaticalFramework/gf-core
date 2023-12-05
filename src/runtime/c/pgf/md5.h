@@ -16,12 +16,12 @@ class PGF_INTERNAL_DECL MD5Context {
 
 public:
     MD5Context();
-    void update(uint8_t *input, size_t input_len);
+    void update(const uint8_t *input, size_t input_len);
 
     template <class T>
-    void update(T &input)
+    void update(const T &input)
     {
-        update((uint8_t *) &input, sizeof(T));
+        update((const uint8_t *) &input, sizeof(T));
     }
 
     void finalize(MD5Digest *digest);
