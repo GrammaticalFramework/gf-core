@@ -818,56 +818,6 @@ void phrasetable_lookup_cohorts(PgfPhrasetable table,
 }
 
 PGF_INTERNAL
-void phrasetable_lookup_epsilons(PgfPhrasetable table,
-                                 ref<PgfConcrLincat> lincat, size_t r,
-                                 std::function<void(ref<PgfConcrLin>,size_t)> &f)
-{
-    while (table->left != 0) {
-        table = table->left;
-    }
-
-    if (table->value.seq->syms.len > 0)
-        return;
-
-    size_t len = (table->value.backrefs != 0)
-            ? table->value.backrefs->len
-            : 0;
-
-    ssize_t i = 0;
-    ssize_t j = len-1;
-    while (i <= j) {
-        ssize_t k = (i + j) / 2;
-        ref<PgfSequenceBackref> backref = vector_elem(table->value.backrefs, k);
-
-        int cmp = backref_cmp(backref, lincat, r);
-        if (cmp < 0) {
-            j = k-1;
-        } else if (cmp > 0) {
-            i = k+1;
-        } else {
-            i = k;
-            while (i > 0) {
-                ref<PgfSequenceBackref> backref = vector_elem(table->value.backrefs, i-1);
-                if (backref_cmp(backref, lincat, r) != 0)
-                    break;
-                f(ref<PgfConcrLin>::untagged(backref->container),backref->seq_index);
-                i--;
-            }
-            f(ref<PgfConcrLin>::untagged(backref->container),backref->seq_index);
-            j = k;
-            while (j < len-1) {
-                ref<PgfSequenceBackref> backref = vector_elem(table->value.backrefs, j+1);
-                if (backref_cmp(backref, lincat, r) != 0)
-                    break;
-                f(ref<PgfConcrLin>::untagged(backref->container),backref->seq_index);
-                j++;
-            }
-            break;
-        }
-    }
-}
-
-PGF_INTERNAL
 void phrasetable_iter(PgfConcr *concr,
                       PgfPhrasetable table,
                       PgfSequenceItor* itor,
