@@ -651,6 +651,7 @@ app macro arg = text "\\" <> text macro <> text "{" <> arg <> text "}"
 latexDoc :: Doc -> Doc
 latexDoc body =
   vcat [text "\\documentclass{article}",
+        text "\\usepackage[a4paper,margin=0.5in,landscape]{geometry}",
         text "\\usepackage[utf8]{inputenc}",
         text "\\begin{document}",
         body,
