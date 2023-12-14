@@ -494,14 +494,17 @@ void PgfPrinter::lparam(ref<PgfLParam> lparam)
     }
 }
 
-void PgfPrinter::lvar_ranges(ref<Vector<PgfVariableRange>> vars)
+void PgfPrinter::lvar_ranges(ref<Vector<PgfVariableRange>> vars, size_t *values)
 {
-    puts("∀{");
+    puts("{");
     for (size_t i = 0; i < vars->len; i++) {
         if (i > 0)
             puts(", ");
         lvar(vars->data[i].var);
-        nprintf(32,"<%ld",vars->data[i].range);
+        if (values == NULL || values[i] == 0)
+            nprintf(32,"<%ld",vars->data[i].range);
+        else
+            nprintf(32,"=%ld",values[i]-1);
     }
     puts("}");
 }

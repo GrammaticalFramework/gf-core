@@ -270,10 +270,38 @@ struct PGF_INTERNAL_DECL PgfLRShift {
     size_t r;
 };
 
+struct PgfLRReduceArg;
+
+struct PGF_INTERNAL_DECL PgfLRProduction {
+    ref<PgfConcrLin> lin;
+    ref<Vector<ref<PgfLRReduceArg>>> args;
+};
+
+struct PGF_INTERNAL_DECL PgfLRReducePop {
+    static const uint8_t tag = 1;
+
+    static inline object from_idx(size_t stk_idx) {
+        return ref<PgfLRReducePop>(stk_idx * (MALLOC_ALIGN_MASK+1)).tagged();
+    }
+
+    static inline size_t to_idx(object o) {
+        return o / (MALLOC_ALIGN_MASK+1);
+    }
+};
+
+struct PGF_INTERNAL_DECL PgfLRReduceArg {
+    static const uint8_t tag = 2;
+
+    size_t id;
+    size_t n_prods;
+    PgfLRProduction prods[];
+};
+
 struct PGF_INTERNAL_DECL PgfLRReduce {
     object lin_obj;
-    size_t seq_idx;
-    ref<Vector<bool>> args;
+    size_t depth;
+    size_t r;
+    ref<Vector<object>> args;
 };
 
 struct PGF_INTERNAL_DECL PgfLRState {

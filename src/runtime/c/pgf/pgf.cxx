@@ -1116,7 +1116,7 @@ PgfText *pgf_print_lindef_internal(PgfPhrasetableIds *seq_ids, object o, size_t 
 
     ref<PgfPResult> res = *vector_elem(lincat->res, i);
     if (res->vars != 0) {
-        printer.lvar_ranges(res->vars);
+        printer.lvar_ranges(res->vars, NULL);
         printer.puts(" . ");
     }
 
@@ -1151,7 +1151,7 @@ PgfText *pgf_print_linref_internal(PgfPhrasetableIds *seq_ids, object o, size_t 
 
     ref<PgfPResult> res = *vector_elem(lincat->res, lincat->n_lindefs+i);
     if (res->vars != 0) {
-        printer.lvar_ranges(res->vars);
+        printer.lvar_ranges(res->vars, NULL);
         printer.puts(" . ");
     }
 
@@ -1184,7 +1184,7 @@ PgfText *pgf_print_lin_internal(PgfPhrasetableIds *seq_ids, object o, size_t i)
     ref<PgfDTyp> ty = lin->absfun->type;
 
     if (res->vars != 0) {
-        printer.lvar_ranges(res->vars);
+        printer.lvar_ranges(res->vars, NULL);
         printer.puts(" . ");
     }
 
@@ -3162,11 +3162,6 @@ pgf_graphviz_lr_automaton(PgfDB *db, PgfConcrRevision revision,
                     auto lin =
                         ref<PgfConcrLin>::untagged(reduce->lin_obj);
                     printer.efun(&lin->name);
-                    printer.nprintf(32,"/%zd[",reduce->seq_idx);
-                    for (size_t i = 0; i < reduce->args->len; i++) {
-                        printer.puts(reduce->args->data[i] ? "t" : "f");
-                    }
-                    printer.puts("]");
                     break;
                 }
                 case PgfConcrLincat::tag: {
@@ -3177,7 +3172,22 @@ pgf_graphviz_lr_automaton(PgfDB *db, PgfConcrRevision revision,
                     break;
                 }
                 }
-                printer.puts("\n");
+
+                printer.puts("[");
+                for (size_t i = 0; i < reduce->args->len; i++) {
+                    object o = *vector_elem(reduce->args,i);
+                    if (i > 0)
+                        printer.puts(",");
+                    if (o == 0) {
+                        printer.nprintf(32,"?");
+                    } else if (ref<void>::get_tag(o) == PgfLRReduceArg::tag) {
+                        auto arg = ref<PgfLRReduceArg>::untagged(o);
+                        printer.nprintf(32,"?%zd",arg->id);
+                    } else {
+                        printer.nprintf(32,"$%zd",PgfLRReducePop::to_idx(o)-1);
+                    }
+                }
+                printer.nprintf(32,"] %zd\n",reduce->depth);
             }
             printer.puts("\"");
             if (i == 0) printer.puts(",penwidth=3");
