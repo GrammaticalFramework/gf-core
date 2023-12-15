@@ -3,10 +3,10 @@
 #include "parser.h"
 #include <algorithm>
 
-#define DEBUG_STATE_CREATION
-#define DEBUG_AUTOMATON
-#define DEBUG_PARSER
-#define DEBUG_GENERATOR
+//#define DEBUG_STATE_CREATION
+//#define DEBUG_AUTOMATON
+//#define DEBUG_PARSER
+//#define DEBUG_GENERATOR
 
 struct PgfLRTableMaker::CCat {
     CCat *parent;
@@ -151,7 +151,8 @@ ref<PgfLRReduceArg> PgfLRTableMaker::CCat::persist() {
     persistant->n_prods = n_prods;
     for (size_t i = 0; i < n_prods; i++) {
         Production *prod = prods[i];
-        persistant->prods[i].lin = prod->lin;
+        persistant->prods[i].lin   = prod->lin;
+        persistant->prods[i].index = prod->index;
         auto children = vector_new<ref<PgfLRReduceArg>>(prod->args.count);
         for (size_t j = 0; j < prod->args.count; j++) {
             if (prod->args[j] == NULL) {
@@ -964,16 +965,9 @@ ref<PgfLRTable> PgfLRTableMaker::make()
             Item *item = state->completed[i];
             ref<PgfLRReduce> reduction = vector_elem(lrstate->reductions,i);
             reduction->lin_obj = item->lin_obj;
+            reduction->seq_idx = item->seq_idx;
             reduction->depth = item->stk_size;
             reduction->args = vector_new<object>(item->args.count);
-            reduction->r = 0;
-
-            if (ref<PgfConcrLin>::get_tag(item->lin_obj) == PgfConcrLin::tag) {
-                auto lin =
-                    ref<PgfConcrLin>::untagged(item->lin_obj);
-                size_t n_fields = lin->seqs->len / lin->res->len;
-                reduction->r = item->seq_idx % n_fields;
-            }
 
             for (size_t j = 0; j < item->args.count; j++) {
                 if (item->args[j].ccat == NULL) {
@@ -1004,14 +998,16 @@ struct PgfParser::Choice {
 
 struct PgfParser::Production {
     ref<PgfConcrLin> lin;
+    size_t index;
     size_t n_args;
     Choice *args[];
 
-    void *operator new(size_t size, ref<PgfConcrLin> lin) {
+    void *operator new(size_t size, ref<PgfConcrLin> lin, size_t index) {
         size_t n_args = lin->args->len / lin->res->len;
         Production *prod = (Production *)
             malloc(size+sizeof(Choice*)*n_args);
         prod->lin    = lin;
+        prod->index  = index;
         prod->n_args = n_args;
         for (size_t i = 0; i < n_args; i++) {
             prod->args[i] = NULL;
@@ -1083,7 +1079,7 @@ void PgfParser::print_prod(Choice *choice, Production *prod)
 
     ref<PgfDTyp> type = prod->lin->absfun->type;
     printer.puts(&prod->lin->name);
-    printer.nprintf(32,"[");
+    printer.nprintf(32,"/%zd[", prod->index);
     PgfDBMarshaller m;
     for (size_t i = 0; i < prod->n_args; i++) {
         Choice *choice = prod->args[i];
@@ -1191,8 +1187,8 @@ PgfParser::Choice *PgfParser::intersect_choice(Choice *choice1, Choice *choice2,
     im[key] = choice;
     for (Production *prod1 : choice1->prods) {
         for (Production *prod2 : choice2->prods) {
-            if (prod1->lin == prod2->lin) {
-                Production *prod = new(prod1->lin) Production();
+            if (prod1->lin == prod2->lin && prod1->index == prod2->index) {
+                Production *prod = new(prod1->lin,prod1->index) Production();
                 choice->prods.push_back(prod);
 
                 for (size_t i = 0; i < prod->n_args; i++) {
@@ -1217,7 +1213,9 @@ void PgfParser::reduce(StackNode *parent, ref<PgfConcrLin> lin, ref<PgfLRReduce>
     if (n == 0) {
         ref<PgfConcrLincat> lincat = lin->lincat;
 
-        Production *prod = new(lin) Production();
+        size_t index = red->seq_idx / lincat->fields->len;
+        size_t r     = red->seq_idx % lincat->fields->len;
+        Production *prod = new(lin,index) Production();
 
         for (size_t i = 0; i < prod->n_args; i++) {
             auto arg = *vector_elem(red->args, i);
@@ -1242,21 +1240,15 @@ void PgfParser::reduce(StackNode *parent, ref<PgfConcrLin> lin, ref<PgfLRReduce>
             }
         }
 
-        shift(parent, lincat, red->r, prod, before, after);
+        shift(parent, lincat, r, prod, before, after);
         return;
     }
 
-    if (*vector_elem(red->args, n-1)) {
-        args.push_back(parent->choice);
-        for (auto node : parent->parents) {
-            reduce(node, lin, red, n-1, args, parent->stage, after);
-        }
-        args.pop_back();    
-    } else {
-        args.push_back(NULL);
-        reduce(parent, lin, red, n-1, args, before, after);
-        args.pop_back();
+    args.push_back(parent->choice);
+    for (auto node : parent->parents) {
+        reduce(node, lin, red, n-1, args, parent->stage, after);
     }
+    args.pop_back();
 }
 
 PgfParser::Choice *PgfParser::retrieve_choice(ref<PgfLRReduceArg> arg)
@@ -1266,7 +1258,7 @@ PgfParser::Choice *PgfParser::retrieve_choice(ref<PgfLRReduceArg> arg)
 
     Choice *choice = new Choice(++last_fid);
     for (size_t i = 0; i < arg->n_prods; i++) {
-        Production *prod = new(arg->prods[i].lin) Production();
+        Production *prod = new(arg->prods[i].lin, arg->prods[i].index) Production();
         for (size_t i = 0; i < prod->n_args; i++) {
             auto child = *vector_elem(arg->prods[i].args, i);
             prod->args[i] = retrieve_choice(child);
@@ -1309,7 +1301,7 @@ void PgfParser::reduce_all(StackNode *node)
                 ref<PgfConcrLincat>::untagged(red->lin_obj);
             std::vector<Choice*> args;
             if (before->end.pos == sentence->size) {
-                complete(node, lincat, red->r, red->depth, args);
+                complete(node, lincat, red->seq_idx % lincat->fields->len, red->depth, args);
             }
         }
         }
@@ -1357,9 +1349,10 @@ void PgfParser::start_matches(PgfTextSpot *end, PgfExn* err)
 
 void PgfParser::match(ref<PgfConcrLin> lin, size_t seq_index, PgfExn* err)
 {
-    size_t r = seq_index % lin->lincat->fields->len;
+    size_t index = seq_index / lin->lincat->fields->len;
+    size_t r     = seq_index % lin->lincat->fields->len;
 
-    Production *prod = new(lin) Production();
+    Production *prod = new(lin,index) Production();
 
     for (StackNode *parent : before->nodes) {
         shift(parent, lin->lincat, r, prod, before, after);

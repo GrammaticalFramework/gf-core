@@ -274,6 +274,7 @@ struct PgfLRReduceArg;
 
 struct PGF_INTERNAL_DECL PgfLRProduction {
     ref<PgfConcrLin> lin;
+    size_t index;
     ref<Vector<ref<PgfLRReduceArg>>> args;
 };
 
@@ -299,8 +300,8 @@ struct PGF_INTERNAL_DECL PgfLRReduceArg {
 
 struct PGF_INTERNAL_DECL PgfLRReduce {
     object lin_obj;
+    size_t seq_idx;
     size_t depth;
-    size_t r;
     ref<Vector<object>> args;
 };
 
