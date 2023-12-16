@@ -202,32 +202,31 @@ eval env (QC q)         vs  = return (VApp q vs)
 eval env (C t1 t2)      []  = do v1 <- eval env t1 []
                                  v2 <- eval env t2 []
                                  case (v1,v2) of
-                                   (VEmpty,VEmpty) -> return VEmpty
                                    (v1,    VEmpty) -> return v1
                                    (VEmpty,v2    ) -> return v2
                                    _               -> return (VC v1 v2)
 eval env t@(Glue t1 t2) []  = do v1 <- eval env t1 []
                                  v2 <- eval env t2 []
-                                 let glue v =
-                                      case value2string' v False [] [] of
-                                        Const (b,ws,qs) -> let b' = case v1 of
-                                                                      VEmpty -> b
-                                                                      _      -> True
-                                                           in case value2string' v1 b' ws qs of
-                                                                Const (b,ws,qs) -> Just (bind b ws (foldl (\v q->VC v (VApp q [])) (string2value' ws) qs))
-                                                                NonExist        -> Just (VApp (cPredef,cNonExist) [])
-                                                                RunTime         -> Nothing
-                                        NonExist     -> Just (VApp (cPredef,cNonExist) [])
-                                        RunTime      -> Nothing
-                                     bind True  (_:_) v = VC (VApp (cPredef,cBIND) []) v
-                                     bind _     _     v = v
-                                 case (case v2 of
-                                        (VAlts d vas) -> do d <- glue d
-                                                            vas <- mapM (\(v,ss) -> glue v >>= \v -> return (v,ss)) vas
-                                                            return (VAlts d vas)
-                                        _             -> do glue v2) of
-                                   Just v  -> return v
-                                   Nothing -> return (VGlue v1 v2)
+                                 let glue VEmpty        v             = v
+                                     glue (VC v1 v2)    v             = VC v1 (glue v2 v)
+                                     glue (VApp q [])   v
+                                       | q == (cPredef,cNonExist)     = VApp q []
+                                     glue v             VEmpty        = v
+                                     glue v             (VC v1 v2)    = VC (glue v v1) v2
+                                     glue v             (VApp q [])
+                                       | q == (cPredef,cNonExist)     = VApp q []
+                                     glue (VStr s1)     (VStr s2)     = VStr (s1++s2)
+                                     glue v             (VAlts d vas) = VAlts (glue v d) [(glue v v',ss) | (v',ss) <- vas]
+                                     glue (VAlts d vas) (VStr s)      = pre d vas s
+                                     glue (VAlts d vas) v             = glue d v
+                                     glue v1          v2              = VGlue v1 v2
+
+                                     pre vd []                 s             = glue vd (VStr s)
+                                     pre vd ((v,VStrs ss):vas) s
+                                      | or [startsWith s' s | VStr s' <- ss] = glue v (VStr s)
+                                      | otherwise                            = pre vd vas s
+
+                                 return (glue v1 v2)
 eval env (EPatt min max p) [] = return (VPatt min max p)
 eval env (EPattType t)  []  = do v <- eval env t []
                                  return (VPattType v)
@@ -606,6 +605,7 @@ value2term xs (VCInts Nothing (Just j)) = return (App (Q (cPredef,cInts)) (EInt 
 value2term xs (VCRecType lctrs) = do
   ltys <- mapM (\(l,o,ctr) -> value2term xs ctr >>= \ty -> return (l,ty)) lctrs
   return (RecType ltys)
+value2term xs (VSymCat d r rs) = return (TSymCat d r [(i,(identW,ty)) | (i,(_,ty)) <- rs])
 value2term xs v = error (showValue v)
 
 pattVars st (PP _ ps)    = foldM pattVars st ps
