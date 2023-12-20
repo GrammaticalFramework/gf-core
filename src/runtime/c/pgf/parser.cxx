@@ -496,7 +496,7 @@ void PgfLRTableMaker::print_production(CCat *ccat, Production *prod)
     ref<PgfDTyp> type = prod->lin->absfun->type;
     printer.nprintf(37, "?%zu -> ", ccat->id);
     printer.puts(&prod->lin->name);
-    printer.puts("[");
+    printer.nprintf(37, "/%zu[", prod->index);
     PgfDBMarshaller m;
     size_t args_start = type->hypos->len * prod->index;
     for (size_t i = 0; i < type->hypos->len; i++) {
@@ -752,6 +752,9 @@ void PgfLRTableMaker::predict(State *state, Fold fold, Item *item, ref<PgfText> 
                 return true;
             };
         probspace_iter(abstr->funs_by_cat, cat, f, false);
+    } else {
+        Item *new_item = new(item,ccat,lin_idx) Item;
+        process(state,fold,new_item);
     }
 
     if (fold == PROBE) {
