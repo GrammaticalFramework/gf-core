@@ -752,7 +752,7 @@ void PgfLRTableMaker::predict(State *state, Fold fold, Item *item, ref<PgfText> 
                 return true;
             };
         probspace_iter(abstr->funs_by_cat, cat, f, false);
-    } else {
+    } else if (ccat->prods.size() > 0) {
         Item *new_item = new(item,ccat,lin_idx) Item;
         process(state,fold,new_item);
     }
