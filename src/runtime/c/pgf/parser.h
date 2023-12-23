@@ -109,6 +109,8 @@ class PGF_INTERNAL_DECL PgfParser : public PgfPhraseScanner, public PgfExprEnum
     std::priority_queue<ExprState*, std::vector<ExprState*>, CompareExprState> queue;
     int last_fid;
 
+    std::map<object,Choice*> persistant;
+
     Choice *top_choice;
     size_t top_choice_index;
 

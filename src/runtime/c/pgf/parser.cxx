@@ -147,7 +147,7 @@ struct PgfLRTableMaker::CompareItem : std::less<Item*> {
             else if (item1->args[i].stk_idx > item2->args[i].stk_idx)
                 return false;
         }
-    
+
         return false;
     }
 };
@@ -1003,36 +1003,39 @@ ref<PgfLRTable> PgfLRTableMaker::make()
         ref<PgfLRState> lrstate = vector_elem(lrtable, state->id);
 
         size_t index = 0;
-        lrstate->shifts = vector_new<PgfLRShift>(state->ccats1.size());
+        auto shifts = vector_new<PgfLRShift>(state->ccats1.size());
         for (auto i : state->ccats1) {
-            ref<PgfLRShift> shift = vector_elem(lrstate->shifts,index++);
+            ref<PgfLRShift> shift = vector_elem(shifts,index++);
             shift->lincat = i.first.first;
             shift->exact  = i.second.second;
             shift->r = i.first.second;
             shift->next_state = i.second.first->id;
         }
+        lrstate->shifts = shifts;
 
-        lrstate->reductions = vector_new<PgfLRReduce>(state->completed.size());
+        auto reductions = vector_new<PgfLRReduce>(state->completed.size());
         for (size_t i = 0; i < state->completed.size(); i++) {
             Item *item = state->completed[i];
-            ref<PgfLRReduce> reduction = vector_elem(lrstate->reductions,i);
+            ref<PgfLRReduce> reduction = vector_elem(reductions,i);
             reduction->lin_obj = item->lin_obj;
             reduction->seq_idx = item->seq_idx;
             reduction->depth = item->stk_size;
-            reduction->args = vector_new<object>(item->args.count);
 
+            auto args = vector_new<object>(item->args.count);
             for (size_t j = 0; j < item->args.count; j++) {
                 if (item->args[j].ccat == NULL) {
                     if (item->args[j].stk_idx == 0)
-                        *vector_elem(reduction->args, j) = 0;
+                        *vector_elem(args, j) = 0;
                     else
-                        *vector_elem(reduction->args, j) = PgfLRReducePop::from_idx(item->args[j].stk_idx);
+                        *vector_elem(args, j) = PgfLRReducePop::from_idx(item->args[j].stk_idx);
                 } else {
                     ref<PgfLRReduceArg> arg = item->args[j].ccat->persist();
-                    *vector_elem(reduction->args, j) = arg.tagged();
+                    *vector_elem(args, j) = arg.tagged();
                 }
             }
+            reduction->args = args;
         }
+        lrstate->reductions = reductions;
     }
     return lrtable;
 }
@@ -1308,15 +1311,20 @@ PgfParser::Choice *PgfParser::retrieve_choice(ref<PgfLRReduceArg> arg)
     if (arg == 0)
         return NULL;
 
-    Choice *choice = new Choice(++last_fid);
-    for (size_t i = 0; i < arg->n_prods; i++) {
-        Production *prod = new(arg->prods[i].lin, arg->prods[i].index) Production();
-        for (size_t i = 0; i < prod->n_args; i++) {
-            auto child = *vector_elem(arg->prods[i].args, i);
-            prod->args[i] = retrieve_choice(child);
+    Choice *&tmp   = persistant[arg.tagged()];
+    Choice *choice = tmp;
+    if (choice == NULL) {
+        tmp = new Choice(++last_fid); choice = tmp;
+        for (size_t i = 0; i < arg->n_prods; i++) {
+            Production *prod = new(arg->prods[i].lin, arg->prods[i].index) Production();
+            for (size_t j = 0; j < prod->n_args; j++) {
+                auto child = *vector_elem(arg->prods[i].args, j);
+                prod->args[j] = retrieve_choice(child);
+            }
+            choice->prods.push_back(prod);
         }
-        choice->prods.push_back(prod);
     }
+
     return choice;
 }
 
