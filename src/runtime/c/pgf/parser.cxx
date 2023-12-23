@@ -32,6 +32,9 @@ struct PgfLRTableMaker::CCat {
 
     ref<PgfLRReduceArg> persist();
 
+    void suspend_item(Item *item);
+    void register_item(Item *item);
+
     ~CCat();
 };
 
@@ -64,9 +67,14 @@ struct PgfLRTableMaker::Production {
         // If there is no constructor, GCC will zero the object,
         // while it has already been initialized in the new operator.
     }
+
+    void operator delete(void *p) {
+        free(p);
+    }
 };
 
 struct PgfLRTableMaker::Item {
+    size_t ref_cnt;   // how many CCat:s contain the item?
     CCat* ccat;
     object lin_obj;
     ref<PgfSequence> seq;
@@ -105,6 +113,10 @@ struct PgfLRTableMaker::Item {
     Item() {
         // If there is no constructor, GCC will zero the object,
         // while it has already been initialized in the new operator.
+    }
+
+    void operator delete(void *p) {
+        free(p);
     }
 };
 
@@ -168,12 +180,26 @@ ref<PgfLRReduceArg> PgfLRTableMaker::CCat::persist() {
     return persistant;
 }
 
+void PgfLRTableMaker::CCat::suspend_item(Item *item) {
+    suspended.push_back(item);
+    if (item != NULL)
+        item->ref_cnt++;
+}
+
+void PgfLRTableMaker::CCat::register_item(Item *item) {
+    items.push_back(item); item->ref_cnt++;
+}
+
 PgfLRTableMaker::CCat::~CCat() {
     for (Item *item : items) {
-        delete item;
+        item->ref_cnt--;
+        if (item->ref_cnt == 0)
+            delete item;
     }
     for (Item *item : suspended) {
-        delete item;
+        item->ref_cnt--;
+        if (item->ref_cnt == 0)
+            delete item;
     }
     for (Production *prod : prods) {
         delete prod;
@@ -210,6 +236,7 @@ void *PgfLRTableMaker::Item::operator new(size_t size, CCat* ccat, ref<PgfConcrL
     size_t ex_size = sizeof(Arg)*n_args+sizeof(size_t)*n_vars;
 
     Item *item = (Item *) malloc(size+ex_size);
+    item->ref_cnt = 0;
     item->ccat = ccat;
     item->lin_obj = lin.tagged();
     item->seq = *vector_elem(lin->seqs,seq_idx);
@@ -233,6 +260,7 @@ void *PgfLRTableMaker::Item::operator new(size_t size, ref<PgfConcrLincat> linca
         lincat->n_lindefs*lincat->fields->len + index;
 
     Item *item = (Item *) malloc(size+ex_size);
+    item->ref_cnt = 0;
     item->ccat = NULL;
     item->lin_obj = lincat.tagged();
     item->seq = *vector_elem(lincat->seqs,seq_idx);
@@ -252,6 +280,7 @@ void *PgfLRTableMaker::Item::operator new(size_t size, CCat* ccat, Production *p
     size_t ex_size = sizeof(Arg)*prod->args.count+sizeof(size_t)*prod->vals.count;
 
     Item *item = (Item *) malloc(size+ex_size);
+    item->ref_cnt = 0;
     item->ccat = ccat;
     item->lin_obj = prod->lin.tagged();
     item->seq_idx = prod->index*n_fields+lin_idx;
@@ -276,6 +305,7 @@ void *PgfLRTableMaker::Item::operator new(size_t size, Item *item, CCat *ccat, b
     size_t ex_size = sizeof(Arg)*item->args.count+sizeof(size_t)*item->vals.count;
 
     Item *new_item = (Item *) malloc(size+ex_size);
+    new_item->ref_cnt = 0;
     new_item->ccat = item->ccat;
     new_item->lin_obj = item->lin_obj;
     new_item->seq = item->seq;
@@ -339,6 +369,7 @@ void *PgfLRTableMaker::Item::operator new(size_t size, Item *item, size_t lin_id
     size_t ex_size = sizeof(Arg)*item->args.count+sizeof(size_t)*item->vals.count;
 
     Item *new_item = (Item *) malloc(size+ex_size);
+    new_item->ref_cnt = 0;
     new_item->ccat = item->ccat;
     new_item->lin_obj = item->lin_obj;
     new_item->seq = item->seq;
@@ -404,12 +435,20 @@ struct PgfLRTableMaker::State {
 
     ~State() {
         for (Item *item : items) {
-            delete item;
+            item->ref_cnt--;
+            if (item->ref_cnt == 0)
+                delete item;
+        }
+
+        for (Item *item : completed) {
+            item->ref_cnt--;
+            if (item->ref_cnt == 0)
+                delete item;
         }
     }
 
     void push_item(Item *item) {
-        items.push_back(item);
+        items.push_back(item); item->ref_cnt++;
         push_heap(items.begin(), items.end(), compare_item);
     }
 };
@@ -468,7 +507,6 @@ PgfLRTableMaker::PgfLRTableMaker(ref<PgfAbstr> abstr, ref<PgfConcr> concr)
 
 PgfLRTableMaker::~PgfLRTableMaker()
 {
-    /*
     for (auto p : states) {
         delete p.second;
     }
@@ -479,7 +517,7 @@ PgfLRTableMaker::~PgfLRTableMaker()
 
     for (auto p : ccats2) {
         delete p.second;
-    }*/
+    }
 }
 
 #if defined(DEBUG_STATE_CREATION) || defined(DEBUG_AUTOMATON)
@@ -673,7 +711,13 @@ void PgfLRTableMaker::symbol(State *state, Fold fold, Item *item, PgfSymbol sym)
         if (fold == PROBE) {
             item->ccat->productive = true;
         }
+        if (item->ref_cnt == 0)
+            delete item;
+        break;
     }
+    default:
+        if (item->ref_cnt == 0)
+            delete item;
     }
 }
 
@@ -720,12 +764,12 @@ void PgfLRTableMaker::predict(State *state, Fold fold, Item *item, T cat, bool e
             i--;
             values[i].value++;
             if (values[i].value < values[i].range) {
-                index += r->terms[i].factor;
+                index += values[i].factor;
                 i++;
                 break;
             }
 
-            index -= (values[i].value-1) * r->terms[i].factor;
+            index -= (values[i].value-1) * values[i].factor;
             values[i].value = 0;
         }
 
@@ -743,7 +787,7 @@ void PgfLRTableMaker::predict(State *state, Fold fold, Item *item, ref<PgfText> 
         ccat = new CCat(++ccat_id, NULL, lin_idx);
     }
     if (fold == PROBE) {
-        ccat->suspended.push_back(item);
+        ccat->suspend_item(item);
     }
     if (tmp == NULL) {
         std::function<bool(ref<PgfAbsFun>)> f =
@@ -760,7 +804,7 @@ void PgfLRTableMaker::predict(State *state, Fold fold, Item *item, ref<PgfText> 
     if (fold == PROBE) {
         if (item->ccat != NULL && ccat->productive) {
             item->ccat->productive = true;
-            item->ccat->items.push_back(item);
+            item->ccat->register_item(item);
         }
     } else {
         if (ccat->productive) {
@@ -793,7 +837,7 @@ void PgfLRTableMaker::predict(State *state, Fold fold, Item *item, CCat *ccat, b
         new_ccat = new CCat(++ccat_id, ccat, lin_idx);
     }
     if (fold == PROBE) {
-        new_ccat->suspended.push_back(item);
+        new_ccat->suspend_item(item);
     }
     if (tmp == NULL) {
         size_t n_prods = ccat->prods.size();
@@ -807,7 +851,7 @@ void PgfLRTableMaker::predict(State *state, Fold fold, Item *item, CCat *ccat, b
     if (fold == PROBE) {
         if (item->ccat != NULL && new_ccat->productive) {
             item->ccat->productive = true;
-            item->ccat->items.push_back(item);
+            item->ccat->register_item(item);
         }
     } else {
         if (new_ccat->productive) {
@@ -873,8 +917,11 @@ void PgfLRTableMaker::complete(State *state, Fold fold, Item *item)
                 }
             }
         }
+
+        if (item->ref_cnt == 0)
+            delete item;
     } else {
-        state->completed.push_back(item);
+        state->completed.push_back(item); item->ref_cnt++;
 
 #if defined(DEBUG_AUTOMATON)
         fprintf(stderr, "reduce ");
@@ -904,7 +951,9 @@ ref<PgfLRTable> PgfLRTableMaker::make()
 #endif
 
             process(state, INIT, item);
-            // delete item;
+            item->ref_cnt--;
+            if (item->ref_cnt == 0)
+                delete item;
         }
 
         for (auto &i : state->ccats1) {
