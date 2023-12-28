@@ -373,11 +373,6 @@ struct PGF_INTERNAL_DECL PgfAbsCatCounts
     prob_t prob;
 };
 
-struct PGF_INTERNAL_DECL PgfProbItor : PgfItor
-{
-    Vector<PgfAbsCatCounts> *cats;
-};
-
 static
 PgfAbsCatCounts *find_counts(Vector<PgfAbsCatCounts> *cats, PgfText *name)
 {
@@ -399,38 +394,6 @@ PgfAbsCatCounts *find_counts(Vector<PgfAbsCatCounts> *cats, PgfText *name)
     return NULL;
 }
 
-static
-void collect_counts(PgfItor *itor, PgfText *key, object value, PgfExn *err)
-{
-    PgfProbItor* prob_itor = (PgfProbItor*) itor;
-    ref<PgfAbsFun> absfun = value;
-
-    PgfAbsCatCounts *counts =
-        find_counts(prob_itor->cats, &absfun->type->name);
-    if (counts != NULL) {
-        if (isnan(absfun->prob)) {
-            counts->n_nan_probs++;
-        } else {
-            counts->probs_sum += exp(-absfun->prob);
-        }
-    }
-}
-
-static
-void pad_probs(PgfItor *itor, PgfText *key, object value, PgfExn *err)
-{
-    PgfProbItor* prob_itor = (PgfProbItor*) itor;
-    ref<PgfAbsFun> absfun = value;
-
-    if (isnan(absfun->prob)) {
-        PgfAbsCatCounts *counts =
-            find_counts(prob_itor->cats, &absfun->type->name);
-        if (counts != NULL) {
-            absfun->prob = counts->prob;
-        }
-    }
-}
-
 void PgfReader::read_abstract(ref<PgfAbstr> abstract)
 {
     this->abstract = abstract;
@@ -447,24 +410,42 @@ void PgfReader::read_abstract(ref<PgfAbstr> abstract)
     abstract->cats = cats;
 
     if (probs_callback != NULL) {
-        PgfExn err;
-        err.type = PGF_EXN_NONE;
+        Vector<PgfAbsCatCounts> *cats = namespace_to_sorted_names<PgfAbsCat,PgfAbsCatCounts>(abstract->cats);
 
-        PgfProbItor itor;
-        itor.cats = namespace_to_sorted_names<PgfAbsCat,PgfAbsCatCounts>(abstract->cats);
+        std::function<bool(ref<PgfAbsFun>)> collect_counts =
+            [cats](ref<PgfAbsFun> absfun) {
+                PgfAbsCatCounts *counts =
+                    find_counts(cats, &absfun->type->name);
+                if (counts != NULL) {
+                    if (isnan(absfun->prob)) {
+                        counts->n_nan_probs++;
+                    } else {
+                        counts->probs_sum += exp(-absfun->prob);
+                    }
+                }
+                return true;
+            };
+        namespace_iter(abstract->funs, collect_counts);
 
-        itor.fn = collect_counts;
-        namespace_iter(abstract->funs, &itor, &err);
-
-        for (size_t i = 0; i < itor.cats->len; i++) {
-            PgfAbsCatCounts *counts = &itor.cats->data[i];
+        for (size_t i = 0; i < cats->len; i++) {
+            PgfAbsCatCounts *counts = &cats->data[i];
             counts->prob = - logf((1-counts->probs_sum) / counts->n_nan_probs);
         }
 
-        itor.fn = pad_probs;
-        namespace_iter(abstract->funs, &itor, &err);
+        std::function<bool(ref<PgfAbsFun>)> pad_probs =
+            [cats](ref<PgfAbsFun> absfun) {
+                if (isnan(absfun->prob)) {
+                    PgfAbsCatCounts *counts =
+                        find_counts(cats, &absfun->type->name);
+                    if (counts != NULL) {
+                        absfun->prob = counts->prob;
+                    }
+                }
+                return true;
+            };
+        namespace_iter(abstract->funs, pad_probs);
 
-        free(itor.cats);
+        free(cats);
     }
 }
 

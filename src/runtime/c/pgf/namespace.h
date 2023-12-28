@@ -632,6 +632,24 @@ void namespace_iter(Namespace<V> map, PgfItor* itor, PgfExn *err)
 }
 
 template <class V>
+bool namespace_iter(Namespace<V> map, std::function<bool(ref<V>)> &f)
+{
+    if (map == 0)
+        return true;
+
+    if (!namespace_iter(map->left, f))
+        return false;
+
+    if (!f(map->value))
+        return false;
+
+    if (!namespace_iter(map->right, f))
+        return false;
+
+    return true;
+}
+
+template <class V>
 void namespace_iter_prefix(Namespace<V> map, PgfText *prefix, PgfItor* itor, PgfExn *err)
 {
     if (map == 0)

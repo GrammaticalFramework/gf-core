@@ -463,23 +463,6 @@ void pgf_iter_categories(PgfDB *db, PgfRevision revision,
     } PGF_API_END
 }
 
-struct PgfItorConcrHelper : PgfItor
-{
-    PgfDB *db;
-    txn_t txn_id;
-    PgfItor *itor;
-};
-
-static
-void iter_concretes_helper(PgfItor *itor, PgfText *key, object value, PgfExn *err)
-{
-    PgfItorConcrHelper* helper = (PgfItorConcrHelper*) itor;
-    ref<PgfConcr> concr = value;
-    object rev = helper->db->register_revision(concr.tagged(), helper->txn_id);
-    helper->db->ref_count++;
-    helper->itor->fn(helper->itor, key, rev, err);
-}
-
 PGF_API
 void pgf_iter_concretes(PgfDB *db, PgfRevision revision,
                         PgfItor *itor, PgfExn *err)
@@ -490,13 +473,14 @@ void pgf_iter_concretes(PgfDB *db, PgfRevision revision,
         DB_scope scope(db, READER_SCOPE);
         ref<PgfPGF> pgf = db->revision2pgf(revision, &txn_id);
 
-        PgfItorConcrHelper helper;
-        helper.fn     = iter_concretes_helper;
-        helper.db     = db;
-        helper.txn_id = txn_id;
-        helper.itor   = itor;
-
-        namespace_iter(pgf->concretes, &helper, err);
+        std::function<bool(ref<PgfConcr>)> f =
+            [txn_id,db,itor,err](ref<PgfConcr> concr) {
+                object rev = db->register_revision(concr.tagged(), txn_id);
+                db->ref_count++;
+                itor->fn(itor, &concr->name, rev, err);
+                return (err->type == PGF_EXN_NONE);
+            };
+        namespace_iter(pgf->concretes, f);
     } PGF_API_END
 }
 
@@ -1609,30 +1593,19 @@ void pgf_create_category(PgfDB *db, PgfRevision revision,
 struct PGF_INTERNAL_DECL PgfDropItor : PgfItor
 {
     ref<PgfPGF> pgf;
-    ref<PgfConcr> concrete;
-    PgfText *name;
 };
-
-static
-void iter_drop_cat_helper2(PgfItor *itor, PgfText *key, object value, PgfExn *err)
-{
-    ref<PgfConcr> concr = value;
-    PgfText* name = ((PgfDropItor*) itor)->name;
-
-    drop_lin(concr, name);
-}
 
 static
 void iter_drop_cat_helper(PgfItor *itor, PgfText *key, object value, PgfExn *err)
 {
     ref<PgfPGF> pgf = ((PgfDropItor*) itor)->pgf;
 
-    PgfDropItor itor2;
-    itor2.fn       = iter_drop_cat_helper2;
-    itor2.pgf      = 0;
-    itor2.concrete = 0;
-    itor2.name     = key;
-    namespace_iter(pgf->concretes, &itor2, err);
+    std::function<bool(ref<PgfConcr>)> f =
+        [key,err](ref<PgfConcr> concr) {
+            drop_lin(concr, key);
+            return (err->type == PGF_EXN_NONE);
+        };
+    namespace_iter(pgf->concretes, f);
 
     ref<PgfAbsFun> fun;
     Namespace<PgfAbsFun> funs =
@@ -1672,8 +1645,6 @@ void pgf_drop_category(PgfDB *db, PgfRevision revision,
             PgfDropItor itor;
             itor.fn       = iter_drop_cat_helper;
             itor.pgf      = pgf;
-            itor.concrete = 0;
-            itor.name     = name;
             PgfProbspace funs_by_cat =
                 probspace_delete_by_cat(pgf->abstract.funs_by_cat, &cat->name,
                                         &itor, err);
