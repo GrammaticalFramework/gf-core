@@ -57,6 +57,7 @@ class PGF_INTERNAL_DECL PgfLRTableMaker
     ref<PgfConcr> concr;
 
     size_t ccat_id;
+    size_t state_id;
 
     std::queue<State*> todo;
     std::map<MD5Digest,State*> states;
@@ -79,6 +80,8 @@ class PGF_INTERNAL_DECL PgfLRTableMaker
 
     void print_production(CCat *ccat, Production *prod);
     void print_item(Item *item);
+
+    void transition(PgfConcrLincat *lincat, size_t lin_idx, State *&state, bool exact);
 
 public:
     PgfLRTableMaker(ref<PgfAbstr> abstr, ref<PgfConcr> concr);
