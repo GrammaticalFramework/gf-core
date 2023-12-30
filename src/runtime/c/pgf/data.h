@@ -266,7 +266,6 @@ struct PGF_INTERNAL_DECL PgfConcrPrintname {
 struct PGF_INTERNAL_DECL PgfLRShift {
     size_t next_state;
     ref<PgfConcrLincat> lincat;
-    bool exact;
     size_t r;
 };
 
@@ -276,18 +275,6 @@ struct PGF_INTERNAL_DECL PgfLRProduction {
     ref<PgfConcrLin> lin;
     size_t index;
     ref<Vector<ref<PgfLRReduceArg>>> args;
-};
-
-struct PGF_INTERNAL_DECL PgfLRReducePop {
-    static const uint8_t tag = 1;
-
-    static inline object from_idx(size_t stk_idx) {
-        return ref<PgfLRReducePop>(stk_idx * (MALLOC_ALIGN_MASK+1)).tagged();
-    }
-
-    static inline size_t to_idx(object o) {
-        return o / (MALLOC_ALIGN_MASK+1);
-    }
 };
 
 struct PGF_INTERNAL_DECL PgfLRReduceArg {
@@ -302,7 +289,13 @@ struct PGF_INTERNAL_DECL PgfLRReduce {
     object lin_obj;
     size_t seq_idx;
     size_t depth;
-    ref<Vector<object>> args;
+
+    struct Arg {
+        ref<PgfLRReduceArg> arg;
+        size_t stk_idx;
+    };
+
+    ref<Vector<Arg>> args;
 };
 
 struct PGF_INTERNAL_DECL PgfLRState {

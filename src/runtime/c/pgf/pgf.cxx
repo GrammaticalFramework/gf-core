@@ -3146,16 +3146,16 @@ pgf_graphviz_lr_automaton(PgfDB *db, PgfConcrRevision revision,
 
                 printer.puts("[");
                 for (size_t i = 0; i < reduce->args->len; i++) {
-                    object o = *vector_elem(reduce->args,i);
+                    ref<PgfLRReduce::Arg> arg = vector_elem(reduce->args,i);
                     if (i > 0)
                         printer.puts(",");
-                    if (o == 0) {
+                    if (arg->arg == 0 && arg->stk_idx == 0) {
                         printer.nprintf(32,"?");
-                    } else if (ref<void>::get_tag(o) == PgfLRReduceArg::tag) {
-                        auto arg = ref<PgfLRReduceArg>::untagged(o);
-                        printer.nprintf(32,"?%zd",arg->id);
                     } else {
-                        printer.nprintf(32,"$%zd",PgfLRReducePop::to_idx(o)-1);
+                        if (arg->arg != 0)
+                            printer.nprintf(32,"?%zd",arg->arg->id);
+                        if (arg->stk_idx != 0)
+                            printer.nprintf(32,"$%zd",arg->stk_idx);
                     }
                 }
                 printer.nprintf(32,"] %zd\n",reduce->depth);
@@ -3168,10 +3168,7 @@ pgf_graphviz_lr_automaton(PgfDB *db, PgfConcrRevision revision,
                 ref<PgfLRShift> shift = vector_elem(state->shifts, j);
                 printer.nprintf(16, "  s%zu -> s%zu [label=\"", i, shift->next_state);
                 printer.efun(&shift->lincat->name);
-                printer.nprintf(16, ".%zu\"", shift->r);
-                if (!shift->exact)
-                    printer.puts(", style=dashed");
-                printer.puts("];\n");
+                printer.nprintf(16, ".%zu\"];\n", shift->r);
             }
         }
         printer.puts("}");

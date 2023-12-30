@@ -71,17 +71,17 @@ class PGF_INTERNAL_DECL PgfLRTableMaker
     void symbol(State *state, Fold fold, Item *item, PgfSymbol sym);
 
     template<class T>
-    void predict(State *state, Fold fold, Item *item, T cat, bool exact,
+    void predict(State *state, Fold fold, Item *item, T cat,
                  ref<Vector<PgfVariableRange>> vars, PgfLParam *r);
-    void predict(State *state, Fold fold, Item *item, ref<PgfText> cat, bool exact, size_t lin_idx);
-    void predict(State *state, Fold fold, Item *item, CCat *ccat, bool exact, size_t lin_idx);
+    void predict(State *state, Fold fold, Item *item, ref<PgfText> cat, size_t lin_idx);
+    void predict(State *state, Fold fold, Item *item, CCat *ccat, size_t lin_idx);
     void predict(ref<PgfAbsFun> absfun, CCat *ccat);
     void complete(State *state, Fold fold, Item *item);
 
     void print_production(CCat *ccat, Production *prod);
     void print_item(Item *item);
 
-    void transition(PgfConcrLincat *lincat, size_t lin_idx, State *&state, bool exact);
+    void transition(PgfConcrLincat *lincat, size_t lin_idx, State *&state);
 
 public:
     PgfLRTableMaker(ref<PgfAbstr> abstr, ref<PgfConcr> concr);
