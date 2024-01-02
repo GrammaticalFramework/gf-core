@@ -2743,7 +2743,7 @@ PgfExprEnum *pgf_parse(PgfDB *db, PgfConcrRevision revision,
         if (lincat_u.lincat == 0)
             return 0;
 
-        PgfParser *parser = new PgfParser(concr, lincat_u.lincat, sentence, m, u);
+        PgfParser *parser = new PgfParser(concr, lincat_u.lincat, sentence, case_sensitive, m, u);
         phrasetable_lookup_cohorts(concr->phrasetable,
                                    sentence, case_sensitive,
                                    parser, err);
@@ -3169,6 +3169,24 @@ pgf_graphviz_lr_automaton(PgfDB *db, PgfConcrRevision revision,
                 printer.nprintf(16, "  s%zu -> s%zu [label=\"", i, shift->next_state);
                 printer.efun(&shift->lincat->name);
                 printer.nprintf(16, ".%zu\"];\n", shift->r);
+            }
+
+            for (size_t j = 0; j < state->tokens->len; j++) {
+                ref<PgfLRShiftKS> shift = vector_elem(state->tokens, j);
+                printer.nprintf(16, "  s%zu -> s%zu [label=\"", i, shift->next_state);
+                size_t sym_idx = shift->sym_idx;
+                while (sym_idx < shift->seq->syms.len) {
+                    if (ref<PgfSymbol>::get_tag(shift->seq->syms.data[sym_idx]) != PgfSymbolKS::tag)
+                        break;
+                    if (sym_idx > shift->sym_idx)
+                        printer.puts(" ");
+                    auto symks = ref<PgfSymbolKS>::untagged(shift->seq->syms.data[sym_idx]);
+                    printer.puts("\\\"");
+                    printer.put_esc_str(&symks->token);
+                    printer.puts("\\\"");
+                    sym_idx++;
+                }
+                printer.puts("\"];\n");
             }
         }
         printer.puts("}");

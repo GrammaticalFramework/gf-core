@@ -115,4 +115,13 @@ void phrasetable_iter(PgfConcr *concr,
 PGF_INTERNAL_DECL
 void phrasetable_release(PgfPhrasetable table);
 
+// The following are used internally in the parser
+
+enum SeqMatch { SM_FULL_MATCH, SM_PREFIX, SM_PARTIAL };
+
+PGF_INTERNAL_DECL
+int text_sequence_cmp(PgfTextSpot *spot, const uint8_t *end,
+                      ref<PgfSequence> seq, size_t *p_i,
+                      bool case_sensitive, SeqMatch sm);
+
 #endif

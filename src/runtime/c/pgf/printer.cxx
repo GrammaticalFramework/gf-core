@@ -45,6 +45,47 @@ void PgfPrinter::puts(const char *s)
     }
 }
 
+void PgfPrinter::put_esc_str(PgfText *v)
+{
+    PgfText *charbuf = (PgfText *) alloca(sizeof(PgfText)+7);
+
+    const uint8_t* start = (uint8_t*) v->text;
+    const uint8_t* end   = start + v->size;
+    while (start < end) {
+        const uint8_t* s = start;
+        uint32_t c = pgf_utf8_decode(&s);
+        switch (c) {
+        case '\\':
+            puts("\\\\");
+            break;
+        case '"':
+            puts("\\\"");
+            break;
+        case '\n':
+            puts("\\n");
+            break;
+        case '\r':
+            puts("\\r");
+            break;
+        case '\b':
+            puts("\\b");
+            break;
+        case '\t':
+            puts("\\t");
+            break;
+        case '\0':
+            puts("\\0");
+            break;
+        default:
+            charbuf->size = s-start;
+            memcpy(charbuf->text, start, charbuf->size);
+            charbuf->text[charbuf->size] = 0;
+            puts(charbuf);
+        }
+        start = s;
+    }
+}
+
 void PgfPrinter::nprintf(size_t buf_size, const char *format, ...)
 {
 again: {
@@ -348,44 +389,8 @@ PgfLiteral PgfPrinter::lflt(double v)
 
 PgfLiteral PgfPrinter::lstr(PgfText *v)
 {
-    PgfText *charbuf = (PgfText *) alloca(sizeof(PgfText)+7);
-
     puts("\"");
-    const uint8_t* start = (uint8_t*) v->text;
-    const uint8_t* end   = start + v->size;
-    while (start < end) {
-        const uint8_t* s = start;
-        uint32_t c = pgf_utf8_decode(&s);
-        switch (c) {
-        case '\\':
-            puts("\\\\");
-            break;
-        case '"':
-            puts("\\\"");
-            break;
-        case '\n':
-            puts("\\n");
-            break;
-        case '\r':
-            puts("\\r");
-            break;
-        case '\b':
-            puts("\\b");
-            break;
-        case '\t':
-            puts("\\t");
-            break;
-        case '\0':
-            puts("\\0");
-            break;
-        default:
-            charbuf->size = s-start;
-            memcpy(charbuf->text, start, charbuf->size);
-            charbuf->text[charbuf->size] = 0;
-            puts(charbuf);
-        }
-        start = s;
-    }
+    put_esc_str(v);
     puts("\"");
     return 0;
 }

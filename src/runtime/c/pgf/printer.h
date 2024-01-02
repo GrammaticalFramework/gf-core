@@ -46,6 +46,8 @@ public:
     void puts(PgfText *s);
     void puts(const char *s);
 
+    void put_esc_str(PgfText *v);
+
     // buf_size is the expected buffer size. If larger is needed,
     // it will be allocated automatically.
 #if defined(_MSC_VER)

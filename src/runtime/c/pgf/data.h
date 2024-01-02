@@ -269,6 +269,12 @@ struct PGF_INTERNAL_DECL PgfLRShift {
     size_t r;
 };
 
+struct PGF_INTERNAL_DECL PgfLRShiftKS {
+    size_t next_state;
+    ref<PgfSequence> seq;
+    size_t sym_idx;
+};
+
 struct PgfLRReduceArg;
 
 struct PGF_INTERNAL_DECL PgfLRProduction {
@@ -300,6 +306,7 @@ struct PGF_INTERNAL_DECL PgfLRReduce {
 
 struct PGF_INTERNAL_DECL PgfLRState {
     ref<Vector<PgfLRShift>> shifts;
+    ref<Vector<PgfLRShiftKS>> tokens;
     ref<Vector<PgfLRReduce>> reductions;
 };
 

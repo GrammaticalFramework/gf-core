@@ -53,6 +53,12 @@ class PGF_INTERNAL_DECL PgfLRTableMaker
         }
     };
 
+    typedef std::pair<ref<PgfSequence>,size_t> Key3;
+
+    struct PGF_INTERNAL_DECL CompareKey3 : std::less<Key3> {
+        bool operator() (const Key3& k1, const Key3& k2) const;
+    };
+
     ref<PgfAbstr> abstr;
     ref<PgfConcr> concr;
 
@@ -81,7 +87,7 @@ class PGF_INTERNAL_DECL PgfLRTableMaker
     void print_production(CCat *ccat, Production *prod);
     void print_item(Item *item);
 
-    void transition(PgfConcrLincat *lincat, size_t lin_idx, State *&state);
+    void internalize_state(State *&state);
 
 public:
     PgfLRTableMaker(ref<PgfAbstr> abstr, ref<PgfConcr> concr);
@@ -95,6 +101,7 @@ class PGF_INTERNAL_DECL PgfParser : public PgfPhraseScanner, public PgfExprEnum
 {
     ref<PgfConcr> concr;
     PgfText *sentence;
+    bool case_sensitive;
     PgfMarshaller *m;
     PgfUnmarshaller *u;
 
@@ -119,6 +126,7 @@ class PGF_INTERNAL_DECL PgfParser : public PgfPhraseScanner, public PgfExprEnum
 
     void shift(StackNode *parent, ref<PgfConcrLincat> lincat, size_t r, Production *prod,
                Stage *before, Stage *after);
+    void shift(StackNode *parent, Stage *before);
     void reduce(StackNode *parent, ref<PgfConcrLin> lin, ref<PgfLRReduce> red,
                 size_t n, std::vector<Choice*> &args,
                 Stage *before, Stage *after);
@@ -127,7 +135,7 @@ class PGF_INTERNAL_DECL PgfParser : public PgfPhraseScanner, public PgfExprEnum
                   size_t n, std::vector<Choice*> &args);
     void reduce_all(StackNode *state);
     void print_prod(Choice *choice, Production *prod);
-    void print_transition(StackNode *source, StackNode *target, Stage *stage);
+    void print_transition(StackNode *source, StackNode *target, Stage *stage, ref<PgfLRShiftKS> shift);
 
     typedef std::map<std::pair<Choice*,Choice*>,Choice*> intersection_map;
 
@@ -144,7 +152,7 @@ class PGF_INTERNAL_DECL PgfParser : public PgfPhraseScanner, public PgfExprEnum
     void release_expr_state(ExprState *state);
 
 public:
-    PgfParser(ref<PgfConcr> concr, ref<PgfConcrLincat> start, PgfText *sentence, PgfMarshaller *m, PgfUnmarshaller *u);
+    PgfParser(ref<PgfConcr> concr, ref<PgfConcrLincat> start, PgfText *sentence, bool case_sensitive, PgfMarshaller *m, PgfUnmarshaller *u);
 
 	virtual void space(PgfTextSpot *start, PgfTextSpot *end, PgfExn* err);
     virtual void start_matches(PgfTextSpot *end, PgfExn* err);

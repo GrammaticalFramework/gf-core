@@ -228,28 +228,33 @@ int sequence_cmp(ref<PgfSequence> seq1, ref<PgfSequence> seq2)
 	return 0;
 }
 
-static
+PGF_INTERNAL
 int text_sequence_cmp(PgfTextSpot *spot, const uint8_t *end,
-                      ref<PgfSequence> seq,
-                      bool case_sensitive, bool full_match)
+                      ref<PgfSequence> seq, size_t *p_i,
+                      bool case_sensitive, SeqMatch sm)
 {
 	int res1 = 0;
 
-    size_t i = 0;
     const uint8_t *s2 = NULL;
     const uint8_t *e2 = NULL;
+
+    uint8_t t = 0xff;
+    if (*p_i < seq->syms.len) {
+        t = ref<PgfSymbol>::get_tag(seq->syms.data[*p_i]);
+    }
 
     size_t count = 0;
 
     for (;;) {
         if (spot->ptr >= end) {
-            if (s2 < e2 || i < seq->syms.len)
+            if (s2 < e2 || t == PgfSymbolKS::tag)
                 return -1;
             return case_sensitive ? res1 : 0;
         }
 
-        if (s2 >= e2 && i >= seq->syms.len)
-            return full_match ? 1 : 0;
+        if (s2 >= e2 && t != PgfSymbolKS::tag) {
+            return (sm == SM_FULL_MATCH) ? 1 : 0;
+        }
 
         uint32_t ucs1  = pgf_utf8_decode(&spot->ptr); spot->pos++;
         uint32_t ucs1i = pgf_utf8_to_upper(ucs1);
@@ -268,16 +273,21 @@ int text_sequence_cmp(PgfTextSpot *spot, const uint8_t *end,
                 }
             }
 
-            uint8_t t = ref<PgfSymbol>::get_tag(seq->syms.data[i]);
             if (t != PgfSymbolKS::tag) {
+                if (sm == SM_PARTIAL)
+                    return 0;
                 return ((int) PgfSymbolKS::tag) - ((int) t);
             }
 
-            auto sym_ks = ref<PgfSymbolKS>::untagged(seq->syms.data[i]);
+            auto sym_ks = ref<PgfSymbolKS>::untagged(seq->syms.data[*p_i]);
             s2 = (uint8_t *) &sym_ks->token.text;
             e2 = s2+sym_ks->token.size;
 
-            i++;
+            (*p_i)++;
+            t = 0xff;
+            if (*p_i < seq->syms.len) {
+                t = ref<PgfSymbol>::get_tag(seq->syms.data[*p_i]);
+            }
         }
 
         uint32_t ucs2  = pgf_utf8_decode(&s2);
@@ -552,7 +562,8 @@ void phrasetable_lookup(PgfPhrasetable table,
     current.pos = 0;
     current.ptr = (uint8_t *) sentence->text;
     const uint8_t *end = current.ptr+sentence->size;
-    int cmp = text_sequence_cmp(&current,end,table->value.seq,case_sensitive,true);
+    size_t sym_idx = 0;
+    int cmp = text_sequence_cmp(&current,end,table->value.seq,&sym_idx,case_sensitive,SM_FULL_MATCH);
     if (cmp < 0) {
         phrasetable_lookup(table->left,sentence,case_sensitive,scanner,err);
     } else if (cmp > 0) {
@@ -662,7 +673,8 @@ void phrasetable_lookup_prefixes(PgfCohortsState *state,
         return;
 
     PgfTextSpot current = state->spot;
-    int cmp = text_sequence_cmp(&current,state->end,table->value.seq,state->case_sensitive,false);
+    size_t sym_idx = 0;
+    int cmp = text_sequence_cmp(&current,state->end,table->value.seq,&sym_idx,state->case_sensitive,SM_PREFIX);
     if (cmp < 0) {
         phrasetable_lookup_prefixes(state,table->left,min,max);
     } else if (cmp > 0) {
