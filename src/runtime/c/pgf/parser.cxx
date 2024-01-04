@@ -725,6 +725,13 @@ void PgfLRTableMaker::symbol(State *state, Fold fold, Item *item, PgfSymbol sym)
         }
         break;
     }
+    case PgfSymbolCAPIT::tag:
+    case PgfSymbolALLCAPIT::tag: {
+        // We just ignore CAPIT && ALLCAPIT during parsing
+        item->sym_idx++;
+        process(state,fold,item);
+        break;
+    }
     default:
         if (item->ref_cnt == 0)
             delete item;
