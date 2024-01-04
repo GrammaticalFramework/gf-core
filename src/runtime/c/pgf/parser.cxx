@@ -389,9 +389,11 @@ struct PgfLRTableMaker::State {
     std::map<Key1,State*,CompareKey1> ccats1;
     std::map<Key2,State*,CompareKey2> ccats2;
     std::map<Key3,State*,CompareKey3> tokens;
+    State *bind_state;
 
     State() {
         this->id = 0;
+        this->bind_state = NULL;
     }
 
     ~State() {
@@ -693,6 +695,36 @@ void PgfLRTableMaker::symbol(State *state, Fold fold, Item *item, PgfSymbol sym)
         }
         break;
     }
+    case PgfSymbolBIND::tag: {
+        if (fold != PROBE)
+        {
+            if (state->bind_state == NULL) {
+                state->bind_state = new State;
+            }
+            item->sym_idx++;
+            item->stk_size++;
+            state->bind_state->push_item(item);
+        }
+        break;
+    }
+    case PgfSymbolSOFTBIND::tag:
+    case PgfSymbolSOFTSPACE::tag: {
+        if (fold != PROBE)
+        {
+            // SOFT_BIND && SOFT_SPACE also allow a space
+            item->sym_idx++;
+            process(state,fold,item);
+
+            // Now we handle the case where there is no space
+            if (state->bind_state == NULL) {
+                state->bind_state = new State;
+            }
+            item = new (item) Item();
+            item->stk_size++;
+            state->bind_state->push_item(item);
+        }
+        break;
+    }
     default:
         if (item->ref_cnt == 0)
             delete item;
@@ -956,9 +988,9 @@ ref<PgfLRTable> PgfLRTableMaker::make()
     while (!todo.empty()) {
         State *state = todo.front(); todo.pop();
 
-//#if defined(DEBUG_AUTOMATON) || defined(DEBUG_STATE_CREATION)
+#if defined(DEBUG_AUTOMATON) || defined(DEBUG_STATE_CREATION)
         fprintf(stderr, "--------------- state %ld ---------------\n", state->id);
-//#endif
+#endif
 
         while (!state->items.empty()) {
             Item *item = state->items.back(); state->items.pop_back();
@@ -1010,6 +1042,13 @@ ref<PgfLRTable> PgfLRTableMaker::make()
             free(text);
 #endif
         }
+        if (state->bind_state != NULL) {
+            internalize_state(state->bind_state);
+#if defined(DEBUG_AUTOMATON)
+            fprintf(stderr, "BIND: state %ld\n", state->bind_state->id);
+#endif
+        }
+
     }
 
     ref<PgfLRTable> lrtable = vector_new<PgfLRState>(states.size());
@@ -1043,6 +1082,11 @@ ref<PgfLRTable> PgfLRTableMaker::make()
             }
         }
 
+        size_t next_bind_state = 0;
+        if (state->bind_state != NULL) {
+            next_bind_state = state->bind_state->id;
+        }
+
         auto reductions = vector_new<PgfLRReduce>(state->completed.size());
         for (size_t i = 0; i < state->completed.size(); i++) {
             Item *item = state->completed[i];
@@ -1066,6 +1110,7 @@ ref<PgfLRTable> PgfLRTableMaker::make()
         ref<PgfLRState> lrstate = vector_elem(lrtable, state->id);
         lrstate->shifts = shifts;
         lrstate->tokens = tokens;
+        lrstate->next_bind_state = next_bind_state;
         lrstate->reductions = reductions;
     }
     return lrtable;
@@ -1190,8 +1235,7 @@ void PgfParser::print_transition(StackNode *source, StackNode *target, Stage *st
     printer.nprintf(64, "state %ld --- ", source->state_id);
     if (target->choice != 0) {
         printer.nprintf(32, "?%d", target->choice->fid);
-    }
-    if (shift != 0) {            
+    } else if (shift != 0) {
         size_t sym_idx = shift->sym_idx;
         ref<PgfSequence> seq = shift->seq;
         while (sym_idx < seq->syms.len) {
@@ -1201,6 +1245,8 @@ void PgfParser::print_transition(StackNode *source, StackNode *target, Stage *st
             printer.symbol(sym);
             sym_idx++;
         }
+    } else {
+        printer.puts("BIND");
     }
     printer.nprintf(80, " ---> state %ld (position %zu-%zu, nodes %zu)\n",
                     target->state_id,
@@ -1311,6 +1357,32 @@ void PgfParser::shift(StackNode *parent, Stage *before)
 
                 end_matches(&spot, NULL);
             }
+        }
+    }
+}
+
+void PgfParser::shift(StackNode *parent, Stage *before, Stage *after)
+{
+    size_t next_bind_state = vector_elem(concr->lrtable,parent->state_id)->next_bind_state;
+    if (next_bind_state != 0) {
+        StackNode *node = NULL;
+        for (StackNode *n : after->nodes) {
+            if (n->stage == before && n->state_id == next_bind_state) {
+                node = n;
+                break;
+            }
+        }
+        if (node == NULL) {
+            node = new StackNode(before, next_bind_state);
+            node->choice = NULL;
+            after->nodes.push_back(node);
+        }
+
+        if (std::find(node->parents.begin(), node->parents.end(), parent) == node->parents.end()) {
+            node->parents.push_back(parent);
+#ifdef DEBUG_PARSER
+            print_transition(parent,node,after,0);
+#endif
         }
     }
 }
@@ -1481,6 +1553,18 @@ void PgfParser::space(PgfTextSpot *start, PgfTextSpot *end, PgfExn* err)
     }
 
     before->end = *end;
+
+    if (before->next != NULL && before->start.pos==before->end.pos) {
+        after = new Stage(*end);
+        after->next = before;
+        size_t i = 0;
+        while (i < before->nodes.size()) {
+            StackNode *node = before->nodes[i++];
+            reduce_all(node);
+            shift(node, before, after);
+        }
+        before = after;
+    }
 
     size_t i = 0;
     while (i < before->nodes.size()) {

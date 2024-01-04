@@ -127,6 +127,7 @@ class PGF_INTERNAL_DECL PgfParser : public PgfPhraseScanner, public PgfExprEnum
     void shift(StackNode *parent, ref<PgfConcrLincat> lincat, size_t r, Production *prod,
                Stage *before, Stage *after);
     void shift(StackNode *parent, Stage *before);
+    void shift(StackNode *parent, Stage *before, Stage *after);
     void reduce(StackNode *parent, ref<PgfConcrLin> lin, ref<PgfLRReduce> red,
                 size_t n, std::vector<Choice*> &args,
                 Stage *before, Stage *after);

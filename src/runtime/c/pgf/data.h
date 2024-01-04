@@ -307,6 +307,7 @@ struct PGF_INTERNAL_DECL PgfLRReduce {
 struct PGF_INTERNAL_DECL PgfLRState {
     ref<Vector<PgfLRShift>> shifts;
     ref<Vector<PgfLRShiftKS>> tokens;
+    size_t next_bind_state;
     ref<Vector<PgfLRReduce>> reductions;
 };
 
