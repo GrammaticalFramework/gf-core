@@ -74,7 +74,6 @@ class PGF_INTERNAL_DECL PgfLRTableMaker
     typedef enum { INIT, PROBE, REPEAT } Fold;
 
     void process(State *state, Fold fold, Item *item);
-    void syntagma(State *state, Fold fold, Item *item, ref<PgfSequence> seq, size_t sym_idx);
     void symbol(State *state, Fold fold, Item *item, PgfSymbol sym);
 
     template<class T>
