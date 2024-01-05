@@ -6,7 +6,7 @@
 //#define DEBUG_STATE_CREATION
 #define DEBUG_AUTOMATON
 #define DEBUG_PARSER
-//#define DEBUG_GENERATOR
+#define DEBUG_GENERATOR
 
 struct PgfLRTableMaker::CCat {
     CCat *parent;
@@ -678,22 +678,66 @@ void PgfLRTableMaker::symbol(State *state, Fold fold, Item *item, PgfSymbol sym)
     }
     case PgfSymbolKS::tag: {
         auto symks = ref<PgfSymbolKS>::untagged(sym);
+
+        size_t sym_idx_2 = item->sym_idx+1;
+        while (sym_idx_2 < item->seq->syms.len) {
+            if (ref<PgfSymbol>::get_tag(item->seq->syms.data[sym_idx_2]) != PgfSymbolKS::tag)
+                break;
+            sym_idx_2++;
+        }
+
         if (fold == PROBE) {
             item->ccat->productive = true;
+            if (item->sym_idx > 0 || sym_idx_2 < item->seq->syms.len) {
+                print_item(item);
+                item->ccat->register_item(item);
+            }
         } else {
             auto &next_state = state->tokens[Key3(item->seq,item->sym_idx)];
             if (next_state == NULL) {
                 next_state = new State;
             }
-            while (item->sym_idx < item->seq->syms.len) {
-                if (ref<PgfSymbol>::get_tag(item->seq->syms.data[item->sym_idx]) != PgfSymbolKS::tag)
-                    break;
-                item->sym_idx++;
-            }
+            item = new (item) Item;
+            item->sym_idx = sym_idx_2;
             item->stk_size++;
             next_state->push_item(item);
         }
         break;
+    }
+    case PgfSymbolKP::tag: {
+        if (fold == PROBE) {
+            item->ccat->productive = true;
+            item->ccat->register_item(item);
+        } else {
+            auto symkp = ref<PgfSymbolKP>::untagged(sym);
+            for (size_t i = 0; i < symkp->alts.len; i++) {
+                Item *new_item = new (item) Item; new_item->sym_idx++;
+                ref<PgfSequence> form = symkp->alts.data[i].form;
+                if (form->syms.len == 0) {
+                    process(state, fold, new_item);
+                } else {
+                    auto &next_state = state->tokens[Key3(form,0)];
+                    if (next_state == NULL) {
+                        next_state = new State;
+                    }
+                    new_item->stk_size++;
+                    next_state->push_item(new_item);
+                }
+            }
+
+            Item *new_item = new (item) Item; new_item->sym_idx++;
+            ref<PgfSequence> form = symkp->default_form;
+            if (form->syms.len == 0) {
+                process(state, fold, new_item);
+            } else {
+                auto &next_state = state->tokens[Key3(form,0)];
+                if (next_state == NULL) {
+                    next_state = new State;
+                }
+                new_item->stk_size++;
+                next_state->push_item(new_item);
+            }
+        }
     }
     case PgfSymbolBIND::tag: {
         if (fold != PROBE)
@@ -701,6 +745,7 @@ void PgfLRTableMaker::symbol(State *state, Fold fold, Item *item, PgfSymbol sym)
             if (state->bind_state == NULL) {
                 state->bind_state = new State;
             }
+            item = new (item) Item;
             item->sym_idx++;
             item->stk_size++;
             state->bind_state->push_item(item);
@@ -712,6 +757,7 @@ void PgfLRTableMaker::symbol(State *state, Fold fold, Item *item, PgfSymbol sym)
         if (fold != PROBE)
         {
             // SOFT_BIND && SOFT_SPACE also allow a space
+            item = new (item) Item();
             item->sym_idx++;
             process(state,fold,item);
 
