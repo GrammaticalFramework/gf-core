@@ -4,9 +4,9 @@
 #include <algorithm>
 
 //#define DEBUG_STATE_CREATION
-#define DEBUG_AUTOMATON
-#define DEBUG_PARSER
-#define DEBUG_GENERATOR
+//#define DEBUG_AUTOMATON
+//#define DEBUG_PARSER
+//#define DEBUG_GENERATOR
 
 struct PgfLRTableMaker::CCat {
     CCat *parent;
@@ -689,7 +689,6 @@ void PgfLRTableMaker::symbol(State *state, Fold fold, Item *item, PgfSymbol sym)
         if (fold == PROBE) {
             item->ccat->productive = true;
             if (item->sym_idx > 0 || sym_idx_2 < item->seq->syms.len) {
-                print_item(item);
                 item->ccat->register_item(item);
             }
         } else {
