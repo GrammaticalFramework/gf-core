@@ -119,7 +119,10 @@ class PGF_INTERNAL_DECL PgfParser : public PgfPhraseScanner, public PgfExprEnum
     std::priority_queue<ExprState*, std::vector<ExprState*>, CompareExprState> queue;
     int last_fid;
 
+    std::vector<Choice*> dynamic;
     std::map<object,Choice*> persistant;
+
+    std::vector<PgfExpr> exprs;
 
     Choice *top_choice;
     size_t top_choice_index;
@@ -150,10 +153,10 @@ class PGF_INTERNAL_DECL PgfParser : public PgfPhraseScanner, public PgfExprEnum
     bool process_expr_state(ExprState *state);
     void complete_expr_state(ExprState *state);
     void combine_expr_state(ExprState *state, ExprInstance &inst);
-    void release_expr_state(ExprState *state);
 
 public:
     PgfParser(ref<PgfConcr> concr, ref<PgfConcrLincat> start, PgfText *sentence, bool case_sensitive, PgfMarshaller *m, PgfUnmarshaller *u);
+    ~PgfParser();
 
 	virtual void space(PgfTextSpot *start, PgfTextSpot *end, PgfExn* err);
     virtual void start_matches(PgfTextSpot *end, PgfExn* err);

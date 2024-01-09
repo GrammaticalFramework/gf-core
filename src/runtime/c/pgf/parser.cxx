@@ -1207,6 +1207,8 @@ struct PgfParser::Choice {
     Choice(int fid) {
         this->fid = fid;
     }
+
+    ~Choice();
 };
 
 struct PgfParser::Production {
@@ -1262,6 +1264,12 @@ struct PgfParser::Stage {
         start = spot;
         end   = spot;
     }
+
+    ~Stage() {
+        for (StackNode *node : nodes) {
+            delete node;
+        }
+    }
 };
 
 struct PgfParser::ExprState {
@@ -1282,6 +1290,17 @@ struct PgfParser::ExprInstance {
         this->prob = prob;
     }
 };
+
+PgfParser::Choice::~Choice() {
+    while (states.size() > 0) {
+        ExprState *state = states.back(); states.pop_back();
+        delete state;
+    }
+
+    for (Production *prod : prods) {
+        delete prod;
+    }
+}
 
 #if defined(DEBUG_STATE_CREATION) || defined(DEBUG_AUTOMATON) || defined(DEBUG_PARSER)
 void PgfParser::print_prod(Choice *choice, Production *prod)
@@ -1379,6 +1398,7 @@ void PgfParser::shift(StackNode *parent, ref<PgfConcrLincat> lincat, size_t r, P
             if (node == NULL) {
                 node = new StackNode(before, shift->next_state);
                 node->choice = new Choice(++last_fid);
+                dynamic.push_back(node->choice);
                 after->nodes.push_back(node);
             }
 
@@ -1485,6 +1505,7 @@ PgfParser::Choice *PgfParser::intersect_choice(Choice *choice1, Choice *choice2,
     }
 
     Choice *choice = new Choice(++last_fid);
+    dynamic.push_back(choice);
     im[key] = choice;
     for (Production *prod1 : choice1->prods) {
         for (Production *prod2 : choice2->prods) {
@@ -1704,6 +1725,7 @@ void PgfParser::predict_expr_states(Choice *choice, prob_t outside_prob)
         state->n_args = 0;
         state->expr = u->efun(&prod->lin->name);
         state->prob = outside_prob+prod->lin->absfun->prob;
+        exprs.push_back(state->expr);
         queue.push(state);
     }
 }
@@ -1768,7 +1790,7 @@ bool PgfParser::process_expr_state(ExprState *state)
     if (choice == NULL) {
         PgfExpr meta = u->emeta(0);
         PgfExpr app = u->eapp(state->expr, meta);
-        u->free_ref(state->expr);
+        exprs.push_back(app);
         u->free_ref(meta);
         state->expr = app;
         state->n_args++;
@@ -1808,6 +1830,7 @@ void PgfParser::complete_expr_state(ExprState *state)
 void PgfParser::combine_expr_state(ExprState *state, ExprInstance &inst)
 {
     PgfExpr app = u->eapp(state->expr, inst.expr);
+    exprs.push_back(app);
 
     ExprState *app_state = new ExprState();
     app_state->prob   = state->prob + inst.prob;
@@ -1816,11 +1839,6 @@ void PgfParser::combine_expr_state(ExprState *state, ExprInstance &inst)
     app_state->n_args = state->n_args+1;
     app_state->expr   = app;
     queue.push(app_state);
-}
-
-void PgfParser::release_expr_state(ExprState *state)
-{
-    
 }
 
 PgfExpr PgfParser::fetch(PgfDB *db, prob_t *prob)
@@ -1846,9 +1864,42 @@ PgfExpr PgfParser::fetch(PgfDB *db, prob_t *prob)
 #endif
 
         if (process_expr_state(state)) {
-            release_expr_state(state);
+            delete state;
         }
     }
 
     return 0;
+}
+
+PgfParser::~PgfParser()
+{
+    while (before != NULL) {
+        Stage *tmp = before;
+        before = before->next;
+        delete tmp;
+    }
+
+    while (ahead != NULL) {
+        Stage *tmp = ahead;
+        ahead = ahead->next;
+        delete tmp;
+    }
+
+    for (auto it : persistant) {
+        delete it.second;
+    }
+
+    for (Choice *choice : dynamic) {
+        delete choice;
+    }
+
+    for (PgfExpr expr : exprs) {
+        u->free_ref(expr);
+    }
+
+    std::priority_queue<ExprState*, std::vector<ExprState*>, CompareExprState> queue;
+    while (!queue.empty()) {
+        ExprState *state = queue.top(); queue.pop();
+        delete state;
+    }
 }
