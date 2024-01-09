@@ -117,7 +117,8 @@ struct PgfLRTableMaker::Item {
     }
 
     void operator delete(void *p) {
-        free(p);
+        if (((Item *) p)->ref_cnt == 0)
+            free(p);
     }
 };
 
@@ -194,13 +195,11 @@ void PgfLRTableMaker::CCat::register_item(Item *item) {
 PgfLRTableMaker::CCat::~CCat() {
     for (Item *item : items) {
         item->ref_cnt--;
-        if (item->ref_cnt == 0)
-            delete item;
+        delete item;
     }
     for (Item *item : suspended) {
         item->ref_cnt--;
-        if (item->ref_cnt == 0)
-            delete item;
+        delete item;
     }
     for (Production *prod : prods) {
         delete prod;
@@ -384,8 +383,8 @@ bool PgfLRTableMaker::CompareKey3::operator() (const Key3& k1, const Key3& k2) c
 
 struct PgfLRTableMaker::State {
     size_t id;
-    std::vector<Item*> items;
-    std::vector<Item*> completed;
+    std::vector<Item*> items;       // The seed items for this state
+    std::vector<Item*> completed;   // Completed items that will become reductions
     std::map<Key1,State*,CompareKey1> ccats1;
     std::map<Key2,State*,CompareKey2> ccats2;
     std::map<Key3,State*,CompareKey3> tokens;
@@ -399,20 +398,24 @@ struct PgfLRTableMaker::State {
     ~State() {
         for (Item *item : items) {
             item->ref_cnt--;
-            if (item->ref_cnt == 0)
-                delete item;
+            delete item;
         }
 
         for (Item *item : completed) {
             item->ref_cnt--;
-            if (item->ref_cnt == 0)
-                delete item;
+            delete item;
         }
     }
 
     void push_item(Item *item) {
         items.push_back(item); item->ref_cnt++;
         push_heap(items.begin(), items.end(), compare_item);
+    }
+
+    Item *pop_item() {
+        Item *item = items.back(); items.pop_back();
+        item->ref_cnt--;
+        return item;
     }
 };
 
@@ -709,38 +712,62 @@ void PgfLRTableMaker::symbol(State *state, Fold fold, Item *item, PgfSymbol sym)
             item->ccat->register_item(item);
         } else {
             auto symkp = ref<PgfSymbolKP>::untagged(sym);
+            Item *new_item1 = NULL;
+            Item *new_item2 = NULL;
             for (size_t i = 0; i < symkp->alts.len; i++) {
-                Item *new_item = new (item) Item; new_item->sym_idx++;
                 ref<PgfSequence> form = symkp->alts.data[i].form;
                 if (form->syms.len == 0) {
-                    process(state, fold, new_item);
+                    if (!new_item1) {
+                        new_item1 = new (item) Item;
+                        new_item1->sym_idx++;
+                    }
+                    process(state, fold, new_item1);
                 } else {
                     auto &next_state = state->tokens[Key3(form,0)];
                     if (next_state == NULL) {
                         next_state = new State;
                     }
-                    new_item->stk_size++;
-                    next_state->push_item(new_item);
+                    if (!new_item2) {
+                        new_item2 = new (item) Item;
+                        new_item2->sym_idx++;
+                        new_item2->stk_size++;
+                    }
+                    next_state->push_item(new_item2);
                 }
             }
 
-            Item *new_item = new (item) Item; new_item->sym_idx++;
             ref<PgfSequence> form = symkp->default_form;
             if (form->syms.len == 0) {
-                process(state, fold, new_item);
+                if (!new_item1) {
+                    new_item1 = new (item) Item;
+                    new_item1->sym_idx++;
+                }
+                process(state, fold, new_item1);
             } else {
                 auto &next_state = state->tokens[Key3(form,0)];
                 if (next_state == NULL) {
                     next_state = new State;
                 }
-                new_item->stk_size++;
-                next_state->push_item(new_item);
+                if (!new_item2) {
+                    new_item2 = new (item) Item;
+                    new_item2->sym_idx++;
+                    new_item2->stk_size++;
+                }
+                next_state->push_item(new_item2);
             }
+
+            // If the items are not owned by anyone, we must delete them
+            if (new_item1 != NULL)
+                delete new_item1;
+            if (new_item2 != NULL)
+                delete new_item2;
         }
     }
     case PgfSymbolBIND::tag: {
-        if (fold != PROBE)
-        {
+        if (fold == PROBE) {
+            item->ccat->productive = true;
+            item->ccat->register_item(item);
+        } else {
             if (state->bind_state == NULL) {
                 state->bind_state = new State;
             }
@@ -753,33 +780,35 @@ void PgfLRTableMaker::symbol(State *state, Fold fold, Item *item, PgfSymbol sym)
     }
     case PgfSymbolSOFTBIND::tag:
     case PgfSymbolSOFTSPACE::tag: {
-        if (fold != PROBE)
-        {
+        if (fold == PROBE) {
+            item->ccat->productive = true;
+            item->ccat->register_item(item);
+        } else {
             // SOFT_BIND && SOFT_SPACE also allow a space
-            item = new (item) Item();
-            item->sym_idx++;
-            process(state,fold,item);
+            Item *new_item = new (item) Item();
+            new_item->sym_idx++;
+            process(state,fold,new_item);
+            delete new_item;
 
-            // Now we handle the case where there is no space
+            // Now we handle the case where there is no space.
             if (state->bind_state == NULL) {
                 state->bind_state = new State;
             }
-            item = new (item) Item();
-            item->stk_size++;
-            state->bind_state->push_item(item);
+            new_item = new (item) Item();
+            new_item->stk_size++;
+            state->bind_state->push_item(new_item);
+            delete new_item;
         }
         break;
     }
     case PgfSymbolCAPIT::tag:
     case PgfSymbolALLCAPIT::tag: {
         // We just ignore CAPIT && ALLCAPIT during parsing
-        item->sym_idx++;
+        item = new (item) Item(); item->sym_idx++;
         process(state,fold,item);
+        delete item;
         break;
     }
-    default:
-        if (item->ref_cnt == 0)
-            delete item;
     }
 }
 
@@ -828,6 +857,8 @@ void PgfLRTableMaker::predict(State *state, Fold fold, Item *item, T cat,
 
         predict(state, fold, new_item, cat, index);
 
+        delete new_item;
+
         size_t i = n_terms;
         while (i > 0) {
             i--;
@@ -846,9 +877,6 @@ void PgfLRTableMaker::predict(State *state, Fold fold, Item *item, T cat,
             break;
         }
     }
-
-    if (item->ref_cnt == 0)
-        delete item;
 }
 
 void PgfLRTableMaker::predict(State *state, Fold fold, Item *item, ref<PgfText> cat, size_t lin_idx)
@@ -871,6 +899,7 @@ void PgfLRTableMaker::predict(State *state, Fold fold, Item *item, ref<PgfText> 
     } else if (fold == PROBE && ccat->prods.size() > 0) {
         Item *new_item = new(item,ccat) Item;
         process(state,fold,new_item);
+        delete new_item;
     }
 
     if (fold == PROBE) {
@@ -896,6 +925,7 @@ void PgfLRTableMaker::predict(State *state, Fold fold, Item *item, ref<PgfText> 
         if (fold == INIT && ccat->prods.size() > 0) {
             Item *new_item = new (item, ccat) Item;
             process(state, fold, new_item);
+            delete new_item;
         }
     }
 }
@@ -916,6 +946,7 @@ void PgfLRTableMaker::predict(State *state, Fold fold, Item *item, CCat *ccat, s
             Production *prod = ccat->prods[i];
             Item *item = new(new_ccat, prod, lin_idx) Item;
             process(NULL, PROBE, item);
+            delete item;
         }
     }
 
@@ -926,13 +957,13 @@ void PgfLRTableMaker::predict(State *state, Fold fold, Item *item, CCat *ccat, s
         }
     } else {
         if (new_ccat->productive) {
-            auto &new_state = state->ccats2[Key2(new_ccat,lin_idx)];
-            if (new_state == NULL) {
-                new_state = new State;
+            auto &next_state = state->ccats2[Key2(new_ccat,lin_idx)];
+            if (next_state == NULL) {
+                next_state = new State;
             }
-            new_state->push_item(new(item,lin_idx) Item);
+            next_state->push_item(new(item,lin_idx) Item);
 
-            if (new_state->items.size() == 1) {
+            if (next_state->items.size() == 1) {
                 for (size_t i = 0; i < new_ccat->items.size(); i++) {
                     process(state, REPEAT, new_ccat->items[i]);
                 }
@@ -941,6 +972,7 @@ void PgfLRTableMaker::predict(State *state, Fold fold, Item *item, CCat *ccat, s
         if (fold == INIT && new_ccat->prods.size() > 0) {
             Item *new_item = new (item, new_ccat) Item;
             process(state, fold, new_item);
+            delete new_item;
         }
     }
 }
@@ -958,6 +990,7 @@ void PgfLRTableMaker::predict(ref<PgfAbsFun> absfun, CCat *ccat)
             size_t seq_idx = n_fields * i + ccat->lin_idx;
             Item *item = new(ccat, lin, seq_idx) Item;
             process(NULL, PROBE, item);
+            delete item;
         }
     }
 }
@@ -984,12 +1017,10 @@ void PgfLRTableMaker::complete(State *state, Fold fold, Item *item)
                 if (susp != NULL) {
                     Item *new_item = new (susp, item->ccat) Item;
                     process(state, PROBE, new_item);
+                    delete new_item;
                 }
             }
         }
-
-        if (item->ref_cnt == 0)
-            delete item;
     } else {
         state->completed.push_back(item); item->ref_cnt++;
 
@@ -1045,7 +1076,7 @@ ref<PgfLRTable> PgfLRTableMaker::make()
 #endif
 
         while (!state->items.empty()) {
-            Item *item = state->items.back(); state->items.pop_back();
+            Item *item = state->pop_item();
 
 #if defined(DEBUG_AUTOMATON) && !defined(DEBUG_STATE_CREATION)
             // The order in which we process the items should not matter,
@@ -1055,9 +1086,8 @@ ref<PgfLRTable> PgfLRTableMaker::make()
 #endif
 
             process(state, INIT, item);
-            item->ref_cnt--;
-            if (item->ref_cnt == 0)
-                delete item;
+
+            delete item;
         }
 
         for (auto &i : state->ccats1) {
