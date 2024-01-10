@@ -428,6 +428,7 @@ PgfDB::PgfDB(const char* filepath, int flags, int mode, size_t init_size) {
     last_free_block_size  = 0;
     last_free_block_txn_id= 0;
     seed                  = (unsigned long int) time(NULL);
+    transaction_object    = 0;
 }
 
 PGF_INTERNAL
