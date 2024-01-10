@@ -1524,7 +1524,11 @@ PgfParser::Choice *PgfParser::intersect_choice(Choice *choice1, Choice *choice2,
                         return NULL;
                     }
                     prod->args[i] = arg;
-                }                
+                }
+
+#ifdef DEBUG_PARSER
+                print_prod(choice, prod);
+#endif
             }
         }
     }
@@ -1599,6 +1603,9 @@ PgfParser::Choice *PgfParser::retrieve_choice(ref<PgfLRReduceArg> arg)
                 prod->args[j] = retrieve_choice(child);
             }
             choice->prods.push_back(prod);
+#ifdef DEBUG_PARSER
+            print_prod(choice, prod);
+#endif
         }
     }
 
