@@ -1235,6 +1235,18 @@ struct PgfParser::Production {
         // while it has already been initialized in the new operator.
     }
 
+    bool operator==(const Production& other) const {
+        if (lin != other.lin || index != other.index)
+            return false;
+
+        for (size_t i = 0; i < n_args; i++) {
+            if (args[i] != other.args[i])
+                return false;
+        }
+
+        return true;
+    }
+
     void operator delete(void *p) {
         free(p);
     }
@@ -1402,13 +1414,19 @@ bool PgfParser::shift(StackNode *parent, ref<PgfConcrLincat> lincat, size_t r, P
                 after->nodes.push_back(node);
             }
 
-            bool added = false;
-            if (std::find(node->choice->prods.begin(), node->choice->prods.end(), prod) == node->choice->prods.end()) {
+            bool added = true;
+            for (Production *other : node->choice->prods) {
+                if (*prod == *other) {
+                    added = false;
+                    break;
+                }
+            }
+
+            if (added) {
                 node->choice->prods.push_back(prod);
 #ifdef DEBUG_PARSER
                 print_prod(node->choice, prod);
 #endif
-                added = true;
             }
 
             if (std::find(node->parents.begin(), node->parents.end(), parent) == node->parents.end()) {
@@ -1576,7 +1594,9 @@ void PgfParser::reduce(StackNode *parent, ref<PgfConcrLin> lin, ref<PgfLRReduce>
             }
         }
 
-        shift(parent, lincat, r, prod, before, after);
+        if (!shift(parent, lincat, r, prod, before, after)) {
+            delete prod;
+        }
         return;
     }
 
