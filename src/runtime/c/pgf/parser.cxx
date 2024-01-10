@@ -1381,7 +1381,7 @@ PgfParser::PgfParser(ref<PgfConcr> concr, ref<PgfConcrLincat> start, PgfText *se
     this->before->nodes.push_back(node);
 }
 
-void PgfParser::shift(StackNode *parent, ref<PgfConcrLincat> lincat, size_t r, Production *prod,
+bool PgfParser::shift(StackNode *parent, ref<PgfConcrLincat> lincat, size_t r, Production *prod,
                       Stage *before, Stage *after)
 {
     ref<Vector<PgfLRShift>> shifts = vector_elem(concr->lrtable,parent->state_id)->shifts;
@@ -1402,11 +1402,13 @@ void PgfParser::shift(StackNode *parent, ref<PgfConcrLincat> lincat, size_t r, P
                 after->nodes.push_back(node);
             }
 
+            bool added = false;
             if (std::find(node->choice->prods.begin(), node->choice->prods.end(), prod) == node->choice->prods.end()) {
                 node->choice->prods.push_back(prod);
 #ifdef DEBUG_PARSER
                 print_prod(node->choice, prod);
 #endif
+                added = true;
             }
 
             if (std::find(node->parents.begin(), node->parents.end(), parent) == node->parents.end()) {
@@ -1416,9 +1418,11 @@ void PgfParser::shift(StackNode *parent, ref<PgfConcrLincat> lincat, size_t r, P
 #endif
             }
 
-            break;
+            return added;
         }
     }
+
+    return false;
 }
 
 void PgfParser::shift(StackNode *parent, Stage *before)
@@ -1695,10 +1699,11 @@ void PgfParser::match(ref<PgfConcrLin> lin, size_t seq_index, PgfExn* err)
     size_t index = seq_index / lin->lincat->fields->len;
     size_t r     = seq_index % lin->lincat->fields->len;
 
-    Production *prod = new(lin,index) Production();
-
     for (StackNode *parent : before->nodes) {
-        shift(parent, lin->lincat, r, prod, before, after);
+        Production *prod = new(lin,index) Production();
+        if (!shift(parent, lin->lincat, r, prod, before, after)) {
+            delete prod;
+        }
     }
 }
 
@@ -1897,7 +1902,6 @@ PgfParser::~PgfParser()
         u->free_ref(expr);
     }
 
-    std::priority_queue<ExprState*, std::vector<ExprState*>, CompareExprState> queue;
     while (!queue.empty()) {
         ExprState *state = queue.top(); queue.pop();
         delete state;

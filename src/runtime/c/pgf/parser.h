@@ -127,7 +127,7 @@ class PGF_INTERNAL_DECL PgfParser : public PgfPhraseScanner, public PgfExprEnum
     Choice *top_choice;
     size_t top_choice_index;
 
-    void shift(StackNode *parent, ref<PgfConcrLincat> lincat, size_t r, Production *prod,
+    bool shift(StackNode *parent, ref<PgfConcrLincat> lincat, size_t r, Production *prod,
                Stage *before, Stage *after);
     void shift(StackNode *parent, Stage *before);
     void shift(StackNode *parent, Stage *before, Stage *after);
@@ -156,7 +156,7 @@ class PGF_INTERNAL_DECL PgfParser : public PgfPhraseScanner, public PgfExprEnum
 
 public:
     PgfParser(ref<PgfConcr> concr, ref<PgfConcrLincat> start, PgfText *sentence, bool case_sensitive, PgfMarshaller *m, PgfUnmarshaller *u);
-    ~PgfParser();
+    virtual ~PgfParser();
 
 	virtual void space(PgfTextSpot *start, PgfTextSpot *end, PgfExn* err);
     virtual void start_matches(PgfTextSpot *end, PgfExn* err);
