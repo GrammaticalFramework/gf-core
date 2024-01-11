@@ -9,7 +9,9 @@ jobs:
 
   linux-runtime:
     name: Runtime (Linux)
-    runs-on: ubuntu-20.04
+    runs-on: ubuntu-latest
+    container:
+      image: quay.io/pypa/manylinux2014_x86_64:2024-01-08-eb135ed
 
     steps:
     - uses: actions/checkout@v3
@@ -20,7 +22,7 @@ jobs:
         autoreconf -i
         ./configure
         make
-        sudo make install
+        make install
 
     - name: Upload artifact
       uses: actions/upload-artifact@master
