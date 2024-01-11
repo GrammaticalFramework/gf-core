@@ -29,7 +29,7 @@ concrete basic_cnc {
            "s"
          ]
   lindef N(0) -> N[String(0)] = [S0]
-  linref ∀{i<2} . String(0) -> N[N(i)] = [S0]
+  linref {i<2} . String(0) -> N[N(i)] = [S0]
   lincat P = [
            "s"
          ]
@@ -45,11 +45,11 @@ concrete basic_cnc {
          ]
   lindef String(0) -> String[String(0)] = [S0]
   linref String(0) -> String[String(0)] = [S0]
-  lin ∀{i<2} . S(0) -> c[N(i)] = [S0]
+  lin {i<2} . S(0) -> c[N(i)] = [S0]
   lin S(0) -> floatLit[Float(0)] = [S0]
-  lin ∀{i<2} . P(0) -> ind[P(0),P(0),N(i)] = [S1]
+  lin {i<2} . P(0) -> ind[P(0),P(0),N(i)] = [S1]
   lin S(0) -> intLit[Int(0)] = [S0]
-  lin ∀{i<2} . P(0) -> nat[N(i)] = [S5]
+  lin {i<2} . P(0) -> nat[N(i)] = [S5]
   lin N(0) -> s[N(0)] = [S2]
   lin N(0) -> s[N(1)] = [S4]
   lin S(0) -> stringLit[String(0)] = [S0]
