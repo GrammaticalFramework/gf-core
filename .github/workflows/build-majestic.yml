@@ -10,8 +10,6 @@ jobs:
   linux-runtime:
     name: Runtime (Linux)
     runs-on: ubuntu-latest
-    container:
-      image: quay.io/pypa/manylinux2014_x86_64:2023-01-14-103cb93
 
     steps:
     - uses: actions/checkout@v3
@@ -25,7 +23,7 @@ jobs:
         make install
 
     - name: Upload artifact
-      uses: actions/upload-artifact@v4
+      uses: actions/upload-artifact@master
       with:
         name: libpgf-linux
         path: |
