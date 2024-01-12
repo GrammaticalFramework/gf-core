@@ -970,7 +970,7 @@ PGF_generateRandom(PGFObject *self, PyObject *args, PyObject *keywds)
     if (py_seed == NULL)
         return NULL;
 
-    size_t seed = PyLong_AsSsize_t(py_seed);
+    uint64_t seed = (uint64_t) PyLong_AsSsize_t(py_seed);
     Py_DECREF(py_seed);
 
     PgfExn err;
