@@ -114,6 +114,15 @@ class PGF:
         """
         ...
 
+    def generateRandom(cat : Type, depth : int = 5) -> tuple[Expr,float]:
+        """
+        Generates a random abstract syntax trees of the given type.
+        The depth parameter specifies the maximal distance between
+        the root and a leaf in the tree. The float value in
+        the result is the probability of the tree.
+        """
+        ...
+
     def newTransaction(self) -> Transaction:
         """
         Starts a new transaction which makes it possible to update

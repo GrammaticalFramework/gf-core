@@ -946,6 +946,54 @@ PGF_functionIsConstructor(PGFObject *self, PyObject *args)
 }
 
 static PyObject *
+PGF_generateRandom(PGFObject *self, PyObject *args, PyObject *keywds)
+{
+    static char *kwlist[] = {"cat", "depth", NULL};
+
+    Py_ssize_t depth = 5;
+	TypeObject *start = NULL;
+	if (!PyArg_ParseTupleAndKeywords(args, keywds, "O!|n", kwlist,
+	                                 &pgf_TypeType, &start, &depth))
+		return NULL;
+
+    PyObject *py_random = PyImport_ImportModule("random");
+    if (py_random == NULL)
+        return NULL;
+
+    PyObject *py_randint = PyObject_GetAttrString(py_random, "randint");
+    Py_DECREF(py_random);
+    if (py_randint == NULL)
+        return NULL;
+
+    PyObject *py_seed = PyObject_CallFunction(py_randint, "nn", 0, PY_SSIZE_T_MAX);
+    Py_DECREF(py_randint);
+    if (py_seed == NULL)
+        return NULL;
+
+    size_t seed = PyLong_AsSsize_t(py_seed);
+    Py_DECREF(py_seed);
+
+    PgfExn err;
+    prob_t prob;
+    PgfExpr expr =
+        pgf_generate_random(self->db, self->revision,
+                            NULL, 0,
+                            (PgfType) start, depth,
+                            &seed, &prob,
+                            &marshaller, &unmarshaller,
+                            &err);
+    if (handleError(err) != PGF_EXN_NONE) {
+        return NULL;
+    }
+
+    PyObject *res =
+        Py_BuildValue("Od", (ExprObject *) expr, prob);
+    Py_DECREF((PyObject *) expr);
+
+    return res;
+}
+
+static PyObject *
 PGF_categoryProbability(PGFObject *self, PyObject *args)
 {
     const char *s;
@@ -1489,6 +1537,9 @@ static PyMethodDef PGF_methods[] = {
     },
     {"functionIsConstructor", (PyCFunction)PGF_functionIsConstructor, METH_VARARGS,
      "Checks whether a function is a constructor"
+    },
+    {"generateRandom", (PyCFunction)PGF_generateRandom, METH_VARARGS | METH_KEYWORDS,
+     "Generates a random abstract syntax trees of the given type"
     },
     {"categoryProbability", (PyCFunction)PGF_categoryProbability, METH_VARARGS,
      "Returns the probability of a category"
