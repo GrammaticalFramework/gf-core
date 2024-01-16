@@ -167,6 +167,37 @@ jobs:
           /usr/local/lib/libpgf*
           /usr/local/include/pgf
 
+  macos-runtime:
+    name: Runtime (macOS)
+    runs-on: macos-latest-xlarge
+
+    steps:
+    - uses: actions/checkout@v3
+
+    - name: Install build tools
+      run: |
+        brew install \
+          autoconf \
+          automake \
+          libtool \
+
+    - name: Build runtime
+      working-directory: ./src/runtime/c
+      run: |
+        glibtoolize
+        autoreconf -i
+        ./configure
+        make
+        sudo make install
+
+    - name: Upload artifact
+      uses: actions/upload-artifact@master
+      with:
+        name: libpgf-macos
+        path: |
+          /usr/local/lib/libpgf*
+          /usr/local/include/pgf
+
   macos-haskell:
     name: Haskell (macOS)
     runs-on: macOS-11
