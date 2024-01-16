@@ -169,7 +169,7 @@ jobs:
 
   macos-xlarge-runtime:
     name: Runtime (macOS ARM)
-    runs-on: macos-13-xlarge
+    runs-on: macos-latest-large
 
     steps:
     - uses: actions/checkout@v3
