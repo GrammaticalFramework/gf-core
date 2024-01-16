@@ -167,7 +167,7 @@ jobs:
           /usr/local/lib/libpgf*
           /usr/local/include/pgf
 
-  macos-runtime:
+  macos-xlarge-runtime:
     name: Runtime (macOS)
     runs-on: macos-latest-xlarge
 
