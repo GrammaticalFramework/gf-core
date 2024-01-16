@@ -168,8 +168,8 @@ jobs:
           /usr/local/include/pgf
 
   macos-xlarge-runtime:
-    name: Runtime (macOS)
-    runs-on: macos-latest-xlarge
+    name: Runtime (macOS ARM)
+    runs-on: macos-13-xlarge
 
     steps:
     - uses: actions/checkout@v3
