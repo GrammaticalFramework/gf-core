@@ -74,10 +74,16 @@ import qualified Data.ByteString.Internal as S
 #endif
 
 #if defined(__GLASGOW_HASKELL__) && !defined(__HADDOCK__)
-import GHC.Base(Int(..),uncheckedShiftRL# )
+import GHC.Base(Int(..),uncheckedShiftRL#,)
 import GHC.Word (Word32(..),Word16(..),Word64(..))
 
-#if WORD_SIZE_IN_BITS < 64 && __GLASGOW_HASKELL__ >= 608
+#if MIN_VERSION_base(4,16,0)
+import GHC.Exts (wordToWord16#, word16ToWord#, wordToWord32#, word32ToWord#)
+#endif
+#if WORD_SIZE_IN_BITS < 64 && __GLASGOW_HASKELL__ >= 608 
+import GHC.Word (uncheckedShiftRL64#)
+#endif
+#if __GLASGOW_HASKELL__ >= 900 
 import GHC.Word (uncheckedShiftRL64#)
 #endif
 #endif
@@ -411,8 +417,14 @@ shiftr_w32 :: Word32 -> Int -> Word32
 shiftr_w64 :: Word64 -> Int -> Word64
 
 #if defined(__GLASGOW_HASKELL__) && !defined(__HADDOCK__)
+#if MIN_VERSION_base(4,16,0)
+shiftr_w16 (W16# w) (I# i) = W16# (wordToWord16# ((word16ToWord# w) `uncheckedShiftRL#`   i))
+shiftr_w32 (W32# w) (I# i) = W32# (wordToWord32# ((word32ToWord# w) `uncheckedShiftRL#`   i))
+#else
 shiftr_w16 (W16# w) (I# i) = W16# (w `uncheckedShiftRL#`   i)
 shiftr_w32 (W32# w) (I# i) = W32# (w `uncheckedShiftRL#`   i)
+#endif
+
 
 #if WORD_SIZE_IN_BITS < 64
 shiftr_w64 (W64# w) (I# i) = W64# (w `uncheckedShiftRL64#` i)
@@ -424,7 +436,11 @@ foreign import ccall unsafe "stg_uncheckedShiftRL64"
 #endif
 
 #else
+#if __GLASGOW_HASKELL__ <= 810
 shiftr_w64 (W64# w) (I# i) = W64# (w `uncheckedShiftRL#` i)
+#else
+shiftr_w64 (W64# w) (I# i) = W64# (w `uncheckedShiftRL64#` i)
+#endif
 #endif
 
 #else
