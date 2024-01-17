@@ -11,6 +11,7 @@ import GF.Grammar.Macros
 import qualified GF.Data.Operations as O
 import GF.Compile.Rename
 import GF.Compile.Compute.Concrete
+import GF.Compile.TypeCheck.ConcreteNew
 import GF.Compile
 import qualified Data.Map as Map
 import qualified Data.ByteString.Char8 as BS
@@ -124,16 +125,20 @@ interactive entity db mo sgr gr cnc qid = runInputT defaultSettings loop
         Nothing    -> return ()
         Just input -> case runP pTerm (BS.pack input) of
                         Right term     -> do case runCheck (checkComputeTerm term) of
-                                               O.Ok (terms,msg) -> do outputStr msg
-                                                                      mapM_ (\term -> outputStrLn (render (ppTerm Unqualified 0 term))) terms
+                                               O.Ok (res,msg) -> do outputStr msg
+                                                                    mapM_ (\(term,typ) -> outputStrLn (render (ppTerm Unqualified 0 term)) >> outputStrLn (render (ppTerm Unqualified 0 typ))) res
                                                O.Bad msg       -> do outputStrLn msg
                                              loop
                         Left (pos,msg) -> do outputStrLn (show pos ++ msg)
                                              loop
                                              
     checkComputeTerm term = do
-      term <- renameSourceTerm sgr mo term
+      let term' = Abs Explicit (identS "entity") term
+      term' <- renameSourceTerm sgr mo term'
+      (term',typ) <- inferLType sgr term'
       runEvalM sgr $ do
         tnk <- newThunk [] entity
-        val <- eval [(identS "entity",tnk)] term []
-        value2term [] val
+        -- val <- eval [(identS "entity",tnk)] term []
+        --res <- value2term [] val
+        let res = term
+        return (res, typ)
