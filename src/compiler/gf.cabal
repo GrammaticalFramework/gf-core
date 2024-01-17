@@ -238,3 +238,87 @@ test-suite gf-tests
     process >= 1.4.3 && < 1.7
   build-tool-depends: gf:gf
   default-language: Haskell2010
+
+executable gf-scribe
+  main-is: gf-scribe.hs
+  default-language:    Haskell2010
+  build-depends: pgf2 >= 4.0.0,
+                 base >= 4.6 && <5,
+                 array,
+                 containers,
+                 bytestring,
+                 utf8-string,
+                 random,
+                 pretty,
+                 mtl,
+                 ghc-prim,
+                 filepath, directory>=1.2, time,
+                 http-slim,
+                 process, haskeline, parallel>=3, json
+  if os(windows)
+    build-depends:
+      Win32 >= 2.3.1.1 && < 2.7
+  else
+    build-depends:
+      terminfo >=0.4.0 && < 0.5,
+      unix >= 2.7.2 && < 2.8
+  ghc-options: -threaded
+  other-modules:
+    GF.Scribe
+    Data.Binary
+    Data.Binary.Builder
+    Data.Binary.Get
+    Data.Binary.IEEE754
+    Data.Binary.Put
+    GF.Compile.Update
+    GF.Compile.Compute.Concrete
+    GF.Compile.CheckGrammar
+    GF.Compile.GenerateBC
+    GF.Compile.GeneratePMCFG
+    GF.Compile.GetGrammar
+    GF.Compile.GrammarToPGF
+    GF.Compile.OptimizePGF
+    GF.Compile.ReadFiles
+    GF.Compile.Rename
+    GF.Compile.SubExOpt
+    GF.Compile.Tags
+    GF.Compile.TypeCheck.Abstract
+    GF.Compile.TypeCheck.Concrete
+    GF.Compile.TypeCheck.ConcreteNew
+    GF.Compile.TypeCheck.Primitives
+    GF.Compile.TypeCheck.TC
+    GF.Compile
+    GF.CompileOne
+    GF.Data.ErrM
+    GF.Data.Operations
+    GF.Data.Relation
+    GF.Data.Str
+    GF.Data.Utilities
+    GF.Grammar
+    GF.Grammar.Lexer
+    GF.Grammar.Parser
+    GF.Grammar.BNFC
+    GF.Grammar.CFG
+    GF.Grammar.EBNF
+    GF.Grammar.Grammar
+    GF.Grammar.Lockfield
+    GF.Grammar.Lookup
+    GF.Grammar.Macros
+    GF.Grammar.Predef
+    GF.Grammar.Printer
+    GF.Grammar.Values
+    GF.Grammar.Binary
+    GF.Grammar.PatternMatch
+    GF.Grammar.Unify
+    GF.Infra.CheckM
+    GF.Infra.GetOpt
+    GF.Infra.Ident
+    GF.Infra.Location
+    GF.Infra.Option
+    GF.Infra.UseIO
+    GF.System.Catch
+    GF.System.Console
+    GF.System.Directory
+    GF.Text.Pretty
+    GF.Text.Coding
+    Paths_gf
