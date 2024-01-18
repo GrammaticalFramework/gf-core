@@ -143,6 +143,13 @@ static inline ssize_t get_mmap_size(size_t init_size, size_t page_size)
     return mmap_size;
 }
 
+static inline ssize_t get_mremap_size(size_t file_size, size_t block_size, size_t free_size, size_t page_size)
+{
+    size_t n_pages =
+        ((file_size - free_size + block_size + page_size - 1) / page_size);
+    return get_next_padovan(n_pages) * page_size ;
+}
+
 PGF_INTERNAL
 PgfDB::PgfDB(const char* filepath, int flags, int mode, size_t init_size) {
     bool is_new = false;
@@ -825,11 +832,8 @@ PGF_INTERNAL_DECL object PgfDB::new_block_descr(object o, size_t size, txn_t txn
 
         size_t free_size = mmap_size - top;
         if (block_size > free_size) {
-            size_t alloc_size =
-                ((block_size - free_size + page_size - 1) / page_size) * page_size;
             size_t new_size =
-                ms->file_size + alloc_size;
-
+                get_mremap_size(ms->file_size, block_size, free_size, page_size);
             resize_map(new_size, true);
         }
 
@@ -881,11 +885,8 @@ object PgfDB::upd_block_descr(object map, object left, object right)
 
             size_t free_size = mmap_size - top;
             if (block_size > free_size) {
-                size_t alloc_size =
-                    ((block_size - free_size + page_size - 1) / page_size) * page_size;
                 size_t new_size =
-                    ms->file_size + alloc_size;
-
+                    get_mremap_size(ms->file_size, block_size, free_size, page_size);
                 resize_map(new_size, true);
 
                 // refresh the pointer
@@ -1295,11 +1296,8 @@ object PgfDB::malloc_internal(size_t bytes)
 
     size_t free_size = mmap_size - top;
     if (block_size > free_size) {
-        size_t alloc_size =
-            ((block_size - free_size + page_size - 1) / page_size) * page_size;
         size_t new_size =
-            ms->file_size + alloc_size;
-
+            get_mremap_size(ms->file_size, block_size, free_size, page_size);
         resize_map(new_size, true);
     }
 
@@ -1331,11 +1329,8 @@ object PgfDB::realloc_internal(object oldo, size_t old_bytes, size_t new_bytes, 
             ssize_t free_size = mmap_size - top;
 
             if (nb > free_size) {
-                size_t alloc_size =
-                    ((nb - free_size + page_size - 1) / page_size) * page_size;
                 size_t new_size =
-                    ms->file_size + alloc_size;
-
+                    get_mremap_size(ms->file_size, nb, free_size, page_size);
                 resize_map(new_size, true);
             }
 
