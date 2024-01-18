@@ -1,2 +1,0 @@
-module GF.Scribe where
-
