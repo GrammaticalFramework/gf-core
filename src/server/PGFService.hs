@@ -25,7 +25,7 @@ import System.IO.Error(isDoesNotExistError)
 import System.FilePath(takeExtension)
 import System.Mem(performGC)
 import Network.HTTP
-import Network.FastCGI
+import Network.FastCGI hiding (Connection, writeHeaders)
 import Numeric(showHex)
 
 
