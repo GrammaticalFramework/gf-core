@@ -29,7 +29,7 @@ import GF.Infra.Option
 import GF.Compile.TypeCheck.Abstract
 import GF.Compile.TypeCheck.Concrete(checkLType,inferLType,ppType)
 import qualified GF.Compile.TypeCheck.ConcreteNew as CN(checkLType,inferLType)
-import GF.Compile.Compute.Concrete(normalForm)
+import GF.Compile.Compute.Concrete(normalForm,Globals(..),stdPredef)
 
 import GF.Grammar
 import GF.Grammar.Lexer
@@ -174,7 +174,7 @@ checkInfo opts cwd sgr sm (c,info) = checkInModule cwd (snd sm) NoLoc empty $ do
       mty  <- case mty of
                 Just (L loc typ) -> chIn loc "linearization type of" $ do
                                       (typ,_) <- checkLType gr [] typ typeType
-                                      typ  <- normalForm gr typ
+                                      typ  <- normalForm (Gl gr stdPredef) typ
                                       return (Just (L loc typ))
                 Nothing          -> return Nothing
       mdef <- case (mty,mdef) of
@@ -217,7 +217,7 @@ checkInfo opts cwd sgr sm (c,info) = checkInModule cwd (snd sm) NoLoc empty $ do
          (Just (L loct ty), Just (L locd de)) -> do
            ty'     <- chIn loct "operation" $ do
                          (ty,_) <- checkLType gr [] ty typeType
-                         normalForm gr ty
+                         normalForm (Gl gr stdPredef) ty
            (de',_) <- chIn locd "operation" $
                          checkLType gr [] de ty'
            return (Just (L loct ty'), Just (L locd de'))
@@ -253,7 +253,7 @@ checkInfo opts cwd sgr sm (c,info) = checkInModule cwd (snd sm) NoLoc empty $ do
 
    mkParamValues sm         c cnt ts []           = return (sm,cnt,[],[])
    mkParamValues sm@(mn,mi) c cnt ts ((p,co):pcs) = do
-     co <- mapM (\(b,v,ty) -> normalForm gr ty >>= \ty -> return (b,v,ty)) co
+     co <- mapM (\(b,v,ty) -> normalForm (Gl gr stdPredef) ty >>= \ty -> return (b,v,ty)) co
      sm <- case lookupIdent p (jments mi) of
              Ok (ResValue (L loc _) _) -> update sm p (ResValue (L loc (mkProdSimple co (QC (mn,c)))) cnt)
              Bad msg                   -> checkError (pp msg)
@@ -327,6 +327,6 @@ linTypeOfType cnc m (L loc typ) = do
                              plusRecType vars val
      return ((Explicit,varX i,rec),cat)
    lookLin (_,c) = checks [ --- rather: update with defLinType ?
-      lookupLincat cnc m c >>= normalForm cnc
+      lookupLincat cnc m c >>= normalForm (Gl cnc stdPredef)
      ,return defLinType
      ]

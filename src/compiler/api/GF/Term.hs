@@ -1,4 +1,11 @@
-module GF.Term (renameSourceTerm, inferLType, checkLType, normalForm) where
+module GF.Term (renameSourceTerm,
+                Globals(..), ConstValue(..), EvalM, stdPredef,
+                Value(..), showValue, newEvaluatedThunk,
+                evalError, evalWarn,
+                inferLType, checkLType,
+                normalForm, normalStringForm,
+                unsafeIOToEvalM
+               ) where
 
 import GF.Compile.Rename
 import GF.Compile.Compute.Concrete

@@ -1,13 +1,14 @@
-{-# LANGUAGE RankNTypes, BangPatterns, CPP #-}
+{-# LANGUAGE RankNTypes, BangPatterns, CPP, ExistentialQuantification #-}
 
 -- | Functions for computing the values of terms in the concrete syntax, in
 -- | preparation for PMCFG generation.
 module GF.Compile.Compute.Concrete
-           ( normalForm
+           ( normalForm, normalStringForm
            , Value(..), Thunk, ThunkState(..), Env, Scope, showValue
-           , MetaThunks, Constraint
+           , MetaThunks, Constraint, Globals(..), ConstValue(..)
            , EvalM(..), runEvalM, runEvalOneM, evalError, evalWarn
-           , eval, apply, force, value2term, patternMatch
+           , eval, apply, force, value2term, patternMatch, stdPredef
+           , unsafeIOToEvalM
            , newThunk, newEvaluatedThunk
            , newResiduation, newNarrowing, getVariables
            , getRef, setRef
@@ -33,6 +34,7 @@ import Data.List
 import Data.Char
 import Control.Monad
 import Control.Monad.ST
+import Control.Monad.ST.Unsafe
 import Control.Applicative hiding (Const)
 import qualified Control.Monad.Fail as Fail
 import qualified Data.Map as Map
@@ -41,12 +43,19 @@ import PGF2.Transactions(LIndex)
 
 -- * Main entry points
 
-normalForm :: Grammar -> Term -> Check Term
-normalForm gr t =
-  fmap mkFV (runEvalM gr (eval [] t [] >>= value2term []))
+normalForm :: Globals -> Term -> Check Term
+normalForm globals t =
+  fmap mkFV (runEvalM globals (eval [] t [] >>= value2term []))
   where
     mkFV [t] = t
     mkFV ts  = FV ts
+
+normalStringForm :: Globals -> Term -> Check String
+normalStringForm globals t =
+  fmap toStr (runEvalM globals (fmap value2string (eval [] t [])))
+  where
+    toStr [Const s] = s
+    toStr _         = ""
 
 type Sigma s = Value s
 type Constraint s = Value s
@@ -191,8 +200,8 @@ eval env (Let (x,(_,t1)) t2) vs = do tnk <- newThunk env t1
                                      eval ((x,tnk):env) t2 vs
 eval env (Q q@(m,id))   vs
   | m == cPredef            = do vs' <- mapM force vs
-                                 mb_res <- evalPredef id vs'
-                                 case mb_res of
+                                 res <- evalPredef id vs'
+                                 case res of
                                    Const res -> return res
                                    RunTime   -> return (VApp q vs)
                                    NonExist  -> return (VApp (cPredef,cNonExist) [])
@@ -266,45 +275,32 @@ apply (VGen i  vs0)                 vs  = return (VGen i (vs0++vs))
 apply (VClosure env (Abs b x t)) (v:vs) = eval ((x,v):env) t vs
 apply v                             []  = return v
 
-evalPredef id [v]
-  | id == cLength = case value2string v of
-                      Const s -> return (Const (VInt (genericLength s)))
-                      _       -> return RunTime
-evalPredef id [v1,v2]
-  | id == cTake   = return (fmap string2value (liftA2 genericTake (value2int v1) (value2string v2)))
-evalPredef id [v1,v2]
-  | id == cDrop   = return (fmap string2value (liftA2 genericDrop (value2int v1) (value2string v2)))
-evalPredef id [v1,v2]
-  | id == cTk     = return (fmap string2value (liftA2 genericTk (value2int v1) (value2string v2)))
+
+stdPredef :: Map.Map Ident ([Value s] -> EvalM s (ConstValue (Value s)))
+stdPredef = Map.fromList
+  [(cLength, \[v] -> case value2string v of
+                       Const s -> return (Const (VInt (genericLength s)))
+                       _       -> return RunTime)
+  ,(cTake,   \[v1,v2] -> return (fmap string2value (liftA2 genericTake (value2int v1) (value2string v2))))
+  ,(cDrop,   \[v1,v2] -> return (fmap string2value (liftA2 genericDrop (value2int v1) (value2string v2))))
+  ,(cTk,     \[v1,v2] -> return (fmap string2value (liftA2 genericTk (value2int v1) (value2string v2))))
+  ,(cDp,     \[v1,v2] -> return (fmap string2value (liftA2 genericDp (value2int v1) (value2string v2))))
+  ,(cIsUpper,\[v]     -> return (fmap toPBool (liftA (all isUpper) (value2string v))))
+  ,(cToUpper,\[v]     -> return (fmap string2value (liftA (map toUpper) (value2string v))))
+  ,(cToLower,\[v]     -> return (fmap string2value (liftA (map toLower) (value2string v))))
+  ,(cEqStr,  \[v1,v2] -> return (fmap toPBool (liftA2 (==) (value2string v1) (value2string v2))))
+  ,(cOccur,  \[v1,v2] -> return (fmap toPBool (liftA2 occur (value2string v1) (value2string v2))))
+  ,(cOccurs, \[v1,v2] -> return (fmap toPBool (liftA2 occurs (value2string v1) (value2string v2))))
+  ,(cEqInt,  \[v1,v2] -> return (fmap toPBool (liftA2 (==) (value2int v1) (value2int v2))))
+  ,(cLessInt,\[v1,v2] -> return (fmap toPBool (liftA2 (<) (value2int v1) (value2int v2))))
+  ,(cPlus,   \[v1,v2] -> return (fmap VInt (liftA2 (+) (value2int v1) (value2int v2))))
+  ,(cError,  \[v]     -> case value2string v of
+                           Const msg -> fail msg
+                           _         -> fail "Indescribable error appeared")
+  ]
   where
     genericTk n = reverse . genericDrop n . reverse
-evalPredef id [v1,v2]
-  | id == cDp     = return (fmap string2value (liftA2 genericDp (value2int v1) (value2string v2)))
-  where
     genericDp n = reverse . genericTake n . reverse
-evalPredef id [v]
-  | id == cIsUpper= return (fmap toPBool (liftA (all isUpper) (value2string v)))
-evalPredef id [v]
-  | id == cToUpper= return (fmap string2value (liftA (map toUpper) (value2string v)))
-evalPredef id [v]
-  | id == cToLower= return (fmap string2value (liftA (map toLower) (value2string v)))
-evalPredef id [v1,v2]
-  | id == cEqStr  = return (fmap toPBool (liftA2 (==) (value2string v1) (value2string v2)))
-evalPredef id [v1,v2]
-  | id == cOccur  = return (fmap toPBool (liftA2 occur (value2string v1) (value2string v2)))
-evalPredef id [v1,v2]
-  | id == cOccurs  = return (fmap toPBool (liftA2 occurs (value2string v1) (value2string v2)))
-evalPredef id [v1,v2]
-  | id == cEqInt  = return (fmap toPBool (liftA2 (==) (value2int v1) (value2int v2)))
-evalPredef id [v1,v2]
-  | id == cLessInt= return (fmap toPBool (liftA2 (<) (value2int v1) (value2int v2)))
-evalPredef id [v1,v2]
-  | id == cPlus   = return (fmap VInt (liftA2 (+) (value2int v1) (value2int v2)))
-evalPredef id [v]
-  | id == cError  = case value2string v of
-                      Const msg -> fail msg
-                      _         -> fail "Indescribable error appeared"
-evalPredef id vs  = return RunTime
 
 toPBool True  = VApp (cPredef,cPTrue)  []
 toPBool False = VApp (cPredef,cPFalse) []
@@ -457,17 +453,17 @@ vtableSelect v0 ty tnks tnk2 vs = do
                                      "cannot be evaluated at compile time.")
 
 
-susp i ki = EvalM $ \gr k mt d r msgs -> do
+susp i ki = EvalM $ \globals@(Gl gr _) k mt d r msgs -> do
   s <- readSTRef i
   case s of
     Narrowing id (QC q) -> case lookupOrigInfo gr q of
-                             Ok (m,ResParam (Just (L _ ps)) _) -> bindParam gr k mt d r msgs s m ps
+                             Ok (m,ResParam (Just (L _ ps)) _) -> bindParam globals k mt d r msgs s m ps
                              Bad msg -> return (Fail (pp msg) msgs)
     Narrowing id ty
       | Just max <- isTypeInts ty
-                        -> bindInt gr k mt d r msgs s 0 max
+                        -> bindInt globals k mt d r msgs s 0 max
     Evaluated _ v       -> case ki v of
-                             EvalM f -> f gr k mt d r msgs
+                             EvalM f -> f globals k mt d r msgs
     _                   -> k (VSusp i ki []) mt d r msgs
   where
     bindParam gr k mt d r msgs s m []             = return (Success r msgs)
@@ -712,7 +708,8 @@ value2int _        = RunTime
 
 type MetaThunks s = Map.Map MetaId (Thunk s)
 type Cont s r = MetaThunks s -> Int -> r -> [Message] -> ST s (CheckResult r [Message])
-newtype EvalM s a = EvalM (forall r . Grammar -> (a -> Cont s r) -> Cont s r)
+data Globals = Gl Grammar (forall s . Map.Map Ident ([Value s] -> EvalM s (ConstValue (Value s))))
+newtype EvalM s a = EvalM (forall r . Globals -> (a -> Cont s r) -> Cont s r)
 
 instance Functor (EvalM s) where
   fmap f (EvalM g) = EvalM (\gr k -> g gr (k . f))
@@ -742,14 +739,14 @@ instance Alternative (EvalM s) where
 
 instance MonadPlus (EvalM s) where
 
-runEvalM :: Grammar -> (forall s . EvalM s a) -> Check [a]
+runEvalM :: Globals -> (forall s . EvalM s a) -> Check [a]
 runEvalM gr f = Check $ \(es,ws) ->
   case runST (case f of
                 EvalM f -> f gr (\x mt _ xs ws -> return (Success (x:xs) ws)) Map.empty maxBound [] ws) of
     Fail msg   ws -> Fail msg (es,ws)
     Success xs ws -> Success (reverse xs) (es,ws)
 
-runEvalOneM :: Grammar -> (forall s . EvalM s a) -> Check a
+runEvalOneM :: Globals -> (forall s . EvalM s a) -> Check a
 runEvalOneM gr f = Check $ \(es,ws) ->
   case runST (case f of
                 EvalM f -> f gr (\x mt _ xs ws -> return (Success (x:xs) ws)) Map.empty maxBound [] ws) of
@@ -763,26 +760,32 @@ evalError msg = EvalM (\gr k _ _ r msgs -> return (Fail msg msgs))
 evalWarn :: Message -> EvalM s ()
 evalWarn msg = EvalM (\gr k mt d r msgs -> k () mt d r (msg:msgs))
 
+evalPredef :: Ident -> [Value s] -> EvalM s (ConstValue (Value s))
+evalPredef id vs = EvalM (\globals@(Gl _ predef) k mt d r msgs ->
+  case fmap (\f -> f vs) (Map.lookup id predef) of
+    Just (EvalM f) -> f globals k mt d r msgs
+    Nothing        -> k RunTime mt d r msgs)
+
 getResDef :: QIdent -> EvalM s Term
-getResDef q = EvalM $ \gr k mt d r msgs -> do
+getResDef q = EvalM $ \(Gl gr _) k mt d r msgs -> do
   case lookupResDef gr q of
     Ok t    -> k t mt d r msgs
     Bad msg -> return (Fail (pp msg) msgs)
 
 getInfo :: QIdent -> EvalM s (ModuleName,Info)
-getInfo q = EvalM $ \gr k mt d r msgs -> do
+getInfo q = EvalM $ \(Gl gr _) k mt d r msgs -> do
   case lookupOrigInfo gr q of
     Ok res  -> k res mt d r msgs
     Bad msg -> return (Fail (pp msg) msgs)
 
 getResType :: QIdent -> EvalM s Type
-getResType q = EvalM $ \gr k mt d r msgs -> do
+getResType q = EvalM $ \(Gl gr _) k mt d r msgs -> do
   case lookupResType gr q of
     Ok t    -> k t mt d r msgs
     Bad msg -> return (Fail (pp msg) msgs)
 
 getOverload :: Term -> QIdent -> EvalM s (Term,Type)
-getOverload t q = EvalM $ \gr k mt d r msgs -> do
+getOverload t q = EvalM $ \(Gl gr _) k mt d r msgs -> do
   case lookupOverloadTypes gr q of
     Ok ttys -> let err = "Overload resolution failed" $$
                          "of term   " <+> pp t $$
@@ -798,7 +801,7 @@ getOverload t q = EvalM $ \gr k mt d r msgs -> do
     Bad msg -> return (Fail (pp msg) msgs)
 
 getAllParamValues :: Type -> EvalM s [Term]
-getAllParamValues ty = EvalM $ \gr k mt d r msgs ->
+getAllParamValues ty = EvalM $ \(Gl gr _) k mt d r msgs ->
   case allParamValues gr ty of
     Ok ts   -> k ts mt d r msgs
     Bad msg -> return (Fail (pp msg) msgs)
@@ -835,7 +838,7 @@ withVar d0 (EvalM f) = EvalM $ \gr k mt d1 r msgs ->
                                   in f gr k mt d r msgs
 
 getVariables :: EvalM s [(LVar,LIndex)]
-getVariables = EvalM $ \gr k mt d ws r -> do
+getVariables = EvalM $ \(Gl gr _) k mt d ws r -> do
   ps <- metas2params gr (Map.elems mt)
   k ps mt d ws r
   where
@@ -912,3 +915,7 @@ tnk2term xs tnk = EvalM $ \gr k mt d r msgs ->
           Narrowing i _     -> k (Meta i) mt d r msgs
 
 scopeEnv   scope = zipWithM (\x i -> newEvaluatedThunk (VGen i []) >>= \tnk -> return (x,tnk)) (reverse scope) [0..]
+
+
+unsafeIOToEvalM :: IO a -> EvalM s a
+unsafeIOToEvalM f = EvalM (\gr k mt d r msgs -> unsafeIOToST f >>= \x -> k x mt d r msgs)

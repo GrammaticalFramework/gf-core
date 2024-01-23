@@ -10,7 +10,7 @@ import GF.Grammar.Lookup
 import GF.Grammar.Predef
 import GF.Grammar.PatternMatch
 import GF.Grammar.Lockfield (isLockLabel, lockRecType, unlockRecord)
-import GF.Compile.Compute.Concrete(normalForm)
+import GF.Compile.Compute.Concrete(normalForm,Globals(..),stdPredef)
 import GF.Compile.TypeCheck.Primitives
 
 import Data.List
@@ -215,7 +215,7 @@ inferLType gr g trm = case trm of
         v' <- checks $ map (justCheck g v) [typeStrs, EPattType typeStr]
         v' <- case v' of
                 Q q -> do t <- lookupResDef gr q
-                          t <- normalForm gr t
+                          t <- normalForm (Gl gr stdPredef) t
                           case t of
                             EPatt _ _ p -> mkStrs p
                             _           -> return v'
@@ -325,7 +325,7 @@ inferLType gr g trm = case trm of
 measurePatt gr p =
   case p of
     PM q       -> do t <- lookupResDef gr q
-                     t <- normalForm gr t
+                     t <- normalForm (Gl gr stdPredef) t
                      case t of
                        EPatt minp maxp _ -> return (minp,maxp,p)
                        _                 -> checkError ("Expected pattern macro, but found:" $$ nest 2 (pp t))

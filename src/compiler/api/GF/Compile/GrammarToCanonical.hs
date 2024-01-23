@@ -19,7 +19,7 @@ import GF.Infra.Ident(ModuleName(..),Ident,identW,ident2raw,rawIdentS,showIdent)
 import GF.Infra.Option(Options,optionsPGF)
 import GF.Infra.CheckM
 import PGF2(Literal(..))
-import GF.Compile.Compute.Concrete(normalForm)
+import GF.Compile.Compute.Concrete(normalForm,Globals(..),stdPredef)
 import GF.Grammar.Canonical as C
 import System.FilePath ((</>), (<.>))
 import qualified Debug.Trace as T
@@ -93,13 +93,13 @@ concrete2canonical gr absname cnc modinfo = do
 toCanonical gr absname (name,jment) =
   case jment of
     CncCat (Just (L loc typ)) _ _ pprn _ -> do
-      ntyp <- normalForm gr typ
+      ntyp <- normalForm (Gl gr stdPredef) typ
       let pts = paramTypes gr ntyp
       return [(pts,Left (LincatDef (gId name) (convType ntyp)))]
     CncFun (Just r@(_,cat,ctx,lincat)) (Just (L loc def)) pprn _ -> do
       let params = [(b,x)|(b,x,_)<-ctx]
           args   = map snd params
-      e0 <- normalForm gr (mkAbs params (mkApp def (map Vr args)))
+      e0 <- normalForm (Gl gr stdPredef) (mkAbs params (mkApp def (map Vr args)))
       let e   = cleanupRecordFields lincat (unAbs (length params) e0)
           tts = tableTypes gr [e]
       return [(tts,Right (LinDef (gId name) (map gId args) (convert gr e)))]

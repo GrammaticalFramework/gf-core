@@ -20,7 +20,7 @@ import GF.Grammar.Parser (runP, pExp)
 import GF.Grammar.ShowTerm
 import GF.Grammar.Lookup (allOpers,allOpersTo)
 import GF.Compile.Rename(renameSourceTerm)
-import GF.Compile.Compute.Concrete(normalForm)
+import GF.Compile.Compute.Concrete(normalForm,Globals(..),stdPredef)
 import GF.Compile.TypeCheck.Concrete as TC(inferLType,ppType)
 import GF.Compile.TypeCheck.Primitives(predefMod)
 
@@ -257,7 +257,7 @@ checkComputeTerm os sgr0 t =
                       Just mo -> (sgr0,mo)
      t <- renameSourceTerm sgr mo t
      (t,_) <- inferLType sgr [] t
-     fmap evalStr (normalForm sgr t)
+     fmap evalStr (normalForm (Gl sgr stdPredef) t)
   where
     -- ** Try to compute pre{...} tokens in token sequences
     evalStr t =

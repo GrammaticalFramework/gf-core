@@ -23,15 +23,15 @@ import qualified Data.Map as Map
 import Data.Maybe(fromMaybe,isNothing)
 import qualified Control.Monad.Fail as Fail
 
-checkLType :: Grammar -> Term -> Type -> Check (Term, Type)
-checkLType gr t ty = runEvalOneM gr $ do
+checkLType :: Globals -> Term -> Type -> Check (Term, Type)
+checkLType globals t ty = runEvalOneM globals $ do
   vty <- eval [] ty []
   (t,_) <- tcRho [] t (Just vty)
   t <- zonkTerm [] t
   return (t,ty)
 
-inferLType :: Grammar -> Term -> Check (Term, Type)
-inferLType gr t = runEvalOneM gr $ do
+inferLType :: Globals -> Term -> Check (Term, Type)
+inferLType globals t = runEvalOneM globals $ do
   (t,ty) <- inferSigma [] t
   t  <- zonkTerm [] t
   ty <- value2term [] ty
@@ -171,7 +171,7 @@ tcRho scope (Meta _) mb_ty = do
   return (Meta i, ty)
 tcRho scope (Let (var, (mb_ann_ty, rhs)) body) mb_ty = do    -- LET
   (rhs,var_ty) <- case mb_ann_ty of
-                    Nothing     -> inferSigma scope rhs
+                    Nothing     -> tcRho scope rhs Nothing
                     Just ann_ty -> do (ann_ty, _) <- tcRho scope ann_ty (Just vtypeType)
                                       env <- scopeEnv scope
                                       v_ann_ty <- eval env ann_ty []
@@ -1086,7 +1086,9 @@ zonkTerm xs (Meta i) = do
   st <- getRef tnk
   case st of
     Hole _            -> return (Meta i)
-    Residuation _ _ _ -> return (Meta i)
+    Residuation _ scope v -> case v of
+                              Just v  -> zonkTerm xs =<< value2term (map fst scope) v
+                              Nothing -> return (Meta i)
     Narrowing _ _     -> return (Meta i)
     Evaluated _ v     -> zonkTerm xs =<< value2term xs v
 zonkTerm xs t = composOp (zonkTerm xs) t

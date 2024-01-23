@@ -61,7 +61,7 @@ addPMCFG opts cwd gr cmi id (CncCat mty@(Just (L loc ty)) mdef mref mprn Nothing
   mprn  <- case mprn of
              Nothing          -> return Nothing
              Just (L loc prn) -> checkInModule cwd cmi loc ("Happened in the computation of the print name for" <+> id) $ do
-                                   prn <- normalForm gr prn
+                                   prn <- normalForm (Gl gr stdPredef) prn
                                    return (Just (L loc prn))
   return (CncCat mty mdef mref mprn (Just (defs,refs)),seqs)
 addPMCFG opts cwd gr cmi id (CncFun mty@(Just (_,cat,ctxt,val)) mlin@(Just (L loc term)) mprn Nothing) seqs = do
@@ -71,17 +71,17 @@ addPMCFG opts cwd gr cmi id (CncFun mty@(Just (_,cat,ctxt,val)) mlin@(Just (L lo
   mprn  <- case mprn of
              Nothing          -> return Nothing
              Just (L loc prn) -> checkInModule cwd cmi loc ("Happened in the computation of the print name for" <+> id) $ do
-                                   prn <- normalForm gr prn
+                                   prn <- normalForm (Gl gr stdPredef) prn
                                    return (Just (L loc prn))
   return (CncFun mty mlin mprn (Just rules),seqs)
 addPMCFG opts cwd gr cmi id info seqs = return (info,seqs)
 
 pmcfgForm :: Grammar -> Term -> Context -> Type -> SequenceSet -> Check ([Production],SequenceSet)
 pmcfgForm gr t ctxt ty seqs = do
-  res <- runEvalM gr $ do
+  res <- runEvalM (Gl gr stdPredef) $ do
            (_,args) <- mapAccumM (\arg_no (_,_,ty) -> do
-                                          t <- EvalM (\gr k mt d r msgs -> do (mt,_,t) <- type2metaTerm gr arg_no mt 0 [] ty
-                                                                              k t mt d r msgs)
+                                          t <- EvalM (\(Gl gr _) k mt d r msgs -> do (mt,_,t) <- type2metaTerm gr arg_no mt 0 [] ty
+                                                                                     k t mt d r msgs)
                                           tnk <- newThunk [] t
                                           return (arg_no+1,tnk))
                                       0 ctxt
