@@ -107,6 +107,7 @@ public:
     PGF_INTERNAL_DECL static txn_t get_txn_id();
 
     PGF_INTERNAL_DECL const char *get_file_path() { return filepath; };
+    PGF_INTERNAL_DECL void set_file_path(const char *filepath) { this->filepath = strdup(filepath); };
 
     template<class A>
     static ref<A> malloc(size_t extra_bytes=0) {

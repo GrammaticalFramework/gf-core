@@ -134,7 +134,7 @@ newStdGen            = lift0   IO.newStdGen
 runInterruptibly     = lift1   IO.runInterruptibly
 
 importGrammar readNGF pgf opts files = lift0 $ GF.importGrammar readNGF pgf opts files
-importSource      opts files = lift0 $ GF.importSource      opts files
+importSource opts mb_pgf files = lift0 $ GF.importSource opts mb_pgf files
 link opts pgf src = lift0 $ GF.link opts pgf src
 
 modifyPGF   gr t = lift0 (PGFT.modifyPGF gr t)

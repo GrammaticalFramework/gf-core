@@ -16,7 +16,7 @@
 -----------------------------------------------------------------------------
 
 module GF.Grammar.Lookup (
-           lookupIdent,
+           lookupIdent, notFound,
            lookupOrigInfo,
            allOrigInfos,
            lookupResDef,
@@ -43,6 +43,7 @@ import GF.Grammar.Lockfield
 import Data.List (sortBy)
 import GF.Text.Pretty
 import qualified Data.Map as Map
+import qualified PGF2
 
 -- whether lock fields are added in reuse
 lock c = lockRecType c -- return
@@ -53,13 +54,46 @@ lookupIdent :: ErrorMonad m => Ident -> Map.Map Ident b -> m b
 lookupIdent c t =
   case Map.lookup c t of
     Just v  -> return v
-    Nothing -> raise ("unknown identifier" +++ showIdent c)
+    Nothing -> notFound c
 
-lookupIdentInfo :: ErrorMonad m => SourceModInfo -> Ident -> m Info
-lookupIdentInfo mo i = lookupIdent i (jments mo)
+notFound c = raise ("unknown identifier" +++ showIdent c)
+
+lookupIdentInfo :: ErrorMonad m => SourceModule -> Ident -> m Info
+lookupIdentInfo (m,ModInfo{jments=js}) i = lookupIdent i js
+lookupIdentInfo (m,ModPGF{mpgf=pgf})   i =
+ case PGF2.functionType pgf (showIdent i) of
+   Just ty -> return (ResValue (noLoc (cnvType [] ty)) 0)
+   Nothing -> case PGF2.categoryContext pgf (showIdent i) of
+                Just ctxt -> return (ResParam Nothing Nothing)
+                Nothing   -> notFound i
+  where
+    cnvType xs (PGF2.DTyp hypos cat es) =
+      appHypos hypos xs (QC (m,identS cat)) es
+
+    appHypos []                  xs t es =
+      foldl (appExpr xs) t es
+    appHypos ((bt, v, ty):hypos) xs t es =
+      let x = identS v in Prod bt x (cnvType xs ty) (appHypos hypos (x:xs) t es)
+
+    appExpr xs t e = App t (cnvExpr xs e)
+
+    cnvExpr xs (PGF2.EAbs bt v e)        = let x = identS v in Abs bt x (cnvExpr (x:xs) e)
+    cnvExpr xs (PGF2.EApp e1 e2)         = App (cnvExpr xs e1) (cnvExpr xs e2)
+    cnvExpr xs (PGF2.ELit (PGF2.LStr s)) = K s
+    cnvExpr xs (PGF2.ELit (PGF2.LInt n)) = EInt n
+    cnvExpr xs (PGF2.ELit (PGF2.LFlt n)) = EFloat n
+    cnvExpr xs (PGF2.EMeta i)            = Meta i
+    cnvExpr xs (PGF2.EFun f)             = QC (m,identS f)
+    cnvExpr xs (PGF2.EVar i)             = Vr (xs !! i)
+    cnvExpr xs (PGF2.ETyped e ty)        = Typed (cnvExpr xs e) (cnvType xs ty)
+    cnvExpr xs (PGF2.EImplArg e)         = ImplArg (cnvExpr xs e)
+
+
 
 lookupQIdentInfo :: ErrorMonad m => Grammar -> QIdent -> m Info
-lookupQIdentInfo gr (m,c) = flip lookupIdentInfo c =<< lookupModule gr m
+lookupQIdentInfo gr (m,c) = do
+  mi <- lookupModule gr m
+  lookupIdentInfo (m,mi) c
 
 lookupResDef :: ErrorMonad m => Grammar -> QIdent -> m Term
 lookupResDef gr (m,c)

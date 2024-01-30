@@ -79,8 +79,8 @@ importPGF opts (Just pgf) f        = fmap Just (modifyPGF pgf (mergePGF f) `catc
                                                                 readPGF f
                                                         else throwIO e))
 
-importSource :: Options -> [FilePath] -> IO (ModuleName,SourceGrammar)
-importSource opts files = fmap snd (batchCompile opts files)
+importSource :: Options -> Maybe PGF -> [FilePath] -> IO (ModuleName,SourceGrammar)
+importSource opts mb_pgf files = fmap snd (batchCompile opts mb_pgf files)
 
 -- for different cf formats
 importCF opts files get convert = impCF

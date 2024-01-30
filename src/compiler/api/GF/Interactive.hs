@@ -427,10 +427,10 @@ importInEnv :: ReadNGF -> Options -> [FilePath] -> ShellM ()
 importInEnv readNGF opts files =
   do (_,pgf0,mb_txnid) <- gets pgfenv
      case (flag optRetainResource opts,mb_txnid) of
-       (RetainAll,Nothing)      -> do src <- lift $ importSource opts files
+       (RetainAll,Nothing)      -> do src <- lift $ importSource opts Nothing files
                                       pgf <- lift $ link opts pgf0 src
                                       modify $ \gfenv -> gfenv{pgfenv = (snd src,Just pgf,Nothing)}
-       (RetainSource,mb_txn)    -> do src <- lift $ importSource opts files
+       (RetainSource,mb_txn)    -> do src <- lift $ importSource opts pgf0 files
                                       modify $ \gfenv -> gfenv{pgfenv = (snd src,pgf0,mb_txn)}
        (RetainCompiled,Nothing) -> do pgf <- lift $ importPGF pgf0
                                       modify $ \gfenv -> gfenv{pgfenv = (emptyGrammar,pgf,Nothing)}

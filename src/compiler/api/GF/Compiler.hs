@@ -54,7 +54,7 @@ compileSourceFiles opts fs =
            linkGrammars opts output
   where
     batchCompile = maybe batchCompile' parallelBatchCompile (flag optJobs opts)
-    batchCompile' opts fs = do (t,cnc_gr) <- S.batchCompile opts fs
+    batchCompile' opts fs = do (t,cnc_gr) <- S.batchCompile opts Nothing fs
                                return (t,[cnc_gr])
 
     exportCanonical (_time, canonical) =

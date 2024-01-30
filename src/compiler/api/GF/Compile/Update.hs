@@ -57,6 +57,10 @@ extendModule cwd gr (name,m)
    extOne mo (n,cond) = do
      m0 <- lookupModule gr n
 
+     case m0 of
+       ModPGF _ -> checkError ("cannot extend the precompiled module" <+> n)
+       _        -> return ()
+
      -- test that the module types match, and find out if the old is complete
      unless (sameMType (mtype m) (mtype mo))
             (checkError ("illegal extension type to module" <+> name))

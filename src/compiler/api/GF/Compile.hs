@@ -7,7 +7,7 @@ import GF.Compile.ReadFiles(ModEnv,getOptionsFromFile,getAllFiles,
 import GF.CompileOne(compileOne)
 
 import GF.Grammar.Grammar(Grammar,emptyGrammar,modules,mGrammar,
-                          abstractOfConcrete,prependModule)--,msrc,modules
+                          abstractOfConcrete,prependModule,ModuleInfo(..))
 
 import GF.Infra.CheckM
 import GF.Infra.Ident(ModuleName,moduleNameS)--,showIdent
@@ -19,17 +19,17 @@ import GF.Data.Operations(raise,(+++),err)
 import Control.Monad(foldM,when,(<=<))
 import GF.System.Directory(getCurrentDirectory,doesFileExist,getModificationTime)
 import System.FilePath((</>),isRelative,dropFileName)
-import qualified Data.Map as Map(empty,insert,elems) --lookup
+import qualified Data.Map as Map(empty,singleton,insert,elems)
 import Data.List(nub)
 import Data.Time(UTCTime)
 import GF.Text.Pretty(render,($$),(<+>),nest)
 
-import PGF2(PGF,readProbabilitiesFromFile)
+import PGF2(PGF,abstractName,pgfFilePath,readProbabilitiesFromFile)
 
 -- | Compiles a number of source files and builds a 'PGF' structure for them.
 -- This is a composition of 'link' and 'batchCompile'.
 compileToPGF :: Options -> Maybe PGF -> [FilePath] -> IOE PGF
-compileToPGF opts mb_pgf fs = link opts mb_pgf . snd =<< batchCompile opts fs
+compileToPGF opts mb_pgf fs = link opts mb_pgf . snd =<< batchCompile opts mb_pgf fs
 
 -- | Link a grammar into a 'PGF' that can be used to 'PGF.linearize' and
 -- 'PGF.parse' with the "PGF" run-time system.
@@ -56,12 +56,15 @@ srcAbsName gr cnc = err (const cnc) id $ abstractOfConcrete gr cnc
 -- used, in which case tags files are produced instead).
 -- Existing @.gfo@ files are reused if they are up-to-date
 -- (unless the option @-src@ aka @-force-recomp@ is used).
-batchCompile :: Options -> [FilePath] -> IOE (UTCTime,(ModuleName,Grammar))
-batchCompile opts files = do
-  (gr,menv) <- foldM (compileModule opts) emptyCompileEnv files
+batchCompile :: Options -> Maybe PGF -> [FilePath] -> IOE (UTCTime,(ModuleName,Grammar))
+batchCompile opts mb_pgf files = do
+  menv <- emptyCompileEnv mb_pgf
+  (gr,menv) <- foldM (compileModule opts) menv files
   let cnc = moduleNameS (justModuleName (last files))
-      t = maximum . map fst $ Map.elems menv
+      t   = maximum . map snd3 $ Map.elems menv
   return (t,(cnc,gr))
+  where
+    snd3 (_,y,_) = y
 
 -- | compile with one module as starting point
 -- command-line options override options (marked by --#) in the file
@@ -105,14 +108,23 @@ compileOne' opts env@(gr,_) = extendCompileEnv env <=< compileOne opts gr
 -- | The environment
 type CompileEnv = (Grammar,ModEnv)
 
-emptyCompileEnv :: CompileEnv
-emptyCompileEnv = (emptyGrammar,Map.empty)
+emptyCompileEnv :: Maybe PGF -> IOE CompileEnv
+emptyCompileEnv mb_pgf = do
+  case mb_pgf of
+    Just pgf -> do let fpath    = pgfFilePath pgf
+                       abs_name = abstractName pgf
+                   t <- getModificationTime fpath
+                   return ( prependModule emptyGrammar (moduleNameS abs_name, ModPGF pgf)
+                          , Map.singleton abs_name (fpath,t,[])
+                          )
+    Nothing  -> return (emptyGrammar,Map.empty)
+
 
 extendCompileEnv (gr,menv) (mfile,mo) =
   do menv2 <- case mfile of
                 Just file ->
                   do let (mod,imps) = importsOfModule mo
                      t <- getModificationTime file
-                     return $ Map.insert mod (t,imps) menv
+                     return $ Map.insert mod (file,t,imps) menv
                 _ -> return menv
      return (prependModule gr mo,menv2)

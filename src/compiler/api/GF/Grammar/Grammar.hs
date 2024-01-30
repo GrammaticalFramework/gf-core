@@ -73,7 +73,7 @@ import GF.Infra.Location
 
 import GF.Data.Operations
 
-import PGF2(BindType(..))
+import PGF2(BindType(..),PGF)
 import PGF2.Transactions(SeqId,LIndex,LVar,LParam(..),PArg(..),Symbol(..),Production(..))
 
 import Data.Array.IArray(Array)
@@ -86,13 +86,14 @@ import GF.Text.Pretty
 -- | A grammar is a self-contained collection of grammar modules
 data Grammar = MGrammar { 
     moduleMap :: Map.Map ModuleName ModuleInfo,
-    modules :: [Module]
+    modules   :: [Module]
   }
 
 -- | Modules
 type Module = (ModuleName, ModuleInfo)
 
-data ModuleInfo = ModInfo {
+data ModuleInfo
+ = ModInfo {
     mtype   :: ModuleType,
     mstatus :: ModuleStatus,
     mflags  :: Options,
@@ -103,7 +104,10 @@ data ModuleInfo = ModInfo {
     msrc    :: FilePath,
     mseqs   :: Maybe (Seq.Seq [Symbol]),
     jments  :: Map.Map Ident Info
-  }
+   }
+ | ModPGF {
+    mpgf :: PGF
+   }
 
 type SourceGrammar = Grammar
 type SourceModule = Module

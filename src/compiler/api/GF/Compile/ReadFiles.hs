@@ -50,7 +50,7 @@ import System.FilePath
 import GF.Text.Pretty
 
 type ModName = String
-type ModEnv  = Map.Map ModName (UTCTime,[ModName])
+type ModEnv  = Map.Map ModName (FilePath,UTCTime,[ModName])
 
 
 -- | Returns a list of all files to be compiled in topological order i.e.
@@ -98,14 +98,17 @@ getAllFiles opts ps env file = do
     -- returns 'ModuleInfo'. It fails if there is no such module
   --findModule :: ModName -> IOE ModuleInfo
     findModule name = do
-      (file,gfTime,gfoTime) <- findFile gfoDir ps name
+      (file,gfTime,gfoTime) <- findFile gfoDir ps env name
 
       let mb_envmod = Map.lookup name env
-          (st,t) = selectFormat opts (fmap fst mb_envmod) gfTime gfoTime
+          (st,t) = selectFormat opts (fmap snd3 mb_envmod) gfTime gfoTime
+
+          snd3 (_,y,_) = y
+          thd3 (_,_,z) = z
 
       (st,(mname,imps)) <-
           case st of
-            CSEnv  -> return (st, (name, maybe [] snd mb_envmod))
+            CSEnv  -> return (st, (name, maybe [] thd3 mb_envmod))
             CSRead -> do let gfo = if isGFO file then file else gf2gfo opts file
                          t_imps <- gfoImports gfo
                          case t_imps of
@@ -121,8 +124,8 @@ getAllFiles opts ps env file = do
       return (name,st,t,isJust gfTime,imps,dropFileName file)
 --------------------------------------------------------------------------------
 
-findFile gfoDir ps name =
-    maybe noSource haveSource =<< getFilePath ps (gfFile name)
+findFile gfoDir ps env name =
+  maybe noSource haveSource =<< getFilePath ps (gfFile name)
   where
     haveSource gfFile =
       do gfTime  <- getModificationTime gfFile
@@ -130,7 +133,7 @@ findFile gfoDir ps name =
          return (gfFile, Just gfTime, mb_gfoTime)
 
     noSource =
-        maybe noGFO haveGFO =<< getFilePath gfoPath (gfoFile name)
+      maybe noGFO haveGFO =<< getFilePath gfoPath (gfoFile name)
       where
         gfoPath = maybe id (:) gfoDir ps
 
@@ -138,8 +141,11 @@ findFile gfoDir ps name =
           do gfoTime <- getModificationTime gfoFile
              return (gfoFile, Nothing, Just gfoTime)
 
-        noGFO = raise (render ("File" <+> gfFile name <+> "does not exist." $$
-                               "searched in:" <+> vcat ps))
+        noGFO =
+          case Map.lookup name env of
+            Just (fpath,t,_) -> return (fpath, Nothing, Nothing)
+            Nothing          -> raise (render ("File" <+> gfFile name <+> "does not exist." $$
+                                       "searched in:" <+> vcat ps <+> (show (env :: Map.Map ModName (FilePath,UTCTime,[ModName])))))
 
 gfImports opts file = importsOfModule `fmap` parseModHeader opts file
 

@@ -247,6 +247,7 @@ pgfCommands = Map.fromList [
        ],
      options = [
        ("retain","retain operations (used for cc command)"),
+       ("resource","the grammar is loaded as a resource to a precompiled PGF"),
        ("src",   "force compilation from source"),
        ("v",     "be verbose - show intermediate status information")
        ],

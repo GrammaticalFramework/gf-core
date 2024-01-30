@@ -1285,11 +1285,7 @@ PGF_embed(PGFObject* self, PyObject *modname)
     py_embedding->grammar = self;    Py_INCREF(self);
 
     const char *fpath = pgf_file_path(self->db);
-    if (fpath == NULL) {
-        py_embedding->grammar_path = Py_None; Py_INCREF(Py_None);
-    } else {
-        py_embedding->grammar_path = PyUnicode_FromString(fpath);
-    }
+    py_embedding->grammar_path = PyUnicode_FromString(fpath);
 
     if (module == NULL) {
         py_embedding->package_path = PyList_New(0);

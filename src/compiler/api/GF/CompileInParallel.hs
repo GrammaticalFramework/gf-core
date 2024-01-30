@@ -110,12 +110,12 @@ batchCompile1 lib_dir (opts,filepaths) =
 --            logStrLn $ "Finished "++show (length (modules gr'))++" modules."
               return gr'
      fcache <- liftIO $ newIOCache $ \ _ (imp,Hide (f,ps)) ->
-                 do (file,_,_) <- findFile gfoDir ps imp
+                 do (file,_,_) <- findFile gfoDir ps M.empty imp
                     return (file,(f,ps))
      let find f ps imp =
            do (file',(f',ps')) <- liftIO $ readIOCache fcache (imp,Hide (f,ps))
               when (ps'/=ps) $
-                 do (file,_,_) <- findFile gfoDir ps imp
+                 do (file,_,_) <- findFile gfoDir ps M.empty imp
                     unless (file==file' || any fromPrelude [file,file']) $
                       do eq <- liftIO $ (==) <$> BS.readFile file <*> BS.readFile file'
                          unless eq $

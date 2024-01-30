@@ -19,6 +19,7 @@ module PGF2 (-- * PGF
 #if defined(__linux__) || defined(__APPLE__)
              writePGF_,
 #endif
+             pgfFilePath,
 
              -- * Abstract syntax
              AbsName,abstractName,globalFlag,abstractFlag,
@@ -277,6 +278,9 @@ cookie_write cookie buf size = do
   callback <- deRefStablePtr (castPtrToStablePtr cookie)
   fmap fromIntegral $ (callback :: Ptr Word8 -> Int -> IO Int) buf (fromIntegral size)
 #endif
+
+pgfFilePath :: PGF -> FilePath
+pgfFilePath p = unsafePerformIO (pgf_file_path (a_db p) >>= peekCString)
 
 showPGF :: PGF -> String
 showPGF p =

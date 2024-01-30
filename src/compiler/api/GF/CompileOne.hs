@@ -96,8 +96,8 @@ compileSourceModule opts cwd mb_gfFile gr =
     else generateGFO  <=< ifComplete (backend <=< middle) <=< frontend
   where
     -- Apply to all modules
-    frontend = runPass Extend  "" . extendModule cwd gr
-           <=< runPass Rebuild "" . rebuildModule cwd gr
+    frontend = runPass Extend  "extending"  . extendModule cwd gr
+           <=< runPass Rebuild "rebuilding" . rebuildModule cwd gr
 
     -- Apply to complete modules
     middle   = runPass TypeCheck "type checking" . checkModule opts cwd gr

@@ -357,7 +357,7 @@ optDescr =
      Option [] ["gfo","no-recomp"] (NoArg (recomp NeverRecomp))
                  "Never recompile from source, if there is already .gfo file.",
      Option [] ["retain"]   (NoArg (set $ \o -> o { optRetainResource = RetainAll })) "Retain the source and well as the compiled grammar.",
-     Option [] ["resource"] (NoArg (set $ \o -> o { optRetainResource = RetainSource })) "Load the source grammar as a resource only.",
+     Option [] ["resource"] (NoArg (set $ \o -> o { optRetainResource = RetainSource })) "Load the source grammar as a resource to a precompiled PGF.",
      Option [] ["probs"] (ReqArg probsFile "file.probs") "Read probabilities from file.",
      Option ['n'] ["name"] (ReqArg name "NAME")
            (unlines ["Use NAME as the name of the output. This is used in the output file names, ",

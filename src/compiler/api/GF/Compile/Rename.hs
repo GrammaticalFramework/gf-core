@@ -36,6 +36,7 @@ import GF.Grammar.Lookup
 import GF.Grammar.Macros
 import GF.Grammar.Printer
 import GF.Data.Operations
+import PGF2(abstractName,functionType,categoryContext)
 
 import Control.Monad
 import Data.List (nub,(\\))
@@ -58,10 +59,7 @@ renameModule cwd gr mo@(m,mi) = do
   return (m, mi{jments = js})
 
 type Status = (StatusMap, [(OpenSpec, StatusMap)])
-
-type StatusMap = Map.Map Ident StatusInfo
-
-type StatusInfo = Ident -> Term
+type StatusMap = Ident -> Maybe Term
 
 -- Delays errors, allowing many errors to be detected and reported
 renameIdentTerm env = accumulateError (renameIdentTerm' env)
@@ -74,14 +72,12 @@ renameIdentTerm' env@(act,imps) t0 =
     Cn c -> ident (\_ s -> checkError s) c
     Q (m',c) | m' == cPredef {- && isInPredefined c -} -> return t0
     Q (m',c) -> do
-      m <- lookupErr m' qualifs
-      f <- lookupIdent c m
-      return $ f c
+      f <- lookupErr m' qualifs
+      maybe (notFound c) return (f c)
     QC (m',c) | m' == cPredef {- && isInPredefined c -} -> return t0
     QC (m',c) -> do
-      m <- lookupErr m' qualifs
-      f <- lookupIdent c m
-      return $ f c
+      f <- lookupErr m' qualifs
+      maybe (notFound c) return (f c)
     _ -> return t0
   where
     opens   = [st  | (OSimple _,st) <- imps]
@@ -95,67 +91,68 @@ renameIdentTerm' env@(act,imps) t0 =
       | otherwise     = checkError s
 
     ident alt c =
-      case Map.lookup c act of
-        Just f -> return (f c)
-        _      -> case mapMaybe (Map.lookup c) opens of
-                    [f]  -> return (f c)
+      case act c of
+        Just t -> return t
+        _      -> case mapMaybe (\f -> f c) opens of
+                    [t]  -> return t
                     []   -> alt c ("constant not found:" <+> c $$
                                    "given" <+> fsep (punctuate ',' (map fst qualifs)))
-                    fs   -> case nub [f c | f <- fs]  of
-                              [tr]     -> return tr
+                    ts   -> case nub ts  of
+                              [t]      -> return t
                               ts@(t:_) -> do checkWarn ("atomic term" <+> ppTerm Qualified 0 t0 $$
                                                         "conflict" <+> hsep (punctuate ',' (map (ppTerm Qualified 0) ts)) $$
                                                         "given" <+> fsep (punctuate ',' (map fst qualifs)))
-                                             return (bestTerm ts) -- Heuristic for resource grammar. Returns t for all others.
-       where
-        -- Hotfix for https://github.com/GrammaticalFramework/gf-core/issues/56
-        -- Real bug is probably somewhere deeper in recognising excluded functions. /IL 2020-06-06
-        notFromCommonModule :: Term -> Bool
-        notFromCommonModule term =
-          let t = render $ ppTerm Qualified 0 term :: String
-           in not $ any (\moduleName -> moduleName `L.isPrefixOf` t)
-                        ["CommonX", "ConstructX", "ExtendFunctor"
-                        ,"MarkHTMLX", "ParamX", "TenseX", "TextX"]
+                                             return t
 
-        -- If one of the terms comes from the common modules,
-        -- we choose the other one, because that's defined in the grammar.
-        bestTerm :: [Term] -> Term
-        bestTerm [] = error "constant not found" -- not reached: bestTerm is only called for case ts@(t:_)
-        bestTerm ts@(t:_) =
-          let notCommon = [t | t <- ts, notFromCommonModule t]
-           in case notCommon of
-                []    -> t -- All terms are from common modules, return first of original list
-                (u:_) -> u -- ≥1 terms are not from common modules, return first of those
-
-info2status :: Maybe ModuleName -> Ident -> Info -> StatusInfo
+info2status :: Maybe ModuleName -> Ident -> Info -> Term
 info2status mq c i = case i of
-  AbsFun _ _ Nothing _ -> maybe Con (curry QC) mq
-  ResValue _ _ -> maybe Con (curry QC) mq
-  ResParam _ _ -> maybe Con (curry QC) mq
-  AnyInd True m -> maybe Con (const (curry QC m)) mq
-  AnyInd False m -> maybe Cn (const (curry Q m)) mq
-  _           -> maybe Cn (curry Q) mq
+  AbsFun _ _ Nothing _ -> maybe Con (curry QC) mq c
+  ResValue _ _ -> maybe Con (curry QC) mq c
+  ResParam _ _ -> maybe Con (curry QC) mq c
+  AnyInd True m -> maybe Con (const (curry QC m)) mq c
+  AnyInd False m -> maybe Cn (const (curry Q m)) mq c
+  _           -> maybe Cn (curry Q) mq c
 
 tree2status :: OpenSpec -> Map.Map Ident Info -> StatusMap
-tree2status o = case o of
-  OSimple i   -> Map.mapWithKey (info2status (Just i))
-  OQualif i j -> Map.mapWithKey (info2status (Just j))
+tree2status o map = case o of
+  OSimple i   -> flip Map.lookup (Map.mapWithKey (info2status (Just i)) map)
+  OQualif i j -> flip Map.lookup (Map.mapWithKey (info2status (Just j)) map)
 
 buildStatus :: FilePath -> Grammar -> Module -> Check Status
 buildStatus cwd gr mo@(m,mi) = checkInModule cwd mi NoLoc empty $ do
   let gr1  = prependModule gr mo
-      exts = [(OSimple m,mi) | (m,mi) <- allExtends gr1 m]
-  ops <- mapM (\o -> lookupModule gr1 (openedModule o) >>= \mi -> return (o,mi)) (mopens mi)
-  let sts = map modInfo2status (exts++ops)
+      exts = [(o,modInfo2status o mi) | (m,mi) <- allExtends gr1 m, let o = OSimple m]
+  ops <- mapM (openSpec2status gr1) (mopens mi)
+  let sts = exts++ops
   return (if isModCnc mi
-            then (Map.empty,       reverse sts)  -- the module itself does not define any names
-            else (self2status m mi,reverse sts)) -- so the empty ident is not needed
+            then (const Nothing,   reverse sts)  -- the module itself does not define any names
+            else (self2status m mi,reverse sts))
 
-modInfo2status :: (OpenSpec,ModuleInfo) -> (OpenSpec, StatusMap)
-modInfo2status (o,mo) = (o,tree2status o (jments mo))
+openSpec2status gr o =
+  do mi <- lookupModule gr (openedModule o)
+     return (o,modInfo2status o mi)
+  where
+    mn = openedModule o
+
+pgf2status o pgf id =
+  case functionType pgf sid of
+    Just _  -> Just (QC (mn, id))
+    Nothing -> case categoryContext pgf sid of
+                 Just _  -> Just (QC (mn, id))
+                 Nothing -> Nothing
+  where
+    sid = showIdent id
+
+    mn = case o of
+           OSimple i   -> i
+           OQualif i j -> j
+
+modInfo2status :: OpenSpec -> ModuleInfo -> StatusMap
+modInfo2status o (ModInfo{jments=jments}) = tree2status o jments
+modInfo2status o (ModPGF pgf) = pgf2status o pgf
 
 self2status :: ModuleName -> ModuleInfo -> StatusMap
-self2status c m = Map.mapWithKey (info2status (Just c)) (jments m)
+self2status c m = flip Map.lookup (Map.mapWithKey (info2status (Just c)) (jments m))
 
 
 renameInfo :: FilePath -> Status -> Module -> Ident -> Info -> Check Info

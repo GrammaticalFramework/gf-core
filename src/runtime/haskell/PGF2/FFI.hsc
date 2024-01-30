@@ -93,6 +93,8 @@ foreign import ccall pgf_write_pgf_cookie :: Ptr () -> FunPtr (Ptr () -> Ptr Wor
 foreign import ccall pgf_write_pgf_cookie :: Ptr () -> FunPtr (Ptr () -> Ptr Word8 -> CInt -> IO CInt) -> Ptr PgfDB -> Ptr PGF -> Ptr (Ptr PgfText) -> Ptr PgfExn -> IO ()
 #endif
 
+foreign import ccall pgf_file_path :: Ptr PgfDB -> IO CString
+
 foreign import ccall "pgf_free_revision" pgf_free_revision_ :: Ptr PgfDB -> Ptr PGF -> IO ()
 
 foreign import ccall "&pgf_free_revision" pgf_free_revision :: FinalizerEnvPtr PgfDB PGF

@@ -58,6 +58,7 @@ PgfDB *pgf_read_pgf(const char* fpath, PgfRevision *revision,
         size_t pgf_size = ftell(in);
         fseek(in, 0, SEEK_SET);
         db = new PgfDB(NULL, 0, 0, pgf_size*7);
+        db->set_file_path(fpath);
 
         {
             DB_scope scope(db, WRITER_SCOPE);
