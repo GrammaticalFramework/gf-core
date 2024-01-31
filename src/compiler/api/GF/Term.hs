@@ -4,7 +4,7 @@ module GF.Term (renameSourceTerm,
                 evalError, evalWarn,
                 inferLType, checkLType,
                 normalForm, normalStringForm,
-                unsafeIOToEvalM
+                unsafeIOToEvalM, force
                ) where
 
 import GF.Compile.Rename
