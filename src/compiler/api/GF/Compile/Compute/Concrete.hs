@@ -794,7 +794,7 @@ getOverload t q = EvalM $ \(Gl gr _) k mt d r msgs -> do
                    go []         = return (Fail err msgs)
                    go (tty:ttys) = do res <- k tty mt d r msgs
                                       case res of
-                                        Fail _ _       -> return res -- go ttys
+                                        Fail _ _       -> go ttys
                                         Success r msgs -> return (Success r msgs)
 
                in go ttys
