@@ -1,6 +1,6 @@
 module GF.Term (renameSourceTerm,
                 Globals(..), ConstValue(..), EvalM, stdPredef,
-                Value(..), showValue, newEvaluatedThunk,
+                Value(..), showValue, Thunk, newThunk, newEvaluatedThunk,
                 evalError, evalWarn,
                 inferLType, checkLType,
                 normalForm, normalStringForm,
