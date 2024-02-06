@@ -11,7 +11,6 @@ import GF.Grammar.Predef
 import GF.Grammar.PatternMatch
 import GF.Grammar.Lockfield (isLockLabel, lockRecType, unlockRecord)
 import GF.Compile.Compute.Concrete(normalForm,Globals(..),stdPredef)
-import GF.Compile.TypeCheck.Primitives
 
 import Data.List
 import Data.Maybe(fromMaybe,isJust,isNothing)
@@ -79,10 +78,6 @@ computeLType gr g0 t = comp (reverse [(b,x, Vr x) | (b,x,_) <- g0] ++ g0) t
 inferLType :: SourceGrammar -> Context -> Term -> Check (Term, Type)
 inferLType gr g trm = case trm of
 
-   Q (m,ident) | isPredef m -> termWith trm $ case typPredefined ident of
-                                                Just ty -> return ty
-                                                Nothing -> checkError ("unknown in Predef:" <+> ident)
-
    Q ident -> checks [
      termWith trm $ lookupResType gr ident >>= computeLType gr g
      ,
@@ -90,10 +85,6 @@ inferLType gr g trm = case trm of
      ,
      checkError ("cannot infer type of constant" <+> ppTerm Unqualified 0 trm)
      ]
-
-   QC (m,ident) | isPredef m -> termWith trm $ case typPredefined ident of
-                                                 Just ty -> return ty
-                                                 Nothing -> checkError ("unknown in Predef:" <+> ident)
 
    QC ident -> checks [
        termWith trm $ lookupResType gr ident >>= computeLType gr g

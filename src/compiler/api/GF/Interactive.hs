@@ -14,7 +14,6 @@ import GF.Command.Abstract
 import GF.Command.Parse(readCommandLine,pCommand,readTransactionCommand)
 import GF.Compile.Rename(renameSourceTerm)
 import GF.Compile.TypeCheck.Concrete(inferLType)
-import GF.Compile.TypeCheck.Primitives(predefMod)
 import GF.Compile.GeneratePMCFG(pmcfgForm,type2fields)
 import GF.Data.Operations (Err(..))
 import GF.Data.Utilities(whenM,repeatM)
@@ -284,10 +283,10 @@ transactionCommand (CreateConcrete opts name) pgf mb_txnid = do
   lift $ updatePGF pgf mb_txnid (createConcrete name (return ()))
   return ()
 transactionCommand (CreateLin opts f t is_alter) pgf mb_txnid = do
-  sgr0 <- getGrammar
-  let (sgr,mo) = case greatestResource sgr0 of
-                   Nothing -> (mGrammar [predefMod], fst predefMod)
-                   Just mo -> (sgr0,mo)
+  sgr <- getGrammar
+  mo <- case greatestResource sgr of
+          Nothing -> fail "No source grammar in scope"
+          Just mo -> return mo
   lang <- optLang pgf opts
   lift $ updatePGF pgf mb_txnid $ do
     mb_ty <- getFunctionType f
@@ -321,10 +320,10 @@ transactionCommand (CreateLin opts f t is_alter) pgf mb_txnid = do
         mapToSequence m = Seq.fromList (map (Left . fst) (sortOn snd (Map.toList m)))
 
 transactionCommand (CreateLincat opts c t) pgf mb_txnid = do
-  sgr0 <- getGrammar
-  let (sgr,mo) = case greatestResource sgr0 of
-                   Nothing -> (mGrammar [predefMod], fst predefMod)
-                   Just mo -> (sgr0,mo)
+  sgr <- getGrammar
+  mo <- case greatestResource sgr of
+          Nothing -> fail "No source grammar in scope"
+          Just mo -> return mo
   lang <- optLang pgf opts
   case runCheck (compileLincatTerm sgr mo t) of
     Ok (fields,_)-> do lift $ updatePGF pgf mb_txnid (alterConcrete lang (createLincat c fields [] [] Seq.empty >> return ()))
@@ -383,6 +382,8 @@ moreCommands = [
      exec = \ _ _ ->
             do modify $ \ gfenv -> (emptyGFEnv (startOpts gfenv))
                                      { history=history gfenv }
+               opts <- gets startOpts
+               importInEnv readNGF opts []
                return void
      }),
   ("ph", emptyCommandInfo {
@@ -433,7 +434,8 @@ importInEnv readNGF opts files =
        (RetainSource,mb_txn)    -> do src <- lift $ importSource opts pgf0 files
                                       modify $ \gfenv -> gfenv{pgfenv = (snd src,pgf0,mb_txn)}
        (RetainCompiled,Nothing) -> do pgf <- lift $ importPGF pgf0
-                                      modify $ \gfenv -> gfenv{pgfenv = (emptyGrammar,pgf,Nothing)}
+                                      src <- lift $ importSource opts pgf ["prelude/Predef.gfo"]
+                                      modify $ \gfenv -> gfenv{pgfenv = (snd src,pgf,Nothing)}
        _ -> fail "You must commit/rollback the transaction before loading a new grammar"
   where
     importPGF pgf0 =

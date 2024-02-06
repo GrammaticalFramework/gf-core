@@ -22,7 +22,6 @@ import GF.Grammar.Lookup (allOpers,allOpersTo)
 import GF.Compile.Rename(renameSourceTerm)
 import GF.Compile.Compute.Concrete(normalForm,Globals(..),stdPredef)
 import GF.Compile.TypeCheck.Concrete as TC(inferLType,ppType)
-import GF.Compile.TypeCheck.Primitives(predefMod)
 
 import GF.Command.Abstract(Option(..),isOpt,listFlags,valueString,valStrOpts)
 import GF.Command.CommandInfo
@@ -201,11 +200,8 @@ sourceCommands = Map.fromList [
                 | otherwise = unwords $ map prTerm ops
           return $ fromString printed
 
-    show_operations os ts sgr0 = fmap fst $ runCheck $ do
-      let (sgr,mo) = case greatestResource sgr0 of
-                       Nothing -> (mGrammar [predefMod], fst predefMod)
-                       Just mo -> (sgr0,mo)
-          greps = map valueString (listFlags "grep" os)
+    show_operations os ts sgr = fmap fst $ runCheck $ do
+      let greps = map valueString (listFlags "grep" os)
       ops <- case ts of
                _:_ -> do let Right t = runP pExp (UTF8.fromString (unwords ts))
                          ty <- checkComputeTerm os sgr t
@@ -251,10 +247,10 @@ sourceCommands = Map.fromList [
                P.putStrLn "wrote graph in file _gfdepgraph.dot"
          return void
 
-checkComputeTerm os sgr0 t =
-  do let (sgr,mo) = case greatestResource sgr0 of
-                      Nothing -> (mGrammar [predefMod], fst predefMod)
-                      Just mo -> (sgr0,mo)
+checkComputeTerm os sgr t =
+  do mo <- case greatestResource sgr of
+             Nothing -> checkError (pp "No source grammar in scope")
+             Just mo -> return mo
      t <- renameSourceTerm sgr mo t
      (t,_) <- inferLType sgr [] t
      fmap evalStr (normalForm (Gl sgr stdPredef) t)

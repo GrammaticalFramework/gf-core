@@ -18,6 +18,7 @@ module GF.Grammar
              module GF.Grammar.Macros,
              module GF.Grammar.Parser,
              module GF.Grammar.Printer,
+             module GF.Grammar.Predef,
              module GF.Infra.Ident
            ) where
 
@@ -26,4 +27,5 @@ import GF.Grammar.Values
 import GF.Grammar.Macros
 import GF.Grammar.Parser
 import GF.Grammar.Printer
+import GF.Grammar.Predef
 import GF.Infra.Ident
