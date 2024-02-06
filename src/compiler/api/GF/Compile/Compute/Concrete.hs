@@ -50,12 +50,13 @@ normalForm globals t =
     mkFV [t] = t
     mkFV ts  = FV ts
 
-normalStringForm :: Globals -> Term -> Check String
+normalStringForm :: Globals -> Term -> Check [String]
 normalStringForm globals t =
-  fmap toStr (runEvalM globals (fmap value2string (eval [] t [])))
+  fmap toStrs (runEvalM globals (fmap value2string (eval [] t [])))
   where
-    toStr [Const s] = s
-    toStr _         = ""
+    toStrs []            = []
+    toStrs (Const s:cfs) = s : toStrs cfs
+    toStrs (_      :cfs) = toStrs cfs
 
 type Sigma s = Value s
 type Constraint s = Value s
