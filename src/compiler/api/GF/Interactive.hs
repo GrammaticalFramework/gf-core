@@ -14,10 +14,12 @@ import GF.Command.Abstract
 import GF.Command.Parse(readCommandLine,pCommand,readTransactionCommand)
 import GF.Compile.Rename(renameSourceTerm)
 import GF.Compile.TypeCheck.Concrete(inferLType)
+import GF.Compile.Compute.Concrete(normalForm,stdPredef,Globals(..))
 import GF.Compile.GeneratePMCFG(pmcfgForm,type2fields)
 import GF.Data.Operations (Err(..))
 import GF.Data.Utilities(whenM,repeatM)
 import GF.Grammar hiding (Ident,isPrefixOf)
+import GF.Grammar.Lookup(lookupResDef)
 import GF.Infra.UseIO(ioErrorText,putStrLnE)
 import GF.Infra.SIO
 import GF.Infra.Option
@@ -282,7 +284,7 @@ transactionCommand (CreateCat opts c ctxt) pgf mb_txnid = do
 transactionCommand (CreateConcrete opts name) pgf mb_txnid = do
   lift $ updatePGF pgf mb_txnid (createConcrete name (return ()))
   return ()
-transactionCommand (CreateLin opts f t is_alter) pgf mb_txnid = do
+transactionCommand (CreateLin opts f mb_t is_alter) pgf mb_txnid = do
   sgr <- getGrammar
   mo <- case greatestResource sgr of
           Nothing -> fail "No source grammar in scope"
@@ -295,7 +297,7 @@ transactionCommand (CreateLin opts f t is_alter) pgf mb_txnid = do
          alterConcrete lang $ do
            mb_fields <- getCategoryFields cat
            case mb_fields of
-             Just fields -> case runCheck (compileLinTerm sgr mo t (type2term mo ty)) of
+             Just fields -> case runCheck (compileLinTerm sgr mo f mb_t (type2term mo ty)) of
                               Ok ((prods,seqtbl,fields'),_)
                                    | fields == fields' -> do
                                        (if is_alter then alterLin else createLin) f prods seqtbl
@@ -310,29 +312,41 @@ transactionCommand (CreateLin opts f t is_alter) pgf mb_txnid = do
             (Vr (identS cat))
             hypos
 
-    compileLinTerm sgr mo t ty = do
-      t  <- renameSourceTerm sgr mo (Typed t ty)
-      (t,ty) <- inferLType sgr [] t
+    compileLinTerm sgr mo f mb_t ty = do
+      (t,ty) <- case mb_t of
+                  Just t  -> do t <- renameSourceTerm sgr mo (Typed t ty)
+                                (t,ty) <- inferLType sgr [] t
+                                return (t,ty)
+                  Nothing -> case lookupResDef sgr (mo,identS f) of
+                               Ok t    -> do ty <- renameSourceTerm sgr mo ty
+                                             ty <- normalForm (Gl sgr stdPredef) ty
+                                             return (t,ty)
+                               Bad msg -> fail msg
       let (ctxt,res_ty) = typeFormCnc ty
       (prods,seqs) <- pmcfgForm sgr t ctxt res_ty Map.empty
       return (prods,mapToSequence seqs,type2fields sgr res_ty)
       where
         mapToSequence m = Seq.fromList (map (Left . fst) (sortOn snd (Map.toList m)))
 
-transactionCommand (CreateLincat opts c t) pgf mb_txnid = do
+transactionCommand (CreateLincat opts c mb_t) pgf mb_txnid = do
   sgr <- getGrammar
   mo <- case greatestResource sgr of
           Nothing -> fail "No source grammar in scope"
           Just mo -> return mo
   lang <- optLang pgf opts
-  case runCheck (compileLincatTerm sgr mo t) of
+  case runCheck (compileLincatTerm sgr mo mb_t) of
     Ok (fields,_)-> do lift $ updatePGF pgf mb_txnid (alterConcrete lang (createLincat c fields [] [] Seq.empty >> return ()))
                        return ()
     Bad msg      -> fail msg
   where
-    compileLincatTerm sgr mo t = do
-      t <- renameSourceTerm sgr mo t
-      (t,_) <- inferLType sgr [] t
+    compileLincatTerm sgr mo mb_t = do
+      t <- case mb_t of
+             Just t  -> do t <- renameSourceTerm sgr mo t
+                           (t,_) <- inferLType sgr [] t
+                           return t
+             Nothing -> case lookupResDef sgr (mo,identS c) of
+                          Ok t    -> return t
+                          Bad msg -> fail msg
       return (type2fields sgr t)
 transactionCommand (DropFun opts f) pgf mb_txnid = do
   lift $ updatePGF pgf mb_txnid (dropFunction f)

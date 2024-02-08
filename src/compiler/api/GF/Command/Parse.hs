@@ -84,28 +84,32 @@ pTransactionCommand = do
                return (DropConcrete opts name)
     "lin" | elem (take 1 cmd) ["c","a"] -> do
                f <- pIdent
-               skipSpaces
-               args <- sepBy pIdent skipSpaces
-               skipSpaces
-               char '='
-               skipSpaces
-               t  <- readS_to_P (\s -> case runPartial pTerm s of
-                                         Right (s,t) -> [(t,s)]
-                                         _ -> [])
-               return (CreateLin opts f (foldr (Abs Explicit . identS) t args) (take 1 cmd == "a"))
+               body <- option Nothing $ do
+                         skipSpaces
+                         args <- sepBy pIdent skipSpaces
+                         skipSpaces
+                         char '='
+                         skipSpaces
+                         t  <- readS_to_P (\s -> case runPartial pTerm s of
+                                                   Right (s,t) -> [(t,s)]
+                                                   _ -> [])
+                         return (Just (foldr (Abs Explicit . identS) t args))
+               return (CreateLin opts f body (take 1 cmd == "a"))
           | take 1 cmd == "d" -> do
                 f <- pIdent
                 return (DropLin opts f)
     "lincat"
           | take 1 cmd == "c" -> do
                f <- pIdent
-               skipSpaces
-               char '='
-               skipSpaces
-               t  <- readS_to_P (\s -> case runPartial pTerm s of
-                                         Right (s,t) -> [(t,s)]
-                                         _ -> [])
-               return (CreateLincat opts f t)
+               body <- option Nothing $ do
+                         skipSpaces
+                         char '='
+                         skipSpaces
+                         t  <- readS_to_P (\s -> case runPartial pTerm s of
+                                                   Right (s,t) -> [(t,s)]
+                                                   _ -> [])
+                         return (Just t)
+               return (CreateLincat opts f body)
           | take 1 cmd == "d" -> do
                 f <- pIdent
                 return (DropLincat opts f)
