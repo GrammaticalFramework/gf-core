@@ -111,11 +111,13 @@ type CompileEnv = (Grammar,ModEnv)
 emptyCompileEnv :: Maybe PGF -> IOE CompileEnv
 emptyCompileEnv mb_pgf = do
   case mb_pgf of
-    Just pgf -> do let fpath    = pgfFilePath pgf
-                       abs_name = abstractName pgf
-                   t <- getModificationTime fpath
+    Just pgf -> do let abs_name = abstractName pgf
+                   env <- case pgfFilePath pgf of
+                            Just fpath -> do t <- getModificationTime fpath
+                                             return (Map.singleton abs_name (fpath,t,[]))
+                            Nothing    -> return Map.empty
                    return ( prependModule emptyGrammar (moduleNameS abs_name, ModPGF pgf)
-                          , Map.singleton abs_name (fpath,t,[])
+                          , env
                           )
     Nothing  -> return (emptyGrammar,Map.empty)
 

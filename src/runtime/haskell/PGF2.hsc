@@ -279,8 +279,12 @@ cookie_write cookie buf size = do
   fmap fromIntegral $ (callback :: Ptr Word8 -> Int -> IO Int) buf (fromIntegral size)
 #endif
 
-pgfFilePath :: PGF -> FilePath
-pgfFilePath p = unsafePerformIO (pgf_file_path (a_db p) >>= peekCString)
+pgfFilePath :: PGF -> Maybe FilePath
+pgfFilePath p = unsafePerformIO $ do
+  c_fpath <- pgf_file_path (a_db p)
+  if c_fpath == nullPtr
+    then return Nothing
+    else fmap Just $ peekCString c_fpath
 
 showPGF :: PGF -> String
 showPGF p =
