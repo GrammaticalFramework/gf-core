@@ -16,7 +16,6 @@ import GF.Data.Operations (chunks,err,raise)
 
 import GF.Grammar hiding (Ident,isPrefixOf)
 import GF.Grammar.Analyse
-import GF.Grammar.Parser (runP, pExp)
 import GF.Grammar.ShowTerm
 import GF.Grammar.Lookup (allOpers,allOpersTo)
 import GF.Compile.Rename(renameSourceTerm)
@@ -54,7 +53,7 @@ sourceCommands = Map.fromList [
        ("trace","trace computations")
        ],
      needsTypeCheck = False, -- why not True?
-     exec = withStrings compute_concrete
+     exec = withTerm compute_concrete
      }),
   ("dg",  emptyCommandInfo {
      longname = "dependency_graph",
@@ -101,7 +100,7 @@ sourceCommands = Map.fromList [
        mkEx "sd -size ParadigmsEng.mkV    -- show all constants on which mkV depends, together with size"
        ],
      needsTypeCheck = False,
-     exec = withStrings show_deps
+     exec = withTerm show_deps
      }),
 
   ("so", emptyCommandInfo {
@@ -130,7 +129,7 @@ sourceCommands = Map.fromList [
          mkEx "so | wf -file=/tmp/opers -- write the list of opers to a file"
        ],
      needsTypeCheck = False,
-     exec = withStrings show_operations
+     exec = withTerm show_operations
      }),
 
   ("ss", emptyCommandInfo {
@@ -163,14 +162,15 @@ sourceCommands = Map.fromList [
       do sgr <- getGrammar
          liftSIO (exec opts (toStrings ts) sgr)
 
-    compute_concrete opts ws sgr = fmap fst $ runCheck $
-      case runP pExp (UTF8.fromString s) of
-        Left (_,msg) -> return $ pipeMessage msg
-        Right t      -> do t <- checkComputeTerm opts sgr t
-                           return (fromString (showTerm sgr style q t))
+    withTerm exec opts ts =
+      do sgr <- getGrammar
+         liftSIO (exec opts (toTerm ts) sgr)
+
+    compute_concrete opts t sgr = fmap fst $ runCheck $ do
+      t <- checkComputeTerm opts sgr t
+      return (fromString (showTerm sgr style q t))
       where
         (style,q) = pOpts TermPrintDefault Qualified opts
-        s = unwords ws
 
         pOpts style q []     = (style,q)
         pOpts style q (o:os) =
@@ -184,12 +184,8 @@ sourceCommands = Map.fromList [
             OOpt "qual"    -> pOpts style            Qualified   os
             _              -> pOpts style            q           os
 
-    show_deps os xs sgr = do
-          ops <- case xs of
-             _:_ -> do
-               let ts = [t | Right t <- map (runP pExp . UTF8.fromString) xs]
-               err error (return . nub . concat) $ mapM (constantDepsTerm sgr) ts
-             _   -> error "expected one or more qualified constants as argument"
+    show_deps os t sgr = do
+          ops <- err error (return . nub) $ constantDepsTerm sgr t
           let prTerm = showTerm sgr TermPrintDefault Qualified
           let size = sizeConstant sgr
           let printed
@@ -200,13 +196,11 @@ sourceCommands = Map.fromList [
                 | otherwise = unwords $ map prTerm ops
           return $ fromString printed
 
-    show_operations os ts sgr = fmap fst $ runCheck $ do
+    show_operations os t sgr = fmap fst $ runCheck $ do
       let greps = map valueString (listFlags "grep" os)
-      ops <- case ts of
-               _:_ -> do let Right t = runP pExp (UTF8.fromString (unwords ts))
-                         ty <- checkComputeTerm os sgr t
-                         return $ allOpersTo sgr ty
-               _   -> return $ allOpers sgr
+      ops <- do ty <- checkComputeTerm os sgr t
+                return $ allOpersTo sgr ty
+               -- _   -> return $ allOpers sgr
       let sigs = [(op,ty) | ((mo,op),ty,pos) <- ops]
           printer = showTerm sgr TermPrintDefault
                              (if isOpt "raw" os then Qualified else Unqualified)

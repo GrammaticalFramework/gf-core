@@ -6,7 +6,6 @@ module GF.Grammar.Parser
          , pModDef
          , pModHeader
          , pTerm
-         , pExp
          , pTopDef
          , pBNFCRules
          , pEBNFRules
@@ -32,7 +31,6 @@ import qualified Data.Map as Map
 %name pTopDef TopDef
 %partial pModHeader ModHeader
 %partial pTerm Exp
-%name pExp Exp
 %name pBNFCRules ListCFRule
 %name pEBNFRules ListEBNFRule
 

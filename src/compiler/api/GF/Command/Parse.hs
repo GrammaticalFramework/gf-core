@@ -28,7 +28,7 @@ pCommand = (do
   cmd  <- pIdent <++ (char '%' >> fmap ('%':) pIdent)
   skipSpaces
   opts <- sepBy pOption skipSpaces
-  arg  <- if getCommandOp cmd == "cc" then pArgTerm else pArgument
+  arg  <- if getCommandOp cmd `elem` ["cc","sd","so"] then pArgTerm else pArgument
   return (Command cmd opts arg)
   )
     <++ (do
