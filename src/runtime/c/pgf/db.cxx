@@ -82,9 +82,9 @@ typedef struct {
 #else
     DWORD pid;
 #endif
+    uint32_t ref_count;
     object o;
     txn_t txn_id;
-    size_t ref_count;
 } revision_entry;
 
 struct PGF_INTERNAL_DECL block_descr
@@ -579,8 +579,10 @@ void PgfDB::unregister_revision(object revision)
     if (--entry->ref_count == 0) {
         // Maybe this was the last revision in the list.
         // Decrement n_revisions if possible.
-        while (ms->revisions[ms->n_revisions-1].ref_count == 0){
+        while (ms->revisions[ms->n_revisions-1].ref_count == 0) {
             ms->n_revisions--;
+            if (ms->n_revisions == 0)
+                break;
         }
     }
 
