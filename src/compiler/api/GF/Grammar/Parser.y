@@ -59,6 +59,8 @@ import qualified Data.Map as Map
  ':'          { T_colon     }
  ';'          { T_semicolon }
  '<'          { T_less      }
+ '</'         { T_less_close }
+ '<tag'       { (T_less_tag $$)  }
  '='          { T_equal     }
  '=>'         { T_big_rarrow}
  '>'          { T_great     }
@@ -468,6 +470,17 @@ Exp6
   | '<' ListTupleComp '>' { R (tuple2record $2) }
   | '<' Exp ':' Exp '>'   { Typed $2 $4      }
   | '(' Exp ')'           { $2 }
+  | '<tag' Attributes '>'  Exps '</' Ident '>'    {% mkTag $1 $6 $2 $4 }
+  | '<tag' Attributes '/' '>' {% mkTag $1 $1 $2 [Empty] }
+
+Attributes :: { [(Ident,Term)] }
+Attributes
+  :                       { []    }
+  | Attribute Attributes  { $1:$2 }
+
+Attribute :: { (Ident,Term) }
+Attribute
+  : Ident '=' Exp6   { ($1,$3) }
 
 ListExp :: { [Term] }
 ListExp
@@ -812,5 +825,25 @@ mkAlts cs = case cs of
 
 mkL :: Posn -> Posn -> x -> L x
 mkL (Pn l1 _) (Pn l2 _) x = L (Local l1 l2) x
+
+
+mkTag ident ident' attrs t
+  | showIdent ident ==  showIdent ident'   =  return  (App
+                                                        (App
+                                                          (App 
+                                                              (Q (cPredef, (identS "markup"))) 
+                                                              (R (attrs2record attrs))
+                                                          )
+                                                          (K (showIdent ident))
+                                                        )
+                                                        (mkConcatenation t)
+                                                      ) 
+
+  | otherwise                              =  fail "Tags don't match"
+
+mkConcatenation [] = Empty
+mkConcatenation [t] = (App (Q (cPredef, (identS "linearize"))) t)
+mkConcatenation (t:ts) = C t (mkConcatenation ts)
+
 
 }
