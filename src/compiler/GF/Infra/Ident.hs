@@ -61,7 +61,10 @@ data Ident =
 -- (It is also possible to use regular Haskell 'String's, with somewhat
 -- reduced performance and increased memory use.)
 newtype RawIdent = Id { rawId2utf8 :: UTF8.ByteString }
-  deriving (Eq, Ord, Show, Read)
+  deriving (Eq, Ord, Read)
+
+instance Show RawIdent where
+  showsPrec d (Id s) = showParen (d >= 11) $ showString "Id " . showsPrec 11 s 
 
 pack = UTF8.fromString
 unpack = UTF8.toString

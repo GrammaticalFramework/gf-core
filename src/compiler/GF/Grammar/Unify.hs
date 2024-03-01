@@ -108,8 +108,8 @@ occCheck s u = case u of
 val2term :: Val -> Term
 val2term v = case v of
   VClos g e   -> substTerm [] (map (\(x,v) -> (x,val2term v)) g) e
-  VApp f c    -> App (val2term f) (val2term c)
-  VCn c       -> Q c
+  VApp f cs   -> foldl App (val2term f) (map val2term cs)
+  VCn c _     -> Q c
   VGen i x    -> Vr x
   VRecType xs -> RecType (map (\(l,v) -> (l,val2term v)) xs)
   VType       -> typeType
