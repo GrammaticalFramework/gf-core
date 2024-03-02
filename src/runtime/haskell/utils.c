@@ -1,6 +1,7 @@
 #include <HsFFI.h>
 #include <pgf/pgf.h>
 #include <stdlib.h>
+#define STG_UNUSED     /* for some reason we need this for macOS */
 #include "PGF2/FFI_stub.h"
 
 static
