@@ -32,29 +32,49 @@ GF particularly addresses four aspects of grammars:
 
 ## Compilation and installation
 
-The simplest way of installing GF from source is with the command:
+1. First, you need to install the C Runtime. 
+```Bash
+cd src/runtime/c
 ```
-cabal install
+Then follow the instructions in the [README.md](src/runtime/c/README.md) in that folder.
+
+2. When the C runtime is installed, you should set up the Haskell runtime
+```Bash
+cd ../haskell
+runghc Setup.hs configure 
+runghc Setup.hs build
+sudo runghc Setup.hs install
 ```
-or:
+If the above commands fail because of missing dependencies, then you must install those first. Use something along the lines:
+```Bash
+cabal v1-install random --global
 ```
-stack install
+the same applies for all other dependecies needed here or bellow.
+
+If you use macOS, you might run into problems with installation under ``/usr/lib``, and you should **first** specify the variable for the library path: 
+```Bash
+export DYLD_LIBRARY_PATH=/usr/local/lib
 ```
-Note that if you are unlucky to have Cabal 3.0 or later, then it uses
-the so-called Nix style commands. Using those for GF development is
-a pain. Every time when you change something in the source code, Cabal
-will generate a new folder for GF to look for the GF libraries and
-the GF cloud. Either reinstall everything with every change in the
-compiler, or be sane and stop using cabal-install. Instead you can do:
+and then you run following commands:
+```Bash
+runghc Setup.hs configure --prefix=/usr/local
+runghc Setup.hs build
+sudo DYLD_LIBRARY_PATH=/usr/local/lib runghc Setup.hs install
 ```
+3. If you want to use GF as a web server then you should now compile the server package:
+```Bash
+cd ../../server/
 runghc Setup.hs configure
 runghc Setup.hs build
 sudo runghc Setup.hs install
 ```
-The script will install the GF dependencies globally. The only solution
-to the Nix madness that I found is radical:
-
-  "No person, no problem" (Нет человека – нет проблемы).
+4. Then you need to setup the compiler: 
+```Bash
+cd ../../compiler/           # or ../compiler if you installed the server as well
+runghc Setup.hs configure
+runghc Setup.hs build
+sudo DYLD_LIBRARY_PATH=/usr/local/lib runghc Setup.hs install
+```
 
 For more information, including links to precompiled binaries, see the [download page](https://www.grammaticalframework.org/download/index.html).
 
