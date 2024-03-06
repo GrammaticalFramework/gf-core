@@ -31,7 +31,7 @@ $i = [$l $d _ ']          -- identifier character
 $u = [.\n]                -- universal: any character
 
 @rsyms =    -- symbols and non-identifier-like reserved words
-   \; | \= | \{ | \} | \( | \) | \~ | \* \* | \: | \- \> | \, | \[ | \] | \- | \. | \| | \% | \? | \< | \> | \@ | \# | \! | \* | \+ | \+ \+ | \\ | \\\\ | \= \> | \_ | \$ | \/ | \: \= | \: \: \=
+   \; | \= | \{ | \} | \( | \) | \~ | \* \* | \: | \- \> | \, | \[ | \] | \- | \. | \| | \% | \? | \< | \<\/ | \> | \@ | \# | \! | \* | \+ | \+ \+ | \\ | \\\\ | \= \> | \_ | \$ | \/ | \: \= | \: \: \=
 
 :-
 "--" [.]* ; -- Toss single line comments
@@ -47,11 +47,14 @@ $white+ ;
 (\-)? $d+                       { tok (T_Integer . read . unpack) }
 (\-)? $d+ \. $d+ (e (\-)? $d+)? { tok (T_Double  . read . unpack) }
 
+\< (\_ | $l)($l | $d | \_ | \')*  { tok tag }
+
 {
 unpack = UTF8.toString
 --unpack = id
 
 ident = res T_Ident . identC . rawIdentC
+tag = res T_less_tag . identC . rawIdentC . BS.tail
 
 tok f p s = f s
 
@@ -74,6 +77,7 @@ data Token
  | T_colon
  | T_semicolon
  | T_less
+ | T_less_close
  | T_equal
  | T_big_rarrow
  | T_great
@@ -129,12 +133,13 @@ data Token
  | T_terminator
  | T_separator
  | T_nonempty
+ | T_less_tag Ident
  | T_String  String          -- string literals
  | T_Integer Integer         -- integer literals
  | T_Double  Double          -- double precision float literals
  | T_Ident   Ident
  | T_EOF
--- deriving Show -- debug
+ deriving Show -- debug
 
 res = eitherResIdent
 eitherResIdent :: (Ident -> Token) -> Ident -> Token
@@ -164,6 +169,7 @@ resWords = Map.fromList
  , b "/"  T_alt
  , b ":"  T_colon
  , b ";"  T_semicolon
+ , b "</" T_less_close
  , b "<"  T_less
  , b "="  T_equal
  , b "=>" T_big_rarrow
