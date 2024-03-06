@@ -260,9 +260,6 @@ tuple2recordType ts = [(tupleLabel i, t) | (i,t) <- zip [1..] ts]
 tuple2recordPatt :: [Patt] -> [(Label,Patt)]
 tuple2recordPatt ts = [(tupleLabel i, t) | (i,t) <- zip [1..] ts]
 
-attrs2record :: [(Ident, Term)] -> [Assign]
-attrs2record ts = [assign (ident2label i) ((App (Q (cPredef, (identS "linearize"))) t)) | (i,t) <-  ts]
-
 mkCases :: Ident -> Term -> Term
 mkCases x t = T TRaw [(PV x, t)]
 

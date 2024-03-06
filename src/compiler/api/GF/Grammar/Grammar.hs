@@ -399,6 +399,8 @@ data Term =
  | Strs [Term]                   -- ^ conditioning prefix strings: @strs {s ; ...}@
  | TSymCat Int LIndex [(LIndex,(Ident,Type))]
  | TSymVar Int Int
+ | OpenTag Ident [Assign]        -- used internally in the parser
+ | CloseTag Ident                -- used internally in the parser
   deriving (Show, Eq, Ord)
 
 -- | Patterns

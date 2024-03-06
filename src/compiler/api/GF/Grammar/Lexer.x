@@ -8,7 +8,7 @@ module GF.Grammar.Lexer
          ) where
 
 import Control.Applicative
-import Control.Monad(ap)
+import Control.Monad(ap,mplus)
 import GF.Infra.Ident
 --import GF.Data.Operations
 import qualified Data.ByteString.Char8 as BS
@@ -17,8 +17,8 @@ import qualified Data.ByteString.Internal as BS(w2c)
 import qualified Data.ByteString.UTF8 as UTF8
 import qualified Data.Map as Map
 import Data.Word(Word8)
-import Data.Char(readLitChar)
---import Debug.Trace(trace)
+import Data.Char(readLitChar,isSpace)
+import Data.Maybe(isJust)
 import qualified Control.Monad.Fail as Fail
 }
 
@@ -31,7 +31,7 @@ $i = [$l $d _ ']          -- identifier character
 $u = [.\n]                -- universal: any character
 
 @rsyms =    -- symbols and non-identifier-like reserved words
-   \; | \= | \{ | \} | \( | \) | \~ | \* \* | \: | \- \> | \, | \[ | \] | \- | \. | \| | \% | \? | \< | \<\/ | \> | \@ | \# | \! | \* | \+ | \+ \+ | \\ | \\\\ | \= \> | \_ | \$ | \/ | \: \= | \: \: \=
+   \; | \= | \{ | \} | \( | \) | \~ | \* \* | \: | \- \> | \, | \[ | \] | \- | \. | \| | \% | \? | \> | \@ | \# | \! | \* | \+ | \+ \+ | \\ | \\\\ | \= \> | \_ | \$ | \/ | \: \= | \: \: \=
 
 :-
 "--" [.]* ; -- Toss single line comments
@@ -39,6 +39,9 @@ $u = [.\n]                -- universal: any character
 
 $white+ ;
 @rsyms                          { tok ident }
+\<                              { \_ _ s -> if start_of_tag (BS.tail s)
+                                              then T_less_tag
+                                              else T_less     }
 \' ([. # [\' \\ \n]] | (\\ (\' | \\)))+ \' { tok (T_Ident . identS . unescapeInitTail . unpack) }
 (\_ | $l)($l | $d | \_ | \')*   { tok ident }
 
@@ -47,16 +50,14 @@ $white+ ;
 (\-)? $d+                       { tok (T_Integer . read . unpack) }
 (\-)? $d+ \. $d+ (e (\-)? $d+)? { tok (T_Double  . read . unpack) }
 
-\< (\_ | $l)($l | $d | \_ | \')*  { tok tag }
 
 {
 unpack = UTF8.toString
 --unpack = id
 
 ident = res T_Ident . identC . rawIdentC
-tag = res T_less_tag . identC . rawIdentC . BS.tail
 
-tok f p s = f s
+tok f p len s = f (UTF8.take len s)
 
 data Token
  = T_exclmark
@@ -77,7 +78,7 @@ data Token
  | T_colon
  | T_semicolon
  | T_less
- | T_less_close
+ | T_less_tag
  | T_equal
  | T_big_rarrow
  | T_great
@@ -133,7 +134,6 @@ data Token
  | T_terminator
  | T_separator
  | T_nonempty
- | T_less_tag Ident
  | T_String  String          -- string literals
  | T_Integer Integer         -- integer literals
  | T_Double  Double          -- double precision float literals
@@ -169,8 +169,6 @@ resWords = Map.fromList
  , b "/"  T_alt
  , b ":"  T_colon
  , b ";"  T_semicolon
- , b "</" T_less_close
- , b "<"  T_less
  , b "="  T_equal
  , b "=>" T_big_rarrow
  , b ">"  T_great
@@ -322,13 +320,51 @@ lexer cont = cont=<<token
 token :: P Token
 token = P go
   where
-  --cont' t = trace (show t) (cont t)
     go ai2@(_,inp@(AI pos _ str)) =
       case alexScan inp 0 of
         AlexEOF                -> POk (inp,inp) T_EOF
         AlexError (AI pos _ _) -> PFailed pos "lexical error"
         AlexSkip  inp' len     -> {-trace (show len) $-} go (inp,inp')
-        AlexToken inp' len act -> POk (inp,inp') (act pos ({-UTF8.toString-} (UTF8.take len str)))
+        AlexToken inp' len act -> POk (inp,inp') (act pos len str)
+
+start_of_tag s = isJust (match s)
+  where
+    match s = do
+      s <- matchSpace s
+      (char s '/'
+       `mplus`
+       do s <- matchIdent s
+          s <- matchSpace s
+          (char s '/'
+           `mplus`
+           do s <- matchIdent s
+              s <- matchSpace s
+              char s '='))
+
+    matchSpace s
+      | BS.null s           = Just s
+      | isSpace (BS.head s) = matchSpace (BS.tail s)
+      | otherwise           = Just s
+
+    init =
+      BS.pack "_abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZÀÁÂÃÄÅÆÇÈÉÊËÌÍÎÏÐÑÒÓÔÕÖØÙÚÛÜÝÞßàáâãäåæçèéêëìíîïðñòóôõöøùúûüýþÿ"
+    rest =
+      BS.append init (BS.pack "0123456789'")
+
+    char s c
+      | BS.null s                = Nothing
+      | BS.head s == c           = Just (BS.tail s)
+      | otherwise                = Nothing
+
+    matchIdent s
+      | BS.null s                = Nothing
+      | BS.elem (BS.head s) init = matchRest (BS.tail s)
+      | otherwise                = Nothing
+
+    matchRest s
+      | BS.null s                = Just s
+      | BS.elem (BS.head s) rest = matchRest (BS.tail s)
+      | otherwise                = Just s
 
 getPosn :: P Posn
 getPosn = P $ \ai2@(_,inp@(AI pos _ _)) -> POk ai2 pos

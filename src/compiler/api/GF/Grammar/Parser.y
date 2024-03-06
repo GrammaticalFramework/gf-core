@@ -59,8 +59,7 @@ import qualified Data.Map as Map
  ':'          { T_colon     }
  ';'          { T_semicolon }
  '<'          { T_less      }
- '</'         { T_less_close }
- '<tag'       { (T_less_tag $$)  }
+ '<tag'       { T_less_tag  }
  '='          { T_equal     }
  '=>'         { T_big_rarrow}
  '>'          { T_great     }
@@ -433,7 +432,9 @@ Exp3
 
 Exp4 :: { Term }
 Exp4
-  : Exp4 Exp5                        { App $1 $2     }
+  : Exp4 Exp5                        {% case $2 of
+                                          CloseTag id -> mkTag id $1 Empty
+                                          _           -> return (App $1 $2) }
   | Exp4 '{' Exp '}'                 { App $1 (ImplArg $3) } 
   | 'case' Exp 'of' '{' ListCase '}' { let annot = case $2 of
                                              Typed _ t -> TTyped t
@@ -470,17 +471,18 @@ Exp6
   | '<' ListTupleComp '>' { R (tuple2record $2) }
   | '<' Exp ':' Exp '>'   { Typed $2 $4      }
   | '(' Exp ')'           { $2 }
-  | '<tag' Attributes '>'  Exps '</' Ident '>'    {% mkTag $1 $6 $2 $4 }
-  | '<tag' Attributes '/' '>' {% mkTag $1 $1 $2 [Empty] }
+  | '<tag' Ident Attributes '>'     { OpenTag $2 $3 }
+  | '<tag' '/' Ident '>'            { CloseTag $3   }
+  | '<tag' Ident Attributes '/' '>' { markup $2 $3 Empty }
 
-Attributes :: { [(Ident,Term)] }
+Attributes :: { [Assign] }
 Attributes
   :                       { []    }
   | Attribute Attributes  { $1:$2 }
 
-Attribute :: { (Ident,Term) }
+Attribute :: { Assign }
 Attribute
-  : Ident '=' Exp6   { ($1,$3) }
+  : Ident '=' Exp6   { assign (ident2label $1) $3 }
 
 ListExp :: { [Term] }
 ListExp
@@ -827,23 +829,34 @@ mkL :: Posn -> Posn -> x -> L x
 mkL (Pn l1 _) (Pn l2 _) x = L (Local l1 l2) x
 
 
-mkTag ident ident' attrs t
-  | showIdent ident ==  showIdent ident'   =  return  (App
-                                                        (App
-                                                          (App 
-                                                              (Q (cPredef, (identS "markup"))) 
-                                                              (R (attrs2record attrs))
-                                                          )
-                                                          (K (showIdent ident))
-                                                        )
-                                                        (mkConcatenation t)
-                                                      ) 
+mkTag ident (App t1 t2) conc =
+  case match ident t2 of
+    Just attrs -> fmap (App t1) (mkTag ident t2 conc)
+    Nothing    -> let t = App (Q (cPredef, (identS "linearize"))) t2
+                  in mkTag ident t1 $ case conc of
+                                        Empty -> t
+                                        _     -> C t conc
+mkTag ident t conc =
+  case match ident t of
+    Just attrs -> return (markup ident attrs conc)
+    Nothing    -> fail ("Unmatched closing tag " ++ showIdent ident)
 
-  | otherwise                              =  fail "Tags don't match"
+match ident (OpenTag ident' attrs)
+  | ident == ident'    = Just attrs
+match ident (R [(lbl,(Nothing,Vr ident'))])
+  | lbl == ident2label (identS "p1") && ident == ident'
+                       = Just []
+match ident _          = Nothing
 
-mkConcatenation [] = Empty
-mkConcatenation [t] = (App (Q (cPredef, (identS "linearize"))) t)
-mkConcatenation (t:ts) = C t (mkConcatenation ts)
-
+markup ident attrs content =
+  App
+    (App
+       (App 
+          (Q (cPredef, (identS "markup")))
+          (R attrs)
+       )
+       (K (showIdent ident))
+    )
+    content
 
 }
