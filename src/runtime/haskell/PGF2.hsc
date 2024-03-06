@@ -481,7 +481,37 @@ exprProbability p e =
     withPgfExn "exprProbability" (pgf_expr_prob (a_db p) c_revision c_e marshaller)
 
 checkExpr :: PGF -> Expr -> Type -> Either String Expr
-checkExpr = error "TODO: checkExpr"
+checkExpr p e ty =
+  unsafePerformIO $
+  withForeignPtr (a_revision p) $ \c_revision ->
+  bracket (newStablePtr e) freeStablePtr $ \c_e ->
+  bracket (newStablePtr ty) freeStablePtr $ \c_ty ->
+  allocaBytes (#size PgfExn) $ \c_exn -> do
+    c_e <- pgf_check_expr (a_db p) c_revision c_e c_ty marshaller unmarshaller c_exn
+    ex_type <- (#peek PgfExn, type) c_exn :: IO (#type PgfExnType)
+    case ex_type of
+      (#const PGF_EXN_NONE) -> do
+         e  <- deRefStablePtr c_e
+         freeStablePtr c_e
+         return (Right e)
+      (#const PGF_EXN_SYSTEM_ERROR) -> do
+         errno <- (#peek PgfExn, code) c_exn
+         c_msg <- (#peek PgfExn, msg) c_exn
+         mb_fpath <- if c_msg == nullPtr
+                       then return Nothing
+                       else fmap Just (peekCString c_msg)
+         ioError (errnoToIOError "checkExpr" (Errno errno) Nothing mb_fpath)
+      (#const PGF_EXN_PGF_ERROR) -> do
+         c_msg <- (#peek PgfExn, msg) c_exn
+         msg <- peekCString c_msg
+         free c_msg
+         throwIO (PGFError "checkExpr" msg)
+      (#const PGF_EXN_TYPE_ERROR) -> do
+         c_msg <- (#peek PgfExn, msg) c_exn
+         msg <- peekCString c_msg
+         free c_msg
+         return (Left msg)
+      _ -> throwIO (PGFError "checkExpr" "An unidentified error occurred")
 
 -- | Tries to infer the type of an expression. Note that
 -- even if the expression is type correct it is not always
@@ -516,13 +546,47 @@ inferExpr p e =
          c_msg <- (#peek PgfExn, msg) c_exn
          msg <- peekCString c_msg
          free c_msg
+         throwIO (PGFError "inferExpr" msg)
+      (#const PGF_EXN_TYPE_ERROR) -> do
+         c_msg <- (#peek PgfExn, msg) c_exn
+         msg <- peekCString c_msg
+         free c_msg
          return (Left msg)
       _ -> throwIO (PGFError "inferExpr" "An unidentified error occurred")
 
 -- | Check whether a type is consistent with the abstract
 -- syntax of the grammar.
 checkType :: PGF -> Type -> Either String Type
-checkType pgf ty = Right ty
+checkType p ty =
+  unsafePerformIO $
+  withForeignPtr (a_revision p) $ \c_revision ->
+  bracket (newStablePtr ty) freeStablePtr $ \c_ty ->
+  allocaBytes (#size PgfExn) $ \c_exn -> do
+    c_ty <- pgf_check_type (a_db p) c_revision c_ty marshaller unmarshaller c_exn
+    ex_type <- (#peek PgfExn, type) c_exn :: IO (#type PgfExnType)
+    case ex_type of
+      (#const PGF_EXN_NONE) -> do
+         ty <- deRefStablePtr c_ty
+         freeStablePtr c_ty
+         return (Right ty)
+      (#const PGF_EXN_SYSTEM_ERROR) -> do
+         errno <- (#peek PgfExn, code) c_exn
+         c_msg <- (#peek PgfExn, msg) c_exn
+         mb_fpath <- if c_msg == nullPtr
+                       then return Nothing
+                       else fmap Just (peekCString c_msg)
+         ioError (errnoToIOError "checkType" (Errno errno) Nothing mb_fpath)
+      (#const PGF_EXN_PGF_ERROR) -> do
+         c_msg <- (#peek PgfExn, msg) c_exn
+         msg <- peekCString c_msg
+         free c_msg
+         throwIO (PGFError "checkType" msg)
+      (#const PGF_EXN_TYPE_ERROR) -> do
+         c_msg <- (#peek PgfExn, msg) c_exn
+         msg <- peekCString c_msg
+         free c_msg
+         return (Left msg)
+      _ -> throwIO (PGFError "checkType" "An unidentified error occurred")
 
 -- | Check whether a context is consistent with the abstract
 -- syntax of the grammar.

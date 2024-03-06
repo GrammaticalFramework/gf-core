@@ -5,13 +5,14 @@ abstract basic {
   cat P N ; -- 0.693147
   cat S ; -- 0.693147
   cat String ; -- 0.693147
-  data c : N -> S ; -- 1.38629
-  fun floatLit : Float -> S ; -- 1.38629
+  data c : N -> S ; -- 1.60944
+  fun floatLit : Float -> S ; -- 1.60944
+  fun imp : ({x} : N) -> (y : N) -> S ; -- 1.60944
   fun ind : P z -> ((x : N) -> P x -> P (s x)) -> (x : N) -> P x ; -- 0.693147
-  fun intLit : Int -> S ; -- 1.38629
+  fun intLit : Int -> S ; -- 1.60944
   fun nat : (x : N) -> P x ; -- 0.693147
   data s : N -> N ; -- 0.693147
-  fun stringLit : String -> S ; -- 1.38629
+  fun stringLit : String -> S ; -- 1.60944
   data z : N ; -- 0.693147
 }
 concrete basic_cnc {

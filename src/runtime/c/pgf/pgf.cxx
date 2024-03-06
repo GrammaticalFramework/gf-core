@@ -1249,19 +1249,21 @@ void pgf_release_phrasetable_ids(PgfPhrasetableIds *seq_ids)
 }
 
 PGF_API
-void pgf_check_expr(PgfDB *db, PgfRevision revision,
-                    PgfExpr* pe, PgfType ty,
-                    PgfMarshaller *m, PgfUnmarshaller *u,
-                    PgfExn *err)
+PgfExpr pgf_check_expr(PgfDB *db, PgfRevision revision,
+                       PgfExpr e, PgfType ty,
+                       PgfMarshaller *m, PgfUnmarshaller *u,
+                       PgfExn *err)
 {
     PGF_API_BEGIN {
         DB_scope scope(db, READER_SCOPE);
 
         ref<PgfPGF> pgf = db->revision2pgf(revision);
 
-        PgfTypechecker checker(pgf,m,u);
-        *pe = m->match_expr(&checker, *pe);
+        PgfTypechecker checker(pgf,m,u,err);
+        return checker.check_expr(e, ty);
     } PGF_API_END
+
+    return 0;
 }
 
 PGF_API
@@ -1275,31 +1277,29 @@ PgfType pgf_infer_expr(PgfDB *db, PgfRevision revision,
 
         ref<PgfPGF> pgf = db->revision2pgf(revision);
 
-        PgfTypechecker checker(pgf,m,u);
-        *pe = m->match_expr(&checker, *pe);
+        PgfTypechecker checker(pgf,m,u,err);
+        return checker.infer_expr(pe);
     } PGF_API_END
 
-    PgfText *cat = (PgfText *) alloca(sizeof(PgfText)+2);
-    cat->size = 1;
-    cat->text[0] = 'S';
-    cat->text[1] = 0;
-    return u->dtyp(0,NULL,cat,0,NULL);
+    return 0;
 }
 
 PGF_API
-void pgf_check_type(PgfDB *db, PgfRevision revision,
-                    PgfType* pty,
-                    PgfMarshaller *m, PgfUnmarshaller *u,
-                    PgfExn *err)
+PgfType pgf_check_type(PgfDB *db, PgfRevision revision,
+                       PgfType ty,
+                       PgfMarshaller *m, PgfUnmarshaller *u,
+                       PgfExn *err)
 {
     PGF_API_BEGIN {
         DB_scope scope(db, READER_SCOPE);
 
         ref<PgfPGF> pgf = db->revision2pgf(revision);
 
-        PgfTypechecker checker(pgf,m,u);
-        *pty = m->match_type(&checker, *pty);
+        PgfTypechecker checker(pgf,m,u,err);
+        return checker.check_type(ty);
     } PGF_API_END
+
+    return 0;
 }
 
 PGF_API
@@ -1647,7 +1647,7 @@ void pgf_drop_category(PgfDB *db, PgfRevision revision,
             itor.fn       = iter_drop_cat_helper;
             itor.pgf      = pgf;
             PgfProbspace funs_by_cat =
-                probspace_delete_by_cat(pgf->abstract.funs_by_cat, &cat->name,
+                probspace_delete_by_cat(pgf->abstract.funs_by_cat, name,
                                         &itor, err);
             pgf->abstract.funs_by_cat = funs_by_cat;
             PgfAbsCat::release(cat);

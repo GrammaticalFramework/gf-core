@@ -203,11 +203,11 @@ foreign import ccall pgf_concrete_language_code :: Ptr PgfDB -> Ptr Concr -> Ptr
 
 foreign import ccall pgf_expr_prob :: Ptr PgfDB -> Ptr PGF -> StablePtr Expr -> Ptr PgfMarshaller -> Ptr PgfExn -> IO (#type prob_t)
 
-foreign import ccall pgf_check_expr :: Ptr PgfDB -> Ptr PGF -> Ptr (StablePtr Expr) -> StablePtr Type -> Ptr PgfMarshaller -> Ptr PgfUnmarshaller -> Ptr PgfExn -> IO ()
+foreign import ccall pgf_check_expr :: Ptr PgfDB -> Ptr PGF -> StablePtr Expr -> StablePtr Type -> Ptr PgfMarshaller -> Ptr PgfUnmarshaller -> Ptr PgfExn -> IO (StablePtr Expr)
 
 foreign import ccall pgf_infer_expr :: Ptr PgfDB -> Ptr PGF -> Ptr (StablePtr Expr) -> Ptr PgfMarshaller -> Ptr PgfUnmarshaller -> Ptr PgfExn -> IO (StablePtr Type)
 
-foreign import ccall pgf_check_type :: Ptr PgfDB -> Ptr PGF -> Ptr (StablePtr Type) -> Ptr PgfMarshaller -> Ptr PgfUnmarshaller -> Ptr PgfExn -> IO ()
+foreign import ccall pgf_check_type :: Ptr PgfDB -> Ptr PGF -> StablePtr Type -> Ptr PgfMarshaller -> Ptr PgfUnmarshaller -> Ptr PgfExn -> IO (StablePtr Type)
 
 foreign import ccall pgf_generate_random :: Ptr PgfDB -> Ptr PGF -> Ptr (Ptr Concr) -> CSize -> StablePtr Type -> CSize -> Ptr Word64 -> Ptr (#type prob_t) -> Ptr PgfMarshaller -> Ptr PgfUnmarshaller -> Ptr PgfExn -> IO (StablePtr Expr)
 

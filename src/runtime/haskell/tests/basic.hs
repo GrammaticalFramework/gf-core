@@ -15,9 +15,9 @@ main = do
     grammarTests gr =
       [TestCase (assertEqual "abstract names" "basic" (abstractName gr))
       ,TestCase (assertEqual "abstract categories" ["Float","Int","N","P","S","String"] (categories gr))
-      ,TestCase (assertEqual "abstract functions" ["c","floatLit","ind","intLit","nat","s","stringLit","z"] (functions gr))
+      ,TestCase (assertEqual "abstract functions" ["c","floatLit","imp","ind","intLit","nat","s","stringLit","z"] (functions gr))
       ,TestCase (assertEqual "abstract functions by cat 1" ["s","z"] (functionsByCat gr "N"))
-      ,TestCase (assertEqual "abstract functions by cat 2" ["c","floatLit","intLit","stringLit"] (functionsByCat gr "S"))
+      ,TestCase (assertEqual "abstract functions by cat 2" ["c","floatLit","imp","intLit","stringLit"] (functionsByCat gr "S"))
       ,TestCase (assertEqual "abstract functions by cat 2" [] (functionsByCat gr "X")) -- no such category
       ,TestCase (assertBool  "type of z" (eqJust (readType "N")    (functionType gr "z")))
       ,TestCase (assertBool  "type of s" (eqJust (readType "N->N") (functionType gr "s")))

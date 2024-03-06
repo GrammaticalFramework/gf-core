@@ -41,11 +41,11 @@ main = do
 
   c <- runTestTT $
     TestList $
-      [TestCase (assertEqual "original functions" ["c","floatLit","ind","intLit","nat","s","stringLit","z"] (functions gr1))
+      [TestCase (assertEqual "original functions" ["c","floatLit","imp","ind","intLit","nat","s","stringLit","z"] (functions gr1))
       ,TestCase (assertEqual "existing function" (Left (PGFError "modifyPGF" "A function with that name already exists")) excpt1)
       ,TestCase (assertEqual "existing category" (Left (PGFError "modifyPGF" "A category with that name already exists")) excpt2)
-      ,TestCase (assertEqual "extended functions" ["c","floatLit","foo","ind","intLit","nat","s","stringLit","z"] (functions gr2))
-      ,TestCase (assertEqual "checked-out extended functions" ["c","floatLit","foo","ind","intLit","nat","s","stringLit","z"] (functions gr4))
+      ,TestCase (assertEqual "extended functions" ["c","floatLit","foo","imp","ind","intLit","nat","s","stringLit","z"] (functions gr2))
+      ,TestCase (assertEqual "checked-out extended functions" ["c","floatLit","foo","imp","ind","intLit","nat","s","stringLit","z"] (functions gr4))
       ,TestCase (assertEqual "original categories" ["Float","Int","N","P","S","String"] (categories gr1))
       ,TestCase (assertEqual "extended categories" ["Float","Int","N","P","Q","S","String"] (categories gr2))
       ,TestCase (assertEqual "Q context" (Just [(Explicit,"x",ty)]) (categoryContext gr2 "Q"))
