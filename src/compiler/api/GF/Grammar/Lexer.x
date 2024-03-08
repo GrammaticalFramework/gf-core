@@ -358,13 +358,18 @@ start_of_tag s = isJust (match s)
 
     matchIdent s
       | BS.null s                = Nothing
-      | BS.elem (BS.head s) init = matchRest (BS.tail s)
+      | BS.elem (BS.head s) init = matchRest s 1 (BS.tail s)
       | otherwise                = Nothing
 
-    matchRest s
-      | BS.null s                = Just s
-      | BS.elem (BS.head s) rest = matchRest (BS.tail s)
-      | otherwise                = Just s
+    matchRest s0 i s
+      | BS.null s                = checkResWord (BS.take i s0) s
+      | BS.elem (BS.head s) rest = matchRest s0 (i+1) (BS.tail s)
+      | otherwise                = checkResWord (BS.take i s0) s
+
+    checkResWord w s =
+      case Map.lookup (identC (rawIdentC w)) resWords of
+        Just t  -> Nothing
+        Nothing -> Just s
 
 getPosn :: P Posn
 getPosn = P $ \ai2@(_,inp@(AI pos _ _)) -> POk ai2 pos
