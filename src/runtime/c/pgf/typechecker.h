@@ -63,9 +63,16 @@ class PGF_INTERNAL_DECL PgfTypechecker {
 
     bool unifyTypes(Type *ty1, Type *ty2);
 
+    struct Scope {
+        Scope *tail;
+        PgfText *var;
+        Type *ty;
+    };
+
     struct Context : public PgfUnmarshaller {
         PgfTypechecker *tc;
 
+        Scope *scope;
         PgfBindType bind_type;
         Type *exp_type;
         Type *inf_type;
@@ -74,7 +81,7 @@ class PGF_INTERNAL_DECL PgfTypechecker {
         bool unifyTypes(PgfExpr *e);
 
     public:
-        Context(PgfTypechecker *tc, Type *exp_type = NULL, PgfBindType bind_type = PGF_BIND_TYPE_EXPLICIT);
+        Context(PgfTypechecker *tc, Scope *scope, Type *exp_type = NULL, PgfBindType bind_type = PGF_BIND_TYPE_EXPLICIT);
 
         virtual PgfExpr eabs(PgfBindType btype, PgfText *name, PgfExpr body);
         virtual PgfExpr eapp(PgfExpr fun, PgfExpr arg);
