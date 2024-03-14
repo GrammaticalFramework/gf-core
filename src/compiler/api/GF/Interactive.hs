@@ -372,7 +372,7 @@ updatePGF pgf mb_txnid f = do
                                  mb_txnid
 
 optLang pgf opts =
-  case Map.keys (languages pgf) of
+  case Map.keys langs of
     [lang] -> completeLang (valStrOpts "lang" lang opts)
     _      -> case valStrOpts "lang" "" opts of
                 ""   -> fail "Specify a language to change"

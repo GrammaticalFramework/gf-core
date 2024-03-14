@@ -26,7 +26,6 @@ type ConcName = String -- ^ Name of concrete syntax
 -- in Portable Grammar Format.
 data PGF = PGF { a_db       :: Ptr PgfDB
                , a_revision :: ForeignPtr PGF
-               , languages  :: Map.Map ConcName Concr
                }
 data Concr = Concr {c_db :: Ptr PgfDB, c_revision :: ForeignPtr Concr}
 
@@ -724,19 +723,3 @@ withHypos hypos f =
       (#peek PgfTypeHypo, cid)  ptr >>= free
       (#peek PgfTypeHypo, type) ptr >>= freeStablePtr
       freeHypos (n-1) (ptr `plusPtr` (#size PgfTypeHypo))
-
-getConcretes c_db c_revision = do
-  ref <- newIORef Map.empty
-  (withForeignPtr c_revision $ \c_revision ->
-   allocaBytes (#size PgfItor) $ \itor ->
-   bracket (wrapItorCallback (getConcretes ref)) freeHaskellFunPtr $ \fptr -> do
-     (#poke PgfItor, fn) itor fptr
-     withPgfExn "getConcretes" (pgf_iter_concretes c_db c_revision itor)
-     readIORef ref)
-  where
-    getConcretes :: IORef (Map.Map ConcName Concr) -> ItorCallback
-    getConcretes ref itor key c_revision exn = do
-      concrs <- readIORef ref
-      name  <- peekText key
-      fptr <- newForeignPtrEnv pgf_free_concr_revision c_db (castPtr c_revision)
-      writeIORef ref (Map.insert name (Concr c_db fptr) concrs)

@@ -132,8 +132,7 @@ readPGFWithProbs fpath mb_probs =
     c_db <- withPgfExn "readPGF" (pgf_read_pgf c_fpath p_revision c_pcallback)
     c_revision <- peek p_revision
     fptr <- newForeignPtrEnv pgf_free_revision c_db c_revision
-    langs <- getConcretes c_db fptr
-    return (PGF c_db fptr langs)
+    return (PGF c_db fptr)
 
 -- | Reads a PGF file and stores the unpacked data in an NGF file
 -- ready to be shared with other process, or used for quick startup.
@@ -152,8 +151,7 @@ bootNGFWithProbs pgf_path mb_probs ngf_path =
     c_db <- withPgfExn "bootNGF" (pgf_boot_ngf c_pgf_path c_ngf_path p_revision c_pcallback)
     c_revision <- peek p_revision
     fptr <- newForeignPtrEnv pgf_free_revision c_db c_revision
-    langs <- getConcretes c_db fptr
-    return (PGF c_db fptr langs)
+    return (PGF c_db fptr)
 
 #if defined(__linux__) || defined(__APPLE__)
 -- | Similar to 'bootPGF' but instead of reading from a file,
@@ -173,8 +171,7 @@ bootNGFWithProbs_ callback mb_probs ngf_path =
     c_db <- withPgfExn "bootNGF" (pgf_boot_ngf_cookie (castStablePtrToPtr cookie) cookie_read_ptr c_ngf_path p_revision c_pcallback)
     c_revision <- peek p_revision
     fptr <- newForeignPtrEnv pgf_free_revision c_db c_revision
-    langs <- getConcretes c_db fptr
-    return (PGF c_db fptr langs)
+    return (PGF c_db fptr)
 
 #if defined(__linux__)
 foreign export ccall cookie_read :: Ptr () -> Ptr Word8 -> CSize -> IO CSize
@@ -219,8 +216,7 @@ readNGF fpath =
     c_db <- withPgfExn "readNGF" (pgf_read_ngf c_fpath p_revision)
     c_revision <- peek p_revision
     fptr <- newForeignPtrEnv pgf_free_revision c_db c_revision
-    langs <- getConcretes c_db fptr
-    return (PGF c_db fptr langs)
+    return (PGF c_db fptr)
 
 -- | Creates a new NGF file with a grammar with the given abstract_name.
 -- Aside from the name, the grammar is otherwise empty but can be later
@@ -235,7 +231,7 @@ newNGF abs_name mb_fpath init_size =
     c_db <- withPgfExn "newNGF" (pgf_new_ngf c_abs_name c_fpath (fromIntegral init_size) p_revision)
     c_revision <- peek p_revision
     fptr <- newForeignPtrEnv pgf_free_revision c_db c_revision
-    return (PGF c_db fptr Map.empty)
+    return (PGF c_db fptr)
 
 writePGF :: FilePath -> PGF -> Maybe [ConcName] -> IO ()
 writePGF fpath p mb_langs =
@@ -285,6 +281,23 @@ pgfFilePath p = unsafePerformIO $ do
   if c_fpath == nullPtr
     then return Nothing
     else fmap Just $ peekCString c_fpath
+
+languages :: PGF -> Map.Map ConcName Concr
+languages p = unsafePerformIO $ do
+  ref <- newIORef Map.empty
+  (withForeignPtr (a_revision p) $ \c_revision ->
+   allocaBytes (#size PgfItor) $ \itor ->
+   bracket (wrapItorCallback (getConcretes ref)) freeHaskellFunPtr $ \fptr -> do
+     (#poke PgfItor, fn) itor fptr
+     withPgfExn "getConcretes" (pgf_iter_concretes (a_db p) c_revision itor)
+     readIORef ref)
+  where
+    getConcretes :: IORef (Map.Map ConcName Concr) -> ItorCallback
+    getConcretes ref itor key c_revision exn = do
+      concrs <- readIORef ref
+      name  <- peekText key
+      fptr <- newForeignPtrEnv pgf_free_concr_revision (a_db p) (castPtr c_revision)
+      writeIORef ref (Map.insert name (Concr (a_db p) fptr) concrs)
 
 showPGF :: PGF -> String
 showPGF p =

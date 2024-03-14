@@ -93,8 +93,7 @@ commitTransaction :: TxnID -> IO PGF
 commitTransaction (TxnID db fptr) = do
   withForeignPtr fptr $ \c_revision ->
     withPgfExn "commitTransaction" (pgf_commit_transaction db c_revision)
-  langs <- getConcretes db fptr
-  return (PGF db fptr langs)
+  return (PGF db fptr)
 
 rollbackTransaction :: TxnID -> IO ()
 rollbackTransaction (TxnID db fptr) =
@@ -129,8 +128,7 @@ modifyPGF p (Transaction f) =
                         ex_type <- (#peek PgfExn, type) c_exn
                         if (ex_type :: (#type PgfExnType)) == (#const PGF_EXN_NONE)
                           then do fptr <- newForeignPtrEnv pgf_free_revision (a_db p) c_revision
-                                  langs <- getConcretes (a_db p) fptr
-                                  return (PGF (a_db p) fptr langs)
+                                  return (PGF (a_db p) fptr)
                           else do pgf_free_revision_ (a_db p) c_revision
                                   return p
                 else do pgf_free_revision_ (a_db p) c_revision
@@ -142,8 +140,7 @@ checkoutPGF :: PGF -> IO PGF
 checkoutPGF p = do
   c_revision <- withPgfExn "checkoutPGF" (pgf_checkout_revision (a_db p))
   fptr <- newForeignPtrEnv pgf_free_revision (a_db p) c_revision
-  langs <- getConcretes (a_db p) fptr
-  return (PGF (a_db p) fptr langs)
+  return (PGF (a_db p) fptr)
 
 {- | 'createFunction name ty arity bytecode prob' creates a new abstract
      syntax function with the given name, type, arity, etc. If the name
