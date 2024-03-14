@@ -455,7 +455,10 @@ void PgfWriter::write_pgf(ref<PgfPGF> pgf)
         size_t len = 0;
         PgfText** p = langs;
         while (*p) {
-            len++; p++;
+            if (namespace_lookup(pgf->concretes, *p) != 0) {
+                len++;
+            }
+            p++;
         }
         write_len(len);
     }
