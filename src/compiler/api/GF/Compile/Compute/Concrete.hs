@@ -6,7 +6,7 @@ module GF.Compile.Compute.Concrete
            ( normalForm, normalStringForm
            , Value(..), Thunk, ThunkState(..), Env, Scope, showValue
            , MetaThunks, Constraint, Globals(..), ConstValue(..)
-           , EvalM(..), runEvalM, runEvalOneM, evalError, evalWarn
+           , EvalM(..), runEvalM, runEvalOneM, reset, evalError, evalWarn
            , eval, apply, force, value2term, patternMatch, stdPredef
            , unsafeIOToEvalM
            , newThunk, newEvaluatedThunk
@@ -754,6 +754,13 @@ runEvalOneM gr f = Check $ \(es,ws) ->
     Fail msg      ws -> Fail msg (es,ws)
     Success []    ws -> Fail (pp "The evaluation produced no results") (es,ws)
     Success (x:_) ws -> Success x (es,ws)
+
+reset :: EvalM s a -> EvalM s [a]
+reset (EvalM f) = EvalM $ \gl k mt d r ws -> do
+  res <- f gl (\x mt d xs ws -> return (Success (x:xs) ws)) mt d [] ws
+  case res of
+    Fail msg   ws -> return (Fail msg ws)
+    Success xs ws -> k (reverse xs) mt d r ws
 
 evalError :: Message -> EvalM s a
 evalError msg = EvalM (\gr k _ _ r msgs -> return (Fail msg msgs))
