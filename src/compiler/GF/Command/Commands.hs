@@ -218,9 +218,9 @@ pgfCommands = Map.fromList [
      exec = getEnv $ \ opts arg (Env pgf mos) -> do
        let pgfr = optRestricted opts pgf
        let dp = valIntOpts "depth" 4 opts
-       let ts = case mexp (toExprs arg) of
-                  Just ex -> generateFromDepth pgfr ex (Just dp)
-                  Nothing -> generateAllDepth pgfr (optType pgf opts) (Just dp)
+       let ts = case toExprs arg of
+                  [] -> generateAllDepth pgfr (optType pgf opts) (Just dp)
+                  es -> concat [generateFromDepth pgfr e (Just dp) | e <- es]
        returnFromExprs $ take (optNumInf opts) ts
      }),
   ("i", emptyCommandInfo {
