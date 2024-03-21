@@ -78,7 +78,7 @@ public:
     ref<PgfPResult> read_presult();
     PgfSymbol read_symbol();
     ref<PgfSequence> read_seq();
-    ref<Vector<ref<PgfSequence>>> read_seq_ids(ref<PgfConcrLincat> lincat, object container);
+    ref<Vector<ref<PgfSequence>>> read_seq_ids(object container);
     PgfPhrasetable read_phrasetable(size_t len);
     PgfPhrasetable read_phrasetable();
     ref<PgfConcrLin> read_lin();

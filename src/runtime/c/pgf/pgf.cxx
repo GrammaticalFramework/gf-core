@@ -2264,13 +2264,7 @@ public:
                 throw pgf_error(builder_error_msg);
 
             ref<PgfPhrasetableEntry> entry = seq_id;
-
-            size_t len = entry->backrefs->len;
-            ref<Vector<PgfSequenceBackref>> backrefs =
-                vector_resize<PgfSequenceBackref>(entry->backrefs, len+1, PgfDB::get_txn_id());
-            backrefs->data[len].container = container;
-            backrefs->data[len].seq_index = seq_index;
-            entry->backrefs = backrefs;
+            phrasetable_add_backref(entry,PgfDB::get_txn_id(),container,seq_index);
 
             *vector_elem(seqs, seq_index) = entry->seq;
 

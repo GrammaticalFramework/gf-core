@@ -632,14 +632,14 @@ ref<PgfSequence> PgfReader::read_seq()
     return seq;
 }
 
-ref<Vector<ref<PgfSequence>>> PgfReader::read_seq_ids(ref<PgfConcrLincat> lincat, object container)
+ref<Vector<ref<PgfSequence>>> PgfReader::read_seq_ids(object container)
 {
     size_t len = read_len();
     ref<Vector<ref<PgfSequence>>> vec = vector_new<ref<PgfSequence>>(len);
     for (size_t i = 0; i < len; i++) {
         size_t seq_id = read_len();
         ref<PgfSequence> seq = phrasetable_relink(concrete->phrasetable,
-                                                  lincat, container, i,
+                                                  container, i,
                                                   seq_id);
         if (seq == 0) {
             throw pgf_error("Invalid sequence id");
@@ -659,6 +659,7 @@ PgfPhrasetable PgfReader::read_phrasetable(size_t len)
     size_t half = len/2;
     PgfPhrasetable left  = read_phrasetable(half);
     value.seq = read_seq();
+    value.n_backrefs = 0;
     value.backrefs = 0;
     PgfPhrasetable right = read_phrasetable(len-half-1);
 
@@ -683,7 +684,7 @@ ref<PgfConcrLincat> PgfReader::read_lincat()
     auto n_lindefs = read_len();
     auto args = read_vector(&PgfReader::read_parg);
     auto res  = read_vector(&PgfReader::read_presult2);
-    auto seqs = read_seq_ids(0, lincat.tagged());
+    auto seqs = read_seq_ids(lincat.tagged());
 
     lincat->abscat = namespace_lookup(abstract->cats, &lincat->name);
     lincat->fields = fields;
@@ -718,7 +719,7 @@ ref<PgfConcrLin> PgfReader::read_lin()
 
     auto args = read_vector(&PgfReader::read_parg);
     auto res  = read_vector(&PgfReader::read_presult2);
-    auto seqs = read_seq_ids(lin->lincat, lin.tagged());
+    auto seqs = read_seq_ids(lin.tagged());
 
     lin->args = args;
     lin->res  = res;

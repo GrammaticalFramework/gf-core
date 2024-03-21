@@ -6,6 +6,11 @@ struct PgfSequenceBackref;
 
 struct PGF_INTERNAL_DECL PgfPhrasetableEntry {
     ref<PgfSequence> seq;
+
+    // Here n_backrefs tells us how many actual backrefs there are in
+    // the vector backrefs. On the other hand, backrefs->len tells us
+    // how big buffer we have allocated.
+    size_t n_backrefs;
     ref<Vector<PgfSequenceBackref>> backrefs;
 };
 
@@ -64,7 +69,6 @@ PgfPhrasetable phrasetable_internalize(PgfPhrasetable table,
 
 PGF_INTERNAL_DECL
 ref<PgfSequence> phrasetable_relink(PgfPhrasetable table,
-                                    ref<PgfConcrLincat> lincat,
                                     object container,
                                     size_t seq_index,
                                     size_t seq_id);
@@ -123,5 +127,12 @@ PGF_INTERNAL_DECL
 int text_sequence_cmp(PgfTextSpot *spot, const uint8_t *end,
                       ref<PgfSequence> seq, size_t *p_i,
                       bool case_sensitive, SeqMatch sm);
+
+// The following is used internally in the grammar builder
+
+PGF_INTERNAL_DECL
+void phrasetable_add_backref(ref<PgfPhrasetableEntry> entry, txn_t txn_id,
+                             object container,
+                             size_t seq_index);
 
 #endif

@@ -143,6 +143,9 @@ static inline ssize_t get_mmap_size(size_t init_size, size_t page_size)
     return mmap_size;
 }
 
+PGF_INTERNAL_DECL
+size_t get_next_padovan(size_t min);
+
 static inline ssize_t get_mremap_size(size_t file_size, size_t block_size, size_t free_size, size_t page_size)
 {
     size_t n_pages =
