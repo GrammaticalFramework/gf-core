@@ -309,39 +309,6 @@ int text_sequence_cmp(PgfTextSpot *spot, const uint8_t *end,
     }
 }
 
-static
-int backref_cmp(ref<PgfSequenceBackref> backref, ref<PgfConcrLincat> lincat, size_t r)
-{
-    int cmp = 0;
-    switch (ref<PgfConcrLin>::get_tag(backref->container)) {
-    case PgfConcrLin::tag: {
-        ref<PgfConcrLin> lin = ref<PgfConcrLin>::untagged(backref->container);
-        if (lincat.as_object() < lin->lincat.as_object())
-            cmp = -1;
-        else if (lincat.as_object() > lin->lincat.as_object())
-            cmp = 1;
-        break;
-        }
-    case PgfConcrLincat::tag: {
-        if (lincat.as_object() > 0)
-            cmp = 1;
-        break;
-    }
-    }
-
-    if (cmp == 0) {
-        size_t r1 = 
-           (lincat == 0) ? 0
-                         : backref->seq_index % lincat->fields->len;
-        if (r < r1)
-            cmp = -1;
-        else if (r > r1)
-            cmp = 1;
-    }
-
-    return cmp;
-}
-
 PGF_INTERNAL_DECL
 size_t get_next_padovan(size_t min);
 
@@ -465,6 +432,7 @@ PgfPhrasetable phrasetable_delete(PgfPhrasetable table,
         if (n_backrefs > 1) {
             ref<Vector<PgfSequenceBackref>> backrefs =
                 PgfDB::realloc<Vector<PgfSequenceBackref>>(table->value.backrefs,len*sizeof(PgfSequenceBackref),n_backrefs*sizeof(PgfSequenceBackref),table->txn_id);
+            backrefs->len = n_backrefs;
             size_t i = 0;
             while (i < n_backrefs) {
                 ref<PgfSequenceBackref> backref =
