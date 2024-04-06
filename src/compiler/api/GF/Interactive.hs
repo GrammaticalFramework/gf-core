@@ -1,4 +1,4 @@
-{-# LANGUAGE CPP, ScopedTypeVariables, FlexibleInstances #-}
+{-# LANGUAGE CPP, ScopedTypeVariables, FlexibleInstances, BangPatterns #-}
 -- | GF interactive mode
 module GF.Interactive (mainGFI,mainRunGFI,mainServerGFI) where
 
@@ -262,7 +262,8 @@ pwords s = case words s of
 import_ readNGF args =
   do case parseOptions args of
        Ok (opts',files) -> do
-         opts <- gets startOpts
+         !opts <- gets startOpts    -- use a bang to avoid retaining a reference to the old state,
+                                    -- otherwise we leak references to PGF revisions.
          curr_dir <- lift getCurrentDirectory
          lib_dir  <- lift $ getLibraryDirectory (addOptions opts opts')
          importInEnv readNGF (addOptions opts (fixRelativeLibPaths curr_dir lib_dir opts')) files
@@ -448,7 +449,7 @@ importInEnv readNGF opts files =
        (RetainSource,mb_txn)    -> do src <- lift $ importSource opts pgf0 files
                                       modify $ \gfenv -> gfenv{pgfenv = (snd src,pgf0,mb_txn)}
        (RetainCompiled,Nothing) -> do pgf <- lift $ importPGF pgf0
-                                      src <- lift $ importSource opts pgf ["prelude/Predef.gfo"]
+                                      src <- lift $ importSource opts Nothing ["prelude/Predef.gfo"]
                                       modify $ \gfenv -> gfenv{pgfenv = (snd src,pgf,Nothing)}
        _ -> fail "You must commit/rollback the transaction before loading a new grammar"
   where
