@@ -2,8 +2,8 @@
 {
 {-# LANGUAGE CPP #-}
 module GF.Grammar.Lexer
-         ( Token(..), Posn(..)
-         , P, runP, runPartial, token, lexer, getPosn, failLoc
+         ( Lang(..), Token(..), Posn(..)
+         , P, runP, runLangP, runPartial, token, lexer, getPosn, failLoc
          , isReservedWord
          ) where
 
@@ -17,7 +17,7 @@ import qualified Data.ByteString.Internal as BS(w2c)
 import qualified Data.ByteString.UTF8 as UTF8
 import qualified Data.Map as Map
 import Data.Word(Word8)
-import Data.Char(readLitChar,isSpace)
+import Data.Char(readLitChar,isSpace,isAlphaNum)
 import Data.Maybe(isJust)
 import qualified Control.Monad.Fail as Fail
 }
@@ -31,7 +31,10 @@ $i = [$l $d _ ']          -- identifier character
 $u = [.\n]                -- universal: any character
 
 @rsyms =    -- symbols and non-identifier-like reserved words
-   \; | \= | \{ | \} | \( | \) | \~ | \* \* | \: | \- \> | \, | \[ | \] | \- | \. | \| | \% | \? | \> | \@ | \# | \! | \* | \+ | \+ \+ | \\ | \\\\ | \= \> | \_ | \$ | \/ | \: \= | \: \: \=
+   \; | \= | \{ | \} | \( | \) | \~ | \* \* | \: | \- \> | \, | \[ | \] | \- | \. | \| | \% | \? | \< | \> | \@ | \# | \! | \* | \+ | \+ \+ | \\ | \\\\ | \= \> | \_ | \$ | \/ | \: \= | \: \: \=
+
+@ident =
+   (\_ | $l)($l | $d | \_ | \')*
 
 :-
 "--" [.]* ; -- Toss single line comments
@@ -39,11 +42,39 @@ $u = [.\n]                -- universal: any character
 
 $white+ ;
 @rsyms                          { tok ident }
-\<                              { \_ _ s -> if start_of_tag (BS.tail s)
-                                              then T_less_tag
-                                              else T_less     }
+\< $white* @ident $white* (\/ | \>)
+                                { \lang inp@(AI pos s) inp' _ -> 
+                                     let inp0 = AI (alexMove pos '<') (BS.tail s)
+                                     in case lang of {
+                                          NLG -> case getTag inp0 of {
+                                                   Just (tag,inp') -> POk (inp,inp') (T_open_tag tag) ;
+                                                   Nothing         -> PFailed pos "matching the html tag failed"
+                                                 } ;
+                                          _   -> POk (inp,inp0) T_less
+                                        } }
+\< $white* @ident $white+ @ident $white* \=
+                                { \lang inp@(AI pos s) inp' _ -> 
+                                     let inp0 = AI (alexMove pos '<') (BS.tail s)
+                                     in case lang of {
+                                          NLG -> case getTag inp0 of {
+                                                   Just (tag,inp') -> if tag == identS "let"
+                                                                        then POk (inp,inp0) T_less
+                                                                        else POk (inp,inp') (T_open_tag tag) ;
+                                                   Nothing         -> PFailed pos "matching the html tag failed"
+                                                 } ;
+                                         _    -> POk (inp,inp0) T_less
+                                        } }
+\< \/ $white* @ident            { \lang inp@(AI pos s) inp' _ ->
+                                     case lang of {
+                                       NLG -> case getTag (AI (alexMove (alexMove pos '<') '/') (BS.drop 2 s)) of {
+                                                Just (tag,inp') -> POk (inp,inp') (T_close_tag tag) ;
+                                                Nothing         -> PFailed pos "matching the html tag failed"
+                                              } ;
+                                       _   -> let inp0 = AI (alexMove pos '<') (BS.tail s)
+                                              in POk (inp,inp0) T_less
+                                     } }
 \' ([. # [\' \\ \n]] | (\\ (\' | \\)))+ \' { tok (T_Ident . identS . unescapeInitTail . unpack) }
-(\_ | $l)($l | $d | \_ | \')*   { tok ident }
+@ident   { tok ident }
 
 \" ([$u # [\" \\ \n]] | (\\ (\" | \\ | \' | n | t | $d+)))* \" { tok (T_String . unescapeInitTail . unpack) }
 
@@ -53,11 +84,10 @@ $white+ ;
 
 {
 unpack = UTF8.toString
---unpack = id
 
 ident = res T_Ident . identC . rawIdentC
 
-tok f p len s = f (UTF8.take len s)
+tok f _ inp@(AI _ s) inp' len = POk (inp,inp') (f (UTF8.take len s))
 
 data Token
  = T_exclmark
@@ -78,7 +108,6 @@ data Token
  | T_colon
  | T_semicolon
  | T_less
- | T_less_tag
  | T_equal
  | T_big_rarrow
  | T_great
@@ -138,6 +167,8 @@ data Token
  | T_Integer Integer         -- integer literals
  | T_Double  Double          -- double precision float literals
  | T_Ident   Ident
+ | T_open_tag  Ident
+ | T_close_tag Ident
  | T_EOF
  deriving Show -- debug
 
@@ -171,6 +202,7 @@ resWords = Map.fromList
  , b ";"  T_semicolon
  , b "="  T_equal
  , b "=>" T_big_rarrow
+ , b "<"  T_less
  , b ">"  T_great
  , b "?"  T_questmark
  , b "["  T_obrack
@@ -251,20 +283,14 @@ alexMove (Pn l c) '\n' = Pn (l+1) 1
 alexMove (Pn l c) _    = Pn l     (c+1)
 
 alexGetByte :: AlexInput -> Maybe (Word8,AlexInput)
-alexGetByte (AI p _ s) =
+alexGetByte (AI p s) =
   case WBS.uncons s of
     Nothing  -> Nothing
     Just (w,s) ->
-             let p' = alexMove p c
-                 c  = BS.w2c w
-              in p' `seq` Just (w, (AI p' c s))
-{-
--- Not used by this lexer:
-alexInputPrevChar :: AlexInput -> Char
-alexInputPrevChar (AI p c s) = c
--}
+             let p' = alexMove p (BS.w2c w)
+             in p' `seq` Just (w, (AI p' s))
+
 data AlexInput = AI {-# UNPACK #-} !Posn            -- current position,
-                    {-# UNPACK #-} !Char            -- previous char
                     {-# UNPACK #-} !BS.ByteString   -- current input string
 
 type AlexInput2 = (AlexInput,AlexInput)
@@ -274,7 +300,9 @@ data ParseResult a
   | PFailed Posn        -- The position of the error
             String      -- The error message
 
-newtype P a = P { unP :: AlexInput2 -> ParseResult a }
+data Lang = GF | BNFC | NLG
+
+newtype P a = P { unP :: Lang -> AlexInput2 -> ParseResult a }
 
 instance Functor P where
   fmap = liftA
@@ -284,10 +312,10 @@ instance Applicative P where
   (<*>) = ap
 
 instance Monad P where
-  return a    = a `seq` (P $ \s -> POk s a)
-  (P m) >>= k = P $ \ s -> case m s of
-                             POk s a          -> unP (k a) s
-                             PFailed posn err -> PFailed posn err
+  return a    = a `seq` (P $ \_ s -> POk s a)
+  (P m) >>= k = P $ \l s -> case m l s of
+                              POk s a          -> unP (k a) l s
+                              PFailed posn err -> PFailed posn err
 
 #if !(MIN_VERSION_base(4,13,0))
   -- Monad(fail) will be removed in GHC 8.8+
@@ -295,24 +323,27 @@ instance Monad P where
 #endif
 
 instance Fail.MonadFail P where
-  fail msg    = P $ \(_,AI posn _ _) -> PFailed posn msg
+  fail msg    = P $ \_ (_,AI posn _) -> PFailed posn msg
 
 
 runP :: P a -> BS.ByteString -> Either (Posn,String) a
-runP p bs = snd <$> runP' p (Pn 1 0,bs)
+runP p bs = snd <$> runP' GF p (Pn 1 0,bs)
 
-runPartial p s = conv <$> runP' p (Pn 1 0,UTF8.fromString s)
+runLangP :: Lang -> P a -> BS.ByteString -> Either (Posn,String) a
+runLangP lang p bs = snd <$> runP' lang p (Pn 1 0,bs)
+
+runPartial p s = conv <$> runP' GF p (Pn 1 0,UTF8.fromString s)
   where conv ((pos,rest),x) = (UTF8.toString rest,x)
 
-runP' (P f) (pos,txt) =
-  case f (dup (AI pos ' ' txt)) of
-    POk (AI pos _ rest,_) x  -> Right ((pos,rest),x)
+runP' lang (P f) (pos,txt) =
+  case f lang (dup (AI pos txt)) of
+    POk (AI pos rest,_) x  -> Right ((pos,rest),x)
     PFailed pos msg -> Left  (pos,msg)
 
 dup x = (x,x)
 
 failLoc :: Posn -> String -> P a
-failLoc pos msg = P $ \_ -> PFailed pos msg
+failLoc pos msg = P $ \_ _ -> PFailed pos msg
 
 lexer :: (Token -> P a) -> P a
 lexer cont = cont=<<token
@@ -320,58 +351,29 @@ lexer cont = cont=<<token
 token :: P Token
 token = P go
   where
-    go ai2@(_,inp@(AI pos _ str)) =
+    go lang (_,inp) =
       case alexScan inp 0 of
         AlexEOF                -> POk (inp,inp) T_EOF
-        AlexError (AI pos _ _) -> PFailed pos "lexical error"
-        AlexSkip  inp' len     -> {-trace (show len) $-} go (inp,inp')
-        AlexToken inp' len act -> POk (inp,inp') (act pos len str)
+        AlexError (AI pos _)   -> PFailed pos "lexical error"
+        AlexSkip  inp' len     -> go lang (inp,inp')
+        AlexToken inp' len act -> act lang inp inp' len
 
-start_of_tag s = isJust (match s)
+getTag inp = space inp
   where
-    match s = do
-      s <- matchSpace s
-      (char s '/'
-       `mplus`
-       do s <- matchIdent s
-          s <- matchSpace s
-          (char s '/'
-           `mplus`
-           do s <- matchIdent s
-              s <- matchSpace s
-              char s '='))
+    space inp = do
+      (w,inp') <- alexGetByte inp
+      if isSpace (BS.w2c w)
+        then space inp'
+        else ident [] inp
 
-    matchSpace s
-      | BS.null s           = Just s
-      | isSpace (BS.head s) = matchSpace (BS.tail s)
-      | otherwise           = Just s
-
-    init =
-      BS.pack "_abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZÀÁÂÃÄÅÆÇÈÉÊËÌÍÎÏÐÑÒÓÔÕÖØÙÚÛÜÝÞßàáâãäåæçèéêëìíîïðñòóôõöøùúûüýþÿ"
-    rest =
-      BS.append init (BS.pack "0123456789'")
-
-    char s c
-      | BS.null s                = Nothing
-      | BS.head s == c           = Just (BS.tail s)
-      | otherwise                = Nothing
-
-    matchIdent s
-      | BS.null s                = Nothing
-      | BS.elem (BS.head s) init = matchRest s 1 (BS.tail s)
-      | otherwise                = Nothing
-
-    matchRest s0 i s
-      | BS.null s                = checkResWord (BS.take i s0) s
-      | BS.elem (BS.head s) rest = matchRest s0 (i+1) (BS.tail s)
-      | otherwise                = checkResWord (BS.take i s0) s
-
-    checkResWord w s =
-      case Map.lookup (identC (rawIdentC w)) resWords of
-        Just t  -> Nothing
-        Nothing -> Just s
+    ident cs inp = do
+      (w,inp') <- alexGetByte inp
+      let c = BS.w2c w
+      if isAlphaNum c || c == '_'
+        then ident (c:cs) inp'
+        else return (identS (reverse cs),inp)
 
 getPosn :: P Posn
-getPosn = P $ \ai2@(_,inp@(AI pos _ _)) -> POk ai2 pos
+getPosn = P $ \_ ai2@(_,inp@(AI pos _)) -> POk ai2 pos
 
 }

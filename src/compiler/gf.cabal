@@ -82,8 +82,6 @@ library
     GF.Infra.Option
     GF.Infra.UseIO
     GF.Infra.BuildInfo
-
-  other-modules:
     GF.Support
     GF.Text.Pretty
     GF.Text.Lexing

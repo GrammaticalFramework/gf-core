@@ -395,12 +395,12 @@ data Term =
 
  | FV [Term]                     -- ^ alternatives in free variation: @variants { s ; ... }@
 
+ | Markup Ident [(Ident,Term)] [Term]
+
  | Alts Term [(Term, Term)]      -- ^ alternatives by prefix: @pre {t ; s\/c ; ...}@
  | Strs [Term]                   -- ^ conditioning prefix strings: @strs {s ; ...}@
  | TSymCat Int LIndex [(LIndex,(Ident,Type))]
  | TSymVar Int Int
- | OpenTag Ident [Assign]        -- used internally in the parser
- | CloseTag Ident                -- used internally in the parser
   deriving (Show, Eq, Ord)
 
 -- | Patterns

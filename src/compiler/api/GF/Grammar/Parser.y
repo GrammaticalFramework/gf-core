@@ -2,13 +2,14 @@
 {
 {-# OPTIONS -fno-warn-overlapping-patterns #-}
 module GF.Grammar.Parser
-         ( P, runP, runPartial
+         ( P, runP, Lang(..), runLangP, runPartial, Posn(..)
          , pModDef
          , pModHeader
          , pTerm
          , pTopDef
          , pBNFCRules
          , pEBNFRules
+         , pNLG
          ) where
 
 import GF.Infra.Ident
@@ -33,6 +34,7 @@ import qualified Data.Map as Map
 %partial pTerm Exp
 %name pBNFCRules ListCFRule
 %name pEBNFRules ListEBNFRule
+%name pNLG NLG
 
 -- no lexer declaration
 %monad { P } { >>= } { return }
@@ -59,7 +61,6 @@ import qualified Data.Map as Map
  ':'          { T_colon     }
  ';'          { T_semicolon }
  '<'          { T_less      }
- '<tag'       { T_less_tag  }
  '='          { T_equal     }
  '=>'         { T_big_rarrow}
  '>'          { T_great     }
@@ -118,6 +119,8 @@ Integer       { (T_Integer $$) }
 Double        { (T_Double  $$) }
 String        { (T_String  $$) }
 Ident         { (T_Ident   $$) }
+'<tag'        { (T_open_tag  $$) }
+'</tag'       { (T_close_tag $$) }
 
 
 %%
@@ -271,10 +274,10 @@ ParamDef
 
 OperDef :: { [(Ident,Info)] }
 OperDef
-  : Posn LhsNames ':' Exp         Posn { [(i, info) | i <- $2,   info <- mkOverload (Just (mkL $1 $5 $4)) Nothing  ] }
-  | Posn LhsNames '=' Exp         Posn { [(i, info) | i <- $2,   info <- mkOverload Nothing   (Just (mkL $1 $5 $4))] }
-  | Posn LhsName ListArg '=' Exp     Posn { [(i, info) | i <- [$2], info <- mkOverload Nothing   (Just (mkL $1 $6 (mkAbs $3 $5)))] }
-  | Posn LhsNames ':' Exp '=' Exp Posn { [(i, info) | i <- $2,   info <- mkOverload (Just (mkL $1 $7 $4)) (Just (mkL $1 $7 $6))] }
+  : Posn LhsNames ':' Exp ';'        Posn { [(i, info) | i <- $2,   info <- mkOverload (Just (mkL $1 $6 $4)) Nothing  ] }
+  | Posn LhsNames '=' Markup         Posn { [(i, info) | i <- $2,   info <- mkOverload Nothing   (Just (mkL $1 $5 $4))] }
+  | Posn LhsName ListArg '=' Markup  Posn { [(i, info) | i <- [$2], info <- mkOverload Nothing   (Just (mkL $1 $6 (mkAbs $3 $5)))] }
+  | Posn LhsNames ':' Exp '=' Markup Posn { [(i, info) | i <- $2,   info <- mkOverload (Just (mkL $1 $7 $4)) (Just (mkL $1 $7 $6))] }
 
 LinDef :: { [(Ident,Info)] }
 LinDef
@@ -315,8 +318,8 @@ ListDefDef
 
 ListOperDef :: { [(Ident,Info)] }
 ListOperDef
-  : OperDef ';'             { $1       } 
-  | OperDef ';' ListOperDef { $1 ++ $3 }
+  : OperDef             { $1       }
+  | OperDef ListOperDef { $1 ++ $2 }
 
 ListCatDef :: { [(Ident,Info)] }
 ListCatDef
@@ -383,11 +386,17 @@ LocDef
   | ListIdent '=' Exp         { [(lab,Nothing,Just $3) | lab <- $1] }
   | ListIdent ':' Exp '=' Exp { [(lab,Just $3,Just $5) | lab <- $1] }
 
+LocMarkupDef :: { [(Ident, Maybe Type, Maybe Term)] }
+LocMarkupDef
+  : ListIdent '=' Tag         { [(lab,Nothing,Just $3) | lab <- $1] }
+  | ListIdent ':' Exp '=' Tag { [(lab,Just $3,Just $5) | lab <- $1] }
+
 ListLocDef :: { [(Ident, Maybe Type, Maybe Term)] }
 ListLocDef
-  : {- empty -}           { []       } 
-  | LocDef                { $1       }
-  | LocDef ';' ListLocDef { $1 ++ $3 }
+  : {- empty -}             { []       }
+  | LocDef                  { $1       }
+  | LocMarkupDef ListLocDef { $1 ++ $2 }
+  | LocDef ';'   ListLocDef { $1 ++ $3 }
 
 Exp :: { Term }
 Exp
@@ -400,6 +409,9 @@ Exp
                                         do defs <- mapM tryLoc $3
                                            return $ mkLet defs $6 }
   | 'let' ListLocDef 'in' Exp         {%
+                                        do defs <- mapM tryLoc $2
+                                           return $ mkLet defs $4 }
+  | 'let' ListLocDef 'in' Tag         {%
                                         do defs <- mapM tryLoc $2
                                            return $ mkLet defs $4 }
   | Exp3 'where' '{' ListLocDef '}'   {%
@@ -432,9 +444,7 @@ Exp3
 
 Exp4 :: { Term }
 Exp4
-  : Exp4 Exp5                        {% case $2 of
-                                          CloseTag id -> mkTag id $1 Empty
-                                          _           -> return (App $1 $2) }
+  : Exp4 Exp5                        { App $1 $2 }
   | Exp4 '{' Exp '}'                 { App $1 (ImplArg $3) } 
   | 'case' Exp 'of' '{' ListCase '}' { let annot = case $2 of
                                              Typed _ t -> TTyped t
@@ -471,18 +481,6 @@ Exp6
   | '<' ListTupleComp '>' { R (tuple2record $2) }
   | '<' Exp ':' Exp '>'   { Typed $2 $4      }
   | '(' Exp ')'           { $2 }
-  | '<tag' Ident Attributes '>'     { OpenTag $2 $3 }
-  | '<tag' '/' Ident '>'            { CloseTag $3   }
-  | '<tag' Ident Attributes '/' '>' { markup $2 $3 Empty }
-
-Attributes :: { [Assign] }
-Attributes
-  :                       { []    }
-  | Attribute Attributes  { $1:$2 }
-
-Attribute :: { Assign }
-Attribute
-  : Ident '=' Exp6   { assign (ident2label $1) $3 }
 
 ListExp :: { [Term] }
 ListExp
@@ -703,6 +701,42 @@ ERHS3 :: { ERHS }
   | Ident                 { ENonTerm (showIdent $1,[]) }
   | '(' ERHS0 ')'         { $2         }
 
+NLG :: { Map.Map Ident Info }
+  : ListNLGDef     { Map.fromList $1 }
+  | Posn Tag Posn  { Map.singleton (identS "main") (ResOper Nothing (Just (mkL $1 $3 (Abs Explicit (identS "qid") $2)))) }
+  | Posn Exp Posn  { Map.singleton (identS "main") (ResOper Nothing (Just (mkL $1 $3 (Abs Explicit (identS "qid") $2)))) }
+
+ListNLGDef :: { [(Ident,Info)] }
+ListNLGDef
+  : {- empty -}               { []       }
+  | 'oper' OperDef ListNLGDef { $2 ++ $3 }
+
+Markup :: { Term }
+Markup
+  : Tag     { $1 }
+  | Exp ';' { $1 }
+
+Tag :: { Term }
+Tag
+  : '<tag' Attributes '>' ListMarkup '</tag' '>'  {% if $1 == $5
+                                                       then return (Markup $1 $2 $4)
+                                                       else fail ("Unmatched closing tag " ++ showIdent $1) }
+  | '<tag' Attributes '/' '>'                     { Markup $1 $2 [] }
+
+ListMarkup :: { [Term] }
+  :                    { []      }
+  | Exp                { [$1]    }
+  | Markup ListMarkup  { $1 : $2 }
+
+Attributes :: { [(Ident,Term)] }
+Attributes
+  :                       { []    }
+  | Attribute Attributes  { $1:$2 }
+
+Attribute :: { (Ident,Term) }
+Attribute
+  : Ident '=' Exp6   { ($1,$3) }
+
 ModuleName :: { ModuleName }
   : Ident           { MN $1 }
 
@@ -827,36 +861,5 @@ mkAlts cs = case cs of
 
 mkL :: Posn -> Posn -> x -> L x
 mkL (Pn l1 _) (Pn l2 _) x = L (Local l1 l2) x
-
-
-mkTag ident (App t1 t2) conc =
-  case match ident t2 of
-    Just attrs -> fmap (App t1) (mkTag ident t2 conc)
-    Nothing    -> let t = App (Q (cPredef, (identS "linearize"))) t2
-                  in mkTag ident t1 $ case conc of
-                                        Empty -> t
-                                        _     -> C t conc
-mkTag ident t conc =
-  case match ident t of
-    Just attrs -> return (markup ident attrs conc)
-    Nothing    -> fail ("Unmatched closing tag " ++ showIdent ident)
-
-match ident (OpenTag ident' attrs)
-  | ident == ident'    = Just attrs
-match ident (R [(lbl,(Nothing,Vr ident'))])
-  | lbl == ident2label (identS "p1") && ident == ident'
-                       = Just []
-match ident _          = Nothing
-
-markup ident attrs content =
-  App
-    (App
-       (App 
-          (Q (cPredef, (identS "markup")))
-          (R attrs)
-       )
-       (K (showIdent ident))
-    )
-    content
 
 }

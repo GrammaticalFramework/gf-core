@@ -24,7 +24,7 @@ module GF.Grammar.Printer
            ) where
 import Prelude hiding ((<>)) -- GHC 8.4.1 clash with Text.PrettyPrint
 
-import PGF2(Literal(..))
+import PGF2(Literal(..),pgfFilePath)
 import PGF2.Transactions(SeqId)
 import GF.Infra.Ident
 import GF.Infra.Option
@@ -84,6 +84,8 @@ ppModule q (mn, ModInfo mtype mstat opts exts with opens _ _ mseqs jments) =
       ppExtends (id,MIExcept incs) = id <+> '-' <+> brackets (commaPunct pp incs)
 
       ppWith (id,ext,opens) = ppExtends (id,ext) <+> "with" <+> commaPunct ppInstSpec opens
+ppModule q (mn, ModPGF pgf) =
+  "pgf"  <+> mn <+> '=' <+> show (pgfFilePath pgf)
 
 ppOptions opts =
   "flags" $$
@@ -249,6 +251,11 @@ ppTerm q d (Typed e t) = '<' <> ppTerm q 0 e <+> ':' <+> ppTerm q 0 t <> '>'
 ppTerm q d (ImplArg e) = braces (ppTerm q 0 e)
 ppTerm q d (ELincat cat t) = prec d 4 ("lincat" <+> cat <+> ppTerm q 5 t)
 ppTerm q d (ELin cat t) = prec d 4 ("lin" <+> cat <+> ppTerm q 5 t)
+ppTerm q d (Markup tag attrs children)
+  | null children = pp "<" <> pp tag <+> hsep (map (ppMarkupAttr q) attrs) <> pp "/>"
+  | otherwise     = pp "<" <> pp tag <+> hsep (map (ppMarkupAttr q) attrs) <> pp ">" $$
+                    nest 3 (ppMarkupChildren q children) $$
+                    pp "</" <> pp tag <> pp ">"
 ppTerm q d (TSymCat i r rs) = pp '<' <> pp i <> pp ',' <> ppLinFun (pp.fst) r rs <> pp '>'
 ppTerm q d (TSymVar i r) = pp '<' <> pp i <> pp ',' <> pp '$' <> pp r <> pp '>'
 
@@ -340,6 +347,16 @@ ppAltern q (x,y) = ppTerm q 0 x <+> '/' <+> ppTerm q 0 y
 
 ppParams q ps = fsep (intersperse (pp '|') (map (ppParam q) ps))
 ppParam q (id,cxt) = id <+> hsep (map (ppDDecl q) cxt)
+
+ppMarkupAttr q (id,e) =
+  id <> pp '=' <> ppTerm q 5 e
+
+ppMarkupChildren q [t]    = ppTerm q 0 t
+ppMarkupChildren q (t:ts) =
+  (case t of
+     Markup {} -> ppTerm q 0 t
+     _         -> ppTerm q 0 t <> ';') $$
+  ppMarkupChildren q ts
 
 ppSeqId :: SeqId -> Doc
 ppSeqId seqid = 'S' <> pp seqid
