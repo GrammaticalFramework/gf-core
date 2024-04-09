@@ -400,7 +400,12 @@ ListLocDef
 
 Exp :: { Term }
 Exp
-  : Exp1 '|' Exp                      { FV [$1,$3] } 
+  : Exp1 '|' Exp                      { case ($1,$3) of
+                                          (FV xs,FV ys) -> FV (xs++ys )
+                                          (FV xs,y    ) -> FV (xs++[y])
+                                          (x,    FV ys) -> FV (x:ys)
+                                          (x,    y    ) -> FV [x,y]
+                                      }
   | '\\'   ListBind '->' Exp          { mkAbs $2 $4 }
   | '\\\\' ListBind '=>' Exp          { mkCTable $2 $4 }
   | Decl '->' Exp                     { mkProdSimple $1 $3 }
