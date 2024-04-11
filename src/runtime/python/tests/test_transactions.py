@@ -41,7 +41,7 @@ def gr6(gr1):
 # gr1
 
 def test_original_functions(gr1):
-    assert gr1.functions == ['c', 'floatLit', 'ind', 'intLit', 'nat', 's', 'stringLit', 'z']
+    assert gr1.functions == ['c', 'floatLit', 'imp', 'ind', 'intLit', 'nat', 's', 'stringLit', 'z']
 
 def test_original_categories(gr1):
     assert gr1.categories == ["Float","Int","N","P","S","String"]
@@ -68,7 +68,7 @@ def test_original_expr_prob(gr1):
 # gr2
 
 def test_extended_functions(gr2):
-    assert gr2.functions == ['c', 'floatLit', "foo", 'ind', 'intLit', 'nat', 's', 'stringLit', 'z']
+    assert gr2.functions == ['c', 'floatLit', "foo", 'imp', 'ind', 'intLit', 'nat', 's', 'stringLit', 'z']
 
 def test_extended_categories(gr2):
     assert gr2.categories == ["Float","Int","N","P","Q","S","String"]
@@ -92,7 +92,7 @@ def test_extended_expr_prob(gr2):
 # gr3
 
 def test_branched_functions(gr3):
-    assert gr3.functions == ["bar", 'c', 'floatLit', 'ind', 'intLit', 'nat', 's', 'stringLit', 'z']
+    assert gr3.functions == ["bar", 'c', 'floatLit', 'imp', 'ind', 'intLit', 'nat', 's', 'stringLit', 'z']
 
 def test_branched_categories(gr3):
     assert gr3.categories == ["Float","Int","N","P","R","S","String"]
