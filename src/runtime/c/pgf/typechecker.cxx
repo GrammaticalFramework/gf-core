@@ -111,7 +111,10 @@ PgfExpr PgfTypechecker::Context::eabs(PgfBindType btype, PgfText *name, PgfExpr 
         return tc->type_error("A lambda abstraction must have a function type");
     }
 
-    Scope new_scope = {.tail=scope, .var=name, .ty=pi->arg};
+    Scope new_scope;
+    new_scope.tail=scope;
+    new_scope.var=name;
+    new_scope.ty=pi->arg;
     Context body_ctxt(tc,&new_scope,pi->res);
     body = tc->m->match_expr(&body_ctxt, body);
     if (body == 0)
