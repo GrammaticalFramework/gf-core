@@ -103,8 +103,9 @@ class PGF_INTERNAL_DECL PgfTypechecker {
     PgfDBMarshaller db_m;
     bool type_error(const char *fmt, ...)
 #ifdef __GNUC__
-    __attribute__ ((format (printf, 2, 3)));
+    __attribute__ ((format (printf, 2, 3)))
 #endif
+    ;
 
 public:
     PgfTypechecker(ref<PgfPGF> gr, PgfMarshaller *m, PgfUnmarshaller *u, PgfExn* err);
