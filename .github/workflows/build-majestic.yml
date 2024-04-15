@@ -199,6 +199,7 @@ jobs:
     env:
       EXTRA_INCLUDE_DIRS: /usr/local/include
       EXTRA_LIB_DIRS: /usr/local/lib
+      MACOSX_DEPLOYMENT_TARGET: 11.0
   
     steps:
     - uses: actions/checkout@v3
