@@ -35,7 +35,7 @@ pgf_module = Extension(
 
 setup(
     name = 'pgf-majestic',
-    version = '2.8',
+    version = '2.9',
     description = 'Python bindings to the Grammatical Framework\'s PGF runtime',
     long_description="""\
 Grammatical Framework (GF) is a programming language for multilingual grammar applications.

@@ -407,6 +407,47 @@ Concr_hasLinearization(ConcrObject* self, PyObject *args)
 		Py_RETURN_FALSE;
 }
 
+static PyObject*
+Concr_graphvizParseTree(ConcrObject* self, PyObject *args, PyObject *kwargs)
+{
+    PgfGraphvizOptions opts;
+    memset(&opts, 0, sizeof(opts));
+
+    char *kwds[] = {"","noLeaves","noFun","noCat",
+                       "nodeFont","leafFont",
+                       "nodeColor","leafColor",
+                       "nodeEdgeStyle","leafEdgeStyle",
+                    NULL};
+
+	ExprObject* pyexpr;
+	if (!PyArg_ParseTupleAndKeywords(args, kwargs, "O!|pppssssss", kwds,
+                                                   &pgf_ExprType, &pyexpr,
+                                                   &opts.noLeaves,
+                                                   &opts.noFun,
+                                                   &opts.noCat,
+                                                   &opts.nodeFont,
+                                                   &opts.leafFont,
+                                                   &opts.nodeColor,
+                                                   &opts.leafColor,
+                                                   &opts.nodeEdgeStyle,
+                                                   &opts.leafEdgeStyle))
+        return NULL;
+
+	PgfExn err;
+    PgfText *text =
+	   pgf_graphviz_parse_tree(self->grammar->db, self->concr,
+                               (PgfExpr) pyexpr, NULL, &marshaller,
+                               &opts, &err);
+    if (handleError(err) != PGF_EXN_NONE) {
+        return NULL;
+    }
+
+	PyObject* pystr = PyUnicode_FromStringAndSize(text->text, text->size);
+    free(text);
+
+	return pystr;
+}
+
 typedef struct {
 	PgfMorphoCallback fn;
 	PyObject* analyses;
@@ -519,10 +560,10 @@ static PyMethodDef Concr_methods[] = {
     },*/
     {"hasLinearization", (PyCFunction)Concr_hasLinearization, METH_VARARGS,
      "hasLinearization(f) returns true if the function f has linearization in the concrete syntax"
-    },/*
-    {"graphvizParseTree", (PyCFunction)Concr_graphvizParseTree, METH_VARARGS,
+    },
+    {"graphvizParseTree", (PyCFunction)Concr_graphvizParseTree, METH_VARARGS | METH_KEYWORDS,
      "Renders an abstract syntax tree as a parse tree in Graphviz format"
-    },*/
+    },
     {"lookupMorpho", (PyCFunction)Concr_lookupMorpho, METH_VARARGS,
      "Looks up a word in the lexicon of the grammar"
     },/*
@@ -991,6 +1032,40 @@ PGF_generateRandom(PGFObject *self, PyObject *args, PyObject *keywds)
     Py_DECREF((PyObject *) expr);
 
     return res;
+}
+
+static PyObject*
+PGF_graphvizAbstractTree(PGFObject* self, PyObject *args, PyObject *kwargs) {
+    PgfGraphvizOptions opts;
+    memset(&opts, 0, sizeof(opts));
+
+    char *kwds[] = {"","noFun","noCat",
+                    "nodeFont", "nodeColor", "nodeEdgeStyle",
+                    NULL};
+
+	ExprObject* pyexpr;
+	if (!PyArg_ParseTupleAndKeywords(args, kwargs, "O!|ppsss", kwds,
+                                                   &pgf_ExprType, &pyexpr,
+                                                   &opts.noFun,
+                                                   &opts.noCat,
+                                                   &opts.nodeFont,
+                                                   &opts.nodeColor,
+                                                   &opts.nodeEdgeStyle))
+        return NULL;
+
+	PgfExn err;
+    PgfText *text =
+	   pgf_graphviz_abstract_tree(self->db, self->revision,
+                                  (PgfExpr) pyexpr, &marshaller,
+                                  &opts, &err);
+    if (handleError(err) != PGF_EXN_NONE) {
+        return NULL;
+    }
+
+	PyObject* pystr = PyUnicode_FromStringAndSize(text->text, text->size);
+    free(text);
+
+	return pystr;
 }
 
 static PyObject *
@@ -1536,6 +1611,9 @@ static PyMethodDef PGF_methods[] = {
     },
     {"generateRandom", (PyCFunction)PGF_generateRandom, METH_VARARGS | METH_KEYWORDS,
      "Generates a random abstract syntax trees of the given type"
+    },
+    {"graphvizAbstractTree", (PyCFunction)PGF_graphvizAbstractTree, METH_VARARGS | METH_KEYWORDS,
+     "Renders an abstract syntax tree in a Graphviz format"
     },
     {"categoryProbability", (PyCFunction)PGF_categoryProbability, METH_VARARGS,
      "Returns the probability of a category"

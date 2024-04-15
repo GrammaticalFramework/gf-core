@@ -879,6 +879,12 @@ typedef struct {
 } PgfGraphvizOptions;
 
 PGF_API_DECL PgfText *
+pgf_graphviz_abstract_tree(PgfDB *db, PgfRevision revision,
+                           PgfExpr expr, PgfMarshaller *m,
+                           PgfGraphvizOptions* opts,
+                           PgfExn *err);
+
+PGF_API_DECL PgfText *
 pgf_graphviz_parse_tree(PgfDB *db, PgfConcrRevision revision,
                         PgfExpr expr, PgfPrintContext *ctxt,
                         PgfMarshaller *m,

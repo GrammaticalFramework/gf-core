@@ -114,12 +114,22 @@ class PGF:
         """
         ...
 
-    def generateRandom(cat : Type, depth : int = 5) -> tuple[Expr,float]:
+    def generateRandom(self, cat : Type, depth : int = 5) -> tuple[Expr,float]:
         """
         Generates a random abstract syntax trees of the given type.
         The depth parameter specifies the maximal distance between
         the root and a leaf in the tree. The float value in
         the result is the probability of the tree.
+        """
+        ...
+
+    def graphvizAbstractTree(self, e: Expr,
+                             noFun:bool=False, noCat:bool=False,
+                             nodeFont:str="",
+                             nodeColor:str="",
+                             nodeEdgeStyle:str="") -> str:
+        """
+        Renders an abstract syntax tree in a Graphviz format
         """
         ...
 
@@ -208,16 +218,32 @@ class Concr:
         """The name of the concrete syntax"""
         ...
 
-    def linearize(e: Expr) -> str:
+    def linearize(self, e: Expr) -> str:
         """Linearizes the abstract expression and returns as string"""
         ...
 
-    def bracketedLinearize(e: Expr) -> list[Any]:
+    def bracketedLinearize(self, e: Expr) -> list[Any]:
         """
         Produces a bracketed linearization where syntactic phrases
         are represented as objects of type Bracket and terminal tokens
         are represented as string. When two tokens have to be glued
         together, an object of type BIND is inserted.
+        """
+        ...
+
+    def hasLinearization(self, fun: Str) -> bool:
+        """
+        Returns true if the given function has linearization in the concrete syntax
+        """
+        ...
+
+    def graphvizParseTree(self, e: Expr,
+                          noLeaves:bool=False, noFun:bool=False, noCat:bool=False,
+                          nodeFont:str="", leafFont:str="",
+                          nodeColor:str="", leafColor:str="",
+                          nodeEdgeStyle:str="", leafEdgeStyle:str="") -> str:
+        """
+        Renders an abstract syntax tree as a parse tree in Graphviz format
         """
         ...
 
