@@ -138,7 +138,7 @@ jobs:
 
   macos-runtime:
     name: Runtime (macOS)
-    runs-on: macOS-latest
+    runs-on: macOS-11
 
     steps:
     - uses: actions/checkout@v3
@@ -169,7 +169,7 @@ jobs:
 
   macos-haskell:
     name: Haskell (macOS)
-    runs-on: macOS-latest
+    runs-on: macOS-11
     needs: macos-runtime
 
     steps:
@@ -194,13 +194,12 @@ jobs:
 
   macos-python:
     name: Python (macOS)
-    runs-on: macOS-latest
+    runs-on: macOS-11
     needs: macos-runtime
     env:
       EXTRA_INCLUDE_DIRS: /usr/local/include
       EXTRA_LIB_DIRS: /usr/local/lib
-      MACOSX_DEPLOYMENT_TARGET: 12.0
-
+  
     steps:
     - uses: actions/checkout@v3
     - name: Download artifact
@@ -219,7 +218,7 @@ jobs:
       env:
         CIBW_TEST_REQUIRES: pytest
         CIBW_TEST_COMMAND: "pytest {project}/src/runtime/python"
-        CIBW_SKIP: "pp* cp36*"
+        CIBW_SKIP: "pp* cp36* cp37* cp38* cp39*"
       run: |
         python3 -m cibuildwheel src/runtime/python --output-dir wheelhouse
 
@@ -230,7 +229,7 @@ jobs:
 
 #  macos-javascript:
 #   name: JavaScript (macOS)
-#    runs-on: macOS-latest
+#    runs-on: macOS-11
 #    needs: macos-runtime
 #
 #    steps:
