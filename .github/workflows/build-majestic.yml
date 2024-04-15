@@ -167,37 +167,6 @@ jobs:
           /usr/local/lib/libpgf*
           /usr/local/include/pgf
 
-  macos-xlarge-runtime:
-    name: Runtime (macOS ARM)
-    runs-on: macos-latest-xlarge
-
-    steps:
-    - uses: actions/checkout@v3
-
-    - name: Install build tools
-      run: |
-        brew install \
-          autoconf \
-          automake \
-          libtool \
-
-    - name: Build runtime
-      working-directory: ./src/runtime/c
-      run: |
-        glibtoolize
-        autoreconf -i
-        ./configure
-        make
-        sudo make install
-
-    - name: Upload artifact
-      uses: actions/upload-artifact@master
-      with:
-        name: libpgf-macos
-        path: |
-          /usr/local/lib/libpgf*
-          /usr/local/include/pgf
-
   macos-haskell:
     name: Haskell (macOS)
     runs-on: macOS-11
@@ -230,6 +199,7 @@ jobs:
     env:
       EXTRA_INCLUDE_DIRS: /usr/local/include
       EXTRA_LIB_DIRS: /usr/local/lib
+      MACOSX_DEPLOYMENT_TARGET: 11.0
 
     steps:
     - uses: actions/checkout@v3
@@ -249,7 +219,7 @@ jobs:
       env:
         CIBW_TEST_REQUIRES: pytest
         CIBW_TEST_COMMAND: "pytest {project}/src/runtime/python"
-        CIBW_SKIP: "pp* cp36* cp37*"
+        CIBW_SKIP: "pp* cp36*"
       run: |
         python3 -m cibuildwheel src/runtime/python --output-dir wheelhouse
 
