@@ -249,7 +249,7 @@ jobs:
       env:
         CIBW_TEST_REQUIRES: pytest
         CIBW_TEST_COMMAND: "pytest {project}/src/runtime/python"
-        CIBW_SKIP: "pp* cp36*"
+        CIBW_SKIP: "pp* cp36* cp37*"
       run: |
         python3 -m cibuildwheel src/runtime/python --output-dir wheelhouse
 
