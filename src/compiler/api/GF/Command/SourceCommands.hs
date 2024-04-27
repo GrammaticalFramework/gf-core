@@ -19,7 +19,7 @@ import GF.Grammar.Analyse
 import GF.Grammar.ShowTerm
 import GF.Grammar.Lookup (allOpers,allOpersTo)
 import GF.Compile.Rename(renameSourceTerm)
-import GF.Compile.Compute.Concrete(normalForm,Globals(..),stdPredef)
+import GF.Compile.Compute.Concrete(normalForm,normalFlatForm,Globals(..),stdPredef)
 import GF.Compile.TypeCheck.Concrete as TC(inferLType,ppType)
 
 import GF.Command.Abstract(Option(..),isOpt,listFlags,valueString,valStrOpts)
@@ -50,7 +50,7 @@ sourceCommands = Map.fromList [
        ("one","pick the first strings, if there is any, from records and tables"),
        ("table","show all strings labelled by parameters"),
        ("unqual","hide qualifying module names"),
-       ("trace","trace computations")
+       ("flat","expand all variants and show a flat list of terms")
        ],
      needsTypeCheck = False, -- why not True?
      exec = withTerm compute_concrete
@@ -167,8 +167,8 @@ sourceCommands = Map.fromList [
          liftSIO (exec opts (toTerm ts) sgr)
 
     compute_concrete opts t sgr = fmap fst $ runCheck $ do
-      t <- checkComputeTerm opts sgr t
-      return (fromString (showTerm sgr style q t))
+      ts <- checkComputeTerm opts sgr t
+      return (fromStrings (map (showTerm sgr style q) ts))
       where
         (style,q) = pOpts TermPrintDefault Qualified opts
 
@@ -198,9 +198,8 @@ sourceCommands = Map.fromList [
 
     show_operations os t sgr = fmap fst $ runCheck $ do
       let greps = map valueString (listFlags "grep" os)
-      ops <- do ty <- checkComputeTerm os sgr t
-                return $ allOpersTo sgr ty
-               -- _   -> return $ allOpers sgr
+      ops <- do tys <- checkComputeTerm os sgr t
+                return $ concatMap (allOpersTo sgr) tys
       let sigs = [(op,ty) | ((mo,op),ty,pos) <- ops]
           printer = showTerm sgr TermPrintDefault
                              (if isOpt "raw" os then Qualified else Unqualified)
@@ -247,9 +246,13 @@ checkComputeTerm os sgr t =
              Just mo -> return mo
      t <- renameSourceTerm sgr mo t
      (t,_) <- inferLType sgr [] t
-     fmap evalStr (normalForm (Gl sgr stdPredef) t)
+     if isOpt "flat" os
+       then fmap (map evalStr) (normalFlatForm (Gl sgr stdPredef) t)
+       else fmap (singleton . evalStr) (normalForm     (Gl sgr stdPredef) t)
   where
     -- ** Try to compute pre{...} tokens in token sequences
+    singleton x = [x]
+
     evalStr t =
       case t of
         C t1 t2 -> foldr1 C (evalC [t])

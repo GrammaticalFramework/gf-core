@@ -34,7 +34,7 @@ inferLType :: Globals -> Term -> Check (Term, Type)
 inferLType globals t = runEvalOneM globals $ do
   (t,ty) <- inferSigma [] t
   t  <- zonkTerm [] t
-  ty <- value2term [] ty
+  ty <- value2term False [] ty
   return (t,ty)
 
 inferSigma :: Scope s -> Term -> EvalM s (Term,Sigma s)
@@ -178,7 +178,7 @@ tcRho scope (Let (var, (mb_ann_ty, rhs)) body) mb_ty = do    -- LET
                                       (rhs,_) <- tcRho scope rhs (Just v_ann_ty)
                                       return (rhs, v_ann_ty)
   (body, body_ty) <- tcRho ((var,var_ty):scope) body mb_ty
-  var_ty <- value2term (scopeVars scope) var_ty
+  var_ty <- value2term True (scopeVars scope) var_ty
   return (Let (var, (Just var_ty, rhs)) body, body_ty)
 tcRho scope (Typed body ann_ty) mb_ty = do                   -- ANNOT
   (ann_ty, _) <- tcRho scope ann_ty (Just vtypeType)
@@ -214,7 +214,7 @@ tcRho scope t@(RecType rs) (Just ty) = do
     VMeta i vs  -> case rs of
                      [] -> unifyVar scope i vs vtypePType
                      _  -> return ()
-    ty          -> do ty <- value2term (scopeVars scope) ty
+    ty          -> do ty <- value2term False (scopeVars scope) ty
                       evalError ("The record type" <+> ppTerm Unqualified 0 t $$
                                  "cannot be of type" <+> ppTerm Unqualified 0 ty)
   (rs,mb_ty) <- tcRecTypeFields scope rs (Just ty')
@@ -248,7 +248,7 @@ tcRho scope (T tt ps) Nothing = do                           -- ABS1/AABS1 for t
                               eval env ty []
   res_ty <- fmap mk_val $ newResiduation scope
   ps <- tcCases scope ps p_ty res_ty
-  p_ty_t <- value2term [] p_ty
+  p_ty_t <- value2term True [] p_ty
   return (T (TTyped p_ty_t) ps, VTable p_ty res_ty)
 tcRho scope (T tt ps) (Just ty) = do                         -- ABS2/AABS2 for tables
   (scope,f,ty') <- skolemise scope ty
@@ -260,7 +260,7 @@ tcRho scope (T tt ps) (Just ty) = do                         -- ABS2/AABS2 for t
                     ty <- eval env ty []
                     unify scope ty p_ty
   ps <- tcCases scope ps p_ty res_ty
-  p_ty_t <- value2term (scopeVars scope) p_ty
+  p_ty_t <- value2term True (scopeVars scope) p_ty
   return (f (T (TTyped p_ty_t) ps), VTable p_ty res_ty)
 tcRho scope (V p_ty ts) Nothing = do
   (p_ty, _) <- tcRho scope p_ty (Just vtypeType)
@@ -285,7 +285,7 @@ tcRho scope (V p_ty0 ts) (Just ty) = do
   return (V p_ty0 ts, VTable p_ty res_ty)
 tcRho scope (R rs) Nothing = do
   lttys <- inferRecFields scope rs
-  rs <- mapM (\(l,t,ty) -> value2term (scopeVars scope) ty >>= \ty -> return (l, (Just ty, t))) lttys
+  rs <- mapM (\(l,t,ty) -> value2term True (scopeVars scope) ty >>= \ty -> return (l, (Just ty, t))) lttys
   return (R        rs,
           VRecType [(l, ty) | (l,t,ty) <- lttys]
          )
@@ -293,12 +293,12 @@ tcRho scope (R rs) (Just ty) = do
   (scope,f,ty') <- skolemise scope ty
   case ty' of
     (VRecType ltys) -> do lttys <- checkRecFields scope rs ltys
-                          rs <- mapM (\(l,t,ty) -> value2term (scopeVars scope) ty >>= \ty -> return (l, (Just ty, t))) lttys
+                          rs <- mapM (\(l,t,ty) -> value2term True (scopeVars scope) ty >>= \ty -> return (l, (Just ty, t))) lttys
                           return ((f . R)  rs,
                                   VRecType [(l, ty) | (l,t,ty) <- lttys]
                                  )
     ty              -> do lttys <- inferRecFields scope rs
-                          t <- liftM (f . R) (mapM (\(l,t,ty) -> value2term (scopeVars scope) ty >>= \ty -> return (l, (Just ty, t))) lttys)
+                          t <- liftM (f . R) (mapM (\(l,t,ty) -> value2term True (scopeVars scope) ty >>= \ty -> return (l, (Just ty, t))) lttys)
                           let ty' = VRecType [(l, ty) | (l,t,ty) <- lttys]
                           t <- subsCheckRho scope t ty' ty
                           return (t, ty')
@@ -502,7 +502,7 @@ tcRecTypeFields scope ((l,ty):rs) mb_ty = do
                | s == cType  -> return (Just sort)
                | s == cPType -> return mb_ty
              VMeta _ _       -> return mb_ty
-             _               -> do sort <- value2term (scopeVars scope) sort
+             _               -> do sort <- value2term False (scopeVars scope) sort
                                    evalError ("The record type field" <+> l <+> ':' <+> ppTerm Unqualified 0 ty $$
                                               "cannot be of type" <+> ppTerm Unqualified 0 sort)
   (rs,mb_ty) <- tcRecTypeFields scope rs mb_ty
@@ -662,7 +662,7 @@ subsCheckTbl scope t p1 r1 p2 r2 = do
   let x = newVar scope
   xt <- subsCheckRho scope (Vr x) p2 p1
   t  <- subsCheckRho ((x,vtypePType):scope) (S t xt) r1 r2
-  p2 <- value2term (scopeVars scope) p2
+  p2 <- value2term True (scopeVars scope) p2
   return (T (TTyped p2) [(PV x,t)])
 
 subtype scope Nothing (VApp p [tnk])
@@ -782,8 +782,8 @@ unify scope (VStr s1) (VStr s2)
   | s1 == s2                   = return ()
 unify scope VEmpty VEmpty      = return ()
 unify scope v1 v2 = do
-  t1 <- value2term (scopeVars scope) v1
-  t2 <- value2term (scopeVars scope) v2
+  t1 <- value2term False (scopeVars scope) v1
+  t2 <- value2term False (scopeVars scope) v2
   evalError ("Cannot unify terms:" <+> (ppTerm Unqualified 0 t1 $$
                                         ppTerm Unqualified 0 t2))
 
@@ -810,8 +810,8 @@ occursCheck scope' tnk scope v =
   where
     check m n (VApp f vs) = mapM_ (follow m n) vs
     check m n (VMeta i vs)
-      | tnk == i  = do ty1 <- value2term (scopeVars scope) (VMeta i vs)
-                       ty2 <- value2term (scopeVars scope) v
+      | tnk == i  = do ty1 <- value2term False (scopeVars scope) (VMeta i vs)
+                       ty2 <- value2term False (scopeVars scope) v
                        evalError ("Occurs check for" <+> ppTerm Unqualified 0 ty1 <+> "in:" $$
                                   nest 2 (ppTerm Unqualified 0 ty2))
       | otherwise = do
@@ -1087,8 +1087,8 @@ zonkTerm xs (Meta i) = do
   case st of
     Hole _            -> return (Meta i)
     Residuation _ scope v -> case v of
-                              Just v  -> zonkTerm xs =<< value2term (map fst scope) v
+                              Just v  -> zonkTerm xs =<< value2term False (map fst scope) v
                               Nothing -> return (Meta i)
     Narrowing _ _     -> return (Meta i)
-    Evaluated _ v     -> zonkTerm xs =<< value2term xs v
+    Evaluated _ v     -> zonkTerm xs =<< value2term False xs v
 zonkTerm xs t = composOp (zonkTerm xs) t

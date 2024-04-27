@@ -219,7 +219,7 @@ str2lin (VAlts def alts) = do def <- str2lin def
                                 lin <- str2lin v
                                 return (lin,[s | VStr s <- vs])
                               return [SymKP def alts]
-str2lin v                = do t <- value2term [] v
+str2lin v                = do t <- value2term False [] v
                               evalError ("the string:" <+> ppTerm Unqualified 0 t $$
                                          "cannot be evaluated at compile time.")
 
@@ -259,7 +259,7 @@ param2int (VMeta tnk _) ty = do
     Evaluated _ v  -> param2int v ty
     Narrowing j ty -> do ts <- getAllParamValues ty
                          return (0,[(1,j-1)],length ts)
-param2int v ty = do t <- value2term [] v
+param2int v ty = do t <- value2term True [] v
                     evalError ("the parameter:" <+> ppTerm Unqualified 0 t $$
                                "cannot be evaluated at compile time.")
 

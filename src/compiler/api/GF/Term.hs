@@ -3,7 +3,7 @@ module GF.Term (renameSourceTerm,
                 Value(..), showValue, Thunk, newThunk, newEvaluatedThunk,
                 evalError, evalWarn,
                 inferLType, checkLType,
-                normalForm, normalStringForm,
+                normalForm, normalFlatForm, normalStringForm,
                 unsafeIOToEvalM, force
                ) where
 

@@ -3,7 +3,7 @@
 -- | Functions for computing the values of terms in the concrete syntax, in
 -- | preparation for PMCFG generation.
 module GF.Compile.Compute.Concrete
-           ( normalForm, normalStringForm
+           ( normalForm, normalFlatForm, normalStringForm
            , Value(..), Thunk, ThunkState(..), Env, Scope, showValue
            , MetaThunks, Constraint, Globals(..), ConstValue(..)
            , EvalM(..), runEvalM, runEvalOneM, reset, evalError, evalWarn
@@ -43,12 +43,18 @@ import PGF2.Transactions(LIndex)
 
 -- * Main entry points
 
+-- | The term is fully evaluated. Variants are only expanded if necessary for the evaluation.
 normalForm :: Globals -> Term -> Check Term
 normalForm globals t =
-  fmap mkFV (runEvalM globals (eval [] t [] >>= value2term []))
+  fmap mkFV (runEvalM globals (eval [] t [] >>= value2term False []))
   where
     mkFV [t] = t
     mkFV ts  = FV ts
+
+-- | The result is a list of terms and contains all variants. Each term by itself does not contain any variants.
+normalFlatForm :: Globals -> Term -> Check [Term]
+normalFlatForm globals t =
+  runEvalM globals (eval [] t [] >>= value2term True [])
 
 normalStringForm :: Globals -> Term -> Check [String]
 normalStringForm globals t =
@@ -194,7 +200,7 @@ eval env (S t1 t2)      vs  = do v1   <- eval env t1 []
                                  let v0 = VS v1 tnk2 vs
                                  case v1 of
                                    VT _  env cs -> patternMatch v0 (map (\(p,t) -> (env,[p],tnk2:vs,t)) cs)
-                                   VV vty tnks  -> do ty <- value2term (map fst env) vty
+                                   VV vty tnks  -> do ty <- value2term True (map fst env) vty
                                                       vtableSelect v0 ty tnks tnk2 vs
                                    v1           -> return v0
 eval env (Let (x,(_,t1)) t2) vs = do tnk <- newThunk env t1
@@ -449,7 +455,7 @@ vtableSelect v0 ty tnks tnk2 vs = do
     value2index (VSusp i k vs) ty = do
       v <- susp i (\v -> k v >>= \v -> apply v vs)
       value2index v ty
-    value2index v ty = do t <- value2term [] v
+    value2index v ty = do t <- value2term True [] v
                           evalError ("the parameter:" <+> ppTerm Unqualified 0 t $$
                                      "cannot be evaluated at compile time.")
 
@@ -501,109 +507,112 @@ susp i ki = EvalM $ \globals@(Gl gr _) k mt d r msgs -> do
       | otherwise = return (Success r msgs)
 
 
-value2term xs (VApp q tnks) =
-  foldM (\e1 tnk -> fmap (App e1) (tnk2term xs tnk)) (if fst q == cPredef then Q q else QC q) tnks
-value2term xs (VMeta m vs) = do
+value2term flat xs (VApp q tnks) =
+  foldM (\e1 tnk -> fmap (App e1) (tnk2term flat xs tnk)) (if fst q == cPredef then Q q else QC q) tnks
+value2term flat xs (VMeta m vs) = do
   s <- getRef m
   case s of
     Evaluated _ v       -> do v <- apply v vs
-                              value2term xs v
+                              value2term flat xs v
     Unevaluated env t   -> do v <- eval env t vs
-                              value2term xs v
-    Hole i              -> foldM (\e1 tnk -> fmap (App e1) (tnk2term xs tnk)) (Meta i) vs
+                              value2term flat xs v
+    Hole i              -> foldM (\e1 tnk -> fmap (App e1) (tnk2term flat xs tnk)) (Meta i) vs
     Residuation i _ ctr -> case ctr of
-                             Just ctr -> value2term xs ctr
-                             Nothing  -> foldM (\e1 tnk -> fmap (App e1) (tnk2term xs tnk)) (Meta i) vs
-    Narrowing i _       -> foldM (\e1 tnk -> fmap (App e1) (tnk2term xs tnk)) (Meta i) vs
-value2term xs (VSusp j k vs) = do
+                             Just ctr -> value2term flat xs ctr
+                             Nothing  -> foldM (\e1 tnk -> fmap (App e1) (tnk2term flat xs tnk)) (Meta i) vs
+    Narrowing i _       -> foldM (\e1 tnk -> fmap (App e1) (tnk2term flat xs tnk)) (Meta i) vs
+value2term flat xs (VSusp j k vs) = do
   v <- k (VGen maxBound vs)
-  value2term xs v
-value2term xs (VGen j tnks) =
-  foldM (\e1 tnk -> fmap (App e1) (tnk2term xs tnk)) (Vr (reverse xs !! j)) tnks
-value2term xs (VClosure env (Abs b x t)) = do
+  value2term flat xs v
+value2term flat xs (VGen j tnks) =
+  foldM (\e1 tnk -> fmap (App e1) (tnk2term flat xs tnk)) (Vr (reverse xs !! j)) tnks
+value2term flat xs (VClosure env (Abs b x t)) = do
   tnk <- newEvaluatedThunk (VGen (length xs) [])
   v <- eval ((x,tnk):env) t []
   let x' = mkFreshVar xs x
-  t <- value2term (x':xs) v
+  t <- value2term flat (x':xs) v
   return (Abs b x' t)
-value2term xs (VProd b x v1 v2)
-  | x == identW = do t1 <- value2term xs v1
+value2term flat xs (VProd b x v1 v2)
+  | x == identW = do t1 <- value2term flat xs v1
                      v2 <- case v2 of
                              VClosure env t2 -> eval env t2 []
                              v2              -> return v2
-                     t2 <- value2term xs v2
+                     t2 <- value2term flat xs v2
                      return (Prod b x t1 t2)
-  | otherwise   = do t1 <- value2term xs v1
+  | otherwise   = do t1 <- value2term flat xs v1
                      tnk <- newEvaluatedThunk (VGen (length xs) [])
                      v2 <- case v2 of
                              VClosure env t2 -> eval ((x,tnk):env) t2 []
                              v2              -> return v2
-                     t2 <- value2term (x:xs) v2
+                     t2 <- value2term flat (x:xs) v2
                      return (Prod b (mkFreshVar xs x) t1 t2)
-value2term xs (VRecType lbls) = do
-  lbls <- mapM (\(lbl,v) -> fmap ((,) lbl) (value2term xs v)) lbls
+value2term flat xs (VRecType lbls) = do
+  lbls <- mapM (\(lbl,v) -> fmap ((,) lbl) (value2term flat xs v)) lbls
   return (RecType lbls)
-value2term xs (VR as) = do
-  as <- mapM (\(lbl,tnk) -> fmap (\t -> (lbl,(Nothing,t))) (tnk2term xs tnk)) as
+value2term flat xs (VR as) = do
+  as <- mapM (\(lbl,tnk) -> fmap (\t -> (lbl,(Nothing,t))) (tnk2term flat xs tnk)) as
   return (R as)
-value2term xs (VP v lbl tnks) = do
-  t <- value2term xs v
-  foldM (\e1 tnk -> fmap (App e1) (tnk2term xs tnk)) (P t lbl) tnks
-value2term xs (VExtR v1 v2) = do
-  t1 <- value2term xs v1
-  t2 <- value2term xs v2
+value2term flat xs (VP v lbl tnks) = do
+  t <- value2term flat xs v
+  foldM (\e1 tnk -> fmap (App e1) (tnk2term flat xs tnk)) (P t lbl) tnks
+value2term flat xs (VExtR v1 v2) = do
+  t1 <- value2term flat xs v1
+  t2 <- value2term flat xs v2
   return (ExtR t1 t2) 
-value2term xs (VTable v1 v2) = do
-  t1 <- value2term xs v1
-  t2 <- value2term xs v2
+value2term flat xs (VTable v1 v2) = do
+  t1 <- value2term flat xs v1
+  t2 <- value2term flat xs v2
   return (Table t1 t2)
-value2term xs (VT vty env cs)= do
-  ty <- value2term xs vty
+value2term flat xs (VT vty env cs)= do
+  ty <- value2term flat xs vty
   cs <- forM cs $ \(p,t) -> do
           (_,xs',env') <- pattVars (length xs,xs,env) p
           v <- eval env' t []
-          t <- value2term xs' v
+          t <- value2term flat xs' v
           return (p,t)
   return (T (TTyped ty) cs)
-value2term xs (VV vty tnks)= do ty <- value2term xs vty
-                                ts <- mapM (tnk2term xs) tnks
-                                return (V ty ts)
-value2term xs (VS v1 tnk2 tnks) = do t1 <- value2term xs v1
-                                     t2 <- tnk2term xs tnk2
-                                     foldM (\e1 tnk -> fmap (App e1) (tnk2term xs tnk)) (S t1 t2) tnks
-value2term xs (VSort s) = return (Sort s)
-value2term xs (VStr tok) = return (K tok)
-value2term xs (VInt n) = return (EInt n)
-value2term xs (VFlt n) = return (EFloat n)
-value2term xs VEmpty = return Empty
-value2term xs (VC v1 v2) = do
-  t1 <- value2term xs v1
-  t2 <- value2term xs v2
+value2term flat xs (VV vty tnks)= do
+  ty <- value2term flat xs vty
+  ts <- mapM (tnk2term flat xs) tnks
+  return (V ty ts)
+value2term flat xs (VS v1 tnk2 tnks) = do
+  t1 <- value2term flat xs v1
+  t2 <- tnk2term flat xs tnk2
+  foldM (\e1 tnk -> fmap (App e1) (tnk2term flat xs tnk)) (S t1 t2) tnks
+value2term flat xs (VSort s) = return (Sort s)
+value2term flat xs (VStr tok) = return (K tok)
+value2term flat xs (VInt n) = return (EInt n)
+value2term flat xs (VFlt n) = return (EFloat n)
+value2term flat xs VEmpty = return Empty
+value2term flat xs (VC v1 v2) = do
+  t1 <- value2term flat xs v1
+  t2 <- value2term flat xs v2
   return (C t1 t2)
-value2term xs (VGlue v1 v2) = do
-  t1 <- value2term xs v1
-  t2 <- value2term xs v2
+value2term flat xs (VGlue v1 v2) = do
+  t1 <- value2term flat xs v1
+  t2 <- value2term flat xs v2
   return (Glue t1 t2)
-value2term xs (VPatt min max p) = return (EPatt min max p)
-value2term xs (VPattType v) = do t <- value2term xs v
-                                 return (EPattType t)
-value2term xs (VAlts vd vas) = do
-  d <- value2term xs vd
+value2term flat xs (VPatt min max p) = return (EPatt min max p)
+value2term flat xs (VPattType v) = do
+  t <- value2term flat xs v
+  return (EPattType t)
+value2term flat xs (VAlts vd vas) = do
+  d <- value2term flat xs vd
   as <- forM vas $ \(vt,vs) -> do
-           t <- value2term xs vt
-           s <- value2term xs vs
+           t <- value2term flat xs vt
+           s <- value2term flat xs vs
            return (t,s)
   return (Alts d as)
-value2term xs (VStrs vs) = do
-  ts <- mapM (value2term xs) vs
+value2term flat xs (VStrs vs) = do
+  ts <- mapM (value2term flat xs) vs
   return (Strs ts)
-value2term xs (VCInts (Just i) Nothing) = return (App (Q (cPredef,cInts)) (EInt i))
-value2term xs (VCInts Nothing (Just j)) = return (App (Q (cPredef,cInts)) (EInt j))
-value2term xs (VCRecType lctrs) = do
-  ltys <- mapM (\(l,o,ctr) -> value2term xs ctr >>= \ty -> return (l,ty)) lctrs
+value2term flat xs (VCInts (Just i) Nothing) = return (App (Q (cPredef,cInts)) (EInt i))
+value2term flat xs (VCInts Nothing (Just j)) = return (App (Q (cPredef,cInts)) (EInt j))
+value2term flat xs (VCRecType lctrs) = do
+  ltys <- mapM (\(l,o,ctr) -> value2term flat xs ctr >>= \ty -> return (l,ty)) lctrs
   return (RecType ltys)
-value2term xs (VSymCat d r rs) = return (TSymCat d r [(i,(identW,ty)) | (i,(_,ty)) <- rs])
-value2term xs v = error (showValue v)
+value2term flat xs (VSymCat d r rs) = return (TSymCat d r [(i,(identW,ty)) | (i,(_,ty)) <- rs])
+value2term flat xs v = error (showValue v)
 
 pattVars st (PP _ ps)    = foldM pattVars st ps
 pattVars st (PV x)       = case st of
@@ -885,7 +894,8 @@ force tnk = EvalM $ \gr k mt d r msgs -> do
     Residuation _ _ _ -> k (VMeta tnk []) mt d r msgs
     Narrowing _ _     -> k (VMeta tnk []) mt d r msgs
 
-tnk2term xs tnk = EvalM $ \gr k mt d r msgs ->
+tnk2term True  xs tnk = force tnk >>= value2term True xs
+tnk2term False xs tnk = EvalM $ \gr k mt d r msgs ->
   let join f g = do res <- f
                     case res of
                       Fail msg  msgs -> return (Fail msg msgs)
@@ -904,7 +914,7 @@ tnk2term xs tnk = EvalM $ \gr k mt d r msgs ->
           Unevaluated env t -> do let d0 = length env
                                   res <- case eval env t [] of
                                            EvalM f -> f gr (\v mt d msgs r -> do writeSTRef tnk (Evaluated d0 v)
-                                                                                 r <- case value2term xs v of
+                                                                                 r <- case value2term False xs v of
                                                                                         EvalM f -> f gr (acc d0) mt d msgs r
                                                                                  writeSTRef tnk s
                                                                                  return r) mt maxBound (r,0,[]) msgs
@@ -912,7 +922,7 @@ tnk2term xs tnk = EvalM $ \gr k mt d r msgs ->
                                     Fail msg msgs         -> return (Fail msg msgs)
                                     Success (r,0,xs) msgs -> k (FV []) mt d r msgs
                                     Success (r,c,xs) msgs -> flush xs (\mt msgs r -> return (Success msgs r)) mt r msgs
-          Evaluated d0 v    -> do res <- case value2term xs v of
+          Evaluated d0 v    -> do res <- case value2term False xs v of
                                            EvalM f -> f gr (acc d0) mt maxBound (r,0,[]) msgs
                                   case res of
                                     Fail msg msgs         -> return (Fail msg msgs)
