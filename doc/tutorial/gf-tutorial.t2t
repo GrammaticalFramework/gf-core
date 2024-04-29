@@ -1271,9 +1271,9 @@ This works on Mac OS X:
 ```
   > parse "this delicious cheese is very Italian" | visualize_tree -view=open
 ```
-On Linux, one can write either of
+On Linux, one can use one of the following commands.
 ```
-  > parse "this delicious cheese is very Italian" | visualize_tree -view="eog"
+  > parse "this delicious cheese is very Italian" | visualize_tree -view=eog
   > parse "this delicious cheese is very Italian" | visualize_tree -view=xdg-open
 ```
 
