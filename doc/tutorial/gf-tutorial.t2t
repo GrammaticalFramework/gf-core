@@ -1265,10 +1265,16 @@ Human eye may prefer to see a visualization: ``visualize_tree = vt``:
   > parse "this delicious cheese is very Italian" | visualize_tree
 ```
 The tree is generated in postscript (``.ps``) file. The ``-view`` option is used for
-telling what command to use to view the file. Its default is ``"open"``, which works
-on Mac OS X. On Ubuntu Linux, one can write
+telling what command to use to view the file.
+
+This works on Mac OS X:
+```
+  > parse "this delicious cheese is very Italian" | visualize_tree -view=open
+```
+On Linux, one can write either of
 ```
   > parse "this delicious cheese is very Italian" | visualize_tree -view="eog"
+  > parse "this delicious cheese is very Italian" | visualize_tree -view=xdg-open
 ```
 
 
