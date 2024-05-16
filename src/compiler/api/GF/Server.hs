@@ -117,8 +117,8 @@ handle logLn documentroot state0 cache execute stateVar conn = do
            -- use/change the cwd. Access files by absolute paths only.
            let path = translatePath rpath
            in case (takeDirectory path,takeFileName path,takeExtension path) of
-               (_  ,_             ,".pgf") -> PS.pgfMain logLn conn cache [("PATH_TRANSLATED",path)] rq
-               (_  ,_             ,".ngf") -> PS.pgfMain logLn conn cache [("PATH_TRANSLATED",path)] rq
+               (_  ,_             ,".pgf") -> PS.pgfMain logLn conn cache path rq
+               (_  ,_             ,".ngf") -> PS.pgfMain logLn conn cache path rq
                (dir,"grammars.cgi",_     ) -> addDate (grammarList dir query)
                _                           -> serveStaticFile conn rpath path
     _ -> addDate (return $ resp400 upath)

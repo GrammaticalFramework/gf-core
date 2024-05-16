@@ -25,7 +25,6 @@ import System.IO.Error(isDoesNotExistError)
 import System.FilePath(takeExtension)
 import System.Mem(performGC)
 import Network.HTTP
-import Network.FastCGI hiding (Connection, writeHeaders)
 import Numeric(showHex)
 
 
@@ -62,8 +61,8 @@ newCache' root rd = do
     clean c = do threadDelay 2000000000 -- 2000 seconds, i.e. ~33 minutes
                  expireCache (24*60*60) c -- 24 hours
 
-pgfMain :: (String -> IO ()) -> Connection -> Caches -> Env -> Request -> IO ()
-pgfMain logLn conn cache env rq =
+pgfMain :: (String -> IO ()) -> Connection -> Caches -> FilePath -> Request -> IO ()
+pgfMain logLn conn cache path rq =
   case fromMaybe "grammar" (lookup "command" query) of
     "download"
       | ext == ".pgf" -> do tpgf <- getFile (readCache' (pgfCache cache)) path
@@ -77,8 +76,6 @@ pgfMain logLn conn cache env rq =
                             handleErrors logLn (pgfCommand (qsem cache) command query tpgf) >>= respondHTTP conn
     _                 -> respondHTTP conn (Response 415 "Bad Request" [] "Extension must be .pgf or .ngf")
     where
-      path = fromMaybe "" (lookup "PATH_TRANSLATED" env `mplus`
-                           lookup "SCRIPT_FILENAME" env)
       ext  = takeExtension path
                            
       query = rqQuery rq
