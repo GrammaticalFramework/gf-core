@@ -179,6 +179,11 @@ mapAssignM :: Monad m => (Term -> m c) -> [Assign] -> m [(Label,(Maybe c,c))]
 mapAssignM f = mapM (\ (ls,tv) -> liftM ((,) ls) (g tv))
   where g (t,v) = liftM2 (,) (maybe (return Nothing) (liftM Just . f) t) (f v)
 
+mapAttrs :: Monad m => (Term -> m c) -> [(Ident,Term)] -> m [(Ident,c)]
+mapAttrs f []          = return []
+mapAttrs f ((id,t):as) = do t  <- f t
+                            as <- mapAttrs f as
+                            return ((id,t):as)
 -- *** Records
 
 mkRecordN :: Int -> (Int -> Label) -> [Term] -> Term
@@ -412,6 +417,7 @@ composOp co trm =
    ELincat c ty     -> liftM (ELincat c) (co ty)
    ELin c ty        -> liftM (ELin c) (co ty)
    ImplArg t        -> liftM ImplArg (co t)
+   Markup t as cs   -> liftM2 (Markup t) (mapAttrs co as) (mapM co cs)
    _ -> return trm -- covers K, Vr, Cn, Sort, EPatt
 
 composSafePattOp op = runIdentity . composPattOp (return . op)
@@ -450,6 +456,7 @@ collectOp co trm = case trm of
   Alts t aa    -> let (x,y) = unzip aa in co t <> mconcatMap co (x <> y)
   FV ts        -> mconcatMap co ts
   Strs tt      -> mconcatMap co tt
+  Markup t as cs -> mconcatMap (co.snd) as <> mconcatMap co cs
   _            -> mempty -- covers K, Vr, Cn, Sort
 
 mconcatMap f = mconcat . map f

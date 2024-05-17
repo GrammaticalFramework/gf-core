@@ -104,6 +104,7 @@ data Value s
   | VPattType (Value s)
   | VAlts (Value s) [(Value s, Value s)]
   | VStrs [Value s]
+  | VMarkup Ident [(Ident,Value s)] [Value s]
     -- These two constructors are only used internally
     -- in the PMCFG generator.
   | VSymCat Int LIndex [(LIndex, (Thunk s, Type))]
@@ -267,6 +268,10 @@ eval env (Alts d as)    []  = do vd <- eval env d []
                                  return (VAlts vd vas)
 eval env (Strs ts)      []  = do vs <- mapM (\t -> eval env t []) ts
                                  return (VStrs vs)
+eval env (Markup tag as ts) [] =
+                              do as <- mapM (\(id,t) -> eval env t [] >>= \v -> return (id,v)) as
+                                 vs <- mapM (\t -> eval env t []) ts
+                                 return (VMarkup tag as vs)
 eval env (TSymCat d r rs) []= do rs <- forM rs $ \(i,(pv,ty)) ->
                                          case lookup pv env of
                                            Just tnk -> return (i,(tnk,ty))
@@ -606,6 +611,10 @@ value2term flat xs (VAlts vd vas) = do
 value2term flat xs (VStrs vs) = do
   ts <- mapM (value2term flat xs) vs
   return (Strs ts)
+value2term flat xs (VMarkup tag as vs) = do
+  as <- mapM (\(id,v) -> value2term flat xs v >>= \t -> return (id,t)) as
+  ts <- mapM (value2term flat xs) vs
+  return (Markup tag as ts)
 value2term flat xs (VCInts (Just i) Nothing) = return (App (Q (cPredef,cInts)) (EInt i))
 value2term flat xs (VCInts Nothing (Just j)) = return (App (Q (cPredef,cInts)) (EInt j))
 value2term flat xs (VCRecType lctrs) = do

@@ -14,7 +14,7 @@ import GF.Compile.Compute.Concrete
 import GF.Infra.CheckM
 import GF.Data.Operations
 import Control.Applicative(Applicative(..))
-import Control.Monad(ap,liftM,mplus,foldM,zipWithM)
+import Control.Monad(ap,liftM,mplus,foldM,zipWithM,forM)
 import Control.Monad.ST
 import GF.Text.Pretty
 import Data.STRef
@@ -52,6 +52,7 @@ vtypeStr   = VSort cStr
 vtypeStrs  = VSort cStrs
 vtypeType  = VSort cType
 vtypePType = VSort cPType
+vtypeMarkup= VApp (cPredef,cMarkup) []
 
 tcRho :: Scope s -> Term -> Maybe (Rho s) -> EvalM s (Term, Rho s)
 tcRho scope t@(EInt i)   mb_ty = vtypeInts i >>= \sigma -> instSigma scope t sigma mb_ty -- INT
@@ -357,6 +358,12 @@ tcRho scope t@(EPatt min max p) mb_ty = do
                                     _            -> evalError (ppTerm Unqualified 0 t <+> "must be of pattern type but" <+> ppTerm Unqualified 0 t <+> "is expected")
   tcPatt scope p ty
   return (f (EPatt min max p), ty)
+tcRho scope (Markup tag attrs children) mb_ty = do
+  attrs <- forM attrs $ \(id,t) -> do
+              (t,_) <- tcRho scope t Nothing
+              return (id,t)
+  res <- mapM (\child -> tcRho scope child Nothing) children
+  return (Markup tag attrs (map fst res), vtypeMarkup)
 tcRho scope t _ = unimplemented ("tcRho "++show t)
 
 tcCases scope []         p_ty res_ty = return []
