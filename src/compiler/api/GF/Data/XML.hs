@@ -8,7 +8,7 @@ module GF.Data.XML (XML(..), Attr, comments, showXMLDoc, showsXMLDoc, showsXML, 
 
 import GF.Data.Utilities
 
-data XML = Data String | CData String | Tag String [Attr] [XML] | ETag String [Attr] | Comment String | Empty
+data XML = Data String | Tag String [Attr] [XML] | ETag String [Attr] | Comment String | Empty
  deriving (Ord,Eq,Show)
 
 type Attr = (String,String)
@@ -26,8 +26,7 @@ showsXMLDoc xml = showString header . showsXML xml
 showsXML :: XML -> ShowS
 showsXML = showsX 0 where
   showsX i x = ind i . case x of
-    (Data s) -> showString s
-    (CData s) -> showString "<![CDATA[" . showString s .showString "]]>"
+    (Data s) -> showString (escape s)
     (ETag t as) -> showChar '<' . showString t . showsAttrs as . showString "/>"
     (Tag t as cs) -> 
       showChar '<' . showString t . showsAttrs as . showChar '>' . 

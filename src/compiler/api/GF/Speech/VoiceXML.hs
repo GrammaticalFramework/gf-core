@@ -178,13 +178,6 @@ param name expr = ETag "param" [("name",name),("expr",expr)]
 var :: String -> Maybe String -> XML
 var name expr = ETag "var" ([("name",name)]++e)
   where e = maybe [] ((:[]) . (,) "expr") expr
-{-
-script :: String -> XML
-script s = Tag "script" [] [CData s]
-
-scriptURI :: String -> XML
-scriptURI uri = Tag "script" [("uri", uri)] []
--}
 --
 -- * ECMAScript stuff
 --
