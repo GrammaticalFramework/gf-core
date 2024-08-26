@@ -363,7 +363,10 @@ tcRho scope (Markup tag attrs children) mb_ty = do
               (t,_) <- tcRho scope t Nothing
               return (id,t)
   res <- mapM (\child -> tcRho scope child Nothing) children
-  return (Markup tag attrs (map fst res), vtypeMarkup)
+  instSigma scope (Markup tag attrs (map fst res)) vtypeMarkup mb_ty
+tcRho scope (Reset c t) mb_ty = do
+  (t,_) <- tcRho scope t Nothing
+  instSigma scope (Reset c t) vtypeMarkup mb_ty
 tcRho scope t _ = unimplemented ("tcRho "++show t)
 
 tcCases scope []         p_ty res_ty = return []

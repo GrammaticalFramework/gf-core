@@ -44,6 +44,7 @@ module GF.Grammar.Grammar (
         Fun,
         QIdent,
         BindType(..),
+        Control(..),
         Patt(..),
         TInfo(..),
         Label(..),
@@ -396,11 +397,17 @@ data Term =
  | FV [Term]                     -- ^ alternatives in free variation: @variants { s ; ... }@
 
  | Markup Ident [(Ident,Term)] [Term]
+ | Reset Control Term
 
  | Alts Term [(Term, Term)]      -- ^ alternatives by prefix: @pre {t ; s\/c ; ...}@
  | Strs [Term]                   -- ^ conditioning prefix strings: @strs {s ; ...}@
  | TSymCat Int LIndex [(LIndex,(Ident,Type))]
  | TSymVar Int Int
+  deriving (Show, Eq, Ord)
+
+data Control
+  = All
+  | Limit Integer
   deriving (Show, Eq, Ord)
 
 -- | Patterns

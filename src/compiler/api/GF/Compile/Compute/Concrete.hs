@@ -134,7 +134,7 @@ showValue (VInt _) = "VInt"
 showValue (VFlt _) = "VFlt"
 showValue (VStr s) = "(VStr "++show s++")"
 showValue VEmpty = "VEmpty"
-showValue (VC _ _) = "VC"
+showValue (VC v1 v2) = "(VC "++showValue v1++" "++showValue v2++")"
 showValue (VGlue _ _) = "VGlue"
 showValue (VPatt _ _ _) = "VPatt"
 showValue (VPattType _) = "VPattType"
@@ -272,6 +272,10 @@ eval env (Markup tag as ts) [] =
                               do as <- mapM (\(id,t) -> eval env t [] >>= \v -> return (id,v)) as
                                  vs <- mapM (\t -> eval env t []) ts
                                  return (VMarkup tag as vs)
+eval env (Reset c t) [] = do let limit All       = id
+                                 limit (Limit n) = fmap (genericTake n)
+                             vs <- limit c (reset (eval env t []))
+                             return (VMarkup identW [] vs)
 eval env (TSymCat d r rs) []= do rs <- forM rs $ \(i,(pv,ty)) ->
                                          case lookup pv env of
                                            Just tnk -> return (i,(tnk,ty))
@@ -368,16 +372,6 @@ patternMatch v0 ((env0,ps,args0,t):eqs) = match env0 ps eqs args0
           | null s1       -> match env ps eqs args
         (PSeq min1 max1 p1 min2 max2 p2,v)
                           -> case value2string v of
-                               Const s -> do let n  = length s
-                                                 lo = min1 `max` (n-fromMaybe n max2)
-                                                 hi = (n-min2) `min` fromMaybe n max1
-                                                 (ds,cs) = splitAt lo s
-                                             eqs <- matchStr env (p1:p2:ps) eqs (hi-lo) (reverse ds) cs args
-                                             patternMatch v0 eqs
-                               RunTime -> return v0
-                               NonExist-> patternMatch v0 eqs
-        (PRep minp maxp p, v)
-                          -> case value2string v of
                                Const s -> let n  = length s
                                               lo = min1 `max` (n-fromMaybe n max2)
                                               hi = (n-min2) `min` fromMaybe n max1
@@ -388,7 +382,13 @@ patternMatch v0 ((env0,ps,args0,t):eqs) = match env0 ps eqs args0
                                                else patternMatch v0 eqs
                                RunTime -> return v0
                                NonExist-> patternMatch v0 eqs
-        (PChar, VStr [_]) -> match env ps eqs args
+        (PRep minp maxp p, v)
+                          -> case value2string v of
+                               Const s -> do let n = length s `div` (max minp 1)
+                                             eqs <- matchRep env n minp maxp p minp maxp p ps ((env,PString []:ps,(arg:args),t) : eqs) (arg:args)
+                                             patternMatch v0 eqs
+                               RunTime -> return v0
+                               NonExist-> patternMatch v0 eqs
         (PChars cs, VStr [c])
           | elem c cs     -> match env ps eqs args
         (PInt n, VInt m)

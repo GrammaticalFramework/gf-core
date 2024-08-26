@@ -68,6 +68,7 @@ import qualified Data.Map as Map
  '@'          { T_at        }
  '['          { T_obrack    }
  ']'          { T_cbrack    }
+ '[:'         { T_reset     }
  '{'          { T_ocurly    }
  '}'          { T_ccurly    }
  '\\'         { T_lam       }
@@ -485,6 +486,8 @@ Exp6
   | '{' ListLocDef '}'    {% mkR $2 }
   | '<' ListTupleComp '>' { R (tuple2record $2) }
   | '<' Exp ':' Exp '>'   { Typed $2 $4      }
+  | '[:' Control '|' Tag ']'      { Reset $2 $4 }
+  | '[:' Control '|' Exp ']'      { Reset $2 $4 }
   | '(' Exp ')'           { $2 }
 
 ListExp :: { [Term] }
@@ -708,8 +711,8 @@ ERHS3 :: { ERHS }
 
 NLG :: { Map.Map Ident Info }
   : ListNLGDef     { Map.fromList $1 }
-  | Posn Tag Posn  { Map.singleton (identS "main") (ResOper Nothing (Just (mkL $1 $3 (Abs Explicit (identS "qid") $2)))) }
-  | Posn Exp Posn  { Map.singleton (identS "main") (ResOper Nothing (Just (mkL $1 $3 (Abs Explicit (identS "qid") $2)))) }
+  | Posn Tag Posn  { Map.singleton (identS "main") (ResOper Nothing (Just (mkL $1 $3 (Abs Explicit (identS "qid") (Abs Explicit (identS "lang") $2))))) }
+  | Posn Exp Posn  { Map.singleton (identS "main") (ResOper Nothing (Just (mkL $1 $3 (Abs Explicit (identS "qid") (Abs Explicit (identS "lang") $2))))) }
 
 ListNLGDef :: { [(Ident,Info)] }
 ListNLGDef
@@ -732,6 +735,10 @@ ListMarkup :: { [Term] }
   :                    { []      }
   | Exp                { [$1]    }
   | Markup ListMarkup  { $1 : $2 }
+
+Control :: { Control }
+  :            { All                     }
+  | Integer    { Limit (fromIntegral $1) }
 
 Attributes :: { [(Ident,Term)] }
 Attributes

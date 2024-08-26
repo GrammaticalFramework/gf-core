@@ -31,7 +31,7 @@ $i = [$l $d _ ']          -- identifier character
 $u = [.\n]                -- universal: any character
 
 @rsyms =    -- symbols and non-identifier-like reserved words
-   \; | \= | \{ | \} | \( | \) | \~ | \* \* | \: | \- \> | \, | \[ | \] | \- | \. | \| | \% | \? | \< | \> | \@ | \# | \! | \* | \+ | \+ \+ | \\ | \\\\ | \= \> | \_ | \$ | \/ | \: \= | \: \: \=
+   \; | \= | \{ | \} | \( | \) | \~ | \* \* | \: | \- \> | \, | \[ | \] | \[\: | \- | \. | \| | \% | \? | \< | \> | \@ | \# | \! | \* | \+ | \+ \+ | \\ | \\\\ | \= \> | \_ | \$ | \/ | \: \= | \: \: \=
 
 @ident =
    (\_ | $l)($l | $d | \_ | \')*
@@ -116,6 +116,7 @@ data Token
  | T_lam
  | T_lamlam
  | T_cbrack
+ | T_reset
  | T_ocurly
  | T_bar
  | T_ccurly
@@ -207,6 +208,7 @@ resWords = Map.fromList
  , b "?"  T_questmark
  , b "["  T_obrack
  , b "]"  T_cbrack
+ , b "[:" T_reset
  , b "\\" T_lam
  , b "\\\\" T_lamlam
  , b "{"  T_ocurly

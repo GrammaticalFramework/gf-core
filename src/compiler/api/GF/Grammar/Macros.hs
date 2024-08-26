@@ -418,6 +418,7 @@ composOp co trm =
    ELin c ty        -> liftM (ELin c) (co ty)
    ImplArg t        -> liftM ImplArg (co t)
    Markup t as cs   -> liftM2 (Markup t) (mapAttrs co as) (mapM co cs)
+   Reset c t        -> liftM (Reset c) (co t)
    _ -> return trm -- covers K, Vr, Cn, Sort, EPatt
 
 composSafePattOp op = runIdentity . composPattOp (return . op)
@@ -457,6 +458,7 @@ collectOp co trm = case trm of
   FV ts        -> mconcatMap co ts
   Strs tt      -> mconcatMap co tt
   Markup t as cs -> mconcatMap (co.snd) as <> mconcatMap co cs
+  Reset _ t    -> co t
   _            -> mempty -- covers K, Vr, Cn, Sort
 
 mconcatMap f = mconcat . map f
