@@ -378,9 +378,14 @@ patternMatch v0 ((env0,ps,args0,t):eqs) = match env0 ps eqs args0
                                NonExist-> patternMatch v0 eqs
         (PRep minp maxp p, v)
                           -> case value2string v of
-                               Const s -> do let n = length s `div` (max minp 1)
-                                             eqs <- matchRep env n minp maxp p minp maxp p ps ((env,PString []:ps,(arg:args),t) : eqs) (arg:args)
-                                             patternMatch v0 eqs
+                               Const s -> let n  = length s
+                                              lo = min1 `max` (n-fromMaybe n max2)
+                                              hi = (n-min2) `min` fromMaybe n max1
+                                              (ds,cs) = splitAt lo s
+                                          in if lo <= hi
+                                               then do eqs <- matchStr env (p1:p2:ps) eqs (hi-lo) (reverse ds) cs args
+                                                       patternMatch v0 eqs
+                                               else patternMatch v0 eqs
                                RunTime -> return v0
                                NonExist-> patternMatch v0 eqs
         (PChar, VStr [_]) -> match env ps eqs args
