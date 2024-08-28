@@ -239,21 +239,21 @@ again:  {
                 if (total_prob < 0)  // possible because of rounding
                     total_prob = 0;
             } else {
-                ref<Vector<PgfHypo>> hypos = fun->type->hypos;
-                if (depth > ((hypos->len > 0) ? 1 : 0)) {
+                vector<PgfHypo> hypos = fun->type->hypos;
+                if (depth > ((hypos.size() > 0) ? 1 : 0)) {
                     prob += fun->prob;
                     expr = u->efun(&fun->name);
 
                     PgfTypeHypo *t_hypos = (PgfTypeHypo *)
-                        alloca(hypos->len * sizeof(PgfTypeHypo));
-                    for (size_t i = 0; i < hypos->len; i++) {
-                        t_hypos[i].bind_type = hypos->data[i].bind_type;
-                        t_hypos[i].cid = &(*hypos->data[i].cid);
-                        t_hypos[i].type = hypos->data[i].type.as_object();
+                        alloca(hypos.size() * sizeof(PgfTypeHypo));
+                    for (size_t i = 0; i < hypos.size(); i++) {
+                        t_hypos[i].bind_type = hypos[i].bind_type;
+                        t_hypos[i].cid = &(*hypos[i].cid);
+                        t_hypos[i].type = hypos[i].type.as_object();
                     }
                     auto tmp = this->m;
                     this->m = &i_m;
-                    expr = descend(expr, hypos->len, t_hypos);
+                    expr = descend(expr, hypos.size(), t_hypos);
                     this->m = tmp;
                 }
 
@@ -450,16 +450,16 @@ bool PgfExhaustiveGenerator::State0::process(PgfExhaustiveGenerator *gen)
 
 bool PgfExhaustiveGenerator::State1::process(PgfExhaustiveGenerator *gen)
 {
-    if (n_args >= type->hypos->len) {
+    if (n_args >= type->hypos.size()) {
         complete(gen);
         return true;
     }
 
     Scope *scope = res->scope;
     size_t scope_len = res->scope_len;
-    ref<PgfDTyp> arg_type = vector_elem(type->hypos, n_args)->type;
-    for (size_t i = 0; i < arg_type->hypos->len; i++) {
-        ref<PgfHypo> hypo = vector_elem(arg_type->hypos, i);
+    ref<PgfDTyp> arg_type = type->hypos[n_args].type;
+    for (size_t i = 0; i < arg_type->hypos.size(); i++) {
+        ref<PgfHypo> hypo = arg_type->hypos.elem(i);
 
         size_t buf_size = 16;
         Scope *new_scope = (Scope *) malloc(sizeof(Scope)+buf_size);
@@ -548,7 +548,7 @@ void PgfExhaustiveGenerator::State1::combine(PgfExhaustiveGenerator *gen,
         s = s->next;
     }
 
-    PgfBindType bind_type = vector_elem(type->hypos, n_args)->bind_type;
+    PgfBindType bind_type = type->hypos[n_args].bind_type;
 
     if (bind_type == PGF_BIND_TYPE_IMPLICIT) {
         PgfExpr implarg = gen->u->eimplarg(expr);

@@ -348,7 +348,7 @@ PgfType PgfTypechecker::Context::dtyp(size_t n_hypos, PgfTypeHypo *hypos,
     PgfType ty = 0;
     PgfTypeHypo *new_hypos = (PgfTypeHypo *)
         alloca(sizeof(PgfTypeHypo)*n_hypos);
-    size_t n_new_exprs = abscat->context->len;
+    size_t n_new_exprs = abscat->context.size();
     PgfExpr *new_exprs = (PgfExpr *)
         alloca(sizeof(PgfExpr)*n_new_exprs);
 
@@ -366,7 +366,7 @@ PgfType PgfTypechecker::Context::dtyp(size_t n_hypos, PgfTypeHypo *hypos,
     size_t i, j;
     for (i = 0, j = 0; i < n_new_exprs && j < n_exprs; i++) {
         Unmarshaller1 tu;
-        PgfHypo *hypo = vector_elem(abscat->context,i);
+        ref<PgfHypo> hypo = abscat->context.elem(i);
         Type *ty = (Type *) tc->db_m.match_type(&tu,hypo->type.as_object());
         tc->temps.push_back(ty);
         Context expr_ctxt(tc,scope,ty,hypo->bind_type);

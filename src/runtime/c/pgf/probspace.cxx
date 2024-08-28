@@ -49,8 +49,8 @@ PgfProbspace probspace_insert(PgfProbspace space,
                               ref<PgfAbsFun> fun,
                               ref<PgfDTyp> type)
 {
-    for (size_t i = 0; i < type->hypos->len; i++) {
-        ref<PgfHypo> hypo = vector_elem(type->hypos,i);
+    for (size_t i = 0; i < type->hypos.size(); i++) {
+        ref<PgfHypo> hypo = type->hypos.elem(i);
         space = probspace_insert(space,fun,hypo->type);
     }
 
@@ -113,8 +113,8 @@ PgfProbspace probspace_delete(PgfProbspace space,
                               ref<PgfAbsFun> fun,
                               ref<PgfDTyp> type)
 {
-    for (size_t i = 0; i < type->hypos->len; i++) {
-        ref<PgfHypo> hypo = vector_elem(type->hypos,i);
+    for (size_t i = 0; i < type->hypos.size(); i++) {
+        ref<PgfHypo> hypo = type->hypos.elem(i);
         space = probspace_delete(space,fun,hypo->type);
     }
 

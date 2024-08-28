@@ -30,8 +30,8 @@ struct PGF_INTERNAL_DECL PgfHypo {
 };
 
 struct PGF_INTERNAL_DECL PgfDTyp {
-	ref<Vector<PgfHypo>> hypos;
-    ref<Vector<PgfExpr>> exprs;
+	vector<PgfHypo> hypos;
+    vector<PgfExpr> exprs;
 	PgfText name;
 };
 
@@ -240,7 +240,7 @@ PGF_INTERNAL_DECL
 void pgf_expr_release(PgfExpr expr);
 
 PGF_INTERNAL_DECL
-void pgf_context_release(ref<Vector<PgfHypo>> hypos);
+void pgf_context_release(vector<PgfHypo> hypos);
 
 PGF_INTERNAL_DECL
 void pgf_type_release(ref<PgfDTyp> dtyp);

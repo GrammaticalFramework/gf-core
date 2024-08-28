@@ -691,7 +691,7 @@ Namespace<V> namespace_map(Namespace<V> map, std::function<ref<V>(ref<V>)> &f)
 }
 
 template <class V,class A>
-void namespace_vec_fill_names(Namespace<V> node, size_t offs, Vector<A> *vec)
+void namespace_vec_fill_names(Namespace<V> node, size_t offs, A *vec)
 {
     if (node == 0)
         return;
@@ -699,20 +699,19 @@ void namespace_vec_fill_names(Namespace<V> node, size_t offs, Vector<A> *vec)
     namespace_vec_fill_names(node->left,  offs, vec);
 
     offs += namespace_size(node->left);
-    vector_elem(vec, offs++)->name = &node->value->name;
+    vec[offs++].name = &node->value->name;
 
     namespace_vec_fill_names(node->right, offs, vec);
 }
 
 template <class V,class A>
-Vector<A> *namespace_to_sorted_names(Namespace<V> node)
+A *namespace_to_sorted_names(Namespace<V> node)
 {
-    Vector<A> *vec = (Vector<A> *)
-        malloc(sizeof(Vector<A>)+node->sz*sizeof(A));
+    A *vec = (A*)
+        malloc(node->sz*sizeof(A));
     if (errno != 0)
         throw pgf_systemerror(errno);
-    vec->len = node->sz;
-    memset(vec->data, 0, node->sz*sizeof(A));
+    memset(vec, 0, node->sz*sizeof(A));
     namespace_vec_fill_names(node, 0, vec);
     return vec;
 }

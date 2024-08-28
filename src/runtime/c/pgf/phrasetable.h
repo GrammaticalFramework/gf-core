@@ -11,7 +11,7 @@ struct PGF_INTERNAL_DECL PgfPhrasetableEntry {
     // the vector backrefs. On the other hand, backrefs->len tells us
     // how big buffer we have allocated.
     size_t n_backrefs;
-    ref<Vector<PgfSequenceBackref>> backrefs;
+    vector<PgfSequenceBackref> backrefs;
 };
 
 struct PgfSequenceItor;

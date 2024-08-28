@@ -109,7 +109,7 @@ struct PGF_INTERNAL_DECL PgfAbsFun {
 };
 
 struct PGF_INTERNAL_DECL PgfAbsCat {
-	ref<Vector<PgfHypo>> context;
+	vector<PgfHypo> context;
 	prob_t prob;
     PgfText name;
 
@@ -145,7 +145,7 @@ struct PGF_INTERNAL_DECL PgfPArg {
 };
 
 struct PGF_INTERNAL_DECL PgfPResult {
-    ref<Vector<PgfVariableRange>> vars; 
+    vector<PgfVariableRange> vars; 
     PgfLParam param;
 
     static void release(ref<PgfPResult> res);
@@ -154,7 +154,7 @@ struct PGF_INTERNAL_DECL PgfPResult {
 typedef object PgfSymbol;
 
 struct PGF_INTERNAL_DECL PgfSequence {
-	Vector<PgfSymbol> syms;
+	inline_vector<PgfSymbol> syms;
 
     static void release(ref<PgfSequence> seq);
 };
@@ -190,7 +190,7 @@ struct PGF_INTERNAL_DECL PgfAlternative {
 	ref<PgfSequence> form;
 	/**< The form of this variant as a list of tokens. */
 
-	ref<Vector<ref<PgfText>>> prefixes;
+	vector<ref<PgfText>> prefixes;
 	/**< The prefixes of the following symbol that trigger this
 	 * form. */
 };
@@ -198,7 +198,7 @@ struct PGF_INTERNAL_DECL PgfAlternative {
 struct PGF_INTERNAL_DECL PgfSymbolKP {
     static const uint8_t tag = 4;
     ref<PgfSequence> default_form;
-    Vector<PgfAlternative> alts;
+    inline_vector<PgfAlternative> alts;
 };
 
 struct PGF_INTERNAL_DECL PgfSymbolBIND {
@@ -231,10 +231,10 @@ struct PGF_INTERNAL_DECL PgfConcrLincat {
     ref<PgfAbsCat> abscat;
 
     size_t n_lindefs;
-    ref<Vector<PgfPArg>> args;
-    ref<Vector<ref<PgfPResult>>> res;
-    ref<Vector<ref<PgfSequence>>> seqs;
-    ref<Vector<ref<PgfText>>> fields;
+    vector<PgfPArg> args;
+    vector<ref<PgfPResult>> res;
+    vector<ref<PgfSequence>> seqs;
+    vector<ref<PgfText>> fields;
 
     PgfText name;
 
@@ -247,9 +247,9 @@ struct PGF_INTERNAL_DECL PgfConcrLin {
     ref<PgfAbsFun> absfun;
     ref<PgfConcrLincat> lincat;
 
-    ref<Vector<PgfPArg>> args;
-    ref<Vector<ref<PgfPResult>>> res;
-    ref<Vector<ref<PgfSequence>>> seqs;
+    vector<PgfPArg> args;
+    vector<ref<PgfPResult>> res;
+    vector<ref<PgfSequence>> seqs;
 
     PgfText name;
 
@@ -280,7 +280,7 @@ struct PgfLRReduceArg;
 struct PGF_INTERNAL_DECL PgfLRProduction {
     ref<PgfConcrLin> lin;
     size_t index;
-    ref<Vector<ref<PgfLRReduceArg>>> args;
+    vector<ref<PgfLRReduceArg>> args;
 };
 
 struct PGF_INTERNAL_DECL PgfLRReduceArg {
@@ -301,17 +301,15 @@ struct PGF_INTERNAL_DECL PgfLRReduce {
         size_t stk_idx;
     };
 
-    ref<Vector<Arg>> args;
+    vector<Arg> args;
 };
 
 struct PGF_INTERNAL_DECL PgfLRState {
-    ref<Vector<PgfLRShift>> shifts;
-    ref<Vector<PgfLRShiftKS>> tokens;
+    vector<PgfLRShift> shifts;
+    vector<PgfLRShiftKS> tokens;
     size_t next_bind_state;
-    ref<Vector<PgfLRReduce>> reductions;
+    vector<PgfLRReduce> reductions;
 };
-
-typedef Vector<PgfLRState> PgfLRTable;
 
 struct PGF_INTERNAL_DECL PgfConcr {
     static const uint8_t tag = 1;
@@ -322,7 +320,7 @@ struct PGF_INTERNAL_DECL PgfConcr {
     PgfPhrasetable phrasetable;
     Namespace<PgfConcrPrintname> printnames;
 
-    ref<PgfLRTable> lrtable;
+    vector<PgfLRState> lrtable;
 
     PgfText name;
 

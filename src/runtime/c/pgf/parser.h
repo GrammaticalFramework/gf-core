@@ -78,7 +78,7 @@ class PGF_INTERNAL_DECL PgfLRTableMaker
 
     template<class T>
     void predict(State *state, Fold fold, Item *item, T cat,
-                 ref<Vector<PgfVariableRange>> vars, PgfLParam *r);
+                 vector<PgfVariableRange> vars, PgfLParam *r);
     void predict(State *state, Fold fold, Item *item, ref<PgfText> cat, size_t lin_idx);
     void predict(State *state, Fold fold, Item *item, CCat *ccat, size_t lin_idx);
     void predict(ref<PgfAbsFun> absfun, CCat *ccat);
@@ -91,7 +91,7 @@ class PGF_INTERNAL_DECL PgfLRTableMaker
 
 public:
     PgfLRTableMaker(ref<PgfAbstr> abstr, ref<PgfConcr> concr);
-    ref<PgfLRTable> make();
+    vector<PgfLRState> make();
     ~PgfLRTableMaker();
 };
 

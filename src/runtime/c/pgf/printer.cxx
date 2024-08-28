@@ -499,15 +499,15 @@ void PgfPrinter::lparam(ref<PgfLParam> lparam)
     }
 }
 
-void PgfPrinter::lvar_ranges(ref<Vector<PgfVariableRange>> vars, size_t *values)
+void PgfPrinter::lvar_ranges(vector<PgfVariableRange> vars, size_t *values)
 {
     puts("{");
-    for (size_t i = 0; i < vars->len; i++) {
+    for (size_t i = 0; i < vars.size(); i++) {
         if (i > 0)
             puts(", ");
-        lvar(vars->data[i].var);
+        lvar(vars[i].var);
         if (values == NULL || values[i] == 0)
-            nprintf(32,"<%ld",vars->data[i].range);
+            nprintf(32,"<%ld",vars[i].range);
         else
             nprintf(32,"=%ld",values[i]-1);
     }
@@ -547,13 +547,13 @@ void PgfPrinter::symbol(PgfSymbol sym)
 
         sequence(sym_kp->default_form);
 
-        for (size_t i = 0; i < sym_kp->alts.len; i++) {
+        for (size_t i = 0; i < sym_kp->alts.size(); i++) {
             puts("; ");
-            sequence(sym_kp->alts.data[i].form);
+            sequence(sym_kp->alts[i].form);
             puts(" /");
-            for (size_t j = 0; j < sym_kp->alts.data[i].prefixes->len; j++) {
+            for (size_t j = 0; j < sym_kp->alts[i].prefixes.size(); j++) {
                 puts(" ");
-                lstr(sym_kp->alts.data[i].prefixes->data[j]);
+                lstr(sym_kp->alts[i].prefixes[j]);
             }
         }
 
@@ -583,11 +583,11 @@ void PgfPrinter::symbol(PgfSymbol sym)
 
 void PgfPrinter::sequence(ref<PgfSequence> seq)
 {
-    for (size_t i = 0; i < seq->syms.len; i++) {
+    for (size_t i = 0; i < seq->syms.size(); i++) {
         if (i > 0)
             puts(" ");
 
-        symbol(*vector_elem(&seq->syms, i));
+        symbol(seq->syms[i]);
     }
 }
 

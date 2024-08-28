@@ -81,28 +81,28 @@ PgfType PgfDBMarshaller::match_type(PgfUnmarshaller *u, PgfType ty)
     ref<PgfDTyp> tp = ty;
 
     PgfTypeHypo *hypos = (PgfTypeHypo *)
-        alloca(tp->hypos->len * sizeof(PgfTypeHypo));
-    for (size_t i = 0; i < tp->hypos->len; i++) {
-        hypos[i].bind_type = tp->hypos->data[i].bind_type;
-        hypos[i].cid = &(*tp->hypos->data[i].cid);
-        hypos[i].type = match_type(u, tp->hypos->data[i].type.as_object());
+        alloca(tp->hypos.size() * sizeof(PgfTypeHypo));
+    for (size_t i = 0; i < tp->hypos.size(); i++) {
+        hypos[i].bind_type = tp->hypos[i].bind_type;
+        hypos[i].cid = &(*tp->hypos[i].cid);
+        hypos[i].type = match_type(u, tp->hypos[i].type.as_object());
     }
 
     PgfExpr *exprs = (PgfExpr *)
-        alloca(tp->exprs->len * sizeof(PgfExpr));
-    for (size_t i = 0; i < tp->exprs->len; i++) {
-        exprs[i] = match_expr(u, tp->exprs->data[i]);
+        alloca(tp->exprs.size() * sizeof(PgfExpr));
+    for (size_t i = 0; i < tp->exprs.size(); i++) {
+        exprs[i] = match_expr(u, tp->exprs[i]);
     }
 
-    PgfType res = u->dtyp(tp->hypos->len, hypos,
+    PgfType res = u->dtyp(tp->hypos.size(), hypos,
                           &tp->name,
-                          tp->exprs->len, exprs);
+                          tp->exprs.size(), exprs);
 
-    for (size_t i = 0; i < tp->hypos->len; i++) {
+    for (size_t i = 0; i < tp->hypos.size(); i++) {
         u->free_ref(hypos[i].type);
     }
 
-    for (size_t i = 0; i < tp->exprs->len; i++) {
+    for (size_t i = 0; i < tp->exprs.size(); i++) {
         u->free_ref(exprs[i]);
     }
 
@@ -202,16 +202,18 @@ PgfType PgfDBUnmarshaller::dtyp(size_t n_hypos, PgfTypeHypo *hypos,
     ref<PgfDTyp> ty =
         PgfDB::malloc<PgfDTyp>(cat->size+1);
     memcpy(&ty->name, cat, sizeof(PgfText)+cat->size+1);
-    ty->hypos = vector_new<PgfHypo>(n_hypos);
+    ty->hypos = vector<PgfHypo>::alloc(n_hypos);
     for (size_t i = 0; i < n_hypos; i++) {
-        ref<PgfHypo> hypo = vector_elem(ty->hypos,i);
+        ref<PgfHypo> hypo = ty->hypos.elem(i);
         hypo->bind_type = hypos[i].bind_type;
         hypo->cid = textdup_db(hypos[i].cid);
-        hypo->type = m->match_type(this, hypos[i].type);
+        PgfType type = m->match_type(this, hypos[i].type);
+        hypo->type = type;
     }
-    ty->exprs = vector_new<PgfExpr>(n_exprs);
+    ty->exprs = vector<PgfExpr>::alloc(n_exprs);
     for (size_t i = 0; i < n_exprs; i++) {
-        *vector_elem(ty->exprs,i) = m->match_expr(this, exprs[i]);
+        PgfExpr expr = m->match_expr(this, exprs[i]);
+        ty->exprs[i] = expr;
     }
 
     return ty.as_object();
@@ -282,16 +284,16 @@ PgfType PgfInternalMarshaller::match_type(PgfUnmarshaller *u, PgfType ty)
     ref<PgfDTyp> tp = ty;
 
     PgfTypeHypo *hypos = (PgfTypeHypo *)
-        alloca(tp->hypos->len * sizeof(PgfTypeHypo));
-    for (size_t i = 0; i < tp->hypos->len; i++) {
-        hypos[i].bind_type = tp->hypos->data[i].bind_type;
-        hypos[i].cid = &(*tp->hypos->data[i].cid);
-        hypos[i].type = tp->hypos->data[i].type.as_object();
+        alloca(tp->hypos.size() * sizeof(PgfTypeHypo));
+    for (size_t i = 0; i < tp->hypos.size(); i++) {
+        hypos[i].bind_type = tp->hypos[i].bind_type;
+        hypos[i].cid = &(*tp->hypos[i].cid);
+        hypos[i].type = tp->hypos[i].type.as_object();
     }
 
-    return  u->dtyp(tp->hypos->len, hypos,
+    return  u->dtyp(tp->hypos.size(), hypos,
                     &tp->name,
-                    tp->exprs->len, tp->exprs->data);
+                    tp->exprs.size(), tp->exprs.get_data());
 }
 
 PgfExprParser::PgfExprParser(PgfText *input, PgfUnmarshaller *unmarshaller)
@@ -1329,14 +1331,14 @@ void pgf_expr_release(PgfExpr expr)
 }
 
 PGF_INTERNAL
-void pgf_context_release(ref<Vector<PgfHypo>> hypos)
+void pgf_context_release(vector<PgfHypo> hypos)
 {
-    for (size_t i = 0; i < hypos->len; i++) {
-        text_db_release(vector_elem(hypos, i)->cid);
-        pgf_type_release(vector_elem(hypos, i)->type);
+    for (size_t i = 0; i < hypos.size(); i++) {
+        text_db_release(hypos[i].cid);
+        pgf_type_release(hypos[i].type);
     }
 
-    Vector<PgfHypo>::release(hypos);
+    vector<PgfHypo>::release(hypos);
 }
 
 PGF_INTERNAL
@@ -1344,10 +1346,10 @@ void pgf_type_release(ref<PgfDTyp> dtyp)
 {
     pgf_context_release(dtyp->hypos);
 
-    for (size_t i = 0; i < dtyp->exprs->len; i++) {
-        pgf_expr_release(*vector_elem(dtyp->exprs, i));
+    for (PgfExpr expr : dtyp->exprs) {
+        pgf_expr_release(expr);
     }
-    Vector<PgfExpr>::release(dtyp->exprs);
+    vector<PgfExpr>::release(dtyp->exprs);
 
     PgfDB::free(dtyp, dtyp->name.size+1);
 }

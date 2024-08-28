@@ -167,13 +167,13 @@ ref<PgfLRReduceArg> PgfLRTableMaker::CCat::persist() {
         Production *prod = prods[i];
         persistant->prods[i].lin   = prod->lin;
         persistant->prods[i].index = prod->index;
-        auto children = vector_new<ref<PgfLRReduceArg>>(prod->args.count);
+        auto children = vector<ref<PgfLRReduceArg>>::alloc(prod->args.count);
         for (size_t j = 0; j < prod->args.count; j++) {
             if (prod->args[j] == NULL) {
-                *vector_elem(children, j) = 0;
+                children[j] = 0;
             } else {
                 ref<PgfLRReduceArg> child_arg = prod->args[j]->persist();
-                *vector_elem(children, j) = child_arg;
+                children[j] = child_arg;
             }
         }
         persistant->prods[i].args = children;
@@ -209,7 +209,7 @@ PgfLRTableMaker::CCat::~CCat() {
 void *PgfLRTableMaker::Production::operator new(size_t size, Item *item) {
     ref<PgfConcrLin> lin = ref<PgfConcrLin>::untagged(item->lin_obj);
 
-    size_t n_fields = lin->seqs->len / lin->res->len;
+    size_t n_fields = lin->seqs.size() / lin->res.size();
     size_t ex_size = sizeof(CCat*)*item->args.count+sizeof(size_t)*item->vals.count;
 
     Production *prod = (Production *) malloc(size+ex_size);
@@ -229,17 +229,17 @@ void *PgfLRTableMaker::Production::operator new(size_t size, Item *item) {
 }
 
 void *PgfLRTableMaker::Item::operator new(size_t size, CCat* ccat, ref<PgfConcrLin> lin, size_t seq_idx) {
-    size_t n_args = lin->absfun->type->hypos->len;
-    size_t n_fields = lin->seqs->len / lin->res->len;
-    ref<PgfPResult> res = *vector_elem(lin->res, seq_idx / n_fields);
-    size_t n_vars = res->vars->len;
+    size_t n_args = lin->absfun->type->hypos.size();
+    size_t n_fields = lin->seqs.size() / lin->res.size();
+    ref<PgfPResult> res = lin->res[seq_idx / n_fields];
+    size_t n_vars = res->vars.size();
     size_t ex_size = sizeof(Arg)*n_args+sizeof(size_t)*n_vars;
 
     Item *item = (Item *) malloc(size+ex_size);
     item->ref_cnt = 0;
     item->ccat = ccat;
     item->lin_obj = lin.tagged();
-    item->seq = *vector_elem(lin->seqs,seq_idx);
+    item->seq = lin->seqs[seq_idx];
     item->seq_idx = seq_idx;
     item->sym_idx = 0;
     item->stk_size = 0;
@@ -252,18 +252,18 @@ void *PgfLRTableMaker::Item::operator new(size_t size, CCat* ccat, ref<PgfConcrL
 
 void *PgfLRTableMaker::Item::operator new(size_t size, ref<PgfConcrLincat> lincat, size_t index) {
     size_t n_args = 1;
-    ref<PgfPResult> res = *vector_elem(lincat->res, lincat->n_lindefs+index);
-    size_t n_vars = res->vars->len;
+    ref<PgfPResult> res = lincat->res[lincat->n_lindefs+index];
+    size_t n_vars = res->vars.size();
     size_t ex_size = sizeof(Arg)*n_args+sizeof(size_t)*n_vars;
 
     size_t seq_idx =
-        lincat->n_lindefs*lincat->fields->len + index;
+        lincat->n_lindefs*lincat->fields.size() + index;
 
     Item *item = (Item *) malloc(size+ex_size);
     item->ref_cnt = 0;
     item->ccat = NULL;
     item->lin_obj = lincat.tagged();
-    item->seq = *vector_elem(lincat->seqs,seq_idx);
+    item->seq = lincat->seqs[seq_idx];
     item->seq_idx = seq_idx;
     item->sym_idx = 0;
     item->stk_size = 0;
@@ -275,8 +275,8 @@ void *PgfLRTableMaker::Item::operator new(size_t size, ref<PgfConcrLincat> linca
 }
 
 void *PgfLRTableMaker::Item::operator new(size_t size, CCat* ccat, Production *prod, size_t lin_idx) {
-    size_t n_fields = prod->lin->seqs->len / prod->lin->res->len;
-    ref<PgfPResult> res = *vector_elem(prod->lin->res, prod->index);
+    size_t n_fields = prod->lin->seqs.size() / prod->lin->res.size();
+    ref<PgfPResult> res = prod->lin->res[prod->index];
     size_t ex_size = sizeof(Arg)*prod->args.count+sizeof(size_t)*prod->vals.count;
 
     Item *item = (Item *) malloc(size+ex_size);
@@ -284,7 +284,7 @@ void *PgfLRTableMaker::Item::operator new(size_t size, CCat* ccat, Production *p
     item->ccat = ccat;
     item->lin_obj = prod->lin.tagged();
     item->seq_idx = prod->index*n_fields+lin_idx;
-    item->seq = *vector_elem(prod->lin->seqs,item->seq_idx);
+    item->seq = prod->lin->seqs[item->seq_idx];
     item->sym_idx = 0;
     item->stk_size = 0;
     item->args.count = prod->args.count;
@@ -317,7 +317,7 @@ void *PgfLRTableMaker::Item::operator new(size_t size, Item *item, CCat *ccat) {
     memcpy(new_item+1,item+1,ex_size);
 
     ref<PgfSymbolCat> scat =
-        ref<PgfSymbolCat>::untagged(item->seq->syms.data[item->sym_idx]);
+        ref<PgfSymbolCat>::untagged(item->seq->syms[item->sym_idx]);
     new_item->args[scat->d].ccat = ccat;
 
     return new_item;
@@ -339,7 +339,7 @@ void *PgfLRTableMaker::Item::operator new(size_t size, Item *item, size_t lin_id
     memcpy(new_item+1,item+1,ex_size);
 
     ref<PgfSymbolCat> scat =
-        ref<PgfSymbolCat>::untagged(item->seq->syms.data[item->sym_idx]);
+        ref<PgfSymbolCat>::untagged(item->seq->syms[item->sym_idx]);
     new_item->args[scat->d].stk_idx = ++new_item->stk_size;
 
     return new_item;
@@ -359,14 +359,14 @@ bool PgfLRTableMaker::CompareKey3::operator() (const Key3& k1, const Key3& k2) c
     size_t i = k1.second;
     size_t j = k2.second;
     for (;;) {
-        if (i >= k1.first->syms.len || ref<PgfSymbol>::get_tag(k1.first->syms.data[i]) != PgfSymbolKS::tag)
-            return (j < k2.first->syms.len && ref<PgfSymbol>::get_tag(k2.first->syms.data[j]) == PgfSymbolKS::tag);
+        if (i >= k1.first->syms.size() || ref<PgfSymbol>::get_tag(k1.first->syms[i]) != PgfSymbolKS::tag)
+            return (j < k2.first->syms.size() && ref<PgfSymbol>::get_tag(k2.first->syms[j]) == PgfSymbolKS::tag);
 
-        if (j >= k2.first->syms.len || ref<PgfSymbol>::get_tag(k2.first->syms.data[j]) != PgfSymbolKS::tag)
+        if (j >= k2.first->syms.size() || ref<PgfSymbol>::get_tag(k2.first->syms[j]) != PgfSymbolKS::tag)
             return false;
 
-        auto symks1 = ref<PgfSymbolKS>::untagged(k1.first->syms.data[i]);
-        auto symks2 = ref<PgfSymbolKS>::untagged(k2.first->syms.data[j]);
+        auto symks1 = ref<PgfSymbolKS>::untagged(k1.first->syms[i]);
+        auto symks2 = ref<PgfSymbolKS>::untagged(k2.first->syms[j]);
 
         int res[2] = {0,0};
         texticmp(&symks1->token, &symks2->token, res);
@@ -447,7 +447,7 @@ PgfLRTableMaker::PgfLRTableMaker(ref<PgfAbstr> abstr, ref<PgfConcr> concr)
 
             MD5Context ctxt;
 
-            for (size_t i = 0; i < lincat->res->len-lincat->n_lindefs; i++) {
+            for (size_t i = 0; i < lincat->res.size()-lincat->n_lindefs; i++) {
                 Item *item = new(lincat, i) Item;
 
                 ctxt.update(item->lin_obj);
@@ -634,8 +634,8 @@ void PgfLRTableMaker::process(State *state, Fold fold, Item *item)
     print_item(item);
 #endif
 
-    if (item->sym_idx < item->seq->syms.len) {
-        PgfSymbol sym = item->seq->syms.data[item->sym_idx];
+    if (item->sym_idx < item->seq->syms.size()) {
+        PgfSymbol sym = item->seq->syms[item->sym_idx];
         symbol(state, fold, item, sym);
     } else {
         complete(state, fold, item);
@@ -652,13 +652,12 @@ void PgfLRTableMaker::symbol(State *state, Fold fold, Item *item, PgfSymbol sym)
         case PgfConcrLin::tag: {
             auto lin =
                 ref<PgfConcrLin>::untagged(item->lin_obj);
-            ref<PgfPResult> res =
-                *vector_elem(lin->res, item->seq_idx / lin->lincat->fields->len);
+            ref<PgfPResult> res = lin->res[item->seq_idx / lin->lincat->fields.size()];
             auto arg = item->args[symcat->d];
             if (arg.ccat != NULL) {
                 predict(state, fold, item, arg.ccat, res->vars, &symcat->r);
             } else {
-                ref<PgfHypo> hypo = vector_elem(lin->absfun->type->hypos, symcat->d);
+                ref<PgfHypo> hypo = lin->absfun->type->hypos.elem(symcat->d);
                 predict(state, fold, item, ref<PgfText>::from_ptr(&hypo->type->name), res->vars, &symcat->r);
             }
             break;
@@ -667,7 +666,7 @@ void PgfLRTableMaker::symbol(State *state, Fold fold, Item *item, PgfSymbol sym)
             auto lincat =
                 ref<PgfConcrLincat>::untagged(item->lin_obj);
             ref<PgfPResult> res =
-                *vector_elem(lincat->res, lincat->n_lindefs + item->seq_idx - lincat->n_lindefs*lincat->fields->len);
+                lincat->res[lincat->n_lindefs + item->seq_idx - lincat->n_lindefs*lincat->fields.size()];
             auto arg = item->args[symcat->d];
             if (arg.ccat != NULL) {
                 predict(state, fold, item, arg.ccat, res->vars, &symcat->r);
@@ -683,15 +682,15 @@ void PgfLRTableMaker::symbol(State *state, Fold fold, Item *item, PgfSymbol sym)
         auto symks = ref<PgfSymbolKS>::untagged(sym);
 
         size_t sym_idx_2 = item->sym_idx+1;
-        while (sym_idx_2 < item->seq->syms.len) {
-            if (ref<PgfSymbol>::get_tag(item->seq->syms.data[sym_idx_2]) != PgfSymbolKS::tag)
+        while (sym_idx_2 < item->seq->syms.size()) {
+            if (ref<PgfSymbol>::get_tag(item->seq->syms[sym_idx_2]) != PgfSymbolKS::tag)
                 break;
             sym_idx_2++;
         }
 
         if (fold == PROBE) {
             item->ccat->productive = true;
-            if (item->sym_idx > 0 || sym_idx_2 < item->seq->syms.len) {
+            if (item->sym_idx > 0 || sym_idx_2 < item->seq->syms.size()) {
                 item->ccat->register_item(item);
             }
         } else {
@@ -714,9 +713,9 @@ void PgfLRTableMaker::symbol(State *state, Fold fold, Item *item, PgfSymbol sym)
             auto symkp = ref<PgfSymbolKP>::untagged(sym);
             Item *new_item1 = NULL;
             Item *new_item2 = NULL;
-            for (size_t i = 0; i < symkp->alts.len; i++) {
-                ref<PgfSequence> form = symkp->alts.data[i].form;
-                if (form->syms.len == 0) {
+            for (size_t i = 0; i < symkp->alts.size(); i++) {
+                ref<PgfSequence> form = symkp->alts[i].form;
+                if (form->syms.size() == 0) {
                     if (!new_item1) {
                         new_item1 = new (item) Item;
                         new_item1->sym_idx++;
@@ -737,7 +736,7 @@ void PgfLRTableMaker::symbol(State *state, Fold fold, Item *item, PgfSymbol sym)
             }
 
             ref<PgfSequence> form = symkp->default_form;
-            if (form->syms.len == 0) {
+            if (form->syms.size() == 0) {
                 if (!new_item1) {
                     new_item1 = new (item) Item;
                     new_item1->sym_idx++;
@@ -821,7 +820,7 @@ struct PGF_INTERNAL_DECL PgfVariableValue {
 
 template<class T>
 void PgfLRTableMaker::predict(State *state, Fold fold, Item *item, T cat,
-                              ref<Vector<PgfVariableRange>> vars, PgfLParam *r)
+                              vector<PgfVariableRange> vars, PgfLParam *r)
 {
     size_t index   = r->i0;
     size_t n_terms = 0;
@@ -831,9 +830,9 @@ void PgfLRTableMaker::predict(State *state, Fold fold, Item *item, T cat,
     for (size_t i = 0; i < r->n_terms; i++)
     {
         size_t var = r->terms[i].var;
-        for (size_t j = 0; j < vars->len; j++)
+        for (size_t j = 0; j < vars.size(); j++)
         {
-            ref<PgfVariableRange> range = vector_elem(vars, j);
+            ref<PgfVariableRange> range = vars.elem(j);
             if (range->var == var) {
                 if (item->vals[j] == 0) {
                     values[n_terms].range  = range->range;
@@ -985,8 +984,8 @@ void PgfLRTableMaker::predict(ref<PgfAbsFun> absfun, CCat *ccat)
     if (lin != 0) {
         ccat->lincat = lin->lincat;
 
-        size_t n_fields = lin->seqs->len / lin->res->len;
-        for (size_t i = 0; i < lin->res->len; i++) {
+        size_t n_fields = lin->seqs.size() / lin->res.size();
+        for (size_t i = 0; i < lin->res.size(); i++) {
             size_t seq_idx = n_fields * i + ccat->lin_idx;
             Item *item = new(ccat, lin, seq_idx) Item;
             process(NULL, PROBE, item);
@@ -1066,7 +1065,7 @@ void PgfLRTableMaker::internalize_state(State *&state)
     }
 }
 
-ref<PgfLRTable> PgfLRTableMaker::make()
+vector<PgfLRState> PgfLRTableMaker::make()
 {
     while (!todo.empty()) {
         State *state = todo.front(); todo.pop();
@@ -1133,31 +1132,31 @@ ref<PgfLRTable> PgfLRTableMaker::make()
 
     }
 
-    ref<PgfLRTable> lrtable = vector_new<PgfLRState>(states.size());
+    vector<PgfLRState> lrtable = vector<PgfLRState>::alloc(states.size());
     for (auto v : states) {
         State *state = v.second;
 
         size_t index = 0;
-        auto shifts = vector_new<PgfLRShift>(state->ccats1.size()+state->ccats2.size());
+        auto shifts = vector<PgfLRShift>::alloc(state->ccats1.size()+state->ccats2.size());
         for (auto i : state->ccats1) {
-            ref<PgfLRShift> shift = vector_elem(shifts,index++);
+            ref<PgfLRShift> shift = shifts.elem(index++);
             shift->lincat = i.first.first;
             shift->r = i.first.second;
             shift->next_state = i.second->id;
         }
         for (auto i : state->ccats2) {
-            ref<PgfLRShift> shift = vector_elem(shifts,index++);
+            ref<PgfLRShift> shift = shifts.elem(index++);
             shift->lincat = i.first.first->lincat;
             shift->r = i.first.second;
             shift->next_state = i.second->id;
         }
 
-        ref<Vector<PgfLRShiftKS>> tokens = 0;
+        vector<PgfLRShiftKS> tokens = 0;
         if (state->tokens.size() > 0) {
             size_t index = 0;
-            tokens = vector_new<PgfLRShiftKS>(state->tokens.size());
+            tokens = vector<PgfLRShiftKS>::alloc(state->tokens.size());
             for (auto i : state->tokens) {
-                ref<PgfLRShiftKS> shift = vector_elem(tokens,index++);
+                ref<PgfLRShiftKS> shift = tokens.elem(index++);
                 shift->seq = i.first.first;
                 shift->sym_idx = i.first.second;
                 shift->next_state = i.second->id;
@@ -1169,27 +1168,27 @@ ref<PgfLRTable> PgfLRTableMaker::make()
             next_bind_state = state->bind_state->id;
         }
 
-        auto reductions = vector_new<PgfLRReduce>(state->completed.size());
+        auto reductions = vector<PgfLRReduce>::alloc(state->completed.size());
         for (size_t i = 0; i < state->completed.size(); i++) {
             Item *item = state->completed[i];
-            ref<PgfLRReduce> reduction = vector_elem(reductions,i);
+            ref<PgfLRReduce> reduction = reductions.elem(i);
             reduction->lin_obj = item->lin_obj;
             reduction->seq_idx = item->seq_idx;
             reduction->depth = item->stk_size;
 
-            auto args = vector_new<PgfLRReduce::Arg>(item->args.count);
+            auto args = vector<PgfLRReduce::Arg>::alloc(item->args.count);
             for (size_t j = 0; j < item->args.count; j++) {
                 ref<PgfLRReduceArg> arg = 0;
                 if (item->args[j].ccat != NULL) {
                     arg = item->args[j].ccat->persist();
                 }
-                vector_elem(args, j)->arg     = arg;
-                vector_elem(args, j)->stk_idx = item->args[j].stk_idx;
+                args[j].arg     = arg;
+                args[j].stk_idx = item->args[j].stk_idx;
             }
             reduction->args = args;
         }
 
-        ref<PgfLRState> lrstate = vector_elem(lrtable, state->id);
+        ref<PgfLRState> lrstate = lrtable.elem(state->id);
         lrstate->shifts = shifts;
         lrstate->tokens = tokens;
         lrstate->next_bind_state = next_bind_state;
@@ -1218,7 +1217,7 @@ struct PgfParser::Production {
     Choice *args[];
 
     void *operator new(size_t size, ref<PgfConcrLin> lin, size_t index) {
-        size_t n_args = lin->args->len / lin->res->len;
+        size_t n_args = lin->args.size() / lin->res.size();
         Production *prod = (Production *)
             malloc(size+sizeof(Choice*)*n_args);
         prod->lin    = lin;
@@ -1396,9 +1395,9 @@ PgfParser::PgfParser(ref<PgfConcr> concr, ref<PgfConcrLincat> start, PgfText *se
 bool PgfParser::shift(StackNode *parent, ref<PgfConcrLincat> lincat, size_t r, Production *prod,
                       Stage *before, Stage *after)
 {
-    ref<Vector<PgfLRShift>> shifts = vector_elem(concr->lrtable,parent->state_id)->shifts;
-    for (size_t i = 0; i < shifts->len; i++) {
-        ref<PgfLRShift> shift = vector_elem(shifts,i);
+    vector<PgfLRShift> shifts = concr->lrtable[parent->state_id].shifts;
+    for (size_t i = 0; i < shifts.size(); i++) {
+        ref<PgfLRShift> shift = shifts.elem(i);
         if (lincat == shift->lincat && r == shift->r) {
             StackNode *node = NULL;
             for (StackNode *n : after->nodes) {
@@ -1445,11 +1444,11 @@ bool PgfParser::shift(StackNode *parent, ref<PgfConcrLincat> lincat, size_t r, P
 
 void PgfParser::shift(StackNode *parent, Stage *before)
 {
-    ref<Vector<PgfLRShiftKS>> shifts = vector_elem(concr->lrtable,parent->state_id)->tokens;
+    vector<PgfLRShiftKS> shifts = concr->lrtable[parent->state_id].tokens;
     if (shifts != 0) {
         const uint8_t *sent_end = (const uint8_t *) &sentence->text[sentence->size];
-        for (size_t i = 0; i < shifts->len; i++) {
-            ref<PgfLRShiftKS> shift = vector_elem(shifts, i);
+        for (size_t i = 0; i < shifts.size(); i++) {
+            ref<PgfLRShiftKS> shift = shifts.elem(i);
             PgfTextSpot spot = before->end;
             size_t sym_idx = shift->sym_idx;
             int cmp =
@@ -1487,7 +1486,7 @@ void PgfParser::shift(StackNode *parent, Stage *before)
 
 void PgfParser::shift(StackNode *parent, Stage *before, Stage *after)
 {
-    size_t next_bind_state = vector_elem(concr->lrtable,parent->state_id)->next_bind_state;
+    size_t next_bind_state = concr->lrtable[parent->state_id].next_bind_state;
     if (next_bind_state != 0) {
         StackNode *node = NULL;
         for (StackNode *n : after->nodes) {
@@ -1561,12 +1560,12 @@ void PgfParser::reduce(StackNode *parent, ref<PgfConcrLin> lin, ref<PgfLRReduce>
     if (n == 0) {
         ref<PgfConcrLincat> lincat = lin->lincat;
 
-        size_t index = red->seq_idx / lincat->fields->len;
-        size_t r     = red->seq_idx % lincat->fields->len;
+        size_t index = red->seq_idx / lincat->fields.size();
+        size_t r     = red->seq_idx % lincat->fields.size();
         Production *prod = new(lin,index) Production();
 
         for (size_t i = 0; i < prod->n_args; i++) {
-            auto arg = vector_elem(red->args, i);
+            auto arg = red->args.elem(i);
 
             if (arg->stk_idx > 0) {
                 Choice *choice = args[red->depth-arg->stk_idx];
@@ -1619,7 +1618,7 @@ PgfParser::Choice *PgfParser::retrieve_choice(ref<PgfLRReduceArg> arg)
         for (size_t i = 0; i < arg->n_prods; i++) {
             Production *prod = new(arg->prods[i].lin, arg->prods[i].index) Production();
             for (size_t j = 0; j < prod->n_args; j++) {
-                auto child = *vector_elem(arg->prods[i].args, j);
+                auto child = arg->prods[i].args[j];
                 prod->args[j] = retrieve_choice(child);
             }
             choice->prods.push_back(prod);
@@ -1649,9 +1648,9 @@ void PgfParser::complete(StackNode *parent, ref<PgfConcrLincat> lincat, size_t r
 
 void PgfParser::reduce_all(StackNode *node)
 {
-    ref<Vector<PgfLRReduce>> reductions = vector_elem(concr->lrtable,node->state_id)->reductions;
-    for (size_t j = 0; j < reductions->len; j++) {
-        ref<PgfLRReduce> red = vector_elem(reductions,j);
+    vector<PgfLRReduce> reductions = concr->lrtable[node->state_id].reductions;
+    for (size_t j = 0; j < reductions.size(); j++) {
+        ref<PgfLRReduce> red = reductions.elem(j);
         switch (ref<PgfConcrLin>::get_tag(red->lin_obj)) {
         case PgfConcrLin::tag: {
             auto lin =
@@ -1665,7 +1664,7 @@ void PgfParser::reduce_all(StackNode *node)
                 ref<PgfConcrLincat>::untagged(red->lin_obj);
             std::vector<Choice*> args;
             if (before->end.pos == sentence->size) {
-                complete(node, lincat, red->seq_idx % lincat->fields->len, red->depth, args);
+                complete(node, lincat, red->seq_idx % lincat->fields.size(), red->depth, args);
             }
         }
         }
@@ -1723,8 +1722,8 @@ void PgfParser::start_matches(PgfTextSpot *end, PgfExn* err)
 
 void PgfParser::match(ref<PgfConcrLin> lin, size_t seq_index, PgfExn* err)
 {
-    size_t index = seq_index / lin->lincat->fields->len;
-    size_t r     = seq_index % lin->lincat->fields->len;
+    size_t index = seq_index / lin->lincat->fields.size();
+    size_t r     = seq_index % lin->lincat->fields.size();
 
     for (StackNode *parent : before->nodes) {
         Production *prod = new(lin,index) Production();

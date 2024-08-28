@@ -151,23 +151,23 @@ void PgfReader::merge_namespace(ref<V> (PgfReader::*read_value)())
 }
 
 template <class C, class V>
-ref<C> PgfReader::read_vector(Vector<V> C::* field, void (PgfReader::*read_value)(ref<V> val))
+ref<C> PgfReader::read_vector(inline_vector<V> C::* field, void (PgfReader::*read_value)(ref<V> val))
 {
     size_t len = read_len();
-    ref<C> loc = vector_new<C,V>(field,len);
+    ref<C> loc = inline_vector<V>::alloc(field,len);
     for (size_t i = 0; i < len; i++) {
-        (this->*read_value)(vector_elem(ref<Vector<V>>::from_ptr(&(loc->*field)),i));
+        (this->*read_value)(loc->*field.elem(i));
     }
     return loc;
 }
 
 template <class V>
-ref<Vector<V>> PgfReader::read_vector(void (PgfReader::*read_value)(ref<V> val))
+vector<V> PgfReader::read_vector(void (PgfReader::*read_value)(ref<V> val))
 {
     size_t len = read_len();
-    ref<Vector<V>> vec = vector_new<V>(len);
+    vector<V> vec = vector<V>::alloc(len);
     for (size_t i = 0; i < len; i++) {
-        (this->*read_value)(vector_elem(vec,i));
+        (this->*read_value)(vec.elem(i));
     }
     return vec;
 }
@@ -374,13 +374,13 @@ struct PGF_INTERNAL_DECL PgfAbsCatCounts
 };
 
 static
-PgfAbsCatCounts *find_counts(Vector<PgfAbsCatCounts> *cats, PgfText *name)
+PgfAbsCatCounts *find_counts(PgfAbsCatCounts *cats, size_t n_cats, PgfText *name)
 {
     size_t i = 0;
-    size_t j = cats->len-1;
+    size_t j = n_cats-1;
     while (i <= j) {
         size_t k = (i+j)/2;
-        PgfAbsCatCounts *counts = &cats->data[k];
+        PgfAbsCatCounts *counts = &cats[k];
         int cmp = textcmp(name, counts->name);
         if (cmp < 0) {
             j = k-1;
@@ -410,12 +410,13 @@ void PgfReader::read_abstract(ref<PgfAbstr> abstract)
     abstract->cats = cats;
 
     if (probs_callback != NULL) {
-        Vector<PgfAbsCatCounts> *cats = namespace_to_sorted_names<PgfAbsCat,PgfAbsCatCounts>(abstract->cats);
+        PgfAbsCatCounts *cats = namespace_to_sorted_names<PgfAbsCat,PgfAbsCatCounts>(abstract->cats);
+        size_t n_cats = namespace_size(abstract->cats);
 
         std::function<bool(ref<PgfAbsFun>)> collect_counts =
-            [cats](ref<PgfAbsFun> absfun) {
+            [cats,n_cats](ref<PgfAbsFun> absfun) {
                 PgfAbsCatCounts *counts =
-                    find_counts(cats, &absfun->type->name);
+                    find_counts(cats, n_cats, &absfun->type->name);
                 if (counts != NULL) {
                     if (isnan(absfun->prob)) {
                         counts->n_nan_probs++;
@@ -427,16 +428,15 @@ void PgfReader::read_abstract(ref<PgfAbstr> abstract)
             };
         namespace_iter(abstract->funs, collect_counts);
 
-        for (size_t i = 0; i < cats->len; i++) {
-            PgfAbsCatCounts *counts = &cats->data[i];
-            counts->prob = - logf((1-counts->probs_sum) / counts->n_nan_probs);
+        for (size_t i = 0; i < n_cats; i++) {
+            cats[i].prob = - logf((1-cats[i].probs_sum) / cats[i].n_nan_probs);
         }
 
         std::function<bool(ref<PgfAbsFun>)> pad_probs =
-            [cats](ref<PgfAbsFun> absfun) {
+            [cats, n_cats](ref<PgfAbsFun> absfun) {
                 if (isnan(absfun->prob)) {
                     PgfAbsCatCounts *counts =
-                        find_counts(cats, &absfun->type->name);
+                        find_counts(cats, n_cats, &absfun->type->name);
                     if (counts != NULL) {
                         absfun->prob = counts->prob;
                     }
@@ -494,12 +494,12 @@ void PgfReader::read_parg(ref<PgfPArg> parg)
 
 ref<PgfPResult> PgfReader::read_presult()
 {
-    ref<Vector<PgfVariableRange>> vars = 0;
+    vector<PgfVariableRange> vars = 0;
     size_t n_vars = read_len();
     if (n_vars > 0) {
-        vars = vector_new<PgfVariableRange>(n_vars);
+        vars = vector<PgfVariableRange>::alloc(n_vars);
         for (size_t i = 0; i < n_vars; i++) {
-            read_variable_range(vector_elem(vars,i));
+            read_variable_range(vars.elem(i));
         }
     }
 
@@ -569,15 +569,14 @@ PgfSymbol PgfReader::read_symbol()
     }
 	case PgfSymbolKP::tag: {
         size_t n_alts = read_len();
-        ref<PgfSymbolKP> sym_kp = PgfDB::malloc<PgfSymbolKP>(n_alts*sizeof(PgfAlternative));
-        sym_kp->alts.len = n_alts;
+        ref<PgfSymbolKP> sym_kp = inline_vector<PgfAlternative>::alloc(&PgfSymbolKP::alts,n_alts);
 
         for (size_t i = 0; i < n_alts; i++) {
             auto form     = read_seq();
             auto prefixes = read_vector(&PgfReader::read_text2);
 
-            sym_kp->alts.data[i].form     = form;
-            sym_kp->alts.data[i].prefixes = prefixes;
+            sym_kp->alts[i].form     = form;
+            sym_kp->alts[i].prefixes = prefixes;
         }
 
         auto default_form = read_seq();
@@ -621,21 +620,20 @@ ref<PgfSequence> PgfReader::read_seq()
 {
 	size_t n_syms = read_len();
 
-	ref<PgfSequence> seq = PgfDB::malloc<PgfSequence>(n_syms*sizeof(PgfSymbol));
-    seq->syms.len  = n_syms;
+	ref<PgfSequence> seq = inline_vector<PgfSymbol>::alloc(&PgfSequence::syms, n_syms);
 
     for (size_t i = 0; i < n_syms; i++) {
         PgfSymbol sym = read_symbol();
-        *vector_elem(&seq->syms,i) = sym;
+        seq->syms[i] = sym;
     }
 
     return seq;
 }
 
-ref<Vector<ref<PgfSequence>>> PgfReader::read_seq_ids(object container)
+vector<ref<PgfSequence>> PgfReader::read_seq_ids(object container)
 {
     size_t len = read_len();
-    ref<Vector<ref<PgfSequence>>> vec = vector_new<ref<PgfSequence>>(len);
+    vector<ref<PgfSequence>> vec = vector<ref<PgfSequence>>::alloc(len);
     for (size_t i = 0; i < len; i++) {
         size_t seq_id = read_len();
         ref<PgfSequence> seq = phrasetable_relink(concrete->phrasetable,
@@ -644,7 +642,7 @@ ref<Vector<ref<PgfSequence>>> PgfReader::read_seq_ids(object container)
         if (seq == 0) {
             throw pgf_error("Invalid sequence id");
         }
-        *vector_elem(vec,i) = seq;
+        vec[i] = seq;
     }
     return vec;
 }
@@ -695,13 +693,13 @@ ref<PgfConcrLincat> PgfReader::read_lincat()
     return lincat;
 }
 
-ref<Vector<ref<PgfText>>> PgfReader::read_lincat_fields(ref<PgfConcrLincat> lincat)
+vector<ref<PgfText>> PgfReader::read_lincat_fields(ref<PgfConcrLincat> lincat)
 {
     size_t len = read_len();
-    ref<Vector<ref<PgfText>>> fields = vector_new<ref<PgfText>>(len);
+    vector<ref<PgfText>> fields = vector<ref<PgfText>>::alloc(len);
     for (size_t i = 0; i < len; i++) {
         auto name = read_text();
-        *vector_elem(fields,i) = name;
+        fields[i] = name;
     }
     return fields;
 }

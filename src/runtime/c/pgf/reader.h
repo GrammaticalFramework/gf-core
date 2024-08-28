@@ -49,10 +49,10 @@ public:
     void merge_namespace(ref<V> (PgfReader::*read_value)());
 
     template <class C, class V>
-    ref<C> read_vector(Vector<V> C::* field, void (PgfReader::*read_value)(ref<V> val));
+    ref<C> read_vector(inline_vector<V> C::* field, void (PgfReader::*read_value)(ref<V> val));
 
     template<class V>
-    ref<Vector<V>> read_vector(void (PgfReader::*read_value)(ref<V> val));
+    vector<V> read_vector(void (PgfReader::*read_value)(ref<V> val));
 
     PgfLiteral read_literal();
     PgfExpr read_expr();
@@ -71,14 +71,14 @@ public:
     void merge_abstract(ref<PgfAbstr> abstract);
 
     ref<PgfConcrLincat> read_lincat();
-    ref<Vector<ref<PgfText>>> read_lincat_fields(ref<PgfConcrLincat> lincat);
+    vector<ref<PgfText>> read_lincat_fields(ref<PgfConcrLincat> lincat);
     ref<PgfLParam> read_lparam();
     void read_variable_range(ref<PgfVariableRange> var_info);
     void read_parg(ref<PgfPArg> parg);
     ref<PgfPResult> read_presult();
     PgfSymbol read_symbol();
     ref<PgfSequence> read_seq();
-    ref<Vector<ref<PgfSequence>>> read_seq_ids(object container);
+    vector<ref<PgfSequence>> read_seq_ids(object container);
     PgfPhrasetable read_phrasetable(size_t len);
     PgfPhrasetable read_phrasetable();
     ref<PgfConcrLin> read_lin();

@@ -136,11 +136,11 @@ void PgfWriter::write_namespace_helper(Namespace<V> nmsp, void (PgfWriter::*writ
 }
 
 template<class V>
-void PgfWriter::write_vector(ref<Vector<V>> vec, void (PgfWriter::*write_value)(ref<V> val))
+void PgfWriter::write_vector(vector<V> vec, void (PgfWriter::*write_value)(ref<V> val))
 {
-    write_len(vec->len);
-    for (size_t i = 0; i < vec->len; i++) {
-        (this->*write_value)(vector_elem<V>(vec,i));
+    write_len(vec.size());
+    for (size_t i = 0; i < vec.size(); i++) {
+        (this->*write_value)(vec.elem(i));
     }
 }
 
@@ -338,13 +338,13 @@ void PgfWriter::write_symbol(PgfSymbol sym)
 	}
 	case PgfSymbolKP::tag: {
         auto sym_kp = ref<PgfSymbolKP>::untagged(sym);
-        write_len(sym_kp->alts.len);
-        for (size_t i = 0; i < sym_kp->alts.len; i++) {
-			PgfAlternative *alt = vector_elem(&sym_kp->alts, i);
-            write_vector(ref<Vector<PgfSymbol>>::from_ptr(&alt->form->syms), &PgfWriter::write_symbol);
+        write_len(sym_kp->alts.size());
+        for (size_t i = 0; i < sym_kp->alts.size(); i++) {
+			ref<PgfAlternative> alt = sym_kp->alts.elem(i);
+            write_vector(alt->form->syms.as_vector(), &PgfWriter::write_symbol);
             write_vector(alt->prefixes, &PgfWriter::write_text);
         }
-        write_vector(ref<Vector<PgfSymbol>>::from_ptr(&sym_kp->default_form->syms), &PgfWriter::write_symbol);
+        write_vector(sym_kp->default_form->syms.as_vector(), &PgfWriter::write_symbol);
 		break;
 	}
 	case PgfSymbolBIND::tag:
@@ -362,7 +362,7 @@ void PgfWriter::write_symbol(PgfSymbol sym)
 void PgfWriter::write_seq(ref<PgfSequence> seq)
 {
 	seq_ids.add(seq);
-    write_vector(ref<Vector<PgfSymbol>>::from_ptr(&seq->syms), &PgfWriter::write_symbol);
+    write_vector(seq->syms.as_vector(), &PgfWriter::write_symbol);
 }
 
 void PgfWriter::write_phrasetable(PgfPhrasetable table)

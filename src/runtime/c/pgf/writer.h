@@ -23,7 +23,7 @@ public:
     void write_namespace(Namespace<V> nmsp, void (PgfWriter::*write_value)(ref<V>));
 
     template<class V>
-    void write_vector(ref<Vector<V>> vec, void (PgfWriter::*write_value)(ref<V> val));
+    void write_vector(vector<V> vec, void (PgfWriter::*write_value)(ref<V> val));
 
     void write_literal(PgfLiteral literal);
     void write_expr(PgfExpr expr);

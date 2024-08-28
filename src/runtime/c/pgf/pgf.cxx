@@ -545,14 +545,14 @@ PgfTypeHypo *pgf_category_context(PgfDB *db, PgfRevision revision,
         PgfDBMarshaller m;
 
         PgfTypeHypo *hypos = (PgfTypeHypo *)
-            malloc(abscat->context->len * sizeof(PgfTypeHypo));
-        for (size_t i = 0; i < abscat->context->len; i++) {
-            hypos[i].bind_type = abscat->context->data[i].bind_type;
-            hypos[i].cid = textdup(abscat->context->data[i].cid);
-            hypos[i].type = m.match_type(u, abscat->context->data[i].type.as_object());
+            malloc(abscat->context.size() * sizeof(PgfTypeHypo));
+        for (size_t i = 0; i < abscat->context.size(); i++) {
+            hypos[i].bind_type = abscat->context[i].bind_type;
+            hypos[i].cid = textdup(abscat->context[i].cid);
+            hypos[i].type = m.match_type(u, abscat->context[i].type.as_object());
         }
 
-        *n_hypos = abscat->context->len;
+        *n_hypos = abscat->context.size();
         return hypos;
     } PGF_API_END
 
@@ -845,13 +845,13 @@ PgfText *pgf_print_category_internal(object o)
     printer.puts("cat ");
     printer.efun(&abscat->name);
 
-    for (size_t i = 0; i < abscat->context->len; i++) {
+    for (size_t i = 0; i < abscat->context.size(); i++) {
         printer.puts(" ");
 
         PgfTypeHypo hypo;
-        hypo.bind_type = abscat->context->data[i].bind_type;
-        hypo.cid = abscat->context->data[i].cid;
-        hypo.type = abscat->context->data[i].type.as_object();
+        hypo.bind_type = abscat->context[i].bind_type;
+        hypo.cid = abscat->context[i].cid;
+        hypo.type = abscat->context[i].type.as_object();
         printer.hypo(&hypo,4);
     }
 
@@ -967,7 +967,7 @@ public:
     virtual void match(ref<PgfConcrLin> lin, size_t seq_index, PgfExn* err)
     {
         ref<PgfText> field =
-            *vector_elem(lin->lincat->fields, seq_index % lin->lincat->fields->len);
+            lin->lincat->fields[seq_index % lin->lincat->fields.size()];
         callback->fn(callback, &lin->absfun->name, field, lin->lincat->abscat->prob+lin->absfun->prob, err);
     }
 
@@ -1015,7 +1015,7 @@ public:
     virtual void match(ref<PgfConcrLin> lin, size_t seq_index, PgfExn* err)
     {
         ref<PgfText> field =
-            *vector_elem(lin->lincat->fields, seq_index % lin->lincat->fields->len);
+            lin->lincat->fields[seq_index % lin->lincat->fields.size()];
         callback->morpho.fn(&callback->morpho, &lin->absfun->name, field, lin->lincat->abscat->prob+lin->absfun->prob, err);
     }
 
@@ -1072,23 +1072,23 @@ PGF_API
 void pgf_get_lincat_counts_internal(object o, size_t *counts)
 {
     ref<PgfConcrLincat> lincat = o;
-    counts[0] = lincat->fields->len;
+    counts[0] = lincat->fields.size();
     counts[1] = lincat->n_lindefs;
-    counts[2] = lincat->res->len - lincat->n_lindefs;
+    counts[2] = lincat->res.size() - lincat->n_lindefs;
 }
 
 PGF_API
 PgfText *pgf_get_lincat_field_internal(object o, size_t i)
 {
     ref<PgfConcrLincat> lincat = o;
-    return &**vector_elem(lincat->fields, i);
+    return &*lincat->fields[i];
 }
 
 PGF_API
 size_t pgf_get_lin_get_prod_count(object o)
 {
     ref<PgfConcrLin> lin = o;
-    return lin->res->len;
+    return lin->res.size();
 }
 
 PGF_API
@@ -1099,7 +1099,7 @@ PgfText *pgf_print_lindef_internal(PgfPhrasetableIds *seq_ids, object o, size_t 
     PgfInternalMarshaller m;
     PgfPrinter printer(NULL,0,&m);
 
-    ref<PgfPResult> res = *vector_elem(lincat->res, i);
+    ref<PgfPResult> res = lincat->res[i];
     if (res->vars != 0) {
         printer.lvar_ranges(res->vars, NULL);
         printer.puts(" . ");
@@ -1112,12 +1112,12 @@ PgfText *pgf_print_lindef_internal(PgfPhrasetableIds *seq_ids, object o, size_t 
     printer.efun(&lincat->name);
     printer.puts("[String(0)] = [");
 
-    size_t n_seqs = lincat->fields->len;
+    size_t n_seqs = lincat->fields.size();
     for (size_t j = 0; j < n_seqs; j++) {
 		if (j > 0)
 			printer.puts(",");
 
-		ref<PgfSequence> seq = *vector_elem(lincat->seqs, i*n_seqs + j);
+		ref<PgfSequence> seq = lincat->seqs[i*n_seqs + j];
 		printer.seq_id(seq_ids, seq);
 	}
 
@@ -1134,7 +1134,7 @@ PgfText *pgf_print_linref_internal(PgfPhrasetableIds *seq_ids, object o, size_t 
     PgfInternalMarshaller m;
     PgfPrinter printer(NULL,0,&m);
 
-    ref<PgfPResult> res = *vector_elem(lincat->res, lincat->n_lindefs+i);
+    ref<PgfPResult> res = lincat->res[lincat->n_lindefs+i];
     if (res->vars != 0) {
         printer.lvar_ranges(res->vars, NULL);
         printer.puts(" . ");
@@ -1145,11 +1145,11 @@ PgfText *pgf_print_linref_internal(PgfPhrasetableIds *seq_ids, object o, size_t 
     printer.puts("[");
     printer.efun(&lincat->name);
     printer.puts("(");
-    printer.lparam(vector_elem(lincat->args, lincat->n_lindefs+i)->param);
+    printer.lparam(lincat->args[lincat->n_lindefs+i].param);
     printer.puts(")] = [");
 
-	size_t n_seqs = lincat->fields->len;
-	ref<PgfSequence> seq = *vector_elem(lincat->seqs, lincat->n_lindefs*n_seqs+i);
+	size_t n_seqs = lincat->fields.size();
+	ref<PgfSequence> seq = lincat->seqs[lincat->n_lindefs*n_seqs+i];
 	printer.seq_id(seq_ids, seq);
 
 	printer.puts("]");
@@ -1165,7 +1165,7 @@ PgfText *pgf_print_lin_internal(PgfPhrasetableIds *seq_ids, object o, size_t i)
     PgfInternalMarshaller m;
     PgfPrinter printer(NULL,0,&m);
 
-    ref<PgfPResult> res = *vector_elem(lin->res, i);
+    ref<PgfPResult> res = lin->res[i];
     ref<PgfDTyp> ty = lin->absfun->type;
 
     if (res->vars != 0) {
@@ -1180,21 +1180,21 @@ PgfText *pgf_print_lin_internal(PgfPhrasetableIds *seq_ids, object o, size_t i)
 
     printer.efun(&lin->name);
     printer.puts("[");
-    size_t n_args = lin->args->len / lin->res->len;
+    size_t n_args = lin->args.size() / lin->res.size();
     for (size_t j = 0; j < n_args; j++) {
         if (j > 0)
             printer.puts(",");
-        printer.parg(vector_elem(ty->hypos, j)->type,
-                     vector_elem(lin->args, i*n_args + j));
+        printer.parg(ty->hypos.elem(j)->type,
+                     lin->args.elem(i*n_args + j));
     }
     printer.puts("] = [");
 
-    size_t n_seqs = lin->seqs->len / lin->res->len;
+    size_t n_seqs = lin->seqs.size() / lin->res.size();
     for (size_t j = 0; j < n_seqs; j++) {
 		if (j > 0)
 			printer.puts(",");
 
-		ref<PgfSequence> seq = *vector_elem(lin->seqs, i*n_seqs + j);
+		ref<PgfSequence> seq = lin->seqs[i*n_seqs + j];
 		printer.seq_id(seq_ids, seq);
 	}
 
@@ -1223,11 +1223,11 @@ PgfText *pgf_sequence_get_text_internal(object o)
     ref<PgfSequence> seq = o;
 
     PgfPrinter printer(NULL,0,NULL);
-    for (size_t i = 0; i < seq->syms.len; i++) {
+    for (size_t i = 0; i < seq->syms.size(); i++) {
         if (i > 0)
             printer.puts(" ");
 
-        PgfSymbol sym = *vector_elem(&seq->syms, i);
+        PgfSymbol sym = seq->syms[i];
         switch (ref<PgfSymbol>::get_tag(sym)) {
         case PgfSymbolKS::tag: {
             auto sym_ks = ref<PgfSymbolKS>::untagged(sym);
@@ -1515,8 +1515,8 @@ void drop_lin(ref<PgfConcr> concr, PgfText *name)
         namespace_delete(concr->lins, name, &lin);
     if (lin != 0) {
         object container = lin.tagged();
-        for (size_t i = 0; i < lin->seqs->len; i++) {
-            ref<PgfSequence> seq = *vector_elem(lin->seqs, i);
+        for (size_t i = 0; i < lin->seqs.size(); i++) {
+            ref<PgfSequence> seq = lin->seqs[i];
             PgfPhrasetable phrasetable =
                 phrasetable_delete(concr->phrasetable,container,i,seq);
             concr->phrasetable = phrasetable;
@@ -1572,14 +1572,14 @@ void pgf_create_category(PgfDB *db, PgfRevision revision,
 
         ref<PgfPGF> pgf = db->revision2pgf(revision);
         ref<PgfAbsCat> abscat = PgfDB::malloc<PgfAbsCat>(name->size+1);
-        abscat->context = vector_new<PgfHypo>(n_hypos);
+        abscat->context = vector<PgfHypo>::alloc(n_hypos);
         abscat->prob    = prob;
         memcpy(&abscat->name, name, sizeof(PgfText)+name->size+1);
 
         for (size_t i = 0; i < n_hypos; i++) {
-            vector_elem(abscat->context, i)->bind_type = context[i].bind_type;
-            vector_elem(abscat->context, i)->cid = textdup_db(context[i].cid);
-            vector_elem(abscat->context, i)->type = m->match_type(&u, context[i].type);
+            abscat->context[i].bind_type = context[i].bind_type;
+            abscat->context[i].cid = textdup_db(context[i].cid);
+            abscat->context[i].type = m->match_type(&u, context[i].type);
         }
 
         Namespace<PgfAbsCat> cats =
@@ -1741,9 +1741,9 @@ class PGF_INTERNAL PgfLinBuilder : public PgfLinBuilderIface
 {
 	ref<PgfConcr> concr;
 
-    ref<Vector<PgfPArg>> args;
-    ref<Vector<ref<PgfPResult>>> res;
-    ref<Vector<ref<PgfSequence>>> seqs;
+    vector<PgfPArg> args;
+    vector<ref<PgfPResult>> res;
+    vector<ref<PgfSequence>> seqs;
 
     object container; // what are we building?
     ref<PgfConcrLincat> container_lincat;
@@ -1791,9 +1791,9 @@ public:
                               PgfBuildLinIface *build, PgfExn *err)
     {
         size_t n_prods = n_lindefs+n_linrefs;
-        this->args = vector_new<PgfPArg>(n_prods);
-        this->res  = vector_new<ref<PgfPResult>>(n_prods);
-        this->seqs = vector_new<ref<PgfSequence>>(n_lindefs*n_fields+n_linrefs);
+        this->args = vector<PgfPArg>::alloc(n_prods);
+        this->res  = vector<ref<PgfPResult>>::alloc(n_prods);
+        this->seqs = vector<ref<PgfSequence>>::alloc(n_lindefs*n_fields+n_linrefs);
         this->n_lindefs = n_lindefs;
         this->n_linrefs = n_linrefs;
 
@@ -1805,10 +1805,10 @@ public:
         lincat->seqs = seqs;
         lincat->n_lindefs = n_lindefs;
 
-        ref<Vector<ref<PgfText>>> db_fields = vector_new<ref<PgfText>>(n_fields);
+        vector<ref<PgfText>> db_fields = vector<ref<PgfText>>::alloc(n_fields);
         for (size_t i = 0; i < n_fields; i++) {
             ref<PgfText> name = textdup_db(fields[i]);
-            *vector_elem(db_fields, i) = name;
+            db_fields[i] = name;
         }
         lincat->fields = db_fields;
 
@@ -1816,7 +1816,7 @@ public:
         this->container_lincat = 0;
 
         build->build(this, err);
-        if (err->type == PGF_EXN_NONE && res_index != res->len) {
+        if (err->type == PGF_EXN_NONE && res_index != res.size()) {
             err->type = PGF_EXN_PGF_ERROR;
             err->msg  = builder_error_msg;
         }
@@ -1837,9 +1837,9 @@ public:
             throw pgf_error("Missing linearization category");
         }
 
-        this->args = vector_new<PgfPArg>(n_prods*absfun->type->hypos->len);
-        this->res  = vector_new<ref<PgfPResult>>(n_prods);
-        this->seqs = vector_new<ref<PgfSequence>>(n_prods*lincat->fields->len);
+        this->args = vector<PgfPArg>::alloc(n_prods*absfun->type->hypos.size());
+        this->res  = vector<ref<PgfPResult>>::alloc(n_prods);
+        this->seqs = vector<ref<PgfSequence>>::alloc(n_prods*lincat->fields.size());
         this->n_lindefs = n_prods;
 
         ref<PgfConcrLin> lin = PgfDB::malloc<PgfConcrLin>(absfun->name.size+1);
@@ -1854,7 +1854,7 @@ public:
         this->container_lincat = lincat;
 
         build->build(this, err);
-        if (err->type == PGF_EXN_NONE && res_index != res->len) {
+        if (err->type == PGF_EXN_NONE && res_index != res.size()) {
             err->type = PGF_EXN_PGF_ERROR;
             err->msg  = builder_error_msg;
         }
@@ -1872,10 +1872,10 @@ public:
             return;
 
         PGF_API_BEGIN {
-            if (res_index >= res->len)
+            if (res_index >= res.size())
                 throw pgf_error(builder_error_msg);
             var_index = 0;
-            *vector_elem(res, res_index) = 0;
+            res[res_index] = 0;
         } PGF_API_END
     }
 
@@ -1885,7 +1885,7 @@ public:
             return;
 
         PGF_API_BEGIN {
-            if (arg_index >= args->len)
+            if (arg_index >= args.size())
                 throw pgf_error(builder_error_msg);
 
             ref<PgfLParam> param = PgfDB::malloc<PgfLParam>(n_terms*2*sizeof(size_t));
@@ -1897,7 +1897,7 @@ public:
                 param->terms[i].var    = terms[2*i+1];
             }
 
-            ref<PgfPArg> parg = vector_elem(args, arg_index);
+            ref<PgfPArg> parg = args.elem(arg_index);
             parg->param = param;
 
             arg_index++;
@@ -1910,11 +1910,11 @@ public:
             return;
 
         PGF_API_BEGIN {
-            if (res_index >= res->len)
+            if (res_index >= res.size())
                 throw pgf_error(builder_error_msg);
 
-            ref<Vector<PgfVariableRange>> vars =
-                (n_vars > 0) ? vector_new<PgfVariableRange>(n_vars)
+            vector<PgfVariableRange> vars =
+                (n_vars > 0) ? vector<PgfVariableRange>::alloc(n_vars)
                              : 0;
 
             ref<PgfPResult> res_elem = PgfDB::malloc<PgfPResult>(n_terms*2*sizeof(size_t));
@@ -1927,7 +1927,7 @@ public:
                 res_elem->param.terms[i].var    = terms[2*i+1];
             }
 
-            *vector_elem(res, res_index) = res_elem;
+            res[res_index] = res_elem;
         } PGF_API_END
     }
 
@@ -1937,17 +1937,16 @@ public:
             return;
 
         PGF_API_BEGIN {
-            if (res_index >= res->len)
+            if (res_index >= res.size())
                 throw pgf_error(builder_error_msg);
 
-            ref<PgfPResult> res_elem =
-                *vector_elem(res, res_index);
+            ref<PgfPResult> res_elem = res[res_index];
 
-            if (res_elem->vars == 0 || var_index >= res_elem->vars->len)
+            if (res_elem->vars == 0 || var_index >= res_elem->vars.size())
                 throw pgf_error(builder_error_msg);
 
             ref<PgfVariableRange> var_range =
-                vector_elem(res_elem->vars, var_index);
+                res_elem->vars.elem(var_index);
             var_range->var   = var;
             var_range->range = range;
 
@@ -1961,13 +1960,12 @@ public:
             return;
 
         PGF_API_BEGIN {
-            if (seq_index >= seqs->len)
+            if (seq_index >= seqs.size())
                 throw pgf_error(builder_error_msg);
 
-			seq = PgfDB::malloc<PgfSequence>(n_syms*sizeof(PgfSymbol));
-            seq->syms.len  = n_syms;
+			seq = inline_vector<PgfSymbol>::alloc(&PgfSequence::syms, n_syms);
 
-            *vector_elem(seqs, seq_index) = seq;
+            seqs[seq_index] = seq;
             sym_index = 0;
         } PGF_API_END
     }
@@ -1978,7 +1976,7 @@ public:
             return;
 
         PGF_API_BEGIN {
-            if (seq == 0 || sym_index == (size_t) -1 || sym_index >= seq->syms.len)
+            if (seq == 0 || sym_index == (size_t) -1 || sym_index >= seq->syms.size())
                 throw pgf_error(builder_error_msg);
 
             ref<PgfSymbolCat> symcat = PgfDB::malloc<PgfSymbolCat>(n_terms*2*sizeof(size_t));
@@ -1991,7 +1989,7 @@ public:
                 symcat->r.terms[i].var    = terms[2*i+1];
             }
 
-            *vector_elem(&seq->syms, sym_index) = symcat.tagged();
+            seq->syms[sym_index] = symcat.tagged();
             sym_index++;
         } PGF_API_END
     }
@@ -2002,7 +2000,7 @@ public:
             return;
 
         PGF_API_BEGIN {
-            if (seq == 0 || sym_index == (size_t) -1 || sym_index >= seq->syms.len)
+            if (seq == 0 || sym_index == (size_t) -1 || sym_index >= seq->syms.size())
                 throw pgf_error(builder_error_msg);
 
             ref<PgfSymbolLit> symlit = PgfDB::malloc<PgfSymbolLit>(n_terms*2*sizeof(size_t));
@@ -2015,7 +2013,7 @@ public:
                 symlit->r.terms[i].var    = terms[2*i+1];
             }
 
-            *vector_elem(&seq->syms, sym_index) = symlit.tagged();
+            seq->syms[sym_index] = symlit.tagged();
             sym_index++;
         } PGF_API_END
     }
@@ -2026,14 +2024,14 @@ public:
             return;
 
         PGF_API_BEGIN {
-            if (seq == 0 || sym_index == (size_t) -1 || sym_index >= seq->syms.len)
+            if (seq == 0 || sym_index == (size_t) -1 || sym_index >= seq->syms.size())
                 throw pgf_error(builder_error_msg);
 
             ref<PgfSymbolVar> symvar = PgfDB::malloc<PgfSymbolVar>();
             symvar->d = d;
             symvar->r = r;
 
-            *vector_elem(&seq->syms, sym_index) = symvar.tagged();
+            seq->syms[sym_index] = symvar.tagged();
             sym_index++;
         } PGF_API_END
     }
@@ -2044,13 +2042,13 @@ public:
             return;
 
         PGF_API_BEGIN {
-            if (seq == 0 || sym_index == (size_t) -1 || sym_index >= seq->syms.len)
+            if (seq == 0 || sym_index == (size_t) -1 || sym_index >= seq->syms.size())
                 throw pgf_error(builder_error_msg);
 
             ref<PgfSymbolKS> symtok = PgfDB::malloc<PgfSymbolKS>(token->size+1);
             memcpy(&symtok->token, token, sizeof(PgfText)+token->size+1);
 
-            *vector_elem(&seq->syms, sym_index) = symtok.tagged();
+            seq->syms[sym_index] = symtok.tagged();
             sym_index++;
         } PGF_API_END
     }
@@ -2061,17 +2059,15 @@ public:
             return;
 
         PGF_API_BEGIN {
-            if (seq == 0 || sym_index == (size_t) -1 || sym_index >= seq->syms.len || pre_sym_index != (size_t) -1)
+            if (seq == 0 || sym_index == (size_t) -1 || sym_index >= seq->syms.size() || pre_sym_index != (size_t) -1)
                 throw pgf_error(builder_error_msg);
 
-			ref<PgfSequence> def = PgfDB::malloc<PgfSequence>(n_syms*sizeof(PgfSymbol));
-            def->syms.len  = n_syms;
+			ref<PgfSequence> def = inline_vector<PgfSymbol>::alloc(&PgfSequence::syms,n_syms);
 
-            ref<PgfSymbolKP> symkp = PgfDB::malloc<PgfSymbolKP>(n_alts*sizeof(PgfAlternative));
+            ref<PgfSymbolKP> symkp = inline_vector<PgfAlternative>::alloc(&PgfSymbolKP::alts,n_alts);
             symkp->default_form = def;
-            symkp->alts.len = n_alts;
 
-            *vector_elem(&seq->syms, sym_index) = symkp.tagged();
+            seq->syms[sym_index] = symkp.tagged();
 
             pre_sym_index = sym_index;
             seq = def;
@@ -2089,18 +2085,17 @@ public:
             if (pre_sym_index == (size_t) -1)
                 throw pgf_error(builder_error_msg);
 
-			ref<PgfSequence> form = PgfDB::malloc<PgfSequence>(n_syms*sizeof(PgfSymbol));
-            form->syms.len  = n_syms;
+			ref<PgfSequence> form = inline_vector<PgfSymbol>::alloc(&PgfSequence::syms, n_syms);
 
-            ref<Vector<ref<PgfText>>> prefixes = vector_new<ref<PgfText>>(n_prefs);
+            vector<ref<PgfText>> prefixes = vector<ref<PgfText>>::alloc(n_prefs);
             for (size_t i = 0; i < n_prefs; i++) {
                 ref<PgfText> pref = textdup_db(prefs[i]);
-                *vector_elem(prefixes, i) = pref;
+                prefixes[i] = pref;
             }
 
-            seq = *vector_elem(seqs, seq_index);
-            ref<PgfSymbolKP> symkp = ref<PgfSymbolKP>::untagged(*vector_elem(&seq->syms, pre_sym_index));
-            ref<PgfAlternative> alt = ref<PgfAlternative>::from_ptr(&symkp->alts.data[alt_index]);
+            seq = seqs[seq_index];
+            ref<PgfSymbolKP> symkp = ref<PgfSymbolKP>::untagged(seq->syms[pre_sym_index]);
+            ref<PgfAlternative> alt = symkp->alts.elem(alt_index);
 
             alt->form     = form;
             alt->prefixes = prefixes;
@@ -2119,9 +2114,9 @@ public:
             if (pre_sym_index == (size_t) -1)
                 throw pgf_error(builder_error_msg);
 
-            seq = *vector_elem(seqs, seq_index);
-            ref<PgfSymbolKP> symkp = ref<PgfSymbolKP>::untagged(*vector_elem(&seq->syms, pre_sym_index));            
-            if (alt_index >= symkp->alts.len)
+            seq = seqs[seq_index];
+            ref<PgfSymbolKP> symkp = ref<PgfSymbolKP>::untagged(seq->syms[pre_sym_index]);            
+            if (alt_index >= symkp->alts.size())
                 throw pgf_error(builder_error_msg);
 
             alt_index++;
@@ -2137,7 +2132,7 @@ public:
             if (pre_sym_index == (size_t) -1)
                 throw pgf_error(builder_error_msg);
 
-            seq = *vector_elem(seqs, seq_index);
+            seq = seqs[seq_index];
             sym_index = pre_sym_index+1;
             alt_index = 0;
             pre_sym_index = (size_t) -1;
@@ -2150,10 +2145,10 @@ public:
             return;
 
         PGF_API_BEGIN {
-            if (seq == 0 || sym_index == (size_t) -1 || sym_index >= seq->syms.len)
+            if (seq == 0 || sym_index == (size_t) -1 || sym_index >= seq->syms.size())
                 throw pgf_error(builder_error_msg);
 
-            *vector_elem(&seq->syms, sym_index) = ref<PgfSymbolBIND>(0).tagged();
+            seq->syms[sym_index] = ref<PgfSymbolBIND>(0).tagged();
             sym_index++;
         } PGF_API_END
     }
@@ -2164,10 +2159,10 @@ public:
             return;
 
         PGF_API_BEGIN {
-            if (seq == 0 || sym_index == (size_t) -1 || sym_index >= seq->syms.len)
+            if (seq == 0 || sym_index == (size_t) -1 || sym_index >= seq->syms.size())
                 throw pgf_error(builder_error_msg);
 
-            *vector_elem(&seq->syms, sym_index) = ref<PgfSymbolSOFTBIND>(0).tagged();
+            seq->syms[sym_index] = ref<PgfSymbolSOFTBIND>(0).tagged();
             sym_index++;
         } PGF_API_END
     }
@@ -2178,10 +2173,10 @@ public:
             return;
 
         PGF_API_BEGIN {
-            if (seq == 0 || sym_index == (size_t) -1 || sym_index >= seq->syms.len)
+            if (seq == 0 || sym_index == (size_t) -1 || sym_index >= seq->syms.size())
                 throw pgf_error(builder_error_msg);
 
-            *vector_elem(&seq->syms, sym_index) = ref<PgfSymbolNE>(0).tagged();
+            seq->syms[sym_index] = ref<PgfSymbolNE>(0).tagged();
             sym_index++;
         } PGF_API_END
     }
@@ -2192,10 +2187,10 @@ public:
             return;
 
         PGF_API_BEGIN {
-            if (seq == 0 || sym_index == (size_t) -1 || sym_index >= seq->syms.len)
+            if (seq == 0 || sym_index == (size_t) -1 || sym_index >= seq->syms.size())
                 throw pgf_error(builder_error_msg);
 
-            *vector_elem(&seq->syms, sym_index) = ref<PgfSymbolSOFTSPACE>(0).tagged();
+            seq->syms[sym_index] = ref<PgfSymbolSOFTSPACE>(0).tagged();
             sym_index++;
         } PGF_API_END
     }
@@ -2206,10 +2201,10 @@ public:
             return;
 
         PGF_API_BEGIN {
-            if (seq == 0 || sym_index == (size_t) -1 || sym_index >= seq->syms.len)
+            if (seq == 0 || sym_index == (size_t) -1 || sym_index >= seq->syms.size())
                 throw pgf_error(builder_error_msg);
 
-            *vector_elem(&seq->syms, sym_index) = ref<PgfSymbolCAPIT>(0).tagged();
+            seq->syms[sym_index] = ref<PgfSymbolCAPIT>(0).tagged();
             sym_index++;
         } PGF_API_END
     }
@@ -2220,10 +2215,10 @@ public:
             return;
 
         PGF_API_BEGIN {
-            if (seq == 0 || sym_index == (size_t) -1 || sym_index >= seq->syms.len)
+            if (seq == 0 || sym_index == (size_t) -1 || sym_index >= seq->syms.size())
                 throw pgf_error(builder_error_msg);
 
-            *vector_elem(&seq->syms, sym_index) = ref<PgfSymbolALLCAPIT>(0).tagged();
+            seq->syms[sym_index] = ref<PgfSymbolALLCAPIT>(0).tagged();
             sym_index++;
         } PGF_API_END
     }
@@ -2236,7 +2231,7 @@ public:
         ref<PgfPhrasetableEntry> entry = 0;
 
         PGF_API_BEGIN {
-            if (seq == 0 || sym_index != seq->syms.len)
+            if (seq == 0 || sym_index != seq->syms.size())
                 throw pgf_error(builder_error_msg);
 
             PgfPhrasetable phrasetable =
@@ -2244,7 +2239,7 @@ public:
                                         seq, container_lincat, container, seq_index,
                                         &entry);
             concr->phrasetable = phrasetable;
-            *vector_elem(seqs, seq_index) = entry->seq;
+            seqs[seq_index] = entry->seq;
 
             sym_index = (size_t) -1;
             seq = 0;
@@ -2260,13 +2255,13 @@ public:
             return;
 
         PGF_API_BEGIN {
-            if (seq_index >= seqs->len)
+            if (seq_index >= seqs.size())
                 throw pgf_error(builder_error_msg);
 
             ref<PgfPhrasetableEntry> entry = seq_id;
             phrasetable_add_backref(entry,PgfDB::get_txn_id(),container,seq_index);
 
-            *vector_elem(seqs, seq_index) = entry->seq;
+            seqs[seq_index] = entry->seq;
 
             seq_index++;
         } PGF_API_END
@@ -2278,14 +2273,14 @@ public:
             return;
 
         PGF_API_BEGIN {
-            size_t n_args = (args->len/res->len);
+            size_t n_args = (args.size()/res.size());
             if (arg_index != (res_index+1)*n_args)
                 throw pgf_error(builder_error_msg);
 
-            if (*vector_elem(res, res_index) == 0)
+            if (res[res_index] == 0)
                 throw pgf_error(builder_error_msg);
 
-            size_t n_seqs = ((seqs->len-n_linrefs)/(res->len-n_linrefs));
+            size_t n_seqs = ((seqs.size()-n_linrefs)/(res.size()-n_linrefs));
             size_t exp_index =
                      (res_index < n_lindefs) ? (res_index+1)*n_seqs
                                              : n_seqs * n_lindefs + (res_index-n_lindefs+1) ;
@@ -2359,8 +2354,8 @@ void pgf_drop_lincat(PgfDB *db,
             // Remove the sequences comprizing the lindef and linref
             object container = lincat.tagged();
             PgfPhrasetable phrasetable = concr->phrasetable;
-            for (size_t i = 0; i < lincat->seqs->len; i++) {
-                ref<PgfSequence> seq = *vector_elem(lincat->seqs, i);
+            for (size_t i = 0; i < lincat->seqs.size(); i++) {
+                ref<PgfSequence> seq = lincat->seqs[i];
                 phrasetable =
                     phrasetable_delete(phrasetable,container,i,seq);
             }
@@ -2437,8 +2432,8 @@ void pgf_alter_lin(PgfDB *db,
             if (old_lin != 0) {
                 object container = old_lin.tagged();
                 PgfPhrasetable phrasetable = concr->phrasetable;
-                for (size_t i = 0; i < old_lin->seqs->len; i++) {
-                    ref<PgfSequence> seq = *vector_elem(old_lin->seqs, i);
+                for (size_t i = 0; i < old_lin->seqs.size(); i++) {
+                    ref<PgfSequence> seq = old_lin->seqs[i];
                     phrasetable =
                         phrasetable_delete(phrasetable,container,i,seq);
                 }
@@ -2499,12 +2494,12 @@ PgfText **pgf_category_fields(PgfDB *db, PgfConcrRevision revision,
 			*p_n_fields = 0;
 			return NULL;
 		} else {
-			size_t n_fields = lincat->fields->len;
+			size_t n_fields = lincat->fields.size();
 			PgfText **fields = (PgfText **) malloc(sizeof(PgfText*)*n_fields);
 			if (fields == 0)
 				throw pgf_systemerror(ENOMEM);
 			for (size_t i = 0; i < n_fields; i++) {
-				fields[i] = textdup(*vector_elem(lincat->fields, i));
+				fields[i] = textdup(lincat->fields[i]);
 			}
 			*p_n_fields = n_fields;
 			return fields;
@@ -2588,16 +2583,16 @@ PgfText **pgf_tabular_linearize(PgfDB *db, PgfConcrRevision revision,
             ref<PgfConcrLincat> lincat = linearizer.get_lincat();
             if (lincat != 0) {
                 PgfText **res = (PgfText **)
-                    malloc((lincat->fields->len+1)*2*sizeof(PgfText*));
+                    malloc((lincat->fields.size()+1)*2*sizeof(PgfText*));
                 if (res == NULL)
                     throw pgf_systemerror(ENOMEM);
                 size_t pos = 0;
-                for (size_t i = 0; i < lincat->fields->len; i++) {
+                for (size_t i = 0; i < lincat->fields.size(); i++) {
                     linearizer.linearize(&out, i);
 
                     PgfText *text = out.get_text();
                     if (text != NULL) {
-                        res[pos++] = textdup(&**vector_elem(lincat->fields,i));
+                        res[pos++] = textdup(&*lincat->fields[i]);
                         res[pos++] = text;
                     }
                 }
@@ -2630,13 +2625,13 @@ PgfText **pgf_tabular_linearize_all(PgfDB *db, PgfConcrRevision revision,
         while (linearizer.resolve()) {
             ref<PgfConcrLincat> lincat = linearizer.get_lincat();
             res = (PgfText **)
-                realloc(res, (pos+(lincat->fields->len+1)*2)*sizeof(PgfText*));
-            for (size_t i = 0; i < lincat->fields->len; i++) {
+                realloc(res, (pos+(lincat->fields.size()+1)*2)*sizeof(PgfText*));
+            for (size_t i = 0; i < lincat->fields.size(); i++) {
                 linearizer.linearize(&out, i);
 
                 PgfText *text = out.get_text();
                 if (text != NULL) {
-                    res[pos++] = textdup(&**vector_elem(lincat->fields, i));
+                    res[pos++] = textdup(&*lincat->fields[i]);
                     res[pos++] = text;
                 }
             }
@@ -3116,12 +3111,12 @@ pgf_graphviz_lr_automaton(PgfDB *db, PgfConcrRevision revision,
         PgfPrinter printer(NULL,0,NULL);
         
         printer.puts("digraph {\n");
-        for (size_t i = 0; i < concr->lrtable->len; i++) {
-            ref<PgfLRState> state = vector_elem(concr->lrtable, i);
+        for (size_t i = 0; i < concr->lrtable.size(); i++) {
+            ref<PgfLRState> state = concr->lrtable.elem(i);
 
             printer.nprintf(16, "  s%zu [label=\"", i);
-            for (size_t j = 0; j < state->reductions->len; j++) {
-                ref<PgfLRReduce> reduce = vector_elem(state->reductions, j);
+            for (size_t j = 0; j < state->reductions.size(); j++) {
+                ref<PgfLRReduce> reduce = state->reductions.elem(j);
                 
                 switch (ref<PgfConcrLin>::get_tag(reduce->lin_obj)) {
                 case PgfConcrLin::tag: {
@@ -3140,8 +3135,8 @@ pgf_graphviz_lr_automaton(PgfDB *db, PgfConcrRevision revision,
                 }
 
                 printer.puts("[");
-                for (size_t i = 0; i < reduce->args->len; i++) {
-                    ref<PgfLRReduce::Arg> arg = vector_elem(reduce->args,i);
+                for (size_t i = 0; i < reduce->args.size(); i++) {
+                    ref<PgfLRReduce::Arg> arg = reduce->args.elem(i);
                     if (i > 0)
                         printer.puts(",");
                     if (arg->arg == 0 && arg->stk_idx == 0) {
@@ -3159,23 +3154,23 @@ pgf_graphviz_lr_automaton(PgfDB *db, PgfConcrRevision revision,
             if (i == 0) printer.puts(",penwidth=3");
             printer.nprintf(16, "]\n");
 
-            for (size_t j = 0; j < state->shifts->len; j++) {
-                ref<PgfLRShift> shift = vector_elem(state->shifts, j);
+            for (size_t j = 0; j < state->shifts.size(); j++) {
+                ref<PgfLRShift> shift = state->shifts.elem(j);
                 printer.nprintf(16, "  s%zu -> s%zu [label=\"", i, shift->next_state);
                 printer.efun(&shift->lincat->name);
                 printer.nprintf(16, ".%zu\"];\n", shift->r);
             }
 
-            for (size_t j = 0; j < state->tokens->len; j++) {
-                ref<PgfLRShiftKS> shift = vector_elem(state->tokens, j);
+            for (size_t j = 0; j < state->tokens.size(); j++) {
+                ref<PgfLRShiftKS> shift = state->tokens.elem(j);
                 printer.nprintf(16, "  s%zu -> s%zu [label=\"", i, shift->next_state);
                 size_t sym_idx = shift->sym_idx;
-                while (sym_idx < shift->seq->syms.len) {
-                    if (ref<PgfSymbol>::get_tag(shift->seq->syms.data[sym_idx]) != PgfSymbolKS::tag)
+                while (sym_idx < shift->seq->syms.size()) {
+                    if (ref<PgfSymbol>::get_tag(shift->seq->syms[sym_idx]) != PgfSymbolKS::tag)
                         break;
                     if (sym_idx > shift->sym_idx)
                         printer.puts(" ");
-                    auto symks = ref<PgfSymbolKS>::untagged(shift->seq->syms.data[sym_idx]);
+                    auto symks = ref<PgfSymbolKS>::untagged(shift->seq->syms[sym_idx]);
                     printer.puts("\\\"");
                     printer.put_esc_str(&symks->token);
                     printer.puts("\\\"");
