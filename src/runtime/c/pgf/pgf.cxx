@@ -1572,7 +1572,8 @@ void pgf_create_category(PgfDB *db, PgfRevision revision,
 
         ref<PgfPGF> pgf = db->revision2pgf(revision);
         ref<PgfAbsCat> abscat = PgfDB::malloc<PgfAbsCat>(name->size+1);
-        abscat->context = vector<PgfHypo>::alloc(n_hypos);
+        vector<PgfHypo> new_context = vector<PgfHypo>::alloc(n_hypos);
+        abscat->context = new_context;
         abscat->prob    = prob;
         memcpy(&abscat->name, name, sizeof(PgfText)+name->size+1);
 
