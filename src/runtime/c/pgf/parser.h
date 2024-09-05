@@ -95,6 +95,27 @@ public:
     ~PgfLRTableMaker();
 };
 
+class PGF_INTERNAL_DECL PgfLCTableMaker
+{
+    ref<PgfAbstr> abstr;
+    ref<PgfConcr> concr;
+
+
+    std::map<ref<PgfConcrLincat>,std::vector<ref<PgfLCEdge>>> forwards;
+    std::map<ref<PgfConcrLincat>,std::vector<ref<PgfLCEdge>>> backwards;
+
+    ref<PgfLCEdge> compute_unifier(ref<PgfLCEdge> edge1, ref<PgfLCEdge> edge2);
+    void update_closure(ref<PgfLCEdge> edge);
+    void rename(ref<PgfLCEdge> edge);
+    void add_edge(ref<PgfLCEdge> edge);
+    void print_edge(ref<PgfLCEdge> edge);
+
+public:
+    PgfLCTableMaker(ref<PgfAbstr> abstr, ref<PgfConcr> concr);
+    vector<PgfLRState> make();
+    ~PgfLCTableMaker();
+};
+
 class PgfPrinter;
 
 class PGF_INTERNAL_DECL PgfParser : public PgfPhraseScanner, public PgfExprEnum

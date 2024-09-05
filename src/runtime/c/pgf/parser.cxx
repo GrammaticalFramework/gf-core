@@ -1197,6 +1197,433 @@ vector<PgfLRState> PgfLRTableMaker::make()
     return lrtable;
 }
 
+PgfLCTableMaker::PgfLCTableMaker(ref<PgfAbstr> abstr, ref<PgfConcr> concr)
+{
+    this->abstr = abstr;
+    this->concr = concr;
+}
+
+PgfLCTableMaker::~PgfLCTableMaker()
+{
+}
+
+static bool edge_match(ref<PgfLCEdge> edge1, ref<PgfLCEdge> edge2)
+{
+    size_t sz1 = sizeof(PgfLCEdge) + sizeof(term)*edge1->n_terms + sizeof(PgfVariableRange)*edge1->vars.size();
+    size_t sz2 = sizeof(PgfLCEdge) + sizeof(term)*edge2->n_terms + sizeof(PgfVariableRange)*edge2->vars.size();
+    
+    if (sz1 != sz2)
+        return false;
+    return (memcmp(&*edge1,&*edge2,sz1) == 0);
+}
+
+int comp (const void * elem1, const void * elem2) 
+{
+    int f = *((int*)elem1);
+    int s = *((int*)elem2);
+    if (f > s) return  1;
+    if (f < s) return -1;
+    return 0;
+}
+
+void PgfLCTableMaker::rename(ref<PgfLCEdge> edge)
+{
+    size_t next_var = 0;
+    std::map<size_t,size_t> subst;
+    for (size_t i = 0; i < edge->n_terms; i++) {
+        auto it = subst.find(edge->terms[i].var);
+        if (it == subst.end()) {
+            subst[edge->terms[i].var] = next_var;
+            edge->terms[i].var = next_var++;
+        } else {
+            edge->terms[i].var = it->second;
+        }
+    }
+
+    for (size_t i = 0; i < edge->vars.size(); i++) {
+        edge->vars[i].var = subst[edge->vars[i].var];
+    }
+    qsort (&edge->vars[0], edge->vars.size(), sizeof(PgfVariableRange), comp);
+}
+
+void PgfLCTableMaker::add_edge(ref<PgfLCEdge> edge)
+{
+    bool found = false;
+    for (ref<PgfLCEdge> xedge : forwards[edge->from.lincat]) {
+        if (edge_match(edge,xedge)) {
+            found = true;
+            break;
+        }
+    }
+
+    if (!found) {
+        print_edge(edge);
+        forwards[edge->from.lincat].push_back(edge);
+        backwards[edge->to.lincat].push_back(edge);
+        update_closure(edge);
+    }
+}
+
+void PgfLCTableMaker::update_closure(ref<PgfLCEdge> edge)
+{
+    auto &incoming = backwards[edge->from.lincat];
+    size_t n_incoming = incoming.size();
+    for (size_t i = 0; i < n_incoming; i++) {
+        ref<PgfLCEdge> xedge = compute_unifier(incoming[i],edge);
+        if (xedge != 0) {
+            rename(xedge);
+            add_edge(xedge);
+        }
+    }
+
+    auto &outgoing = forwards[edge->to.lincat];
+    size_t n_outgoing = outgoing.size();
+    for (size_t i = 0; i < n_outgoing; i++) {
+        ref<PgfLCEdge> xedge = compute_unifier(edge,outgoing[i]);
+        if (xedge != 0) {
+            rename(xedge);
+            add_edge(xedge);
+        }
+    }
+}
+
+typedef std::pair<size_t,std::vector<term>> Param;
+typedef std::map<size_t,Param> Subst;
+
+template<class V, class T, class F>
+bool unifier_helper1(Subst &subst1, V &vars1, T &to,
+                     Subst &subst2, V &vars2, F &from)
+{
+    size_t i01t = to.i0;
+    size_t i02f = from.i0;
+
+    size_t i = 0, j = 0;
+    while (i < to.size() && j < from.size()) {
+        size_t factor1 = to[i].factor;
+        size_t range1  = 0;
+        for (size_t k = 0; k < vars1.size(); k++) {
+            if (vars1[k].var == to[i].var) {
+                range1 = vars1[k].range;
+                break;
+            }
+        }
+        size_t value1 = factor1*range1;
+
+        size_t factor2 = from[j].factor;
+        size_t range2  = 0;
+        for (size_t k = 0; k < vars2.size(); k++) {
+            if (vars2[k].var == from[j].var) {
+                range2 = vars2[k].range;
+                break;
+            }
+        }
+        size_t value2 = factor2*range2;
+
+        if (value1 > value2) {
+            size_t x = i02f / factor1;
+            if (x >= range1)
+                return false;
+            auto &s = subst1[to[i].var];
+            s.first = i02f / factor1;
+            s.second.clear();
+            i02f %= factor1;
+            while (j < from.size() && factor2 % factor1 == 0) {
+                size_t factor = factor2 / factor1;
+                s.second.emplace_back();
+                s.second.back().factor=factor;
+                s.second.back().var=subst2[from[j].var].second[0].var;
+                j++;
+                factor2 = from[j].factor;
+            }
+            i++;
+        } else {
+            size_t x = i01t / factor2;
+            if (x >= range2)
+                return false;
+            auto &s = subst2[from[j].var];
+            s.first = i01t / factor2;
+            s.second.clear();
+            i01t %= factor2;
+            while (i < to.size() && factor1 % factor2 == 0) {
+                size_t factor = factor1 / factor2;
+                s.second.emplace_back();
+                s.second.back().factor=factor;
+                s.second.back().var=subst1[to[i].var].second[0].var;
+                i++;
+                factor1 = to[i].factor;
+            }
+            j++;
+        }
+    }
+
+    while (i < to.size()) {
+        auto &s = subst1[to[i].var];
+        size_t factor1 = to[i].factor;
+        s.first = i02f / factor1;
+        s.second.clear();
+        i02f %= factor1;
+        i++;
+    }
+
+    while (j < from.size()) {
+        auto &s = subst2[from[j].var];
+        size_t factor2 = from[j].factor;
+        s.first = i01t / factor2;
+        s.second.clear();
+        i01t %= factor2;
+        j++;
+    }
+
+    return (i01t == i02f);
+}
+
+template<class A>
+void unifier_helper2(Subst &subst, std::map<size_t,size_t> &vars, std::map<size_t,size_t> &ranges, A &v, Param &p)
+{
+    for (size_t i = 0; i < v.size(); i++) {
+        auto &s = subst[v[i].var];
+        size_t factor = v[i].factor;
+        p.first += factor * s.first;
+        for (term &t : s.second) {
+            p.second.emplace_back();
+            p.second.back().factor = factor * t.factor;
+            p.second.back().var = t.var;
+            vars[t.var] = ranges[t.var];
+        }
+    }
+}
+
+ref<PgfLCEdge> PgfLCTableMaker::compute_unifier(ref<PgfLCEdge> edge1, ref<PgfLCEdge> edge2)
+{
+    std::map<size_t,std::pair<size_t,std::vector<term>>> subst1, subst2;
+    std::map<size_t,size_t> vars, ranges;
+
+    size_t next_var = 0;
+    for (size_t i = 0; i < edge1->vars.size(); i++) {
+        ranges[next_var] = edge1->vars[i].range;
+
+        auto &s = subst1[edge1->vars[i].var];
+        s.second.emplace_back();
+        s.second.back().factor = 1;
+        s.second.back().var = next_var++;        
+    }
+    for (size_t i = 0; i < edge2->vars.size(); i++) {
+        ranges[next_var] = edge2->vars[i].range;
+
+        auto &s = subst2[edge2->vars[i].var];
+        s.second.emplace_back();
+        s.second.back().factor = 1;
+        s.second.back().var = next_var++;
+    }
+
+    if (!unifier_helper1(subst1, edge1->vars, edge1->to.value,
+                         subst2, edge2->vars, edge2->from.value))
+        return 0;
+    if (!unifier_helper1(subst1, edge1->vars, edge1->to.lin_idx,
+                         subst2, edge2->vars, edge2->from.lin_idx))
+        return 0;
+
+    Param p1fv,p1fi,p2tv,p2ti;
+    p1fv.first = edge1->from.value.i0;
+    p1fi.first = edge1->from.lin_idx.i0;
+    p2tv.first = edge2->to.value.i0;
+    p2ti.first = edge2->to.lin_idx.i0;
+
+    unifier_helper2(subst1, vars, ranges, edge1->from.value, p1fv);
+    unifier_helper2(subst1, vars, ranges, edge1->from.lin_idx, p1fi);
+    unifier_helper2(subst2, vars, ranges, edge2->to.value, p2tv);
+    unifier_helper2(subst2, vars, ranges, edge2->to.lin_idx, p2ti);
+
+    ref<PgfLCEdge> edge = PgfLCEdge::alloc(p1fv.second.size(),p1fi.second.size(),p2tv.second.size(),p2ti.second.size(),vars.size());
+    edge->from.lincat = edge1->from.lincat;
+    edge->from.value.i0 = p1fv.first;
+    for (size_t i = 0; i < p1fv.second.size(); i++) {
+        edge->from.value[i] = p1fv.second[i];
+    }
+    edge->from.lin_idx.i0 = p1fi.first;
+    for (size_t i = 0; i < p1fi.second.size(); i++) {
+        edge->from.lin_idx[i] = p1fi.second[i];
+    }
+    edge->to.lincat = edge2->to.lincat;
+    edge->to.value.i0 = p2tv.first;
+    for (size_t i = 0; i < p2tv.second.size(); i++) {
+        edge->to.value[i] = p2tv.second[i];
+    }
+    edge->to.lin_idx.i0 = p2ti.first;
+    for (size_t i = 0; i < p2ti.second.size(); i++) {
+        edge->to.lin_idx[i] = p2ti.second[i];
+    }
+    size_t i = 0;
+    for (auto it : vars) {
+        edge->vars[i].var   = it.first;
+        edge->vars[i].range = it.second;
+        i++;
+    }
+/*
+    if (strcmp(edge->to.lincat->name.text, "VP") == 0 && edge->to.value.i0 == 2 && edge->to.value.size() == 2) {
+        print_edge(edge1);
+        print_edge(edge2);
+        fprintf(stderr,"------------------\n");
+        print_edge(edge);
+        fprintf(stderr,"\n");
+    }
+*/
+    return edge;
+}
+
+void PgfLCTableMaker::print_edge(ref<PgfLCEdge> edge)
+{
+    PgfPrinter printer(NULL, 0, NULL);
+
+    if (edge->vars.size() > 0) {
+        printer.puts("{");
+        for (size_t i = 0; i < edge->vars.size(); i++) {
+            if (i > 0)
+                printer.puts(",");
+            printer.lvar(edge->vars[i].var);
+            printer.nprintf(32,"<%zu",edge->vars[i].range);
+        }
+        printer.puts("} ");
+    }
+
+    printer.efun(&edge->from.lincat->name);
+    printer.puts("(");
+    if (edge->from.value.i0 != 0 || edge->from.value.size() == 0)
+        printer.nprintf(32,"%ld",edge->from.value.i0);
+    for (size_t i = 0; i < edge->from.value.size(); i++) {
+        if (edge->from.value.i0 != 0 || i > 0)
+            printer.puts("+");
+        if (edge->from.value[i].factor != 1) {
+            printer.nprintf(32,"%ld",edge->from.value[i].factor);
+            printer.puts("*");
+        }
+        printer.lvar(edge->from.value[i].var);
+    }
+    printer.puts(",");
+    if (edge->from.lin_idx.i0 != 0 || edge->from.lin_idx.size() == 0)
+        printer.nprintf(32,"%ld",edge->from.lin_idx.i0);
+    for (size_t i = 0; i < edge->from.lin_idx.size(); i++) {
+        if (edge->from.lin_idx.i0 != 0 || i > 0)
+            printer.puts("+");
+        if (edge->from.lin_idx[i].factor != 1) {
+            printer.nprintf(32,"%ld",edge->from.lin_idx[i].factor);
+            printer.puts("*");
+        }
+        printer.lvar(edge->from.lin_idx[i].var);
+    }
+    printer.puts(") -> ");
+
+    printer.efun(&edge->to.lincat->name);
+    printer.puts("(");
+    if (edge->to.value.i0 != 0 || edge->to.value.size() == 0)
+        printer.nprintf(32,"%ld",edge->to.value.i0);
+    for (size_t i = 0; i < edge->to.value.size(); i++) {
+        if (edge->to.value.i0 != 0 || i > 0)
+            printer.puts("+");
+        if (edge->to.value[i].factor != 1) {
+            printer.nprintf(32,"%ld",edge->to.value[i].factor);
+            printer.puts("*");
+        }
+        printer.lvar(edge->to.value[i].var);
+    }
+    printer.puts(",");
+    if (edge->to.lin_idx.i0 != 0 || edge->to.lin_idx.size() == 0)
+        printer.nprintf(32,"%ld",edge->to.lin_idx.i0);
+    for (size_t i = 0; i < edge->to.lin_idx.size(); i++) {
+        if (edge->to.lin_idx.i0 != 0 || i > 0)
+            printer.puts("+");
+        if (edge->to.lin_idx[i].factor != 1) {
+            printer.nprintf(32,"%ld",edge->to.lin_idx[i].factor);
+            printer.puts("*");
+        }
+        printer.lvar(edge->to.lin_idx[i].var);
+    }
+    printer.puts(")\n");
+
+    PgfText *text = printer.get_text();
+    fputs(text->text, stderr);
+    free(text);
+}
+
+vector<PgfLRState> PgfLCTableMaker::make()
+{
+    std::function<bool(ref<PgfConcrLin>)> f =
+        [this](ref<PgfConcrLin> lin) {
+            for (size_t seq_idx = 0; seq_idx < lin->seqs.size(); seq_idx++) {
+                size_t index = seq_idx / (lin->seqs.size() / lin->res.size());
+                size_t n_args = (lin->args.size() / lin->res.size());
+                ref<PgfPResult> res = lin->res[index];
+                ref<PgfSequence> seq = lin->seqs[seq_idx];
+
+                if (seq->syms.size() > 0) {
+                    PgfSymbol sym = seq->syms[0];
+                    switch (ref<PgfSymbol>::get_tag(sym)) {
+                    case PgfSymbolCat::tag: {
+                        auto sym_cat = ref<PgfSymbolCat>::untagged(sym);
+                        size_t arg_idx = n_args * index + sym_cat->d;
+                        ref<PgfPArg> arg = ref<PgfPArg>::from_ptr(&lin->args[arg_idx]);
+
+                        std::set<size_t> vars;
+                        for (size_t i = 0; i < res->param.n_terms; i++) {
+                            vars.insert(res->param.terms[i].var);
+                        }
+                        for (size_t i = 0; i < arg->param->n_terms; i++) {
+                            vars.insert(arg->param->terms[i].var);
+                        }
+                        for (size_t i = 0; i < sym_cat->r.n_terms; i++) {
+                            vars.insert(sym_cat->r.terms[i].var);
+                        }
+
+                        ref<PgfLCEdge> edge =
+                            PgfLCEdge::alloc(res->param.n_terms,0,arg->param->n_terms,sym_cat->r.n_terms,vars.size());
+                        edge->from.lincat = lin->lincat;
+                        edge->from.value.i0 = res->param.i0;
+                        for (size_t i = 0; i < res->param.n_terms; i++) {
+                            edge->from.value[i] = res->param.terms[i];
+                        }
+                        edge->from.lin_idx.i0 = seq_idx % (lin->seqs.size() / lin->res.size());
+                        edge->to.lincat =
+                            namespace_lookup(concr->lincats, &lin->absfun->type->hypos[sym_cat->d].type->name);
+                        edge->to.value.i0 = arg->param->i0;
+                        for (size_t i = 0; i < arg->param->n_terms; i++) {
+                            edge->to.value[i] = arg->param->terms[i];
+                        }
+                        edge->to.lin_idx.i0 = sym_cat->r.i0;
+                        for (size_t i = 0; i < sym_cat->r.n_terms; i++) {
+                            edge->to.lin_idx[i] = sym_cat->r.terms[i];
+                        }
+                        size_t i = 0;
+                        for (size_t var : vars) {
+                            edge->vars[i].var = var;
+                            for (size_t k = 0; k < res->vars.size(); k++) {
+                                if (res->vars[k].var == var) {
+                                    edge->vars[i].range = res->vars[k].range;
+                                    break;
+                                }
+                            }
+                            i++;
+                        }
+
+                        rename(edge);
+                        add_edge(edge);
+                    }
+                    break;
+                    }
+                }
+            }
+            return true;
+        };
+    namespace_iter(concr->lins, f);
+
+/*    for (auto it : forwards) {
+        for (ref<PgfLCEdge> edge : it.second) {
+            print_edge(edge);
+        }
+    }
+*/
+    return 0;
+}
+
 struct PgfParser::Choice {
     int fid;
     std::vector<Production*> prods;

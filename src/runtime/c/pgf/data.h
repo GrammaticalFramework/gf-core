@@ -124,13 +124,15 @@ typedef struct {
     PgfProbspace funs_by_cat;
 } PgfAbstr;
 
+typedef struct {
+    size_t factor;
+    size_t var;
+} term;
+
 struct PGF_INTERNAL_DECL PgfLParam {
     size_t i0;
     size_t n_terms;
-    struct {
-        size_t factor;
-        size_t var;
-    } terms[];
+    term terms[];
 
     static void release(ref<PgfLParam> param);
 };
@@ -261,6 +263,89 @@ struct PGF_INTERNAL_DECL PgfConcrPrintname {
     PgfText name;
 
     static void release(ref<PgfConcrPrintname> printname);
+};
+
+#define containerof(T,field,p) (T*) (((char*) p)-offsetof(T,field))
+
+struct PGF_INTERNAL_DECL PgfLCEdge {
+    struct {
+        ref<PgfConcrLincat> lincat;
+        struct {
+            size_t i0;
+            term& operator[](int i) {
+                PgfLCEdge *edge = containerof(PgfLCEdge,from.value,this);
+                return edge->terms[i];
+            }
+            size_t size() {
+                PgfLCEdge *edge = containerof(PgfLCEdge,from.value,this);
+                return edge->from.lin_idx.n_offset;
+            }
+        } value;
+        struct {
+            size_t i0;
+            size_t n_offset;
+            term& operator[](int i) {
+                PgfLCEdge *edge = containerof(PgfLCEdge,from.lin_idx,this);
+                return edge->terms[n_offset+i];
+            }
+            size_t size() {
+                PgfLCEdge *edge = containerof(PgfLCEdge,from.lin_idx,this);
+                return edge->to.value.n_offset-n_offset;
+            }
+        } lin_idx;
+    } from;
+
+    struct {
+        ref<PgfConcrLincat> lincat;
+        struct {
+            size_t i0;
+            size_t n_offset;
+            term& operator[](int i) {
+                PgfLCEdge *edge = containerof(PgfLCEdge,to.value,this);
+                return edge->terms[n_offset+i];
+            }
+            size_t size() {
+                PgfLCEdge *edge = containerof(PgfLCEdge,to.value,this);
+                return edge->to.lin_idx.n_offset-n_offset;
+            }
+        } value;
+        struct {
+            size_t i0;
+            size_t n_offset;
+            term& operator[](int i) {
+                PgfLCEdge *edge = containerof(PgfLCEdge,to.lin_idx,this);
+                return edge->terms[n_offset+i];
+            }
+            size_t size() {
+                PgfLCEdge *edge = containerof(PgfLCEdge,to.lin_idx,this);
+                return edge->n_terms-n_offset;
+            }
+        } lin_idx;
+    } to;
+
+    struct {
+        size_t n_vars;
+        PgfVariableRange& operator[](int i) {
+            PgfLCEdge *edge = containerof(PgfLCEdge,vars,this);
+            return ((PgfVariableRange*)(((term*) (edge+1))+edge->n_terms))[i];
+        }
+        size_t size() {
+            return n_vars;
+        }
+    } vars;
+
+    size_t n_terms;
+    term terms[];
+
+    static ref<PgfLCEdge> alloc(size_t n_terms1, size_t n_terms2, size_t n_terms3, size_t n_terms4, size_t n_vars) {
+        auto edge = PgfDB::malloc<PgfLCEdge>((n_terms1+n_terms2+n_terms3+n_terms4)*sizeof(term)+n_vars*sizeof(PgfVariableRange));
+        edge->from.lin_idx.n_offset = n_terms1;
+        edge->to.value.n_offset = n_terms1+n_terms2;
+        edge->to.lin_idx.n_offset = n_terms1+n_terms2+n_terms3;
+        edge->n_terms = n_terms1+n_terms2+n_terms3+n_terms4;
+        edge->vars.n_vars = n_vars;
+        return edge;
+    }
 };
 
 struct PGF_INTERNAL_DECL PgfLRShift {

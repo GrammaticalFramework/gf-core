@@ -752,8 +752,8 @@ ref<PgfConcr> PgfReader::read_concrete()
 	auto printnames = read_namespace<PgfConcrPrintname>(&PgfReader::read_printname);
 	concrete->printnames = printnames;
 
-//    PgfLRTableMaker maker(abstract, concrete);
-//    concrete->lrtable = maker.make();
+    PgfLRTableMaker maker(abstract, concrete);
+    concrete->lrtable = maker.make();
 
     return concrete;
 }

@@ -47,7 +47,7 @@ libpgf_la_SOURCES = \
 	pgf/md5.h
 
 libpgf_la_LDFLAGS = -no-undefined -version-info 4:0:0
-libpgf_la_CXXFLAGS = -fno-rtti -std=c++11 -DCOMPILING_PGF
+libpgf_la_CXXFLAGS = -fno-rtti -std=c++14 -DCOMPILING_PGF
 
 bin_PROGRAMS =
 
