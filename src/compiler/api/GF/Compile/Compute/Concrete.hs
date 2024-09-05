@@ -389,6 +389,7 @@ patternMatch v0 ((env0,ps,args0,t):eqs) = match env0 ps eqs args0
                                              patternMatch v0 eqs
                                RunTime -> return v0
                                NonExist-> patternMatch v0 eqs
+        (PChar, VStr [c]) -> match env ps eqs args
         (PChars cs, VStr [c])
           | elem c cs     -> match env ps eqs args
         (PInt n, VInt m)
