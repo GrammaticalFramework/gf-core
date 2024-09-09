@@ -114,7 +114,7 @@ instance Semigroup Builder where
 instance Monoid Builder where
     mempty  = empty
     {-# INLINE mempty #-}
-    mappend = append
+    mappend = (<>)
     {-# INLINE mappend #-}
 
 ------------------------------------------------------------------------

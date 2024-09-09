@@ -644,7 +644,7 @@ data TcResult a
 newtype TcM a = TcM {unTcM :: MetaStore -> [Message] -> TcResult a}
 
 instance Monad TcM where
-  return x = TcM (\ms msgs -> TcOk x ms msgs)
+  return = pure
   f >>= g  = TcM (\ms msgs -> case unTcM f ms msgs of
                                 TcOk x ms msgs -> unTcM (g x) ms msgs
                                 TcFail    msgs -> TcFail msgs)
@@ -659,7 +659,7 @@ instance Fail.MonadFail TcM where
 
 
 instance Applicative TcM where
-  pure = return
+  pure x = TcM (\ms msgs -> TcOk x ms msgs)
   (<*>) = ap
 
 instance Functor TcM where

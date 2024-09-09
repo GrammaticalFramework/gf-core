@@ -48,7 +48,7 @@ newtype Check a
 instance Functor Check where fmap = liftM
 
 instance Monad Check where
-  return x = Check $ \{-ctxt-} ws -> (ws,Success x)
+  return   = pure
   f >>= g  = Check $ \{-ctxt-} ws ->
                case unCheck f {-ctxt-} ws of
                  (ws,Success x) -> unCheck (g x) {-ctxt-} ws
@@ -58,7 +58,7 @@ instance Fail.MonadFail Check where
   fail = raise
 
 instance Applicative Check where
-  pure = return
+  pure x = Check $ \{-ctxt-} ws -> (ws,Success x)
   (<*>) = ap
 
 instance ErrorMonad Check where

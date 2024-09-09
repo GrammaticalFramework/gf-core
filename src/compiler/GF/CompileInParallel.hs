@@ -238,12 +238,12 @@ runCO (CO m) = do (o,x) <- m
 instance Functor m => Functor (CollectOutput m) where
    fmap f (CO m) = CO (fmap (fmap f) m)
 
-instance (Functor m,Monad m) => Applicative (CollectOutput m) where 
-  pure = return
+instance (Functor m,Monad m) => Applicative (CollectOutput m) where
+  pure x = CO (return (return (),x))
   (<*>) = ap
 
 instance Monad m => Monad (CollectOutput m) where
-  return x = CO (return (return (),x))
+  return     = pure
   CO m >>= f = CO $ do (o1,x) <- m
                        let CO m2 = f x
                        (o2,y) <- m2
