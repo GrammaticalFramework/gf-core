@@ -34,8 +34,8 @@ stderrToFile :: FilePath -> IO ()
 stderrToFile file =
     do let mode = ownerReadMode<>ownerWriteMode<>groupReadMode<>otherReadMode
            (<>) = unionFileModes
-           flags = defaultFileFlags { append = True }
-       fileFd <- openFd file WriteOnly (Just mode) flags
+           flags = defaultFileFlags { append = True, creat = Just mode }
+       fileFd <- openFd file WriteOnly flags
        dupTo fileFd stdError
        return ()
 #else
