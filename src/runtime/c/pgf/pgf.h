@@ -348,6 +348,10 @@ void pgf_iter_concretes(PgfDB *db, PgfRevision revision,
                         PgfItor *itor, PgfExn *err);
 
 PGF_API_DECL
+PgfConcrRevision pgf_get_concrete(PgfDB *db, PgfRevision revision,
+                                  PgfText *name, PgfExn *err);
+
+PGF_API_DECL
 PgfType pgf_start_cat(PgfDB *db, PgfRevision revision,
                       PgfUnmarshaller *u,
                       PgfExn* err);

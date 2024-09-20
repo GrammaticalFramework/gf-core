@@ -76,7 +76,7 @@ module PGF2 (-- * PGF
              graphvizWordAlignment, graphvizLRAutomaton,
 
              -- * Concrete syntax
-             ConcName,Concr,languages,concreteName,languageCode,concreteFlag,
+             ConcName,Concr,languages,language,concreteName,languageCode,concreteFlag,
 
              -- ** Linearization
              linearize, linearizeAll, tabularLinearize, tabularLinearizeAll,
@@ -298,6 +298,16 @@ languages p = unsafePerformIO $ do
       name  <- peekText key
       fptr <- newForeignPtrEnv pgf_free_concr_revision (a_db p) (castPtr c_revision)
       writeIORef ref (Map.insert name (Concr (a_db p) fptr) concrs)
+
+language :: PGF -> ConcName -> Maybe Concr
+language p name = unsafePerformIO $
+  (withForeignPtr (a_revision p) $ \c_revision ->
+   withText name $ \c_name -> do
+      res <- withPgfExn "language" (pgf_get_concrete (a_db p) c_revision c_name)
+      if res == nullPtr
+        then return Nothing
+        else do fptr <- newForeignPtrEnv pgf_free_concr_revision (a_db p) res
+                return (Just (Concr (a_db p) fptr)))
 
 showPGF :: PGF -> String
 showPGF p =

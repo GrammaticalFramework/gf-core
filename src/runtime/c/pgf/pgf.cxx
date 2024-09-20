@@ -486,6 +486,28 @@ void pgf_iter_concretes(PgfDB *db, PgfRevision revision,
 }
 
 PGF_API
+PgfConcrRevision pgf_get_concrete(PgfDB *db, PgfRevision revision,
+                                  PgfText *name, PgfExn *err)
+{
+    PGF_API_BEGIN {
+        size_t txn_id;
+
+        DB_scope scope(db, READER_SCOPE);
+        ref<PgfPGF> pgf = db->revision2pgf(revision, &txn_id);
+
+        ref<PgfConcr> concr =
+            namespace_lookup(pgf->concretes, name);
+        if (concr == 0)
+            return 0;
+
+        db->ref_count++;
+        return db->register_revision(concr.tagged(), txn_id);
+    } PGF_API_END
+
+    return 0;
+}
+
+PGF_API
 PgfType pgf_start_cat(PgfDB *db, PgfRevision revision,
                       PgfUnmarshaller *u,
                       PgfExn *err)
