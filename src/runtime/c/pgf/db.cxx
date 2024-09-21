@@ -131,7 +131,7 @@ struct PGF_INTERNAL_DECL malloc_state
     object free_descriptors;
 
     size_t n_revisions;
-    object active_revision;
+    PgfRevision active_revision;
     revision_entry revisions[];
 };
 
@@ -484,7 +484,7 @@ txn_t PgfDB::get_txn_id() {
 }
 
 PGF_INTERNAL
-object PgfDB::register_revision(object o, txn_t txn_id)
+PgfRevision PgfDB::register_revision(object o, txn_t txn_id)
 {
 #ifndef _WIN32
     pthread_mutex_lock(&ms->rev_mutex);
@@ -564,8 +564,42 @@ object PgfDB::register_revision(object o, txn_t txn_id)
 }
 
 PGF_INTERNAL
-void PgfDB::unregister_revision(object revision)
+PgfConcrRevision PgfDB::register_concr_revision(PgfRevision revision, size_t index)
 {
+    if (revision == 0 || revision-1 >= ms->n_revisions)
+        throw pgf_error("Invalid revision");
+
+    revision_entry *entry = &ms->revisions[revision-1];
+    if (entry->ref_count == 0)
+        throw pgf_error("Invalid revision");
+
+    // The index must be at most 16 bits long
+    if (((index+1) & ((1 << 16) - 1)) != (index+1))
+        throw pgf_error("Invalid revision");
+
+#ifndef _WIN32
+    pthread_mutex_lock(&ms->rev_mutex);
+#else
+    WaitForSingleObject(hRevMutex, INFINITE);
+#endif
+
+    entry->ref_count++;
+
+#ifndef _WIN32
+    pthread_mutex_unlock(&ms->rev_mutex);
+#else
+    ReleaseMutex(hRevMutex);
+#endif
+
+    return revision | ((index+1) << 16);
+}
+
+PGF_INTERNAL
+void PgfDB::unregister_revision(PgfRevision revision)
+{
+    // Take a way the higher bits for a concrete revision
+    revision &= ((1 << 16) - 1);
+
     if (revision == 0 || revision-1 >= ms->n_revisions)
         throw pgf_error("Invalid revision");
 
@@ -700,7 +734,7 @@ void PgfDB::cleanup_state()
 }
 
 PGF_INTERNAL
-object PgfDB::get_active_revision()
+PgfRevision PgfDB::get_active_revision()
 {
     return current_db->ms->active_revision;
 }
@@ -1457,7 +1491,7 @@ void PgfDB::free_internal(object o, size_t bytes)
 }
 
 PGF_INTERNAL
-ref<PgfPGF> PgfDB::revision2pgf(PgfRevision revision, size_t *p_txn_id)
+ref<PgfPGF> PgfDB::revision2pgf(PgfRevision revision)
 {
     if (revision == 0 || revision-1 >= ms->n_revisions)
         throw pgf_error("Invalid revision");
@@ -1466,22 +1500,18 @@ ref<PgfPGF> PgfDB::revision2pgf(PgfRevision revision, size_t *p_txn_id)
     if (entry->ref_count == 0)
         throw pgf_error("Invalid revision");
 
-    if (ref<PgfPGF>::get_tag(entry->o) != PgfPGF::tag)
+    if (entry->o >= top)
         throw pgf_error("Invalid revision");
 
-    ref<PgfPGF> pgf = ref<PgfPGF>::untagged(entry->o);
-    if (pgf.as_object() >= top)
-        throw pgf_error("Invalid revision");
-
-    if (p_txn_id != NULL)
-        *p_txn_id = entry->txn_id;
-
-    return pgf;
+    return entry->o;
 }
 
 PGF_INTERNAL
-ref<PgfConcr> PgfDB::revision2concr(PgfConcrRevision revision, size_t *p_txn_id)
+ref<PgfConcr> PgfDB::revision2concr(PgfConcrRevision concr_revision)
 {
+    PgfRevision revision = concr_revision & ((1 << 16) - 1);
+    size_t index = concr_revision >> 16;
+
     if (revision == 0 || revision-1 >= ms->n_revisions)
         throw pgf_error("Invalid revision");
 
@@ -1489,15 +1519,13 @@ ref<PgfConcr> PgfDB::revision2concr(PgfConcrRevision revision, size_t *p_txn_id)
     if (entry->ref_count == 0)
         throw pgf_error("Invalid revision");
 
-    if (ref<PgfPGF>::get_tag(entry->o) != PgfConcr::tag)
+    ref<PgfPGF> pgf = entry->o;
+    if (pgf.as_object() >= top)
         throw pgf_error("Invalid revision");
 
-    ref<PgfConcr> concr = ref<PgfConcr>::untagged(entry->o);
-    if (concr.as_object() >= top)
+    ref<PgfConcr> concr = namespace_index(pgf->concretes, index-1);
+    if (concr == 0)
         throw pgf_error("Invalid revision");
-
-    if (p_txn_id != NULL)
-        *p_txn_id = entry->txn_id;
 
     return concr;
 }
@@ -1558,7 +1586,7 @@ void PgfDB::commit(object o)
     object save_top = ms->top;
     object save_free_blocks = ms->free_blocks;
     object save_free_descriptors = ms->free_descriptors;
-    object save_active_revision = ms->active_revision;
+    PgfRevision save_active_revision = ms->active_revision;
 
 #ifndef _WIN32
     int res;

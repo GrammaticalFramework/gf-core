@@ -124,12 +124,13 @@ public:
         current_db->free_internal(o.as_object(), sizeof(A)+extra_bytes);
     }
 
-    PGF_INTERNAL_DECL object get_active_revision();
-    PGF_INTERNAL_DECL object register_revision(object o, txn_t txn_id);
-    PGF_INTERNAL_DECL void unregister_revision(object o);
+    PGF_INTERNAL_DECL PgfRevision get_active_revision();
+    PGF_INTERNAL_DECL PgfRevision register_revision(object o, txn_t txn_id);
+    PGF_INTERNAL_DECL PgfConcrRevision register_concr_revision(PgfRevision revision, size_t index);
+    PGF_INTERNAL_DECL void unregister_revision(PgfRevision o);
 
-    PGF_INTERNAL_DECL ref<PgfPGF> revision2pgf(PgfRevision revision, size_t *p_txn_id = NULL);
-    PGF_INTERNAL_DECL ref<PgfConcr> revision2concr(PgfConcrRevision revision, size_t *p_txn_id = NULL);
+    PGF_INTERNAL_DECL ref<PgfPGF> revision2pgf(PgfRevision revision);
+    PGF_INTERNAL_DECL ref<PgfConcr> revision2concr(PgfConcrRevision concr_revision);
 
     PGF_INTERNAL_DECL void start_transaction();
     PGF_INTERNAL_DECL void set_transaction_object(object o);

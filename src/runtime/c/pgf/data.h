@@ -397,8 +397,6 @@ struct PGF_INTERNAL_DECL PgfLRState {
 };
 
 struct PGF_INTERNAL_DECL PgfConcr {
-    static const uint8_t tag = 1;
-
     Namespace<PgfFlag> cflags;
     Namespace<PgfConcrLin> lins;
     Namespace<PgfConcrLincat> lincats;
@@ -413,8 +411,6 @@ struct PGF_INTERNAL_DECL PgfConcr {
 };
 
 struct PGF_INTERNAL_DECL PgfPGF {
-    static const uint8_t tag = 0;
-
 	uint16_t major_version;
 	uint16_t minor_version;
 	Namespace<PgfFlag> gflags;

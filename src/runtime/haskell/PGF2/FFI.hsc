@@ -178,7 +178,7 @@ foreign import ccall pgf_iter_categories :: Ptr PgfDB -> Ptr PGF -> Ptr PgfItor 
 
 foreign import ccall pgf_iter_concretes :: Ptr PgfDB -> Ptr PGF -> Ptr PgfItor -> Ptr PgfExn -> IO ()
 
-foreign import ccall pgf_get_concrete :: Ptr PgfDB -> Ptr PGF -> Ptr PgfItor -> Ptr PgfExn -> IO (Ptr Concr)
+foreign import ccall pgf_get_concrete :: Ptr PgfDB -> Ptr PGF -> Ptr PgfText -> Ptr PgfExn -> IO (Ptr Concr)
 
 foreign import ccall pgf_start_cat :: Ptr PgfDB -> Ptr PGF -> Ptr PgfUnmarshaller -> Ptr PgfExn -> IO (StablePtr Type)
 

@@ -607,6 +607,41 @@ ref<V> namespace_lookup(Namespace<V> map, PgfText *name)
 }
 
 template <class V>
+ref<V> namespace_lookup_index(Namespace<V> map, PgfText *name, size_t *pIndex)
+{
+    *pIndex = 0;
+    while (map != 0) {
+        int cmp = textcmp(name,&map->value->name);
+        if (cmp < 0) {
+            map = map->left;
+        } else if (cmp > 0) {
+            map = map->right;
+            *pIndex += Node<ref<V>>::size(map->left)+1;
+        } else {
+            return map->value;
+        }
+    }
+    return 0;
+}
+
+template <class V>
+ref<V> namespace_index(Namespace<V> map, size_t index)
+{
+    while (map != 0) {
+        size_t sz = Node<ref<V>>::size(map->left);
+        if (index < sz) {
+            map = map->left;
+        } else if (index > sz) {
+            map = map->right;
+            index -= sz+1;
+        } else {
+            return map->value;
+        }
+    }
+    return 0;
+}
+
+template <class V>
 size_t namespace_size(Namespace<V> map)
 {
     return Node<ref<V>>::size(map);

@@ -33,7 +33,7 @@ convertFile conf src file = do
       (ex,   end) = break (=='"') (tail exend)
     in ((unwords (words cat),ex), tail end)  -- quotes ignored
   pgf = resource_pgf conf
-  lang = language conf 
+  lang = concrete conf
   convEx (cat,ex) = do
     appn "("
     let typ = maybe (error "no valid cat") id $ readType cat
@@ -61,7 +61,7 @@ convertFile conf src file = do
 data ExConfiguration = ExConf {
   resource_pgf :: PGF,
   verbose  :: Bool,
-  language :: Concr,
+  concrete :: Concr,
   printExp :: Expr -> String
   }
 
