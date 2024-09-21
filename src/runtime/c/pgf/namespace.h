@@ -618,6 +618,7 @@ ref<V> namespace_lookup_index(Namespace<V> map, PgfText *name, size_t *pIndex)
             map = map->right;
             *pIndex += Node<ref<V>>::size(map->left)+1;
         } else {
+            *pIndex += Node<ref<V>>::size(map->left);
             return map->value;
         }
     }
