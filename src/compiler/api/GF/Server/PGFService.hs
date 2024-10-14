@@ -1,11 +1,11 @@
 {-# LANGUAGE CPP, ScopedTypeVariables #-}
-module PGFService(pgfMain,
-                  Caches,newPGFCache,readCachedPGF,readCachedNGF,
-                  flushPGFCache,listPGFCache) where
+module GF.Server.PGFService(pgfMain,
+                            Caches,newPGFCache,readCachedPGF,readCachedNGF,
+                            flushPGFCache,listPGFCache) where
 
 import PGF2
 import PGF2.Transactions
-import Cache
+import GF.Server.Cache
 
 import Data.Time.Format(formatTime)
 import Data.Time.Format(defaultTimeLocale,rfc822DateFormat)

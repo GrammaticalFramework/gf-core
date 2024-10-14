@@ -39,10 +39,10 @@ import System.Exit(ExitCode(..))
 import GF.Infra.UseIO(readBinaryFile,writeBinaryFile,ePutStrLn)
 import GF.Infra.SIO(captureSIO)
 import GF.Data.Utilities(apSnd,mapSnd)
-import qualified PGFService as PS
 import Data.Version(showVersion)
 import Paths_gf(getDataDir,version)
 import GF.Infra.BuildInfo (buildInfo)
+import GF.Server.PGFService
 import GF.Server.SimpleEditor.Convert(parseModule)
 import Control.Monad.IO.Class
 
@@ -53,9 +53,9 @@ server jobs port optroot init execute1 = do
   state <- newMVar M.empty
   datadir <- getDataDir
   let root = maybe (datadir</>"www") id optroot
-  cache <- PS.newPGFCache root jobs
+  cache <- newPGFCache root jobs
   setDir root
-  let readNGF = PS.readCachedNGF cache
+  let readNGF = readCachedNGF cache
   state0 <- init readNGF
   http_server (execute1 readNGF) state0 state cache root
   where
@@ -110,15 +110,15 @@ handle logLn documentroot state0 cache execute stateVar conn = do
     "/gfshell" -> addDate (stateful $ inDir command)
     "/cloud"   -> addDate (stateful $ inDir cloud)
     "/parse"   -> addDate (parse query)
-    "/version" -> addDate (versionInfo `fmap` PS.listPGFCache cache)
-    "/flush"   -> addDate (PS.flushPGFCache cache >> return (ok200 "flushed"))
+    "/version" -> addDate (versionInfo `fmap` listPGFCache cache)
+    "/flush"   -> addDate (flushPGFCache cache >> return (ok200 "flushed"))
     '/':rpath  ->
            -- This code runs without mutual exclusion, so it must *not*
            -- use/change the cwd. Access files by absolute paths only.
            let path = translatePath rpath
            in case (takeDirectory path,takeFileName path,takeExtension path) of
-               (_  ,_             ,".pgf") -> PS.pgfMain logLn conn cache path rq
-               (_  ,_             ,".ngf") -> PS.pgfMain logLn conn cache path rq
+               (_  ,_             ,".pgf") -> pgfMain logLn conn cache path rq
+               (_  ,_             ,".ngf") -> pgfMain logLn conn cache path rq
                (dir,"grammars.cgi",_     ) -> addDate (grammarList dir query)
                _                           -> serveStaticFile conn rpath path
     _ -> addDate (return $ resp400 upath)
