@@ -65,7 +65,7 @@ checkRestrictedInheritance cwd sgr (name,mo) = checkInModule cwd mo NoLoc empty 
                              -- the restr. modules themself, with restr. infos
   mapM_ checkRem mrs
  where
-   mos = modules sgr
+   mos = [mo | mo@(_,ModInfo{}) <- modules sgr]
    checkRem ((i,m),mi) = do
      let (incl,excl) = partition (isInherited mi) (Map.keys (jments m))
      let incld c   = Set.member c (Set.fromList incl)
