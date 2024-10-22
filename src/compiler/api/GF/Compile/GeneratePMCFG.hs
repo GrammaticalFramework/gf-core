@@ -184,7 +184,7 @@ flatten v ty@(QC q) (lins,params) = do
 flatten v ty (lins,params)
   | Just n <- isTypeInts ty = do deepForce v
                                  return (lins,(v,ty):params)
-  | otherwise               = error (showValue v)
+  | otherwise               = evalError (pp (showValue v))
 
 deepForce (VR as)          = mapM_ (\(lbl,v) -> force v >>= deepForce) as
 deepForce (VApp q tnks)    = mapM_ (\tnk -> force tnk >>= deepForce) tnks
