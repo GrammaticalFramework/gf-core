@@ -50,6 +50,7 @@ import qualified Data.Map as Map
 import Data.Map (Map)
 --import Control.Applicative(Applicative(..))
 import Control.Monad (liftM,liftM2) --,ap
+import Control.Monad.Fix
 
 import GF.Data.ErrM
 import GF.Data.Relation
@@ -236,6 +237,10 @@ instance ErrorMonad Err where
   raise  = Bad
   handle a@(Ok _) _ = a
   handle (Bad i) f  = f i
+
+instance MonadFix Err where
+  mfix f = let res@(~(Ok x)) = f x in res
+
 
 liftErr e = err raise return e
 {-
