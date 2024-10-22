@@ -178,7 +178,9 @@ lookupOrigInfo gr (m,c) = do
 allOrigInfos :: Grammar -> ModuleName -> [(QIdent,Info)]
 allOrigInfos gr m = fromErr [] $ do
   mo <- lookupModule gr m
-  return [((m,c),i) | (c,_) <- Map.toList (jments mo), Ok (m,i) <- [lookupOrigInfo gr (m,c)]]
+  case mo of
+    ModInfo{jments=jments} -> return [((m,c),i) | (c,_) <- Map.toList jments, Ok (m,i) <- [lookupOrigInfo gr (m,c)]]
+    _                      -> return []
 
 lookupParamValues :: ErrorMonad m => Grammar -> QIdent -> m [Term]
 lookupParamValues gr c = do
@@ -248,8 +250,8 @@ lookupCatContext gr m c = do
 allOpers :: Grammar -> [(QIdent,Type,Location)]
 allOpers gr =
   [((m,op),typ,loc) |
-      (m,mi)  <- maybe [] (allExtends gr) (greatestResource gr),
-      (op,info)  <- Map.toList (jments mi),
+      (m,mi@ModInfo{jments=jments}) <- maybe [] (allExtends gr) (greatestResource gr),
+      (op,info)  <- Map.toList jments,
       L loc typ  <- typesIn info
   ]
   where
