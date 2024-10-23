@@ -43,7 +43,7 @@ jobs:
     - name: Build wheels on OSX
       if: startsWith(matrix.os, 'macos')
       env:
-        CIBW_BEFORE_BUILD: cd src/runtime/c && glibtoolize && autoreconf -i && ./configure && make && make install
+        CIBW_BEFORE_BUILD: cd src/runtime/c && glibtoolize && autoreconf -i && ./configure && make && sudo make install
       run: |
         python -m cibuildwheel src/runtime/python --output-dir wheelhouse
 
