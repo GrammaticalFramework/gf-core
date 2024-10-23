@@ -49,6 +49,7 @@ jobs:
 
     - uses: actions/upload-artifact@v4
       with:
+        name: wheel-${{ matrix.os }}
         path: ./wheelhouse
 
   build_sdist:
@@ -67,6 +68,7 @@ jobs:
 
       - uses: actions/upload-artifact@v4
         with:
+          name: wheel-source
           path: ./src/runtime/python/dist/*.tar.gz
 
   upload_pypi:
@@ -88,7 +90,8 @@ jobs:
 
       - uses: actions/download-artifact@v4.1.7
         with:
-          name: artifact
+          pattern: wheel-*
+          merge-multiple: true
           path: ./dist
 
       - name: Publish
