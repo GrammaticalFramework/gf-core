@@ -38,10 +38,11 @@ buildAnyTree m = go Map.empty
       case Map.lookup c map of
         Just i  -> case unifyAnyInfo m i j of
           Ok k  -> go (Map.insert c k map) is
-          Bad _ -> fail $ render ("conflicting information in module"<+>m $$
+          Bad msg -> fail $ render ("conflicting information in module"<+>m $$
                                   nest 4 (ppJudgement Qualified (c,i)) $$
                                   "and" $+$
-                                  nest 4 (ppJudgement Qualified (c,j)))
+                                  nest 4 (ppJudgement Qualified (c,j)) $+$
+                                  msg)
         Nothing -> go (Map.insert c j map) is
 
 extendModule :: FilePath -> SourceGrammar -> SourceModule -> Check SourceModule
@@ -203,7 +204,7 @@ unifyAnyInfo m i j = case (i,j) of
     liftM2 ResParam (unifyMaybeL mt1 mt2) (unifyMaybe mv1 mv2)
   (ResValue (L l1 t1), ResValue (L l2 t2))
       | t1==t2    -> return (ResValue (L l1 t1))
-      | otherwise -> fail ""
+      | otherwise -> fail "non-matching ResValue"
   (_, ResOverload ms t) | elem m ms ->
     return $ ResOverload ms t
   (ResOper mt1 m1, ResOper mt2 m2) ->
@@ -222,7 +223,7 @@ unifyAnyInfo m i j = case (i,j) of
   _ -> fail "informations"
 
 -- | this is what happens when matching two values in the same module
-unifyMaybeL :: Eq a => Maybe (L a) -> Maybe (L a) -> Err (Maybe (L a))
+unifyMaybeL :: (Eq a, Show a) => Maybe (L a) -> Maybe (L a) -> Err (Maybe (L a))
 unifyMaybeL = unifyMaybeBy unLoc
 
 unifAbsArrity :: Maybe Int -> Maybe Int -> Err (Maybe Int)
@@ -230,5 +231,12 @@ unifAbsArrity = unifyMaybe
 
 unifAbsDefs :: Maybe [L Equation] -> Maybe [L Equation] -> Err (Maybe [L Equation])
 unifAbsDefs (Just xs) (Just ys) = return (Just (xs ++ ys))
+-- unifAbsDefs Nothing ys          = return ys
+-- unifAbsDefs xs Nothing          = return xs
 unifAbsDefs Nothing   Nothing   = return Nothing
-unifAbsDefs _         _         = fail ""
+unifAbsDefs Nothing   (Just ys) = fail $ "Can't unify Nothing with def " ++ render (pp ys)
+unifAbsDefs xs        Nothing   = fail $ "Can't unify def " ++ show xs ++ " with Nothing"
+-- Cannot use def with data. Hint: replace data with fun for $name
+
+instance (Pretty a, Pretty b) => Pretty (a,b) where
+  pp (a,b) = "(" <+> pp a <+> ", " <+> pp b <+> ")"
