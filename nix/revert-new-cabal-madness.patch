@@ -1,0 +1,193 @@
+commit 45e5473fcd5707af93646d9a116867a4d4e3e9c9
+Author: Andreas Källberg <anka.213@gmail.com>
+Date:   Mon Oct 10 14:57:12 2022 +0200
+
+    Revert "workaround for the Nix madness"
+    
+    This reverts commit 1294269cd60f3db7b056135104615625baeb528c.
+    
+    There are easier workarounds, like using
+    
+      cabal v1-build
+    
+    etc. instead of just `cabal build`
+    
+    These changes also broke a whole bunch of other stuff
+
+diff --git a/README.md b/README.md
+index ba35795a4..79e6ab68f 100644
+--- a/README.md
++++ b/README.md
+@@ -38,21 +38,6 @@ or:
+ ```
+ stack install
+ ```
+-Note that if you are unlucky to have Cabal 3.0 or later, then it uses
+-the so-called Nix style commands. Using those for GF development is
+-a pain. Every time when you change something in the source code, Cabal
+-will generate a new folder for GF to look for the GF libraries and
+-the GF cloud. Either reinstall everything with every change in the
+-compiler, or be sane and stop using cabal-install. Instead you can do:
+-```
+-runghc Setup.hs configure
+-runghc Setup.hs build
+-sudo runghc Setup.hs install
+-```
+-The script will install the GF dependencies globally. The only solution
+-to the Nix madness that I found is radical:
+-
+-  "No person, no problem" (Нет человека – нет проблемы).
+ 
+ For more information, including links to precompiled binaries, see the [download page](https://www.grammaticalframework.org/download/index.html).
+ 
+diff --git a/Setup.hs b/Setup.hs
+index 58dc3e0c6..f8309cc00 100644
+--- a/Setup.hs
++++ b/Setup.hs
+@@ -4,68 +4,42 @@ import Distribution.Simple.LocalBuildInfo(LocalBuildInfo(..),absoluteInstallDirs
+ import Distribution.Simple.Setup(BuildFlags(..),Flag(..),InstallFlags(..),CopyDest(..),CopyFlags(..),SDistFlags(..))
+ import Distribution.PackageDescription(PackageDescription(..),emptyHookedBuildInfo)
+ import Distribution.Simple.BuildPaths(exeExtension)
+-import System.Directory
+ import System.FilePath((</>),(<.>))
+-import System.Process
+-import Control.Monad(forM_,unless)
+-import Control.Exception(bracket_)
+-import Data.Char(isSpace)
+ 
+ import WebSetup
+ 
++-- | Notice about RGL not built anymore
++noRGLmsg :: IO ()
++noRGLmsg = putStrLn "Notice: the RGL is not built as part of GF anymore. See https://github.com/GrammaticalFramework/gf-rgl"
++
+ main :: IO ()
+ main = defaultMainWithHooks simpleUserHooks
+-  { preConf   = gfPreConf
+-  , preBuild  = gfPreBuild
++  { preBuild  = gfPreBuild
+   , postBuild = gfPostBuild
+   , preInst   = gfPreInst
+   , postInst  = gfPostInst
+   , postCopy  = gfPostCopy
+   }
+   where
+-    gfPreConf args flags = do
+-      pkgs <- fmap (map (dropWhile isSpace) . tail . lines)
+-                   (readProcess "ghc-pkg" ["list"] "")
+-      forM_ dependencies $ \pkg -> do
+-        let name = takeWhile (/='/') (drop 36 pkg)
+-        unless (name `elem` pkgs) $ do
+-          let fname = name <.> ".tar.gz"
+-          callProcess "wget" [pkg,"-O",fname]
+-          callProcess "tar"  ["-xzf",fname]
+-          removeFile fname
+-          bracket_ (setCurrentDirectory name) (setCurrentDirectory ".." >> removeDirectoryRecursive name) $ do
+-            exists <- doesFileExist "Setup.hs"
+-            unless exists $ do
+-              writeFile "Setup.hs" (unlines [
+-                  "import Distribution.Simple",
+-                  "main = defaultMain"
+-                ])
+-            let to_descr = reverse .
+-                           (++) (reverse ".cabal") . 
+-                           drop 1 . 
+-                           dropWhile (/='-') . 
+-                           reverse
+-            callProcess "wget"   [to_descr pkg, "-O", to_descr name]
+-            callProcess "runghc" ["Setup.hs","configure"]
+-            callProcess "runghc" ["Setup.hs","build"]
+-            callProcess "sudo" ["runghc","Setup.hs","install"]
+-          
+-      preConf simpleUserHooks args flags
+-
+-    gfPreBuild args = gfPre args . buildDistPref
+-    gfPreInst  args = gfPre args . installDistPref
++    gfPreBuild args  = gfPre args . buildDistPref
++    gfPreInst args = gfPre args . installDistPref
+ 
+     gfPre args distFlag = do
+       return emptyHookedBuildInfo
+ 
+     gfPostBuild args flags pkg lbi = do
++      -- noRGLmsg
+       let gf = default_gf lbi
+       buildWeb gf flags (pkg,lbi)
+ 
+     gfPostInst args flags pkg lbi = do
++      -- noRGLmsg
++      saveInstallPath args flags (pkg,lbi)
+       installWeb (pkg,lbi)
+ 
+     gfPostCopy args flags  pkg lbi = do
++      -- noRGLmsg
++      saveCopyPath args flags (pkg,lbi)
+       copyWeb flags (pkg,lbi)
+ 
+     -- `cabal sdist` will not make a proper dist archive, for that see `make sdist`
+@@ -73,16 +47,27 @@ main = defaultMainWithHooks simpleUserHooks
+     gfSDist pkg lbi hooks flags = do
+       return ()
+ 
+-dependencies = [
+-  "https://hackage.haskell.org/package/utf8-string-1.0.2/utf8-string-1.0.2.tar.gz",
+-  "https://hackage.haskell.org/package/json-0.10/json-0.10.tar.gz",
+-  "https://hackage.haskell.org/package/network-bsd-2.8.1.0/network-bsd-2.8.1.0.tar.gz",
+-  "https://hackage.haskell.org/package/httpd-shed-0.4.1.1/httpd-shed-0.4.1.1.tar.gz",
+-  "https://hackage.haskell.org/package/exceptions-0.10.5/exceptions-0.10.5.tar.gz",
+-  "https://hackage.haskell.org/package/stringsearch-0.3.6.6/stringsearch-0.3.6.6.tar.gz",
+-  "https://hackage.haskell.org/package/multipart-0.2.1/multipart-0.2.1.tar.gz",
+-  "https://hackage.haskell.org/package/cgi-3001.5.0.0/cgi-3001.5.0.0.tar.gz"
+-  ]
++saveInstallPath :: [String] -> InstallFlags -> (PackageDescription, LocalBuildInfo) -> IO ()
++saveInstallPath args flags bi = do
++  let
++    dest = NoCopyDest
++    dir = datadir (uncurry absoluteInstallDirs bi dest)
++  writeFile dataDirFile dir
++
++saveCopyPath :: [String] -> CopyFlags -> (PackageDescription, LocalBuildInfo) -> IO ()
++saveCopyPath args flags bi = do
++  let
++    dest = case copyDest flags of
++      NoFlag -> NoCopyDest
++      Flag d -> d
++    dir = datadir (uncurry absoluteInstallDirs bi dest)
++  writeFile dataDirFile dir
++
++-- | Name of file where installation's data directory is recording
++-- This is a last-resort way in which the seprate RGL build script
++-- can determine where to put the compiled RGL files
++dataDirFile :: String
++dataDirFile = "DATA_DIR"
+ 
+ -- | Get path to locally-built gf
+ default_gf :: LocalBuildInfo -> FilePath
+diff --git a/gf.cabal b/gf.cabal
+index a055b86be..d00a5b935 100644
+--- a/gf.cabal
++++ b/gf.cabal
+@@ -2,7 +2,7 @@ name: gf
+ version: 3.11.0-git
+ 
+ cabal-version: 1.22
+-build-type: Simple
++build-type: Custom
+ license: OtherLicense
+ license-file: LICENSE
+ category: Natural Language Processing, Compiler
+@@ -44,6 +44,14 @@ data-files:
+   www/translator/*.css
+   www/translator/*.js
+ 
++custom-setup
++  setup-depends:
++    base >= 4.9.1 && < 4.16,
++    Cabal >= 1.22.0.0,
++    directory >= 1.3.0 && < 1.4,
++    filepath >= 1.4.1 && < 1.5,
++    process >= 1.0.1.1 && < 1.7
++
+ source-repository head
+   type: git
+   location: https://github.com/GrammaticalFramework/gf-core.git
