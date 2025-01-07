@@ -14,7 +14,7 @@
 
 module GF.Grammar.Values (
                -- ** Values used in TC type checking
-               Val(..), Env,
+               Val(..), NotVal(..), Env,
                -- ** Annotated tree used in editing
                Binds, Constraints, MetaSubst,
                -- ** For TC
@@ -29,8 +29,11 @@ import GF.Grammar.Predef
 
 -- values used in TC type checking
 
-data Val = VGen Int Ident | VApp Val Val | VCn QIdent | VRecType [(Label,Val)] | VType | VClos Env Term
+data Val = VGen Int Ident | VApp Val [Val] | VCn QIdent (Maybe (Int, [Equation])) | VRecType [(Label,Val)] | VType | VClos Env Term
   deriving (Eq,Show)
+
+data NotVal = NVClos Env Term | NVVal Val
+  deriving (Show)
 
 type Env = [(Ident,Val)]
 
@@ -42,13 +45,13 @@ type MetaSubst = [(MetaId,Val)]
 -- for TC
 
 valAbsInt :: Val
-valAbsInt = VCn (cPredefAbs, cInt)
+valAbsInt = VCn (cPredefAbs, cInt) Nothing
 
 valAbsFloat :: Val
-valAbsFloat = VCn (cPredefAbs, cFloat)
+valAbsFloat = VCn (cPredefAbs, cFloat) Nothing
 
 valAbsString :: Val
-valAbsString = VCn (cPredefAbs, cString)
+valAbsString = VCn (cPredefAbs, cString) Nothing
 
 vType :: Val
 vType = VType
