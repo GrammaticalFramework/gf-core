@@ -75,7 +75,7 @@ jobs:
     name: Upload to PyPI
     needs: [build_wheels, build_sdist]
     runs-on: ubuntu-latest
-    if: github.ref == 'refs/heads/master' && github.event_name == 'push'
+    # if: github.ref == 'refs/heads/master' && github.event_name == 'push'
 
     steps:
       - uses: actions/checkout@v2
@@ -99,4 +99,5 @@ jobs:
           TWINE_USERNAME: __token__
           TWINE_PASSWORD: ${{ secrets.pypi_password }}
         run: |
+          pip install setuptools
           (cd ./src/runtime/python && curl -I --fail https://pypi.org/project/$(python setup.py --name)/$(python setup.py --version)/) || twine upload dist/*
