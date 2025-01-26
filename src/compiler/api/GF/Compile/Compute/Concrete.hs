@@ -207,14 +207,19 @@ eval env (S t1 t2)      vs  = do v1   <- eval env t1 []
 eval env (Let (x,(_,t1)) t2) vs = do tnk <- newThunk env t1
                                      eval ((x,tnk):env) t2 vs
 eval env (Q q@(m,id))   vs
-  | m == cPredef            = do vs' <- mapM force vs
-                                 res <- evalPredef id vs'
-                                 case res of
-                                   Const res -> return res
-                                   RunTime   -> return (VApp q vs)
-                                   NonExist  -> return (VApp (cPredef,cNonExist) [])
+  | m == cPredef            = do vs' <- mapM force vs -- FIXME this does not allow for partial application!
+                                 if any isVar vs'
+                                 then return (VApp q vs)
+                                 else do res <- evalPredef id vs'
+                                         case res of
+                                           Const res -> return res
+                                           RunTime   -> return (VApp q vs)
+                                           NonExist  -> return (VApp (cPredef,cNonExist) [])
   | otherwise               = do t <- getResDef q
                                  eval env t vs
+                              where
+                                isVar (VGen _ _) = True
+                                isVar _          = False
 eval env (QC q)         vs  = return (VApp q vs)
 eval env (C t1 t2)      []  = do v1 <- eval env t1 []
                                  v2 <- eval env t2 []
