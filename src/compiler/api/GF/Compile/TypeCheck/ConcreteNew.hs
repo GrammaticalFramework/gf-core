@@ -1,5 +1,5 @@
 {-# LANGUAGE RankNTypes, CPP #-}
-module GF.Compile.TypeCheck.ConcreteNew( checkLType, inferLType ) where
+module GF.Compile.TypeCheck.ConcreteNew( checkLType, checkLType', inferLType, inferLType' ) where
 
 -- The code here is based on the paper:
 -- Simon Peyton Jones, Dimitrios Vytiniotis, Stephanie Weirich.
@@ -24,14 +24,20 @@ import Data.Maybe(fromMaybe,isNothing)
 import qualified Control.Monad.Fail as Fail
 
 checkLType :: Globals -> Term -> Type -> Check (Term, Type)
-checkLType globals t ty = runEvalOneM globals $ do
+checkLType globals t ty = runEvalOneM globals (checkLType' t ty)
+
+checkLType' :: Term -> Type -> EvalM s (Term, Type)
+checkLType' t ty = do
   vty <- eval [] ty []
   (t,_) <- tcRho [] t (Just vty)
   t <- zonkTerm [] t
   return (t,ty)
 
 inferLType :: Globals -> Term -> Check (Term, Type)
-inferLType globals t = runEvalOneM globals $ do
+inferLType globals t = runEvalOneM globals (inferLType' t)
+
+inferLType' :: Term -> EvalM s (Term, Type)
+inferLType' t = do
   (t,ty) <- inferSigma [] t
   t  <- zonkTerm [] t
   ty <- value2term False [] ty
@@ -105,7 +111,6 @@ tcRho scope (Abs bt var body) Nothing = do                   -- ABS1
                              v2 <- eval ((x,tnk):env) t []
                              check m (n+1) (b,x:xs) v2
         v2             -> check m n st v2
-      check m (n+1) (b,x:xs) v2
     check m n st (VRecType as)     = foldM (\st (l,v) -> check m n st v) st as
     check m n st (VR as)           =
       foldM (\st (lbl,tnk) -> follow m n st tnk) st as
