@@ -1,0 +1,12 @@
+diff --git a/gf.cabal b/gf.cabal
+index 0076e7638..8d3fe4b49 100644
+--- a/gf.cabal
++++ b/gf.cabal
+@@ -168,7 +168,6 @@ Library
+     GF.Text.Lexing
+     GF.Grammar.Canonical
+
+-  other-modules:
+     GF.Main
+     GF.Compiler
+     GF.Interactive
