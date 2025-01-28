@@ -2,18 +2,20 @@
 
 module GF.Compile.Repl (ReplOpts(..), defaultReplOpts, replOptDescrs, getReplOpts, runRepl, runRepl') where
 
-import Control.Monad (unless, forM_)
+import Control.Monad (unless, forM_, foldM)
 import Control.Monad.IO.Class (MonadIO)
-import Data.Char (isSpace)
 import qualified Data.ByteString.Char8 as BS
+import Data.Char (isSpace)
+import Data.Function ((&))
+import Data.Functor ((<&>))
 import qualified Data.Map as Map
 
-import System.Console.GetOpt (getOpt, ArgOrder(RequireOrder), OptDescr(..), ArgDescr(..))
+import System.Console.GetOpt (ArgOrder(RequireOrder), OptDescr(..), ArgDescr(..), getOpt, usageInfo)
 import System.Console.Haskeline (InputT, Settings(..), noCompletion, runInputT, getInputLine, outputStrLn)
 import System.Directory (getAppUserDataDirectory)
 
 import GF.Compile (batchCompile)
-import GF.Compile.Compute.Concrete (Globals(Gl), normalFlatForm)
+import GF.Compile.Compute.Concrete (Globals(Gl), stdPredef, normalFlatForm)
 import GF.Compile.Rename (renameSourceTerm)
 import GF.Compile.TypeCheck.ConcreteNew (inferLType)
 import GF.Data.ErrM (Err(..))
@@ -37,6 +39,7 @@ import GF.Grammar.Printer (TermPrintQual(Unqualified), ppTerm)
 import GF.Infra.CheckM (Check, runCheck)
 import GF.Infra.Ident (moduleNameS)
 import GF.Infra.Option (noOptions)
+import GF.Infra.UseIO (justModuleName)
 import GF.Text.Pretty (render)
 
 data ReplOpts = ReplOpts
@@ -47,17 +50,23 @@ data ReplOpts = ReplOpts
 defaultReplOpts :: ReplOpts
 defaultReplOpts = ReplOpts False []
 
-replOptDescrs :: [OptDescr (ReplOpts -> ReplOpts)]
-replOptDescrs =
-  [ Option [] ["no-prelude"] (NoArg $ \o -> o { noPrelude = True }) "Don't load the prelude."
-  ]
+type Errs a = Either [String] a
+type ReplOptsOp = ReplOpts -> Errs ReplOpts
 
-getReplOpts :: [String] -> Either [String] ReplOpts
+replOptDescrs :: [OptDescr ReplOptsOp]
+replOptDescrs =
+  [ Option ['h'] ["help"] (NoArg $ \o -> Left [usageInfo "gfci" replOptDescrs]) "Display help."
+  , Option [] ["no-prelude"] (flag $ \o -> o { noPrelude = True }) "Don't load the prelude."
+  ]
+  where
+    flag f = NoArg $ \o -> pure (f o)
+
+getReplOpts :: [String] -> Errs ReplOpts
 getReplOpts args = case errs of
-  [] -> Right $ (foldr ($) defaultReplOpts flags) { inputFiles = inputFiles }
+  [] -> foldM (&) defaultReplOpts flags <&> \o -> o { inputFiles = inputFiles }
   _  -> Left errs
   where
-    (flags, inputFiles, errs) = getOpt RequireOrder [] args
+    (flags, inputFiles, errs) = getOpt RequireOrder replOptDescrs args
 
 execCheck :: MonadIO m => Check a -> (a -> InputT m ()) -> InputT m ()
 execCheck c k = case runCheck c of
@@ -110,12 +119,12 @@ runRepl' gl@(Gl g _) = do
 runRepl :: ReplOpts -> IO ()
 runRepl (ReplOpts noPrelude inputFiles) = do
   -- TODO accept an ngf grammar
-  -- TODO load prelude
-  (g0, opens) <- case inputFiles of
+  let toLoad = if noPrelude then inputFiles else "prelude/Predef.gfo" : inputFiles
+  (g0, opens) <- case toLoad of
     [] -> pure (mGrammar [], [])
     _ -> do
-      (_, (pModName, g0)) <- batchCompile noOptions Nothing inputFiles
-      pure (g0, [OSimple pModName])
+      (_, (_, g0)) <- batchCompile noOptions Nothing toLoad
+      pure (g0, OSimple . moduleNameS . justModuleName <$> toLoad)
   let
     modInfo = ModInfo
       { mtype   = MTResource
@@ -129,4 +138,4 @@ runRepl (ReplOpts noPrelude inputFiles) = do
       , mseqs   = Nothing
       , jments  = Map.empty
       }
-  runRepl' (Gl (prependModule g0 (replModName, modInfo)) Map.empty)
+  runRepl' (Gl (prependModule g0 (replModName, modInfo)) (if noPrelude then Map.empty else stdPredef))

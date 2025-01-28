@@ -8,5 +8,5 @@ main = do
   setLocaleEncoding utf8
   args <- getArgs
   case getReplOpts args of
-    Left errs  -> mapM_ print errs
+    Left errs  -> mapM_ putStrLn errs
     Right opts -> runRepl opts
