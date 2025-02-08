@@ -14,7 +14,7 @@ import GF.Compile.Compute.Concrete
 import GF.Infra.CheckM
 import GF.Data.ErrM ( Err(Ok, Bad) )
 import Control.Applicative(Applicative(..))
-import Control.Monad(ap,liftM,mplus,foldM,zipWithM,forM,filterM,when)
+import Control.Monad(ap,liftM,mplus,foldM,zipWithM,forM,filterM,unless)
 import Control.Monad.ST
 import GF.Text.Pretty
 import Data.STRef
@@ -382,20 +382,19 @@ tcCases scope ((p,t):cs) p_ty res_ty = do
   cs <- tcCases scope cs p_ty res_ty
   return ((p,t):cs)
 
-tcApp scope t0 (App fun (ImplArg arg)) args = tcApp scope t0 fun ((arg,False):args) -- APP1
-tcApp scope t0 (App fun arg)           args = tcApp scope t0 fun ((arg,True):args)  -- APP2
-tcApp scope t0 (Q id)                  args = resolveOverloads scope t0 id args     -- VAR (global)
-tcApp scope t0 (QC id)                 args = resolveOverloads scope t0 id args     -- VAR (global)
+tcApp scope t0 (App fun arg) args = tcApp scope t0 fun (arg:args)     -- APP
+tcApp scope t0 (Q id)        args = resolveOverloads scope t0 id args -- VAR (global)
+tcApp scope t0 (QC id)       args = resolveOverloads scope t0 id args -- VAR (global)
 tcApp scope t0 t args = do
   (t,ty) <- tcRho scope t Nothing
   reapply scope t ty args
 
-reapply :: Scope s -> Term -> Constraint s -> [(Term,Bool)] -> EvalM s (Term,Rho s)
+reapply :: Scope s -> Term -> Constraint s -> [Term] -> EvalM s (Term,Rho s)
 reapply scope fun fun_ty [] = return (fun,fun_ty)
-reapply scope fun fun_ty ((arg,False):args) = do
+reapply scope fun fun_ty ((ImplArg arg):args) = do -- Implicit arg case
   (bt, x, arg_ty, res_ty) <- unifyFun scope fun_ty
-  when (bt == Implicit) $ evalError (ppTerm Unqualified 0 (App fun (ImplArg arg)) <+>
-                            "is an implicit argument application, but no implicit argument is expected")
+  unless (bt == Implicit) $ evalError (ppTerm Unqualified 0 (App fun (ImplArg arg)) <+>
+                              "is an implicit argument application, but no implicit argument is expected")
   (arg,_) <- tcRho scope arg (Just arg_ty)
   res_ty <- case res_ty of
               VClosure res_env res_ty -> do env <- scopeEnv scope
@@ -403,7 +402,7 @@ reapply scope fun fun_ty ((arg,False):args) = do
                                             eval ((x,tnk):res_env) res_ty []
               res_ty                  -> return res_ty
   reapply scope (App fun (ImplArg arg)) res_ty args
-reapply scope fun fun_ty ((arg,True):args) = do
+reapply scope fun fun_ty (arg:args) = do -- Explicit arg (fallthrough) case
   (fun,fun_ty) <- instantiate scope fun fun_ty
   (_, x, arg_ty, res_ty) <- unifyFun scope fun_ty
   (arg,_) <- tcRho scope arg (Just arg_ty)
@@ -414,7 +413,7 @@ reapply scope fun fun_ty ((arg,True):args) = do
               res_ty                  -> return res_ty
   reapply scope (App fun arg) res_ty args
 
-resolveOverloads :: Scope s -> Term -> QIdent -> [(Term,Bool)] -> EvalM s (Term,Rho s)
+resolveOverloads :: Scope s -> Term -> QIdent -> [Term] -> EvalM s (Term,Rho s)
 resolveOverloads scope t q args = EvalM $ \gl@(Gl gr _) k mt d r msgs ->
   case lookupOverloadTypes gr q of
     Bad msg  -> return $ Fail (pp msg) msgs
@@ -450,7 +449,7 @@ resolveOverloads scope t q args = EvalM $ \gl@(Gl gr _) k mt d r msgs ->
       return (FV (fst <$> ttys), fvty)
 
     papply scope fun fun_ty [] = return (fun,fun_ty)
-    papply scope fun (VProd Implicit x arg_ty res_ty) ((arg,False):args) = do
+    papply scope fun (VProd Implicit x arg_ty res_ty) ((ImplArg arg):args) = do -- Implicit arg case
       (arg,_) <- tcRho scope arg (Just arg_ty)
       res_ty <- case res_ty of
                   VClosure res_env res_ty -> do env <- scopeEnv scope
@@ -458,7 +457,7 @@ resolveOverloads scope t q args = EvalM $ \gl@(Gl gr _) k mt d r msgs ->
                                                 eval ((x,tnk):res_env) res_ty []
                   res_ty                  -> return res_ty
       papply scope (App fun (ImplArg arg)) res_ty args
-    papply scope fun fun_ty ((arg,True):args) = do
+    papply scope fun fun_ty (arg:args) = do -- Explicit arg (fallthrough) case
       (fun,VProd Explicit x arg_ty res_ty) <- instantiate scope fun fun_ty
       (arg,_) <- tcRho scope arg (Just arg_ty)
       res_ty <- case res_ty of
