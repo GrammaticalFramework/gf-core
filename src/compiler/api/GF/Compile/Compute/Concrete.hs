@@ -26,6 +26,7 @@ import GF.Grammar.Predef
 import GF.Grammar.Lockfield(lockLabel)
 import GF.Grammar.Printer
 import GF.Data.Operations(Err(..))
+import GF.Data.Utilities((<||>),anyM)
 import GF.Infra.CheckM
 import GF.Infra.Option
 import Data.STRef
@@ -142,6 +143,37 @@ showValue (VAlts _ _) = "VAlts"
 showValue (VStrs _) = "VStrs"
 showValue (VSymCat _ _ _) = "VSymCat"
 
+isOpen :: [Ident] -> Term -> EvalM s Bool
+isOpen bound (Vr x) = return $ x `notElem` bound
+isOpen bound (App f x) = isOpen bound f <||> isOpen bound x
+isOpen bound (Abs b x t) = isOpen (x:bound) t
+isOpen bound (ImplArg t) = isOpen bound t
+isOpen bound (Prod b x d cod) = isOpen bound d <||> isOpen (x:bound) cod
+isOpen bound (Typed t ty) = isOpen bound t
+isOpen bound (Example t s) = isOpen bound t
+isOpen bound (RecType fs) = anyM (isOpen bound . snd) fs
+isOpen bound (R fs) = anyM (isOpen bound . snd . snd) fs
+isOpen bound (P t f) = isOpen bound t
+isOpen bound (ExtR t t') = isOpen bound t <||> isOpen bound t'
+isOpen bound (Table d cod) = isOpen bound d <||> isOpen bound cod
+isOpen bound (T (TTyped ty) cs) = isOpen bound ty <||> anyM (isOpen bound . snd) cs
+isOpen bound (T (TWild ty) cs) = isOpen bound ty <||> anyM (isOpen bound . snd) cs
+isOpen bound (T _ cs) = anyM (isOpen bound . snd) cs
+isOpen bound (V ty cs) = isOpen bound ty <||> anyM (isOpen bound) cs
+isOpen bound (S t x) = isOpen bound t <||> isOpen bound x
+isOpen bound (Let (x,(ty,d)) t) = isOpen bound d <||> isOpen (x:bound) t
+isOpen bound (C t t') = isOpen bound t <||> isOpen bound t'
+isOpen bound (Glue t t') = isOpen bound t <||> isOpen bound t'
+isOpen bound (EPattType ty) = isOpen bound ty
+isOpen bound (ELincat c ty) = isOpen bound ty
+isOpen bound (ELin c t) = isOpen bound t
+isOpen bound (FV ts) = anyM (isOpen bound) ts
+isOpen bound (Markup tag as ts) = anyM (isOpen bound) ts <||> anyM (isOpen bound . snd) as
+isOpen bound (Reset c t) = isOpen bound t
+isOpen bound (Alts d as) = isOpen bound d <||> anyM (\(x,y) -> isOpen bound x <||> isOpen bound y) as
+isOpen bound (Strs ts) = anyM (isOpen bound) ts
+isOpen _ _ = return False
+
 eval env (Vr x)         vs  = do (tnk,depth) <- lookup x env
                                  withVar depth $ do
                                    v <- force tnk
@@ -208,18 +240,15 @@ eval env (Let (x,(_,t1)) t2) vs = do tnk <- newThunk env t1
                                      eval ((x,tnk):env) t2 vs
 eval env (Q q@(m,id))   vs
   | m == cPredef            = do vs' <- mapM force vs -- FIXME this does not allow for partial application!
-                                 if any isVar vs'
-                                 then return (VApp q vs)
-                                 else do res <- evalPredef id vs'
-                                         case res of
-                                           Const res -> return res
-                                           RunTime   -> return (VApp q vs)
-                                           NonExist  -> return (VApp (cPredef,cNonExist) [])
+                                 open <- anyM (value2term True [] >=> isOpen []) vs'
+                                 if open then return (VApp q vs) else do
+                                   res <- evalPredef id vs'
+                                   case res of
+                                     Const res -> return res
+                                     RunTime   -> return (VApp q vs)
+                                     NonExist  -> return (VApp (cPredef,cNonExist) [])
   | otherwise               = do t <- getResDef q
                                  eval env t vs
-                              where
-                                isVar (VGen _ _) = True
-                                isVar _          = False
 eval env (QC q)         vs  = return (VApp q vs)
 eval env (C t1 t2)      []  = do v1 <- eval env t1 []
                                  v2 <- eval env t2 []

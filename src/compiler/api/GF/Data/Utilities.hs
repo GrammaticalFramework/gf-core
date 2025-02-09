@@ -16,7 +16,7 @@ module GF.Data.Utilities(module GF.Data.Utilities) where
 
 import Data.Maybe
 import Data.List
-import Control.Monad (MonadPlus(..),liftM,when)
+import Control.Monad (MonadPlus(..),foldM,liftM,when)
 import qualified Data.Set as Set
 
 -- * functions on lists
@@ -139,6 +139,25 @@ whenMP b x = if b then return x else mzero
 whenM bm m = flip when m =<< bm
 
 repeatM m = whenM m (repeatM m)
+
+infixr 3 <&&>
+infixr 2 <||>
+
+-- | Boolean conjunction lifted to applicative functors.
+(<&&>) :: Applicative f => f Bool -> f Bool -> f Bool
+(<&&>) = liftA2 (&&)
+
+-- | Boolean disjunction lifted to applicative functors.
+(<||>) :: Applicative f => f Bool -> f Bool -> f Bool
+(<||>) = liftA2 (||)
+
+-- | Check whether a monadic predicate holds for every element of a collection.
+allM :: (Foldable f, Monad m) => (a -> m Bool) -> f a -> m Bool
+allM p = foldM (\b x -> if b then p x else return False) True
+
+-- | Check whether a monadic predicate holds for any element of a collection.
+anyM :: (Foldable f, Monad m) => (a -> m Bool) -> f a -> m Bool
+anyM p = foldM (\b x -> if b then return True else p x) False
 
 -- * functions on Maybes
 
