@@ -154,19 +154,13 @@ tcRho scope t@(Abs Implicit var body) (Just ty) = do         -- ABS2
   if bt == Implicit
     then return ()
     else evalError (ppTerm Unqualified 0 t <+> "is an implicit function, but no implicit function is expected")
-  body_ty <- case body_ty of
-               VClosure env body_ty -> do tnk <- newEvaluatedThunk (VGen (length scope) [])
-                                          eval ((x,tnk):env) body_ty []
-               body_ty              -> return body_ty
+  body_ty <- evalCodomain scope x body_ty
   (body, body_ty) <- tcRho ((var,var_ty):scope) body (Just body_ty)
   return (Abs Implicit var body,ty)
 tcRho scope (Abs Explicit var body) (Just ty) = do           -- ABS3
   (scope,f,ty') <- skolemise scope ty
   (_,x,var_ty,body_ty) <- unifyFun scope ty'
-  body_ty <- case body_ty of
-               VClosure env body_ty -> do tnk <- newEvaluatedThunk (VGen (length scope) [])
-                                          eval ((x,tnk):env) body_ty []
-               body_ty              -> return body_ty
+  body_ty <- evalCodomain scope x body_ty
   (body, body_ty) <- tcRho ((var,var_ty):scope) body (Just body_ty)
   return (f (Abs Explicit var body),ty)
 tcRho scope (Meta _) mb_ty = do
@@ -374,6 +368,12 @@ tcRho scope (Reset c t) mb_ty = do
   (t,_) <- tcRho scope t Nothing
   instSigma scope (Reset c t) vtypeMarkup mb_ty
 tcRho scope t _ = unimplemented ("tcRho "++show t)
+
+evalCodomain :: Scope s -> Ident -> Value s -> EvalM s (Constraint s)
+evalCodomain scope x (VClosure env t) = do
+  tnk <- newEvaluatedThunk (VGen (length scope) [])
+  eval ((x,tnk):env) t []
+evalCodomain scope x t = return t
 
 tcCases scope []         p_ty res_ty = return []
 tcCases scope ((p,t):cs) p_ty res_ty = do
@@ -632,10 +632,7 @@ subsCheckRho scope t (VProd Implicit x ty1 ty2) rho2 = do     -- Rule SPEC
   subsCheckRho scope (App t (ImplArg (Meta i))) ty2 rho2
 subsCheckRho scope t rho1 (VProd Implicit x ty1 ty2) = do     -- Rule SKOL
   let v = newVar scope
-  ty2 <- case ty2 of
-           VClosure env ty2 -> do tnk <- newEvaluatedThunk (VGen (length scope) [])
-                                  eval ((x,tnk):env) ty2 []
-           ty2              -> return ty2
+  ty2 <- evalCodomain scope x ty2
   t <- subsCheckRho ((v,ty1):scope) t rho1 ty2
   return (Abs Implicit v t)
 subsCheckRho scope t rho1 (VProd Explicit _ a2 r2) = do       -- Rule FUN
@@ -830,6 +827,12 @@ unify scope (VMeta i vs) v = unifyVar scope i vs v
 unify scope v (VMeta i vs) = unifyVar scope i vs v
 unify scope (VGen i vs1)       (VGen j vs2)
   | i == j                     = sequence_ (zipWith (unifyThunk scope) vs1 vs2)
+unify scope (VProd b x d cod) (VProd b' x' d' cod')
+  | b == b'                    = do
+      unify scope d d'
+      cod <- evalCodomain scope x cod
+      cod' <- evalCodomain scope x' cod'
+      unify scope cod cod'
 unify scope (VTable p1 res1) (VTable p2 res2) = do
   unify scope p2   p1
   unify scope res1 res2
@@ -960,10 +963,7 @@ skolemise scope ty@(VMeta i vs) = do
                             skolemise scope ty
 skolemise scope (VProd Implicit x ty1 ty2) = do
   let v = newVar scope
-  ty2 <- case ty2 of
-           VClosure env ty2 -> do tnk <- newEvaluatedThunk (VGen (length scope) [])
-                                  eval ((x,tnk) : env) ty2 []
-           ty2              -> return ty2
+  ty2 <- evalCodomain scope x ty2
   (scope,f,ty2) <- skolemise ((v,ty1):scope) ty2
   return (scope,Abs Implicit v . f,ty2)
 skolemise scope ty = do
