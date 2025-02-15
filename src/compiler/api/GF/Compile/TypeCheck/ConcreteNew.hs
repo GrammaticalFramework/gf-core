@@ -1,4 +1,4 @@
-{-# LANGUAGE RankNTypes, CPP, TupleSections #-}
+{-# LANGUAGE RankNTypes, CPP, TupleSections, LambdaCase #-}
 module GF.Compile.TypeCheck.ConcreteNew( checkLType, checkLType', inferLType, inferLType' ) where
 
 -- The code here is based on the paper:
@@ -943,6 +943,10 @@ instantiate scope t (VProd Implicit x ty1 ty2) = do
            VClosure env ty2 -> eval ((x,tnk):env) ty2 []
            ty2              -> return ty2
   instantiate scope (App t (ImplArg (Meta i))) ty2
+instantiate scope t ty@(VMeta thk args) = getRef thk >>= \case
+  Evaluated _ v            -> instantiate scope t v
+  Residuation _ _ (Just v) -> instantiate scope t v
+  _                        -> return (t,ty) -- We don't have enough information to try any instantiation
 instantiate scope t ty = do
   return (t,ty)
 
@@ -1121,9 +1125,10 @@ getMetaVars sc_tys = foldM (\acc (scope,ty) -> go ty acc) [] sc_tys
       | m `elem` acc         = return acc
       | otherwise            = do res <- getRef m
                                   case res of
-                                    Evaluated _ v           -> go v acc
-                                    Residuation _ _ Nothing -> foldM follow (m:acc) args
-                                    _                       -> return acc
+                                    Evaluated _ v            -> go v acc
+                                    Residuation _ _ Nothing  -> foldM follow (m:acc) args
+                                    Residuation _ _ (Just v) -> go v acc
+                                    _                        -> return acc
     go (VApp f args)     acc = foldM follow acc args
     go v                 acc = unimplemented ("go "++showValue v)
 
