@@ -2,7 +2,7 @@ module GF.Term (renameSourceTerm,
                 Globals(..), ConstValue(..), EvalM, stdPredef,
                 Value(..), showValue, Thunk, newThunk, newEvaluatedThunk,
                 evalError, evalWarn,
-                inferLType, checkLType,
+                inferLType, inferLType', checkLType, checkLType',
                 normalForm, normalFlatForm, normalStringForm,
                 unsafeIOToEvalM, force
                ) where

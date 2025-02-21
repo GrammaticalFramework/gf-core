@@ -70,6 +70,8 @@ library
                  ghc-prim,
                  filepath, directory>=1.2, time,
                  process, haskeline, parallel>=3, json
+  build-tool-depends: alex:alex >= 3.2.4,
+                      happy:happy >= 1.19.9
   exposed-modules:
     GF.Interactive
     GF.Compiler
@@ -120,6 +122,7 @@ library
     GF.Grammar.CanonicalJSON
     GF.Compile.ReadFiles
     GF.Compile.Rename
+    GF.Compile.Repl
     GF.Compile.SubExOpt
     GF.Compile.Tags
     GF.Compile.ToAPI
@@ -200,7 +203,7 @@ library
   else
     build-depends:
       terminfo >=0.4.0 && < 0.5,
-      unix >= 2.7.2 && < 2.8
+      unix >= 2.7.2 && < 2.9
 
   if flag(server)
     build-depends:
@@ -235,6 +238,12 @@ executable gf
       Paths_gf
   default-language:    Haskell2010
   build-depends: base >= 4.6 && <5, directory>=1.2, gf
+  ghc-options: -threaded
+
+executable gfci
+  main-is: gf-repl.hs
+  default-language: Haskell2010
+  build-depends: base >= 4.6 && < 5, gf
   ghc-options: -threaded
 
 test-suite gf-tests

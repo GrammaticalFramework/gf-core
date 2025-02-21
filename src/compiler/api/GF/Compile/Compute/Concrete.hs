@@ -1,11 +1,13 @@
-{-# LANGUAGE RankNTypes, BangPatterns, CPP, ExistentialQuantification #-}
+{-# LANGUAGE RankNTypes, BangPatterns, CPP, ExistentialQuantification, LambdaCase #-}
 
 -- | Functions for computing the values of terms in the concrete syntax, in
 -- | preparation for PMCFG generation.
 module GF.Compile.Compute.Concrete
            ( normalForm, normalFlatForm, normalStringForm
            , Value(..), Thunk, ThunkState(..), Env, Scope, showValue
-           , MetaThunks, Constraint, Globals(..), ConstValue(..)
+           , PredefImpl, Predef(..), PredefCombinator, ($\)
+           , pdForce, pdClosedArgs, pdArity, pdStandard
+           , MetaThunks, Constraint, PredefTable, Globals(..), ConstValue(..)
            , EvalM(..), runEvalM, runEvalOneM, reset, evalError, evalWarn
            , eval, apply, force, value2term, patternMatch, stdPredef
            , unsafeIOToEvalM
@@ -26,6 +28,7 @@ import GF.Grammar.Predef
 import GF.Grammar.Lockfield(lockLabel)
 import GF.Grammar.Printer
 import GF.Data.Operations(Err(..))
+import GF.Data.Utilities(splitAt',(<||>),anyM)
 import GF.Infra.CheckM
 import GF.Infra.Option
 import Data.STRef
@@ -142,6 +145,37 @@ showValue (VAlts _ _) = "VAlts"
 showValue (VStrs _) = "VStrs"
 showValue (VSymCat _ _ _) = "VSymCat"
 
+isOpen :: [Ident] -> Term -> EvalM s Bool
+isOpen bound (Vr x) = return $ x `notElem` bound
+isOpen bound (App f x) = isOpen bound f <||> isOpen bound x
+isOpen bound (Abs b x t) = isOpen (x:bound) t
+isOpen bound (ImplArg t) = isOpen bound t
+isOpen bound (Prod b x d cod) = isOpen bound d <||> isOpen (x:bound) cod
+isOpen bound (Typed t ty) = isOpen bound t
+isOpen bound (Example t s) = isOpen bound t
+isOpen bound (RecType fs) = anyM (isOpen bound . snd) fs
+isOpen bound (R fs) = anyM (isOpen bound . snd . snd) fs
+isOpen bound (P t f) = isOpen bound t
+isOpen bound (ExtR t t') = isOpen bound t <||> isOpen bound t'
+isOpen bound (Table d cod) = isOpen bound d <||> isOpen bound cod
+isOpen bound (T (TTyped ty) cs) = isOpen bound ty <||> anyM (isOpen bound . snd) cs
+isOpen bound (T (TWild ty) cs) = isOpen bound ty <||> anyM (isOpen bound . snd) cs
+isOpen bound (T _ cs) = anyM (isOpen bound . snd) cs
+isOpen bound (V ty cs) = isOpen bound ty <||> anyM (isOpen bound) cs
+isOpen bound (S t x) = isOpen bound t <||> isOpen bound x
+isOpen bound (Let (x,(ty,d)) t) = isOpen bound d <||> isOpen (x:bound) t
+isOpen bound (C t t') = isOpen bound t <||> isOpen bound t'
+isOpen bound (Glue t t') = isOpen bound t <||> isOpen bound t'
+isOpen bound (EPattType ty) = isOpen bound ty
+isOpen bound (ELincat c ty) = isOpen bound ty
+isOpen bound (ELin c t) = isOpen bound t
+isOpen bound (FV ts) = anyM (isOpen bound) ts
+isOpen bound (Markup tag as ts) = anyM (isOpen bound) ts <||> anyM (isOpen bound . snd) as
+isOpen bound (Reset c t) = isOpen bound t
+isOpen bound (Alts d as) = isOpen bound d <||> anyM (\(x,y) -> isOpen bound x <||> isOpen bound y) as
+isOpen bound (Strs ts) = anyM (isOpen bound) ts
+isOpen _ _ = return False
+
 eval env (Vr x)         vs  = do (tnk,depth) <- lookup x env
                                  withVar depth $ do
                                    v <- force tnk
@@ -206,9 +240,8 @@ eval env (S t1 t2)      vs  = do v1   <- eval env t1 []
                                    v1           -> return v0
 eval env (Let (x,(_,t1)) t2) vs = do tnk <- newThunk env t1
                                      eval ((x,tnk):env) t2 vs
-eval env (Q q@(m,id))   vs
-  | m == cPredef            = do vs' <- mapM force vs
-                                 res <- evalPredef id vs'
+eval env t@(Q q@(m,id)) vs
+  | m == cPredef            = do res <- evalPredef env t id vs
                                  case res of
                                    Const res -> return res
                                    RunTime   -> return (VApp q vs)
@@ -292,25 +325,25 @@ apply (VClosure env (Abs b x t)) (v:vs) = eval ((x,v):env) t vs
 apply v                             []  = return v
 
 
-stdPredef :: Map.Map Ident ([Value s] -> EvalM s (ConstValue (Value s)))
+stdPredef :: PredefTable s
 stdPredef = Map.fromList
-  [(cLength, \[v] -> case value2string v of
-                       Const s -> return (Const (VInt (genericLength s)))
-                       _       -> return RunTime)
-  ,(cTake,   \[v1,v2] -> return (fmap string2value (liftA2 genericTake (value2int v1) (value2string v2))))
-  ,(cDrop,   \[v1,v2] -> return (fmap string2value (liftA2 genericDrop (value2int v1) (value2string v2))))
-  ,(cTk,     \[v1,v2] -> return (fmap string2value (liftA2 genericTk (value2int v1) (value2string v2))))
-  ,(cDp,     \[v1,v2] -> return (fmap string2value (liftA2 genericDp (value2int v1) (value2string v2))))
-  ,(cIsUpper,\[v]     -> return (fmap toPBool (liftA (all isUpper) (value2string v))))
-  ,(cToUpper,\[v]     -> return (fmap string2value (liftA (map toUpper) (value2string v))))
-  ,(cToLower,\[v]     -> return (fmap string2value (liftA (map toLower) (value2string v))))
-  ,(cEqStr,  \[v1,v2] -> return (fmap toPBool (liftA2 (==) (value2string v1) (value2string v2))))
-  ,(cOccur,  \[v1,v2] -> return (fmap toPBool (liftA2 occur (value2string v1) (value2string v2))))
-  ,(cOccurs, \[v1,v2] -> return (fmap toPBool (liftA2 occurs (value2string v1) (value2string v2))))
-  ,(cEqInt,  \[v1,v2] -> return (fmap toPBool (liftA2 (==) (value2int v1) (value2int v2))))
-  ,(cLessInt,\[v1,v2] -> return (fmap toPBool (liftA2 (<) (value2int v1) (value2int v2))))
-  ,(cPlus,   \[v1,v2] -> return (fmap VInt (liftA2 (+) (value2int v1) (value2int v2))))
-  ,(cError,  \[v]     -> case value2string v of
+  [(cLength, pdStandard 1 $\ \[v] -> case value2string v of
+                                       Const s -> return (Const (VInt (genericLength s)))
+                                       _       -> return RunTime)
+  ,(cTake,   pdStandard 2 $\ \[v1,v2] -> return (fmap string2value (liftA2 genericTake (value2int v1) (value2string v2))))
+  ,(cDrop,   pdStandard 2 $\ \[v1,v2] -> return (fmap string2value (liftA2 genericDrop (value2int v1) (value2string v2))))
+  ,(cTk,     pdStandard 2 $\ \[v1,v2] -> return (fmap string2value (liftA2 genericTk (value2int v1) (value2string v2))))
+  ,(cDp,     pdStandard 2 $\ \[v1,v2] -> return (fmap string2value (liftA2 genericDp (value2int v1) (value2string v2))))
+  ,(cIsUpper,pdStandard 1 $\ \[v]     -> return (fmap toPBool (liftA (all isUpper) (value2string v))))
+  ,(cToUpper,pdStandard 1 $\ \[v]     -> return (fmap string2value (liftA (map toUpper) (value2string v))))
+  ,(cToLower,pdStandard 1 $\ \[v]     -> return (fmap string2value (liftA (map toLower) (value2string v))))
+  ,(cEqStr,  pdStandard 2 $\ \[v1,v2] -> return (fmap toPBool (liftA2 (==) (value2string v1) (value2string v2))))
+  ,(cOccur,  pdStandard 2 $\ \[v1,v2] -> return (fmap toPBool (liftA2 occur (value2string v1) (value2string v2))))
+  ,(cOccurs, pdStandard 2 $\ \[v1,v2] -> return (fmap toPBool (liftA2 occurs (value2string v1) (value2string v2))))
+  ,(cEqInt,  pdStandard 2 $\ \[v1,v2] -> return (fmap toPBool (liftA2 (==) (value2int v1) (value2int v2))))
+  ,(cLessInt,pdStandard 2 $\ \[v1,v2] -> return (fmap toPBool (liftA2 (<) (value2int v1) (value2int v2))))
+  ,(cPlus,   pdStandard 2 $\ \[v1,v2] -> return (fmap VInt (liftA2 (+) (value2int v1) (value2int v2))))
+  ,(cError,  pdStandard 1 $\ \[v]     -> case value2string v of
                            Const msg -> fail msg
                            _         -> fail "Indescribable error appeared")
   ]
@@ -671,6 +704,16 @@ instance Applicative ConstValue where
   liftA2 f _         RunTime   = RunTime
 #endif
 
+instance Foldable ConstValue where
+  foldr f a (Const x) = f x a
+  foldr f a RunTime   = a
+  foldr f a NonExist  = a
+
+instance Traversable ConstValue where
+  traverse f (Const x) = Const <$> f x
+  traverse f RunTime   = pure RunTime
+  traverse f NonExist  = pure NonExist
+
 value2string v = fmap (\(_,ws,_) -> unwords ws) (value2string' v False [] [])
 
 value2string' (VStr w1)   True (w2:ws) qs = Const (False,(w1++w2):ws,qs)
@@ -729,11 +772,62 @@ value2int (VInt n) = Const n
 value2int _        = RunTime
 
 -----------------------------------------------------------------------
+-- * Global/built-in definitions
+
+type PredefImpl a s = [a] -> EvalM s (ConstValue (Value s))
+newtype Predef a s = Predef { runPredef :: Term -> Env s -> PredefImpl a s }
+type PredefCombinator a b s = Predef a s -> Predef b s
+
+infix 0 $\\
+
+($\) :: PredefCombinator a b s -> PredefImpl a s -> Predef b s
+k $\ f = k (Predef (\_ _ -> f))
+
+pdForce :: PredefCombinator (Value s) (Thunk s) s
+pdForce def = Predef $ \h env args -> do
+  argValues <- mapM force args
+  runPredef def h env argValues
+
+pdClosedArgs :: PredefCombinator (Value s) (Value s) s
+pdClosedArgs def = Predef $ \h env args -> do
+  open <- anyM (value2term True [] >=> isOpen []) args
+  if open then return RunTime else runPredef def h env args
+
+pdArity :: Int -> PredefCombinator (Thunk s) (Thunk s) s
+pdArity n def = Predef $ \h env args ->
+  case splitAt' n args of
+    Nothing -> do
+      t <- papply env h args
+      let t' = abstract 0 (n - length args) t
+      Const <$> eval env t' []
+    Just (usedArgs, remArgs) -> do
+      res <- runPredef def h env usedArgs
+      forM res $ \v -> case remArgs of
+        [] -> return v
+        _  -> do
+          t <- value2term False (fst <$> env) v
+          eval env t remArgs
+  where
+    papply env t []         = return t
+    papply env t (arg:args) = do
+      arg <- tnk2term False (fst <$> env) arg
+      papply env (App t arg) args
+    
+    abstract i n t
+      | n <= 0    = t
+      | otherwise = let x = identV (rawIdentS "a") i
+                    in  Abs Explicit x (abstract (i + 1) (n - 1) (App t (Vr x)))
+
+pdStandard :: Int -> PredefCombinator (Value s) (Thunk s) s
+pdStandard n = pdArity n . pdForce . pdClosedArgs
+
+-----------------------------------------------------------------------
 -- * Evaluation monad
 
 type MetaThunks s = Map.Map MetaId (Thunk s)
 type Cont s r = MetaThunks s -> Int -> r -> [Message] -> ST s (CheckResult r [Message])
-data Globals = Gl Grammar (forall s . Map.Map Ident ([Value s] -> EvalM s (ConstValue (Value s))))
+type PredefTable s = Map.Map Ident (Predef (Thunk s) s)
+data Globals = Gl Grammar (forall s . PredefTable s)
 newtype EvalM s a = EvalM (forall r . Globals -> (a -> Cont s r) -> Cont s r)
 
 instance Functor (EvalM s) where
@@ -792,9 +886,9 @@ evalError msg = EvalM (\gr k _ _ r msgs -> return (Fail msg msgs))
 evalWarn :: Message -> EvalM s ()
 evalWarn msg = EvalM (\gr k mt d r msgs -> k () mt d r (msg:msgs))
 
-evalPredef :: Ident -> [Value s] -> EvalM s (ConstValue (Value s))
-evalPredef id vs = EvalM (\globals@(Gl _ predef) k mt d r msgs ->
-  case fmap (\f -> f vs) (Map.lookup id predef) of
+evalPredef :: Env s -> Term -> Ident -> [Thunk s] -> EvalM s (ConstValue (Value s))
+evalPredef env h id args = EvalM (\globals@(Gl _ predef) k mt d r msgs ->
+  case fmap (\def -> runPredef def h env args) (Map.lookup id predef) of
     Just (EvalM f) -> f globals k mt d r msgs
     Nothing        -> k RunTime mt d r msgs)
 
