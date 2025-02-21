@@ -14,6 +14,7 @@
 
 module GF.Data.Utilities(module GF.Data.Utilities) where
 
+import Data.Bifunctor (first)
 import Data.Maybe
 import Data.List
 import Control.Monad (MonadPlus(..),foldM,liftM,when)
@@ -44,6 +45,14 @@ splitBy :: (a -> Bool) -> [a] -> ([a], [a])
 splitBy p [] = ([], [])
 splitBy p (a : as) = if p a then (a:xs, ys) else (xs, a:ys)
     where (xs, ys) = splitBy p as
+
+splitAt' :: Int -> [a] -> Maybe ([a], [a])
+splitAt' n xs
+    | n <= 0    = Just ([], xs)
+    | otherwise = helper n xs
+    where helper 0 xs     = Just ([], xs)
+          helper n []     = Nothing
+          helper n (x:xs) = first (x:) <$> helper (n - 1) xs
 
 foldMerge :: (a -> a -> a) -> a -> [a] -> a
 foldMerge merge zero = fm
