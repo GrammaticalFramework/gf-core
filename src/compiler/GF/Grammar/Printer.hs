@@ -17,6 +17,7 @@ module GF.Grammar.Printer
            , ppTerm
            , ppPatt
            , ppValue
+           , ppNValue
            , ppConstrs
            , ppQIdent
            , ppMeta
@@ -276,16 +277,19 @@ ppPatt q d (PTilde t)   = prec d 2 ('~' <> ppTerm q 6 t)
 
 ppValue :: TermPrintQual -> Int -> Val -> Doc
 ppValue q d (VGen i x)    = x <> "{-" <> i <> "-}" ---- latter part for debugging
-ppValue q d (VApp u v)    = prec d 4 (ppValue q 4 u <+> ppValue q 5 v)
-ppValue q d (VCn (_,c))   = pp c
+ppValue q d (VApp u v)    = prec d 4 (ppValue q 4 u <+> hsep (ppValue q 5 <$> v))
+ppValue q d (VCn (_,c) _)   = pp c
 ppValue q d (VClos env e) = case e of
                               Meta _ -> ppTerm q d e <> ppEnv env
                               _      -> ppTerm q d e ---- ++ prEnv env ---- for debugging
 ppValue q d (VRecType xs) = braces (hsep (punctuate ',' [l <> '=' <> ppValue q 0 v | (l,v) <- xs]))
 ppValue q d VType         = pp "Type"
 
+ppNValue :: TermPrintQual -> Int -> NotVal -> Doc
+ppNValue q d (NVClos env e) = ppValue q d (VClos env e)
+
 ppConstrs :: Constraints -> [Doc]
-ppConstrs = map (\(v,w) -> braces (ppValue Unqualified 0 v <+> "<>" <+> ppValue Unqualified 0 w))
+ppConstrs = map $ \(v,w) -> braces (ppValue Unqualified 0 v <+> "<>" <+> ppValue Unqualified 0 w)
 
 ppEnv :: Env -> Doc
 ppEnv e = hcat (map (\(x,t) -> braces (x <> ":=" <> ppValue Unqualified 0 t)) e)

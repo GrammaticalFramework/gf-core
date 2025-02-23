@@ -38,13 +38,16 @@ initTCEnv gamma =
 
 -- interface to TC type checker
 
-type2val :: Type -> Val
-type2val = VClos []
+type2val :: Type -> NotVal
+type2val = NVClos []
+
+type2nval :: Type -> NotVal
+type2nval = NVClos []
 
 cont2exp :: Context -> Term
 cont2exp c = mkProd c eType [] -- to check a context
 
-cont2val :: Context -> Val
+cont2val :: Context -> NotVal
 cont2val = type2val . cont2exp
 
 -- some top-level batch-mode checkers for the compiler
@@ -61,9 +64,11 @@ notJustMeta (c,k) = case (c,k) of
 
 grammar2theory :: SourceGrammar -> Theory
 grammar2theory gr (m,f) = case lookupFunType gr m f of
-  Ok t -> return $ type2val t
+  Ok t -> case lookupAbsDef gr m f of -- TODO: Don't lookup twice
+            Ok (Just n, Just eqs) -> return (type2val t, Just (n, eqs))
+            _ -> return (type2val t, Nothing)
   Bad s -> case lookupCatContext gr m f of
-    Ok cont -> return $ cont2val cont
+    Ok cont -> return (cont2val cont,Nothing) 
     _ -> Bad s
 
 checkContext :: SourceGrammar -> Context -> [Message]
@@ -74,7 +79,7 @@ checkTyp gr typ = err (\x -> [pp x]) ppConstrs $ justTypeCheck gr typ vType
 
 checkDef :: SourceGrammar -> Fun -> Type -> Equation -> [Message]
 checkDef gr (m,fun) typ eq = err (\x -> [pp x]) ppConstrs $ do
-  (b,cs) <- checkBranch (grammar2theory gr) (initTCEnv []) eq (type2val typ)
+  (b,cs) <- checkBranch (grammar2theory gr) (initTCEnv []) eq (type2nval typ)
   (constrs,_) <- unifyVal cs
   return $ filter notJustMeta constrs
 

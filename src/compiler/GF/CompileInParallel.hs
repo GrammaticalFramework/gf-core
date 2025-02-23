@@ -61,7 +61,7 @@ parallelBatchCompile jobs opts rootfiles0 =
 
         usesPresent (_,paths) = take 1 libs==["present"]
           where
-            libs = [p|path<-paths,
+            libs = [p | path<-paths,
                       let (d,p0) = splitAt n path
                           p = dropSlash p0,
                       d==lib_dir,p `elem` all_modes]
@@ -171,11 +171,11 @@ batchCompile1 lib_dir (opts,filepaths) =
                    <+>length (nub (map (dropFileName.fst) ds))<+>"directories."
      let n = length es
      if n>0
-       then fail $ "Errors prevented "++show n++" module"++['s'|n/=1]++
+       then fail $ "Errors prevented "++show n++" module"++['s' | n/=1] ++
                    " from being compiled."
        else return (maximum ts,(cnc,gr))
 
-splitEither es = ([x|Left x<-es],[y|Right y<-es])
+splitEither es = ([x | Left x<-es],[y | Right y<-es])
 
 canonical path = liftIO $ D.canonicalizePath path `catch` const (return path)
 

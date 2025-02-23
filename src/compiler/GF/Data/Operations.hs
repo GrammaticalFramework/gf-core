@@ -24,7 +24,7 @@ module GF.Data.Operations (
                  liftErr,
 
      -- ** Checking
-     checkUnique, unifyMaybeBy, unifyMaybe,
+     checkUnique, unifyMaybeBy, unifyMaybe, unifyMaybeWith,
 
          -- ** Monadic operations on lists and pairs
      mapPairsM, pairM,
@@ -89,15 +89,20 @@ checkUnique ss = ["overloaded" +++ show s | s <- nub overloads] where
   overloaded s = length (filter (==s) ss) > 1
 
 -- | this is what happens when matching two values in the same module
-unifyMaybe :: (Eq a, Fail.MonadFail m) => Maybe a -> Maybe a -> m (Maybe a)
+unifyMaybe :: (Eq a, Fail.MonadFail m, Show a) => Maybe a -> Maybe a -> m (Maybe a)
 unifyMaybe = unifyMaybeBy id
 
-unifyMaybeBy :: (Eq b, Fail.MonadFail m) => (a->b) -> Maybe a -> Maybe a -> m (Maybe a)
+unifyMaybeBy :: (Eq b, Fail.MonadFail m, Show a) => (a->b) -> Maybe a -> Maybe a -> m (Maybe a)
 unifyMaybeBy f (Just p1) (Just p2)
   | f p1==f p2                     = return (Just p1)
-  | otherwise                      = fail ""
+  | otherwise                      = fail $ "non-matching values: " ++ show p1 ++ " and " ++ show p2
 unifyMaybeBy _ Nothing   mp2       = return mp2
 unifyMaybeBy _ mp1       _         = return mp1
+
+unifyMaybeWith :: Applicative m => (a -> a -> m a) -> Maybe a -> Maybe a -> m (Maybe a)
+unifyMaybeWith f (Just p1) (Just p2) = Just <$> f p1 p2
+unifyMaybeWith _ Nothing   mp2       = pure mp2
+unifyMaybeWith _ mp1       _         = pure mp1
 
 -- printing
 
