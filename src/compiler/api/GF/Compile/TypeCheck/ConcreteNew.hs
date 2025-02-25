@@ -1,5 +1,5 @@
-{-# LANGUAGE RankNTypes, CPP #-}
-module GF.Compile.TypeCheck.ConcreteNew( checkLType, inferLType ) where
+{-# LANGUAGE RankNTypes, CPP, TupleSections, LambdaCase #-}
+module GF.Compile.TypeCheck.ConcreteNew( checkLType, checkLType', inferLType, inferLType' ) where
 
 -- The code here is based on the paper:
 -- Simon Peyton Jones, Dimitrios Vytiniotis, Stephanie Weirich.
@@ -12,26 +12,33 @@ import GF.Grammar.Predef
 import GF.Grammar.Lockfield
 import GF.Compile.Compute.Concrete
 import GF.Infra.CheckM
-import GF.Data.Operations
+import GF.Data.ErrM ( Err(Ok, Bad) )
 import Control.Applicative(Applicative(..))
-import Control.Monad(ap,liftM,mplus,foldM,zipWithM,forM)
+import Control.Monad(ap,liftM,mplus,foldM,zipWithM,forM,filterM,unless)
 import Control.Monad.ST
 import GF.Text.Pretty
 import Data.STRef
 import Data.List (nub, (\\), tails)
 import qualified Data.Map as Map
-import Data.Maybe(fromMaybe,isNothing)
+import Data.Maybe(fromMaybe,isNothing,mapMaybe)
+import Data.Functor((<&>))
 import qualified Control.Monad.Fail as Fail
 
 checkLType :: Globals -> Term -> Type -> Check (Term, Type)
-checkLType globals t ty = runEvalOneM globals $ do
+checkLType globals t ty = runEvalOneM globals (checkLType' t ty)
+
+checkLType' :: Term -> Type -> EvalM s (Term, Type)
+checkLType' t ty = do
   vty <- eval [] ty []
   (t,_) <- tcRho [] t (Just vty)
   t <- zonkTerm [] t
   return (t,ty)
 
 inferLType :: Globals -> Term -> Check (Term, Type)
-inferLType globals t = runEvalOneM globals $ do
+inferLType globals t = runEvalOneM globals (inferLType' t)
+
+inferLType' :: Term -> EvalM s (Term, Type)
+inferLType' t = do
   (t,ty) <- inferSigma [] t
   t  <- zonkTerm [] t
   ty <- value2term False [] ty
@@ -64,13 +71,13 @@ tcRho scope t@(Vr v)     mb_ty = do                          -- VAR
     Just v_sigma -> instSigma scope t v_sigma mb_ty
     Nothing      -> evalError ("Unknown variable" <+> v)
 tcRho scope t@(Q id)     mb_ty = do
-  (t,ty) <- tcApp scope t t
+  (t,ty) <- tcApp scope t t []
   instSigma scope t ty mb_ty
 tcRho scope t@(QC id)    mb_ty = do
-  (t,ty) <- tcApp scope t t
+  (t,ty) <- tcApp scope t t []
   instSigma scope t ty mb_ty
 tcRho scope t@(App fun arg) mb_ty = do
-  (t,ty) <- tcApp scope t t
+  (t,ty) <- tcApp scope t t []
   instSigma scope t ty mb_ty
 tcRho scope (Abs bt var body) Nothing = do                   -- ABS1
   (i,tnk) <- newResiduation scope
@@ -105,7 +112,6 @@ tcRho scope (Abs bt var body) Nothing = do                   -- ABS1
                              v2 <- eval ((x,tnk):env) t []
                              check m (n+1) (b,x:xs) v2
         v2             -> check m n st v2
-      check m (n+1) (b,x:xs) v2
     check m n st (VRecType as)     = foldM (\st (l,v) -> check m n st v) st as
     check m n st (VR as)           =
       foldM (\st (lbl,tnk) -> follow m n st tnk) st as
@@ -148,19 +154,13 @@ tcRho scope t@(Abs Implicit var body) (Just ty) = do         -- ABS2
   if bt == Implicit
     then return ()
     else evalError (ppTerm Unqualified 0 t <+> "is an implicit function, but no implicit function is expected")
-  body_ty <- case body_ty of
-               VClosure env body_ty -> do tnk <- newEvaluatedThunk (VGen (length scope) [])
-                                          eval ((x,tnk):env) body_ty []
-               body_ty              -> return body_ty
+  body_ty <- evalCodomain scope x body_ty
   (body, body_ty) <- tcRho ((var,var_ty):scope) body (Just body_ty)
   return (Abs Implicit var body,ty)
 tcRho scope (Abs Explicit var body) (Just ty) = do           -- ABS3
   (scope,f,ty') <- skolemise scope ty
   (_,x,var_ty,body_ty) <- unifyFun scope ty'
-  body_ty <- case body_ty of
-               VClosure env body_ty -> do tnk <- newEvaluatedThunk (VGen (length scope) [])
-                                          eval ((x,tnk):env) body_ty []
-               body_ty              -> return body_ty
+  body_ty <- evalCodomain scope x body_ty
   (body, body_ty) <- tcRho ((var,var_ty):scope) body (Just body_ty)
   return (f (Abs Explicit var body),ty)
 tcRho scope (Meta _) mb_ty = do
@@ -369,6 +369,12 @@ tcRho scope (Reset c t) mb_ty = do
   instSigma scope (Reset c t) vtypeMarkup mb_ty
 tcRho scope t _ = unimplemented ("tcRho "++show t)
 
+evalCodomain :: Scope s -> Ident -> Value s -> EvalM s (Constraint s)
+evalCodomain scope x (VClosure env t) = do
+  tnk <- newEvaluatedThunk (VGen (length scope) [])
+  eval ((x,tnk):env) t []
+evalCodomain scope x t = return t
+
 tcCases scope []         p_ty res_ty = return []
 tcCases scope ((p,t):cs) p_ty res_ty = do
   scope' <- tcPatt scope p p_ty
@@ -376,21 +382,27 @@ tcCases scope ((p,t):cs) p_ty res_ty = do
   cs <- tcCases scope cs p_ty res_ty
   return ((p,t):cs)
 
-tcApp scope t0 t@(App fun (ImplArg arg)) = do                  -- APP1
-  (fun,fun_ty) <- tcApp scope t0 fun
+tcApp scope t0 (App fun arg) args = tcApp scope t0 fun (arg:args)     -- APP
+tcApp scope t0 (Q id)        args = resolveOverloads scope t0 id args -- VAR (global)
+tcApp scope t0 (QC id)       args = resolveOverloads scope t0 id args -- VAR (global)
+tcApp scope t0 t args = do
+  (t,ty) <- tcRho scope t Nothing
+  reapply scope t ty args
+
+reapply :: Scope s -> Term -> Constraint s -> [Term] -> EvalM s (Term,Rho s)
+reapply scope fun fun_ty [] = return (fun,fun_ty)
+reapply scope fun fun_ty ((ImplArg arg):args) = do -- Implicit arg case
   (bt, x, arg_ty, res_ty) <- unifyFun scope fun_ty
-  if (bt == Implicit)
-    then return ()
-    else evalError (ppTerm Unqualified 0 t <+> "is an implicit argument application, but no implicit argument is expected")
+  unless (bt == Implicit) $ evalError (ppTerm Unqualified 0 (App fun (ImplArg arg)) <+>
+                              "is an implicit argument application, but no implicit argument is expected")
   (arg,_) <- tcRho scope arg (Just arg_ty)
   res_ty <- case res_ty of
               VClosure res_env res_ty -> do env <- scopeEnv scope
                                             tnk <- newThunk env arg
                                             eval ((x,tnk):res_env) res_ty []
-              res_ty              -> return res_ty
-  return (App fun (ImplArg arg), res_ty)
-tcApp scope t0 (App fun arg) = do                              -- APP2
-  (fun,fun_ty) <- tcApp scope t0 fun
+              res_ty                  -> return res_ty
+  reapply scope (App fun (ImplArg arg)) res_ty args
+reapply scope fun fun_ty (arg:args) = do -- Explicit arg (fallthrough) case
   (fun,fun_ty) <- instantiate scope fun fun_ty
   (_, x, arg_ty, res_ty) <- unifyFun scope fun_ty
   (arg,_) <- tcRho scope arg (Just arg_ty)
@@ -399,22 +411,61 @@ tcApp scope t0 (App fun arg) = do                              -- APP2
                                             tnk <- newThunk env arg
                                             eval ((x,tnk):res_env) res_ty []
               res_ty                  -> return res_ty
-  return (App fun arg, res_ty)
-tcApp scope t0 (Q id)  = do                                    -- VAR (global)
-  (t,ty) <- getOverload t0 id
-  vty <- eval [] ty []
-  return (t,vty)
-tcApp scope t0 (QC id) = do                                    -- VAR (global)
-  (t,ty) <- getOverload t0 id
-  vty <- eval [] ty []
-  return (t,vty)
-tcApp scope t0 t = tcRho scope t Nothing
+  reapply scope (App fun arg) res_ty args
 
-tcOverloadFailed t ttys =
-  evalError ("Overload resolution failed" $$
-             "of term   " <+> pp t $$
-             "with types" <+> vcat [ppTerm Terse 0 ty | (_,ty) <- ttys])
+resolveOverloads :: Scope s -> Term -> QIdent -> [Term] -> EvalM s (Term,Rho s)
+resolveOverloads scope t q args = EvalM $ \gl@(Gl gr _) k mt d r msgs ->
+  case lookupOverloadTypes gr q of
+    Bad msg  -> return $ Fail (pp msg) msgs
+    Ok [tty] -> try tty gl k mt d r msgs -- skip overload resolution if there's only one overload
+    Ok ttys  -> do rs <- mapM (\tty -> (tty,) <$> try tty gl k mt d r msgs) ttys
+                   let successes = mapMaybe isSuccess rs
+                   r <- case successes of
+                     []           -> return $ Fail mempty msgs
+                     [(_,r,msgs)] -> return $ Success r msgs
+                     _            -> case unifyOverloads (successes <&> \(tty,_,_) -> tty) of
+                                       EvalM f -> f gl k mt d r msgs
+                   return $ case r of
+                     s@(Success _ _) -> s
+                     Fail err msgs   -> let h = "Overload resolution failed" $$
+                                                "of term   " <+> pp t $$
+                                                "with types" <+> vcat [ppTerm Terse 0 ty | (_,ty) <- ttys]
+                                        in Fail (h $+$ err) msgs
+  where
+    try (t,ty) = case eval [] ty [] >>= \vty -> reapply scope t vty args of EvalM f -> f
 
+    isSuccess (tty, Success r msg) = Just (tty,r,msg)
+    isSuccess (_, Fail _ _)        = Nothing
+
+    unifyOverloads ttys = do
+      ttys <- forM ttys $ \(t,ty) -> do
+        vty <- eval [] ty []
+        (t,vty) <- papply scope t vty args
+        return (t,vty)
+      (_,tnk) <- newResiduation scope
+      let mv = VMeta tnk []
+      mapM_ (\(_,vty) -> unify scope vty mv) ttys
+      fvty <- force tnk
+      return (FV (fst <$> ttys), fvty)
+
+    papply scope fun fun_ty [] = return (fun,fun_ty)
+    papply scope fun (VProd Implicit x arg_ty res_ty) ((ImplArg arg):args) = do -- Implicit arg case
+      (arg,_) <- tcRho scope arg (Just arg_ty)
+      res_ty <- case res_ty of
+                  VClosure res_env res_ty -> do env <- scopeEnv scope
+                                                tnk <- newThunk env arg
+                                                eval ((x,tnk):res_env) res_ty []
+                  res_ty                  -> return res_ty
+      papply scope (App fun (ImplArg arg)) res_ty args
+    papply scope fun fun_ty (arg:args) = do -- Explicit arg (fallthrough) case
+      (fun,VProd Explicit x arg_ty res_ty) <- instantiate scope fun fun_ty
+      (arg,_) <- tcRho scope arg (Just arg_ty)
+      res_ty <- case res_ty of
+                  VClosure res_env res_ty -> do env <- scopeEnv scope
+                                                tnk <- newThunk env arg
+                                                eval ((x,tnk):res_env) res_ty []
+                  res_ty                  -> return res_ty
+      papply scope (App fun arg) res_ty args
 
 tcPatt scope PW        ty0 =
   return scope
@@ -581,10 +632,7 @@ subsCheckRho scope t (VProd Implicit x ty1 ty2) rho2 = do     -- Rule SPEC
   subsCheckRho scope (App t (ImplArg (Meta i))) ty2 rho2
 subsCheckRho scope t rho1 (VProd Implicit x ty1 ty2) = do     -- Rule SKOL
   let v = newVar scope
-  ty2 <- case ty2 of
-           VClosure env ty2 -> do tnk <- newEvaluatedThunk (VGen (length scope) [])
-                                  eval ((x,tnk):env) ty2 []
-           ty2              -> return ty2
+  ty2 <- evalCodomain scope x ty2
   t <- subsCheckRho ((v,ty1):scope) t rho1 ty2
   return (Abs Implicit v t)
 subsCheckRho scope t rho1 (VProd Explicit _ a2 r2) = do       -- Rule FUN
@@ -779,6 +827,12 @@ unify scope (VMeta i vs) v = unifyVar scope i vs v
 unify scope v (VMeta i vs) = unifyVar scope i vs v
 unify scope (VGen i vs1)       (VGen j vs2)
   | i == j                     = sequence_ (zipWith (unifyThunk scope) vs1 vs2)
+unify scope (VProd b x d cod) (VProd b' x' d' cod')
+  | b == b'                    = do
+      unify scope d d'
+      cod <- evalCodomain scope x cod
+      cod' <- evalCodomain scope x' cod'
+      unify scope cod cod'
 unify scope (VTable p1 res1) (VTable p2 res2) = do
   unify scope p2   p1
   unify scope res1 res2
@@ -892,6 +946,10 @@ instantiate scope t (VProd Implicit x ty1 ty2) = do
            VClosure env ty2 -> eval ((x,tnk):env) ty2 []
            ty2              -> return ty2
   instantiate scope (App t (ImplArg (Meta i))) ty2
+instantiate scope t ty@(VMeta thk args) = getRef thk >>= \case
+  Evaluated _ v            -> instantiate scope t v
+  Residuation _ _ (Just v) -> instantiate scope t v
+  _                        -> return (t,ty) -- We don't have enough information to try any instantiation
 instantiate scope t ty = do
   return (t,ty)
 
@@ -905,10 +963,7 @@ skolemise scope ty@(VMeta i vs) = do
                             skolemise scope ty
 skolemise scope (VProd Implicit x ty1 ty2) = do
   let v = newVar scope
-  ty2 <- case ty2 of
-           VClosure env ty2 -> do tnk <- newEvaluatedThunk (VGen (length scope) [])
-                                  eval ((x,tnk) : env) ty2 []
-           ty2              -> return ty2
+  ty2 <- evalCodomain scope x ty2
   (scope,f,ty2) <- skolemise ((v,ty1):scope) ty2
   return (scope,Abs Implicit v . f,ty2)
 skolemise scope ty = do
@@ -1070,9 +1125,10 @@ getMetaVars sc_tys = foldM (\acc (scope,ty) -> go ty acc) [] sc_tys
       | m `elem` acc         = return acc
       | otherwise            = do res <- getRef m
                                   case res of
-                                    Evaluated _ v           -> go v acc
-                                    Residuation _ _ Nothing -> foldM follow (m:acc) args
-                                    _                       -> return acc
+                                    Evaluated _ v            -> go v acc
+                                    Residuation _ _ Nothing  -> foldM follow (m:acc) args
+                                    Residuation _ _ (Just v) -> go v acc
+                                    _                        -> return acc
     go (VApp f args)     acc = foldM follow acc args
     go v                 acc = unimplemented ("go "++showValue v)
 

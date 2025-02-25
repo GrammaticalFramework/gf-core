@@ -39,6 +39,7 @@ import qualified Data.Sequence as Seq
 import qualified Text.ParserCombinators.ReadP as RP
 import System.Directory(getAppUserDataDirectory)
 import Control.Exception(SomeException,fromException,evaluate,try)
+import Control.Monad ((<=<),when,mplus,join)
 import Control.Monad.State hiding (void)
 import qualified GF.System.Signal as IO(runInterruptibly)
 import GF.Command.Messages(welcome)

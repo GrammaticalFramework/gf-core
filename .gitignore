@@ -56,6 +56,12 @@ DATA_DIR
 
 stack*.yaml.lock
 
+# Generated source files
+src/compiler/api/GF/Grammar/Lexer.hs
+src/compiler/api/GF/Grammar/Parser.hs
+src/compiler/api/PackageInfo_gf.hs
+src/compiler/api/Paths_gf.hs
+
 # Output files for test suite
 *.out
 gf-tests.html
