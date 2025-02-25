@@ -18,6 +18,7 @@ import Data.Bifunctor (first)
 import Data.Maybe
 import Data.List
 import Control.Monad (MonadPlus(..),foldM,liftM,when)
+import Control.Applicative(liftA2)
 import qualified Data.Set as Set
 
 -- * functions on lists
