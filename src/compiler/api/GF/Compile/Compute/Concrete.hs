@@ -4,7 +4,7 @@
 -- | preparation for PMCFG generation.
 module GF.Compile.Compute.Concrete
            ( normalForm, normalFlatForm, normalStringForm
-           , Value(..), Thunk, ThunkState(..), Env, Scope, showValue
+           , Value(..), Thunk, ThunkState(..), Env, Scope, showValue, isOpen, isTermOpen
            , PredefImpl, Predef(..), PredefCombinator, ($\)
            , pdForce, pdClosedArgs, pdArity, pdStandard
            , MetaThunks, Constraint, PredefTable, Globals(..), ConstValue(..)
@@ -39,6 +39,7 @@ import Control.Monad.ST
 import Control.Monad.ST.Unsafe
 import Control.Applicative hiding (Const)
 import qualified Control.Monad.Fail as Fail
+import Data.Functor ((<&>))
 import qualified Data.Map as Map
 import GF.Text.Pretty
 import PGF2.Transactions(LIndex)
@@ -143,36 +144,76 @@ showValue (VAlts _ _) = "VAlts"
 showValue (VStrs _) = "VStrs"
 showValue (VSymCat _ _ _) = "VSymCat"
 
-isOpen :: [Ident] -> Term -> EvalM s Bool
-isOpen bound (Vr x) = return $ x `notElem` bound
-isOpen bound (App f x) = isOpen bound f <||> isOpen bound x
-isOpen bound (Abs b x t) = isOpen (x:bound) t
-isOpen bound (ImplArg t) = isOpen bound t
-isOpen bound (Prod b x d cod) = isOpen bound d <||> isOpen (x:bound) cod
-isOpen bound (Typed t ty) = isOpen bound t
-isOpen bound (Example t s) = isOpen bound t
-isOpen bound (RecType fs) = anyM (isOpen bound . snd) fs
-isOpen bound (R fs) = anyM (isOpen bound . snd . snd) fs
-isOpen bound (P t f) = isOpen bound t
-isOpen bound (ExtR t t') = isOpen bound t <||> isOpen bound t'
-isOpen bound (Table d cod) = isOpen bound d <||> isOpen bound cod
-isOpen bound (T (TTyped ty) cs) = isOpen bound ty <||> anyM (isOpen bound . snd) cs
-isOpen bound (T (TWild ty) cs) = isOpen bound ty <||> anyM (isOpen bound . snd) cs
-isOpen bound (T _ cs) = anyM (isOpen bound . snd) cs
-isOpen bound (V ty cs) = isOpen bound ty <||> anyM (isOpen bound) cs
-isOpen bound (S t x) = isOpen bound t <||> isOpen bound x
-isOpen bound (Let (x,(ty,d)) t) = isOpen bound d <||> isOpen (x:bound) t
-isOpen bound (C t t') = isOpen bound t <||> isOpen bound t'
-isOpen bound (Glue t t') = isOpen bound t <||> isOpen bound t'
-isOpen bound (EPattType ty) = isOpen bound ty
-isOpen bound (ELincat c ty) = isOpen bound ty
-isOpen bound (ELin c t) = isOpen bound t
-isOpen bound (FV ts) = anyM (isOpen bound) ts
-isOpen bound (Markup tag as ts) = anyM (isOpen bound) ts <||> anyM (isOpen bound . snd) as
-isOpen bound (Reset c t) = isOpen bound t
-isOpen bound (Alts d as) = isOpen bound d <||> anyM (\(x,y) -> isOpen bound x <||> isOpen bound y) as
-isOpen bound (Strs ts) = anyM (isOpen bound) ts
+isOpen :: [Ident] -> Value s -> EvalM s Bool
+isOpen bound (VGen x args) = pure (x >= length bound) <||> anyM (isThunkOpen bound) args
+isOpen bound (VApp t args) = anyM (force >=> isOpen bound) args
+isOpen bound (VMeta v args) = isThunkOpen bound v <||> anyM (isThunkOpen bound) args
+isOpen bound (VSusp j k args) = anyM (isThunkOpen bound) args <||> (k (VGen maxBound args) >>= isOpen bound)
+isOpen bound (VClosure env (Abs b x t)) = isTermOpen (x : bound ++ (fst <$> env)) t
+isOpen bound (VProd b x d cod) = isOpen bound d <||> case cod of
+                                                       VClosure env t -> isOpen (x:bound) cod
+                                                       _              -> isOpen bound cod
+isOpen bound (VRecType fs) = anyM (isOpen bound . snd) fs
+isOpen bound (VR fs) = anyM (isThunkOpen bound . snd) fs
+isOpen bound (VP v f args) = isOpen bound v <||> anyM (isThunkOpen bound) args
+isOpen bound (VExtR v v') = isOpen bound v <||> isOpen bound v'
+isOpen bound (VTable d cod) = isOpen bound d <||> isOpen bound cod
+isOpen bound (VT ty env cs) = isOpen bound ty <||> anyM (isTermOpen (bound ++ (fst <$> env)) . snd) cs
+isOpen bound (VV ty cs) = isOpen bound ty <||> anyM (isThunkOpen bound) cs
+isOpen bound (VS v x args) = isOpen bound v <||> isThunkOpen bound x <||> anyM (isThunkOpen bound) args
+isOpen bound (VC v v') = isOpen bound v <||> isOpen bound v'
+isOpen bound (VGlue v v') = isOpen bound v <||> isOpen bound v'
+isOpen bound (VPattType ty) = isOpen bound ty
+isOpen bound (VAlts d as) = isOpen bound d <||> anyM (\(x,y) -> isOpen bound x <||> isOpen bound y) as
+isOpen bound (VStrs vs) = anyM (isOpen bound) vs
+isOpen bound (VMarkup tag as vs) = anyM (isOpen bound) vs <||> anyM (isOpen bound . snd) as
 isOpen _ _ = return False
+
+isTermOpen :: [Ident] -> Term -> EvalM s Bool
+isTermOpen bound (Vr x) = return $ x `notElem` bound
+isTermOpen bound (App f x) = isTermOpen bound f <||> isTermOpen bound x
+isTermOpen bound (Abs b x t) = isTermOpen (x:bound) t
+isTermOpen bound (Meta n) = EvalM $ \gl k mt d r msgs ->
+  case Map.lookup n mt of
+    Just tnk -> case isThunkOpen bound tnk of EvalM f -> f gl k mt d r msgs
+    Nothing  -> k True mt d r msgs -- Treat unknown metas as unbound
+isTermOpen bound (ImplArg t) = isTermOpen bound t
+isTermOpen bound (Prod b x d cod) = isTermOpen bound d <||> isTermOpen (x:bound) cod
+isTermOpen bound (Typed t ty) = isTermOpen bound t
+isTermOpen bound (Example t s) = isTermOpen bound t
+isTermOpen bound (RecType fs) = anyM (isTermOpen bound . snd) fs
+isTermOpen bound (R fs) = anyM (isTermOpen bound . snd . snd) fs
+isTermOpen bound (P t f) = isTermOpen bound t
+isTermOpen bound (ExtR t t') = isTermOpen bound t <||> isTermOpen bound t'
+isTermOpen bound (Table d cod) = isTermOpen bound d <||> isTermOpen bound cod
+isTermOpen bound (T (TTyped ty) cs) = isTermOpen bound ty <||> anyM (isTermOpen bound . snd) cs
+isTermOpen bound (T (TWild ty) cs) = isTermOpen bound ty <||> anyM (isTermOpen bound . snd) cs
+isTermOpen bound (T _ cs) = anyM (isTermOpen bound . snd) cs
+isTermOpen bound (V ty cs) = isTermOpen bound ty <||> anyM (isTermOpen bound) cs
+isTermOpen bound (S t x) = isTermOpen bound t <||> isTermOpen bound x
+isTermOpen bound (Let (x,(ty,d)) t) = isTermOpen bound d <||> isTermOpen (x:bound) t
+isTermOpen bound (C t t') = isTermOpen bound t <||> isTermOpen bound t'
+isTermOpen bound (Glue t t') = isTermOpen bound t <||> isTermOpen bound t'
+isTermOpen bound (EPattType ty) = isTermOpen bound ty
+isTermOpen bound (ELincat c ty) = isTermOpen bound ty
+isTermOpen bound (ELin c t) = isTermOpen bound t
+isTermOpen bound (FV ts) = anyM (isTermOpen bound) ts
+isTermOpen bound (Markup tag as ts) = anyM (isTermOpen bound) ts <||> anyM (isTermOpen bound . snd) as
+isTermOpen bound (Reset c t) = isTermOpen bound t
+isTermOpen bound (Alts d as) = isTermOpen bound d <||> anyM (\(x,y) -> isTermOpen bound x <||> isTermOpen bound y) as
+isTermOpen bound (Strs ts) = anyM (isTermOpen bound) ts
+isTermOpen _ _ = return False
+
+isThunkOpen :: [Ident] -> Thunk s -> EvalM s Bool
+isThunkOpen bound tnk = EvalM $ \gl k mt d r msgs -> do
+  c <- readSTRef tnk <&> \case
+    Unevaluated env t            -> isTermOpen (bound ++ (fst <$> env)) t
+    Evaluated i v                -> isOpen bound v
+    Hole i                       -> return True -- Treat open metas as unbound
+    Narrowing i ty               -> return True -- Ditto
+    Residuation i scope (Just v) -> isOpen bound v
+    Residuation i scope Nothing  -> return True -- Ditto
+  case c of EvalM f -> f gl k mt d r msgs
 
 eval env (Vr x)         vs  = do (tnk,depth) <- lookup x env
                                  withVar depth $ do
@@ -238,12 +279,8 @@ eval env (S t1 t2)      vs  = do v1   <- eval env t1 []
                                    v1           -> return v0
 eval env (Let (x,(_,t1)) t2) vs = do tnk <- newThunk env t1
                                      eval ((x,tnk):env) t2 vs
-eval env t@(Q q@(m,id)) vs
-  | m == cPredef            = do res <- evalPredef env t id vs
-                                 case res of
-                                   Const res -> return res
-                                   RunTime   -> return (VApp q vs)
-                                   NonExist  -> return (VApp (cPredef,cNonExist) [])
+eval env (Q q@(m,id)) vs
+  | m == cPredef            = evalPredef id vs   
   | otherwise               = do t <- getResDef q
                                  eval env t vs
 eval env (QC q)         vs  = return (VApp q vs)
@@ -315,12 +352,14 @@ eval env (TSymCat d r rs) []= do rs <- forM rs $ \(i,(pv,ty)) ->
 eval env (TSymVar d r)  []  = do return (VSymVar d r)
 eval env t              vs  = evalError ("Cannot reduce term" <+> pp t)
 
+apply v                             []  = return v
 apply (VMeta m vs0)                 vs  = return (VMeta m   (vs0++vs))
 apply (VSusp m k vs0)               vs  = return (VSusp m k (vs0++vs))
-apply (VApp f  vs0)                 vs  = return (VApp f (vs0++vs))
+apply (VApp f@(m,p) vs0)            vs
+  | m == cPredef                        = evalPredef p (vs0++vs)
+  | otherwise                           = return (VApp f (vs0++vs))
 apply (VGen i  vs0)                 vs  = return (VGen i (vs0++vs))
 apply (VClosure env (Abs b x t)) (v:vs) = eval ((x,v):env) t vs
-apply v                             []  = return v
 
 
 stdPredef :: PredefTable s
@@ -773,48 +812,31 @@ value2int _        = RunTime
 -- * Global/built-in definitions
 
 type PredefImpl a s = [a] -> EvalM s (ConstValue (Value s))
-newtype Predef a s = Predef { runPredef :: Term -> Env s -> PredefImpl a s }
+newtype Predef a s = Predef { runPredef :: PredefImpl a s }
 type PredefCombinator a b s = Predef a s -> Predef b s
 
 infix 0 $\\
 
 ($\) :: PredefCombinator a b s -> PredefImpl a s -> Predef b s
-k $\ f = k (Predef (\_ _ -> f))
+k $\ f = k (Predef f)
 
 pdForce :: PredefCombinator (Value s) (Thunk s) s
-pdForce def = Predef $ \h env args -> do
+pdForce def = Predef $ \args -> do
   argValues <- mapM force args
-  runPredef def h env argValues
+  runPredef def argValues
 
 pdClosedArgs :: PredefCombinator (Value s) (Value s) s
-pdClosedArgs def = Predef $ \h env args -> do
-  open <- anyM (value2term True [] >=> isOpen []) args
-  if open then return RunTime else runPredef def h env args
+pdClosedArgs def = Predef $ \args -> do
+  open <- anyM (isOpen []) args
+  if open then return RunTime else runPredef def args
 
 pdArity :: Int -> PredefCombinator (Thunk s) (Thunk s) s
-pdArity n def = Predef $ \h env args ->
+pdArity n def = Predef $ \args ->
   case splitAt' n args of
-    Nothing -> do
-      t <- papply env h args
-      let t' = abstract 0 (n - length args) t
-      Const <$> eval env t' []
+    Nothing                  -> return RunTime
     Just (usedArgs, remArgs) -> do
-      res <- runPredef def h env usedArgs
-      forM res $ \v -> case remArgs of
-        [] -> return v
-        _  -> do
-          t <- value2term False (fst <$> env) v
-          eval env t remArgs
-  where
-    papply env t []         = return t
-    papply env t (arg:args) = do
-      arg <- tnk2term False (fst <$> env) arg
-      papply env (App t arg) args
-    
-    abstract i n t
-      | n <= 0    = t
-      | otherwise = let x = identV (rawIdentS "a") i
-                    in  Abs Explicit x (abstract (i + 1) (n - 1) (App t (Vr x)))
+      res <- runPredef def usedArgs
+      forM res $ \v -> apply v remArgs
 
 pdStandard :: Int -> PredefCombinator (Value s) (Thunk s) s
 pdStandard n = pdArity n . pdForce . pdClosedArgs
@@ -884,11 +906,16 @@ evalError msg = EvalM (\gr k e _ _ r ws -> e msg ws)
 evalWarn :: Message -> EvalM s ()
 evalWarn msg = EvalM (\gr k e mt d r msgs -> k () mt d r (msg:msgs))
 
-evalPredef :: Env s -> Term -> Ident -> [Thunk s] -> EvalM s (ConstValue (Value s))
-evalPredef env h id args = EvalM (\globals@(Gl _ predef) k e mt d r msgs ->
-  case fmap (\def -> runPredef def h env args) (Map.lookup id predef) of
-    Just (EvalM f) -> f globals k e mt d r msgs
-    Nothing        -> k RunTime mt d r msgs)
+evalPredef :: Ident -> [Thunk s] -> EvalM s (Value s)
+evalPredef id args = do
+  res <- EvalM $ \globals@(Gl _ predef) k e mt d r msgs ->
+    case Map.lookup id predef <&> \def -> runPredef def args of
+      Just (EvalM f) -> f globals k e mt d r msgs
+      Nothing        -> k RunTime mt d r msgs
+  case res of
+    Const res -> return res
+    RunTime   -> return $ VApp (cPredef,id) args
+    NonExist  -> return $ VApp (cPredef,cNonExist) []
 
 getResDef :: QIdent -> EvalM s Term
 getResDef q = EvalM $ \(Gl gr _) k e mt d r msgs -> do
