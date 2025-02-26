@@ -208,14 +208,14 @@ library
   if flag(server)
     build-depends:
       http-slim,
-      network>=2.3 && <3.2
+      network>=2.3 && <3.3
     if flag(network-uri)
       build-depends:
         network-uri >= 2.6.1.0 && < 2.7,
-        network>=2.6 && <3.2
+        network>=2.6 && <3.3
     else
       build-depends:
-        network >= 2.5 && <3.2
+        network >= 2.5 && <3.3
 
     cpp-options: -DSERVER_MODE
     other-modules:
