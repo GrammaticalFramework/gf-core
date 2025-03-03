@@ -4,9 +4,9 @@
 -- | preparation for PMCFG generation.
 module GF.Compile.Compute.Concrete
            ( normalForm, normalFlatForm, normalStringForm
-           , Value(..), Thunk, ThunkState(..), Env, Scope, showValue, isOpen, isTermOpen
+           , Value(..), Thunk, ThunkState(..), Env, Scope, showValue, isCanonicalForm
            , PredefImpl, Predef(..), PredefCombinator, ($\)
-           , pdForce, pdClosedArgs, pdArity, pdStandard
+           , pdForce, pdCanonicalArgs, pdArity, pdStandard
            , MetaThunks, Constraint, PredefTable, Globals(..), ConstValue(..)
            , EvalM(..), runEvalM, runEvalOneM, reset, try, evalError, evalWarn
            , eval, apply, force, value2term, patternMatch, stdPredef
@@ -27,7 +27,7 @@ import GF.Grammar.Predef
 import GF.Grammar.Lockfield(lockLabel)
 import GF.Grammar.Printer
 import GF.Data.Operations(Err(..))
-import GF.Data.Utilities(splitAt',(<||>),anyM)
+import GF.Data.Utilities(splitAt')
 import GF.Infra.CheckM
 import GF.Infra.Option
 import Data.STRef
@@ -144,76 +144,23 @@ showValue (VAlts _ _) = "VAlts"
 showValue (VStrs _) = "VStrs"
 showValue (VSymCat _ _ _) = "VSymCat"
 
-isOpen :: [Ident] -> Value s -> EvalM s Bool
-isOpen bound (VGen x args) = pure (x >= length bound) <||> anyM (isThunkOpen bound) args
-isOpen bound (VApp t args) = anyM (force >=> isOpen bound) args
-isOpen bound (VMeta v args) = isThunkOpen bound v <||> anyM (isThunkOpen bound) args
-isOpen bound (VSusp j k args) = anyM (isThunkOpen bound) args <||> (k (VGen maxBound args) >>= isOpen bound)
-isOpen bound (VClosure env (Abs b x t)) = isTermOpen (x : bound ++ (fst <$> env)) t
-isOpen bound (VProd b x d cod) = isOpen bound d <||> case cod of
-                                                       VClosure env t -> isOpen (x:bound) cod
-                                                       _              -> isOpen bound cod
-isOpen bound (VRecType fs) = anyM (isOpen bound . snd) fs
-isOpen bound (VR fs) = anyM (isThunkOpen bound . snd) fs
-isOpen bound (VP v f args) = isOpen bound v <||> anyM (isThunkOpen bound) args
-isOpen bound (VExtR v v') = isOpen bound v <||> isOpen bound v'
-isOpen bound (VTable d cod) = isOpen bound d <||> isOpen bound cod
-isOpen bound (VT ty env cs) = isOpen bound ty <||> anyM (isTermOpen (bound ++ (fst <$> env)) . snd) cs
-isOpen bound (VV ty cs) = isOpen bound ty <||> anyM (isThunkOpen bound) cs
-isOpen bound (VS v x args) = isOpen bound v <||> isThunkOpen bound x <||> anyM (isThunkOpen bound) args
-isOpen bound (VC v v') = isOpen bound v <||> isOpen bound v'
-isOpen bound (VGlue v v') = isOpen bound v <||> isOpen bound v'
-isOpen bound (VPattType ty) = isOpen bound ty
-isOpen bound (VAlts d as) = isOpen bound d <||> anyM (\(x,y) -> isOpen bound x <||> isOpen bound y) as
-isOpen bound (VStrs vs) = anyM (isOpen bound) vs
-isOpen bound (VMarkup tag as vs) = anyM (isOpen bound) vs <||> anyM (isOpen bound . snd) as
-isOpen _ _ = return False
-
-isTermOpen :: [Ident] -> Term -> EvalM s Bool
-isTermOpen bound (Vr x) = return $ x `notElem` bound
-isTermOpen bound (App f x) = isTermOpen bound f <||> isTermOpen bound x
-isTermOpen bound (Abs b x t) = isTermOpen (x:bound) t
-isTermOpen bound (Meta n) = EvalM $ \gl k mt d r msgs ->
-  case Map.lookup n mt of
-    Just tnk -> case isThunkOpen bound tnk of EvalM f -> f gl k mt d r msgs
-    Nothing  -> k True mt d r msgs -- Treat unknown metas as unbound
-isTermOpen bound (ImplArg t) = isTermOpen bound t
-isTermOpen bound (Prod b x d cod) = isTermOpen bound d <||> isTermOpen (x:bound) cod
-isTermOpen bound (Typed t ty) = isTermOpen bound t
-isTermOpen bound (Example t s) = isTermOpen bound t
-isTermOpen bound (RecType fs) = anyM (isTermOpen bound . snd) fs
-isTermOpen bound (R fs) = anyM (isTermOpen bound . snd . snd) fs
-isTermOpen bound (P t f) = isTermOpen bound t
-isTermOpen bound (ExtR t t') = isTermOpen bound t <||> isTermOpen bound t'
-isTermOpen bound (Table d cod) = isTermOpen bound d <||> isTermOpen bound cod
-isTermOpen bound (T (TTyped ty) cs) = isTermOpen bound ty <||> anyM (isTermOpen bound . snd) cs
-isTermOpen bound (T (TWild ty) cs) = isTermOpen bound ty <||> anyM (isTermOpen bound . snd) cs
-isTermOpen bound (T _ cs) = anyM (isTermOpen bound . snd) cs
-isTermOpen bound (V ty cs) = isTermOpen bound ty <||> anyM (isTermOpen bound) cs
-isTermOpen bound (S t x) = isTermOpen bound t <||> isTermOpen bound x
-isTermOpen bound (Let (x,(ty,d)) t) = isTermOpen bound d <||> isTermOpen (x:bound) t
-isTermOpen bound (C t t') = isTermOpen bound t <||> isTermOpen bound t'
-isTermOpen bound (Glue t t') = isTermOpen bound t <||> isTermOpen bound t'
-isTermOpen bound (EPattType ty) = isTermOpen bound ty
-isTermOpen bound (ELincat c ty) = isTermOpen bound ty
-isTermOpen bound (ELin c t) = isTermOpen bound t
-isTermOpen bound (FV ts) = anyM (isTermOpen bound) ts
-isTermOpen bound (Markup tag as ts) = anyM (isTermOpen bound) ts <||> anyM (isTermOpen bound . snd) as
-isTermOpen bound (Reset c t) = isTermOpen bound t
-isTermOpen bound (Alts d as) = isTermOpen bound d <||> anyM (\(x,y) -> isTermOpen bound x <||> isTermOpen bound y) as
-isTermOpen bound (Strs ts) = anyM (isTermOpen bound) ts
-isTermOpen _ _ = return False
-
-isThunkOpen :: [Ident] -> Thunk s -> EvalM s Bool
-isThunkOpen bound tnk = EvalM $ \gl k mt d r msgs -> do
-  c <- readSTRef tnk <&> \case
-    Unevaluated env t            -> isTermOpen (bound ++ (fst <$> env)) t
-    Evaluated i v                -> isOpen bound v
-    Hole i                       -> return True -- Treat open metas as unbound
-    Narrowing i ty               -> return True -- Ditto
-    Residuation i scope (Just v) -> isOpen bound v
-    Residuation i scope Nothing  -> return True -- Ditto
-  case c of EvalM f -> f gl k mt d r msgs
+isCanonicalForm :: Value s -> Bool
+isCanonicalForm (VClosure {})       = True
+isCanonicalForm (VProd b x d cod)   = isCanonicalForm d && isCanonicalForm cod
+isCanonicalForm (VRecType fs)       = all (isCanonicalForm . snd) fs
+isCanonicalForm (VR {})             = True
+isCanonicalForm (VTable d cod)      = isCanonicalForm d && isCanonicalForm cod
+isCanonicalForm (VT {})             = True
+isCanonicalForm (VV {})             = True
+isCanonicalForm (VSort {})          = True
+isCanonicalForm (VInt {})           = True
+isCanonicalForm (VFlt {})           = True
+isCanonicalForm (VStr {})           = True
+isCanonicalForm VEmpty              = True
+isCanonicalForm (VAlts d vs)        = all (isCanonicalForm . snd) vs
+isCanonicalForm (VStrs vs)          = all isCanonicalForm vs
+isCanonicalForm (VMarkup tag as vs) = all (isCanonicalForm . snd) as && all isCanonicalForm vs
+isCanonicalForm _ = False
 
 eval env (Vr x)         vs  = do (tnk,depth) <- lookup x env
                                  withVar depth $ do
@@ -364,27 +311,28 @@ apply (VClosure env (Abs b x t)) (v:vs) = eval ((x,v):env) t vs
 
 stdPredef :: PredefTable s
 stdPredef = Map.fromList
-  [(cLength, pdStandard 1 $\ \[v] -> case value2string v of
-                                       Const s -> return (Const (VInt (genericLength s)))
-                                       _       -> return RunTime)
-  ,(cTake,   pdStandard 2 $\ \[v1,v2] -> return (fmap string2value (liftA2 genericTake (value2int v1) (value2string v2))))
-  ,(cDrop,   pdStandard 2 $\ \[v1,v2] -> return (fmap string2value (liftA2 genericDrop (value2int v1) (value2string v2))))
-  ,(cTk,     pdStandard 2 $\ \[v1,v2] -> return (fmap string2value (liftA2 genericTk (value2int v1) (value2string v2))))
-  ,(cDp,     pdStandard 2 $\ \[v1,v2] -> return (fmap string2value (liftA2 genericDp (value2int v1) (value2string v2))))
-  ,(cIsUpper,pdStandard 1 $\ \[v]     -> return (fmap toPBool (liftA (all isUpper) (value2string v))))
-  ,(cToUpper,pdStandard 1 $\ \[v]     -> return (fmap string2value (liftA (map toUpper) (value2string v))))
-  ,(cToLower,pdStandard 1 $\ \[v]     -> return (fmap string2value (liftA (map toLower) (value2string v))))
-  ,(cEqStr,  pdStandard 2 $\ \[v1,v2] -> return (fmap toPBool (liftA2 (==) (value2string v1) (value2string v2))))
-  ,(cOccur,  pdStandard 2 $\ \[v1,v2] -> return (fmap toPBool (liftA2 occur (value2string v1) (value2string v2))))
-  ,(cOccurs, pdStandard 2 $\ \[v1,v2] -> return (fmap toPBool (liftA2 occurs (value2string v1) (value2string v2))))
-  ,(cEqInt,  pdStandard 2 $\ \[v1,v2] -> return (fmap toPBool (liftA2 (==) (value2int v1) (value2int v2))))
-  ,(cLessInt,pdStandard 2 $\ \[v1,v2] -> return (fmap toPBool (liftA2 (<) (value2int v1) (value2int v2))))
-  ,(cPlus,   pdStandard 2 $\ \[v1,v2] -> return (fmap VInt (liftA2 (+) (value2int v1) (value2int v2))))
-  ,(cError,  pdStandard 1 $\ \[v]     -> case value2string v of
-                           Const msg -> fail msg
-                           _         -> fail "Indescribable error appeared")
+  [(cLength, pd 1 $\ \[v]     -> case value2string v of
+                                   Const s -> return (Const (VInt (genericLength s)))
+                                   _       -> return RunTime)
+  ,(cTake,   pd 2 $\ \[v1,v2] -> return (fmap string2value (liftA2 genericTake (value2int v1) (value2string v2))))
+  ,(cDrop,   pd 2 $\ \[v1,v2] -> return (fmap string2value (liftA2 genericDrop (value2int v1) (value2string v2))))
+  ,(cTk,     pd 2 $\ \[v1,v2] -> return (fmap string2value (liftA2 genericTk (value2int v1) (value2string v2))))
+  ,(cDp,     pd 2 $\ \[v1,v2] -> return (fmap string2value (liftA2 genericDp (value2int v1) (value2string v2))))
+  ,(cIsUpper,pd 1 $\ \[v]     -> return (fmap toPBool (liftA (all isUpper) (value2string v))))
+  ,(cToUpper,pd 1 $\ \[v]     -> return (fmap string2value (liftA (map toUpper) (value2string v))))
+  ,(cToLower,pd 1 $\ \[v]     -> return (fmap string2value (liftA (map toLower) (value2string v))))
+  ,(cEqStr,  pd 2 $\ \[v1,v2] -> return (fmap toPBool (liftA2 (==) (value2string v1) (value2string v2))))
+  ,(cOccur,  pd 2 $\ \[v1,v2] -> return (fmap toPBool (liftA2 occur (value2string v1) (value2string v2))))
+  ,(cOccurs, pd 2 $\ \[v1,v2] -> return (fmap toPBool (liftA2 occurs (value2string v1) (value2string v2))))
+  ,(cEqInt,  pd 2 $\ \[v1,v2] -> return (fmap toPBool (liftA2 (==) (value2int v1) (value2int v2))))
+  ,(cLessInt,pd 2 $\ \[v1,v2] -> return (fmap toPBool (liftA2 (<) (value2int v1) (value2int v2))))
+  ,(cPlus,   pd 2 $\ \[v1,v2] -> return (fmap VInt (liftA2 (+) (value2int v1) (value2int v2))))
+  ,(cError,  pd 1 $\ \[v]     -> case value2string v of
+                                   Const msg -> fail msg
+                                   _         -> fail "Indescribable error appeared")
   ]
   where
+    pd n = pdArity n . pdForce
     genericTk n = reverse . genericDrop n . reverse
     genericDp n = reverse . genericTake n . reverse
 
@@ -815,7 +763,7 @@ type PredefImpl a s = [a] -> EvalM s (ConstValue (Value s))
 newtype Predef a s = Predef { runPredef :: PredefImpl a s }
 type PredefCombinator a b s = Predef a s -> Predef b s
 
-infix 0 $\\
+infix 1 $\\
 
 ($\) :: PredefCombinator a b s -> PredefImpl a s -> Predef b s
 k $\ f = k (Predef f)
@@ -825,10 +773,9 @@ pdForce def = Predef $ \args -> do
   argValues <- mapM force args
   runPredef def argValues
 
-pdClosedArgs :: PredefCombinator (Value s) (Value s) s
-pdClosedArgs def = Predef $ \args -> do
-  open <- anyM (isOpen []) args
-  if open then return RunTime else runPredef def args
+pdCanonicalArgs :: PredefCombinator (Value s) (Value s) s
+pdCanonicalArgs def = Predef $ \args ->
+  if all isCanonicalForm args then runPredef def args else return RunTime
 
 pdArity :: Int -> PredefCombinator (Thunk s) (Thunk s) s
 pdArity n def = Predef $ \args ->
@@ -839,7 +786,7 @@ pdArity n def = Predef $ \args ->
       forM res $ \v -> apply v remArgs
 
 pdStandard :: Int -> PredefCombinator (Value s) (Thunk s) s
-pdStandard n = pdArity n . pdForce . pdClosedArgs
+pdStandard n = pdArity n . pdForce . pdCanonicalArgs
 
 -----------------------------------------------------------------------
 -- * Evaluation monad
