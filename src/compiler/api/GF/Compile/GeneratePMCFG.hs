@@ -80,8 +80,8 @@ pmcfgForm :: Grammar -> Term -> Context -> Type -> SequenceSet -> Check ([Produc
 pmcfgForm gr t ctxt ty seqs = do
   res <- runEvalM (Gl gr stdPredef) $ do
            (_,args) <- mapAccumM (\arg_no (_,_,ty) -> do
-                                          t <- EvalM (\(Gl gr _) k mt d r msgs -> do (mt,_,t) <- type2metaTerm gr arg_no mt 0 [] ty
-                                                                                     k t mt d r msgs)
+                                          t <- EvalM (\(Gl gr _) k e mt d r msgs -> do (mt,_,t) <- type2metaTerm gr arg_no mt 0 [] ty
+                                                                                       k t mt d r msgs)
                                           tnk <- newThunk [] t
                                           return (arg_no+1,tnk))
                                       0 ctxt
