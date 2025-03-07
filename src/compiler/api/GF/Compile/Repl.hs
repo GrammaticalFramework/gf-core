@@ -15,7 +15,7 @@ import System.Console.Haskeline (InputT, Settings(..), noCompletion, runInputT, 
 import System.Directory (getAppUserDataDirectory)
 
 import GF.Compile (batchCompile)
-import GF.Compile.Compute.Concrete (Globals(Gl), stdPredef, normalFlatForm)
+import GF.Compile.Compute.Concrete2 (Globals(Gl), stdPredef, normalFlatForm)
 import GF.Compile.Rename (renameSourceTerm)
 import GF.Compile.TypeCheck.ConcreteNew (inferLType)
 import GF.Data.ErrM (Err(..))
@@ -30,7 +30,7 @@ import GF.Grammar.Grammar
   , ModuleStatus(MSComplete)
   , OpenSpec(OSimple)
   , Location (NoLoc)
-  , Term
+  , Term(Typed)
   , prependModule
   )
 import GF.Grammar.Lexer (Posn(..), Lang(GF), runLangP)
@@ -99,8 +99,12 @@ runRepl' gl@(Gl g _) = do
 
     command "t" arg = do
       parseThen g arg $ \main ->
-        execCheck (inferLType gl main) $ \(_, ty) ->
-          outputStrLn $ render (ppTerm Unqualified 0 ty)
+        execCheck (inferLType gl main) $ \res ->
+          forM_ res $ \(t, ty) ->
+            let t' = case t of
+                       Typed _ _ -> t
+                       t         -> Typed t ty
+            in outputStrLn $ render (ppTerm Unqualified 0 t')
       outputStrLn "" >> repl
     
     command "q" _ = outputStrLn "Bye!"
@@ -111,7 +115,7 @@ runRepl' gl@(Gl g _) = do
 
     evalPrintLoop code = do -- TODO bindings
       parseThen g code $ \main ->
-        execCheck (inferLType gl main >>= \(t, _) -> normalFlatForm gl t) $ \nfs ->
+        execCheck (inferLType gl main >>= \((t, _):_) -> normalFlatForm gl t) $ \nfs ->
           forM_ (zip [1..] nfs) $ \(i, nf) ->
             outputStrLn $ show i ++ ". " ++ render (ppTerm Unqualified 0 nf)
       outputStrLn "" >> repl
@@ -138,4 +142,5 @@ runRepl (ReplOpts noPrelude inputFiles) = do
       , mseqs   = Nothing
       , jments  = Map.empty
       }
-  runRepl' (Gl (prependModule g0 (replModName, modInfo)) (if noPrelude then Map.empty else stdPredef))
+    g = Gl (prependModule g0 (replModName, modInfo)) (if noPrelude then Map.empty else stdPredef g)
+  runRepl' g

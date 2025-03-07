@@ -711,8 +711,8 @@ ERHS3 :: { ERHS }
 
 NLG :: { Map.Map Ident Info }
   : ListNLGDef     { Map.fromList $1 }
-  | Posn Tag Posn  { Map.singleton (identS "main") (ResOper Nothing (Just (mkL $1 $3 (Abs Explicit (identS "qid") (Abs Explicit (identS "lang") $2))))) }
-  | Posn Exp Posn  { Map.singleton (identS "main") (ResOper Nothing (Just (mkL $1 $3 (Abs Explicit (identS "qid") (Abs Explicit (identS "lang") $2))))) }
+  | Posn Tag Posn  { Map.singleton (identS "main") (ResOper Nothing (Just (mkL $1 $3 $2))) }
+  | Posn Exp Posn  { Map.singleton (identS "main") (ResOper Nothing (Just (mkL $1 $3 $2))) }
 
 ListNLGDef :: { [(Ident,Info)] }
 ListNLGDef
