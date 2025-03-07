@@ -419,6 +419,7 @@ composOp co trm =
    ImplArg t        -> liftM ImplArg (co t)
    Markup t as cs   -> liftM2 (Markup t) (mapAttrs co as) (mapM co cs)
    Reset c t        -> liftM (Reset c) (co t)
+   Typed t ty       -> liftM2 Typed (co t) (co ty)
    _ -> return trm -- covers K, Vr, Cn, Sort, EPatt
 
 composSafePattOp op = runIdentity . composPattOp (return . op)
