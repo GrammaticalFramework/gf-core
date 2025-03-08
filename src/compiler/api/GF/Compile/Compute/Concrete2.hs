@@ -5,7 +5,7 @@ module GF.Compile.Compute.Concrete2
             runEvalM, stdPredef, globals, pdArity,
             normalForm, normalFlatForm,
             eval, apply, value2term, value2termM, patternMatch, vtableSelect,
-            newBinding, newResiduation, getMeta, setMeta, MetaState(..), variants, try,
+            newResiduation, getMeta, setMeta, MetaState(..), variants, try,
             evalError, evalWarn, ppValue, Choice, unit, split, split4, mapC, mapCM) where
 
 import Prelude hiding ((<>)) -- GHC 8.4.1 clash with Text.PrettyPrint
@@ -437,7 +437,7 @@ value2term g xs v = do
 
 type Constraint = Value
 data MetaState
-  = Bound Int Value
+  = Bound Scope Value
   | Narrowing   Type
   | Residuation Scope (Maybe Constraint)
 data State
@@ -517,11 +517,6 @@ try f xs msg = EvalM (\g k state r msgs ->
         Fail msg msgs  -> Fail msg msgs
         Success r msgs -> continue g k res r msgs
 
-newBinding :: Value -> EvalM MetaId
-newBinding v = EvalM (\g k (State choices metas) r msgs ->
-  let meta_id = Map.size metas+1
-  in k meta_id (State choices (Map.insert meta_id (Bound 0 v) metas)) r msgs)
-
 newResiduation :: Scope -> EvalM MetaId
 newResiduation scope = EvalM (\g k (State choices metas) r msgs ->
   let meta_id = Map.size metas+1
@@ -544,8 +539,8 @@ value2termM flat xs (VApp q vs) =
 value2termM flat xs (VMeta i vs) = do
   mv <- getMeta i
   case mv of
-    Bound _ v    -> do g <- globals
-                       value2termM flat xs (apply g v vs)
+    Bound scope v -> do g <- globals
+                        value2termM flat (map fst scope) (apply g v vs)
     Residuation _ mb_ctr ->
       case mb_ctr of
         Just ctr -> do g <- globals
@@ -640,6 +635,9 @@ value2termM flat xs (VStrs vs) = do
   ts <- mapM (value2termM flat xs) vs
   return (Strs ts)
 value2termM flat xs (VError msg) = evalError msg
+value2termM flat xs (VCRecType lbls) = do
+  lbls <- mapM (\(lbl,_,v) -> fmap ((,) lbl) (value2termM flat xs v)) lbls
+  return (RecType lbls)
 value2termM flat xs (VCInts Nothing    Nothing) = return (App (QC (cPredef,cInts)) (Meta 0))
 value2termM flat xs (VCInts (Just min) Nothing) = return (App (QC (cPredef,cInts)) (EInt min))
 value2termM flat xs (VCInts _       (Just max)) = return (App (QC (cPredef,cInts)) (EInt max))
@@ -690,6 +688,7 @@ ppValue q d (VAlts e xs) = prec d 4 ("pre" <+> braces (ppValue q 0 e <> ';' <+> 
 ppValue q d (VStrs _) = pp "VStrs"
 ppValue q d (VSymCat i r rs) = pp '<' <> pp i <> pp ',' <> pp r <> pp '>'
 ppValue q d (VError msg) = prec d 4 (pp "error" <+> ppTerm q 5 (K (show msg)))
+ppValue q d (VCRecType ass) = pp "VCRecType"
 ppValue q d (VCInts Nothing    Nothing)    = prec d 4 (pp "Ints ?")
 ppValue q d (VCInts (Just min) Nothing)    = prec d 4 (pp "Ints" <+> brackets (pp min <> ".."))
 ppValue q d (VCInts Nothing    (Just max)) = prec d 4 (pp "Ints" <+> brackets (".." <> pp max))

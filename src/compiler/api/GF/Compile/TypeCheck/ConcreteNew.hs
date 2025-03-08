@@ -487,48 +487,6 @@ reapply2 scope fun fun_ty ((arg,arg_v,arg_ty):args) = do -- Explicit arg (fallth
               res_ty                  -> return res_ty
   reapply2 scope (App fun arg) res_ty args
 
-{-tcApp scope c t0 t@(App fun (ImplArg arg)) = do                  -- APP1
-  let (c1,c2,c3,c4) = split4 c
-  (fun,fun_ty) <- tcApp scope c1 t0 fun
-  (bt, x, arg_ty, res_ty) <- unifyFun scope fun_ty
-  if (bt == Implicit)
-    then return ()
-    else evalError (ppTerm Unqualified 0 t <+> "is an implicit argument application, but no implicit argument is expected")
-  (arg,_) <- tcRho scope c2 arg (Just arg_ty)
-  res_ty <- case res_ty of
-              VClosure res_env res_c res_ty -> do g <- globals
-                                                  return (eval g ((x,eval g (scopeEnv scope) c3 arg []):res_env) res_c res_ty [])
-              res_ty                        -> return res_ty
-  return (App fun (ImplArg arg), res_ty)
-tcApp scope c t0 (App fun arg) = do                              -- APP2
-  let (c1,c2,c3,c4) = split4 c
-  (fun,fun_ty) <- tcApp scope c1 t0 fun
-  (fun,fun_ty) <- instantiate scope fun fun_ty
-  (_, x, arg_ty, res_ty) <- unifyFun scope fun_ty
-  (arg,_) <- tcRho scope c2 arg (Just arg_ty)
-  g <- globals
-  let res_ty' = foo g (x,eval g (scopeEnv scope) c3 arg []) res_ty
-  return (App fun arg, res_ty')
-  where
-    foo g arg (VClosure env c res_ty) = eval g (arg:env) c res_ty []
-    foo g arg (VFV c vs)              = VFV c (map (foo g arg) vs)
-    foo g arg res_ty                  = res_ty
-tcApp scope c t0 (Q id)        = getOverloads scope c t0 id -- VAR (global)
-tcApp scope c t0 (QC id)       = getOverloads scope c t0 id -- VAR (global)
-tcApp scope c t0 t             = tcRho scope c t Nothing
--}
-getOverloads :: Scope -> Choice -> Term -> QIdent -> EvalM (Term,Rho)
-getOverloads scope c t q = do
-  g@(Gl gr _) <- globals
-  case lookupOverloadTypes gr q of
-    Bad msg     -> evalError (pp msg)
-    Ok [(t,ty)] -> return (t, eval g [] c ty [])
-    Ok ttys    -> do let (c1,c2,c3,c4) = split4 c
-                         vs   = mapC (\c (t,ty) -> eval g [] c t  []) c1 ttys
-                         vtys = mapC (\c (t,ty) -> eval g [] c ty []) c2 ttys
-                     i <- newBinding (VFV c3 vs)
-                     return (Meta i, VFV c3 vtys)
-
 tcPatt scope c PW        ty0 =
   return scope
 tcPatt scope c (PV x)    ty0 =
@@ -669,9 +627,9 @@ subsCheckRho scope t (VMeta i vs1) (VMeta j vs2)
               g <- globals
               subsCheckRho scope t (VMeta i vs1) (apply g v2 vs2)
             Residuation scope2 _
-              | m > n     -> do setMeta i (Bound m (VMeta j vs2))
+              | m > n     -> do setMeta i (Bound scope1 (VMeta j vs2))
                                 return t
-              | otherwise -> do setMeta j (Bound n (VMeta i vs2))
+              | otherwise -> do setMeta j (Bound scope2 (VMeta i vs2))
                                 return t
               where
                 m = length scope1
@@ -895,8 +853,8 @@ unify scope (VMeta i vs1) (VMeta j vs2)
               g <- globals
               unify scope (VMeta i vs1) (apply g v2 vs2)
             Residuation scope2 _
-              | m > n     -> setMeta i (Bound m (VMeta j vs2))
-              | otherwise -> setMeta j (Bound n (VMeta i vs2))
+              | m > n     -> setMeta i (Bound scope1 (VMeta j vs2))
+              | otherwise -> setMeta j (Bound scope2 (VMeta i vs2))
               where
                 m = length scope1
                 n = length scope2 
@@ -937,7 +895,7 @@ unifyVar scope metaid vs ty2 = do            -- Check whether i is bound
     Bound _ ty1          -> do g <- globals
                                unify scope (apply g ty1 vs) ty2
     Residuation scope' _ -> do occursCheck scope' metaid scope ty2
-                               setMeta metaid (Bound (length scope') ty2)
+                               setMeta metaid (Bound scope' ty2)
 
 occursCheck scope' i0 scope v =
   let m = length scope'
@@ -1047,11 +1005,11 @@ quantify scope t tvs ty = do
       n = length scope
   (used_bndrs,ty) <- check m n [] ty
   let new_bndrs  = take m (allBinders \\ used_bndrs)
-  mapM_ bind (zip3 [0..] tvs new_bndrs)
+  mapM_ (bind ([(var,VSort cType)|var <- new_bndrs]++scope)) (zip3 [0..] tvs new_bndrs)
   let ty' = foldr (\ty -> VProd Implicit ty vtypeType) ty new_bndrs
   return (foldr (Abs Implicit) t new_bndrs,ty')
   where
-    bind (i, meta_id, name) = setMeta meta_id (Bound (length scope) (VGen i []))
+    bind scope (i, meta_id, name) = setMeta meta_id (Bound scope (VGen i []))
 
     check m n xs (VApp f vs)       = do
       (xs,vs) <- mapAccumM (check m n) xs vs
