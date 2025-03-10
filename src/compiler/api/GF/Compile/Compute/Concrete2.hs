@@ -27,6 +27,7 @@ import qualified Data.Map as Map
 import Data.Maybe (fromMaybe,fromJust)
 import Data.List
 import Data.Char
+import Debug.Trace
 
 type Env  = [(Ident,Value)]
 type Scope = [(Ident,Value)]
@@ -37,8 +38,8 @@ data Globals = Gl Grammar PredefTable
 
 data Value
   = VApp QIdent [Value]
-  | VMeta MetaId [Value]
-  | VSusp MetaId (Value -> Value) [Value]
+  | VMeta {-# UNPACK #-} !MetaId [Value]
+  | VSusp {-# UNPACK #-} !MetaId (Value -> Value) [Value]
   | VGen  {-# UNPACK #-} !Int [Value]
   | VClosure Env Choice Term
   | VProd BindType Ident Value Value
@@ -97,10 +98,10 @@ instance Applicative ConstValue where
   _             <*>  RunTime      = RunTime
 
 normalForm :: Globals -> Term -> Check Term
-normalForm g t = value2term g [] (eval g [] unit t [])
+normalForm g t = value2term g [] (bubble (eval g [] unit t []))
 
 normalFlatForm :: Globals -> Term -> Check [Term]
-normalFlatForm g t = runEvalM g (value2termM False [] (eval g [] unit t []))
+normalFlatForm g t = runEvalM g (value2termM True [] (eval g [] unit t []))
 
 eval :: Globals -> Env -> Choice -> Term -> [Value] -> Value
 eval g env s (Vr x)         vs  = case lookup x env of
@@ -279,6 +280,119 @@ apply g (VGen i  vs0)                   vs  = VGen i (vs0++vs)
 apply g (VFV i fvs)                     vs  = VFV i [apply g v vs | v <- fvs]
 apply g (VClosure env s (Abs b x t)) (v:vs) = eval g ((x,v):env) s t vs
 apply g v                               []  = v
+
+bubble v = snd (bubble v)
+  where
+    bubble (VApp f vs) = liftL (VApp f) vs
+    bubble (VMeta metaid vs) = liftL (VMeta metaid) vs
+    bubble (VSusp metaid k vs) = liftL (VSusp metaid k) vs
+    bubble (VGen i vs) = liftL (VGen i) vs
+    bubble (VClosure env c t) = liftL' (\env -> VClosure env c t) env
+    bubble (VProd bt x v1 v2) = lift2 (VProd bt x) v1 v2
+    bubble (VRecType as) = liftL' VRecType as
+    bubble (VR as) = liftL' VR as
+    bubble (VP v l vs) = lift1L (\v vs -> VP v l vs) v vs
+    bubble (VExtR v1 v2) = lift2 VExtR v1 v2
+    bubble (VTable v1 v2) = lift2 VTable v1 v2
+    bubble (VT v env c cs) = lift1L' (\v env -> VT v env c cs) v env
+    bubble (VV v vs) = lift1L VV v vs
+    bubble (VS v1 v2 vs) = lift2L VS v1 v2 vs
+    bubble v@(VSort _) = lift0 v
+    bubble v@(VInt _) = lift0 v
+    bubble v@(VFlt _) = lift0 v
+    bubble v@(VStr _) = lift0 v
+    bubble v@VEmpty = lift0 v
+    bubble (VC v1 v2) = lift2 VC v1 v2
+    bubble (VGlue v1 v2) = lift2 VGlue v1 v2
+    bubble v@(VPatt _ _ _) = lift0 v
+    bubble (VPattType v) = lift1 VPattType v
+    bubble (VFV c vs) =
+      let (union,vs') = mapAccumL descend Map.empty vs
+      in (Map.insert c (length vs,1) union, addVariants (VFV c vs') union)
+    bubble (VAlts v vs) = lift1L2 VAlts v vs
+    bubble (VStrs vs) = liftL VStrs vs
+    bubble (VSymCat d i0 vs) =
+      let (union,vs') = mapAccumL descendC Map.empty vs
+      in (union, addVariants (VSymCat d i0 vs') union)
+    bubble v@(VError _) = lift0 v
+    bubble v@(VCRecType lbls) =
+      let (union,lbls') = mapAccumL descendR Map.empty lbls
+      in (union, addVariants (VCRecType lbls') union)
+    bubble v@(VCInts _ _) = lift0 v
+
+    lift0 v = (Map.empty, v)
+
+    lift1 f v =
+      let (union,v') = bubble v
+      in (union,f v')
+
+    liftL f vs =
+      let (union,vs') = mapAccumL descend Map.empty vs
+      in (union, addVariants (f vs') union)
+
+    liftL' f vs =
+      let (union,vs') = mapAccumL descend' Map.empty vs
+      in (union, addVariants (f vs') union)
+
+    lift1L f v vs =
+      let (choices,v') = bubble v
+          (union, vs') = mapAccumL descend (unitfy choices) vs
+      in (union, addVariants (f v' vs') union)
+
+    lift1L' f v vs =
+      let (choices,v') = bubble v
+          (union, vs') = mapAccumL descend' (unitfy choices) vs
+      in (union, addVariants (f v' vs') union)
+
+    lift1L2 f v vs =
+      let (choices,v') = bubble v
+          (union, vs') = mapAccumL descend2 (unitfy choices) vs
+      in (union, addVariants (f v' vs') union)
+
+    lift2L f v1 v2 vs =
+      let (choices1,v1') = bubble v1
+          (choices2,v2') = bubble v2
+          union = mergeChoices2 choices1 choices2
+          (union', vs') = mapAccumL descend union vs
+      in (union', addVariants (f v1' v2' vs') union')
+
+    lift2 f v1 v2 =
+      let (choices1,v1') = bubble v1
+          (choices2,v2') = bubble v2
+          union = mergeChoices2 choices1 choices2
+      in (union, addVariants (f v1' v2') union)
+
+    descend union v =
+      let (choices,v') = bubble v
+      in (mergeChoices1 union choices,v')
+
+    descend' :: Map.Map Choice (Int,Int) -> (a,Value) -> (Map.Map Choice (Int,Int),(a,Value))
+    descend' union (x,v) =
+      let (choices,v') = bubble v
+      in (mergeChoices1 union choices,(x,v'))
+
+    descend2 union (v1,v2) =
+      let (choices1,v1') = bubble v1
+          (choices2,v2') = bubble v2
+      in (mergeChoices1 (mergeChoices1 union choices1) choices2,(v1',v2'))
+
+    descendC union (i,(v,ty)) =
+      let (choices,v') = bubble v
+      in (mergeChoices1 union choices,(i,(v',ty)))
+
+    descendR union (l,b,v) =
+      let (choices,v') = bubble v
+      in (mergeChoices1 union choices,(l,b,v'))
+
+    addVariants v = Map.foldrWithKey addVariant v
+      where
+        addVariant c (n,cnt) v
+          | cnt > 1   = VFV c (replicate n v)
+          | otherwise = v
+
+    unitfy = fmap (\(n,_) -> (n,1))
+    mergeChoices1 = Map.mergeWithKey (\c (n,cnt) _ -> Just (n,cnt+1)) id unitfy
+    mergeChoices2 = Map.mergeWithKey (\c (n,cnt) _ -> Just (n,2)) unitfy unitfy
 
 toPBool True  = VApp (cPredef,cPTrue)  []
 toPBool False = VApp (cPredef,cPFalse) []
@@ -497,6 +611,22 @@ variants c xs = EvalM (\g k state@(State choices metas) r msgs ->
         Fail    msg msgs -> Fail msg msgs
         Success r   msgs -> backtrack (j+1) xs k choices metas r msgs
 
+variants' :: Choice -> (a -> EvalM Term) -> [a] -> EvalM Term
+variants' c f xs = EvalM (\g k state@(State choices metas) r msgs ->
+  case Map.lookup c choices of
+    Just j  -> case f (xs !! j) of
+                 EvalM f -> f g k state r msgs
+    Nothing -> case backtrack g 0 xs choices metas [] msgs of
+                 Fail    msg msgs -> Fail msg msgs
+                 Success ts  msgs -> k (FV (reverse ts)) state r msgs)
+  where
+    backtrack g j []     choices metas ts msgs = Success ts msgs
+    backtrack g j (x:xs) choices metas ts msgs =
+      case f x of
+        EvalM f -> case f g (\t st ts msgs -> Success (t:ts) msgs) (State (Map.insert c j choices) metas) ts msgs of
+                     Fail    msg msgs -> Fail msg msgs
+                     Success ts  msgs -> backtrack g (j+1) xs choices metas ts msgs
+
 try :: (a -> EvalM b) -> [a] -> Message -> EvalM b
 try f xs msg = EvalM (\g k state r msgs ->
   let (res,msgs') = backtrack g xs state [] msgs
@@ -618,9 +748,11 @@ value2termM flat xs (VGlue v1 v2) = do
   t1 <- value2termM flat xs v1
   t2 <- value2termM flat xs v2
   return (Glue t1 t2)
-value2termM flat xs (VFV i vs) = do
-  v <- variants i vs
-  value2termM flat xs v
+value2termM flat xs (VFV i vs) =
+  case flat of
+    True  -> do v <- variants i vs
+                value2termM True xs v
+    False -> variants' i (value2termM False xs) vs
 value2termM flat xs (VPatt min max p) = return (EPatt min max p)
 value2termM flat xs (VPattType v) = do t <- value2termM flat xs v
                                        return (EPattType t)
@@ -766,7 +898,7 @@ value2int g (VInt n)         = Const n
 value2int g (VFV s vs)       = CFV s (map (value2int g) vs)
 value2int g _                = RunTime
 
-newtype Choice = Choice Integer deriving (Eq,Ord,Pretty)
+newtype Choice = Choice Integer deriving (Eq,Ord,Pretty,Show)
 
 unit :: Choice
 unit = Choice 1
