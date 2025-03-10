@@ -1153,6 +1153,7 @@ getMetaVars sc_tys = foldM (\acc (scope,ty) -> go acc ty) [] sc_tys
                                     _                      -> return acc
     go acc (VApp f args)     = foldM go acc args
     go acc (VFV c vs)        = foldM go acc vs
+    go acc (VCRecType vs)    = foldM (\acc (lbl,b,v) -> go acc v) acc vs
     go acc (VCInts _ _)      = return acc
     go acc v                 = unimplemented ("go "++show (ppValue Unqualified 5 v))
 
