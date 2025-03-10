@@ -321,6 +321,10 @@ bubble v = snd (bubble v)
       in (Map.insert c (length vs,1) union, addVariants (VFV c vs') union)
     bubble (VAlts v vs) = lift1L2 VAlts v vs
     bubble (VStrs vs) = liftL VStrs vs
+    bubble (VMarkup tag attrs vs) =
+      let (union1,attrs') = mapAccumL descend' Map.empty attrs
+          (union2,vs')    = mapAccumL descend  union1 vs
+      in (union2, VMarkup tag attrs' vs')
     bubble (VSymCat d i0 vs) =
       let (union,vs') = mapAccumL descendC Map.empty vs
       in (union, addVariants (VSymCat d i0 vs') union)
@@ -832,6 +836,7 @@ ppValue q d (VPattType _) = pp "VPattType"
 ppValue q d (VFV i vs) = prec d 4 ("variants" <+> pp i <+> braces (fsep (punctuate ';' (map (ppValue q 0) vs))))
 ppValue q d (VAlts e xs) = prec d 4 ("pre" <+> braces (ppValue q 0 e <> ';' <+> fsep (punctuate ';' (map (ppAltern q) xs))))
 ppValue q d (VStrs _) = pp "VStrs"
+ppValue q d (VMarkup _ _ _) = pp "VMarkup"
 ppValue q d (VSymCat i r rs) = pp '<' <> pp i <> pp ',' <> pp r <> pp '>'
 ppValue q d (VError msg) = prec d 4 (pp "error" <+> ppTerm q 5 (K (show msg)))
 ppValue q d (VCRecType ass) = pp "VCRecType"
