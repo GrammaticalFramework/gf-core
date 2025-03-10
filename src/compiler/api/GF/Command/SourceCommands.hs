@@ -19,8 +19,8 @@ import GF.Grammar.Analyse
 import GF.Grammar.ShowTerm
 import GF.Grammar.Lookup (allOpers,allOpersTo)
 import GF.Compile.Rename(renameSourceTerm)
-import GF.Compile.Compute.Concrete(normalForm,normalFlatForm,Globals(..),stdPredef)
-import GF.Compile.TypeCheck.Concrete as TC(inferLType,ppType)
+import GF.Compile.Compute.Concrete2(normalForm,normalFlatForm,Globals(..),stdPredef)
+import GF.Compile.TypeCheck.ConcreteNew as TC(inferLType)
 
 import GF.Command.Abstract(Option(..),isOpt,listFlags,valueString,valStrOpts)
 import GF.Command.CommandInfo
@@ -245,13 +245,15 @@ checkComputeTerm os sgr t =
              Nothing -> checkError (pp "No source grammar in scope")
              Just mo -> return mo
      t <- renameSourceTerm sgr mo t
-     (t,_) <- inferLType sgr [] t
+     ttys <- inferLType g t
      if isOpt "flat" os
-       then fmap (map evalStr) (normalFlatForm (Gl sgr stdPredef) t)
-       else fmap (singleton . evalStr) (normalForm     (Gl sgr stdPredef) t)
+       then fmap concat (mapM (\(t,_) -> fmap (map evalStr) (normalFlatForm g t)) ttys)
+       else fmap concat (mapM (\(t,_) -> fmap (singleton . evalStr) (normalForm g t)) ttys)
   where
     -- ** Try to compute pre{...} tokens in token sequences
     singleton x = [x]
+
+    g = Gl sgr (stdPredef g)
 
     evalStr t =
       case t of
