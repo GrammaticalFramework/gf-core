@@ -63,6 +63,7 @@ data Value
   | VFV Choice [Value]
   | VAlts Value [(Value, Value)]
   | VStrs [Value]
+  | VMarkup Ident [(Ident,Value)] [Value]
   | VSymCat Int LIndex [(LIndex, (Value, Type))]
   | VError Doc
     -- These two constructors are only used internally
@@ -247,9 +248,18 @@ eval g env s (Alts d as)    []  = let (!s1,!s2) = split s
                                       vas = mapC (\s (t1,t2) -> let (!s1,!s2) = split s
                                                               in (eval g env s1 t1 [],eval g env s2 t2 [])) s2 as
                                   in VAlts vd vas
-eval g env s (Strs ts)      []  = VStrs (mapC (\s t -> eval g env s t []) s ts)
-eval g env s (TSymCat d r rs) []= VSymCat d r [(i,(fromJust (lookup pv env),ty)) | (i,(pv,ty)) <- rs]
-eval g env s t              vs  = VError ("Cannot reduce term" <+> pp t)
+eval g env c (Strs ts)      []  = VStrs (mapC (\c t -> eval g env c t []) c ts)
+eval g env c (Markup tag as ts) [] =
+                              let (c1,c2) = split c
+                                  vas = mapC (\c (id,t) -> (id,eval g env c t [])) c1 as
+                                  vs  = mapC (\c t -> eval g env c t []) c2 ts
+                              in (VMarkup tag vas vs)
+eval g env c (Reset ctl t) [] =
+                              let limit All       = id
+                                  limit (Limit n) = fmap (genericTake n)
+                              in (VMarkup identW [] [eval g env c t []])
+eval g env c (TSymCat d r rs) []= VSymCat d r [(i,(fromJust (lookup pv env),ty)) | (i,(pv,ty)) <- rs]
+eval g env c t              vs  = VError ("Cannot reduce term" <+> pp t)
 
 stdPredef :: Globals -> PredefTable
 stdPredef g = Map.fromList
@@ -766,6 +776,10 @@ value2termM flat xs (VAlts vd vas) = do
 value2termM flat xs (VStrs vs) = do
   ts <- mapM (value2termM flat xs) vs
   return (Strs ts)
+value2termM flat xs (VMarkup tag as vs) = do
+  as <- mapM (\(id,v) -> value2termM flat xs v >>= \t -> return (id,t)) as
+  ts <- mapM (value2termM flat xs) vs
+  return (Markup tag as ts)
 value2termM flat xs (VError msg) = evalError msg
 value2termM flat xs (VCRecType lbls) = do
   lbls <- mapM (\(lbl,_,v) -> fmap ((,) lbl) (value2termM flat xs v)) lbls
