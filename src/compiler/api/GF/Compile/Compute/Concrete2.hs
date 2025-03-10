@@ -4,7 +4,7 @@ module GF.Compile.Compute.Concrete2
            (Env, Scope, Value(..), Constraint, ConstValue(..), Globals(..), PredefTable, EvalM,
             runEvalM, stdPredef, globals, pdArity,
             normalForm, normalFlatForm,
-            eval, apply, value2term, value2termM, patternMatch, vtableSelect,
+            eval, apply, value2term, value2termM, bubble, patternMatch, vtableSelect,
             newResiduation, getMeta, setMeta, MetaState(..), variants, try,
             evalError, evalWarn, ppValue, Choice, unit, split, split4, mapC, mapCM) where
 
