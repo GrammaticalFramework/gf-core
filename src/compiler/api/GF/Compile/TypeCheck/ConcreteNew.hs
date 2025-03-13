@@ -388,10 +388,21 @@ tcRho scope c (Markup tag attrs children) mb_ty = do
                  c1 attrs
   res <- mapCM (\c child -> tcRho scope c child Nothing) c2 children
   instSigma scope c3 (Markup tag attrs (map fst res)) vtypeMarkup mb_ty
-tcRho scope c (Reset ctl t) mb_ty = do
+tcRho scope c (Reset ctl t) mb_ty =
   let (c1,c2) = split c
-  (t,_) <- tcRho scope c1 t Nothing
-  instSigma scope c2 (Reset ctl t) vtypeMarkup mb_ty
+  in case ctl of
+       All          -> do (t,_) <- tcRho scope c1 t Nothing
+                          instSigma scope c2 (Reset ctl t) vtypeMarkup mb_ty
+       One          -> do (t,ty) <- tcRho scope c t mb_ty
+                          return (Reset ctl t,ty)
+       Limit n      -> do (t,_) <- tcRho scope c1 t Nothing
+                          instSigma scope c2 (Reset ctl t) vtypeMarkup mb_ty
+       Coordination mb_mn@(Just mn) conj _
+                    -> do tcRho scope c1 (QC (mn,conj)) (Just (VApp (mn,identS "Conj") []))
+                          (t,ty) <- tcRho scope c2 t mb_ty
+                          case ty of
+                            VApp id [] -> return (Reset (Coordination mb_mn conj (snd id)) t, ty)
+                            _          -> evalError (pp "Needs atomic type"<+>ppValue Unqualified 0 ty)
 tcRho scope s t _ = unimplemented ("tcRho "++show t)
 
 evalCodomain :: Scope -> Ident -> Value -> EvalM Value

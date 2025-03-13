@@ -256,8 +256,8 @@ ppTerm q d (Markup tag attrs children)
   | otherwise     = pp "<" <> pp tag <+> hsep (map (ppMarkupAttr q) attrs) <> pp ">" $$
                     nest 3 (ppMarkupChildren q children) $$
                     pp "</" <> pp tag <> pp ">"
-ppTerm q d (Reset c t)
-                  = pp "[:" <> ppControl c <+> pp "|" <> ppTerm q 0 t <> pp "]"
+ppTerm q d (Reset ctl t)
+                  = pp "[:" <> ppControl q ctl <+> pp "|" <> ppTerm q 0 t <> pp "]"
 ppTerm q d (TSymCat i r rs) = pp '<' <> pp i <> pp ',' <> ppLinFun (pp.fst) r rs <> pp '>'
 ppTerm q d (TSymVar i r) = pp '<' <> pp i <> pp ',' <> pp '$' <> pp r <> pp '>'
 
@@ -265,8 +265,12 @@ ppEquation q (ps,e) = hcat (map (ppPatt q 2) ps) <+> "->" <+> ppTerm q 0 e
 
 ppCase q (p,e) = ppPatt q 0 p <+> "=>" <+> ppTerm q 0 e
 
-ppControl All       = empty
-ppControl (Limit n) = pp n
+ppControl q All       = empty
+ppControl q One       = pp "one"
+ppControl q (Limit n) = pp n
+ppControl q (Coordination mb_mn n _) = ppTerm q 0 (case mb_mn of
+                                                     Just mn -> QC (mn,n)
+                                                     Nothing -> Cn n)
 
 instance Pretty Patt where pp = ppPatt Unqualified 0
 

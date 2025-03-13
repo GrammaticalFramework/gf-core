@@ -407,7 +407,9 @@ data Term =
 
 data Control
   = All
+  | One
   | Limit Integer
+  | Coordination (Maybe ModuleName) Ident Ident
   deriving (Show, Eq, Ord)
 
 -- | Patterns

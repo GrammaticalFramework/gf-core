@@ -739,6 +739,7 @@ ListMarkup :: { [Term] }
 Control :: { Control }
   :            { All                     }
   | Integer    { Limit (fromIntegral $1) }
+  | Ident      { Coordination Nothing $1 identW }
 
 Attributes :: { [(Ident,Term)] }
 Attributes

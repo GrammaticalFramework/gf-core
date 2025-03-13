@@ -64,6 +64,7 @@ data Value
   | VAlts Value [(Value, Value)]
   | VStrs [Value]
   | VMarkup Ident [(Ident,Value)] [Value]
+  | VReset Control Value
   | VSymCat Int LIndex [(LIndex, (Value, Type))]
   | VError Doc
     -- These two constructors are only used internally
@@ -254,10 +255,7 @@ eval g env c (Markup tag as ts) [] =
                                   vas = mapC (\c (id,t) -> (id,eval g env c t [])) c1 as
                                   vs  = mapC (\c t -> eval g env c t []) c2 ts
                               in (VMarkup tag vas vs)
-eval g env c (Reset ctl t) [] =
-                              let limit All       = id
-                                  limit (Limit n) = fmap (genericTake n)
-                              in (VMarkup identW [] [eval g env c t []])
+eval g env c (Reset ctl t) [] = VReset ctl (eval g env c t [])
 eval g env c (TSymCat d r rs) []= VSymCat d r [(i,(fromJust (lookup pv env),ty)) | (i,(pv,ty)) <- rs]
 eval g env c t              vs  = VError ("Cannot reduce term" <+> pp t)
 
@@ -325,6 +323,7 @@ bubble v = snd (bubble v)
       let (union1,attrs') = mapAccumL descend' Map.empty attrs
           (union2,vs')    = mapAccumL descend  union1 vs
       in (union2, VMarkup tag attrs' vs')
+    bubble (VReset ctl v) = lift1 (VReset ctl) v
     bubble (VSymCat d i0 vs) =
       let (union,vs') = mapAccumL descendC Map.empty vs
       in (union, addVariants (VSymCat d i0 vs') union)
@@ -610,6 +609,14 @@ runEvalM g (EvalM f) = Check $ \(es,ws) ->
   where
     empty = State Map.empty Map.empty
 
+reset :: EvalM a -> EvalM [a]
+reset (EvalM f) = EvalM $ \g k state r ws ->
+  case f g (\x state xs ws -> Success (x:xs) ws) state [] ws of
+    Fail   msg ws -> Fail msg ws
+    Success xs ws -> k (reverse xs) state r ws
+  where
+    empty = State Map.empty Map.empty
+
 globals :: EvalM Globals
 globals = EvalM (\g k -> k g)
 
@@ -784,6 +791,29 @@ value2termM flat xs (VMarkup tag as vs) = do
   as <- mapM (\(id,v) -> value2termM flat xs v >>= \t -> return (id,t)) as
   ts <- mapM (value2termM flat xs) vs
   return (Markup tag as ts)
+value2termM flat xs (VReset ctl v) = do
+  ts <- reset (value2termM True xs v)
+  case ctl of
+    All     -> case ts of
+                 [t] -> return t
+                 ts  -> return (Markup identW [] ts)
+    One     -> case ts of
+                 []     -> mzero
+                 (t:ts) -> return t
+    Limit n -> case genericTake n ts of
+                 [t] -> return t
+                 ts  -> return (Markup identW [] ts)
+    Coordination (Just mn) conj id ->
+                case ts of
+                  []  -> mzero
+                  [t] -> return t
+                  ts  -> do let cat = showIdent id
+                            t <- listify mn cat ts
+                            return (App (App (QC (mn,identS ("Conj"++cat))) (QC (mn,conj))) t)
+  where
+    listify mn cat [t1,t2] = do return (App (App (QC (mn,identS ("Base"++cat))) t1) t2)
+    listify mn cat (t1:ts) = do t2 <- listify mn id ts
+                                return (App (App (QC (mn,identS ("Cons"++cat))) t1) t2)
 value2termM flat xs (VError msg) = evalError msg
 value2termM flat xs (VCRecType lbls) = do
   lbls <- mapM (\(lbl,_,v) -> fmap ((,) lbl) (value2termM flat xs v)) lbls
