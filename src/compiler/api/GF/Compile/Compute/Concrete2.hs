@@ -812,7 +812,7 @@ value2termM flat xs (VReset ctl v) = do
                             return (App (App (QC (mn,identS ("Conj"++cat))) (QC (mn,conj))) t)
   where
     listify mn cat [t1,t2] = do return (App (App (QC (mn,identS ("Base"++cat))) t1) t2)
-    listify mn cat (t1:ts) = do t2 <- listify mn id ts
+    listify mn cat (t1:ts) = do t2 <- listify mn cat ts
                                 return (App (App (QC (mn,identS ("Cons"++cat))) t1) t2)
 value2termM flat xs (VError msg) = evalError msg
 value2termM flat xs (VCRecType lbls) = do
