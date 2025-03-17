@@ -286,6 +286,7 @@ apply g (VSusp i k vs0)                 vs  = VSusp i k (vs0++vs)
 apply g (VApp f  vs0)                   vs  = VApp f (vs0++vs)
 apply g (VGen i  vs0)                   vs  = VGen i (vs0++vs)
 apply g (VFV i fvs)                     vs  = VFV i [apply g v vs | v <- fvs]
+apply g (VS v1 v2 vs')                  vs  = VS v1 v2 (vs'++vs)
 apply g (VClosure env s (Abs b x t)) (v:vs) = eval g ((x,v):env) s t vs
 apply g v                               []  = v
 
@@ -511,8 +512,7 @@ vtableSelect g v0 ty cs v2 vs =
     select (Const (i,_)) = cs !! i
     select (CSusp i k)   = VSusp i (\v -> select (k v)) []
     select (CFV s vs)    = VFV s (map select vs)
-    select _             = VError ("the parameter:" <+> ppValue Unqualified 0 v2 $$
-                                   "cannot be evaluated at compile time.")
+    select _             = v0
 
     value2index (VMeta i vs)      ty = CSusp i (\v -> value2index (apply g v vs) ty)
     value2index (VSusp i k vs)    ty = CSusp i (\v -> value2index (apply g (k v) vs) ty)
