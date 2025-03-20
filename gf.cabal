@@ -346,8 +346,14 @@ library
       Win32 >= 2.3.1.1 && < 2.7
   else
     build-depends:
-      terminfo >=0.4.0 && < 0.5,
-      unix >= 2.8
+      terminfo >=0.4.0 && < 0.5
+
+    if impl(ghc >= 9.6.6)
+      build-depends: unix >= 2.8
+
+    else
+      build-depends: unix >= 2.7.2 && < 2.8
+
 
   if impl(ghc>=8.2)
     ghc-options: -fhide-source-paths
