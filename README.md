@@ -61,16 +61,9 @@ runghc Setup.hs configure --prefix=/usr/local
 runghc Setup.hs build
 sudo DYLD_LIBRARY_PATH=/usr/local/lib runghc Setup.hs install
 ```
-3. If you want to use GF as a web server then you should now compile the server package:
+3. Then you need to setup the compiler: 
 ```Bash
-cd ../../server/
-runghc Setup.hs configure
-runghc Setup.hs build
-sudo runghc Setup.hs install
-```
-4. Then you need to setup the compiler: 
-```Bash
-cd ../../compiler/           # or ../compiler if you installed the server as well
+cd ../../compiler/           
 runghc Setup.hs configure
 runghc Setup.hs build
 sudo DYLD_LIBRARY_PATH=/usr/local/lib runghc Setup.hs install
