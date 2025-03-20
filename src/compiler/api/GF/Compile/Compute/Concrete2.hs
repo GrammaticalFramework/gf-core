@@ -27,7 +27,6 @@ import qualified Data.Map as Map
 import Data.Maybe (fromMaybe,fromJust)
 import Data.List
 import Data.Char
-import Debug.Trace
 
 type Env  = [(Ident,Value)]
 type Scope = [(Ident,Value)]
@@ -752,10 +751,21 @@ value2termM flat xs (VV vty vs)= do
   ty <- value2termM flat xs vty
   ts <- mapM (value2termM flat xs) vs
   return (V ty ts)
-value2termM flat xs (VS v1 v2 vs) = do
-  t1 <- value2termM flat xs v1
-  t2 <- value2termM flat xs v2
-  foldM (\e1 tnk -> fmap (App e1) (value2termM flat xs tnk)) (S t1 t2) vs
+value2termM flat xs (VS v1 v2 vs) =
+  case v1 of
+    VT vty env s cs -> do
+          ty <- value2termM flat xs vty
+          cs <- forM cs $ \(p,t) -> do
+                  let (_,xs',env') = pattVars (length xs,xs,env) p
+                  g <- globals
+                  t <- value2termM flat xs' (eval g env' s t vs)
+                  return (p,t)
+          t2 <- value2termM flat xs v2
+          return (S (T (TTyped ty) cs) t2)
+    v1                           -> do
+          t1 <- value2termM flat xs v1
+          t2 <- value2termM flat xs v2
+          foldM (\e1 tnk -> fmap (App e1) (value2termM flat xs tnk)) (S t1 t2) vs
 value2termM flat xs (VSort s) = return (Sort s)
 value2termM flat xs (VStr tok) = return (K tok)
 value2termM flat xs (VInt n) = return (EInt n)
