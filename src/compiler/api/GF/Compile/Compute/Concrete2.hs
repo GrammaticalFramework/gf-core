@@ -755,13 +755,22 @@ value2termM flat xs (VS v1 v2 vs) =
   case v1 of
     VT vty env s cs -> do
           ty <- value2termM flat xs vty
+          g  <- globals
           cs <- forM cs $ \(p,t) -> do
                   let (_,xs',env') = pattVars (length xs,xs,env) p
-                  g <- globals
                   t <- value2termM flat xs' (eval g env' s t vs)
                   return (p,t)
           t2 <- value2termM flat xs v2
           return (S (T (TTyped ty) cs) t2)
+
+    VV vty vs' -> do
+          ty <- value2termM flat xs vty
+          g <- globals
+          ts <- forM vs' $ \v ->
+                  value2termM flat xs (apply g v vs)
+          t2 <- value2termM flat xs v2
+          return (S (V ty ts) t2)
+
     v1                           -> do
           t1 <- value2termM flat xs v1
           t2 <- value2termM flat xs v2
