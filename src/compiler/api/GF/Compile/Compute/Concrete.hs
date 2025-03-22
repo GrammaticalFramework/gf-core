@@ -1,4 +1,4 @@
-{-# LANGUAGE RankNTypes, BangPatterns, CPP, ExistentialQuantification, LambdaCase #-}
+{-# LANGUAGE RankNTypes, BangPatterns, CPP, ExistentialQuantification #-}
 
 -- | Functions for computing the values of terms in the concrete syntax, in
 -- | preparation for PMCFG generation.
@@ -297,6 +297,10 @@ eval env (TSymCat d r rs) []= do rs <- forM rs $ \(i,(pv,ty)) ->
                                            Nothing  -> evalError ("Variable" <+> pp pv <+> "is not in scope")
                                  return (VSymCat d r rs)
 eval env (TSymVar d r)  []  = do return (VSymVar d r)
+eval env t@(Opts n cs)  vs  = EvalM $ \gr k e mt b r msgs ->
+  case cs of
+    []        -> return $ Fail ("No options in expression:" $$ ppTerm Unqualified 0 t) msgs
+    ((l,t):_) -> case eval env t vs of EvalM f -> f gr k e mt b r msgs
 eval env t              vs  = evalError ("Cannot reduce term" <+> pp t)
 
 apply v                             []  = return v

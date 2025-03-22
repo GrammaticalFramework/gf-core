@@ -41,7 +41,7 @@ $u = [.\n]                -- universal: any character
 "{-" ([$u # \-] | \- [$u # \}])* ("-")+ "}" ;
 
 $white+ ;
-@rsyms                          { tok ident }
+@rsyms                          { \lang -> tok (ident lang) lang }
 \< $white* @ident $white* (\/ | \>)
                                 { \lang inp@(AI pos s) inp' _ -> 
                                      let inp0 = AI (alexMove pos '<') (BS.tail s)
@@ -74,7 +74,7 @@ $white+ ;
                                               in POk (inp,inp0) T_less
                                      } }
 \' ([. # [\' \\ \n]] | (\\ (\' | \\)))+ \' { tok (T_Ident . identS . unescapeInitTail . unpack) }
-@ident   { tok ident }
+@ident   { \lang -> tok (ident lang) lang }
 
 \" ([$u # [\" \\ \n]] | (\\ (\" | \\ | \' | n | t | $d+)))* \" { tok (T_String . unescapeInitTail . unpack) }
 
@@ -85,7 +85,7 @@ $white+ ;
 {
 unpack = UTF8.toString
 
-ident = res T_Ident . identC . rawIdentC
+ident lang = res lang T_Ident . identC . rawIdentC
 
 tok f _ inp@(AI _ s) inp' len = POk (inp,inp') (f (UTF8.take len s))
 
@@ -149,6 +149,7 @@ data Token
  | T_of
  | T_open
  | T_oper
+ | T_option
  | T_param
  | T_pattern
  | T_pre
@@ -174,16 +175,20 @@ data Token
  deriving Show -- debug
 
 res = eitherResIdent
-eitherResIdent :: (Ident -> Token) -> Ident -> Token
-eitherResIdent tv s =
-  case Map.lookup s resWords of
+eitherResIdent :: Lang -> (Ident -> Token) -> Ident -> Token
+eitherResIdent lang tv s =
+  case Map.lookup s (resWords lang) of
     Just t  -> t
     Nothing -> tv s
 
-isReservedWord :: Ident -> Bool
-isReservedWord ident = Map.member ident resWords
+isReservedWord :: Lang -> Ident -> Bool
+isReservedWord lang ident = Map.member ident (resWords lang)
 
-resWords = Map.fromList
+resWords :: Lang -> Map.Map Ident Token
+resWords NLG = nlgResWords
+resWords _   = coreResWords
+
+coreResWords = Map.fromList
  [ b "!"  T_exclmark
  , b "#"  T_patt
  , b "$"  T_int_label
@@ -255,12 +260,16 @@ resWords = Map.fromList
  , b "variants"   T_variants
  , b "where"      T_where
  , b "with"       T_with
- , b "coercions"  T_coercions
+ , b "coercions"  T_coercions -- FIXME ..
  , b "terminator" T_terminator
  , b "separator"  T_separator
  , b "nonempty"   T_nonempty
  ]
  where b s t = (identS s, t)
+
+-- bnfcResWords = _
+
+nlgResWords = Map.insert (identS "option") T_option coreResWords
 
 unescapeInitTail :: String -> String
 unescapeInitTail = unesc . tail where

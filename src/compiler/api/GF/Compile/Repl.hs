@@ -33,7 +33,7 @@ import GF.Grammar.Grammar
   , Term(Typed)
   , prependModule
   )
-import GF.Grammar.Lexer (Posn(..), Lang(GF), runLangP)
+import GF.Grammar.Lexer (Posn(..), Lang(..), runLangP)
 import GF.Grammar.Parser (pTerm)
 import GF.Grammar.Printer (TermPrintQual(Unqualified), ppTerm)
 import GF.Infra.CheckM (Check, runCheck)
@@ -41,14 +41,16 @@ import GF.Infra.Ident (moduleNameS)
 import GF.Infra.Option (noOptions)
 import GF.Infra.UseIO (justModuleName)
 import GF.Text.Pretty (render)
+import Debug.Trace
 
 data ReplOpts = ReplOpts
-  { noPrelude :: Bool
+  { lang :: Lang
+  , noPrelude :: Bool
   , inputFiles :: [String]
   }
 
 defaultReplOpts :: ReplOpts
-defaultReplOpts = ReplOpts False []
+defaultReplOpts = ReplOpts GF False []
 
 type Errs a = Either [String] a
 type ReplOptsOp = ReplOpts -> Errs ReplOpts
@@ -57,6 +59,13 @@ replOptDescrs :: [OptDescr ReplOptsOp]
 replOptDescrs =
   [ Option ['h'] ["help"] (NoArg $ \o -> Left [usageInfo "gfci" replOptDescrs]) "Display help."
   , Option [] ["no-prelude"] (flag $ \o -> o { noPrelude = True }) "Don't load the prelude."
+  , Option [] ["lang"] (ReqArg (\s o -> case s of
+                                          "gf"   -> Right (o { lang = GF })
+                                          "bnfc" -> Right (o { lang = BNFC })
+                                          "nlg"  -> Right (o { lang = NLG })
+                                          _      -> Left ["Unknown language variant: " ++ s])
+                               "{gf,bnfc,nlg}")
+           "Set the active language variant."
   ]
   where
     flag f = NoArg $ \o -> pure (f o)
@@ -81,13 +90,13 @@ replModNameStr = "<repl>"
 replModName :: ModuleName
 replModName = moduleNameS replModNameStr
 
-parseThen :: MonadIO m => Grammar -> String -> (Term -> InputT m ()) -> InputT m ()
-parseThen g s k = case runLangP GF pTerm (BS.pack s) of
+parseThen :: MonadIO m => Lang -> Grammar -> String -> (Term -> InputT m ()) -> InputT m ()
+parseThen l g s k = case runLangP l pTerm (BS.pack s) of
   Left (Pn l c, err) -> outputStrLn $ err ++ " (" ++ show l ++ ":" ++ show c ++ ")"
   Right t -> execCheck (renameSourceTerm g replModName t) $ \t -> k t
 
-runRepl' :: Globals -> IO ()
-runRepl' gl@(Gl g _) = do
+runRepl' :: Lang -> Globals -> IO ()
+runRepl' l gl@(Gl g _) = do
   historyFile <- getAppUserDataDirectory "gfci_history"
   runInputT (Settings noCompletion (Just historyFile) True) repl -- TODO tab completion
   where
@@ -98,7 +107,7 @@ runRepl' gl@(Gl g _) = do
         Just code -> evalPrintLoop code
 
     command "t" arg = do
-      parseThen g arg $ \main ->
+      parseThen l g arg $ \main ->
         execCheck (inferLType gl main) $ \res ->
           forM_ res $ \(t, ty) ->
             let t' = case t of
@@ -114,14 +123,14 @@ runRepl' gl@(Gl g _) = do
       outputStrLn "" >> repl
 
     evalPrintLoop code = do -- TODO bindings
-      parseThen g code $ \main ->
+      parseThen l g code $ \main ->
         execCheck (inferLType gl main >>= \((t, _):_) -> normalFlatForm gl t) $ \nfs ->
           forM_ (zip [1..] nfs) $ \(i, nf) ->
             outputStrLn $ show i ++ ". " ++ render (ppTerm Unqualified 0 nf)
       outputStrLn "" >> repl
 
 runRepl :: ReplOpts -> IO ()
-runRepl (ReplOpts noPrelude inputFiles) = do
+runRepl (ReplOpts lang noPrelude inputFiles) = do
   -- TODO accept an ngf grammar
   let toLoad = if noPrelude then inputFiles else "prelude/Predef.gfo" : inputFiles
   (g0, opens) <- case toLoad of
@@ -143,4 +152,4 @@ runRepl (ReplOpts noPrelude inputFiles) = do
       , jments  = Map.empty
       }
     g = Gl (prependModule g0 (replModName, modInfo)) (if noPrelude then Map.empty else stdPredef g)
-  runRepl' g
+  runRepl' lang g

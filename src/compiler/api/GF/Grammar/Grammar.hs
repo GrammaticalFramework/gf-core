@@ -54,6 +54,7 @@ module GF.Grammar.Grammar (
         Equation,
         Labelling,
         Assign,
+        Option,
         Case,
         LocalDef,
         Param,
@@ -372,7 +373,9 @@ data Term =
  | R [Assign]                    -- ^ record:      @{ p = a ; ...}@
  | P Term Label                  -- ^ projection:  @r.p@
  | ExtR Term Term                -- ^ extension:   @R ** {x : A}@ (both types and terms)
- 
+
+ | Opts Term [Option]            -- ^ options:     @options s in { e => x ; ... }@
+
  | Table Term Term               -- ^ table type:  @P => A@
  | T TInfo [Case]                -- ^ table:       @table {p => c ; ...}@
  | V Type [Term]                 -- ^ table given as course of values: @table T [c1 ; ... ; cn]@
@@ -471,6 +474,7 @@ type Equation = ([Patt],Term)
 
 type Labelling = (Label, Type) 
 type Assign = (Label, (Maybe Type, Term)) 
+type Option = (Term, Term)
 type Case = (Patt, Term) 
 --type Cases = ([Patt], Term) 
 type LocalDef = (Ident, (Maybe Type, Term))
