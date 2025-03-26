@@ -39,7 +39,6 @@ grammar2haskell opts name gr = foldr (++++) [] $
     where gr' = hSkeleton gr
           gadt = haskellOption opts HaskellGADT
           dataExt = haskellOption opts HaskellData
-          pgf2 = haskellOption opts HaskellPGF2
           lexical cat = haskellOption opts HaskellLexical && isLexicalCat opts cat
           gId | haskellOption opts HaskellNoPrefix = rmForbiddenChars
               | otherwise = ("G"++) . rmForbiddenChars
@@ -54,8 +53,7 @@ grammar2haskell opts name gr = foldr (++++) [] $
           extraImports | gadt = ["import Control.Monad.Identity", "import Data.Monoid"]
                        | dataExt = ["import Data.Data"]
                        | otherwise = []
-          pgfImports | pgf2 = ["import PGF2 hiding (Tree)", "", "showCId :: CId -> String", "showCId = id"]
-                     | otherwise = ["import PGF hiding (Tree)"]
+          pgfImports = ["import PGF2", ""]
           types | gadt = datatypesGADT gId lexical gr'
                 | otherwise = datatypes gId derivingClause lexical gr'
           compos | gadt = prCompos gId lexical gr' ++ composClass
@@ -78,7 +76,7 @@ haskPreamble gadt name derivingClause imports =
   "",
   predefInst gadt derivingClause "GString" "String"  "unStr"    "mkStr",
   "",
-  predefInst gadt derivingClause "GInt"    "Int"     "unInt"    "mkInt",
+  predefInst gadt derivingClause "GInt"    "Integer"     "unInt"    "mkInt",
   "",
   predefInst gadt derivingClause "GFloat"  "Double"  "unFloat"  "mkFloat",
   "",
@@ -234,14 +232,14 @@ hInstance gId lexical m (cat,rules)
  | otherwise =
   "instance Gf" +++ gId cat +++ "where\n" ++
   unlines ([mkInst f xx | (f,xx) <- nonLexicalRules (lexical cat) rules]
-            ++ if lexical cat then ["  gf (" ++ lexicalConstructor cat +++ "x) = mkApp (mkCId x) []"] else [])
+            ++ if lexical cat then ["  gf (" ++ lexicalConstructor cat +++ "x) = mkApp x []"] else [])
  where
    ec = elemCat cat
    baseVars = mkVars (baseSize (cat,rules))
    mkInst f xx = let xx' = mkVars (length xx) in "  gf " ++
      (if null xx then gId f else prParenth (gId f +++ foldr1 (+++) xx')) +++
      "=" +++ mkRHS f xx'
-   mkRHS f vars = "mkApp (mkCId \"" ++ f ++ "\")" +++
+   mkRHS f vars = "mkApp \"" ++ f ++ "\"" +++
        "[" ++ prTList ", " ["gf" +++ x | x <- vars] ++ "]"
 
 mkVars :: Int -> [String]
@@ -265,7 +263,7 @@ fInstance gId lexical m (cat,rules) =
     mkInst f xx =
      "      Just (i," ++
      "[" ++ prTList "," xx' ++ "])" +++
-     "| i == mkCId \"" ++ f ++ "\" ->" +++ mkRHS f xx'
+     "| i == \"" ++ f ++ "\" ->" +++ mkRHS f xx'
        where
          xx' = ["x" ++ show i | (_,i) <- zip xx [1..]]
          mkRHS f vars

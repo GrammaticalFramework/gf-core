@@ -6,11 +6,13 @@ import GF.Compile as S(batchCompile,link,srcAbsName)
 import GF.CompileInParallel as P(parallelBatchCompile)
 import GF.Compile.Export
 import GF.Compile.ConcreteToHaskell(concretes2haskell)
-import GF.Compile.GrammarToCanonical--(concretes2canonical)
+import GF.Compile.GrammarToCanonical
 import GF.Compile.CFGtoPGF
 import GF.Compile.GetGrammar
 import GF.Grammar.BNFC
 import GF.Grammar.CFG
+import GF.Grammar.JSON(grammar2json)
+import GF.Grammar.Printer(TermPrintQual(..),ppModule)
 
 --import GF.Infra.Ident(showIdent)
 import GF.Infra.UseIO
@@ -24,7 +26,7 @@ import Data.Maybe
 import qualified Data.Map as Map
 import qualified Data.Set as Set
 import qualified Data.ByteString.Lazy as BSL
-import GF.Grammar.CanonicalJSON (encodeJSON)
+import Text.JSON (encode)
 import System.FilePath
 import Control.Monad(when,unless,forM_,foldM)
 
@@ -64,7 +66,7 @@ compileSourceFiles opts fs =
            do createDirectoryIfMissing False "canonical"
               mapM_ abs2canonical canonical
               mapM_ cnc2canonical canonical
-         when (FmtCanonicalJson `elem` ofmts) $ mapM_ grammar2json canonical
+         when (FmtCanonicalJson `elem` ofmts) $ mapM_ grammar2canonical_json canonical
       where
         ofmts = flag optOutputFormats opts
 
@@ -74,17 +76,17 @@ compileSourceFiles opts fs =
 
     abs2canonical (cnc,gr) = do
       (canAbs,_) <- runCheck (abstract2canonical absname gr)
-      writeExport ("canonical/"++render absname++".gf",render80 canAbs)
+      writeExport ("canonical/"++render absname++".gf",render80 (ppModule Unqualified canAbs))
       where
         absname = srcAbsName gr cnc
 
     cnc2canonical (cnc,gr) = do
       (res,_) <- runCheck (concretes2canonical opts (srcAbsName gr cnc) gr)
-      mapM_ (writeExport.fmap render80) res
+      sequence_ [writeExport ("canonical/"++render mn++".gf",render80 (ppModule Unqualified m)) | m@(mn,mi) <- res]
 
-    grammar2json (cnc,gr) = do
+    grammar2canonical_json (cnc,gr) = do
       (gr_canon,_) <- runCheck (grammar2canonical opts absname gr)
-      return (encodeJSON (render absname ++ ".json") gr_canon)
+      writeExport (render absname ++ ".json", encode (grammar2json Unqualified gr_canon))
       where
         absname = srcAbsName gr cnc
 

@@ -31,6 +31,7 @@ import qualified Data.ByteString.Char8 as BS(append,isPrefixOf)
                  -- UTF-8-encoded bytestrings!
 import Data.Char(isDigit)
 import Data.Binary(Binary(..))
+import Text.JSON hiding (Result(..))
 import GF.Text.Pretty
 
 
@@ -45,6 +46,10 @@ instance Pretty ModuleName where pp (MN m) = pp m
 instance Binary ModuleName where
   put (MN id) = put id
   get = fmap MN get
+
+instance JSON ModuleName where
+  showJSON (MN id) = showJSON id
+  readJSON o = MN <$> readJSON o
 
 -- | the constructors labelled /INTERNAL/ are
 -- internal representation never returned by the parser
@@ -100,6 +105,14 @@ showIdent i = unpack $! ident2utf8 i
 instance Pretty Ident where pp = pp . showIdent
 
 instance Pretty RawIdent where pp = pp . showRawIdent
+
+instance JSON Ident where
+  showJSON i = showJSON $ ident2raw i
+  readJSON o = identC <$> readJSON o
+
+instance JSON RawIdent where
+  showJSON i = showJSON $ showRawIdent i
+  readJSON o = rawIdentS <$> readJSON o
 
 identS :: String -> Ident
 identS = identC . rawIdentS

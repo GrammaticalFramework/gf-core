@@ -87,7 +87,6 @@ library
     GF.Support
     GF.Text.Pretty
     GF.Text.Lexing
-    GF.Grammar.Canonical
 
     GF.CompileOne  GF.Compile.GetGrammar
 
@@ -120,7 +119,6 @@ library
     GF.Haskell
     GF.Compile.ConcreteToHaskell
     GF.Compile.GrammarToCanonical
-    GF.Grammar.CanonicalJSON
     GF.Compile.ReadFiles
     GF.Compile.Rename
     GF.Compile.Repl
@@ -156,6 +154,7 @@ library
     GF.Grammar.ShowTerm
     GF.Grammar.Unify
     GF.Grammar.Values
+    GF.Grammar.JSON
     GF.Infra.Concurrency
     GF.Infra.Dependencies
     GF.Infra.GetOpt
