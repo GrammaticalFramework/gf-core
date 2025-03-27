@@ -75,18 +75,9 @@ tcRho scope s t@(Vr v)     mb_ty = do                          -- VAR
   case lookup v scope of
     Just v_sigma -> instSigma scope s t v_sigma mb_ty
     Nothing      -> evalError ("Unknown variable" <+> v)
-tcRho scope c t@(Q id)     mb_ty = do
-  let (c1,c2) = split c
-  (t,ty) <- tcApp scope c1 t t []
-  instSigma scope c2 t ty mb_ty
-tcRho scope c t@(QC id)    mb_ty = do
-  let (c1,c2) = split c
-  (t,ty) <- tcApp scope c1 t t []
-  instSigma scope c2 t ty mb_ty
-tcRho scope c t@(App fun arg) mb_ty = do
-  let (c1,c2) = split c
-  (t,ty) <- tcApp scope c1 t t []
-  instSigma scope c2 t ty mb_ty
+tcRho scope c t@(Q id)     mb_ty = tcApp scope c t t [] mb_ty
+tcRho scope c t@(QC id)    mb_ty = tcApp scope c t t [] mb_ty
+tcRho scope c t@(App fun arg) mb_ty = tcApp scope c t t [] mb_ty
 tcRho scope c (Abs bt var body) Nothing = do                   -- ABS1
   i <- newResiduation scope
   let arg_ty = VMeta i []
@@ -419,13 +410,15 @@ tcCases scope c ((p,t):cs) p_ty res_ty = do
   cs <- tcCases scope c3 cs p_ty res_ty
   return ((p,t):cs)
 
-tcApp scope c t0 (App fun arg) args = tcApp scope c t0 fun (arg:args)     -- APP
-tcApp scope c t0 t@(Q id)      args = resolveOverloads scope c t0 id args -- VAR (global)
-tcApp scope c t0 t@(QC id)     args = resolveOverloads scope c t0 id args -- VAR (global)
-tcApp scope c t0 t             args = do
-  let (c1,c2) = split c
+tcApp scope c t0 (App fun arg) args mb_ty = tcApp scope c t0 fun (arg:args) mb_ty     -- APP
+tcApp scope c t0 t@(Q id)      args mb_ty = resolveOverloads scope c t0 id args mb_ty -- VAR (global)
+tcApp scope c t0 t@(QC id)     args mb_ty = resolveOverloads scope c t0 id args mb_ty -- VAR (global)
+tcApp scope c t0 t             args mb_ty = do
+  let (c1,c23) = split c
+  let (c2,c3)  = split c23
   (t,ty) <- tcRho scope c1 t Nothing
-  reapply1 scope c2 t ty args
+  (t,ty) <- reapply1 scope c2 t ty args
+  instSigma scope c3 t ty mb_ty
 
 reapply1 :: Scope -> Choice -> Term -> Value -> [Term] -> EvalM (Term,Rho)
 reapply1 scope c fun fun_ty []                   = return (fun,fun_ty)
@@ -452,17 +445,21 @@ reapply1 scope c fun fun_ty (arg:args) = do -- Explicit arg (fallthrough) case
               res_ty                  -> return res_ty
   reapply1 scope c3 (App fun arg) res_ty args
 
-resolveOverloads :: Scope -> Choice -> Term -> QIdent -> [Term] -> EvalM (Term,Rho)
-resolveOverloads scope c t0 q args = do
+resolveOverloads :: Scope -> Choice -> Term -> QIdent -> [Term] -> Maybe Rho -> EvalM (Term,Rho)
+resolveOverloads scope c t0 q args mb_ty = do
   g@(Gl gr _) <- globals
   case lookupOverloadTypes gr q of
     Bad msg  -> evalError (pp msg)
-    Ok [(t,ty)] -> do let (c1,c2) = split c
-                      reapply1 scope c1 t (eval g [] c2 ty []) args
-    Ok ttys     -> do let (c1,c2) = split c
+    Ok [(t,ty)] -> do let (c1,c23) = split c
+                          (c2,c3)  = split c23
+                      (t,ty) <- reapply1 scope c1 t (eval g [] c2 ty []) args
+                      instSigma scope c3 t ty mb_ty
+    Ok ttys     -> do let (c1,c23) = split c
+                          (c2,c3)  = split c23
                       arg_tys <- mapCM (checkArg g) c1 args
                       let v_ttys = mapC (\c (t,ty) -> (t,eval g [] c ty [])) c2 ttys
-                      try (\(fun,fun_ty) -> reapply2 scope fun fun_ty arg_tys) v_ttys (pp "Overload resolution failed")
+                      try (\(fun,fun_ty) -> reapply2 scope c3 fun fun_ty arg_tys mb_ty) v_ttys (pp "Overload resolution failed")
+                      
   where
     checkArg g c (ImplArg arg) = do
       let (c1,c2) = split c
@@ -475,9 +472,9 @@ resolveOverloads scope c t0 q args = do
       let v = eval g (scopeEnv scope) c2 arg []
       return (arg,v,arg_ty)
 
-reapply2 :: Scope -> Term -> Value -> [(Term,Value,Value)] -> EvalM (Term,Rho)
-reapply2 scope fun fun_ty []                                = return (fun,fun_ty)
-reapply2 scope fun fun_ty ((ImplArg arg,arg_v,arg_ty):args) = do -- Implicit arg case
+reapply2 :: Scope -> Choice -> Term -> Value -> [(Term,Value,Value)] -> Maybe Rho -> EvalM (Term,Rho)
+reapply2 scope c fun fun_ty []                                mb_ty = instSigma scope c fun fun_ty mb_ty
+reapply2 scope c fun fun_ty ((ImplArg arg,arg_v,arg_ty):args) mb_ty = do -- Implicit arg case
   (bt, x, arg_ty', res_ty) <- unifyFun scope fun_ty
   unless (bt == Implicit) $
      evalError (ppTerm Unqualified 0 (App fun (ImplArg arg)) <+>
@@ -487,8 +484,8 @@ reapply2 scope fun fun_ty ((ImplArg arg,arg_v,arg_ty):args) = do -- Implicit arg
               VClosure res_env res_c res_ty -> do g <- globals
                                                   return (eval g ((x,arg_v):res_env) res_c res_ty [])
               res_ty                        -> return res_ty
-  reapply2 scope (App fun (ImplArg arg)) res_ty args
-reapply2 scope fun fun_ty ((arg,arg_v,arg_ty):args) = do -- Explicit arg (fallthrough) case
+  reapply2 scope c (App fun (ImplArg arg)) res_ty args mb_ty
+reapply2 scope c fun fun_ty ((arg,arg_v,arg_ty):args) mb_ty = do -- Explicit arg (fallthrough) case
   (fun,fun_ty) <- instantiate scope fun fun_ty
   (_, x, arg_ty', res_ty) <- unifyFun scope fun_ty
   arg <- subsCheckRho scope arg arg_ty arg_ty'
@@ -496,7 +493,7 @@ reapply2 scope fun fun_ty ((arg,arg_v,arg_ty):args) = do -- Explicit arg (fallth
               VClosure res_env res_c res_ty -> do g <- globals
                                                   return (eval g ((x,arg_v):res_env) res_c res_ty [])
               res_ty                  -> return res_ty
-  reapply2 scope (App fun arg) res_ty args
+  reapply2 scope c (App fun arg) res_ty args mb_ty
 
 tcPatt scope c PW        ty0 =
   return scope
