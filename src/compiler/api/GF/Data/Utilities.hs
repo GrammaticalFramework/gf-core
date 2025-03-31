@@ -32,6 +32,11 @@ notLongerThan, longerThan :: Int -> [a] -> Bool
 notLongerThan n = null . snd . splitAt n
 longerThan    n = not . notLongerThan n
 
+maybeAt :: [a] -> Int -> Maybe a
+maybeAt xs i
+    | i >= 0 && i < length xs = Just (xs !! i)
+    | otherwise               = Nothing
+
 lookupList :: Eq a => a -> [(a, b)] -> [b]
 lookupList a [] = []
 lookupList a (p:ps) | a == fst p = snd p : lookupList a ps
@@ -170,6 +175,11 @@ anyM :: (Foldable f, Monad m) => (a -> m Bool) -> f a -> m Bool
 anyM p = foldM (\b x -> if b then return True else p x) False
 
 -- * functions on Maybes
+
+-- | Returns the argument on the right, or a default value on the left.
+orLeft :: a -> Maybe b -> Either a b
+orLeft a (Just b) = Right b
+orLeft a Nothing  = Left a
 
 -- | Returns true if the argument is Nothing or Just []
 nothingOrNull :: Maybe [a] -> Bool

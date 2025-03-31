@@ -21,6 +21,7 @@ import Data.STRef
 import Data.List (nub, (\\), tails)
 import qualified Data.Map as Map
 import Data.Maybe(fromMaybe,isNothing,mapMaybe)
+import Data.Bifunctor(second)
 import Data.Functor((<&>))
 import qualified Control.Monad.Fail as Fail
 
@@ -747,10 +748,10 @@ subsCheckRho scope t ty1@(VRecType rs1) ty2@(VRecType rs2) = do      -- Rule REC
                           "there are no values for fields:" <+> hsep missing)
   rs <- sequence [mkField scope l t ty1 ty2 | (l,ty2,Just ty1) <- fields, Just t <- [mkProj l]]
   return (mkWrap (R rs))
-subsCheckRho scope t tau1 (VFV c vs) = do
+subsCheckRho scope t tau1 (VFV c (VarFree vs)) = do
   tau2 <- variants c vs
   subsCheckRho scope t tau1 tau2
-subsCheckRho scope t (VFV c vs) tau2 = do
+subsCheckRho scope t (VFV c (VarFree vs)) tau2 = do
   tau1 <- variants c vs
   subsCheckRho scope t tau1 tau2
 subsCheckRho scope t tau1 tau2 = do                           -- Rule EQ
@@ -834,9 +835,14 @@ supertype scope (Just ctr) ty = do
 unifyFun :: Scope -> Rho -> EvalM (BindType, Ident, Sigma, Rho)
 unifyFun scope (VProd bt x arg res) =
   return (bt,x,arg,res)
-unifyFun scope (VFV c vs) = do
+unifyFun scope (VFV c (VarFree vs)) = do
   res <- mapM (unifyFun scope) vs
-  return (Explicit, identW, VFV c [sigma | (_,_,sigma,rho) <- res], VFV c [rho | (_,_,sigma,rho) <- res])
+  return
+    ( Explicit
+    , identW
+    , VFV c (VarFree [sigma | (_,_,sigma,rho) <- res])
+    , VFV c (VarFree [rho | (_,_,sigma,rho) <- res])
+    )
 unifyFun scope tau = do
   let mk_val i = VMeta i []
   arg <- fmap mk_val $ newResiduation scope
@@ -975,7 +981,7 @@ occursCheck scope' i0 scope v =
     check m n (VPattType v) =
       check m n v
     check m n (VFV c vs) =
-      mapM_ (check m n) vs
+      mapM_ (check m n) (unvariants vs)
     check m n (VAlts v vs) =
       check m n v >> mapM_ (\(v1,v2) -> check m n v1 >> check m n v2) vs
     check m n (VStrs vs) =
@@ -1101,9 +1107,12 @@ quantify scope t tvs ty = do
     check m n xs (VPattType v)     = do
       (xs,v) <- check m n xs v
       return (xs,VPattType v)
-    check m n xs (VFV c vs)       = do
+    check m n xs (VFV c (VarFree vs)) = do
       (xs,vs) <- mapAccumM (check m n) xs vs
-      return (xs,VFV c vs)
+      return (xs,VFV c (VarFree vs))
+    check m n xs (VFV c (VarOpts name os)) = do
+      (xs,os) <- mapAccumM (\acc (l,v) -> second (l,) <$> check m n acc v) xs os
+      return (xs,VFV c (VarOpts name os))
     check m n xs (VAlts v vs)      = do
       (xs,v)  <- check m n xs v
       (xs,vs) <- mapAccumM (\xs (v1,v2) -> do (xs,v1) <- check m n xs v1
@@ -1171,7 +1180,7 @@ getMetaVars sc_tys = foldM (\acc (scope,ty) -> go acc ty) [] sc_tys
                                     Residuation _ (Just v) -> go acc v
                                     _                      -> return acc
     go acc (VApp c f args)   = foldM go acc args
-    go acc (VFV c vs)        = foldM go acc vs
+    go acc (VFV c vs)        = foldM go acc (unvariants vs)
     go acc (VCRecType vs)    = foldM (\acc (lbl,b,v) -> go acc v) acc vs
     go acc (VCInts _ _)      = return acc
     go acc v                 = unimplemented ("go "++show (ppValue Unqualified 5 v))
