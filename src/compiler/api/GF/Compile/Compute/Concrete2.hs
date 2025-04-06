@@ -3,7 +3,8 @@
 module GF.Compile.Compute.Concrete2
            (Env, Scope, Value(..), Variants(..), Constraint, OptionInfo(..), ChoiceMap, cleanOptions,
             ConstValue(..), ConstVariants(..), Globals(..), PredefTable, EvalM,
-            mapVariants, unvariants, variants2consts, consts2variants,
+            mapVariants, mapVariantsC, unvariants, variants2consts,
+            mapConstVs, mapConstVsC, unconstVs, consts2variants,
             runEvalM, runEvalMWithOpts, stdPredef, globals, withState,
             PredefImpl, Predef(..), ($\),
             pdCanonicalArgs, pdArity,
@@ -102,6 +103,10 @@ mapVariants :: (Value -> Value) -> Variants -> Variants
 mapVariants f (VarFree vs)   = VarFree (f <$> vs)
 mapVariants f (VarOpts n cs) = VarOpts n (second f <$> cs)
 
+mapVariantsC :: (Choice -> Value -> Value) -> Choice -> Variants -> Variants
+mapVariantsC f c (VarFree vs)   = VarFree (mapC f c vs)
+mapVariantsC f c (VarOpts n cs) = VarOpts n (mapC (second . f) c cs)
+
 unvariants :: Variants -> [Value]
 unvariants (VarFree vs)   = vs
 unvariants (VarOpts n cs) = snd <$> cs
@@ -141,6 +146,10 @@ data ConstVariants a
 mapConstVs :: (ConstValue a -> ConstValue b) -> ConstVariants a -> ConstVariants b
 mapConstVs f (ConstFree vs)   = ConstFree (f <$> vs)
 mapConstVs f (ConstOpts n cs) = ConstOpts n (second f <$> cs)
+
+mapConstVsC :: (Choice -> ConstValue a -> ConstValue b) -> Choice -> ConstVariants a -> ConstVariants b
+mapConstVsC f c (ConstFree vs)   = ConstFree (mapC f c vs)
+mapConstVsC f c (ConstOpts n cs) = ConstOpts n (mapC (second . f) c cs)
 
 unconstVs :: ConstVariants a -> [ConstValue a]
 unconstVs (ConstFree vs)   = vs
