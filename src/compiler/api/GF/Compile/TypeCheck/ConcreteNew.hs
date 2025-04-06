@@ -21,6 +21,7 @@ import Data.STRef
 import Data.List (nub, (\\), tails)
 import qualified Data.Map as Map
 import Data.Maybe(fromMaybe,isNothing,mapMaybe)
+import Data.Bifunctor(second)
 import Data.Functor((<&>))
 import qualified Control.Monad.Fail as Fail
 
@@ -57,14 +58,14 @@ inferSigma scope s t = do                                      -- GEN1
   let forall_tvs = res_tvs \\ env_tvs
   quantify scope t forall_tvs ty
 
-vtypeInt   = VApp (cPredef,cInt) []
-vtypeFloat = VApp (cPredef,cFloat) []
-vtypeInts i= VApp (cPredef,cInts) [VInt i]
+vtypeInt   = VApp poison (cPredef,cInt) []
+vtypeFloat = VApp poison (cPredef,cFloat) []
+vtypeInts i= VApp poison (cPredef,cInts) [VInt i]
 vtypeStr   = VSort cStr
 vtypeStrs  = VSort cStrs
 vtypeType  = VSort cType
 vtypePType = VSort cPType
-vtypeMarkup= VApp (cPredef,cMarkup) []
+vtypeMarkup= VApp poison (cPredef,cMarkup) []
 
 tcRho :: Scope -> Choice -> Term -> Maybe Rho -> EvalM (Term, Rho)
 tcRho scope s t@(EInt i)   mb_ty = instSigma scope s t (vtypeInts i) mb_ty -- INT
@@ -90,7 +91,7 @@ tcRho scope c (Abs bt var body) Nothing = do                   -- ABS1
          in return (Abs bt var body, (VProd bt v arg_ty body_ty))
     else return (Abs bt var body, (VProd bt identW arg_ty body_ty))
   where
-    check m n st (VApp f vs)       = foldM (check m n) st vs
+    check m n st (VApp c f vs)     = foldM (check m n) st vs
     check m n st (VMeta i vs)      = do
       state <- getMeta i
       case state of
@@ -98,8 +99,8 @@ tcRho scope c (Abs bt var body) Nothing = do                   -- ABS1
                         check m n st (apply g v vs)
         _         -> foldM (check m n) st vs
     check m n st@(b,xs) (VGen i vs)
-      | i == m                     = return (True, xs)
-      | otherwise                  = return st
+      | i == m                       = return (True, xs)
+      | otherwise                    = return st
     check m n st (VClosure env c (Abs bt x t)) = do
       g <- globals
       check m (n+1) st (eval g ((x,VGen n []):env) c t [])
@@ -118,7 +119,7 @@ tcRho scope c (Abs bt var body) Nothing = do                   -- ABS1
       check m n st v1 >>= \st -> check m n st v2
     check m n st (VTable v1 v2)    =
       check m n st v1 >>= \st -> check m n st v2
-    check m n st (VT ty env c cs)    =
+    check m n st (VT ty env c cs) =
       check m n st ty    -- Traverse cs as well
     check m n st (VV ty cs)        =
       check m n st ty >>= \st -> foldM (check m n) st cs
@@ -186,17 +187,7 @@ tcRho scope c (Typed body ann_ty) mb_ty = do                   -- ANNOT
   (body,_) <- tcRho scope c3 body (Just v_ann_ty)
   instSigma scope c4 (Typed body ann_ty) v_ann_ty mb_ty
 tcRho scope c (FV ts) mb_ty = do
-  (ty,subsume) <-
-    case mb_ty of
-      Just ty -> do return (ty, \t ty' -> return t)
-      Nothing -> do i <- newResiduation scope
-                    let ty = VMeta i []
-                    return (ty, \t ty' -> subsCheckRho scope t ty' ty)
-
-  let go c t = do (t, ty) <- tcRho scope c t mb_ty
-                  subsume t ty
-
-  ts <- mapCM go c ts
+  (ts,ty) <- tcUnifying scope c ts mb_ty
   return (FV ts, ty)
 tcRho scope s t@(Sort _) mb_ty = do
   instSigma scope s t vtypeType mb_ty
@@ -389,11 +380,17 @@ tcRho scope c (Reset ctl t) mb_ty =
        Limit n      -> do (t,_) <- tcRho scope c1 t Nothing
                           instSigma scope c2 (Reset ctl t) vtypeMarkup mb_ty
        Coordination mb_mn@(Just mn) conj _
-                    -> do tcRho scope c1 (QC (mn,conj)) (Just (VApp (mn,identS "Conj") []))
+                    -> do tcRho scope c1 (QC (mn,conj)) (Just (VApp poison (mn,identS "Conj") []))
                           (t,ty) <- tcRho scope c2 t mb_ty
                           case ty of
-                            VApp id [] -> return (Reset (Coordination mb_mn conj (snd id)) t, ty)
-                            _          -> evalError (pp "Needs atomic type"<+>ppValue Unqualified 0 ty)
+                            VApp c id [] -> return (Reset (Coordination mb_mn conj (snd id)) t, ty)
+                            _            -> evalError (pp "Needs atomic type"<+>ppValue Unqualified 0 ty)
+tcRho scope s (Opts n cs) mb_ty = do
+  let (s1,s2,s3) = split3 s
+  (n,_) <- tcRho scope s1 n Nothing
+  (ls,_) <- tcUnifying scope s2 (fst <$> cs) Nothing
+  (ts,ty) <- tcUnifying scope s3 (snd <$> cs) mb_ty
+  return (Opts n (zip ls ts), ty)
 tcRho scope s t _ = unimplemented ("tcRho "++show t)
 
 evalCodomain :: Scope -> Ident -> Value -> EvalM Value
@@ -401,6 +398,21 @@ evalCodomain scope x (VClosure env c t) = do
   g <- globals
   return (eval g ((x,VGen (length scope) []):env) c t [])
 evalCodomain scope x t = return t
+
+tcUnifying :: Scope -> Choice -> [Term] -> Maybe Rho -> EvalM ([Term], Constraint)
+tcUnifying scope c ts mb_ty = do
+  (ty,subsume) <-
+    case mb_ty of
+      Just ty -> do return (ty, \t ty' -> return t)
+      Nothing -> do i <- newResiduation scope
+                    let ty = VMeta i []
+                    return (ty, \t ty' -> subsCheckRho scope t ty' ty)
+
+  let go c t = do (t, ty) <- tcRho scope c t mb_ty
+                  subsume t ty
+
+  ts <- mapCM go c ts
+  return (ts,ty)
 
 tcCases scope c []         p_ty res_ty = return []
 tcCases scope c ((p,t):cs) p_ty res_ty = do
@@ -690,9 +702,9 @@ subsCheckRho scope t (VTable p1 r1) rho2 = do                 -- Rule TABLE
   subsCheckTbl scope t p1 r1 p2 r2
 subsCheckRho scope t (VSort s1) (VSort s2)                    -- Rule PTYPE
   | s1 == cPType && s2 == cType = return t
-subsCheckRho scope t (VApp p1 _) (VApp p2 _)                  -- Rule INT1
+subsCheckRho scope t (VApp _ p1 _) (VApp _ p2 _)              -- Rule INT1
   | p1 == (cPredef,cInts) && p2 == (cPredef,cInt) = return t
-subsCheckRho scope t (VApp p1 [VInt i]) (VApp p2 [VInt j])        -- Rule INT2
+subsCheckRho scope t (VApp _ p1 [VInt i]) (VApp _ p2 [VInt j]) -- Rule INT2
   | p1 == (cPredef,cInts) && p2 == (cPredef,cInts) = do
       if i <= j
         then return t
@@ -736,10 +748,10 @@ subsCheckRho scope t ty1@(VRecType rs1) ty2@(VRecType rs2) = do      -- Rule REC
                           "there are no values for fields:" <+> hsep missing)
   rs <- sequence [mkField scope l t ty1 ty2 | (l,ty2,Just ty1) <- fields, Just t <- [mkProj l]]
   return (mkWrap (R rs))
-subsCheckRho scope t tau1 (VFV c vs) = do
+subsCheckRho scope t tau1 (VFV c (VarFree vs)) = do
   tau2 <- variants c vs
   subsCheckRho scope t tau1 tau2
-subsCheckRho scope t (VFV c vs) tau2 = do
+subsCheckRho scope t (VFV c (VarFree vs)) tau2 = do
   tau1 <- variants c vs
   subsCheckRho scope t tau1 tau2
 subsCheckRho scope t tau1 tau2 = do                           -- Rule EQ
@@ -751,13 +763,13 @@ subsCheckFun scope t a1 r1 a2 r2 = do
   let v   = newVar scope
   vt <- subsCheckRho ((v,a2):scope) (Vr v) a2 a1
   g  <- globals
-  let r1 = case r1 of
-             VClosure env c r1 -> eval g ((v,(VGen (length scope) [])):env) c r1 []
-             r1                -> r1
-  let r2 = case r2 of
-             VClosure env c r2 -> eval g ((v,(VGen (length scope) [])):env) c r2 []
-             r2                -> r2
-  t  <- subsCheckRho ((v,vtypeType):scope) (App t vt) r1 r2
+  let r1' = case r1 of
+              VClosure env c r1 -> eval g ((v,(VGen (length scope) [])):env) c r1 []
+              r1                -> r1
+      r2' = case r2 of
+              VClosure env c r2 -> eval g ((v,(VGen (length scope) [])):env) c r2 []
+              r2                -> r2
+  t  <- subsCheckRho ((v,vtypeType):scope) (App t vt) r1' r2'
   return (Abs Explicit v t)
 
 subsCheckTbl :: Scope -> Term -> Sigma -> Rho -> Sigma -> Rho  -> EvalM Term
@@ -768,10 +780,10 @@ subsCheckTbl scope t p1 r1 p2 r2 = do
   p2 <- value2termM True (scopeVars scope) p2
   return (T (TTyped p2) [(PV x,t)])
 
-subtype scope Nothing (VApp p [VInt i])
+subtype scope Nothing (VApp c p [VInt i])
   | p == (cPredef,cInts) = do
       return (VCInts Nothing (Just i))
-subtype scope (Just (VCInts i j)) (VApp p [VInt k])
+subtype scope (Just (VCInts i j)) (VApp c p [VInt k])
   | p == (cPredef,cInts) = do
       return (VCInts j (Just (maybe k (min k) i)))
 subtype scope Nothing (VRecType ltys) = do
@@ -793,10 +805,10 @@ subtype scope (Just ctr) ty = do
   unify scope ctr ty
   return ty
 
-supertype scope Nothing (VApp p [VInt i])
+supertype scope Nothing (VApp c p [VInt i])
   | p == (cPredef,cInts) = do
       return (VCInts (Just i) Nothing)
-supertype scope (Just (VCInts i j)) (VApp p [VInt k])
+supertype scope (Just (VCInts i j)) (VApp c p [VInt k])
   | p == (cPredef,cInts) = do
       return (VCInts (Just (maybe k (max k) i)) j)
 supertype scope Nothing (VRecType ltys) = do
@@ -823,9 +835,14 @@ supertype scope (Just ctr) ty = do
 unifyFun :: Scope -> Rho -> EvalM (BindType, Ident, Sigma, Rho)
 unifyFun scope (VProd bt x arg res) =
   return (bt,x,arg,res)
-unifyFun scope (VFV c vs) = do
+unifyFun scope (VFV c (VarFree vs)) = do
   res <- mapM (unifyFun scope) vs
-  return (Explicit, identW, VFV c [sigma | (_,_,sigma,rho) <- res], VFV c [rho | (_,_,sigma,rho) <- res])
+  return
+    ( Explicit
+    , identW
+    , VFV c (VarFree [sigma | (_,_,sigma,rho) <- res])
+    , VFV c (VarFree [rho | (_,_,sigma,rho) <- res])
+    )
 unifyFun scope tau = do
   let mk_val i = VMeta i []
   arg <- fmap mk_val $ newResiduation scope
@@ -844,7 +861,7 @@ unifyTbl scope tau = do
   unify scope tau (VTable arg res)
   return (arg,res)
 
-unify scope (VApp f1 vs1) (VApp f2 vs2)
+unify scope (VApp c1 f1 vs1) (VApp c2 f2 vs2)
   | f1 == f2  = sequence_ (zipWith (unify scope) vs1 vs2)
 unify scope (VMeta i vs1) (VMeta j vs2)
   | i  == j   = sequence_ (zipWith (unify scope) vs1 vs2)
@@ -910,7 +927,7 @@ occursCheck scope' i0 scope v =
       n = length scope
   in check m n v
   where
-    check m n (VApp f vs) = mapM_ (check m n) vs
+    check m n (VApp c f vs) = mapM_ (check m n) vs
     check m n (VMeta i vs)
       | i0 == i  = do ty1 <- value2termM False (scopeVars scope) (VMeta i vs)
                       ty2 <- value2termM False (scopeVars scope) v
@@ -964,7 +981,7 @@ occursCheck scope' i0 scope v =
     check m n (VPattType v) =
       check m n v
     check m n (VFV c vs) =
-      mapM_ (check m n) vs
+      mapM_ (check m n) (unvariants vs)
     check m n (VAlts v vs) =
       check m n v >> mapM_ (\(v1,v2) -> check m n v1 >> check m n v2) vs
     check m n (VStrs vs) =
@@ -1019,9 +1036,9 @@ quantify scope t tvs ty = do
   where
     bind scope (i, meta_id, name) = setMeta meta_id (Bound scope (VGen i []))
 
-    check m n xs (VApp f vs)       = do
+    check m n xs (VApp c f vs)     = do
       (xs,vs) <- mapAccumM (check m n) xs vs
-      return (xs,VApp f vs)
+      return (xs,VApp c f vs)
     check m n xs (VMeta i vs)      = do
       s <- getMeta i
       case s of
@@ -1090,9 +1107,12 @@ quantify scope t tvs ty = do
     check m n xs (VPattType v)     = do
       (xs,v) <- check m n xs v
       return (xs,VPattType v)
-    check m n xs (VFV c vs)       = do
+    check m n xs (VFV c (VarFree vs)) = do
       (xs,vs) <- mapAccumM (check m n) xs vs
-      return (xs,VFV c vs)
+      return (xs,VFV c (VarFree vs))
+    check m n xs (VFV c (VarOpts name os)) = do
+      (xs,os) <- mapAccumM (\acc (l,v) -> second (l,) <$> check m n acc v) xs os
+      return (xs,VFV c (VarOpts name os))
     check m n xs (VAlts v vs)      = do
       (xs,v)  <- check m n xs v
       (xs,vs) <- mapAccumM (\xs (v1,v2) -> do (xs,v1) <- check m n xs v1
@@ -1159,8 +1179,8 @@ getMetaVars sc_tys = foldM (\acc (scope,ty) -> go acc ty) [] sc_tys
                                     Residuation _ Nothing  -> foldM go (m:acc) args
                                     Residuation _ (Just v) -> go acc v
                                     _                      -> return acc
-    go acc (VApp f args)     = foldM go acc args
-    go acc (VFV c vs)        = foldM go acc vs
+    go acc (VApp c f args)   = foldM go acc args
+    go acc (VFV c vs)        = foldM go acc (unvariants vs)
     go acc (VCRecType vs)    = foldM (\acc (lbl,b,v) -> go acc v) acc vs
     go acc (VCInts _ _)      = return acc
     go acc v                 = unimplemented ("go "++show (ppValue Unqualified 5 v))

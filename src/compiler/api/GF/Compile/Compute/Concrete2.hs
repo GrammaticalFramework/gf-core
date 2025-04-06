@@ -1,18 +1,22 @@
-{-# LANGUAGE RankNTypes, BangPatterns, GeneralizedNewtypeDeriving #-}
+{-# LANGUAGE RankNTypes, BangPatterns, GeneralizedNewtypeDeriving, TupleSections #-}
 
 module GF.Compile.Compute.Concrete2
-           (Env, Scope, Value(..), Constraint, ConstValue(..), Globals(..), PredefTable, EvalM,
-            runEvalM, stdPredef, globals, pdArity,
+           (Env, Scope, Value(..), Variants(..), Constraint, OptionInfo(..), ChoiceMap, cleanOptions,
+            ConstValue(..), ConstVariants(..), Globals(..), PredefTable, EvalM,
+            mapVariants, unvariants, variants2consts, consts2variants,
+            runEvalM, runEvalMWithOpts, stdPredef, globals,
+            PredefImpl, Predef(..), ($\),
+            pdCanonicalArgs, pdArity,
             normalForm, normalFlatForm,
             eval, apply, value2term, value2termM, bubble, patternMatch, vtableSelect,
             newResiduation, getMeta, setMeta, MetaState(..), variants, try,
-            evalError, evalWarn, ppValue, Choice, unit, split, split4, mapC, mapCM) where
+            evalError, evalWarn, ppValue, Choice(..), unit, poison, split, split3, split4, mapC, mapCM) where
 
 import Prelude hiding ((<>)) -- GHC 8.4.1 clash with Text.PrettyPrint
 import GF.Infra.Ident
 import GF.Infra.CheckM
 import GF.Data.Operations(Err(..))
-import GF.Data.Utilities(splitAt',(<||>),anyM)
+import GF.Data.Utilities(maybeAt,splitAt',(<||>),anyM)
 import GF.Grammar.Lookup(lookupResDef,lookupOrigInfo)
 import GF.Grammar.Grammar
 import GF.Grammar.Macros
@@ -24,19 +28,38 @@ import Control.Monad
 import Control.Applicative hiding (Const)
 import qualified Control.Applicative as A
 import qualified Data.Map as Map
+import Data.Bifunctor (second)
+import Data.Functor ((<&>))
 import Data.Maybe (fromMaybe,fromJust)
 import Data.List
 import Data.Char
 
+type PredefImpl = Globals -> Choice -> [Value] -> ConstValue Value
+newtype Predef = Predef { runPredef :: PredefImpl }
+
+infix 1 $\
+
+($\) :: (Predef -> Predef) -> PredefImpl -> Predef
+k $\ f = k (Predef f)
+
+pdCanonicalArgs :: Bool -> Predef -> Predef
+pdCanonicalArgs flat def = Predef $ \g c args ->
+  if all (isCanonicalForm flat) args then runPredef def g c args else RunTime
+
+pdArity :: Int -> Predef -> Predef
+pdArity n def = Predef $ \g c args ->
+  case splitAt' n args of
+    Nothing -> RunTime
+    Just (usedArgs, remArgs) ->
+      runPredef def g c usedArgs <&> \v -> apply g v remArgs
+
 type Env  = [(Ident,Value)]
 type Scope = [(Ident,Value)]
-type Predef a = Globals -> Choice -> [Value] -> ConstValue a
-type PredefCombinator a = Predef a -> Predef a
-type PredefTable = Map.Map Ident (Predef Value)
+type PredefTable = Map.Map Ident Predef
 data Globals = Gl Grammar PredefTable
 
 data Value
-  = VApp QIdent [Value]
+  = VApp Choice QIdent [Value]
   | VMeta {-# UNPACK #-} !MetaId [Value]
   | VSusp {-# UNPACK #-} !MetaId (Value -> Value) [Value]
   | VGen  {-# UNPACK #-} !Int [Value]
@@ -59,7 +82,7 @@ data Value
   | VGlue Value Value
   | VPatt Int (Maybe Int) Patt
   | VPattType Value
-  | VFV Choice [Value]
+  | VFV Choice Variants
   | VAlts Value [(Value, Value)]
   | VStrs [Value]
   | VMarkup Ident [(Ident,Value)] [Value]
@@ -71,16 +94,61 @@ data Value
   | VCRecType [(Label, Bool, Value)]
   | VCInts (Maybe Integer) (Maybe Integer)
 
+data Variants
+  = VarFree [Value]
+  | VarOpts Value [(Value, Value)]
+
+mapVariants :: (Value -> Value) -> Variants -> Variants
+mapVariants f (VarFree vs)   = VarFree (f <$> vs)
+mapVariants f (VarOpts n cs) = VarOpts n (second f <$> cs)
+
+unvariants :: Variants -> [Value]
+unvariants (VarFree vs)   = vs
+unvariants (VarOpts n cs) = snd <$> cs
+
+isCanonicalForm :: Bool -> Value -> Bool
+isCanonicalForm flat  (VClosure {})       = True
+isCanonicalForm flat  (VProd b x d cod)   = isCanonicalForm flat d && isCanonicalForm flat cod
+isCanonicalForm flat  (VRecType fs)       = all (isCanonicalForm flat . snd) fs
+isCanonicalForm flat  (VR {})             = True
+isCanonicalForm flat  (VTable d cod)      = isCanonicalForm flat d && isCanonicalForm flat cod
+isCanonicalForm flat  (VT {})             = True
+isCanonicalForm flat  (VV {})             = True
+isCanonicalForm flat  (VSort {})          = True
+isCanonicalForm flat  (VInt {})           = True
+isCanonicalForm flat  (VFlt {})           = True
+isCanonicalForm flat  (VStr {})           = True
+isCanonicalForm flat  VEmpty              = True
+isCanonicalForm True  (VFV {})            = False
+isCanonicalForm False (VFV c vs)          = all (isCanonicalForm False) (unvariants vs)
+isCanonicalForm flat  (VAlts d vs)        = all (isCanonicalForm flat . snd) vs
+isCanonicalForm flat  (VStrs vs)          = all (isCanonicalForm flat) vs
+isCanonicalForm flat  (VMarkup tag as vs) = all (isCanonicalForm flat . snd) as && all (isCanonicalForm flat) vs
+isCanonicalForm flat  (VReset ctl v)      = isCanonicalForm flat v
+isCanonicalForm flat  _ = False
+
 data ConstValue a
   = Const a
   | CSusp MetaId (Value -> ConstValue a)
-  | CFV Choice [ConstValue a]
+  | CFV Choice (ConstVariants a)
   | RunTime
   | NonExist
 
+data ConstVariants a
+  = ConstFree [ConstValue a]
+  | ConstOpts Value [(Value, ConstValue a)]
+
+mapConstVs :: (ConstValue a -> ConstValue b) -> ConstVariants a -> ConstVariants b
+mapConstVs f (ConstFree vs)   = ConstFree (f <$> vs)
+mapConstVs f (ConstOpts n cs) = ConstOpts n (second f <$> cs)
+
+unconstVs :: ConstVariants a -> [ConstValue a]
+unconstVs (ConstFree vs)   = vs
+unconstVs (ConstOpts n cs) = snd <$> cs
+
 instance Functor ConstValue where
   fmap f (Const c) = Const (f c)
-  fmap f (CFV i vs) = CFV i (map (fmap f) vs)
+  fmap f (CFV i vs) = CFV i (mapConstVs (fmap f) vs)
   fmap f (CSusp i k) = CSusp i (fmap f . k)
   fmap f RunTime   = RunTime
   fmap f NonExist  = NonExist
@@ -89,14 +157,22 @@ instance Applicative ConstValue where
   pure = Const
 
   (Const f)     <*> (Const x)     = Const (f x)
-  (CFV s vs)    <*> v2            = CFV s [v1 <*> v2 | v1 <- vs]
-  v1            <*> (CFV s vs)    = CFV s [v1 <*> v2 | v2 <- vs]
+  (CFV s vs)    <*> v2            = CFV s (mapConstVs (<*> v2) vs)
+  v1            <*> (CFV s vs)    = CFV s (mapConstVs (v1 <*>) vs)
   (CSusp i k)   <*> v2            = CSusp i (\v -> k v <*> v2)
   v1            <*> (CSusp i k)   = CSusp i (\v -> v1 <*> k v)
   NonExist      <*> _             = NonExist
   _             <*> NonExist      = NonExist
   RunTime       <*>  _            = RunTime
   _             <*>  RunTime      = RunTime
+
+variants2consts :: (Value -> ConstValue a) -> Variants -> ConstVariants a
+variants2consts f (VarFree vs)   = ConstFree (f <$> vs)
+variants2consts f (VarOpts n os) = ConstOpts n (second f <$> os)
+
+consts2variants :: (ConstValue a -> Value) -> ConstVariants a -> Variants
+consts2variants f (ConstFree vs)   = VarFree (f <$> vs)
+consts2variants f (ConstOpts n os) = VarOpts n (second f <$> os)
 
 normalForm :: Globals -> Term -> Check Term
 normalForm g t = value2term g [] (bubble (eval g [] unit t []))
@@ -130,7 +206,7 @@ eval g env s (P t lbl)      vs  = let project (VR as)        = case lookup lbl a
                                                                  Nothing -> VError ("Missing value for label" <+> pp lbl $$
                                                                                     "in" <+> pp (P t lbl))
                                                                  Just v  -> apply g v vs
-                                      project (VFV s fvs)    = VFV s (map project fvs)
+                                      project (VFV s fvs)    = VFV s (mapVariants project fvs)
                                       project (VMeta i vs)   = VSusp i (\v -> project (apply g v vs)) []
                                       project (VSusp i k vs) = VSusp i (\v -> project (apply g (k v) vs)) []
                                       project v              = VP v lbl vs
@@ -139,8 +215,8 @@ eval g env s (ExtR t1 t2)   []  = let (s1,s2) = split s
 
                                       extend (VR       as1) (VR       as2)   = VR       (foldl (\as (lbl,v) -> update lbl v as) as1 as2)
                                       extend (VRecType as1) (VRecType as2)   = VRecType (foldl (\as (lbl,v) -> update lbl v as) as1 as2)
-                                      extend (VFV i fvs)    v2               = VFV i [extend v1 v2 | v1 <- fvs]
-                                      extend v1             (VFV i fvs)      = VFV i [extend v1 v2 | v2 <- fvs]
+                                      extend (VFV i fvs)    v2               = VFV i (mapVariants (`extend` v2) fvs)
+                                      extend v1             (VFV i fvs)      = VFV i (mapVariants (v1 `extend`) fvs)
                                       extend (VMeta i vs)   v2               = VSusp i (\v -> extend (apply g v vs) v2) []
                                       extend v1             (VMeta i vs)     = VSusp i (\v -> extend v1 (apply g v vs)) []
                                       extend (VSusp i k vs) v2               = VSusp i (\v -> extend (apply g (k v) vs) v2) []
@@ -168,37 +244,31 @@ eval g env s (S t1 t2)      vs  = let (!s1,!s2) = split s
                                                                                Success tys ws -> case tys of
                                                                                                    [ty] -> vtableSelect g v0 ty tvs v2 vs
                                                                                                    tys  -> vtableSelect g v0 (FV (reverse tys)) tvs v2 vs
-                                      select (VFV i fvs)      = VFV i [select v1 | v1 <- fvs]
+                                      select (VFV i fvs)      = VFV i (mapVariants select fvs)
                                       select (VMeta i vs)     = VSusp i (\v -> select (apply g v vs)) []
                                       select (VSusp i k vs)   = VSusp i (\v -> select (apply g (k v) vs)) []
                                       select v1               = v0
                                           
-                                      empty = State Map.empty Map.empty
+                                      -- FIXME: options=[] is definitely not correct and this shouldn't be using value2termM at all
+                                      empty = State Map.empty Map.empty []
 
                                 in select v1
 eval g env s (Let (x,(_,t1)) t2) vs = let (!s1,!s2) = split s
                                       in eval g ((x,eval g env s1 t1 []):env) s2 t2 vs
 eval g env c (Q q@(m,id))  vs
-  | m == cPredef              = case Map.lookup id predef of
-                                  Nothing -> VApp q vs
-                                  Just fn -> let valueOf (Const res) = res
-                                                 valueOf (CFV i vs)  = VFV i (map valueOf vs)
-                                                 valueOf (CSusp i k) = VSusp i (valueOf . k) []
-                                                 valueOf RunTime     = VApp q vs
-                                                 valueOf NonExist    = VApp (cPredef,cNonExist) []
-                                             in valueOf (fn g c vs)
+  | m == cPredef              = evalPredef g c id vs
   | otherwise                 = case lookupResDef gr q of
                                   Ok t    -> eval g env c t vs
                                   Bad msg -> error msg
   where
     Gl gr predef = g
-eval g env s (QC q)         vs  = VApp q vs
+eval g env s (QC q)         vs  = VApp s q vs
 eval g env s (C t1 t2)      []  = let (!s1,!s2) = split s
 
                                       concat v1           VEmpty = v1
                                       concat VEmpty           v2 = v2
-                                      concat (VFV i fvs)      v2 = VFV i [concat v1 v2 | v1 <- fvs]
-                                      concat v1      (VFV i fvs) = VFV i [concat v1 v2 | v2 <- fvs]
+                                      concat (VFV i fvs)      v2 = VFV i (mapVariants (`concat` v2) fvs)
+                                      concat v1      (VFV i fvs) = VFV i (mapVariants (v1 `concat`) fvs)
                                       concat (VMeta i vs)     v2 = VSusp i (\v -> concat (apply g v vs) v2) []
                                       concat v1     (VMeta i vs) = VSusp i (\v -> concat v1 (apply g v vs)) []
                                       concat (VSusp i k vs)   v2 = VSusp i (\v -> concat (apply g (k v) vs) v2) []
@@ -210,18 +280,18 @@ eval g env s (Glue t1 t2)   []  = let (!s1,!s2) = split s
 
                                       glue VEmpty        v             = v
                                       glue (VC v1 v2)    v             = VC v1 (glue v2 v)
-                                      glue (VApp q [])   v
-                                        | q == (cPredef,cNonExist)     = VApp q []
+                                      glue (VApp c q []) v
+                                        | q == (cPredef,cNonExist)     = VApp c q []
                                       glue v             VEmpty        = v
                                       glue v             (VC v1 v2)    = VC (glue v v1) v2
-                                      glue v             (VApp q [])
-                                        | q == (cPredef,cNonExist)     = VApp q []
+                                      glue v             (VApp c q [])
+                                        | q == (cPredef,cNonExist)     = VApp c q []
                                       glue (VStr s1)     (VStr s2)     = VStr (s1++s2)
                                       glue v             (VAlts d vas) = VAlts (glue v d) [(glue v v',ss) | (v',ss) <- vas]
                                       glue (VAlts d vas) (VStr s)      = pre d vas s
                                       glue (VAlts d vas) v             = glue d v
-                                      glue (VFV i fvs)   v2            = VFV i [glue v1 v2 | v1 <- fvs]
-                                      glue v1            (VFV i fvs)   = VFV i [glue v1 v2 | v2 <- fvs]
+                                      glue (VFV i fvs)   v2            = VFV i (mapVariants (`glue` v2) fvs)
+                                      glue v1            (VFV i fvs)   = VFV i (mapVariants (v1 `glue`) fvs)
                                       glue (VMeta i vs)  v2            = VSusp i (\v -> glue (apply g v vs) v2) []
                                       glue v1            (VMeta i vs)  = VSusp i (\v -> glue v1 (apply g v vs)) []
                                       glue (VSusp i k vs) v2           = VSusp i (\v -> glue (apply g (k v) vs) v2) []
@@ -242,7 +312,7 @@ eval g env s (ELincat c ty) []  = let lbl = lockLabel c
 eval g env s (ELin c t)     []  = let lbl = lockLabel c
                                       lt  = R []
                                   in eval g env s (ExtR t (R [(lbl,(Nothing,lt))])) []
-eval g env s (FV ts)        vs  = VFV s (mapC (\s t -> eval g env s t vs) s ts)
+eval g env s (FV ts)        vs  = VFV s (VarFree (mapC (\s t -> eval g env s t vs) s ts))
 eval g env s (Alts d as)    []  = let (!s1,!s2) = split s
                                       vd  = eval g env s1 d []
                                       vas = mapC (\s (t1,t2) -> let (!s1,!s2) = split s
@@ -256,25 +326,43 @@ eval g env c (Markup tag as ts) [] =
                               in (VMarkup tag vas vs)
 eval g env c (Reset ctl t) [] = VReset ctl (eval g env c t [])
 eval g env c (TSymCat d r rs) []= VSymCat d r [(i,(fromJust (lookup pv env),ty)) | (i,(pv,ty)) <- rs]
+eval g env c t@(Opts n cs)  vs  = if null cs
+                                  then VError ("No options in expression:" $$ ppTerm Unqualified 0 t)
+                                  else let (c1,c2,c3) = split3 c
+                                           vn = eval g env c1 n []
+                                           vcs = mapC evalOpt c cs
+                                       in VFV c3 (VarOpts vn vcs)
+  where evalOpt c' (l,t) = let (c1,c2) = split c' in (eval g env c1 l [], eval g env c2 t vs)
 eval g env c t              vs  = VError ("Cannot reduce term" <+> pp t)
+
+evalPredef :: Globals -> Choice -> Ident -> [Value] -> Value
+evalPredef g@(Gl gr pds) c n args =
+  case Map.lookup n pds of
+    Nothing  -> VApp c (cPredef,n) args
+    Just def -> let valueOf (Const res) = res
+                    valueOf (CFV i vs)  = VFV i (consts2variants valueOf vs)
+                    valueOf (CSusp i k) = VSusp i (valueOf . k) []
+                    valueOf RunTime     = VApp c (cPredef,n) args
+                    valueOf NonExist    = VApp c (cPredef,cNonExist) []
+                in valueOf (runPredef def g c args)
 
 stdPredef :: Globals -> PredefTable
 stdPredef g = Map.fromList
-  [(cLength, pdArity 1 $ \g c [v] -> fmap (VInt . genericLength) (value2string g v))
-  ,(cTake,   pdArity 2 $ \g c [v1,v2] -> fmap string2value (liftA2 genericTake (value2int g v1) (value2string g v2)))
-  ,(cDrop,   pdArity 2 $ \g c [v1,v2] -> fmap string2value (liftA2 genericDrop (value2int g v1) (value2string g v2)))
-  ,(cTk,     pdArity 2 $ \g c [v1,v2] -> fmap string2value (liftA2 genericTk (value2int g v1) (value2string g v2)))
-  ,(cDp,     pdArity 2 $ \g c [v1,v2] -> fmap string2value (liftA2 genericDp (value2int g v1) (value2string g v2)))
-  ,(cIsUpper,pdArity 1 $ \g c [v]     -> fmap toPBool (liftA (all isUpper) (value2string g v)))
-  ,(cToUpper,pdArity 1 $ \g c [v]     -> fmap string2value (liftA (map toUpper) (value2string g v)))
-  ,(cToLower,pdArity 1 $ \g c [v]     -> fmap string2value (liftA (map toLower) (value2string g v)))
-  ,(cEqStr,  pdArity 2 $ \g c [v1,v2] -> fmap toPBool (liftA2 (==) (value2string g v1) (value2string g v2)))
-  ,(cOccur,  pdArity 2 $ \g c [v1,v2] -> fmap toPBool (liftA2 occur (value2string g v1) (value2string g v2)))
-  ,(cOccurs, pdArity 2 $ \g c [v1,v2] -> fmap toPBool (liftA2 occurs (value2string g v1) (value2string g v2)))
-  ,(cEqInt,  pdArity 2 $ \g c [v1,v2] -> fmap toPBool (liftA2 (==) (value2int g v1) (value2int g v2)))
-  ,(cLessInt,pdArity 2 $ \g c [v1,v2] -> fmap toPBool (liftA2 (<) (value2int g v1) (value2int g v2)))
-  ,(cPlus,   pdArity 2 $ \g c [v1,v2] -> fmap VInt (liftA2 (+) (value2int g v1) (value2int g v2)))
-  ,(cError,  pdArity 1 $ \g c [v]     -> fmap (VError . pp) (value2string g v))
+  [(cLength, pdArity 1 $\ \g c [v] -> fmap (VInt . genericLength) (value2string g v))
+  ,(cTake,   pdArity 2 $\ \g c [v1,v2] -> fmap string2value (liftA2 genericTake (value2int g v1) (value2string g v2)))
+  ,(cDrop,   pdArity 2 $\ \g c [v1,v2] -> fmap string2value (liftA2 genericDrop (value2int g v1) (value2string g v2)))
+  ,(cTk,     pdArity 2 $\ \g c [v1,v2] -> fmap string2value (liftA2 genericTk (value2int g v1) (value2string g v2)))
+  ,(cDp,     pdArity 2 $\ \g c [v1,v2] -> fmap string2value (liftA2 genericDp (value2int g v1) (value2string g v2)))
+  ,(cIsUpper,pdArity 1 $\ \g c [v]     -> fmap toPBool (liftA (all isUpper) (value2string g v)))
+  ,(cToUpper,pdArity 1 $\ \g c [v]     -> fmap string2value (liftA (map toUpper) (value2string g v)))
+  ,(cToLower,pdArity 1 $\ \g c [v]     -> fmap string2value (liftA (map toLower) (value2string g v)))
+  ,(cEqStr,  pdArity 2 $\ \g c [v1,v2] -> fmap toPBool (liftA2 (==) (value2string g v1) (value2string g v2)))
+  ,(cOccur,  pdArity 2 $\ \g c [v1,v2] -> fmap toPBool (liftA2 occur (value2string g v1) (value2string g v2)))
+  ,(cOccurs, pdArity 2 $\ \g c [v1,v2] -> fmap toPBool (liftA2 occurs (value2string g v1) (value2string g v2)))
+  ,(cEqInt,  pdArity 2 $\ \g c [v1,v2] -> fmap toPBool (liftA2 (==) (value2int g v1) (value2int g v2)))
+  ,(cLessInt,pdArity 2 $\ \g c [v1,v2] -> fmap toPBool (liftA2 (<) (value2int g v1) (value2int g v2)))
+  ,(cPlus,   pdArity 2 $\ \g c [v1,v2] -> fmap VInt (liftA2 (+) (value2int g v1) (value2int g v2)))
+  ,(cError,  pdArity 1 $\ \g c [v]     -> fmap (VError . pp) (value2string g v))
   ]
   where
     genericTk n = reverse . genericDrop n . reverse
@@ -282,16 +370,22 @@ stdPredef g = Map.fromList
 
 apply g (VMeta i vs0)                   vs  = VMeta i   (vs0++vs)
 apply g (VSusp i k vs0)                 vs  = VSusp i k (vs0++vs)
-apply g (VApp f  vs0)                   vs  = VApp f (vs0++vs)
+apply g (VApp c f@(m,n)  vs0)           vs
+  | m == cPredef                            = evalPredef g c n (vs0++vs)
+  | otherwise                               = VApp c f (vs0++vs)
 apply g (VGen i  vs0)                   vs  = VGen i (vs0++vs)
-apply g (VFV i fvs)                     vs  = VFV i [apply g v vs | v <- fvs]
+apply g (VFV i fvs)                     vs  = VFV i (mapVariants (\v -> apply g v vs) fvs)
 apply g (VS v1 v2 vs')                  vs  = VS v1 v2 (vs'++vs)
 apply g (VClosure env s (Abs b x t)) (v:vs) = eval g ((x,v):env) s t vs
 apply g v                               []  = v
 
+data BubbleVariants
+  = BubbleFree Int
+  | BubbleOpts Value [Value]
+
 bubble v = snd (bubble v)
   where
-    bubble (VApp f vs) = liftL (VApp f) vs
+    bubble (VApp c f vs) = liftL (VApp c f) vs
     bubble (VMeta metaid vs) = liftL (VMeta metaid) vs
     bubble (VSusp metaid k vs) = liftL (VSusp metaid k) vs
     bubble (VGen i vs) = liftL (VGen i) vs
@@ -314,9 +408,12 @@ bubble v = snd (bubble v)
     bubble (VGlue v1 v2) = lift2 VGlue v1 v2
     bubble v@(VPatt _ _ _) = lift0 v
     bubble (VPattType v) = lift1 VPattType v
-    bubble (VFV c vs) =
+    bubble (VFV c (VarFree vs)) =
       let (union,vs') = mapAccumL descend Map.empty vs
-      in (Map.insert c (length vs,1) union, addVariants (VFV c vs') union)
+      in (Map.insert c (BubbleFree (length vs),1) union, addVariants (VFV c (VarFree vs')) union)
+    bubble (VFV c (VarOpts n os)) =
+      let (union,os') = mapAccumL (\acc (k,v) -> second (k,) $ descend acc v) Map.empty os
+      in (Map.insert c (BubbleOpts n (fst <$> os),1) union, addVariants (VFV c (VarOpts n os')) union)
     bubble (VAlts v vs) = lift1L2 VAlts v vs
     bubble (VStrs vs) = liftL VStrs vs
     bubble (VMarkup tag attrs vs) =
@@ -379,7 +476,7 @@ bubble v = snd (bubble v)
       let (choices,v') = bubble v
       in (mergeChoices1 union choices,v')
 
-    descend' :: Map.Map Choice (Int,Int) -> (a,Value) -> (Map.Map Choice (Int,Int),(a,Value))
+    descend' :: Map.Map Choice (BubbleVariants,Int) -> (a,Value) -> (Map.Map Choice (BubbleVariants,Int),(a,Value))
     descend' union (x,v) =
       let (choices,v') = bubble v
       in (mergeChoices1 union choices,(x,v'))
@@ -399,16 +496,18 @@ bubble v = snd (bubble v)
 
     addVariants v = Map.foldrWithKey addVariant v
       where
-        addVariant c (n,cnt) v
-          | cnt > 1   = VFV c (replicate n v)
+        addVariant c (bvs,cnt) v
+          | cnt > 1   = VFV c $ case bvs of
+                                  BubbleFree k    -> VarFree (replicate k v)
+                                  BubbleOpts n os -> VarOpts n ((,v) <$> os)
           | otherwise = v
 
     unitfy = fmap (\(n,_) -> (n,1))
     mergeChoices1 = Map.mergeWithKey (\c (n,cnt) _ -> Just (n,cnt+1)) id unitfy
     mergeChoices2 = Map.mergeWithKey (\c (n,cnt) _ -> Just (n,2)) unitfy unitfy
 
-toPBool True  = VApp (cPredef,cPTrue)  []
-toPBool False = VApp (cPredef,cPFalse) []
+toPBool True  = VApp poison (cPredef,cPTrue)  []
+toPBool False = VApp poison (cPredef,cPFalse) []
 
 occur s1 []          = False
 occur s1 s2@(_:tail) = check s1 s2
@@ -451,8 +550,8 @@ patternMatch g s v0 ((env0,ps,args0,t):eqs) = match env0 ps eqs args0
         (p,       VMeta i   vs) -> VSusp i (\v -> match' env p ps eqs (apply g v vs) args) []
         (p,     VGen    i   vs) -> v0
         (p,       VSusp i k vs) -> VSusp i (\v -> match' env p ps eqs (apply g (k v) vs) args) []
-        (p,           VFV s vs) -> VFV s [match' env p ps eqs arg args | arg <- vs]
-        (PP q qs,    VApp r vs)
+        (p,           VFV s vs) -> VFV s (mapVariants (\arg -> match' env p ps eqs arg args) vs)
+        (PP q qs,  VApp c r vs)
           | q == r              -> match env (qs++ps) eqs (vs++args)
         (PR pas,  VR as)        -> matchRec env (reverse pas) as ps eqs args
         (PString s1, VStr s2)
@@ -510,7 +609,7 @@ vtableSelect g v0 ty cs v2 vs =
   where
     select (Const (i,_)) = cs !! i
     select (CSusp i k)   = VSusp i (\v -> select (k v)) []
-    select (CFV s vs)    = VFV s (map select vs)
+    select (CFV s vs)    = VFV s (consts2variants select vs)
     select _             = v0
 
     value2index (VMeta i vs)      ty = CSusp i (\v -> value2index (apply g v vs) ty)
@@ -525,9 +624,9 @@ vtableSelect g v0 ty cs v2 vs =
                               (compute lbls)
             Nothing -> error (show ("Missing value for label" <+> pp lbl $$
                                     "among" <+> hsep (punctuate (pp ',') (map fst as))))
-    value2index (VApp q tnks) ty =
+    value2index (VApp c q args) ty =
       let (r ,ctxt,cnt ) = getIdxCnt q
-      in fmap (\(r', cnt') -> (r+r',cnt)) (compute ctxt tnks)
+      in fmap (\(r', cnt') -> (r+r',cnt)) (compute ctxt args)
       where
         getIdxCnt q =
           let (_,ResValue (L _ ty) idx) = getInfo q
@@ -550,7 +649,7 @@ vtableSelect g v0 ty cs v2 vs =
         Gl gr _ = g
     value2index (VInt n)          ty
       | Just max <- isTypeInts ty    = Const (fromIntegral n,fromIntegral max+1)
-    value2index (VFV i vs)        ty = CFV i [value2index v ty | v <- vs]
+    value2index (VFV i vs)        ty = CFV i (variants2consts (\v -> value2index v ty) vs)
     value2index v ty = RunTime
 
 
@@ -566,11 +665,23 @@ data MetaState
   = Bound Scope Value
   | Narrowing   Type
   | Residuation Scope (Maybe Constraint)
-data State
-  = State 
-      { choices  :: Map.Map Choice Int
-      , metaVars :: Map.Map MetaId MetaState
+data OptionInfo
+  = OptionInfo
+      { optChoice  :: Choice
+      , optLabel   :: Value
+      , optChoices :: [Value]
       }
+type ChoiceMap = Map.Map Choice Int
+data State
+  = State
+      { choices  :: ChoiceMap
+      , metaVars :: Map.Map MetaId MetaState
+      , options  :: [OptionInfo]
+      }
+
+cleanOptions :: [OptionInfo] -> ChoiceMap -> ChoiceMap
+cleanOptions opts = Map.filterWithKey (\k _ -> any (\opt -> k == optChoice opt) opts)
+
 type Cont r = State -> r -> [Message] -> CheckResult r [Message]
 newtype EvalM a = EvalM (forall r . Globals -> (a -> Cont r) -> Cont r)
 
@@ -606,46 +717,52 @@ runEvalM g (EvalM f) = Check $ \(es,ws) ->
     Fail   msg ws -> Fail msg (es,ws)
     Success xs ws -> Success (reverse xs) (es,ws)
   where
-    empty = State Map.empty Map.empty
+    empty = State Map.empty Map.empty []
+
+runEvalMWithOpts :: Globals -> ChoiceMap -> EvalM a -> Check [(a, ChoiceMap, [OptionInfo])]
+runEvalMWithOpts g cs (EvalM f) = Check $ \(es,ws) ->
+  case f g (\x (State cs mvs os) xs ws -> Success ((x,cs,reverse os):xs) ws) init [] ws of
+    Fail   msg ws -> Fail msg (es,ws)
+    Success xs ws -> Success (reverse xs) (es,ws)
+  where
+    init = State cs Map.empty []
 
 reset :: EvalM a -> EvalM [a]
 reset (EvalM f) = EvalM $ \g k state r ws ->
   case f g (\x state xs ws -> Success (x:xs) ws) state [] ws of
     Fail   msg ws -> Fail msg ws
     Success xs ws -> k (reverse xs) state r ws
-  where
-    empty = State Map.empty Map.empty
 
 globals :: EvalM Globals
 globals = EvalM (\g k -> k g)
 
 variants :: Choice -> [a] -> EvalM a
-variants c xs = EvalM (\g k state@(State choices metas) r msgs ->
+variants c xs = EvalM (\g k state@(State choices metas opts) r msgs ->
   case Map.lookup c choices of
     Just j  -> k (xs !! j) state r msgs
-    Nothing -> backtrack 0 xs k choices metas r msgs)
+    Nothing -> backtrack 0 xs k choices metas opts r msgs)
   where
-    backtrack j []     k choices metas r msgs = Success r msgs
-    backtrack j (x:xs) k choices metas r msgs =
-      case k x (State (Map.insert c j choices) metas) r msgs of
+    backtrack j []     k choices metas opts r msgs = Success r msgs
+    backtrack j (x:xs) k choices metas opts r msgs =
+      case k x (State (Map.insert c j choices) metas opts) r msgs of
         Fail    msg msgs -> Fail msg msgs
-        Success r   msgs -> backtrack (j+1) xs k choices metas r msgs
+        Success r   msgs -> backtrack (j+1) xs k choices metas opts r msgs
 
 variants' :: Choice -> (a -> EvalM Term) -> [a] -> EvalM Term
-variants' c f xs = EvalM (\g k state@(State choices metas) r msgs ->
+variants' c f xs = EvalM (\g k state@(State choices metas opts) r msgs ->
   case Map.lookup c choices of
     Just j  -> case f (xs !! j) of
                  EvalM f -> f g k state r msgs
-    Nothing -> case backtrack g 0 xs choices metas [] msgs of
+    Nothing -> case backtrack g 0 xs choices metas opts [] msgs of
                  Fail    msg msgs -> Fail msg msgs
                  Success ts  msgs -> k (FV (reverse ts)) state r msgs)
   where
-    backtrack g j []     choices metas ts msgs = Success ts msgs
-    backtrack g j (x:xs) choices metas ts msgs =
+    backtrack g j []     choices metas opts ts msgs = Success ts msgs
+    backtrack g j (x:xs) choices metas opts ts msgs =
       case f x of
-        EvalM f -> case f g (\t st ts msgs -> Success (t:ts) msgs) (State (Map.insert c j choices) metas) ts msgs of
+        EvalM f -> case f g (\t st ts msgs -> Success (t:ts) msgs) (State (Map.insert c j choices) metas opts) ts msgs of
                      Fail    msg msgs -> Fail msg msgs
-                     Success ts  msgs -> backtrack g (j+1) xs choices metas ts msgs
+                     Success ts  msgs -> backtrack g (j+1) xs choices metas opts ts msgs
 
 try :: (a -> EvalM b) -> [a] -> Message -> EvalM b
 try f xs msg = EvalM (\g k state r msgs ->
@@ -668,9 +785,9 @@ try f xs msg = EvalM (\g k state r msgs ->
         Success r msgs -> continue g k res r msgs
 
 newResiduation :: Scope -> EvalM MetaId
-newResiduation scope = EvalM (\g k (State choices metas) r msgs ->
+newResiduation scope = EvalM (\g k (State choices metas opts) r msgs ->
   let meta_id = Map.size metas+1
-  in k meta_id (State choices (Map.insert meta_id (Residuation scope Nothing) metas)) r msgs)
+  in k meta_id (State choices (Map.insert meta_id (Residuation scope Nothing) metas) opts) r msgs)
 
 getMeta :: MetaId -> EvalM MetaState
 getMeta i = EvalM (\g k state r msgs ->
@@ -679,12 +796,12 @@ getMeta i = EvalM (\g k state r msgs ->
     Nothing -> Fail ("Metavariable ?"<>pp i<+>"is not defined") msgs) 
 
 setMeta :: MetaId -> MetaState -> EvalM ()
-setMeta i ms = EvalM (\g k (State choices metas) r msgs ->
-  let state' = State choices (Map.insert i ms metas)
+setMeta i ms = EvalM (\g k (State choices metas opts) r msgs ->
+  let state' = State choices (Map.insert i ms metas) opts
   in k () state' r msgs)
 
 value2termM :: Bool -> [Ident] -> Value -> EvalM Term
-value2termM flat xs (VApp q vs) =
+value2termM flat xs (VApp c q vs) =
   foldM (\t v -> fmap (App t) (value2termM flat xs v)) (if fst q == cPredef then Q q else QC q) vs
 value2termM flat xs (VMeta i vs) = do
   mv <- getMeta i
@@ -788,11 +905,18 @@ value2termM flat xs (VGlue v1 v2) = do
   t1 <- value2termM flat xs v1
   t2 <- value2termM flat xs v2
   return (Glue t1 t2)
-value2termM flat xs (VFV i vs) =
-  case flat of
-    True  -> do v <- variants i vs
-                value2termM True xs v
-    False -> variants' i (value2termM False xs) vs
+value2termM True xs (VFV i (VarFree vs)) = do
+  v <- variants i vs
+  value2termM True xs v
+value2termM False xs (VFV i (VarFree vs)) = variants' i (value2termM False xs) vs
+value2termM flat xs (VFV i (VarOpts n os)) =
+  EvalM $ \g k (State choices metas opts) r msgs ->
+    let j = fromMaybe 0 (Map.lookup i choices)
+    in case os `maybeAt` j of
+         Just (l,t) -> case value2termM flat xs t of
+                         EvalM f -> let oi = OptionInfo i n (fst <$> os)
+                                    in f g k (State choices metas (oi:opts)) r msgs
+         Nothing    -> Fail ("Index" <+> j <+> "out of bounds for option:" $$ ppValue Unqualified 0 n) msgs
 value2termM flat xs (VPatt min max p) = return (EPatt min max p)
 value2termM flat xs (VPattType v) = do t <- value2termM flat xs v
                                        return (EPattType t)
@@ -855,7 +979,7 @@ pattVars st (PSeq _ _ p1 _ _ p2) = pattVars (pattVars st p1) p2
 pattVars st _            = st
 
 
-ppValue q d (VApp c vs) = prec d 4 (hsep (ppQIdent q c : map (ppValue q 5) vs))
+ppValue q d (VApp c f vs) = prec d 4 (hsep (ppQIdent q f : map (ppValue q 5) vs))
 ppValue q d (VMeta i vs) = prec d 4 (hsep ((if i > 0 then pp "?" <> pp i else pp "?") : map (ppValue q 5) vs))
 ppValue q d (VSusp i k vs) = prec d 4 (hsep (pp "#susp" : (if i > 0 then pp "?" <> pp i else pp "?") : map (ppValue q 5) vs))
 ppValue q d (VGen _ _) = pp "VGen"
@@ -882,7 +1006,7 @@ ppValue q d (VC v1 v2) = prec d 1 (hang (ppValue q 2 v1) 2 ("++" <+> ppValue q 1
 ppValue q d (VGlue v1 v2) = prec d 2 (ppValue q 3 v1 <+> '+'  <+> ppValue q 2 v2)
 ppValue q d (VPatt _ _ _) = pp "VPatt"
 ppValue q d (VPattType _) = pp "VPattType"
-ppValue q d (VFV i vs) = prec d 4 ("variants" <+> pp i <+> braces (fsep (punctuate ';' (map (ppValue q 0) vs))))
+ppValue q d (VFV i vs) = prec d 4 ("variants" <+> pp i <+> braces (fsep (punctuate ';' (map (ppValue q 0) (unvariants vs)))))
 ppValue q d (VAlts e xs) = prec d 4 ("pre" <+> braces (ppValue q 0 e <> ';' <+> fsep (punctuate ';' (map (ppAltern q) xs))))
 ppValue q d (VStrs _) = pp "VStrs"
 ppValue q d (VMarkup _ _ _) = pp "VMarkup"
@@ -912,26 +1036,26 @@ value2string' g VEmpty           b ws      qs = Const (b,ws,qs)
 value2string' g (VC v1 v2)       b ws      qs = concat v1 (value2string' g v2 b ws qs)
   where
     concat v1 (Const (b,ws,qs)) = value2string' g v1 b ws qs
-    concat v1 (CFV i vs)        = CFV i [concat v1 v2 | v2 <- vs]
+    concat v1 (CFV i vs)        = CFV i (mapConstVs (concat v1) vs)
     concat v1 res               = res
-value2string' g (VApp q []) b    ws      qs
+value2string' g (VApp c q []) b   ws     qs
   | q == (cPredef,cNonExist)              = NonExist
-value2string' g (VApp q []) b    ws      qs
+value2string' g (VApp c q []) b   ws     qs
   | q == (cPredef,cSOFT_SPACE)            = if null ws
                                               then Const (b,ws,q:qs)
                                               else Const (b,ws,qs)
-value2string' g (VApp q []) b     ws     qs
+value2string' g (VApp c q []) b   ws     qs
   | q == (cPredef,cBIND) || q == (cPredef,cSOFT_BIND) 
                                           = if null ws
                                               then Const (True,ws,q:qs)
                                               else Const (True,ws,qs)
-value2string' g (VApp q []) b     ws     qs
+value2string' g (VApp c q []) b   ws     qs
   | q == (cPredef,cCAPIT) = capit ws
   where
     capit []            = Const (b,[],q:qs)
     capit ((c:cs) : ws) = Const (b,(toUpper c : cs) : ws,qs)
     capit ws            = Const (b,ws,qs)
-value2string' g (VApp q []) b     ws     qs
+value2string' g (VApp c q []) b   ws     qs
   | q == (cPredef,cALL_CAPIT) = all_capit ws
   where
     all_capit []       = Const (b,[],q:qs)
@@ -946,7 +1070,7 @@ value2string' g (VAlts vd vas) b  ws     qs =
       | or [startsWith s w | VStr s <- ss] = value2string' g v
       | otherwise                          = pre vd vas w
 value2string' g (VFV s vs) b      ws     qs =
-  CFV s [value2string' g v b ws qs | v <- vs]
+  CFV s (variants2consts (\v -> value2string' g v b ws qs) vs)
 value2string' _ _ _ _ _ = RunTime
 
 startsWith []          _ = True
@@ -963,16 +1087,23 @@ string2value' (w:ws) = VC (VStr w) (string2value' ws)
 value2int g (VMeta i vs)     = CSusp i (\v -> value2int g (apply g v vs))
 value2int g (VSusp i k vs)   = CSusp i (\v -> value2int g (apply g (k v) vs))
 value2int g (VInt n)         = Const n
-value2int g (VFV s vs)       = CFV s (map (value2int g) vs)
+value2int g (VFV s vs)       = CFV s (variants2consts (value2int g) vs)
 value2int g _                = RunTime
 
-newtype Choice = Choice Integer deriving (Eq,Ord,Pretty,Show)
+newtype Choice = Choice { unchoice :: Integer }
+  deriving (Eq,Ord,Pretty,Show)
 
 unit :: Choice
 unit = Choice 1
 
+poison :: Choice
+poison = Choice (-1)
+
 split :: Choice -> (Choice,Choice)
 split (Choice c) = (Choice (2*c), Choice (2*c+1))
+
+split3 :: Choice -> (Choice,Choice,Choice)
+split3 (Choice c) = (Choice (4*c), Choice (4*c+1), Choice (2*c+1))
 
 split4 :: Choice -> (Choice,Choice,Choice,Choice)
 split4 (Choice c) = (Choice (4*c), Choice (4*c+1), Choice (4*c+2), Choice (4*c+3))
@@ -993,15 +1124,3 @@ mapCM f c (x:xs) = do
   y  <- f c1 x
   ys <- mapCM f c2 xs
   return (y:ys)
-
-pdArity :: Int -> PredefCombinator Value
-pdArity n def = \g c args ->
-  case splitAt' n args of
-    Nothing -> RunTime
-    Just (usedArgs, remArgs) ->
-      fmap (\v -> apply g v remArgs) (def g c usedArgs)
-  where
-    abstract i n t
-      | n <= 0    = t
-      | otherwise = let x = identV (rawIdentS "a") i
-                    in Abs Explicit x (abstract (i + 1) (n - 1) (App t (Vr x)))

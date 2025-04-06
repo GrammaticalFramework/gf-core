@@ -302,7 +302,7 @@ checkInfo opts cwd sgr sm (c,info) = checkInModule cwd (snd sm) NoLoc empty $ do
 -- | for grammars obtained otherwise than by parsing ---- update!!
 checkReservedId :: Ident -> Check ()
 checkReservedId x =
-  when (isReservedWord x) $
+  when (isReservedWord GF x) $
        checkWarn ("reserved word used as identifier:" <+> x)
 
 -- auxiliaries
