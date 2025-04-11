@@ -29,7 +29,7 @@ import PGF2(PGF,abstractName,pgfFilePath,readProbabilitiesFromFile)
 -- | Compiles a number of source files and builds a 'PGF' structure for them.
 -- This is a composition of 'link' and 'batchCompile'.
 compileToPGF :: Options -> Maybe PGF -> [FilePath] -> IOE PGF
-compileToPGF opts mb_pgf fs = link opts mb_pgf . snd =<< batchCompile opts mb_pgf fs
+compileToPGF opts mb_pgf fs = link opts mb_pgf =<< batchCompile opts mb_pgf fs
 
 -- | Link a grammar into a 'PGF' that can be used to 'PGF.linearize' and
 -- 'PGF.parse' with the "PGF" run-time system.
@@ -56,15 +56,12 @@ srcAbsName gr cnc = err (const cnc) id $ abstractOfConcrete gr cnc
 -- used, in which case tags files are produced instead).
 -- Existing @.gfo@ files are reused if they are up-to-date
 -- (unless the option @-src@ aka @-force-recomp@ is used).
-batchCompile :: Options -> Maybe PGF -> [FilePath] -> IOE (UTCTime,(ModuleName,Grammar))
+batchCompile :: Options -> Maybe PGF -> [FilePath] -> IOE (ModuleName,Grammar)
 batchCompile opts mb_pgf files = do
   menv <- emptyCompileEnv mb_pgf
   (gr,menv) <- foldM (compileModule opts) menv files
   let cnc = moduleNameS (justModuleName (last files))
-      t   = maximum . map snd3 $ Map.elems menv
-  return (t,(cnc,gr))
-  where
-    snd3 (_,y,_) = y
+  return (cnc,gr)
 
 -- | compile with one module as starting point
 -- command-line options override options (marked by --#) in the file

@@ -14,127 +14,131 @@ import Control.Applicative ((<|>))
 import qualified Data.Map as Map
 import Data.Maybe (catMaybes)
 
-grammar2json :: TermPrintQual -> Grammar -> JSValue
-grammar2json q gr =
-  makeObj [(showIdent mn, mi2json q mi) | (MN mn,mi) <- modules gr]
+grammar2json :: Grammar -> JSValue
+grammar2json gr =
+  makeObj [(showIdent mn, mi2json mi) | (MN mn,mi) <- modules gr]
 
-mi2json q mi = makeObj [("jments",makeObj (map (jment2json q) (Map.toList (jments mi))))]
+mi2json mi = makeObj [("type", mtype2json (mtype mi))
+                     ,("jments",makeObj (map jment2json (Map.toList (jments mi))))
+                     ]
 
-jment2json q (id,info) = (showIdent id, info2json q info)
+mtype2json MTAbstract     = showJSON "abstract"
+mtype2json MTResource     = showJSON "resource"
+mtype2json (MTConcrete _) = showJSON "concrete"
+mtype2json MTInterface    = showJSON "interface"
+mtype2json (MTInstance _) = showJSON "instance"
 
-info2json q (AbsCat mb_ctxt) =
+jment2json (id,info) = (showIdent id, info2json info)
+
+info2json (AbsCat mb_ctxt) =
   case mb_ctxt of
     Nothing         -> makeObj []
-    Just (L _ ctxt) -> makeObj [("context", showJSON (map (hypo2json q) ctxt))]
-info2json q (AbsFun mb_ty mb_arity mb_eqs _) =
+    Just (L _ ctxt) -> makeObj [("context", showJSON (map hypo2json ctxt))]
+info2json (AbsFun mb_ty mb_arity mb_eqs _) =
   (makeObj . catMaybes)
-     [ fmap (\(L _ ty) -> ("abstype",term2json q ty)) mb_ty
+     [ fmap (\(L _ ty) -> ("abstype",term2json ty)) mb_ty
      , fmap (\a -> ("arity",showJSON a)) mb_arity
-     , fmap (\eqs -> ("equations",showJSON (map (\(L _ eq) -> equation2json q eq) eqs))) mb_eqs
+     , fmap (\eqs -> ("equations",showJSON (map (\(L _ eq) -> equation2json eq) eqs))) mb_eqs
      ]
-info2json q (ResParam mb_params _) =
+info2json (ResParam mb_params _) =
   makeObj [("params", case mb_params of
                          Nothing           -> JSArray []
-                         Just (L _ params) -> showJSON (map (param2json q) params))]
-info2json q (ResValue (L _ ty) _) =
-  makeObj [("paramtype",term2json q ty)]
-info2json q (ResOper mb_ty mb_def) =
+                         Just (L _ params) -> showJSON (map param2json params))]
+info2json (ResValue (L _ ty) _) =
+  makeObj [("paramtype",term2json ty)]
+info2json (ResOper mb_ty mb_def) =
   (makeObj . catMaybes)
-     [ fmap (\(L _ ty) -> ("opertype",term2json q ty)) mb_ty
-     , fmap (\(L _ def) -> ("operdef",term2json q def)) mb_def
+     [ fmap (\(L _ ty) -> ("opertype",term2json ty)) mb_ty
+     , fmap (\(L _ def) -> ("operdef",term2json def)) mb_def
      ]
-info2json q (ResOverload mns overloads) =
+info2json (ResOverload mns overloads) =
   makeObj
      [ ("extends",showJSON mns)
-     , ("overloads",showJSON (map (overload2json q) overloads))
+     , ("overloads",showJSON (map overload2json overloads))
      ]
-info2json q (CncCat mb_ty mb_lindef mb_linref mb_pnm _) =
+info2json (CncCat mb_ty mb_lindef mb_linref mb_pnm _) =
   (makeObj . catMaybes)
-     [ fmap (\(L _ ty) -> ("lintype",term2json q ty)) mb_ty
-     , fmap (\(L _ def) -> ("lindef",term2json q def)) mb_lindef
-     , fmap (\(L _ ref) -> ("linref",term2json q ref)) mb_linref
-     , fmap (\(L _ prn) -> ("printname",term2json q prn)) mb_pnm
+     [ fmap (\(L _ ty) -> ("lintype",term2json ty)) mb_ty
+     , fmap (\(L _ def) -> ("lindef",term2json def)) mb_lindef
+     , fmap (\(L _ ref) -> ("linref",term2json ref)) mb_linref
+     , fmap (\(L _ prn) -> ("printname",term2json prn)) mb_pnm
      ]
-info2json q (CncFun _ mb_lin mb_pnm _) =
+info2json (CncFun _ mb_lin mb_pnm _) =
   (makeObj . catMaybes)
-     [ fmap (\(L _ lin) -> ("lin",term2json q lin)) mb_lin
-     , fmap (\(L _ prn) -> ("printname",term2json q prn)) mb_pnm
+     [ fmap (\(L _ lin) -> ("lin",term2json lin)) mb_lin
+     , fmap (\(L _ prn) -> ("printname",term2json prn)) mb_pnm
      ]
-info2json q (AnyInd _ mn) = showJSON mn
+info2json (AnyInd _ mn) = showJSON mn
 
-hypo2json q (bt,x,ty) =
-  makeObj [("implicit", showJSON (bt==Implicit)), ("var", showJSON x), ("type", term2json q ty)]
+hypo2json (bt,x,ty) =
+  makeObj [("implicit", showJSON (bt==Implicit)), ("var", showJSON x), ("type", term2json ty)]
 
-equation2json q (ps,t) =
-  makeObj [("patts", showJSON (map (patt2json q) ps)), ("term", term2json q t)]
+equation2json (ps,t) =
+  makeObj [("patts", showJSON (map patt2json ps)), ("term", term2json t)]
 
-param2json q (id, ctxt) =
-  makeObj [("id", showJSON id), ("context", showJSON (map (hypo2json q) ctxt))]
+param2json (id, ctxt) =
+  makeObj [("id", showJSON id), ("context", showJSON (map hypo2json ctxt))]
 
-overload2json q (L _ ty,L _ def) =
+overload2json (L _ ty,L _ def) =
   makeObj
-     [ ("opertype",term2json q ty)
-     , ("operdef",term2json q def)
+     [ ("opertype",term2json ty)
+     , ("operdef",term2json def)
      ]
 
-term2json :: TermPrintQual -> Term -> JSValue
-term2json q (Vr v) = makeObj [("vr", showJSON v)]
-term2json q (Cn v) = makeObj [("cn", showJSON v)]
-term2json q (Con v) = makeObj [("con", showJSON v)]
-term2json q (Sort v) = makeObj [("sort", showJSON v)]
-term2json q (EInt n) = showJSON n
-term2json q (EFloat f) = showJSON f
-term2json q (K s) = showJSON s
-term2json q Empty = JSArray []
-term2json q (App t1 t2) = makeObj [("fun", term2json q t1), ("arg", term2json q t2)]
-term2json q (Abs bt x t) = makeObj [("implicit", showJSON (bt==Implicit)), ("var", showJSON x), ("body", term2json q t)]
-term2json q (Meta id) = makeObj [("metaid", showJSON id)]
-term2json q (ImplArg t) = makeObj [("implarg", term2json q t)]
-term2json q (Prod bt v t1 t2) = makeObj [("implicit", showJSON (bt==Implicit)), ("var", showJSON v), ("hypo", term2json q t1), ("res", term2json q t2)]
-term2json q (Typed t ty) = makeObj [("term", term2json q t), ("type", term2json q ty)]
-term2json q (Example t s) = makeObj [("term", term2json q t), ("example", showJSON s)]
-term2json q (RecType lbls) = makeObj [("rectype", makeObj (map toRow lbls))]
-                              where toRow (l,t) = (showLabel l, term2json q t)
-term2json q (R lbls) = makeObj [("record", makeObj (map toRow lbls))]
-                              where toRow (l,(_,t)) = (showLabel l, term2json q t)
-term2json q (P t proj) = makeObj [("project", term2json q t), ("label", showJSON (showLabel proj))]
-term2json q (ExtR t1 t2) = makeObj [("term", term2json q t1), ("ext", term2json q t2)]
-term2json q (Table t1 t2) = makeObj [("tblhypo", term2json q t1), ("tblres", term2json q t2)]
-term2json q (T _ cs) = makeObj [("tblcases", showJSON [(patt2json q p, term2json q t) | (p,t) <- cs])]
-term2json q (V ty ts) = makeObj [("tbltype", term2json q ty), ("tblvalues", showJSON (map (term2json q) ts))]
-term2json q (S t1 t2) = makeObj [("select", term2json q t1), ("key", term2json q t2)]
-term2json q (Let (v,(_,t1)) t2) = makeObj [("letvar", showJSON v), ("letdef", term2json q t1), ("term", term2json q t2)]
-term2json q (Q (m,id))  = case q of
-                            Qualified -> makeObj [("mod",showJSON m),("q", showJSON id)]
-                            _         -> makeObj [("cn", showJSON id)]
-term2json q (QC (m,id)) = case q of
-                            Qualified -> makeObj [("mod",showJSON m),("qc", showJSON id)]
-                            _         -> makeObj [("con", showJSON id)]
-term2json q (C t1 t2) = showJSON ((flatten t1 . flatten t2) [])
+term2json :: Term -> JSValue
+term2json (Vr v) = makeObj [("vr", showJSON v)]
+term2json (Cn v) = makeObj [("cn", showJSON v)]
+term2json (Con v) = makeObj [("con", showJSON v)]
+term2json (Sort v) = makeObj [("sort", showJSON v)]
+term2json (EInt n) = showJSON n
+term2json (EFloat f) = showJSON f
+term2json (K s) = showJSON s
+term2json Empty = JSArray []
+term2json (App t1 t2) = makeObj [("fun", term2json t1), ("arg", term2json t2)]
+term2json (Abs bt x t) = makeObj [("implicit", showJSON (bt==Implicit)), ("var", showJSON x), ("body", term2json t)]
+term2json (Meta id) = makeObj [("metaid", showJSON id)]
+term2json (ImplArg t) = makeObj [("implarg", term2json t)]
+term2json (Prod bt v t1 t2) = makeObj [("implicit", showJSON (bt==Implicit)), ("var", showJSON v), ("hypo", term2json t1), ("res", term2json t2)]
+term2json (Typed t ty) = makeObj [("term", term2json t), ("type", term2json ty)]
+term2json (Example t s) = makeObj [("term", term2json t), ("example", showJSON s)]
+term2json (RecType lbls) = makeObj [("rectype", makeObj (map toRow lbls))]
+                              where toRow (l,t) = (showLabel l, term2json t)
+term2json (R lbls) = makeObj [("record", makeObj (map toRow lbls))]
+                              where toRow (l,(_,t)) = (showLabel l, term2json t)
+term2json (P t proj) = makeObj [("project", term2json t), ("label", showJSON (showLabel proj))]
+term2json (ExtR t1 t2) = makeObj [("term", term2json t1), ("ext", term2json t2)]
+term2json (Table t1 t2) = makeObj [("tblhypo", term2json t1), ("tblres", term2json t2)]
+term2json (T _ cs) = makeObj [("tblcases", showJSON [(patt2json p, term2json t) | (p,t) <- cs])]
+term2json (V ty ts) = makeObj [("tbltype", term2json ty), ("tblvalues", showJSON (map term2json ts))]
+term2json (S t1 t2) = makeObj [("select", term2json t1), ("key", term2json t2)]
+term2json (Let (v,(_,t1)) t2) = makeObj [("letvar", showJSON v), ("letdef", term2json t1), ("term", term2json t2)]
+term2json (Q (m,id))  = makeObj [("mod",showJSON m),("q",  showJSON id)]
+term2json (QC (m,id)) = makeObj [("mod",showJSON m),("qc", showJSON id)]
+term2json (C t1 t2) = showJSON ((flatten t1 . flatten t2) [])
     where
       flatten Empty     = id
       flatten (C t1 t2) = flatten t1 . flatten t2
-      flatten t         = (term2json q t :)
-term2json q (Glue t1 t2) = makeObj [("glue1",term2json q t1),("glue2", term2json q t2)]
-term2json q (EPattType t) = makeObj [("patttype",term2json q t)]
-term2json q (ELincat id t) = makeObj [("lincat",showJSON id), ("term",term2json q t)]
-term2json q (ELin id t) = makeObj [("lin",showJSON id), ("term",term2json q t)]
-term2json q (AdHocOverload ts) = makeObj [("overloaded",showJSON (map (term2json q) ts))]
-term2json q (FV ts) = makeObj [("variants",showJSON (map (term2json q) ts))]
-term2json q (Markup tag attrs children) = makeObj [ ("tag",showJSON tag)
-                                                  , ("attrs",showJSON (map (\(attr,val) -> (showJSON attr,term2json q val)) attrs))
-                                                  , ("children",showJSON (map (term2json q) children))
-                                                  ]
-term2json q (Reset ctl t) =
+      flatten t         = (term2json t :)
+term2json (Glue t1 t2) = makeObj [("glue1",term2json t1),("glue2", term2json t2)]
+term2json (EPattType t) = makeObj [("patttype",term2json t)]
+term2json (ELincat id t) = makeObj [("lincat",showJSON id), ("term",term2json t)]
+term2json (ELin id t) = makeObj [("lin",showJSON id), ("term",term2json t)]
+term2json (AdHocOverload ts) = makeObj [("overloaded",showJSON (map term2json ts))]
+term2json (FV ts) = makeObj [("variants",showJSON (map term2json ts))]
+term2json (Markup tag attrs children) = makeObj [ ("tag",showJSON tag)
+                                                , ("attrs",showJSON (map (\(attr,val) -> (showJSON attr,term2json val)) attrs))
+                                                , ("children",showJSON (map term2json children))
+                                                ]
+term2json (Reset ctl t) =
   let jctl = case ctl of
                All     -> showJSON "all"
                One     -> showJSON "one"
                Limit n -> showJSON n
                Coordination Nothing    conj cat -> makeObj [("conj",showJSON conj), ("cat",showJSON cat)]
                Coordination (Just mod) conj cat -> makeObj [("mod",showJSON mod), ("conj",showJSON conj), ("cat",showJSON cat)]
-  in makeObj [("reset",jctl), ("term",term2json q t)]
-term2json q (Alts def alts) = makeObj [("def",term2json q def), ("alts",showJSON (map (\(t1,t2) -> (term2json q t1, term2json q t2)) alts))]
-term2json q (Strs ts) = makeObj [("strs",showJSON (map (term2json q) ts))]
+  in makeObj [("reset",jctl), ("term",term2json t)]
+term2json (Alts def alts) = makeObj [("def",term2json def), ("alts",showJSON (map (\(t1,t2) -> (term2json t1, term2json t2)) alts))]
+term2json (Strs ts) = makeObj [("strs",showJSON (map term2json ts))]
 
 json2term o  = Vr      <$> o!:"vr"
     <|>  curry Q       <$> o!:"mod" <*> o!:"cn"
@@ -207,40 +211,37 @@ json2term o  = Vr      <$> o!:"vr"
       json2ctl _ = fail "Invalid control value for reset"
 
 
-patt2json q (PC id ps)     = makeObj [("pc",showJSON id),("args",showJSON (map (patt2json q) ps))]
-patt2json q (PP (mn,id) ps) = 
-  case q of
-    Qualified -> makeObj [("mod",showJSON mn),("pc",showJSON id),("args",showJSON (map (patt2json q) ps))]
-    _         -> makeObj [                     ("pc",showJSON id),("args",showJSON (map (patt2json q) ps))]
-patt2json q (PV id)        = makeObj [("pv",showJSON id)]
-patt2json q PW             = makeObj [("wildcard",showJSON True)]
-patt2json q (PR lbls)      = makeObj (("record", showJSON True) : map toRow lbls)
-                               where toRow (l,t) = (showLabel l, patt2json q t)
-patt2json q (PString s)    = showJSON s
-patt2json q (PInt n)       = showJSON n
-patt2json q (PFloat d)     = showJSON d
-patt2json q (PT ty p)      = makeObj [("type", term2json q ty), ("patt", patt2json q p)]
-patt2json q (PAs id p)     = makeObj [("as", showJSON id), ("patt", patt2json q p)]
-patt2json q (PImplArg p)   = makeObj [("implarg", patt2json q p)]
-patt2json q (PTilde t)     = makeObj [("tilde", term2json q t)]
-patt2json q (PNeg p)       = makeObj [("neg", patt2json q p)]
-patt2json q (PAlt p1 p2)   = makeObj [("alt1", patt2json q p1), ("alt2", patt2json q p2)]
-patt2json q (PSeq min1 max1 p1 min2 max2 p2)
+patt2json (PC id ps)     = makeObj [("pc",showJSON id),("args",showJSON (map patt2json ps))]
+patt2json (PP (mn,id) ps) = makeObj [("mod",showJSON mn),("pc",showJSON id),("args",showJSON (map patt2json ps))]
+patt2json (PV id)        = makeObj [("pv",showJSON id)]
+patt2json PW             = makeObj [("wildcard",showJSON True)]
+patt2json (PR lbls)      = makeObj (("record", showJSON True) : map toRow lbls)
+                               where toRow (l,t) = (showLabel l, patt2json t)
+patt2json (PString s)    = showJSON s
+patt2json (PInt n)       = showJSON n
+patt2json (PFloat d)     = showJSON d
+patt2json (PT ty p)      = makeObj [("type", term2json ty), ("patt", patt2json p)]
+patt2json (PAs id p)     = makeObj [("as", showJSON id), ("patt", patt2json p)]
+patt2json (PImplArg p)   = makeObj [("implarg", patt2json p)]
+patt2json (PTilde t)     = makeObj [("tilde", term2json t)]
+patt2json (PNeg p)       = makeObj [("neg", patt2json p)]
+patt2json (PAlt p1 p2)   = makeObj [("alt1", patt2json p1), ("alt2", patt2json p2)]
+patt2json (PSeq min1 max1 p1 min2 max2 p2)
                            = makeObj [("min1",  showJSON min1)
                                      ,("max1",  showJSON max1)
-                                     ,("patt1", patt2json q p1)
+                                     ,("patt1", patt2json p1)
                                      ,("min2",  showJSON min2)
                                      ,("max2",  showJSON max2)
-                                     ,("patt2", patt2json q p2)
+                                     ,("patt2", patt2json p2)
                                      ]
-patt2json q (PRep min max p)=makeObj [("min",  showJSON min)
-                                     ,("max",  showJSON max)
-                                     ,("patt", patt2json q p)
-                                     ]
-patt2json q PChar          = makeObj [("char",showJSON True)]
-patt2json q (PChars cs)    = makeObj [("chars",showJSON cs)]
-patt2json q (PMacro id)    = makeObj [("macro",showJSON id)]
-patt2json q (PM (mn,id))   = makeObj [("mod",showJSON mn), ("macro",showJSON id)]
+patt2json (PRep min max p)=makeObj [("min",  showJSON min)
+                                   ,("max",  showJSON max)
+                                   ,("patt", patt2json p)
+                                   ]
+patt2json PChar          = makeObj [("char",showJSON True)]
+patt2json (PChars cs)    = makeObj [("chars",showJSON cs)]
+patt2json (PMacro id)    = makeObj [("macro",showJSON id)]
+patt2json (PM (mn,id))   = makeObj [("mod",showJSON mn), ("macro",showJSON id)]
 
 json2patt :: JSValue -> Result Patt
 json2patt o = PP <$> (liftM2 (\mn id -> (mn,id)) (o!:"mod") (o!:"pc")) <*> (o!:"args" >>= mapM json2patt)

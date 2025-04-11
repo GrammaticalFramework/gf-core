@@ -11,6 +11,7 @@ import GF.Compile.CFGtoPGF
 import GF.Compile.GetGrammar
 import GF.Grammar.BNFC
 import GF.Grammar.CFG
+import GF.Grammar.Grammar
 import GF.Grammar.JSON(grammar2json)
 import GF.Grammar.Printer(TermPrintQual(..),ppModule)
 
@@ -50,45 +51,29 @@ mainGFC opts fs = do
 
 compileSourceFiles :: Options -> [FilePath] -> IOE ()
 compileSourceFiles opts fs = 
-    do output <- batchCompile opts fs
-       exportCanonical output
-       unless (flag optStopAfterPhase opts == Compile) $
-           linkGrammars opts output
+  do cnc_gr@(cnc,gr) <- S.batchCompile opts Nothing fs
+     let absname = srcAbsName gr cnc
+     exportCanonical absname gr
+     unless (flag optStopAfterPhase opts == Compile) $ do
+       let pgfFile = outputPath opts (grammarName' opts (render absname)<.>"pgf")
+       pgf <- link opts Nothing cnc_gr
+       writeGrammar opts pgf
+       writeOutputs opts pgf
   where
-    batchCompile = maybe batchCompile' parallelBatchCompile (flag optJobs opts)
-    batchCompile' opts fs = do (t,cnc_gr) <- S.batchCompile opts Nothing fs
-                               return (t,[cnc_gr])
-
-    exportCanonical (_time, canonical) =
-      do when (FmtHaskell `elem` ofmts && haskellOption opts HaskellConcrete) $
-           mapM_ cnc2haskell canonical
+    exportCanonical absname gr =
+      do when (FmtHaskell `elem` ofmts && haskellOption opts HaskellConcrete) $ do
+           (res,_) <- runCheck (concretes2haskell opts absname gr)
+           mapM_ writeExport res
          when (FmtCanonicalGF `elem` ofmts) $
            do createDirectoryIfMissing False "canonical"
-              mapM_ abs2canonical canonical
-              mapM_ cnc2canonical canonical
-         when (FmtCanonicalJson `elem` ofmts) $ mapM_ grammar2canonical_json canonical
+              (gr_canon,_) <- runCheck (grammar2canonical opts absname gr)
+              forM_ (modules gr_canon) $ \m@(mn,_) -> do
+                writeExport ("canonical/"++render mn++".gf",render80 (ppModule Unqualified m))
+         when (FmtCanonicalJson `elem` ofmts) $
+           do (gr_canon,_) <- runCheck (grammar2canonical opts absname gr)
+              writeExport (render absname ++ ".json", encode (grammar2json gr_canon))
       where
         ofmts = flag optOutputFormats opts
-
-    cnc2haskell (cnc,gr) = do
-      (res,_) <- runCheck (concretes2haskell opts (srcAbsName gr cnc) gr)
-      mapM_ writeExport res
-
-    abs2canonical (cnc,gr) = do
-      (canAbs,_) <- runCheck (abstract2canonical absname gr)
-      writeExport ("canonical/"++render absname++".gf",render80 (ppModule Unqualified canAbs))
-      where
-        absname = srcAbsName gr cnc
-
-    cnc2canonical (cnc,gr) = do
-      (res,_) <- runCheck (concretes2canonical opts (srcAbsName gr cnc) gr)
-      sequence_ [writeExport ("canonical/"++render mn++".gf",render80 (ppModule Unqualified m)) | m@(mn,mi) <- res]
-
-    grammar2canonical_json (cnc,gr) = do
-      (gr_canon,_) <- runCheck (grammar2canonical opts absname gr)
-      writeExport (render absname ++ ".json", encode (grammar2json Unqualified gr_canon))
-      where
-        absname = srcAbsName gr cnc
 
     writeExport (path,s) = writing opts path $ writeUTF8File path s
 
@@ -98,8 +83,7 @@ compileSourceFiles opts fs =
 -- If a @.pgf@ file by the same name already exists and it is newer than the
 -- source grammar files (as indicated by the 'UTCTime' argument), it is not
 -- recreated. Calls 'writeGrammar' and 'writeOutputs'.
-linkGrammars opts (t_src,[])                      = return ()
-linkGrammars opts (t_src,cnc_gr@(cnc,gr):cnc_grs) =
+linkGrammars opts (t_src,cnc_gr@(cnc,gr)) =
     do let abs = render (srcAbsName gr cnc)
            pgfFile = outputPath opts (grammarName' opts abs<.>"pgf")
        t_pgf <- if outputJustPGF opts
@@ -108,7 +92,6 @@ linkGrammars opts (t_src,cnc_gr@(cnc,gr):cnc_grs) =
        if t_pgf >= Just t_src
          then putIfVerb opts $ pgfFile ++ " is up-to-date."
          else do pgf <- link opts Nothing cnc_gr
-                 pgf <- foldM (link opts . Just) pgf cnc_grs
                  writeGrammar opts pgf
                  writeOutputs opts pgf
 

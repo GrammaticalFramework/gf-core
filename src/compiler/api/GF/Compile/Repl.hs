@@ -296,7 +296,7 @@ runRepl opts@ReplOpts { noPrelude, inputFiles } = do
   (g0, opens) <- case toLoad of
     [] -> pure (mGrammar [], [])
     _ -> do
-      (_, (_, g0)) <- batchCompile noOptions Nothing toLoad
+      (_, g0) <- batchCompile noOptions Nothing toLoad
       pure (g0, OSimple . moduleNameS . justModuleName <$> toLoad)
   let
     modInfo = ModInfo
