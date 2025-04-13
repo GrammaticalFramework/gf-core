@@ -629,6 +629,90 @@ Expr_reduce_ex(ExprObject* self, PyObject *args)
 }
 
 static PyObject*
+Expr_serialize(PyTypeObject* expr, PyObject *args)
+{
+    PyObject *res, *py_db, *py_capsule;
+    if (!PyArg_ParseTuple(args, "OO", &py_db, &py_capsule))
+        return NULL;
+
+    if (PyObject_TypeCheck(expr, &pgf_ExprAbsType)) {
+        ExprAbsObject *abs_expr = (ExprAbsObject*) expr;
+
+        res = PyObject_CallMethod(py_db, "__serialize__", "OOO", &PyUnicode_Type, abs_expr->name, py_capsule);
+        if (res == NULL)
+            return NULL;
+        Py_DECREF(res);
+
+        res = PyObject_CallMethod(py_db, "__serialize__", "OOO", &PyBool_Type, abs_expr->bind_type, py_capsule);
+        if (res == NULL)
+            return NULL;
+        Py_DECREF(res);
+
+        res = PyObject_CallMethod(py_db, "__serialize__", "OOO", &pgf_ExprType, abs_expr->body, py_capsule);
+        if (res == NULL)
+            return NULL;
+        Py_DECREF(res);
+    } else if (PyObject_TypeCheck(expr, &pgf_ExprAppType)) {
+        ExprAppObject *app_expr = (ExprAppObject*) expr;
+
+        res = PyObject_CallMethod(py_db, "__serialize__", "OOO", &pgf_ExprType, app_expr->fun, py_capsule);
+        if (res == NULL)
+            return NULL;
+        Py_DECREF(res);
+
+        res = PyObject_CallMethod(py_db, "__serialize__", "OOO", &pgf_ExprType, app_expr->arg, py_capsule);
+        if (res == NULL)
+            return NULL;
+        Py_DECREF(res);
+    } else if (PyObject_TypeCheck(expr, &pgf_ExprLitType)) {
+        // todo
+        Py_RETURN_NOTIMPLEMENTED;
+    } else if (PyObject_TypeCheck(expr, &pgf_ExprMetaType)) {
+        ExprMetaObject *meta_expr = (ExprMetaObject*) expr;
+
+        res = PyObject_CallMethod(py_db, "__serialize__", "OOO", &PyLong_Type, meta_expr->id, py_capsule);
+        if (res == NULL)
+            return NULL;
+        Py_DECREF(res);
+    } else if (PyObject_TypeCheck(expr, &pgf_ExprFunType)) {
+        ExprFunObject *fun_expr = (ExprFunObject*) expr;
+
+        res = PyObject_CallMethod(py_db, "__serialize__", "OOO", &PyUnicode_Type, fun_expr->name, py_capsule);
+        if (res == NULL)
+            return NULL;
+        Py_DECREF(res);
+    } else if (PyObject_TypeCheck(expr, &pgf_ExprVarType)) {
+        ExprVarObject *var_expr = (ExprVarObject*) expr;
+
+        res = PyObject_CallMethod(py_db, "__serialize__", "OOO", &PyLong_Type, var_expr->var, py_capsule);
+        if (res == NULL)
+            return NULL;
+        Py_DECREF(res);
+    } else if (PyObject_TypeCheck(expr, &pgf_ExprTypedType)) {
+        ExprTypedObject *typed_expr = (ExprTypedObject*) expr;
+
+        res = PyObject_CallMethod(py_db, "__serialize__", "OOO", &pgf_ExprType, typed_expr->expr, py_capsule);
+        if (res == NULL)
+            return NULL;
+        Py_DECREF(res);
+
+        res = PyObject_CallMethod(py_db, "__serialize__", "OOO", &pgf_TypeType, typed_expr->type, py_capsule);
+        if (res == NULL)
+            return NULL;
+        Py_DECREF(res);
+    } else if (PyObject_TypeCheck(expr, &pgf_ExprImplArgType)) {
+        ExprImplArgObject *imparg_expr = (ExprImplArgObject*) expr;
+
+        res = PyObject_CallMethod(py_db, "__serialize__", "OOO", &pgf_ExprType, imparg_expr->expr, py_capsule);
+        if (res == NULL)
+            return NULL;
+        Py_DECREF(res);
+    }
+
+    Py_RETURN_NONE;
+}
+
+static PyObject*
 Expr_deserialize(PyTypeObject* expr_type, PyObject *args)
 {
     long index;
@@ -697,7 +781,7 @@ Expr_deserialize(PyTypeObject* expr_type, PyObject *args)
     }
     case 3: {
         // TODO
-        break;
+        Py_RETURN_NOTIMPLEMENTED;
     }
     case 4: {
         PyObject *id =
@@ -792,6 +876,33 @@ Expr_deserialize(PyTypeObject* expr_type, PyObject *args)
     return py_expr;
 }
 
+static PyObject*
+Expr_get_index(PyTypeObject* expr_type, PyObject *args)
+{
+    PyObject *obj_type;
+    if (!PyArg_ParseTuple(args, "O!", &PyType_Type, &obj_type))
+        return NULL;
+        
+    if (obj_type == (PyObject*) &pgf_ExprAbsType)
+        return PyLong_FromLong(1);
+    else if (obj_type == (PyObject*) &pgf_ExprAppType)
+        return PyLong_FromLong(2);
+    else if (obj_type == (PyObject*) &pgf_ExprLitType)
+        return PyLong_FromLong(3);
+    else if (obj_type == (PyObject*) &pgf_ExprMetaType)
+        return PyLong_FromLong(4);
+    else if (obj_type == (PyObject*) &pgf_ExprFunType)
+        return PyLong_FromLong(5);
+    else if (obj_type == (PyObject*) &pgf_ExprVarType)
+        return PyLong_FromLong(6);
+    else if (obj_type == (PyObject*) &pgf_ExprTypedType)
+        return PyLong_FromLong(7);
+    else if (obj_type == (PyObject*) &pgf_ExprImplArgType)
+        return PyLong_FromLong(8);
+
+    Py_RETURN_NONE;
+}
+
 static PyMethodDef Expr_methods[] = {
     {"unpack", (PyCFunction)Expr_unpack, METH_VARARGS,
      "Decomposes an expression into its components"
@@ -805,6 +916,12 @@ static PyMethodDef Expr_methods[] = {
     },
     {"__reduce_ex__", (PyCFunction)Expr_reduce_ex, METH_VARARGS,
      "This method allows for transparent pickling/unpickling of expressions."
+    },
+    {"__get_index__", (PyCFunction)Expr_get_index, METH_VARARGS | METH_CLASS,
+     "This method computes the index which daison should use when serializing a subclass."
+    },
+    {"__serialize__", (PyCFunction)Expr_serialize, METH_VARARGS,
+     "This method allows for serialization of expressions with daison."
     },
     {"__deserialize__", (PyCFunction)Expr_deserialize, METH_VARARGS | METH_CLASS,
      "This method allows for deserialization of expressions with daison."
