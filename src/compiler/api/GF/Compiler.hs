@@ -72,6 +72,8 @@ compileSourceFiles opts fs =
          when (FmtCanonicalJson `elem` ofmts) $
            do (gr_canon,_) <- runCheck (grammar2canonical opts absname gr)
               writeExport (render absname ++ ".json", encode (grammar2json gr_canon))
+         when (FmtSourceJson `elem` ofmts) $
+           do writeExport (render absname ++ ".json", encode (grammar2json gr))
       where
         ofmts = flag optOutputFormats opts
 

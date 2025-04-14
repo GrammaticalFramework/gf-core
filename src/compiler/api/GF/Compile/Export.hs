@@ -34,6 +34,7 @@ exportPGF opts fmt pgf =
       FmtPGFPretty    -> multi "txt" (showPGF)
       FmtCanonicalGF  -> [] -- canon "gf" (render80 . abstract2canonical)
       FmtCanonicalJson-> []
+      FmtSourceJson   -> []
       FmtHaskell      -> multi "hs"  (grammar2haskell opts name)
       FmtJava         -> multi "java" (grammar2java opts name)
       FmtBNF          -> single "bnf"   bnfPrinter

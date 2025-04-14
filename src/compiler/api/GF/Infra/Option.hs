@@ -87,6 +87,7 @@ data Phase = Preproc | Convert | Compile | Link
 data OutputFormat = FmtPGFPretty
                   | FmtCanonicalGF
                   | FmtCanonicalJson
+                  | FmtSourceJson
                   | FmtJavaScript
                   | FmtJSON
                   | FmtPython
@@ -474,6 +475,7 @@ outputFormatsExpl =
     [(("pgf_pretty",   FmtPGFPretty),"human-readable pgf"),
      (("canonical_gf", FmtCanonicalGF),"Canonical GF source files"),
      (("canonical_json", FmtCanonicalJson),"Canonical JSON source files"),
+     (("source_json",  FmtSourceJson),"Source grammar as a JSON file"),
      (("json",         FmtJSON),"JSON (whole grammar)"),
      (("haskell",      FmtHaskell),"Haskell (abstract syntax)"),
      (("java",         FmtJava),"Java (abstract syntax)"),
