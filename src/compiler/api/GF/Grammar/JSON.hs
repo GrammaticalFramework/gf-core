@@ -139,6 +139,8 @@ term2json (Reset ctl t) =
   in makeObj [("reset",jctl), ("term",term2json t)]
 term2json (Alts def alts) = makeObj [("def",term2json def), ("alts",showJSON (map (\(t1,t2) -> (term2json t1, term2json t2)) alts))]
 term2json (Strs ts) = makeObj [("strs",showJSON (map term2json ts))]
+term2json (EPatt _ _ p) = makeObj [("epatt",patt2json p)]
+
 
 json2term o  = Vr      <$> o!:"vr"
     <|>  curry Q       <$> o!:"mod" <*> o!:"cn"
