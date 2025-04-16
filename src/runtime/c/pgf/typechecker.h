@@ -16,7 +16,6 @@ class PGF_INTERNAL_DECL PgfTypechecker {
     struct Type {
         virtual Pi  *is_pi()  { return NULL; }
         virtual Cat *is_cat() { return NULL; }
-        virtual ~Type() {}
     };
 
     struct Pi : Type {
@@ -33,11 +32,6 @@ class PGF_INTERNAL_DECL PgfTypechecker {
             return pi;
         }
         virtual Pi *is_pi()  { return this; }
-
-        virtual ~Pi() {
-            delete arg;
-            delete res;
-        }
     };
 
     struct Cat : Type {
