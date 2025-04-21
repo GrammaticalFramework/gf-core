@@ -343,9 +343,10 @@ data Info =
  | AnyInd Bool ModuleName                        -- ^ (/INDIR/) the 'Bool' says if canonical
   deriving Show
 
-type Type = Term
-type Cat  = QIdent
-type Fun  = QIdent
+type Type    = Term
+type MTyTerm = (Maybe Term, Term)
+type Cat     = QIdent
+type Fun     = QIdent
 
 type QIdent = (ModuleName,Ident)
 
@@ -373,7 +374,7 @@ data Term =
  | P Term Label                  -- ^ projection:  @r.p@
  | ExtR Term Term                -- ^ extension:   @R ** {x : A}@ (both types and terms)
 
- | Opts Term [Option]            -- ^ options:     @options s in { e => x ; ... }@
+ | Opts MTyTerm [Option]         -- ^ options:     @options s in { e => x ; ... }@
 
  | Table Term Term               -- ^ table type:  @P => A@
  | T TInfo [Case]                -- ^ table:       @table {p => c ; ...}@
@@ -466,7 +467,7 @@ type Equation = ([Patt],Term)
 
 type Labelling = (Label, Type) 
 type Assign = (Label, (Maybe Type, Term)) 
-type Option = (Term, Term)
+type Option = (MTyTerm, Term)
 type Case = (Patt, Term) 
 --type Cases = ([Patt], Term) 
 type LocalDef = (Ident, (Maybe Type, Term))

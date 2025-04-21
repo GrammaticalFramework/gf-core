@@ -452,7 +452,7 @@ Exp4 :: { Term }
 Exp4
   : Exp4 Exp5                        { App $1 $2 }
   | Exp4 '{' Exp '}'                 { App $1 (ImplArg $3) } 
-  | 'option' Exp 'of' '{' ListOpt '}' { Opts $2 $5 }
+  | 'option' Exp 'of' '{' ListOpt '}' { Opts (Nothing, $2) $5 }
   | 'case' Exp 'of' '{' ListCase '}' { let annot = case $2 of
                                              Typed _ t -> TTyped t
                                              _         -> TRaw
@@ -611,7 +611,7 @@ ListPattTupleComp
 
 Opt :: { Option }
 Opt
-  : '(' Exp ')' '=>' Exp { ($2,$5) }
+  : '(' Exp ')' '=>' Exp { ((Nothing,$2),$5) }
 
 ListOpt :: { [Option] }
 ListOpt

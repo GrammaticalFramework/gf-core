@@ -407,12 +407,17 @@ tcRho scope c (Reset ctl mb_ct t qid) mb_ty
            VApp c qid [] -> return (Reset ctl mb_ct t qid, ty)
            _             -> evalError (pp "Needs atomic type"<+>ppValue Unqualified 0 ty)
   | otherwise = evalError (pp "Operator" <+> pp ctl <+> pp "is not defined")
-tcRho scope s (Opts n cs) mb_ty = do
+tcRho scope s (Opts (nty,n) cs) mb_ty = do
+  gl <- globals
   let (s1,s2,s3) = split3 s
-  (n,_) <- tcRho scope s1 n Nothing
-  (ls,_) <- tcUnifying scope s2 (fst <$> cs) Nothing
+  (n,nty) <- tcRho scope s1 n (nty <&> \ty -> eval gl [] poison ty [])
+  nty <- value2termM True [] nty
+  ls <- forCM s2 cs $ \s' ((lty,l),_) -> do
+    (l,lty) <- tcRho scope s' l (lty <&> \ty -> eval gl [] poison ty [])
+    lty <- value2termM True [] lty
+    return (Just lty, l)
   (ts,ty) <- tcUnifying scope s3 (snd <$> cs) mb_ty
-  return (Opts n (zip ls ts), ty)
+  return (Opts (Just nty, n) (zip ls ts), ty)
 tcRho scope s t _ = unimplemented ("tcRho "++show t)
 
 evalCodomain :: Scope -> Ident -> Value -> EvalM Value
@@ -1179,9 +1184,9 @@ quantify scope t tvs ty = do
     check m n xs (VFV c (VarFree vs)) = do
       (xs,vs) <- mapAccumM (check m n) xs vs
       return (xs,VFV c (VarFree vs))
-    check m n xs (VFV c (VarOpts name os)) = do
-      (xs,os) <- mapAccumM (\acc (l,v) -> second (l,) <$> check m n acc v) xs os
-      return (xs,VFV c (VarOpts name os))
+    check m n xs (VFV c (VarOpts nty name os)) = do
+      (xs,os) <- mapAccumM (\acc (lty,l,v) -> second (lty,l,) <$> check m n acc v) xs os
+      return (xs,VFV c (VarOpts nty name os))
     check m n xs (VAlts v vs)      = do
       (xs,v)  <- check m n xs v
       (xs,vs) <- mapAccumM (\xs (v1,v2) -> do (xs,v1) <- check m n xs v1
