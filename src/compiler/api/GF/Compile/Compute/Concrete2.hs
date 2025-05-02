@@ -4,11 +4,11 @@ module GF.Compile.Compute.Concrete2
            (Env, Scope, Value(..), Variants(..), Constraint, OptionInfo(..), ChoiceMap, cleanOptions,
             ConstValue(..), ConstVariants(..), Globals(..), PredefTable, EvalM,
             mapVariants, unvariants, variants2consts, consts2variants,
-            runEvalM, runEvalMWithOpts, stdPredef, globals,
+            runEvalM, runEvalMWithOpts, stdPredef, globals, withState,
             PredefImpl, Predef(..), ($\),
             pdCanonicalArgs, pdArity,
             normalForm, normalFlatForm,
-            eval, apply, value2term, value2termM, bubble, patternMatch, vtableSelect,
+            eval, apply, value2term, value2termM, bubble, patternMatch, vtableSelect, State(..),
             newResiduation, getMeta, setMeta, MetaState(..), variants, try,
             evalError, evalWarn, ppValue, Choice(..), unit, poison, split, split3, split4, mapC, mapCM) where
 
@@ -727,6 +727,9 @@ runEvalMWithOpts g cs (EvalM f) = Check $ \(es,ws) ->
   where
     init = State cs Map.empty []
 
+withState :: State -> EvalM a -> EvalM a
+withState state (EvalM f) = EvalM $ \g k _ r ws -> f g k state r ws
+
 reset :: EvalM a -> EvalM [a]
 reset (EvalM f) = EvalM $ \g k state r ws ->
   case f g (\x state xs ws -> Success (x:xs) ws) state [] ws of
@@ -764,12 +767,11 @@ variants' c f xs = EvalM (\g k state@(State choices metas opts) r msgs ->
                      Fail    msg msgs -> Fail msg msgs
                      Success ts  msgs -> backtrack g (j+1) xs choices metas opts ts msgs
 
-try :: (a -> EvalM b) -> [a] -> Message -> EvalM b
-try f xs msg = EvalM (\g k state r msgs ->
+try :: (a -> EvalM b) -> ([(b,State)] -> EvalM b) -> [a] -> EvalM b
+try f select xs = EvalM (\g k state r msgs ->
   let (res,msgs') = backtrack g xs state [] msgs
-  in case res of
-       []  -> Fail msg msgs'
-       res -> continue g k res r msgs')
+  in case select res of
+       EvalM f' -> f' g k state r msgs')
   where
     backtrack g []     state res msgs = (res,msgs)
     backtrack g (x:xs) state res msgs =
@@ -777,12 +779,6 @@ try f xs msg = EvalM (\g k state r msgs ->
         EvalM f -> case f g (\x state res msgs -> Success ((x,state):res) msgs) state res msgs of
                      Fail msg _       -> backtrack g xs state res msgs
                      Success res msgs -> backtrack g xs state res msgs
-
-    continue g k []              r msgs = Success r msgs
-    continue g k ((x,state):res) r msgs =
-      case k x state r msgs of
-        Fail msg msgs  -> Fail msg msgs
-        Success r msgs -> continue g k res r msgs
 
 newResiduation :: Scope -> EvalM MetaId
 newResiduation scope = EvalM (\g k (State choices metas opts) r msgs ->

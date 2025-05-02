@@ -470,8 +470,9 @@ resolveOverloads scope c t0 q args mb_ty = do
                           (c2,c3)  = split c23
                       arg_tys <- mapCM (checkArg g) c1 args
                       let v_ttys = mapC (\c (t,ty) -> (t,eval g [] c ty [])) c2 ttys
-                      try (\(fun,fun_ty) -> reapply2 scope c3 fun fun_ty arg_tys mb_ty) v_ttys (pp "Overload resolution failed")
-                      
+                      try (\(fun,fun_ty) -> reapply2 scope c3 fun fun_ty arg_tys mb_ty)
+                          (\ttys -> fmap (\(ts,ty) -> (FV ts,ty)) (snd (minimum g ttys)))
+                          v_ttys
   where
     checkArg g c (ImplArg arg) = do
       let (c1,c2) = split c
@@ -483,6 +484,46 @@ resolveOverloads scope c t0 q args mb_ty = do
       (arg,arg_ty) <- tcRho scope c1 arg Nothing
       let v = eval g (scopeEnv scope) c2 arg []
       return (arg,v,arg_ty)
+
+    minimum g []                    = (maxBound,err)
+      where
+        err = evalError (pp "Overload resolution failed")
+    minimum g (tty@((t,ty),state):ttys) =
+      let ty'      = zonk ty
+          a        = arity ty'
+          (a',res) = minimum g ttys
+      in case compare a a' of
+           GT -> (a',res)
+           EQ -> (a',join t ty' state res)
+           LT -> (a ,one  t ty' state)
+      where
+        arity :: Value -> Int
+        arity (VProd _ _ _ ty) = 1 + arity ty
+        arity _                = 0
+
+        zonk :: Value -> Value
+        zonk (VProd bt x ty1 ty2) = VProd bt x (zonk ty1) (zonk ty2)
+        zonk (VMeta i vs)         =
+          case Map.lookup i (metaVars state) of
+            Just (Bound _ v)              -> zonk (apply g v vs)
+            Just (Residuation _ (Just v)) -> zonk (apply g v vs)
+            _                             -> VMeta i (map zonk vs)
+        zonk (VSusp i k vs)      =
+          case Map.lookup i (metaVars state) of
+            Just (Bound _ v)              -> zonk (apply g (k v) vs)
+            Just (Residuation _ (Just v)) -> zonk (apply g (k v) vs)
+            _                             -> VSusp i k (map zonk vs)
+        zonk v                   = v
+
+        one t ty state = do
+          t <- withState state (zonkTerm [] t)
+          return ([t],ty)
+
+        join t ty state res = do
+          t <- withState state (zonkTerm [] t)
+          (ts,ty') <- res
+          unify scope ty ty'
+          return (t:ts,ty)
 
 reapply2 :: Scope -> Choice -> Term -> Value -> [(Term,Value,Value)] -> Maybe Rho -> EvalM (Term,Rho)
 reapply2 scope c fun fun_ty []                                mb_ty = instSigma scope c fun fun_ty mb_ty
