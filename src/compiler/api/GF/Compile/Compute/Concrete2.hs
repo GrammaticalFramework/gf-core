@@ -548,7 +548,7 @@ patternMatch g s v0 ((env0,ps,args0,t):eqs) = match env0 ps eqs args0
     match' env p ps eqs arg args =
       case (p,arg) of
         (p,       VMeta i   vs) -> VSusp i (\v -> match' env p ps eqs (apply g v vs) args) []
-        (p,     VGen    i   vs) -> v0
+        (p,       VGen  i   vs) -> v0
         (p,       VSusp i k vs) -> VSusp i (\v -> match' env p ps eqs (apply g (k v) vs) args) []
         (p,           VFV s vs) -> VFV s (mapVariants (\arg -> match' env p ps eqs arg args) vs)
         (PP q qs,  VApp c r vs)
