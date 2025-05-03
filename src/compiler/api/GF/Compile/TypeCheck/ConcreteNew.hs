@@ -681,17 +681,23 @@ subsCheckRho scope t (VMeta i vs1) (VMeta j vs2)
         Bound _ v1 -> do
           g <- globals
           subsCheckRho scope t (apply g v1 vs1) (VMeta j vs2)
-        Residuation scope1 _ -> do
+        Residuation scope1 (Just ctr1) -> do
+          g <- globals
+          subsCheckRho scope t (apply g ctr1 vs1) (VMeta j vs2)
+        Residuation scope1 Nothing -> do
           mv <- getMeta j
           case mv of
             Bound _ v2 -> do
               g <- globals
               subsCheckRho scope t (VMeta i vs1) (apply g v2 vs2)
-            Residuation scope2 _
+            Residuation scope2 ctr2
               | m > n     -> do setMeta i (Bound scope1 (VMeta j vs2))
                                 return t
-              | otherwise -> do setMeta j (Bound scope2 (VMeta i vs2))
-                                return t
+              | otherwise -> case ctr2 of
+                               Nothing   -> do setMeta j (Bound scope2 (VMeta i vs2))
+                                               return t
+                               Just ctr2 -> do g <- globals
+                                               subsCheckRho scope t (VMeta i vs1) (apply g ctr2 vs2)
               where
                 m = length scope1
                 n = length scope2
