@@ -408,12 +408,14 @@ bubble v = snd (bubble v)
     bubble (VGlue v1 v2) = lift2 VGlue v1 v2
     bubble v@(VPatt _ _ _) = lift0 v
     bubble (VPattType v) = lift1 VPattType v
-    bubble (VFV c (VarFree vs)) =
-      let (union,vs') = mapAccumL descend Map.empty vs
-      in (Map.insert c (BubbleFree (length vs),1) union, addVariants (VFV c (VarFree vs')) union)
-    bubble (VFV c (VarOpts n os)) =
-      let (union,os') = mapAccumL (\acc (k,v) -> second (k,) $ descend acc v) Map.empty os
-      in (Map.insert c (BubbleOpts n (fst <$> os),1) union, addVariants (VFV c (VarOpts n os')) union)
+    bubble v@(VFV c (VarFree vs))
+      | null vs   = (Map.empty, v)
+      | otherwise = let (union,vs') = mapAccumL descend Map.empty vs
+                    in (Map.insert c (BubbleFree (length vs),1) union, addVariants (VFV c (VarFree vs')) union)
+    bubble v@(VFV c (VarOpts n os))
+      | null os   = (Map.empty, v)
+      | otherwise = let (union,os') = mapAccumL (\acc (k,v) -> second (k,) $ descend acc v) Map.empty os
+                    in (Map.insert c (BubbleOpts n (fst <$> os),1) union, addVariants (VFV c (VarOpts n os')) union)
     bubble (VAlts v vs) = lift1L2 VAlts v vs
     bubble (VStrs vs) = liftL VStrs vs
     bubble (VMarkup tag attrs vs) =
