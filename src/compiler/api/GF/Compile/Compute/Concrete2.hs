@@ -938,10 +938,10 @@ value2termM flat xs (VReset ctl mb_cv v qid) = do
   where
     reduce ctl mb_cv ts
       | ctl == cConcat = do
-         ts' <- case mb_cv of
-                     Just (VInt n) -> return (genericTake n ts)
-                     Nothing       -> return ts
-                     _             -> evalError (pp "[concat: .. | ..] requires an integer constant")
+         ts <- case mb_cv of
+                 Just (VInt n) -> return (genericTake n ts)
+                 Nothing       -> return ts
+                 _             -> evalError (pp "[concat: .. | ..] requires an integer constant")
          case ts of
            [t] -> return t
            ts  -> return (Markup identW [] ts)
