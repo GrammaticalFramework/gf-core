@@ -382,19 +382,19 @@ tcRho scope c (Reset ctl mb_ct t qid) mb_ty
       instSigma scope c2 (Reset ctl mb_ct t qid) vtypeMarkup mb_ty
   | ctl == cOne = do
       let (c1,c2) = split c
-      (t,ty) <- tcRho scope c1 t mb_ty
-      mb_ct  <- case mb_ct of
-                  Just ct -> do (ct,ty) <- tcRho scope c2 ct (Just ty)
-                                return (Just ct)
-                  Nothing -> return Nothing
+      (t,ty)     <- tcRho scope c1 t mb_ty
+      (mb_ct,ty) <- case mb_ct of
+                      Just ct -> do (ct,ty) <- tcRho scope c2 ct (Just ty)
+                                    return (Just ct,ty)
+                      Nothing -> return (Nothing,ty)
       return (Reset ctl mb_ct t qid,ty)
   | ctl == cDefault = do
       let (c1,c2) = split c
-      (t,ty) <- tcRho scope c1 t mb_ty
-      mb_ct  <- case mb_ct of
-                  Just ct -> do (ct,ty) <- tcRho scope c2 ct (Just ty)
-                                return (Just ct)
-                  Nothing -> evalError (pp "[list: .. | ..] requires an argument")
+      (t,ty)     <- tcRho scope c1 t mb_ty
+      (mb_ct,ty) <- case mb_ct of
+                      Just ct -> do (ct,ty) <- tcRho scope c2 ct (Just ty)
+                                    return (Just ct,ty)
+                      Nothing -> evalError (pp "[list: .. | ..] requires an argument")
       return (Reset ctl mb_ct t qid,ty)
   | ctl == cList = do
       do let (c1,c2) = split c
