@@ -370,21 +370,43 @@ tcRho scope c (Markup tag attrs children) mb_ty = do
                  c1 attrs
   res <- mapCM (\c child -> tcRho scope c child Nothing) c2 children
   instSigma scope c3 (Markup tag attrs (map fst res)) vtypeMarkup mb_ty
-tcRho scope c (Reset ctl t) mb_ty =
-  let (c1,c2) = split c
-  in case ctl of
-       All          -> do (t,_) <- tcRho scope c1 t Nothing
-                          instSigma scope c2 (Reset ctl t) vtypeMarkup mb_ty
-       One          -> do (t,ty) <- tcRho scope c t mb_ty
-                          return (Reset ctl t,ty)
-       Limit n      -> do (t,_) <- tcRho scope c1 t Nothing
-                          instSigma scope c2 (Reset ctl t) vtypeMarkup mb_ty
-       Coordination mb_mn@(Just mn) conj _
-                    -> do tcRho scope c1 (QC (mn,conj)) (Just (VApp poison (mn,identS "Conj") []))
-                          (t,ty) <- tcRho scope c2 t mb_ty
-                          case ty of
-                            VApp c id [] -> return (Reset (Coordination mb_mn conj (snd id)) t, ty)
-                            _            -> evalError (pp "Needs atomic type"<+>ppValue Unqualified 0 ty)
+tcRho scope c (Reset ctl mb_ct t qid) mb_ty
+  | ctl == cConcat = do
+      let (c1,c23) = split c
+          (c2,c3 ) = split c23
+      (t,_) <- tcRho scope c1 t Nothing
+      mb_ct <- case mb_ct of
+                 Just ct -> do (ct,_) <- tcRho scope c2 ct (Just vtypeInt)
+                               return (Just ct)
+                 Nothing -> return Nothing
+      instSigma scope c2 (Reset ctl mb_ct t qid) vtypeMarkup mb_ty
+  | ctl == cOne = do
+      let (c1,c2) = split c
+      (t,ty) <- tcRho scope c1 t mb_ty
+      mb_ct  <- case mb_ct of
+                  Just ct -> do (ct,ty) <- tcRho scope c2 ct (Just ty)
+                                return (Just ct)
+                  Nothing -> return Nothing
+      return (Reset ctl mb_ct t qid,ty)
+  | ctl == cDefault = do
+      let (c1,c2) = split c
+      (t,ty) <- tcRho scope c1 t mb_ty
+      mb_ct  <- case mb_ct of
+                  Just ct -> do (ct,ty) <- tcRho scope c2 ct (Just ty)
+                                return (Just ct)
+                  Nothing -> evalError (pp "[list: .. | ..] requires an argument")
+      return (Reset ctl mb_ct t qid,ty)
+  | ctl == cList = do
+      do let (c1,c2) = split c
+         mb_ct  <- case mb_ct of
+                     Just ct -> do (ct,ty) <- tcRho scope c1 ct Nothing
+                                   return (Just ct)
+                     Nothing -> evalError (pp "[list: .. | ..] requires an argument")
+         (t,ty) <- tcRho scope c2 t mb_ty
+         case ty of
+           VApp c qid [] -> return (Reset ctl mb_ct t qid, ty)
+           _             -> evalError (pp "Needs atomic type"<+>ppValue Unqualified 0 ty)
+  | otherwise = evalError (pp "Operator" <+> pp ctl <+> pp "is not defined")
 tcRho scope s (Opts n cs) mb_ty = do
   let (s1,s2,s3) = split3 s
   (n,_) <- tcRho scope s1 n Nothing

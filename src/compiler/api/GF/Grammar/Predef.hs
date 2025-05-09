@@ -61,6 +61,12 @@ cToStr = identS "toStr"
 cMapStr = identS "mapStr"
 cError = identS "error"
 
+-- * Used in the delimited continuations
+cConcat = identS "concat"
+cOne = identS "one"
+cDefault = identS "default"
+cList = identS "list"
+
 -- * Hacks: dummy identifiers used in various places.
 -- Not very nice!
 

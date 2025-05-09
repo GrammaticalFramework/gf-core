@@ -287,10 +287,6 @@ eval env (Markup tag as ts) [] =
                               do as <- mapM (\(id,t) -> eval env t [] >>= \v -> return (id,v)) as
                                  vs <- mapM (\t -> eval env t []) ts
                                  return (VMarkup tag as vs)
-eval env (Reset c t) [] = do let limit All       = id
-                                 limit (Limit n) = fmap (genericTake n)
-                             vs <- limit c (reset (eval env t []))
-                             return (VMarkup identW [] vs)
 eval env (TSymCat d r rs) []= do rs <- forM rs $ \(i,(pv,ty)) ->
                                          case lookup pv env of
                                            Just tnk -> return (i,(tnk,ty))

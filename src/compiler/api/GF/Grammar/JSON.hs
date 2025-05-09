@@ -129,14 +129,8 @@ term2json (Markup tag attrs children) = makeObj [ ("tag",showJSON tag)
                                                 , ("attrs",showJSON (map (\(attr,val) -> (showJSON attr,term2json val)) attrs))
                                                 , ("children",showJSON (map term2json children))
                                                 ]
-term2json (Reset ctl t) =
-  let jctl = case ctl of
-               All     -> showJSON "all"
-               One     -> showJSON "one"
-               Limit n -> showJSON n
-               Coordination Nothing    conj cat -> makeObj [("conj",showJSON conj), ("cat",showJSON cat)]
-               Coordination (Just mod) conj cat -> makeObj [("mod",showJSON mod), ("conj",showJSON conj), ("cat",showJSON cat)]
-  in makeObj [("reset",jctl), ("term",term2json t)]
+term2json (Reset ctl ct t qid) =
+  makeObj ([("ctl",showJSON ctl)]++maybe [] (\t->[("ct",term2json t)]) ct++[("term",term2json t), ("qid",showJSON qid)])
 term2json (Alts def alts) = makeObj [("def",term2json def), ("alts",showJSON (map (\(t1,t2) -> (term2json t1, term2json t2)) alts))]
 term2json (Strs ts) = makeObj [("strs",showJSON (map term2json ts))]
 term2json (EPatt _ _ p) = makeObj [("epatt",patt2json p)]
@@ -186,7 +180,8 @@ json2term o  = Vr      <$> o!:"vr"
     <|>        Markup  <$> (o!:"tag") <*>
                            (o!:"attrs" >>= mapM (\(attr,val) -> fmap ((,)attr) (json2term val))) <*>
                            (o!:"children" >>= mapM json2term)
-    <|>        Reset   <$> (readJSON >=> valFromObj "reset" >=> json2ctl) o <*> o!<"term"
+    <|>        Reset   <$> o!:"ctl" <*> fmap Just (o!<"ct") <*> o!<"term" <*> o!:"qid"
+    <|>        Reset   <$> o!:"ctl" <*> pure Nothing <*> o!<"term" <*> o!:"qid"
     <|>        Alts    <$> (o!<"def") <*> (o!:"alts" >>= mapM (\(x,y) -> liftM2 (,) (json2term x) (json2term y)))
     <|>        Strs    <$> (o!:"strs" >>= mapM json2term)
     where
@@ -201,17 +196,6 @@ json2term o  = Vr      <$> o!:"vr"
 
       mkC []     = Empty
       mkC (t:ts) = foldl C t ts
-
-      json2ctl (JSString (JSONString "all")) = return All
-      json2ctl (JSString (JSONString "one")) = return One
-      json2ctl (JSRational _ i) = return (Limit (round i))
-      json2ctl (JSObject o) = do
-        mb_mod <- fmap Just (valFromObj "mod" o) <|> return Nothing
-        conj <- valFromObj "conj" o
-        cat  <- valFromObj "cat" o
-        return (Coordination mb_mod conj cat)
-      json2ctl _ = fail "Invalid control value for reset"
-
 
 patt2json (PC id ps)     = makeObj [("pc",showJSON id),("args",showJSON (map patt2json ps))]
 patt2json (PP (mn,id) ps) = makeObj [("mod",showJSON mn),("pc",showJSON id),("args",showJSON (map patt2json ps))]

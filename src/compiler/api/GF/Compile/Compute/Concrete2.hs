@@ -86,7 +86,7 @@ data Value
   | VAlts Value [(Value, Value)]
   | VStrs [Value]
   | VMarkup Ident [(Ident,Value)] [Value]
-  | VReset Control Value
+  | VReset Ident (Maybe Value) Value QIdent
   | VSymCat Int LIndex [(LIndex, (Value, Type))]
   | VError Doc
     -- These two constructors are only used internally
@@ -124,7 +124,7 @@ isCanonicalForm False (VFV c vs)          = all (isCanonicalForm False) (unvaria
 isCanonicalForm flat  (VAlts d vs)        = all (isCanonicalForm flat . snd) vs
 isCanonicalForm flat  (VStrs vs)          = all (isCanonicalForm flat) vs
 isCanonicalForm flat  (VMarkup tag as vs) = all (isCanonicalForm flat . snd) as && all (isCanonicalForm flat) vs
-isCanonicalForm flat  (VReset ctl v)      = isCanonicalForm flat v
+isCanonicalForm flat  (VReset ctl cv v _) = maybe True (isCanonicalForm flat) cv && isCanonicalForm flat v
 isCanonicalForm flat  _ = False
 
 data ConstValue a
@@ -324,7 +324,7 @@ eval g env c (Markup tag as ts) [] =
                                   vas = mapC (\c (id,t) -> (id,eval g env c t [])) c1 as
                                   vs  = mapC (\c t -> eval g env c t []) c2 ts
                               in (VMarkup tag vas vs)
-eval g env c (Reset ctl t) [] = VReset ctl (eval g env c t [])
+eval g env c (Reset ctl mb_ct t qid) [] = VReset ctl (fmap (\t -> eval g env c t []) mb_ct) (eval g env c t []) qid
 eval g env c (TSymCat d r rs) []= VSymCat d r [(i,(fromJust (lookup pv env),ty)) | (i,(pv,ty)) <- rs]
 eval g env c t@(Opts n cs)  vs  = if null cs
                                   then VError ("No options in expression:" $$ ppTerm Unqualified 0 t)
@@ -422,7 +422,7 @@ bubble v = snd (bubble v)
       let (union1,attrs') = mapAccumL descend' Map.empty attrs
           (union2,vs')    = mapAccumL descend  union1 vs
       in (union2, VMarkup tag attrs' vs')
-    bubble (VReset ctl v) = lift1 (VReset ctl) v
+    bubble (VReset ctl mb_cv v id) = lift1 (\v -> VReset ctl mb_cv v id) v
     bubble (VSymCat d i0 vs) =
       let (union,vs') = mapAccumL descendC Map.empty vs
       in (union, addVariants (VSymCat d i0 vs') union)
@@ -932,26 +932,42 @@ value2termM flat xs (VMarkup tag as vs) = do
   as <- mapM (\(id,v) -> value2termM flat xs v >>= \t -> return (id,t)) as
   ts <- mapM (value2termM flat xs) vs
   return (Markup tag as ts)
-value2termM flat xs (VReset ctl v) = do
+value2termM flat xs (VReset ctl mb_cv v qid) = do
   ts <- reset (value2termM True xs v)
-  case ctl of
-    All     -> case ts of
-                 [t] -> return t
-                 ts  -> return (Markup identW [] ts)
-    One     -> case ts of
-                 []     -> mzero
-                 (t:ts) -> return t
-    Limit n -> case genericTake n ts of
-                 [t] -> return t
-                 ts  -> return (Markup identW [] ts)
-    Coordination (Just mn) conj id ->
-                case ts of
-                  []  -> mzero
-                  [t] -> return t
-                  ts  -> do let cat = showIdent id
-                            t <- listify mn cat ts
-                            return (App (App (QC (mn,identS ("Conj"++cat))) (QC (mn,conj))) t)
+  reduce ctl mb_cv ts
   where
+    reduce ctl mb_cv ts
+      | ctl == cConcat = do
+         ts' <- case mb_cv of
+                     Just (VInt n) -> return (genericTake n ts)
+                     Nothing       -> return ts
+                     _             -> evalError (pp "[concat: .. | ..] requires an integer constant")
+         case ts of
+           [t] -> return t
+           ts  -> return (Markup identW [] ts)
+      | ctl == cOne =
+         case (ts,mb_cv) of
+           ([]  ,Nothing) -> mzero
+           ([]  ,Just v)  -> value2termM flat xs v
+           (t:ts,_)       -> return t
+      | ctl == cDefault =
+         case (ts,mb_cv) of
+           ([]  ,Nothing) -> mzero
+           ([]  ,Just v)  -> value2termM flat xs v
+           (ts,_)         -> msum (map pure ts)
+      | ctl == cList =
+         case (ts,mb_cv) of
+           ([],       _) -> mzero
+           ([t],      _) -> return t
+           (ts,Just cv)  ->
+             do let cat = showIdent (snd qid)
+                    mn  = fst qid
+                ct <- value2termM flat xs cv
+                t <- listify mn cat ts
+                return (App (App (QC (mn,identS ("Conj"++cat))) ct) t)
+           _             -> evalError (pp "[list: .. | ..] requires an argument")
+      | otherwise = evalError (pp "Operator" <+> pp ctl <+> pp "is not defined")
+
     listify mn cat [t1,t2] = do return (App (App (QC (mn,identS ("Base"++cat))) t1) t2)
     listify mn cat (t1:ts) = do t2 <- listify mn cat ts
                                 return (App (App (QC (mn,identS ("Cons"++cat))) t1) t2)

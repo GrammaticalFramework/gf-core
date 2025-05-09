@@ -68,7 +68,6 @@ import qualified Data.Map as Map
  '@'          { T_at        }
  '['          { T_obrack    }
  ']'          { T_cbrack    }
- '[:'         { T_reset     }
  '{'          { T_ocurly    }
  '}'          { T_ccurly    }
  '\\'         { T_lam       }
@@ -488,8 +487,8 @@ Exp6
   | '{' ListLocDef '}'    {% mkR $2 }
   | '<' ListTupleComp '>' { R (tuple2record $2) }
   | '<' Exp ':' Exp '>'   { Typed $2 $4      }
-  | '[:' Control '|' Tag ']'      { Reset $2 $4 }
-  | '[:' Control '|' Exp ']'      { Reset $2 $4 }
+  | '[' Control '|' Tag ']'      { Reset (fst $2) (snd $2) $4 undefined }
+  | '[' Control '|' Exp ']'      { Reset (fst $2) (snd $2) $4 undefined }
   | '(' Exp ')'           { $2 }
 
 ListExp :: { [Term] }
@@ -747,10 +746,9 @@ ListMarkup :: { [Term] }
   | Exp                { [$1]    }
   | Markup ListMarkup  { $1 : $2 }
 
-Control :: { Control }
-  :            { All                     }
-  | Integer    { Limit (fromIntegral $1) }
-  | Ident      { Coordination Nothing $1 identW }
+Control :: { (Ident,Maybe Term) }
+  : Ident            { ($1, Nothing) }
+  | Ident ':' Exp6   { ($1, Just $3) }
 
 Attributes :: { [(Ident,Term)] }
 Attributes

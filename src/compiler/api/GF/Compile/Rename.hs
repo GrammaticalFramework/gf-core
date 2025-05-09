@@ -238,21 +238,12 @@ renameTerm env vars = ren vars where
       (p',_) <- renpatt p
       return $ EPatt minp maxp p'
 
-    Reset ctl t -> do
-      ctl <- case ctl of
-               Coordination _ conj cat ->
-                                 checks [ do t <- renid' (Cn conj)
-                                             case t of
-                                               Q  (mn,id) -> return (Coordination (Just mn) conj cat)
-                                               QC (mn,id) -> return (Coordination (Just mn) conj cat)
-                                               _          -> return (Coordination Nothing   conj cat)
-                                        , if showIdent conj == "one"
-                                            then return One
-                                            else checkError ("Undefined control" <+> pp conj)
-                                        ]
-               ctl                     -> do return ctl
+    Reset ctl mb_ct t qid -> do
+      mv_ct <- case mb_ct of
+                 Just ct -> liftM Just $ ren vs ct
+                 Nothing -> return mb_ct
       t <- ren vs t
-      return (Reset ctl t)
+      return (Reset ctl mv_ct t qid)
 
     _ -> composOp (ren vs) trm
 

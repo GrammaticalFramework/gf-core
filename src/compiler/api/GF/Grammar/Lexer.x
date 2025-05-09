@@ -116,7 +116,6 @@ data Token
  | T_lam
  | T_lamlam
  | T_cbrack
- | T_reset
  | T_ocurly
  | T_bar
  | T_ccurly
@@ -213,7 +212,6 @@ coreResWords = Map.fromList
  , b "?"  T_questmark
  , b "["  T_obrack
  , b "]"  T_cbrack
- , b "[:" T_reset
  , b "\\" T_lam
  , b "\\\\" T_lamlam
  , b "{"  T_ocurly
