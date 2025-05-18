@@ -175,8 +175,10 @@ instance Binary Term where
   put (ELincat x y) = putWord8 30 >> put (x,y)
   put (ELin x y)    = putWord8 31 >> put (x,y)
   put (FV x)        = putWord8 32 >> put x
-  put (Alts x y)    = putWord8 33 >> put (x,y)
-  put (Strs x)      = putWord8 34 >> put x
+  put (Markup x y z)= putWord8 33 >> put (x,y,z)
+  put (Reset w x y z)=putWord8 34 >> put (w,x,y,z)
+  put (Alts x y)    = putWord8 35 >> put (x,y)
+  put (Strs x)      = putWord8 36 >> put x
 
   get = do tag <- getWord8
            case tag of
@@ -213,8 +215,10 @@ instance Binary Term where
              30 -> get >>= \(x,y)   -> return (ELincat x y)
              31 -> get >>= \(x,y)   -> return (ELin x y)
              32 -> get >>= \x       -> return (FV x)
-             33 -> get >>= \(x,y)   -> return (Alts x y)
-             34 -> get >>= \x       -> return (Strs x)
+             33 -> get >>= \(x,y,z) -> return (Markup x y z)
+             34 -> get >>= \(w,x,y,z)->return (Reset w x y z)
+             35 -> get >>= \(x,y)   -> return (Alts x y)
+             36 -> get >>= \x       -> return (Strs x)
              _  -> decodingError
 
 instance Binary Patt where
