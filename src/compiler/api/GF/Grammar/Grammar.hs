@@ -399,7 +399,7 @@ data Term =
  | FV [Term]                     -- ^ alternatives in free variation: @variants { s ; ... }@
 
  | Markup Ident [(Ident,Term)] [Term]
- | Reset Ident (Maybe Term) Term QIdent
+ | Reset Ident (Maybe Term) Term (Maybe QIdent)
 
  | Alts Term [(Term, Term)]      -- ^ alternatives by prefix: @pre {t ; s\/c ; ...}@
  | Strs [Term]                   -- ^ conditioning prefix strings: @strs {s ; ...}@

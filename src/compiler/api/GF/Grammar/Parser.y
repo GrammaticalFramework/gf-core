@@ -487,8 +487,8 @@ Exp6
   | '{' ListLocDef '}'    {% mkR $2 }
   | '<' ListTupleComp '>' { R (tuple2record $2) }
   | '<' Exp ':' Exp '>'   { Typed $2 $4      }
-  | '[' Control '|' Tag ']'      { Reset (fst $2) (snd $2) $4 undefined }
-  | '[' Control '|' Exp ']'      { Reset (fst $2) (snd $2) $4 undefined }
+  | '[' Control '|' Tag ']'      { Reset (fst $2) (snd $2) $4 Nothing }
+  | '[' Control '|' Exp ']'      { Reset (fst $2) (snd $2) $4 Nothing }
   | '(' Exp ')'           { $2 }
 
 ListExp :: { [Term] }

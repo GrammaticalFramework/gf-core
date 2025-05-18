@@ -25,12 +25,16 @@ import Data.Bifunctor(second)
 import Data.Functor((<&>))
 import qualified Control.Monad.Fail as Fail
 
-checkLType :: Globals -> Term -> Type -> Check [(Term, Type)]
-checkLType globals t ty = runEvalM globals $
-  do let (c1,c2) = split unit
-     (t,vty) <- checkLType' c1 t (eval globals [] c2 ty [])
-     ty <- value2termM True [] vty
-     return (t,ty)
+checkLType :: Globals -> Term -> Type -> Check (Term, Type)
+checkLType globals t ty = do
+  res <- runEvalM globals $ do
+            let (c1,c2) = split unit
+            (t,vty) <- checkLType' c1 t (eval globals [] c2 ty [])
+            ty <- value2termM True [] vty
+            return (t,ty)
+  case res of
+    [tty] -> return tty
+    _     -> checkError (pp "Encountered variants while type checking")
 
 checkLType' :: Choice -> Term -> Constraint -> EvalM (Term, Constraint)
 checkLType' c t vty = do
@@ -38,11 +42,15 @@ checkLType' c t vty = do
   t <- zonkTerm [] t
   return (t,vty)
 
-inferLType :: Globals -> Term -> Check [(Term, Type)]
-inferLType globals t = runEvalM globals $ do
-  (t,vty) <- inferLType' t
-  ty <- value2termM True [] vty
-  return (t,ty)
+inferLType :: Globals -> Term -> Check (Term, Type)
+inferLType globals t = do
+  res <- runEvalM globals $ do
+            (t,vty) <- inferLType' t
+            ty <- value2termM True [] vty
+            return (t,ty)
+  case res of
+    [tty] -> return tty
+    _     -> checkError (pp "Encountered variants while type checking")
 
 inferLType' :: Term -> EvalM (Term, Constraint)
 inferLType' t = do
@@ -404,7 +412,7 @@ tcRho scope c (Reset ctl mb_ct t qid) mb_ty
                      Nothing -> evalError (pp "[list: .. | ..] requires an argument")
          (t,ty) <- tcRho scope c2 t mb_ty
          case ty of
-           VApp c qid [] -> return (Reset ctl mb_ct t qid, ty)
+           VApp c qid [] -> return (Reset ctl mb_ct t (Just qid), ty)
            _             -> evalError (pp "Needs atomic type"<+>ppValue Unqualified 0 ty)
   | otherwise = evalError (pp "Operator" <+> pp ctl <+> pp "is not defined")
 tcRho scope s (Opts n cs) mb_ty = do

@@ -86,7 +86,7 @@ data Value
   | VAlts Value [(Value, Value)]
   | VStrs [Value]
   | VMarkup Ident [(Ident,Value)] [Value]
-  | VReset Ident (Maybe Value) Value QIdent
+  | VReset Ident (Maybe Value) Value (Maybe QIdent)
   | VSymCat Int LIndex [(LIndex, (Value, Type))]
   | VError Doc
     -- These two constructors are only used internally
@@ -932,7 +932,7 @@ value2termM flat xs (VMarkup tag as vs) = do
   as <- mapM (\(id,v) -> value2termM flat xs v >>= \t -> return (id,t)) as
   ts <- mapM (value2termM flat xs) vs
   return (Markup tag as ts)
-value2termM flat xs (VReset ctl mb_cv v qid) = do
+value2termM flat xs (VReset ctl mb_cv v mb_qid) = do
   ts <- reset (value2termM True xs v)
   reduce ctl mb_cv ts
   where
@@ -960,8 +960,8 @@ value2termM flat xs (VReset ctl mb_cv v qid) = do
            ([],       _) -> mzero
            ([t],      _) -> return t
            (ts,Just cv)  ->
-             do let cat = showIdent (snd qid)
-                    mn  = fst qid
+             do let Just (mn,id) = mb_qid
+                    cat = showIdent id
                 ct <- value2termM flat xs cv
                 t <- listify mn cat ts
                 return (App (App (QC (mn,identS ("Conj"++cat))) ct) t)

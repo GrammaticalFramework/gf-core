@@ -167,12 +167,11 @@ runRepl' opts@ReplOpts { lang, evalToFlat } gl@(Gl g _) = do
     -- Show the inferred type of an expression
     command st "t" arg = do
       parseThen lang g arg $ \main ->
-        execCheck (inferLType gl main) $ \res ->
-          forM_ res $ \(t, ty) ->
-            let t' = case t of
-                       Typed _ _ -> t
-                       t         -> Typed t ty
-            in outputStrLn $ render (ppTerm Unqualified 0 t')
+        execCheck (inferLType gl main) $ \(t, ty) ->
+          let t' = case t of
+                     Typed _ _ -> t
+                     t         -> Typed t ty
+          in outputStrLn $ render (ppTerm Unqualified 0 t')
       nlrepl st
     
     -- Show the results of the last evaluated expression
@@ -274,8 +273,7 @@ runRepl' opts@ReplOpts { lang, evalToFlat } gl@(Gl g _) = do
         Nothing      -> nlrepl st
 
     doEval st t opts = inferLType gl t >>= \case
-      []          -> fail $ "No result while checking type: " ++ render (ppTerm Unqualified 0 t)
-      ((t', _):_) -> runEvalMWithOpts gl opts (value2termM evalToFlat [] (eval gl [] unit t' []))
+      (t', _) -> runEvalMWithOpts gl opts (value2termM evalToFlat [] (eval gl [] unit t' []))
     
     outputResults rs =
       forM_ (zip [1..] rs) $ \(i, ResultState r _ opts _) ->
