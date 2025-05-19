@@ -782,6 +782,10 @@ subsCheckRho scope t (VTable p1 r1) rho2 = do                 -- Rule TABLE
   subsCheckTbl scope t p1 r1 p2 r2
 subsCheckRho scope t (VSort s1) (VSort s2)                    -- Rule PTYPE
   | s1 == cPType && s2 == cType = return t
+subsCheckRho scope t (VApp _ p1 []) rho2                      -- for backwards compatibility
+  | p1 == (cPredef,cErrorType) = return t
+subsCheckRho scope t (VApp _ p1 _) (VApp _ p2 _)              -- This is not correct but there is in the RGL nextPrec relies on it.
+  | p1 == (cPredef,cInt) && p2 == (cPredef,cInts) = return t  -- Should be only a temporary hack.
 subsCheckRho scope t (VApp _ p1 _) (VApp _ p2 _)              -- Rule INT1
   | p1 == (cPredef,cInts) && p2 == (cPredef,cInt) = return t
 subsCheckRho scope t (VApp _ p1 [VInt i]) (VApp _ p2 [VInt j]) -- Rule INT2
