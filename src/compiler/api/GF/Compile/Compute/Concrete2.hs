@@ -65,7 +65,7 @@ data Value
   | VGen  {-# UNPACK #-} !Int [Value]
   | VClosure Env Choice Term
   | VProd BindType Ident Value Value
-  | VRecType [(Label, Value)]
+  | VRecType [(Label, Bool, Value)]
   | VR [(Label, Value)]
   | VP Value Label [Value]
   | VExtR Value Value
@@ -89,10 +89,7 @@ data Value
   | VReset Ident (Maybe Value) Value (Maybe QIdent)
   | VSymCat Int LIndex [(LIndex, (Value, Type))]
   | VError Doc
-    -- These two constructors are only used internally
-    -- in the type checker.
-  | VCRecType [(Label, Bool, Value)]
-  | VCInts (Maybe Integer) (Maybe Integer)
+  | VInts (Maybe Integer) (Maybe Integer)
 
 data Variants
   = VarFree [Value]
@@ -109,7 +106,7 @@ unvariants (VarOpts n cs) = snd <$> cs
 isCanonicalForm :: Bool -> Value -> Bool
 isCanonicalForm flat  (VClosure {})       = True
 isCanonicalForm flat  (VProd b x d cod)   = isCanonicalForm flat d && isCanonicalForm flat cod
-isCanonicalForm flat  (VRecType fs)       = all (isCanonicalForm flat . snd) fs
+isCanonicalForm flat  (VRecType fs)       = all (\(l,_,ty) -> isCanonicalForm flat ty) fs
 isCanonicalForm flat  (VR {})             = True
 isCanonicalForm flat  (VTable d cod)      = isCanonicalForm flat d && isCanonicalForm flat cod
 isCanonicalForm flat  (VT {})             = True
@@ -197,10 +194,13 @@ eval g env s (Abs b x t)    []  = VClosure env s (Abs b x t)
 eval g env s (Abs b x t) (v:vs) = eval g ((x,v):env) s t vs
 eval g env s (Meta i)       vs  = VMeta i vs
 eval g env s (ImplArg t)    []  = eval g env s t []
-eval g env s (Prod b x t1 t2)[] = let (s1,s2) = split s
+eval g env s (Prod b x t1 t2)[]
+  | x == identW                 = let (s1,s2) = split s
+                                  in VProd b x (eval g env s1 t1 []) (eval g env s2 t2 [])
+  | otherwise                   = let (s1,s2) = split s
                                   in VProd b x (eval g env s1 t1 []) (VClosure env s2 t2)
 eval g env s (Typed t ty)   vs  = eval g env s t vs
-eval g env s (RecType lbls) []  = VRecType (mapC (\s (lbl,ty) -> (lbl, eval g env s ty [])) s lbls)
+eval g env s (RecType lbls) []  = VRecType (mapC (\s (lbl,ty) -> (lbl, True, eval g env s ty [])) s lbls)
 eval g env s (R as)         []  = VR (mapC (\s (lbl,(ty,t)) -> (lbl, eval g env s t [])) s as)
 eval g env s (P t lbl)      vs  = let project (VR as)        = case lookup lbl as of
                                                                  Nothing -> VError ("Missing value for label" <+> pp lbl $$
@@ -214,7 +214,7 @@ eval g env s (P t lbl)      vs  = let project (VR as)        = case lookup lbl a
 eval g env s (ExtR t1 t2)   []  = let (s1,s2) = split s
 
                                       extend (VR       as1) (VR       as2)   = VR       (foldl (\as (lbl,v) -> update lbl v as) as1 as2)
-                                      extend (VRecType as1) (VRecType as2)   = VRecType (foldl (\as (lbl,v) -> update lbl v as) as1 as2)
+                                      extend (VRecType as1) (VRecType as2)   = VRecType (foldl (\as (lbl,o,v) -> update3 lbl o v as) as1 as2)
                                       extend (VFV i fvs)    v2               = VFV i (mapVariants (`extend` v2) fvs)
                                       extend v1             (VFV i fvs)      = VFV i (mapVariants (v1 `extend`) fvs)
                                       extend (VMeta i vs)   v2               = VSusp i (\v -> extend (apply g v vs) v2) []
@@ -391,7 +391,9 @@ bubble v = snd (bubble v)
     bubble (VGen i vs) = liftL (VGen i) vs
     bubble (VClosure env c t) = liftL' (\env -> VClosure env c t) env
     bubble (VProd bt x v1 v2) = lift2 (VProd bt x) v1 v2
-    bubble (VRecType as) = liftL' VRecType as
+    bubble v@(VRecType lbls) =
+      let (union,lbls') = mapAccumL descendR Map.empty lbls
+      in (union, addVariants (VRecType lbls') union)
     bubble (VR as) = liftL' VR as
     bubble (VP v l vs) = lift1L (\v vs -> VP v l vs) v vs
     bubble (VExtR v1 v2) = lift2 VExtR v1 v2
@@ -427,10 +429,7 @@ bubble v = snd (bubble v)
       let (union,vs') = mapAccumL descendC Map.empty vs
       in (union, addVariants (VSymCat d i0 vs') union)
     bubble v@(VError _) = lift0 v
-    bubble v@(VCRecType lbls) =
-      let (union,lbls') = mapAccumL descendR Map.empty lbls
-      in (union, addVariants (VCRecType lbls') union)
-    bubble v@(VCInts _ _) = lift0 v
+    bubble v@(VInts _ _) = lift0 v
 
     lift0 v = (Map.empty, v)
 
@@ -526,6 +525,11 @@ update lbl v []              = [(lbl,v)]
 update lbl v (a@(lbl',_):as)
   | lbl==lbl'                = (lbl,v) : as
   | otherwise                = a : update lbl v as
+
+update3 lbl o v []           = [(lbl,o,v)]
+update3 lbl o v (a@(lbl',o',_):as)
+  | lbl==lbl'                = (lbl,o||o',v) : as
+  | otherwise                = a : update3 lbl o v as
 
 patternMatch g s v0 []                      = v0
 patternMatch g s v0 ((env0,ps,args0,t):eqs) = match env0 ps eqs args0
@@ -822,23 +826,19 @@ value2termM flat xs (VClosure env s (Abs b x t)) = do
       x' = mkFreshVar xs x
   t <- value2termM flat (x':xs) v
   return (Abs b x' t)
-value2termM flat xs (VProd b x v1 v2)
-  | x == identW = do t1 <- value2termM flat xs v1
-                     v2 <- case v2 of
-                             VClosure env s t2 -> do g <- globals
-                                                     return (eval g env s t2 [])
-                             v2                -> return v2
-                     t2 <- value2termM flat xs v2
-                     return (Prod b x t1 t2)
-  | otherwise   = do t1 <- value2termM flat xs v1
-                     v2 <- case v2 of
-                             VClosure env s t2 -> do g <- globals
-                                                     return (eval g ((x,VGen (length xs) []):env) s t2 [])
-                             v2                -> return v2
-                     t2 <- value2termM flat (x:xs) v2
-                     return (Prod b (mkFreshVar xs x) t1 t2)
+value2termM flat xs (VClosure env s t) = do
+  return t
+value2termM flat xs (VProd b x v1 (VClosure env c2 t2)) = do
+  g <- globals
+  t1 <- value2termM flat xs v1
+  t2 <- value2termM flat (x:xs) (eval g ((x,VGen (length xs) []):env) c2 t2 [])
+  return (Prod b (mkFreshVar xs x) t1 t2)
+value2termM flat xs (VProd b x v1 v2) = do
+  t1 <- value2termM flat xs v1
+  t2 <- value2termM flat xs v2
+  return (Prod b x t1 t2)
 value2termM flat xs (VRecType lbls) = do
-  lbls <- mapM (\(lbl,v) -> fmap ((,) lbl) (value2termM flat xs v)) lbls
+  lbls <- mapM (\(lbl,_,v) -> fmap ((,) lbl) (value2termM flat xs v)) lbls
   return (RecType lbls)
 value2termM flat xs (VR as) = do
   as <- mapM (\(lbl,v) -> fmap (\t -> (lbl,(Nothing,t))) (value2termM flat xs v)) as
@@ -972,12 +972,9 @@ value2termM flat xs (VReset ctl mb_cv v mb_qid) = do
     listify mn cat (t1:ts) = do t2 <- listify mn cat ts
                                 return (App (App (QC (mn,identS ("Cons"++cat))) t1) t2)
 value2termM flat xs (VError msg) = evalError msg
-value2termM flat xs (VCRecType lbls) = do
-  lbls <- mapM (\(lbl,_,v) -> fmap ((,) lbl) (value2termM flat xs v)) lbls
-  return (RecType lbls)
-value2termM flat xs (VCInts Nothing    Nothing) = return (App (QC (cPredef,cInts)) (Meta 0))
-value2termM flat xs (VCInts (Just min) Nothing) = return (App (QC (cPredef,cInts)) (EInt min))
-value2termM flat xs (VCInts _       (Just max)) = return (App (QC (cPredef,cInts)) (EInt max))
+value2termM flat xs (VInts Nothing    Nothing) = return (App (QC (cPredef,cInts)) (Meta 0))
+value2termM flat xs (VInts (Just min) Nothing) = return (App (QC (cPredef,cInts)) (EInt min))
+value2termM flat xs (VInts _       (Just max)) = return (App (QC (cPredef,cInts)) (EInt max))
 value2termM flat xs v = evalError ("value2termM" <+> ppValue Unqualified 5 v)
 
 
@@ -999,11 +996,17 @@ ppValue q d (VSusp i k vs) = prec d 4 (hsep (pp "#susp" : (if i > 0 then pp "?" 
 ppValue q d (VGen _ _) = pp "VGen"
 ppValue q d (VClosure env c t) = pp "[|" <> ppTerm q 4 t <> pp "|]"
 ppValue q d (VProd _ _ _ _) = pp "VProd"
-ppValue q d (VRecType _) = pp "VRecType"
+ppValue q d (VRecType xs)
+  | q == Terse         = case [cat | (l,_,_) <- xs, let (p,cat) = splitAt 5 (showIdent (label2ident l)), p == "lock_"] of
+                           [cat] -> pp cat
+                           _     -> doc
+  | otherwise          = doc
+  where
+    doc = braces (fsep (punctuate ';' [l <+> (if o then ":" else ":?") <+> ppValue q 0 v | (l,o,v) <- xs]))
 ppValue q d (VR _) = pp "VR"
 ppValue q d (VP v l vs) = prec d 5 (hsep (ppValue q 5 v <> '.' <> l : map (ppValue q 5) vs))
 ppValue q d (VExtR _ _) = pp "VExtR"
-ppValue q d (VTable _ _) = pp "VTable"
+ppValue q d (VTable kt vt) = prec d 0 (ppValue q 3 kt <+> "=>" <+> ppValue q 0 vt)
 ppValue q d (VT t _ _ cs) = "table" <+> ppValue q 0 t <+> '{' $$
                                nest 2 (vcat (punctuate ';' (map (ppCase q) cs))) $$
                             '}'
@@ -1026,13 +1029,12 @@ ppValue q d (VStrs _) = pp "VStrs"
 ppValue q d (VMarkup _ _ _) = pp "VMarkup"
 ppValue q d (VSymCat i r rs) = pp '<' <> pp i <> pp ',' <> pp r <> pp '>'
 ppValue q d (VError msg) = prec d 4 (pp "error" <+> ppTerm q 5 (K (show msg)))
-ppValue q d (VCRecType ass) = pp "VCRecType"
-ppValue q d (VCInts Nothing    Nothing)    = prec d 4 (pp "Ints ?")
-ppValue q d (VCInts (Just min) Nothing)    = prec d 4 (pp "Ints" <+> brackets (pp min <> ".."))
-ppValue q d (VCInts Nothing    (Just max)) = prec d 4 (pp "Ints" <+> brackets (".." <> pp max))
-ppValue q d (VCInts (Just min) (Just max))
-   | min == max                            = prec d 4 (pp "Ints" <+> min)
-   | otherwise                             = prec d 4 (pp "Ints" <+> brackets (pp min <> ".." <> pp max))
+ppValue q d (VInts Nothing    Nothing)    = prec d 4 (pp "Ints ?")
+ppValue q d (VInts (Just min) Nothing)    = prec d 4 (pp "Ints" <+> brackets (pp min <> ".."))
+ppValue q d (VInts Nothing    (Just max)) = prec d 4 (pp "Ints" <+> brackets (".." <> pp max))
+ppValue q d (VInts (Just min) (Just max))
+   | min == max                           = prec d 4 (pp "Ints" <+> min)
+   | otherwise                            = prec d 4 (pp "Ints" <+> brackets (pp min <> ".." <> pp max))
 
 ppAltern q (x,y) = ppValue q 0 x <+> '/' <+> ppValue q 0 y
 

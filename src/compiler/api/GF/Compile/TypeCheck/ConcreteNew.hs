@@ -118,7 +118,7 @@ tcRho scope c (Abs bt var body) Nothing = do                   -- ABS1
         VClosure env c t -> do g  <- globals
                                check m (n+1) (b,x:xs) (eval g ((x,VGen n []):env) c t [])
         v2               -> check m n st v2
-    check m n st (VRecType as)     = foldM (\st (l,v) -> check m n st v) st as
+    check m n st (VRecType as)     = foldM (\st (l,_,v) -> check m n st v) st as
     check m n st (VR as)           =
       foldM (\st (lbl,tnk) -> check m n st tnk) st as
     check m n st (VP v l vs)       =
@@ -156,13 +156,13 @@ tcRho scope c t@(Abs Implicit var body) (Just ty) = do         -- ABS2
   if bt == Implicit
     then return ()
     else evalError (ppTerm Unqualified 0 t <+> "is an implicit function, but no implicit function is expected")
-  body_ty <- evalCodomain scope x body_ty
+  body_ty <- evalCodomain x (VGen (length scope) []) body_ty
   (body, body_ty) <- tcRho ((var,var_ty):scope) c body (Just body_ty)
   return (Abs Implicit var body,ty)
 tcRho scope c (Abs Explicit var body) (Just ty) = do           -- ABS3
   (scope,f,ty') <- skolemise scope ty
   (_,x,var_ty,body_ty) <- unifyFun scope ty'
-  body_ty <- evalCodomain scope x body_ty
+  body_ty <- evalCodomain x (VGen (length scope) []) body_ty
   (body, body_ty) <- tcRho ((var,var_ty):scope) c body (Just body_ty)
   return (f (Abs Explicit var body),ty)
 tcRho scope c (Meta _) mb_ty = do
@@ -292,7 +292,7 @@ tcRho scope c (R rs) Nothing = do
   lttys <- inferRecFields scope c rs
   rs <- mapM (\(l,t,ty) -> value2termM True (scopeVars scope) ty >>= \ty -> return (l, (Just ty, t))) lttys
   return (R        rs,
-          VRecType [(l, ty) | (l,t,ty) <- lttys]
+          VRecType [(l,True,ty) | (l,t,ty) <- lttys]
          )
 tcRho scope c (R rs) (Just ty) = do
   (scope,f,ty') <- skolemise scope ty
@@ -300,11 +300,11 @@ tcRho scope c (R rs) (Just ty) = do
     (VRecType ltys) -> do lttys <- checkRecFields scope c rs ltys
                           rs <- mapM (\(l,t,ty) -> value2termM True (scopeVars scope) ty >>= \ty -> return (l, (Just ty, t))) lttys
                           return ((f . R)  rs,
-                                  VRecType [(l, ty) | (l,t,ty) <- lttys]
+                                  VRecType [(l,True,ty) | (l,t,ty) <- lttys]
                                  )
     ty              -> do lttys <- inferRecFields scope c rs
                           t <- liftM (f . R) (mapM (\(l,t,ty) -> value2termM True (scopeVars scope) ty >>= \ty -> return (l, (Just ty, t))) lttys)
-                          let ty' = VRecType [(l, ty) | (l,t,ty) <- lttys]
+                          let ty' = VRecType [(l,True,ty) | (l,t,ty) <- lttys]
                           t <- subsCheckRho scope t ty' ty
                           return (t, ty')
 tcRho scope c (P t l) mb_ty = do
@@ -312,7 +312,7 @@ tcRho scope c (P t l) mb_ty = do
               Just ty -> return ty
               Nothing -> do i <- newResiduation scope
                             return (VMeta i [])
-  (t,t_ty) <- tcRho scope c t (Just (VRecType [(l,l_ty)]))
+  (t,t_ty) <- tcRho scope c t (Just (VRecType [(l,True,l_ty)]))
   return (P t l,l_ty)
 tcRho scope c (C t1 t2) mb_ty = do
   let (c1,c2,c3,c4) = split4 c
@@ -423,11 +423,11 @@ tcRho scope s (Opts n cs) mb_ty = do
   return (Opts n (zip ls ts), ty)
 tcRho scope s t _ = unimplemented ("tcRho "++show t)
 
-evalCodomain :: Scope -> Ident -> Value -> EvalM Value
-evalCodomain scope x (VClosure env c t) = do
+evalCodomain :: Ident -> Value -> Value -> EvalM Value
+evalCodomain x v (VClosure env c ty) = do
   g <- globals
-  return (eval g ((x,VGen (length scope) []):env) c t [])
-evalCodomain scope x t = return t
+  return (eval g ((x,v):env) c ty [])
+evalCodomain x _ ty = return ty
 
 tcUnifying :: Scope -> Choice -> [Term] -> Maybe Rho -> EvalM ([Term], Constraint)
 tcUnifying scope c ts mb_ty = do
@@ -471,20 +471,16 @@ reapply1 scope c fun fun_ty ((ImplArg arg):args) = do -- Implicit arg case
      evalError (ppTerm Unqualified 0 (App fun (ImplArg arg)) <+>
                 "is an implicit argument application, but no implicit argument is expected")
   (arg,_) <- tcRho scope c1 arg (Just arg_ty)
-  res_ty <- case res_ty of
-              VClosure res_env res_c res_ty -> do g <- globals
-                                                  return (eval g ((x,eval g (scopeEnv scope) c2 arg []):res_env) res_c res_ty [])
-              res_ty                        -> return res_ty
+  g <- globals
+  res_ty <- evalCodomain x (eval g (scopeEnv scope) c2 arg []) res_ty
   reapply1 scope c3 (App fun (ImplArg arg)) res_ty args
 reapply1 scope c fun fun_ty (arg:args) = do -- Explicit arg (fallthrough) case
   let (c1,c2,c3,c4) = split4 c
   (fun,fun_ty) <- instantiate scope fun fun_ty
   (_, x, arg_ty, res_ty) <- unifyFun scope fun_ty
   (arg,_) <- tcRho scope c1 arg (Just arg_ty)
-  res_ty <- case res_ty of
-              VClosure res_env res_c res_ty -> do g <- globals
-                                                  return (eval g ((x,eval g (scopeEnv scope) c2 arg []):res_env) res_c res_ty [])
-              res_ty                  -> return res_ty
+  g <- globals
+  res_ty <- evalCodomain x (eval g (scopeEnv scope) c2 arg []) res_ty
   reapply1 scope c3 (App fun arg) res_ty args
 
 resolveOverloads :: Scope -> Choice -> Term -> QIdent -> [Term] -> Maybe Rho -> EvalM (Term,Rho)
@@ -566,19 +562,13 @@ reapply2 scope c fun fun_ty ((ImplArg arg,arg_v,arg_ty):args) mb_ty = do -- Impl
      evalError (ppTerm Unqualified 0 (App fun (ImplArg arg)) <+>
                 "is an implicit argument application, but no implicit argument is expected")
   arg <- subsCheckRho scope arg arg_ty' arg_ty
-  res_ty <- case res_ty of
-              VClosure res_env res_c res_ty -> do g <- globals
-                                                  return (eval g ((x,arg_v):res_env) res_c res_ty [])
-              res_ty                        -> return res_ty
+  res_ty <- evalCodomain x arg_v res_ty
   reapply2 scope c (App fun (ImplArg arg)) res_ty args mb_ty
 reapply2 scope c fun fun_ty ((arg,arg_v,arg_ty):args) mb_ty = do -- Explicit arg (fallthrough) case
   (fun,fun_ty) <- instantiate scope fun fun_ty
   (_, x, arg_ty', res_ty) <- unifyFun scope fun_ty
   arg <- subsCheckRho scope arg arg_ty arg_ty'
-  res_ty <- case res_ty of
-              VClosure res_env res_c res_ty -> do g <- globals
-                                                  return (eval g ((x,arg_v):res_env) res_c res_ty [])
-              res_ty                  -> return res_ty
+  res_ty <- evalCodomain x arg_v res_ty
   reapply2 scope c (App fun arg) res_ty args mb_ty
 
 tcPatt scope c PW        ty0 =
@@ -600,12 +590,15 @@ tcPatt scope c (PP q ps) ty0 = do
   unify scope ty0 ty
   return scope
 tcPatt scope c (PInt i) ty0 = do
-  unify scope (vtypeInts i) ty0
+  subsCheckRho scope (EInt i) (vtypeInts i) ty0
   return scope
 tcPatt scope c (PString s) ty0 = do
   unify scope ty0 vtypeStr
   return scope
 tcPatt scope c PChar ty0 = do
+  unify scope ty0 vtypeStr
+  return scope
+tcPatt scope c (PChars cs) ty0 = do
   unify scope ty0 vtypeStr
   return scope
 tcPatt scope c (PSeq _ _ p1 _ _ p2) ty0 = do
@@ -614,6 +607,9 @@ tcPatt scope c (PSeq _ _ p1 _ _ p2) ty0 = do
   scope <- tcPatt scope c1 p1 vtypeStr
   scope <- tcPatt scope c2 p2 vtypeStr
   return scope
+tcPatt scope c (PRep _ _ p) ty0 = do
+  unify scope ty0 vtypeStr
+  tcPatt scope c p vtypeStr
 tcPatt scope c (PAs x p) ty0 = do
   tcPatt ((x,ty0):scope) c p ty0
 tcPatt scope c (PR rs) ty0 = do
@@ -626,7 +622,7 @@ tcPatt scope c (PR rs) ty0 = do
                                     scope <- tcPatt scope c1 p ty
                                     go scope c2 rs
   ltys <- mk_ltys rs
-  subsCheckRho scope (EPatt 0 Nothing (PR rs)) (VRecType [(l,ty) | (l,p,ty) <- ltys]) ty0
+  subsCheckRho scope (EPatt 0 Nothing (PR rs)) (VRecType [(l,True,ty) | (l,p,ty) <- ltys]) ty0
   go scope c ltys
 tcPatt scope c (PAlt p1 p2) ty0 = do
   let (c1,c2) = split c
@@ -650,7 +646,7 @@ inferRecFields scope c rs =
 
 checkRecFields scope c []          ltys
   | null ltys                            = return []
-  | otherwise                            = evalError ("Missing fields:" <+> hsep (map fst ltys))
+  | otherwise                            = evalError ("Missing fields:" <+> hsep [l | (l,_,_) <- ltys])
 checkRecFields scope c ((l,t):lts) ltys =
   case takeIt l ltys of
     (Just ty,ltys) -> do let (c1,c2) = split c
@@ -664,7 +660,7 @@ checkRecFields scope c ((l,t):lts) ltys =
                          return lttys     -- ignore the field
   where
     takeIt l1 []  = (Nothing, [])
-    takeIt l1 (lty@(l2,ty):ltys)
+    takeIt l1 (lty@(l2,_,ty):ltys)
       | l1 == l2  = (Just ty,ltys)
       | otherwise = let (mb_ty,ltys') = takeIt l1 ltys
                     in (mb_ty,lty:ltys')
@@ -765,7 +761,7 @@ subsCheckRho scope t (VProd Implicit x ty1 ty2) rho2 = do     -- Rule SPEC
   subsCheckRho scope (App t (ImplArg (Meta i))) ty2' rho2
 subsCheckRho scope t rho1 (VProd Implicit x ty1 ty2) = do     -- Rule SKOL
   let v = newVar scope
-  ty2 <- evalCodomain scope x ty2
+  ty2 <- evalCodomain x (VGen (length scope) []) ty2
   t <- subsCheckRho ((v,ty1):scope) t rho1 ty2
   return (Abs Implicit v t)
 subsCheckRho scope t rho1 (VProd Explicit _ a2 r2) = do       -- Rule FUN
@@ -802,14 +798,14 @@ subsCheckRho scope t ty1@(VRecType rs1) ty2@(VRecType rs2) = do      -- Rule REC
                                   ,\l -> mkProj2 l `mplus` mkProj1 l
                                   ,mkWrap1 . mkWrap2
                                   )
-          R rs -> do sequence_ [evalWarn ("Discarded field:" <+> l) | (l,_) <- rs, isNothing (lookup l rs2)]
+          R rs -> do sequence_ [evalWarn ("Discarded field:" <+> l) | (l,_) <- rs, isNothing (lookup3 l rs2)]
                      return (scope
                             ,\l -> lookup l rs
                             ,id
                             )
           Vr x -> do return (scope
                             ,\l -> do VRecType rs <- lookup x scope
-                                      ty <- lookup l rs
+                                      ty <- lookup3 l rs
                                       return (Nothing,P t l)
                             ,id
                             )
@@ -823,9 +819,14 @@ subsCheckRho scope t ty1@(VRecType rs1) ty2@(VRecType rs2) = do      -- Rule REC
         t <- subsCheckRho scope t ty1 ty2
         return (l, (mb_ty,t))
 
+      lookup3 l []  = Nothing
+      lookup3 l ((l',_,v):rs)
+        | l == l'   = Just v
+        | otherwise = lookup3 l rs
+
   (scope,mkProj,mkWrap) <- mkAccess scope t
 
-  let fields = [(l,ty2,lookup l rs1) | (l,ty2) <- rs2]
+  let fields = [(l,ty2,lookup3 l rs1) | (l,o2,ty2) <- rs2]
   case [l | (l,_,Nothing) <- fields] of
     []      -> return ()
     missing -> evalError ("In the term" <+> pp t $$
@@ -859,31 +860,35 @@ subsCheckFun scope t a1 r1 a2 r2 = do
 subsCheckTbl :: Scope -> Term -> Sigma -> Rho -> Sigma -> Rho  -> EvalM Term
 subsCheckTbl scope t p1 r1 p2 r2 = do
   let x = newVar scope
-  xt <- subsCheckRho scope (Vr x) p2 p1
-  t  <- subsCheckRho ((x,vtypePType):scope) (S t xt) r1 r2
+  xt <- subsCheckRho ((x,p2):scope) (Vr x) p2 p1
+  t  <- subsCheckRho ((x,p2):scope) (S t xt) r1 r2
   p2 <- value2termM True (scopeVars scope) p2
   return (T (TTyped p2) [(PV x,t)])
 
 subtype scope Nothing (VApp c p [VInt i])
   | p == (cPredef,cInts) = do
-      return (VCInts Nothing (Just i))
-subtype scope (Just (VCInts i j)) (VApp c p [VInt k])
+      return (VInts Nothing (Just i))
+subtype scope (Just (VInts i j)) (VApp c p [VInt k])
   | p == (cPredef,cInts) = do
-      return (VCInts j (Just (maybe k (min k) i)))
+      return (VInts j (Just (maybe k (min k) i)))
 subtype scope Nothing (VRecType ltys) = do
-  lctrs <- mapM (\(l,ty) -> supertype scope Nothing ty >>= \ctr -> return (l,True,ctr)) ltys
-  return (VCRecType lctrs)
-subtype scope (Just (VCRecType lctrs)) (VRecType ltys) = do
-  lctrs <- foldM (\lctrs (l,ty) -> union l ty lctrs) lctrs ltys
-  return (VCRecType lctrs)
+  lctrs <- mapM (\(l,o,ty) -> subtype scope Nothing ty >>= \ctr -> return (l,o,ctr)) ltys
+  return (VRecType lctrs)
+subtype scope (Just (VRecType lctrs1)) (VRecType lctrs2) = do
+  lctrs <- foldM (\lctrs (l,o,ctr) -> union l o ctr lctrs) lctrs1 lctrs2
+  return (VRecType lctrs)
   where
-    union l ty [] = do ctr <- subtype scope Nothing ty
-                       return [(l,True,ctr)]
-    union l ty ((l',o,ctr):lctrs)
-      | l == l'   = do ctr <- subtype scope (Just ctr) ty
-                       return ((l,True,ctr):lctrs)
-      | otherwise = do lctrs <- union l ty lctrs
-                       return ((l',o,ctr):lctrs)
+    union l o1 ctr1 [] = do ctr <- subtype scope Nothing ctr1
+                            return [(l,True,ctr)]
+    union l o1 ctr1 ((l',o2,ctr2):lctrs)
+      | l == l'   = do ctr <- subtype scope (Just ctr1) ctr2
+                       return ((l,o1||o2,ctr):lctrs)
+      | otherwise = do lctrs <- union l o1 ctr1 lctrs
+                       return ((l',o2,ctr2):lctrs)
+subtype scope (Just (VTable a1 r1)) (VTable a2 r2) = do
+  a <- supertype scope (Just a1) a2
+  r <- subtype scope (Just r1) r2
+  return (VTable a r)
 subtype scope Nothing    ty = return ty
 subtype scope (Just ctr) ty = do
   unify scope ctr ty
@@ -891,22 +896,26 @@ subtype scope (Just ctr) ty = do
 
 supertype scope Nothing (VApp c p [VInt i])
   | p == (cPredef,cInts) = do
-      return (VCInts (Just i) Nothing)
-supertype scope (Just (VCInts i j)) (VApp c p [VInt k])
+      return (VInts (Just i) Nothing)
+supertype scope (Just (VInts i j)) (VApp c p [VInt k])
   | p == (cPredef,cInts) = do
-      return (VCInts (Just (maybe k (max k) i)) j)
+      return (VInts (Just (maybe k (max k) i)) j)
 supertype scope Nothing (VRecType ltys) = do
-  lctrs <- mapM (\(l,ty) -> supertype scope Nothing ty >>= \ctr -> return (l,False,ctr)) ltys
-  return (VCRecType lctrs)
-supertype scope (Just (VCRecType lctrs)) (VRecType ltys) = do
-  lctrs <- foldM (\lctrs (l,o,ctr) -> intersect l o ctr lctrs ltys) [] lctrs
-  return (VCRecType lctrs)
+  lctrs <- mapM (\(l,o,ty) -> supertype scope Nothing ty >>= \ctr -> return (l,False,ctr)) ltys
+  return (VRecType lctrs)
+supertype scope (Just (VRecType lctrs1)) (VRecType lctrs2) = do
+  lctrs <- foldM (\lctrs (l,o,ctr) -> intersect l o ctr lctrs lctrs2) [] lctrs1
+  return (VRecType lctrs)
   where
-    intersect l o ctr lctrs [] = return lctrs
-    intersect l o ctr lctrs ((l',ty):ltys2)
-      | l == l'   = do ctr <- supertype scope (Just ctr) ty
-                       return ((l,o,ctr):lctrs)
-      | otherwise = do intersect l o ctr lctrs ltys2
+    intersect l o1 ctr1 lctrs [] = return lctrs
+    intersect l o1 ctr1 lctrs ((l',o2,ctr2):lctrs2)
+      | l == l'   = do ctr <- supertype scope (Just ctr1) ctr2
+                       return ((l,o1 && o2,ctr):lctrs)
+      | otherwise = do intersect l o1 ctr1 lctrs lctrs2
+supertype scope (Just (VTable a1 r1)) (VTable a2 r2) = do
+  a <- subtype scope (Just a1) a2
+  r <- supertype scope (Just r1) r2
+  return (VTable a r)
 supertype scope Nothing    ty = return ty
 supertype scope (Just ctr) ty = do
   unify scope ctr ty
@@ -974,8 +983,8 @@ unify scope (VGen i vs1)       (VGen j vs2)
 unify scope (VProd b x d cod) (VProd b' x' d' cod')
   | b == b'                    = do
       unify scope d d'
-      cod <- evalCodomain scope x cod
-      cod' <- evalCodomain scope x' cod'
+      cod  <- evalCodomain x  (VGen (length scope) []) cod
+      cod' <- evalCodomain x' (VGen (length scope) []) cod'
       unify scope cod cod'
 unify scope (VTable p1 res1) (VTable p2 res2) = do
   unify scope p2   p1
@@ -992,8 +1001,8 @@ unify scope VEmpty VEmpty      = return ()
 unify scope v1 v2 = do
   t1 <- value2termM False (scopeVars scope) v1
   t2 <- value2termM False (scopeVars scope) v2
-  evalError ("Cannot unify terms:" <+> (ppTerm Unqualified 0 t1 $$
-                                        ppTerm Unqualified 0 t2))
+  evalError ("Cannot unify:" <+> show t1 $$
+             "        with:" <+> show t2)
 
 
 -- | Invariant: tv1 is a flexible type variable
@@ -1037,7 +1046,7 @@ occursCheck scope' i0 scope v =
                                check (m+1) (n+1) (eval g ((x,VGen n []):env) c t [])
         _                -> check m n ty2
     check m n (VRecType as) =
-      mapM_ (\(lbl,v) -> check m n v) as
+      mapM_ (\(_,_,v) -> check m n v) as
     check m n (VR as) =
       mapM_ (\(lbl,v) -> check m n v) as
     check m n (VP v l vs) =
@@ -1070,6 +1079,7 @@ occursCheck scope' i0 scope v =
       check m n v >> mapM_ (\(v1,v2) -> check m n v1 >> check m n v2) vs
     check m n (VStrs vs) =
       mapM_ (check m n) vs
+    check m n (VInts _ _) = return ()
 
 -----------------------------------------------------------------------
 -- Instantiation and quantification
@@ -1101,7 +1111,7 @@ skolemise scope ty@(VMeta i vs) = do
                           skolemise scope (apply g ty vs)
 skolemise scope (VProd Implicit x ty1 ty2) = do
   let v = newVar scope
-  ty2 <- evalCodomain scope x ty2
+  ty2 <- evalCodomain x (VGen (length scope) []) ty2
   (scope,f,ty2) <- skolemise ((v,ty1):scope) ty2
   return (scope,Abs Implicit v . f,ty2)
 skolemise scope ty = do
@@ -1144,7 +1154,7 @@ quantify scope t tvs ty = do
         v2               -> do (xs,v2) <- check m (n+1) xs v2
                                return (x:xs,VProd bt x v1 v2)
     check m n xs (VRecType as)     = do
-      (xs,as) <- mapAccumM (\xs (l,v) -> check m n xs v >>= \(xs,v) -> return (xs,(l,v))) xs as
+      (xs,as) <- mapAccumM (\xs (l,o,v) -> check m n xs v >>= \(xs,v) -> return (xs,(l,o,v))) xs as
       return (xs,VRecType as)
     check m n xs (VR as)           = do
       (xs,as) <- mapAccumM (\xs (lbl,tnk) -> check m n xs tnk >>= \(xs,tnk) -> return (xs,(lbl,tnk))) xs as
@@ -1251,7 +1261,7 @@ getMetaVars sc_tys = foldM (\acc (scope,ty) -> go acc ty) [] sc_tys
     go acc (VGen i args)     = foldM go acc args
     go acc (VSort s)         = return acc
     go acc (VInt _)          = return acc
-    go acc (VRecType as)     = foldM (\acc (lbl,v) -> go acc v) acc as
+    go acc (VRecType vs)    = foldM (\acc (lbl,_,v) -> go acc v) acc vs
     go acc (VClosure _ _ _)  = return acc
     go acc (VProd b x v1 v2) = go acc v2 >>= \acc -> go acc v1
     go acc (VTable v1 v2)    = go acc v2 >>= \acc -> go acc v1
@@ -1265,8 +1275,7 @@ getMetaVars sc_tys = foldM (\acc (scope,ty) -> go acc ty) [] sc_tys
                                     _                      -> return acc
     go acc (VApp c f args)   = foldM go acc args
     go acc (VFV c vs)        = foldM go acc (unvariants vs)
-    go acc (VCRecType vs)    = foldM (\acc (lbl,b,v) -> go acc v) acc vs
-    go acc (VCInts _ _)      = return acc
+    go acc (VInts _ _)      = return acc
     go acc v                 = unimplemented ("go "++show (ppValue Unqualified 5 v))
 
 -- | Eliminate any substitutions in a term
