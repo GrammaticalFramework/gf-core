@@ -825,7 +825,7 @@ subsCheckRho scope t ty1@(VRecType rs1) ty2@(VRecType rs2) = do      -- Rule REC
   (scope,mkProj,mkWrap) <- mkAccess scope t
 
   let fields = [(l,ty2,lookup3 l rs1) | (l,o2,ty2) <- rs2]
-  case [l | (l,_,Nothing) <- fields] of
+  case [l | (l,_,Nothing) <- fields, not (isLockLabel l)] of
     []      -> return ()
     missing -> evalError ("In the term" <+> pp t $$
                           "there are no values for fields:" <+> hsep missing)
