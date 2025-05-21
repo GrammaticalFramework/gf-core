@@ -887,6 +887,11 @@ subtype scope (Just (VTable a1 r1)) (VTable a2 r2) = do
   a <- supertype scope (Just a1) a2
   r <- subtype scope (Just r1) r2
   return (VTable a r)
+subtype scope (Just (VProd Explicit x a1 r1)) (VProd Explicit y a2 r2)
+  | x == identW && y == identW = do
+       a <- supertype scope (Just a1) a2
+       r <- subtype scope (Just r1) r2
+       return (VProd Explicit identW a r)
 subtype scope Nothing    ty = return ty
 subtype scope (Just ctr) ty = do
   unify scope ctr ty
@@ -914,10 +919,11 @@ supertype scope (Just (VTable a1 r1)) (VTable a2 r2) = do
   a <- subtype scope (Just a1) a2
   r <- supertype scope (Just r1) r2
   return (VTable a r)
-supertype scope (Just (VProd _ _ a1 r1)) (VProd _ _ a2 r2) = do
-  a <- subtype scope (Just a1) a2
-  r <- supertype scope (Just r1) r2
-  return (VProd Explicit identW a r)
+supertype scope (Just (VProd Explicit x a1 r1)) (VProd Explicit y a2 r2)
+  | x == identW && y == identW = do
+       a <- subtype scope (Just a1) a2
+       r <- supertype scope (Just r1) r2
+       return (VProd Explicit identW a r)
 supertype scope Nothing    ty = return ty
 supertype scope (Just ctr) ty = do
   unify scope ctr ty
