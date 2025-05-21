@@ -551,7 +551,7 @@ resolveOverloads scope c t0 q args mb_ty = do
         join t ty state res = do
           t <- withState state (zonkTerm [] t)
           (ts,ty') <- res
-          unify scope ty ty'
+          ty <- supertype scope (Just ty) ty'
           return (t:ts,ty)
 
 reapply2 :: Scope -> Choice -> Term -> Value -> [(Term,Value,Value)] -> Maybe Rho -> EvalM (Term,Rho)
@@ -830,7 +830,7 @@ subsCheckRho scope t ty1@(VRecType rs1) ty2@(VRecType rs2) = do      -- Rule REC
     missing -> evalError ("In the term" <+> pp t $$
                           "there are no values for fields:" <+> hsep missing)
   rs <- sequence [mkField scope l t ty1 ty2 | (l,ty2,Just ty1) <- fields, Just t <- [mkProj l]]
-  return (mkWrap (R rs))
+  return (mkWrap (R (rs++[(l, (Just (RecType []),R [])) | (l,_,Nothing) <- fields, isLockLabel l])))
 subsCheckRho scope t tau1 (VFV c (VarFree vs)) = do
   tau2 <- variants c vs
   subsCheckRho scope t tau1 tau2
@@ -914,6 +914,10 @@ supertype scope (Just (VTable a1 r1)) (VTable a2 r2) = do
   a <- subtype scope (Just a1) a2
   r <- supertype scope (Just r1) r2
   return (VTable a r)
+supertype scope (Just (VProd _ _ a1 r1)) (VProd _ _ a2 r2) = do
+  a <- subtype scope (Just a1) a2
+  r <- supertype scope (Just r1) r2
+  return (VProd Explicit identW a r)
 supertype scope Nothing    ty = return ty
 supertype scope (Just ctr) ty = do
   unify scope ctr ty
@@ -999,8 +1003,8 @@ unify scope VEmpty VEmpty      = return ()
 unify scope v1 v2 = do
   t1 <- value2termM False (scopeVars scope) v1
   t2 <- value2termM False (scopeVars scope) v2
-  evalError ("Cannot unify:" <+> show t1 $$
-             "        with:" <+> show t2)
+  evalError ("Cannot unify:" <+> ppTerm Terse 0 t1 $$
+             "        with:" <+> ppTerm Terse 0 t2)
 
 
 -- | Invariant: tv1 is a flexible type variable
