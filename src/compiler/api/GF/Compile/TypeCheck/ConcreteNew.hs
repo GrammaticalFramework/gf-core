@@ -654,9 +654,7 @@ checkRecFields scope c ((l,t):lts) ltys =
                          lttys <- checkRecFields scope c2 lts ltys
                          return (ltty : lttys)
     (Nothing,ltys) -> do evalWarn ("Discarded field:" <+> l)
-                         let (c1,c2) = split c
-                         ltty  <- tcRecField scope c1 l t Nothing
-                         lttys <- checkRecFields scope c2 lts ltys
+                         lttys <- checkRecFields scope c lts ltys
                          return lttys     -- ignore the field
   where
     takeIt l1 []  = (Nothing, [])
