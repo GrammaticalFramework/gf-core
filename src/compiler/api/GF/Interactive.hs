@@ -14,7 +14,8 @@ import GF.Command.Abstract
 import GF.Command.Parse(readCommandLine,pCommand,readTransactionCommand)
 import GF.Compile.Rename(renameSourceTerm)
 import GF.Compile.TypeCheck.Concrete(inferLType)
-import GF.Compile.Compute.Concrete(normalForm,stdPredef,Globals(..))
+import qualified GF.Compile.Compute.Concrete as O(normalForm,stdPredef,Globals(..))
+import GF.Compile.Compute.Concrete2(stdPredef,Globals(..))
 import GF.Compile.GeneratePMCFG(pmcfgForm,type2fields)
 import GF.Data.Operations (Err(..))
 import GF.Data.Utilities(whenM,repeatM)
@@ -317,11 +318,12 @@ transactionCommand (CreateLin opts f mb_t is_alter) pgf mb_txnid = do
     compileLinTerm sgr mo f mb_t ty = do
       (t,ty) <- case mb_t of
                   Just t  -> do t <- renameSourceTerm sgr mo (Typed t ty)
-                                (t,ty) <- inferLType sgr [] t
+                                let g = Gl sgr (stdPredef g)
+                                (t,ty) <- inferLType g t
                                 return (t,ty)
                   Nothing -> case lookupResDef sgr (mo,identS f) of
                                Ok t    -> do ty <- renameSourceTerm sgr mo ty
-                                             ty <- normalForm (Gl sgr stdPredef) ty
+                                             ty <- O.normalForm (O.Gl sgr O.stdPredef) ty
                                              return (t,ty)
                                Bad msg -> fail msg
       let (ctxt,res_ty) = typeFormCnc ty
@@ -344,7 +346,8 @@ transactionCommand (CreateLincat opts c mb_t) pgf mb_txnid = do
     compileLincatTerm sgr mo mb_t = do
       t <- case mb_t of
              Just t  -> do t <- renameSourceTerm sgr mo t
-                           (t,_) <- inferLType sgr [] t
+                           let g = Gl sgr (stdPredef g)
+                           (t,_) <- inferLType g t
                            return t
              Nothing -> case lookupResDef sgr (mo,identS c) of
                           Ok t    -> return t

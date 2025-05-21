@@ -127,7 +127,6 @@ library
     GF.Compile.ToAPI
     GF.Compile.TypeCheck.Abstract
     GF.Compile.TypeCheck.Concrete
-    GF.Compile.TypeCheck.ConcreteNew
     GF.Compile.TypeCheck.TC
     GF.Compile.Update
     GF.Data.BacktrackM

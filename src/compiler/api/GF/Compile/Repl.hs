@@ -32,7 +32,7 @@ import GF.Compile.Compute.Concrete2
   , ppValue
   )
 import GF.Compile.Rename (renameSourceTerm)
-import GF.Compile.TypeCheck.ConcreteNew (inferLType)
+import GF.Compile.TypeCheck.Concrete (inferLType)
 import GF.Data.ErrM (Err(..))
 import GF.Data.Utilities (maybeAt, orLeft)
 import GF.Grammar.Grammar
