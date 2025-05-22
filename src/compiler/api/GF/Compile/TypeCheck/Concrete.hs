@@ -150,7 +150,7 @@ tcRho scope c (Abs bt var body) Nothing = do                   -- ABS1
       foldM (\st (v1,v2) -> check m n st v1 >>= \st -> check m n st v2) st vs
     check m n st (VStrs vs)        =
       foldM (check m n) st vs
-    check m n xs v@(VInts _ _) = return (xs,v)
+    check m n st (VInts _ _) = return st
 tcRho scope c t@(Abs Implicit var body) (Just ty) = do         -- ABS2
   (bt, x, var_ty, body_ty) <- unifyFun scope ty
   if bt == Implicit
