@@ -17,6 +17,7 @@ module GF.Grammar.Printer
            , ppTerm
            , ppPatt
            , ppValue
+           , ppBind
            , ppConstrs
            , ppQIdent
            , ppMeta

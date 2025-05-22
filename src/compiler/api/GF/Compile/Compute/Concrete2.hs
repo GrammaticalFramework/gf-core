@@ -348,7 +348,8 @@ evalPredef g@(Gl gr pds) c n args =
 
 stdPredef :: Globals -> PredefTable
 stdPredef g = Map.fromList
-  [(cLength, pdArity 1 $\ \g c [v] -> fmap (VInt . genericLength) (value2string g v))
+  [(cInts,   pdArity 1 $\ \g c vs -> Const (case vs of {[VInt i] -> VInts (Just i) (Just i); vs -> VApp c (cPredef,cInts) vs}))
+  ,(cLength, pdArity 1 $\ \g c [v] -> fmap (VInt . genericLength) (value2string g v))
   ,(cTake,   pdArity 2 $\ \g c [v1,v2] -> fmap string2value (liftA2 genericTake (value2int g v1) (value2string g v2)))
   ,(cDrop,   pdArity 2 $\ \g c [v1,v2] -> fmap string2value (liftA2 genericDrop (value2int g v1) (value2string g v2)))
   ,(cTk,     pdArity 2 $\ \g c [v1,v2] -> fmap string2value (liftA2 genericTk (value2int g v1) (value2string g v2)))
@@ -972,9 +973,9 @@ value2termM flat xs (VReset ctl mb_cv v mb_qid) = do
     listify mn cat (t1:ts) = do t2 <- listify mn cat ts
                                 return (App (App (QC (mn,identS ("Cons"++cat))) t1) t2)
 value2termM flat xs (VError msg) = evalError msg
-value2termM flat xs (VInts Nothing    Nothing) = return (App (QC (cPredef,cInts)) (Meta 0))
-value2termM flat xs (VInts (Just min) Nothing) = return (App (QC (cPredef,cInts)) (EInt min))
-value2termM flat xs (VInts _       (Just max)) = return (App (QC (cPredef,cInts)) (EInt max))
+value2termM flat xs (VInts Nothing    Nothing) = return (App (Q (cPredef,cInts)) (Meta 0))
+value2termM flat xs (VInts (Just min) Nothing) = return (App (Q (cPredef,cInts)) (EInt min))
+value2termM flat xs (VInts _       (Just max)) = return (App (Q (cPredef,cInts)) (EInt max))
 value2termM flat xs v = evalError ("value2termM" <+> ppValue Unqualified 5 v)
 
 
@@ -995,7 +996,10 @@ ppValue q d (VMeta i vs) = prec d 4 (hsep ((if i > 0 then pp "?" <> pp i else pp
 ppValue q d (VSusp i k vs) = prec d 4 (hsep (pp "#susp" : (if i > 0 then pp "?" <> pp i else pp "?") : map (ppValue q 5) vs))
 ppValue q d (VGen _ _) = pp "VGen"
 ppValue q d (VClosure env c t) = pp "[|" <> ppTerm q 4 t <> pp "|]"
-ppValue q d (VProd _ _ _ _) = pp "VProd"
+ppValue q d (VProd bt x a b) =
+  if x == identW && bt == Explicit
+    then prec d 0 (ppValue q 4 a <+> "->" <+> ppValue q 0 b)
+    else prec d 0 (parens (ppBind (bt,x) <+> ':' <+> ppValue q 0 a) <+> "->" <+> ppValue q 0 b)
 ppValue q d (VRecType xs)
   | q == Terse         = case [cat | (l,_,_) <- xs, let (p,cat) = splitAt 5 (showIdent (label2ident l)), p == "lock_"] of
                            [cat] -> pp cat
@@ -1032,9 +1036,7 @@ ppValue q d (VError msg) = prec d 4 (pp "error" <+> ppTerm q 5 (K (show msg)))
 ppValue q d (VInts Nothing    Nothing)    = prec d 4 (pp "Ints ?")
 ppValue q d (VInts (Just min) Nothing)    = prec d 4 (pp "Ints" <+> brackets (pp min <> ".."))
 ppValue q d (VInts Nothing    (Just max)) = prec d 4 (pp "Ints" <+> brackets (".." <> pp max))
-ppValue q d (VInts (Just min) (Just max))
-   | min == max                           = prec d 4 (pp "Ints" <+> min)
-   | otherwise                            = prec d 4 (pp "Ints" <+> brackets (pp min <> ".." <> pp max))
+ppValue q d (VInts (Just min) (Just max)) = prec d 4 (pp "Ints" <+> brackets (pp min <> ".." <> pp max))
 
 ppAltern q (x,y) = ppValue q 0 x <+> '/' <+> ppValue q 0 y
 

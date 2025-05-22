@@ -13,7 +13,7 @@ import GF.Grammar.Lockfield
 import GF.Compile.Compute.Concrete2
 import GF.Infra.CheckM
 import GF.Data.ErrM ( Err(Ok, Bad) )
-import Control.Applicative(Applicative(..))
+import Control.Applicative(Applicative(..),(<|>))
 import Control.Monad(ap,liftM,mplus,foldM,zipWithM,forM,filterM,unless)
 import Control.Monad.ST
 import GF.Text.Pretty
@@ -68,7 +68,6 @@ inferSigma scope s t = do                                      -- GEN1
 
 vtypeInt   = VApp poison (cPredef,cInt) []
 vtypeFloat = VApp poison (cPredef,cFloat) []
-vtypeInts i= VApp poison (cPredef,cInts) [VInt i]
 vtypeStr   = VSort cStr
 vtypeStrs  = VSort cStrs
 vtypeType  = VSort cType
@@ -76,7 +75,7 @@ vtypePType = VSort cPType
 vtypeMarkup= VApp poison (cPredef,cMarkup) []
 
 tcRho :: Scope -> Choice -> Term -> Maybe Rho -> EvalM (Term, Rho)
-tcRho scope s t@(EInt i)   mb_ty = instSigma scope s t (vtypeInts i) mb_ty -- INT
+tcRho scope s t@(EInt i)   mb_ty = instSigma scope s t (VInts (Just i) Nothing) mb_ty -- INT
 tcRho scope s t@(EFloat _) mb_ty = instSigma scope s t vtypeFloat mb_ty    -- FLOAT
 tcRho scope s t@(K _)      mb_ty = instSigma scope s t vtypeStr   mb_ty    -- STR
 tcRho scope s t@(Empty)    mb_ty = instSigma scope s t vtypeStr   mb_ty
@@ -328,14 +327,38 @@ tcRho scope c t@(ExtR t1 t2) mb_ty = do
   let (c1,c2,c3,c4) = split4 c
   (t1,t1_ty) <- tcRho scope c1 t1 Nothing
   (t2,t2_ty) <- tcRho scope c2 t2 Nothing
-  case (t1_ty,t2_ty) of
-    (VSort s1,VSort s2)
+  ty <- join t1_ty t2_ty
+  instSigma scope c3 (ExtR t1 t2) ty mb_ty
+  where
+    join (VMeta i vs) ty2 = do
+      mv <- getMeta i
+      case mv of
+        Bound _ v -> do
+          g <- globals
+          join (apply g v vs) ty2
+        Residuation _ (Just ctr) -> do
+          g <- globals
+          join (apply g ctr vs) ty2
+    join ty1 (VMeta j vs) = do
+      mv <- getMeta j
+      case mv of
+        Bound _ v -> do
+          g <- globals
+          join ty1 (apply g v vs)
+        Residuation _ (Just ctr) -> do
+          g <- globals
+          join ty1 (apply g ctr vs)
+    join (VSort s1) (VSort s2)
        | (s1 == cType || s1 == cPType) &&
-         (s2 == cType || s2 == cPType) -> let sort | s1 == cPType && s2 == cPType = cPType
-                                                   | otherwise                    = cType
-                                          in instSigma scope c3 (ExtR t1 t2) (VSort sort) mb_ty
-    (VRecType rs1, VRecType rs2)       -> instSigma scope c3 (ExtR t1 t2) (VRecType (rs2++rs1)) mb_ty
-    _                                  -> evalError ("Cannot type check" <+> ppTerm Unqualified 0 t)
+         (s2 == cType || s2 == cPType) = let sort | s1 == cPType && s2 == cPType = cPType
+                                                  | otherwise                    = cType
+                                         in return (VSort sort)
+    join ty1@(VRecType _) ty2@(VRecType _) = subtype scope (Just ty1) ty2
+    join ty1            ty2            = do ty1 <- value2termM False (scopeVars scope) ty1
+                                            ty2 <- value2termM False (scopeVars scope) ty2
+                                            evalError ("Cannot type check" <+> ppTerm Unqualified 0 t $$
+                                                       "       with types" <+> (ppTerm Unqualified 0 ty1 $$
+                                                                                ppTerm Unqualified 0 ty2))
 tcRho scope c (ELin cat t) mb_ty = do  -- this could be done earlier, i.e. in the parser
   tcRho scope c (ExtR t (R [(lockLabel cat,(Just (RecType []),R []))])) mb_ty
 tcRho scope c (ELincat cat t) mb_ty = do  -- this could be done earlier, i.e. in the parser
@@ -590,7 +613,7 @@ tcPatt scope c (PP q ps) ty0 = do
   unify scope ty0 ty
   return scope
 tcPatt scope c (PInt i) ty0 = do
-  subsCheckRho scope (EInt i) (vtypeInts i) ty0
+  subsCheckRho scope (EInt i) (VInts (Just i) Nothing) ty0
   return scope
 tcPatt scope c (PString s) ty0 = do
   unify scope ty0 vtypeStr
@@ -778,33 +801,29 @@ subsCheckRho scope t (VSort s1) (VSort s2)                    -- Rule PTYPE
   | s1 == cPType && s2 == cType = return t
 subsCheckRho scope t (VApp _ p1 []) rho2                      -- for backwards compatibility
   | p1 == (cPredef,cErrorType) = return t
-subsCheckRho scope t (VApp _ p1 _) (VApp _ p2 _)              -- This is not correct but there is in the RGL nextPrec relies on it.
-  | p1 == (cPredef,cInt) && p2 == (cPredef,cInts) = return t  -- Should be only a temporary hack.
-subsCheckRho scope t (VApp _ p1 _) (VApp _ p2 _)              -- Rule INT1
-  | p1 == (cPredef,cInts) && p2 == (cPredef,cInt) = return t
-subsCheckRho scope t (VApp _ p1 [VInt i]) (VApp _ p2 [VInt j]) -- Rule INT2
-  | p1 == (cPredef,cInts) && p2 == (cPredef,cInts) = do
-      if i <= j
-        then return t
-        else evalError ("Ints" <+> i <+> "is not a subtype of" <+> "Ints" <+> j)
+subsCheckRho scope t (VApp _ p _) (VInts _ _)              -- This is not correct but nextPrec in the RGL relies on it.
+  | p == (cPredef,cInt) = return t                         -- Should be only a temporary hack.
+subsCheckRho scope t (VInts _ _) (VApp _ p _)                 -- Rule INT1
+  | p == (cPredef,cInt) = return t
+subsCheckRho scope t ty1@(VInts min1 max1) ty2@(VInts min2 max2)     -- Rule INT2
+  | i <= j    = return t
+  | otherwise = evalError ("Ints" <+> i <+> "is not a subtype of" <+> "Ints" <+> j)
+  where
+    i = fromMaybe 0 (max1 <|> min1)
+    j = fromMaybe 0 (min2 <|> max2)
 subsCheckRho scope t ty1@(VRecType rs1) ty2@(VRecType rs2) = do      -- Rule REC
   let mkAccess scope t =
         case t of
-          ExtR t1 t2 -> do (scope,mkProj1,mkWrap1) <- mkAccess scope t1
-                           (scope,mkProj2,mkWrap2) <- mkAccess scope t2
-                           return (scope
-                                  ,\l -> mkProj2 l `mplus` mkProj1 l
-                                  ,mkWrap1 . mkWrap2
-                                  )
+          ExtR t1 (R rs) ->
+                  do (scope,mkProj1,mkWrap1) <- mkAccess scope t1
+                     sequence_ [evalWarn ("Discarded field:" <+> l) | (l,_) <- rs, isNothing (lookup3 l rs2)]
+                     return (scope
+                            ,\l -> lookup l rs `mplus` mkProj1 l
+                            ,mkWrap1
+                            )
           R rs -> do sequence_ [evalWarn ("Discarded field:" <+> l) | (l,_) <- rs, isNothing (lookup3 l rs2)]
                      return (scope
                             ,\l -> lookup l rs
-                            ,id
-                            )
-          Vr x -> do return (scope
-                            ,\l -> do VRecType rs <- lookup x scope
-                                      ty <- lookup3 l rs
-                                      return (Nothing,P t l)
                             ,id
                             )
           t    -> let x = newVar scope
@@ -863,12 +882,16 @@ subsCheckTbl scope t p1 r1 p2 r2 = do
   p2 <- value2termM True (scopeVars scope) p2
   return (T (TTyped p2) [(PV x,t)])
 
-subtype scope Nothing (VApp c p [VInt i])
-  | p == (cPredef,cInts) = do
-      return (VInts Nothing (Just i))
-subtype scope (Just (VInts i j)) (VApp c p [VInt k])
-  | p == (cPredef,cInts) = do
-      return (VInts j (Just (maybe k (min k) i)))
+subtype scope (Just (VInts i1 j1)) (VInts i2 j2) =
+  case VInts (lift max i1 i2) (lift min j1 j2) of
+    ty@(VInts (Just i) (Just j))
+      | i > j -> evalError (ppValue Unqualified 0 ty <+> "is an empty type")
+    ty        -> return ty
+  where
+    lift f Nothing  Nothing  = Nothing
+    lift f (Just x) Nothing  = Just x
+    lift f Nothing  (Just y) = Just y
+    lift f (Just x) (Just y) = Just (f x y)
 subtype scope Nothing (VRecType ltys) = do
   lctrs <- mapM (\(l,o,ty) -> subtype scope Nothing ty >>= \ctr -> return (l,o,ctr)) ltys
   return (VRecType lctrs)
@@ -897,12 +920,16 @@ subtype scope (Just ctr) ty = do
   unify scope ctr ty
   return ty
 
-supertype scope Nothing (VApp c p [VInt i])
-  | p == (cPredef,cInts) = do
-      return (VInts (Just i) Nothing)
-supertype scope (Just (VInts i j)) (VApp c p [VInt k])
-  | p == (cPredef,cInts) = do
-      return (VInts (Just (maybe k (max k) i)) j)
+supertype scope (Just (VInts i1 j1)) (VInts i2 j2) =
+  case VInts (lift min i1 i2) (lift max j1 j2) of
+    ty@(VInts (Just i) (Just j))
+      | i > j -> evalError (ppValue Unqualified 0 ty <+> "is an empty type")
+    ty        -> return ty
+  where
+    lift f Nothing  Nothing  = Nothing
+    lift f (Just x) Nothing  = Nothing
+    lift f Nothing  (Just y) = Nothing
+    lift f (Just x) (Just y) = Just (f x y)
 supertype scope Nothing (VRecType ltys) = do
   lctrs <- mapM (\(l,o,ty) -> supertype scope Nothing ty >>= \ctr -> return (l,False,ctr)) ltys
   return (VRecType lctrs)
@@ -1009,8 +1036,8 @@ unify scope VEmpty VEmpty      = return ()
 unify scope v1 v2 = do
   t1 <- value2termM False (scopeVars scope) v1
   t2 <- value2termM False (scopeVars scope) v2
-  evalError ("Cannot unify:" <+> ppTerm Terse 0 t1 $$
-             "        with:" <+> ppTerm Terse 0 t2)
+  evalError ("Cannot unify:" <+> ppValue Terse 0 v1 $$
+             "        with:" <+> ppValue Terse 0 v2)
 
 
 -- | Invariant: tv1 is a flexible type variable
