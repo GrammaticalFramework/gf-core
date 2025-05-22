@@ -150,6 +150,7 @@ tcRho scope c (Abs bt var body) Nothing = do                   -- ABS1
       foldM (\st (v1,v2) -> check m n st v1 >>= \st -> check m n st v2) st vs
     check m n st (VStrs vs)        =
       foldM (check m n) st vs
+    check m n xs v@(VInts _ _) = return (xs,v)
 tcRho scope c t@(Abs Implicit var body) (Just ty) = do         -- ABS2
   (bt, x, var_ty, body_ty) <- unifyFun scope ty
   if bt == Implicit
@@ -1252,6 +1253,7 @@ quantify scope t tvs ty = do
     check m n xs (VStrs vs)        = do
       (xs,vs) <- mapAccumM (check m n) xs vs
       return (xs,VStrs vs)
+    check m n xs v@(VInts _ _) = return (xs,v)
     check m n xs v = unimplemented ("check "++show (ppValue Unqualified 5 v))
 
     mapAccumM :: Monad m => (a -> b -> m (a,c)) -> a -> [b] -> m (a,[c])
