@@ -36,7 +36,7 @@ checkLType globals t ty = do
     [tty] -> return tty
     _     -> checkError (pp "Encountered variants while type checking")
 
-checkLType' :: Choice -> Term -> Constraint -> EvalM (Term, Constraint)
+checkLType' :: Choice -> Term -> Value -> EvalM (Term, Value)
 checkLType' c t vty = do
   (t,vty) <- tcRho [] c t (Just vty)
   t <- zonkTerm [] t
@@ -52,7 +52,7 @@ inferLType globals t = do
     [tty] -> return tty
     _     -> checkError (pp "Encountered variants while type checking")
 
-inferLType' :: Term -> EvalM (Term, Constraint)
+inferLType' :: Term -> EvalM (Term, Value)
 inferLType' t = do
   (t,vty) <- inferSigma [] unit t
   t <- zonkTerm [] t
@@ -273,7 +273,8 @@ tcRho scope c (V p_ty ts) Nothing = do
   let res_ty = VMeta i []
 
   let go c t = do (t, ty) <- tcRho scope c t Nothing
-                  subsCheckRho scope t ty res_ty
+                  (t,_,_) <- subsCheckRho scope t ty res_ty
+                  return t
 
   ts <- mapCM go c2 ts
   g <- globals
@@ -305,7 +306,7 @@ tcRho scope c (R rs) (Just ty) = do
     ty              -> do lttys <- inferRecFields scope c rs
                           t <- liftM (f . R) (mapM (\(l,t,ty) -> value2termM True (scopeVars scope) ty >>= \ty -> return (l, (Just ty, t))) lttys)
                           let ty' = VRecType [(l,True,ty) | (l,t,ty) <- lttys]
-                          t <- subsCheckRho scope t ty' ty
+                          (t,_,_) <- subsCheckRho scope t ty' ty
                           return (t, ty')
 tcRho scope c (P t l) mb_ty = do
   l_ty   <- case mb_ty of
@@ -337,24 +338,26 @@ tcRho scope c t@(ExtR t1 t2) mb_ty = do
         Bound _ v -> do
           g <- globals
           join (apply g v vs) ty2
-        Residuation _ (Just ctr) -> do
-          g <- globals
-          join (apply g ctr vs) ty2
     join ty1 (VMeta j vs) = do
       mv <- getMeta j
       case mv of
         Bound _ v -> do
           g <- globals
           join ty1 (apply g v vs)
-        Residuation _ (Just ctr) -> do
-          g <- globals
-          join ty1 (apply g ctr vs)
     join (VSort s1) (VSort s2)
        | (s1 == cType || s1 == cPType) &&
          (s2 == cType || s2 == cPType) = let sort | s1 == cPType && s2 == cPType = cPType
                                                   | otherwise                    = cType
                                          in return (VSort sort)
-    join ty1@(VRecType _) ty2@(VRecType _) = subtype scope (Just ty1) ty2
+    join (VRecType rs1) (VRecType rs2) = do
+      rs <- foldM (\rs (l,o,ctr) -> extend l o ctr rs) rs1 rs2
+      return (VRecType rs)
+      where
+        extend l o1 ty1 [] = do return [(l,o1,ty1)]
+        extend l o1 ty1 ((l',o2,ty2):rs)
+          | l == l'   = do return ((l,o1,ty1):rs)
+          | otherwise = do rs <- extend l o1 ty1 rs
+                           return ((l',o2,ty2):rs)
     join ty1            ty2            = do ty1 <- value2termM False (scopeVars scope) ty1
                                             ty2 <- value2termM False (scopeVars scope) ty2
                                             evalError ("Cannot type check" <+> ppTerm Unqualified 0 t $$
@@ -453,14 +456,14 @@ evalCodomain x v (VClosure env c ty) = do
   return (eval g ((x,v):env) c ty [])
 evalCodomain x _ ty = return ty
 
-tcUnifying :: Scope -> Choice -> [Term] -> Maybe Rho -> EvalM ([Term], Constraint)
+tcUnifying :: Scope -> Choice -> [Term] -> Maybe Rho -> EvalM ([Term], Value)
 tcUnifying scope c ts mb_ty = do
   (ty,subsume) <-
     case mb_ty of
       Just ty -> do return (ty, \t ty' -> return t)
       Nothing -> do i <- newResiduation scope
                     let ty = VMeta i []
-                    return (ty, \t ty' -> subsCheckRho scope t ty' ty)
+                    return (ty, \t ty' -> subsCheckRho scope t ty' ty >>= \(t,_,_) -> return t)
 
   let go c t = do (t, ty) <- tcRho scope c t mb_ty
                   subsume t ty
@@ -558,15 +561,13 @@ resolveOverloads scope c t0 q args mb_ty = do
         zonk (VProd bt x ty1 ty2) = VProd bt x (zonk ty1) (zonk ty2)
         zonk (VMeta i vs)         =
           case Map.lookup i (metaVars state) of
-            Just (Bound _ v)              -> zonk (apply g v vs)
-            Just (Residuation _ (Just v)) -> zonk (apply g v vs)
-            _                             -> VMeta i (map zonk vs)
-        zonk (VSusp i k vs)      =
+            Just (Bound _ v)     -> zonk (apply g v vs)
+            _                    -> VMeta i (map zonk vs)
+        zonk (VSusp i k vs)       =
           case Map.lookup i (metaVars state) of
-            Just (Bound _ v)              -> zonk (apply g (k v) vs)
-            Just (Residuation _ (Just v)) -> zonk (apply g (k v) vs)
-            _                             -> VSusp i k (map zonk vs)
-        zonk v                   = v
+            Just (Bound _ v)     -> zonk (apply g (k v) vs)
+            _                    -> VSusp i k (map zonk vs)
+        zonk v                    = v
 
         one t ty state = do
           t <- withState state (zonkTerm [] t)
@@ -585,13 +586,13 @@ reapply2 scope c fun fun_ty ((ImplArg arg,arg_v,arg_ty):args) mb_ty = do -- Impl
   unless (bt == Implicit) $
      evalError (ppTerm Unqualified 0 (App fun (ImplArg arg)) <+>
                 "is an implicit argument application, but no implicit argument is expected")
-  arg <- subsCheckRho scope arg arg_ty' arg_ty
+  (arg,_,_) <- subsCheckRho scope arg arg_ty' arg_ty
   res_ty <- evalCodomain x arg_v res_ty
   reapply2 scope c (App fun (ImplArg arg)) res_ty args mb_ty
 reapply2 scope c fun fun_ty ((arg,arg_v,arg_ty):args) mb_ty = do -- Explicit arg (fallthrough) case
   (fun,fun_ty) <- instantiate scope fun fun_ty
   (_, x, arg_ty', res_ty) <- unifyFun scope fun_ty
-  arg <- subsCheckRho scope arg arg_ty arg_ty'
+  (arg,_,_) <- subsCheckRho scope arg arg_ty arg_ty'
   res_ty <- evalCodomain x arg_v res_ty
   reapply2 scope c (App fun arg) res_ty args mb_ty
 
@@ -613,9 +614,21 @@ tcPatt scope c (PP q ps) ty0 = do
   (scope,ty) <- go scope c1 (eval g [] c2 ty []) ps
   unify scope ty0 ty
   return scope
-tcPatt scope c (PInt i) ty0 = do
-  subsCheckRho scope (EInt i) (VInts (Just i) Nothing) ty0
-  return scope
+tcPatt scope c p@(PInt i) ty0 =
+  case ty0 of
+    VInts min max
+       | i <= fromMaybe i max -> return scope
+       | otherwise            -> evalError ("Ints" <+> i <+> "is not a subtype of" <+> ppValue Unqualified 0 ty0)
+    VMeta k vs -> do
+       mv <- getMeta k
+       case mv of
+         Bound _ v -> do
+           g  <- globals
+           tcPatt scope c p (apply g v vs)
+         Residuation scope1 -> do
+           setMeta k (Bound scope1 (VInts (Just i) Nothing))
+           return scope
+    _ -> evalError (pp "An integer must have an Int or Ints n type")
 tcPatt scope c (PString s) ty0 = do
   unify scope ty0 vtypeStr
   return scope
@@ -636,18 +649,38 @@ tcPatt scope c (PRep _ _ p) ty0 = do
   tcPatt scope c p vtypeStr
 tcPatt scope c (PAs x p) ty0 = do
   tcPatt ((x,ty0):scope) c p ty0
-tcPatt scope c (PR rs) ty0 = do
-  let mk_ltys []            = return []
-      mk_ltys ((l,p):rs)    = do i <- newResiduation scope
-                                 ltys <- mk_ltys rs
-                                 return ((l,p,VMeta i []) : ltys)
-      go scope c []            = return scope
-      go scope c ((l,p,ty):rs) = do let (c1,c2) = split c
-                                    scope <- tcPatt scope c1 p ty
-                                    go scope c2 rs
-  ltys <- mk_ltys rs
-  subsCheckRho scope (EPatt 0 Nothing (PR rs)) (VRecType [(l,True,ty) | (l,p,ty) <- ltys]) ty0
-  go scope c ltys
+tcPatt scope c p@(PR rs) ty0 =
+  case ty0 of
+    VRecType ltys ->
+       let go scope c []         = return scope
+           go scope c ((l,p):rs) =
+             case lookup3 l ltys of
+               Just ty -> do let (c1,c2) = split c
+                             scope <- tcPatt scope c1 p ty
+                             go scope c2 rs
+               Nothing -> do ty <- value2termM False (scopeVars scope) ty0
+                             evalError (pp "Label" <+> pp l <+> " is not defined in the type of the pattern:" $$
+                                        nest 4 (ppTerm Unqualified 0 ty))
+       in go scope c rs
+    VMeta i vs -> do
+       g  <- globals
+       mv <- getMeta i
+       case mv of
+         Bound _ v ->
+           tcPatt scope c p (apply g v vs)
+         Residuation scope1 ->
+           let go scope c []         = return (scope,[])
+               go scope c ((l,p):rs) = do
+                 i <- newResiduation scope
+                 let ty      = VMeta i []
+                     (c1,c2) = split c
+                 scope <- tcPatt scope c1 p ty
+                 (scope,ltys) <- go scope c2 rs
+                 return (scope,(l,True,ty):ltys)
+           in do (scope,ltys) <- go scope c rs
+                 setMeta i (Bound scope1 (VRecType ltys))
+                 return scope
+    _ -> evalError (pp "An record must have an record type")
 tcPatt scope c (PAlt p1 p2) ty0 = do
   let (c1,c2) = split c
   tcPatt scope c1 p1 ty0
@@ -718,62 +751,64 @@ tcRecTypeFields scope c ((l,ty):rs) mb_ty = do
 instSigma :: Scope -> Choice -> Term -> Sigma -> Maybe Rho -> EvalM (Term, Rho)
 instSigma scope s t ty1 Nothing    = return (t,ty1)           -- INST1
 instSigma scope s t ty1 (Just ty2) = do                       -- INST2
-  t <- subsCheckRho scope t ty1 ty2
+  (t,ty1,ty2) <- subsCheckRho scope t ty1 ty2
   return (t,ty2)
 
 -- | Invariant: the second argument is in weak-prenex form
-subsCheckRho :: Scope -> Term -> Sigma -> Rho -> EvalM Term
-subsCheckRho scope t (VMeta i vs1) (VMeta j vs2)
+subsCheckRho :: Scope -> Term -> Sigma -> Rho -> EvalM (Term,Sigma,Rho)
+subsCheckRho scope t ty1@(VApp _ p1 []) ty2                   -- for backwards compatibility
+  | p1 == (cPredef,cErrorType) = return (t,ty1,ty2)
+subsCheckRho scope t ty1 ty2@(VApp _ p2 [])                   -- for backwards compatibility
+  | p2 == (cPredef,cErrorType) = return (t,ty1,ty2)
+subsCheckRho scope t ty1@(VMeta i vs1) ty2@(VMeta j vs2)
   | i  == j   = do sequence_ (zipWith (unify scope) vs1 vs2)
-                   return t
+                   return (t,ty1,ty2)
   | otherwise = do
       mv <- getMeta i
       case mv of
         Bound _ v1 -> do
           g <- globals
           subsCheckRho scope t (apply g v1 vs1) (VMeta j vs2)
-        Residuation scope1 (Just ctr1) -> do
-          g <- globals
-          subsCheckRho scope t (apply g ctr1 vs1) (VMeta j vs2)
-        Residuation scope1 Nothing -> do
+        Residuation scope1 -> do
           mv <- getMeta j
           case mv of
             Bound _ v2 -> do
               g <- globals
               subsCheckRho scope t (VMeta i vs1) (apply g v2 vs2)
-            Residuation scope2 ctr2
+            Residuation scope2
               | m > n     -> do setMeta i (Bound scope1 (VMeta j vs2))
-                                return t
-              | otherwise -> case ctr2 of
-                               Nothing   -> do setMeta j (Bound scope2 (VMeta i vs2))
-                                               return t
-                               Just ctr2 -> do g <- globals
-                                               subsCheckRho scope t (VMeta i vs1) (apply g ctr2 vs2)
+                                return (t,VMeta j vs2,VMeta j vs2)
+              | otherwise -> do setMeta j (Bound scope2 (VMeta i vs1))
+                                return (t,VMeta i vs1,VMeta j vs1)
               where
                 m = length scope1
                 n = length scope2
 subsCheckRho scope t ty1@(VMeta i vs) ty2 = do
   mv <- getMeta i
   case mv of
-    Bound _ ty1 -> do
+    Bound scope' ty1 -> do
       g <- globals
-      subsCheckRho scope t (apply g ty1 vs) ty2
-    Residuation scope' ctr -> do
+      (t,ty1,ty2) <- subsCheckRho scope t (apply g ty1 vs) ty2
+      setMeta i (Bound scope' ty1)
+      return (t,ty1,ty2)
+    Residuation scope' -> do
       occursCheck scope' i scope ty2
-      ctr <- subtype scope ctr ty2
-      setMeta i (Residuation scope' (Just ctr))
-      return t
+      ty1 <- subtype scope Nothing ty2
+      setMeta i (Bound scope' ty1)
+      return (t,ty1,ty2)
 subsCheckRho scope t ty1 ty2@(VMeta i vs) = do
   mv <- getMeta i
   case mv of
-    Bound _ ty2 -> do
+    Bound scope' ty2 -> do
       g <- globals
-      subsCheckRho scope t ty1 (apply g ty2 vs)
-    Residuation scope' ctr -> do
+      (t,ty1,ty2) <- subsCheckRho scope t ty1 (apply g ty2 vs)
+      setMeta i (Bound scope' ty2)
+      return (t,ty1,ty2)
+    Residuation scope' -> do
       occursCheck scope' i scope ty1
-      ctr <- supertype scope ctr ty1
-      setMeta i (Residuation scope' (Just ctr))
-      return t
+      ty2 <- supertype scope Nothing ty1
+      setMeta i (Bound scope' ty2)
+      return (t,ty1,ty2)
 subsCheckRho scope t (VProd Implicit x ty1 ty2) rho2 = do     -- Rule SPEC
   i <- newResiduation scope
   g <- globals
@@ -784,8 +819,8 @@ subsCheckRho scope t (VProd Implicit x ty1 ty2) rho2 = do     -- Rule SPEC
 subsCheckRho scope t rho1 (VProd Implicit x ty1 ty2) = do     -- Rule SKOL
   let v = newVar scope
   ty2 <- evalCodomain x (VGen (length scope) []) ty2
-  t <- subsCheckRho ((v,ty1):scope) t rho1 ty2
-  return (Abs Implicit v t)
+  (t,ty1,ty2) <- subsCheckRho ((v,ty1):scope) t rho1 ty2
+  return (Abs Implicit v t,ty1,ty2)
 subsCheckRho scope t rho1 (VProd Explicit _ a2 r2) = do       -- Rule FUN
   (_,_,a1,r1) <- unifyFun scope rho1
   subsCheckFun scope t a1 r1 a2 r2
@@ -798,20 +833,31 @@ subsCheckRho scope t rho1 (VTable p2 r2) = do                 -- Rule TABLE
 subsCheckRho scope t (VTable p1 r1) rho2 = do                 -- Rule TABLE
   (p2,r2) <- unifyTbl scope rho2
   subsCheckTbl scope t p1 r1 p2 r2
-subsCheckRho scope t (VSort s1) (VSort s2)                    -- Rule PTYPE
-  | s1 == cPType && s2 == cType = return t
-subsCheckRho scope t (VApp _ p1 []) rho2                      -- for backwards compatibility
-  | p1 == (cPredef,cErrorType) = return t
-subsCheckRho scope t (VApp _ p _) (VInts _ _)              -- This is not correct but nextPrec in the RGL relies on it.
-  | p == (cPredef,cInt) = return t                         -- Should be only a temporary hack.
-subsCheckRho scope t (VInts _ _) (VApp _ p _)                 -- Rule INT1
-  | p == (cPredef,cInt) = return t
-subsCheckRho scope t ty1@(VInts min1 max1) ty2@(VInts min2 max2)     -- Rule INT2
-  | i <= j    = return t
-  | otherwise = evalError ("Ints" <+> i <+> "is not a subtype of" <+> "Ints" <+> j)
+subsCheckRho scope t ty1@(VSort s1) ty2@(VSort s2)            -- Rule PTYPE
+  | s1 == cPType && s2 == cType = return (t,ty1,ty2)
+subsCheckRho scope t ty1@(VApp _ p _) ty2@(VInts _ _)         -- This is not correct but nextPrec in the RGL relies on it.
+  | p == (cPredef,cInt) = return (t,ty1,ty2)                  -- Should be only a temporary hack.
+subsCheckRho scope t ty1@(VInts _ _) ty2@(VApp _ p _)         -- Rule INT1
+  | p == (cPredef,cInt) = return (t,ty1,ty2)
+subsCheckRho scope t ty1@(VInts i1 j1) ty2@(VInts i2 j2)      -- Rule INT2
+  | j1  `less1` i2  = return (t,ty1,ty2)
+  | j1' `less1` i2' = return (t,VInts i1 j1',VInts i2' j2)
+  | otherwise       = evalError ("In the term" <+> ppTerm Unqualified 0 t $$
+                                 ppValue Terse 0 ty1 <+> "is not a subtype of" <+> ppValue Terse 0 ty2)
   where
-    i = fromMaybe 0 (max1 <|> min1)
-    j = fromMaybe 0 (min2 <|> max2)
+    less1 (Just x) (Just y) = x <= y
+    less1 _        _        = False
+
+    less2 (Just x) (Just y) = x <= y
+    less2 Nothing  (Just y) = True
+    less2 _        _        = False
+
+    less3 (Just x) (Just y) = x <= y
+    less3 (Just x) Nothing  = True
+    less3 _        _        = False
+
+    j1' = if i1 `less2` i2 then i2 else j1
+    i2' = if j1 `less3` j2 then j1 else i2
 subsCheckRho scope t ty1@(VRecType rs1) ty2@(VRecType rs2) = do      -- Rule REC
   let mkAccess scope t =
         case t of
@@ -834,13 +880,8 @@ subsCheckRho scope t ty1@(VRecType rs1) ty2@(VRecType rs2) = do      -- Rule REC
                             )
 
       mkField scope l (mb_ty,t) ty1 ty2 = do
-        t <- subsCheckRho scope t ty1 ty2
+        (t,_,_) <- subsCheckRho scope t ty1 ty2
         return (l, (mb_ty,t))
-
-      lookup3 l []  = Nothing
-      lookup3 l ((l',_,v):rs)
-        | l == l'   = Just v
-        | otherwise = lookup3 l rs
 
   (scope,mkProj,mkWrap) <- mkAccess scope t
 
@@ -850,39 +891,46 @@ subsCheckRho scope t ty1@(VRecType rs1) ty2@(VRecType rs2) = do      -- Rule REC
     missing -> evalError ("In the term" <+> pp t $$
                           "there are no values for fields:" <+> hsep missing)
   rs <- sequence [mkField scope l t ty1 ty2 | (l,ty2,Just ty1) <- fields, Just t <- [mkProj l]]
-  return (mkWrap (R (rs++[(l, (Just (RecType []),R [])) | (l,_,Nothing) <- fields, isLockLabel l])))
-subsCheckRho scope t tau1 (VFV c (VarFree vs)) = do
-  tau2 <- variants c vs
-  subsCheckRho scope t tau1 tau2
-subsCheckRho scope t (VFV c (VarFree vs)) tau2 = do
-  tau1 <- variants c vs
-  subsCheckRho scope t tau1 tau2
-subsCheckRho scope t tau1 tau2 = do                           -- Rule EQ
-  unify scope tau1 tau2                                 -- Revert to ordinary unification
-  return t
+  return (mkWrap (R (rs++[(l, (Just (RecType []),R [])) | (l,_,Nothing) <- fields, isLockLabel l])),ty1,ty2)
+subsCheckRho scope t ty1 (VFV c (VarFree vs)) = do
+  ty2 <- variants c vs
+  subsCheckRho scope t ty1 ty2
+subsCheckRho scope t (VFV c (VarFree vs)) ty2 = do
+  ty1 <- variants c vs
+  subsCheckRho scope t ty1 ty2
+subsCheckRho scope t ty1 ty2 = do                           -- Rule EQ
+  unify scope ty1 ty2                                  -- Revert to ordinary unification
+  return (t,ty1,ty2)
 
-subsCheckFun :: Scope -> Term -> Sigma -> Value -> Sigma -> Value -> EvalM Term
+subsCheckFun :: Scope -> Term -> Sigma -> Value -> Sigma -> Value -> EvalM (Term,Value,Value)
 subsCheckFun scope t a1 r1 a2 r2 = do
   let v   = newVar scope
-  vt <- subsCheckRho ((v,a2):scope) (Vr v) a2 a1
+  (vt,a2,a1) <- subsCheckRho ((v,a2):scope) (Vr v) a2 a1
   g  <- globals
-  let r1' = case r1 of
-              VClosure env c r1 -> eval g ((v,(VGen (length scope) [])):env) c r1 []
-              r1                -> r1
-      r2' = case r2 of
-              VClosure env c r2 -> eval g ((v,(VGen (length scope) [])):env) c r2 []
-              r2                -> r2
-  t  <- subsCheckRho ((v,vtypeType):scope) (App t vt) r1' r2'
-  return (Abs Explicit v t)
+  let (v1',r1') = case r1 of
+                    VClosure env c r1 -> (v,eval g ((v,(VGen (length scope) [])):env) c r1 [])
+                    r1                -> (identW,r1)
+      (v2',r2') = case r2 of
+                    VClosure env c r2 -> (v,eval g ((v,(VGen (length scope) [])):env) c r2 [])
+                    r2                -> (identW,r2)
+  (t,r1,r2)  <- subsCheckRho ((v,vtypeType):scope) (App t vt) r1' r2'
+  return (Abs Explicit v t, VProd Explicit v1' a1 r1, VProd Explicit v2' a2 r2)
 
-subsCheckTbl :: Scope -> Term -> Sigma -> Rho -> Sigma -> Rho  -> EvalM Term
+subsCheckTbl :: Scope -> Term -> Sigma -> Rho -> Sigma -> Rho  -> EvalM (Term,Value,Value)
 subsCheckTbl scope t p1 r1 p2 r2 = do
   let x = newVar scope
-  xt <- subsCheckRho ((x,p2):scope) (Vr x) p2 p1
-  t  <- subsCheckRho ((x,p2):scope) (S t xt) r1 r2
-  p2 <- value2termM True (scopeVars scope) p2
-  return (T (TTyped p2) [(PV x,t)])
+  (xt,p2,p1) <- subsCheckRho ((x,p2):scope) (Vr x) p2 p1
+  (t,r1,r2)  <- subsCheckRho ((x,p2):scope) (S t xt) r1 r2
+  p2_t <- value2termM True (scopeVars scope) p2
+  return (T (TTyped p2_t) [(PV x,t)],VTable p1 r1,VTable p2 r2)
 
+{-subtype scope Nothing              (VInts i2 j2) =
+  return (VInts Nothing j2)
+subtype scope (Just (VMeta i vs))  ty2 = do
+  g  <- globals
+  mv <- getMeta i
+  case mv of
+    Bound _ v -> subtype scope (Just (apply g v vs)) ty2-}
 subtype scope (Just (VInts i1 j1)) (VInts i2 j2) =
   case VInts (lift max i1 i2) (lift min j1 j2) of
     ty@(VInts (Just i) (Just j))
@@ -916,11 +964,17 @@ subtype scope (Just (VProd Explicit x a1 r1)) (VProd Explicit y a2 r2)
        a <- supertype scope (Just a1) a2
        r <- subtype scope (Just r1) r2
        return (VProd Explicit identW a r)
+subtype scope (Just (VApp _ p1 [])) ty2                      -- for backwards compatibility
+  | p1 == (cPredef,cErrorType) = return ty2
+subtype scope (Just ty1) (VApp _ p2 [])                      -- for backwards compatibility
+  | p2 == (cPredef,cErrorType) = return ty1
 subtype scope Nothing    ty = return ty
 subtype scope (Just ctr) ty = do
   unify scope ctr ty
   return ty
 
+supertype scope Nothing (VInts i2 j2) =
+  return (VInts i2 Nothing)
 supertype scope (Just (VInts i1 j1)) (VInts i2 j2) =
   case VInts (lift min i1 i2) (lift max j1 j2) of
     ty@(VInts (Just i) (Just j))
@@ -952,6 +1006,10 @@ supertype scope (Just (VProd Explicit x a1 r1)) (VProd Explicit y a2 r2)
        a <- subtype scope (Just a1) a2
        r <- supertype scope (Just r1) r2
        return (VProd Explicit identW a r)
+supertype scope (Just (VApp _ p1 [])) ty2                      -- for backwards compatibility
+  | p1 == (cPredef,cErrorType) = return ty2
+supertype scope (Just ty1) (VApp _ p2 [])                      -- for backwards compatibility
+  | p2 == (cPredef,cErrorType) = return ty1
 supertype scope Nothing    ty = return ty
 supertype scope (Just ctr) ty = do
   unify scope ctr ty
@@ -1000,13 +1058,13 @@ unify scope (VMeta i vs1) (VMeta j vs2)
         Bound _ v1 -> do
           g <- globals
           unify scope (apply g v1 vs1) (VMeta j vs2)
-        Residuation scope1 _ -> do
+        Residuation scope1 -> do
           mv <- getMeta j
           case mv of
             Bound _ v2 -> do
               g <- globals
               unify scope (VMeta i vs1) (apply g v2 vs2)
-            Residuation scope2 _
+            Residuation scope2
               | m > n     -> setMeta i (Bound scope1 (VMeta j vs2))
               | otherwise -> setMeta j (Bound scope2 (VMeta i vs2))
               where
@@ -1037,19 +1095,19 @@ unify scope VEmpty VEmpty      = return ()
 unify scope v1 v2 = do
   t1 <- value2termM False (scopeVars scope) v1
   t2 <- value2termM False (scopeVars scope) v2
-  evalError ("Cannot unify:" <+> ppValue Terse 0 v1 $$
-             "        with:" <+> ppValue Terse 0 v2)
+  evalError ("Cannot unify:" <+> ppValue Qualified 0 v1 $$
+             "        with:" <+> ppValue Qualified 0 v2)
 
 
 -- | Invariant: tv1 is a flexible type variable
 unifyVar :: Scope -> MetaId -> [Value] -> Tau -> EvalM ()
-unifyVar scope metaid vs ty2 = do            -- Check whether i is bound
-  mv <- getMeta metaid
+unifyVar scope i vs ty2 = do            -- Check whether i is bound
+  mv <- getMeta i
   case mv of
-    Bound _ ty1          -> do g <- globals
-                               unify scope (apply g ty1 vs) ty2
-    Residuation scope' _ -> do occursCheck scope' metaid scope ty2
-                               setMeta metaid (Bound scope' ty2)
+    Bound _ ty1        -> do g <- globals
+                             unify scope (apply g ty1 vs) ty2
+    Residuation scope' -> do occursCheck scope' i scope ty2
+                             setMeta i (Bound scope' ty2)
 
 occursCheck scope' i0 scope v =
   let m = length scope'
@@ -1131,9 +1189,8 @@ instantiate scope t (VProd Implicit x ty1 ty2) = do
            ty2                -> return ty2
   instantiate scope (App t (ImplArg (Meta i))) ty2
 instantiate scope t ty@(VMeta i args) = getMeta i >>= \case
-  Bound _ v              -> instantiate scope t v
-  Residuation _ (Just v) -> instantiate scope t v
-  _                      -> return (t,ty) -- We don't have enough information to try any instantiation
+  Bound _ v -> instantiate scope t v
+  _         -> return (t,ty) -- We don't have enough information to try any instantiation
 instantiate scope t ty = do
   return (t,ty)
 
@@ -1142,9 +1199,9 @@ skolemise :: Scope -> Sigma -> EvalM (Scope, Term->Term, Rho)
 skolemise scope ty@(VMeta i vs) = do
   mv <- getMeta i
   case mv of
-    Residuation _ _ -> return (scope,id,ty)                   -- guarded constant?
-    Bound _ ty      -> do g <- globals
-                          skolemise scope (apply g ty vs)
+    Residuation _ -> return (scope,id,ty)                   -- guarded constant?
+    Bound _ ty    -> do g <- globals
+                        skolemise scope (apply g ty vs)
 skolemise scope (VProd Implicit x ty1 ty2) = do
   let v = newVar scope
   ty2 <- evalCodomain x (VGen (length scope) []) ty2
@@ -1277,6 +1334,11 @@ type Tau   = Value -- No ForAlls anywhere
 
 unimplemented str = fail ("Unimplemented: "++str)
 
+lookup3 l []  = Nothing
+lookup3 l ((l',_,v):rs)
+  | l == l'   = Just v
+  | otherwise = lookup3 l rs
+
 newVar :: Scope -> Ident
 newVar scope = head [x | i <- [1..],
                          let x = identS ('v':show i),
@@ -1306,10 +1368,8 @@ getMetaVars sc_tys = foldM (\acc (scope,ty) -> go acc ty) [] sc_tys
       | m `elem` acc         = return acc
       | otherwise            = do res <- getMeta m
                                   case res of
-                                    Bound _ v              -> go acc v
-                                    Residuation _ Nothing  -> foldM go (m:acc) args
-                                    Residuation _ (Just v) -> go acc v
-                                    _                      -> return acc
+                                    Bound _ v -> go acc v
+                                    _         -> foldM go (m:acc) args
     go acc (VApp c f args)   = foldM go acc args
     go acc (VFV c vs)        = foldM go acc (unvariants vs)
     go acc (VInts _ _)      = return acc
@@ -1330,9 +1390,6 @@ zonkTerm xs (Prod b x t1 t2) = do
 zonkTerm xs (Meta i) = do
   st <- getMeta i
   case st of
-    Bound _ v           -> zonkTerm xs =<< value2termM False xs v
-    Residuation scope v -> case v of
-                            Just v  -> zonkTerm xs =<< value2termM False (map fst scope) v
-                            Nothing -> return (Meta i)
-    Narrowing _         -> return (Meta i)
+    Bound _ v -> zonkTerm xs =<< value2termM False xs v
+    _         -> return (Meta i)
 zonkTerm xs t = composOp (zonkTerm xs) t

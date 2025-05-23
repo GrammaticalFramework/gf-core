@@ -1,7 +1,7 @@
 {-# LANGUAGE RankNTypes, BangPatterns, GeneralizedNewtypeDeriving, TupleSections #-}
 
 module GF.Compile.Compute.Concrete2
-           (Env, Scope, Value(..), Variants(..), Constraint, OptionInfo(..), ChoiceMap, cleanOptions,
+           (Env, Scope, Value(..), Variants(..), OptionInfo(..), ChoiceMap, cleanOptions,
             ConstValue(..), ConstVariants(..), Globals(..), PredefTable, EvalM,
             mapVariants, unvariants, variants2consts, consts2variants,
             runEvalM, runEvalMWithOpts, stdPredef, globals, withState,
@@ -667,11 +667,10 @@ value2term g xs v = do
     [t] -> return t
     ts  -> return (FV ts)
 
-type Constraint = Value
 data MetaState
   = Bound Scope Value
   | Narrowing   Type
-  | Residuation Scope (Maybe Constraint)
+  | Residuation Scope
 data OptionInfo
   = OptionInfo
       { optChoice  :: Choice
@@ -790,7 +789,7 @@ try f select xs = EvalM (\g k state r msgs ->
 newResiduation :: Scope -> EvalM MetaId
 newResiduation scope = EvalM (\g k (State choices metas opts) r msgs ->
   let meta_id = Map.size metas+1
-  in k meta_id (State choices (Map.insert meta_id (Residuation scope Nothing) metas) opts) r msgs)
+  in k meta_id (State choices (Map.insert meta_id (Residuation scope) metas) opts) r msgs)
 
 getMeta :: MetaId -> EvalM MetaState
 getMeta i = EvalM (\g k state r msgs ->
@@ -811,11 +810,7 @@ value2termM flat xs (VMeta i vs) = do
   case mv of
     Bound scope v -> do g <- globals
                         value2termM flat (map fst scope) (apply g v vs)
-    Residuation _ mb_ctr ->
-      case mb_ctr of
-        Just ctr -> do g <- globals
-                       value2termM flat xs (apply g ctr vs)
-        Nothing  -> foldM (\t v -> fmap (App t) (value2termM flat xs v)) (Meta i) vs
+    Residuation _ -> foldM (\t v -> fmap (App t) (value2termM flat xs v)) (Meta i) vs
 value2termM flat xs (VSusp j k vs) =
   let v = k (VGen maxBound vs)
   in value2termM flat xs v
