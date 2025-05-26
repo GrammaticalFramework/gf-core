@@ -394,81 +394,138 @@ apply g (VS v1 v2 vs')                  vs  = VS v1 v2 (vs'++vs)
 apply g (VClosure env s (Abs b x t)) (v:vs) = eval g ((x,v):env) s t vs
 apply g v                               []  = v
 
-data Bubbled a
-  = BLeaf a
-  | BFree Choice [Bubbled a]
-  | BOpts Choice Value Value [(Value, Value, Bubbled a)]
+data BubbleVariants
+  = BubbleFree Int
+  | BubbleOpts Value Value [(Value, Value)]
 
-instance Functor Bubbled where
-  fmap = liftM
-
-instance Applicative Bubbled where
-  pure = BLeaf
-  (<*>) = ap
-
-instance Monad Bubbled where
-  BLeaf a          >>= k = k a
-  BFree c as       >>= k = BFree c ((>>= k) <$> as)
-  BOpts c nty n as >>= k = BOpts c nty n (third (>>= k) <$> as)
-
-unbubble :: Bubbled Value -> Value
-unbubble (BLeaf v)          = v
-unbubble (BFree c vs)       = VFV c (VarFree (unbubble <$> vs))
-unbubble (BOpts c nty n cs) = VFV c (VarOpts nty n (third unbubble <$> cs))
-
-bubble v = unbubble (bubble' v)
+bubble v = snd (bubble v)
   where
-    bubble' :: Value -> Bubbled Value
-    bubble' (VApp c f vs) = liftL (VApp c f) vs
-    bubble' (VMeta metaid vs) = liftL (VMeta metaid) vs
-    bubble' (VSusp metaid k vs) = liftL (VSusp metaid k) vs
-    bubble' (VGen i vs) = liftL (VGen i) vs
-    bubble' (VClosure env c t) = liftL' (\env -> VClosure env c t) env
-    bubble' (VProd bt x v1 v2) = lift2 (VProd bt x) v1 v2
-    bubble' (VRecType as) = liftL' VRecType as
-    bubble' (VR as) = liftL' VR as
-    bubble' (VP v l vs) = lift1L (\v vs -> VP v l vs) v vs
-    bubble' (VExtR v1 v2) = lift2 VExtR v1 v2
-    bubble' (VTable v1 v2) = lift2 VTable v1 v2
-    bubble' (VT v env c cs) = lift1L' (\v env -> VT v env c cs) v env
-    bubble' (VV v vs) = lift1L VV v vs
-    bubble' (VS v1 v2 vs) = lift2L VS v1 v2 vs
-    bubble' v@(VSort _) = lift0 v
-    bubble' v@(VInt _) = lift0 v
-    bubble' v@(VFlt _) = lift0 v
-    bubble' v@(VStr _) = lift0 v
-    bubble' v@VEmpty = lift0 v
-    bubble' (VC v1 v2) = lift2 VC v1 v2
-    bubble' (VGlue v1 v2) = lift2 VGlue v1 v2
-    bubble' v@(VPatt _ _ _) = lift0 v
-    bubble' (VPattType v) = lift1 VPattType v
-    bubble' (VFV c (VarFree vs)) = BFree c (bubble' <$> vs)
-    bubble' (VFV c (VarOpts nty n os)) = BOpts c nty n (third bubble' <$> os)
-    bubble' (VAlts v vs) = lift1L2 VAlts v vs
-    bubble' (VStrs vs) = liftL VStrs vs
-    bubble' (VMarkup tag attrs vs) = do
-      attrs' <- mapM (secondM bubble') attrs
-      vs' <- mapM bubble' vs
-      return $ VMarkup tag attrs' vs'
-    bubble' (VReset ctl mb_cv v id) = lift1 (\v -> VReset ctl mb_cv v id) v
-    bubble' (VSymCat d i0 vs) = do
-      vs' <- forM vs $ \(i,(v,ty)) -> (i,) . (,ty) <$> bubble' v
-      return $ VSymCat d i0 vs'
-    bubble' v@(VError _) = lift0 v
-    bubble' v@(VCRecType lbls) = do
-      lbls' <- forM lbls $ \(l,b,v) -> (l,b,) <$> bubble' v
-      return $ VCRecType lbls'
-    bubble' v@(VCInts _ _) = lift0 v
+    bubble (VApp c f vs) = liftL (VApp c f) vs
+    bubble (VMeta metaid vs) = liftL (VMeta metaid) vs
+    bubble (VSusp metaid k vs) = liftL (VSusp metaid k) vs
+    bubble (VGen i vs) = liftL (VGen i) vs
+    bubble (VClosure env c t) = liftL' (\env -> VClosure env c t) env
+    bubble (VProd bt x v1 v2) = lift2 (VProd bt x) v1 v2
+    bubble (VRecType as) = liftL' VRecType as
+    bubble (VR as) = liftL' VR as
+    bubble (VP v l vs) = lift1L (\v vs -> VP v l vs) v vs
+    bubble (VExtR v1 v2) = lift2 VExtR v1 v2
+    bubble (VTable v1 v2) = lift2 VTable v1 v2
+    bubble (VT v env c cs) = lift1L' (\v env -> VT v env c cs) v env
+    bubble (VV v vs) = lift1L VV v vs
+    bubble (VS v1 v2 vs) = lift2L VS v1 v2 vs
+    bubble v@(VSort _) = lift0 v
+    bubble v@(VInt _) = lift0 v
+    bubble v@(VFlt _) = lift0 v
+    bubble v@(VStr _) = lift0 v
+    bubble v@VEmpty = lift0 v
+    bubble (VC v1 v2) = lift2 VC v1 v2
+    bubble (VGlue v1 v2) = lift2 VGlue v1 v2
+    bubble v@(VPatt _ _ _) = lift0 v
+    bubble (VPattType v) = lift1 VPattType v
+    bubble v@(VFV c (VarFree vs))
+      | null vs   = (Map.empty, v)
+      | otherwise = let (union,vs') = mapAccumL descend Map.empty vs
+                        b = BubbleFree (length vs)
+                        v' = addVariants (VFV c (VarFree vs')) union
+                    in (Map.insert c (b,1) union, v')
+    bubble v@(VFV c (VarOpts nty n os))
+      | null os   = (Map.empty, v)
+      | otherwise = let (union,os') = mapAccumL (\acc (lty,l,v) -> second (lty,l,) $ descend acc v) Map.empty os
+                        b = BubbleOpts nty n (os <&> \(lty,l,_) -> (lty,l))
+                        v' = addVariants (VFV c (VarOpts nty n os')) union
+                    in (Map.insert c (b,1) union, v')
+    bubble (VAlts v vs) = lift1L2 VAlts v vs
+    bubble (VStrs vs) = liftL VStrs vs
+    bubble (VMarkup tag attrs vs) =
+      let (union1,attrs') = mapAccumL descend' Map.empty attrs
+          (union2,vs')    = mapAccumL descend  union1 vs
+      in (union2, VMarkup tag attrs' vs')
+    bubble (VReset ctl mb_cv v id) = lift1 (\v -> VReset ctl mb_cv v id) v
+    bubble (VSymCat d i0 vs) =
+      let (union,vs') = mapAccumL descendC Map.empty vs
+      in (union, addVariants (VSymCat d i0 vs') union)
+    bubble v@(VError _) = lift0 v
+    bubble v@(VCRecType lbls) =
+      let (union,lbls') = mapAccumL descendR Map.empty lbls
+      in (union, addVariants (VCRecType lbls') union)
+    bubble v@(VCInts _ _) = lift0 v
 
-    lift0              = BLeaf
-    lift1   f v        = f <$> bubble' v
-    liftL   f vs       = f <$> mapM bubble' vs
-    liftL'  f xvs      = f <$> mapM (secondM bubble') xvs
-    lift1L  f v vs     = liftM2 f (bubble' v) (mapM bubble' vs)
-    lift1L' f v xvs    = liftM2 f (bubble' v) (mapM (secondM bubble') xvs)
-    lift1L2 f v uvs    = liftM2 f (bubble' v) (mapM (bimapM bubble' bubble') uvs)
-    lift2L  f v1 v2 vs = liftM3 f (bubble' v1) (bubble' v2) (mapM bubble' vs)
-    lift2   f v1 v2    = liftM2 f (bubble' v1) (bubble' v2)
+    lift0 v = (Map.empty, v)
+
+    lift1 f v =
+      let (union,v') = bubble v
+      in (union,f v')
+
+    liftL f vs =
+      let (union,vs') = mapAccumL descend Map.empty vs
+      in (union, addVariants (f vs') union)
+
+    liftL' f vs =
+      let (union,vs') = mapAccumL descend' Map.empty vs
+      in (union, addVariants (f vs') union)
+
+    lift1L f v vs =
+      let (choices,v') = bubble v
+          (union, vs') = mapAccumL descend (unitfy choices) vs
+      in (union, addVariants (f v' vs') union)
+
+    lift1L' f v vs =
+      let (choices,v') = bubble v
+          (union, vs') = mapAccumL descend' (unitfy choices) vs
+      in (union, addVariants (f v' vs') union)
+
+    lift1L2 f v vs =
+      let (choices,v') = bubble v
+          (union, vs') = mapAccumL descend2 (unitfy choices) vs
+      in (union, addVariants (f v' vs') union)
+
+    lift2L f v1 v2 vs =
+      let (choices1,v1') = bubble v1
+          (choices2,v2') = bubble v2
+          union = mergeChoices2 choices1 choices2
+          (union', vs') = mapAccumL descend union vs
+      in (union', addVariants (f v1' v2' vs') union')
+
+    lift2 f v1 v2 =
+      let (choices1,v1') = bubble v1
+          (choices2,v2') = bubble v2
+          union = mergeChoices2 choices1 choices2
+      in (union, addVariants (f v1' v2') union)
+
+    descend union v =
+      let (choices,v') = bubble v
+      in (mergeChoices1 union choices,v')
+
+    descend' :: Map.Map Choice (BubbleVariants,Int) -> (a,Value) -> (Map.Map Choice (BubbleVariants,Int),(a,Value))
+    descend' union (x,v) =
+      let (choices,v') = bubble v
+      in (mergeChoices1 union choices,(x,v'))
+
+    descend2 union (v1,v2) =
+      let (choices1,v1') = bubble v1
+          (choices2,v2') = bubble v2
+      in (mergeChoices1 (mergeChoices1 union choices1) choices2,(v1',v2'))
+
+    descendC union (i,(v,ty)) =
+      let (choices,v') = bubble v
+      in (mergeChoices1 union choices,(i,(v',ty)))
+
+    descendR union (l,b,v) =
+      let (choices,v') = bubble v
+      in (mergeChoices1 union choices,(l,b,v'))
+
+    addVariants v = Map.foldrWithKey addVariant v
+      where
+        addVariant c (bvs,cnt) v
+          | cnt > 1   = VFV c $ case bvs of
+                                  BubbleFree k        -> VarFree (replicate k v)
+                                  BubbleOpts nty n os -> VarOpts nty n (os <&> \(lty,l) -> (lty,l,v))
+          | otherwise = v
+
+    unitfy = fmap (\(n,_) -> (n,1))
+    mergeChoices1 = Map.mergeWithKey (\c (n,cnt) _ -> Just (n,cnt+1)) id unitfy
+    mergeChoices2 = Map.mergeWithKey (\c (n,cnt) _ -> Just (n,2)) unitfy unitfy
 
 toPBool True  = VApp poison (cPredef,cPTrue)  []
 toPBool False = VApp poison (cPredef,cPFalse) []
