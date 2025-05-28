@@ -501,9 +501,12 @@ resolveOverloads scope c t0 q args mb_ty = do
                       arg_tys <- mapCM (checkArg g) c1 args
                       let v_ttys = mapC (\c (t,ty) -> (t,eval g [] c ty [])) c2 ttys
                       try (\(fun,fun_ty) -> reapply2 scope c3 fun fun_ty arg_tys mb_ty)
-                          (\ttys -> fmap (\(ts,ty) -> (FV ts,ty)) (snd (minimum g ttys)))
+                          (\ttys -> fmap (\(ts,ty) -> (mkFV ts,ty)) (snd (minimum g ttys)))
                           v_ttys
   where
+    mkFV [t] = t
+    mkFV ts  = FV ts
+
     checkArg g c (ImplArg arg) = do
       let (c1,c2) = split c
       (arg,arg_ty) <- tcRho scope c1 arg Nothing
