@@ -1283,3 +1283,26 @@ zonkTerm xs (Meta i) = do
                             Nothing -> return (Meta i)
     Narrowing _         -> return (Meta i)
 zonkTerm xs t = composOp (zonkTerm xs) t
+
+zonkValue :: Value -> EvalM Value
+zonkValue (VProd bt x ty1 ty2) = do
+  ty1 <- zonkValue ty1
+  ty2 <- zonkValue ty2
+  return (VProd bt x ty1 ty2)
+zonkValue (VMeta i vs)         = do
+  g  <- globals
+  st <- getMeta i
+  case st of
+    Bound _ v              -> zonkValue (apply g v vs)
+    Residuation _ (Just v) -> zonkValue (apply g v vs)
+    _                      -> do vs <- mapM zonkValue vs
+                                 return (VMeta i vs)
+zonkValue (VSusp i k vs)       = do
+  g  <- globals
+  st <- getMeta i
+  case st of
+    Bound _ v              -> zonkValue (apply g (k v) vs)
+    Residuation _ (Just v) -> zonkValue (apply g (k v) vs)
+    _                      -> do vs <- mapM zonkValue vs
+                                 return (VSusp i k vs)
+zonkValue v                    = return v
