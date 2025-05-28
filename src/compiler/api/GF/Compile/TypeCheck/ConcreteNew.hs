@@ -518,45 +518,32 @@ resolveOverloads scope c t0 q args mb_ty = do
     minimum g []                    = (maxBound,err)
       where
         err = evalError (pp "Overload resolution failed")
-    minimum g (tty@((t,ty),state):ttys) =
-      let ty'      = zonk ty
-          a        = arity ty'
+    minimum g (tty@(t,ty):ttys) =
+      let a        = arity ty
           (a',res) = minimum g ttys
       in case compare a a' of
            GT -> (a',res)
-           EQ -> (a',join t ty' state res)
-           LT -> (a ,one  t ty' state)
+           EQ -> (a',join t ty res)
+           LT -> (a ,one  t ty)
       where
         arity :: Value -> Int
         arity (VProd _ _ _ ty) = 1 + arity ty
         arity _                = 0
 
-        zonk :: Value -> Value
-        zonk (VProd bt x ty1 ty2) = VProd bt x (zonk ty1) (zonk ty2)
-        zonk (VMeta i vs)         =
-          case Map.lookup i (metaVars state) of
-            Just (Bound _ v)              -> zonk (apply g v vs)
-            Just (Residuation _ (Just v)) -> zonk (apply g v vs)
-            _                             -> VMeta i (map zonk vs)
-        zonk (VSusp i k vs)      =
-          case Map.lookup i (metaVars state) of
-            Just (Bound _ v)              -> zonk (apply g (k v) vs)
-            Just (Residuation _ (Just v)) -> zonk (apply g (k v) vs)
-            _                             -> VSusp i k (map zonk vs)
-        zonk v                   = v
-
-        one t ty state = do
-          t <- withState state (zonkTerm [] t)
+        one t ty = do
           return ([t],ty)
 
-        join t ty state res = do
-          t <- withState state (zonkTerm [] t)
+        join t ty res = do
           (ts,ty') <- res
           unify scope ty ty'
           return (t:ts,ty)
 
 reapply2 :: Scope -> Choice -> Term -> Value -> [(Term,Value,Value)] -> Maybe Rho -> EvalM (Term,Rho)
-reapply2 scope c fun fun_ty []                                mb_ty = instSigma scope c fun fun_ty mb_ty
+reapply2 scope c fun fun_ty []                                mb_ty = do
+  (t,ty) <- instSigma scope c fun fun_ty mb_ty
+  t  <- zonkTerm (scopeVars scope) t
+  ty <- zonkValue ty
+  return (t,ty)
 reapply2 scope c fun fun_ty ((ImplArg arg,arg_v,arg_ty):args) mb_ty = do -- Implicit arg case
   (bt, x, arg_ty', res_ty) <- unifyFun scope fun_ty
   unless (bt == Implicit) $
