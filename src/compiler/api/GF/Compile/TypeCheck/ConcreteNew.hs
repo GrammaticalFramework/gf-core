@@ -379,7 +379,7 @@ tcRho scope c (Markup tag attrs children) mb_ty = do
   res <- mapCM (\c child -> tcRho scope c child Nothing) c2 children
   instSigma scope c3 (Markup tag attrs (map fst res)) vtypeMarkup mb_ty
 tcRho scope c (Reset ctl mb_ct t qid) mb_ty
-  | ctl == cConcat = do
+  | ctl == cConcat || ctl == cConcat' = do
       let (c1,c23) = split c
           (c2,c3 ) = split c23
       (t,_) <- tcRho scope c1 t Nothing

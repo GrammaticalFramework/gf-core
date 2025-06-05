@@ -942,6 +942,15 @@ value2termM flat xs (VReset ctl mb_cv v mb_qid) = do
          case ts of
            [t] -> return t
            ts  -> return (Markup identW [] ts)
+      | ctl == cConcat' = do
+         ts <- case mb_cv of
+                 Just (VInt n) -> return (genericTake n ts)
+                 Nothing       -> return ts
+                 _             -> evalError (pp "[concat: .. | ..] requires an integer constant")
+         case ts of
+           []  -> mzero
+           [t] -> return t
+           ts  -> return (Markup identW [] ts)
       | ctl == cOne =
          case (ts,mb_cv) of
            ([]  ,Nothing) -> mzero

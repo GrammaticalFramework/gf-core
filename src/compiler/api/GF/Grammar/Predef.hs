@@ -63,6 +63,7 @@ cError = identS "error"
 
 -- * Used in the delimited continuations
 cConcat = identS "concat"
+cConcat' = identS "concat'"
 cOne = identS "one"
 cDefault = identS "default"
 cList = identS "list"
