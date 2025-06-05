@@ -8,7 +8,7 @@ module GF.Compile.Compute.Concrete2
             PredefImpl, Predef(..), ($\),
             pdCanonicalArgs, pdArity,
             normalForm, normalFlatForm,
-            eval, apply, value2term, value2termM, bubble, patternMatch, vtableSelect, State(..),
+            eval, apply, value2term, value2termM, value2int, value2float, bubble, patternMatch, vtableSelect, State(..),
             newResiduation, getMeta, setMeta, MetaState(..), variants, try,
             evalError, evalWarn, ppValue, Choice(..), unit, poison, split, split3, split4, mapC, mapCM) where
 
@@ -1100,6 +1100,12 @@ value2int g (VSusp i k vs)   = CSusp i (\v -> value2int g (apply g (k v) vs))
 value2int g (VInt n)         = Const n
 value2int g (VFV s vs)       = CFV s (variants2consts (value2int g) vs)
 value2int g _                = RunTime
+
+value2float g (VMeta i vs)     = CSusp i (\v -> value2float g (apply g v vs))
+value2float g (VSusp i k vs)   = CSusp i (\v -> value2float g (apply g (k v) vs))
+value2float g (VFlt f)         = Const f
+value2float g (VFV s vs)       = CFV s (variants2consts (value2float g) vs)
+value2float g _                = RunTime
 
 newtype Choice = Choice { unchoice :: Integer }
   deriving (Eq,Ord,Pretty,Show)
