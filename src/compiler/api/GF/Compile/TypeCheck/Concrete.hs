@@ -406,7 +406,7 @@ tcRho scope c (Markup tag attrs children) mb_ty = do
   res <- mapCM (\c child -> tcRho scope c child Nothing) c2 children
   instSigma scope c3 (Markup tag attrs (map fst res)) vtypeMarkup mb_ty
 tcRho scope c (Reset ctl mb_ct t qid) mb_ty
-  | ctl == cConcat = do
+  | ctl == cConcat || ctl == cConcat' = do
       let (c1,c23) = split c
           (c2,c3 ) = split c23
       (t,_) <- tcRho scope c1 t Nothing
@@ -544,37 +544,22 @@ resolveOverloads scope c t0 q args mb_ty = do
     minimum g []                    = (maxBound,err)
       where
         err = evalError (pp "Overload resolution failed")
-    minimum g (tty@((t,ty),state):ttys) =
-      let ty'      = zonk ty
-          a        = arity ty'
+    minimum g (tty@(t,ty):ttys) =
+      let a        = arity ty
           (a',res) = minimum g ttys
       in case compare a a' of
            GT -> (a',res)
-           EQ -> (a',join t ty' state res)
-           LT -> (a ,one  t ty' state)
+           EQ -> (a',join t ty res)
+           LT -> (a ,one  t ty)
       where
         arity :: Value -> Int
         arity (VProd _ _ _ ty) = 1 + arity ty
         arity _                = 0
 
-        zonk :: Value -> Value
-        zonk (VProd bt x ty1 ty2) = VProd bt x (zonk ty1) (zonk ty2)
-        zonk (VMeta i vs)         =
-          case Map.lookup i (metaVars state) of
-            Just (Bound _ v)     -> zonk (apply g v vs)
-            _                    -> VMeta i (map zonk vs)
-        zonk (VSusp i k vs)       =
-          case Map.lookup i (metaVars state) of
-            Just (Bound _ v)     -> zonk (apply g (k v) vs)
-            _                    -> VSusp i k (map zonk vs)
-        zonk v                    = v
-
-        one t ty state = do
-          t <- withState state (zonkTerm [] t)
+        one t ty = do
           return ([t],ty)
 
-        join t ty state res = do
-          t <- withState state (zonkTerm [] t)
+        join t ty res = do
           (ts,ty') <- res
           ty <- supertype scope (Just ty) ty'
           return (t:ts,ty)
@@ -1393,3 +1378,24 @@ zonkTerm xs (Meta i) = do
     Bound _ v -> zonkTerm xs =<< value2termM False xs v
     _         -> return (Meta i)
 zonkTerm xs t = composOp (zonkTerm xs) t
+
+zonkValue :: Value -> EvalM Value
+zonkValue (VProd bt x ty1 ty2) = do
+  ty1 <- zonkValue ty1
+  ty2 <- zonkValue ty2
+  return (VProd bt x ty1 ty2)
+zonkValue (VMeta i vs)         = do
+  g  <- globals
+  st <- getMeta i
+  case st of
+    Bound _ v              -> zonkValue (apply g v vs)
+    _                      -> do vs <- mapM zonkValue vs
+                                 return (VMeta i vs)
+zonkValue (VSusp i k vs)       = do
+  g  <- globals
+  st <- getMeta i
+  case st of
+    Bound _ v              -> zonkValue (apply g (k v) vs)
+    _                      -> do vs <- mapM zonkValue vs
+                                 return (VSusp i k vs)
+zonkValue v                    = return v
