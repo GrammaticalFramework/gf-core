@@ -27,8 +27,7 @@ import GF.Infra.Ident
 import GF.Infra.Option
 
 import GF.Compile.TypeCheck.Abstract
-import GF.Compile.TypeCheck.Concrete(ppType)
-import GF.Compile.TypeCheck.ConcreteNew(checkLType,inferLType)
+import GF.Compile.TypeCheck.Concrete(checkLType,inferLType)
 import GF.Compile.Compute.Concrete2(normalForm,Globals(..),stdPredef)
 
 import GF.Grammar
@@ -265,7 +264,7 @@ checkInfo opts cwd sgr sm (c,info) = checkInModule cwd (snd sm) NoLoc empty $ do
    checkUniq xss = case xss of
      x:y:xs
       | x == y    -> checkError $ "ambiguous for type" <+>
-                                  ppType (mkFunType (tail x) (head x))
+                                  ppTerm Terse 0 (mkFunType (tail x) (head x))
       | otherwise -> checkUniq $ y:xs
      _ -> return ()
 
