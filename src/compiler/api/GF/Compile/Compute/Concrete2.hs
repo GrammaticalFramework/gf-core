@@ -3,20 +3,22 @@
 module GF.Compile.Compute.Concrete2
            (Env, Scope, Value(..), Variants(..), Constraint, OptionInfo(..), ChoiceMap, cleanOptions,
             ConstValue(..), ConstVariants(..), Globals(..), PredefTable, EvalM,
-            mapVariants, unvariants, variants2consts, consts2variants,
-            runEvalM, runEvalMWithOpts, stdPredef, globals, withState,
+            mapVariants, mapVariantsC, unvariants, variants2consts,
+            mapConstVs, mapConstVsC, unconstVs, consts2variants,
+            runEvalM, runEvalMWithOpts, reset, reset1, stdPredef, globals, withState,
             PredefImpl, Predef(..), ($\),
             pdCanonicalArgs, pdArity,
             normalForm, normalFlatForm,
             eval, apply, value2term, value2termM, bubble, patternMatch, vtableSelect, State(..),
             newResiduation, getMeta, setMeta, MetaState(..), variants, try,
-            evalError, evalWarn, ppValue, Choice(..), unit, poison, split, split3, split4, mapC, mapCM) where
+            evalError, evalWarn, ppValue, Choice(..), unit, poison, split, split3, split4,
+            mapC, forC, mapCM, forCM) where
 
 import Prelude hiding ((<>)) -- GHC 8.4.1 clash with Text.PrettyPrint
 import GF.Infra.Ident
 import GF.Infra.CheckM
 import GF.Data.Operations(Err(..))
-import GF.Data.Utilities(maybeAt,splitAt',(<||>),anyM)
+import GF.Data.Utilities(maybeAt,splitAt',(<||>),anyM,secondM,bimapM)
 import GF.Grammar.Lookup(lookupResDef,lookupOrigInfo)
 import GF.Grammar.Grammar
 import GF.Grammar.Macros
@@ -94,17 +96,23 @@ data Value
   | VCRecType [(Label, Bool, Value)]
   | VCInts (Maybe Integer) (Maybe Integer)
 
+third f (a,b,c) = (a, b, f c)
+
 data Variants
   = VarFree [Value]
-  | VarOpts Value [(Value, Value)]
+  | VarOpts Value Value [(Value, Value, Value)]
 
 mapVariants :: (Value -> Value) -> Variants -> Variants
-mapVariants f (VarFree vs)   = VarFree (f <$> vs)
-mapVariants f (VarOpts n cs) = VarOpts n (second f <$> cs)
+mapVariants f (VarFree vs)       = VarFree (f <$> vs)
+mapVariants f (VarOpts nty n cs) = VarOpts nty n (third f <$> cs)
+
+mapVariantsC :: (Choice -> Value -> Value) -> Choice -> Variants -> Variants
+mapVariantsC f c (VarFree vs)       = VarFree (mapC f c vs)
+mapVariantsC f c (VarOpts nty n cs) = VarOpts nty n (mapC (third . f) c cs)
 
 unvariants :: Variants -> [Value]
-unvariants (VarFree vs)   = vs
-unvariants (VarOpts n cs) = snd <$> cs
+unvariants (VarFree vs)       = vs
+unvariants (VarOpts nty n cs) = cs <&> \(_,_,v) -> v
 
 isCanonicalForm :: Bool -> Value -> Bool
 isCanonicalForm flat  (VClosure {})       = True
@@ -136,15 +144,19 @@ data ConstValue a
 
 data ConstVariants a
   = ConstFree [ConstValue a]
-  | ConstOpts Value [(Value, ConstValue a)]
+  | ConstOpts Value Value [(Value, Value, ConstValue a)]
 
 mapConstVs :: (ConstValue a -> ConstValue b) -> ConstVariants a -> ConstVariants b
-mapConstVs f (ConstFree vs)   = ConstFree (f <$> vs)
-mapConstVs f (ConstOpts n cs) = ConstOpts n (second f <$> cs)
+mapConstVs f (ConstFree vs)       = ConstFree (f <$> vs)
+mapConstVs f (ConstOpts nty n cs) = ConstOpts nty n (third f <$> cs)
+
+mapConstVsC :: (Choice -> ConstValue a -> ConstValue b) -> Choice -> ConstVariants a -> ConstVariants b
+mapConstVsC f c (ConstFree vs)       = ConstFree (mapC f c vs)
+mapConstVsC f c (ConstOpts nty n cs) = ConstOpts nty n (mapC (third . f) c cs)
 
 unconstVs :: ConstVariants a -> [ConstValue a]
-unconstVs (ConstFree vs)   = vs
-unconstVs (ConstOpts n cs) = snd <$> cs
+unconstVs (ConstFree vs)       = vs
+unconstVs (ConstOpts nty n cs) = cs <&> \(_,_,v) -> v
 
 instance Functor ConstValue where
   fmap f (Const c) = Const (f c)
@@ -167,12 +179,12 @@ instance Applicative ConstValue where
   _             <*>  RunTime      = RunTime
 
 variants2consts :: (Value -> ConstValue a) -> Variants -> ConstVariants a
-variants2consts f (VarFree vs)   = ConstFree (f <$> vs)
-variants2consts f (VarOpts n os) = ConstOpts n (second f <$> os)
+variants2consts f (VarFree vs)       = ConstFree (f <$> vs)
+variants2consts f (VarOpts nty n os) = ConstOpts nty n (third f <$> os)
 
 consts2variants :: (ConstValue a -> Value) -> ConstVariants a -> Variants
-consts2variants f (ConstFree vs)   = VarFree (f <$> vs)
-consts2variants f (ConstOpts n os) = VarOpts n (second f <$> os)
+consts2variants f (ConstFree vs)       = VarFree (f <$> vs)
+consts2variants f (ConstOpts nty n os) = VarOpts nty n (third f <$> os)
 
 normalForm :: Globals -> Term -> Check Term
 normalForm g t = value2term g [] (bubble (eval g [] unit t []))
@@ -326,14 +338,17 @@ eval g env c (Markup tag as ts) [] =
                               in (VMarkup tag vas vs)
 eval g env c (Reset ctl mb_ct t qid) [] = VReset ctl (fmap (\t -> eval g env c t []) mb_ct) (eval g env c t []) qid
 eval g env c (TSymCat d r rs) []= VSymCat d r [(i,(fromJust (lookup pv env),ty)) | (i,(pv,ty)) <- rs]
-eval g env c t@(Opts n cs)  vs  = if null cs
-                                  then VError ("No options in expression:" $$ ppTerm Unqualified 0 t)
-                                  else let (c1,c2,c3) = split3 c
-                                           vn = eval g env c1 n []
-                                           vcs = mapC evalOpt c cs
-                                       in VFV c3 (VarOpts vn vcs)
-  where evalOpt c' (l,t) = let (c1,c2) = split c' in (eval g env c1 l [], eval g env c2 t vs)
-eval g env c t              vs  = VError ("Cannot reduce term" <+> pp t)
+eval g env c t@(Opts (nty,n) cs) vs = if null cs
+                                      then VError ("No options in expression:" $$ ppTerm Unqualified 0 t)
+                                      else let (c1,c2,c3) = split3 c
+                                               (c1ty,c1t) = split c1
+                                               vnty = eval g env c1ty (fromJust nty) []
+                                               vn = eval g env c1t n []
+                                               vcs = mapC evalOpt c2 cs
+                                           in VFV c3 (VarOpts vnty vn vcs)
+  where evalOpt c' ((lty,l),t) = let (c1,c2,c3) = split3 c'
+                                 in (eval g env c1 (fromJust lty) [], eval g env c2 l [], eval g env c3 t vs)
+eval g env c t vs = VError ("Cannot reduce term" <+> pp t)
 
 evalPredef :: Globals -> Choice -> Ident -> [Value] -> Value
 evalPredef g@(Gl gr pds) c n args =
@@ -381,7 +396,7 @@ apply g v                               []  = v
 
 data BubbleVariants
   = BubbleFree Int
-  | BubbleOpts Value [Value]
+  | BubbleOpts Value Value [(Value, Value)]
 
 bubble v = snd (bubble v)
   where
@@ -411,11 +426,15 @@ bubble v = snd (bubble v)
     bubble v@(VFV c (VarFree vs))
       | null vs   = (Map.empty, v)
       | otherwise = let (union,vs') = mapAccumL descend Map.empty vs
-                    in (Map.insert c (BubbleFree (length vs),1) union, addVariants (VFV c (VarFree vs')) union)
-    bubble v@(VFV c (VarOpts n os))
+                        b = BubbleFree (length vs)
+                        v' = addVariants (VFV c (VarFree vs')) union
+                    in (Map.insert c (b,1) union, v')
+    bubble v@(VFV c (VarOpts nty n os))
       | null os   = (Map.empty, v)
-      | otherwise = let (union,os') = mapAccumL (\acc (k,v) -> second (k,) $ descend acc v) Map.empty os
-                    in (Map.insert c (BubbleOpts n (fst <$> os),1) union, addVariants (VFV c (VarOpts n os')) union)
+      | otherwise = let (union,os') = mapAccumL (\acc (lty,l,v) -> second (lty,l,) $ descend acc v) Map.empty os
+                        b = BubbleOpts nty n (os <&> \(lty,l,_) -> (lty,l))
+                        v' = addVariants (VFV c (VarOpts nty n os')) union
+                    in (Map.insert c (b,1) union, v')
     bubble (VAlts v vs) = lift1L2 VAlts v vs
     bubble (VStrs vs) = liftL VStrs vs
     bubble (VMarkup tag attrs vs) =
@@ -500,8 +519,8 @@ bubble v = snd (bubble v)
       where
         addVariant c (bvs,cnt) v
           | cnt > 1   = VFV c $ case bvs of
-                                  BubbleFree k    -> VarFree (replicate k v)
-                                  BubbleOpts n os -> VarOpts n ((,v) <$> os)
+                                  BubbleFree k        -> VarFree (replicate k v)
+                                  BubbleOpts nty n os -> VarOpts nty n (os <&> \(lty,l) -> (lty,l,v))
           | otherwise = v
 
     unitfy = fmap (\(n,_) -> (n,1))
@@ -669,9 +688,10 @@ data MetaState
   | Residuation Scope (Maybe Constraint)
 data OptionInfo
   = OptionInfo
-      { optChoice  :: Choice
-      , optLabel   :: Value
-      , optChoices :: [Value]
+      { optChoice    :: Choice
+      , optLabelType :: Value
+      , optLabel     :: Value
+      , optChoices   :: [(Value, Value)]
       }
 type ChoiceMap = Map.Map Choice Int
 data State
@@ -737,6 +757,12 @@ reset (EvalM f) = EvalM $ \g k state r ws ->
   case f g (\x state xs ws -> Success (x:xs) ws) state [] ws of
     Fail   msg ws -> Fail msg ws
     Success xs ws -> k (reverse xs) state r ws
+
+reset1 :: EvalM a -> EvalM (Maybe a)
+reset1 (EvalM f) = EvalM $ \g k state r ws ->
+  case f g (\x' state x ws -> Success (x <|> Just x') ws) state Nothing ws of
+    Fail  msg ws -> Fail msg ws
+    Success x ws -> k x state r ws
 
 globals :: EvalM Globals
 globals = EvalM (\g k -> k g)
@@ -907,13 +933,13 @@ value2termM True xs (VFV i (VarFree vs)) = do
   v <- variants i vs
   value2termM True xs v
 value2termM False xs (VFV i (VarFree vs)) = variants' i (value2termM False xs) vs
-value2termM flat xs (VFV i (VarOpts n os)) =
+value2termM flat xs (VFV i (VarOpts nty n os)) =
   EvalM $ \g k (State choices metas opts) r msgs ->
     let j = fromMaybe 0 (Map.lookup i choices)
     in case os `maybeAt` j of
-         Just (l,t) -> case value2termM flat xs t of
-                         EvalM f -> let oi = OptionInfo i n (fst <$> os)
-                                    in f g k (State choices metas (oi:opts)) r msgs
+         Just (lty,l,t) -> case value2termM flat xs t of
+                             EvalM f -> let oi = OptionInfo i nty n (os <&> \(lty,l,_) -> (lty,l))
+                                        in f g k (State choices metas (oi:opts)) r msgs
          Nothing    -> Fail ("Index" <+> j <+> "out of bounds for option:" $$ ppValue Unqualified 0 n) msgs
 value2termM flat xs (VPatt min max p) = return (EPatt min max p)
 value2termM flat xs (VPattType v) = do t <- value2termM flat xs v
@@ -1020,7 +1046,9 @@ ppValue q d (VC v1 v2) = prec d 1 (hang (ppValue q 2 v1) 2 ("++" <+> ppValue q 1
 ppValue q d (VGlue v1 v2) = prec d 2 (ppValue q 3 v1 <+> '+'  <+> ppValue q 2 v2)
 ppValue q d (VPatt _ _ _) = pp "VPatt"
 ppValue q d (VPattType _) = pp "VPattType"
-ppValue q d (VFV i vs) = prec d 4 ("variants" <+> pp i <+> braces (fsep (punctuate ';' (map (ppValue q 0) (unvariants vs)))))
+ppValue q d (VFV i (VarFree vs)) = prec d 4 ("variants" <+> pp i <+> braces (fsep (punctuate ';' (map (ppValue q 0) vs))))
+ppValue q d (VFV i (VarOpts _ n os)) = prec d 4 ("option" <+> ppValue q 0 n <+> "of" <+> pp i <+> braces (fsep (punctuate ';'
+                                                  (map (\(_,l,v) -> parens (ppValue q 0 l) <+> "=>" <+> ppValue q 0 v) os))))
 ppValue q d (VAlts e xs) = prec d 4 ("pre" <+> braces (ppValue q 0 e <> ';' <+> fsep (punctuate ';' (map (ppAltern q) xs))))
 ppValue q d (VStrs _) = pp "VStrs"
 ppValue q d (VMarkup _ _ _) = pp "VMarkup"
@@ -1129,6 +1157,9 @@ mapC f c (x:xs) =
   let (!c1,!c2) = split c
   in f c1 x : mapC f c2 xs
 
+forC :: Choice -> [a] -> (Choice -> a -> b) -> [b]
+forC c xs f = mapC f c xs
+
 mapCM :: Monad m => (Choice -> a -> m b) -> Choice -> [a] -> m [b]
 mapCM f c []     = return []
 mapCM f c [x]    = do y <- f c x
@@ -1138,3 +1169,6 @@ mapCM f c (x:xs) = do
   y  <- f c1 x
   ys <- mapCM f c2 xs
   return (y:ys)
+
+forCM :: Monad m => Choice -> [a] -> (Choice -> a -> m b) -> m [b]
+forCM c xs f = mapCM f c xs

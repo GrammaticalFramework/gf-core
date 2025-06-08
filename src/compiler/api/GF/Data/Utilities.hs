@@ -11,13 +11,13 @@
 -- Basic functions not in the standard libraries
 -----------------------------------------------------------------------------
 
-
+{-# LANGUAGE TupleSections #-}
 module GF.Data.Utilities(module GF.Data.Utilities) where
 
 import Data.Bifunctor (first)
 import Data.Maybe
 import Data.List
-import Control.Monad (MonadPlus(..),foldM,liftM,when)
+import Control.Monad (MonadPlus(..),foldM,liftM,liftM2,when)
 import Control.Applicative(liftA2)
 import qualified Data.Set as Set
 
@@ -128,7 +128,7 @@ compareBy f = both f compare
 both :: (a -> b) -> (b -> b -> c) -> a -> a -> c
 both f g x y = g (f x) (f y)
 
--- * functions on pairs
+-- * functions on tuples
 
 apFst :: (a -> a') -> (a, b) -> (a', b)
 apFst f (a, b) = (f a, b)
@@ -173,6 +173,18 @@ allM p = foldM (\b x -> if b then p x else return False) True
 -- | Check whether a monadic predicate holds for any element of a collection.
 anyM :: (Foldable f, Monad m) => (a -> m Bool) -> f a -> m Bool
 anyM p = foldM (\b x -> if b then return True else p x) False
+
+-- | Lifts a monadic action to pairs in the first element.
+firstM :: Monad m => (a -> m a') -> (a, b) -> m (a', b)
+firstM f (a, b) = (,b) <$> f a
+
+-- | Lifts a monadic action to pairs in the second element.
+secondM :: Monad m => (b -> m b') -> (a, b) -> m (a, b')
+secondM f (a, b) = (a,) <$> f b
+
+-- | Lifts a pair of monadic actions to an action on pairs, sequencing left-to-right.
+bimapM :: Monad m => (a -> m a') -> (b -> m b') -> (a, b) -> m (a', b')
+bimapM f g (a, b) = liftM2 (,) (f a) (g b)
 
 -- * functions on Maybes
 

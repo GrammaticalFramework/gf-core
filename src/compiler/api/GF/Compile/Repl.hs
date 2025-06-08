@@ -23,6 +23,7 @@ import GF.Compile.Compute.Concrete2
   , ChoiceMap
   , Globals(Gl)
   , OptionInfo(..)
+  , bubble
   , stdPredef
   , unit
   , eval
@@ -57,7 +58,6 @@ import GF.Infra.Ident (moduleNameS)
 import GF.Infra.Option (noOptions)
 import GF.Infra.UseIO (justModuleName)
 import GF.Text.Pretty (render)
-import Debug.Trace
 
 data ReplOpts = ReplOpts
   { lang :: Lang
@@ -282,11 +282,11 @@ runRepl' opts@ReplOpts { lang, evalToFlat } gl@(Gl g _) = do
         outputStrLn $ show i ++ (if null opts then ". " else "*. ") ++ render (ppTerm Unqualified 0 r)
     
     outputOptions ois os =
-      forM_ ois $ \(OptionInfo c n ls) -> do
+      forM_ ois $ \(OptionInfo c _ n ls) -> do
         outputStrLn ""
         outputStrLn $ show (unchoice c) ++ ") " ++ render (ppValue Unqualified 0 n)
         let sel = fromMaybe 0 (Map.lookup c os) + 1
-        forM_ (zip [1..] ls) $ \(i, l) ->
+        forM_ (zip [1..] ls) $ \(i, (_,l)) ->
           outputStrLn $ (if i == sel then "->" else "  ") ++ show i ++ ". " ++ render (ppValue Unqualified 0 l)
 
 runRepl :: ReplOpts -> IO ()
