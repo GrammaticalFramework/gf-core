@@ -67,6 +67,7 @@ cConcat' = identS "concat'"
 cOne = identS "one"
 cDefault = identS "default"
 cList = identS "list"
+cLen = identS "len"
 
 -- * Hacks: dummy identifiers used in various places.
 -- Not very nice!

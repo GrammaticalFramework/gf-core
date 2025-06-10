@@ -414,6 +414,17 @@ tcRho scope c (Reset ctl mb_ct t qid) mb_ty
          case ty of
            VApp c qid [] -> return (Reset ctl mb_ct t (Just qid), ty)
            _             -> evalError (pp "Needs atomic type"<+>ppValue Unqualified 0 ty)
+  | ctl == cLen = do
+      do let (c1,c2) = split c
+         (t,_) <- tcRho scope c1 t Nothing
+         case mb_ct of
+           Just ct -> do res_ty <- case mb_ty of
+                                     Just ty -> return ty
+                                     Nothing -> do i <- newResiduation scope
+                                                   return (VMeta i [])
+                         (ct,_) <- tcRho scope c2 ct (Just (VProd Explicit identW vtypeInt res_ty))
+                         return (Reset ctl (Just ct) t Nothing, res_ty)
+           Nothing -> instSigma scope c2 (Reset ctl Nothing t Nothing) vtypeInt mb_ty
   | otherwise = evalError (pp "Operator" <+> pp ctl <+> pp "is not defined")
 tcRho scope s (Opts n cs) mb_ty = do
   let (s1,s2,s3) = split3 s
