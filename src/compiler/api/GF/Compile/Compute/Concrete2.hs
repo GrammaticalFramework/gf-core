@@ -959,6 +959,22 @@ value2termM flat xs (VReset ctl mb_cv v mb_qid) = do
            ([]  ,Nothing) -> mzero
            ([]  ,Just v)  -> value2termM flat xs v
            (t:ts,_)       -> return t
+      | ctl == cSelect =
+         case mb_cv of
+           Just (VInt n) | n >= 0    -> select n      ts'
+                         | otherwise -> select (-n-1) (reverse ts')
+                         where
+                           ts' = sortBy compareKey ts
+
+                           select _ []     = mzero
+                           select 0 (t:ts) =
+                             case t of
+                               R rs -> case lookup (ident2label cp1) rs  of
+                                         Just (_,t) -> return t
+                                         Nothing    -> evalError (pp "Missing label p1")
+                               _    -> evalError (pp "The term must be a record")
+                           select n (t:ts) = select (n-1) ts
+           _             -> evalError (pp "[select: .. | ..] requires an integer constant")
       | ctl == cDefault =
          case (ts,mb_cv) of
            ([]  ,Nothing) -> mzero
@@ -985,6 +1001,11 @@ value2termM flat xs (VReset ctl mb_cv v mb_qid) = do
     listify mn cat [t1,t2] = do return (App (App (QC (mn,identS ("Base"++cat))) t1) t2)
     listify mn cat (t1:ts) = do t2 <- listify mn cat ts
                                 return (App (App (QC (mn,identS ("Cons"++cat))) t1) t2)
+
+    compareKey (R rs1) (R rs2) =
+      case (lookup (ident2label cp2) rs1, lookup (ident2label cp2) rs2) of
+        (Just (_,K s1), Just (_,K s2)) -> compare s1 s2
+
 value2termM flat xs (VError msg) = evalError msg
 value2termM flat xs (VCRecType lbls) = do
   lbls <- mapM (\(lbl,_,v) -> fmap ((,) lbl) (value2termM flat xs v)) lbls

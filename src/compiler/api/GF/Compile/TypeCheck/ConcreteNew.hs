@@ -396,6 +396,21 @@ tcRho scope c (Reset ctl mb_ct t qid) mb_ty
                                     return (Just ct,ty)
                       Nothing -> return (Nothing,ty)
       return (Reset ctl mb_ct t qid,ty)
+  | ctl == cSelect = do
+      let (c1,c2) = split c
+      ty <- case mb_ty of
+              Just ty -> return ty
+              Nothing -> do i <- newResiduation scope
+                            return (VMeta i [])
+      let rec_ty = VRecType [ (ident2label cp1, ty)
+                            , (ident2label cp2, VSort cStr)
+                            ]
+      mb_ct <- case mb_ct of
+                 Just ct -> do (ct,_) <- tcRho scope c2 ct (Just vtypeInt)
+                               return (Just ct)
+                 Nothing -> evalError (pp "[select: .. | ..] requires an integer argument")
+      (t,_) <- tcRho scope c1 t (Just rec_ty)
+      return (Reset ctl mb_ct t qid,ty)
   | ctl == cDefault = do
       let (c1,c2) = split c
       (t,ty)     <- tcRho scope c1 t mb_ty
