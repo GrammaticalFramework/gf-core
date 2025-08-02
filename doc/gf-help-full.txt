@@ -46,7 +46,7 @@
 #TINY
 
 The command has one argument which is either function, expression or
-a category defined in the abstract syntax of the current grammar. 
+a category defined in the abstract syntax of the current grammar.
 If the argument is a function then ?its type is printed out.
 If it is a category then the category definition is printed.
 If a whole expression is given it prints the expression with refined
@@ -303,7 +303,7 @@ but the resulting .gf file must be imported separately.
 
 #TINY
 
-Generates a list of random trees, by default one tree.
+Generates a list of random trees, by default one tree up to depth 5.
 If a tree argument is given, the command completes the Tree with values to
 all metavariables in the tree. The generation can be biased by probabilities,
 given in a file in the -probs flag.
@@ -315,13 +315,14 @@ given in a file in the -probs flag.
  | ``-cat`` | generation category
  | ``-lang`` | uses only functions that have linearizations in all these languages
  | ``-number`` | number of trees generated
- | ``-depth`` | the maximum generation depth
+ | ``-depth`` | the maximum generation depth (default: 5)
  | ``-probs`` | file with biased probabilities (format 'f 0.4' one by line)
 
 - Examples:
 
  | ``gr`` | one tree in the startcat of the current grammar
  | ``gr -cat=NP -number=16`` | 16 trees in the category NP
+ | ``gr -cat=NP -depth=2`` | one tree in the category NP, up to depth 2
  | ``gr -lang=LangHin,LangTha -cat=Cl`` | Cl, both in LangHin and LangTha
  | ``gr -probs=FILE`` | generate with bias
  | ``gr (AdjCN ? (UseN ?))`` | generate trees of form (AdjCN ? (UseN ?))
@@ -338,8 +339,8 @@ given in a file in the -probs flag.
 
 #TINY
 
-Generates all trees of a given category. By default, 
-the depth is limited to 4, but this can be changed by a flag.
+Generates all trees of a given category. By default,
+the depth is limited to 5, but this can be changed by a flag.
 If a Tree argument is given, the command completes the Tree with values
 to all metavariables in the tree.
 
@@ -353,7 +354,7 @@ to all metavariables in the tree.
 
 - Examples:
 
- | ``gt`` | all trees in the startcat, to depth 4
+ | ``gt`` | all trees in the startcat, to depth 5
  | ``gt -cat=NP -number=16`` | 16 trees in the category NP
  | ``gt -cat=NP -depth=2`` | trees in the category NP to depth 2
  | ``gt (AdjCN ? (UseN ?))`` | trees of form (AdjCN ? (UseN ?))
@@ -582,7 +583,7 @@ trees where a function node is a metavariable.
 
 - Examples:
 
- | ``l -lang=LangSwe,LangNor -chunks ? a b (? c d)`` | 
+ | ``l -lang=LangSwe,LangNor -chunks ? a b (? c d)`` |
 
 
 #NORMAL
@@ -647,7 +648,7 @@ The -lang flag can be used to restrict this to fewer languages.
 The default start category can be overridden by the -cat flag.
 See also the ps command for lexing and character encoding.
 
-The -openclass flag is experimental and allows some robustness in 
+The -openclass flag is experimental and allows some robustness in
 the parser. For example if -openclass="A,N,V" is given, the parser
 will accept unknown adjectives, nouns and verbs with the resource grammar.
 
