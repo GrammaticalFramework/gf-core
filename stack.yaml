@@ -1,15 +1,23 @@
-# This default stack file is a copy of stack-ghc8.10.7.yaml
+# This default stack file is a copy of stack-ghc9.6.7.yaml
 # But committing a symlink can be problematic on Windows, so it's a real copy.
 # See: https://github.com/GrammaticalFramework/gf-core/pull/106
-resolver: lts-18.27 # ghc 8.10.7
+resolver: ghc-9.6.7
 
 extra-deps:
-- network-2.6.3.6
-- httpd-shed-0.4.0.3
-
-# flags:
-#   gf:
-#     server: true
-#     c-runtime: true
-# extra-lib-dirs:
-#   - /usr/local/lib
+- multipart-0.2.1@sha256:559c04eed5218a9673e9fb6a225287fee1aeb38a45a0caf91a2598967bd75659,1150
+- cgi-3001.5.1.0@sha256:408e1f96ac6134965484c891b5fae35c7303fa841b09ce5baea52ddb078eef6b,3442
+- alex-3.5.3.0@sha256:f6fde8ff59e7e38f9e95eca8f5154fb611c9789d1d9538aa9745c6c3cd9495b4,4502
+- happy-2.1.6@sha256:1e963a137b650e766d1d0433e3404727fd64bebb850aa587702bfe199347f6da,5017
+- happy-lib-2.1.6@sha256:552a82e07605d6f8017f513be59b43219425aa0e4be71f9dddb2527f5accbce4,6081
+- httpd-shed-0.4.1.2@sha256:ab0fbd57acd32e0d5a5f7402dcc23192a1ffa142d86eeed051f59cf54a74ce38,1838
+- json-0.11@sha256:3afa37628415992fe648da6f002672f5a0119aa5d49022bf928d10a927c29318,3250
+- network-3.1.4.0@sha256:e152cdb03243afb52bbc740cfbe96905ca298a6f6342f0c47b3f2e227ff19def,5208
+- network-bsd-2.8.1.0@sha256:cc7867f81c6eb3f1924bbb1029757af6e3b67a3c224c1faa329be3ea70ad729c,3780
+- network-uri-2.6.4.2@sha256:6fffb57373962b5651a2db8b0af732098b3bf029a7ced76a9855615de2026588,3217
+- parallel-3.2.2.0@sha256:9d7b34ac537940f67732eca31d48a43bd78fb65a91baebddf63bee4fc3813d81,1961
+- random-1.2.1.3@sha256:117541ba0a177397a3333f94870f789ef050dca31b0688a19824b2bc401b8823,6237
+- splitmix-0.1.3.1@sha256:d0002f3fb16a2cc5ba8afd47a6657726386edccfe8853d310e3479fe3b45201b,6552
+- stringsearch-0.3.6.6@sha256:cd72bb03946006b18a6a374b7dc4a1c783a29df1889861604f95b1de1da98607,4258
+- syb-0.7.2.4@sha256:936d5a92084ad9d88c5a9dd2e622deab57ce48ce85be93e6273b3f8eb64c12ca,3872
+- th-compat-0.1.6@sha256:e83d97946f84fe492762ceb3b4753b4770c78b0b70e594078700baa91a5106c2,2885
+- utf8-string-1.0.2@sha256:79416292186feeaf1f60e49ac5a1ffae9bf1b120e040a74bf0e81ca7f1d31d3f,1538
