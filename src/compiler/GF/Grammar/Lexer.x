@@ -283,11 +283,11 @@ instance Functor P where
   fmap = liftA
 
 instance Applicative P where
-  pure = return
+  pure a = a `seq` (P $ \s -> POk s a)
   (<*>) = ap
 
 instance Monad P where
-  return a    = a `seq` (P $ \s -> POk s a)
+  return      = pure
   (P m) >>= k = P $ \ s -> case m s of
                              POk s a          -> unP (k a) s
                              PFailed posn err -> PFailed posn err

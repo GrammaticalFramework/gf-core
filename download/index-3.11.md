@@ -139,6 +139,8 @@ stack install
 For more info on working with the GF source code, see the
 [GF Developers Guide](../doc/gf-developers.html).
 
+For macOS Sequoia, you need to downgrade the LLVM package, see instructions [here](https://github.com/GrammaticalFramework/gf-core/issues/172#issuecomment-2599365457).
+
 ## Installing the Python bindings from PyPI
 
 The Python library is available on PyPI as `pgf`, so it can be installed using:

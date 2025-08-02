@@ -1,4 +1,5 @@
 User-agent: *
 Disallow: /grammars
 Disallow: /robust
+Disallow: /wikidata
 Disallow: /*.pgf

@@ -17,7 +17,8 @@ module PGF.Expr(Tree, BindType(..), Expr(..), Literal(..), Patt(..), Equation(..
                 MetaId,
 
                 -- helpers
-                pMeta,pArg,pLit,freshName,ppMeta,ppLit,ppParens
+                pMeta,pArg,pLit,freshName,ppMeta,ppLit,ppParens,
+                freshBoundVars
                ) where
 
 import PGF.CId
@@ -235,10 +236,11 @@ pLit = liftM LStr (RP.readS_to_P reads)
 
 ppExpr :: Int -> [CId] -> Expr -> PP.Doc
 ppExpr d scope (EAbs b x e) = let (bs,xs,e1) = getVars [] [] (EAbs b x e)
+                                  xs' = freshBoundVars scope xs
                               in ppParens (d > 1) (PP.char '\\' PP.<>
-                                                   PP.hsep (PP.punctuate PP.comma (reverse (List.zipWith ppBind bs xs))) PP.<+>
+                                                   PP.hsep (PP.punctuate PP.comma (reverse (List.zipWith ppBind bs xs'))) PP.<+>
                                                    PP.text "->" PP.<+>
-                                                   ppExpr 1 (xs++scope) e1)
+                                                   ppExpr 1 (xs' ++ scope) e1)
                               where
                                 getVars bs xs (EAbs b x e) = getVars (b:bs) ((freshName x xs):xs) e
                                 getVars bs xs e            = (bs,xs,e)
@@ -289,6 +291,15 @@ freshName x xs0 = loop 1 x
       | elem y xs = loop (i+1) (mkCId (show x++show i))
       | otherwise = y
 
+-- refresh new vars xs in scope if needed. AR 2024-03-01
+freshBoundVars :: [CId] -> [CId] -> [CId]
+freshBoundVars scope xs = foldr fresh [] xs
+  where
+    fresh x xs' = mkCId (freshName (showCId x) xs') : xs'
+    freshName s xs' = 
+      if elem (mkCId s) (xs' ++ scope)
+      then freshName (s ++ "'") xs'
+      else s
 
 -----------------------------------------------------
 -- Computation
@@ -397,7 +408,7 @@ match sig f eqs as0 =
         tryMatch (p          ) (VMeta i envi vs  ) env            = VSusp i envi vs (\v -> tryMatch p v env)
         tryMatch (p          ) (VGen  i vs       ) env            = VConst f as0
         tryMatch (p          ) (VSusp i envi vs k) env            = VSusp i envi vs (\v -> tryMatch p (k v) env)
-        tryMatch (p          ) v@(VConst _ _     ) env            = VConst f as0
+        tryMatch (p          ) v@(VConst _ _     ) env            = match sig f eqs as0
         tryMatch (PApp f1 ps1) (VApp f2 vs2      ) env | f1 == f2 = tryMatches eqs (ps1++ps) (vs2++as) res env
         tryMatch (PLit l1    ) (VLit l2          ) env | l1 == l2 = tryMatches eqs  ps        as  res env
         tryMatch (PImplArg p ) (VImplArg v       ) env            = tryMatch p v env

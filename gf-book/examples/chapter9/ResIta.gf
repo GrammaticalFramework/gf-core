@@ -43,10 +43,10 @@ oper
     } ;
 
   auxVerb : Aux -> Verb = \a -> case a of {
-    Avere => 
+    Avere =>
       mkVerb "avere" "ho" "hai" "ha" "abbiamo" "avete" "hanno" "avuto" Avere ;
-    Essere => 
-      mkVerb "essere" "sono" "sei" "è" "siamo" "siete" "sono" "stato" Essere
+    Essere =>
+      mkVerb "essere" "sono" "sei" "Ã¨" "siamo" "siete" "sono" "stato" Essere
     } ;
 
   agrPart : Verb -> Agr -> ClitAgr -> Str = \v,a,c -> case v.aux of {

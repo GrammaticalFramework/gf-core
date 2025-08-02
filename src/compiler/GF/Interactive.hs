@@ -32,6 +32,7 @@ import qualified Text.ParserCombinators.ReadP as RP
 import System.Directory({-getCurrentDirectory,-}getAppUserDataDirectory)
 import Control.Exception(SomeException,fromException,evaluate,try)
 import Control.Monad.State hiding (void)
+import Control.Monad (join, when, (<=<))
 import qualified GF.System.Signal as IO(runInterruptibly)
 #ifdef SERVER_MODE
 import GF.Server(server)

@@ -94,11 +94,11 @@ class Selector s where
   select        :: CId -> Scope -> Maybe Int -> TcM s (Expr,TType)
 
 instance Applicative (TcM s) where
-  pure = return
+  pure x = TcM (\abstr k h -> k x)
   (<*>) = ap
 
 instance Monad (TcM s) where
-  return x = TcM (\abstr k h -> k x)
+  return   = pure
   f >>= g  = TcM (\abstr k h -> unTcM f abstr (\x -> unTcM (g x) abstr k h) h)
 
 instance Selector s => Alternative (TcM s) where
@@ -147,9 +147,9 @@ typeGenerators scope cat = fmap normalize (liftM2 (++) x y)
          where
            Scope gamma = scope
 
-    y | cat == cidInt    = return [(1.0,ELit (LInt 999),  TTyp [] (DTyp [] cat []))]
-      | cat == cidFloat  = return [(1.0,ELit (LFlt 3.14), TTyp [] (DTyp [] cat []))]
-      | cat == cidString = return [(1.0,ELit (LStr "Foo"),TTyp [] (DTyp [] cat []))]
+    y | cat == cidInt    = return [(0.1, ELit (LInt n),  TTyp [] (DTyp [] cat [])) | n <- ints]
+      | cat == cidFloat  = return [(0.1, ELit (LFlt d), TTyp [] (DTyp [] cat [])) | d <- floats]
+      | cat == cidString = return [(0.1, ELit (LStr s),TTyp [] (DTyp [] cat [])) | s <- strs]
       | otherwise        = TcM (\abstr k h ms ->
                                     case Map.lookup cat (cats abstr) of
                                       Just (_,fns,_) -> unTcM (mapM helper fns) abstr k h ms
@@ -162,6 +162,11 @@ typeGenerators scope cat = fmap normalize (liftM2 (++) x y)
     normalize gens = [(p/s,e,tty) | (p,e,tty) <- gens]
       where
         s = sum [p | (p,_,_) <- gens]
+
+ -- random elements of predefined types: many instead of one AR 2025-01-17
+    ints = [1, 2, 3, 14, 42, 123, 999, 2025, 1000000, 1234567890]
+    floats = [0.0, 1.0, 3.14, 0.999, 0.5772156649, 2.71828, 6.62607015, 19.3, 0.0001, 1.60934]
+    strs = words "A B X Y b c x y foo bar"
 
 emptyMetaStore :: MetaStore s
 emptyMetaStore = IntMap.empty

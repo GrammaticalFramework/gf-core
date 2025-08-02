@@ -448,7 +448,7 @@ pgfMain lcs@(alc,clc) path command tpgf@(t,pgf) =
       "linearizeTable" -> o =<< doLinearizeTabular pgf # tree % to
       "random"         -> o =<< join (doRandom pgf # cat % depth % limit % to)
       "generate"       -> o =<< doGenerate pgf # cat % depth % limit % to
-      "translate"      -> o =<< doTranslate pgf # input % cat %to%limit%treeopts
+      "translate"      -> o =<< doTranslate pgf # input % cat % to % limit % treeopts
       "translategroup" -> o =<< doTranslateGroup pgf # input % cat % to % limit
       "lookupmorpho"   -> o =<< doLookupMorpho pgf # from1 % textInput
       "grammar"        -> join $ doGrammar tpgf
@@ -1092,7 +1092,7 @@ linearizeTabular pgf (tos,unlex) tree =
     [(to,lintab to (transfer to tree)) | to <- langs]
   where
     langs = if null tos then PGF.languages pgf else tos
-    lintab to t = [(p,map unlex (nub [t|(p',t)<-vs,p'==p]))|p<-ps]
+    lintab to t = [(p,map unlex (nub [t | (p',t)<-vs,p'==p])) | p<-ps]
       where
         ps = nub (map fst vs)
         vs = concat (PGF.tabularLinearizes pgf to t)

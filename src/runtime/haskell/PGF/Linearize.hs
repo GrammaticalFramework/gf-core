@@ -81,7 +81,7 @@ linTree pgf cnc e = nub (map snd (lin Nothing 0 e [] [] e []))
   where
     lp    = lproductions cnc
 
-    lin mb_cty n_fid e0 ys xs (EAbs _ x e) es = lin   mb_cty n_fid e0 ys (x:xs) e      es
+    lin mb_cty n_fid e0 ys xs (EAbs _ x e) es = lin   mb_cty n_fid e0 ys (freshBoundVars (xs ++ ys) [x] ++ xs) e      es --fresh: AR 2024
     lin mb_cty n_fid e0 ys xs (EApp e1 e2) es = lin   mb_cty n_fid e0 ys    xs  e1 (e2:es)
     lin mb_cty n_fid e0 ys xs (EImplArg e) es = lin   mb_cty n_fid e0 ys    xs  e      es
     lin mb_cty n_fid e0 ys xs (ETyped e _) es = lin   mb_cty n_fid e0 ys    xs  e      es

@@ -201,11 +201,11 @@ instance Fail.MonadFail CnvMonad where
   fail = bug
 
 instance Applicative CnvMonad where
-  pure = return
+  pure a = CM (\gr c s -> c a s)
   (<*>) = ap
 
 instance Monad CnvMonad where
-    return a   = CM (\gr c s -> c a s)
+    return     = pure
     CM m >>= k = CM (\gr c s -> m gr (\a s -> unCM (k a) gr c s) s)
 
 instance MonadState ([ProtoFCat],[Symbol]) CnvMonad where

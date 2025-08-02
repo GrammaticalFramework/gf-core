@@ -172,11 +172,11 @@ value env t0 =
     ImplArg t -> (VImplArg.) # value env t
     Table p res -> liftM2 VTblType # value env p <# value env res
     RecType rs -> do lovs <- mapPairsM (value env) rs
-                     return $ \vs->VRecType $ mapSnd ($vs) lovs
+                     return $ \vs->VRecType $ mapSnd ($ vs) lovs
     t@(ExtR t1 t2) -> ((extR t.)# both id) # both (value env) (t1,t2)
     FV ts   -> ((vfv .) # sequence) # mapM (value env) ts
     R as    -> do lovs <- mapPairsM (value env.snd) as
-                  return $ \ vs->VRec $ mapSnd ($vs) lovs
+                  return $ \ vs->VRec $ mapSnd ($ vs) lovs
     T i cs  -> valueTable env i cs
     V ty ts -> do pvs <- paramValues env ty
                   ((VV ty pvs .) . sequence) # mapM (value env) ts
@@ -376,10 +376,10 @@ valueTable env i cs =
   where
     dynamic cs' ty _ = cases cs' # value env ty
 
-    cases cs' vty vs = err keep ($vs) (convertv cs' (vty vs))
+    cases cs' vty vs = err keep ($ vs) (convertv cs' (vty vs))
       where
         keep msg = --trace (msg++"\n"++render (ppTerm Unqualified 0 (T i cs))) $
-                   VT wild (vty vs) (mapSnd ($vs) cs')
+                   VT wild (vty vs) (mapSnd ($ vs) cs')
 
     wild = case i of TWild _ -> True; _ -> False
 
@@ -392,7 +392,7 @@ valueTable env i cs =
     convert' cs' ((pty,vs),pvs) =
       do sts  <- mapM (matchPattern cs') vs
          return $ \ vs -> VV pty pvs $ map (err bug id . valueMatch env)
-                                           (mapFst ($vs) sts)
+                                           (mapFst ($ vs) sts)
 
     valueCase (p,t) = do p' <- measurePatt # inlinePattMacro p
                          pvs <- linPattVars p'
@@ -430,19 +430,19 @@ apply' :: CompleteEnv -> Term -> [OpenValue] -> Err OpenValue
 apply' env t [] = value env t
 apply' env t vs =
   case t of
-    QC x                   -> return $ \ svs -> VCApp x (map ($svs) vs)
+    QC x                   -> return $ \ svs -> VCApp x (map ($ svs) vs)
 {-
     Q x@(m,f) | m==cPredef -> return $
                               let constr = --trace ("predef "++show x) .
                                            VApp x
                               in \ svs -> maybe constr id (Map.lookup f predefs)
-                                          $ map ($svs) vs
+                                          $ map ($ svs) vs
               | otherwise  -> do r <- resource env x
-                                 return $ \ svs -> vapply (gloc env) r (map ($svs) vs)
+                                 return $ \ svs -> vapply (gloc env) r (map ($ svs) vs)
 -}
     App t1 t2              -> apply' env t1 . (:vs) =<< value env t2
     _                      -> do fv <- value env t
-                                 return $ \ svs -> vapply (gloc env) (fv svs) (map ($svs) vs)
+                                 return $ \ svs -> vapply (gloc env) (fv svs) (map ($ svs) vs)
 
 vapply :: GLocation -> Value -> [Value] -> Value
 vapply loc v [] = v

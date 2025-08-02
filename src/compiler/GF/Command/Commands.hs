@@ -218,9 +218,9 @@ pgfCommands = Map.fromList [
      exec = getEnv $ \ opts arg (Env pgf mos) -> do
        let pgfr = optRestricted opts pgf
        let dp = valIntOpts "depth" 4 opts
-       let ts = case mexp (toExprs arg) of
-                  Just ex -> generateFromDepth pgfr ex (Just dp)
-                  Nothing -> generateAllDepth pgfr (optType pgf opts) (Just dp)
+       let ts = case toExprs arg of
+                  [] -> generateAllDepth pgfr (optType pgf opts) (Just dp)
+                  es -> concat [generateFromDepth pgfr e (Just dp) | e <- es]
        returnFromExprs $ take (optNumInf opts) ts
      }),
   ("i", emptyCommandInfo {
@@ -428,7 +428,8 @@ pgfCommands = Map.fromList [
        "are type checking and semantic computation."
        ],
      examples = [
-       mkEx "pt -compute (plus one two)                               -- compute value"
+       mkEx "pt -compute (plus one two)                               -- compute value",
+       mkEx ("p \"the 4 dogs\" | pt -transfer=digits2numeral | l  -- \"the four dogs\" ")
        ],
      exec = getEnv $ \ opts arg (Env pgf mos) ->
             returnFromExprs . takeOptNum opts . treeOps pgf opts $ toExprs arg,

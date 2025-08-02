@@ -64,11 +64,11 @@ finalStates :: BacktrackM s () -> s -> [s]
 finalStates bm = map fst . runBM bm
 
 instance Applicative (BacktrackM s) where
-    pure = return
+    pure a = BM (\c s b -> c a s b)
     (<*>) = ap
 
 instance Monad (BacktrackM s) where
-    return a   = BM (\c s b -> c a s b)
+    return     = pure
     BM m >>= k = BM (\c s b -> m (\a s b -> unBM (k a) c s b) s b)
         where unBM (BM m) = m
 
