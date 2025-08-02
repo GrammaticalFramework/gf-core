@@ -8,7 +8,7 @@ date: 03 August 2025
 See the [download page](index-3.12.html).
 
 ## What's new
-This release adds support for Apple Silicon M1 Mac computers and newer versions of GHC.
+This release adds support for Apple Silicon M1 Mac computers and newer versions of GHC, along with various improvements and bug fixes.
 
 Over 70 commits have been merged to gf-core since the release of GF 3.11 in July 2021.
 
