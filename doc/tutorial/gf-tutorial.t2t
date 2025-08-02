@@ -1188,7 +1188,7 @@ use ``generate_trees = gt``.
   this wine is fresh
   this wine is warm
 ```
-The default **depth** is 3; the depth can be
+The default **depth** is 5; the depth can be
 set by using the ``depth`` flag:
 ```
   > generate_trees -depth=2 | l
@@ -1739,9 +1739,9 @@ A new module can **extend** an old one:
       Pizza : Kind ;
   }
 ```
-Note that the extended grammar doesn't inherit the start 
-category from the grammar it extends, so if you want to 
-generate sentences with this grammar, you'll have to either 
+Note that the extended grammar doesn't inherit the start
+category from the grammar it extends, so if you want to
+generate sentences with this grammar, you'll have to either
 add a startcat (e.g. ``flags startcat = Question ;``),
 or in the GF shell, specify the category to ``generate_random`` or ``geneate_trees``
 (e.g. ``gr -cat=Comment`` or ``gt -cat=Question``).
@@ -3746,7 +3746,7 @@ However, type-incorrect commands are rejected by the typecheck:
   The parsing is successful but the type checking failed with error(s):
     Couldn't match expected type Device light
        against the interred type Device fan
-    In the expression: DKindOne fan       
+    In the expression: DKindOne fan
 ```
 
 #NEW
@@ -4184,7 +4184,7 @@ division of integers.
 ```
   abstract Calculator = {
   flags startcat = Exp ;
-  
+
   cat Exp ;
 
   fun

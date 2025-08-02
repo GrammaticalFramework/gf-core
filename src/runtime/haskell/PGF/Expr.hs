@@ -408,7 +408,7 @@ match sig f eqs as0 =
         tryMatch (p          ) (VMeta i envi vs  ) env            = VSusp i envi vs (\v -> tryMatch p v env)
         tryMatch (p          ) (VGen  i vs       ) env            = VConst f as0
         tryMatch (p          ) (VSusp i envi vs k) env            = VSusp i envi vs (\v -> tryMatch p (k v) env)
-        tryMatch (p          ) v@(VConst _ _     ) env            = VConst f as0
+        tryMatch (p          ) v@(VConst _ _     ) env            = match sig f eqs as0
         tryMatch (PApp f1 ps1) (VApp f2 vs2      ) env | f1 == f2 = tryMatches eqs (ps1++ps) (vs2++as) res env
         tryMatch (PLit l1    ) (VLit l2          ) env | l1 == l2 = tryMatches eqs  ps        as  res env
         tryMatch (PImplArg p ) (VImplArg v       ) env            = tryMatch p v env

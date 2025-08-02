@@ -22,6 +22,7 @@ import GF.Infra.SIO
 import GF.Command.Abstract
 import GF.Command.CommandInfo
 import GF.Command.CommonCommands
+import qualified GF.Command.CommonCommands as Common
 import GF.Text.Clitics
 import GF.Quiz
 
@@ -166,14 +167,15 @@ pgfCommands = Map.fromList [
      synopsis = "generate random trees in the current abstract syntax",
      syntax = "gr [-cat=CAT] [-number=INT]",
      examples = [
-       mkEx "gr                     -- one tree in the startcat of the current grammar",
-       mkEx "gr -cat=NP -number=16  -- 16 trees in the category NP",
-       mkEx "gr -lang=LangHin,LangTha -cat=Cl  -- Cl, both in LangHin and LangTha",
-       mkEx "gr -probs=FILE         -- generate with bias",
-       mkEx "gr (AdjCN ? (UseN ?))  -- generate trees of form (AdjCN ? (UseN ?))"
+       mkEx $ "gr                     -- one tree in the startcat of the current grammar, up to depth " ++ Common.default_depth_str,
+       mkEx   "gr -cat=NP -number=16  -- 16 trees in the category NP",
+       mkEx   "gr -cat=NP -depth=2    -- one tree in the category NP, up to depth 2",
+       mkEx   "gr -lang=LangHin,LangTha -cat=Cl  -- Cl, both in LangHin and LangTha",
+       mkEx   "gr -probs=FILE         -- generate with bias",
+       mkEx   "gr (AdjCN ? (UseN ?))  -- generate trees of form (AdjCN ? (UseN ?))"
        ],
      explanation = unlines [
-       "Generates a list of random trees, by default one tree.",
+       "Generates a list of random trees, by default one tree up to depth " ++ Common.default_depth_str ++ ".",
        "If a tree argument is given, the command completes the Tree with values to",
        "all metavariables in the tree. The generation can be biased by probabilities,",
        "given in a file in the -probs flag."
@@ -182,13 +184,13 @@ pgfCommands = Map.fromList [
        ("cat","generation category"),
        ("lang","uses only functions that have linearizations in all these languages"),
        ("number","number of trees generated"),
-       ("depth","the maximum generation depth"),
+       ("depth","the maximum generation depth (default: " ++ Common.default_depth_str ++ ")"),
        ("probs", "file with biased probabilities (format 'f 0.4' one by line)")
        ],
      exec = getEnv $ \ opts arg (Env pgf mos) -> do
        pgf <- optProbs opts (optRestricted opts pgf)
        gen <- newStdGen
-       let dp = valIntOpts "depth" 4 opts
+       let dp = valIntOpts "depth" Common.default_depth opts
        let ts  = case mexp (toExprs arg) of
                    Just ex -> generateRandomFromDepth gen pgf ex (Just dp)
                    Nothing -> generateRandomDepth     gen pgf (optType pgf opts) (Just dp)
@@ -199,25 +201,25 @@ pgfCommands = Map.fromList [
      synopsis = "generates a list of trees, by default exhaustive",
      explanation = unlines [
        "Generates all trees of a given category. By default, ",
-       "the depth is limited to 4, but this can be changed by a flag.",
+       "the depth is limited to " ++ Common.default_depth_str ++ ", but this can be changed by a flag.",
        "If a Tree argument is given, the command completes the Tree with values",
        "to all metavariables in the tree."
        ],
      flags = [
        ("cat","the generation category"),
-       ("depth","the maximum generation depth"),
+       ("depth","the maximum generation depth (default: " ++ Common.default_depth_str ++ ")"),
        ("lang","excludes functions that have no linearization in this language"),
        ("number","the number of trees generated")
        ],
      examples = [
-       mkEx "gt                     -- all trees in the startcat, to depth 4",
-       mkEx "gt -cat=NP -number=16  -- 16 trees in the category NP",
-       mkEx "gt -cat=NP -depth=2    -- trees in the category NP to depth 2",
-       mkEx "gt (AdjCN ? (UseN ?))  -- trees of form (AdjCN ? (UseN ?))"
+       mkEx $ "gt                     -- all trees in the startcat, to depth " ++ Common.default_depth_str,
+       mkEx   "gt -cat=NP -number=16  -- 16 trees in the category NP",
+       mkEx   "gt -cat=NP -depth=2    -- trees in the category NP to depth 2",
+       mkEx   "gt (AdjCN ? (UseN ?))  -- trees of form (AdjCN ? (UseN ?))"
        ],
      exec = getEnv $ \ opts arg (Env pgf mos) -> do
        let pgfr = optRestricted opts pgf
-       let dp = valIntOpts "depth" 4 opts
+       let dp = valIntOpts "depth" Common.default_depth opts
        let ts = case toExprs arg of
                   [] -> generateAllDepth pgfr (optType pgf opts) (Just dp)
                   es -> concat [generateFromDepth pgfr e (Just dp) | e <- es]
@@ -428,7 +430,8 @@ pgfCommands = Map.fromList [
        "are type checking and semantic computation."
        ],
      examples = [
-       mkEx "pt -compute (plus one two)                               -- compute value"
+       mkEx "pt -compute (plus one two)                               -- compute value",
+       mkEx ("p \"the 4 dogs\" | pt -transfer=digits2numeral | l  -- \"the four dogs\" ")
        ],
      exec = getEnv $ \ opts arg (Env pgf mos) ->
             returnFromExprs . takeOptNum opts . treeOps pgf opts $ toExprs arg,
@@ -546,7 +549,7 @@ pgfCommands = Map.fromList [
        "which is processed by dot (graphviz) and displayed by the program indicated",
        "by the view flag. The target format is png, unless overridden by the",
        "flag -format. Results from multiple trees are combined to pdf with convert (ImageMagick).",
-       "See also 'vp -showdep' for another visualization of dependencies." 
+       "See also 'vp -showdep' for another visualization of dependencies."
        ],
      exec = getEnv $ \ opts arg (Env pgf mos) -> do
          let absname = abstractName pgf
@@ -759,7 +762,7 @@ pgfCommands = Map.fromList [
                   []        -> [parse_ pgf lang (optType pgf opts) (Just dp) s | lang <- optLangs pgf opts]
                   open_typs -> [parseWithRecovery pgf lang (optType pgf opts) open_typs (Just dp) s | lang <- optLangs pgf opts]
      where
-       dp = valIntOpts "depth" 4 opts
+       dp = valIntOpts "depth" Common.default_depth opts
 
    fromParse opts = foldr (joinPiped . fromParse1 opts) void
 
@@ -799,9 +802,9 @@ pgfCommands = Map.fromList [
        _ | isOpt "tabtreebank" opts ->
          return $ concat $ intersperse "\t" $ (showExpr [] t) :
                    [s | lang <- optLangs pgf opts, s <- linear pgf opts lang t]
-       _ | isOpt "chunks" opts -> map snd $ linChunks pgf opts t   
+       _ | isOpt "chunks" opts -> map snd $ linChunks pgf opts t
        _ -> [s | lang <- optLangs pgf opts, s<-linear pgf opts lang t]
-   linChunks pgf opts t = 
+   linChunks pgf opts t =
      [(lang, unwords (intersperse "<+>" (map (unlines . linear pgf opts lang) (treeChunks t)))) | lang <- optLangs pgf opts]
 
    linear :: PGF -> [Option] -> CId -> Expr -> [String]
@@ -1005,13 +1008,13 @@ viewLatex view name grphs = do
   restrictedSystem $ "pdflatex " ++ texfile
   restrictedSystem $ view ++ " " ++ pdffile
   return void
-  
+
 ---- copied from VisualizeTree ; not sure about proper place AR Nov 2015
 latexDoc :: [String] -> String
 latexDoc body = unlines $
     "\\batchmode"
   : "\\documentclass{article}"
-  : "\\usepackage[utf8]{inputenc}"  
+  : "\\usepackage[utf8]{inputenc}"
   : "\\begin{document}"
   : spaces body
   ++ ["\\end{document}"]
