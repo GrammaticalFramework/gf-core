@@ -1739,6 +1739,13 @@ A new module can **extend** an old one:
       Pizza : Kind ;
   }
 ```
+Note that the extended grammar doesn't inherit the start 
+category from the grammar it extends, so if you want to 
+generate sentences with this grammar, you'll have to either 
+add a startcat (e.g. ``flags startcat = Question ;``),
+or in the GF shell, specify the category to ``generate_random`` or ``geneate_trees``
+(e.g. ``gr -cat=Comment`` or ``gt -cat=Question``).
+
 Parallel to the abstract syntax, extensions can
 be built for concrete syntaxes:
 ```
