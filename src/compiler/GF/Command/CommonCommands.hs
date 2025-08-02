@@ -19,6 +19,12 @@ import Data.Char (isSpace)
 
 import qualified PGF as H(showCId,showExpr,toATree,toTrie,Trie(..))
 
+-- store default generation depth in a variable and use everywhere
+default_depth :: Int
+default_depth = 5
+default_depth_str = show default_depth
+
+
 extend old new = Map.union (Map.fromList new) old -- Map.union is left-biased
 
 commonCommands :: (Monad m,MonadSIO m) => Map.Map String (CommandInfo m)
