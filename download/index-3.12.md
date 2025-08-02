@@ -1,9 +1,9 @@
 ---
 title: Grammatical Framework Download and Installation
-date: 2 August 2025
+date: 3 August 2025
 ---
 
-**GF 3.12** was released on 2 August 2025.
+**GF 3.12** was released on 3 August 2025.
 
 What's new? See the [release notes](release-3.12.html).
 

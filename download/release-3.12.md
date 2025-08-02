@@ -1,6 +1,6 @@
 ---
 title: GF 3.12 Release Notes
-date: 02 August 2025
+date: 03 August 2025
 ---
 
 ## Installation
