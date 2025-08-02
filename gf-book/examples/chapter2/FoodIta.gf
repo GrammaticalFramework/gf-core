@@ -2,7 +2,7 @@ concrete FoodIta of Food = {
   lincat
     Comment, Item, Kind, Quality = Str ;
   lin
-    Pred item quality = item ++ "è" ++ quality ;
+    Pred item quality = item ++ "Ã¨" ++ quality ;
     This kind = "questo" ++ kind ;
     That kind = "quel" ++ kind ;
     Mod quality kind = kind ++ quality ;

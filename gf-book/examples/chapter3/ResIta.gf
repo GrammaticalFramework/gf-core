@@ -32,5 +32,5 @@ resource ResIta = open Prelude in {
       in 
       adjective nero (ner+"a") (ner+"i") (ner+"e") ;
     copula : Number => Str = 
-      table {Sg => "è" ; Pl => "sono"} ;
+      table {Sg => "Ã¨" ; Pl => "sono"} ;
 }

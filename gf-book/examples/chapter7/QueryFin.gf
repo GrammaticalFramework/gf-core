@@ -6,7 +6,7 @@ concrete QueryFin of Query = {
     Odd   = pred "pariton" ;
     Prime = pred "alkuluku" ;
     Number i = i.s ;
-    Yes = "kyllä" ;
+    Yes = "kyllÃ¤" ;
     No = "ei" ;
   oper
     pred : Str -> Str -> Str = \f,x -> "onko" ++ x ++ f ;
