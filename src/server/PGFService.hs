@@ -448,7 +448,7 @@ pgfMain lcs@(alc,clc) path command tpgf@(t,pgf) =
       "linearizeTable" -> o =<< doLinearizeTabular pgf # tree % to
       "random"         -> o =<< join (doRandom pgf # cat % depth % limit % to)
       "generate"       -> o =<< doGenerate pgf # cat % depth % limit % to
-      "translate"      -> o =<< doTranslate pgf # input % cat %to%limit%treeopts
+      "translate"      -> o =<< doTranslate pgf # input % cat % to % limit % treeopts
       "translategroup" -> o =<< doTranslateGroup pgf # input % cat % to % limit
       "lookupmorpho"   -> o =<< doLookupMorpho pgf # from1 % textInput
       "grammar"        -> join $ doGrammar tpgf
@@ -570,6 +570,8 @@ getLang' readLang i =
 limit, depth :: CGI (Maybe Int)
 limit = readInput "limit"
 depth = readInput "depth"
+
+default_depth_server = 4
 
 start :: CGI Int
 start = maybe 0 id # readInput "start"
@@ -781,7 +783,7 @@ doRandom pgf mcat mdepth mlimit to =
              | tree <- limit trees]
   where cat = fromMaybe (PGF.startCat pgf) mcat
         limit = take (fromMaybe 1 mlimit)
-        depth = fromMaybe 4 mdepth
+        depth = fromMaybe default_depth_server mdepth
 
 doGenerate :: PGF -> Maybe PGF.Type -> Maybe Int -> Maybe Int -> To -> JSValue
 doGenerate pgf mcat mdepth mlimit tos =
@@ -794,7 +796,7 @@ doGenerate pgf mcat mdepth mlimit tos =
     trees = PGF.generateAllDepth pgf cat (Just depth)
     cat = fromMaybe (PGF.startCat pgf) mcat
     limit = take (fromMaybe 1 mlimit)
-    depth = fromMaybe 4 mdepth
+    depth = fromMaybe default_depth_server mdepth
 
 doGrammar :: (UTCTime,PGF) -> Either IOError (UTCTime,l) -> Maybe (Accept Language) -> CGI CGIResult
 doGrammar (t1,pgf) elbls macc = out t $ showJSON $ makeObj
@@ -1092,7 +1094,7 @@ linearizeTabular pgf (tos,unlex) tree =
     [(to,lintab to (transfer to tree)) | to <- langs]
   where
     langs = if null tos then PGF.languages pgf else tos
-    lintab to t = [(p,map unlex (nub [t|(p',t)<-vs,p'==p]))|p<-ps]
+    lintab to t = [(p,map unlex (nub [t | (p',t)<-vs,p'==p])) | p<-ps]
       where
         ps = nub (map fst vs)
         vs = concat (PGF.tabularLinearizes pgf to t)

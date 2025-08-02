@@ -10,12 +10,12 @@ instance LexFoodsFin of LexFoods =
     fish_N = mkN "kala" ;
     fresh_A = mkA "tuore" ;
     warm_A = mkA
-    (mkN "l�mmin" "l�mpim�n" "l�mmint�" "l�mpim�n�" "l�mpim��n"
-         "l�mpimin�" "l�mpimi�" "l�mpimien" "l�mpimiss�" "l�mpimiin"
+    (mkN "lämmin" "lämpimän" "lämmintä" "lämpimänä" "lämpimään"
+         "lämpiminä" "lämpimiä" "lämpimien" "lämpimissä" "lämpimiin"
 	 )
-    "l�mpim�mpi" "l�mpimin" ;
+    "lämpimämpi" "lämpimin" ;
     italian_A = mkA "italialainen" ;
     expensive_A = mkA "kallis" ;
     delicious_A = mkA "herkullinen" ;
-    boring_A = mkA "tyls�" ;
+    boring_A = mkA "tylsä" ;
 }

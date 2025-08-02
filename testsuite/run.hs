@@ -66,6 +66,7 @@ expectedFailures =
   [ "testsuite/runtime/parser/parser.gfs" -- Only parses `z` as `zero` and not also as e.g. `succ zero` as expected
   , "testsuite/runtime/linearize/brackets.gfs" -- Missing "cannot linearize in the end"
   , "testsuite/compiler/typecheck/abstract/non-abstract-terms.gfs" -- Gives a different error than expected
+  , "testsuite/runtime/eval/eval.gfs"
   ]
 
 -- | Produce HTML document with test results

@@ -127,11 +127,11 @@ instance Functor Get where
     {-# INLINE fmap #-}
 
 instance Applicative Get where
-    pure  = return
+    pure a = Get (\s -> (a, s))
     (<*>) = ap
 
 instance Monad Get where
-    return a  = Get (\s -> (a, s))
+    return = pure
     {-# INLINE return #-}
 
     m >>= k   = Get (\s -> case unGet m s of

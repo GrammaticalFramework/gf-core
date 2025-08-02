@@ -94,11 +94,11 @@ class Selector s where
   select        :: CId -> Scope -> Maybe Int -> TcM s (Expr,TType)
 
 instance Applicative (TcM s) where
-  pure = return
+  pure x = TcM (\abstr k h -> k x)
   (<*>) = ap
 
 instance Monad (TcM s) where
-  return x = TcM (\abstr k h -> k x)
+  return   = pure
   f >>= g  = TcM (\abstr k h -> unTcM f abstr (\x -> unTcM (g x) abstr k h) h)
 
 instance Selector s => Alternative (TcM s) where

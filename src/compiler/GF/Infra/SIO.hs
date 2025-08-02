@@ -52,11 +52,11 @@ newtype SIO a = SIO {unS::PutStr->IO a}
 instance Functor SIO where fmap = liftM
 
 instance Applicative SIO where
-  pure = return
+  pure x = SIO (const (pure x))
   (<*>) = ap
 
 instance Monad SIO where
-  return x = SIO (const (return x))
+  return         = pure
   SIO m1 >>= xm2 = SIO $ \ h -> m1 h >>= \ x -> unS (xm2 x) h
 
 instance Fail.MonadFail SIO where
