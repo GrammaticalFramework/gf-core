@@ -54,7 +54,7 @@ jobs:
         cp ../gf_*.deb dist/
 
     - name: Upload artifact
-      uses: actions/upload-artifact@v2
+      uses: actions/upload-artifact@v4
       with:
         name: gf-${{ github.event.release.tag_name }}-${{ matrix.os }}.deb
         path: dist/gf_*.deb
@@ -107,7 +107,7 @@ jobs:
         make pkg
 
     - name: Upload artifact
-      uses: actions/upload-artifact@v2
+      uses: actions/upload-artifact@v4
       with:
         name: gf-${{ github.event.release.tag_name }}-macos
         path: dist/gf-*.pkg
@@ -211,7 +211,7 @@ jobs:
         copy dist\build\gf\gf.exe C:\tmp-dist
 
     - name: Upload artifact
-      uses: actions/upload-artifact@v2
+      uses: actions/upload-artifact@v4
       with:
         name: gf-${{ github.event.release.tag_name }}-windows
         path: C:\tmp-dist\*
