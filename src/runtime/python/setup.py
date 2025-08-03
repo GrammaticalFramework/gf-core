@@ -1,4 +1,4 @@
-from distutils.core import setup, Extension
+from setuptools import setup, Extension
 import os
 
 includes = os.getenv('EXTRA_INCLUDE_DIRS','').split(':')
@@ -16,7 +16,7 @@ pgf_module = Extension('pgf',
                        libraries = ['gu', 'pgf'])
 
 setup (name = 'pgf',
-       version = '1.0',
+       version = '1.1',
        description = 'Python bindings to the Grammatical Framework\'s PGF runtime',
        long_description="""\
 Grammatical Framework (GF) is a programming language for multilingual grammar applications.
