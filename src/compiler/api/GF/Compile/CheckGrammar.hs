@@ -232,12 +232,12 @@ checkInfo opts cwd sgr sm (c,info) = checkInModule cwd (snd sm) NoLoc empty $ do
     ResOverload os tysts -> chIn NoLoc "overloading" $ do
       tysts' <- mapM (uncurry $ flip (\(L loc1 t) (L loc2 ty) -> checkLType g t ty >>= \(t,ty) -> return (L loc1 t, L loc2 ty))) tysts  -- return explicit ones
       tysts0 <- lookupOverload gr (fst sm,c)  -- check against inherited ones too
-      tysts1 <- mapM (uncurry $ flip (checkLType g))
-                  [(mkFunType args val,tr) | (args,(val,tr)) <- tysts0]
+      tysts1 <- sequence
+                  [checkLType g tr (mkFunType args val) | (args,(val,tr)) <- tysts0]
       --- this can only be a partial guarantee, since matching
       --- with value type is only possible if expected type is given
-      checkUniq $
-        sort [let (xs,t) = typeFormCnc x in t : map (\(b,x,t) -> t) xs | (_,x) <- tysts1]
+      --checkUniq $
+      --  sort [let (xs,t) = typeFormCnc x in t : map (\(b,x,t) -> t) xs | (_,x) <- tysts1]
       update sm c (ResOverload os [(y,x) | (x,y) <- tysts'])
 
     ResParam (Just (L loc pcs)) _ -> do
