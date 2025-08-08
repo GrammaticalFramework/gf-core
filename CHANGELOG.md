@@ -1,6 +1,7 @@
-### New since 3.11 (WIP)
+### New since 3.12 (WIP)
 
-- Added a changelog!
+### 3.12
+See <https://www.grammaticalframework.org/download/release-3.12.html>
 
 ### 3.11
 
