@@ -22,7 +22,7 @@ buildTime = $(do
 -- Use Template Haskell to get current Git information
 gitInfo :: String
 gitInfo = $(do
-               info <- liftIO $ try $ readProcess "git" ["log", "--format=\"Commit %h Tag %(describe:tags=true)\"", "-1"] "" :: Q (Either SomeException String)
+               info <- liftIO $ try $ readProcess "git" ["log", "--format=commit %h tag %(describe:tags=true)", "-1"] "" :: Q (Either SomeException String)
                return $ LitE $ StringL $ either (\_ -> "unavailable") id info )
 
 {-# NOINLINE buildInfo #-}
