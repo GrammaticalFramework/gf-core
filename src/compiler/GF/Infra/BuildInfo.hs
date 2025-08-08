@@ -9,7 +9,6 @@ import Language.Haskell.TH.Syntax
 import Control.Monad.IO.Class
 import Control.Exception
 import Data.Time
-import Data.Time.Format.ISO8601
 import System.Process
 
 -- Use Template Haskell to get compile time
@@ -17,7 +16,7 @@ buildTime :: String
 buildTime = $(do
                  timeZone <- liftIO getCurrentTimeZone
                  time <- liftIO $ utcToLocalTime timeZone <$> getCurrentTime
-                 return $ LitE $ StringL $ iso8601Show time )
+                 return $ LitE $ StringL $ formatTime defaultTimeLocale "%F %T" time )
 
 -- Use Template Haskell to get current Git information
 gitInfo :: String
