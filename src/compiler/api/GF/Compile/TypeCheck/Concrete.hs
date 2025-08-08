@@ -902,17 +902,28 @@ subsCheckRho scope t ty1@(VRecType rs1 ext1) ty2@(VRecType rs2 ext2) = do      -
                             ,\l -> lookup l rs
                             ,id
                             )
+          Vr x  -> return (scope
+                          ,\l  -> return (Nothing,P t l)
+                          ,\t' -> if is_trivial x t' then t else t'
+                          )
           t    -> let x = newVar scope
                   in return (((x,ty1):scope)
                             ,\l  -> return (Nothing,P (Vr x) l)
-                            ,Let (x, (Nothing, t))
+                            ,\t' -> if is_trivial x t' then t else Let (x, (Nothing, t)) t'
                             )
+
+      is_trivial x (R rs) = all is_selection rs
+        where
+          is_selection (l, (_, P (Vr u) l'))
+            | l == l' && u == x = True
+          is_selection _        = False
+      is_trivial x _      = False
 
       mkField scope l (mb_ty,t) ty1 ty2 = do
         (t,_,_) <- subsCheckRho scope t ty1 ty2
         return (l, (mb_ty,t))
 
-  (scope,mkProj,mkWrap) <- mkAccess scope t
+  (scope,mkProj,wrap) <- mkAccess scope t
 
   let fields = [(l,ty2,lookup3 l rs1) | (l,o2,ty2) <- rs2]
   case [l | (l,_,Nothing) <- fields, not (isLockLabel l)] of
@@ -920,7 +931,7 @@ subsCheckRho scope t ty1@(VRecType rs1 ext1) ty2@(VRecType rs2 ext2) = do      -
     missing -> evalError ("In the term" <+> pp t $$
                           "there are no values for fields:" <+> hsep missing)
   rs <- sequence [mkField scope l t ty1 ty2 | (l,ty2,Just ty1) <- fields, Just t <- [mkProj l]]
-  return (mkWrap (R (rs++[(l, (Just (RecType []),R [])) | (l,_,Nothing) <- fields, isLockLabel l])),ty1,ty2)
+  return (wrap (R (rs++[(l, (Just (RecType []),R [])) | (l,_,Nothing) <- fields, isLockLabel l])),ty1,ty2)
 subsCheckRho scope t ty1 (VFV c (VarFree vs)) = do
   ty2 <- variants c vs
   subsCheckRho scope t ty1 ty2
@@ -935,25 +946,57 @@ subsCheckRho scope t ty1 ty2 = do                           -- Rule EQ
 
 subsCheckFun :: Scope -> Term -> Sigma -> Value -> Sigma -> Value -> EvalM (Term,Value,Value)
 subsCheckFun scope t a1 r1 a2 r2 = do
-  let v   = newVar scope
-  (vt,a2,a1) <- subsCheckRho ((v,a2):scope) (Vr v) a2 a1
+  let x = newVar scope
+  (xt,a2,a1) <- subsCheckRho ((x,a2):scope) (Vr x) a2 a1
   g  <- globals
-  let (v1',r1') = case r1 of
-                    VClosure env c r1 -> (v,eval g ((v,(VGen (length scope) [])):env) c r1 [])
+  let (x1',r1') = case r1 of
+                    VClosure env c r1 -> (x,eval g ((x,(VGen (length scope) [])):env) c r1 [])
                     r1                -> (identW,r1)
-      (v2',r2') = case r2 of
-                    VClosure env c r2 -> (v,eval g ((v,(VGen (length scope) [])):env) c r2 [])
+      (x2',r2') = case r2 of
+                    VClosure env c r2 -> (x,eval g ((x,(VGen (length scope) [])):env) c r2 [])
                     r2                -> (identW,r2)
-  (t,r1,r2)  <- subsCheckRho ((v,vtypeType):scope) (App t vt) r1' r2'
-  return (Abs Explicit v t, VProd Explicit v1' a1 r1, VProd Explicit v2' a2 r2)
+  (t,r1,r2)  <- subsCheckRho ((x,a2):scope) (App t xt) r1' r2'
+  case t of
+    App t (Vr u) | u == x -> return (t, VProd Explicit x1' a1 r1, VProd Explicit x2' a2 r2)
+    _                     -> return (Abs Explicit x t, VProd Explicit x1' a1 r1, VProd Explicit x2' a2 r2)
 
 subsCheckTbl :: Scope -> Term -> Sigma -> Rho -> Sigma -> Rho  -> EvalM (Term,Value,Value)
 subsCheckTbl scope t p1 r1 p2 r2 = do
-  let x = newVar scope
-  (xt,p2,p1) <- subsCheckRho ((x,p2):scope) (Vr x) p2 p1
-  (t,r1,r2)  <- subsCheckRho ((x,p2):scope) (S t xt) r1 r2
+  (scope,y,sel,wrap) <-
+        case t of
+          Vr x -> let y = newVar scope
+                  in return ((y,p2):scope
+                            ,y
+                            ,\t -> S (Vr x) t
+                            ,\p2 t' -> case t' of
+                                         S (Vr u) (Vr v) | u == x && v == y -> t
+                                         _                                  -> T (TTyped p2) [(PV y,t')]
+                            )
+          T _ [(PV x,t')] ->
+                  let scope' = (x,p1):scope
+                      y      = newVar scope'
+                  in return (((y,p2):scope')
+                            ,y
+                            ,\t  -> Let (x, (Nothing, t)) t'
+                            ,\p2 t -> case t of
+                                        Let (u, (Nothing, Vr v)) t | u == x && v == y -> T (TTyped p2) [(PV x,t)]
+                                        _                                             -> T (TTyped p2) [(PV y,t)]
+                            )
+          t    -> let x = newVar scope
+                      scope' = (x,VTable p1 r1):scope
+                      y = newVar scope'
+                  in return (((y,VTable p1 r1):scope')
+                            ,y
+                            ,\t  -> S (Vr x) t
+                            ,\p2 t' -> case t' of
+                                         S (Vr u) (Vr v) | u == x && v == y -> t
+                                         _                                  -> Let (x, (Nothing, t)) (T (TTyped p2) [(PV y,t')])
+                            )
+  (yt,p2,p1) <- subsCheckRho scope (Vr y) p2 p1
+  (t,r1,r2)  <- subsCheckRho scope (sel yt) r1 r2
   p2_t <- value2termM True (scopeVars scope) p2
-  return (T (TTyped p2_t) [(PV x,t)],VTable p1 r1,VTable p2 r2)
+  return (wrap p2_t t,VTable p1 r1,VTable p2 r2)
+
 
 subtype scope Nothing              (VInts i2 _) =
   return (VInts i2 True)

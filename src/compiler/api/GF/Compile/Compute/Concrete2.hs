@@ -316,7 +316,7 @@ eval g env s (FV ts)        vs  = VFV s (VarFree (mapC (\s t -> eval g env s t v
 eval g env s (Alts d as)    []  = let (!s1,!s2) = split s
                                       vd  = eval g env s1 d []
                                       vas = mapC (\s (t1,t2) -> let (!s1,!s2) = split s
-                                                              in (eval g env s1 t1 [],eval g env s2 t2 [])) s2 as
+                                                                in (eval g env s1 t1 [],eval g env s2 t2 [])) s2 as
                                   in VAlts vd vas
 eval g env c (Strs ts)      []  = VStrs (mapC (\c t -> eval g env c t []) c ts)
 eval g env c (Markup tag as ts) [] =
