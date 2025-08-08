@@ -12,17 +12,17 @@ typedef void (*GuFn2)(GuFn* clo, void* arg1, void* arg2);
 
 static inline void
 gu_apply0(GuFn* fn) {
-	(*fn)(fn);
+	((GuFn0)(*fn))(fn);
 }
 
 static inline void
 gu_apply1(GuFn* fn, void* arg1) {
-	(*fn)(fn, arg1);
+	((GuFn1)(*fn))(fn, arg1);
 }
 
 static inline void
 gu_apply2(GuFn* fn, void* arg1, void* arg2) {
-	(*fn)(fn, arg1, arg2);
+	((GuFn2)(*fn))(fn, arg1, arg2);
 }
 
 #define gu_apply(fn_, ...)			\

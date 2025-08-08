@@ -1,3 +1,8 @@
+gf (3.12) noble; urgency=low
+
+  * GF 3.12
+
+ -- Inari Listenmaa <inari@digitalgrammars.com>  Fri, 8 Aug 2025 18:29:29 +0100
 gf (3.11) bionic focal; urgency=low
 
   * GF 3.11

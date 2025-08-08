@@ -12,7 +12,7 @@ import GF.Command.Abstract
 import GF.Command.Parse(readCommandLine,pCommand)
 import GF.Data.Operations (Err(..))
 import GF.Data.Utilities(whenM,repeatM)
-
+import Control.Monad (join, when, (<=<))
 import GF.Infra.UseIO(ioErrorText,putStrLnE)
 import GF.Infra.SIO
 import GF.Infra.Option

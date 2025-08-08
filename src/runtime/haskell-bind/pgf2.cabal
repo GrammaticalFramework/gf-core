@@ -15,7 +15,7 @@ homepage: https://www.grammaticalframework.org/
 bug-reports: https://github.com/GrammaticalFramework/gf-core/issues
 author: Krasimir Angelov
 extra-source-files: CHANGELOG.md, README.md
-tested-with: GHC==7.10.3, GHC==8.0.2, GHC==8.10.4
+tested-with: GHC==7.10.3, GHC==8.0.2, GHC==8.10.4, GHC=9.6.6
 
 library
   exposed-modules:
@@ -26,7 +26,7 @@ library
     PGF2.Expr,
     PGF2.Type
   build-depends:
-    base >= 4.9.1 && < 4.16,
+    base >= 4.9.1 && < 4.22,
     containers >= 0.5.7 && < 0.7,
     pretty >= 1.1.3 && < 1.2
   default-language: Haskell2010
