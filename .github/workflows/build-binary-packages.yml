@@ -215,8 +215,8 @@ jobs:
 
     - name: Build GF
       run: |
-        cabal install --only-dependencies 
-        cabal configure
+        cabal install -fserver --only-dependencies 
+        cabal configure -fserver
         cabal build
         copy dist-newstyle/build/x86_64-windows/ghc-${{matrix.ghc}}/*/x/gf/build/gf/gf.exe C:/tmp-dist
 
