@@ -8,7 +8,7 @@ import Data.Version(showVersion)
 import Language.Haskell.TH.Syntax
 import Control.Monad.IO.Class
 import Control.Exception
-import Data.Time
+import Data.Time hiding (buildTime)
 import System.Process
 
 -- Use Template Haskell to get compile time
