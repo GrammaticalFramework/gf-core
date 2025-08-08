@@ -39,7 +39,11 @@ sudo apt install ./gf-3.12-ubuntu-24.04.deb
 If you are on an Intel Mac (2019 or older), use `gf-3.12-macos-intel.pkg`.<br>
 For newer ARM-based Macs (Apple Silicon M1, M2, M3), use `gf-3.12-macos-arm.pkg`.
 
-To install the package, just double-click it and follow the installer instructions.
+After downloading, right click on the file and click on Open.[^1]
+You will see a dialog saying that "macOS cannot verify the developer of "gf-3.12-macos-intel.pkg". Are you sure you want to open it?". 
+Press Open.
+
+[^1]: If you just double click on the file, you will get an error message "gf-3.12-macos-intel.pkg" cannot be opened because it is from an unidentified developer.
 
 #### Windows
 
