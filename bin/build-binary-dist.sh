@@ -32,7 +32,7 @@ set -x                             # print commands before executing them
 pushd src/runtime/c
 bash setup.sh configure --prefix="$prefix"
 bash setup.sh build
-bash setup.sh install prefix="$prefix" # hack required for GF build on macOS
+# bash setup.sh install prefix="$prefix" # hack required for GF build on macOS
 bash setup.sh install prefix="$destdir$prefix"
 popd
 
@@ -46,7 +46,7 @@ if which >/dev/null python; then
         pyver=$(ls "$destdir$prefix/lib" | sed -n 's/^python//p')
         pydest="$destdir/Library/Python/$pyver/site-packages"
         mkdir -p "$pydest"
-        ln "$destdir$prefix/lib/python$pyver/site-packages"/pgf* "$pydest"
+        ln "$destdir$prefix/lib/python$pyver/site-packages"/pgf*.so "$pydest"
     fi
     popd
 else

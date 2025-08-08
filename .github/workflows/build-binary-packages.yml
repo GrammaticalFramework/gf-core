@@ -2,7 +2,7 @@ name: Build Binary Packages
 
 on:
   workflow_dispatch:
-  release: 
+  release:
     types: ["created"]
 
 jobs:
@@ -13,9 +13,9 @@ jobs:
     name: Build Ubuntu package
     strategy:
       matrix:
-        os:
-        - ubuntu-20.04
-        - ubuntu-22.04
+        ghc: ["9.6"]
+        cabal: ["3.10"]
+        os: ["ubuntu-24.04"]
 
     runs-on: ${{ matrix.os }}
 
@@ -25,12 +25,13 @@ jobs:
     # Note: `haskell-platform` is listed as requirement in debian/control,
     # which is why it's installed using apt instead of the Setup Haskell action.
 
-    # - name: Setup Haskell
-    #   uses: actions/setup-haskell@v1
-    #   id: setup-haskell-cabal
-    #   with:
-    #     ghc-version: ${{ matrix.ghc }}
-    #     cabal-version: ${{ matrix.cabal }}
+    - name: Setup Haskell
+      uses: haskell-actions/setup@v2
+      id: setup-haskell-cabal
+      with:
+        ghc-version: ${{ matrix.ghc }}
+        cabal-version: ${{ matrix.cabal }}
+      if: matrix.os == 'ubuntu-24.04'
 
     - name: Install build tools
       run: |
@@ -39,14 +40,15 @@ jobs:
           make \
           dpkg-dev \
           debhelper \
-          haskell-platform \
           libghc-json-dev \
-          python-dev \
           default-jdk \
-          libtool-bin
-
+          python-dev-is-python3 \
+          libtool-bin 
+        cabal install alex happy
+        
     - name: Build package
       run: |
+        export PYTHONPATH="/home/runner/work/gf-core/gf-core/debian/gf/usr/local/lib/python3.12/dist-packages/"
         make deb
 
     - name: Copy package
@@ -54,7 +56,7 @@ jobs:
         cp ../gf_*.deb dist/
 
     - name: Upload artifact
-      uses: actions/upload-artifact@v2
+      uses: actions/upload-artifact@v4
       with:
         name: gf-${{ github.event.release.tag_name }}-${{ matrix.os }}.deb
         path: dist/gf_*.deb
@@ -79,16 +81,16 @@ jobs:
     name: Build macOS package
     strategy:
       matrix:
-        ghc: ["8.6.5"]
-        cabal: ["2.4"]
-        os: ["macos-10.15"]
+        ghc: ["9.6"]
+        cabal: ["3.10"]
+        os: ["macos-latest", "macos-13"]
     runs-on: ${{ matrix.os }}
 
     steps:
     - uses: actions/checkout@v2
 
     - name: Setup Haskell
-      uses: actions/setup-haskell@v1
+      uses: haskell-actions/setup@v2
       id: setup-haskell-cabal
       with:
         ghc-version: ${{ matrix.ghc }}
@@ -97,8 +99,10 @@ jobs:
     - name: Install build tools
       run: |
         brew install \
-          automake
+          automake \
+          libtool
         cabal v1-install alex happy
+        pip install setuptools
 
     - name: Build package
       run: |
@@ -107,12 +111,12 @@ jobs:
         make pkg
 
     - name: Upload artifact
-      uses: actions/upload-artifact@v2
+      uses: actions/upload-artifact@v4
       with:
-        name: gf-${{ github.event.release.tag_name }}-macos
+        name: gf-${{ github.event.release.tag_name }}-${{ matrix.os }}
         path: dist/gf-*.pkg
         if-no-files-found: error
-    
+
     - name: Rename package
       run: |
         mv dist/gf-*.pkg dist/gf-${{ github.event.release.tag_name }}-macos.pkg
@@ -132,9 +136,9 @@ jobs:
     name: Build Windows package
     strategy:
       matrix:
-        ghc: ["8.6.5"]
-        cabal: ["2.4"]
-        os: ["windows-2019"]
+        ghc: ["9.6.7"]
+        cabal: ["3.10"]
+        os: ["windows-2022"]
     runs-on: ${{ matrix.os }}
 
     steps:
@@ -147,6 +151,7 @@ jobs:
           base-devel
           gcc
           python-devel
+          autotools
 
     - name: Prepare dist folder
       shell: msys2 {0}
@@ -171,7 +176,8 @@ jobs:
     - name: Build Java bindings
       shell: msys2 {0}
       run: |
-        export JDKPATH=/c/hostedtoolcache/windows/Java_Adopt_jdk/8.0.292-10/x64
+        echo $JAVA_HOME_8_X64
+        export JDKPATH="$(cygpath -u "${JAVA_HOME_8_X64}")"
         export PATH="${PATH}:${JDKPATH}/bin"
         cd src/runtime/java
         make \
@@ -180,6 +186,9 @@ jobs:
         make install
         cp .libs/msys-jpgf-0.dll /c/tmp-dist/java/jpgf.dll
         cp jpgf.jar /c/tmp-dist/java
+      if: false
+    
+    # - uses: actions/setup-python@v5
 
     - name: Build Python bindings
       shell: msys2 {0}
@@ -188,12 +197,13 @@ jobs:
         EXTRA_LIB_DIRS: /mingw64/lib
       run: |
         cd src/runtime/python
+        pacman --noconfirm -S python-setuptools
         python setup.py build
         python setup.py install
-        cp /usr/lib/python3.9/site-packages/pgf* /c/tmp-dist/python
+        cp -r /usr/lib/python3.12/site-packages/pgf* /c/tmp-dist/python
 
     - name: Setup Haskell
-      uses: actions/setup-haskell@v1
+      uses: haskell-actions/setup@v2
       id: setup-haskell-cabal
       with:
         ghc-version: ${{ matrix.ghc }}
@@ -205,13 +215,13 @@ jobs:
 
     - name: Build GF
       run: |
-        cabal install --only-dependencies -fserver
-        cabal configure -fserver
+        cabal install --only-dependencies 
+        cabal configure
         cabal build
-        copy dist\build\gf\gf.exe C:\tmp-dist
+        copy dist-newstyle/build/x86_64-windows/ghc-${{matrix.ghc}}/*/x/gf/build/gf/gf.exe C:/tmp-dist
 
     - name: Upload artifact
-      uses: actions/upload-artifact@v2
+      uses: actions/upload-artifact@v4
       with:
         name: gf-${{ github.event.release.tag_name }}-windows
         path: C:\tmp-dist\*
