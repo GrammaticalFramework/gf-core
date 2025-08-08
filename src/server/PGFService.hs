@@ -159,13 +159,13 @@ cpgfMain qsem command (t,(pgf,pc)) =
                     -> out t=<< bracketedLin # tree % to
     "c-linearizeAll"-> out t=<< linAll # tree % to
     "c-translate"   -> withQSem qsem $
-                       out t=<<join(trans # input % cat % to % start % limit%treeopts)
+                       out t=<<join(trans # input % cat % to % start % limit % treeopts)
     "c-lookupmorpho"-> out t=<< morpho # from1 % textInput
     "c-lookupcohorts"->out t=<< cohorts # from1 % getInput "filter" % textInput
     "c-flush"       -> out t=<< flush
     "c-grammar"     -> out t grammar
     "c-abstrtree"   -> outputGraphviz=<< C.graphvizAbstractTree pgf C.graphvizDefaults # tree
-    "c-parsetree"   -> outputGraphviz=<< (\cnc -> C.graphvizParseTree cnc C.graphvizDefaults) . snd # from1 %tree
+    "c-parsetree"   -> outputGraphviz=<< (\cnc -> C.graphvizParseTree cnc C.graphvizDefaults) . snd # from1 % tree
     "c-wordforword" -> out t =<< wordforword # input % cat % to
     _               -> badRequest "Unknown command" command
   where
