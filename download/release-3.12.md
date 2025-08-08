@@ -19,6 +19,7 @@ Over 70 commits have been merged to gf-core since the release of GF 3.11 in July
 - Better error messages
 - Improvements to several GF shell commands
 - Several bug fixes and performance improvements
+- Temporarily dropped support for Java bindings
 
 ## GF compiler and run-time library
 - Syntactic sugar for table update: `table {cases ; vvv => t \! vvv}.t` can now be written as `t ** { cases }`  
