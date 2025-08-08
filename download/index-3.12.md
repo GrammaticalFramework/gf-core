@@ -141,8 +141,7 @@ The Python library is available on PyPI as `pgf`, so it can be installed using:
 pip install pgf
 ```
 
-Note that this requires the GF C runtime to be installed on your system.
-This is included in the Ubuntu binaries. If you choose another platform of installation method, see the installation instructions [here](https://www.grammaticalframework.org/doc/gf-developers.html#toc12).
+If this doesn't work, you will need to install the C runtime manually; see the instructions [here](https://www.grammaticalframework.org/doc/gf-developers.html#toc12).
 
 ---
 
