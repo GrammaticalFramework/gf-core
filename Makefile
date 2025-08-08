@@ -50,7 +50,7 @@ html::
 # number to the top of debian/changelog.
 # (Tested on Ubuntu 15.04. You need to install dpkg-dev & debhelper.)
 deb:
-	dpkg-buildpackage -b -uc
+	dpkg-buildpackage -b -uc -d
 
 # Make a macOS installer package
 pkg:

@@ -1,4 +1,4 @@
-from distutils.core import setup, Extension
+from setuptools import setup, Extension
 import os
 
 includes = os.getenv('EXTRA_INCLUDE_DIRS','').split(':')
