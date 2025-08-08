@@ -36,6 +36,9 @@ sudo apt install ./gf-3.12-ubuntu-24.04.deb
 
 #### macOS
 
+If you are on an Intel Mac (2019 or older), use `gf-3.12-macos-intel.pkg`.<br>
+For newer ARM-based Macs (Apple Silicon M1, M2, M3), use `gf-3.12-macos-arm.pkg`.
+
 To install the package, just double-click it and follow the installer instructions.
 
 #### Windows
