@@ -38,8 +38,6 @@ sudo apt install ./gf-3.12-ubuntu-24.04.deb
 
 To install the package, just double-click it and follow the installer instructions.
 
-The packages should work on at least Catalina and Big Sur.
-
 #### Windows
 
 To install the package:
