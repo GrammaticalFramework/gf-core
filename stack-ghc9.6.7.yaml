@@ -1,5 +1,16 @@
 resolver: ghc-9.6.7
 
+## To install GF with C-runtime support, comment out the following lines:
+
+# flags:
+#    gf:
+#      c-runtime: true
+# extra-lib-dirs:
+#    - /usr/local/lib
+
+
+## Need exact versions of libraries, to ensure predictable build
+
 extra-deps:
 - multipart-0.2.1@sha256:559c04eed5218a9673e9fb6a225287fee1aeb38a45a0caf91a2598967bd75659,1150
 - cgi-3001.5.1.0@sha256:408e1f96ac6134965484c891b5fae35c7303fa841b09ce5baea52ddb078eef6b,3442
