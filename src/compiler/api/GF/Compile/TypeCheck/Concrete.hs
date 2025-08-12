@@ -325,33 +325,74 @@ tcRho scope c (Glue t1 t2) mb_ty = do
   (t2,t2_ty) <- tcRho scope c2 t2 (Just vtypeStr)
   instSigma scope c3 (Glue t1 t2) vtypeStr mb_ty
 tcRho scope c t@(ExtR t1 t2) mb_ty =
-  case (mb_ty,t2) of
-    (Just (VRecType ltys ext),R ss) -> do
-       let ll2 = map fst ss
+  case (t2,mb_ty) of
+    (R rs,Just (VRecType ltys ext)) -> do
+       let ll2   = map fst rs
            (c1,c2) = split c
-       (t1,t1_ty) <- tcRho scope c1 t1 (Just (VRecType [field | field@(l,_,_) <- ltys, not (elem l ll2)] ext))
-       (t2,t2_ty) <- tcRho scope c2 t2 (Just (VRecType [field | field@(l,_,_) <- ltys, elem l ll2] ext))
-       ty <- join t1_ty t2_ty
-       return (ExtR t1 t2, ty)
+
+       (t1,ty1@(VRecType ltys1 ext)) <- tcRho scope c1 t1 (Just (VRecType [field | field@(l,_,_) <- ltys, not (elem l ll2)] ext))
+       let (scope',proj1,wrap) = access scope t1 ty1
+
+       lttys2 <- checkRecFields scope' c2 [] rs [field | field@(l,_,_) <- ltys, elem l ll2]
+       let proj2 l =
+             case [(Nothing,t) | (l',t,_) <- lttys2, l'==l] of
+               []    -> Nothing
+               (x:_) -> Just x
+
+       return (wrap (R [(l,t) | (l,_,_) <- ltys, Just t <- [if elem l ll2 then proj2 l else proj1 l]]),
+               VRecType ltys False
+              )
     _ -> do
        let (c1,c2,c3,c4) = split4 c
        (t1,t1_ty) <- tcRho scope c1 t1 Nothing
        (t2,t2_ty) <- tcRho scope c2 t2 Nothing
        ty <- join t1_ty t2_ty
-       instSigma scope c3 (ExtR t1 t2) ty mb_ty
+       let (scope1,proj1,wrap1) = access scope  t1 t1_ty
+           (scope2,proj2,wrap2) = access scope1 t2 t2_ty
+       let t = case (mb_ty,ty,t2_ty) of
+                 (Just (VRecType ltys False), _, VRecType ltys2 False) ->
+                    let ll2 = [l | (l,_,_) <- ltys2]
+                    in (wrap1 . wrap2) (R [(l,t) | (l,_,_) <- ltys, Just t <- [if elem l ll2 then proj2 l else proj1 l]])
+                 (_, VRecType ltys False, VRecType ltys2 False) ->
+                    let ll2 = [l | (l,_,_) <- ltys2]
+                    in (wrap1 . wrap2) (R [(l,t) | (l,_,_) <- ltys, Just t <- [if elem l ll2 then proj2 l else proj1 l]])
+                 _ -> ExtR t1 t2
+       return (t,ty)
   where
+    access scope (R rs) ty = (scope
+                             ,\l -> lookup l rs
+                             ,id
+                             )
+    access scope (RecType rs) ty
+                           = (scope
+                             ,\l -> fmap ((,) Nothing) (lookup l rs)
+                             ,id
+                             )
+    access scope t@(Vr x) ty
+                           = (scope
+                             ,\l  -> return (Nothing,P t l)
+                             ,id
+                             )
+    access scope t      ty = let x = newVar scope
+                             in (((x,ty):scope)
+                                ,\l  -> return (Nothing,P (Vr x) l)
+                                ,Let (x, (Nothing, t))
+                                )
+
     join (VMeta i vs) ty2 = do
       mv <- getMeta i
       case mv of
         Bound _ v -> do
           g <- globals
           join (apply g v vs) ty2
+        _ -> evalError (pp "Cannot type check record extensions when one of the types is a meta variable")
     join ty1 (VMeta j vs) = do
       mv <- getMeta j
       case mv of
         Bound _ v -> do
           g <- globals
           join ty1 (apply g v vs)
+        _ -> evalError (pp "Cannot type check record extensions when one of the types is a meta variable")
     join (VSort s1) (VSort s2)
        | (s1 == cType || s1 == cPType) &&
          (s2 == cType || s2 == cPType) = let sort | s1 == cPType && s2 == cPType = cPType
