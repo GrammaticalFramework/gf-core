@@ -51,7 +51,7 @@ grammar2haskell opts name gr = foldr (++++) [] $
           derivingClause
                  | dataExt = "deriving (Show,Data)"
                  | otherwise = "deriving Show"
-          extraImports | gadt = ["import Control.Monad.Identity", "import Data.Monoid"]
+          extraImports | gadt = ["import Control.Monad.Identity", "import Control.Monad", "import Data.Monoid"]
                        | dataExt = ["import Data.Data"]
                        | otherwise = []
           pgfImports | pgf2 = ["import PGF2 hiding (Tree)", "", "showCId :: CId -> String", "showCId = id"]
