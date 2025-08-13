@@ -232,6 +232,7 @@ str2lin v0@(VAlts def alts)
     from_patt (PAlt p1 p2) = liftM2 (++) (from_patt p1) (from_patt p2)
     from_patt (PSeq _ _ p1 _ _ p2) = liftM2 (liftM2 (++)) (from_patt p1) (from_patt p2)
     from_patt (PString s)  = return [s]
+    from_patt (PChars cs)  = return (map (:[]) cs)
     from_patt _            = fail
 
     fail = evalError ("Complex patterns are not supported in:" $$ nest 2 (pp (showValue v0)))
