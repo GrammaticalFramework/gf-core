@@ -14,7 +14,7 @@ import GF.Compile.Compute.Concrete2
 import GF.Infra.CheckM
 import GF.Data.ErrM ( Err(Ok, Bad) )
 import Control.Applicative(Applicative(..),(<|>))
-import Control.Monad(ap,liftM,mplus,foldM,zipWithM,forM,filterM,unless)
+import Control.Monad(ap,liftM,liftM2,mplus,foldM,zipWithM,forM,filterM,unless)
 import Control.Monad.ST
 import GF.Text.Pretty
 import Data.STRef
@@ -436,7 +436,7 @@ tcRho scope c (EPattType ty) mb_ty = do
   let (c1,c2) = split c
   (ty, _) <- tcRho scope c1 ty (Just vtypeType)
   instSigma scope c2 (EPattType ty) vtypeType mb_ty
-tcRho scope c t@(EPatt min max p) mb_ty = do
+tcRho scope c t@(EPatt _ _ p) mb_ty = do
   (scope,f,mb_ty) <- case mb_ty of
                        Nothing -> return (scope,id,Nothing)
                        Just ty -> do (scope,f,ty) <- skolemise scope ty
@@ -444,6 +444,7 @@ tcRho scope c t@(EPatt min max p) mb_ty = do
                                        VPattType ty -> return (scope,f,Just ty)
                                        _            -> evalError (ppTerm Unqualified 0 t <+> "must be of pattern type but" <+> ppTerm Unqualified 0 t <+> "is expected")
   (_,ty) <- tcPatt scope c p mb_ty
+  (min,max,p) <- measurePatt p
   return (f (EPatt min max p), VPattType ty)
 tcRho scope c (Markup tag attrs children) mb_ty = do
   let (c1,c2,c3,c4) = split4 c
@@ -525,6 +526,7 @@ tcCases scope c ((p,t):cs) mb_p_ty     mb_res_ty     = do
   (scope',p_ty) <- tcPatt scope c1 p mb_p_ty
   (t,res_ty)  <- tcRho scope' c2 t mb_res_ty
   (cs,p_ty,res_ty) <- tcCases scope c3 cs (Just p_ty) (Just res_ty)
+  (_,_,p) <- measurePatt p
   return ((p,t):cs,p_ty,res_ty)
 
 tcApp scope c t0 (App fun arg) args mb_ty = tcApp scope c t0 fun (arg:args) mb_ty     -- APP
@@ -771,6 +773,50 @@ tcPatt scope c (PM q) mb_ty = do
                return (scope,vty)
     ty   -> evalError ("Pattern type expected but " <+> pp ty <+> " found.")
 tcPatt scope c p ty = unimplemented ("tcPatt "++show p)
+
+measurePatt p =
+  case p of
+    PM q       -> do g <- globals
+                     case eval g [] unit (Q q) [] of
+                       VPatt minp maxp _ -> return (minp,maxp,p)
+                       v                 -> evalError ("Expected pattern macro, but found:" $$ nest 2 (ppValue Unqualified 0 v))
+    PR ass     -> do ass <- mapM (\(lbl,p) -> measurePatt p >>= \(_,_,p') -> return (lbl,p')) ass
+                     return (0,Nothing,PR ass)
+    PString s  -> do let len=length s
+                     return (len,Just len,p)
+    PT t p     -> do (min,max,p') <- measurePatt p
+                     return (min,max,PT t p')
+    PAs x p    -> do (min,max,p) <- measurePatt p
+                     case p of
+                       PW -> return (0,Nothing,PV x)
+                       _  -> return (min,max,PAs x p)
+    PImplArg p -> do (min,max,p') <- measurePatt p
+                     return (min,max,PImplArg p')
+    PNeg p     -> do (_,_,p') <- measurePatt p
+                     return (0,Nothing,PNeg p')
+    PAlt p1 p2 -> do (min1,max1,p1) <- measurePatt p1
+                     (min2,max2,p2) <- measurePatt p2
+                     case (p1,p2) of
+                       (PString [c1],PString [c2]) -> return (1,Just 1,PChars [c1,c2])
+                       (PString [c], PChars cs)    -> return (1,Just 1,PChars ([c]++cs))
+                       (PChars cs,   PString [c])  -> return (1,Just 1,PChars (cs++[c]))
+                       (PChars cs1,  PChars cs2)   -> return (1,Just 1,PChars (cs1++cs2))
+                       _                           -> return (min min1 min2,liftM2 max max1 max2,PAlt p1 p2)
+    PSeq _ _ p1 _ _ p2
+               -> do (min1,max1,p1) <- measurePatt p1
+                     (min2,max2,p2) <- measurePatt p2
+                     case (p1,p2) of
+                       (PW,        PW        ) -> return (0,Nothing,PW)
+                       (PString s1,PString s2) -> return (min1+min2,liftM2 (+) max1 max2,PString (s1++s2))
+                       _                       -> return (min1+min2,liftM2 (+) max1 max2,PSeq min1 max1 p1 min2 max2 p2)
+    PRep _ _ p -> do (minp,maxp,p) <- measurePatt p
+                     case p of
+                       PW    -> return (0,Nothing,PW)
+                       PChar -> return (0,Nothing,PW)
+                       _     -> return (0,Nothing,PRep minp maxp p)
+    PChar      -> return (1,Just 1,p)
+    PChars _   -> return (1,Just 1,p)
+    _          -> return (0,Nothing,p)
 
 inferRecFields scope c ls []          = return []
 inferRecFields scope c ls ((l,t):lts)
