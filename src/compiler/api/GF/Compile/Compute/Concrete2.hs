@@ -779,9 +779,9 @@ try f select xs = EvalM (\g k state r msgs ->
     backtrack g []     state res msgs = (res,msgs)
     backtrack g (x:xs) state res msgs =
       case f x of
-        EvalM f -> case f g (\y state ys msgs -> Success (y:ys) msgs) state res msgs of
-                     Fail msg _       -> backtrack g xs state res msgs
-                     Success res msgs -> backtrack g xs state res msgs
+        EvalM f -> case f g (\y state (_,ys) msgs -> Success (state,y:ys) msgs) state (state,res) msgs of
+                     Fail msg _               -> backtrack g xs state res msgs
+                     Success (state,res) msgs -> backtrack g xs state res msgs
 
 newResiduation :: Scope -> EvalM MetaId
 newResiduation scope = EvalM (\g k (State choices metas opts) r msgs ->
