@@ -472,6 +472,21 @@ tcRho scope c (Reset ctl mb_ct t qid) mb_ty
                                     return (Just ct,ty)
                       Nothing -> return (Nothing,ty)
       return (Reset ctl mb_ct t qid,ty)
+  | ctl == cSelect = do
+      let (c1,c2) = split c
+      ty <- case mb_ty of
+              Just ty -> return ty
+              Nothing -> do i <- newResiduation scope
+                            return (VMeta i [])
+      let rec_ty = VRecType [ (ident2label cp1, True, ty)
+                            , (ident2label cp2, True, VSort cStr)
+                            ] False
+      mb_ct <- case mb_ct of
+                 Just ct -> do (ct,_) <- tcRho scope c2 ct (Just vtypeInt)
+                               return (Just ct)
+                 Nothing -> evalError (pp "[select: .. | ..] requires an integer argument")
+      (t,_) <- tcRho scope c1 t (Just rec_ty)
+      return (Reset ctl mb_ct t qid,ty)
   | ctl == cDefault = do
       let (c1,c2) = split c
       (t,ty)     <- tcRho scope c1 t mb_ty
@@ -490,6 +505,17 @@ tcRho scope c (Reset ctl mb_ct t qid) mb_ty
          case ty of
            VApp c qid [] -> return (Reset ctl mb_ct t (Just qid), ty)
            _             -> evalError (pp "Needs atomic type"<+>ppValue Unqualified 0 ty)
+  | ctl == cLen = do
+      do let (c1,c2) = split c
+         (t,_) <- tcRho scope c1 t Nothing
+         case mb_ct of
+           Just ct -> do res_ty <- case mb_ty of
+                                     Just ty -> return ty
+                                     Nothing -> do i <- newResiduation scope
+                                                   return (VMeta i [])
+                         (ct,_) <- tcRho scope c2 ct (Just (VProd Explicit identW vtypeInt res_ty))
+                         return (Reset ctl (Just ct) t Nothing, res_ty)
+           Nothing -> instSigma scope c2 (Reset ctl Nothing t Nothing) vtypeInt mb_ty
   | otherwise = evalError (pp "Operator" <+> pp ctl <+> pp "is not defined")
 tcRho scope s (Opts n cs) mb_ty = do
   let (s1,s2,s3) = split3 s
@@ -571,9 +597,11 @@ resolveOverloads scope c t0 q args mb_ty = do
                       instSigma scope c3 t ty mb_ty
     Ok ttys     -> do let (c1,c23) = split c
                           (c2,c3)  = split c23
+                      sz <- checkpoint
                       arg_tys <- mapCM (checkArg g) c1 args
                       let v_ttys = mapC (\c (t,ty) -> (t,eval g [] c ty [])) c2 ttys
-                      try (\(fun,fun_ty) -> reapply2 scope c3 fun fun_ty arg_tys mb_ty)
+                      try sz
+                          (\(fun,fun_ty) -> reapply2 scope c3 fun fun_ty arg_tys mb_ty)
                           (\ttys -> fmap (\(ts,ty) -> (mkFV ts,ty)) (snd (minimum g ttys)))
                           v_ttys
   where
@@ -615,7 +643,10 @@ resolveOverloads scope c t0 q args mb_ty = do
           return (t:ts,ty)
 
 reapply2 :: Scope -> Choice -> Term -> Value -> [(Term,Value,Value)] -> Maybe Rho -> EvalM (Term,Rho)
-reapply2 scope c fun fun_ty []                                mb_ty = instSigma scope c fun fun_ty mb_ty
+reapply2 scope c fun fun_ty []                                mb_ty = do
+  (fun,fun_ty) <- instSigma scope c fun fun_ty mb_ty
+  fun <- zonkTerm (scopeVars scope) fun
+  return (fun,fun_ty)
 reapply2 scope c fun fun_ty ((ImplArg arg,arg_v,arg_ty):args) mb_ty = do -- Implicit arg case
   (bt, x, arg_ty', res_ty) <- unifyFun scope fun_ty
   unless (bt == Implicit) $
@@ -1006,19 +1037,22 @@ subsCheckRho scope t ty1@(VRecType rs1 ext1) ty2@(VRecType rs2 ext2) = do      -
           is_selection _        = False
       is_trivial x _      = False
 
-      mkField scope l (mb_ty,t) ty1 ty2 = do
-        (t,_,_) <- subsCheckRho scope t ty1 ty2
-        return (l, (mb_ty,t))
+      mkField scope l (mb_ty,t) (Just ty1) ty2 = do
+        (t,ty1,ty2) <- subsCheckRho scope t ty1 ty2
+        return ((l, (mb_ty,t)), (l, True, ty1))
+      mkField scope l (mb_ty,t) Nothing    ty2
+        | isLockLabel l = return ((l, (Just (RecType []),R [])), (l, True, ty2))
+        | otherwise     = return ((l, (mb_ty,t)), (l, True, ty2))
 
   (scope,mkProj,wrap) <- mkAccess scope t
 
-  let fields = [(l,ty2,lookup3 l rs1) | (l,o2,ty2) <- rs2]
-  case [l | (l,_,Nothing) <- fields, not (isLockLabel l)] of
+  let fields = [(l,o2,ty2,lookup3 l rs1) | (l,o2,ty2) <- rs2]
+  case [l | (l,_,_,Nothing) <- fields, not ext1 && not (isLockLabel l)] of
     []      -> return ()
     missing -> evalError ("In the term" <+> pp t $$
                           "there are no values for fields:" <+> hsep missing)
-  rs <- sequence [mkField scope l t ty1 ty2 | (l,ty2,Just ty1) <- fields, Just t <- [mkProj l]]
-  return (wrap (R (rs++[(l, (Just (RecType []),R [])) | (l,_,Nothing) <- fields, isLockLabel l])),ty1,ty2)
+  rs <- sequence [mkField scope l t mb_ty1 ty2 | (l,_,ty2,mb_ty1) <- fields, Just t <- [mkProj l]]
+  return (wrap (R (map fst rs)),VRecType (foldl (\rs (_,(l,o,ty)) -> update3 l o ty rs) rs1 rs) ext2,ty2)
 subsCheckRho scope t ty1 (VFV c (VarFree vs)) = do
   ty2 <- variants c vs
   subsCheckRho scope t ty1 ty2

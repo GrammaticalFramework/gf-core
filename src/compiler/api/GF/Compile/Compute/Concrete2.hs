@@ -9,7 +9,7 @@ module GF.Compile.Compute.Concrete2
             pdCanonicalArgs, pdArity,
             normalForm, normalFlatForm,
             eval, apply, value2term, value2termM, value2int, value2float, bubble, patternMatch, vtableSelect, State(..),
-            newResiduation, getMeta, setMeta, MetaState(..), variants, try,
+            newResiduation, checkpoint, getMeta, setMeta, MetaState(..), variants, try,
             evalError, evalWarn, ppValue, Choice(..), unit, poison, split, split3, split4, mapC, mapCM) where
 
 import Prelude hiding ((<>)) -- GHC 8.4.1 clash with Text.PrettyPrint
@@ -24,6 +24,7 @@ import GF.Grammar.Predef
 import GF.Grammar.Printer hiding (ppValue)
 import GF.Grammar.Lockfield(lockLabel)
 import GF.Text.Pretty hiding (empty)
+import qualified GF.Text.Pretty as PP
 import Control.Monad
 import Control.Applicative hiding (Const)
 import qualified Control.Applicative as A
@@ -414,18 +415,20 @@ bubble v = snd (bubble v)
     bubble v@(VFV c (VarFree vs))
       | null vs   = (Map.empty, v)
       | otherwise = let (union,vs') = mapAccumL descend Map.empty vs
-                    in (Map.insert c (BubbleFree (length vs),1) union, addVariants (VFV c (VarFree vs')) union)
+                    in (Map.insert c (BubbleFree (length vs),1) union, VFV c (VarFree vs'))
     bubble v@(VFV c (VarOpts n os))
       | null os   = (Map.empty, v)
       | otherwise = let (union,os') = mapAccumL (\acc (k,v) -> second (k,) $ descend acc v) Map.empty os
-                    in (Map.insert c (BubbleOpts n (fst <$> os),1) union, addVariants (VFV c (VarOpts n os')) union)
+                    in (Map.insert c (BubbleOpts n (fst <$> os),1) union, VFV c (VarOpts n os'))
     bubble (VAlts v vs) = lift1L2 VAlts v vs
     bubble (VStrs vs) = liftL VStrs vs
     bubble (VMarkup tag attrs vs) =
       let (union1,attrs') = mapAccumL descend' Map.empty attrs
           (union2,vs')    = mapAccumL descend  union1 vs
       in (union2, VMarkup tag attrs' vs')
-    bubble (VReset ctl mb_cv v id) = lift1 (\v -> VReset ctl mb_cv v id) v
+    bubble (VReset ctl mb_cv v id) =
+      let (union,v') = bubble v
+      in (Map.empty,VReset ctl mb_cv v' id)
     bubble (VSymCat d i0 vs) =
       let (union,vs') = mapAccumL descendC Map.empty vs
       in (union, addVariants (VSymCat d i0 vs') union)
@@ -770,23 +773,35 @@ variants' c f xs = EvalM (\g k state@(State choices metas opts) r msgs ->
                      Fail    msg msgs -> Fail msg msgs
                      Success ts  msgs -> backtrack g (j+1) xs choices metas opts ts msgs
 
-try :: (a -> EvalM b) -> ([b] -> EvalM b) -> [a] -> EvalM b
-try f select xs = EvalM (\g k state r msgs ->
-  let (res,msgs') = backtrack g xs state [] msgs
+try :: Int -> (a -> EvalM b) -> ([b] -> EvalM b) -> [a] -> EvalM b
+try sz f select xs = EvalM (\g k state r msgs ->
+  let (state',res,msgs') = backtrack sz g xs state [] msgs
   in case select res of
-       EvalM f' -> f' g k state r msgs')
+       EvalM f' -> f' g k state' r msgs')
   where
-    backtrack g []     state res msgs = (res,msgs)
-    backtrack g (x:xs) state res msgs =
+    backtrack sz g []     state res msgs = (state,res,msgs)
+    backtrack sz g (x:xs) state res msgs =
       case f x of
-        EvalM f -> case f g (\y state (_,ys) msgs -> Success (state,y:ys) msgs) state (state,res) msgs of
-                     Fail msg _               -> backtrack g xs state res msgs
-                     Success (state,res) msgs -> backtrack g xs state res msgs
+        EvalM f -> case f g (\y state' (_,ys) msgs -> Success (cut sz state state',y:ys) msgs) state (state,res) msgs of
+                     Fail msg _               -> backtrack sz g xs state res msgs
+                     Success (state,res) msgs -> backtrack sz g xs state res msgs
+
+    cut sz state state' = state'{metaVars=Map.mapWithKey select (metaVars state')}
+      where
+        select k ms
+          | k <= sz   = ms
+          | otherwise = case Map.lookup k (metaVars state) of
+                          Just ms -> ms
+                          Nothing -> ms
 
 newResiduation :: Scope -> EvalM MetaId
 newResiduation scope = EvalM (\g k (State choices metas opts) r msgs ->
   let meta_id = Map.size metas+1
   in k meta_id (State choices (Map.insert meta_id (Residuation scope) metas) opts) r msgs)
+
+checkpoint :: EvalM Int
+checkpoint = EvalM (\g k state r msgs ->
+  k (Map.size (metaVars state)) state r msgs)
 
 getMeta :: MetaId -> EvalM MetaState
 getMeta i = EvalM (\g k state r msgs ->
@@ -952,6 +967,22 @@ value2termM flat xs (VReset ctl mb_cv v mb_qid) = do
            ([]  ,Nothing) -> mzero
            ([]  ,Just v)  -> value2termM flat xs v
            (t:ts,_)       -> return t
+      | ctl == cSelect =
+         case mb_cv of
+           Just (VInt n) | n >= 0    -> select n      ts'
+                         | otherwise -> select (-n-1) (reverse ts')
+                         where
+                           ts' = sortBy compareKey ts
+
+                           select _ []     = mzero
+                           select 0 (t:ts) =
+                             case t of
+                               R rs -> case lookup (ident2label cp1) rs  of
+                                         Just (_,t) -> return t
+                                         Nothing    -> evalError (pp "Missing label p1")
+                               _    -> evalError (pp "The term must be a record")
+                           select n (t:ts) = select (n-1) ts
+           _             -> evalError (pp "[select: .. | ..] requires an integer constant")
       | ctl == cDefault =
          case (ts,mb_cv) of
            ([]  ,Nothing) -> mzero
@@ -968,11 +999,21 @@ value2termM flat xs (VReset ctl mb_cv v mb_qid) = do
                 t <- listify mn cat ts
                 return (App (App (QC (mn,identS ("Conj"++cat))) ct) t)
            _             -> evalError (pp "[list: .. | ..] requires an argument")
+      | ctl == cLen =
+         case mb_cv of
+           Just cv  -> do g <- globals
+                          value2termM True xs (apply g cv [VInt (genericLength ts)])
+           Nothing  -> return (EInt (genericLength ts))
       | otherwise = evalError (pp "Operator" <+> pp ctl <+> pp "is not defined")
 
     listify mn cat [t1,t2] = do return (App (App (QC (mn,identS ("Base"++cat))) t1) t2)
     listify mn cat (t1:ts) = do t2 <- listify mn cat ts
                                 return (App (App (QC (mn,identS ("Cons"++cat))) t1) t2)
+
+    compareKey (R rs1) (R rs2) =
+      case (lookup (ident2label cp2) rs1, lookup (ident2label cp2) rs2) of
+        (Just (_,K s1), Just (_,K s2)) -> compare s1 s2
+
 value2termM flat xs (VError msg) = evalError msg
 value2termM flat xs (VInts n _) = return (App (Q (cPredef,cInts)) (EInt n))
 value2termM flat xs v = evalError ("value2termM" <+> ppValue Unqualified 5 v)
@@ -988,6 +1029,7 @@ pattVars st (PAs x p)    = case st of
 pattVars st (PImplArg p) = pattVars st p
 pattVars st (PSeq _ _ p1 _ _ p2) = pattVars (pattVars st p1) p2
 pattVars st _            = st
+
 
 
 ppValue q d (VApp c f vs) = prec d 4 (hsep (ppQIdent q f : map (ppValue q 5) vs))
@@ -1030,6 +1072,10 @@ ppValue q d (VFV i vs) = prec d 4 ("variants" <+> pp i <+> braces (fsep (punctua
 ppValue q d (VAlts e xs) = prec d 4 ("pre" <+> braces (ppValue q 0 e <> ';' <+> fsep (punctuate ';' (map (ppAltern q) xs))))
 ppValue q d (VStrs _) = pp "VStrs"
 ppValue q d (VMarkup _ _ _) = pp "VMarkup"
+ppValue q d (VReset ctl ct t _) = pp "[" <> pp ctl <> 
+                                  maybe PP.empty (\v -> pp ':' <+> ppValue q 6 v) ct <>
+                                  pp "|" <> ppValue q 0 t <>
+                                  pp "]"
 ppValue q d (VSymCat i r rs) = pp '<' <> pp i <> pp ',' <> pp r <> pp '>'
 ppValue q d (VError msg) = prec d 4 (pp "error" <+> ppTerm q 5 (K (show msg)))
 ppValue q d (VInts n ext)
