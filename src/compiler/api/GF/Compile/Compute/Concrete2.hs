@@ -3,7 +3,7 @@
 module GF.Compile.Compute.Concrete2
            (Env, Scope, Value(..), Variants(..), OptionInfo(..), ChoiceMap, cleanOptions,
             ConstValue(..), ConstVariants(..), Globals(..), PredefTable, EvalM,
-            mapVariants, unvariants, variants2consts, consts2variants,
+            mapVariants, mapVariantsC, unvariants, variants2consts, consts2variants,
             runEvalM, runEvalMWithOpts, stdPredef, globals,
             PredefImpl, Predef(..), ($\),
             pdCanonicalArgs, pdArity,
@@ -99,6 +99,10 @@ data Variants
 mapVariants :: (Value -> Value) -> Variants -> Variants
 mapVariants f (VarFree vs)   = VarFree (f <$> vs)
 mapVariants f (VarOpts n cs) = VarOpts n (second f <$> cs)
+
+mapVariantsC :: (Choice -> Value -> Value) -> Choice -> Variants -> Variants
+mapVariantsC f c (VarFree vs)   = VarFree (mapC f c vs)
+mapVariantsC f c (VarOpts n cs) = VarOpts n (mapC (\c (x,y) -> (x,f c y)) c cs)
 
 unvariants :: Variants -> [Value]
 unvariants (VarFree vs)   = vs
