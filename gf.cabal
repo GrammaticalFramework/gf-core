@@ -169,7 +169,6 @@ library
     GF.Text.Lexing
     GF.Grammar.Canonical
 
-  other-modules:
     GF.Main
     GF.Compiler
     GF.Interactive
