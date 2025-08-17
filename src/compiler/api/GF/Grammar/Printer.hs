@@ -218,6 +218,9 @@ ppTerm q d (S x y)     = case x of
                                            '}'
                            _          -> prec d 3 (hang (ppTerm q 3 x) 2 ("!" <+> ppTerm q 4 y))
 ppTerm q d (ExtR x y)  = prec d 3 (ppTerm q 3 x <+> "**" <+> ppTerm q 4 y)
+ppTerm q d (Opts t opts) = "option" <+> ppTerm q 0 t <+>"of" <+> '{' $$
+                              nest 2 (vcat (punctuate ';' (map (ppOpt q) opts))) $$
+                           '}'
 ppTerm q d (App x y)   = prec d 4 (ppTerm q 4 x <+> ppTerm q 5 y)
 ppTerm q d (V e es)    = hang "table" 2 (sep [ppTerm q 6 e,brackets (fsep (punctuate ';' (map (ppTerm q 0) es)))])
 ppTerm q d (FV es)     = prec d 4 ("variants" <+> braces (fsep (punctuate ';' (map (ppTerm q 0) es))))
@@ -268,6 +271,8 @@ ppTerm q d (TSymVar i r) = pp '<' <> pp i <> pp ',' <> pp '$' <> pp r <> pp '>'
 ppEquation q (ps,e) = hcat (map (ppPatt q 2) ps) <+> "->" <+> ppTerm q 0 e
 
 ppCase q (p,e) = ppPatt q 0 p <+> "=>" <+> ppTerm q 0 e
+
+ppOpt q (p,e) = '(' <> ppTerm q 0 p <> ')' <+> "=>" <+> ppTerm q 0 e
 
 ppControl q (id,Nothing) = pp id
 ppControl q (id,Just t ) = pp id <> ':' <+> ppTerm q 6 t
