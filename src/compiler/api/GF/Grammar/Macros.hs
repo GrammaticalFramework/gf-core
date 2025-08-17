@@ -404,6 +404,7 @@ composOp co trm =
    RecType r        -> liftM RecType (mapPairsM co r)
    P t i            -> liftM2 P (co t) (return i)
    ExtR a c         -> liftM2 ExtR (co a) (co c)
+   Opts t os        -> liftM2 Opts (co t) (mapM (pairM co) os)
    T i cc           -> liftM2 (flip T) (mapPairsM co cc) (changeTableType co i)
    V ty vs          -> liftM2 V (co ty) (mapM co vs)
    Let (x,(mt,a)) b -> liftM3 let' (co a) (T.mapM co mt) (co b)
