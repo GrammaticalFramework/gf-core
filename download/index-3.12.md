@@ -23,7 +23,7 @@ Binary packages are available for Debian/Ubuntu, macOS, and Windows and include:
 - C run-time system
 - Python bindings to the C run-time system
 
-[Binary packages on GitHub](https://github.com/GrammaticalFramework/gf-core/releases/tag/3.12)
+[Binary packages on GitHub](https://github.com/GrammaticalFramework/gf-core/releases/tag/release-3.12)
 
 #### Debian/Ubuntu
 
