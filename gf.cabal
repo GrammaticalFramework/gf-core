@@ -349,7 +349,7 @@ library
     build-depends:
       terminfo >=0.4.0 && < 0.5
 
-    if impl(ghc >= 9.6.6)
+    if impl(ghc >= 9.6)
       build-depends: unix >= 2.8 && < 2.9
 
     else
