@@ -520,7 +520,7 @@ tcRho scope c (Reset ctl mb_ct t qid) mb_ty
 tcRho scope s (Opts n cs) mb_ty = do
   let (s1,s2,s3) = split3 s
   (n,_) <- tcRho scope s1 n Nothing
-  (ls,_) <- tcUnifying scope s2 (fst <$> cs) Nothing
+  (ls,_)  <- tcUnifyingMaybe scope s2 (fst <$> cs) Nothing
   (ts,ty) <- tcUnifying scope s3 (snd <$> cs) mb_ty
   return (Opts n (zip ls ts), ty)
 tcRho scope s t _ = unimplemented ("tcRho "++show t)
@@ -542,6 +542,22 @@ tcUnifying scope c ts mb_ty = do
 
   let go c t = do (t, ty) <- tcRho scope c t mb_ty
                   subsume t ty
+
+  ts <- mapCM go c ts
+  return (ts,ty)
+
+tcUnifyingMaybe :: Scope -> Choice -> [Maybe Term] -> Maybe Rho -> EvalM ([Maybe Term], Value)
+tcUnifyingMaybe scope c ts mb_ty = do
+  (ty,subsume) <-
+    case mb_ty of
+      Just ty -> do return (ty, \t ty' -> return t)
+      Nothing -> do i <- newResiduation scope
+                    let ty = VMeta i []
+                    return (ty, \t ty' -> subsCheckRho scope t ty' ty >>= \(t,_,_) -> return t)
+
+  let go c (Just t) = do (t, ty) <- tcRho scope c t mb_ty
+                         fmap Just $ subsume t ty
+      go c Nothing  = do return Nothing
 
   ts <- mapCM go c ts
   return (ts,ty)

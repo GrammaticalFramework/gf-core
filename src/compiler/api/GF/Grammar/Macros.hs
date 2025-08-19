@@ -404,7 +404,7 @@ composOp co trm =
    RecType r        -> liftM RecType (mapPairsM co r)
    P t i            -> liftM2 P (co t) (return i)
    ExtR a c         -> liftM2 ExtR (co a) (co c)
-   Opts t os        -> liftM2 Opts (co t) (mapM (pairM co) os)
+   Opts t os        -> liftM2 Opts (co t) (mapM (\(t1,t2) -> liftM2 (,) (maybe (return Nothing) (liftM Just . co) t1) (co t2)) os)
    T i cc           -> liftM2 (flip T) (mapPairsM co cc) (changeTableType co i)
    V ty vs          -> liftM2 V (co ty) (mapM co vs)
    Let (x,(mt,a)) b -> liftM3 let' (co a) (T.mapM co mt) (co b)
@@ -451,7 +451,7 @@ collectOp co trm = case trm of
   S c a        -> co c <> co a
   Table a c    -> co a <> co c
   ExtR a c     -> co a <> co c
-  Opts t os    -> co t <> mconcatMap (\(a,b) -> co a <> co b) os
+  Opts t os    -> co t <> mconcatMap (\(a,b) -> maybe mempty co a <> co b) os
   R r          -> mconcatMap (\ (_,(mt,a)) -> maybe mempty co mt <> co a) r
   RecType r    -> mconcatMap (co . snd) r
   P t i        -> co t

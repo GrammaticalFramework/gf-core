@@ -466,7 +466,7 @@ type Equation = ([Patt],Term)
 
 type Labelling = (Label, Type) 
 type Assign = (Label, (Maybe Type, Term)) 
-type Option = (Term, Term)
+type Option = (Maybe Term, Term)
 type Case = (Patt, Term) 
 --type Cases = ([Patt], Term) 
 type LocalDef = (Ident, (Maybe Type, Term))

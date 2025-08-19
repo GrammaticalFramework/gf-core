@@ -272,7 +272,8 @@ ppEquation q (ps,e) = hcat (map (ppPatt q 2) ps) <+> "->" <+> ppTerm q 0 e
 
 ppCase q (p,e) = ppPatt q 0 p <+> "=>" <+> ppTerm q 0 e
 
-ppOpt q (p,e) = '(' <> ppTerm q 0 p <> ')' <+> "=>" <+> ppTerm q 0 e
+ppOpt q (Just p, e) = ppTerm q 0 p <+> "=>" <+> ppTerm q 0 e
+ppOpt q (Nothing,e) = ppTerm q 0 e
 
 ppControl q (id,Nothing) = pp id
 ppControl q (id,Just t ) = pp id <> ':' <+> ppTerm q 6 t
