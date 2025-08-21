@@ -214,11 +214,28 @@ str2lin (VSymCat d r rs) = do (r, rs) <- compute r rs
 str2lin (VSymVar d r)    = return [SymVar d r]
 str2lin VEmpty           = return []
 str2lin (VC v1 v2)       = liftM2 (++) (str2lin v1) (str2lin v2)
-str2lin (VAlts def alts) = do def <- str2lin def
-                              alts <- forM alts $ \(v,VStrs vs) -> do
-                                lin <- str2lin v
-                                return (lin,[s | VStr s <- vs])
+str2lin v0@(VAlts def alts)
+                         = do def <- str2lin def
+                              alts <- forM alts $ \(v1,v2) -> do
+                                lin <- str2lin v1
+                                ss  <- to_strs v2
+                                return (lin,ss)
                               return [SymKP def alts]
+  where
+    to_strs (VStrs vs)    = mapM to_str vs
+    to_strs (VPatt _ _ p) = from_patt p
+    to_strs v             = fail
+
+    to_str (VStr s) = return s
+    to_str _        = fail
+
+    from_patt (PAlt p1 p2) = liftM2 (++) (from_patt p1) (from_patt p2)
+    from_patt (PSeq _ _ p1 _ _ p2) = liftM2 (liftM2 (++)) (from_patt p1) (from_patt p2)
+    from_patt (PString s)  = return [s]
+    from_patt (PChars cs)  = return (map (:[]) cs)
+    from_patt _            = fail
+
+    fail = evalError ("Complex patterns are not supported in:" $$ nest 2 (pp (showValue v0)))
 str2lin v                = do t <- value2term False [] v
                               evalError ("the string:" <+> ppTerm Unqualified 0 t $$
                                          "cannot be evaluated at compile time.")

@@ -63,9 +63,15 @@ cError = identS "error"
 
 -- * Used in the delimited continuations
 cConcat = identS "concat"
+cConcat' = identS "concat'"
 cOne = identS "one"
+cSelect = identS "select"
 cDefault = identS "default"
 cList = identS "list"
+cLen = identS "len"
+
+cp1 = identS "p1"
+cp2 = identS "p2"
 
 -- * Hacks: dummy identifiers used in various places.
 -- Not very nice!
