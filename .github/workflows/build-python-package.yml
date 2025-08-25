@@ -47,7 +47,7 @@ jobs:
       run: |
         python -m cibuildwheel src/runtime/python --output-dir wheelhouse
 
-    - name: Build wheels on OSX
+    - name: Build wheels on Windows
       if: startsWith(matrix.os, 'windows')
       env:
         CIBW_BEFORE_BUILD: cd src/runtime/c && glibtoolize && autoreconf -i && ./configure && make && sudo make install
