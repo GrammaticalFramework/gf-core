@@ -4,7 +4,7 @@ name: Build & Publish Python Package
 on:
   pull_request:
   push:
-    branches: [master]
+    branches: [master,try-to-build-python-module-for-win]
 
 jobs:
   build_wheels:
