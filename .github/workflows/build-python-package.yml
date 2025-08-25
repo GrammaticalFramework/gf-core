@@ -34,7 +34,7 @@ jobs:
         brew install libtool
 
     - name: Build wheels on Linux
-      if: startsWith(matrix.os, 'macos') != true
+      if: startsWith(matrix.os, 'ubuntu')
       env:
         CIBW_BEFORE_BUILD: cd src/runtime/c && autoreconf -i && ./configure && make && make install
       run: |
