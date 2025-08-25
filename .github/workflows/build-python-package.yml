@@ -13,7 +13,7 @@ jobs:
     strategy:
       fail-fast: true
       matrix:
-        os: [ubuntu-latest, macos-latest, macos-13]
+        os: [ubuntu-latest, macos-latest, macos-13, windows-latest]
 
     steps:
     - uses: actions/checkout@v4
@@ -42,6 +42,13 @@ jobs:
 
     - name: Build wheels on OSX
       if: startsWith(matrix.os, 'macos')
+      env:
+        CIBW_BEFORE_BUILD: cd src/runtime/c && glibtoolize && autoreconf -i && ./configure && make && sudo make install
+      run: |
+        python -m cibuildwheel src/runtime/python --output-dir wheelhouse
+
+    - name: Build wheels on OSX
+      if: startsWith(matrix.os, 'windows')
       env:
         CIBW_BEFORE_BUILD: cd src/runtime/c && glibtoolize && autoreconf -i && ./configure && make && sudo make install
       run: |
