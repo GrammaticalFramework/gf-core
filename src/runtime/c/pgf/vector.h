@@ -93,8 +93,8 @@ public:
     iterator begin() { return iterator(ref<A>::from_ptr(&v()->data[0])); }
     iterator end()   { return iterator(ref<A>::from_ptr(&v()->data[v()->len])); }
 
-    bool operator ==(vector<A>& other) const { return offset==other.as_object(); }
-    bool operator !=(vector<A>& other) const { return offset!=other.as_object(); }
+    bool operator ==(vector<A>& other) const { return offset==other.offset; }
+    bool operator !=(vector<A>& other) const { return offset!=other.offset; }
     bool operator ==(object other_offset) const { return offset==other_offset; }
     bool operator !=(object other_offset) const { return offset!=other_offset; }
 
