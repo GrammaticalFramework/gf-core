@@ -94,7 +94,7 @@ data Value
 
 data Variants
   = VarFree [Value]
-  | VarOpts Value [(Maybe Value, Value)]
+  | VarOpts Value [(Value, Value)]
 
 mapVariants :: (Value -> Value) -> Variants -> Variants
 mapVariants f (VarFree vs)   = VarFree (f <$> vs)
@@ -138,7 +138,7 @@ data ConstValue a
 
 data ConstVariants a
   = ConstFree [ConstValue a]
-  | ConstOpts Value [(Maybe Value, ConstValue a)]
+  | ConstOpts Value [(Value, ConstValue a)]
 
 mapConstVs :: (ConstValue a -> ConstValue b) -> ConstVariants a -> ConstVariants b
 mapConstVs f (ConstFree vs)   = ConstFree (f <$> vs)
@@ -337,8 +337,8 @@ eval g env c t@(Opts n cs)  vs  = if null cs
                                            vn = eval g env c1 n []
                                            vcs = mapC evalOpt c cs
                                        in VFV c3 (VarOpts vn vcs)
-  where evalOpt c' (Just l, t) = let (c1,c2) = split c' in (Just (eval g env c1 l []), eval g env c2 t vs)
-        evalOpt c' (Nothing,t) = let (c1,c2) = split c' in (Nothing,                   eval g env c2 t vs)
+  where evalOpt c' (Just l, t) = let (c1,c2) = split c' in (eval g env c1 l [], eval g env c2 t vs)
+        evalOpt c' (Nothing,t) = let v = eval g env c' t vs in (v, v)
 eval g env c t              vs  = VError ("Cannot reduce term" <+> pp t)
 
 evalPredef :: Globals -> Choice -> Ident -> [Value] -> Value
@@ -424,7 +424,7 @@ bubble v = snd (bubble v)
     bubble v@(VFV c (VarOpts n os))
       | null os   = (Map.empty, v)
       | otherwise = let (union,os') = mapAccumL (\acc (k,v) -> second (k,) $ descend acc v) Map.empty os
-                    in (Map.insert c (BubbleOpts n (map (\(l,t) -> fromMaybe t l) os),1) union, VFV c (VarOpts n os'))
+                    in (Map.insert c (BubbleOpts n (map fst os),1) union, VFV c (VarOpts n os'))
     bubble (VAlts v vs) = lift1L2 VAlts v vs
     bubble (VStrs vs) = liftL VStrs vs
     bubble (VMarkup tag attrs vs) =
@@ -509,7 +509,7 @@ bubble v = snd (bubble v)
         addVariant c (bvs,cnt) v
           | cnt > 1   = VFV c $ case bvs of
                                   BubbleFree k    -> VarFree (replicate k v)
-                                  BubbleOpts n os -> VarOpts n (map (\l -> (Just l,v)) os)
+                                  BubbleOpts n os -> VarOpts n (map (\l -> (l,v)) os)
           | otherwise = v
 
     unitfy = fmap (\(n,_) -> (n,1))
@@ -925,7 +925,7 @@ value2termM flat xs (VFV i (VarOpts n os)) =
     let j = fromMaybe 0 (Map.lookup i choices)
     in case os `maybeAt` j of
          Just (l,t) -> case value2termM flat xs t of
-                         EvalM f -> let oi = OptionInfo i n (map (\(l,t) -> fromMaybe t l) os)
+                         EvalM f -> let oi = OptionInfo i n (map fst os)
                                     in f g k (State choices metas (oi:opts)) r msgs
          Nothing    -> Fail ("Index" <+> j <+> "out of bounds for option:" $$ ppValue Unqualified 0 n) msgs
 value2termM flat xs (VPatt min max p) = return (EPatt min max p)
