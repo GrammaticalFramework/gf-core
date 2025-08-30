@@ -466,7 +466,6 @@ collectOp co trm = case trm of
   Strs tt      -> mconcatMap co tt
   ELincat _ t  -> co t
   ELin _ t     -> co t
-  AdHocOverload ts -> mconcatMap co ts
   Markup t as cs -> mconcatMap (co.snd) as <> mconcatMap co cs
   Reset _ ct t _-> maybe mempty co ct <> co t
   _            -> mempty -- covers K, Vr, Cn, Sort
