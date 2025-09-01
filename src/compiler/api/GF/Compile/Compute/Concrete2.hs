@@ -8,7 +8,7 @@ module GF.Compile.Compute.Concrete2
             PredefImpl, Predef(..), ($\),
             pdCanonicalArgs, pdArity,
             normalForm, normalFlatForm,
-            eval, apply, value2term, value2termM, value2int, value2float, bubble, patternMatch, vtableSelect, State(..),
+            eval, apply, value2term, value2termM, value2string, value2int, value2float, value2expr, string2value, bubble, patternMatch, vtableSelect, State(..),
             newResiduation, checkpoint, getMeta, setMeta, MetaState(..), variants, try,
             evalError, evalWarn, ppValue, Choice(..), unit, poison, split, split3, split4, mapC, mapCM) where
 
@@ -34,6 +34,7 @@ import Data.Functor ((<&>))
 import Data.Maybe (fromMaybe,fromJust)
 import Data.List
 import Data.Char
+import PGF2(Expr(..),Literal(..))
 
 type PredefImpl = Globals -> Choice -> [Value] -> ConstValue Value
 newtype Predef = Predef { runPredef :: PredefImpl }
@@ -1162,6 +1163,19 @@ value2float g (VSusp i k vs)   = CSusp i (\v -> value2float g (apply g (k v) vs)
 value2float g (VFlt f)         = Const f
 value2float g (VFV s vs)       = CFV s (variants2consts (value2float g) vs)
 value2float g _                = RunTime
+
+value2expr g xs (VApp _ (m,f) vs)
+  | m /= cPredef               = foldl (\e v -> fmap EApp e <*> value2expr g xs v) (pure (EFun (showIdent f))) vs
+value2expr g xs (VMeta i vs)   = CSusp i (\v -> value2expr g xs (apply g v vs))
+value2expr g xs (VSusp i k vs) = CSusp i (\v -> value2expr g xs (apply g (k v) vs))
+value2expr g xs (VGen j vs)    = foldl (\e v -> fmap EApp e <*> value2expr g xs v) (pure (EVar (length xs - j - 1))) vs
+value2expr g xs (VClosure env s (Abs b x t)) =
+  let v  = eval g ((x,VGen (length xs) []):env) s t []
+      x' = mkFreshVar xs x
+  in fmap (EAbs b (showIdent x')) (value2expr g (x':xs) v)
+value2expr g xs (VInt n)       = pure (ELit (LInt n))
+value2expr g xs (VFlt f)       = pure (ELit (LFlt f))
+value2expr g xs v              = fmap (ELit . LStr) (value2string g v)
 
 newtype Choice = Choice { unchoice :: Integer }
   deriving (Eq,Ord,Pretty,Show)
