@@ -68,7 +68,11 @@ lookupIdentInfo (m,ModPGF{mpgf=pgf})   i =
                 Nothing   -> notFound i
   where
     cnvType xs (PGF2.DTyp hypos cat es) =
-      appHypos hypos xs (QC (m,identS cat)) es
+      let t | cat == "String" = Sort cStr
+            | cat == "Int"    = QC (cPredef,cInt)
+            | cat == "Float"  = QC (cPredef,cFloat)
+            | otherwise       = QC (m,identS cat)
+      in appHypos hypos xs t es
 
     appHypos []                  xs t es =
       foldl (appExpr xs) t es
