@@ -356,6 +356,59 @@ PgfLinearizationOutputIfaceVtbl pypgf_lin_out_iface_vtbl =
 };
 
 static PyObject*
+Concr_tabularLinearize(ConcrObject* self, PyObject *args)
+{
+	ExprObject* pyexpr;
+	if (!PyArg_ParseTuple(args, "O!", &pgf_ExprType, &pyexpr))
+        return NULL;
+
+	PgfExn err;
+	PgfText **texts =
+        pgf_tabular_linearize(self->grammar->db, self->concr, (PgfExpr) pyexpr, NULL,
+                              &marshaller, &err);
+	if (handleError(err) != PGF_EXN_NONE) {
+        return NULL;
+	}
+
+    if (texts == NULL) {
+        Py_RETURN_NONE;
+    }
+
+    PyObject *res = PyList_New(0);
+    if (!res)
+        goto fail;
+
+    while (texts[0] != NULL && texts[1] != NULL) {
+        PyObject* pyfield = PyUnicode_FromStringAndSize(texts[0]->text, texts[0]->size);
+        free(texts[0]); texts++;
+        if (!pyfield)
+            goto fail;
+
+        PyObject* pylin   = PyUnicode_FromStringAndSize(texts[0]->text, texts[0]->size);
+        free(texts[0]); texts++;
+        if (!pylin)
+            goto fail;
+
+        PyObject *tup = PyTuple_New(2);
+        PyTuple_SetItem(tup, 0, pyfield);
+        PyTuple_SetItem(tup, 1, pylin);
+        PyList_Append(res, tup);
+        Py_DECREF(tup);
+    }
+
+    return res;
+
+fail:
+    Py_XDECREF(res);
+
+    while (texts[0]) {
+        free(texts[0]); texts++;
+    }
+
+    return NULL;
+}
+
+static PyObject*
 Concr_bracketedLinearize(ConcrObject* self, PyObject *args)
 {
 	ExprObject* pyexpr;
@@ -548,10 +601,10 @@ static PyMethodDef Concr_methods[] = {
     },
     /*{"linearizeAll", (PyCFunction)Concr_linearizeAll, METH_VARARGS | METH_KEYWORDS,
      "Takes an abstract tree and linearizes with all variants"
-    },
+    },*/
     {"tabularLinearize", (PyCFunction)Concr_tabularLinearize, METH_VARARGS,
      "Takes an abstract tree and linearizes it to a table containing all fields"
-	},*/
+	},
     {"bracketedLinearize", (PyCFunction)Concr_bracketedLinearize, METH_VARARGS,
      "Takes an abstract tree and linearizes it to a bracketed string"
     },
