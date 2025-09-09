@@ -945,8 +945,8 @@ _collect_funs(PgfItor *fn, PgfText *key, object value, PgfExn *err)
 
     if (PyList_Append((PyObject*) clo->collection, py_name) != 0) {
         err->type = PGF_EXN_OTHER_ERROR;
-        Py_DECREF(py_name);
     }
+    Py_DECREF(py_name);
 }
 
 static PyObject *
