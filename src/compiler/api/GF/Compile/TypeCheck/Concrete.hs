@@ -487,6 +487,19 @@ tcRho scope c (Reset ctl mb_ct t qid) mb_ty
                  Nothing -> evalError (pp "[select: .. | ..] requires an integer argument")
       (t,_) <- tcRho scope c1 t (Just rec_ty)
       return (Reset ctl mb_ct t qid,ty)
+  | ctl == cFilter = do
+      ty <- case mb_ty of
+              Just ty -> return ty
+              Nothing -> do i <- newResiduation scope
+                            return (VMeta i [])
+      let rec_ty = VRecType [ (ident2label cp1, True, ty)
+                            , (ident2label cp2, True, VApp poison (cPredef,cBool) [])
+                            ] False
+      case mb_ct of
+        Just ct -> evalError (pp "[filter | ..] cannot take an argument")
+        Nothing -> return ()
+      (t,_) <- tcRho scope c t (Just rec_ty)
+      return (Reset ctl mb_ct t qid,ty)
   | ctl == cDefault = do
       let (c1,c2) = split c
       (t,ty)     <- tcRho scope c1 t mb_ty

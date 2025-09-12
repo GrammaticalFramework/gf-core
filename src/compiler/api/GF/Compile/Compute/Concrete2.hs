@@ -973,6 +973,16 @@ value2termM flat xs (VReset ctl mb_cv v mb_qid) = do
                                _    -> evalError (pp "The term must be a record")
                            select n (t:ts) = select (n-1) ts
            _             -> evalError (pp "[select: .. | ..] requires an integer constant")
+      | ctl == cFilter =
+          let filter []     = mzero
+              filter (t:ts) =
+                case t of
+                  R rs -> case (lookup (ident2label cp1) rs, lookup (ident2label cp2) rs) of
+                            (Just (_,t), Just (_,Q q))
+                                | q == (cPredef,cTrue) -> pure t `mplus` filter ts
+                            _                          ->                filter ts
+                  _    -> evalError (pp "The term must be a record")
+          in filter ts
       | ctl == cDefault =
          case (ts,mb_cv) of
            ([]  ,Nothing) -> mzero
