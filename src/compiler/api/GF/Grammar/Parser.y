@@ -720,7 +720,7 @@ NLG :: { Map.Map Ident Info }
 
 ListNLGDef :: { [(Ident,Info)] }
 ListNLGDef
-  : 'oper' NLGDef            { []       }
+  : 'oper' NLGDef            { $2       }
   | 'oper' NLGDef ListNLGDef { $2 ++ $3 }
 
 NLGDef :: { [(Ident,Info)] }

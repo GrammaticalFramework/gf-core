@@ -224,7 +224,6 @@ ppTerm q d (Opts t opts) = "option" <+> ppTerm q 0 t <+>"of" <+> '{' $$
 ppTerm q d (App x y)   = prec d 4 (ppTerm q 4 x <+> ppTerm q 5 y)
 ppTerm q d (V e es)    = hang "table" 2 (sep [ppTerm q 6 e,brackets (fsep (punctuate ';' (map (ppTerm q 0) es)))])
 ppTerm q d (FV es)     = prec d 4 ("variants" <+> braces (fsep (punctuate ';' (map (ppTerm q 0) es))))
-ppTerm q d (AdHocOverload es)     = "overload" <+> braces (fsep (punctuate ';' (map (ppTerm q 0) es)))
 ppTerm q d (Alts e xs) = prec d 4 ("pre" <+> braces (ppTerm q 0 e <> ';' <+> fsep (punctuate ';' (map (ppAltern q) xs))))
 ppTerm q d (Strs es)   = "strs" <+> braces (fsep (punctuate ';' (map (ppTerm q 0) es)))
 ppTerm q d (EPatt _ _ p)=prec d 4 ('#' <+> ppPatt q 2 p)

@@ -131,13 +131,22 @@ type2metaTerm gr d ms r rs (RecType lbls) = do
 type2metaTerm gr d ms r rs (Table p q)
   | count == 1 = do (ms',r',t) <- type2metaTerm gr d ms r rs q
                     return (ms',r+(r'-r),T (TTyped p) [(PW,t)])
-  | otherwise  = do let pv    = varX (length rs+1)
+  | null (collectParams q)
+               = do let pv    = varX (length rs+1)
                     (ms',delta,t) <-
                         fixST $ \(~(_,delta,_)) ->
                                      do (ms',r',t) <- type2metaTerm gr d ms r ((delta,(pv,p)):rs) q
                                         return (ms',r'-r,t)
                     return (ms',r+delta*count,T (TTyped p) [(PV pv,t)])
+  | otherwise = do ((ms',r'),ts) <- mapAccumM (\(ms,r) _ -> do (ms',r',t) <- type2metaTerm gr d ms r rs q
+                                                               return ((ms',r'),t))
+                                              (ms,r) [0..count-1]
+                   return (ms',r+(r'-r),V p ts)
   where
+    collectParams (QC q)      = [q]
+    collectParams (Table _ t) = collectParams t
+    collectParams t           = collectOp collectParams t
+
     count = case allParamValues gr p of
               Ok ts   -> length ts
               Bad msg -> error msg
