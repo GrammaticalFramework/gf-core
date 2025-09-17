@@ -404,6 +404,7 @@ composOp co trm =
    RecType r        -> liftM RecType (mapPairsM co r)
    P t i            -> liftM2 P (co t) (return i)
    ExtR a c         -> liftM2 ExtR (co a) (co c)
+   Opts t os        -> liftM2 Opts (co t) (mapM (\(t1,t2) -> liftM2 (,) (maybe (return Nothing) (liftM Just . co) t1) (co t2)) os)
    T i cc           -> liftM2 (flip T) (mapPairsM co cc) (changeTableType co i)
    V ty vs          -> liftM2 V (co ty) (mapM co vs)
    Let (x,(mt,a)) b -> liftM3 let' (co a) (T.mapM co mt) (co b)
@@ -443,10 +444,14 @@ collectOp :: Monoid m => (Term -> m) -> Term -> m
 collectOp co trm = case trm of
   App c a      -> co c <> co a
   Abs _ _ b    -> co b
+  ImplArg t    -> co t
   Prod _ _ a b -> co a <> co b
+  Typed a b    -> co a <> co b
+  Example t _  -> co t
   S c a        -> co c <> co a
   Table a c    -> co a <> co c
   ExtR a c     -> co a <> co c
+  Opts t os    -> co t <> mconcatMap (\(a,b) -> maybe mempty co a <> co b) os
   R r          -> mconcatMap (\ (_,(mt,a)) -> maybe mempty co mt <> co a) r
   RecType r    -> mconcatMap (co . snd) r
   P t i        -> co t
@@ -455,9 +460,12 @@ collectOp co trm = case trm of
   Let (x,(mt,a)) b -> maybe mempty co mt <> co a <> co b
   C s1 s2      -> co s1 <> co s2
   Glue s1 s2   -> co s1 <> co s2
+  EPattType t  -> co t
   Alts t aa    -> let (x,y) = unzip aa in co t <> mconcatMap co (x <> y)
   FV ts        -> mconcatMap co ts
   Strs tt      -> mconcatMap co tt
+  ELincat _ t  -> co t
+  ELin _ t     -> co t
   Markup t as cs -> mconcatMap (co.snd) as <> mconcatMap co cs
   Reset _ ct t _-> maybe mempty co ct <> co t
   _            -> mempty -- covers K, Vr, Cn, Sort

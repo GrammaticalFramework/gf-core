@@ -123,7 +123,6 @@ term2json (Glue t1 t2) = makeObj [("glue1",term2json t1),("glue2", term2json t2)
 term2json (EPattType t) = makeObj [("patttype",term2json t)]
 term2json (ELincat id t) = makeObj [("lincat",showJSON id), ("term",term2json t)]
 term2json (ELin id t) = makeObj [("lin",showJSON id), ("term",term2json t)]
-term2json (AdHocOverload ts) = makeObj [("overloaded",showJSON (map term2json ts))]
 term2json (FV ts) = makeObj [("variants",showJSON (map term2json ts))]
 term2json (Markup tag attrs children) = makeObj [ ("tag",showJSON tag)
                                                 , ("attrs",showJSON (map (\(attr,val) -> (showJSON attr,term2json val)) attrs))
@@ -175,7 +174,6 @@ json2term o  = Vr      <$> o!:"vr"
     <|>      EPattType <$> o!<"patttype"
     <|>        ELincat <$> o!:"lincat" <*> o!<"term"
     <|>        ELin    <$> o!:"lin" <*> o!<"term"
-    <|>  AdHocOverload <$> (o!:"overloaded" >>= mapM json2term)
     <|>        FV      <$> (o!:"variants" >>= mapM json2term)
     <|>        Markup  <$> (o!:"tag") <*>
                            (o!:"attrs" >>= mapM (\(attr,val) -> fmap ((,)attr) (json2term val))) <*>

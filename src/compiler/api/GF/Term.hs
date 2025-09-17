@@ -9,4 +9,4 @@ module GF.Term (renameSourceTerm,
 
 import GF.Compile.Rename
 import GF.Compile.Compute.Concrete
-import GF.Compile.TypeCheck.ConcreteNew
+import GF.Compile.TypeCheck.Concrete

@@ -17,6 +17,7 @@ module GF.Grammar.Printer
            , ppTerm
            , ppPatt
            , ppValue
+           , ppBind
            , ppConstrs
            , ppQIdent
            , ppMeta
@@ -217,12 +218,12 @@ ppTerm q d (S x y)     = case x of
                                            '}'
                            _          -> prec d 3 (hang (ppTerm q 3 x) 2 ("!" <+> ppTerm q 4 y))
 ppTerm q d (ExtR x y)  = prec d 3 (ppTerm q 3 x <+> "**" <+> ppTerm q 4 y)
+ppTerm q d (Opts t opts) = "option" <+> ppTerm q 0 t <+>"of" <+> '{' $$
+                              nest 2 (vcat (punctuate ';' (map (ppOpt q) opts))) $$
+                           '}'
 ppTerm q d (App x y)   = prec d 4 (ppTerm q 4 x <+> ppTerm q 5 y)
 ppTerm q d (V e es)    = hang "table" 2 (sep [ppTerm q 6 e,brackets (fsep (punctuate ';' (map (ppTerm q 0) es)))])
-ppTerm q d (Opts (_,n) cs) = prec d 4 ("option" <+> ppTerm q 0 n <+> "of" <+> braces (fsep (punctuate ';'
-                                        (map (\((_,l),t) -> parens (ppTerm q 0 l) <+> "=>" <+> ppTerm q 0 t) cs))))
 ppTerm q d (FV es)     = prec d 4 ("variants" <+> braces (fsep (punctuate ';' (map (ppTerm q 0) es))))
-ppTerm q d (AdHocOverload es)     = "overload" <+> braces (fsep (punctuate ';' (map (ppTerm q 0) es)))
 ppTerm q d (Alts e xs) = prec d 4 ("pre" <+> braces (ppTerm q 0 e <> ';' <+> fsep (punctuate ';' (map (ppAltern q) xs))))
 ppTerm q d (Strs es)   = "strs" <+> braces (fsep (punctuate ';' (map (ppTerm q 0) es)))
 ppTerm q d (EPatt _ _ p)=prec d 4 ('#' <+> ppPatt q 2 p)
@@ -269,6 +270,9 @@ ppTerm q d (TSymVar i r) = pp '<' <> pp i <> pp ',' <> pp '$' <> pp r <> pp '>'
 ppEquation q (ps,e) = hcat (map (ppPatt q 2) ps) <+> "->" <+> ppTerm q 0 e
 
 ppCase q (p,e) = ppPatt q 0 p <+> "=>" <+> ppTerm q 0 e
+
+ppOpt q (Just p, e) = ppTerm q 0 p <+> "=>" <+> ppTerm q 0 e
+ppOpt q (Nothing,e) = ppTerm q 0 e
 
 ppControl q (id,Nothing) = pp id
 ppControl q (id,Just t ) = pp id <> ':' <+> ppTerm q 6 t

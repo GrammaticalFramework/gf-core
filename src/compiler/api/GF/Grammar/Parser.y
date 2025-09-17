@@ -275,10 +275,10 @@ ParamDef
 
 OperDef :: { [(Ident,Info)] }
 OperDef
-  : Posn LhsNames ':' Exp ';'        Posn { [(i, info) | i <- $2,   info <- mkOverload (Just (mkL $1 $6 $4)) Nothing  ] }
-  | Posn LhsNames '=' Markup         Posn { [(i, info) | i <- $2,   info <- mkOverload Nothing   (Just (mkL $1 $5 $4))] }
-  | Posn LhsName ListArg '=' Markup  Posn { [(i, info) | i <- [$2], info <- mkOverload Nothing   (Just (mkL $1 $6 (mkAbs $3 $5)))] }
-  | Posn LhsNames ':' Exp '=' Markup Posn { [(i, info) | i <- $2,   info <- mkOverload (Just (mkL $1 $7 $4)) (Just (mkL $1 $7 $6))] }
+  : Posn LhsNames ':' Exp ';'         Posn { [(i, info) | i <- $2,   info <- mkOverload (Just (mkL $1 $6 $4)) Nothing  ] }
+  | Posn LhsNames '=' Exp ';'         Posn { [(i, info) | i <- $2,   info <- mkOverload Nothing   (Just (mkL $1 $6 $4))] }
+  | Posn LhsName ListArg '=' Exp ';'  Posn { [(i, info) | i <- [$2], info <- mkOverload Nothing   (Just (mkL $1 $7 (mkAbs $3 $5)))] }
+  | Posn LhsNames ':' Exp '=' Exp ';' Posn { [(i, info) | i <- $2,   info <- mkOverload (Just (mkL $1 $8 $4)) (Just (mkL $1 $8 $6))] }
 
 LinDef :: { [(Ident,Info)] }
 LinDef
@@ -452,7 +452,11 @@ Exp4 :: { Term }
 Exp4
   : Exp4 Exp5                        { App $1 $2 }
   | Exp4 '{' Exp '}'                 { App $1 (ImplArg $3) } 
-  | 'option' Exp 'of' '{' ListOpt '}' { Opts (Nothing, $2) $5 }
+  | 'option' Exp 'of' '{' ListExp '}' { let toOption t =
+                                              case t of
+                                                Table x y -> (Just x,  y)
+                                                y         -> (Nothing, y)
+                                        in Opts $2 (map toOption $5) }
   | 'case' Exp 'of' '{' ListCase '}' { let annot = case $2 of
                                              Typed _ t -> TTyped t
                                              _         -> TRaw
@@ -487,8 +491,7 @@ Exp6
   | '{' ListLocDef '}'    {% mkR $2 }
   | '<' ListTupleComp '>' { R (tuple2record $2) }
   | '<' Exp ':' Exp '>'   { Typed $2 $4      }
-  | '[' Control '|' Tag ']'      { Reset (fst $2) (snd $2) $4 undefined }
-  | '[' Control '|' Exp ']'      { Reset (fst $2) (snd $2) $4 undefined }
+  | '[' Control '|' ListMarkup ']'      { Reset (fst $2) (snd $2) (mkMarkup $4) Nothing }
   | '(' Exp ')'           { $2 }
 
 ListExp :: { [Term] }
@@ -609,15 +612,6 @@ ListPattTupleComp
   | Patt                       { [$1]    }
   | Patt ',' ListPattTupleComp { $1 : $3 }
 
-Opt :: { Option }
-Opt
-  : '(' Exp ')' '=>' Exp { ((Nothing,$2),$5) }
-
-ListOpt :: { [Option] }
-ListOpt
-  : Opt             { [$1]    }
-  | Opt ';' ListOpt { $1 : $3 }
-
 Case :: { Case }
 Case
   : Patt '=>' Exp { ($1,$3) } 
@@ -720,14 +714,21 @@ ERHS3 :: { ERHS }
   | '(' ERHS0 ')'         { $2         }
 
 NLG :: { Map.Map Ident Info }
-  : ListNLGDef     { Map.fromList $1 }
-  | Posn Tag Posn  { Map.singleton (identS "main") (ResOper Nothing (Just (mkL $1 $3 $2))) }
-  | Posn Exp Posn  { Map.singleton (identS "main") (ResOper Nothing (Just (mkL $1 $3 $2))) }
+  : ListNLGDef             { Map.fromList $1 }
+  | Posn Exp         Posn  { Map.singleton (identS "main") (ResOper Nothing (Just (mkL $1 $3 $2))) }
+  | Posn ListMarkup2 Posn  { Map.singleton (identS "main") (ResOper Nothing (Just (mkL $1 $3 (mkMarkup $2)))) }
 
 ListNLGDef :: { [(Ident,Info)] }
 ListNLGDef
-  : {- empty -}               { []       }
-  | 'oper' OperDef ListNLGDef { $2 ++ $3 }
+  : 'oper' NLGDef            { $2       }
+  | 'oper' NLGDef ListNLGDef { $2 ++ $3 }
+
+NLGDef :: { [(Ident,Info)] }
+NLGDef
+  : Posn LhsNames ':' Exp ';'             Posn { [(i, info) | i <- $2,   info <- mkOverload (Just (mkL $1 $6 $4)) Nothing  ] }
+  | Posn LhsNames '=' ListMarkup2         Posn { [(i, info) | i <- $2,   info <- mkOverload Nothing   (Just (mkL $1 $5 (mkMarkup $4)))] }
+  | Posn LhsName ListArg '=' ListMarkup2  Posn { [(i, info) | i <- [$2], info <- mkOverload Nothing   (Just (mkL $1 $6 (mkAbs $3 (mkMarkup $5))))] }
+  | Posn LhsNames ':' Exp '=' ListMarkup2 Posn { [(i, info) | i <- $2,   info <- mkOverload (Just (mkL $1 $7 $4)) (Just (mkL $1 $7 (mkMarkup $6)))] }
 
 Markup :: { Term }
 Markup
@@ -745,6 +746,10 @@ ListMarkup :: { [Term] }
   :                    { []      }
   | Exp                { [$1]    }
   | Markup ListMarkup  { $1 : $2 }
+
+ListMarkup2 :: { [Term] }
+  : Markup              { [$1]    }
+  | Markup ListMarkup2  { $1 : $2 }
 
 Control :: { (Ident,Maybe Term) }
   : Ident            { ($1, Nothing) }
@@ -883,5 +888,8 @@ mkAlts cs = case cs of
 
 mkL :: Posn -> Posn -> x -> L x
 mkL (Pn l1 _) (Pn l2 _) x = L (Local l1 l2) x
+
+mkMarkup [t] = t
+mkMarkup ts  = Markup identW [] ts
 
 }

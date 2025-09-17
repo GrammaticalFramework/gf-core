@@ -344,7 +344,6 @@ data Info =
   deriving Show
 
 type Type    = Term
-type MTyTerm = (Maybe Term, Term)
 type Cat     = QIdent
 type Fun     = QIdent
 
@@ -374,7 +373,7 @@ data Term =
  | P Term Label                  -- ^ projection:  @r.p@
  | ExtR Term Term                -- ^ extension:   @R ** {x : A}@ (both types and terms)
 
- | Opts MTyTerm [Option]         -- ^ options:     @options s in { e => x ; ... }@
+ | Opts Term [Option]            -- ^ options:     @options s in { e => x ; ... }@
 
  | Table Term Term               -- ^ table type:  @P => A@
  | T TInfo [Case]                -- ^ table:       @table {p => c ; ...}@
@@ -395,12 +394,10 @@ data Term =
  | ELincat Ident Term            -- ^ boxed linearization type of Ident
  | ELin Ident Term               -- ^ boxed linearization of type Ident
 
- | AdHocOverload [Term]          -- ^ ad hoc overloading generated in Rename
-
  | FV [Term]                     -- ^ alternatives in free variation: @variants { s ; ... }@
 
  | Markup Ident [(Ident,Term)] [Term]
- | Reset Ident (Maybe Term) Term QIdent
+ | Reset Ident (Maybe Term) Term (Maybe QIdent)
 
  | Alts Term [(Term, Term)]      -- ^ alternatives by prefix: @pre {t ; s\/c ; ...}@
  | Strs [Term]                   -- ^ conditioning prefix strings: @strs {s ; ...}@
@@ -467,7 +464,7 @@ type Equation = ([Patt],Term)
 
 type Labelling = (Label, Type) 
 type Assign = (Label, (Maybe Type, Term)) 
-type Option = (MTyTerm, Term)
+type Option = (Maybe Term, Term)
 type Case = (Patt, Term) 
 --type Cases = ([Patt], Term) 
 type LocalDef = (Ident, (Maybe Type, Term))
