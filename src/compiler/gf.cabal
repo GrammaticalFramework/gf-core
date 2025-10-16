@@ -146,7 +146,6 @@ library
     GF.Grammar.Lookup
     GF.Grammar.Macros
     GF.Grammar.Parser
-    GF.Grammar.PatternMatch
     GF.Grammar.Predef
     GF.Grammar.Printer
     GF.Grammar.ShowTerm
