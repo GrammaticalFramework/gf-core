@@ -1004,6 +1004,11 @@ value2termM flat xs (VReset ctl mb_cv v mb_qid) = do
            Just cv  -> do g <- globals
                           value2termM True xs (apply g cv [VInt (genericLength ts)])
            Nothing  -> return (EInt (genericLength ts))
+      | ctl == cConst =
+          case mb_cv of
+            Just cv -> do ct <- value2termM flat xs cv
+                          msum (map (pure . const ct) ts)
+            _       -> evalError (pp "[const: .. | ..] requires an argument")
       | otherwise = evalError (pp "Operator" <+> pp ctl <+> pp "is not defined")
 
     listify mn cat [t1,t2] = do return (App (App (QC (mn,identS ("Base"++cat))) t1) t2)
