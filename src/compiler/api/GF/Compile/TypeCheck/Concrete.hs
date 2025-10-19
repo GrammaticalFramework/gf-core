@@ -452,8 +452,8 @@ tcRho scope c (Markup tag attrs children) mb_ty = do
                        (t,_) <- tcRho scope c t Nothing
                        return (id,t))
                  c1 attrs
-  res <- mapCM (\c child -> tcRho scope c child Nothing) c2 children
-  instSigma scope c3 (Markup tag attrs (map fst res)) vtypeMarkup mb_ty
+  res <- mapCM (\c (L loc child) -> fmap (L loc . fst) (tcRho scope c child Nothing)) c2 children
+  instSigma scope c3 (Markup tag attrs res) vtypeMarkup mb_ty
 tcRho scope c (Reset ctl mb_ct t qid) mb_ty
   | ctl == cConcat || ctl == cConcat' = do
       let (c1,c23) = split c

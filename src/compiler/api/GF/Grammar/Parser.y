@@ -714,9 +714,11 @@ ERHS3 :: { ERHS }
   | '(' ERHS0 ')'         { $2         }
 
 NLG :: { Map.Map Ident Info }
-  : ListNLGDef             { Map.fromList $1 }
-  | Posn Exp         Posn  { Map.singleton (identS "main") (ResOper Nothing (Just (mkL $1 $3 $2))) }
-  | Posn ListMarkup2 Posn  { Map.singleton (identS "main") (ResOper Nothing (Just (mkL $1 $3 (mkMarkup $2)))) }
+  : ListNLGDef            { Map.fromList $1 }
+  | Posn Exp Posn         { Map.singleton (identS "main") (ResOper Nothing (Just (mkL $1 $3 $2))) }
+  | ListMarkup2           { case (head $1,last $1) of
+                              (L (Local l1 _) _, L (Local _ l2) _) -> Map.singleton (identS "main") (ResOper Nothing (Just (L (Local l1 l2) (mkMarkup $1))))
+                          }
 
 ListNLGDef :: { [(Ident,Info)] }
 ListNLGDef
@@ -730,10 +732,10 @@ NLGDef
   | Posn LhsName ListArg '=' ListMarkup2  Posn { [(i, info) | i <- [$2], info <- mkOverload Nothing   (Just (mkL $1 $6 (mkAbs $3 (mkMarkup $5))))] }
   | Posn LhsNames ':' Exp '=' ListMarkup2 Posn { [(i, info) | i <- $2,   info <- mkOverload (Just (mkL $1 $7 $4)) (Just (mkL $1 $7 (mkMarkup $6)))] }
 
-Markup :: { Term }
+Markup :: { L Term }
 Markup
-  : Tag     { $1 }
-  | Exp ';' { $1 }
+  : Posn Tag Posn     { mkL $1 $3 $2 }
+  | Posn Exp Posn ';' { mkL $1 $3 $2 }
 
 Tag :: { Term }
 Tag
@@ -742,12 +744,12 @@ Tag
                                                        else fail ("Unmatched closing tag " ++ showIdent $1) }
   | '<tag' Attributes '/' '>'                     { Markup $1 $2 [] }
 
-ListMarkup :: { [Term] }
+ListMarkup :: { [L Term] }
   :                    { []      }
-  | Exp                { [$1]    }
+  | Posn Exp Posn      { [mkL $1 $3 $2] }
   | Markup ListMarkup  { $1 : $2 }
 
-ListMarkup2 :: { [Term] }
+ListMarkup2 :: { [L Term] }
   : Markup              { [$1]    }
   | Markup ListMarkup2  { $1 : $2 }
 
@@ -889,7 +891,7 @@ mkAlts cs = case cs of
 mkL :: Posn -> Posn -> x -> L x
 mkL (Pn l1 _) (Pn l2 _) x = L (Local l1 l2) x
 
-mkMarkup [t] = t
+mkMarkup [t] = unLoc t
 mkMarkup ts  = Markup identW [] ts
 
 }

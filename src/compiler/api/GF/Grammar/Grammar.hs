@@ -396,7 +396,7 @@ data Term =
 
  | FV [Term]                     -- ^ alternatives in free variation: @variants { s ; ... }@
 
- | Markup Ident [(Ident,Term)] [Term]
+ | Markup Ident [(Ident,Term)] [L Term]
  | Reset Ident (Maybe Term) Term (Maybe QIdent)
 
  | Alts Term [(Term, Term)]      -- ^ alternatives by prefix: @pre {t ; s\/c ; ...}@
