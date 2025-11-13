@@ -9,7 +9,7 @@ import GF.Grammar
 import GF.Grammar.Lookup(allOrigInfos,lookupOrigInfo)
 import GF.Infra.Option(Options,noOptions)
 import GF.Infra.CheckM
-import GF.Compile.Compute.Concrete2
+import GF.Compile.Compute.Concrete
 import qualified Data.Map as Map
 import qualified Data.Set as Set
 import Data.Maybe(mapMaybe,fromMaybe)

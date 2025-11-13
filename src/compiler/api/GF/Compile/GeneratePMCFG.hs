@@ -13,7 +13,7 @@ import GF.Grammar.Macros
 import GF.Grammar.Predef
 import GF.Grammar.Printer hiding (ppValue)
 import GF.Text.Pretty hiding (empty)
-import GF.Compile.Compute.Concrete2 hiding ( getMeta, setMeta, globals, variants )
+import GF.Compile.Compute.Concrete hiding ( getMeta, setMeta, globals, variants )
 import qualified GF.Text.Pretty as PP
 import qualified Data.Map as Map
 import qualified Data.Set as Set

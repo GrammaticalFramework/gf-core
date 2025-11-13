@@ -10,7 +10,7 @@ import GF.Grammar hiding (Env, VGen, VApp, VRecType, ppValue)
 import GF.Grammar.Lookup
 import GF.Grammar.Predef
 import GF.Grammar.Lockfield
-import GF.Compile.Compute.Concrete2
+import GF.Compile.Compute.Concrete
 import GF.Infra.CheckM
 import GF.Data.ErrM ( Err(Ok, Bad) )
 import Control.Applicative(Applicative(..),(<|>))

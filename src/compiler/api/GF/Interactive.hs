@@ -14,8 +14,7 @@ import GF.Command.Abstract
 import GF.Command.Parse(readCommandLine,pCommand,readTransactionCommand)
 import GF.Compile.Rename(renameSourceTerm)
 import GF.Compile.TypeCheck.Concrete(inferLType)
-import qualified GF.Compile.Compute.Concrete as O(normalForm,stdPredef,Globals(..))
-import GF.Compile.Compute.Concrete2(stdPredef,Globals(..))
+import GF.Compile.Compute.Concrete(stdPredef,normalForm,Globals(..))
 import GF.Compile.GeneratePMCFG(pmcfgForm,type2fields)
 import GF.Data.Operations (Err(..))
 import GF.Data.Utilities(whenM,repeatM)
@@ -316,18 +315,18 @@ transactionCommand (CreateLin opts f mb_t is_alter) pgf mb_txnid = do
             hypos
 
     compileLinTerm sgr mo f mb_t ty = do
+      let g = Gl sgr (stdPredef g)
       (t,ty) <- case mb_t of
                   Just t  -> do t <- renameSourceTerm sgr mo (Typed t ty)
-                                let g = Gl sgr (stdPredef g)
+                                
                                 (t,ty) <- inferLType g t
                                 return (t,ty)
                   Nothing -> case lookupResDef sgr (mo,identS f) of
                                Ok t    -> do ty <- renameSourceTerm sgr mo ty
-                                             ty <- O.normalForm (O.Gl sgr O.stdPredef) ty
+                                             ty <- normalForm g ty
                                              return (t,ty)
                                Bad msg -> fail msg
       let (ctxt,res_ty) = typeFormCnc ty
-      let g = Gl sgr (stdPredef g)
       rules <- pmcfgForm g t ctxt res_ty
       return (rules,type2fields sgr res_ty)
 

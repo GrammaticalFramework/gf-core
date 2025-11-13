@@ -19,7 +19,7 @@ import GF.Grammar.Analyse
 import GF.Grammar.ShowTerm
 import GF.Grammar.Lookup (allOpers,allOpersTo)
 import GF.Compile.Rename(renameSourceTerm)
-import GF.Compile.Compute.Concrete2(normalForm,normalFlatForm,Globals(..),stdPredef)
+import GF.Compile.Compute.Concrete(normalForm,normalFlatForm,Globals(..),stdPredef)
 import GF.Compile.TypeCheck.Concrete as TC(inferLType)
 
 import GF.Command.Abstract(Option(..),isOpt,listFlags,valueString,valStrOpts)

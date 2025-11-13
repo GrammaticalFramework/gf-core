@@ -28,7 +28,7 @@ import GF.Infra.Option
 
 import GF.Compile.TypeCheck.Abstract
 import GF.Compile.TypeCheck.Concrete(checkLType,inferLType)
-import GF.Compile.Compute.Concrete2(normalForm,Globals(..),stdPredef)
+import GF.Compile.Compute.Concrete(normalForm,Globals(..),stdPredef)
 
 import GF.Grammar
 import GF.Grammar.Lexer

@@ -76,7 +76,6 @@ library
     GF.Interactive
     GF.Compiler
     GF.Grammar
-    GF.Term
     GF.Compile
     GF.CompileInParallel
     GF.Data.ErrM
@@ -106,7 +105,6 @@ library
     GF.Compile.CFGtoPGF
     GF.Compile.CheckGrammar
     GF.Compile.Compute.Concrete
-    GF.Compile.Compute.Concrete2
     GF.Compile.ExampleBased
     GF.Compile.Export
     GF.Compile.GenerateBC
