@@ -452,8 +452,8 @@ tcRho scope c (Markup tag attrs children) mb_ty = do
                        (t,_) <- tcRho scope c t Nothing
                        return (id,t))
                  c1 attrs
-  res <- mapCM (\c child -> tcRho scope c child Nothing) c2 children
-  instSigma scope c3 (Markup tag attrs (map fst res)) vtypeMarkup mb_ty
+  res <- mapCM (\c (L loc child) -> fmap (L loc . fst) (tcRho scope c child Nothing)) c2 children
+  instSigma scope c3 (Markup tag attrs res) vtypeMarkup mb_ty
 tcRho scope c (Reset ctl mb_ct t qid) mb_ty
   | ctl == cConcat || ctl == cConcat' = do
       let (c1,c23) = split c
@@ -487,6 +487,19 @@ tcRho scope c (Reset ctl mb_ct t qid) mb_ty
                  Nothing -> evalError (pp "[select: .. | ..] requires an integer argument")
       (t,_) <- tcRho scope c1 t (Just rec_ty)
       return (Reset ctl mb_ct t qid,ty)
+  | ctl == cFilter = do
+      ty <- case mb_ty of
+              Just ty -> return ty
+              Nothing -> do i <- newResiduation scope
+                            return (VMeta i [])
+      let rec_ty = VRecType [ (ident2label cp1, True, ty)
+                            , (ident2label cp2, True, VApp poison (cPredef,cBool) [])
+                            ] False
+      case mb_ct of
+        Just ct -> evalError (pp "[filter | ..] cannot take an argument")
+        Nothing -> return ()
+      (t,_) <- tcRho scope c t (Just rec_ty)
+      return (Reset ctl mb_ct t qid,ty)
   | ctl == cDefault = do
       let (c1,c2) = split c
       (t,ty)     <- tcRho scope c1 t mb_ty
@@ -516,6 +529,14 @@ tcRho scope c (Reset ctl mb_ct t qid) mb_ty
                          (ct,_) <- tcRho scope c2 ct (Just (VProd Explicit identW vtypeInt res_ty))
                          return (Reset ctl (Just ct) t Nothing, res_ty)
            Nothing -> instSigma scope c2 (Reset ctl Nothing t Nothing) vtypeInt mb_ty
+  | ctl == cConst = do
+      let (c1,c2) = split c
+      (t,_)      <- tcRho scope c1 t Nothing
+      (mb_ct,ty) <- case mb_ct of
+                      Just ct -> do (ct,ty) <- tcRho scope c2 ct mb_ty
+                                    return (Just ct,ty)
+                      Nothing -> evalError (pp "[list: .. | ..] requires an argument")
+      return (Reset ctl mb_ct t qid,ty)
   | otherwise = evalError (pp "Operator" <+> pp ctl <+> pp "is not defined")
 tcRho scope s (Opts n cs) mb_ty = do
   let (s1,s2,s3) = split3 s

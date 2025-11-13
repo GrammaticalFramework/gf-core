@@ -366,8 +366,8 @@ ppParam q (id,cxt) = id <+> hsep (map (ppDDecl q) cxt)
 ppMarkupAttr q (id,e) =
   id <> pp '=' <> ppTerm q 5 e
 
-ppMarkupChildren q [t]    = ppTerm q 0 t
-ppMarkupChildren q (t:ts) =
+ppMarkupChildren q [L _ t]    = ppTerm q 0 t
+ppMarkupChildren q (L _ t:ts) =
   (case t of
      Markup {} -> ppTerm q 0 t
      _         -> ppTerm q 0 t <> ';') $$

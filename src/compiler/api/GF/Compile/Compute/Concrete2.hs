@@ -87,7 +87,7 @@ data Value
   | VFV Choice (Variants Value)
   | VAlts Value [(Value, Value)]
   | VStrs [Value]
-  | VMarkup Ident [(Ident,Value)] [Value]
+  | VMarkup Ident [(Ident,Value)] [L Value]
   | VReset Ident (Maybe Value) Value (Maybe QIdent)
   | VSymCat Int LIndex [(LIndex, (Value, Type))]
   | VError Doc
@@ -126,7 +126,7 @@ isCanonicalForm True  (VFV {})            = False
 isCanonicalForm False (VFV c vs)          = all (isCanonicalForm False) (unvariants vs)
 isCanonicalForm flat  (VAlts d vs)        = all (isCanonicalForm flat . snd) vs
 isCanonicalForm flat  (VStrs vs)          = all (isCanonicalForm flat) vs
-isCanonicalForm flat  (VMarkup tag as vs) = all (isCanonicalForm flat . snd) as && all (isCanonicalForm flat) vs
+isCanonicalForm flat  (VMarkup tag as vs) = all (isCanonicalForm flat . snd) as && all (isCanonicalForm flat . unLoc) vs
 isCanonicalForm flat  (VReset ctl cv v _) = maybe True (isCanonicalForm flat) cv && isCanonicalForm flat v
 isCanonicalForm flat  _ = False
 
@@ -308,7 +308,7 @@ eval g env c (Strs ts)      []  = VStrs (mapC (\c t -> eval g env c t []) c ts)
 eval g env c (Markup tag as ts) [] =
                               let (c1,c2) = split c
                                   vas = mapC (\c (id,t) -> (id,eval g env c t [])) c1 as
-                                  vs  = mapC (\c t -> eval g env c t []) c2 ts
+                                  vs  = mapC (\c (L loc t) -> L loc (eval g env c t [])) c2 ts
                               in (VMarkup tag vas vs)
 eval g env c (Reset ctl mb_ct t qid) [] = VReset ctl (fmap (\t -> eval g env c t []) mb_ct) (eval g env c t []) qid
 eval g env c (TSymCat d r rs) []= VSymCat d r [(i,(fromJust (lookup pv env),ty)) | (i,(pv,ty)) <- rs]
@@ -410,7 +410,7 @@ bubble v = snd (bubble v)
     bubble (VStrs vs) = liftL VStrs vs
     bubble (VMarkup tag attrs vs) =
       let (union1,attrs') = mapAccumL descend' Map.empty attrs
-          (union2,vs')    = mapAccumL descend  union1 vs
+          (union2,vs')    = mapAccumL descendL union1 vs
       in (union2, VMarkup tag attrs' vs')
     bubble (VReset ctl mb_cv v id) =
       let (union,v') = bubble v
@@ -480,6 +480,10 @@ bubble v = snd (bubble v)
     descendC union (i,(v,ty)) =
       let (choices,v') = bubble v
       in (mergeChoices1 union choices,(i,(v',ty)))
+
+    descendL union (L loc v) =
+      let (choices,v') = bubble v
+      in (mergeChoices1 union choices,L loc v')
 
     descendR union (l,b,v) =
       let (choices,v') = bubble v
@@ -934,7 +938,7 @@ value2termM flat xs (VStrs vs) = do
   return (Strs ts)
 value2termM flat xs (VMarkup tag as vs) = do
   as <- mapM (\(id,v) -> value2termM flat xs v >>= \t -> return (id,t)) as
-  ts <- mapM (value2termM flat xs) vs
+  ts <- mapM (mapM (value2termM flat xs)) vs
   return (Markup tag as ts)
 value2termM flat xs (VReset ctl mb_cv v mb_qid) = do
   ts <- reset (value2termM True xs v)
@@ -948,7 +952,7 @@ value2termM flat xs (VReset ctl mb_cv v mb_qid) = do
                  _             -> evalError (pp "[concat: .. | ..] requires an integer constant")
          case ts of
            [t] -> return t
-           ts  -> return (Markup identW [] ts)
+           ts  -> return (Markup identW [] (map noLoc ts))
       | ctl == cConcat' = do
          ts <- case mb_cv of
                  Just (VInt n) -> return (genericTake n ts)
@@ -957,7 +961,7 @@ value2termM flat xs (VReset ctl mb_cv v mb_qid) = do
          case ts of
            []  -> mzero
            [t] -> return t
-           ts  -> return (Markup identW [] ts)
+           ts  -> return (Markup identW [] (map noLoc ts))
       | ctl == cOne =
          case (ts,mb_cv) of
            ([]  ,Nothing) -> mzero
@@ -979,6 +983,16 @@ value2termM flat xs (VReset ctl mb_cv v mb_qid) = do
                                _    -> evalError (pp "The term must be a record")
                            select n (t:ts) = select (n-1) ts
            _             -> evalError (pp "[select: .. | ..] requires an integer constant")
+      | ctl == cFilter =
+          let filter []     = mzero
+              filter (t:ts) =
+                case t of
+                  R rs -> case (lookup (ident2label cp1) rs, lookup (ident2label cp2) rs) of
+                            (Just (_,t), Just (_,Q q))
+                                | q == (cPredef,cTrue) -> pure t `mplus` filter ts
+                            _                          ->                filter ts
+                  _    -> evalError (pp "The term must be a record")
+          in filter ts
       | ctl == cDefault =
          case (ts,mb_cv) of
            ([]  ,Nothing) -> mzero
@@ -1000,6 +1014,11 @@ value2termM flat xs (VReset ctl mb_cv v mb_qid) = do
            Just cv  -> do g <- globals
                           value2termM True xs (apply g cv [VInt (genericLength ts)])
            Nothing  -> return (EInt (genericLength ts))
+      | ctl == cConst =
+          case mb_cv of
+            Just cv -> do ct <- value2termM flat xs cv
+                          msum (map (pure . const ct) ts)
+            _       -> evalError (pp "[const: .. | ..] requires an argument")
       | otherwise = evalError (pp "Operator" <+> pp ctl <+> pp "is not defined")
 
     listify mn cat [t1,t2] = do return (App (App (QC (mn,identS ("Base"++cat))) t1) t2)

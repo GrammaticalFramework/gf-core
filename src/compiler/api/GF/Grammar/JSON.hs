@@ -126,7 +126,7 @@ term2json (ELin id t) = makeObj [("lin",showJSON id), ("term",term2json t)]
 term2json (FV ts) = makeObj [("variants",showJSON (map term2json ts))]
 term2json (Markup tag attrs children) = makeObj [ ("tag",showJSON tag)
                                                 , ("attrs",showJSON (map (\(attr,val) -> (showJSON attr,term2json val)) attrs))
-                                                , ("children",showJSON (map term2json children))
+                                                , ("children",showJSON (map (term2json . unLoc) children))
                                                 ]
 term2json (Reset ctl ct t qid) =
   makeObj ([("ctl",showJSON ctl)]++maybe [] (\t->[("ct",term2json t)]) ct++[("term",term2json t), ("qid",showJSON qid)])
@@ -177,7 +177,7 @@ json2term o  = Vr      <$> o!:"vr"
     <|>        FV      <$> (o!:"variants" >>= mapM json2term)
     <|>        Markup  <$> (o!:"tag") <*>
                            (o!:"attrs" >>= mapM (\(attr,val) -> fmap ((,)attr) (json2term val))) <*>
-                           (o!:"children" >>= mapM json2term)
+                           (o!:"children" >>= mapM (fmap noLoc . json2term))
     <|>        Reset   <$> o!:"ctl" <*> fmap Just (o!<"ct") <*> o!<"term" <*> o!:"qid"
     <|>        Reset   <$> o!:"ctl" <*> pure Nothing <*> o!<"term" <*> o!:"qid"
     <|>        Alts    <$> (o!<"def") <*> (o!:"alts" >>= mapM (\(x,y) -> liftM2 (,) (json2term x) (json2term y)))

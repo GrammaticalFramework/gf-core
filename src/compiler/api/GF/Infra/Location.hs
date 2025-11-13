@@ -14,9 +14,13 @@ data Location
   deriving (Show,Eq,Ord)
 
 -- | Attaching location information
-data L a = L Location a deriving Show
+data L a = L Location a deriving (Show, Eq, Ord)
 
 instance Functor L where fmap f (L loc x) = L loc (f x)
+
+instance Foldable L where foldr f b (L loc x) = f x b
+
+instance Traversable L where traverse f (L loc x) = pure (L loc) <*> f x
 
 unLoc :: L a -> a
 unLoc (L _ x) = x

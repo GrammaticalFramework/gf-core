@@ -102,7 +102,6 @@ pmcfgForm g t ctxt ty = do
        let (ms',s',_,t2,params) = type2metaTerm sgr d ms s 0 [] ty []
        in apply (d+1) ms' s' ctxt (App t t2) (params:args)
 
-
 type2fields :: SourceGrammar -> Type -> [String]
 type2fields gr = map show . type2fields PP.empty
   where

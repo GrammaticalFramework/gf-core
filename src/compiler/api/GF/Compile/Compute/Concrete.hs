@@ -285,7 +285,7 @@ eval env (Strs ts)      []  = do vs <- mapM (\t -> eval env t []) ts
                                  return (VStrs vs)
 eval env (Markup tag as ts) [] =
                               do as <- mapM (\(id,t) -> eval env t [] >>= \v -> return (id,v)) as
-                                 vs <- mapM (\t -> eval env t []) ts
+                                 vs <- mapM (\t -> eval env (unLoc t) []) ts
                                  return (VMarkup tag as vs)
 eval env (TSymCat d r rs) []= do rs <- forM rs $ \(i,(pv,ty)) ->
                                          case lookup pv env of
@@ -638,7 +638,7 @@ value2term flat xs (VStrs vs) = do
 value2term flat xs (VMarkup tag as vs) = do
   as <- mapM (\(id,v) -> value2term flat xs v >>= \t -> return (id,t)) as
   ts <- mapM (value2term flat xs) vs
-  return (Markup tag as ts)
+  return (Markup tag as (map noLoc ts))
 value2term flat xs (VCInts (Just i) Nothing) = return (App (Q (cPredef,cInts)) (EInt i))
 value2term flat xs (VCInts Nothing (Just j)) = return (App (Q (cPredef,cInts)) (EInt j))
 value2term flat xs (VCRecType lctrs) = do

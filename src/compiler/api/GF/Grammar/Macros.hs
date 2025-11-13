@@ -418,7 +418,7 @@ composOp co trm =
    ELincat c ty     -> liftM (ELincat c) (co ty)
    ELin c ty        -> liftM (ELin c) (co ty)
    ImplArg t        -> liftM ImplArg (co t)
-   Markup t as cs   -> liftM2 (Markup t) (mapAttrs co as) (mapM co cs)
+   Markup t as cs   -> liftM2 (Markup t) (mapAttrs co as) (mapM (mapM co) cs)
    Reset ctl ct t qid->liftM2 (\mb_ct t->Reset ctl ct t qid) (maybe (pure Nothing) (fmap Just . co) ct) (co t)
    Typed t ty       -> liftM2 Typed (co t) (co ty)
    _ -> return trm -- covers K, Vr, Cn, Sort, EPatt
@@ -466,7 +466,7 @@ collectOp co trm = case trm of
   Strs tt      -> mconcatMap co tt
   ELincat _ t  -> co t
   ELin _ t     -> co t
-  Markup t as cs -> mconcatMap (co.snd) as <> mconcatMap co cs
+  Markup t as cs -> mconcatMap (co.snd) as <> mconcatMap (co . unLoc) cs
   Reset _ ct t _-> maybe mempty co ct <> co t
   _            -> mempty -- covers K, Vr, Cn, Sort
 
