@@ -31,6 +31,7 @@ import GF.Text.Pretty
 import System.FilePath(makeRelative)
 import Control.Parallel.Strategies(parList,rseq,using)
 import Control.Monad(liftM,ap)
+import Control.Monad.Fix(MonadFix(..))
 import Control.Applicative(Applicative(..))
 import qualified Control.Monad.Fail as Fail
 
@@ -45,7 +46,6 @@ newtype Check a
 instance Functor Check where fmap = liftM
 
 instance Monad Check where
-  return x = Check $ \msgs -> Success x msgs
   f >>= g  = Check $ \ws ->
                case unCheck f ws of
                  Success x msgs -> unCheck (g x) msgs
@@ -54,8 +54,14 @@ instance Monad Check where
 instance Fail.MonadFail Check where
   fail = raise
 
+instance MonadFix Check where
+  mfix f = Check  $ \msgs ->
+    let Check mf        = f x
+        r@(Success x _) = mf msgs
+    in r
+
 instance Applicative Check where
-  pure = return
+  pure x = Check $ \msgs -> Success x msgs
   (<*>) = ap
 
 instance ErrorMonad Check where
