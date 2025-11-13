@@ -48,7 +48,6 @@ data PgfSequenceItor
 data PgfProbsCallback
 data PgfMorphoCallback
 data PgfCohortsCallback
-data PgfPhrasetableIds
 data PgfExprEnum
 data PgfAlignmentPhrase
 
@@ -150,25 +149,21 @@ foreign import ccall "wrapper" wrapCohortsCallback :: Wrapper CohortsCallback
 
 foreign import ccall pgf_lookup_cohorts :: Ptr PgfDB -> Ptr Concr -> Ptr PgfText -> Ptr PgfCohortsCallback -> Ptr PgfExn -> IO ()
 
-foreign import ccall pgf_iter_sequences :: Ptr PgfDB -> Ptr Concr -> Ptr PgfSequenceItor -> Ptr PgfMorphoCallback -> Ptr PgfExn -> IO (Ptr PgfPhrasetableIds)
+foreign import ccall pgf_iter_sequences :: Ptr PgfDB -> Ptr Concr -> Ptr PgfSequenceItor -> Ptr PgfMorphoCallback -> Ptr PgfExn -> IO ()
 
 foreign import ccall pgf_get_lincat_counts_internal :: Ptr () -> Ptr CSize -> IO ()
 
 foreign import ccall pgf_get_lincat_field_internal :: Ptr () -> CSize -> IO (Ptr PgfText)
 
-foreign import ccall pgf_print_lindef_internal :: Ptr PgfPhrasetableIds -> Ptr () -> CSize -> IO (Ptr PgfText)
+foreign import ccall pgf_print_lindef_internal :: Ptr () -> CSize -> IO (Ptr PgfText)
 
-foreign import ccall pgf_print_linref_internal :: Ptr PgfPhrasetableIds -> Ptr () -> CSize -> IO (Ptr PgfText)
+foreign import ccall pgf_print_linref_internal :: Ptr () -> CSize -> IO (Ptr PgfText)
 
-foreign import ccall pgf_get_lin_get_prod_count :: Ptr () -> IO CSize
+foreign import ccall pgf_get_lin_rules_count :: Ptr () -> IO CSize
 
-foreign import ccall pgf_print_lin_internal :: Ptr PgfPhrasetableIds -> Ptr () -> CSize -> IO (Ptr PgfText)
-
-foreign import ccall pgf_print_sequence_internal :: CSize -> Ptr () -> IO (Ptr PgfText)
+foreign import ccall pgf_print_lin_internal :: Ptr () -> CSize -> IO (Ptr PgfText)
 
 foreign import ccall pgf_sequence_get_text_internal :: Ptr () -> IO (Ptr PgfText)
-
-foreign import ccall pgf_release_phrasetable_ids :: Ptr PgfPhrasetableIds -> IO ()
 
 type ItorCallback = Ptr PgfItor -> Ptr PgfText -> Ptr () -> Ptr PgfExn -> IO ()
 
@@ -244,7 +239,7 @@ foreign import ccall "dynamic" callLinBuilder1 :: Dynamic (Ptr PgfLinBuilderIfac
 
 foreign import ccall "dynamic" callLinBuilder2 :: Dynamic (Ptr PgfLinBuilderIface -> CSize -> CSize -> Ptr PgfExn -> IO ())
 
-foreign import ccall "dynamic" callLinBuilder3 :: Dynamic (Ptr PgfLinBuilderIface -> CSize -> CSize -> CSize -> Ptr CSize -> Ptr PgfExn -> IO ())
+foreign import ccall "dynamic" callLinBuilder3 :: Dynamic (Ptr PgfLinBuilderIface -> CSize -> CSize -> Ptr CSize -> Ptr PgfExn -> IO ())
 
 foreign import ccall "dynamic" callLinBuilder4 :: Dynamic (Ptr PgfLinBuilderIface -> CSize -> CSize -> CSize -> Ptr CSize -> Ptr PgfExn -> IO ())
 
@@ -317,8 +312,6 @@ foreign import ccall pgf_graphviz_abstract_tree :: Ptr PgfDB -> Ptr PGF -> Stabl
 foreign import ccall pgf_graphviz_parse_tree :: Ptr PgfDB -> Ptr Concr -> StablePtr Expr -> Ptr PgfPrintContext -> Ptr PgfMarshaller -> Ptr PgfGraphvizOptions -> Ptr PgfExn -> IO (Ptr PgfText)
 
 foreign import ccall pgf_graphviz_word_alignment :: Ptr PgfDB -> Ptr (Ptr Concr) -> CSize -> StablePtr Expr -> Ptr PgfPrintContext -> Ptr PgfMarshaller -> Ptr PgfGraphvizOptions -> Ptr PgfExn -> IO (Ptr PgfText)
-
-foreign import ccall pgf_graphviz_lr_automaton :: Ptr PgfDB -> Ptr Concr -> Ptr PgfExn -> IO (Ptr PgfText)
 
 
 -----------------------------------------------------------------------

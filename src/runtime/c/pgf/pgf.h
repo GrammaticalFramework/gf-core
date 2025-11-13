@@ -461,8 +461,6 @@ PGF_API_DECL
 void pgf_iter_lins(PgfDB *db, PgfConcrRevision cnc_revision,
                    PgfItor *itor, PgfExn *err);
 
-typedef struct PgfPhrasetableIds PgfPhrasetableIds;
-
 typedef struct PgfSequenceItor PgfSequenceItor;
 struct PgfSequenceItor {
 	int (*fn)(PgfSequenceItor* self, size_t seq_id, object value,
@@ -493,10 +491,10 @@ void pgf_lookup_cohorts(PgfDB *db, PgfConcrRevision cnc_revision,
                         PgfCohortsCallback* callback, PgfExn* err);
 
 PGF_API_DECL
-PgfPhrasetableIds *pgf_iter_sequences(PgfDB *db, PgfConcrRevision cnc_revision,
-                                      PgfSequenceItor *itor,
-                                      PgfMorphoCallback *callback,
-                                      PgfExn *err);
+void pgf_iter_sequences(PgfDB *db, PgfConcrRevision cnc_revision,
+                        PgfSequenceItor *itor,
+                        PgfMorphoCallback *callback,
+                        PgfExn *err);
 
 PGF_API_DECL
 void pgf_get_lincat_counts_internal(object o, size_t *counts);
@@ -505,25 +503,19 @@ PGF_API_DECL
 PgfText *pgf_get_lincat_field_internal(object o, size_t i);
 
 PGF_API_DECL
-size_t pgf_get_lin_get_prod_count(object o);
+size_t pgf_get_lin_rules_count(object o);
 
 PGF_API_DECL
-PgfText *pgf_print_lindef_internal(PgfPhrasetableIds *seq_ids, object o, size_t i);
+PgfText *pgf_print_lindef_internal(object o, size_t i);
 
 PGF_API_DECL
-PgfText *pgf_print_linref_internal(PgfPhrasetableIds *seq_ids, object o, size_t i);
+PgfText *pgf_print_linref_internal(object o, size_t i);
 
 PGF_API_DECL
-PgfText *pgf_print_lin_internal(PgfPhrasetableIds *seq_ids, object o, size_t i);
-
-PGF_API_DECL
-PgfText *pgf_print_sequence_internal(size_t seq_id, object o);
+PgfText *pgf_print_lin_internal(object o, size_t i);
 
 PGF_API_DECL
 PgfText *pgf_sequence_get_text_internal(object o);
-
-PGF_API_DECL
-void pgf_release_phrasetable_ids(PgfPhrasetableIds *seq_ids);
 
 PGF_API_DECL
 PgfExpr pgf_check_expr(PgfDB *db, PgfRevision revision,
@@ -635,11 +627,11 @@ void pgf_drop_concrete(PgfDB *db, PgfRevision revision,
 
 #ifdef __cplusplus
 struct PgfLinBuilderIface {
-    virtual void start_production(PgfExn *err)=0;
-    virtual void add_argument(size_t n_hypos, size_t i0, size_t n_terms, size_t *terms, PgfExn *err)=0;
-    virtual void set_result(size_t n_vars, size_t i0, size_t n_terms, size_t *terms, PgfExn *err)=0;
+    virtual void start_rule(size_t n_vars, size_t n_syms, PgfExn *err)=0;
+    virtual void add_argument(size_t i0, size_t n_terms, size_t *terms, PgfExn *err)=0;
+    virtual void set_result(size_t i0, size_t n_terms, size_t *terms, PgfExn *err)=0;
+    virtual void set_lin_idx(size_t i0, size_t n_terms, size_t *terms, PgfExn *err)=0;
     virtual void add_variable(size_t var, size_t range, PgfExn *err)=0;
-    virtual void start_sequence(size_t n_syms, PgfExn *err)=0;
     virtual void add_symcat(size_t d, size_t i0, size_t n_terms, size_t *terms, PgfExn *err)=0;
     virtual void add_symlit(size_t d, size_t i0, size_t n_terms, size_t *terms, PgfExn *err)=0;
     virtual void add_symvar(size_t d, size_t r, PgfExn *err)=0;
@@ -654,9 +646,7 @@ struct PgfLinBuilderIface {
     virtual void add_symsoftspace(PgfExn *err)=0;
     virtual void add_symcapit(PgfExn *err)=0;
     virtual void add_symallcapit(PgfExn *err)=0;
-    virtual object end_sequence(PgfExn *err)=0;
-    virtual void add_sequence_id(object seq_id, PgfExn *err)=0;
-    virtual void end_production(PgfExn *err)=0;
+    virtual void end_rule(PgfExn *err)=0;
 };
 
 struct PgfBuildLinIface {
@@ -666,11 +656,11 @@ struct PgfBuildLinIface {
 typedef struct PgfLinBuilderIface PgfLinBuilderIface;
 
 typedef struct {
-    void (*start_production)(PgfLinBuilderIface *this, PgfExn *err);
-    void (*add_argument)(PgfLinBuilderIface *this, size_t n_hypos, size_t i0, size_t n_terms, size_t *terms, PgfExn *err);
-    void (*set_result)(PgfLinBuilderIface *this, size_t n_vars, size_t i0, size_t n_terms, size_t *terms, PgfExn *err);
+    void (*start_rule)(PgfLinBuilderIface *this, size_t n_vars, size_t n_syms, PgfExn *err);
+    void (*add_argument)(PgfLinBuilderIface *this, size_t i0, size_t n_terms, size_t *terms, PgfExn *err);
+    void (*set_result)(PgfLinBuilderIface *this, size_t i0, size_t n_terms, size_t *terms, PgfExn *err);
+    void (*set_lin_idx)(PgfLinBuilderIface *this, size_t i0, size_t n_terms, size_t *terms, PgfExn *err);
     void (*add_variable)(PgfLinBuilderIface *this, size_t var, size_t range, PgfExn *err);
-    void (*start_sequence)(PgfLinBuilderIface *this, size_t n_syms, PgfExn *err);
     void (*add_symcat)(PgfLinBuilderIface *this, size_t d, size_t i0, size_t n_terms, size_t *terms, PgfExn *err);
     void (*add_symlit)(PgfLinBuilderIface *this, size_t d, size_t i0, size_t n_terms, size_t *terms, PgfExn *err);
     void (*add_symvar)(PgfLinBuilderIface *this, size_t d, size_t r, PgfExn *err);
@@ -685,9 +675,7 @@ typedef struct {
     void (*add_symsoftspace)(PgfLinBuilderIface *this, PgfExn *err);
     void (*add_symcapit)(PgfLinBuilderIface *this, PgfExn *err);
     void (*add_symallcapit)(PgfLinBuilderIface *this, PgfExn *err);
-    object (*end_sequence)(PgfLinBuilderIface *this, PgfExn *err);
-    void (*add_sequence_id)(PgfLinBuilderIface *this, object seq_id, PgfExn *err);
-    void (*end_production)(PgfLinBuilderIface *this, PgfExn *err);
+    void (*end_rule)(PgfLinBuilderIface *this, PgfExn *err);
 } PgfLinBuilderIfaceVtbl;
 
 struct PgfLinBuilderIface {
@@ -720,9 +708,16 @@ void pgf_drop_lincat(PgfDB *db,
 PGF_API_DECL
 void pgf_create_lin(PgfDB *db,
                     PgfRevision revision, PgfConcrRevision cnc_revision,
-                    PgfText *name, size_t n_prods,
+                    PgfText *name, size_t n_rules,
                     PgfBuildLinIface *build,
                     PgfExn *err);
+
+PGF_API_DECL
+void pgf_alter_lin(PgfDB *db,
+                   PgfRevision revision, PgfConcrRevision cnc_revision,
+                   PgfText *name, size_t n_rules,
+                   PgfBuildLinIface *build,
+                   PgfExn *err);
 
 PGF_API_DECL
 void pgf_drop_lin(PgfDB *db,
@@ -915,9 +910,5 @@ pgf_align_words(PgfDB *db, PgfConcrRevision revision,
                 PgfMarshaller *m,
                 size_t *n_phrases /* out */,
                 PgfExn* err);
-
-PGF_API PgfText *
-pgf_graphviz_lr_automaton(PgfDB *db, PgfConcrRevision revision,
-                          PgfExn *err);
 
 #endif // PGF_H_

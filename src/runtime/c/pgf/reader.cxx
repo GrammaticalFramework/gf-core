@@ -10,6 +10,7 @@ PgfReader::PgfReader(FILE *in,PgfProbsCallback *probs_callback)
     this->probs_callback = probs_callback;
     this->abstract = 0;
     this->concrete = 0;
+    this->container = 0;
 }
 
 uint8_t PgfReader::read_uint8()
@@ -159,6 +160,21 @@ ref<C> PgfReader::read_vector(inline_vector<V> C::* field, void (PgfReader::*rea
         (this->*read_value)(loc->*field.elem(i));
     }
     return loc;
+}
+
+template <class V>
+vector<V> PgfReader::read_null_vector(void (PgfReader::*read_value)(ref<V> val))
+{
+    size_t len = read_len();
+    if (len == 0) {
+        return 0;
+    } else {
+        vector<V> vec = vector<V>::alloc(len);
+        for (size_t i = 0; i < len; i++) {
+            (this->*read_value)(vec.elem(i));
+        }
+        return vec;
+    }
 }
 
 template <class V>
@@ -572,14 +588,14 @@ PgfSymbol PgfReader::read_symbol()
         ref<PgfSymbolKP> sym_kp = inline_vector<PgfAlternative>::alloc(&PgfSymbolKP::alts,n_alts);
 
         for (size_t i = 0; i < n_alts; i++) {
-            auto form     = read_seq();
+            auto form     = read_vector(&PgfReader::read_symbol2);
             auto prefixes = read_vector(&PgfReader::read_text2);
 
             sym_kp->alts[i].form     = form;
             sym_kp->alts[i].prefixes = prefixes;
         }
 
-        auto default_form = read_seq();
+        auto default_form = read_vector(&PgfReader::read_symbol2);
         sym_kp->default_form = default_form;
 
         sym = sym_kp.tagged();
@@ -616,80 +632,50 @@ PgfSymbol PgfReader::read_symbol()
     return sym;
 }
 
-ref<PgfSequence> PgfReader::read_seq()
+ref<PgfConcrRule> PgfReader::read_rule()
 {
-	size_t n_syms = read_len();
+    size_t n_syms = read_len();
+    ref<PgfConcrRule> rule = inline_vector<PgfSymbol>::alloc(&PgfConcrRule::syms, n_syms);
 
-	ref<PgfSequence> seq = inline_vector<PgfSymbol>::alloc(&PgfSequence::syms, n_syms);
+    vector<PgfVariableRange> vars = read_null_vector(&PgfReader::read_variable_range);
+    ref<PgfLParam> res = read_lparam();
+    vector<ref<PgfLParam>> args = read_null_vector(&PgfReader::read_lparam);
+    ref<PgfLParam> lin_idx = read_lparam();
+
+    rule->vars = vars;
+    rule->res  = res;
+    rule->container = container;
+    rule->args = args;
+    rule->lin_idx = lin_idx;
 
     for (size_t i = 0; i < n_syms; i++) {
         PgfSymbol sym = read_symbol();
-        seq->syms[i] = sym;
+        rule->syms[i] = sym;
     }
 
-    return seq;
-}
-
-vector<ref<PgfSequence>> PgfReader::read_seq_ids(object container)
-{
-    size_t len = read_len();
-    vector<ref<PgfSequence>> vec = vector<ref<PgfSequence>>::alloc(len);
-    for (size_t i = 0; i < len; i++) {
-        size_t seq_id = read_len();
-        ref<PgfSequence> seq = phrasetable_relink(concrete->phrasetable,
-                                                  container, i,
-                                                  seq_id);
-        if (seq == 0) {
-            throw pgf_error("Invalid sequence id");
-        }
-        vec[i] = seq;
-    }
-    return vec;
-}
-
-PgfPhrasetable PgfReader::read_phrasetable(size_t len)
-{
-    if (len == 0)
-        return 0;
-
-    PgfPhrasetableEntry value;
-
-    size_t half = len/2;
-    PgfPhrasetable left  = read_phrasetable(half);
-    value.seq = read_seq();
-    value.n_backrefs = 0;
-    value.backrefs = 0;
-    PgfPhrasetable right = read_phrasetable(len-half-1);
-
-    PgfPhrasetable table = Node<PgfPhrasetableEntry>::new_node(value);
-    table->sz    = 1+Node<PgfPhrasetableEntry>::size(left)+Node<PgfPhrasetableEntry>::size(right);
-    table->left  = left;
-    table->right = right;
-    return table;
-}
-
-PgfPhrasetable PgfReader::read_phrasetable()
-{
-    size_t len = read_len();
-    return read_phrasetable(len);
+    return rule;
 }
 
 ref<PgfConcrLincat> PgfReader::read_lincat()
 {
     ref<PgfConcrLincat> lincat = read_name(&PgfConcrLincat::name);
 
+    container = lincat.tagged();
+
     auto fields = read_lincat_fields(lincat);
     auto n_lindefs = read_len();
-    auto args = read_vector(&PgfReader::read_parg);
-    auto res  = read_vector(&PgfReader::read_presult2);
-    auto seqs = read_seq_ids(lincat.tagged());
+    auto rules = read_vector(&PgfReader::read_rule2);
+
+    container = 0;
+
+    for (size_t i = n_lindefs; i < rules.size(); i++) {
+        table_maker->insert_rule(rules[i]);
+    }
 
     lincat->abscat = namespace_lookup(abstract->cats, &lincat->name);
     lincat->fields = fields;
     lincat->n_lindefs = n_lindefs;
-    lincat->args = args;
-    lincat->res  = res;
-    lincat->seqs = seqs;
+    lincat->rules = rules;
     return lincat;
 }
 
@@ -715,13 +701,16 @@ ref<PgfConcrLin> PgfReader::read_lin()
     if (lin->lincat == 0)
         throw pgf_error("Found a lin which uses a category without a lincat");
 
-    auto args = read_vector(&PgfReader::read_parg);
-    auto res  = read_vector(&PgfReader::read_presult2);
-    auto seqs = read_seq_ids(lin.tagged());
+    container  = lin.tagged();
 
-    lin->args = args;
-    lin->res  = res;
-    lin->seqs = seqs;
+    auto rules = read_vector(&PgfReader::read_rule2);
+    lin->rules = rules;
+
+    container  = 0;
+
+    for (size_t i = 0; i < rules.size(); i++) {
+        table_maker->insert_rule(rules[i]);
+    }
 
     return lin;
 }
@@ -740,8 +729,8 @@ ref<PgfConcr> PgfReader::read_concrete()
 	auto cflags = read_namespace<PgfFlag>(&PgfReader::read_flag);
 	concrete->cflags = cflags;
 
-	auto phrasetable = read_phrasetable();
-	concrete->phrasetable = phrasetable;
+    PgfParseTableMaker tm(concrete);
+    this->table_maker = &tm;
 
 	auto lincats = read_namespace<PgfConcrLincat>(&PgfReader::read_lincat);
 	concrete->lincats = lincats;
@@ -749,11 +738,10 @@ ref<PgfConcr> PgfReader::read_concrete()
 	auto lins = read_namespace<PgfConcrLin>(&PgfReader::read_lin);
 	concrete->lins = lins;
 
+    this->table_maker = NULL;
+
 	auto printnames = read_namespace<PgfConcrPrintname>(&PgfReader::read_printname);
 	concrete->printnames = printnames;
-
-    //PgfLRTableMaker maker(abstract, concrete);
-    //concrete->lrtable = maker.make();
 
     return concrete;
 }

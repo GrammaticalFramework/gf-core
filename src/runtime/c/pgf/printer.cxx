@@ -545,11 +545,11 @@ void PgfPrinter::symbol(PgfSymbol sym)
         auto sym_kp = ref<PgfSymbolKP>::untagged(sym);
         puts("pre {");
 
-        sequence(sym_kp->default_form);
+        symbols(sym_kp->default_form);
 
         for (size_t i = 0; i < sym_kp->alts.size(); i++) {
             puts("; ");
-            sequence(sym_kp->alts[i].form);
+            symbols(sym_kp->alts[i].form);
             puts(" /");
             for (size_t j = 0; j < sym_kp->alts[i].prefixes.size(); j++) {
                 puts(" ");
@@ -578,22 +578,100 @@ void PgfPrinter::symbol(PgfSymbol sym)
 	case PgfSymbolALLCAPIT::tag:
         puts("ALL_CAPIT");
         break;
+	case PgfSymbolACat::tag: {
+        auto symcf = ref<PgfSymbolACat>::untagged(sym);
+        efun(&symcf->name);
+        break;
+    }
+	case PgfSymbolCCat::tag: {
+        auto symcf = ref<PgfSymbolCCat>::untagged(sym);
+        efun(&symcf->lincat->name);
+        nprintf(64,"(%zu,%zu)",symcf->value,symcf->lin_idx);
+        break;
+    }
 	}
 }
 
-void PgfPrinter::sequence(ref<PgfSequence> seq)
+void PgfPrinter::symbols(vector<PgfSymbol> syms)
 {
-    for (size_t i = 0; i < seq->syms.size(); i++) {
+    for (size_t i = 0; i < syms.size(); i++) {
         if (i > 0)
             puts(" ");
 
-        symbol(seq->syms[i]);
+        symbol(syms[i]);
     }
 }
 
-void PgfPrinter::seq_id(PgfPhrasetableIds *seq_ids, ref<PgfSequence> seq)
+void PgfPrinter::item(ref<PgfItem> item)
 {
-	nprintf(5, "S%zu", seq_ids->get(seq));
+    switch (ref<PgfConcrLin>::get_tag(item->rule->container)) {
+    case PgfConcrLincat::tag: {
+        ref<PgfConcrLincat> lincat = ref<PgfConcrLincat>::untagged(item->rule->container);
+
+        if (item->rule->vars != 0) {
+            lvar_ranges(item->rule->vars, &item->vars[0]);
+            puts(" ");
+        }
+
+        puts("String(");
+        lparam(item->rule->res);
+        puts(") -> ");
+
+        efun(&lincat->name);
+        puts("[");
+        efun(&lincat->name);
+        puts("(");
+        lparam(item->rule->args[0]);
+        puts(")]; ");
+        break;
+    }
+    case PgfConcrLin::tag: {
+        ref<PgfConcrLin> lin = ref<PgfConcrLin>::untagged(item->rule->container);
+        ref<PgfDTyp> ty = lin->absfun->type;
+
+        if (item->rule->vars != 0) {
+            lvar_ranges(item->rule->vars, &item->vars[0]);
+            puts(" ");
+        }
+
+        efun(&ty->name);
+        puts("(");
+        lparam(item->rule->res);
+        puts(") -> ");
+
+        efun(&lin->name);
+        puts("[");
+        for (size_t i = 0; i < item->rule->args.size(); i++) {
+            if (i > 0)
+                puts(",");
+            if (item->args[i] == 0) {
+                efun(&ty->hypos.elem(i)->type->name);
+                puts("(");
+                lparam(item->rule->args[i]);
+                puts(")");
+            } else {
+                emeta(0);
+            }
+        }
+        puts("]; ");
+        break;
+    }
+    }
+
+    lparam(item->rule->lin_idx);
+    puts(" : ");
+
+    for (size_t i = 0; i < item->rule->syms.size(); i++) {
+        if (i > 0)
+            puts(" ");
+
+        if (item->pre_alt == 0 && item->dot == i)
+            puts(". ");
+        else if (item->pre_alt > 0 && item->pre_dot == i)
+            puts(". ");
+
+        symbol(item->rule->syms[i]);
+    }
 }
 
 void PgfPrinter::free_ref(object x)

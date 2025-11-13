@@ -52,6 +52,9 @@ public:
     ref<C> read_vector(inline_vector<V> C::* field, void (PgfReader::*read_value)(ref<V> val));
 
     template<class V>
+    vector<V> read_null_vector(void (PgfReader::*read_value)(ref<V> val));
+
+    template<class V>
     vector<V> read_vector(void (PgfReader::*read_value)(ref<V> val));
 
     PgfLiteral read_literal();
@@ -70,6 +73,7 @@ public:
     void read_abstract(ref<PgfAbstr> abstract);
     void merge_abstract(ref<PgfAbstr> abstract);
 
+    ref<PgfConcrRule> read_rule();
     ref<PgfConcrLincat> read_lincat();
     vector<ref<PgfText>> read_lincat_fields(ref<PgfConcrLincat> lincat);
     ref<PgfLParam> read_lparam();
@@ -77,10 +81,6 @@ public:
     void read_parg(ref<PgfPArg> parg);
     ref<PgfPResult> read_presult();
     PgfSymbol read_symbol();
-    ref<PgfSequence> read_seq();
-    vector<ref<PgfSequence>> read_seq_ids(object container);
-    PgfPhrasetable read_phrasetable(size_t len);
-    PgfPhrasetable read_phrasetable();
     ref<PgfConcrLin> read_lin();
     ref<PgfConcrPrintname> read_printname();
 
@@ -94,6 +94,9 @@ private:
     PgfProbsCallback *probs_callback;
     ref<PgfAbstr> abstract;
     ref<PgfConcr> concrete;
+    object container;
+
+    class PgfParseTableMaker *table_maker;
 
     object read_name_internal(size_t struct_size);
     object read_text_internal(size_t struct_size);
@@ -101,6 +104,8 @@ private:
     void read_text2(ref<ref<PgfText>> r) { auto text = read_text(); *r = text; }
     void read_lparam(ref<ref<PgfLParam>> r) { auto lparam = read_lparam(); *r = lparam; }
     void read_presult2(ref<ref<PgfPResult>> r) { auto res = read_presult(); *r = res; }
+    void read_rule2(ref<ref<PgfConcrRule>> r) { auto rule = read_rule(); *r = rule; }
+    void read_symbol2(ref<PgfSymbol> r) { auto sym = read_symbol(); *r = sym; }
 
     template<class I>
     ref<I> read_symbol_idx();

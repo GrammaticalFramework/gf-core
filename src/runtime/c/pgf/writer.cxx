@@ -144,6 +144,19 @@ void PgfWriter::write_vector(vector<V> vec, void (PgfWriter::*write_value)(ref<V
     }
 }
 
+template<class V>
+void PgfWriter::write_null_vector(vector<V> vec, void (PgfWriter::*write_value)(ref<V> val))
+{
+    if (vec == 0) {
+        write_len(0);
+    } else {
+        write_len(vec.size());
+        for (size_t i = 0; i < vec.size(); i++) {
+            (this->*write_value)(vec.elem(i));
+        }
+    }
+}
+
 void PgfWriter::write_literal(PgfLiteral literal)
 {
     auto tag = ref<PgfLiteral>::get_tag(literal);
@@ -293,18 +306,19 @@ void PgfWriter::write_lparam(ref<PgfLParam> lparam)
     }
 }
 
-void PgfWriter::write_parg(ref<PgfPArg> parg)
+void PgfWriter::write_rule(ref<PgfConcrRule> rule)
 {
-    write_lparam(parg->param);
-}
+    write_len(rule->syms.size());
 
-void PgfWriter::write_presult(ref<PgfPResult> pres)
-{
-    if (pres->vars != 0)
-        write_vector(pres->vars, &PgfWriter::write_variable_range);
-    else
-        write_len(0);
-    write_lparam(ref<PgfLParam>::from_ptr(&pres->param));
+    write_null_vector(rule->vars, &PgfWriter::write_variable_range);
+    write_lparam(rule->res);
+    write_null_vector(rule->args, &PgfWriter::write_lparam);
+
+    write_lparam(rule->lin_idx);
+
+    for (PgfSymbol sym : rule->syms) {
+        write_symbol(sym);
+    }
 }
 
 void PgfWriter::write_symbol(PgfSymbol sym)
@@ -341,10 +355,10 @@ void PgfWriter::write_symbol(PgfSymbol sym)
         write_len(sym_kp->alts.size());
         for (size_t i = 0; i < sym_kp->alts.size(); i++) {
 			ref<PgfAlternative> alt = sym_kp->alts.elem(i);
-            write_vector(alt->form->syms.as_vector(), &PgfWriter::write_symbol);
+            write_vector(alt->form, &PgfWriter::write_symbol);
             write_vector(alt->prefixes, &PgfWriter::write_text);
         }
-        write_vector(sym_kp->default_form->syms.as_vector(), &PgfWriter::write_symbol);
+        write_vector(sym_kp->default_form, &PgfWriter::write_symbol);
 		break;
 	}
 	case PgfSymbolBIND::tag:
@@ -359,36 +373,12 @@ void PgfWriter::write_symbol(PgfSymbol sym)
 	}
 }
 
-void PgfWriter::write_seq(ref<PgfSequence> seq)
-{
-	seq_ids.add(seq);
-    write_vector(seq->syms.as_vector(), &PgfWriter::write_symbol);
-}
-
-void PgfWriter::write_phrasetable(PgfPhrasetable table)
-{
-    write_len(phrasetable_size(table));
-    write_phrasetable_helper(table);
-}
-
-void PgfWriter::write_phrasetable_helper(PgfPhrasetable table)
-{
-    if (table == 0)
-        return;
-
-    write_phrasetable_helper(table->left);
-    write_seq(table->value.seq);
-    write_phrasetable_helper(table->right);
-}
-
 void PgfWriter::write_lincat(ref<PgfConcrLincat> lincat)
 {
     write_name(&lincat->name);
     write_vector(lincat->fields, &PgfWriter::write_lincat_field);
     write_len(lincat->n_lindefs);
-    write_vector(lincat->args, &PgfWriter::write_parg);
-    write_vector(lincat->res, &PgfWriter::write_presult);
-    write_vector(lincat->seqs, &PgfWriter::write_seq_id);
+    write_vector(lincat->rules, &PgfWriter::write_rule);
 }
 
 void PgfWriter::write_lincat_field(ref<ref<PgfText>> field)
@@ -399,9 +389,7 @@ void PgfWriter::write_lincat_field(ref<ref<PgfText>> field)
 void PgfWriter::write_lin(ref<PgfConcrLin> lin)
 {
     write_name(&lin->name);
-    write_vector(lin->args, &PgfWriter::write_parg);
-    write_vector(lin->res, &PgfWriter::write_presult);
-    write_vector(lin->seqs, &PgfWriter::write_seq_id);
+    write_vector(lin->rules, &PgfWriter::write_rule);
 }
 
 void PgfWriter::write_printname(ref<PgfConcrPrintname> printname)
@@ -428,16 +416,11 @@ void PgfWriter::write_concrete(ref<PgfConcr> concr)
         }
     }
 
-	seq_ids.start(concr);
-
     write_name(&concr->name);
     write_namespace<PgfFlag>(concr->cflags, &PgfWriter::write_flag);
-	write_phrasetable(concr->phrasetable);
     write_namespace<PgfConcrLincat>(concr->lincats, &PgfWriter::write_lincat);
 	write_namespace<PgfConcrLin>(concr->lins, &PgfWriter::write_lin);
 	write_namespace<PgfConcrPrintname>(concr->printnames, &PgfWriter::write_printname);
-
-	seq_ids.end();
 }
 
 void PgfWriter::write_pgf(ref<PgfPGF> pgf)

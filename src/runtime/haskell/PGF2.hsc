@@ -73,7 +73,7 @@ module PGF2 (-- * PGF
              graphvizAbstractTree, graphvizParseTree,
              Labels, getDepLabels,
              graphvizDependencyTree, conlls2latexDoc, getCncDepLabels,
-             graphvizWordAlignment, graphvizLRAutomaton,
+             graphvizWordAlignment,
 
              -- * Concrete syntax
              ConcName,Concr,languages,language,concreteName,languageCode,concreteFlag,
@@ -363,19 +363,14 @@ showPGF p =
           modifyIORef ref (\doc -> doc $$ text def)
 
     ppConcr name c = unsafePerformIO $ do
-      (seq_ids,doc3) <- prepareSequences c -- run first to update all seq_id
-      doc1 <- ppLincats seq_ids c
-      doc2 <- ppLins seq_ids c
-      pgf_release_phrasetable_ids seq_ids
+      doc1 <- ppLincats c
+      doc2 <- ppLins c
       return (text "concrete" <+> text name <+> char '{' $$
               nest 2 (doc1 $$
-                      doc2 $$
-                      (text "sequences" <+> char '{' $$ 
-                       nest 2 doc3 $$ 
-                       char '}')) $$
+                      doc2) $$
               char '}')
 
-    ppLincats seq_ids c = do
+    ppLincats c = do
       ref <- newIORef empty
       (allocaBytes (#size PgfItor) $ \itor ->
        bracket (wrapItorCallback (getLincats ref)) freeHaskellFunPtr $ \fptr ->
@@ -402,15 +397,15 @@ showPGF p =
                                        char ']')
           modifyIORef ref $ (\doc -> doc $$ def)
           forM_ (init [0..n_lindefs]) $ \i -> do
-            def <- bracket (pgf_print_lindef_internal seq_ids val i) free $ \c_text -> do
+            def <- bracket (pgf_print_lindef_internal val i) free $ \c_text -> do
                      fmap text (peekText c_text)
             modifyIORef ref (\doc -> doc $$ text "lindef" <+> def)
           forM_ (init [0..n_linrefs]) $ \i -> do
-            def <- bracket (pgf_print_linref_internal seq_ids val i) free $ \c_text -> do
+            def <- bracket (pgf_print_linref_internal val i) free $ \c_text -> do
                      fmap text (peekText c_text)
             modifyIORef ref $ (\doc -> doc $$ text "linref" <+> def)
 
-    ppLins seq_ids c = do
+    ppLins c = do
       ref <- newIORef empty
       (allocaBytes (#size PgfItor) $ \itor ->
        bracket (wrapItorCallback (getLins ref)) freeHaskellFunPtr $ \fptr ->
@@ -421,29 +416,12 @@ showPGF p =
       where
         getLins :: IORef Doc -> ItorCallback
         getLins ref itor key val exn = do
-          n_prods <- pgf_get_lin_get_prod_count val
+          n_prods <- pgf_get_lin_rules_count val
           forM_ (init [0..n_prods]) $ \i -> do
-            def <- bracket (pgf_print_lin_internal seq_ids val i) free $ \c_text -> do
+            def <- bracket (pgf_print_lin_internal val i) free $ \c_text -> do
                      fmap text (peekText c_text)
             modifyIORef ref (\doc -> doc $$ text "lin" <+> def)
             return ()
-
-    prepareSequences c = do
-      ref <- newIORef empty
-      seq_ids <- (allocaBytes (#size PgfSequenceItor) $ \itor ->
-                  bracket (wrapSequenceItorCallback (getSequences ref)) freeHaskellFunPtr $ \fptr ->
-                  withForeignPtr (c_revision c) $ \c_revision -> do
-                    (#poke PgfSequenceItor, fn) itor fptr
-                    withPgfExn "showPGF" (pgf_iter_sequences (a_db p) c_revision itor nullPtr))
-      doc <- readIORef ref
-      return (seq_ids, doc)
-      where
-        getSequences :: IORef Doc -> SequenceItorCallback
-        getSequences ref itor seq_id val exn = do
-          def <- bracket (pgf_print_sequence_internal seq_id val) free $ \c_text -> do
-                     fmap text (peekText c_text)
-          modifyIORef ref $ (\doc -> doc $$ def)
-          return 0
 
 -- | The abstract language name is the name of the top-level
 -- abstract module
@@ -830,8 +808,7 @@ fullFormLexicon c = unsafePerformIO $ do
    withForeignPtr (c_revision c) $ \c_revision -> do
      (#poke PgfSequenceItor,   fn) itor1 fptr1
      (#poke PgfMorphoCallback, fn) itor2 fptr2
-     seq_ids <- withPgfExn "fullFormLexicon" (pgf_iter_sequences (c_db c) c_revision itor1 itor2)
-     pgf_release_phrasetable_ids seq_ids)
+     withPgfExn "fullFormLexicon" (pgf_iter_sequences (c_db c) c_revision itor1 itor2))
   fmap (reverse2 []) (readIORef ref)
   where
     getSequences ref _ seq_id val exn = do
@@ -1483,15 +1460,6 @@ graphvizDependencyTree
   -> Expr
   -> String -- ^ Rendered output in the specified format
 graphvizDependencyTree format debug mlab mclab concr t = error "TODO: graphvizDependencyTree"
-
-graphvizLRAutomaton :: Concr -> String
-graphvizLRAutomaton c =
-  unsafePerformIO $
-  withForeignPtr (c_revision c) $ \c_revision ->
-  bracket (withPgfExn "graphvizLRAutomaton" (pgf_graphviz_lr_automaton (c_db c) c_revision)) free $ \c_text ->
-    if c_text == nullPtr
-      then return ""
-      else peekText c_text
 
 ---------------------- should be a separate module?
 
