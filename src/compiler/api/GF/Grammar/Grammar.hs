@@ -65,7 +65,7 @@ module GF.Grammar.Grammar (
         Location(..), L(..), unLoc, noLoc, ppLocation, ppL,
 
         -- ** PMCFG        
-        LIndex,LVar,LParam(..),PArg(..),Symbol(..),Production(..)
+        LIndex,LVar,LParam(..),PArg(..),Symbol(..),Rule(..)
         ) where
 
 import GF.Infra.Ident
@@ -75,7 +75,7 @@ import GF.Infra.Location
 import GF.Data.Operations
 
 import PGF2(BindType(..),PGF)
-import PGF2.Transactions(SeqId,LIndex,LVar,LParam(..),PArg(..),Symbol(..),Production(..))
+import PGF2.Transactions(LIndex,LVar,LParam(..),PArg(..),Symbol(..),Rule(..))
 
 import Data.Array.IArray(Array)
 import Data.Array.Unboxed(UArray)
@@ -103,7 +103,6 @@ data ModuleInfo
     mopens  :: [OpenSpec],
     mexdeps :: [ModuleName],
     msrc    :: FilePath,
-    mseqs   :: Maybe (Seq.Seq [Symbol]),
     jments  :: Map.Map Ident Info
    }
  | ModPGF {
@@ -336,8 +335,8 @@ data Info =
  | ResOverload [ModuleName] [(L Type,L Term)]        -- ^ (/RES/) idents: modules inherited
 
 -- judgements in concrete syntax
- | CncCat  (Maybe (L Type))                     (Maybe (L Term)) (Maybe (L Term)) (Maybe (L Term)) (Maybe ([Production],[Production])) -- ^ (/CNC/) lindef ini'zed, 
- | CncFun  (Maybe ([Ident],Ident,Context,Type)) (Maybe (L Term))                  (Maybe (L Term)) (Maybe [Production]) -- ^ (/CNC/) type info added at 'TC'
+ | CncCat  (Maybe (L Type))                     (Maybe (L Term)) (Maybe (L Term)) (Maybe (L Term)) (Maybe ([Rule],[Rule])) -- ^ (/CNC/) lindef ini'zed, 
+ | CncFun  (Maybe ([Ident],Ident,Context,Type)) (Maybe (L Term))                  (Maybe (L Term)) (Maybe [Rule]) -- ^ (/CNC/) type info added at 'TC'
 
 -- indirection to module Ident
  | AnyInd Bool ModuleName                        -- ^ (/INDIR/) the 'Bool' says if canonical

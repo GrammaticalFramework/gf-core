@@ -57,18 +57,17 @@ grammar2PGF opts mb_pgf gr am probs = do
       createConcrete (mi2i cm) $ do
         let cflags = err (const noOptions) mflags (lookupModule gr cm)
         sequence_ [setConcreteFlag name value | (name,value) <- optionsPGF cflags]
-        let infos = ( Seq.fromList [Left [SymCat 0 (LParam 0 [])]]
-                    , let id_prod = Production [] [PArg [] (LParam 0 [])] (LParam 0 []) [0]
-                          prods   = ([id_prod],[id_prod])
-                      in [(cInt,   CncCat (Just (noLoc GM.defLinType)) Nothing Nothing Nothing (Just prods))
-                         ,(cString,CncCat (Just (noLoc GM.defLinType)) Nothing Nothing Nothing (Just prods))
-                         ,(cFloat, CncCat (Just (noLoc GM.defLinType)) Nothing Nothing Nothing (Just prods))
+        let infos = ( let z       = LParam 0 []
+                          id_rule = Rule [] z [z] z [SymCat 0 z]
+                          rules   = ([id_rule],[id_rule])
+                      in [((cm,cInt),   CncCat (Just (noLoc GM.defLinType)) Nothing Nothing Nothing (Just rules))
+                         ,((cm,cString),CncCat (Just (noLoc GM.defLinType)) Nothing Nothing Nothing (Just rules))
+                         ,((cm,cFloat), CncCat (Just (noLoc GM.defLinType)) Nothing Nothing Nothing (Just rules))
                          ]
                     )
-                    : prepareSeqTbls (Look.allOrigInfos gr cm)
-        infos <- processInfos createCncCats infos
-        infos <- processInfos createCncFuns infos
-        return ()
+                    ++ Look.allOrigInfos gr cm
+        mapM_ createCncCats infos
+        mapM_ createCncFuns infos
   return pgf
   where
     aflags = err (const noOptions) mflags (lookupModule gr am)
@@ -100,38 +99,19 @@ grammar2PGF opts mb_pgf gr am probs = do
                       0 -> 0
                       n -> max 0 ((1 - sum [d | (f,Just d) <- pfs]) / fromIntegral n)
 
-    prepareSeqTbls infos = 
-       (map addSeqTable . Map.toList . Map.fromListWith (++))
-               [(m,[(c,info)]) | ((m,c),info) <- infos]
-       where
-         addSeqTable (m,infos) = 
-           case lookupModule gr m of
-             Ok mi   -> case mseqs mi of
-                          Just seqs -> (fmap Left seqs,infos)
-                          Nothing   -> (Seq.empty,[])
-             Bad msg -> error msg
-
-    processInfos f []                    = return []
-    processInfos f ((seqtbl,infos):rest) = do
-      seqtbl <- foldM f seqtbl infos
-      rest <- processInfos f rest
-      return ((seqtbl,infos):rest)
-
-    createCncCats seqtbl (c,CncCat (Just (L _ ty)) _ _ mprn (Just (lindefs,linrefs))) = do
-      seqtbl <- createLincat (i2i c) (type2fields gr ty) lindefs linrefs seqtbl
+    createCncCats ((_,c),CncCat (Just (L _ ty)) _ _ mprn (Just (lindefs,linrefs))) = do
+      createLincat (i2i c) (type2fields gr ty) lindefs linrefs
       case mprn of
         Nothing        -> return ()
         Just (L _ prn) -> setPrintName (i2i c) (unwords (term2tokens prn))
-      return seqtbl
-    createCncCats seqtbl _ = return seqtbl
+    createCncCats _ = return ()
 
-    createCncFuns seqtbl (f,CncFun _ _ mprn (Just prods)) = do
-      seqtbl <- createLin (i2i f) prods seqtbl
+    createCncFuns ((_,f),CncFun _ _ mprn (Just rules)) = do
+      createLin (i2i f) rules
       case mprn of
         Nothing        -> return ()
         Just (L _ prn) -> setPrintName (i2i f) (unwords (term2tokens prn))
-      return seqtbl
-    createCncFuns seqtbl _ = return seqtbl
+    createCncFuns _ = return ()
 
     term2tokens (K tok)     = [tok]
     term2tokens (C t1 t2)   = term2tokens t1 ++ term2tokens t2

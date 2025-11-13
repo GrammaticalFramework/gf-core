@@ -82,7 +82,7 @@ extendModule cwd gr (name,m)
 -- | rebuilding instance + interface, and "with" modules, prior to renaming.
 -- AR 24/10/2003
 rebuildModule :: FilePath -> SourceGrammar -> SourceModule -> Check SourceModule
-rebuildModule cwd gr mo@(i,mi@(ModInfo mt stat fs_ me mw ops_ med_ msrc_ mseqs js_)) =
+rebuildModule cwd gr mo@(i,mi@(ModInfo mt stat fs_ me mw ops_ med_ msrc_ js_)) =
   checkInModule cwd mi NoLoc empty $ do
 
 ----  deps <- moduleDeps ms
@@ -119,7 +119,7 @@ rebuildModule cwd gr mo@(i,mi@(ModInfo mt stat fs_ me mw ops_ med_ msrc_ mseqs j
                     else MSIncomplete
       unless (stat' == MSComplete || stat == MSIncomplete)
              (checkError ("module" <+> i <+> "remains incomplete"))
-      ModInfo mt0 _ fs me' _ ops0 _ fpath _ js <- lookupModule gr ext
+      ModInfo mt0 _ fs me' _ ops0 _ fpath js <- lookupModule gr ext
       let ops1 = nub $
                    ops_ ++ -- N.B. js has been name-resolved already
                    [OQualif i j | (i,j) <- ops] ++
@@ -135,7 +135,7 @@ rebuildModule cwd gr mo@(i,mi@(ModInfo mt stat fs_ me mw ops_ med_ msrc_ mseqs j
                                     js
       let js1 = Map.union js0 js_
       let med1= nub (ext : infs ++ insts ++ med_)
-      return $ ModInfo mt0 stat' fs1 me Nothing ops1 med1 msrc_ mseqs js1
+      return $ ModInfo mt0 stat' fs1 me Nothing ops1 med1 msrc_ js1
 
   return (i,mi')
 
@@ -214,7 +214,7 @@ unifyAnyInfo m i j = case (i,j) of
     liftM2 ResOper (unifyMaybeL mt1 mt2) (unifyMaybeL m1 m2)
 
   (CncCat mc1 md1 mr1 mp1 mpmcfg1, CncCat mc2 md2 mr2 mp2 mpmcfg2) ->
-    liftM5 CncCat (unifyMaybeL mc1 mc2) (unifyMaybeL md1 md2) (unifyMaybeL mr1 mr2) (unifyMaybeL mp1 mp2)  (unifyMaybe mpmcfg1 mpmcfg2)
+    liftM5 CncCat (unifyMaybeL mc1 mc2) (unifyMaybeL md1 md2) (unifyMaybeL mr1 mr2) (unifyMaybeL mp1 mp2) (unifyMaybe mpmcfg1 mpmcfg2)
   (CncFun m mt1 md1 mpmcfg1, CncFun _ mt2 md2 mpmcfg2) ->
     liftM3 (CncFun m) (unifyMaybeL mt1 mt2) (unifyMaybeL md1 md2) (unifyMaybe mpmcfg1 mpmcfg2)
 

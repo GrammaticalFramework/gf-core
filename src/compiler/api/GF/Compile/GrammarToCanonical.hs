@@ -36,7 +36,6 @@ abstract2canonical absname gr = do
                      mopens  = [],
                      mexdeps = [],
                      msrc    = "",
-                     mseqs   = Nothing,
                      jments  = Map.fromList infos
                    })
 
@@ -74,7 +73,6 @@ concretes2canonical opts absname gr = do
         mopens  = [],
         mexdeps = [],
         msrc    = "",
-        mseqs   = Nothing,
         jments  = Map.empty
       }
 
@@ -96,17 +94,16 @@ concrete2canonical gr absname cncname modinfo = do
                       mopens  = [],
                       mexdeps = [],
                       msrc    = "",
-                      mseqs   = Nothing,
                       jments  = Map.fromList (mapMaybe snd infos)
                     }))
   where
-    convInfo g ((mn,id), CncCat (Just (L loc typ)) lindef linref pprn mb_prods) = do
+    convInfo g ((mn,id), CncCat (Just (L loc typ)) lindef linref pprn mpmcfg) = do
       typ <- normalForm g typ
       let pts = paramTypes typ
-      return (pts,Just (id,CncCat (Just (L loc typ)) lindef linref pprn mb_prods))
-    convInfo g ((mn,id), CncFun mb_ty@(Just r@(_,cat,ctx,lincat)) (Just (L loc def)) pprn mb_prods) = do
+      return (pts,Just (id,CncCat (Just (L loc typ)) lindef linref pprn mpmcfg))
+    convInfo g ((mn,id), CncFun mb_ty@(Just r@(_,cat,ctx,lincat)) (Just (L loc def)) pprn mpmcfg) = do
       def <- normalForm g (eta_expand def ctx)
-      return (Set.empty,Just (id,CncFun mb_ty (Just (L loc def)) pprn mb_prods))
+      return (Set.empty,Just (id,CncFun mb_ty (Just (L loc def)) pprn mpmcfg))
     convInfo g  _ = return (Set.empty,Nothing)
 
     eta_expand t []                   = t

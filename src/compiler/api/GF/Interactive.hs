@@ -301,9 +301,9 @@ transactionCommand (CreateLin opts f mb_t is_alter) pgf mb_txnid = do
            mb_fields <- getCategoryFields cat
            case mb_fields of
              Just fields -> case runCheck (compileLinTerm sgr mo f mb_t (type2term mo ty)) of
-                              Ok ((prods,seqtbl,fields'),_)
+                              Ok ((rules,fields'),_)
                                    | fields == fields' -> do
-                                       (if is_alter then alterLin else createLin) f prods seqtbl
+                                       (if is_alter then alterLin else createLin) f rules
                                        return ()
                                    | otherwise -> fail "The linearization categories in the resource and the compiled grammar does not match"
                               Bad msg      -> fail msg
@@ -327,10 +327,9 @@ transactionCommand (CreateLin opts f mb_t is_alter) pgf mb_txnid = do
                                              return (t,ty)
                                Bad msg -> fail msg
       let (ctxt,res_ty) = typeFormCnc ty
-      (prods,seqs) <- pmcfgForm sgr t ctxt res_ty Map.empty
-      return (prods,mapToSequence seqs,type2fields sgr res_ty)
-      where
-        mapToSequence m = Seq.fromList (map (Left . fst) (sortOn snd (Map.toList m)))
+      let g = Gl sgr (stdPredef g)
+      rules <- pmcfgForm g t ctxt res_ty
+      return (rules,type2fields sgr res_ty)
 
 transactionCommand (CreateLincat opts c mb_t) pgf mb_txnid = do
   sgr <- getGrammar
@@ -339,7 +338,7 @@ transactionCommand (CreateLincat opts c mb_t) pgf mb_txnid = do
           Just mo -> return mo
   lang <- optLang pgf opts
   case runCheck (compileLincatTerm sgr mo mb_t) of
-    Ok (fields,_)-> do lift $ updatePGF pgf mb_txnid (alterConcrete lang (createLincat c fields [] [] Seq.empty >> return ()))
+    Ok (fields,_)-> do lift $ updatePGF pgf mb_txnid (alterConcrete lang (createLincat c fields [] [] >> return ()))
                        return ()
     Bad msg      -> fail msg
   where

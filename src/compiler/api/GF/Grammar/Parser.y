@@ -135,14 +135,14 @@ ModDef
                                           (opens,jments,opts) = case content of { Just c -> c; Nothing -> ([],[],noOptions) }
                                       jments <- mapM (checkInfoType mtype) jments
                                       defs <- buildAnyTree id jments
-                                      return (id, ModInfo mtype mstat opts extends with opens [] "" Nothing defs)  }
+                                      return (id, ModInfo mtype mstat opts extends with opens [] "" defs)  }
 
 ModHeader :: { SourceModule }
 ModHeader
   : ComplMod ModType '=' ModHeaderBody { let { mstat = $1 ;
                                                (mtype,id) = $2 ;
                                                (extends,with,opens) = $4 }
-                                         in (id, ModInfo mtype mstat noOptions extends with opens [] "" Nothing Map.empty) }
+                                         in (id, ModInfo mtype mstat noOptions extends with opens [] "" Map.empty) }
 
 ComplMod :: { ModuleStatus }
 ComplMod 
@@ -481,7 +481,7 @@ Exp6 :: { Term }
 Exp6 
   : Ident                 { Vr $1 } 
   | Sort                  { Sort $1 }
-  | String                { K $1 }
+  | String                { words2term (words $1) }
   | Integer               { EInt $1 }
   | Double                { EFloat $1 }
   | '?'                   { Meta 0 }
@@ -891,5 +891,9 @@ mkL (Pn l1 _) (Pn l2 _) x = L (Local l1 l2) x
 
 mkMarkup [t] = t
 mkMarkup ts  = Markup identW [] ts
+
+words2term []     = Empty
+words2term [w]    = K w
+words2term (w:ws) = C (K w) (words2term ws)
 
 }

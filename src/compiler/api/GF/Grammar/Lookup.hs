@@ -110,7 +110,7 @@ lookupResDef gr (m,c)
         ResOper _ (Just (L _ t)) -> return t
         ResOper _ Nothing  -> return (Q (m,c))
         CncCat (Just (L _ ty)) _ _ _ _ -> lock c ty
-        CncCat _ _ _ _ _         -> lock c defLinType
+        CncCat _ _ _ _ _        -> lock c defLinType
 
         CncFun (Just (_,cat,_,_)) (Just (L _ tr)) _ _ -> unlock cat tr
         CncFun _                  (Just (L _ tr)) _ _ -> return tr

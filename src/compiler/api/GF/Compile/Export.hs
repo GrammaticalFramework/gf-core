@@ -49,7 +49,6 @@ exportPGF opts fmt pgf =
       FmtSLF          -> single "slf"  slfPrinter
       FmtRegExp       -> single "rexp" regexpPrinter
       FmtFA           -> single "dot"  slfGraphvizPrinter
-      FmtLR           -> single "dot"  (\_ -> graphvizLRAutomaton)
  where
    name = fromMaybe (abstractName pgf) (flag optName opts)
 

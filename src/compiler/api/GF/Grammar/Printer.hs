@@ -21,12 +21,12 @@ module GF.Grammar.Printer
            , ppConstrs
            , ppQIdent
            , ppMeta
+           , ppLVar
            , getAbs
            ) where
 import Prelude hiding ((<>)) -- GHC 8.4.1 clash with Text.PrettyPrint
 
 import PGF2(Literal(..),pgfFilePath)
-import PGF2.Transactions(SeqId)
 import GF.Infra.Ident
 import GF.Infra.Option
 import GF.Grammar.Values
@@ -49,11 +49,10 @@ instance Pretty Grammar where
   pp = vcat . map (ppModule Qualified) . modules
 
 ppModule :: TermPrintQual -> SourceModule -> Doc
-ppModule q (mn, ModInfo mtype mstat opts exts with opens _ _ mseqs jments) =
+ppModule q (mn, ModInfo mtype mstat opts exts with opens _ _ jments) =
     hdr $$
     nest 2 (ppOptions opts $$
-            vcat (map (ppJudgement q) (Map.toList jments)) $$
-            maybe empty (ppSequences q) mseqs) $$
+            vcat (map (ppJudgement q) (Map.toList jments))) $$
     ftr
     where
       hdr = complModDoc <+> modTypeDoc <+> '=' <+>
@@ -142,9 +141,9 @@ ppJudgement q (id, CncCat mtyp pdef pref pprn mpmcfg) =
      Nothing        -> empty) $$
   (case (mtyp,mpmcfg,q) of
      (Just (L _ typ),Just (lindefs,linrefs),Internal)
-                    -> "pmcfg" <+> '{' $$
-                       nest 2 (vcat (map (ppPmcfgRule (identS "lindef") [cString] id) lindefs)  $$
-                               vcat (map (ppPmcfgRule (identS "linref") [id] cString) linrefs)) $$
+                    -> "rules" <+> '{' $$
+                       nest 2 (vcat (map (ppPmcfgRule (identS "lindef") [cString] id) lindefs)) $$
+                       nest 2 (vcat (map (ppPmcfgRule (identS "linref") [id] cString) linrefs)) $$
                        '}'
      _              -> empty)
 ppJudgement q (id, CncFun mtyp pdef pprn mpmcfg) =
@@ -157,7 +156,7 @@ ppJudgement q (id, CncFun mtyp pdef pprn mpmcfg) =
      Nothing        -> empty) $$
   (case (mtyp,mpmcfg,q) of
      (Just (args,res,_,_),Just rules,Internal)
-                    -> "pmcfg" <+> '{' $$
+                    -> "rules" <+> '{' $$
                        nest 2 (vcat (map (ppPmcfgRule id args res) rules)) $$
                        '}'
      _              -> empty)
@@ -166,19 +165,21 @@ ppJudgement q (id, AnyInd cann mid) =
     Internal -> "ind" <+> id <+> '=' <+> (if cann then pp "canonical" else empty) <+> mid <+> ';'
     _        -> empty
 
-ppPmcfgRule id arg_cats res_cat (Production vars args res seqids) =
-  pp id <+> (':' <+>
-             (if null vars
-                then empty
-                else "∀{" <> hsep (punctuate ',' [ppLVar v <> '<' <> m | (v,m) <- vars]) <> '}'  <+> '.') <+>
-             ppPmcfgCat res_cat res <+> "->" <+>
-             brackets (hcat (intersperse (pp ',') (zipWith ppPArg arg_cats args))) <+> '=' <+> 
-             brackets (hcat (intersperse (pp ',') (map ppSeqId seqids))))
-
 ppPArg cat (PArg _ p) = ppPmcfgCat cat p
 
 ppPmcfgCat :: Ident -> LParam -> Doc
 ppPmcfgCat cat p = pp cat <> parens (ppLParam p)
+
+ppPmcfgRule id arg_cats res_cat (Rule quantifiers res args lin_idx seq) =
+  ppQuantifiers quantifiers <+>
+  ppCat res_cat res <+> "->" <+> pp id <> brackets (hcat (punctuate ',' (zipWith ppCat arg_cats args))) <> ';' <+> ppLParam lin_idx <+> ':' <+> hsep (map ppSymbol seq)
+  where
+    ppCat id value = pp id <> parens (ppLParam value)
+
+    ppQuantifiers [] = empty
+    ppQuantifiers qs = pp '{' <> hsep (punctuate (pp ',') (map ppQuantifier qs)) <> pp '}'
+
+    ppQuantifier (var,range) = ppLVar var <> pp '<' <> pp (range::Int)
 
 instance Pretty Term where pp = ppTerm Unqualified 0
 
@@ -371,18 +372,6 @@ ppMarkupChildren q (t:ts) =
      Markup {} -> ppTerm q 0 t
      _         -> ppTerm q 0 t <> ';') $$
   ppMarkupChildren q ts
-
-ppSeqId :: SeqId -> Doc
-ppSeqId seqid = 'S' <> pp seqid
-
-ppSequences q seqs
-  | Seq.null seqs || q /= Internal = empty
-  | otherwise                      = "sequences" <+> '{' $$
-                                     nest 2 (vcat (zipWith ppSeq [0..] (toList seqs))) $$
-                                    '}'
-  where
-    ppSeq seqid seq =
-      ppSeqId seqid <+> ":=" <+> hsep (map ppSymbol seq)
 
 commaPunct f ds = (hcat (punctuate "," (map f ds)))
 

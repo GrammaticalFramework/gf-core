@@ -658,7 +658,7 @@ value2term g xs v = do
 
 data MetaState
   = Bound Scope Value
-  | Narrowing   Type
+  | Narrowing   Choice Type
   | Residuation Scope
 data OptionInfo
   = OptionInfo

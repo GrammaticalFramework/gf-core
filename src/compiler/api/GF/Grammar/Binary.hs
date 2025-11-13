@@ -23,7 +23,6 @@ import GF.Infra.UseIO(MonadIO(..))
 import GF.Grammar.Grammar
 
 import PGF2(Literal(..))
-import PGF2.Transactions(Symbol(..))
 
 -- Please change this every time when the GFO format is changed
 gfoVersion = "GF05"
@@ -33,9 +32,9 @@ instance Binary Grammar where
   get = fmap mGrammar get
 
 instance Binary ModuleInfo where
-  put mi = do put (mtype mi,mstatus mi,mflags mi,mextend mi,mwith mi,mopens mi,mexdeps mi,msrc mi,mseqs mi,jments mi)
-  get    = do (mtype,mstatus,mflags,mextend,mwith,mopens,med,msrc,mseqs,jments) <- get
-              return (ModInfo mtype mstatus mflags mextend mwith mopens med msrc mseqs jments)
+  put mi = do put (mtype mi,mstatus mi,mflags mi,mextend mi,mwith mi,mopens mi,mexdeps mi,msrc mi,jments mi)
+  get    = do (mtype,mstatus,mflags,mextend,mwith,mopens,med,msrc,jments) <- get
+              return (ModInfo mtype mstatus mflags mextend mwith mopens med msrc jments)
 
 instance Binary ModuleType where
   put MTAbstract       = putWord8 0
@@ -100,9 +99,9 @@ instance Binary PArg where
   put (PArg x y) = put (x,y)
   get = get >>= \(x,y) -> return (PArg x y)
 
-instance Binary Production where
-  put (Production ps args res rules) = put (ps,args,res,rules)
-  get = get >>= \(ps,args,res,rules) -> return (Production ps args res rules)
+instance Binary Rule where
+  put (Rule v w x y z) = put (v,w,x,y,z)
+  get = get >>= \(v,w,x,y,z) -> return (Rule v w x y z)
 
 instance Binary Info where
   put (AbsCat x)       = putWord8 0 >> put x
@@ -369,7 +368,7 @@ decodeModuleHeader :: MonadIO io => FilePath -> io (VersionTagged Module)
 decodeModuleHeader = liftIO . fmap (fmap conv) . decodeFile'
   where
     conv (m,mtype,mstatus,mflags,mextend,mwith,mopens,med,msrc) =
-        (m,ModInfo mtype mstatus mflags mextend mwith mopens med msrc Nothing Map.empty)
+        (m,ModInfo mtype mstatus mflags mextend mwith mopens med msrc Map.empty)
 
 encodeModule :: MonadIO io => FilePath -> SourceModule -> io ()
 encodeModule fpath mo = liftIO $ encodeFile fpath (Tagged mo)
