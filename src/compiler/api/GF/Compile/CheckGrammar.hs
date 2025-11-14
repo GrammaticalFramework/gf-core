@@ -33,6 +33,7 @@ import GF.Compile.Compute.Concrete(normalForm,Globals(..),stdPredef)
 import GF.Grammar
 import GF.Grammar.Lexer
 import GF.Grammar.Lookup
+import GF.Grammar.Lockfield
 
 import GF.Data.Operations
 import GF.Infra.CheckM
@@ -198,9 +199,9 @@ checkInfo opts cwd sgr sm (c,info) = checkInModule cwd (snd sm) NoLoc empty $ do
 
     CncFun mty mt mpr mpmcfg -> do
       mt <- case (mty,mt) of
-              (Just (_,cat,cont,val),Just (L loc trm)) ->
+              (Just (args,cat,cont,val),Just (L loc trm)) ->
                   chIn loc "linearization of" $ do
-                     (trm,_) <- checkLType g trm (mkFunType (map (\(_,_,ty) -> ty) cont) val)  -- erases arg vars
+                     (trm,_) <- checkLType g trm (mkFunType (zipWith (\cat (_,_,ty) -> lock cat ty) args cont) val)  -- erases arg vars
                      return (Just (L loc (etaExpand [] trm cont)))
               _ -> return mt
       mpr  <- case mpr of

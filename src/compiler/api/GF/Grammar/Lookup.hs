@@ -45,10 +45,6 @@ import GF.Text.Pretty
 import qualified Data.Map as Map
 import qualified PGF2
 
--- whether lock fields are added in reuse
-lock c = lockRecType c -- return
-unlock c = unlockRecord c -- return
-
 -- to look up a constant etc in a search tree --- why here? AR 29/5/2008
 lookupIdent :: ErrorMonad m => Ident -> Map.Map Ident b -> m b
 lookupIdent c t =
@@ -101,7 +97,7 @@ lookupQIdentInfo gr (m,c) = do
 
 lookupResDef :: ErrorMonad m => Grammar -> QIdent -> m Term
 lookupResDef gr (m,c)
-  | isPredefCat c = lock c defLinType
+  | isPredefCat c = return (lock c defLinType)
   | otherwise     = look m c
   where
     look m c = do
@@ -109,10 +105,10 @@ lookupResDef gr (m,c)
       case info of
         ResOper _ (Just (L _ t)) -> return t
         ResOper _ Nothing  -> return (Q (m,c))
-        CncCat (Just (L _ ty)) _ _ _ _ -> lock c ty
-        CncCat _ _ _ _ _        -> lock c defLinType
+        CncCat (Just (L _ ty)) _ _ _ _ -> return (lock c ty)
+        CncCat _ _ _ _ _        -> return (lock c defLinType)
 
-        CncFun (Just (_,cat,_,_)) (Just (L _ tr)) _ _ -> unlock cat tr
+        CncFun (Just (_,cat,_,_)) (Just (L _ tr)) _ _ -> return (lock cat tr)
         CncFun _                  (Just (L _ tr)) _ _ -> return tr
 
         AnyInd _ n        -> look n c
@@ -128,9 +124,8 @@ lookupResType gr (m,c) = do
 
     -- used in reused concrete
     CncCat _ _ _ _ _ -> return typeType
-    CncFun (Just (_,cat,cont,val)) _ _ _ -> do
-          val' <- lock cat val
-          return $ mkProd cont val' []
+    CncFun (Just (args,cat,cont,val)) _ _ _ ->
+           return $ (mkFunType (zipWith (\cat (_,_,ty) -> lock cat ty) args cont) (lock cat val))
     AnyInd _ n        -> lookupResType gr (n,c)
     ResParam _ _    -> return typePType
     ResValue (L _ t) _ -> return t
@@ -145,8 +140,7 @@ lookupOverloadTypes gr id@(m,c) = do
     -- used in reused concrete
     CncCat _ _ _ _ _ -> ret typeType
     CncFun (Just (_,cat,cont,val)) _ _ _ -> do
-          val' <- lock cat val
-          ret $ mkProd cont val' []
+          ret $ mkProd cont (lock cat val) []
     ResParam _ _    -> ret typePType
     ResValue (L _ t) _ -> ret t
     ResOverload os tysts -> do
@@ -265,12 +259,8 @@ allOpers gr =
       ResValue ltyp _           -> [ltyp]
       ResOverload _ tytrs       -> [ltyp | (ltyp,_) <- tytrs]
       CncFun  (Just (_,i,ctx,typ)) _ _ _ ->
-                                   [L NoLoc (mkProdSimple ctx (lock' i typ))]
+                                   [L NoLoc (mkProdSimple ctx (lock i typ))]
       _                         -> []
-
-    lock' i typ = case lock i typ of
-                    Ok t -> t
-                    _ -> typ
 
 --- not for dependent types
 allOpersTo :: Grammar -> Type -> [(QIdent,Type,Location)]
