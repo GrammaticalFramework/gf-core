@@ -632,14 +632,14 @@ resolveOverloads scope c t0 q args mb_ty = do
                           (c2,c3)  = split c23
                       (t,ty) <- reapply1 scope c1 t (eval g [] c2 ty []) args
                       instSigma scope c3 t ty mb_ty
-    Ok ttys     -> do let (c1,c23) = split c
+    Ok ttys0    -> do let (c1,c23) = split c
                           (c2,c3)  = split c23
                       sz <- checkpoint
                       arg_tys <- mapCM (checkArg g) c1 args
-                      let v_ttys = mapC (\c (t,ty) -> (t,eval g [] c ty [])) c2 ttys
+                      let v_ttys = mapC (\c (t,ty) -> (t,eval g [] c ty [])) c2 ttys0
                       try sz
                           (\(fun,fun_ty) -> reapply2 scope c3 fun fun_ty arg_tys mb_ty)
-                          (\ttys -> fmap (\(ts,ty) -> (mkFV ts,ty)) (snd (minimum g ttys)))
+                          (\ttys -> fmap (\(ts,ty) -> (mkFV ts,ty)) (snd (minimum g ttys0 arg_tys ttys)))
                           v_ttys
   where
     checkArg g c (ImplArg arg) = do
@@ -656,12 +656,18 @@ resolveOverloads scope c t0 q args mb_ty = do
     mkFV [t] = t
     mkFV ts  = FV ts
 
-    minimum g []                    = (maxBound,err)
+    minimum g ttys0 arg_tys []                    = (maxBound,err)
       where
-        err = evalError (pp "Overload resolution failed")
-    minimum g (tty@(t,ty):ttys) =
+        err = evalError ("Overload resolution failed" $$ 
+                         "of term " <+> pp (foldl App (Q q) args) $$
+                         "with alternatives" $$
+                         nest 4 (vcat [pp (snd q) <+> pp ':' <+> ppTerm Terse 0 ty | (_,ty) <- ttys0]) $$
+                         "and argument types" $$
+                         nest 4 (fsep (punctuate (pp ',') [ppValue Terse 0 ty | (_,_,ty) <- arg_tys])))
+
+    minimum g ttys0 arg_tys (tty@(t,ty):ttys) =
       let a        = arity ty
-          (a',res) = minimum g ttys
+          (a',res) = minimum g ttys0 arg_tys ttys
       in case compare a a' of
            GT -> (a',res)
            EQ -> (a',join t ty res)
