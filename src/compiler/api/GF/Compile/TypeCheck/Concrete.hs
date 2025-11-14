@@ -659,12 +659,16 @@ resolveOverloads scope c t0 q args mb_ty = do
 
     minimum g ttys0 arg_tys []                    = (maxBound,err)
       where
-        err = evalError ("Overload resolution failed" $$ 
-                         "of term " <+> pp (foldl App (Q q) args) $$
-                         "with alternatives" $$
-                         nest 4 (vcat [pp (snd q) <+> pp ':' <+> ppTerm Terse 0 ty | (_,ty) <- ttys0]) $$
+        err = evalError ("no overload instance in the term" $$
+                         nest 4 (pp (foldl App (Q q) args)) $$
+                         (case mb_ty of
+                            Just vty -> pp "with value type" $$
+                                        nest 4 (ppValue Unqualified 0 vty)
+                            Nothing  -> empty) $$
                          "and argument types" $$
-                         nest 4 (fsep (punctuate (pp ',') [ppValue Terse 0 ty | (_,_,ty) <- arg_tys])))
+                         nest 4 (fsep (punctuate (pp ',') [ppValue Terse 0 ty | (_,_,ty) <- arg_tys])) $$
+                         "among alternatives" $$
+                         nest 4 (vcat [pp (snd q) <+> pp ':' <+> ppTerm Terse 0 ty | (_,ty) <- ttys0]))
 
     minimum g ttys0 arg_tys (tty@(t,ty):ttys) =
       let a        = arity ty
