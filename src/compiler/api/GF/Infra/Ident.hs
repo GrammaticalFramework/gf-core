@@ -26,7 +26,7 @@ module GF.Infra.Ident (-- ** Identifiers
 ) where
 
 import qualified Data.ByteString.UTF8 as UTF8
-import qualified Data.ByteString.Char8 as BS(append,isPrefixOf)
+import qualified Data.ByteString.Char8 as BS(append,isPrefixOf,drop,length)
                  -- Limit use of BS functions to the ones that work correctly on
                  -- UTF-8-encoded bytestrings!
 import Data.Char(isDigit)
@@ -75,7 +75,9 @@ rawIdentC = Id
 showRawIdent = unpack . rawId2utf8
 
 prefixRawIdent (Id x) (Id y) = Id (BS.append x y)
-isPrefixOf (Id x) (Id y) = BS.isPrefixOf x y
+isPrefixOf (Id x) (Id y)
+ | BS.isPrefixOf x y = Just (Id (BS.drop (BS.length x) y))
+ | otherwise         = Nothing
 
 instance Binary Ident where
   put id = put (ident2utf8 id)

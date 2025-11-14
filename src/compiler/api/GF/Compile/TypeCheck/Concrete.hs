@@ -6,6 +6,7 @@ module GF.Compile.TypeCheck.Concrete ( checkLType, checkLType', inferLType, infe
 -- Practical type inference for arbitrary-rank types.
 -- 14 September 2011
 
+import Prelude hiding ((<>))
 import GF.Grammar hiding (Env, VGen, VApp, VRecType, ppValue)
 import GF.Grammar.Lookup
 import GF.Grammar.Predef
@@ -1083,15 +1084,21 @@ subsCheckRho scope t ty1@(VRecType rs1 ext1) ty2@(VRecType rs2 ext2) = do      -
       mkField scope l (mb_ty,t) (Just ty1) ty2 = do
         (t,ty1,ty2) <- subsCheckRho scope t ty1 ty2
         return ((l, (mb_ty,t)), (l, True, ty1))
-      mkField scope l (mb_ty,t) Nothing    ty2
-        | isLockLabel l = return ((l, (Just (RecType []),R [])), (l, True, ty2))
-        | otherwise     = return ((l, (mb_ty,t)), (l, True, ty2))
+      mkField scope l (mb_ty,t) Nothing    ty2 =
+        case isLockLabel l of
+          Just _  -> return ((l, (Just (RecType []),R [])), (l, True, ty2))
+          Nothing -> return ((l, (mb_ty,t)), (l, True, ty2))
 
   (scope,mkProj,wrap) <- mkAccess scope t
 
   let fields = [(l,o2,ty2,lookup3 l rs1) | (l,o2,ty2) <- rs2]
   case [l | (l,_,_,Nothing) <- fields, not ext1] of
     []      -> return ()
+    [field] -> evalError ("In the term" <+> pp t $$
+                          "there is no value for field" <+> field <>
+                          case isLockLabel field of
+                            Just cat -> ", try wrapping with lin"<+>pp cat
+                            Nothing  -> empty)
     missing -> evalError ("In the term" <+> pp t $$
                           "there are no values for fields:" <+> hsep missing)
   rs <- sequence [mkField scope l t mb_ty1 ty2 | (l,_,ty2,mb_ty1) <- fields, Just t <- [mkProj l]]

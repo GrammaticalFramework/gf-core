@@ -40,9 +40,9 @@ lock c t           = t
 lockLabel :: Ident -> Label
 lockLabel c = LIdent $! prefixRawIdent lockPrefix (ident2raw c)
 
-isLockLabel :: Label -> Bool
+isLockLabel :: Label -> Maybe RawIdent
 isLockLabel l = case l of
   LIdent c -> isPrefixOf lockPrefix c
-  _        -> False
+  _        -> Nothing
 
 lockPrefix = rawIdentS "lock_"
