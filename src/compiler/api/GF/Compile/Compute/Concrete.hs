@@ -559,24 +559,27 @@ patternMatch g s v0 ((env0,ps,args0,t):eqs) = match env0 ps eqs args0
         (PString s1, VEmpty)
           | null s1             -> match env ps eqs args
         (PSeq min1 max1 p1 min2 max2 p2,v)
-                          -> case value2string g v of
-                               Const str -> let n  = length str
-                                                lo = min1 `max` (n-fromMaybe n max2)
-                                                hi = (n-min2) `min` fromMaybe n max1
-                                                (ds,cs) = splitAt lo str
+                    -> let match_seq (Const str) = let n  = length str
+                                                       lo = min1 `max` (n-fromMaybe n max2)
+                                                       hi = (n-min2) `min` fromMaybe n max1
+                                                       (ds,cs) = splitAt lo str
 
-                                                eqs' = matchStr env (p1:p2:ps) eqs (hi-lo) (reverse ds) cs args
-
-                                            in patternMatch g s v0 eqs'
-                               RunTime   -> v0
-                               NonExist  -> patternMatch g s v0 eqs
+                                                       eqs' = matchStr env (p1:p2:ps) eqs (hi-lo) (reverse ds) cs args
+                                                   in patternMatch g s v0 eqs'
+                           match_seq (CSusp i k) = VSusp i (match_seq . k) []
+                           match_seq (CFV c vs)  = VFV c (fmap match_seq vs)
+                           match_seq RunTime     = v0
+                           match_seq NonExist    = patternMatch g s v0 eqs
+                       in match_seq (value2string g v)
         (PRep minp maxp p, v)
-                          -> case value2string g v of
-                               Const str -> let n = length (str::String) `div` (max minp 1)
-                                                eqs' = matchRep env n minp maxp p minp maxp p ps ((env,PString []:ps,(arg:args),t) : eqs) (arg:args)
-                                            in patternMatch g s v0 eqs'
-                               RunTime   -> v0
-                               NonExist  -> patternMatch g s v0 eqs
+                    -> let match_rep (Const str) = let n = length (str::String) `div` (max minp 1)
+                                                       eqs' = matchRep env n minp maxp p minp maxp p ps ((env,PString []:ps,(arg:args),t) : eqs) (arg:args)
+                                                   in patternMatch g s v0 eqs'
+                           match_rep (CSusp i k) = VSusp i (match_rep . k) []
+                           match_rep (CFV c vs)  = VFV c (fmap match_rep vs)
+                           match_rep RunTime     = v0
+                           match_rep NonExist    = patternMatch g s v0 eqs
+                       in match_rep (value2string g v)
         (PChar, VStr [_]) -> match env ps eqs args
         (PChars cs, VStr [c])
           | elem c cs     -> match env ps eqs args
