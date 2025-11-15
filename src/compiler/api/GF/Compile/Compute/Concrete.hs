@@ -1063,7 +1063,8 @@ ppValue q d (VRecType xs ext)
   | otherwise          = doc
   where
     doc = braces (fsep (punctuate ';' ([l <+> (if o then ":" else ":?") <+> ppValue q 0 v | (l,o,v) <- xs] ++ [pp ".." | ext])))
-ppValue q d (VR _) = pp "VR"
+ppValue q d (VR [])     = pp "<>" -- to distinguish from {} empty RecType
+ppValue q d (VR xs)     = braces (fsep (punctuate ';' [l <+> '=' <+> ppValue q 0 v | (l,v) <- xs]))
 ppValue q d (VP v l vs) = prec d 5 (hsep (ppValue q 5 v <> '.' <> l : map (ppValue q 5) vs))
 ppValue q d (VExtR _ _) = pp "VExtR"
 ppValue q d (VTable kt vt) = prec d 0 (ppValue q 3 kt <+> "=>" <+> ppValue q 0 vt)
