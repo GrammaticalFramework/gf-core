@@ -23,7 +23,6 @@ import Control.Monad.Fix
 import Data.Maybe
 import Data.List(mapAccumL,sortBy,intersperse)
 import Prelude hiding ((<>))
-import System.Environment
 
 
 generatePMCFG :: Options -> FilePath -> SourceGrammar -> SourceModule -> Check SourceModule
