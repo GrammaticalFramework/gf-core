@@ -223,7 +223,7 @@ breakDown g ms c r rs v (Table p q) fn0 fn = do
   return (ms,r+(r'-r)*cnt,fn0,fn)
   where
     select v0 (VT _  env s cs) v2 = patternMatch g s v0 (map (\(p,t) -> (env,[p],[v2],t)) cs)
-    select v0 (VV vty tvs)     v2 = vtableSelect g v0 p tvs v2 []
+    select v0 (VV vty tvs)     v2 = vtableSelect g v0 vty tvs v2 []
     select v0 (VFV i fvs)      v2 = VFV i (fmap (\v1 -> select v0 v1 v2) fvs)
     select v0 (VMeta i vs)     v2 = VSusp i (\v -> select v0 (apply g v vs) v2) []
     select v0 (VSusp i k vs)   v2 = VSusp i (\v -> select v0 (apply g (k v) vs) v2) []

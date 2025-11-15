@@ -224,12 +224,7 @@ eval g env s (S t1 t2)      vs  = let (!s1,!s2) = split s
                                       v0 = VS v1 v2 vs
 
                                       select (VT _  env s cs) = patternMatch g s v0 (map (\(p,t) -> (env,[p],v2:vs,t)) cs)
-                                      select (VV vty tvs)     = case value2termM False (map fst env) vty of
-                                                                  EvalM f -> case f g (\x state xs ws -> Success (x:xs) ws) empty [] [] of
-                                                                               Fail   msg  ws -> VError msg
-                                                                               Success tys ws -> case tys of
-                                                                                                   [ty] -> vtableSelect g v0 ty tvs v2 vs
-                                                                                                   tys  -> vtableSelect g v0 (FV (reverse tys)) tvs v2 vs
+                                      select (VV vty tvs)     = vtableSelect g v0 vty tvs v2 vs
                                       select (VFV i fvs)      = VFV i (fmap select fvs)
                                       select (VMeta i vs)     = VSusp i (\v -> select (apply g v vs)) []
                                       select (VSusp i k vs)   = VSusp i (\v -> select (apply g (k v) vs)) []
@@ -615,19 +610,19 @@ vtableSelect g v0 ty cs v2 vs =
     select (CFV c vs)    = VFV c (fmap select vs)
     select _             = v0
 
-    value2index (VMeta i vs)      ty = CSusp i (\v -> value2index (apply g v vs) ty)
-    value2index (VSusp i k vs)    ty = CSusp i (\v -> value2index (apply g (k v) vs) ty)
-    value2index (VR as) (RecType lbls) = compute lbls
+    value2index (VMeta i vs)      vty = CSusp i (\v -> value2index (apply g v vs) vty)
+    value2index (VSusp i k vs)    vty = CSusp i (\v -> value2index (apply g (k v) vs) vty)
+    value2index (VR as) (VRecType lbls _) = compute lbls
       where
-        compute []              = pure (0,1)
-        compute ((lbl,ty):lbls) =
+        compute []                 = pure (0,1)
+        compute ((lbl,_,vty):lbls) =
           case lookup lbl as of
             Just v  -> liftA2 (\(r, cnt) (r',cnt') -> (r*cnt'+r',cnt*cnt'))
-                              (value2index v ty)
+                              (value2index v vty)
                               (compute lbls)
             Nothing -> error (show ("Missing value for label" <+> pp lbl $$
                                     "among" <+> hsep (punctuate (pp ',') (map fst as))))
-    value2index (VApp c q args) ty =
+    value2index (VApp c q args) vty =
       let (r ,ctxt,cnt ) = getIdxCnt q
       in fmap (\(r', cnt') -> (r+r',cnt)) (compute ctxt args)
       where
@@ -640,7 +635,7 @@ vtableSelect g v0 ty cs v2 vs =
         compute []              []     = pure (0,1)
         compute ((_,_,ty):ctxt) (v:vs) =
           liftA2 (\(r, cnt) (r',cnt') -> (r*cnt'+r',cnt*cnt'))
-                 (value2index v ty)
+                 (value2index v (eval g [] unit ty []))
                  (compute ctxt vs)
 
         getInfo :: QIdent -> (ModuleName,Info)
@@ -650,10 +645,10 @@ vtableSelect g v0 ty cs v2 vs =
             Bad msg -> error msg
 
         Gl gr _ = g
-    value2index (VInt n)          ty
-      | Just max <- isTypeInts ty    = Const (fromIntegral n,fromIntegral max+1)
-    value2index (VFV c vs)        ty = CFV c (fmap (\v -> value2index v ty) vs)
-    value2index v ty = RunTime
+    value2index (VInt n) (VApp _ c [VInt max])
+      | Q c == cnPredef cInts         = Const (fromIntegral n,fromIntegral max+1)
+    value2index (VFV c vs)        vty = CFV c (fmap (\v -> value2index v vty) vs)
+    value2index v vty = RunTime
 
 
 value2term :: Globals -> [Ident] -> Value -> Check Term
