@@ -148,7 +148,7 @@ void PgfAbstractParser::symbol(Item *item, const PgfTextSpot &spot, bool bind, P
                     cont->state = state;
                 }
 
-                cont->suspended.push_back(item);
+                cont->suspended.push_back(new_item);
 
                 if (cont->suspended.size() == 1) {
                     for (Production *prod : cont->ccat->prods) {
@@ -174,6 +174,8 @@ void PgfAbstractParser::symbol(Item *item, const PgfTextSpot &spot, bool bind, P
                     }
                 }
             }
+
+            delete item;
         }
         break;
     }
@@ -202,7 +204,7 @@ void PgfAbstractParser::symbol(Item *item, const PgfTextSpot &spot, bool bind, P
             process(new_item, spot, bind);
         }
 
-        // delete item;
+        delete item;
         break;
     }
     case PgfSymbolBIND::tag: {
@@ -212,10 +214,14 @@ void PgfAbstractParser::symbol(Item *item, const PgfTextSpot &spot, bool bind, P
     case PgfSymbolSOFTBIND::tag:
     case PgfSymbolSOFTSPACE::tag: {
         item->dot++;
-        process(item, spot, true);
-        process(item, spot, false);
+        process(new (item) Item, spot, true);
+        process(new (item) Item, spot, false);
+        delete item;
         break;
     }
+    case PgfSymbolNE::tag:
+        delete item;
+        break;
     case PgfSymbolCAPIT::tag:
     case PgfSymbolALLCAPIT::tag:
         item->dot++;
@@ -340,9 +346,9 @@ void PgfAbstractParser::complete(Item *item, const PgfTextSpot &spot, bool bind)
             if (ccat->prods.size() == 1) {
                 if (ccat->cont->ccat == NULL)
                     bu_predict(concr->phrasetable, state, ccat);
-                size_t n_items = item->cont->suspended.size();
+                size_t n_items = ccat->cont->suspended.size();
                 for (size_t i = 0; i < n_items; i++) {
-                    Item *new_item = new (item->cont->suspended[i]) Item;
+                    Item *new_item = new (ccat->cont->suspended[i]) Item;
                     combine(state,new_item,ccat);
                 };
             } else {
@@ -367,6 +373,8 @@ void PgfAbstractParser::complete(Item *item, const PgfTextSpot &spot, bool bind)
         break;
     }
     }
+
+    delete item;
 }
 
 bool PgfAbstractParser::Item::instantiate(ref<PgfLParam> lparam,size_t value)
@@ -575,11 +583,11 @@ void PgfAbstractParser::combine(State *state, Item *item, CCat *ccat)
     auto sym_cat = ref<PgfSymbolCat>::untagged(sym);
 
     if (!item->instantiate(item->rule->args[sym_cat->d],ccat->value)) {
-        // delete item;
+        delete item;
         return;
     }
     if (!item->instantiate(ref<PgfLParam>::from_ptr(&sym_cat->r),ccat->lin_idx)) {
-        // delete item;
+        delete item;
         return;
     }
     item->dot++;
@@ -1220,19 +1228,19 @@ void PgfAbstractParser::td_predict(State *state, Cont *cont, Production *prod, s
             item->rule    = rule;
 
             if (!item->instantiate(item->rule->res, cont->ccat->value)) {
-                // delete item;
+                delete item;
                 continue;
             }
 
             if (!item->instantiate(item->rule->lin_idx, lin_idx)) {
-                // delete item;
+                delete item;
                 continue;
             }
 
             for (size_t i = 0; i < item->args.size(); i++) {
                 if (prod->args[i] != NULL) {
                     if (!item->instantiate(item->rule->args[i], prod->args[i]->value)) {
-                        // delete item;
+                        delete item;
                         goto next;
                     }
                 } else {
@@ -1272,10 +1280,14 @@ void PgfParser::suspend(State *state,ref<PgfConcrLincat> lincat,Item *item)
                 Item *new_item = new (item) Item;
                 PgfSymbol sym = new_item->rule->syms[new_item->dot];
                 auto sym_cat = ref<PgfSymbolCat>::untagged(sym);
-                if (!new_item->instantiate(new_item->rule->args[sym_cat->d],symcf->value))
+                if (!new_item->instantiate(new_item->rule->args[sym_cat->d],symcf->value)) {
+                    delete new_item;
                     return;
-                if (!new_item->instantiate(ref<PgfLParam>::from_ptr(&sym_cat->r),symcf->lin_idx))
+                }
+                if (!new_item->instantiate(ref<PgfLParam>::from_ptr(&sym_cat->r),symcf->lin_idx)) {
+                    delete new_item;
                     return;
+                }
 
                 new_item->dot++;
                 new_item->args[sym_cat->d] =
@@ -1398,6 +1410,7 @@ void PgfParseTableMaker::symbol_token(Item *item, const PgfTextSpot &spot, bool 
     auto pitem = clone_item(item);
     auto phrasetable = phrasetable_insert(concr->phrasetable,sym,pitem);
     concr->phrasetable = phrasetable;
+    delete item;
 }
 
 void PgfParseTableMaker::symbol_bind(Item *item, const PgfTextSpot &spot, PgfSymbol sym)
@@ -1405,6 +1418,7 @@ void PgfParseTableMaker::symbol_bind(Item *item, const PgfTextSpot &spot, PgfSym
     auto pitem = clone_item(item);
     auto phrasetable = phrasetable_insert(concr->phrasetable,sym,pitem);
     concr->phrasetable = phrasetable;
+    delete item;
 }
 
 void PgfParseTableMaker::suspend(State *state,ref<PgfConcrLincat> lincat,Item *item)
