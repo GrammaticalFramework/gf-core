@@ -232,10 +232,6 @@ void PgfAbstractParser::complete(Item *item, const PgfTextSpot &spot, bool bind)
     case PgfConcrLin::tag: {
         auto lin = ref<PgfConcrLin>::untagged(item->rule->container);
 
-        if (strcmp(lin->name.text, "ComplSlash") == 0) {
-            printf("complete ComplSlash\n");
-        }
-
         size_t max_value = 1;
 
         size_t n_inst_vars = 0;
