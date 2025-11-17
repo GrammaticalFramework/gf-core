@@ -232,6 +232,10 @@ void PgfAbstractParser::complete(Item *item, const PgfTextSpot &spot, bool bind)
     case PgfConcrLin::tag: {
         auto lin = ref<PgfConcrLin>::untagged(item->rule->container);
 
+        if (strcmp(lin->name.text, "ComplSlash") == 0) {
+            printf("complete ComplSlash\n");
+        }
+
         size_t max_value = 1;
 
         size_t n_inst_vars = 0;
@@ -352,10 +356,7 @@ void PgfAbstractParser::complete(Item *item, const PgfTextSpot &spot, bool bind)
                         size_t lin_idx = it.first;
                         Cont  *cont    = it.second;
                         if (cont != NULL) {
-                            size_t n_items = cont->suspended.size();
-                            for (size_t i = 0; i < n_items; i++) {
-                                td_predict(next,cont,prod,lin_idx);
-                            }
+                            td_predict(next,cont,prod,lin_idx);
                         }
                     }
                     next = next->next;
