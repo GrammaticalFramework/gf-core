@@ -1296,6 +1296,16 @@ void PgfParser::suspend(State *state,ref<PgfConcrLincat> lincat,Item *item)
                 process(new_item, state->start, false);
             };
         phrasetable_iter(concr->phrasetable,lincat,f);
+    } else {
+        auto it1 = state->completed.find(cont);
+        if (it1 != state->completed.end()) {
+            for (auto it2 : it1->second) {
+                for (auto it3 : it2.second) {
+                    Item *new_item = new (item) Item;
+                    combine(state, new_item, it3.second);
+                }
+            }
+        }
     }
 }
 
