@@ -1009,7 +1009,7 @@ PgfExpr PgfParser::process_expr(ExprState *estate, prob_t *prob)
         for (ExprState *parent : estate->res->pending) {
             ExprState *app_state = new(parent->n_args) ExprState;
             app_state->expr  = parent->expr ? u->eapp(parent->expr, estate->expr) : estate->expr;
-            app_state->prob  = parent->prob+estate->prob;
+            app_state->prob  = parent->prob+prob;
             app_state->hash  = parent->hash * 31 + estate->hash;
             app_state->res   = parent->res;
             app_state->index = parent->index+1;
