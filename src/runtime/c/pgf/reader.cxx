@@ -725,6 +725,7 @@ ref<PgfConcrPrintname> PgfReader::read_printname()
 ref<PgfConcr> PgfReader::read_concrete()
 {
     concrete = read_name(&PgfConcr::name);
+    concrete->phrasetable = 0;
 
 	auto cflags = read_namespace<PgfFlag>(&PgfReader::read_flag);
 	concrete->cflags = cflags;
