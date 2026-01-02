@@ -53,8 +53,8 @@ checkModule opts cwd sgr mo@(m,mi) = do
                              abs <- lookupModule gr a
                              checkCompleteGrammar opts cwd gr (a,abs) mo
           _            -> return mo
-  infoss <- checkInModule cwd mi NoLoc empty $ topoSortJments2 mo
-  foldM (foldM (checkInfo opts cwd sgr)) mo infoss
+  infos <- checkInModule cwd mi NoLoc empty $ topoSortJments mo
+  foldM (checkInfo opts cwd sgr) mo infos
 
 -- check if restricted inheritance modules are still coherent
 -- i.e. that the defs of remaining names don't depend on omitted names
@@ -71,7 +71,7 @@ checkRestrictedInheritance cwd sgr (name,mo) = checkInModule cwd mo NoLoc empty 
      let incld c   = Set.member c (Set.fromList incl)
      let illegal c = Set.member c (Set.fromList excl)
      let illegals = [(f,is) |
-           (f,cs) <- allDeps, incld f, let is = filter illegal cs, not (null is)]
+           (f,_,cs) <- allDeps, incld f, let is = filter illegal cs, not (null is)]
      case illegals of
        [] -> return ()
        cs -> checkWarn ("In inherited module" <+> i <> ", dependence of excluded constants:" $$

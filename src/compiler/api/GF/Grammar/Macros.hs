@@ -28,10 +28,11 @@ import GF.Grammar.Printer
 import Control.Monad.Identity(Identity(..))
 import qualified Data.Traversable as T(mapM)
 import qualified Data.Map as Map
-import Control.Monad (liftM, liftM2, liftM3)
+import Control.Monad (liftM, liftM2, liftM3, forM)
 import Data.List (sortBy,nub)
 import Data.Monoid
-import GF.Text.Pretty(render,(<+>),hsep,fsep)
+import Data.Graph
+import GF.Text.Pretty(render,(<+>),($$),hsep,fsep,vcat,nest)
 import qualified Control.Monad.Fail as Fail
 
 -- ** Functions for constructing and analysing source code terms.
@@ -538,16 +539,25 @@ sortRec = sortBy ordLabel where
 
 -- | dependency check, detecting circularities and returning topo-sorted list
 
-allDependencies :: (ModuleName -> Bool) -> Map.Map Ident Info -> [(Ident,[Ident])]
+allDependencies :: (ModuleName -> Bool) -> Map.Map Ident Info -> [(Ident,Info,[Ident])]
 allDependencies ism b =
-  [(f, nub (concatMap opty (pts i))) | (f,i) <- Map.toList b]
+  [(f, i, nub (concatMap opty (pts i))) | (f,i) <- Map.toList b]
   where
     opersIn t = case t of
       Q  (n,c) | ism n -> [c]
       QC (n,c) | ism n -> [c]
+      EPatt _ _ p -> opersInPatt p
+      T _ cs -> mconcatMap (\(p,t) -> opersInPatt p ++ opersIn t) cs
       _ -> collectOp opersIn t
+
+    opersInPatt p = case p of
+      PTilde t         -> opersIn t
+      PM (n,c) | ism n -> [c]
+      _ -> collectPattOp opersInPatt p
+
     opty (Just (L _ ty)) = opersIn ty
     opty _ = []
+
     pts i = case i of
       ResOper pty pt -> [pty,pt]
       ResOverload _ tyts -> concat [[Just ty, Just tr] | (ty,tr) <- tyts]
@@ -560,22 +570,14 @@ allDependencies ism b =
 
 topoSortJments :: ErrorMonad m => SourceModule -> m [(Ident,Info)]
 topoSortJments (m,mi) = do
-  is <- either
-          return
-          (\cyc -> raise (render ("circular definitions:" <+> fsep (head cyc))))
-          (topoTest (allDependencies (==m) (jments mi)))
-  return (reverse [(i,info) | i <- is, Just info <- [Map.lookup i (jments mi)]])
-
-topoSortJments2 :: ErrorMonad m => SourceModule -> m [[(Ident,Info)]]
-topoSortJments2 (m,mi) = do
-  iss <- either
-           return
-           (\cyc -> raise (render ("circular definitions:"
-                                   <+> fsep (head cyc))))
-           (topoTest2 (allDependencies (==m) (jments mi)))
-  return
-    [[(i,info) | i<-is,Just info<-[Map.lookup i (jments mi)]] | is<-iss]
-
+  let sccs = stronglyConnComp (map toNode (allDependencies (==m) (jments mi)))
+      cycles = [map fst jmts | CyclicSCC jmts <- sccs]
+  case cycles of
+    [] -> return [jmt | AcyclicSCC jmt <- sccs]
+    _  -> raise (render ("circular definitions:" $$
+                             nest 3 (vcat (map fsep cycles))))
+  where
+    toNode (id,info,deps) = ((id,info),id,deps)
 
 mkStrs p = case p of
  PAlt a b -> do

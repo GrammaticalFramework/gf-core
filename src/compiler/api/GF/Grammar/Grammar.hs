@@ -77,6 +77,7 @@ import GF.Data.Operations
 import PGF2(BindType(..),PGF)
 import PGF2.Transactions(LIndex,LVar,LParam(..),PArg(..),Symbol(..),Rule(..))
 
+import Data.Graph
 import Data.Array.IArray(Array)
 import Data.Array.Unboxed(UArray)
 import qualified Data.Map as Map
@@ -276,10 +277,11 @@ isCompleteModule m = mstatus m == MSComplete && mtype m /= MTInterface
 
 -- | all abstract modules sorted from least to most dependent
 allAbstracts :: Grammar -> [ModuleName]
-allAbstracts gr = 
- case topoTest [(i,extends m) | (i,m) <- modules gr, mtype m == MTAbstract] of
-   Left  is     -> is
-   Right cycles -> error $ render ("Cyclic abstract modules:" <+> vcat (map hsep cycles))
+allAbstracts gr =
+ let scc = stronglyConnComp [(mn,mn,extends mo) | (mn,mo) <- modules gr, mtype mo == MTAbstract]
+ in case [mns | CyclicSCC mns <- scc] of
+      []     -> [mn | AcyclicSCC mn <- scc]
+      cycles -> error $ render ("Cyclic abstract modules:" <+> vcat (map hsep cycles))
 
 -- | the last abstract in dependency order (head of list)
 greatestAbstract :: Grammar -> Maybe ModuleName
