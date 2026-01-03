@@ -29,7 +29,7 @@ import Control.Monad.Identity(Identity(..))
 import qualified Data.Traversable as T(mapM)
 import qualified Data.Map as Map
 import Control.Monad (liftM, liftM2, liftM3, forM)
-import Data.List (sortBy,nub)
+import Data.List (nub)
 import Data.Monoid
 import Data.Graph
 import GF.Text.Pretty(render,(<+>),($$),hsep,fsep,vcat,nest)
@@ -180,6 +180,9 @@ mapAssignM :: Monad m => (Term -> m c) -> [Assign] -> m [(Label,(Maybe c,c))]
 mapAssignM f = mapM (\ (ls,tv) -> liftM ((,) ls) (g tv))
   where g (t,v) = liftM2 (,) (maybe (return Nothing) (liftM Just . f) t) (f v)
 
+mapLabellingM :: Monad m => (Term -> m c) -> [Labelling] -> m [(Label,[Ident],c)]
+mapLabellingM f = mapM (\(l,deps,t) -> f t >>= \t -> return (l,deps,t))
+
 mapAttrs :: Monad m => (Term -> m c) -> [(Ident,Term)] -> m [(Ident,c)]
 mapAttrs f []          = return []
 mapAttrs f ((id,t):as) = do t  <- f t
@@ -194,7 +197,7 @@ mkRecord :: (Int -> Label) -> [Term] -> Term
 mkRecord = mkRecordN 0
 
 mkRecTypeN :: Int -> (Int -> Label) -> [Type] -> Type
-mkRecTypeN int lab typs = RecType [ (lab i, t) | (i,t) <- zip [int..] typs]
+mkRecTypeN int lab typs = RecType [(lab i, [], t) | (i,t) <- zip [int..] typs]
 
 mkRecType :: (Int -> Label) -> [Type] -> Type
 mkRecType = mkRecTypeN 0
@@ -261,7 +264,7 @@ tuple2record :: [Term] -> [Assign]
 tuple2record ts = [assign (tupleLabel i) t | (i,t) <- zip [1..] ts]
 
 tuple2recordType :: [Term] -> [Labelling]
-tuple2recordType ts = [(tupleLabel i, t) | (i,t) <- zip [1..] ts]
+tuple2recordType ts = [(tupleLabel i,[],t) | (i,t) <- zip [1..] ts]
 
 tuple2recordPatt :: [Patt] -> [(Label,Patt)]
 tuple2recordPatt ts = [(tupleLabel i, t) | (i,t) <- zip [1..] ts]
@@ -278,7 +281,7 @@ mkFunType tt t = mkProd [(Explicit,identW, ty) | ty <- tt] t [] -- nondep prod
 --plusRecType :: Type -> Type -> Err Type
 plusRecType t1 t2 = case (t1, t2) of
   (RecType r1, RecType r2) -> case
-    filter (`elem` (map fst r1)) (map fst r2) of
+    filter (`elem` [l | (l,_,_) <- r1]) [l | (l,_,_) <- r2] of
       [] -> return (RecType (r1 ++ r2))
       ls -> raise $ render ("clashing labels" <+> hsep ls)
   _ -> raise $ render ("cannot add record types" <+> ppTerm Unqualified 0 t1 <+> "and" <+> ppTerm Unqualified 0 t2)
@@ -294,7 +297,7 @@ plusRecord t1 t2 =
 
 -- | default linearization type
 defLinType :: Type
-defLinType = RecType [(theLinLabel,  typeStr)]
+defLinType = RecType [(theLinLabel, [], typeStr)]
 
 -- | refreshing variables
 mkFreshVar :: [Ident] -> Ident -> Ident
@@ -402,7 +405,7 @@ composOp co trm =
    S c a            -> liftM2 S (co c) (co a)
    Table a c        -> liftM2 Table (co a) (co c)
    R r              -> liftM R (mapAssignM co r)
-   RecType r        -> liftM RecType (mapPairsM co r)
+   RecType r        -> liftM RecType (mapLabellingM co r)
    P t i            -> liftM2 P (co t) (return i)
    ExtR a c         -> liftM2 ExtR (co a) (co c)
    Opts t os        -> liftM2 Opts (co t) (mapM (\(t1,t2) -> liftM2 (,) (maybe (return Nothing) (liftM Just . co) t1) (co t2)) os)
@@ -453,8 +456,8 @@ collectOp co trm = case trm of
   Table a c    -> co a <> co c
   ExtR a c     -> co a <> co c
   Opts t os    -> co t <> mconcatMap (\(a,b) -> maybe mempty co a <> co b) os
-  R r          -> mconcatMap (\ (_,(mt,a)) -> maybe mempty co mt <> co a) r
-  RecType r    -> mconcatMap (co . snd) r
+  R r          -> mconcatMap (\(_,(mt,a)) -> maybe mempty co mt <> co a) r
+  RecType r    -> mconcatMap (\(_,_,t) -> co t) r
   P t i        -> co t
   T _ cc       -> mconcatMap (co . snd) cc -- not from patterns --- nor from type annot
   V _ cc       -> mconcatMap co         cc --- nor from type annot
@@ -524,16 +527,6 @@ changeTableType co i = case i of
     TComp ty  -> co ty >>= return . TComp
     TWild ty  -> co ty >>= return . TWild
     _ -> return i
-
--- | normalize records and record types; put s first
-
-sortRec :: [(Label,a)] -> [(Label,a)]
-sortRec = sortBy ordLabel where
-  ordLabel (r1,_) (r2,_) =
-    case (showIdent (label2ident r1), showIdent (label2ident r2)) of
-      ("s",_) -> LT
-      (_,"s") -> GT
-      (s1,s2) -> compare s1 s2
 
 -- *** Dependencies
 

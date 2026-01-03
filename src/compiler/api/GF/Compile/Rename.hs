@@ -218,6 +218,13 @@ renameTerm env vars = ren vars where
         _ -> return i
       liftM (T i') $ mapM (renCase vs) cs
 
+    RecType rs -> do
+      rs <- forM rs $ \(l,deps,t) -> do
+              t <- renameTerm env (deps++vs) t
+              let deps' = L.intersect deps (freeVars vs t)
+              return (l,deps',t)
+      return (RecType rs)
+
     Let (x,(m,a)) b -> do
       m' <- case m of
         Just ty -> liftM Just $ ren vs ty
@@ -254,6 +261,11 @@ renameTerm env vars = ren vars where
     t' <- ren (vs' ++ vs) t
     return (p',t')
   renpatt = renamePattern env
+
+  freeVars xs (Abs _ x e) = freeVars (x:xs) e
+  freeVars xs (Vr x)
+    | not (elem x xs)     = [x]
+  freeVars xs e           = collectOp (freeVars xs) e
 
 -- | vars not needed in env, since patterns always overshadow old vars
 renamePattern :: Status -> Patt -> Check (Patt,[Ident])

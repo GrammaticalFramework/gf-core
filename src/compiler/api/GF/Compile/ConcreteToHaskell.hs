@@ -93,7 +93,7 @@ concrete2haskell opts abstr@(absname,_) concr@(cncname,mi) =
       | s == cStr = tcon0 (identS "Str")
     convLinType (QC (_,p)) = tcon0 (gId p)
     convLinType (RecType lbls) = tcon (rcon' ls) (map convLinType ts)
-      where (ls,ts) = unzip $ sortOn fst lbls
+      where (ls,_,ts) = unzip3 $ sortOn (\(l,_,_)->l) lbls
     convLinType (Table pt lt) = Fun (convLinType pt) (convLinType lt)
 
     lincatDef c ty = tsyn0 (lincatName c) (convLinType ty)

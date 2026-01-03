@@ -91,7 +91,7 @@ eval env e = ---- errIn ("eval" +++ prt e +++ "in" +++ prEnv env) $
   QC c  -> return $ VCn c ---- == Q ?
   Sort c  -> return $ VType --- the only sort is Type
   App f a -> join $ liftM2 app (eval env f) (eval env a)
-  RecType xs -> do xs <- mapM (\(l,e) -> eval env e >>= \e -> return (l,e)) xs
+  RecType xs -> do xs <- mapM (\(l,_,e) -> eval env e >>= \e -> return (l,e)) xs
                    return (VRecType xs)
   _ -> return $ VClos env e
 
@@ -212,7 +212,7 @@ inferExp th tenv@(k,rho,gamma) e = case e of
    _ -> Bad (render ("cannot infer type of expression" <+> ppTerm Unqualified 0 e))
 
 checkLabelling :: Theory -> TCEnv -> Labelling -> Err (ALabelling, [(Val,Val)])
-checkLabelling th tenv (lbl,typ) = do
+checkLabelling th tenv (lbl,_,typ) = do
   (atyp,cs) <- checkType th tenv typ
   return ((lbl,atyp),cs)
 

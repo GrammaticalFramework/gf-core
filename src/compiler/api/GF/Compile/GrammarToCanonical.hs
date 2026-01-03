@@ -111,7 +111,7 @@ concrete2canonical gr absname cncname modinfo = do
     eta_expand t ((Explicit,x,_):ctx) = Abs Explicit x (eta_expand (App t (Vr x))           ctx)
 
 
-paramTypes (RecType fs) = Set.unions (map (paramTypes.snd) fs)
+paramTypes (RecType fs) = Set.unions (map (\(_,_,t)->paramTypes t) fs)
 paramTypes (Table t1 t2) = Set.union (paramTypes t1) (paramTypes t2)
 paramTypes (App tf ta) = Set.union (paramTypes tf) (paramTypes ta)
 paramTypes (Sort _) = Set.empty

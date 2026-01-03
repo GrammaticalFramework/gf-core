@@ -381,18 +381,20 @@ LhsNames
   : LhsName              { [$1]    }
   | LhsName ',' LhsNames { $1 : $3 }
 
-LocDef :: { [(Ident, Maybe Type, Maybe Term)] }
+LocDef :: { [(Ident, Bool, Maybe Type, Maybe Term)] }
 LocDef
-  : ListIdent ':' Exp         { [(lab,Just $3,Nothing) | lab <- $1] } 
-  | ListIdent '=' Exp         { [(lab,Nothing,Just $3) | lab <- $1] }
-  | ListIdent ':' Exp '=' Exp { [(lab,Just $3,Just $5) | lab <- $1] }
+  : '$' Ident ':' Exp         { [($2,True,Just $4,Nothing)] }
+  | ListIdent ':' Exp         { [(lab,False,Just $3,Nothing) | lab <- $1] } 
+  | ListIdent '=' Exp         { [(lab,False,Nothing,Just $3) | lab <- $1] }
+  | ListIdent ':' Exp '=' Exp { [(lab,False,Just $3,Just $5) | lab <- $1] }
 
-LocMarkupDef :: { [(Ident, Maybe Type, Maybe Term)] }
+LocMarkupDef :: { [(Ident, Bool, Maybe Type, Maybe Term)] }
 LocMarkupDef
-  : ListIdent '=' Tag         { [(lab,Nothing,Just $3) | lab <- $1] }
-  | ListIdent ':' Exp '=' Tag { [(lab,Just $3,Just $5) | lab <- $1] }
+  : '$' Ident '=' Tag         { [($2,False,Nothing,Just $4)] }
+  | ListIdent '=' Tag         { [(lab,False,Nothing,Just $3) | lab <- $1] }
+  | ListIdent ':' Exp '=' Tag { [(lab,False,Just $3,Just $5) | lab <- $1] }
 
-ListLocDef :: { [(Ident, Maybe Type, Maybe Term)] }
+ListLocDef :: { [(Ident, Bool, Maybe Type, Maybe Term)] }
 ListLocDef
   : {- empty -}             { []       }
   | LocDef                  { $1       }
@@ -443,8 +445,8 @@ Exp3
   | 'table' Exp6 '{' ListCase '}'    { T (TTyped $2) $4 }
   | 'table' Exp6 '[' ListExp ']'     { V $2 $4       }
   | Exp3 '*'  Exp4                   { case $1 of
-                                         RecType xs -> RecType (xs ++ [(tupleLabel (length xs+1),$3)])
-                                         t          -> RecType [(tupleLabel 1,$1), (tupleLabel 2,$3)]  }
+                                         RecType xs -> RecType (xs ++ [(tupleLabel (length xs+1),[],$3)])
+                                         t          -> RecType [(tupleLabel 1,[],$1), (tupleLabel 2,[],$3)]  }
   | Exp3 '**' Exp4                   { ExtR $1 $3    }
   | Exp4                             { $1            }
 
@@ -479,7 +481,7 @@ Exp5
 
 Exp6 :: { Term }
 Exp6 
-  : Ident                 { Vr $1 } 
+  : Ident                 { Vr  $1 }
   | Sort                  { Sort $1 }
   | String                { words2term (words $1) }
   | Integer               { EInt $1 }
@@ -805,20 +807,23 @@ listCatDef (L loc (id,cont,size)) = [catd,nilfund,consfund]
 
     mkId x i = if x == identW then (varX i) else x
 
-tryLoc (c,mty,Just e) = return (c,(mty,e))
-tryLoc (c,_  ,_     ) = fail ("local definition of" +++ showIdent c +++ "without value")
+tryLoc (c,False,mty,Just e) = return (c,(mty,e))
+tryLoc (c,True ,_  ,_     ) = fail ("Scoped record label " +++ showIdent c +++ "outside of a record")
+tryLoc (c,_    ,_  ,_     ) = fail ("local definition of" +++ showIdent c +++ "without value")
 
 mkR []       = return $ RecType [] --- empty record always interpreted as record type
 mkR fs@(f:_) =
   case f of
-    (lab,Just ty,Nothing) -> mapM tryRT fs >>= return . RecType
-    _                     -> mapM tryR  fs >>= return . R
+    (lab,_,Just ty,Nothing) ->   tryRT [] fs >>= return . RecType
+    _                       -> mapM tryR  fs >>= return . R
   where
-    tryRT (lab,Just ty,Nothing) = return (ident2label lab,ty)
-    tryRT (lab,_      ,_      ) = fail $ "illegal record type field" +++ showIdent lab --- manifest fields ?!
+    tryRT deps []                                = return []
+    tryRT deps ((lab,scoped,Just ty,Nothing):fs) = do fs <- tryRT (if scoped then lab:deps else deps) fs
+                                                      return ((ident2label lab,deps,ty):fs)
+    tryRT deps ((lab,_     ,_      ,_      ):fs) = fail $ "illegal record type field" +++ showIdent lab --- manifest fields ?!
 
-    tryR (lab,mty,Just t) = return (ident2label lab,(mty,t))
-    tryR (lab,_  ,_     ) = fail $ "illegal record field" +++ showIdent lab
+    tryR (lab,False,mty,Just t) = return (ident2label lab,(mty,t))
+    tryR (lab,_    ,_  ,_     ) = fail $ "illegal record field" +++ showIdent lab
 
 mkOverload pdt pdf@(Just (L loc df)) =
   case appForm df of

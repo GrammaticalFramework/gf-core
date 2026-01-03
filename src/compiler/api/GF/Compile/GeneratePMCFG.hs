@@ -106,7 +106,7 @@ type2fields gr = map show . type2fields PP.empty
   where
     type2fields d (Sort s) | s == cStr = [show d]
     type2fields d (RecType lbls) =
-      concatMap (\(lbl,ty) -> type2fields (d <+> pp lbl) ty) lbls
+      concatMap (\(lbl,_,ty) -> type2fields (d <+> pp lbl) ty) lbls
     type2fields d (Table p q) =
       let Ok ts = allParamValues gr p
       in concatMap (\t -> type2fields (d <+> ppTerm Unqualified 5 t) q) ts
@@ -127,7 +127,7 @@ mkLinDefault gr typ = liftM (Abs Explicit varStr) $ mkDefField typ
                        Ok (v:_) -> return v
                        Bad msg  -> fail msg
        RecType r -> do
-         let (ls,ts) = unzip r
+         let (ls,_,ts) = unzip3 r
          ts <- mapM mkDefField ts
          return $ R (zipWith assign ls ts)
        _ | Just _ <- isTypeInts ty -> return $ EInt 0 -- exists in all as first val
@@ -150,21 +150,21 @@ mkLinReference gr typ = do
         _ | Just _ <- isTypeInts ty -> return Nothing
         _ -> fail (render ("a field in a linearization type cannot be" <+> typ))
 
-    traverse []          trm = return Nothing
-    traverse ((l,ty):rs) trm = do res <- mkRefField ty (P trm l)
-                                  case res of
-                                    Just trm -> return (Just trm)
-                                    Nothing  -> traverse rs trm
+    traverse []            trm = return Nothing
+    traverse ((l,_,ty):rs) trm = do res <- mkRefField ty (P trm l)
+                                    case res of
+                                      Just trm -> return (Just trm)
+                                      Nothing  -> traverse rs trm
 
 
 type2metaTerm :: SourceGrammar -> Int -> MetaVars -> Choice -> LIndex -> [(LIndex,(Ident,Type))] -> Type -> [(Value,Type)] -> (MetaVars,Choice,Int,Term,[(Value,Type)])
 type2metaTerm gr d ms s r rs (Sort srt)     params | srt == cStr = (ms,s,r+1,TSymCat d r rs,params)
 type2metaTerm gr d ms s r rs (RecType lbls) params =
   let ((ms',s',r',params'),ass) =
-          mapAccumL (\(ms,s,r,params) (lbl,ty) -> case lbl of
-                                                    LVar j -> ((ms,s,r,params),(lbl,(Just ty,TSymVar d j)))
-                                                    lbl    -> let (ms',s',r',t,params') = type2metaTerm gr d ms s r rs ty params
-                                                              in ((ms',s',r',params'),(lbl,(Just ty,t))))
+          mapAccumL (\(ms,s,r,params) (lbl,_,ty) -> case lbl of
+                                                      LVar j -> ((ms,s,r,params),(lbl,(Just ty,TSymVar d j)))
+                                                      lbl    -> let (ms',s',r',t,params') = type2metaTerm gr d ms s r rs ty params
+                                                                in ((ms',s',r',params'),(lbl,(Just ty,t))))
                     (ms,s,r,params) lbls
   in (ms',s',r',R ass,params')
 type2metaTerm gr d ms s r rs (Table p q) params
@@ -199,9 +199,9 @@ breakDown g ms s r rs v (Sort sort)    fn0 fn
       in return (ms,r+1,fn0,fn')
 breakDown g ms s r rs v (RecType lbls) fn0 fn = traverse ms r rs lbls fn0 fn
   where
-    traverse ms r rs []              fn0 fn = return (ms,r,fn0,fn)
-    traverse ms r rs ((lbl,ty):lbls) fn0 fn = do (ms,r,fn0,fn) <- breakDown g ms s r rs (project v) ty fn0 fn
-                                                 traverse ms r rs lbls fn0 fn
+    traverse ms r rs []                fn0 fn = return (ms,r,fn0,fn)
+    traverse ms r rs ((lbl,_,ty):lbls) fn0 fn = do (ms,r,fn0,fn) <- breakDown g ms s r rs (project v) ty fn0 fn
+                                                   traverse ms r rs lbls fn0 fn
       where
         project (VR as)       = case lookup lbl as of
                                   Nothing -> error (render ("Missing value for label" <+> pp lbl $$
@@ -373,8 +373,8 @@ params2int' r0 rs = do
 
 param2int (VR as) (RecType lbls) = compute lbls
   where
-    compute []              = return (0,[],1)
-    compute ((lbl,ty):lbls) = do
+    compute []                = return (0,[],1)
+    compute ((lbl,_,ty):lbls) = do
       case lookup lbl as of
         Just v   -> do (r, rs ,cnt ) <- param2int v ty
                        (r',rs',cnt') <- compute lbls
@@ -513,7 +513,7 @@ chooseMetaValue s ptyp = GenM $ \g@(Gl gr _) k svs ms r ->
           (ms',args) = mkVars (Map.insert i (Narrowing c1 ty) ms) c2 ctxt
       in (ms',VMeta i []:args)
 
-    mkField c (l,ty) = do
+    mkField c (l,_,ty) = do
        let (c1,c2) = split c
        v <- chooseMetaValue c1 ty
        return (c2,(l,v))

@@ -194,7 +194,7 @@ allParamValues cnc ptyp =
     QC c -> lookupParamValues cnc c
     Q  c -> lookupResDef cnc c >>= allParamValues cnc
     RecType r -> do
-       let (ls,tys) = unzip $ sortByFst r
+       let (ls,lls,tys) = unzip3 $ sortByLbl r
        tss <- mapM (allParamValues cnc) tys
        return [R (zipAssign ls ts) | ts <- sequence tss]
     Table pt vt -> do
@@ -204,7 +204,7 @@ allParamValues cnc ptyp =
     _ -> raise (render ("cannot find parameter values for" <+> ptyp))
   where
     -- to normalize records and record types
-    sortByFst = sortBy (\ x y -> compare (fst x) (fst y))
+    sortByLbl = sortBy (\(l1,_,_) (l2,_,_) -> compare l1 l2)
 
 lookupAbsDef :: ErrorMonad m => Grammar -> ModuleName -> Ident -> m (Maybe Int,Maybe [Equation])
 lookupAbsDef gr m c = errIn (render ("looking up absdef of" <+> c)) $ do

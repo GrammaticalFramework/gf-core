@@ -186,7 +186,14 @@ eval g env s (Prod b x t1 t2)[]
   | otherwise                   = let (s1,s2) = split s
                                   in VProd b x (eval g env s1 t1 []) (VClosure env s2 t2)
 eval g env s (Typed t ty)   vs  = eval g env s t vs
-eval g env s (RecType lbls) []  = VRecType (mapC (\s (lbl,ty) -> (lbl, True, eval g env s ty [])) s lbls) False
+eval g env c (RecType rs)   []  = VRecType
+                                      (mapC (\c (lbl,deps,ty) ->
+                                                   let v = case deps of
+                                                             [] -> eval g env c ty []
+                                                             xs -> VClosure env c (foldr (Abs Explicit) ty deps)
+                                                   in (lbl,True,v))
+                                            c rs)
+                                      False
 eval g env s (R as)         []  = VR (mapC (\s (lbl,(ty,t)) -> (lbl, eval g env s t [])) s as)
 eval g env s (P t lbl)      vs  = let project (VR as)        = case lookup lbl as of
                                                                  Nothing -> VError ("Missing value for label" <+> pp lbl $$
@@ -289,7 +296,7 @@ eval g env s (EPatt min max p) [] = VPatt min max p
 eval g env s (EPattType t)  []  = VPattType (eval g env s t [])
 eval g env s (ELincat c ty) []  = let lbl = lockLabel c
                                       lty = RecType []
-                                  in eval g env s (ExtR ty (RecType [(lbl,lty)])) []
+                                  in eval g env s (ExtR ty (RecType [(lbl,[],lty)])) []
 eval g env s (ELin c t)     []  = let lbl = lockLabel c
                                       lt  = R []
                                   in eval g env s (ExtR t (R [(lbl,(Nothing,lt))])) []
@@ -315,7 +322,7 @@ eval g env c t@(Opts n cs)  vs  = if null cs
                                        in VFV c3 (VarOpts vn vcs)
   where evalOpt c' (Just l, t) = let (c1,c2) = split c' in (eval g env c1 l [], eval g env c2 t vs)
         evalOpt c' (Nothing,t) = let v = eval g env c' t vs in (v, v)
-eval g env c t              vs  = VError ("Cannot reduce term" <+> pp t)
+eval g env c t              vs = VError ("Cannot reduce term" <+> pp t)
 
 evalPredef :: Globals -> Choice -> Ident -> [Value] -> Value
 evalPredef g@(Gl gr pds) c n args =
@@ -356,7 +363,7 @@ apply g (VSusp i k vs0)                 vs  = VSusp i k (vs0++vs)
 apply g (VApp c f@(m,n)  vs0)           vs
   | m == cPredef                            = evalPredef g c n (vs0++vs)
   | otherwise                               = VApp c f (vs0++vs)
-apply g (VGen i  vs0)                   vs  = VGen i (vs0++vs)
+apply g (VGen i vs0)                    vs  = VGen i (vs0++vs)
 apply g (VFV i fvs)                     vs  = VFV i (fmap (\v -> apply g v vs) fvs)
 apply g (VS v1 v2 vs')                  vs  = VS v1 v2 (vs'++vs)
 apply g (VClosure env s (Abs b x t)) (v:vs) = eval g ((x,v):env) s t vs
@@ -837,9 +844,16 @@ value2termM flat xs (VProd b x v1 v2) = do
   t1 <- value2termM flat xs v1
   t2 <- value2termM flat xs v2
   return (Prod b x t1 t2)
-value2termM flat xs (VRecType lbls _) = do
-  lbls <- mapM (\(lbl,_,v) -> fmap ((,) lbl) (value2termM flat xs v)) lbls
+value2termM flat xs (VRecType lbls ext) = do
+  g <- globals
+  lbls <- mapM (\(lbl,_,v) -> uncover g lbl xs v) lbls
   return (RecType lbls)
+  where
+    uncover g lbl xs (VClosure env c (Abs b x t)) = do (lbl,deps,t) <- uncover g lbl (x:xs) (VClosure ((x,VGen (length xs) []):env) c t)
+                                                       return (lbl,x:deps,t)
+    uncover g lbl xs (VClosure env c t)           = fmap ((,,) lbl []) (value2termM flat xs (eval g env c t []))
+    uncover g lbl xs v                            = fmap ((,,) lbl []) (value2termM flat xs v)
+
 value2termM flat xs (VR as) = do
   as <- mapM (\(lbl,v) -> fmap (\t -> (lbl,(Nothing,t))) (value2termM flat xs v)) as
   return (R as)
@@ -1048,7 +1062,7 @@ pattVars st _            = st
 ppValue q d (VApp c f vs) = prec d 4 (hsep (ppQIdent q f : map (ppValue q 5) vs))
 ppValue q d (VMeta i vs) = prec d 4 (hsep ((if i > 0 then pp "?" <> pp i else pp "?") : map (ppValue q 5) vs))
 ppValue q d (VSusp i k vs) = prec d 4 (hsep (pp "#susp" : (if i > 0 then pp "?" <> pp i else pp "?") : map (ppValue q 5) vs))
-ppValue q d (VGen _ _) = pp "VGen"
+ppValue q d (VGen i vs) = prec d 4 (hsep (pp "#gen" : pp i : map (ppValue q 5) vs))
 ppValue q d (VClosure env c t) = pp "[|" <> ppTerm q 4 t <> pp "|]"
 ppValue q d (VProd bt x a b) =
   if x == identW && bt == Explicit
@@ -1060,7 +1074,7 @@ ppValue q d (VRecType xs ext)
                            _     -> doc
   | otherwise          = doc
   where
-    doc = braces (fsep (punctuate ';' ([l <+> (if o then ":" else ":?") <+> ppValue q 0 v | (l,o,v) <- xs] ++ [pp ".." | ext])))
+    doc  = braces (fsep (punctuate ';' ([l <+> (if o then ":" else ":?") <+> ppValue q 0 v | (l,o,v) <- xs] ++ [pp ".." | ext])))
 ppValue q d (VR [])     = pp "<>" -- to distinguish from {} empty RecType
 ppValue q d (VR xs)     = braces (fsep (punctuate ';' [l <+> '=' <+> ppValue q 0 v | (l,v) <- xs]))
 ppValue q d (VP v l vs) = prec d 5 (hsep (ppValue q 5 v <> '.' <> l : map (ppValue q 5) vs))

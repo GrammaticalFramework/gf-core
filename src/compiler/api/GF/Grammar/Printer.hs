@@ -35,7 +35,7 @@ import GF.Grammar.Grammar
 
 import GF.Text.Pretty
 import Data.Maybe (isNothing)
-import Data.List  (intersperse)
+import Data.List  (intersperse, nub)
 import Data.Foldable (toList)
 import qualified Data.Map as Map
 import qualified Data.Sequence as Seq
@@ -245,12 +245,13 @@ ppTerm q d (R xs)      = braces (fsep (punctuate ';' [l <+>
                                                        fsep [case mb_t of {Just t -> ':' <+> ppTerm q 0 t; Nothing -> empty},
                                                              '=' <+> ppTerm q 0 e] | (l,(mb_t,e)) <- xs]))
 ppTerm q d (RecType xs)
-  | q == Terse         = case [cat | (l,_) <- xs, let (p,cat) = splitAt 5 (showIdent (label2ident l)), p == "lock_"] of
+  | q == Terse         = case [cat | (l,_,_) <- xs, let (p,cat) = splitAt 5 (showIdent (label2ident l)), p == "lock_"] of
                            [cat] -> pp cat
                            _     -> doc
   | otherwise          = doc
   where
-    doc = braces (fsep (punctuate ';' [l <+> ':' <+> ppTerm q 0 t | (l,t) <- xs]))
+    deps = nub [ident2label dep | (_,deps,_) <- xs, dep <- deps]
+    doc  = braces (fsep (punctuate ';' [(if l `elem` deps then pp '$' else empty) <> l <+> ':' <+> ppTerm q 0 t | (l,bound,t) <- xs]))
 ppTerm q d (Typed e t) = '<' <> ppTerm q 0 e <+> ':' <+> ppTerm q 0 t <> '>'
 ppTerm q d (ImplArg e) = braces (ppTerm q 0 e)
 ppTerm q d (ELincat cat t) = prec d 4 ("lincat" <+> cat <+> ppTerm q 5 t)

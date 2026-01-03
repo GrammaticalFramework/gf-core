@@ -87,7 +87,7 @@ sizeTerm t = case t of
   Table a c    -> 1 + sizeTerm a + sizeTerm c
   ExtR a c     -> 1 + sizeTerm a + sizeTerm c
   R r          -> 1 + sum [1 + sizeTerm a | (_,(_,a)) <- r]  -- label counts as 1, type ignored
-  RecType r    -> 1 + sum [1 + sizeTerm a | (_,a)     <- r]  -- label counts as 1
+  RecType r    -> 1 + sum [1 + sizeTerm a | (_,_,a)   <- r]  -- label counts as 1
   P t i        -> 2 + sizeTerm t
   T _ cc       -> 1 + sum [1 + sizeTerm (patt2term p) + sizeTerm v | (p,v) <- cc]
   V ty cc      -> 1 + sizeTerm ty + sum [1 + sizeTerm v | v <- cc]

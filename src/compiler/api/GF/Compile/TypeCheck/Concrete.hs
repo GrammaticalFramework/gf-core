@@ -201,7 +201,7 @@ tcRho scope c (FV ts) mb_ty = do
 tcRho scope s t@(Sort _) mb_ty = do
   instSigma scope s t vtypeType mb_ty
 tcRho scope c t@(RecType rs) Nothing   = do
-  (rs,mb_ty) <- tcRecTypeFields scope c [] rs Nothing
+  (rs,mb_ty) <- tcRecTypeFields scope c rs Nothing
   return (RecType rs,fromMaybe vtypePType mb_ty)
 tcRho scope c t@(RecType rs) (Just ty) = do
   (scope,f,ty') <- skolemise scope ty
@@ -215,7 +215,7 @@ tcRho scope c t@(RecType rs) (Just ty) = do
     ty        -> do ty <- value2termM False (scopeVars scope) ty
                     evalError ("The record type" <+> ppTerm Unqualified 0 t $$
                                "cannot be of type" <+> ppTerm Unqualified 0 ty)
-  (rs,mb_ty) <- tcRecTypeFields scope c [] rs (Just ty')
+  (rs,mb_ty) <- tcRecTypeFields scope c rs (Just ty')
   return (f (RecType rs),ty)
 tcRho scope s t@(Table p res) mb_ty = do
   let (s1,s23) = split s
@@ -298,7 +298,7 @@ tcRho scope c (R rs) Nothing = do
 tcRho scope c (R rs) (Just ty) = do
   (scope,f,ty') <- skolemise scope ty
   case ty' of
-    (VRecType ltys _)->do lttys <- checkRecFields scope c [] rs ltys
+    (VRecType ltys _)->do lttys <- checkRecFields scope c rs [] ltys
                           rs <- mapM (\(l,t,ty) -> value2termM True (scopeVars scope) ty >>= \ty -> return (l, (Just ty, t))) lttys
                           return ((f . R)  rs,
                                   VRecType [(l,True,ty) | (l,t,ty) <- lttys] False
@@ -334,7 +334,7 @@ tcRho scope c t@(ExtR t1 t2) mb_ty =
        (t1,ty1@(VRecType ltys1 ext)) <- tcRho scope c1 t1 (Just (VRecType [field | field@(l,_,_) <- ltys, not (elem l ll2)] ext))
        let (scope',proj1,wrap) = access scope t1 ty1
 
-       lttys2 <- checkRecFields scope' c2 [] rs [field | field@(l,_,_) <- ltys, elem l ll2]
+       lttys2 <- checkRecFields scope' c2 rs [] [field | field@(l,_,_) <- ltys, elem l ll2]
        let proj2 l =
              case [(Nothing,t) | (l',t,_) <- lttys2, l'==l] of
                []    -> Nothing
@@ -366,7 +366,7 @@ tcRho scope c t@(ExtR t1 t2) mb_ty =
                              )
     access scope (RecType rs) ty
                            = (scope
-                             ,\l -> fmap ((,) Nothing) (lookup l rs)
+                             ,\l -> fmap ((,) Nothing) (lookup3 l rs)
                              ,id
                              )
     access scope t@(Vr x) ty
@@ -416,7 +416,7 @@ tcRho scope c t@(ExtR t1 t2) mb_ty =
 tcRho scope c (ELin cat t) mb_ty = do  -- this could be done earlier, i.e. in the parser
   tcRho scope c (ExtR t (R [(lockLabel cat,(Just (RecType []),R []))])) mb_ty
 tcRho scope c (ELincat cat t) mb_ty = do  -- this could be done earlier, i.e. in the parser
-  tcRho scope c (ExtR t (RecType [(lockLabel cat,RecType [])])) mb_ty
+  tcRho scope c (ExtR t (RecType [(lockLabel cat,[],RecType [])])) mb_ty
 tcRho scope c (Alts t ss) mb_ty = do
   let (c1,c2,c3,c4) = split4 c
   (t,_) <- tcRho scope c1 t (Just vtypeStr)
@@ -906,26 +906,35 @@ inferRecFields scope c ls ((l,t):lts)
       lts <- inferRecFields scope c2 (l:ls) lts
       return (lt:lts)
 
-checkRecFields scope c ls []          ltys
-  | null ltys                            = return []
-  | otherwise                            = evalError ("Missing fields:" <+> hsep [l | (l,_,_) <- ltys])
-checkRecFields scope c ls ((l,t):lts) ltys
-  | elem l ls = evalError ("Repeated definition for field" <+> l)
-  | otherwise =
-      case takeIt l ltys of
-        (Just ty,ltys) -> do let (c1,c2) = split c
-                             ltty  <- tcRecField scope c1 l t (Just ty)
-                             lttys <- checkRecFields scope c2 ls lts ltys
-                             return (ltty : lttys)
-        (Nothing,ltys) -> do evalWarn ("Discarded field:" <+> l)
-                             lttys <- checkRecFields scope c ls lts ltys
-                             return lttys     -- ignore the field
+checkRecFields scope c lts env [] = do
+  unless (null lts) $
+    evalWarn ("Discarded fields:" <+> hsep [l | (l,_) <- lts])
+  return []
+checkRecFields scope c lts env ((l,_,ty):ltys) =
+  case takeIt l lts of
+    ([], lts) -> evalError ("Missing field" <+> l)
+    ([t],lts) -> do g <- globals
+                    let (c1,c23) = split c
+                        (c2,c3)  = split c23
+                        env' = (label2ident l,eval g (scopeEnv scope) c3 (snd t) []):env
+                    ltty  <- tcRecField scope c1 l t (Just (uncover g env ty))
+                    lttys <- checkRecFields scope c2 lts env' ltys
+                    return (ltty : lttys)
+    (_,  lts) -> evalError ("Multiple definitions for field" <+> l)
   where
-    takeIt l1 []  = (Nothing, [])
-    takeIt l1 (lty@(l2,_,ty):ltys)
-      | l1 == l2  = (Just ty,ltys)
-      | otherwise = let (mb_ty,ltys') = takeIt l1 ltys
-                    in (mb_ty,lty:ltys')
+    takeIt l1 []  = ([],[])
+    takeIt l1 (lt@(l2,t):lts)
+      | l1 == l2  = let (ts,lts') = takeIt l1 lts
+                    in (t:ts,lts')
+      | otherwise = let (ts,lts') = takeIt l1 lts
+                    in (ts,lt:lts')
+
+    uncover g env' (VClosure env c (Abs b x ty)) = case lookup x env' of
+                                                     Just v  -> uncover g env' (VClosure ((x,v):env) c ty)
+                                                     Nothing -> error "Missing field"
+    uncover g env' (VClosure env c ty)           = eval g env c ty []
+    uncover g _    v                             = v
+
 
 tcRecField scope c l (mb_ann_ty,t) mb_ty = do
   (t,ty) <- case mb_ann_ty of
@@ -938,22 +947,28 @@ tcRecField scope c l (mb_ann_ty,t) mb_ty = do
               Nothing     -> tcRho scope c t mb_ty
   return (l,t,ty)
 
-tcRecTypeFields scope c ls []          mb_ty = return ([],mb_ty)
-tcRecTypeFields scope c ls ((l,ty):rs) mb_ty
-  | elem l ls = evalError ("Repeated definition for field" <+> l)
-  | otherwise = do
-      let (c1,c2) = split c
-      (ty,sort) <- tcRho scope c1 ty mb_ty
-      mb_ty <- case sort of
-                 VSort s
-                    | s == cType  -> return (Just sort)
-                    | s == cPType -> return mb_ty
-                 VMeta _ _       -> return mb_ty
-                 _               -> do sort <- value2termM False (scopeVars scope) sort
-                                       evalError ("The record type field" <+> l <+> ':' <+> ppTerm Unqualified 0 ty $$
-                                                  "cannot be of type" <+> ppTerm Unqualified 0 sort)
-      (rs,mb_ty) <- tcRecTypeFields scope c2 (l:ls) rs mb_ty
-      return ((l,ty):rs,mb_ty)
+tcRecTypeFields scope c rs mb_ty = go c [] rs [] mb_ty
+  where
+    go c ls []               env mb_ty = return ([],mb_ty)
+    go c ls ((l,deps,ty):rs) env mb_ty
+      | elem l ls = evalError ("Multiple definitions for field" <+> l)
+      | otherwise = do
+          let (c1,c23) = split c
+              (c2,c3)  = split c23
+
+          let scope' = [x | x@(l,vty) <- env, l `elem` deps]++scope
+          (ty,sort) <- tcRho scope' c1 ty mb_ty
+          mb_ty <- case sort of
+                     VSort s
+                       | s == cType  -> return (Just sort)
+                       | s == cPType -> return mb_ty
+                     VMeta _ _       -> return mb_ty
+                     _               -> do sort <- value2termM False (scopeVars scope) sort
+                                           evalError ("The record type field" <+> l <+> ':' <+> ppTerm Unqualified 0 ty $$
+                                                      "cannot be of type" <+> ppTerm Unqualified 0 sort)
+          g <- globals
+          (rs,mb_ty) <- go c2 (l:ls) rs ((label2ident l, eval g (scopeEnv scope) c3 ty []):scope) mb_ty
+          return ((l,deps,ty):rs,mb_ty)
 
 -- | Invariant: if the third argument is (Just rho),
 --              then rho is in weak-prenex form
@@ -1085,13 +1100,21 @@ subsCheckRho scope t ty1@(VRecType rs1 ext1) ty2@(VRecType rs2 ext2) = do      -
           is_selection _        = False
       is_trivial x _      = False
 
-      mkField scope l (mb_ty,t) (Just ty1) ty2 = do
-        (t,ty1,ty2) <- subsCheckRho scope t ty1 ty2
-        return ((l, (mb_ty,t)), (l, True, ty1))
-      mkField scope l (mb_ty,t) Nothing    ty2 =
+      mkField scope l (mb_ty,t_proj) (Just ty1) ty2 = do
+        g <- globals
+        (t,ty1,ty2) <- subsCheckRho scope t_proj (uncover g ty1) ty2
+        return ((l, (mb_ty,t_proj)), (l, True, ty1))
+        where
+          uncover g (VClosure env c (Abs b x ty)) = let (c1,c2) = split c
+                                                        v = eval g (scopeEnv scope) c2 (P t (ident2label x)) []
+                                                    in uncover g (VClosure ((x,v):env) c1 ty)
+          uncover g (VClosure env c ty)           = eval g env c ty []
+          uncover g v                             = v
+
+      mkField scope l (mb_ty,t_proj) Nothing    ty2 =
         case isLockLabel l of
           Just _  -> return ((l, (Just (RecType []),R [])), (l, True, ty2))
-          Nothing -> return ((l, (mb_ty,t)), (l, True, ty2))
+          Nothing -> return ((l, (mb_ty,t_proj)), (l, True, ty2))
 
   (scope,mkProj,wrap) <- mkAccess scope t
 
@@ -1105,7 +1128,7 @@ subsCheckRho scope t ty1@(VRecType rs1 ext1) ty2@(VRecType rs2 ext2) = do      -
                             Nothing  -> empty)
     missing -> evalError ("In the term" <+> pp t $$
                           "there are no values for fields:" <+> hsep missing)
-  rs <- sequence [mkField scope l t mb_ty1 ty2 | (l,_,ty2,mb_ty1) <- fields, Just t <- [mkProj l]]
+  rs <- sequence [mkField scope l t_proj mb_ty1 ty2 | (l,_,ty2,mb_ty1) <- fields, Just t_proj <- [mkProj l]]
   return (wrap (R (map fst rs)),VRecType (foldl (\rs (_,(l,o,ty)) -> update3 l o ty rs) rs1 rs) ext2,ty2)
 subsCheckRho scope t ty1 (VFV c (VarFree vs)) = do
   ty2 <- variants c vs

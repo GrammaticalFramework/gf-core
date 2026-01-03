@@ -111,5 +111,5 @@ val2term v = case v of
   VApp f c    -> App (val2term f) (val2term c)
   VCn c       -> Q c
   VGen i x    -> Vr x
-  VRecType xs -> RecType (map (\(l,v) -> (l,val2term v)) xs)
+  VRecType xs -> RecType (map (\(l,v) -> (l,[],val2term v)) xs)
   VType       -> typeType

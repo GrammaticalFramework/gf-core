@@ -25,9 +25,9 @@ import GF.Data.Operations(ErrorMonad,Err(..))
 lock :: Ident -> Term -> Term
 lock c t@(RecType rs) =
   let lbl = lockLabel c
-  in if elem lbl (map fst rs) || elem c [cString,cInt]
+  in if elem lbl [l | (l,_,_)<-rs] || elem c [cString,cInt]
        then t --- don't add an extra copy of lock field, nor predef cats
-       else RecType (rs ++ [(lbl, RecType [])])
+       else RecType (rs ++ [(lbl, [], RecType [])])
 lock c t@(R rs) =
   let lbl = lockLabel c
   in if elem lbl (map fst rs)

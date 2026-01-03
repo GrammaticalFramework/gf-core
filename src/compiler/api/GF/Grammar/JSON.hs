@@ -102,7 +102,7 @@ term2json (Prod bt v t1 t2) = makeObj [("implicit", showJSON (bt==Implicit)), ("
 term2json (Typed t ty) = makeObj [("term", term2json t), ("type", term2json ty)]
 term2json (Example t s) = makeObj [("term", term2json t), ("example", showJSON s)]
 term2json (RecType lbls) = makeObj [("rectype", makeObj (map toRow lbls))]
-                              where toRow (l,t) = (showLabel l, term2json t)
+                              where toRow (l,_,t) = (showLabel l, term2json t)
 term2json (R lbls) = makeObj [("record", makeObj (map toRow lbls))]
                               where toRow (l,(_,t)) = (showLabel l, term2json t)
 term2json (P t proj) = makeObj [("project", term2json t), ("label", showJSON (showLabel proj))]
@@ -184,7 +184,7 @@ json2term o  = Vr      <$> o!:"vr"
     <|>        Strs    <$> (o!:"strs" >>= mapM json2term)
     where
       fromRow  (lbl, jsvalue) = do value <- json2term jsvalue
-                                   return (readLabel lbl,value)
+                                   return (readLabel lbl,[],value)
 
       fromRow' (lbl, jsvalue) = do value <- json2term jsvalue
                                    return (readLabel lbl,(Nothing,value))
