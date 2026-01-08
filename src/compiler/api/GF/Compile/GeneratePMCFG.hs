@@ -22,6 +22,7 @@ import Control.Monad (foldM,zipWithM,liftM,liftM2,forM,MonadPlus(..))
 import Control.Monad.Fix
 import Data.Maybe
 import Data.List(mapAccumL,sortBy,intersperse)
+import Data.Containers.ListUtils(nubOrd)
 import Prelude hiding ((<>))
 
 
@@ -73,7 +74,7 @@ pmcfgForm g t ctxt ty = do
   let (ms,s',t',arg_params) = apply 0 Map.empty unit ctxt t []
   let v = eval g [] s' t' []
   (ms,_,_,fn) <- breakDown g ms unit 0 [] v ty (return []) empty
-  runGenM g ms [] $ do
+  fmap nubOrd $ runGenM g ms [] $ do
     (r,rs,v,res_params) <- fn
     arg_params <- mapM params2int arg_params
     res_params <- params2int res_params

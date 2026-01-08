@@ -231,7 +231,6 @@ setConcreteFlag name value = Transaction $ \c_db _ c_revision c_exn ->
 
 type Token  = String
 
-type SeqId  = Int
 type LIndex = Int
 type LVar   = Int
 data LParam  = LParam {-# UNPACK #-} !LIndex [(LIndex,LVar)]
@@ -253,13 +252,10 @@ data Symbol
 
 type Quantifiers = [(LVar,Int)]
 data Rule = Rule Quantifiers LParam [LParam] LParam [Symbol]
-                 deriving (Eq,Show)
+                 deriving (Eq,Ord,Show)
 
 data PArg = PArg [(LIndex,LIndex)] {-# UNPACK #-} !LParam
             deriving (Eq,Show)
-
-data Production = Production [(LVar,LIndex)] [PArg] LParam [SeqId]
-                 deriving (Eq,Show)
 
 createLincat :: Cat -> [String] -> [Rule] -> [Rule] -> Transaction Concr ()
 createLincat name fields lindefs linrefs = Transaction $ \c_db c_abstr c_revision c_exn ->
