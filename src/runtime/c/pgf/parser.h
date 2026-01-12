@@ -20,22 +20,22 @@ protected:
         ref<PgfConcrRule> rule;
 
         struct {
-            size_t &operator[](int i) {
+            size_t &operator[](int i) const {
                 Production *prod = containerof(Production,vars,this);
                 return ((size_t*) (((CCat**) (prod+1))+prod->args.size()))[i];
             }
-            size_t size() {
+            size_t size() const {
                 Production *prod = containerof(Production,vars,this);
                 return prod->rule->vars.size();
             }
         } vars;
 
         struct {
-            CCat *&operator[](int i) {
+            CCat *&operator[](int i) const {
                 Production *prod = containerof(Production,args,this);
                 return ((CCat**) (prod+1))[i];
             }
-            size_t size() {
+            size_t size() const {
                 Production *prod = containerof(Production,args,this);
                 return (prod->rule->args != 0) ? prod->rule->args.size() : 0;
             }
@@ -82,10 +82,13 @@ protected:
 
     struct CCat {
         PgfMetaId fid;
-        Cont *cont;
+        union {
+            object epsilons;
+            Cont *cont;
+        };
         State *state;
-        size_t value;
-        size_t lin_idx;
+        interval_t value;
+        interval_t lin_idx;
         bool covered;
         std::vector<Production*> prods;
         std::vector<ExprState*> pending;
@@ -98,8 +101,9 @@ protected:
         PgfTextSpot start, end;
         bool needs_bind;
         std::map<ref<PgfConcrLincat>,Cont*> conts1;
-        std::map<CCat*,std::map<size_t,Cont*>> conts2;
-        std::map<Cont*,std::map<size_t,std::map<size_t,CCat*>>> completed;
+        std::map<CCat*,interval_map<Cont*>> conts2;
+        std::map<Cont*,interval_map<interval_map<CCat*>>> completed;
+        
         State *next;
     };
 
@@ -121,22 +125,22 @@ protected:
         ref<PgfConcrRule> rule;
 
         struct {
-            size_t &operator[](int i) {
+            size_t &operator[](int i) const {
                 Item *item = containerof(Item,vars,this);
                 return ((size_t*) (((CCat**) (item+1))+item->args.size()))[i];
             }
-            size_t size() {
+            size_t size() const {
                 Item *item = containerof(Item,vars,this);
                 return item->rule->vars.size();
             }
         } vars;
 
         struct {
-            CCat *&operator[](int i) {
+            CCat *&operator[](int i) const {
                 Item *item = containerof(Item,args,this);
                 return ((CCat**) (item+1))[i];
             }
-            size_t size() {
+            size_t size() const {
                 Item *item = containerof(Item,args,this);
                 return (item->rule->args != 0) ? item->rule->args.size() : 0;
             }
@@ -168,8 +172,9 @@ protected:
         Item() {
         }
 
-        bool instantiate(ref<PgfLParam> lparam,size_t value);
-        bool instantiate(ref<PgfLParam> lparam,ref<PgfLParam> value,Item *other);
+        interval_t interval(ref<PgfLParam> lparam) const;
+        bool instantiate(ref<PgfLParam> lparam1,
+                         PgfConcrRule *rule, size_t *values, ref<PgfLParam> lparam2);
     };
 
     struct ExprState {
@@ -200,7 +205,8 @@ protected:
     };
 
     State *first_state, *current_state;
-    PgfMetaId last_fid;
+    std::map<ref<PgfConcrLincat>,interval_map<interval_map<CCat*>>> epsilons;
+    PgfMetaId initial_fid, last_fid;
 
     void process(Item *item, const PgfTextSpot &spot, bool bind);
     void symbol(Item *item, const PgfTextSpot &spot, bool bind, PgfSymbol sym);
@@ -210,15 +216,14 @@ protected:
     virtual void symbol_token(Item *item, const PgfTextSpot &spot, bool bind, PgfSymbol sym)=0;
     virtual void symbol_bind(Item *item, const PgfTextSpot &spot, PgfSymbol sym)=0;
     virtual void suspend(State *state,ref<PgfConcrLincat> lincat, Item *item)=0;
-    virtual void final_item(State *state,Item *item,size_t value,size_t lin_idx)=0;
+    virtual void final_item(State *state,CCat *ccat,Item *item,interval_t value,interval_t lin_idx)=0;
+    virtual void bu_predict(State *state, CCat *ccat)=0;
 
-    virtual void bu_predict(PgfPhrasetable phrasetable, State *state, CCat *ccat);
-    Item *bu_item(State *state, ref<PgfItem> pitem);
-    CCat *td_epsilon(State *state, Cont *cont, ref<PgfSymbolCCat> arg);
-    CCat *td_epsilon(State *state, Cont *cont, ref<PgfSymbolCCat> arg,
-                     size_t n_items, vector<ref<PgfItem>> items);
-    void td_predict(State *state, Cont *cont, Production *prod, size_t lin_idx);
+    void td_epsilon(State *state, Cont *cont, ref<PgfItem> pitem, Item *xitem, ref<PgfLParam> value, ref<PgfLParam> lin_idx);
+    void td_predict(State *state, Cont *cont, Production *prod, Item *xitem, ref<PgfLParam> value, ref<PgfLParam> lin_idx);
     void combine(State *state, Item *item, CCat *ccat);
+
+    void get_info(CCat *ccat, ref<PgfConcrRule> *rule, size_t **pvalues);
 
     static
     void print_item(Item *item, const PgfTextSpot &spot);
@@ -243,11 +248,15 @@ class PGF_INTERNAL_DECL PgfParser : private PgfAbstractParser, public PgfExprEnu
     virtual void symbol_token(Item *item, const PgfTextSpot &spot, bool bind, PgfSymbol sym);
     virtual void symbol_bind(Item *item, const PgfTextSpot &spot, PgfSymbol sym);
     virtual void suspend(State *state,ref<PgfConcrLincat> lincat, Item *item);
-    virtual void final_item(State *state,Item *item,size_t value,size_t lin_idx);
+    virtual void final_item(State *state,CCat *ccat,Item *item,interval_t value,interval_t lin_idx);
+    virtual void bu_predict(State *state, CCat *ccat);
 
     void bu_predict(PgfPhrasetable phrasetable, State *state, ptrdiff_t min, ptrdiff_t max);
     void make_chunks(State *state, std::vector<CCat*> &chunks, prob_t prob);
     PgfExpr process_expr(ExprState *estate, prob_t *prob);
+
+    bool td_reachable(State *state, ref<PgfItem> pitem, std::map<ref<PgfConcrLincat>, bool> &visited);
+    Item *bu_item(State *state, ref<PgfItem> pitem);
 
     static
     void print_expr_state_left(PgfPrinter *printer, PgfMarshaller *m, ExprState *estate);
@@ -280,8 +289,8 @@ private:
     virtual void symbol_token(Item *item, const PgfTextSpot &spot, bool bind, PgfSymbol sym);
     virtual void symbol_bind(Item *item, const PgfTextSpot &spot, PgfSymbol sym);
     virtual void suspend(State *state,ref<PgfConcrLincat> lincat,Item *item);
-    virtual void final_item(State *state,Item *item,size_t value,size_t lin_idx);
-    virtual void bu_predict(PgfPhrasetable phrasetable, State *state, CCat *ccat);
+    virtual void final_item(State *state,CCat *ccat,Item *item,interval_t value,interval_t lin_idx);
+    virtual void bu_predict(State *state, CCat *ccat);
 
     static
     ref<PgfItem> clone_item(Item *item);
@@ -289,6 +298,7 @@ private:
 public:
     PgfParseTableMaker(ref<PgfConcr> concr);
     void insert_rule(ref<PgfConcrRule> rule);
+    PgfMetaId get_last_fid() { return last_fid; };
 };
 
 #endif

@@ -90,7 +90,8 @@ PgfPhrasetable phrasetable_insert(PgfPhrasetable table,
 
 PgfPhrasetable phrasetable_insert(PgfPhrasetable table,
                                   ref<PgfConcrLincat> lincat,
-                                  size_t value, size_t lin_idx,
+                                  interval_t value, interval_t lin_idx,
+                                  PgfMetaId fid,
                                   ref<PgfItem> item);
 
 PGF_INTERNAL_DECL
@@ -98,6 +99,11 @@ void phrasetable_iter(PgfPhrasetable phrasetable,ref<PgfConcrLincat> lincat,std:
 
 PGF_INTERNAL_DECL
 vector<ref<PgfItem>> phrasetable_lookup(PgfPhrasetable phrasetable, PgfSymbol sym, size_t *n_items);
+
+PGF_INTERNAL_DECL
+vector<ref<PgfItem>> phrasetable_lookup(PgfPhrasetable phrasetable,
+                                        ref<PgfConcrLincat> lincat,
+                                        size_t *n_items);
 
 class PGF_INTERNAL_DECL PgfPhraseScanner {
 public:

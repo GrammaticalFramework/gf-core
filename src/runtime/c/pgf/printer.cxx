@@ -586,7 +586,10 @@ void PgfPrinter::symbol(PgfSymbol sym)
 	case PgfSymbolCCat::tag: {
         auto symcf = ref<PgfSymbolCCat>::untagged(sym);
         efun(&symcf->lincat->name);
-        nprintf(64,"(%zu,%zu)",symcf->value,symcf->lin_idx);
+        nprintf(64,"(%zu-%zu,%zu-%zu)",symcf->value.first
+                                      ,symcf->value.second
+                                      ,symcf->lin_idx.first
+                                      ,symcf->lin_idx.second);
         break;
     }
 	}

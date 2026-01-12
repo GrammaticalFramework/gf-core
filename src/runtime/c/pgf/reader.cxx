@@ -726,6 +726,7 @@ ref<PgfConcr> PgfReader::read_concrete()
 {
     concrete = read_name(&PgfConcr::name);
     concrete->phrasetable = 0;
+    concrete->last_fid = 0;
 
 	auto cflags = read_namespace<PgfFlag>(&PgfReader::read_flag);
 	concrete->cflags = cflags;
@@ -739,6 +740,7 @@ ref<PgfConcr> PgfReader::read_concrete()
 	auto lins = read_namespace<PgfConcrLin>(&PgfReader::read_lin);
 	concrete->lins = lins;
 
+    concrete->last_fid = tm.get_last_fid();
     this->table_maker = NULL;
 
 	auto printnames = read_namespace<PgfConcrPrintname>(&PgfReader::read_printname);

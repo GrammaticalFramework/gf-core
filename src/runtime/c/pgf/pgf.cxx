@@ -1479,6 +1479,7 @@ ref<PgfConcr> clone_concrete(ref<PgfPGF> pgf, ref<PgfConcr> concr)
         clone->lincats = concr->lincats;
         clone->phrasetable = concr->phrasetable;
         clone->printnames = concr->printnames;
+        clone->last_fid = concr->last_fid;
         memcpy(&clone->name, &concr->name, sizeof(PgfText)+concr->name.size+1);
 
         ref<PgfConcr> old_concr;
@@ -1656,6 +1657,7 @@ PgfConcrRevision pgf_create_concrete(PgfDB *db, PgfRevision revision,
         concr->lincats = 0;
         concr->phrasetable = 0;
         concr->printnames = 0;
+        concr->last_fid = 0;
         memcpy(&concr->name, name, sizeof(PgfText)+name->size+1);
 
         Namespace<PgfConcr> concrs =

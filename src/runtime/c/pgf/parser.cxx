@@ -2,8 +2,8 @@
 #include "printer.h"
 #include "parser.h"
 
-// #define DEBUG_PARSER
-// #define DEBUG_EXPRS
+//#define DEBUG_PARSER
+//#define DEBUG_EXPRS
 
 PgfAbstractParser::PgfAbstractParser(ref<PgfConcr> concr)
 {
@@ -11,7 +11,24 @@ PgfAbstractParser::PgfAbstractParser(ref<PgfConcr> concr)
 
     this->first_state = NULL;
     this->current_state = NULL;
-    this->last_fid = 0;
+    this->initial_fid = concr->last_fid;
+    this->last_fid = concr->last_fid;
+}
+
+void PgfAbstractParser::get_info(CCat *ccat, ref<PgfConcrRule> *prule, size_t **pvalues)
+{
+    if (ccat->fid > initial_fid) {
+        Production *prod = ccat->prods[0];
+        *prule = prod->rule;
+        *pvalues = &prod->vars[0];
+    } else {
+        size_t n_items;
+        vector<ref<PgfItem>> items =
+            phrasetable_lookup(concr->phrasetable, ccat->epsilons, &n_items);
+        ref<PgfItem> pitem = items[0];
+        *prule = pitem->rule;
+        *pvalues = &pitem->vars[0];
+    }
 }
 
 PgfAbstractParser::CCat::~CCat()
@@ -36,11 +53,11 @@ PgfAbstractParser::~PgfAbstractParser()
     State *state = first_state;
     while (state != NULL) {
         for (auto it1 : state->completed) {
-            for (auto it2 : it1.second) {
-                for (auto it3 : it2.second) {
-                    delete it3.second;
+     /*       for (auto it2 : it1) {
+                for (auto it3 : it2) {
+                    delete it3;
                 }
-            }
+            }*/
         }
         for (auto it : state->conts1) {
             delete it.second;
@@ -109,73 +126,54 @@ void PgfAbstractParser::symbol(Item *item, const PgfTextSpot &spot, bool bind, P
                 suspend(state,lincat,item);
             }
         } else {
-            size_t max_value = 1;
-            for (size_t i = 0; i < symcat->r.n_terms; i++) {
-                size_t var = symcat->r.terms[i].var;
-                for (size_t j = 0; j < item->vars.size(); j++) {
-                    if (item->rule->vars[j].var == var && item->vars[j] == 0) {
-                        max_value *= item->rule->vars[j].range;
-                        break;
-                    }
-                }
+            interval_t lin_idx = item->interval(ref<PgfLParam>::from_ptr(&symcat->r));
+
+            Cont *&cont = state->conts2[ccat][lin_idx];
+            if (cont == NULL) {
+                cont = new Cont;
+                cont->ccat = ccat;
+                if (ccat->fid <= initial_fid)
+                    cont->lincat = ref<PgfSymbolCCat>::untagged(ccat->epsilons)->lincat;
+                else
+                    cont->lincat = ccat->cont->lincat;
+                cont->state = state;
             }
 
-            for (size_t value = 0; value < max_value; value++) {
-                Item *new_item = new (item) Item;
+            cont->suspended.push_back(item);
 
-                size_t value_ = value;
-                size_t lin_idx = symcat->r.i0;
-                for (size_t i = 0; i < symcat->r.n_terms; i++) {
-                    size_t var = symcat->r.terms[i].var;
-                    for (size_t j = 0; j < new_item->vars.size(); j++) {
-                        if (new_item->rule->vars[j].var == var) {
-                            if (new_item->vars[j] == 0) {
-                                size_t range = new_item->rule->vars[j].range;
-                                new_item->vars[j] = (value_ % range) + 1;
-                                value_ = value_ / range;
-                            }
-                            lin_idx += symcat->r.terms[i].factor * (new_item->vars[j]-1);
-                            break;
-                        }
-                    }
-                }
+            if (cont->suspended.size() == 1) {
+                if (ccat->fid <= initial_fid) {
+                    size_t n_items = 0;
+                    vector<ref<PgfItem>> items =
+                        phrasetable_lookup(concr->phrasetable, ccat->epsilons, &n_items);
 
-                Cont *&cont = state->conts2[ccat][lin_idx];
-                if (cont == NULL) {
-                    cont = new Cont;
-                    cont->ccat = ccat;
-                    cont->lincat = ccat->cont->lincat;
-                    cont->state = state;
-                }
-
-                cont->suspended.push_back(new_item);
-
-                if (cont->suspended.size() == 1) {
-                    for (Production *prod : cont->ccat->prods) {
-                        td_predict(state,cont,prod,lin_idx);
+                    for (size_t i = 0; i < n_items; i++) {
+                        ref<PgfItem> pitem = items[i];
+                        td_epsilon(state,cont,pitem,item,item->rule->args[symcat->d],ref<PgfLParam>::from_ptr(&symcat->r));
                     }
                 } else {
-                    State *next = state;
-                    while (next != NULL) {
-                        
-                        auto it1 = next->completed.find(cont);
-                        if (it1 != next->completed.end()) {
-                            auto it2 = it1->second.find(ccat->value);
-                            if (it2 != it1->second.end()) {
-                                auto it3 = it2->second.find(lin_idx);
-                                if (it3 != it2->second.end()) {
-                                    CCat *arg = it3->second;
-                                    Item *new_item = new (item) Item;
-                                    combine(next, new_item, arg);
-                                }
-                            }
-                        }
-                        next = next->next;
+                    for (Production *prod : ccat->prods) {
+                        td_predict(state,cont,prod,item,item->rule->args[symcat->d],ref<PgfLParam>::from_ptr(&symcat->r));
                     }
                 }
+            } else {
+                State *next = state;
+                while (next != NULL) {                   
+                    auto it1 = next->completed.find(cont);
+                    if (it1 != next->completed.end()) {
+                        auto *it2 = it1->second.lookup(ccat->value);
+                        if (it2 != NULL) {
+                            auto *it3 = it2->lookup(lin_idx);
+                            if (it3 != NULL) {
+                                CCat *arg = *it3;
+                                Item *new_item = new (item) Item;
+                                combine(next, new_item, arg);
+                            }
+                        }
+                    }
+                    next = next->next;
+                }
             }
-
-            delete item;
         }
         break;
     }
@@ -238,138 +236,88 @@ void PgfAbstractParser::complete(Item *item, const PgfTextSpot &spot, bool bind)
     case PgfConcrLin::tag: {
         auto lin = ref<PgfConcrLin>::untagged(item->rule->container);
 
-        size_t max_value = 1;
+        interval_t res = item->interval(item->rule->res);
+        interval_t lin_idx = item->interval(item->rule->lin_idx);
+        CCat *&ccat = state->completed[item->cont][res][lin_idx];
+        if (ccat == NULL) {
+            ccat = new CCat;
+            ccat->fid = (++last_fid);
+            ccat->cont  = item->cont;
+            ccat->state = state;
+            ccat->lin_idx = lin_idx;
+            ccat->value = res;
+            ccat->covered = false;
 
-        size_t n_inst_vars = 0;
-        size_t *inst_vars  = (size_t*)
-            alloca(sizeof(size_t)*item->vars.size());
-
-        // Compute which variables to assign to get determinate
-        // values of res and lin_idx
-        for (size_t i = 0; i < item->vars.size(); i++) {
-            if (item->vars[i] != 0)
-                continue;
-
-            size_t var = item->rule->vars[i].var;
-            for (size_t j = 0; j < item->rule->res->n_terms; j++) {
-                if (item->rule->res->terms[j].var == var) {
-                    goto found;
+#ifdef DEBUG_PARSER
+            {
+                PgfPrinter printer(NULL,0,NULL);
+                if (item->rule->vars.size() > 0) {
+                    printer.lvar_ranges(item->rule->vars, &item->vars[0]);
+                    printer.puts(" ");
                 }
-            }
-            for (size_t j = 0; j < item->rule->lin_idx->n_terms; j++) {
-                if (item->rule->lin_idx->terms[j].var == var) {
-                    goto found;
+                printer.nprintf(64,"complete [%zd-%zd; ",item->cont->state->end.pos,state->start.pos);
+                if (ccat->cont->ccat == NULL) {
+                    printer.efun(&ccat->cont->lincat->name);
+                    printer.puts("(");
+                    printer.lparam(item->rule->res);
+                    printer.puts(")");
+                } else {
+                     printer.emeta(ccat->cont->ccat->fid);
                 }
+                printer.puts("; ");
+                printer.lparam(item->rule->lin_idx);
+                printer.puts("; ");
+                printer.emeta(ccat->fid);
+                printer.puts("]");
+                PgfText *text = printer.get_text();
+                fprintf(stderr, "%s\n", text->text);
+                free(text);
             }
-
-            continue;
-
-        found:
-            inst_vars[n_inst_vars++] = i;
-            max_value *= item->rule->vars[i].range;
+#endif
         }
 
-        // Go through all possible assignments and create a production
-        for (size_t value = 0; value < max_value; value++) {
-            size_t value_ = value;
-            for (size_t i = 0; i < n_inst_vars; i++) {
-                size_t var   = inst_vars[i];
-                size_t range = item->rule->vars[var].range;
-                item->vars[var] = (value_ % range) + 1;
-                value_ = value_ / range;
-            }
-
-            size_t res = item->rule->res->i0;
-            for (size_t i = 0; i < item->rule->res->n_terms; i++) {
-                term t = item->rule->res->terms[i];
-                for (size_t j = 0; j < item->vars.size(); j++) {
-                    if (t.var == item->rule->vars[j].var) {
-                        res += t.factor * (item->vars[j]-1);
-                        break;
-                    }
-                }
-            }
-            size_t lin_idx = item->rule->lin_idx->i0;
-            for (size_t i = 0; i < item->rule->lin_idx->n_terms; i++) {
-                term t = item->rule->lin_idx->terms[i];
-                for (size_t j = 0; j < item->vars.size(); j++) {
-                    if (t.var == item->rule->vars[j].var) {
-                        lin_idx += t.factor * (item->vars[j]-1);
-                        break;
-                    }
-                }
-            }
-
-            CCat *&ccat = state->completed[item->cont][res][lin_idx];
-            if (ccat == NULL) {
-                ccat = new CCat;
-                ccat->fid = (++last_fid);
-                ccat->cont  = item->cont;
-                ccat->state = state;
-                ccat->lin_idx = lin_idx;
-                ccat->value = res;
-                ccat->covered = false;
+        auto prod = new(item) Production;
+        prod->rule = item->rule;
+        for (size_t i = 0; i < prod->args.size(); i++) {
+            if (prod->args[i] != NULL && prod->args[i] != ccat)
+                prod->args[i]->covered = true;
+        }
+        ccat->prods.push_back(prod);
 
 #ifdef DEBUG_PARSER
-                {
-                    PgfPrinter printer(NULL,0,NULL);
-                    printer.nprintf(64,"[%zd-%zd; ",item->cont->state->end.pos,state->start.pos);
-                    if (ccat->cont->ccat == NULL) {
-                        printer.efun(&ccat->cont->lincat->name);
-                        printer.nprintf(64,"(%zd)",ccat->value);
-                    } else {
-                        printer.emeta(ccat->cont->ccat->fid);
-                    }
-                    printer.nprintf(64,"; %zd; ",ccat->lin_idx);
-                    printer.emeta(ccat->fid);
-                    printer.puts("]");
-                    PgfText *text = printer.get_text();
-                    fprintf(stderr, "%s\n", text->text);
-                    free(text);
-                }
+        print_prod(ccat, prod);
 #endif
-            }
+        final_item(state, ccat, item, res, lin_idx);
 
-            auto prod = new(item) Production;
-            prod->rule = item->rule;
-            for (size_t i = 0; i < prod->args.size(); i++) {
-                if (prod->args[i] != NULL && prod->args[i] != ccat)
-                    prod->args[i]->covered = true;
-            }
-            ccat->prods.push_back(prod);
-            
-#ifdef DEBUG_PARSER
-            print_prod(ccat, prod);
-#endif
-            final_item(state, item, res, lin_idx);
-
-            if (ccat->prods.size() == 1) {
-                if (ccat->cont->ccat == NULL)
-                    bu_predict(concr->phrasetable, state, ccat);
-                size_t n_items = ccat->cont->suspended.size();
-                for (size_t i = 0; i < n_items; i++) {
-                    Item *new_item = new (ccat->cont->suspended[i]) Item;
-                    combine(state,new_item,ccat);
-                };
-            } else {
-                State *next = state;
-                while (next != NULL) {
-                    for (auto it : next->conts2[ccat]) {
-                        size_t lin_idx = it.first;
-                        Cont  *cont    = it.second;
-                        if (cont != NULL) {
-                            td_predict(next,cont,prod,lin_idx);
-                        }
+        if (ccat->prods.size() == 1) {
+            if (ccat->cont->ccat == NULL)
+                bu_predict(state, ccat);
+            size_t n_items = ccat->cont->suspended.size();
+            for (size_t i = 0; i < n_items; i++) {
+                Item *new_item = new (ccat->cont->suspended[i]) Item;
+                combine(state,new_item,ccat);
+            };
+        } else {
+            State *next = state;
+            while (next != NULL) {
+                for (auto it : next->conts2[ccat]) {
+                    interval_t lin_idx = it.first;
+                    Cont *cont = it.second;
+                    if (cont != NULL) {
+                        Item *item = cont->suspended[0];
+                        auto symcat = ref<PgfSymbolCat>::untagged(item->syms[item->dot]);
+                        td_predict(next,cont,prod,item,item->rule->args[symcat->d],ref<PgfLParam>::from_ptr(&symcat->r));
                     }
-                    next = next->next;
                 }
+                next = next->next;
             }
         }
         break;
     }
     case PgfConcrLincat::tag: {
         auto lincat = ref<PgfConcrLincat>::untagged(item->rule->container);
-        final_item(state, item, 0, 0);
+        interval_t zero = {0,0};
+        final_item(state, NULL, item, zero, zero);
         break;
     }
     }
@@ -377,204 +325,172 @@ void PgfAbstractParser::complete(Item *item, const PgfTextSpot &spot, bool bind)
     delete item;
 }
 
-bool PgfAbstractParser::Item::instantiate(ref<PgfLParam> lparam,size_t value)
+interval_t PgfAbstractParser::Item::interval(ref<PgfLParam> lparam) const
 {
-    if (value < lparam->i0)
-        return false;
-    value -= lparam->i0;
-
-    for (size_t j = 0; j < lparam->n_terms; j++) {
-        term t = lparam->terms[j];
-        for (size_t k = 0; k < vars.size(); k++) {
-            if (rule->vars[k].var == t.var) {
-                if (vars[k] > 0) {
-                    if (value < vars[k]-1)
-                        return false;
-                    value -= vars[k]-1;
+    interval_t interval;
+    interval.first  = lparam->i0;
+    interval.second = interval.first;
+    for (size_t i = 0; i < lparam->n_terms; i++) {
+        size_t var = lparam->terms[i].var;
+        for (size_t j = 0; j < vars.size(); j++) {
+            if (rule->vars[j].var == var) {
+                if (vars[j] == 0) {
+                    interval.second += lparam->terms[i].factor * (rule->vars[j].range-1);
+                } else {
+                    size_t value = lparam->terms[i].factor * (vars[j]-1);
+                    interval.first  += value;
+                    interval.second += value;
                 }
                 break;
             }
         }
     }
-
-    for (size_t j = 0; j < lparam->n_terms; j++) {
-        term t = lparam->terms[j];
-        for (size_t k = 0; k < vars.size(); k++) {
-            if (rule->vars[k].var == t.var) {
-                if (vars[k] == 0) {
-                    size_t v_val = value / t.factor;
-                    if (v_val >= rule->vars[k].range)
-                        return false;
-                    vars[k] = v_val + 1;
-                    value %= t.factor;
-                }
-                break;
-            }
-        }
-    }
-
-    return (value == 0);
+    return interval;
 }
 
-bool PgfAbstractParser::Item::instantiate(ref<PgfLParam> lparam,ref<PgfLParam> value,Item *other)
+bool PgfAbstractParser::Item::instantiate(ref<PgfLParam> lparam1,
+                                          PgfConcrRule *rule, size_t *values, ref<PgfLParam> lparam2)
 {
-    size_t i = 0;
-    size_t i0_lparam = lparam->i0;
-
-    size_t j = 0;
-    size_t i0_value  = value->i0;
-
-    while (i < lparam->n_terms && j < value->n_terms) {
-        size_t max_lparam = 0, k_lparam = 0;
-        while (i < lparam->n_terms) {
-            for (k_lparam = 0; k_lparam < this->rule->vars.size(); k_lparam++) {
-                if (this->rule->vars[k_lparam].var == lparam->terms[i].var) {
-                    break;
+    size_t i01 = lparam1->i0;
+    for (size_t i = 0; i < lparam1->n_terms; i++) {
+        for (size_t k = 0; k < this->vars.size(); k++) {
+            if (this->rule->vars[k].var == lparam1->terms[i].var) {
+                if (this->vars[k] > 0) {
+                    i01 += lparam1->terms[i].factor * (this->vars[k]-1);
                 }
-            }
-            if (this->vars[k_lparam] > 0) {
-                i0_lparam += lparam->terms[i].factor * (this->vars[k_lparam]-1);
-                i++;
-            } else {
-                max_lparam = lparam->terms[i].factor * this->rule->vars[k_lparam].range;
                 break;
             }
         }
+    }
 
-        size_t max_value = 0, k_value = 0;
-        while (j < value->n_terms) {
-            for (k_value = 0; k_value < other->rule->vars.size(); k_value++) {
-                if (other->rule->vars[k_value].var == value->terms[j].var) {
-                    break;
+    size_t i02 = lparam2->i0;
+    for (size_t i = 0; i < lparam2->n_terms; i++) {
+        for (size_t k = 0; k < rule->vars.size(); k++) {
+            if (rule->vars[k].var == lparam2->terms[i].var) {
+                if (values[k] > 0) {
+                    i02 += lparam2->terms[i].factor * (values[k]-1);
                 }
-            }
-            if (other->vars[k_value] > 0) {
-                i0_lparam += value->terms[j].factor * (other->vars[k_value]-1);
-                j++;
-            } else {
-                max_value = value->terms[j].factor * other->rule->vars[k_value].range;
                 break;
             }
         }
+    }
 
-        if (max_lparam > max_value) {
-            this->vars[k_lparam] = i0_value / this->rule->vars[k_lparam].range;
-            i0_value = i0_value % this->rule->vars[k_lparam].range;
-            i++;
+    if (i01 > i02) {
+        i01 -= i02;
+        i02  = 0;
+    } else {
+        i02 -= i01;
+        i01  = 0;
+    }
+
+    size_t i1 = 0, i2 = 0;
+    while (i1 < lparam1->n_terms || i2 < lparam2->n_terms) {
+        size_t scale1  = 0;
+        size_t factor1 = 0;
+        size_t var1    = 0;
+        size_t k1      = 0;
+        if (i1 < lparam1->n_terms) {
+            factor1 = lparam1->terms[i1].factor;
+            var1    = lparam1->terms[i1].var;
+            for (k1 = 0; k1 < this->vars.size(); k1++) {
+                if (this->rule->vars[k1].var == var1)
+                    break;
+            }
+            if (this->vars[k1] > 0) {
+                i1++;
+                continue;
+            }
+            scale1 = factor1 * this->rule->vars[k1].range;
+        }
+
+        size_t scale2  = 0;
+        size_t factor2 = 0;
+        size_t var2    = 0;
+        size_t k2      = 0;
+        if (i2 < lparam2->n_terms) {
+            factor2 = lparam2->terms[i2].factor;
+            var2    = lparam2->terms[i2].var;
+            for (k2 = 0; k2 < rule->vars.size(); k2++) {
+                if (rule->vars[k2].var == var2)
+                    break;
+            }
+            if (values[k2] > 0) {
+                i2++;
+                continue;
+            }
+            scale2 = factor2 * rule->vars[k2].range;
+        }
+
+        if (scale1 > scale2) {
+            size_t min = (i02 / factor1);
+            size_t max = min;
+            while (i2 < lparam2->n_terms) {
+                factor2 = lparam2->terms[i2].factor;
+                size_t f = factor2 / factor1;
+                if (f == 0)
+                    break;
+
+                var2 = lparam2->terms[i2].var;
+                for (k2 = 0; k2 < rule->vars.size(); k2++) {
+                    if (rule->vars[k2].var == var2) {
+                        if (values[k2] == 0) {
+                            max += f * (rule->vars[k2].range-1);
+                        }
+                        break;
+                    }
+                }
+                i2++;
+            }
+            i02 %= factor1;
+
+            if (min >= this->rule->vars[k1].range)
+                return false;
+
+            if (min == max) {
+                if (this->vars[k1] == 0)
+                    this->vars[k1] = min+1;
+                else if (this->vars[k1] != min+1)
+                    return false;
+            }
+
+            i1++;
         } else {
-            //other->vars[k_value] = i0_lparam / other->rule->vars[k_value].range;
-            i0_lparam = i0_lparam % other->rule->vars[k_value].range;
-            j++;
-        }
-    }
+            size_t min = (i01 / factor2);
+            size_t max = min;
+            while (i1 < lparam1->n_terms) {
+                factor1 = lparam1->terms[i1].factor;
+                size_t f = factor1 / factor2;
+                if (f == 0)
+                    break;
 
-    return (i0_lparam == i0_value);
-}
-
-void PgfAbstractParser::bu_predict(PgfPhrasetable phrasetable,
-                                   State *state, CCat *ccat)
-{
-    if (phrasetable == 0) {
-        return;
-	}
-
-    int cmp;
-    uint8_t tag = ref<PgfSymbol>::get_tag(phrasetable->sym);
-    if (PgfSymbolACat::tag != tag) {
-		cmp = ((int) PgfSymbolACat::tag) - ((int) tag);
-	} else {
-        auto symcf = ref<PgfSymbolACat>::untagged(phrasetable->sym);
-        cmp = textcmp(&ccat->cont->lincat->name, &symcf->name);
-    }
-    if (cmp < 0) {
-        bu_predict(phrasetable->left,state,ccat);
-    } else if (cmp > 0) {
-        bu_predict(phrasetable->right,state,ccat);
-    } else {        
-        for (size_t i = 0; i < phrasetable->n_items; i++) {
-            auto new_item = bu_item(ccat->cont->state, phrasetable->items[i]);
-            combine(state,new_item,ccat);
-        }
-    }
-}
-
-PgfAbstractParser::Item *PgfAbstractParser::bu_item(State *state, ref<PgfItem> pitem)
-{
-    Item *item = NULL;
-
-    switch (ref<object>::get_tag(pitem->rule->container)) {
-    case PgfConcrLin::tag: {
-        auto lin = ref<PgfConcrLin>::untagged(pitem->rule->container);
-
-        Cont *&cont = state->conts1[lin->lincat];
-        if (cont == NULL) {
-            cont = new Cont;
-            cont->ccat = NULL;
-            cont->lincat = lin->lincat;
-            cont->state = state;
-        }
-
-        item = new(pitem->rule) Item;
-        item->cont    = cont;
-        item->pre_alt = pitem->pre_alt;
-        item->pre_dot = pitem->pre_dot;
-        item->dot     = pitem->dot;
-        item->syms    = pitem->rule->syms.as_vector();
-        item->rule    = pitem->rule;
-        break;
-    }
-    case PgfConcrLincat::tag: {
-        auto lincat = ref<PgfConcrLincat>::untagged(pitem->rule->container);
-
-        Cont *&cont = state->conts1[0];
-        if (cont == NULL) {
-            cont = new Cont;
-            cont->ccat = NULL;
-            cont->lincat = 0;
-            cont->state = state;
-        }
-
-        item = new(pitem->rule) Item;
-        item->cont    = cont;
-        item->pre_alt = pitem->pre_alt;
-        item->pre_dot = pitem->pre_dot;
-        item->dot     = pitem->dot;
-        item->syms    = pitem->rule->syms.as_vector();
-        item->rule    = pitem->rule;
-        break;
-    }
-    }
-
-    if (item->pre_alt > 0) {
-        auto symkp = ref<PgfSymbolKP>::untagged(item->syms[item->pre_dot]);
-
-        if (item->pre_alt == 1)
-            item->syms = symkp->default_form;
-        else
-            item->syms = symkp->alts[item->pre_alt-2].form;
-    }
-
-    memcpy(&item->vars[0], &pitem->vars[0], sizeof(size_t) * item->vars.size());
-
-    for (size_t i = 0; i < pitem->args.size(); i++) {
-        ref<PgfSymbolCCat> arg = pitem->args[i];
-
-        item->args[i] = 0;
-
-        if (arg != 0) {
-            Cont *&arg_cont = state->conts1[arg->lincat];
-            if (arg_cont == NULL) {
-                arg_cont = new Cont;
-                arg_cont->ccat = NULL;
-                arg_cont->lincat = arg->lincat;
-                arg_cont->state = state;
+                var1 = lparam1->terms[i1].var;
+                for (k1 = 0; k1 < rule->vars.size(); k1++) {
+                    if (rule->vars[k1].var == var1) {
+                        if (values[k1] == 0) {
+                            max += f * (rule->vars[k1].range-1);
+                        }
+                        break;
+                    }
+                }
+                i1++;
             }
-            item->args[i] =
-                td_epsilon(state, arg_cont, arg);
+            i01 %= factor2;
+
+            if (min >= rule->vars[k2].range)
+                return false;
+
+            if (min == max) {
+                if (values[k2] == 0) {
+                    // we don't update the production;
+                } else if (values[k2] != min+1)
+                    return false;
+            }
+
+            i2++;
         }
     }
-
-    return item;
+    
+    return (i01 == i02);
 }
 
 void PgfAbstractParser::combine(State *state, Item *item, CCat *ccat)
@@ -582,18 +498,129 @@ void PgfAbstractParser::combine(State *state, Item *item, CCat *ccat)
     PgfSymbol sym = item->rule->syms[item->dot];
     auto sym_cat = ref<PgfSymbolCat>::untagged(sym);
 
-    if (!item->instantiate(item->rule->args[sym_cat->d],ccat->value)) {
+    ref<PgfConcrRule> rule;
+    size_t *values;
+    get_info(ccat, &rule,&values);
+    if (!item->instantiate(item->rule->args[sym_cat->d], rule, values, rule->res)) {
         delete item;
         return;
     }
-    if (!item->instantiate(ref<PgfLParam>::from_ptr(&sym_cat->r),ccat->lin_idx)) {
+    if (!item->instantiate(ref<PgfLParam>::from_ptr(&sym_cat->r), rule, values, rule->lin_idx)) {
         delete item;
         return;
     }
+
     item->dot++;
     item->args[sym_cat->d] = ccat;
-
     process(item, state->start, false);
+}
+
+void PgfAbstractParser::td_epsilon(State *state, Cont *cont, ref<PgfItem> pitem, Item *xitem, ref<PgfLParam> value, ref<PgfLParam> lin_idx)
+{
+    switch (ref<object>::get_tag(pitem->rule->container)) {
+    case PgfConcrLin::tag: {
+        auto lin = ref<PgfConcrLin>::untagged(pitem->rule->container);
+
+        for (ref<PgfConcrRule> rule : lin->rules) {
+            Item *item = new (rule) Item;
+            item->cont    = cont;
+            item->dot     = 0;
+            item->pre_alt = 0;
+            item->pre_dot = 0;
+            item->syms    = rule->syms.as_vector();
+            item->rule    = rule;
+
+            if (!item->instantiate(item->rule->res, xitem->rule, &xitem->vars[0], value)) {
+                delete item;
+                continue;
+            }
+            if (!item->instantiate(item->rule->lin_idx, xitem->rule, &xitem->vars[0], lin_idx)) {
+                delete item;
+                continue;
+            }
+
+            for (size_t i = 0; i < pitem->args.size(); i++) {
+                ref<PgfSymbolCCat> arg = pitem->args[i];
+
+                if (arg != 0) {
+                    CCat *&arg_ccat = epsilons[arg->lincat][arg->value][arg->lin_idx];
+                    if (arg_ccat == NULL) {
+                        arg_ccat = new CCat;
+                        arg_ccat->fid = arg->fid;
+                        arg_ccat->epsilons = arg.tagged();
+                        arg_ccat->state = NULL;
+                        arg_ccat->lin_idx = arg->lin_idx;
+                        arg_ccat->value = arg->value;
+                        arg_ccat->covered = true;
+                    }
+                    item->args[i] = arg_ccat;
+
+/*                    if (!item->instantiate(item->rule->args[i], pitem->args[i]->value)) {
+                        delete item;
+                        goto next;
+                    }*/
+                } else {
+                    /*if (!item->instantiate(item->rule->args[i], pitem->args[i]->value)) {
+                        delete item;
+                        continue;
+                    }*/
+                }
+            }
+
+            process(item, state->start, false);
+        }
+    }
+    default:;
+        // should not happend
+    }
+}
+
+void PgfAbstractParser::td_predict(State *state, Cont *cont, Production *prod, Item *xitem, ref<PgfLParam> value, ref<PgfLParam> lin_idx)
+{
+    switch (ref<object>::get_tag(prod->rule->container)) {
+    case PgfConcrLin::tag: {
+        auto lin = ref<PgfConcrLin>::untagged(prod->rule->container);
+
+        for (ref<PgfConcrRule> rule : lin->rules) {
+            Item *item = new (rule) Item;
+            item->cont    = cont;
+            item->dot     = 0;
+            item->pre_alt = 0;
+            item->pre_dot = 0;
+            item->syms    = rule->syms.as_vector();
+            item->rule    = rule;
+
+            if (!item->instantiate(item->rule->res, xitem->rule, &xitem->vars[0], value)) {
+                delete item;
+                continue;
+            }
+
+            if (!item->instantiate(item->rule->lin_idx, xitem->rule, &xitem->vars[0], lin_idx)) {
+                delete item;
+                continue;
+            }
+
+            for (size_t i = 0; i < item->args.size(); i++) {
+                if (prod->args[i] != NULL) {
+/*                    if (!item->instantiate(item->rule->args[i], prod->args[i]->value)) {
+                        delete item;
+                        goto next;
+                    }*/
+                } else {
+                    /*if (!item->instantiate(item->rule->args[i], prod->args[i]->value)) {
+                        delete item;
+                        continue;
+                    }*/
+                }
+                item->args[i] = prod->args[i];
+            }
+
+            process(item, state->start, false);
+        }
+    }
+    default:;
+        // should not happend
+    }
 }
 
 #ifdef DEBUG_PARSER
@@ -790,6 +817,9 @@ PgfParser::~PgfParser()
         for (auto it1 : state->completed) {
             for (auto it2 : it1.second) {
                 for (auto it3 : it2.second) {
+                    if (it3.second->fid <= initial_fid)
+                        continue;
+
                     for (ExprState *estate : it3.second->pending) {
                         if (estate->expr != 0)
                             u->free_ref(estate->expr);
@@ -802,6 +832,20 @@ PgfParser::~PgfParser()
         }
 
         state = state->next;
+    }
+
+    for (auto it1 : epsilons) {
+        for (auto it2 : it1.second) {
+            for (auto it3 : it2.second) {
+                for (ExprState *estate : it3.second->pending) {
+                    if (estate->expr != 0)
+                        u->free_ref(estate->expr);
+                }
+                for (ExprProb &ep : it3.second->exprs) {
+                    u->free_ref(ep.expr);
+                }
+            }
+        }
     }
 }
 
@@ -838,16 +882,146 @@ void PgfParser::bu_predict(PgfPhrasetable phrasetable,
 
         if (len > 0) {
             for (size_t i = 0; i < phrasetable->n_items; i++) {
+                std::map<ref<PgfConcrLincat>, bool> visited;
+                //if (!td_reachable(state, phrasetable->items[i], visited))
+                //    continue;
                 Item *item = bu_item(state, phrasetable->items[i]);
                 item->dot++;
-                if (item != NULL)
-                    process(item, current, false);
+                process(item, current, false);
             }
         }
 
         if (len <= max)
             bu_predict(phrasetable->right,state,len,max);
      }
+}
+
+void PgfParser::bu_predict(State *state, CCat *ccat)
+{
+    size_t n_items = 0;
+    vector<ref<PgfItem>> items =
+        phrasetable_lookup(concr->phrasetable,
+                           ccat->cont->lincat,
+                           &n_items);
+    for (size_t i = 0; i < n_items; i++) {
+        std::map<ref<PgfConcrLincat>, bool> visited;
+        //if (!td_reachable(ccat->cont->state, items[i], visited))
+        //    continue;
+        auto new_item = bu_item(ccat->cont->state, items[i]);
+        combine(state,new_item,ccat);
+    }
+}
+
+bool PgfParser::td_reachable(State *state, ref<PgfItem> pitem,
+                             std::map<ref<PgfConcrLincat>, bool> &visited)
+{
+    switch (ref<object>::get_tag(pitem->rule->container)) {
+    case PgfConcrLin::tag: {
+        auto lin = ref<PgfConcrLin>::untagged(pitem->rule->container);
+
+        if (visited[lin->lincat])
+            return false;
+        visited[lin->lincat] = true;
+
+        auto it = state->conts1.find(lin->lincat);
+        if (it != state->conts1.end()) {
+            return true;
+        }
+
+        size_t n_items = 0;
+        vector<ref<PgfItem>> items =
+            phrasetable_lookup(concr->phrasetable,
+                               lin->lincat,
+                               &n_items);
+        for (size_t i = 0; i < n_items; i++) {
+            if (td_reachable(state, items[i], visited))
+                return true;
+        }
+        break;
+    }
+    }
+    return false;
+}
+
+PgfAbstractParser::Item *PgfParser::bu_item(State *state, ref<PgfItem> pitem)
+{
+    Item *item = NULL;
+
+    switch (ref<object>::get_tag(pitem->rule->container)) {
+    case PgfConcrLin::tag: {
+        auto lin = ref<PgfConcrLin>::untagged(pitem->rule->container);
+
+        Cont *&cont = state->conts1[lin->lincat];
+        if (cont == NULL) {
+            cont = new Cont;
+            cont->ccat = NULL;
+            cont->lincat = lin->lincat;
+            cont->state = state;
+        }
+
+        item = new(pitem->rule) Item;
+        item->cont    = cont;
+        item->pre_alt = pitem->pre_alt;
+        item->pre_dot = pitem->pre_dot;
+        item->dot     = pitem->dot;
+        item->syms    = pitem->rule->syms.as_vector();
+        item->rule    = pitem->rule;
+        break;
+    }
+    case PgfConcrLincat::tag: {
+        auto lincat = ref<PgfConcrLincat>::untagged(pitem->rule->container);
+
+        Cont *&cont = state->conts1[0];
+        if (cont == NULL) {
+            cont = new Cont;
+            cont->ccat = NULL;
+            cont->lincat = 0;
+            cont->state = state;
+        }
+
+        item = new(pitem->rule) Item;
+        item->cont    = cont;
+        item->pre_alt = pitem->pre_alt;
+        item->pre_dot = pitem->pre_dot;
+        item->dot     = pitem->dot;
+        item->syms    = pitem->rule->syms.as_vector();
+        item->rule    = pitem->rule;
+        break;
+    }
+    }
+
+    if (item->pre_alt > 0) {
+        auto symkp = ref<PgfSymbolKP>::untagged(item->syms[item->pre_dot]);
+
+        if (item->pre_alt == 1)
+            item->syms = symkp->default_form;
+        else
+            item->syms = symkp->alts[item->pre_alt-2].form;
+    }
+
+    memcpy(&item->vars[0], &pitem->vars[0], sizeof(size_t) * item->vars.size());
+
+    for (size_t i = 0; i < pitem->args.size(); i++) {
+        ref<PgfSymbolCCat> arg = pitem->args[i];
+
+        item->args[i] = 0;
+
+        if (arg != 0) {
+            CCat *&arg_ccat = epsilons[arg->lincat][arg->value][arg->lin_idx];
+            if (arg_ccat == NULL) {
+                arg_ccat = new CCat;
+                arg_ccat->fid = arg->fid;
+                arg_ccat->epsilons = arg.tagged();
+                arg_ccat->state = NULL;
+                arg_ccat->lin_idx = arg->lin_idx;
+                arg_ccat->value = arg->value;
+                arg_ccat->covered = true;
+            }
+            item->args[i] = arg_ccat;
+        }
+    }
+
+    return item;
 }
 
 void PgfParser::make_chunks(State *state, std::vector<CCat*> &chunks, prob_t prob)
@@ -883,6 +1057,10 @@ void PgfParser::make_chunks(State *state, std::vector<CCat*> &chunks, prob_t pro
 
 void PgfParser::prepare(ref<PgfConcrLincat> start)
 {
+#ifdef DEBUG_PARSER
+    fprintf(stderr, "------------------------------------------\n");
+#endif
+
     PgfTextSpot start_spot = {0, (uint8_t *) sentence->text};
     State *state = new_state(start_spot);
     state->needs_bind = false;
@@ -954,24 +1132,66 @@ PgfExpr PgfParser::process_expr(ExprState *estate, prob_t *prob)
             ccat->pending.push_back(estate);
 
             if (ccat->pending.size() == 1) {
-                for (Production *prod : ccat->prods) {
-                    auto lin = ref<PgfConcrLin>::untagged(prod->rule->container);
+                if (ccat->fid <= initial_fid) {
+                    size_t n_items = 0;
+                    vector<ref<PgfItem>> items =
+                        phrasetable_lookup(concr->phrasetable, ccat->epsilons, &n_items);
 
-                    ExprState *new_estate = new(prod->args.size()) ExprState;
-                    new_estate->expr   = u->efun(&lin->name);
-                    new_estate->prob   = estate->prob+lin->absfun->prob;
-                    new_estate->hash   = 0;
-                    new_estate->res    = ccat;
-                    new_estate->index  = 0;
-                    new_estate->n_args = prod->args.size();
-                    for (size_t i = 0; i < lin->name.size; i++) {
-                        new_estate->hash = new_estate->hash * 101 + lin->name.text[i];
+                    for (size_t i = 0; i < n_items; i++) {
+                        ref<PgfItem> pitem = items[i];
+
+                        auto lin = ref<PgfConcrLin>::untagged(pitem->rule->container);
+
+                        ExprState *new_estate = new(pitem->args.size()) ExprState;
+                        new_estate->expr   = u->efun(&lin->name);
+                        new_estate->prob   = estate->prob+lin->absfun->prob;
+                        new_estate->hash   = 0;
+                        new_estate->res    = ccat;
+                        new_estate->index  = 0;
+                        new_estate->n_args = pitem->args.size();
+                        for (size_t i = 0; i < lin->name.size; i++) {
+                            new_estate->hash = new_estate->hash * 101 + lin->name.text[i];
+                        }
+                        for (size_t i = 0; i < new_estate->n_args; i++) {
+                            ref<PgfSymbolCCat> arg = pitem->args[i];
+                            new_estate->args[i] = NULL;
+                            if (arg != 0) {
+                                CCat *&arg_ccat = epsilons[arg->lincat][arg->value][arg->lin_idx];
+                                if (arg_ccat == NULL) {
+                                    arg_ccat = new CCat;
+                                    arg_ccat->fid = arg->fid;
+                                    arg_ccat->epsilons = arg.tagged();
+                                    arg_ccat->state = NULL;
+                                    arg_ccat->lin_idx = arg->lin_idx;
+                                    arg_ccat->value = arg->value;
+                                    arg_ccat->covered = true;
+                                }
+                                new_estate->args[i] = arg_ccat;
+                            }
+                        }
+                        queue.push_back(new_estate);
+                        std::push_heap(queue.begin(), queue.end(), estate_comp);
                     }
-                    for (size_t i = 0; i < new_estate->n_args; i++) {
-                        new_estate->args[i] = prod->args[i];
+                } else {
+                    for (Production *prod : ccat->prods) {
+                        auto lin = ref<PgfConcrLin>::untagged(prod->rule->container);
+
+                        ExprState *new_estate = new(prod->args.size()) ExprState;
+                        new_estate->expr   = u->efun(&lin->name);
+                        new_estate->prob   = estate->prob+lin->absfun->prob;
+                        new_estate->hash   = 0;
+                        new_estate->res    = ccat;
+                        new_estate->index  = 0;
+                        new_estate->n_args = prod->args.size();
+                        for (size_t i = 0; i < lin->name.size; i++) {
+                            new_estate->hash = new_estate->hash * 101 + lin->name.text[i];
+                        }
+                        for (size_t i = 0; i < new_estate->n_args; i++) {
+                            new_estate->args[i] = prod->args[i];
+                        }
+                        queue.push_back(new_estate);
+                        std::push_heap(queue.begin(), queue.end(), estate_comp);
                     }
-                    queue.push_back(new_estate);
-                    std::push_heap(queue.begin(), queue.end(), estate_comp);
                 }
             } else {
                 for (ExprProb ep : ccat->exprs) {
@@ -1004,7 +1224,7 @@ PgfExpr PgfParser::process_expr(ExprState *estate, prob_t *prob)
             if (ep.hash == estate->hash)
                 return 0;
         }
-        
+
         estate->res->exprs.emplace_back(estate->expr, prob, estate->hash);
         for (ExprState *parent : estate->res->pending) {
             ExprState *app_state = new(parent->n_args) ExprState;
@@ -1085,182 +1305,6 @@ void PgfParser::symbol_bind(Item *item, const PgfTextSpot &spot, PgfSymbol sym)
     process(item, spot, true);
 }
 
-PgfAbstractParser::CCat *PgfAbstractParser::td_epsilon(State *state, Cont *cont, ref<PgfSymbolCCat> arg)
-{
-    CCat *&ccat = state->completed[cont][arg->value][arg->lin_idx];
-    if (ccat == NULL) {
-        ccat = new CCat;
-        ccat->fid = (++last_fid);
-        ccat->cont  = cont;
-        ccat->state = state;
-        ccat->lin_idx = arg->lin_idx;
-        ccat->value = arg->value;
-        ccat->covered = true;
-
-#ifdef DEBUG_PARSER
-        {
-            PgfPrinter printer(NULL,0,NULL);
-            printer.nprintf(64,"[%zd-%zd; ",cont->state->end.pos,state->start.pos);
-            printer.efun(&ccat->cont->lincat->name);
-            printer.nprintf(64,"(%zd); %zd; ",ccat->value,ccat->lin_idx);
-            printer.emeta(ccat->fid);
-            printer.puts("]");
-            PgfText *text = printer.get_text();
-            fprintf(stderr, "%s\n", text->text);
-            free(text);
-        }
-#endif
-
-        size_t n_items = 0;
-        vector<ref<PgfItem>> items =
-            phrasetable_lookup(concr->phrasetable, arg.tagged(), &n_items);
-
-        for (size_t i = 0; i < n_items; i++) {
-            ref<PgfItem> pitem = items[i];
-
-            Production *prod = new (pitem) Production;
-            prod->rule = pitem->rule;
-            memcpy(&prod->vars[0], &pitem->vars[0], sizeof(size_t) * prod->vars.size());
-
-            for (size_t j = 0; j < pitem->args.size(); j++) {
-                ref<PgfSymbolCCat> arg = pitem->args[j];
-
-                prod->args[j] = 0;
-
-                if (arg != 0) {
-                    Cont *&arg_cont = state->conts1[arg->lincat];
-                    if (arg_cont == NULL) {
-                        arg_cont = new Cont;
-                        arg_cont->ccat = NULL;
-                        arg_cont->lincat = arg->lincat;
-                        arg_cont->state = state;
-                    }
-                    prod->args[j] =
-                        td_epsilon(state, arg_cont, arg);
-                }
-            }
-
-#ifdef DEBUG_PARSER
-            print_prod(ccat, prod);
-#endif
-            ccat->prods.push_back(prod);
-        }
-    }
-
-    return ccat;
-}
-
-PgfAbstractParser::CCat *PgfAbstractParser::td_epsilon(State *state, Cont *cont, ref<PgfSymbolCCat> arg,
-                                                       size_t n_items, vector<ref<PgfItem>> items)
-{
-    CCat *&ccat = state->completed[cont][arg->value][arg->lin_idx];
-    if (ccat == NULL) {
-        ccat = new CCat;
-        ccat->fid = (++last_fid);
-        ccat->cont  = cont;
-        ccat->state = state;
-        ccat->lin_idx = arg->lin_idx;
-        ccat->value = arg->value;
-        ccat->covered = true;
-
-#ifdef DEBUG_PARSER
-        {
-            PgfPrinter printer(NULL,0,NULL);
-            printer.nprintf(64,"[%zd-%zd; ",cont->state->end.pos,state->start.pos);
-            printer.efun(&ccat->cont->lincat->name);
-            printer.nprintf(64,"(%zd); %zd; ",ccat->value,ccat->lin_idx);
-            printer.emeta(ccat->fid);
-            printer.puts("]");
-            PgfText *text = printer.get_text();
-            fprintf(stderr, "%s\n", text->text);
-            free(text);
-        }
-#endif
-
-        for (size_t i = 0; i < n_items; i++) {
-            ref<PgfItem> pitem = items[i];
-
-            Production *prod = new (pitem) Production;
-            prod->rule = pitem->rule;
-            memcpy(&prod->vars[0], &pitem->vars[0], sizeof(size_t) * prod->vars.size());
-
-            for (size_t j = 0; j < pitem->args.size(); j++) {
-                ref<PgfSymbolCCat> arg = pitem->args[j];
-
-                prod->args[j] = 0;
-
-                if (arg != 0) {
-                    Cont *&arg_cont = state->conts1[arg->lincat];
-                    if (arg_cont == NULL) {
-                        arg_cont = new Cont;
-                        arg_cont->ccat = NULL;
-                        arg_cont->lincat = arg->lincat;
-                        arg_cont->state = state;
-                    }
-                    prod->args[j] =
-                        td_epsilon(state, arg_cont, arg);
-                }
-            }
-
-#ifdef DEBUG_PARSER
-            print_prod(ccat, prod);
-#endif
-            ccat->prods.push_back(prod);
-        }
-    }
-
-    return ccat;
-}
-
-void PgfAbstractParser::td_predict(State *state, Cont *cont, Production *prod, size_t lin_idx)
-{
-    switch (ref<object>::get_tag(prod->rule->container)) {
-    case PgfConcrLin::tag: {
-        auto lin = ref<PgfConcrLin>::untagged(prod->rule->container);
-
-        for (ref<PgfConcrRule> rule : lin->rules) {
-            Item *item = new (rule) Item;
-            item->cont    = cont;
-            item->dot     = 0;
-            item->pre_alt = 0;
-            item->pre_dot = 0;
-            item->syms    = rule->syms.as_vector();
-            item->rule    = rule;
-
-            if (!item->instantiate(item->rule->res, cont->ccat->value)) {
-                delete item;
-                continue;
-            }
-
-            if (!item->instantiate(item->rule->lin_idx, lin_idx)) {
-                delete item;
-                continue;
-            }
-
-            for (size_t i = 0; i < item->args.size(); i++) {
-                if (prod->args[i] != NULL) {
-                    if (!item->instantiate(item->rule->args[i], prod->args[i]->value)) {
-                        delete item;
-                        goto next;
-                    }
-                } else {
-                    /*if (!item->instantiate(item->rule->args[i], prod->args[i]->value)) {
-                        delete item;
-                        continue;
-                    }*/
-                }
-                item->args[i] = prod->args[i];
-            }
-
-            process(item, state->start, false);
-        next:;
-        }
-    }
-    default:;
-        // should not happend
-    }
-}
-
 void PgfParser::suspend(State *state,ref<PgfConcrLincat> lincat,Item *item)
 {
     Cont *&cont = state->conts1[lincat];
@@ -1277,21 +1321,35 @@ void PgfParser::suspend(State *state,ref<PgfConcrLincat> lincat,Item *item)
         std::function<void(ref<PgfSymbolCCat>,size_t,vector<ref<PgfItem>>)> f =
             [this,state,item,cont](ref<PgfSymbolCCat> symcf, size_t n_items, vector<ref<PgfItem>> items) {
 
+                PgfItem *xitem = items[0];
+
                 Item *new_item = new (item) Item;
                 PgfSymbol sym = new_item->rule->syms[new_item->dot];
                 auto sym_cat = ref<PgfSymbolCat>::untagged(sym);
-                if (!new_item->instantiate(new_item->rule->args[sym_cat->d],symcf->value)) {
+                if (!new_item->instantiate(new_item->rule->args[sym_cat->d],xitem->rule,&xitem->vars[0],xitem->rule->res)) {
                     delete new_item;
                     return;
                 }
-                if (!new_item->instantiate(ref<PgfLParam>::from_ptr(&sym_cat->r),symcf->lin_idx)) {
+                if (!new_item->instantiate(ref<PgfLParam>::from_ptr(&sym_cat->r),xitem->rule,&xitem->vars[0],xitem->rule->lin_idx)) {
                     delete new_item;
                     return;
                 }
 
+                CCat *&arg_ccat = epsilons[symcf->lincat][symcf->value][symcf->lin_idx];
+                if (arg_ccat == NULL) {
+                    arg_ccat = new CCat;
+                    arg_ccat->fid = symcf->fid;
+                    arg_ccat->epsilons = symcf.tagged();
+                    arg_ccat->state = NULL;
+                    arg_ccat->lin_idx = symcf->lin_idx;
+                    arg_ccat->value = symcf->value;
+                    arg_ccat->covered = true;
+                }
+
+                state->completed[cont][symcf->value][symcf->lin_idx] = arg_ccat;
+
                 new_item->dot++;
-                new_item->args[sym_cat->d] =
-                    td_epsilon(state,cont,symcf,n_items,items);
+                new_item->args[sym_cat->d] = arg_ccat;
 
                 process(new_item, state->start, false);
             };
@@ -1309,7 +1367,7 @@ void PgfParser::suspend(State *state,ref<PgfConcrLincat> lincat,Item *item)
     }
 }
 
-void PgfParser::final_item(State *state, Item *item, size_t value, size_t lin_idx)
+void PgfParser::final_item(State *state, CCat *ccat, Item *item, interval_t value, interval_t lin_idx)
 {
     if (item->cont == NULL && state->end.ptr == end) {
         ExprState *estate = new(item->args.size()) ExprState;
@@ -1403,6 +1461,7 @@ ref<PgfItem> PgfParseTableMaker::clone_item(Item *item)
             symcf->lincat  = item->args[i]->cont->lincat;
             symcf->value   = item->args[i]->value;
             symcf->lin_idx = item->args[i]->lin_idx;
+            symcf->fid     = item->args[i]->fid;
         }
         pitem->args[i] = symcf;
     }
@@ -1459,23 +1518,23 @@ void PgfParseTableMaker::suspend(State *state,ref<PgfConcrLincat> lincat,Item *i
     concr->phrasetable = phrasetable;
 }
 
-void PgfParseTableMaker::final_item(State *state, Item *item, size_t value, size_t lin_idx)
+void PgfParseTableMaker::final_item(State *state, CCat *ccat, Item *item, interval_t value, interval_t lin_idx)
 {
     auto pitem = clone_item(item);
     
     PgfPhrasetable phrasetable = concr->phrasetable;
     phrasetable = phrasetable_insert(phrasetable,
-                                     item->cont->lincat, value, lin_idx,
+                                     item->cont->lincat, value, lin_idx, ccat->fid,
                                      pitem);
     concr->phrasetable = phrasetable;
 }
 
-void PgfParseTableMaker::bu_predict(PgfPhrasetable phrasetable, State *state, CCat *ccat)
+void PgfParseTableMaker::bu_predict(State *state, CCat *ccat)
 {
 }
 
 void PgfParseTableMaker::insert_rule(ref<PgfConcrRule> rule)
-{    
+{
     switch (ref<object>::get_tag(rule->container)) {
     case PgfConcrLin::tag: {
         auto lin = ref<PgfConcrLin>::untagged(rule->container);

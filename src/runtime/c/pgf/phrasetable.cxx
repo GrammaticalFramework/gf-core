@@ -327,7 +327,7 @@ PGF_INTERNAL_DECL
 size_t get_next_padovan(size_t min);
 
 static
-int symbol_cmp(ref<PgfConcrLincat> lincat, size_t value, size_t lin_idx, PgfSymbol sym)
+int symbol_cmp(ref<PgfConcrLincat> lincat, interval_t value, interval_t lin_idx, PgfSymbol sym)
 {
     uint8_t tag = ref<PgfSymbol>::get_tag(sym);
     if (PgfSymbolCCat::tag != tag)
@@ -655,6 +655,33 @@ vector<ref<PgfItem>> phrasetable_lookup(PgfPhrasetable table, PgfSymbol sym, siz
     return 0;
 }
 
+vector<ref<PgfItem>> phrasetable_lookup(PgfPhrasetable phrasetable,
+                                        ref<PgfConcrLincat> lincat,
+                                        size_t *n_items)
+{
+    while (phrasetable != 0) {
+        int cmp;
+        uint8_t tag = ref<PgfSymbol>::get_tag(phrasetable->sym);
+        if (PgfSymbolACat::tag != tag) {
+            cmp = ((int) PgfSymbolACat::tag) - ((int) tag);
+        } else {
+            auto symcf = ref<PgfSymbolACat>::untagged(phrasetable->sym);
+            cmp = textcmp(&lincat->name, &symcf->name);
+        }
+        if (cmp < 0)
+            phrasetable = phrasetable->left;
+        else if (cmp > 0)
+            phrasetable = phrasetable->right;
+        else {
+            *n_items = phrasetable->n_items;
+            return phrasetable->items;
+        }
+    }
+
+    *n_items = 0;
+    return 0;
+}
+
 PGF_INTERNAL
 void phrasetable_lookup(PgfPhrasetable table,
                         PgfText *sentence,
@@ -973,7 +1000,8 @@ PgfPhrasetable phrasetable_insert(PgfPhrasetable table,
 
 PgfPhrasetable phrasetable_insert(PgfPhrasetable table,
                                   ref<PgfConcrLincat> lincat,
-                                  size_t value, size_t lin_idx,
+                                  interval_t value, interval_t lin_idx,
+                                  PgfMetaId fid,
                                   ref<PgfItem> item)
 {
     if (table == 0) {
@@ -981,6 +1009,7 @@ PgfPhrasetable phrasetable_insert(PgfPhrasetable table,
         symcf->lincat = lincat;
         symcf->value   = value;
         symcf->lin_idx = lin_idx;
+        symcf->fid = fid;
         PgfPhrasetable new_table = PgfPhrasetableNode::new_node(symcf.tagged(),1);
         new_table->n_items = 1;
         new_table->items[0] = item;
@@ -990,12 +1019,12 @@ PgfPhrasetable phrasetable_insert(PgfPhrasetable table,
     int cmp = symbol_cmp(lincat,value,lin_idx,table->sym);
     if (cmp < 0) {
         PgfPhrasetable left = phrasetable_insert(table->left,
-                                                lincat, value, lin_idx, item);
+                                                lincat, value, lin_idx, fid, item);
         table = PgfPhrasetableNode::upd_node(table,left,table->right);
         return PgfPhrasetableNode::balanceL(table);
     } else if (cmp > 0) {
         PgfPhrasetable right = phrasetable_insert(table->right,
-                                                  lincat, value, lin_idx, item);
+                                                  lincat, value, lin_idx, fid, item);
         table = PgfPhrasetableNode::upd_node(table, table->left, right);
         return PgfPhrasetableNode::balanceR(table);
     } else {

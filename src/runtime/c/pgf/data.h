@@ -89,6 +89,7 @@ struct PgfConcr;
 #include "namespace.h"
 #include "probspace.h"
 #include "expr.h"
+#include "intervalmap.h"
 
 struct PGF_INTERNAL_DECL PgfFlag {
     PgfLiteral value;
@@ -266,8 +267,9 @@ struct PGF_INTERNAL_DECL PgfSymbolACat {
 struct PGF_INTERNAL_DECL PgfSymbolCCat {
     static const uint8_t tag = 12;
     ref<PgfConcrLincat> lincat;
-    size_t value;
-    size_t lin_idx;
+    interval_t value;
+    interval_t lin_idx;
+    PgfMetaId fid;
 };
 
 struct PGF_INTERNAL_DECL PgfConcrPrintname {
@@ -287,6 +289,7 @@ struct PGF_INTERNAL_DECL PgfConcr {
     Namespace<PgfConcrLincat> lincats;
     PgfPhrasetable phrasetable;
     Namespace<PgfConcrPrintname> printnames;
+    PgfMetaId last_fid;
 
     PgfText name;
 
