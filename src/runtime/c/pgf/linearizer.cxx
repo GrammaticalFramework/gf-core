@@ -242,34 +242,37 @@ bool PgfLinearizer::TreeLinNode::resolve(PgfLinearizer *linearizer)
             arg->check_category(linearizer, &hypos[i].type->name);
 
             if (!item->instantiate(item->rule->args[i], arg->value))
-                break;
+                goto next;
 
             arg = arg->next_arg;  i++;
         }
 
-        size_t max_value = 1;
-        for (size_t i = 0; i < item->vars.size(); i++) {
-            if (item->vars[i] == 0)
-                max_value *= item->rule->vars[i].range;
-        }
-
-        for (size_t value = 0; value < max_value; value++) {
-            Item *new_item = new (item) Item;
-
-            size_t v = value;
-            for (size_t i = 0; i < new_item->vars.size(); i++) {
-                if (new_item->vars[i] == 0) {
-                    size_t range = new_item->rule->vars[i].range;
-                    new_item->vars[i] = (v % range)+1;
-                    v = v / range;
-                }
+        {
+            size_t max_value = 1;
+            for (size_t i = 0; i < item->vars.size(); i++) {
+                if (item->vars[i] == 0)
+                    max_value *= item->rule->vars[i].range;
             }
 
-            size_t lin_idx = new_item->eval(new_item->rule->lin_idx);
-            items[lin_idx] = new_item;
+            for (size_t value = 0; value < max_value; value++) {
+                Item *new_item = new (item) Item;
 
-            this->value = new_item->eval(new_item->rule->res);
+                size_t v = value;
+                for (size_t i = 0; i < new_item->vars.size(); i++) {
+                    if (new_item->vars[i] == 0) {
+                        size_t range = new_item->rule->vars[i].range;
+                        new_item->vars[i] = (v % range)+1;
+                        v = v / range;
+                    }
+                }
+
+                size_t lin_idx = new_item->eval(new_item->rule->lin_idx);
+                items[lin_idx] = new_item;
+
+                this->value = new_item->eval(new_item->rule->res);
+            }
         }
+    next:
         delete item;
 
         rule_index++;
