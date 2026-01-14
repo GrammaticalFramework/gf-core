@@ -497,42 +497,14 @@ ref<PgfLParam> PgfReader::read_lparam()
     return lparam;
 }
 
-void PgfReader::read_variable_range(ref<PgfVariableRange> var_info)
+void PgfReader::read_variable_range(ref<size_t> var_range)
 {
-    var_info->var   = read_int();
-    var_info->range = read_int();
+    *var_range = read_int();
 }
 
 void PgfReader::read_parg(ref<PgfPArg> parg)
 {
     auto param = read_lparam(); parg->param = param;
-}
-
-ref<PgfPResult> PgfReader::read_presult()
-{
-    vector<PgfVariableRange> vars = 0;
-    size_t n_vars = read_len();
-    if (n_vars > 0) {
-        vars = vector<PgfVariableRange>::alloc(n_vars);
-        for (size_t i = 0; i < n_vars; i++) {
-            read_variable_range(vars.elem(i));
-        }
-    }
-
-    size_t i0 = read_int();
-    size_t n_terms = read_len();
-    ref<PgfPResult> res =
-        PgfDB::malloc<PgfPResult>(n_terms*sizeof(PgfLParam::terms[0]));
-    res->vars = vars;
-    res->param.i0 = i0;
-    res->param.n_terms = n_terms;
-
-    for (size_t i = 0; i < n_terms; i++) {
-        res->param.terms[i].factor = read_int();
-        res->param.terms[i].var    = read_int();
-    }
-
-    return res;
 }
 
 template<class I>
@@ -637,12 +609,12 @@ ref<PgfConcrRule> PgfReader::read_rule()
     size_t n_syms = read_len();
     ref<PgfConcrRule> rule = inline_vector<PgfSymbol>::alloc(&PgfConcrRule::syms, n_syms);
 
-    vector<PgfVariableRange> vars = read_null_vector(&PgfReader::read_variable_range);
+    vector<size_t> ranges = read_null_vector(&PgfReader::read_variable_range);
     ref<PgfLParam> res = read_lparam();
     vector<ref<PgfLParam>> args = read_null_vector(&PgfReader::read_lparam);
     ref<PgfLParam> lin_idx = read_lparam();
 
-    rule->vars = vars;
+    rule->ranges = ranges;
     rule->res  = res;
     rule->container = container;
     rule->args = args;

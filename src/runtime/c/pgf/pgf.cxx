@@ -1121,8 +1121,8 @@ PgfText *pgf_print_lindef_internal(object o, size_t i)
     PgfPrinter printer(NULL,0,&m);
 
     ref<PgfConcrRule> rule = lincat->rules[i];
-    if (rule->vars != 0) {
-        printer.lvar_ranges(rule->vars, NULL);
+    if (rule->ranges != 0) {
+        printer.lvar_ranges(rule->ranges, NULL);
         printer.puts(" ");
     }
     printer.efun(&lincat->name);
@@ -1147,8 +1147,8 @@ PgfText *pgf_print_linref_internal(object o, size_t i)
 
     ref<PgfConcrRule> rule = lincat->rules[lincat->n_lindefs+i];
 
-    if (rule->vars != 0) {
-        printer.lvar_ranges(rule->vars, NULL);
+    if (rule->ranges != 0) {
+        printer.lvar_ranges(rule->ranges, NULL);
         printer.puts(" ");
     }
 
@@ -1178,8 +1178,8 @@ PgfText *pgf_print_lin_internal(object o, size_t i)
     ref<PgfConcrRule> rule = lin->rules[i];
     ref<PgfDTyp> ty = lin->absfun->type;
 
-    if (rule->vars != 0) {
-        printer.lvar_ranges(rule->vars, NULL);
+    if (rule->ranges != 0) {
+        printer.lvar_ranges(rule->ranges, NULL);
         printer.puts(" ");
     }
 
@@ -1867,13 +1867,13 @@ public:
             if (rule_index >= rules.size())
                 throw pgf_error(builder_error_msg);
 
-            vector<PgfVariableRange> vars = 
-                (n_vars > 0) ? vector<PgfVariableRange>::alloc(n_vars) : 0;
+            vector<size_t> ranges = 
+                (n_vars > 0) ? vector<size_t>::alloc(n_vars) : 0;
             vector<ref<PgfLParam>> args =
                 (n_args > 0) ? vector<ref<PgfLParam>>::alloc(n_args) : 0;
 
             ref<PgfConcrRule> rule = inline_vector<PgfSymbol>::alloc(&PgfConcrRule::syms, n_syms);
-            rule->vars = vars;
+            rule->ranges = ranges;
             rule->res  = 0;
             rule->container = container;
             rule->args = args;
@@ -1956,7 +1956,7 @@ public:
         } PGF_API_END
     }
 
-    void add_variable(size_t var, size_t range, PgfExn *err)
+    void add_variable(size_t range, PgfExn *err)
     {
         if (err->type != PGF_EXN_NONE)
             return;
@@ -1967,14 +1967,10 @@ public:
 
             ref<PgfConcrRule> rule = rules[rule_index];
 
-            if (rule->vars == 0 || var_index >= rule->vars.size())
+            if (rule->ranges == 0 || var_index >= rule->ranges.size())
                 throw pgf_error(builder_error_msg);
 
-            ref<PgfVariableRange> var_range =
-                rule->vars.elem(var_index);
-            var_range->var   = var;
-            var_range->range = range;
-
+            rule->ranges[var_index] = range;
             var_index++;
         } PGF_API_END
     }

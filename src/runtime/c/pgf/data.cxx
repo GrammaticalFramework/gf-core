@@ -64,13 +64,6 @@ void PgfLParam::release(ref<PgfLParam> param)
     PgfDB::free(param, param->n_terms*sizeof(param->terms[0]));
 }
 
-void PgfPResult::release(ref<PgfPResult> res)
-{
-    if (res->vars != 0)
-        vector<PgfVariableRange>::release(res->vars);
-    PgfDB::free(res, res->param.n_terms*sizeof(res->param.terms[0]));
-}
-
 static void symbols_release(vector<PgfSymbol> syms)
 {
 	for (PgfSymbol sym : syms) {
@@ -122,7 +115,7 @@ static void symbols_release(vector<PgfSymbol> syms)
 
 void PgfConcrRule::release(ref<PgfConcrRule> rule)
 {
-    vector<PgfVariableRange>::release(rule->vars);
+    vector<size_t>::release(rule->ranges);
 
     PgfLParam::release(rule->res);
 

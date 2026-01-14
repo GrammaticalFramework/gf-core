@@ -499,15 +499,15 @@ void PgfPrinter::lparam(ref<PgfLParam> lparam)
     }
 }
 
-void PgfPrinter::lvar_ranges(vector<PgfVariableRange> vars, size_t *values)
+void PgfPrinter::lvar_ranges(vector<size_t> ranges, size_t *values)
 {
     puts("{");
-    for (size_t i = 0; i < vars.size(); i++) {
+    for (size_t i = 0; i < ranges.size(); i++) {
         if (i > 0)
             puts(", ");
-        lvar(vars[i].var);
+        lvar(i);
         if (values == NULL || values[i] == 0)
-            nprintf(32,"<%ld",vars[i].range);
+            nprintf(32,"<%ld",ranges[i]);
         else
             nprintf(32,"=%ld",values[i]-1);
     }
@@ -611,8 +611,8 @@ void PgfPrinter::item(ref<PgfItem> item)
     case PgfConcrLincat::tag: {
         ref<PgfConcrLincat> lincat = ref<PgfConcrLincat>::untagged(item->rule->container);
 
-        if (item->rule->vars != 0) {
-            lvar_ranges(item->rule->vars, &item->vars[0]);
+        if (item->rule->ranges != 0) {
+            lvar_ranges(item->rule->ranges, &item->vars[0]);
             puts(" ");
         }
 
@@ -632,8 +632,8 @@ void PgfPrinter::item(ref<PgfItem> item)
         ref<PgfConcrLin> lin = ref<PgfConcrLin>::untagged(item->rule->container);
         ref<PgfDTyp> ty = lin->absfun->type;
 
-        if (item->rule->vars != 0) {
-            lvar_ranges(item->rule->vars, &item->vars[0]);
+        if (item->rule->ranges != 0) {
+            lvar_ranges(item->rule->ranges, &item->vars[0]);
             puts(" ");
         }
 

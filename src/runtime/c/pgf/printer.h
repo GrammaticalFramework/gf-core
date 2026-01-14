@@ -78,7 +78,7 @@ public:
     void parg(ref<PgfDTyp> ty, ref<PgfPArg> parg);
     void lvar(size_t var);
     void lparam(ref<PgfLParam> lparam);
-    void lvar_ranges(vector<PgfVariableRange> vars, size_t *values);
+    void lvar_ranges(vector<size_t> ranges, size_t *values);
     void symbol(PgfSymbol sym);
     void symbols(vector<PgfSymbol> syms);
     void item(ref<PgfItem> item);

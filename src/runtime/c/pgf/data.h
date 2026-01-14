@@ -146,13 +146,6 @@ struct PGF_INTERNAL_DECL PgfPArg {
     ref<PgfLParam> param;
 };
 
-struct PGF_INTERNAL_DECL PgfPResult {
-    vector<PgfVariableRange> vars; 
-    PgfLParam param;
-
-    static void release(ref<PgfPResult> res);
-};
-
 typedef object PgfSymbol;
 
 struct PGF_INTERNAL_DECL PgfSequenceBackref {
@@ -222,7 +215,7 @@ struct PGF_INTERNAL_DECL PgfSymbolALLCAPIT {
 };
 
 struct PGF_INTERNAL_DECL PgfConcrRule {
-    vector<PgfVariableRange> vars;
+    vector<size_t> ranges;
     ref<PgfLParam> res;
     object container;
     vector<ref<PgfLParam>> args;

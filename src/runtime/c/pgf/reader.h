@@ -77,9 +77,8 @@ public:
     ref<PgfConcrLincat> read_lincat();
     vector<ref<PgfText>> read_lincat_fields(ref<PgfConcrLincat> lincat);
     ref<PgfLParam> read_lparam();
-    void read_variable_range(ref<PgfVariableRange> var_info);
+    void read_variable_range(ref<size_t> var_range);
     void read_parg(ref<PgfPArg> parg);
-    ref<PgfPResult> read_presult();
     PgfSymbol read_symbol();
     ref<PgfConcrLin> read_lin();
     ref<PgfConcrPrintname> read_printname();
@@ -103,7 +102,6 @@ private:
 
     void read_text2(ref<ref<PgfText>> r) { auto text = read_text(); *r = text; }
     void read_lparam(ref<ref<PgfLParam>> r) { auto lparam = read_lparam(); *r = lparam; }
-    void read_presult2(ref<ref<PgfPResult>> r) { auto res = read_presult(); *r = res; }
     void read_rule2(ref<ref<PgfConcrRule>> r) { auto rule = read_rule(); *r = rule; }
     void read_symbol2(ref<PgfSymbol> r) { auto sym = read_symbol(); *r = sym; }
 

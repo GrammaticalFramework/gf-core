@@ -36,13 +36,13 @@ class PGF_INTERNAL_DECL PgfLinearizer : public PgfUnmarshaller {
             }
             size_t size() {
                 Item *item = containerof(Item,vars,this);
-                return item->rule->vars.size();
+                return item->rule->ranges.size();
             }
         } vars;
 
         void *operator new(size_t sz, ref<PgfConcrRule> rule)
         {
-            size_t sz2 = rule->vars.size()*sizeof(size_t);
+            size_t sz2 = rule->ranges.size()*sizeof(size_t);
             Item *new_item = (Item *) malloc(sz+sz2);
             memset(new_item, 0, sz+sz2);
             return new_item;

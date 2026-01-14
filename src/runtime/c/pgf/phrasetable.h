@@ -17,7 +17,7 @@ struct PGF_INTERNAL_DECL PgfItem {
         }
         size_t size() {
             PgfItem *item = containerof(PgfItem,vars,this);
-            return (item->rule->vars != 0) ? item->rule->vars.size() : 0;
+            return (item->rule->ranges != 0) ? item->rule->ranges.size() : 0;
         }
     } vars;
 

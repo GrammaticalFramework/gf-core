@@ -171,7 +171,7 @@ ppPmcfgCat :: Ident -> LParam -> Doc
 ppPmcfgCat cat p = pp cat <> parens (ppLParam p)
 
 ppPmcfgRule id arg_cats res_cat (Rule quantifiers res args lin_idx seq) =
-  ppQuantifiers quantifiers <+>
+  ppQuantifiers (zip [0..] quantifiers) <+>
   ppCat res_cat res <+> "->" <+> pp id <> brackets (hcat (punctuate ',' (zipWith ppCat arg_cats args))) <> ';' <+> ppLParam lin_idx <+> ':' <+> hsep (map ppSymbol seq)
   where
     ppCat id value = pp id <> parens (ppLParam value)

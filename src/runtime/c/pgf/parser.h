@@ -26,7 +26,7 @@ protected:
             }
             size_t size() const {
                 Production *prod = containerof(Production,vars,this);
-                return prod->rule->vars.size();
+                return prod->rule->ranges.size();
             }
         } vars;
 
@@ -131,7 +131,7 @@ protected:
             }
             size_t size() const {
                 Item *item = containerof(Item,vars,this);
-                return item->rule->vars.size();
+                return item->rule->ranges.size();
             }
         } vars;
 
@@ -149,7 +149,7 @@ protected:
         void *operator new(size_t sz, ref<PgfConcrRule> rule)
         {
             size_t sz2 = rule->args.size()*sizeof(CCat*)
-                       + rule->vars.size()*sizeof(size_t);
+                       + rule->ranges.size()*sizeof(size_t);
             Item *new_item = (Item *) malloc(sz+sz2);
             memset(new_item+1, 0, sz2);
             return new_item;

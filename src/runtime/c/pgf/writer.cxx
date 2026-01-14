@@ -290,10 +290,9 @@ void PgfWriter::write_abstract(ref<PgfAbstr> abstract)
     this->abstract = 0;
 }
 
-void PgfWriter::write_variable_range(ref<PgfVariableRange> var)
+void PgfWriter::write_variable_range(ref<size_t> var_range)
 {
-    write_int(var->var);
-    write_int(var->range);
+    write_int(*var_range);
 }
 
 void PgfWriter::write_lparam(ref<PgfLParam> lparam)
@@ -310,7 +309,7 @@ void PgfWriter::write_rule(ref<PgfConcrRule> rule)
 {
     write_len(rule->syms.size());
 
-    write_null_vector(rule->vars, &PgfWriter::write_variable_range);
+    write_null_vector(rule->ranges, &PgfWriter::write_variable_range);
     write_lparam(rule->res);
     write_null_vector(rule->args, &PgfWriter::write_lparam);
 

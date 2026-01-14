@@ -332,17 +332,12 @@ interval_t PgfAbstractParser::Item::interval(ref<PgfLParam> lparam) const
     interval.second = interval.first;
     for (size_t i = 0; i < lparam->n_terms; i++) {
         size_t var = lparam->terms[i].var;
-        for (size_t j = 0; j < vars.size(); j++) {
-            if (rule->vars[j].var == var) {
-                if (vars[j] == 0) {
-                    interval.second += lparam->terms[i].factor * (rule->vars[j].range-1);
-                } else {
-                    size_t value = lparam->terms[i].factor * (vars[j]-1);
-                    interval.first  += value;
-                    interval.second += value;
-                }
-                break;
-            }
+        if (vars[var] == 0) {
+            interval.second += lparam->terms[i].factor * (rule->ranges[var]-1);
+        } else {
+            size_t value = lparam->terms[i].factor * (vars[var]-1);
+            interval.first  += value;
+            interval.second += value;
         }
     }
     return interval;
@@ -353,25 +348,15 @@ bool PgfAbstractParser::Item::instantiate(ref<PgfLParam> lparam1,
 {
     size_t i01 = lparam1->i0;
     for (size_t i = 0; i < lparam1->n_terms; i++) {
-        for (size_t k = 0; k < this->vars.size(); k++) {
-            if (this->rule->vars[k].var == lparam1->terms[i].var) {
-                if (this->vars[k] > 0) {
-                    i01 += lparam1->terms[i].factor * (this->vars[k]-1);
-                }
-                break;
-            }
+        if (this->vars[lparam1->terms[i].var] > 0) {
+            i01 += lparam1->terms[i].factor * (this->vars[lparam1->terms[i].var]-1);
         }
     }
 
     size_t i02 = lparam2->i0;
     for (size_t i = 0; i < lparam2->n_terms; i++) {
-        for (size_t k = 0; k < rule->vars.size(); k++) {
-            if (rule->vars[k].var == lparam2->terms[i].var) {
-                if (values[k] > 0) {
-                    i02 += lparam2->terms[i].factor * (values[k]-1);
-                }
-                break;
-            }
+        if (values[lparam2->terms[i].var] > 0) {
+            i02 += lparam2->terms[i].factor * (values[lparam2->terms[i].var]-1);
         }
     }
 
@@ -386,103 +371,77 @@ bool PgfAbstractParser::Item::instantiate(ref<PgfLParam> lparam1,
     size_t i1 = 0, i2 = 0;
     while (i1 < lparam1->n_terms || i2 < lparam2->n_terms) {
         size_t scale1  = 0;
-        size_t factor1 = 0;
-        size_t var1    = 0;
-        size_t k1      = 0;
+        term t1 = {0,0};
         if (i1 < lparam1->n_terms) {
-            factor1 = lparam1->terms[i1].factor;
-            var1    = lparam1->terms[i1].var;
-            for (k1 = 0; k1 < this->vars.size(); k1++) {
-                if (this->rule->vars[k1].var == var1)
-                    break;
-            }
-            if (this->vars[k1] > 0) {
+            t1 = lparam1->terms[i1];
+            if (this->vars[t1.var] > 0) {
                 i1++;
                 continue;
             }
-            scale1 = factor1 * this->rule->vars[k1].range;
+            scale1 = t1.factor * this->rule->ranges[t1.var];
         }
 
         size_t scale2  = 0;
-        size_t factor2 = 0;
-        size_t var2    = 0;
-        size_t k2      = 0;
+        term t2 = {0,0};
         if (i2 < lparam2->n_terms) {
-            factor2 = lparam2->terms[i2].factor;
-            var2    = lparam2->terms[i2].var;
-            for (k2 = 0; k2 < rule->vars.size(); k2++) {
-                if (rule->vars[k2].var == var2)
-                    break;
-            }
-            if (values[k2] > 0) {
+            t2 = lparam2->terms[i2];
+            if (values[t2.var] > 0) {
                 i2++;
                 continue;
             }
-            scale2 = factor2 * rule->vars[k2].range;
+            scale2 = t2.factor * rule->ranges[t2.var];
         }
 
         if (scale1 > scale2) {
-            size_t min = (i02 / factor1);
+            size_t min = (i02 / t1.factor);
             size_t max = min;
             while (i2 < lparam2->n_terms) {
-                factor2 = lparam2->terms[i2].factor;
-                size_t f = factor2 / factor1;
+                t2 = lparam2->terms[i2];
+                size_t f = t2.factor / t1.factor;
                 if (f == 0)
                     break;
 
-                var2 = lparam2->terms[i2].var;
-                for (k2 = 0; k2 < rule->vars.size(); k2++) {
-                    if (rule->vars[k2].var == var2) {
-                        if (values[k2] == 0) {
-                            max += f * (rule->vars[k2].range-1);
-                        }
-                        break;
-                    }
+                if (values[t2.var] == 0) {
+                    max += f * (rule->ranges[t2.var]-1);
                 }
                 i2++;
             }
-            i02 %= factor1;
+            i02 %= t1.factor;
 
-            if (min >= this->rule->vars[k1].range)
+            if (min >= this->rule->ranges[t1.var])
                 return false;
 
             if (min == max) {
-                if (this->vars[k1] == 0)
-                    this->vars[k1] = min+1;
-                else if (this->vars[k1] != min+1)
+                if (this->vars[t1.var] == 0)
+                    this->vars[t1.var] = min+1;
+                else if (this->vars[t1.var] != min+1)
                     return false;
             }
 
             i1++;
         } else {
-            size_t min = (i01 / factor2);
+            size_t min = (i01 / t2.factor);
             size_t max = min;
             while (i1 < lparam1->n_terms) {
-                factor1 = lparam1->terms[i1].factor;
-                size_t f = factor1 / factor2;
+                t1 = lparam1->terms[i1];
+                size_t f = t1.factor / t2.factor;
                 if (f == 0)
                     break;
 
-                var1 = lparam1->terms[i1].var;
-                for (k1 = 0; k1 < rule->vars.size(); k1++) {
-                    if (rule->vars[k1].var == var1) {
-                        if (values[k1] == 0) {
-                            max += f * (rule->vars[k1].range-1);
-                        }
-                        break;
-                    }
+                if (values[t1.var] == 0) {
+                    max += f * (rule->ranges[t1.var]-1);
                 }
                 i1++;
             }
-            i01 %= factor2;
+            i01 %= t2.factor;
 
-            if (min >= rule->vars[k2].range)
+            if (min >= rule->ranges[t2.var])
                 return false;
 
             if (min == max) {
-                if (values[k2] == 0) {
+                if (values[t2.var] == 0) {
                     // we don't update the production;
-                } else if (values[k2] != min+1)
+                } else if (values[t2.var] != min+1)
                     return false;
             }
 
@@ -881,6 +840,9 @@ void PgfParser::bu_predict(PgfPhrasetable phrasetable,
             bu_predict(phrasetable->left,state,min,len);
 
         if (len > 0) {
+            //if (*current.ptr != ' ' && *current.ptr != 0)
+              //  return;
+
             for (size_t i = 0; i < phrasetable->n_items; i++) {
                 std::map<ref<PgfConcrLincat>, bool> visited;
                 //if (!td_reachable(state, phrasetable->items[i], visited))

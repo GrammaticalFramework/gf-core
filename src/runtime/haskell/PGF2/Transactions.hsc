@@ -250,7 +250,7 @@ data Symbol
   | SymALL_CAPIT                    -- the special ALL_CAPIT token
   deriving (Eq,Ord,Show)
 
-type Quantifiers = [(LVar,Int)]
+type Quantifiers = [Int]
 data Rule = Rule Quantifiers LParam [LParam] LParam [Symbol]
                  deriving (Eq,Ord,Show)
 
@@ -320,8 +320,8 @@ withBuildLinIface rules f = do
         fun <- (#peek PgfLinBuilderIfaceVtbl, set_lin_idx) vtbl
         callLParam (callLinBuilder3 fun c_builder) lin_idx c_exn
         fun <- (#peek PgfLinBuilderIfaceVtbl, add_variable) vtbl
-        forM_ vars c_exn $ \(v,r) ->
-          callLinBuilder2 fun c_builder (fromIntegral v) (fromIntegral r) c_exn
+        forM_ vars c_exn $ \r ->
+          callLinBuilder1 fun c_builder (fromIntegral r) c_exn
         forM_ seq c_exn (addSymbol c_builder vtbl c_exn)
         fun <- (#peek PgfLinBuilderIfaceVtbl, end_rule) vtbl
         callLinBuilder0 fun c_builder c_exn

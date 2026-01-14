@@ -21,7 +21,7 @@ import Control.Applicative
 import Control.Monad (foldM,zipWithM,liftM,liftM2,forM,MonadPlus(..))
 import Control.Monad.Fix
 import Data.Maybe
-import Data.List(mapAccumL,sortBy,intersperse)
+import Data.List(mapAccumL,sortBy,sortOn,intersperse)
 import Data.Containers.ListUtils(nubOrd)
 import Prelude hiding ((<>))
 
@@ -76,22 +76,21 @@ pmcfgForm g t ctxt ty = do
   (ms,_,_,fn) <- breakDown g ms unit 0 [] v ty (return []) empty
   fmap nubOrd $ runGenM g ms [] $ do
     (r,rs,v,res_params) <- fn
-    arg_params <- mapM params2int arg_params
-    res_params <- params2int res_params
-    lin_idx    <- params2int' r rs
-    seq        <- flatten v
-    qs <- quantifiers (arg_params++[res_params,lin_idx])
+    (subst,arg_params) <- mapAccumM params2int Map.empty arg_params
+    (subst,res_params) <- params2int subst res_params
+    (subst,lin_idx)    <- params2int' subst r rs
+    (subst,seq)        <- flatten subst v
+    qs <- quantifiers (Map.toList subst)
     return (Rule qs res_params arg_params lin_idx seq)
   where
     Gl sgr _ = g
 
-    quantifiers params = GenM (\(Gl sgr _) k svs ms ->
-      k ((Set.toList . Set.fromList)
-            [(variable,boundsOf sgr ms variable) | LParam _ terms <- params, (factor,variable) <- terms])
+    quantifiers vars = GenM (\(Gl sgr _) k svs ms ->
+      k [boundsOf sgr ms variable | (variable,v) <- sortOn snd vars]
         svs ms)
       where
         boundsOf sgr ms i =
-          case Map.lookup (i+1) ms of
+          case Map.lookup i ms of
             Just (Narrowing _ pty) -> case countParamValues sgr pty of
                                         Ok c    -> c
                                         Bad msg -> error msg
@@ -299,24 +298,26 @@ force (VFV c vs) = do
 force v = compileError ("Cannot evaluate" <+> ppValue Unqualified 0 v)
 
 
-flatten (VStr s) = return [SymKS s]
-flatten (VSymCat d r rs) = do
-  lin_index <- params2int' r rs
-  return [SymCat d lin_index]
-flatten (VApp _ (m,id) [])
-  | m == cPredef && id == cBIND       = return [SymBIND]
-  | m == cPredef && id == cSOFT_BIND  = return [SymSOFT_BIND]
-  | m == cPredef && id == cSOFT_SPACE = return [SymSOFT_SPACE]
-  | m == cPredef && id == cNonExist   = return [SymNE]
-  | m == cPredef && id == cCAPIT      = return [SymCAPIT]
-  | m == cPredef && id == cALL_CAPIT  = return [SymALL_CAPIT]
-flatten v0@(VAlts def alts) = do
-  def <- flatten def
-  alts <- forM alts $ \(alt,ps) -> do
-    alt <- flatten alt
-    ps  <- to_strs ps
-    return (alt,ps)
-  return [SymKP def alts]
+flatten subst (VStr s) = return (subst,[SymKS s])
+flatten subst (VSymCat d r rs) = do
+  (subst,lin_index) <- params2int' subst r rs
+  return (subst,[SymCat d lin_index])
+flatten subst (VApp _ (m,id) [])
+  | m == cPredef && id == cBIND       = return (subst,[SymBIND])
+  | m == cPredef && id == cSOFT_BIND  = return (subst,[SymSOFT_BIND])
+  | m == cPredef && id == cSOFT_SPACE = return (subst,[SymSOFT_SPACE])
+  | m == cPredef && id == cNonExist   = return (subst,[SymNE])
+  | m == cPredef && id == cCAPIT      = return (subst,[SymCAPIT])
+  | m == cPredef && id == cALL_CAPIT  = return (subst,[SymALL_CAPIT])
+flatten subst v0@(VAlts def alts) = do
+  (subst,def) <- flatten subst def
+  (subst,alts) <- mapAccumM (\subst (alt,ps) -> do
+                                (subst,alt) <- flatten subst alt
+                                ps  <- to_strs ps
+                                return (subst,(alt,ps)))
+                            subst
+                            alts
+  return (subst,[SymKP def alts])
   where
     to_strs (VStrs vs)    = mapM to_str vs
     to_strs (VPatt _ _ p) = from_patt p
@@ -332,12 +333,12 @@ flatten v0@(VAlts def alts) = do
     from_patt _            = fail
 
     fail = compileError ("Complex patterns are not supported in:" $$ nest 2 (ppValue Unqualified 0 v0))
-flatten VEmpty     = return []
-flatten (VC v1 v2) = do
-  s1 <- flatten v1
-  s2 <- flatten v2
-  return (s1++s2)
-flatten (VSusp i k vs) = do
+flatten subst VEmpty     = return (subst,[])
+flatten subst (VC v1 v2) = do
+  (subst,s1) <- flatten subst v1
+  (subst,s2) <- flatten subst v2
+  return (subst,s1++s2)
+flatten subst (VSusp i k vs) = do
   st <- getMeta i
   v <- case st of
          Narrowing c ty -> do v <- chooseMetaValue c ty
@@ -345,62 +346,66 @@ flatten (VSusp i k vs) = do
                               return v
          Bound _ v      -> return v
   g <- globals
-  flatten (apply g (k v) vs)
-flatten (VFV c vs) = do
+  flatten subst (apply g (k v) vs)
+flatten subst (VFV c vs) = do
   v <- variants c (unvariants vs)
-  flatten v
-flatten v = compileError ("Cannot evaluate" <+> ppValue Unqualified 0 v  <+> "to a string")
+  flatten subst v
+flatten subst v = compileError ("Cannot evaluate" <+> ppValue Unqualified 0 v  <+> "to a string")
 
 
-params2int rs = do
-  (r,rs,_) <- compute rs
-  return (LParam r (order rs))
+params2int subst rs = do
+  (subst,r,rs,_) <- compute subst rs
+  return (subst,LParam r (order rs))
   where
-    compute []              = return (0,[],1)
-    compute ((v,ty):params) = do
-      (r, rs, cnt ) <- param2int v ty
-      (r',rs',cnt') <- compute params
-      return (r*cnt'+r',combine cnt' rs rs',cnt*cnt')
+    compute subst []              = return (subst,0,[],1)
+    compute subst ((v,ty):params) = do
+      (subst, r, rs, cnt ) <- param2int subst v ty
+      (subst, r',rs',cnt') <- compute subst params
+      return (subst, r*cnt'+r',combine cnt' rs rs',cnt*cnt')
 
-params2int' r0 rs = do
-  (r,rs) <- compute rs
-  return (LParam (r0+r) (order rs))
+params2int' subst r0 rs = do
+  (subst,r,rs) <- compute subst rs
+  return (subst,LParam (r0+r) (order rs))
   where
-    compute []                     = return (0,[])
-    compute ((cnt',(v,ty)):params) = do
-      (r, rs, cnt) <- param2int v ty
-      (r',rs')     <- compute params
-      return (r*cnt'+r',combine cnt' rs rs')
+    compute subst []                     = return (subst,0,[])
+    compute subst ((cnt',(v,ty)):params) = do
+      (subst, r, rs, cnt) <- param2int subst v ty
+      (subst, r',rs')     <- compute subst params
+      return (subst,r*cnt'+r',combine cnt' rs rs')
 
-param2int (VR as) (RecType lbls) = compute lbls
+param2int subst (VR as) (RecType lbls) = compute subst lbls
   where
-    compute []                = return (0,[],1)
-    compute ((lbl,_,ty):lbls) = do
+    compute subst []                = return (subst,0,[],1)
+    compute subst ((lbl,_,ty):lbls) = do
       case lookup lbl as of
-        Just v   -> do (r, rs ,cnt ) <- param2int v ty
-                       (r',rs',cnt') <- compute lbls
-                       return (r*cnt'+r',combine' cnt rs cnt' rs',cnt*cnt')
+        Just v   -> do (subst, r, rs ,cnt ) <- param2int subst v ty
+                       (subst, r',rs',cnt') <- compute subst lbls
+                       return (subst,r*cnt'+r',combine' cnt rs cnt' rs',cnt*cnt')
         Nothing  -> compileError ("Missing value for label" <+> pp lbl $$
                                   "among" <+> hsep (punctuate (pp ',') (map fst as)))
-param2int (VApp _ q vs) ty = do
-  (r ,    ctxt,cnt ) <- getIdxCnt q
-  (r',rs',     cnt') <- compute ctxt vs
-  return (r+r',rs',cnt)
+param2int subst (VApp _ q vs) ty = do
+  (      r ,    ctxt,cnt ) <- getIdxCnt q
+  (subst,r',rs',     cnt') <- compute subst ctxt vs
+  return (subst,r+r',rs',cnt)
   where
-    compute []              []     = return (0,[],1)
-    compute ((_,_,ty):ctxt) (v:vs) = do
-      (r, rs ,cnt ) <- param2int v ty
-      (r',rs',cnt') <- compute ctxt vs
-      return (r*cnt'+r',combine' cnt rs cnt' rs',cnt*cnt')
-param2int (VInt n) ty
-  | Just max <- isTypeInts ty= return (fromIntegral n,[],fromIntegral max+1)
-param2int (VMeta i _) ty = do
+    compute subst []              []     = return (subst,0,[],1)
+    compute subst ((_,_,ty):ctxt) (v:vs) = do
+      (subst, r, rs ,cnt ) <- param2int subst v ty
+      (subst, r',rs',cnt') <- compute subst ctxt vs
+      return (subst,r*cnt'+r',combine' cnt rs cnt' rs',cnt*cnt')
+param2int subst (VInt n) ty
+  | Just max <- isTypeInts ty= return (subst,fromIntegral n,[],fromIntegral max+1)
+param2int subst (VMeta i _) ty = do
   st <- getMeta i
   case st of
     Narrowing c ty -> do count <- getCnt ty
-                         return (0,[(1,i-1)],count)
-    Bound _ v      -> param2int v ty
-param2int (VSusp i k vs) ty = do
+                         case Map.lookup i subst of
+                           Just v  -> return (subst,0,[(1,v)],count)
+                           Nothing -> let v      = Map.size subst
+                                          subst' = Map.insert i v subst
+                                      in return (subst',0,[(1,v)],count)
+    Bound _ v      -> param2int subst v ty
+param2int subst (VSusp i k vs) ty = do
   st <- getMeta i
   v <- case st of
          Narrowing c ty -> do v <- chooseMetaValue c ty
@@ -408,12 +413,12 @@ param2int (VSusp i k vs) ty = do
                               return v
          Bound _ v      -> return v
   g <- globals
-  param2int (apply g (k v) vs) ty
-param2int (VFV c vs) ty = do
+  param2int subst (apply g (k v) vs) ty
+param2int subst (VFV c vs) ty = do
   v <- variants c (unvariants vs)
-  param2int v ty
-param2int v ty = compileError ("the parameter:" <+> ppValue Unqualified 0 v $$
-                               "cannot be evaluated at compile time.")
+  param2int subst v ty
+param2int subst v ty = compileError ("the parameter:" <+> ppValue Unqualified 0 v $$
+                                     "cannot be evaluated at compile time.")
 
 combine' 1   rs 1    rs' = []
 combine' 1   rs cnt' rs' = rs'

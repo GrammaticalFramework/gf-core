@@ -42,7 +42,7 @@ public:
 
     void write_lincat(ref<PgfConcrLincat> lincat);
     void write_lincat_field(ref<ref<PgfText>> field);
-    void write_variable_range(ref<PgfVariableRange> var);
+    void write_variable_range(ref<size_t> var_range);
     void write_lparam(ref<PgfLParam> lparam);
     void write_symbol(PgfSymbol sym);
     void write_lin(ref<PgfConcrLin> lin);

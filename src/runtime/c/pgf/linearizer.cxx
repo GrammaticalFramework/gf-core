@@ -10,31 +10,21 @@ bool PgfLinearizer::Item::instantiate(ref<PgfLParam> lparam,size_t value)
 
     for (size_t j = 0; j < lparam->n_terms; j++) {
         term t = lparam->terms[j];
-        for (size_t k = 0; k < vars.size(); k++) {
-            if (rule->vars[k].var == t.var) {
-                if (vars[k] > 0) {
-                    if (value < vars[k]-1)
-                        return false;
-                    value -= vars[k]-1;
-                }
-                break;
-            }
+        if (vars[t.var] > 0) {
+            if (value < vars[t.var]-1)
+                return false;
+            value -= vars[t.var]-1;
         }
     }
 
     for (size_t j = 0; j < lparam->n_terms; j++) {
         term t = lparam->terms[j];
-        for (size_t k = 0; k < vars.size(); k++) {
-            if (rule->vars[k].var == t.var) {
-                if (vars[k] == 0) {
-                    size_t v_val = value / t.factor;
-                    if (v_val >= rule->vars[k].range)
-                        return false;
-                    vars[k] = v_val + 1;
-                    value %= t.factor;
-                }
-                break;
-            }
+        if (vars[t.var] == 0) {
+            size_t v_val = value / t.factor;
+            if (v_val >= rule->ranges[t.var])
+                return false;
+            vars[t.var] = v_val + 1;
+            value %= t.factor;
         }
     }
 
@@ -45,12 +35,7 @@ size_t PgfLinearizer::Item::eval(ref<PgfLParam> lparam)
 {
     size_t value = lparam->i0;
     for (size_t i = 0; i < lparam->n_terms; i++) {
-        for (size_t j = 0; j < rule->vars.size(); j++) {
-            if (lparam->terms[i].var == rule->vars[j].var) {
-                value += lparam->terms[i].factor * (vars[j]-1);
-                break;
-            }
-        }
+        value += lparam->terms[i].factor * (vars[lparam->terms[i].var]-1);
     }
     return value;
 }
@@ -252,7 +237,7 @@ bool PgfLinearizer::TreeLinNode::resolve(PgfLinearizer *linearizer)
             size_t max_value = 1;
             for (size_t i = 0; i < item->vars.size(); i++) {
                 if (item->vars[i] == 0)
-                    max_value *= item->rule->vars[i].range;
+                    max_value *= item->rule->ranges[i];
             }
 
             for (size_t value = 0; value < max_value; value++) {
@@ -261,7 +246,7 @@ bool PgfLinearizer::TreeLinNode::resolve(PgfLinearizer *linearizer)
                 size_t v = value;
                 for (size_t i = 0; i < new_item->vars.size(); i++) {
                     if (new_item->vars[i] == 0) {
-                        size_t range = new_item->rule->vars[i].range;
+                        size_t range = new_item->rule->ranges[i];
                         new_item->vars[i] = (v % range)+1;
                         v = v / range;
                     }
@@ -519,14 +504,14 @@ bool PgfLinearizer::TreeLinrefNode::resolve(PgfLinearizer *linearizer)
         size_t max_value = 1;
         for (size_t i = 0; i < item->vars.size(); i++) {
             if (item->vars[i] == 0)
-                max_value *= item->rule->vars[i].range;
+                max_value *= item->rule->ranges[i];
         }
 
         for (size_t value = 0; value < max_value; value++) {
             size_t v = value;
             for (size_t i = 0; i < item->vars.size(); i++) {
                 if (item->vars[i] == 0) {
-                    size_t range = item->rule->vars[i].range;
+                    size_t range = item->rule->ranges[i];
                     item->vars[i] = v % range;
                     v = v / range;
                 }
