@@ -23,8 +23,8 @@ module GF.Grammar.Lookup (
            lookupResType,
            lookupOverload,
            lookupOverloadTypes,
-           lookupParamValues,
            allParamValues,
+           countParamValues,
            lookupAbsDef,
            lookupLincat,
            lookupFunType,
@@ -180,27 +180,45 @@ allOrigInfos gr m = fromErr [] $ do
     ModInfo{jments=jments} -> return [((m,c),i) | (c,_) <- Map.toList jments, Ok (m,i) <- [lookupOrigInfo gr (m,c)]]
     _                      -> return []
 
-lookupParamValues :: ErrorMonad m => Grammar -> QIdent -> m [Term]
-lookupParamValues gr c = do
-  (_,info) <- lookupOrigInfo gr c
-  case info of
-    ResParam _ (Just (pvs,_)) -> return pvs
-    _                         -> raise $ render (ppQIdent Qualified c <+> "has no parameter values defined")
-
 allParamValues :: ErrorMonad m => Grammar -> Type -> m [Term]
-allParamValues cnc ptyp =
+allParamValues gr ptyp =
   case ptyp of
     _ | Just n <- isTypeInts ptyp -> return [EInt i | i <- [0..n]]
-    QC c -> lookupParamValues cnc c
-    Q  c -> lookupResDef cnc c >>= allParamValues cnc
+    QC c -> do (_,info) <- lookupOrigInfo gr c
+               case info of
+                 ResParam _ (Just (pvs,_)) -> return pvs
+                 _                         -> raise $ render (ppQIdent Qualified c <+> "has no parameter values defined")
+    Q  c -> lookupResDef gr c >>= allParamValues gr
     RecType r -> do
        let (ls,lls,tys) = unzip3 $ sortByLbl r
-       tss <- mapM (allParamValues cnc) tys
+       tss <- mapM (allParamValues gr) tys
        return [R (zipAssign ls ts) | ts <- sequence tss]
     Table pt vt -> do
-       pvs <- allParamValues cnc pt
-       vvs <- allParamValues cnc vt
+       pvs <- allParamValues gr pt
+       vvs <- allParamValues gr vt
        return [V pt ts | ts <- sequence (replicate (length pvs) vvs)]
+    _ -> raise (render ("cannot find parameter values for" <+> ptyp))
+  where
+    -- to normalize records and record types
+    sortByLbl = sortBy (\(l1,_,_) (l2,_,_) -> compare l1 l2)
+
+countParamValues :: ErrorMonad m => Grammar -> Type -> m Int
+countParamValues gr ptyp =
+  case ptyp of
+    _ | Just n <- isTypeInts ptyp -> return (fromIntegral n)
+    QC c -> do (_,info) <- lookupOrigInfo gr c
+               case info of
+                 ResParam _ (Just (_,cnt)) -> return cnt
+                 _                         -> raise $ render (ppQIdent Qualified c <+> "has no parameter values defined")
+    Q  c -> lookupResDef gr c >>= countParamValues gr
+    RecType r -> do
+       let (ls,lls,tys) = unzip3 $ sortByLbl r
+       cs <- mapM (countParamValues gr) tys
+       return (product cs)
+    Table pt vt -> do
+       pc <- countParamValues gr pt
+       vc <- countParamValues gr vt
+       return (vc ^ pc)
     _ -> raise (render ("cannot find parameter values for" <+> ptyp))
   where
     -- to normalize records and record types

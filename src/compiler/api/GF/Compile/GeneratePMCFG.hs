@@ -92,8 +92,8 @@ pmcfgForm g t ctxt ty = do
       where
         boundsOf sgr ms i =
           case Map.lookup (i+1) ms of
-            Just (Narrowing _ pty) -> case allParamValues sgr pty of
-                                        Ok ps   -> length ps
+            Just (Narrowing _ pty) -> case countParamValues sgr pty of
+                                        Ok c    -> c
                                         Bad msg -> error msg
             _                      -> error (show (ppLVar i <+> "is not a free variable"))
 
@@ -123,7 +123,7 @@ mkLinDefault gr typ = liftM (Abs Explicit varStr) $ mkDefField typ
                         let T _ cs = mkWildCases t'
                         return $ T (TWild p) cs
        Sort s | s == cStr -> return (Vr varStr)
-       QC p       -> case lookupParamValues gr p of
+       QC p       -> case allParamValues gr ty of
                        Ok []    -> checkError ("no parameter values given to type" <+> ppQIdent Qualified p)
                        Ok (v:_) -> return v
                        Bad msg  -> fail msg
@@ -176,8 +176,8 @@ type2metaTerm gr d ms s r rs (Table p q) params
                      delta  = r'-r
                  in (ms',s',r+delta*count,T (TTyped p) [(PV pv,t)],params')
   where
-    count = case allParamValues gr p of
-              Ok ts   -> length ts
+    count = case countParamValues gr p of
+              Ok c    -> c
               Bad msg -> error msg
 type2metaTerm gr d ms c r rs ty@(QC q) params =
   let i = Map.size ms + 1
@@ -218,7 +218,7 @@ breakDown g ms c r rs v (Table p q) fn0 fn = do
       v0 = VS v v2 []
       (c1,c2) = split c
       Gl gr _ = g
-  cnt <- fmap length $ allParamValues gr p
+  cnt <- countParamValues gr p
   (ms,r',fn0,fn) <- mfix $ \(~(_,r',_,_)) ->
        breakDown g (Map.insert i (Narrowing c1 p) ms) c2 r ((r'-r,(v2,p)):rs) (select v0 v v2) q fn0 fn
   return (ms,r+(r'-r)*cnt,fn0,fn)
@@ -476,8 +476,8 @@ setMeta i st = GenM $ \_ k svs ms ->
   k () svs (Map.insert i st ms)
 
 getCnt ty = GenM $ \(Gl gr _) k svs ms r ->
-  case allParamValues gr ty of
-    Ok ts   -> k (length ts) svs ms r
+  case countParamValues gr ty of
+    Ok c    -> k c svs ms r
     Bad msg -> checkError (pp msg)
 
 getIdxCnt q = GenM $ \(Gl gr _) k svs ms r ->
