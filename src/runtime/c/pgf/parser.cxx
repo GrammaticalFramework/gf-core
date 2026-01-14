@@ -251,8 +251,8 @@ void PgfAbstractParser::complete(Item *item, const PgfTextSpot &spot, bool bind)
 #ifdef DEBUG_PARSER
             {
                 PgfPrinter printer(NULL,0,NULL);
-                if (item->rule->vars.size() > 0) {
-                    printer.lvar_ranges(item->rule->vars, &item->vars[0]);
+                if (item->rule->ranges.size() > 0) {
+                    printer.lvar_ranges(item->rule->ranges, &item->vars[0]);
                     printer.puts(" ");
                 }
                 printer.nprintf(64,"complete [%zd-%zd; ",item->cont->state->end.pos,state->start.pos);
@@ -629,7 +629,7 @@ void PgfAbstractParser::print_item(Item *item, const PgfTextSpot &spot)
     printer.nprintf(32, "[%zd-%zd; ", item->cont ? item->cont->state->end.pos : 0, spot.pos);
 
     if (item->vars.size() > 0) {
-        printer.lvar_ranges(item->rule->vars, &item->vars[0]);
+        printer.lvar_ranges(item->rule->ranges, &item->vars[0]);
         printer.puts(" ");
     }
 
@@ -703,7 +703,7 @@ void PgfAbstractParser::print_prod(CCat *ccat, Production *prod)
     PgfPrinter printer(NULL,0,NULL);
 
     if (prod->vars.size() > 0) {
-        printer.lvar_ranges(prod->rule->vars, &prod->vars[0]);
+        printer.lvar_ranges(prod->rule->ranges, &prod->vars[0]);
         printer.puts(" ");
     }
 
@@ -840,8 +840,8 @@ void PgfParser::bu_predict(PgfPhrasetable phrasetable,
             bu_predict(phrasetable->left,state,min,len);
 
         if (len > 0) {
-            //if (*current.ptr != ' ' && *current.ptr != 0)
-              //  return;
+            if (*current.ptr != ' ' && *current.ptr != 0)
+                return;
 
             for (size_t i = 0; i < phrasetable->n_items; i++) {
                 std::map<ref<PgfConcrLincat>, bool> visited;
