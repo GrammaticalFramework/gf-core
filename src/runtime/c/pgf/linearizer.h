@@ -45,7 +45,6 @@ class PGF_INTERNAL_DECL PgfLinearizer : public PgfUnmarshaller {
             size_t sz2 = rule->vars.size()*sizeof(size_t);
             Item *new_item = (Item *) malloc(sz+sz2);
             memset(new_item, 0, sz+sz2);
-            new_item->rule = rule;
             return new_item;
         }
 

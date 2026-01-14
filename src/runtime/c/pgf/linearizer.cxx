@@ -76,11 +76,11 @@ void PgfLinearizer::TreeNode::linearize_arg(PgfLinearizationOutputIface *out, Pg
     TreeNode *arg = args;
     while (d > 0) {
         arg = arg->next_arg;
-        if (arg == 0)
+        if (arg == NULL)
             break;
         d--;
     }
-    if (arg == 0)
+    if (arg == NULL)
         throw pgf_error("Missing argument");
     arg->linearize(out, linearizer, r);
 }
@@ -235,6 +235,7 @@ bool PgfLinearizer::TreeLinNode::resolve(PgfLinearizer *linearizer)
 
     while (rule_index < lin->rules.size()) {
         Item *item = new (lin->rules[rule_index]) Item();
+        item->rule = lin->rules[rule_index];
 
         int i = 0;
         TreeNode *arg = args;
@@ -508,6 +509,7 @@ bool PgfLinearizer::TreeLinrefNode::resolve(PgfLinearizer *linearizer)
 
     while (rule_index < lincat->rules.size()) {
         Item *item = new (lincat->rules[lincat->n_lindefs+rule_index]) Item();
+        item->rule = lincat->rules[lincat->n_lindefs+rule_index];
 
         if (!item->instantiate(item->rule->args[0], root->value)) {
             rule_index++;
