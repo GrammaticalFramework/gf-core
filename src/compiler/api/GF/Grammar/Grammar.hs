@@ -342,7 +342,7 @@ data Info =
 
 -- indirection to module Ident
  | AnyInd Bool ModuleName                        -- ^ (/INDIR/) the 'Bool' says if canonical
-  deriving Show
+  deriving (Eq,Show)
 
 type Type    = Term
 type Cat     = QIdent
