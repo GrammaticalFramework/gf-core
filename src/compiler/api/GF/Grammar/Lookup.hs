@@ -73,7 +73,8 @@ lookupIdentInfo (m,ModPGF{mpgf=pgf})   i =
     appHypos []                  xs t es =
       foldl (appExpr xs) t es
     appHypos ((bt, v, ty):hypos) xs t es =
-      let x = identS v in Prod bt x (cnvType xs ty) (appHypos hypos (x:xs) t es)
+      let x = if v == "_" then identW else identS v
+      in Prod bt x (cnvType xs ty) (appHypos hypos (x:xs) t es)
 
     appExpr xs t e = App t (cnvExpr xs e)
 
