@@ -29,7 +29,7 @@ import qualified Data.ByteString.UTF8 as UTF8
 import qualified Data.ByteString.Char8 as BS(append,isPrefixOf,drop,length)
                  -- Limit use of BS functions to the ones that work correctly on
                  -- UTF-8-encoded bytestrings!
-import Data.Char(isDigit)
+import Data.Char(chr)
 import Data.Binary(Binary(..))
 import Text.JSON hiding (Result(..))
 import GF.Text.Pretty
@@ -104,7 +104,26 @@ ident2raw = Id . ident2utf8
 showIdent :: Ident -> String
 showIdent i = unpack $! ident2utf8 i
 
-instance Pretty Ident where pp = pp . showIdent
+instance Pretty Ident where
+  pp id
+    | valid_ident s = pp s
+    | otherwise     = pp (escape s)
+    where
+      s = showIdent id
+
+      valid_ident s =
+        case s of
+          [] -> False
+          (c:cs) -> elem c ident_first && all (flip elem ident_rest) cs
+        where
+          l = ['a'..'z']++['A'..'Z']++[chr 192..chr 214]++[chr 216..chr 246]++[chr 248..chr 255]
+          ident_first = '_':l
+          ident_rest  = ident_first ++ ['0'..'9'] ++ ['\'']
+
+      escape s = "\'"++concatMap slash s++"\'"
+        where
+          slash '\'' = "\\'"
+          slash c    = [c]
 
 instance Pretty RawIdent where pp = pp . showRawIdent
 
