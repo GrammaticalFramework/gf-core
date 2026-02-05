@@ -77,17 +77,3 @@ cConst = identS "const"
 
 cp1 = identS "p1"
 cp2 = identS "p2"
-
--- * Hacks: dummy identifiers used in various places.
--- Not very nice!
-
-cMeta = identS "?"
-cAs = identS "@"
-cChar = identS "?"
-cChars = identS "[]"
-cSeq = identS "+"
-cAlt = identS "|"
-cRep = identS "*"
-cNeg = identS "-"
-cCNC = identS "CNC"
-cConflict = identS "#conflict"

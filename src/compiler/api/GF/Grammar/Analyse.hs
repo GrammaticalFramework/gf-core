@@ -89,7 +89,7 @@ sizeTerm t = case t of
   R r          -> 1 + sum [1 + sizeTerm a | (_,(_,a)) <- r]  -- label counts as 1, type ignored
   RecType r    -> 1 + sum [1 + sizeTerm a | (_,_,a)   <- r]  -- label counts as 1
   P t i        -> 2 + sizeTerm t
-  T _ cc       -> 1 + sum [1 + sizeTerm (patt2term p) + sizeTerm v | (p,v) <- cc]
+  T _ cc       -> 1 + sum [1 + sizePatt p + sizeTerm v | (p,v) <- cc]
   V ty cc      -> 1 + sizeTerm ty + sum [1 + sizeTerm v | v <- cc]
   Let (x,(mt,a)) b -> 2 + maybe 0 sizeTerm mt + sizeTerm a + sizeTerm b
   C s1 s2      -> 1 + sizeTerm s1 + sizeTerm s2 
@@ -99,13 +99,25 @@ sizeTerm t = case t of
   Strs tt      -> 1 + sum (map sizeTerm tt)
   _            -> 1
 
+sizePatt :: Patt -> Int
+sizePatt p = case p of
+  PC c pp   -> 1 + sum (map sizePatt pp)
+  PP c pp   -> 1 + sum (map sizePatt pp)
+  PR r      -> 1 + sum [sizePatt p | (l,p) <- r]
+  PT _ p    -> sizePatt p
+  PAs _ p   -> sizePatt p
+  PSeq _ _ a _ _ b  -> 1 + sizePatt a + sizePatt b
+  PAlt a b  -> 1 + sizePatt a + sizePatt b
+  PRep _ _ a-> 1 + sizePatt a
+  PNeg a    -> 1 + sizePatt a
+  _         -> 1
 
 -- the size of a judgement
 sizeInfo :: Info -> Int
 sizeInfo i = case i of
   AbsCat (Just (L _ co)) -> 1 + sum [1 + sizeTerm ty | (_,_,ty) <- co]
   AbsFun mt mi me mb -> 1 + msize mt + 
-    sum [sum (map (sizeTerm . patt2term) ps) + sizeTerm t | Just es <- [me], L _ (ps,t) <- es]
+    sum [sum (map sizePatt ps) + sizeTerm t | Just es <- [me], L _ (ps,t) <- es]
   ResParam mp mt -> 
     1 + sum [1 + sum [1 + sizeTerm ty | (_,_,ty) <- co] | Just (L _ ps) <- [mp], (_,co) <- ps]
   ResValue _ _ -> 0
