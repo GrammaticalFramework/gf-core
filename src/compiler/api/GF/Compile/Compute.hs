@@ -1,10 +1,10 @@
 {-# LANGUAGE RankNTypes, BangPatterns, GeneralizedNewtypeDeriving, TupleSections #-}
 
-module GF.Compile.Compute.Concrete
+module GF.Compile.Compute
            (Env, Scope, Value(..), Variants(..), OptionInfo(..),
             ConstValue(..), Globals(..), PredefTable, EvalM,
             mapVariantsC, unvariants,
-            runEvalM, runEvalMWithInput, stdPredef, globals,
+            runEvalM, runEvalMWithInput, stdPredef, noPredef, globals,
             PredefImpl, Predef(..), ($\),
             pdCanonicalArgs, pdArity,
             normalForm, normalFlatForm,
@@ -17,7 +17,7 @@ import GF.Infra.Ident
 import GF.Infra.CheckM
 import GF.Data.Operations(Err(..))
 import GF.Data.Utilities(maybeAt,splitAt',(<||>),anyM,secondM,bimapM)
-import GF.Grammar.Lookup(lookupResDef,lookupOrigInfo)
+import GF.Grammar.Lookup(lookupAbsDef,lookupResDef,lookupOrigInfo)
 import GF.Grammar.Grammar
 import GF.Grammar.Macros
 import GF.Grammar.Predef
@@ -58,7 +58,7 @@ pdArity n def = Predef $ \g c args ->
 type Env  = [(Ident,Value)]
 type Scope = [(Ident,Value)]
 type PredefTable = Map.Map Ident Predef
-data Globals = Gl Grammar PredefTable
+data Globals = Gl Grammar PredefTable Bool {- True for abstract, False for concrete -}
 
 data Value
   = VApp Choice QIdent [Value]
@@ -245,11 +245,17 @@ eval g env s (Let (x,(_,t1)) t2) vs = let (!s1,!s2) = split s
                                       in eval g ((x,eval g env s1 t1 []):env) s2 t2 vs
 eval g env c (Q q@(m,id))  vs
   | m == cPredef              = evalPredef g c id vs
+  | isAbstract                = let v0 = VApp c q vs
+                                in case lookupAbsDef gr q of
+                                     Ok (Just arity,Just eqs)
+                                       | length vs < arity -> v0
+                                       | otherwise -> patternMatch g c v0 (map (\(ps,t) -> (env,ps,vs,t)) eqs)
+                                     Bad msg -> error msg
   | otherwise                 = case lookupResDef gr q of
                                   Ok t    -> eval g env c t vs
                                   Bad msg -> error msg
   where
-    Gl gr predef = g
+    Gl gr predef isAbstract = g
 eval g env s (QC q)         vs  = VApp s q vs
 eval g env s (C t1 t2)      []  = let (!s1,!s2) = split s
 
@@ -325,7 +331,7 @@ eval g env c t@(Opts n cs)  vs  = if null cs
 eval g env c t              vs = VError ("Cannot reduce term" <+> pp t)
 
 evalPredef :: Globals -> Choice -> Ident -> [Value] -> Value
-evalPredef g@(Gl gr pds) c n args =
+evalPredef g@(Gl gr pds _) c n args =
   case Map.lookup n pds of
     Nothing  -> VApp c (cPredef,n) args
     Just def -> let valueOf (Const res) = res
@@ -334,6 +340,9 @@ evalPredef g@(Gl gr pds) c n args =
                     valueOf RunTime     = VApp c (cPredef,n) args
                     valueOf NonExist    = VApp c (cPredef,cNonExist) []
                 in valueOf (runPredef def g c args)
+
+noPredef :: PredefTable
+noPredef = Map.empty
 
 stdPredef :: Globals -> PredefTable
 stdPredef g = Map.fromList
@@ -540,7 +549,7 @@ patternMatch g s v0 ((env0,ps,args0,t):eqs) = match env0 ps eqs args0
                                                                                         (pp t))
                                                  Bad msg -> error msg
                                                where
-                                                 Gl gr _ = g
+                                                 Gl gr _ _ = g
     match env (PV v      :ps) eqs (arg:args) = match ((v,arg):env) ps eqs args
     match env (PAs v p   :ps) eqs (arg:args) = match ((v,arg):env) (p:ps) eqs (arg:args)
     match env (PW        :ps) eqs (arg:args) = match env ps eqs args
@@ -651,7 +660,7 @@ vtableSelect g v0 ty cs v2 vs =
             Ok res  -> res
             Bad msg -> error msg
 
-        Gl gr _ = g
+        Gl gr _ _ = g
     value2index (VInt n) (VApp _ c [VInt max])
       | Q c == cnPredef cInts         = Const (fromIntegral n,fromIntegral max+1)
     value2index (VFV c vs)        vty = CFV c (fmap (\v -> value2index v vty) vs)

@@ -30,7 +30,6 @@ module GF.Compile.Rename (
 import GF.Infra.Ident
 import GF.Infra.CheckM
 import GF.Grammar.Grammar
-import GF.Grammar.Values
 import GF.Grammar.Predef
 import GF.Grammar.Lookup
 import GF.Grammar.Macros
@@ -87,7 +86,7 @@ renameIdentTerm' env@(act,imps) t0 =
 
     -- this facility is mainly for BWC with GF1: you need not import PredefAbs
     predefAbs c s
-      | isPredefCat c = return (Q (cPredefAbs,c))
+      | isPredefCat c = return (QC (cPredefAbs,c))
       | otherwise     = checkError s
 
     ident alt c =
@@ -106,6 +105,7 @@ renameIdentTerm' env@(act,imps) t0 =
 
 info2status :: Maybe ModuleName -> Ident -> Info -> Term
 info2status mq c i = case i of
+  AbsCat _ -> maybe Con (curry QC) mq c
   AbsFun _ _ Nothing _ -> maybe Con (curry QC) mq c
   ResValue _ _ -> maybe Con (curry QC) mq c
   ResParam _ _ -> maybe Con (curry QC) mq c

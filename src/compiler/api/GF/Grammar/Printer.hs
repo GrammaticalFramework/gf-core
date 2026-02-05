@@ -16,9 +16,7 @@ module GF.Grammar.Printer
            , ppParams
            , ppTerm
            , ppPatt
-           , ppValue
            , ppBind
-           , ppConstrs
            , ppQIdent
            , ppMeta
            , ppLVar
@@ -29,7 +27,6 @@ import Prelude hiding ((<>)) -- GHC 8.4.1 clash with Text.PrettyPrint
 import PGF2(Literal(..),pgfFilePath)
 import GF.Infra.Ident
 import GF.Infra.Option
-import GF.Grammar.Values
 import GF.Grammar.Predef
 import GF.Grammar.Grammar
 
@@ -304,22 +301,6 @@ ppPatt q d (PString s)  = str s
 ppPatt q d (PR xs)      = braces (hsep (punctuate ';' [l <+> '=' <+> ppPatt q 0 e | (l,e) <- xs]))
 ppPatt q d (PImplArg p) = braces (ppPatt q 0 p)
 ppPatt q d (PTilde t)   = prec d 2 ('~' <> ppTerm q 6 t)
-
-ppValue :: TermPrintQual -> Int -> Val -> Doc
-ppValue q d (VGen i x)    = x <> "{-" <> i <> "-}" ---- latter part for debugging
-ppValue q d (VApp u v)    = prec d 4 (ppValue q 4 u <+> ppValue q 5 v)
-ppValue q d (VCn (_,c))   = pp c
-ppValue q d (VClos env e) = case e of
-                              Meta _ -> ppTerm q d e <> ppEnv env
-                              _      -> ppTerm q d e ---- ++ prEnv env ---- for debugging
-ppValue q d (VRecType xs) = braces (hsep (punctuate ',' [l <> '=' <> ppValue q 0 v | (l,v) <- xs]))
-ppValue q d VType         = pp "Type"
-
-ppConstrs :: Constraints -> [Doc]
-ppConstrs = map (\(v,w) -> braces (ppValue Unqualified 0 v <+> "<>" <+> ppValue Unqualified 0 w))
-
-ppEnv :: Env -> Doc
-ppEnv e = hcat (map (\(x,t) -> braces (x <> ":=" <> ppValue Unqualified 0 t)) e)
 
 str s = doubleQuotes (pp (foldr showLitChar "" s))
   where

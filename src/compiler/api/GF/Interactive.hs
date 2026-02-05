@@ -13,8 +13,8 @@ import GF.Command.Help(helpCommand)
 import GF.Command.Abstract
 import GF.Command.Parse(readCommandLine,pCommand,readTransactionCommand)
 import GF.Compile.Rename(renameSourceTerm)
-import GF.Compile.TypeCheck.Concrete(inferLType)
-import GF.Compile.Compute.Concrete(stdPredef,normalForm,Globals(..))
+import GF.Compile.TypeCheck(inferLType)
+import GF.Compile.Compute(stdPredef,normalForm,Globals(..))
 import GF.Compile.GeneratePMCFG(pmcfgForm,type2fields)
 import GF.Data.Operations (Err(..))
 import GF.Data.Utilities(whenM,repeatM)
@@ -315,7 +315,7 @@ transactionCommand (CreateLin opts f mb_t is_alter) pgf mb_txnid = do
             hypos
 
     compileLinTerm sgr mo f mb_t ty = do
-      let g = Gl sgr (stdPredef g)
+      let g = Gl sgr (stdPredef g) False
       (t,ty) <- case mb_t of
                   Just t  -> do t <- renameSourceTerm sgr mo (Typed t ty)
                                 
@@ -344,7 +344,7 @@ transactionCommand (CreateLincat opts c mb_t) pgf mb_txnid = do
     compileLincatTerm sgr mo mb_t = do
       t <- case mb_t of
              Just t  -> do t <- renameSourceTerm sgr mo t
-                           let g = Gl sgr (stdPredef g)
+                           let g = Gl sgr (stdPredef g) False
                            (t,_) <- inferLType g t
                            return t
              Nothing -> case lookupResDef sgr (mo,identS c) of

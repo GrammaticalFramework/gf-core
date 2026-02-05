@@ -13,7 +13,7 @@ import GF.Grammar.Macros
 import GF.Grammar.Predef
 import GF.Grammar.Printer hiding (ppValue)
 import GF.Text.Pretty hiding (empty)
-import GF.Compile.Compute.Concrete hiding ( getMeta, setMeta, globals, variants )
+import GF.Compile.Compute hiding ( getMeta, setMeta, globals, variants )
 import qualified GF.Text.Pretty as PP
 import qualified Data.Map as Map
 import qualified Data.Set as Set
@@ -30,7 +30,7 @@ generatePMCFG :: Options -> FilePath -> SourceGrammar -> SourceModule -> Check S
 generatePMCFG opts cwd gr cmo@(cm,cmi)
   | mstatus cmi == MSComplete && isModCnc cmi =
                 do let gr' = prependModule gr cmo
-                       g   = Gl gr' (stdPredef g)
+                       g   = Gl gr' (stdPredef g) False
                    js <- Map.traverseWithKey (addPMCFG cwd g cmi) (jments cmi)
                    return (cm,cmi{jments = js})
   | otherwise = return cmo
@@ -55,7 +55,7 @@ addPMCFG cwd g cmi id (CncCat mty@(Just (L loc ty)) mdef mref mprn Nothing) = do
                                    return (Just (L loc prn))
   return (CncCat mty mdef mref mprn (Just (defs,refs)))
   where
-    Gl sgr _ = g
+    Gl sgr _ _ = g
 addPMCFG cwd g cmi id (CncFun (Just lty@(cats,cat,ctxt,ty)) mlin@(Just (L loc term)) mprn Nothing) = do
   rules <- checkInModule cwd cmi loc ("Happened in the rule generation for" <+> id) $
              pmcfgForm g term ctxt ty
@@ -66,7 +66,7 @@ addPMCFG cwd g cmi id (CncFun (Just lty@(cats,cat,ctxt,ty)) mlin@(Just (L loc te
                                    return (Just (L loc prn))
   return (CncFun (Just lty) mlin mprn (Just rules))
   where
-    Gl sgr _ = g
+    Gl sgr _ _ = g
 
 addPMCFG cwd g cmi id info = return info
 
@@ -83,9 +83,9 @@ pmcfgForm g t ctxt ty = do
     qs <- quantifiers (Map.toList subst)
     return (Rule qs res_params arg_params lin_idx seq)
   where
-    Gl sgr _ = g
+    Gl sgr _ _ = g
 
-    quantifiers vars = GenM (\(Gl sgr _) k svs ms ->
+    quantifiers vars = GenM (\(Gl sgr _ _) k svs ms ->
       k [boundsOf sgr ms variable | (variable,v) <- sortOn snd vars]
         svs ms)
       where
@@ -216,7 +216,7 @@ breakDown g ms c r rs v (Table p q) fn0 fn = do
       v2 = VMeta i []
       v0 = VS v v2 []
       (c1,c2) = split c
-      Gl gr _ = g
+      Gl gr _ _ = g
   cnt <- countParamValues gr p
   (ms,r',fn0,fn) <- mfix $ \(~(_,r',_,_)) ->
        breakDown g (Map.insert i (Narrowing c1 p) ms) c2 r ((r'-r,(v2,p)):rs) (select v0 v v2) q fn0 fn
@@ -480,12 +480,12 @@ getMeta i = GenM $ \_ k svs ms r ->
 setMeta i st = GenM $ \_ k svs ms ->
   k () svs (Map.insert i st ms)
 
-getCnt ty = GenM $ \(Gl gr _) k svs ms r ->
+getCnt ty = GenM $ \(Gl gr _ _) k svs ms r ->
   case countParamValues gr ty of
     Ok c    -> k c svs ms r
     Bad msg -> checkError (pp msg)
 
-getIdxCnt q = GenM $ \(Gl gr _) k svs ms r ->
+getIdxCnt q = GenM $ \(Gl gr _ _) k svs ms r ->
   case lookupOrigInfo gr q of
     Ok (_,ResValue (L _ ty) idx) -> 
       let (ctxt,QC p) = typeFormCnc ty
@@ -495,7 +495,7 @@ getIdxCnt q = GenM $ \(Gl gr _) k svs ms r ->
     Bad msg -> checkError (pp msg)
 
 chooseMetaValue :: Choice -> Type -> GenM Value
-chooseMetaValue s ptyp = GenM $ \g@(Gl gr _) k svs ms r ->
+chooseMetaValue s ptyp = GenM $ \g@(Gl gr _ _) k svs ms r ->
   case ptyp of
     _ | Just n <- isTypeInts ptyp -> foldM (\r i -> k (VInt i) svs ms r) r [0..n]
     QC c -> do (mod,info) <- lookupOrigInfo gr c

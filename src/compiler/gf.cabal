@@ -104,7 +104,7 @@ library
     GF.Command.TreeOperations
     GF.Compile.CFGtoPGF
     GF.Compile.CheckGrammar
-    GF.Compile.Compute.Concrete
+    GF.Compile.Compute
     GF.Compile.ExampleBased
     GF.Compile.Export
     GF.Compile.GenerateBC
@@ -122,9 +122,7 @@ library
     GF.Compile.SubExOpt
     GF.Compile.Tags
     GF.Compile.ToAPI
-    GF.Compile.TypeCheck.Abstract
-    GF.Compile.TypeCheck.Concrete
-    GF.Compile.TypeCheck.TC
+    GF.Compile.TypeCheck
     GF.Compile.Update
     GF.Data.BacktrackM
     GF.Data.Graph
@@ -147,8 +145,6 @@ library
     GF.Grammar.Predef
     GF.Grammar.Printer
     GF.Grammar.ShowTerm
-    GF.Grammar.Unify
-    GF.Grammar.Values
     GF.Grammar.JSON
     GF.Infra.Concurrency
     GF.Infra.Dependencies

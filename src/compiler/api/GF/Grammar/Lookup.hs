@@ -26,6 +26,7 @@ module GF.Grammar.Lookup (
            allParamValues,
            countParamValues,
            lookupAbsDef,
+           lookupAbsType,
            lookupLincat,
            lookupFunType,
            lookupCatContext,
@@ -225,12 +226,12 @@ countParamValues gr ptyp =
     -- to normalize records and record types
     sortByLbl = sortBy (\(l1,_,_) (l2,_,_) -> compare l1 l2)
 
-lookupAbsDef :: ErrorMonad m => Grammar -> ModuleName -> Ident -> m (Maybe Int,Maybe [Equation])
-lookupAbsDef gr m c = errIn (render ("looking up absdef of" <+> c)) $ do
-  info <- lookupQIdentInfo gr (m,c)
+lookupAbsDef :: ErrorMonad m => Grammar -> QIdent -> m (Maybe Int,Maybe [Equation])
+lookupAbsDef gr q@(m,c) = errIn (render ("looking up absdef of" <+> c)) $ do
+  info <- lookupQIdentInfo gr q
   case info of
     AbsFun _ a d _ -> return (a,fmap (map unLoc) d)
-    AnyInd _ n     -> lookupAbsDef gr n c
+    AnyInd _ n     -> lookupAbsDef gr (n,c)
     _              -> return (Nothing,Nothing)
 
 lookupLincat :: ErrorMonad m => Grammar -> ModuleName -> Ident -> m Type
@@ -243,12 +244,29 @@ lookupLincat gr m c = do
     _                             -> raise (render (c <+> "has no linearization type in" <+> m))
 
 -- | this is needed at compile time
-lookupFunType :: ErrorMonad m => Grammar -> ModuleName -> Ident -> m Type
-lookupFunType gr m c = do
-  info <- lookupQIdentInfo gr (m,c)
+lookupAbsType :: ErrorMonad m => Grammar -> QIdent -> m Type
+lookupAbsType gr q@(m,c)
+  | m == cPredefAbs =
+      if elem c [cInt,cFloat,cString]
+        then return typeType
+        else no_type
+  | otherwise = do
+      info <- lookupQIdentInfo gr q
+      case info of
+        AbsCat (Just (L _ co))      -> return (mkProd co typeType [])
+        AbsFun (Just (L _ t)) _ _ _ -> return t
+        AnyInd _ n                  -> lookupAbsType gr (n,c)
+        _                           -> no_type
+  where
+    no_type = raise (render ("cannot find type of" <+> c))
+
+-- | this is needed at compile time
+lookupFunType :: ErrorMonad m => Grammar -> QIdent -> m Type
+lookupFunType gr q@(m,c) = do
+  info <- lookupQIdentInfo gr q
   case info of
     AbsFun (Just (L _ t)) _ _ _ -> return t
-    AnyInd _ n                  -> lookupFunType gr n c
+    AnyInd _ n                  -> lookupFunType gr (n,c)
     _                           -> raise (render ("cannot find type of" <+> c))
 
 -- | this is needed at compile time

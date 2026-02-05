@@ -9,7 +9,7 @@ import GF.Grammar
 import GF.Grammar.Lookup(allOrigInfos,lookupOrigInfo)
 import GF.Infra.Option(Options,noOptions)
 import GF.Infra.CheckM
-import GF.Compile.Compute.Concrete
+import GF.Compile.Compute
 import qualified Data.Map as Map
 import qualified Data.Set as Set
 import Data.Maybe(mapMaybe,fromMaybe)
@@ -81,7 +81,7 @@ type QSet = Set.Set (ModuleName,Ident)
 -- | Generate Canonical GF for the given concrete module.
 concrete2canonical :: Grammar -> ModuleName -> ModuleName -> ModuleInfo -> Check (QSet,Module)
 concrete2canonical gr absname cncname modinfo = do
-  let g = Gl gr (stdPredef g)
+  let g = Gl gr (stdPredef g) False
   infos <- mapM (convInfo g) (allOrigInfos gr cncname)
   let pts = Set.unions (map fst infos)
   return (pts,
