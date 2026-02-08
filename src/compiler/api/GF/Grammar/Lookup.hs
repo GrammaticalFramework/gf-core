@@ -244,19 +244,20 @@ lookupLincat gr m c = do
     _                             -> raise (render (c <+> "has no linearization type in" <+> m))
 
 -- | this is needed at compile time
-lookupAbsType :: ErrorMonad m => Grammar -> QIdent -> m Type
+lookupAbsType :: ErrorMonad m => Grammar -> QIdent -> m (Term,Type)
 lookupAbsType gr q@(m,c)
   | m == cPredefAbs =
       if elem c [cInt,cFloat,cString]
-        then return typeType
+        then return (QC q,typeType)
         else no_type
   | otherwise = do
       info <- lookupQIdentInfo gr q
       case info of
-        AbsCat (Just (L _ co))      -> return (mkProd co typeType [])
-        AbsFun (Just (L _ t)) _ _ _ -> return t
-        AnyInd _ n                  -> lookupAbsType gr (n,c)
-        _                           -> no_type
+        AbsCat (Just (L _ co))             -> return (QC q,mkProd co typeType [])
+        AbsFun (Just (L _ t)) _ Nothing  _ -> return (QC q,t)
+        AbsFun (Just (L _ t)) _ (Just _) _ -> return (Q q,t)
+        AnyInd _ n                         -> lookupAbsType gr (n,c)
+        _                                  -> no_type
   where
     no_type = raise (render ("cannot find type of" <+> c))
 

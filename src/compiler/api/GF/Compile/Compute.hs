@@ -5,12 +5,11 @@ module GF.Compile.Compute
             ConstValue(..), Globals(..), PredefTable, EvalM,
             mapVariantsC, unvariants,
             runEvalM, runEvalMWithInput, stdPredef, noPredef, globals,
-            PredefImpl, Predef(..), ($\),
-            pdCanonicalArgs, pdArity,
+            PredefImpl, Predef, pdArity,
             normalForm, normalFlatForm,
             eval, apply, value2term, value2termM, value2string, value2int, value2float, value2expr, string2value, bubble, patternMatch, vtableSelect, State(..),
             newResiduation, checkpoint, getMeta, setMeta, MetaState(..), variants, try,
-            evalError, evalWarn, ppValue, Choice(..), unit, poison, split, split3, split4, mapC, mapCM) where
+            evalError, evalWarn, ppValue, Choice(..), unit, split, split3, split4, mapC, mapCM) where
 
 import Prelude hiding ((<>)) -- GHC 8.4.1 clash with Text.PrettyPrint
 import GF.Infra.Ident
@@ -37,23 +36,10 @@ import Data.Char
 import PGF2(Expr(..),Literal(..))
 
 type PredefImpl = Globals -> Choice -> [Value] -> ConstValue Value
-newtype Predef = Predef { runPredef :: PredefImpl }
+data Predef = Predef { predefArity :: Int, predefRun :: PredefImpl }
 
-infix 1 $\
-
-($\) :: (Predef -> Predef) -> PredefImpl -> Predef
-k $\ f = k (Predef f)
-
-pdCanonicalArgs :: Bool -> Predef -> Predef
-pdCanonicalArgs flat def = Predef $ \g c args ->
-  if all (isCanonicalForm flat) args then runPredef def g c args else RunTime
-
-pdArity :: Int -> Predef -> Predef
-pdArity n def = Predef $ \g c args ->
-  case splitAt' n args of
-    Nothing -> RunTime
-    Just (usedArgs, remArgs) ->
-      runPredef def g c usedArgs <&> \v -> apply g v remArgs
+pdArity :: Int -> PredefImpl -> Predef
+pdArity n def = Predef n def
 
 type Env  = [(Ident,Value)]
 type Scope = [(Ident,Value)]
@@ -61,7 +47,9 @@ type PredefTable = Map.Map Ident Predef
 data Globals = Gl Grammar PredefTable Bool {- True for abstract, False for concrete -}
 
 data Value
-  = VApp Choice QIdent [Value]
+  = VApp QIdent [Value]           -- application of a constructor
+  | VPAP Choice QIdent [Value]    -- partially applied function
+  | VConst QIdent [Value]         -- function application that cannot be evaluated
   | VMeta {-# UNPACK #-} !MetaId [Value]
   | VSusp {-# UNPACK #-} !MetaId (Value -> Value) [Value]
   | VGen  {-# UNPACK #-} !Int [Value]
@@ -245,18 +233,13 @@ eval g env s (Let (x,(_,t1)) t2) vs = let (!s1,!s2) = split s
                                       in eval g ((x,eval g env s1 t1 []):env) s2 t2 vs
 eval g env c (Q q@(m,id))  vs
   | m == cPredef              = evalPredef g c id vs
-  | isAbstract                = let v0 = VApp c q vs
-                                in case lookupAbsDef gr q of
-                                     Ok (Just arity,Just eqs)
-                                       | length vs < arity -> v0
-                                       | otherwise -> patternMatch g c v0 (map (\(ps,t) -> (env,ps,vs,t)) eqs)
-                                     Bad msg -> error msg
+  | isAbstract                = evalAbsDef g c q  vs
   | otherwise                 = case lookupResDef gr q of
-                                  Ok t    -> eval g env c t vs
+                                  Ok t    -> eval g [] c t vs
                                   Bad msg -> error msg
   where
     Gl gr predef isAbstract = g
-eval g env s (QC q)         vs  = VApp s q vs
+eval g env c (QC q)         vs  = VApp q vs
 eval g env s (C t1 t2)      []  = let (!s1,!s2) = split s
 
                                       concat v1           VEmpty = v1
@@ -274,12 +257,12 @@ eval g env s (Glue t1 t2)   []  = let (!s1,!s2) = split s
 
                                       glue VEmpty        v             = v
                                       glue (VC v1 v2)    v             = VC v1 (glue v2 v)
-                                      glue (VApp c q []) v
-                                        | q == (cPredef,cNonExist)     = VApp c q []
+                                      glue (VApp q [])   v
+                                        | q == (cPredef,cNonExist)     = VApp q []
                                       glue v             VEmpty        = v
                                       glue v             (VC v1 v2)    = VC (glue v v1) v2
-                                      glue v             (VApp c q [])
-                                        | q == (cPredef,cNonExist)     = VApp c q []
+                                      glue v             (VApp q [])
+                                        | q == (cPredef,cNonExist)     = VApp q []
                                       glue (VStr s1)     (VStr s2)     = VStr (s1++s2)
                                       glue v             (VAlts d vas) = VAlts (glue v d) [(glue v v',ss) | (v',ss) <- vas]
                                       glue (VAlts d vas) (VStr s)      = pre d vas s
@@ -333,45 +316,60 @@ eval g env c t              vs = VError ("Cannot reduce term" <+> pp t)
 evalPredef :: Globals -> Choice -> Ident -> [Value] -> Value
 evalPredef g@(Gl gr pds _) c n args =
   case Map.lookup n pds of
-    Nothing  -> VApp c (cPredef,n) args
-    Just def -> let valueOf (Const res) = res
-                    valueOf (CFV i vs)  = VFV i (fmap valueOf vs)
-                    valueOf (CSusp i k) = VSusp i (valueOf . k) []
-                    valueOf RunTime     = VApp c (cPredef,n) args
-                    valueOf NonExist    = VApp c (cPredef,cNonExist) []
-                in valueOf (runPredef def g c args)
+    Nothing             -> VApp (cPredef,n) args
+    Just (Predef k def) -> case splitAt' k args of
+                             Nothing -> VPAP c (cPredef,n) args
+                             Just (usedArgs, remArgs) ->
+                                apply g (valueOf (def g c usedArgs)) remArgs
+  where
+    valueOf (Const res) = res
+    valueOf (CFV i vs)  = VFV i (fmap valueOf vs)
+    valueOf (CSusp i k) = VSusp i (valueOf . k) []
+    valueOf RunTime     = VConst (cPredef,n) args
+    valueOf NonExist    = VApp (cPredef,cNonExist) []
 
 noPredef :: PredefTable
 noPredef = Map.empty
 
 stdPredef :: Globals -> PredefTable
 stdPredef g = Map.fromList
-  [(cInts,   pdArity 1 $\ \g c vs -> Const (case vs of {[VInt i] -> VInts i False; vs -> VApp c (cPredef,cInts) vs}))
-  ,(cLength, pdArity 1 $\ \g c [v] -> fmap (VInt . genericLength) (value2string g v))
-  ,(cTake,   pdArity 2 $\ \g c [v1,v2] -> fmap string2value (liftA2 genericTake (value2int g v1) (value2string g v2)))
-  ,(cDrop,   pdArity 2 $\ \g c [v1,v2] -> fmap string2value (liftA2 genericDrop (value2int g v1) (value2string g v2)))
-  ,(cTk,     pdArity 2 $\ \g c [v1,v2] -> fmap string2value (liftA2 genericTk (value2int g v1) (value2string g v2)))
-  ,(cDp,     pdArity 2 $\ \g c [v1,v2] -> fmap string2value (liftA2 genericDp (value2int g v1) (value2string g v2)))
-  ,(cIsUpper,pdArity 1 $\ \g c [v]     -> fmap toPBool (liftA (all isUpper) (value2string g v)))
-  ,(cToUpper,pdArity 1 $\ \g c [v]     -> fmap string2value (liftA (map toUpper) (value2string g v)))
-  ,(cToLower,pdArity 1 $\ \g c [v]     -> fmap string2value (liftA (map toLower) (value2string g v)))
-  ,(cEqStr,  pdArity 2 $\ \g c [v1,v2] -> fmap toPBool (liftA2 (==) (value2string g v1) (value2string g v2)))
-  ,(cOccur,  pdArity 2 $\ \g c [v1,v2] -> fmap toPBool (liftA2 occur (value2string g v1) (value2string g v2)))
-  ,(cOccurs, pdArity 2 $\ \g c [v1,v2] -> fmap toPBool (liftA2 occurs (value2string g v1) (value2string g v2)))
-  ,(cEqInt,  pdArity 2 $\ \g c [v1,v2] -> fmap toPBool (liftA2 (==) (value2int g v1) (value2int g v2)))
-  ,(cLessInt,pdArity 2 $\ \g c [v1,v2] -> fmap toPBool (liftA2 (<) (value2int g v1) (value2int g v2)))
-  ,(cPlus,   pdArity 2 $\ \g c [v1,v2] -> fmap VInt (liftA2 (+) (value2int g v1) (value2int g v2)))
-  ,(cError,  pdArity 1 $\ \g c [v]     -> fmap (VError . pp) (value2string g v))
+  [(cInts,   pdArity 1 $ \g c vs -> Const (case vs of {[VInt i] -> VInts i False; vs -> VApp (cPredef,cInts) vs}))
+  ,(cLength, pdArity 1 $ \g c [v] -> fmap (VInt . genericLength) (value2string g v))
+  ,(cTake,   pdArity 2 $ \g c [v1,v2] -> fmap string2value (liftA2 genericTake (value2int g v1) (value2string g v2)))
+  ,(cDrop,   pdArity 2 $ \g c [v1,v2] -> fmap string2value (liftA2 genericDrop (value2int g v1) (value2string g v2)))
+  ,(cTk,     pdArity 2 $ \g c [v1,v2] -> fmap string2value (liftA2 genericTk (value2int g v1) (value2string g v2)))
+  ,(cDp,     pdArity 2 $ \g c [v1,v2] -> fmap string2value (liftA2 genericDp (value2int g v1) (value2string g v2)))
+  ,(cIsUpper,pdArity 1 $ \g c [v]     -> fmap toPBool (liftA (all isUpper) (value2string g v)))
+  ,(cToUpper,pdArity 1 $ \g c [v]     -> fmap string2value (liftA (map toUpper) (value2string g v)))
+  ,(cToLower,pdArity 1 $ \g c [v]     -> fmap string2value (liftA (map toLower) (value2string g v)))
+  ,(cEqStr,  pdArity 2 $ \g c [v1,v2] -> fmap toPBool (liftA2 (==) (value2string g v1) (value2string g v2)))
+  ,(cOccur,  pdArity 2 $ \g c [v1,v2] -> fmap toPBool (liftA2 occur (value2string g v1) (value2string g v2)))
+  ,(cOccurs, pdArity 2 $ \g c [v1,v2] -> fmap toPBool (liftA2 occurs (value2string g v1) (value2string g v2)))
+  ,(cEqInt,  pdArity 2 $ \g c [v1,v2] -> fmap toPBool (liftA2 (==) (value2int g v1) (value2int g v2)))
+  ,(cLessInt,pdArity 2 $ \g c [v1,v2] -> fmap toPBool (liftA2 (<) (value2int g v1) (value2int g v2)))
+  ,(cPlus,   pdArity 2 $ \g c [v1,v2] -> fmap VInt (liftA2 (+) (value2int g v1) (value2int g v2)))
+  ,(cError,  pdArity 1 $ \g c [v]     -> fmap (VError . pp) (value2string g v))
   ]
   where
     genericTk n = reverse . genericDrop n . reverse
     genericDp n = reverse . genericTake n . reverse
 
+evalAbsDef :: Globals -> Choice -> QIdent -> [Value] -> Value
+evalAbsDef g@(Gl gr pds _) c q args =
+  case lookupAbsDef gr q of
+    Ok (Just arity,Just eqs) ->
+      case splitAt' arity args of
+        Nothing -> VPAP c q args
+        Just (_,_) -> patternMatch g c (VConst q args) (map (\(ps,t) -> ([],ps,args,t)) eqs)
+    Bad msg -> error msg
+
 apply g (VMeta i vs0)                   vs  = VMeta i   (vs0++vs)
 apply g (VSusp i k vs0)                 vs  = VSusp i k (vs0++vs)
-apply g (VApp c f@(m,n)  vs0)           vs
+apply g (VApp f vs0)                    vs  = VApp f (vs0++vs)
+apply g (VPAP c q@(m,n) vs0)            vs
   | m == cPredef                            = evalPredef g c n (vs0++vs)
-  | otherwise                               = VApp c f (vs0++vs)
+  | otherwise                               = evalAbsDef g c q (vs0++vs)
+apply g (VConst f vs0)                  vs  = VConst f (vs0++vs)
 apply g (VGen i vs0)                    vs  = VGen i (vs0++vs)
 apply g (VFV i fvs)                     vs  = VFV i (fmap (\v -> apply g v vs) fvs)
 apply g (VS v1 v2 vs')                  vs  = VS v1 v2 (vs'++vs)
@@ -384,7 +382,9 @@ data BubbleVariants
 
 bubble v = snd (bubble v)
   where
-    bubble (VApp c f vs) = liftL (VApp c f) vs
+    bubble (VApp f vs) = liftL (VApp f) vs
+    bubble (VPAP c f vs) = liftL (VPAP c f) vs
+    bubble (VConst f vs) = liftL (VConst f) vs
     bubble (VMeta metaid vs) = liftL (VMeta metaid) vs
     bubble (VSusp metaid k vs) = liftL (VSusp metaid k) vs
     bubble (VGen i vs) = liftL (VGen i) vs
@@ -512,8 +512,8 @@ bubble v = snd (bubble v)
     mergeChoices1 = Map.mergeWithKey (\c (n,cnt) _ -> Just (n,cnt+1)) id unitfy
     mergeChoices2 = Map.mergeWithKey (\c (n,cnt) _ -> Just (n,2)) unitfy unitfy
 
-toPBool True  = VApp poison (cPredef,cPTrue)  []
-toPBool False = VApp poison (cPredef,cPFalse) []
+toPBool True  = VApp (cPredef,cPTrue)  []
+toPBool False = VApp (cPredef,cPFalse) []
 
 occur s1 []          = False
 occur s1 s2@(_:tail) = check s1 s2
@@ -558,11 +558,12 @@ patternMatch g s v0 ((env0,ps,args0,t):eqs) = match env0 ps eqs args0
 
     match' env p ps eqs arg args =
       case (p,arg) of
+        (p,       VConst q  vs) -> v0
         (p,       VMeta i   vs) -> VSusp i (\v -> match' env p ps eqs (apply g v vs) args) []
         (p,       VGen  i   vs) -> v0
         (p,       VSusp i k vs) -> VSusp i (\v -> match' env p ps eqs (apply g (k v) vs) args) []
         (p,           VFV s vs) -> VFV s (fmap (\arg -> match' env p ps eqs arg args) vs)
-        (PP q qs,  VApp c r vs)
+        (PP q qs, VApp r    vs)
           | q == r              -> match env (qs++ps) eqs (vs++args)
         (PR pas,  VR as)        -> matchRec env (reverse pas) as ps eqs args
         (PString s1, VStr s2)
@@ -638,7 +639,7 @@ vtableSelect g v0 ty cs v2 vs =
                               (compute lbls)
             Nothing -> error (show ("Missing value for label" <+> pp lbl $$
                                     "among" <+> hsep (punctuate (pp ',') (map fst as))))
-    value2index (VApp c q args) vty =
+    value2index (VApp q args) vty =
       let (r ,ctxt,cnt ) = getIdxCnt q
       in fmap (\(r', cnt') -> (r+r',cnt)) (compute ctxt args)
       where
@@ -661,7 +662,7 @@ vtableSelect g v0 ty cs v2 vs =
             Bad msg -> error msg
 
         Gl gr _ _ = g
-    value2index (VInt n) (VApp _ c [VInt max])
+    value2index (VInt n) (VApp c [VInt max])
       | Q c == cnPredef cInts         = Const (fromIntegral n,fromIntegral max+1)
     value2index (VFV c vs)        vty = CFV c (fmap (\v -> value2index v vty) vs)
     value2index v vty = RunTime
@@ -823,8 +824,12 @@ setMeta i ms = EvalM (\g k (State input choices metas opts) r msgs ->
   in k () state' r msgs)
 
 value2termM :: Bool -> [Ident] -> Value -> EvalM Term
-value2termM flat xs (VApp c q vs) =
-  foldM (\t v -> fmap (App t) (value2termM flat xs v)) (if fst q == cPredef then Q q else QC q) vs
+value2termM flat xs (VApp q vs) =
+  foldM (\t v -> fmap (App t) (value2termM flat xs v)) (QC q) vs
+value2termM flat xs (VPAP _ q vs) =
+  foldM (\t v -> fmap (App t) (value2termM flat xs v)) (Q q) vs
+value2termM flat xs (VConst q vs) =
+  foldM (\t v -> fmap (App t) (value2termM flat xs v)) (Q q) vs
 value2termM flat xs (VMeta i vs) = do
   mv <- getMeta i
   case mv of
@@ -1068,8 +1073,21 @@ pattVars st _            = st
 
 
 
-ppValue q d (VApp c f vs) = prec d 4 (hsep (ppQIdent q f : map (ppValue q 5) vs))
-ppValue q d (VMeta i vs) = prec d 4 (hsep ((if i > 0 then pp "?" <> pp i else pp "?") : map (ppValue q 5) vs))
+ppValue q d (VApp f vs)
+  | null vs   = ppQIdent q f
+  | otherwise = prec d 4 (hsep (ppQIdent q f : map (ppValue q 5) vs))
+ppValue q d (VPAP _ f vs)
+  | null vs   = ppQIdent q f
+  | otherwise = prec d 4 (hsep (ppQIdent q f : map (ppValue q 5) vs))
+ppValue q d (VConst f vs)
+  | null vs   = ppQIdent q f
+  | otherwise = prec d 4 (hsep (ppQIdent q f : map (ppValue q 5) vs))
+ppValue q d (VMeta i vs)
+  | null vs   = meta
+  | otherwise = prec d 4 (hsep (meta : map (ppValue q 5) vs))
+  where
+    meta | i > 0     = pp "?" <> pp i
+         | otherwise = pp "?"
 ppValue q d (VSusp i k vs) = prec d 4 (hsep (pp "#susp" : (if i > 0 then pp "?" <> pp i else pp "?") : map (ppValue q 5) vs))
 ppValue q d (VGen i vs) = prec d 4 (hsep (pp "#gen" : pp i : map (ppValue q 5) vs))
 ppValue q d (VClosure env c t) = pp "[|" <> ppTerm q 4 t <> pp "|]"
@@ -1137,24 +1155,24 @@ value2string' g (VC v1 v2)       b ws      qs = concat v1 (value2string' g v2 b 
     concat v1 (Const (b,ws,qs)) = value2string' g v1 b ws qs
     concat v1 (CFV c vs)        = CFV c (fmap (concat v1) vs)
     concat v1 res               = res
-value2string' g (VApp c q []) b   ws     qs
+value2string' g (VApp q [])   b   ws     qs
   | q == (cPredef,cNonExist)              = NonExist
-value2string' g (VApp c q []) b   ws     qs
+value2string' g (VApp q [])   b   ws     qs
   | q == (cPredef,cSOFT_SPACE)            = if null ws
                                               then Const (b,ws,q:qs)
                                               else Const (b,ws,qs)
-value2string' g (VApp c q []) b   ws     qs
+value2string' g (VApp q [])   b   ws     qs
   | q == (cPredef,cBIND) || q == (cPredef,cSOFT_BIND) 
                                           = if null ws
                                               then Const (True,ws,q:qs)
                                               else Const (True,ws,qs)
-value2string' g (VApp c q []) b   ws     qs
+value2string' g (VApp q [])   b   ws     qs
   | q == (cPredef,cCAPIT) = capit ws
   where
     capit []            = Const (b,[],q:qs)
     capit ((c:cs) : ws) = Const (b,(toUpper c : cs) : ws,qs)
     capit ws            = Const (b,ws,qs)
-value2string' g (VApp c q []) b   ws     qs
+value2string' g (VApp q [])   b   ws     qs
   | q == (cPredef,cALL_CAPIT) = all_capit ws
   where
     all_capit []       = Const (b,[],q:qs)
@@ -1195,7 +1213,7 @@ value2float g (VFlt f)         = Const f
 value2float g (VFV s vs)       = CFV s (fmap (value2float g) vs)
 value2float g _                = RunTime
 
-value2expr g xs (VApp _ (m,f) vs)
+value2expr g xs (VApp (m,f) vs)
   | m /= cPredef               = foldl (\e v -> fmap EApp e <*> value2expr g xs v) (pure (EFun (showIdent f))) vs
 value2expr g xs (VMeta i vs)   = CSusp i (\v -> value2expr g xs (apply g v vs))
 value2expr g xs (VSusp i k vs) = CSusp i (\v -> value2expr g xs (apply g (k v) vs))
@@ -1214,9 +1232,6 @@ newtype Choice = Choice { unchoice :: Integer }
 
 unit :: Choice
 unit = Choice 1
-
-poison :: Choice
-poison = Choice (-1)
 
 split :: Choice -> (Choice,Choice)
 split (Choice c) = (Choice (2*c), Choice (2*c+1))

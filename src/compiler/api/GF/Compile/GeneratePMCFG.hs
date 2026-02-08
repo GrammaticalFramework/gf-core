@@ -255,9 +255,9 @@ force (VSymCat d r rs) = do
     force_ (factor, (v, ty)) = do
       v <- force v
       return (factor, (v, ty))
-force (VApp c q vs) = do
+force (VApp q vs) = do
   vs <- mapM force vs
-  return (VApp c q vs)
+  return (VApp q vs)
 force (VAlts def alts) = do
   def  <- force def
   alts <- mapM force_ alts
@@ -302,7 +302,7 @@ flatten subst (VStr s) = return (subst,[SymKS s])
 flatten subst (VSymCat d r rs) = do
   (subst,lin_index) <- params2int' subst r rs
   return (subst,[SymCat d lin_index])
-flatten subst (VApp _ (m,id) [])
+flatten subst (VApp (m,id) [])
   | m == cPredef && id == cBIND       = return (subst,[SymBIND])
   | m == cPredef && id == cSOFT_BIND  = return (subst,[SymSOFT_BIND])
   | m == cPredef && id == cSOFT_SPACE = return (subst,[SymSOFT_SPACE])
@@ -383,7 +383,7 @@ param2int subst (VR as) (RecType lbls) = compute subst lbls
                        return (subst,r*cnt'+r',combine' cnt rs cnt' rs',cnt*cnt')
         Nothing  -> compileError ("Missing value for label" <+> pp lbl $$
                                   "among" <+> hsep (punctuate (pp ',') (map fst as)))
-param2int subst (VApp _ q vs) ty = do
+param2int subst (VApp q vs) ty = do
   (      r ,    ctxt,cnt ) <- getIdxCnt q
   (subst,r',rs',     cnt') <- compute subst ctxt vs
   return (subst,r+r',rs',cnt)
@@ -509,7 +509,7 @@ chooseMetaValue s ptyp = GenM $ \g@(Gl gr _ _) k svs ms r ->
     mkValue mod k svs ms r idx []             = return r
     mkValue mod k svs ms r idx ((id,ctxt):ps) = do
       let (ms',args) = mkVars ms s ctxt
-      r <- k (VApp poison (mod,id) args) (Map.insert s idx svs) ms' r
+      r <- k (VApp (mod,id) args) (Map.insert s idx svs) ms' r
       mkValue mod k svs ms r (idx+1) ps
 
     mkVars ms c []              = (ms,[])

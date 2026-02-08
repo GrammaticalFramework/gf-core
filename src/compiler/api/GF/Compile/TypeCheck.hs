@@ -108,13 +108,13 @@ inferSigma scope s t = do                                      -- GEN1
   let forall_tvs = res_tvs \\ env_tvs
   quantify scope t forall_tvs ty
 
-vtypeInt   = VApp poison (cPredef,cInt) []
-vtypeFloat = VApp poison (cPredef,cFloat) []
+vtypeInt   = VApp (cPredef,cInt) []
+vtypeFloat = VApp (cPredef,cFloat) []
 vtypeStr   = VSort cStr
 vtypeStrs  = VSort cStrs
 vtypeType  = VSort cType
 vtypePType = VSort cPType
-vtypeMarkup= VApp poison (cPredef,cMarkup) []
+vtypeMarkup= VApp (cPredef,cMarkup) []
 
 tcRho :: Scope -> Choice -> Term -> Maybe Rho -> EvalM (Term, Rho)
 tcRho scope s t@(EInt i)   mb_ty = instSigma scope s t (VInts i True) mb_ty -- INT
@@ -140,7 +140,9 @@ tcRho scope c (Abs bt var body) Nothing = do                   -- ABS1
          in return (Abs bt var body, (VProd bt v arg_ty body_ty))
     else return (Abs bt var body, (VProd bt identW arg_ty body_ty))
   where
-    check m n st (VApp c f vs)     = foldM (check m n) st vs
+    check m n st (VApp   f vs)     = foldM (check m n) st vs
+    check m n st (VPAP c f vs)     = foldM (check m n) st vs
+    check m n st (VConst f vs)     = foldM (check m n) st vs
     check m n st (VMeta i vs)      = do
       state <- getMeta i
       case state of
@@ -535,7 +537,7 @@ tcRho scope c (Reset ctl mb_ct t qid) mb_ty
               Nothing -> do i <- newResiduation scope
                             return (VMeta i [])
       let rec_ty = VRecType [ (ident2label cp1, True, ty)
-                            , (ident2label cp2, True, VApp poison (cPredef,cBool) [])
+                            , (ident2label cp2, True, VApp (cPredef,cBool) [])
                             ] False
       case mb_ct of
         Just ct -> evalError (pp "[filter | ..] cannot take an argument")
@@ -558,8 +560,8 @@ tcRho scope c (Reset ctl mb_ct t qid) mb_ty
                      Nothing -> evalError (pp "[list: .. | ..] requires an argument")
          (t,ty) <- tcRho scope c2 t mb_ty
          case ty of
-           VApp c qid [] -> return (Reset ctl mb_ct t (Just qid), ty)
-           _             -> evalError (pp "Needs atomic type"<+>ppValue Unqualified 0 ty)
+           VApp qid [] -> return (Reset ctl mb_ct t (Just qid), ty)
+           _           -> evalError (pp "Needs atomic type"<+>ppValue Unqualified 0 ty)
   | ctl == cLen = concreteOnly "Control operators" $ do
       do let (c1,c2) = split c
          (t,_) <- tcRho scope c1 t Nothing
@@ -676,11 +678,11 @@ resolveOverloads scope c t0 q args mb_ty = do
   g@(Gl gr _ isAbstract) <- globals
   if isAbstract
     then case lookupAbsType gr q of
-           Bad msg  -> evalError (pp msg)
-           Ok ty    -> do let (c1,c23) = split c
-                              (c2,c3)  = split c23
-                          (t,ty) <- reapply1 scope c1 t0 (eval g [] c2 ty []) args
-                          instSigma scope c3 t ty mb_ty
+           Bad msg   -> evalError (pp msg)
+           Ok (t,ty) -> do let (c1,c23) = split c
+                               (c2,c3)  = split c23
+                           (t,ty) <- reapply1 scope c1 t (eval g [] c2 ty []) args
+                           instSigma scope c3 t ty mb_ty
     else case lookupOverloadTypes gr q of
            Bad msg  -> evalError (pp msg)
            Ok [(t,ty)] -> do let (c1,c23) = split c
@@ -1034,9 +1036,9 @@ instSigma scope s t ty1 (Just ty2) = do                       -- INST2
 
 -- | Invariant: the second argument is in weak-prenex form
 subsCheckRho :: Scope -> Term -> Sigma -> Rho -> EvalM (Term,Sigma,Rho)
-subsCheckRho scope t ty1@(VApp _ p1 []) ty2                   -- for backwards compatibility
+subsCheckRho scope t ty1@(VApp p1 []) ty2                   -- for backwards compatibility
   | p1 == (cPredef,cErrorType) = return (t,ty1,ty2)
-subsCheckRho scope t ty1 ty2@(VApp _ p2 [])                   -- for backwards compatibility
+subsCheckRho scope t ty1 ty2@(VApp p2 [])                   -- for backwards compatibility
   | p2 == (cPredef,cErrorType) = return (t,ty1,ty2)
 subsCheckRho scope t ty1@(VMeta i vs1) ty2@(VMeta j vs2)
   | i  == j   = do sequence_ (zipWith (unify scope) vs1 vs2)
@@ -1113,9 +1115,9 @@ subsCheckRho scope t (VTable p1 r1) rho2 = do                 -- Rule TABLE
   subsCheckTbl scope t p1 r1 p2 r2
 subsCheckRho scope t ty1@(VSort s1) ty2@(VSort s2)            -- Rule PTYPE
   | s1 == cPType && s2 == cType = return (t,ty1,ty2)
-subsCheckRho scope t ty1@(VApp _ p _) ty2@(VInts _ _)         -- This is not correct but nextPrec in the RGL relies on it.
-  | p == (cPredef,cInt) = return (t,ty1,ty2)                  -- Should be only a temporary hack.
-subsCheckRho scope t ty1@(VInts _ _) ty2@(VApp _ p _)         -- Rule INT1
+subsCheckRho scope t ty1@(VApp p _) ty2@(VInts _ _)         -- This is not correct but nextPrec in the RGL relies on it.
+  | p == (cPredef,cInt) = return (t,ty1,ty2)                -- Should be only a temporary hack.
+subsCheckRho scope t ty1@(VInts _ _) ty2@(VApp p _)         -- Rule INT1
   | p == (cPredef,cInt) = return (t,ty1,ty2)
 subsCheckRho scope t ty1@(VInts n1 ext1) ty2@(VInts n2 ext2)  -- Rule INT2
   | n1 <= n2  = return (t,ty1,ty2)
@@ -1277,9 +1279,9 @@ subtype scope (Just (VProd Explicit x a1 r1)) (VProd Explicit y a2 r2)
        a <- supertype scope (Just a1) a2
        r <- subtype scope (Just r1) r2
        return (VProd Explicit identW a r)
-subtype scope (Just (VApp _ p1 [])) ty2                      -- for backwards compatibility
+subtype scope (Just (VApp p1 [])) ty2                      -- for backwards compatibility
   | p1 == (cPredef,cErrorType) = return ty2
-subtype scope (Just ty1) (VApp _ p2 [])                      -- for backwards compatibility
+subtype scope (Just ty1) (VApp p2 [])                      -- for backwards compatibility
   | p2 == (cPredef,cErrorType) = return ty1
 subtype scope Nothing    ty = return ty
 subtype scope (Just ctr) ty = do
@@ -1311,9 +1313,9 @@ supertype scope (Just (VProd Explicit x a1 r1)) (VProd Explicit y a2 r2)
        a <- subtype scope (Just a1) a2
        r <- supertype scope (Just r1) r2
        return (VProd Explicit identW a r)
-supertype scope (Just (VApp _ p1 [])) ty2                      -- for backwards compatibility
+supertype scope (Just (VApp p1 [])) ty2                      -- for backwards compatibility
   | p1 == (cPredef,cErrorType) = return ty2
-supertype scope (Just ty1) (VApp _ p2 [])                      -- for backwards compatibility
+supertype scope (Just ty1) (VApp p2 [])                      -- for backwards compatibility
   | p2 == (cPredef,cErrorType) = return ty1
 supertype scope Nothing    ty = return ty
 supertype scope (Just ctr) ty = do
@@ -1353,7 +1355,11 @@ unifyTbl scope tau = do
   unify scope tau (VTable arg res)
   return (arg,res)
 
-unify scope (VApp c1 f1 vs1) (VApp c2 f2 vs2)
+unify scope (VApp f1 vs1)    (VApp f2 vs2)
+  | f1 == f2  = sequence_ (zipWith (unify scope) vs1 vs2)
+unify scope (VPAP c1 f1 vs1) (VPAP c2 f2 vs2)
+  | f1 == f2  = sequence_ (zipWith (unify scope) vs1 vs2)
+unify scope (VConst f1 vs1) (VConst f2 vs2)
   | f1 == f2  = sequence_ (zipWith (unify scope) vs1 vs2)
 unify scope (VMeta i vs1) (VMeta j vs2)
   | i  == j   = sequence_ (zipWith (unify scope) vs1 vs2)
@@ -1417,7 +1423,9 @@ occursCheck scope' i0 scope v =
       n = length scope
   in check m n v
   where
-    check m n (VApp c f vs) = mapM_ (check m n) vs
+    check m n (VApp   f vs) = mapM_ (check m n) vs
+    check m n (VPAP c f vs) = mapM_ (check m n) vs
+    check m n (VConst f vs) = mapM_ (check m n) vs
     check m n (VMeta i vs)
       | i0 == i  = do ty1 <- value2termM False (scopeVars scope) (VMeta i vs)
                       ty2 <- value2termM False (scopeVars scope) v
@@ -1526,9 +1534,15 @@ quantify scope t tvs ty = do
   where
     bind scope (i, meta_id, name) = setMeta meta_id (Bound scope (VGen i []))
 
-    check m n xs (VApp c f vs)     = do
+    check m n xs (VApp f vs)     = do
       (xs,vs) <- mapAccumM (check m n) xs vs
-      return (xs,VApp c f vs)
+      return (xs,VApp f vs)
+    check m n xs (VPAP c f vs)     = do
+      (xs,vs) <- mapAccumM (check m n) xs vs
+      return (xs,VPAP c f vs)
+    check m n xs (VConst f vs)     = do
+      (xs,vs) <- mapAccumM (check m n) xs vs
+      return (xs,VConst f vs)
     check m n xs (VMeta i vs)      = do
       s <- getMeta i
       case s of
@@ -1678,7 +1692,9 @@ getMetaVars sc_tys = foldM (\acc (scope,ty) -> go acc ty) [] sc_tys
                                   case res of
                                     Bound _ v -> go acc v
                                     _         -> foldM go (m:acc) args
-    go acc (VApp c f args)   = foldM go acc args
+    go acc (VApp f args)     = foldM go acc args
+    go acc (VPAP c f args)   = foldM go acc args
+    go acc (VConst f args)   = foldM go acc args
     go acc (VFV c vs)        = foldM go acc (unvariants vs)
     go acc (VInts _ _)       = return acc
     go acc (VPattType v)     = go acc v
