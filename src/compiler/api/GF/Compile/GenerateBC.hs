@@ -50,8 +50,9 @@ compileEquations gr arity st (i:is) eqs       fl bs = whilePP eqs Map.empty
                                                              in (bs3,[PUSH_FRAME, EVAL (shiftIVal (st+2) i) RecCall] ++ instrs1)
 
     whilePV []                           vrs = compileEquations gr arity st is vrs fl bs
-    whilePV ((vs, PV x     : ps, t):eqs) vrs = whilePV eqs (((x,i):vs,ps,t) : vrs)
-    whilePV ((vs, PW       : ps, t):eqs) vrs = whilePV eqs ((      vs,ps,t) : vrs)
+    whilePV ((vs, PV x     : ps, t):eqs) vrs
+      | x == identW                          = whilePV eqs ((      vs,ps,t) : vrs)
+      | otherwise                            = whilePV eqs (((x,i):vs,ps,t) : vrs)
     whilePV ((vs, PTilde _ : ps, t):eqs) vrs = whilePV eqs ((      vs,ps,t) : vrs)
     whilePV ((vs, PImplArg p:ps, t):eqs) vrs = whilePV ((vs,p:ps,t):eqs) vrs
     whilePV ((vs, PT _ p   : ps, t):eqs) vrs = whilePV ((vs,p:ps,t):eqs) vrs

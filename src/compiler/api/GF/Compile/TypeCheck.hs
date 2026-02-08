@@ -98,7 +98,6 @@ checkDef g q ty (ps,t) = do
                               (scope,arg_ty) <- tcPatt scope c1 p (Just arg_ty)
                               go scope c2 res_ty ps
 
-  -- tcPatt scope c PW        Nothing    = do
 
 inferSigma :: Scope -> Choice -> Term -> EvalM (Term,Sigma)
 inferSigma scope s t = do                                      -- GEN1
@@ -766,17 +765,16 @@ reapply2 scope c fun fun_ty ((arg,arg_v,arg_ty):args) mb_ty = do -- Explicit arg
   res_ty <- evalCodomain x arg_v res_ty
   reapply2 scope c (App fun arg) res_ty args mb_ty
 
-tcPatt scope c PW        Nothing    = do
-  i <- newResiduation scope
-  return (scope,VMeta i [])
-tcPatt scope c PW        (Just ty0) =
-  return (scope,ty0)
 tcPatt scope c (PV x)    Nothing    = do
   i <- newResiduation scope
-  let ty = VMeta i []
-  return ((x,ty):scope,ty)
+  if x == identW
+    then return (scope,VMeta i [])
+    else let ty = VMeta i []
+         in return ((x,ty):scope,ty)
 tcPatt scope c (PV x)    (Just ty) =
-  return ((x,ty):scope,ty)
+  if x == identW
+    then return (scope,ty)
+    else return ((x,ty):scope,ty)
 tcPatt scope c (PP q ps) mb_ty = do
   g@(Gl gr _ isAbstract) <- globals
   ty <- case (if isAbstract then lookupFunType else lookupResType) gr q of
@@ -923,7 +921,8 @@ measurePatt p =
                      return (min,max,PT t p')
     PAs x p    -> do (min,max,p) <- measurePatt p
                      case p of
-                       PW -> return (0,Nothing,PV x)
+                       PV y | y == identW
+                          -> return (0,Nothing,PV x)
                        _  -> return (min,max,PAs x p)
     PImplArg p -> do (min,max,p') <- measurePatt p
                      return (min,max,PImplArg p')
@@ -941,13 +940,16 @@ measurePatt p =
                -> do (min1,max1,p1) <- measurePatt p1
                      (min2,max2,p2) <- measurePatt p2
                      case (p1,p2) of
-                       (PW,        PW        ) -> return (0,Nothing,PW)
+                       (PV x,      PV y      )
+                         | x == identW && y == identW
+                                               -> return (0,Nothing,PV identW)
                        (PString s1,PString s2) -> return (min1+min2,liftM2 (+) max1 max2,PString (s1++s2))
                        _                       -> return (min1+min2,liftM2 (+) max1 max2,PSeq min1 max1 p1 min2 max2 p2)
     PRep _ _ p -> do (minp,maxp,p) <- measurePatt p
                      case p of
-                       PW    -> return (0,Nothing,PW)
-                       PChar -> return (0,Nothing,PW)
+                       PV x | x == identW
+                             -> return (0,Nothing,PV x)
+                       PChar -> return (0,Nothing,PV identW)
                        _     -> return (0,Nothing,PRep minp maxp p)
     PChar      -> return (1,Just 1,p)
     PChars _   -> return (1,Just 1,p)

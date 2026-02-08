@@ -224,7 +224,6 @@ instance Binary Patt where
   put (PC x y)     = putWord8  0 >> put (x,y)
   put (PP x y)     = putWord8  1 >> put (x,y)
   put (PV x)       = putWord8  2 >> put x
-  put (PW)         = putWord8  3
   put (PR x)       = putWord8  4 >> put x
   put (PString x)  = putWord8  5 >> put x
   put (PInt    x)  = putWord8  6 >> put x
@@ -246,7 +245,6 @@ instance Binary Patt where
              0  -> get >>= \(x,y)   -> return (PC x y)
              1  -> get >>= \(x,y)   -> return (PP x y)
              2  -> get >>= \x       -> return (PV x)
-             3  ->                     return (PW)
              4  -> get >>= \x       -> return (PR x)
              5  -> get >>= \x       -> return (PString x)
              6  -> get >>= \x       -> return (PInt    x)

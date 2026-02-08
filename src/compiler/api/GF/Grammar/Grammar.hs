@@ -410,8 +410,7 @@ data Term =
 data Patt =
    PC Ident [Patt]        -- ^ constructor pattern: @C p1 ... pn@    @C@ 
  | PP QIdent [Patt]       -- ^ package constructor pattern: @P.C p1 ... pn@    @P.C@ 
- | PV Ident               -- ^ variable pattern: @x@
- | PW                     -- ^ wild card pattern: @_@
+ | PV Ident               -- ^ variable pattern: @x@ or wild card @_@
  | PR [(Label,Patt)]      -- ^ record pattern: @{r = p ; ...}@  -- only concrete
  | PString String         -- ^ string literal pattern: @\"foo\"@  -- only abstract
  | PInt    Integer        -- ^ integer literal pattern: @12@    -- only abstract

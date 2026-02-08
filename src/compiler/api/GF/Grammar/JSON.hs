@@ -198,7 +198,6 @@ json2term o  = Vr      <$> o!:"vr"
 patt2json (PC id ps)     = makeObj [("pc",showJSON id),("args",showJSON (map patt2json ps))]
 patt2json (PP (mn,id) ps) = makeObj [("mod",showJSON mn),("pc",showJSON id),("args",showJSON (map patt2json ps))]
 patt2json (PV id)        = makeObj [("pv",showJSON id)]
-patt2json PW             = makeObj [("wildcard",showJSON True)]
 patt2json (PR lbls)      = makeObj (("record", showJSON True) : map toRow lbls)
                                where toRow (l,t) = (showLabel l, patt2json t)
 patt2json (PString s)    = showJSON s
@@ -231,7 +230,6 @@ json2patt :: JSValue -> Result Patt
 json2patt o = PP <$> (liftM2 (\mn id -> (mn,id)) (o!:"mod") (o!:"pc")) <*> (o!:"args" >>= mapM json2patt)
     <|>       PC <$> (o!:"pc") <*> (o!:"args" >>= mapM json2patt)
     <|>       PV <$> (o!:"pv")
-    <|>  (o!:"wildcard" >>= guard >> return PW)
     <|> (const PR) <$> (o!:"record" >>= guard) <*> mapM fromRow (assocsJSObject o)
     <|>  PString <$> readJSON o
     <|>  PInt    <$> readJSON o

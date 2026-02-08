@@ -361,6 +361,7 @@ evalAbsDef g@(Gl gr pds _) c q args =
       case splitAt' arity args of
         Nothing -> VPAP c q args
         Just (_,_) -> patternMatch g c (VConst q args) (map (\(ps,t) -> ([],ps,args,t)) eqs)
+    Ok (_,Nothing) -> VConst q args
     Bad msg -> error msg
 
 apply g (VMeta i vs0)                   vs  = VMeta i   (vs0++vs)
@@ -550,9 +551,10 @@ patternMatch g s v0 ((env0,ps,args0,t):eqs) = match env0 ps eqs args0
                                                  Bad msg -> error msg
                                                where
                                                  Gl gr _ _ = g
-    match env (PV v      :ps) eqs (arg:args) = match ((v,arg):env) ps eqs args
+    match env (PV v      :ps) eqs (arg:args)
+      | v == identW                          = match          env  ps eqs args
+      | otherwise                            = match ((v,arg):env) ps eqs args
     match env (PAs v p   :ps) eqs (arg:args) = match ((v,arg):env) (p:ps) eqs (arg:args)
-    match env (PW        :ps) eqs (arg:args) = match env ps eqs args
     match env (PTilde _  :ps) eqs (arg:args) = match env ps eqs args
     match env (p         :ps) eqs (arg:args) = match' env p ps eqs arg args
 

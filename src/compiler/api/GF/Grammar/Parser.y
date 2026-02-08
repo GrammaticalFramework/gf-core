@@ -536,7 +536,7 @@ Patt3
   | '[' String ']'            { PChars $2 }
   | '#' Ident                 { PMacro $2 }
   | '#' ModuleName '.' Ident  { PM ($2,$4) }
-  | '_'                       { PW }
+  | '_'                       { PV identW }
   | Ident                     { PV $1 }
   | ModuleName '.' Ident      { PP ($1,$3) [] }
   | Integer                   { PInt $1 }

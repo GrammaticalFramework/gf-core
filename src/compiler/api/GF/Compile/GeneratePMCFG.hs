@@ -169,7 +169,7 @@ type2metaTerm gr d ms s r rs (RecType lbls) params =
   in (ms',s',r',R ass,params')
 type2metaTerm gr d ms s r rs (Table p q) params
   | count == 1 = let (ms',s',r',t,params') = type2metaTerm gr d ms s r rs q params
-                 in (ms',s',r+(r'-r),T (TTyped p) [(PW,t)],params')
+                 in (ms',s',r+(r'-r),T (TTyped p) [(PV identW,t)],params')
   | otherwise  = let pv     = varX (length rs+1)
                      (ms',s',r',t,params') = type2metaTerm gr d ms s r ((delta,(pv,p)):rs) q params
                      delta  = r'-r

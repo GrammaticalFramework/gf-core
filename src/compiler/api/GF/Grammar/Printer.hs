@@ -293,7 +293,6 @@ ppPatt q d (PChar)      = pp '?'
 ppPatt q d (PChars s)   = brackets (str s)
 ppPatt q d (PMacro id)  = '#' <> id
 ppPatt q d (PM id)      = '#' <> ppQIdent q id
-ppPatt q d PW           = pp '_'
 ppPatt q d (PV id)      = pp id
 ppPatt q d (PInt n)     = pp n
 ppPatt q d (PFloat f)   = pp f
@@ -369,8 +368,6 @@ getAbs e            = ([],e)
 getCTable :: Term -> ([Ident], Term)
 getCTable (T TRaw [(PV v,e)]) = let (vs,e') = getCTable e
                                 in (v:vs,e')
-getCTable (T TRaw [(PW,  e)]) = let (vs,e') = getCTable e
-                                in (identW:vs,e')
 getCTable e                   = ([],e)
 
 getLet :: Term -> ([LocalDef], Term)
