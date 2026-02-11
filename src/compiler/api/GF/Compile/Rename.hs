@@ -305,7 +305,8 @@ renamePattern env patt =
                 _      -> checkError ("not a pattern macro" <+> ppPatt Qualified 0 patt)
         return (PM c', [])
 
-      PV x -> checks [ renid' (Vr x) >>= \t' -> case t' of
+      PV x | x /= identW
+           -> checks [ renid' (Vr x) >>= \t' -> case t' of
                                                  QC c -> return (PP c [],[])
                                                  _    -> checkError (pp "not a constructor")
                      , return (patt, [x])
