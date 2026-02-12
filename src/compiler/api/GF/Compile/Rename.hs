@@ -340,6 +340,10 @@ renamePattern env patt =
         (p',vs) <- renp p
         return (PAs x p', x:vs)
 
+      PImplArg p -> do
+        (p,vs) <- renp p
+        return (PImplArg p, vs)
+
       _ -> return (patt,[])
 
     renid = renameIdentTerm env
