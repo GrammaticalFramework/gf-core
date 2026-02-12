@@ -13,7 +13,7 @@ import Data.Maybe(fromMaybe)
 generateByteCode :: SourceGrammar -> Int -> [L Equation] -> [[Instr]]
 generateByteCode gr arity eqs =
   let (bs,instrs) = compileEquations gr arity (arity+1) is 
-                                     (map (\(L _ (ps,t)) -> ([],ps,t)) eqs) 
+                                     (map (\(L _ (ps,t)) -> ([],ps,t)) eqs)
                                      Nothing
                                      [b]
       b = if arity == 0 || null eqs
@@ -53,7 +53,7 @@ compileEquations gr arity st (i:is) eqs       fl bs = whilePP eqs Map.empty
     whilePV ((vs, PV x     : ps, t):eqs) vrs
       | x == identW                          = whilePV eqs ((      vs,ps,t) : vrs)
       | otherwise                            = whilePV eqs (((x,i):vs,ps,t) : vrs)
-    whilePV ((vs, PTilde _ : ps, t):eqs) vrs = whilePV eqs ((      vs,ps,t) : vrs)
+    whilePV ((vs, PTilde _ : ps, t):eqs) vrs = whilePV ((vs,ps,t) : eqs) vrs
     whilePV ((vs, PImplArg p:ps, t):eqs) vrs = whilePV ((vs,p:ps,t):eqs) vrs
     whilePV ((vs, PT _ p   : ps, t):eqs) vrs = whilePV ((vs,p:ps,t):eqs) vrs
     whilePV eqs                          vrs = let fl1 = Just (st,length bs1)
