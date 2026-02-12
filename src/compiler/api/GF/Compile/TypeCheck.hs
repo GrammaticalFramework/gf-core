@@ -12,7 +12,7 @@ module GF.Compile.TypeCheck
 -- 14 September 2011
 
 import Prelude hiding ((<>))
-import GF.Grammar hiding (Env, VGen, VApp, VRecType, ppValue)
+import GF.Grammar
 import GF.Grammar.Lookup
 import GF.Grammar.Predef
 import GF.Grammar.Lockfield
@@ -85,19 +85,15 @@ checkDef g q ty (ps,t) = do
   let (c1,c23) = split unit
       (c2,c3)  = split c23
   res <- runEvalM g $ do
-            (scope,ty) <- go [] c1 (eval g [] c2 ty []) ps
+            (scope,ps,_,ty) <- tcPattApp [] c1 (eval g [] c2 ty []) ps
             (t,_) <- tcRho scope c3 t (Just ty)
+            let xs = scopeVars scope
+            ps <- mapM (zonkPatt xs) ps
+            t  <- zonkTerm xs t
             return (ps,t)
   case res of
     [eq] -> return eq
     _    -> checkError (pp "Encountered variants while type checking")
-  where
-    go scope c ty []     = return (scope,ty)
-    go scope c ty (p:ps) = do (_,_,arg_ty,res_ty) <- unifyFun scope ty
-                              let (c1,c2) = split c
-                              (scope,arg_ty) <- tcPatt scope c1 p (Just arg_ty)
-                              go scope c2 res_ty ps
-
 
 inferSigma :: Scope -> Choice -> Term -> EvalM (Term,Sigma)
 inferSigma scope s t = do                                      -- GEN1
@@ -486,7 +482,7 @@ tcRho scope c t@(EPatt _ _ p) mb_ty = concreteOnly "Patterns" $ do
                                      case ty of
                                        VPattType ty -> return (scope,f,Just ty)
                                        _            -> evalError (ppTerm Unqualified 0 t <+> "must be of pattern type but" <+> ppTerm Unqualified 0 t <+> "is expected")
-  (_,ty) <- tcPatt scope c p mb_ty
+  (_,p,_,ty) <- tcPatt scope c p mb_ty
   (min,max,p) <- measurePatt p
   return (f (EPatt min max p), VPattType ty)
 tcRho scope c (Markup tag attrs children) mb_ty = concreteOnly "Markups" $ do
@@ -635,7 +631,7 @@ tcUnifyingMaybe scope c ts mb_ty = do
 tcCases scope c []         (Just p_ty) (Just res_ty) = return ([],p_ty,res_ty)
 tcCases scope c ((p,t):cs) mb_p_ty     mb_res_ty     = do
   let (c1,c2,c3,c4) = split4 c
-  (scope',p_ty) <- tcPatt scope c1 p mb_p_ty
+  (scope',p,_,p_ty) <- tcPatt scope c1 p mb_p_ty
   (t,res_ty)  <- tcRho scope' c2 t mb_res_ty
   (cs,p_ty,res_ty) <- tcCases scope c3 cs (Just p_ty) (Just res_ty)
   (_,_,p) <- measurePatt p
@@ -657,8 +653,8 @@ reapply1 scope c fun fun_ty ((ImplArg arg):args) = do -- Implicit arg case
   let (c1,c2,c3,c4) = split4 c
   (bt, x, arg_ty, res_ty) <- unifyFun scope fun_ty
   unless (bt == Implicit) $
-     evalError (ppTerm Unqualified 0 (App fun (ImplArg arg)) <+>
-                "is an implicit argument application, but no implicit argument is expected")
+     evalError (ppTerm Unqualified 0 (ImplArg arg) <+>
+                "is an unexpected implicit argument")
   (arg,_) <- tcRho scope c1 arg (Just arg_ty)
   g <- globals
   res_ty <- evalCodomain x (eval g (scopeEnv scope) c2 arg []) res_ty
@@ -765,134 +761,141 @@ reapply2 scope c fun fun_ty ((arg,arg_v,arg_ty):args) mb_ty = do -- Explicit arg
   res_ty <- evalCodomain x arg_v res_ty
   reapply2 scope c (App fun arg) res_ty args mb_ty
 
-tcPatt scope c (PV x)    Nothing    = do
+tcPatt scope c p@(PV x)    Nothing    = do
   i <- newResiduation scope
   if x == identW
-    then return (scope,VMeta i [])
-    else let ty = VMeta i []
-         in return ((x,ty):scope,ty)
-tcPatt scope c (PV x)    (Just ty) =
+    then return (scope,p,Nothing,VMeta i [])
+    else let v  = VGen (length scope) []
+             ty = VMeta i []
+         in return ((x,ty):scope,p,Just v,ty)
+tcPatt scope c p@(PV x)    (Just ty) =
   if x == identW
-    then return (scope,ty)
-    else return ((x,ty):scope,ty)
+    then return (scope,p,Nothing,ty)
+    else let v = VGen (length scope) []
+         in return ((x,ty):scope,p,Just v,ty)
 tcPatt scope c (PP q ps) mb_ty = do
   g@(Gl gr _ isAbstract) <- globals
   ty <- case (if isAbstract then lookupFunType else lookupResType) gr q of
           Ok ty   -> return ty
           Bad msg -> evalError (pp msg)
-  let go scope c ty []     = return (scope,ty)
-      go scope c ty (p:ps) = do (_,_,arg_ty,res_ty) <- unifyFun scope ty
-                                let (c1,c2) = split c
-                                (scope,arg_ty) <- tcPatt scope c1 p (Just arg_ty)
-                                go scope c2 res_ty ps
   let (c1,c2) = split c
-  (scope,res_ty) <- go scope c1 (eval g [] c2 ty []) ps
+  (scope,ps,mb_vs,res_ty) <- tcPattApp scope c1 (eval g [] c2 ty []) ps
   case mb_ty of
     Just ty -> unify scope ty res_ty
     Nothing -> return ()
-  return (scope,res_ty)
+  return (scope,PP q ps,fmap (VApp q) mb_vs,res_ty)
 tcPatt scope c p@(PInt i) mb_ty =
   case mb_ty of
     Just ty0@(VInts n ext)
-       | i <= n    -> return (scope,ty0)
-       | ext       -> return (scope,VInts i ext)
+       | i <= n    -> return (scope,p,Just (VInt i),ty0)
+       | ext       -> return (scope,p,Just (VInt i),VInts i ext)
        | otherwise -> evalError ("Ints" <+> i <+> "is not a subtype of" <+> ppValue Unqualified 0 ty0)
     Just ty0@(VMeta k vs) -> do
        mv <- getMeta k
        case mv of
          Bound scope1 v -> do
            g  <- globals
-           (scope,ty) <- tcPatt scope c p (Just (apply g v vs))
+           (scope,p,mb_v,ty) <- tcPatt scope c p (Just (apply g v vs))
            setMeta k (Bound scope1 ty)
-           return (scope,ty0)
+           return (scope,p,mb_v,ty0)
          Residuation scope1 -> do
            setMeta k (Bound scope1 (VInts i True))
-           return (scope,ty0)
-    Nothing -> return (scope,VInts i True)
+           return (scope,p,Just (VInt i),ty0)
+    Nothing -> return (scope,p,Just (VInt i),VInts i True)
     _ -> evalError (pp "An integer must have an Int or Ints n type")
-tcPatt scope c (PString s) mb_ty = do
+tcPatt scope c p@(PString s) mb_ty = do
   case mb_ty of
     Just ty -> unify scope ty vtypeStr
     Nothing -> return ()
-  return (scope,vtypeStr)
+  return (scope,p,Just (VStr s),vtypeStr)
 tcPatt scope c PChar mb_ty = do
   case mb_ty of
     Just ty -> unify scope ty vtypeStr
     Nothing -> return ()
-  return (scope,vtypeStr)
-tcPatt scope c (PChars cs) mb_ty = do
+  return (scope,PChar,Nothing,vtypeStr)
+tcPatt scope c p@(PChars cs) mb_ty = do
   case mb_ty of
     Just ty -> unify scope ty vtypeStr
     Nothing -> return ()
-  return (scope,vtypeStr)
-tcPatt scope c (PSeq _ _ p1 _ _ p2) mb_ty = do
+  return (scope,p,Nothing,vtypeStr)
+tcPatt scope c (PSeq min1 max1 p1 min2 max2 p2) mb_ty = do
   case mb_ty of
     Just ty -> unify scope ty vtypeStr
     Nothing -> return ()
   let (c1,c2) = split c
-  (scope,_) <- tcPatt scope c1 p1 (Just vtypeStr)
-  (scope,_) <- tcPatt scope c2 p2 (Just vtypeStr)
-  return (scope,vtypeStr)
-tcPatt scope c (PRep _ _ p) mb_ty = do
+  (scope,p1,v1,_) <- tcPatt scope c1 p1 (Just vtypeStr)
+  (scope,p2,v2,_) <- tcPatt scope c2 p2 (Just vtypeStr)
+  return (scope,PSeq min1 max1 p1 min2 max2 p2,liftM2 VGlue v1 v2,vtypeStr)
+tcPatt scope c (PRep min max p') mb_ty = do
   case mb_ty of
     Just ty -> unify scope ty vtypeStr
     Nothing -> return ()
-  tcPatt scope c p (Just vtypeStr)
+  (scope,p',_,ty) <- tcPatt scope c p' (Just vtypeStr)
+  return (scope,PRep min max p',Nothing,ty)
 tcPatt scope c (PAs x p) mb_ty = do
   ty <- case mb_ty of
           Just ty -> return ty
           Nothing -> do i <- newResiduation scope
                         return (VMeta i [])
-  tcPatt ((x,ty):scope) c p (Just ty)
+  let v = VGen (length scope) []
+  (scope,p',mb_v,ty) <- tcPatt ((x,ty):scope) c p (Just ty)
+  return (scope,PAs x p',mb_v `mplus` Just v,ty)
+tcPatt scope c p@(PTilde t) (Just ty) = do
+  i <- newResiduation scope
+  return (scope, p, Just (VMeta i []), ty)
 tcPatt scope c p@(PR rs) mb_ty =
   case mb_ty of
-    Just (VRecType ltys ext) -> check scope c rs ltys ext
+    Just (VRecType ltys ext) -> do
+       (scope,lps,mb_lvs,ty) <- check scope c rs ltys ext
+       return (scope, PR lps, fmap VR mb_lvs, ty)
     Just ty0@(VMeta i vs) -> do
        mv <- getMeta i
        case mv of
          Bound scope1 v ->
               do g <- globals
-                 (scope,ty) <- tcPatt scope c p (Just (apply g v vs))
+                 (scope,p,v,ty) <- tcPatt scope c p (Just (apply g v vs))
                  setMeta i (Bound scope1 ty)
-                 return (scope,ty0)
+                 return (scope,p,v,ty0)
          Residuation scope1 ->
-              do (scope,ltys) <- infer scope c rs
+              do (scope,lps,mb_lvs,ltys) <- infer scope c rs
                  setMeta i (Bound scope1 (VRecType ltys True))
-                 return (scope,ty0)
-    Nothing ->do (scope,ltys) <- infer scope c rs
-                 return (scope,VRecType ltys True)
+                 return (scope,PR lps,fmap VR mb_lvs,ty0)
+    Nothing ->do (scope,lps,mb_lvs,ltys) <- infer scope c rs
+                 return (scope,PR lps,fmap VR mb_lvs,VRecType ltys True)
     _ -> evalError (pp "An record must have an record type")
   where
-    check scope c []         ltys ext = return (scope,VRecType ltys ext)
+    check scope c []         ltys ext = return (scope,[],Just [],VRecType ltys ext)
     check scope c ((l,p):rs) ltys ext =
       case lookup3 l ltys of
         Just ty -> do let (c1,c2) = split c
-                      (scope,ty) <- tcPatt scope c1 p (Just ty)
-                      check scope c2 rs (update3 l True ty ltys) ext
+                      (scope,p,mb_v,ty) <- tcPatt scope c1 p (Just ty)
+                      (scope,lps,mb_lvs,ty) <- check scope c2 rs (update3 l True ty ltys) ext
+                      return (scope,(l,p):lps,liftM2 (\v lvs -> (l,v):lvs) mb_v mb_lvs,ty)
         Nothing
           | ext -> do let (c1,c2) = split c
-                      (scope,ty) <- tcPatt scope c1 p Nothing
-                      check scope c2 rs (ltys++[(l,True,ty)]) ext
+                      (scope,p,mb_v,ty) <- tcPatt scope c1 p Nothing
+                      (scope,lps,mb_lvs,ty) <- check scope c2 rs (ltys++[(l,True,ty)]) ext
+                      return (scope,(l,p):lps,liftM2 (\v lvs -> (l,v):lvs) mb_v mb_lvs,ty)
           | otherwise
                 -> do ty <- value2termM False (scopeVars scope) (VRecType ltys ext)
                       evalError (pp "Label" <+> pp l <+> " is not defined in the type of the pattern:" $$
                                  nest 4 (ppTerm Unqualified 0 ty))
 
-    infer scope c []         = return (scope,[])
+    infer scope c []         = return (scope,[],Just [],[])
     infer scope c ((l,p):rs) = do
       let (c1,c2) = split c
-      (scope,ty) <- tcPatt scope c1 p Nothing
-      (scope,ltys) <- infer scope c2 rs
-      return (scope,(l,True,ty):ltys)
+      (scope,p,mb_v,ty) <- tcPatt scope c1 p Nothing
+      (scope,lps,mb_lvs,ltys) <- infer scope c2 rs
+      return (scope,(l,p):lps,liftM2 (\v lvs -> (l,v):lvs) mb_v mb_lvs,(l,True,ty):ltys)
 tcPatt scope c (PNeg p) mb_ty = do
-  (_,ty) <- tcPatt scope c p mb_ty
-  return (scope, ty)
+  (_,p,_,ty) <- tcPatt scope c p mb_ty
+  return (scope, PNeg p, Nothing, ty)
 tcPatt scope c (PAlt p1 p2) mb_ty = do
   let (c1,c2) = split c
-  (_,ty) <- tcPatt scope c1 p1 mb_ty
-  (_,ty) <- tcPatt scope c2 p2 (Just ty)
-  return (scope,ty)
-tcPatt scope c (PM q) mb_ty = do
+  (_,p1,v1,ty) <- tcPatt scope c1 p1 mb_ty
+  (_,p2,v2,ty) <- tcPatt scope c2 p2 (Just ty)
+  return (scope,PAlt p1 p2,Nothing,ty)
+tcPatt scope c p@(PM q) mb_ty = do
   g@(Gl gr _ _) <- globals
   ty <- case lookupResType gr q of
           Ok ty   -> return ty
@@ -903,9 +906,52 @@ tcPatt scope c (PM q) mb_ty = do
                case mb_ty of
                  Just ty0 -> unify scope ty0 vty
                  Nothing  -> return ()
-               return (scope,vty)
+               return (scope,p,Nothing,vty)
     ty   -> evalError ("Pattern type expected but " <+> pp ty <+> " found.")
 tcPatt scope c p ty = unimplemented ("tcPatt "++show p)
+
+
+tcPattApp scope c ty                            []        = return (scope,[],Just [],ty)
+tcPattApp scope c (VProd Implicit x arg_ty res_ty) (p:ps) = do
+  let (c1,c2) = split c
+  (scope,p,ps,mb_v,arg_ty) <-
+     case p of
+       PImplArg p -> do (scope,p,mb_v,arg_ty) <- tcPatt scope c1 p (Just arg_ty)
+                        return (scope,p,ps,mb_v,arg_ty)
+       _          -> do i <- newResiduation scope
+                        return (scope,PTilde (Meta i),p:ps,Just (VMeta i []),arg_ty)
+  case res_ty of
+    VClosure env c t
+             -> do v <- case mb_v of
+                          Just v -> return v
+                          Nothing -> evalError (pp "Pattern" <+> ppPatt Unqualified 0 p <+> pp "cannot be used width a dependent function")
+                   g <- globals
+                   (scope,ps,mb_vs,res_ty) <- tcPattApp scope c2 (eval g ((x,v):env) c t []) ps
+                   return (scope,PImplArg p:ps,liftM2 (:) mb_v mb_vs,res_ty)
+    res_ty   -> do (scope,ps,mb_vs,res_ty) <- tcPattApp scope c2 res_ty ps
+                   return (scope,PImplArg p:ps,liftM2 (:) mb_v mb_vs,res_ty)
+tcPattApp scope c (VProd Explicit x arg_ty res_ty) (p:ps) = do
+  case p of
+    PImplArg _ ->
+      evalError (ppPatt Unqualified 0 p <+>
+                 "is an unexpected implicit argument")
+    _          -> return ()
+  let (c1,c2) = split c
+  (scope,p,mb_v,arg_ty) <- tcPatt scope c1 p (Just arg_ty)
+  case res_ty of
+    VClosure env c t
+             -> do v <- case mb_v of
+                          Just v -> return v
+                          Nothing -> evalError (pp "Pattern" <+> ppPatt Unqualified 0 p <+> pp "cannot be used width a dependent function")
+                   g <- globals
+                   (scope,ps,mb_vs,res_ty) <- tcPattApp scope c2 (eval g ((x,v):env) c t []) ps
+                   return (scope,p:ps,liftM2 (:) mb_v mb_vs,res_ty)
+    res_ty   -> do (scope,ps,mb_vs,res_ty) <- tcPattApp scope c2 res_ty ps
+                   return (scope,p:ps,liftM2 (:) mb_v mb_vs,res_ty)
+tcPattApp scope c ty ps =
+  evalError ("Cannot check patterns" <+> hsep (map (ppPatt Unqualified 10) ps) $$
+             "against type" <+> ppValue Unqualified 0 ty)
+
 
 measurePatt p =
   case p of
@@ -1720,6 +1766,10 @@ zonkTerm xs (Meta i) = do
     Bound _ v -> zonkTerm xs =<< value2termM False xs v
     _         -> return (Meta i)
 zonkTerm xs t = composOp (zonkTerm xs) t
+
+zonkPatt :: [Ident] -> Patt -> EvalM Patt
+zonkPatt xs (PTilde t) = fmap PTilde (zonkTerm xs t)
+zonkPatt xs p          = composPattOp (zonkPatt xs) p
 
 zonkValue :: Value -> EvalM Value
 zonkValue (VProd bt x ty1 ty2) = do
