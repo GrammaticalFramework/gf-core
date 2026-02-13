@@ -88,7 +88,7 @@ ppOptions opts =
   "flags" $$
   nest 2 (vcat [option <+> '=' <+> ppLit value <+> ';' | (option,value) <- optionsGFO opts])
 
-ppJudgement q (id, AbsCat pcont ) =
+ppJudgement q (id, AbsCat pcont) =
   "cat" <+> id <+>
   (case pcont of
      Just (L _ cont) -> hsep (map (ppDecl q) cont)
@@ -307,13 +307,9 @@ str s = doubleQuotes (pp (foldr showLitChar "" s))
       | c > '\DEL'  = showChar c
       | otherwise   = GHC.Show.showLitChar c
 
-ppDecl q (_,id,typ)
-  | id == identW = ppTerm q 3 typ
-  | otherwise    = parens (id <+> ':' <+> ppTerm q 0 typ)
-
-ppDDecl q (_,id,typ)
-  | id == identW = ppTerm q 6 typ
-  | otherwise    = parens (id <+> ':' <+> ppTerm q 0 typ)
+ppDecl q (bt,id,typ)
+  | id == identW = ppTerm q 5 typ
+  | otherwise    = parens (ppBind (bt,id) <+> ':' <+> ppTerm q 0 typ)
 
 ppQIdent :: TermPrintQual -> QIdent -> Doc
 ppQIdent q (m,id) =
@@ -341,7 +337,7 @@ ppBind (Implicit,v) = braces v
 ppAltern q (x,y) = ppTerm q 0 x <+> '/' <+> ppTerm q 0 y
 
 ppParams q ps = fsep (intersperse (pp '|') (map (ppParam q) ps))
-ppParam q (id,cxt) = id <+> hsep (map (ppDDecl q) cxt)
+ppParam q (id,cxt) = id <+> hsep (map (ppDecl q) cxt)
 
 ppMarkupAttr q (id,e) =
   id <> pp '=' <> ppTerm q 5 e
