@@ -53,7 +53,7 @@ compileEquations gr arity st (i:is) eqs       fl bs = whilePP eqs Map.empty
     whilePV ((vs, PV x     : ps, t):eqs) vrs
       | x == identW                          = whilePV eqs ((      vs,ps,t) : vrs)
       | otherwise                            = whilePV eqs (((x,i):vs,ps,t) : vrs)
-    whilePV ((vs, PTilde _ : ps, t):eqs) vrs = whilePV ((vs,ps,t) : eqs) vrs
+    whilePV ((vs, PTilde _ : ps, t):eqs) vrs = whilePV eqs ((      vs,ps,t) : vrs)
     whilePV ((vs, PImplArg p:ps, t):eqs) vrs = whilePV ((vs,p:ps,t):eqs) vrs
     whilePV ((vs, PT _ p   : ps, t):eqs) vrs = whilePV ((vs,p:ps,t):eqs) vrs
     whilePV eqs                          vrs = let fl1 = Just (st,length bs1)
@@ -104,7 +104,7 @@ compileFun gr eval st vs (App e1 e2) h0 bs args =
   in (h2,bs2,is1++is2)
 compileFun gr eval st vs (Q q@(m,id))  h0 bs args =
   case lookupAbsDef gr q of
-    Ok (_,Just _)
+    Ok (Just _)
        -> (h0,bs,eval st (GLOBAL (showIdent id)) args)
     _  -> let Ok ty = lookupFunType gr q
               (ctxt,_,_) = typeForm ty
@@ -167,7 +167,7 @@ compileFun gr eval st vs e _ _ _ = error (show e)
 
 compileArg gr st vs (Q q@(m,id)) h0 bs =
   case lookupAbsDef gr q of
-    Ok (_,Just _) -> (h0,bs,GLOBAL (showIdent id),[])
+    Ok (Just _)   -> (h0,bs,GLOBAL (showIdent id),[])
     _             -> let Ok ty = lookupFunType gr q
                          (ctxt,_,_) = typeForm ty
                          c_arity    = length ctxt

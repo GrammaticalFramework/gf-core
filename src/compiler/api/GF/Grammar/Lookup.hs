@@ -226,13 +226,13 @@ countParamValues gr ptyp =
     -- to normalize records and record types
     sortByLbl = sortBy (\(l1,_,_) (l2,_,_) -> compare l1 l2)
 
-lookupAbsDef :: ErrorMonad m => Grammar -> QIdent -> m (Maybe Int,Maybe [Equation])
+lookupAbsDef :: ErrorMonad m => Grammar -> QIdent -> m (Maybe (Int,[Equation]))
 lookupAbsDef gr q@(m,c) = errIn (render ("looking up absdef of" <+> c)) $ do
   info <- lookupQIdentInfo gr q
   case info of
-    AbsFun _ a d _ -> return (a,fmap (map unLoc) d)
-    AnyInd _ n     -> lookupAbsDef gr (n,c)
-    _              -> return (Nothing,Nothing)
+    AbsFun a d -> return (fmap (\(a,eqs) -> (a,map unLoc eqs)) d)
+    AnyInd _ n -> lookupAbsDef gr (n,c)
+    _          -> return Nothing
 
 lookupLincat :: ErrorMonad m => Grammar -> ModuleName -> Ident -> m Type
 lookupLincat gr m c | isPredefCat c = return defLinType --- ad hoc; not needed?
@@ -253,11 +253,11 @@ lookupAbsType gr q@(m,c)
   | otherwise = do
       info <- lookupQIdentInfo gr q
       case info of
-        AbsCat (Just (L _ co))             -> return (QC q,mkProd co typeType [])
-        AbsFun (Just (L _ t)) _ Nothing  _ -> return (QC q,t)
-        AbsFun (Just (L _ t)) _ (Just _) _ -> return (Q q,t)
-        AnyInd _ n                         -> lookupAbsType gr (n,c)
-        _                                  -> no_type
+        AbsCat (Just (L _ co))         -> return (QC q,mkProd co typeType [])
+        AbsFun (Just (L _ t)) Nothing  -> return (QC q,t)
+        AbsFun (Just (L _ t)) (Just _) -> return (Q q,t)
+        AnyInd _ n                     -> lookupAbsType gr (n,c)
+        _                              -> no_type
   where
     no_type = raise (render ("cannot find type of" <+> c))
 
@@ -266,9 +266,9 @@ lookupFunType :: ErrorMonad m => Grammar -> QIdent -> m Type
 lookupFunType gr q@(m,c) = do
   info <- lookupQIdentInfo gr q
   case info of
-    AbsFun (Just (L _ t)) _ _ _ -> return t
-    AnyInd _ n                  -> lookupFunType gr (n,c)
-    _                           -> raise (render ("cannot find type of" <+> c))
+    AbsFun (Just (L _ t)) _ -> return t
+    AnyInd _ n              -> lookupFunType gr (n,c)
+    _                       -> raise (render ("cannot find type of" <+> c))
 
 -- | this is needed at compile time
 lookupCatContext :: ErrorMonad m => Grammar -> ModuleName -> Ident -> m Context
@@ -292,7 +292,7 @@ allOpers gr =
   ]
   where
     typesIn info = case info of
-      AbsFun  (Just ltyp) _ _ _ -> [ltyp]
+      AbsFun  (Just ltyp) _     -> [ltyp]
       ResOper (Just ltyp) _     -> [ltyp]
       ResValue ltyp _           -> [ltyp]
       ResOverload _ tytrs       -> [ltyp | (ltyp,_) <- tytrs]

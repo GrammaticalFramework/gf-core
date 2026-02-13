@@ -323,8 +323,8 @@ allConcreteModules gr =
 -- and indirection to module (/INDIR/)
 data Info =
 -- judgements in abstract syntax
-   AbsCat   (Maybe (L Context))                                            -- ^ (/ABS/) context of a category
- | AbsFun   (Maybe (L Type)) (Maybe Int) (Maybe [L Equation]) (Maybe Bool) -- ^ (/ABS/) type, arrity and definition of a function
+   AbsCat   (Maybe (L Context))                         -- ^ (/ABS/) context of a category
+ | AbsFun   (Maybe (L Type)) (Maybe (Int,[L Equation])) -- ^ (/ABS/) type, arrity and definition of a function
 
 -- judgements in resource
  | ResParam (Maybe (L [Param])) (Maybe ([Term],Int)) -- ^ (/RES/) The second argument is list of all possible values

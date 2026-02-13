@@ -105,7 +105,7 @@ instance Binary Rule where
 
 instance Binary Info where
   put (AbsCat x)       = putWord8 0 >> put x
-  put (AbsFun w x y z) = putWord8 1 >> put (w,x,y,z)
+  put (AbsFun x y)     = putWord8 1 >> put (x,y)
   put (ResParam x y)   = putWord8 2 >> put (x,y)
   put (ResValue x y)   = putWord8 3 >> put (x,y)
   put (ResOper x y)    = putWord8 4 >> put (x,y)
@@ -116,7 +116,7 @@ instance Binary Info where
   get = do tag <- getWord8
            case tag of
              0 -> get >>= \x         -> return (AbsCat x)
-             1 -> get >>= \(w,x,y,z) -> return (AbsFun w x y z)
+             1 -> get >>= \(x,y)     -> return (AbsFun x y)
              2 -> get >>= \(x,y)     -> return (ResParam x y)
              3 -> get >>= \(x,y)     -> return (ResValue x y)
              4 -> get >>= \(x,y)     -> return (ResOper x y)

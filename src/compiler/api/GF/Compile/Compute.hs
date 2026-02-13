@@ -357,11 +357,11 @@ stdPredef g = Map.fromList
 evalAbsDef :: Globals -> Choice -> QIdent -> [Value] -> Value
 evalAbsDef g@(Gl gr pds _) c q args =
   case lookupAbsDef gr q of
-    Ok (Just arity,Just eqs) ->
+    Ok (Just (arity,eqs)) ->
       case splitAt' arity args of
         Nothing -> VPAP c q args
         Just (_,_) -> patternMatch g c (VConst q args) (map (\(ps,t) -> ([],ps,args,t)) eqs)
-    Ok (_,Nothing) -> VConst q args
+    Ok Nothing -> VConst q args
     Bad msg -> error msg
 
 apply g (VMeta i vs0)                   vs  = VMeta i   (vs0++vs)

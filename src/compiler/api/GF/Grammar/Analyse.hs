@@ -27,7 +27,7 @@ stripSourceGrammar sgr = mGrammar [(i, m{jments = Map.map stripInfo (jments m)})
 stripInfo :: Info -> Info
 stripInfo i = case i of
   AbsCat _ -> i
-  AbsFun mt mi me mb -> AbsFun mt mi Nothing mb
+  AbsFun mt me -> AbsFun mt Nothing
   ResParam mp mt -> ResParam mp Nothing
   ResValue lt _ -> i ----
   ResOper mt md -> ResOper mt Nothing
@@ -116,8 +116,8 @@ sizePatt p = case p of
 sizeInfo :: Info -> Int
 sizeInfo i = case i of
   AbsCat (Just (L _ co)) -> 1 + sum [1 + sizeTerm ty | (_,_,ty) <- co]
-  AbsFun mt mi me mb -> 1 + msize mt + 
-    sum [sum (map sizePatt ps) + sizeTerm t | Just es <- [me], L _ (ps,t) <- es]
+  AbsFun mt me -> 1 + msize mt + 
+    sum [sum (map sizePatt ps) + sizeTerm t | Just (_,es) <- [me], L _ (ps,t) <- es]
   ResParam mp mt -> 
     1 + sum [1 + sum [1 + sizeTerm ty | (_,_,ty) <- co] | Just (L _ ps) <- [mp], (_,co) <- ps]
   ResValue _ _ -> 0

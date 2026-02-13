@@ -174,14 +174,14 @@ extendMod gr isCompl ((name,mi),cond) base new = foldM try new $ Map.toList (jme
       (b,n') = case info of
         ResValue _ _ -> (True,n)
         ResParam _ _ -> (True,n)
-        AbsFun _ _ Nothing _ -> (True,n)
+        AbsFun _ Nothing -> (True,n)
         AnyInd b k -> (b,k)
         _ -> (False,n) ---- canonical in Abs
 
 globalizeLoc fpath i =
   case i of
     AbsCat mc             -> AbsCat (fmap gl mc)
-    AbsFun mt ma md moper -> AbsFun (fmap gl mt) ma (fmap (fmap gl) md) moper
+    AbsFun mt md          -> AbsFun (fmap gl mt) (fmap (\(a,eqs) -> (a,fmap gl eqs)) md)
     ResParam mt mv        -> ResParam (fmap gl mt) mv
     ResValue t i          -> ResValue (gl t) i
     ResOper mt m          -> ResOper (fmap gl mt) (fmap gl m)
@@ -200,8 +200,8 @@ unifyAnyInfo :: ModuleName -> Info -> Info -> Err Info
 unifyAnyInfo m i j = case (i,j) of
   (AbsCat mc1, AbsCat mc2) ->
     liftM AbsCat (unifyMaybeL mc1 mc2)
-  (AbsFun mt1 ma1 md1 moper1, AbsFun mt2 ma2 md2 moper2) ->
-    liftM4 AbsFun (unifyMaybeL mt1 mt2) (unifAbsArrity ma1 ma2) (unifAbsDefs md1 md2) (unifyMaybe moper1 moper2) -- adding defs
+  (AbsFun mt1 md1, AbsFun mt2 md2) ->
+    liftM2 AbsFun (unifyMaybeL mt1 mt2) (unifAbsDefs md1 md2) -- adding defs
 
   (ResParam mt1 mv1, ResParam mt2 mv2) ->
     liftM2 ResParam (unifyMaybeL mt1 mt2) (unifyMaybe mv1 mv2)
@@ -229,10 +229,7 @@ unifyAnyInfo m i j = case (i,j) of
 unifyMaybeL :: Eq a => Maybe (L a) -> Maybe (L a) -> Err (Maybe (L a))
 unifyMaybeL = unifyMaybeBy unLoc
 
-unifAbsArrity :: Maybe Int -> Maybe Int -> Err (Maybe Int)
-unifAbsArrity = unifyMaybe
-
-unifAbsDefs :: Maybe [L Equation] -> Maybe [L Equation] -> Err (Maybe [L Equation])
-unifAbsDefs (Just xs) (Just ys) = return (Just (xs ++ ys))
-unifAbsDefs Nothing   Nothing   = return Nothing
-unifAbsDefs _         _         = fail ""
+unifAbsDefs :: Maybe (Int,[L Equation]) -> Maybe (Int,[L Equation]) -> Err (Maybe (Int,[L Equation]))
+unifAbsDefs (Just (_,xs)) (Just (_,ys)) = return (Just (0,xs ++ ys))
+unifAbsDefs Nothing       Nothing       = return Nothing
+unifAbsDefs _             _             = fail ""

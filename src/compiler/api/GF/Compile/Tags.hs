@@ -28,8 +28,8 @@ getLocalTags x (m,mi) =
   where
     getLocations :: Info -> [(String,String,String)]
     getLocations (AbsCat mb_ctxt)               = maybe (loc "cat")          mb_ctxt
-    getLocations (AbsFun mb_type _ mb_eqs _)    = maybe (ltype "fun")        mb_type ++
-                                                  maybe (list (loc "def"))   mb_eqs  
+    getLocations (AbsFun mb_type mb_eqs)        = maybe (ltype "fun")        mb_type ++
+                                                  maybe (list (loc "def") . snd) mb_eqs  
     getLocations (ResParam mb_params _)         = maybe (loc "param")        mb_params
     getLocations (ResValue mb_type _)           = ltype "param-value"          mb_type
     getLocations (ResOper  mb_type mb_def)      = maybe (ltype "oper-type")  mb_type ++

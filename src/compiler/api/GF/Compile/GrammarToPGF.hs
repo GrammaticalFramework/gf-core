@@ -82,13 +82,13 @@ grammar2PGF opts mb_pgf gr am probs = do
                                ((m,c),AbsCat (Just (L _ cont))) <- adefs, let c' = i2i c]
 
     funs = [(f', mkType [] ty, arity, bcode, toLogProb (fromMaybe 0 (Map.lookup f' funs_probs))) |
-                               ((m,f),AbsFun (Just (L _ ty)) ma mdef _) <- adefs,
-                               let arity = mkArity ma mdef ty,
-                               let bcode = mkDef gr arity mdef,
+                               ((m,f),AbsFun (Just (L _ ty)) mdef) <- adefs,
+                               let arity = mkArity mdef ty,
+                               let bcode = mkDef gr mdef,
                                let f' = i2i f]
                                
     funs_probs = (Map.fromList . concat . Map.elems . fmap pad . Map.fromListWith (++))
-                    [(i2i cat,[(i2i f,Map.lookup f' probs)]) | ((m,f),AbsFun (Just (L _ ty)) _ _ _) <- adefs,
+                    [(i2i cat,[(i2i f,Map.lookup f' probs)]) | ((m,f),AbsFun (Just (L _ ty)) _) <- adefs,
                                                                let (_,(_,cat),_) = GM.typeForm ty,
                                                                let f' = i2i f]
       where
@@ -167,13 +167,12 @@ mkContext scope hyps = mapAccumL (\scope (bt,x,ty) -> let ty' = mkType scope ty
                                                            then (  scope,(bt,i2i x,ty'))
                                                            else (x:scope,(bt,i2i x,ty'))) scope hyps 
 
-mkDef gr arity (Just eqs) = generateByteCode gr arity eqs
-mkDef gr arity Nothing    = []
+mkDef gr (Just (arity,eqs)) = generateByteCode gr arity eqs
+mkDef gr Nothing    = []
 
-mkArity (Just a) _        ty = a   -- known arity, i.e. defined function
-mkArity Nothing  (Just _) ty = 0   -- defined function with no arity - must be an axiom
-mkArity Nothing  _        ty = let (ctxt, _, _) = GM.typeForm ty  -- constructor
-                               in length ctxt
+mkArity (Just (a,_)) ty = a   -- known arity, i.e. defined function
+mkArity Nothing      ty = let (ctxt, _, _) = GM.typeForm ty  -- constructor
+                          in length ctxt
 {-
 genCncCats gr am cm cdefs = mkCncCats 0 cdefs
   where

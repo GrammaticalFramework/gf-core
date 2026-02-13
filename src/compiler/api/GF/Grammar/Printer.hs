@@ -93,17 +93,16 @@ ppJudgement q (id, AbsCat pcont ) =
   (case pcont of
      Just (L _ cont) -> hsep (map (ppDecl q) cont)
      Nothing         -> empty) <+> ';'
-ppJudgement q (id, AbsFun ptype _ pexp poper) =
+ppJudgement q (id, AbsFun ptype pexp) =
   let kind | isNothing pexp      = "data"
-           | poper == Just False = "oper"
            | otherwise           = "fun"
   in
   (case ptype of
      Just (L _ typ) -> kind <+> id <+> ':' <+> ppTerm q 0 typ <+> ';'
      Nothing        -> empty) $$
   (case pexp of
-     Just []  -> empty
-     Just eqs -> "def" <+> vcat [id <+> hsep (map (ppPatt q 2) ps) <+> '=' <+> ppTerm q 0 e <+> ';' | L _ (ps,e) <- eqs]
+     Just (_,[])  -> empty
+     Just (_,eqs) -> "def" <+> vcat [id <+> hsep (map (ppPatt q 2) ps) <+> '=' <+> ppTerm q 0 e <+> ';' | L _ (ps,e) <- eqs]
      Nothing  -> empty)
 ppJudgement q (id, ResParam pparams _) =
   "param" <+> id <+>

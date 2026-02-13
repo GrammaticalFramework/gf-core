@@ -92,7 +92,7 @@ checkCompleteGrammar opts cwd gr (am,abs) (cm,cnc) = checkInModule cwd cnc NoLoc
   where
    checkAbs js i@(c,info) =
      case info of
-       AbsFun (Just (L loc ty)) _ _ _
+       AbsFun (Just (L loc ty)) _
            -> do let mb_def = do
                        let (cxt,(_,i),_) = typeForm ty
                        info <- lookupIdent i js
@@ -134,7 +134,7 @@ checkCompleteGrammar opts cwd gr (am,abs) (cm,cnc) = checkInModule cwd cnc NoLoc
    checkCnc js (c,info) =
      case info of
        CncFun _ d mn mf -> case lookupOrigInfo gr (am,c) of
-                             Ok (_,AbsFun (Just (L loc ty)) _ _ _) ->
+                             Ok (_,AbsFun (Just (L loc ty)) _) ->
                                         do linty <- linTypeOfType gr cm (L loc ty)
                                            return $ Map.insert c (CncFun (Just linty) d mn mf) js
                              _       -> do checkWarn ("function" <+> c <+> "is not in abstract")
@@ -160,16 +160,23 @@ checkInfo opts cwd sgr sm (c,info) = checkInModule cwd (snd sm) NoLoc empty $ do
         cont <- checkContext ga cont
         update sm c (AbsCat (Just (L loc cont)))
 
-    AbsFun (Just (L loc typ)) ma md moper -> do
+    AbsFun (Just (L loc typ)) md -> do
       chIn loc "the type of function" $
         checkLType ga typ typeType
       typ <- normalForm ga typ   -- to calculate let definitions
       md <- case md of
-              Just eqs -> do eqs <- mapM (\(L loc eq) -> chIn loc "the definition of function" $
+              Just (_,eqs) -> do eqs <- mapM (\(L loc eq) -> chIn loc "the definition of function" $
                                                             fmap (L loc) (checkDef ga (fst sm,c) typ eq)) eqs
-                             return (Just eqs)
+                                 arity <-
+                                    case [length ps | L _ (ps,_) <- eqs] of
+                                      []                   -> return 0
+                                      (arity : as) 
+                                        | all (==arity) as -> return arity
+                                      _ -> checkError ("The following equations have different arities" $$
+                                                       nest 4 (vcat [ppQIdent Unqualified (fst sm,c) <+> hsep (map (ppPatt Unqualified 2) ps) | L _ (ps,_) <- eqs]))
+                                 return (Just (arity,eqs))
               Nothing  -> return Nothing
-      update sm c (AbsFun (Just (L loc typ)) ma md moper)
+      update sm c (AbsFun (Just (L loc typ)) md)
 
     CncCat mty mdef mref mpr mpmcfg -> do
       mty  <- case mty of

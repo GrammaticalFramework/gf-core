@@ -34,11 +34,11 @@ info2json (AbsCat mb_ctxt) =
   case mb_ctxt of
     Nothing         -> makeObj []
     Just (L _ ctxt) -> makeObj [("context", showJSON (map hypo2json ctxt))]
-info2json (AbsFun mb_ty mb_arity mb_eqs _) =
+info2json (AbsFun mb_ty mb_eqs) =
   (makeObj . catMaybes)
      [ fmap (\(L _ ty) -> ("abstype",term2json ty)) mb_ty
-     , fmap (\a -> ("arity",showJSON a)) mb_arity
-     , fmap (\eqs -> ("equations",showJSON (map (\(L _ eq) -> equation2json eq) eqs))) mb_eqs
+     , fmap (\(a,_)   -> ("arity",showJSON a)) mb_eqs
+     , fmap (\(_,eqs) -> ("equations",showJSON (map (\(L _ eq) -> equation2json eq) eqs))) mb_eqs
      ]
 info2json (ResParam mb_params _) =
   makeObj [("params", case mb_params of
