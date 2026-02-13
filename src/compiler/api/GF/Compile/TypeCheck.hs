@@ -76,6 +76,7 @@ checkContext g ctxt = do
       let (c1,c23) = split c
           (c2,c3)  = split c23
       (ty,_) <- tcRho scope c1 ty (Just vtypeType)
+      ty <- zonkTerm (scopeVars scope) ty
       g <- globals
       ctxt <- check ((x,eval g (scopeEnv scope) c2 ty []):scope) c3 ctxt
       return ((bt,x,ty):ctxt)
