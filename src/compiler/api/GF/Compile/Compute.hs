@@ -16,7 +16,7 @@ import GF.Infra.Ident
 import GF.Infra.CheckM
 import GF.Data.Operations(Err(..))
 import GF.Data.Utilities(maybeAt,splitAt',(<||>),anyM,secondM,bimapM)
-import GF.Grammar.Lookup(lookupAbsDef,lookupResDef,lookupOrigInfo)
+import GF.Grammar.Lookup
 import GF.Grammar.Grammar
 import GF.Grammar.Macros
 import GF.Grammar.Predef
@@ -827,11 +827,11 @@ setMeta i ms = EvalM (\g k (State input choices metas opts) r msgs ->
 
 value2termM :: Bool -> [Ident] -> Value -> EvalM Term
 value2termM flat xs (VApp q vs) =
-  foldM (\t v -> fmap (App t) (value2termM flat xs v)) (QC q) vs
+  vapp2termM flat xs q (QC q) vs
 value2termM flat xs (VPAP _ q vs) =
-  foldM (\t v -> fmap (App t) (value2termM flat xs v)) (Q q) vs
+  vapp2termM flat xs q (Q q) vs
 value2termM flat xs (VConst q vs) =
-  foldM (\t v -> fmap (App t) (value2termM flat xs v)) (Q q) vs
+  vapp2termM flat xs q (Q q) vs
 value2termM flat xs (VMeta i vs) = do
   mv <- getMeta i
   case mv of
@@ -1061,6 +1061,18 @@ value2termM flat xs (VError msg) = evalError msg
 value2termM flat xs (VInts n _) = return (App (Q (cPredef,cInts)) (EInt n))
 value2termM flat xs v = evalError ("value2termM" <+> ppValue Unqualified 5 v)
 
+vapp2termM flat xs q t vs = do
+  g@(Gl gr _ isAbstract) <- globals
+  case (if isAbstract then fmap snd (lookupAbsType gr q) else lookupResType gr q) of
+    Bad msg -> evalError (pp msg)
+    Ok ty   -> do (t,_) <- foldM app (t,ty) vs
+                  return t
+  where
+    app (t,Prod bt _ _ ty) v = do
+      arg <- value2termM flat xs v
+      case bt of
+        Explicit -> return (App t arg,ty)
+        Implicit -> return (App t (ImplArg arg),ty)
 
 pattVars st (PP _ ps)    = foldl pattVars st ps
 pattVars st (PV x)       = case st of
