@@ -30,6 +30,7 @@ import qualified Data.Traversable as T(mapM)
 import qualified Data.Map as Map
 import Control.Monad (liftM, liftM2, liftM3, forM)
 import Data.List (nub)
+import Data.Maybe (fromMaybe)
 import Data.Monoid
 import Data.Graph
 import GF.Text.Pretty(render,(<+>),($$),hsep,fsep,vcat,nest)
@@ -457,7 +458,7 @@ changeTableType co i = case i of
 
 allDependencies :: (ModuleName -> Bool) -> Map.Map Ident Info -> [(Ident,Info,[Ident])]
 allDependencies ism b =
-  [(f, i, nub (concatMap opty (pts i))) | (f,i) <- Map.toList b]
+  [(f, i, nub (deps i)) | (f,i) <- Map.toList b]
   where
     opersIn t = case t of
       Q  (n,c) | ism n -> [c]
@@ -467,6 +468,8 @@ allDependencies ism b =
       _ -> collectOp opersIn t
 
     opersInPatt p = case p of
+      PP (n,c) ps      -> (if ism n then (:)c else id)
+                              (concatMap opersInPatt ps)
       PTilde t         -> opersIn t
       PM (n,c) | ism n -> [c]
       _ -> collectPattOp opersInPatt p
@@ -474,14 +477,14 @@ allDependencies ism b =
     opty (Just (L _ ty)) = opersIn ty
     opty _ = []
 
-    pts i = case i of
-      ResOper pty pt -> [pty,pt]
-      ResOverload _ tyts -> concat [[Just ty, Just tr] | (ty,tr) <- tyts]
-      ResParam (Just (L loc ps)) _ -> [Just (L loc t) | (_,cont) <- ps, (_,_,t) <- cont]
-      CncCat pty _ _ _ _ -> [pty]
-      CncFun _   pt _ _ -> [pt]  ---- (Maybe (Ident,(Context,Type))
-      AbsFun pty ptr -> [pty] --- ptr is def, which can be mutual
-      AbsCat (Just (L loc co)) -> [Just (L loc ty) | (_,_,ty) <- co]
+    deps i = case i of
+      ResOper pty pt -> opty pty ++ opty pt
+      ResOverload _ tyts -> concat [opersIn ty ++ opersIn tr | (L _ ty,L _ tr) <- tyts]
+      ResParam (Just (L loc ps)) _ -> concat [opersIn  t | (_,cont) <- ps, (_,_,t) <- cont]
+      CncCat pty _ _ _ _ -> opty pty
+      CncFun _   pt _ _ -> opty pt
+      AbsFun pty peqs -> opty pty ++ [c | L _ (ps,t) <- maybe [] snd peqs, c <- concatMap opersInPatt ps]
+      AbsCat (Just (L loc co)) -> concat [opersIn ty | (_,_,ty) <- co]
       _              -> []
 
 topoSortJments :: ErrorMonad m => SourceModule -> m [(Ident,Info)]
