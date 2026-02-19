@@ -123,6 +123,7 @@ library
     GF.Compile.Tags
     GF.Compile.ToAPI
     GF.Compile.TypeCheck
+    GF.Compile.TerminationCheck
     GF.Compile.Update
     GF.Data.BacktrackM
     GF.Data.Graph
