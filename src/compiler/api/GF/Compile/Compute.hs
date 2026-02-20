@@ -2,7 +2,7 @@
 
 module GF.Compile.Compute
            (Env, Scope, Value(..), Variants(..), OptionInfo(..),
-            ConstValue(..), Globals(..), PredefTable, EvalM,
+            ConstValue(..), Globals(..), PredefTable, EvalM(..),
             mapVariantsC, unvariants,
             runEvalM, runEvalMWithInput, stdPredef, noPredef, globals,
             PredefImpl, Predef, pdArity,
@@ -361,7 +361,7 @@ evalAbsDef g@(Gl gr pds _) c q args =
       case splitAt' arity args of
         Nothing -> VPAP c q args
         Just (_,_) -> patternMatch g c (VConst q args) (map (\(ps,t) -> ([],ps,args,t)) eqs)
-    Ok Nothing -> VConst q args
+    Ok Nothing -> VApp q args
     Bad msg -> error msg
 
 apply g (VMeta i vs0)                   vs  = VMeta i   (vs0++vs)
