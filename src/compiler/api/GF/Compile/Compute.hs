@@ -190,6 +190,7 @@ eval g env s (P t lbl)      vs  = let project (VR as)        = case lookup lbl a
                                       project (VFV s fvs)    = VFV s (fmap project fvs)
                                       project (VMeta i vs)   = VSusp i (\v -> project (apply g v vs)) []
                                       project (VSusp i k vs) = VSusp i (\v -> project (apply g (k v) vs)) []
+                                      project (VError msg)   = VError msg
                                       project v              = VP v lbl vs
                                   in project (eval g env s t [])
 eval g env s (ExtR t1 t2)   []  = let (s1,s2) = split s
@@ -223,6 +224,7 @@ eval g env s (S t1 t2)      vs  = let (!s1,!s2) = split s
                                       select (VFV i fvs)      = VFV i (fmap select fvs)
                                       select (VMeta i vs)     = VSusp i (\v -> select (apply g v vs)) []
                                       select (VSusp i k vs)   = VSusp i (\v -> select (apply g (k v) vs)) []
+                                      select (VError msg)     = VError msg
                                       select v1               = v0
                                           
                                       -- FIXME: options=[] is definitely not correct and this shouldn't be using value2termM at all
