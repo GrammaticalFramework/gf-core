@@ -203,6 +203,8 @@ eval g env s (ExtR t1 t2)   []  = let (s1,s2) = split s
                                       extend v1             (VMeta i vs)     = VSusp i (\v -> extend v1 (apply g v vs)) []
                                       extend (VSusp i k vs) v2               = VSusp i (\v -> extend (apply g (k v) vs) v2) []
                                       extend v1             (VSusp i k vs)   = VSusp i (\v -> extend v1 (apply g (k v) vs)) []
+                                      extend (VError msg)   v2               = VError msg
+                                      extend v1             (VError msg)     = VError msg
                                       extend v1             v2               = VExtR v1 v2
 
                                   in extend (eval g env s1 t1 []) (eval g env s2 t2 [])
@@ -252,6 +254,8 @@ eval g env s (C t1 t2)      []  = let (!s1,!s2) = split s
                                       concat v1     (VMeta i vs) = VSusp i (\v -> concat v1 (apply g v vs)) []
                                       concat (VSusp i k vs)   v2 = VSusp i (\v -> concat (apply g (k v) vs) v2) []
                                       concat v1   (VSusp i k vs) = VSusp i (\v -> concat v1 (apply g (k v) vs)) []
+                                      concat (VError msg)     v2 = VError msg
+                                      concat v1     (VError msg) = VError msg
                                       concat v1               v2 = VC v1 v2
 
                                   in concat (eval g env s1 t1 []) (eval g env s2 t2 [])
@@ -275,6 +279,8 @@ eval g env s (Glue t1 t2)   []  = let (!s1,!s2) = split s
                                       glue v1            (VMeta i vs)  = VSusp i (\v -> glue v1 (apply g v vs)) []
                                       glue (VSusp i k vs) v2           = VSusp i (\v -> glue (apply g (k v) vs) v2) []
                                       glue v1            (VSusp i k vs)= VSusp i (\v -> glue v1 (apply g (k v) vs)) []
+                                      glue (VError msg)  v2            = VError msg
+                                      glue v1            (VError msg)  = VError msg
                                       glue v1            v2            = VGlue v1 v2
 
                                       pre vd []                 s              = glue vd (VStr s)
@@ -377,6 +383,7 @@ apply g (VGen i vs0)                    vs  = VGen i (vs0++vs)
 apply g (VFV i fvs)                     vs  = VFV i (fmap (\v -> apply g v vs) fvs)
 apply g (VS v1 v2 vs')                  vs  = VS v1 v2 (vs'++vs)
 apply g (VClosure env s (Abs b x t)) (v:vs) = eval g ((x,v):env) s t vs
+apply g (VError msg)                    _   = VError msg
 apply g v                               []  = v
 
 data BubbleVariants
