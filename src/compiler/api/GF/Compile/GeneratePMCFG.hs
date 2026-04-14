@@ -210,6 +210,7 @@ breakDown g ms s r rs v (RecType lbls) fn0 fn = traverse ms r rs lbls fn0 fn
         project (VFV c fvs)   = VFV c (fmap project fvs)
         project (VMeta i vs)  = VSusp i (\v -> project (apply g v vs)) []
         project (VSusp i k vs)= VSusp i (\v -> project (apply g (k v) vs)) []
+        project (VError msg)  = VError msg
         project v             = VP v lbl []
 breakDown g ms c r rs v (Table p q) fn0 fn = do
   let i  = Map.size ms + 1
@@ -227,6 +228,7 @@ breakDown g ms c r rs v (Table p q) fn0 fn = do
     select v0 (VFV i fvs)      v2 = VFV i (fmap (\v1 -> select v0 v1 v2) fvs)
     select v0 (VMeta i vs)     v2 = VSusp i (\v -> select v0 (apply g v vs) v2) []
     select v0 (VSusp i k vs)   v2 = VSusp i (\v -> select v0 (apply g (k v) vs) v2) []
+    select v0 (VError msg)     v2 = VError msg
     select v0 v1               v2 = v0
 breakDown g ms s r rs v ty@(QC q) fn0 fn =
   let fn0' = do params <- fn0
@@ -295,6 +297,7 @@ force v@(VPatt _ _ _) = return v
 force (VFV c vs) = do
   v <- variants c (unvariants vs)
   force v
+force (VError msg) = compileError msg
 force v = compileError ("Cannot evaluate" <+> ppValue Unqualified 0 v)
 
 
@@ -350,6 +353,7 @@ flatten subst (VSusp i k vs) = do
 flatten subst (VFV c vs) = do
   v <- variants c (unvariants vs)
   flatten subst v
+flatten subst (VError msg) = compileError msg
 flatten subst v = compileError ("Cannot evaluate" <+> ppValue Unqualified 0 v  <+> "to a string")
 
 
