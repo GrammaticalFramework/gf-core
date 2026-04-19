@@ -467,6 +467,10 @@ allDependencies ism b =
       T _ cs -> mconcatMap (\(p,t) -> opersInPatt p ++ opersIn t) cs
       _ -> collectOp opersIn t
 
+    constrsIn t = case t of
+      QC (n,c) | ism n -> [c]
+      _ -> collectOp constrsIn t
+
     opersInPatt p = case p of
       PP (n,c) ps      -> (if ism n then (:)c else id)
                               (concatMap opersInPatt ps)
@@ -483,7 +487,7 @@ allDependencies ism b =
       ResParam (Just (L loc ps)) _ -> concat [opersIn  t | (_,cont) <- ps, (_,_,t) <- cont]
       CncCat pty _ _ _ _ -> opty pty
       CncFun _   pt _ _ -> opty pt
-      AbsFun pty peqs -> opty pty ++ [c | L _ (ps,t) <- maybe [] snd peqs, c <- concatMap opersInPatt ps]
+      AbsFun pty peqs -> opty pty ++ concat [concatMap opersInPatt ps++constrsIn t | L _ (ps,t) <- maybe [] snd peqs]
       AbsCat (Just (L loc co)) -> concat [opersIn ty | (_,_,ty) <- co]
       _              -> []
 

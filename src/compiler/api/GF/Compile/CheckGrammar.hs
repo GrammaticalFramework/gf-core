@@ -164,6 +164,9 @@ checkInfo opts cwd sgr sm (c,info) = checkInModule cwd (snd sm) NoLoc empty $ do
       (typ,_) <- chIn loc "the type of function" $
                    checkLType ga typ typeType
       typ <- normalForm ga typ   -- to calculate let definitions
+      sm <- update sm c (AbsFun (Just (L loc typ)) md)
+      let gr' = prependModule sgr sm
+          ga' = Gl gr' noPredef True
       md <- case md of
               Just (_,eqs) -> do eqs <- mapM (\(L loc eq) -> chIn loc "the definition of function" $
                                                             fmap (L loc) (checkDef ga (fst sm,c) typ eq)) eqs

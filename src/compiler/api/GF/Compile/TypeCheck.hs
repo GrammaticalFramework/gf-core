@@ -87,10 +87,9 @@ checkDef g q ty (ps,t) = do
       (c2,c3)  = split c23
   res <- runEvalM g $ do
             (scope,ps,_,ty) <- tcPattApp [] c1 (eval g [] c2 ty []) ps
+            (scope,ps) <- mapAccumM zonkPatt scope ps
             (t,_) <- tcRho scope c3 t (Just ty)
-            let xs = scopeVars scope
-            ps <- mapM (zonkPatt xs) ps
-            t  <- zonkTerm xs t
+            t  <- zonkTerm (scopeVars scope) t
             return (ps,t)
   case res of
     [eq] -> return eq
@@ -766,14 +765,18 @@ tcPatt scope c p@(PV x)    Nothing    = do
   i <- newResiduation scope
   if x == identW
     then return (scope,p,Nothing,VMeta i [])
-    else let v  = VGen (length scope) []
-             ty = VMeta i []
-         in return ((x,ty):scope,p,Just v,ty)
+    else do let v      = VGen (length scope) []
+                ty     = VMeta i []
+                scope' = (x,ty):scope
+            expandPattScope scope'
+            return (scope',p,Just v,ty)
 tcPatt scope c p@(PV x)    (Just ty) =
   if x == identW
     then return (scope,p,Nothing,ty)
-    else let v = VGen (length scope) []
-         in return ((x,ty):scope,p,Just v,ty)
+    else do let v      = VGen (length scope) []
+                scope' = (x,ty):scope
+            expandPattScope scope'
+            return (scope',p,Just v,ty)
 tcPatt scope c (PP q ps) mb_ty = do
   g@(Gl gr _ isAbstract) <- globals
   ty <- case (if isAbstract then lookupFunType else lookupResType) gr q of
@@ -953,6 +956,11 @@ tcPattApp scope c ty ps =
   evalError ("Cannot check patterns" <+> hsep (map (ppPatt Unqualified 10) ps) $$
              "against type" <+> ppValue Unqualified 0 ty)
 
+expandPattScope scope = EvalM (\g k state r msgs ->
+  k () state{metaVars=fmap expand (metaVars state)} r msgs)
+  where
+    expand (Bound scope v) = Bound scope v
+    expand (Residuation _) = Residuation scope
 
 measurePatt p =
   case p of
@@ -1679,13 +1687,6 @@ quantify scope t tvs ty = do
     check m n xs v@(VInts _ _) = return (xs,v)
     check m n xs v = unimplemented ("check "++show (ppValue Unqualified 5 v))
 
-    mapAccumM :: Monad m => (a -> b -> m (a,c)) -> a -> [b] -> m (a,[c])
-    mapAccumM f s []     = return (s,[])
-    mapAccumM f s (x:xs) = do
-      (s,y)  <- f s x
-      (s,ys) <- mapAccumM f s xs
-      return (s,y:ys)
-
 allBinders :: [Ident]    -- a,b,..z, a1, b1,... z1, a2, b2,...
 allBinders = [ identS [x]          | x <- ['a'..'z'] ] ++
              [ identS (x : show i) | i <- [1 :: Integer ..], x <- ['a'..'z']]
@@ -1709,6 +1710,13 @@ update3 l o v []  = [(l,o,v)]
 update3 l o v (r@(l',_,_):rs)
   | l == l'   = (l,o,v) : rs
   | otherwise = r : update3 l o v rs
+
+mapAccumM :: Monad m => (a -> b -> m (a,c)) -> a -> [b] -> m (a,[c])
+mapAccumM f s []     = return (s,[])
+mapAccumM f s (x:xs) = do
+  (s,y)  <- f s x
+  (s,ys) <- mapAccumM f s xs
+  return (s,y:ys)
 
 newVar :: Scope -> Ident
 newVar scope = head [x | i <- [1..],
@@ -1768,9 +1776,29 @@ zonkTerm xs (Meta i) = do
     _         -> return (Meta i)
 zonkTerm xs t = composOp (zonkTerm xs) t
 
-zonkPatt :: [Ident] -> Patt -> EvalM Patt
-zonkPatt xs (PTilde t) = fmap PTilde (zonkTerm xs t)
-zonkPatt xs p          = composPattOp (zonkPatt xs) p
+zonkPatt :: Scope -> Patt -> EvalM (Scope,Patt)
+zonkPatt scope (PP q ps) = do
+  (scope,ps) <- mapAccumM zonkPatt scope ps
+  return (scope, PP q ps)
+zonkPatt scope (PImplArg p) = do
+  (scope,p) <- zonkPatt scope p
+  return (scope, PImplArg p)
+zonkPatt scope (PTilde t) =
+  case t of
+    Meta i -> do st <- getMeta i
+                 case st of
+                   Bound _ v  -> do t <- (zonkTerm xs =<< value2termM False xs v)
+                                    return (scope, PTilde t)
+                   Residuation _
+                              -> do let v = mkFreshVar xs (identS "v")
+                                        scope' = (v,undefined):scope
+                                    setMeta i (Bound scope' (VGen (length scope) []))
+                                    return (scope', PV v)
+    t      -> do t <- zonkTerm xs t
+                 return (scope, PTilde t)
+  where
+    xs = scopeVars scope
+zonkPatt scope p          = return (scope,p)
 
 zonkValue :: Value -> EvalM Value
 zonkValue (VProd bt x ty1 ty2) = do
