@@ -85,7 +85,7 @@ class PGF_INTERNAL_DECL PgfLinearizer : public PgfUnmarshaller {
         virtual void check_category(PgfLinearizer *linearizer, PgfText *cat)=0;
         virtual void linearize_arg(PgfLinearizationOutputIface *out, PgfLinearizer *linearizer, size_t d, size_t r);
         virtual void linearize_var(PgfLinearizationOutputIface *out, PgfLinearizer *linearizer, size_t d, size_t r);
-        virtual void linearize_item(PgfLinearizationOutputIface *out, PgfLinearizer *linearizer, Item *item);
+        virtual void linearize_item(PgfLinearizationOutputIface *out, PgfLinearizer *linearizer, Item *item, vector<PgfSymbol> syms);
         virtual void linearize(PgfLinearizationOutputIface *out, PgfLinearizer *linearizer, size_t lindex)=0;
         virtual ref<PgfConcrLincat> get_lincat(PgfLinearizer *linearizer)=0;
         virtual ~TreeNode() { free(hoas_vars); };
@@ -173,6 +173,7 @@ class PGF_INTERNAL_DECL PgfLinearizer : public PgfUnmarshaller {
     struct PreStack {
         PreStack *next;
         TreeNode *node;
+        Item *item;
         ref<PgfSymbolKP> sym_kp;
         bool bind;
         CapitState capit;

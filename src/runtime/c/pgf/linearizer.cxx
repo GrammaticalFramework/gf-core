@@ -87,10 +87,10 @@ void PgfLinearizer::TreeNode::linearize_var(PgfLinearizationOutputIface *out, Pg
     out->symbol_token(linearizer->printer.get_text());
 }
 
-void PgfLinearizer::TreeNode::linearize_item(PgfLinearizationOutputIface *out, PgfLinearizer *linearizer, Item *item)
+void PgfLinearizer::TreeNode::linearize_item(PgfLinearizationOutputIface *out, PgfLinearizer *linearizer, Item *item, vector<PgfSymbol> syms)
 {
-    for (size_t i = 0; i < item->rule->syms.size(); i++) {
-        PgfSymbol sym = item->rule->syms[i];
+    for (size_t i = 0; i < syms.size(); i++) {
+        PgfSymbol sym = syms[i];
 
         switch (ref<PgfSymbol>::get_tag(sym)) {
         case PgfSymbolCat::tag: {
@@ -170,6 +170,7 @@ void PgfLinearizer::TreeNode::linearize_item(PgfLinearizationOutputIface *out, P
             PreStack *pre = new PreStack();
             pre->next   = linearizer->pre_stack;
             pre->node   = this;
+            pre->item   = item;
             pre->sym_kp = sym_kp;
             pre->bind   = false;
             pre->capit  = CAPIT_NONE;
@@ -298,7 +299,8 @@ void PgfLinearizer::TreeLinNode::linearize(PgfLinearizationOutputIface *out, Pgf
         linearizer->pre_stack->bracket_stack = bracket;
     }
 
-    linearize_item(out, linearizer, items[lindex]);
+    linearize_item(out, linearizer,
+                   items[lindex],items[lindex]->rule->syms.as_vector());
 
     if (linearizer->pre_stack == NULL)
         out->end_phrase(cat, fid, field, &lin->name);
@@ -537,7 +539,7 @@ void PgfLinearizer::TreeLinrefNode::linearize(PgfLinearizationOutputIface *out, 
 {
     ref<PgfConcrLincat> lincat = args->get_lincat(linearizer);
     if (lincat != 0) {
-        linearize_item(out, linearizer, item);
+        linearize_item(out, linearizer, item, item->rule->syms.as_vector());
     } else {
         args->linearize(out, linearizer, lindex);
     }
@@ -690,14 +692,14 @@ void PgfLinearizer::flush_pre_stack(PgfLinearizationOutputIface *out, PgfText *t
                 ref<PgfAlternative> alt = pre->sym_kp->alts.elem(i);
                 for (ref<PgfText> prefix : alt->prefixes) {
                     if (cmp(token, &(*prefix))) {
-//                        pre->node->linearize_seq(out, this, alt->form);
+                        pre->node->linearize_item(out, this, pre->item, alt->form);
                         goto done;
                     }
                 }
             }
         }
 
-//        pre->node->linearize_seq(out, this, pre->sym_kp->default_form);
+        pre->node->linearize_item(out, this, pre->item, pre->sym_kp->default_form);
 
     done:
         if (pre->bracket_stack != NULL)
