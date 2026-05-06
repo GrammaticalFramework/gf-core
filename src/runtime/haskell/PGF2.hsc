@@ -595,7 +595,12 @@ checkContext :: PGF -> [Hypo] -> Either String [Hypo]
 checkContext pgf ctxt = Right ctxt
 
 compute :: PGF -> Expr -> Expr
-compute = error "TODO: compute"
+compute p e =
+  unsafePerformIO $
+  withForeignPtr (a_revision p) $ \c_revision ->
+  bracket (newStablePtr e) freeStablePtr $ \c_e ->
+  bracket (withPgfExn "compute" (pgf_compute (a_db p) c_revision c_e marshaller unmarshaller)) freeStablePtr $ \c_e ->
+    deRefStablePtr c_e
 
 concreteName :: Concr -> ConcName
 concreteName c =

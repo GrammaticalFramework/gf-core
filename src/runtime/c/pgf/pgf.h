@@ -612,13 +612,18 @@ void pgf_drop_category(PgfDB *db, PgfRevision revision,
 
 PGF_API_DECL
 PgfConcrRevision pgf_create_concrete(PgfDB *db, PgfRevision revision,
-                                     PgfText *name,
+                                     PgfText *name, void **p_tm,
                                      PgfExn *err);
 
 PGF_API_DECL
 PgfConcrRevision pgf_clone_concrete(PgfDB *db, PgfRevision revision,
-                                    PgfText *name,
+                                    PgfText *name, void **p_tm,
                                     PgfExn *err);
+
+PGF_API_DECL
+void pgf_free_parse_table(PgfDB *db,
+                          PgfRevision revision, PgfConcrRevision cnc_revision,
+                          void *table_maker);
 
 PGF_API_DECL
 void pgf_drop_concrete(PgfDB *db, PgfRevision revision,
@@ -696,6 +701,7 @@ struct PgfBuildLinIface {
 PGF_API_DECL
 void pgf_create_lincat(PgfDB *db,
                        PgfRevision revision, PgfConcrRevision cnc_revision,
+                       void *table_maker,
                        PgfText *name, size_t n_fields, PgfText **fields,
                        size_t n_lindefs, size_t n_linrefs, PgfBuildLinIface *build,
                        PgfExn *err);
@@ -708,6 +714,7 @@ void pgf_drop_lincat(PgfDB *db,
 PGF_API_DECL
 void pgf_create_lin(PgfDB *db,
                     PgfRevision revision, PgfConcrRevision cnc_revision,
+                    void *table_maker,
                     PgfText *name, size_t n_rules,
                     PgfBuildLinIface *build,
                     PgfExn *err);
@@ -715,6 +722,7 @@ void pgf_create_lin(PgfDB *db,
 PGF_API_DECL
 void pgf_alter_lin(PgfDB *db,
                    PgfRevision revision, PgfConcrRevision cnc_revision,
+                   void *table_maker,
                    PgfText *name, size_t n_rules,
                    PgfBuildLinIface *build,
                    PgfExn *err);

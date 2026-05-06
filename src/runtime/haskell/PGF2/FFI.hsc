@@ -50,6 +50,7 @@ data PgfMorphoCallback
 data PgfCohortsCallback
 data PgfExprEnum
 data PgfAlignmentPhrase
+data PgfParseTableMaker
 
 type Wrapper a = a -> IO (FunPtr a)
 type Dynamic a = FunPtr a -> a
@@ -205,6 +206,8 @@ foreign import ccall pgf_infer_expr :: Ptr PgfDB -> Ptr PGF -> Ptr (StablePtr Ex
 
 foreign import ccall pgf_check_type :: Ptr PgfDB -> Ptr PGF -> StablePtr Type -> Ptr PgfMarshaller -> Ptr PgfUnmarshaller -> Ptr PgfExn -> IO (StablePtr Type)
 
+foreign import ccall pgf_compute :: Ptr PgfDB -> Ptr PGF -> StablePtr Expr -> Ptr PgfMarshaller -> Ptr PgfUnmarshaller -> Ptr PgfExn -> IO (StablePtr Expr)
+
 foreign import ccall pgf_generate_random :: Ptr PgfDB -> Ptr PGF -> Ptr (Ptr Concr) -> CSize -> StablePtr Type -> CSize -> Ptr Word64 -> Ptr (#type prob_t) -> Ptr PgfMarshaller -> Ptr PgfUnmarshaller -> Ptr PgfExn -> IO (StablePtr Expr)
 
 foreign import ccall pgf_generate_random_from :: Ptr PgfDB -> Ptr PGF -> Ptr (Ptr Concr) -> CSize -> StablePtr Expr -> CSize -> Ptr Word64 -> Ptr (#type prob_t) -> Ptr PgfMarshaller -> Ptr PgfUnmarshaller -> Ptr PgfExn -> IO (StablePtr Expr)
@@ -225,9 +228,11 @@ foreign import ccall pgf_create_category :: Ptr PgfDB -> Ptr PGF -> Ptr PgfText 
 
 foreign import ccall pgf_drop_category :: Ptr PgfDB -> Ptr PGF -> Ptr PgfText -> Ptr PgfExn -> IO ()
 
-foreign import ccall pgf_create_concrete :: Ptr PgfDB -> Ptr PGF -> Ptr PgfText -> Ptr PgfExn -> IO (Ptr Concr)
+foreign import ccall pgf_create_concrete :: Ptr PgfDB -> Ptr PGF -> Ptr PgfText -> Ptr (Ptr PgfParseTableMaker) -> Ptr PgfExn -> IO (Ptr Concr)
 
-foreign import ccall pgf_clone_concrete :: Ptr PgfDB -> Ptr PGF -> Ptr PgfText -> Ptr PgfExn -> IO (Ptr Concr)
+foreign import ccall pgf_clone_concrete :: Ptr PgfDB -> Ptr PGF -> Ptr PgfText -> Ptr (Ptr PgfParseTableMaker) -> Ptr PgfExn -> IO (Ptr Concr)
+
+foreign import ccall pgf_free_parse_table :: Ptr PgfDB -> Ptr PGF -> Ptr Concr -> Ptr PgfParseTableMaker -> IO ()
 
 foreign import ccall pgf_drop_concrete :: Ptr PgfDB -> Ptr PGF -> Ptr PgfText -> Ptr PgfExn -> IO ()
 
@@ -249,13 +254,13 @@ foreign import ccall "dynamic" callLinBuilder6 :: Dynamic (Ptr PgfLinBuilderIfac
 
 foreign import ccall "dynamic" callLinBuilder7 :: Dynamic (Ptr PgfLinBuilderIface -> Ptr PgfExn -> IO CSize)
 
-foreign import ccall pgf_create_lincat :: Ptr PgfDB -> Ptr PGF -> Ptr Concr -> Ptr PgfText -> CSize -> Ptr (Ptr PgfText) -> CSize -> CSize -> Ptr PgfBuildLinIface -> Ptr PgfExn -> IO ()
+foreign import ccall pgf_create_lincat :: Ptr PgfDB -> Ptr PGF -> Ptr Concr -> Ptr PgfParseTableMaker -> Ptr PgfText -> CSize -> Ptr (Ptr PgfText) -> CSize -> CSize -> Ptr PgfBuildLinIface -> Ptr PgfExn -> IO ()
 
 foreign import ccall pgf_drop_lincat :: Ptr PgfDB -> Ptr PGF -> Ptr Concr -> Ptr PgfText -> Ptr PgfExn -> IO ()
 
-foreign import ccall pgf_create_lin :: Ptr PgfDB -> Ptr PGF -> Ptr Concr -> Ptr PgfText -> CSize -> Ptr PgfBuildLinIface -> Ptr PgfExn -> IO ()
+foreign import ccall pgf_create_lin :: Ptr PgfDB -> Ptr PGF -> Ptr Concr -> Ptr PgfParseTableMaker -> Ptr PgfText -> CSize -> Ptr PgfBuildLinIface -> Ptr PgfExn -> IO ()
 
-foreign import ccall pgf_alter_lin :: Ptr PgfDB -> Ptr PGF -> Ptr Concr -> Ptr PgfText -> CSize -> Ptr PgfBuildLinIface -> Ptr PgfExn -> IO ()
+foreign import ccall pgf_alter_lin :: Ptr PgfDB -> Ptr PGF -> Ptr Concr -> Ptr PgfParseTableMaker -> Ptr PgfText -> CSize -> Ptr PgfBuildLinIface -> Ptr PgfExn -> IO ()
 
 foreign import ccall pgf_drop_lin :: Ptr PgfDB -> Ptr PGF -> Ptr Concr -> Ptr PgfText -> Ptr PgfExn -> IO ()
 

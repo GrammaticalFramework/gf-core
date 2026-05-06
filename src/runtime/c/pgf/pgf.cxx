@@ -706,6 +706,14 @@ prob_t pgf_function_prob(PgfDB *db, PgfRevision revision,
 }
 
 PGF_API
+PgfExpr pgf_compute(PgfDB *db, PgfRevision revision, PgfExpr expr,
+                    PgfMarshaller *m, PgfUnmarshaller *u,
+                    PgfExn *err)
+{
+    return 0;
+}
+
+PGF_API
 PgfText *pgf_concrete_name(PgfDB *db, PgfConcrRevision revision,
                            PgfExn *err)
 {
@@ -1638,6 +1646,7 @@ void pgf_drop_category(PgfDB *db, PgfRevision revision,
 PGF_API
 PgfConcrRevision pgf_create_concrete(PgfDB *db, PgfRevision revision,
                                      PgfText *name,
+                                     void **p_tm,
                                      PgfExn *err)
 {
     PGF_API_BEGIN {
@@ -1669,6 +1678,8 @@ PgfConcrRevision pgf_create_concrete(PgfDB *db, PgfRevision revision,
 
         object rev = db->register_concr_revision(revision, index);
 
+        *p_tm = new PgfParseTableMaker(concr);
+
         db->ref_count++;
         return rev;
     } PGF_API_END
@@ -1678,6 +1689,7 @@ PgfConcrRevision pgf_create_concrete(PgfDB *db, PgfRevision revision,
 PGF_API
 PgfConcrRevision pgf_clone_concrete(PgfDB *db, PgfRevision revision,
                                     PgfText *name,
+                                    void **p_tm,
                                     PgfExn *err)
 {
     PGF_API_BEGIN {
@@ -1693,11 +1705,29 @@ PgfConcrRevision pgf_clone_concrete(PgfDB *db, PgfRevision revision,
 
         concr = clone_concrete(pgf, concr);
 
+        *p_tm = new PgfParseTableMaker(concr);
+
         object rev = db->register_concr_revision(revision, index);
         db->ref_count++;
         return rev;
     } PGF_API_END
     return 0;
+}
+
+PGF_API
+void pgf_free_parse_table(PgfDB *db,
+                          PgfRevision revision, PgfConcrRevision cnc_revision,
+                          void *table_maker_)
+{
+    PgfParseTableMaker* table_maker = (PgfParseTableMaker*) table_maker_;
+
+    DB_scope scope(db, WRITER_SCOPE);
+
+    ref<PgfPGF> pgf = db->revision2pgf(revision);
+    ref<PgfConcr> concr = db->revision2concr(cnc_revision);
+
+    concr->last_fid = table_maker->get_last_fid();
+    delete table_maker;
 }
 
 PGF_API
@@ -1742,13 +1772,13 @@ class PGF_INTERNAL PgfLinBuilder : public PgfLinBuilderIface
 
     size_t pre_sym_index;
 
-    PgfParseTableMaker tm;
+    PgfParseTableMaker *table_maker;
 
     const char *builder_error_msg =
         "Detected incorrect use of the linearization builder";
 
 public:
-    PgfLinBuilder(ref<PgfConcr> concr) : tm(concr)
+    PgfLinBuilder(ref<PgfConcr> concr, PgfParseTableMaker *table_maker)
     {
 		this->concr = concr;
 
@@ -1763,6 +1793,7 @@ public:
         this->rule_index = 0;
         this->syms = 0;
         this->pre_sym_index = (size_t) -1;
+        this->table_maker = table_maker;
     }
 
     ref<PgfConcrLincat> build(ref<PgfAbsCat> abscat,
@@ -1809,6 +1840,10 @@ public:
             return 0;
         }
 
+        for (size_t i = lincat->n_lindefs; i < rules.size(); i++) {
+            table_maker->insert_rule(rules[i]);
+        }
+
         return lincat;
     }
 
@@ -1853,6 +1888,10 @@ public:
 
         if (err->type != PGF_EXN_NONE) {
             return 0;
+        }
+
+        for (size_t i = 0; i < rules.size(); i++) {
+            table_maker->insert_rule(rules[i]);
         }
 
         return lin;
@@ -2269,6 +2308,7 @@ public:
 PGF_API
 void pgf_create_lincat(PgfDB *db,
                        PgfRevision revision, PgfConcrRevision cnc_revision,
+                       void *table_maker,
                        PgfText *name, size_t n_fields, PgfText **fields,
                        size_t n_lindefs, size_t n_linrefs, PgfBuildLinIface *build,
                        PgfExn *err)
@@ -2286,7 +2326,7 @@ void pgf_create_lincat(PgfDB *db,
         }
 
         ref<PgfConcrLincat> lincat =
-            PgfLinBuilder(concr).build(abscat, n_fields, fields, n_lindefs, n_linrefs, build, err);
+            PgfLinBuilder(concr,(PgfParseTableMaker *)table_maker).build(abscat, n_fields, fields, n_lindefs, n_linrefs, build, err);
         if (lincat != 0) {
             Namespace<PgfConcrLincat> lincats =
                 namespace_insert(concr->lincats, lincat);
@@ -2334,6 +2374,7 @@ void pgf_drop_lincat(PgfDB *db,
 PGF_API
 void pgf_create_lin(PgfDB *db,
                     PgfRevision revision, PgfConcrRevision cnc_revision,
+                    void *table_maker,
                     PgfText *name, size_t n_rules,
                     PgfBuildLinIface *build,
                     PgfExn *err)
@@ -2354,7 +2395,7 @@ void pgf_create_lin(PgfDB *db,
         }
 
         ref<PgfConcrLin> lin =
-            PgfLinBuilder(concr).build(absfun, n_rules, build, err);
+            PgfLinBuilder(concr,(PgfParseTableMaker *)table_maker).build(absfun, n_rules, build, err);
         if (lin != 0) {
             Namespace<PgfConcrLin> lins =
                 namespace_insert(concr->lins, lin);
@@ -2369,6 +2410,7 @@ void pgf_create_lin(PgfDB *db,
 PGF_API
 void pgf_alter_lin(PgfDB *db,
                    PgfRevision revision, PgfConcrRevision cnc_revision,
+                   void *table_maker,
                    PgfText *name, size_t n_rules,
                    PgfBuildLinIface *build,
                    PgfExn *err)
@@ -2386,7 +2428,7 @@ void pgf_alter_lin(PgfDB *db,
         }
 
         ref<PgfConcrLin> lin =
-            PgfLinBuilder(concr).build(absfun, n_rules, build, err);
+            PgfLinBuilder(concr,(PgfParseTableMaker *)table_maker).build(absfun, n_rules, build, err);
         if (lin != 0) {
             ref<PgfConcrLin> old_lin;
             Namespace<PgfConcrLin> lins =
