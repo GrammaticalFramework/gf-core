@@ -102,7 +102,7 @@ pmcfgForm g t ctxt ty = do
        in apply (d+1) ms' s' ctxt (App t t2) (params:args)
 
 type2fields :: SourceGrammar -> Type -> [String]
-type2fields gr = map show . type2fields PP.empty
+type2fields gr = type2fields PP.empty
   where
     type2fields d (Sort s) | s == cStr = [show d]
     type2fields d (RecType lbls) =
