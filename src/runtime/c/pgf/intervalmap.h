@@ -41,13 +41,13 @@ class PGF_INTERNAL_DECL interval_map {
         }
 
         int cmp;
-        if (node->start < start)
+        if (start < node->start)
             cmp = -1;
-        else if (node->start > start)
+        else if (start > node->start)
             cmp = 1;
-        else if (node->end < end)
+        else if (end < node->end)
             cmp = -1;
-        else if (node->end > end)
+        else if (end > node->end)
             cmp = 1;
         else
             cmp = 0;
@@ -74,13 +74,13 @@ class PGF_INTERNAL_DECL interval_map {
         }
 
         int cmp;
-        if (node->start < start)
+        if (start < node->start)
             cmp = -1;
-        else if (node->start > start)
+        else if (start > node->start)
             cmp = 1;
-        else if (node->end < end)
+        else if (end < node->end)
             cmp = -1;
-        else if (node->end > end)
+        else if (end > node->end)
             cmp = 1;
         else
             cmp = 0;
@@ -382,6 +382,113 @@ public:
 
     iterator end() const {
         return iterator();
+    }
+
+    class Overlaps {
+        Node *root;
+        interval_t i;
+
+    public:
+        class iterator {
+            struct Parent {
+                Node *node;
+                Parent *next;
+            };
+
+            Parent *spine;
+            size_t start, end;
+
+        public:
+            iterator() {
+                spine = NULL;
+            }
+
+            iterator(Node *node, size_t start, size_t end) {
+                this->start = start;
+                this->end = end;
+
+                spine = NULL;
+                for (;;) {
+                    Parent *parent;
+                    while (node != NULL && start <= node->max) {
+                        parent = new Parent;
+                        parent->node = node;
+                        parent->next = spine;
+                        spine = parent;
+                        node = node->left;
+                    }
+
+                    if (spine == NULL || (start <= spine->node->end && end >= spine->node->start))
+                        return;
+
+                    parent = spine->next;
+                    node   = spine->node->right;
+                    delete spine;
+                    spine  = parent;
+                }
+            }
+
+            bool operator ==(const iterator other) const {
+                return this->spine == other.spine;
+            }
+
+            bool operator !=(const iterator other) const {
+                return this->spine != other.spine;
+            }
+
+            std::pair<interval_t,V&> operator *() const {
+                return std::pair<interval_t,V&>
+                                  (interval_t(spine->node->start,spine->node->end)
+                                  ,spine->node->value
+                                  );
+            }
+
+            void operator ++() {
+                for (;;) {
+                    Parent *parent = spine->next;
+                    Node *node = spine->node->right;
+                    delete spine;
+                    spine = parent;
+
+                    while (node != NULL && start <= node->max) {
+                        parent = new Parent;
+                        parent->node = node;
+                        parent->next = spine;
+                        spine = parent;
+                        node = node->left;
+                    }
+
+                    if (spine == NULL || (start <= spine->node->end && end >= spine->node->start))
+                        return;
+                }
+            }
+
+            ~iterator() {
+                while (spine != NULL) {
+                    Parent *parent = spine->next;
+                    delete spine;
+                    spine = parent;
+                }
+            }
+        };
+
+        Overlaps(Node *root, interval_t i) {
+            this->root = root;
+            this->i    = i;
+        }
+
+        iterator begin() const {
+            return iterator(root,i.first,i.second);
+        }
+
+        iterator end() const {
+            return iterator();
+        }
+    };
+
+    Overlaps overlaps(interval_t interval)
+    {
+        return Overlaps(this->root, interval);
     }
 };
 

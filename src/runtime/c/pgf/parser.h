@@ -101,7 +101,7 @@ protected:
         PgfTextSpot start, end;
         bool needs_bind;
         std::map<ref<PgfConcrLincat>,Cont*> conts1;
-        std::map<CCat*,interval_map<Cont*>> conts2;
+        std::map<CCat*,Cont*> conts2;
         std::map<Cont*,interval_map<interval_map<CCat*>>> completed;
         
         State *next;
@@ -111,7 +111,7 @@ protected:
         CCat *ccat;
         ref<PgfConcrLincat> lincat;
         State *state;
-        std::vector<Item*> suspended;
+        interval_map<interval_map<std::vector<Item*>>> suspended;
 
         ~Cont();
     };
@@ -215,7 +215,7 @@ protected:
     virtual State *new_state(const PgfTextSpot &start)=0;
     virtual void symbol_token(Item *item, const PgfTextSpot &spot, bool bind, PgfSymbol sym)=0;
     virtual void symbol_bind(Item *item, const PgfTextSpot &spot, PgfSymbol sym)=0;
-    virtual void suspend(State *state,ref<PgfConcrLincat> lincat, Item *item)=0;
+    virtual void suspend(Cont *cont, Item *item, size_t n_suspended)=0;
     virtual void final_item(State *state,CCat *ccat,Item *item,interval_t value,interval_t lin_idx)=0;
     virtual void bu_predict(State *state, CCat *ccat)=0;
 
@@ -247,7 +247,7 @@ class PGF_INTERNAL_DECL PgfParser : private PgfAbstractParser, public PgfExprEnu
     virtual State *new_state(const PgfTextSpot &start);
     virtual void symbol_token(Item *item, const PgfTextSpot &spot, bool bind, PgfSymbol sym);
     virtual void symbol_bind(Item *item, const PgfTextSpot &spot, PgfSymbol sym);
-    virtual void suspend(State *state,ref<PgfConcrLincat> lincat, Item *item);
+    virtual void suspend(Cont *cont,Item *item,size_t n_suspended);
     virtual void final_item(State *state,CCat *ccat,Item *item,interval_t value,interval_t lin_idx);
     virtual void bu_predict(State *state, CCat *ccat);
 
@@ -288,8 +288,8 @@ private:
     virtual State *new_state(const PgfTextSpot &start);
     virtual void symbol_token(Item *item, const PgfTextSpot &spot, bool bind, PgfSymbol sym);
     virtual void symbol_bind(Item *item, const PgfTextSpot &spot, PgfSymbol sym);
-    virtual void suspend(State *state,ref<PgfConcrLincat> lincat,Item *item);
-    virtual void final_item(State *state,CCat *ccat,Item *item,interval_t value,interval_t lin_idx);
+    virtual void suspend(Cont *cont, Item *item, size_t n_suspended);
+    virtual void final_item(State *state, CCat *ccat,Item *item,interval_t value,interval_t lin_idx);
     virtual void bu_predict(State *state, CCat *ccat);
 
     static

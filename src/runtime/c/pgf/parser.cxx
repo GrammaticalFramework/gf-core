@@ -43,8 +43,12 @@ PgfAbstractParser::CCat::~CCat()
 
 PgfAbstractParser::Cont::~Cont()
 {
-    for (Item *item : suspended) {
-        delete item;
+    for (auto it1 : suspended) {
+        for (auto it2 : it1.second) {
+            for (Item *item : it2.second) {
+                delete item;
+            }
+        }
     }
 }
 
@@ -62,10 +66,8 @@ PgfAbstractParser::~PgfAbstractParser()
         for (auto it : state->conts1) {
             delete it.second;
         }
-        for (auto it1 : state->conts2) {
-            for (auto it2 : it1.second) {
-                delete it2.second;
-            }
+        for (auto it : state->conts2) {
+            delete it.second;
         }
 
         State *next = state->next;
@@ -123,12 +125,23 @@ void PgfAbstractParser::symbol(Item *item, const PgfTextSpot &spot, bool bind, P
             }
 
             if (lincat != 0) {
-                suspend(state,lincat,item);
+                Cont *&cont = state->conts1[lincat];
+                if (cont == NULL) {
+                    cont = new Cont;
+                    cont->ccat = NULL;
+                    cont->lincat = lincat;
+                    cont->state = state;
+                }
+
+                interval_t value_i = item->interval(item->rule->args[symcat->d]);
+                interval_t lin_idx_i = item->interval(ref<PgfLParam>::from_ptr(&symcat->r));
+                auto &suspended = cont->suspended[value_i][lin_idx_i];
+                suspended.push_back(item);
+
+                suspend(cont,item,suspended.size());
             }
         } else {
-            interval_t lin_idx = item->interval(ref<PgfLParam>::from_ptr(&symcat->r));
-
-            Cont *&cont = state->conts2[ccat][lin_idx];
+            Cont *&cont = state->conts2[ccat];
             if (cont == NULL) {
                 cont = new Cont;
                 cont->ccat = ccat;
@@ -139,9 +152,12 @@ void PgfAbstractParser::symbol(Item *item, const PgfTextSpot &spot, bool bind, P
                 cont->state = state;
             }
 
-            cont->suspended.push_back(item);
+            interval_t value_i   = item->interval(item->rule->args[symcat->d]);
+            interval_t lin_idx_i = item->interval(ref<PgfLParam>::from_ptr(&symcat->r));
+            auto &suspended = cont->suspended[value_i][lin_idx_i];
+            suspended.push_back(item);
 
-            if (cont->suspended.size() == 1) {
+            if (suspended.size() == 1) {
                 if (ccat->fid <= initial_fid) {
                     size_t n_items = 0;
                     vector<ref<PgfItem>> items =
@@ -163,7 +179,7 @@ void PgfAbstractParser::symbol(Item *item, const PgfTextSpot &spot, bool bind, P
                     if (it1 != next->completed.end()) {
                         auto *it2 = it1->second.lookup(ccat->value);
                         if (it2 != NULL) {
-                            auto *it3 = it2->lookup(lin_idx);
+                            auto *it3 = it2->lookup(lin_idx_i);
                             if (it3 != NULL) {
                                 CCat *arg = *it3;
                                 Item *new_item = new (item) Item;
@@ -292,21 +308,27 @@ void PgfAbstractParser::complete(Item *item, const PgfTextSpot &spot, bool bind)
         if (ccat->prods.size() == 1) {
             if (ccat->cont->ccat == NULL)
                 bu_predict(state, ccat);
-            size_t n_items = ccat->cont->suspended.size();
-            for (size_t i = 0; i < n_items; i++) {
-                Item *new_item = new (ccat->cont->suspended[i]) Item;
-                combine(state,new_item,ccat);
-            };
+
+            for (auto it1 : ccat->cont->suspended.overlaps(ccat->value)) {
+                for (auto it2 : it1.second.overlaps(ccat->lin_idx)) {
+                    size_t n_items = it2.second.size();
+                    for (size_t i = 0; i < n_items; i++) {
+                        Item *new_item = new (it2.second[i]) Item;
+                        combine(state,new_item,ccat);
+                    };
+                }
+            }
         } else {
             State *next = state;
             while (next != NULL) {
-                for (auto it : next->conts2[ccat]) {
-                    interval_t lin_idx = it.first;
-                    Cont *cont = it.second;
-                    if (cont != NULL) {
-                        Item *item = cont->suspended[0];
-                        auto symcat = ref<PgfSymbolCat>::untagged(item->syms[item->dot]);
-                        td_predict(next,cont,prod,item,item->rule->args[symcat->d],ref<PgfLParam>::from_ptr(&symcat->r));
+                Cont *cont = next->conts2[ccat];
+                if (cont != NULL) {
+                    for (auto it1 : cont->suspended) {
+                        for (auto it2 : it1.second) {
+                            Item *item = it2.second[0];
+                            auto symcat = ref<PgfSymbolCat>::untagged(item->syms[item->dot]);
+                            td_predict(next,cont,prod,item,item->rule->args[symcat->d],ref<PgfLParam>::from_ptr(&symcat->r));
+                        }
                     }
                 }
                 next = next->next;
@@ -1267,23 +1289,13 @@ void PgfParser::symbol_bind(Item *item, const PgfTextSpot &spot, PgfSymbol sym)
     process(item, spot, true);
 }
 
-void PgfParser::suspend(State *state,ref<PgfConcrLincat> lincat,Item *item)
+void PgfParser::suspend(Cont *cont,Item *item,size_t n_suspended)
 {
-    Cont *&cont = state->conts1[lincat];
-    if (cont == NULL) {
-        cont = new Cont;
-        cont->ccat = NULL;
-        cont->lincat = lincat;
-        cont->state = state;
-    }
-
-    cont->suspended.push_back(item);
-
-    if (cont->suspended.size() == 1) {
+    if (n_suspended == 1) {
         std::function<void(ref<PgfSymbolCCat>,size_t,vector<ref<PgfItem>>)> f =
-            [this,state,item,cont](ref<PgfSymbolCCat> symcf, size_t n_items, vector<ref<PgfItem>> items) {
+            [this,item,cont](ref<PgfSymbolCCat> symcf, size_t n_items, vector<ref<PgfItem>> items) {
 
-                PgfItem *xitem = items[0];
+                ref<PgfItem> xitem = items[0];
 
                 Item *new_item = new (item) Item;
                 PgfSymbol sym = new_item->rule->syms[new_item->dot];
@@ -1308,21 +1320,21 @@ void PgfParser::suspend(State *state,ref<PgfConcrLincat> lincat,Item *item)
                     arg_ccat->covered = true;
                 }
 
-                state->completed[cont][symcf->value][symcf->lin_idx] = arg_ccat;
+                cont->state->completed[cont][symcf->value][symcf->lin_idx] = arg_ccat;
 
                 new_item->dot++;
                 new_item->args[sym_cat->d] = arg_ccat;
 
-                process(new_item, state->start, false);
+                process(new_item, cont->state->start, false);
             };
-        phrasetable_iter(concr->phrasetable,lincat,f);
+        phrasetable_iter(concr->phrasetable,cont->lincat,f);
     } else {
-        auto it1 = state->completed.find(cont);
-        if (it1 != state->completed.end()) {
+        auto it1 = cont->state->completed.find(cont);
+        if (it1 != cont->state->completed.end()) {
             for (auto it2 : it1->second) {
                 for (auto it3 : it2.second) {
                     Item *new_item = new (item) Item;
-                    combine(state, new_item, it3.second);
+                    combine(cont->state, new_item, it3.second);
                 }
             }
         }
@@ -1452,30 +1464,20 @@ void PgfParseTableMaker::symbol_bind(Item *item, const PgfTextSpot &spot, PgfSym
     delete item;
 }
 
-void PgfParseTableMaker::suspend(State *state,ref<PgfConcrLincat> lincat,Item *item)
+void PgfParseTableMaker::suspend(Cont *cont,Item *item,size_t n_suspended)
 {
-    Cont *&cont = state->conts1[lincat];
-    if (cont == NULL) {
-        cont = new Cont;
-        cont->ccat = NULL;
-        cont->lincat = lincat;
-        cont->state = state;
-    }
-
-    cont->suspended.push_back(item);
-
-    for (auto it1 : state->completed[cont]) {
+    for (auto it1 : cont->state->completed[cont]) {
         for (auto it2 : it1.second) {
             CCat *ccat = it2.second;
             if (ccat != NULL) {
                 Item *new_item = new (item) Item;
-                combine(state,new_item,ccat);
+                combine(cont->state,new_item,ccat);
             }
         }
     }
 
     auto pitem = clone_item(item);
-    auto acat  = ref<PgfSymbolACat>::from_ptr((PgfSymbolACat*) &lincat->name);
+    auto acat  = ref<PgfSymbolACat>::from_ptr((PgfSymbolACat*) &cont->lincat->name);
     auto phrasetable = phrasetable_insert(concr->phrasetable,acat.tagged(),pitem);
     concr->phrasetable = phrasetable;
 }
