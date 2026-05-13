@@ -2,8 +2,8 @@
 #include "printer.h"
 #include "parser.h"
 
-//#define DEBUG_PARSER
-//#define DEBUG_EXPRS
+#define DEBUG_PARSER
+#define DEBUG_EXPRS
 
 PgfAbstractParser::PgfAbstractParser(ref<PgfConcr> concr)
 {
@@ -582,21 +582,15 @@ void PgfAbstractParser::td_predict(State *state, Cont *cont, Production *prod, I
             }
 
             for (size_t i = 0; i < item->args.size(); i++) {
-                if (prod->args[i] != NULL) {
-/*                    if (!item->instantiate(item->rule->args[i], prod->args[i]->value)) {
-                        delete item;
-                        goto next;
-                    }*/
-                } else {
-                    /*if (!item->instantiate(item->rule->args[i], prod->args[i]->value)) {
-                        delete item;
-                        continue;
-                    }*/
+                if (!item->instantiate(item->rule->args[i], prod->rule, &prod->vars[0], prod->rule->args[i])) {
+                    delete item;
+                    goto next;
                 }
                 item->args[i] = prod->args[i];
             }
 
             process(item, state->start, false);
+next:;
         }
     }
     default:;
@@ -1466,14 +1460,20 @@ void PgfParseTableMaker::symbol_bind(Item *item, const PgfTextSpot &spot, PgfSym
 
 void PgfParseTableMaker::suspend(Cont *cont,Item *item,size_t n_suspended)
 {
+    // collect the cats first, since calling combine in
+    // the loop will change the search index
+    std::vector<CCat*> ccats;
     for (auto it1 : cont->state->completed[cont]) {
         for (auto it2 : it1.second) {
             CCat *ccat = it2.second;
             if (ccat != NULL) {
-                Item *new_item = new (item) Item;
-                combine(cont->state,new_item,ccat);
+                ccats.push_back(ccat);
             }
         }
+    }
+    for (CCat *ccat :  ccats) {
+        Item *new_item = new (item) Item;
+        combine(cont->state,new_item,ccat);
     }
 
     auto pitem = clone_item(item);
