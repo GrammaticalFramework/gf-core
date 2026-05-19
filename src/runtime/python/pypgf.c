@@ -243,7 +243,7 @@ BIND_alloc(PyTypeObject *self, Py_ssize_t nitems)
 static PyTypeObject pgf_BINDType = {
     PyVarObject_HEAD_INIT(NULL, 0)
     //0,                       /*ob_size*/
-    "pgf.BINDType",            /*tp_name*/
+    "pgf.BIND",                /*tp_name*/
     sizeof(BINDObject),        /*tp_basicsize*/
     0,                         /*tp_itemsize*/
     (destructor) BIND_dealloc, /*tp_dealloc*/
@@ -1952,6 +1952,34 @@ pgf_showExpr(PyObject *self, PyObject *args)
     return str;
 }
 
+static void
+collect_funs(PyObject *pylist,ExprObject *expr) {
+    if (Py_TYPE(expr) == &pgf_ExprAbsType) {
+        collect_funs(pylist,((ExprAbsObject*) expr)->body);
+    } else if (Py_TYPE(expr) == &pgf_ExprAppType) {
+        collect_funs(pylist,((ExprAppObject*) expr)->fun);
+        collect_funs(pylist,((ExprAppObject*) expr)->arg);
+    } else if (Py_TYPE(expr) == &pgf_ExprFunType) {
+        PyList_Append(pylist,((ExprFunObject*) expr)->name);
+    } else if (Py_TYPE(expr) == &pgf_ExprTypedType) {
+        collect_funs(pylist,((ExprTypedObject*) expr)->expr);
+    } else if (Py_TYPE(expr) == &pgf_ExprImplArgType) {
+        collect_funs(pylist,((ExprImplArgObject*) expr)->expr);
+    }
+}
+
+static PyObject *
+pgf_exprFunctions(PyObject *self, PyObject *args)
+{
+    ExprObject *expr;
+    if (!PyArg_ParseTuple(args, "O!", &pgf_ExprType, &expr))
+        return NULL;
+
+    PyObject *pylist = PyList_New(0);
+    collect_funs(pylist,(ExprObject*) expr);
+    return pylist;
+}
+
 static TypeObject *
 pgf_readType(PyObject *self, PyObject *args)
 {
@@ -2081,6 +2109,8 @@ static PyMethodDef module_methods[] = {
      "Parses a string as an abstract tree"},
     {"showExpr", (void*)pgf_showExpr, METH_VARARGS,
      "Renders an expression as a string"},
+    {"exprFunctions", (void*)pgf_exprFunctions, METH_VARARGS,
+     "Returns the list of functions used in an expression"},
     {"readType", (void*)pgf_readType, METH_VARARGS,
      "Parses a string as an abstract type"},
     {"showType", (void*)pgf_showType, METH_VARARGS,
