@@ -574,6 +574,9 @@ patternMatch g s v0 ((env0,ps,args0,t):eqs) = match env0 ps eqs args0
         (p,       VGen  i   vs) -> v0
         (p,       VSusp i k vs) -> VSusp i (\v -> match' env p ps eqs (apply g (k v) vs) args) []
         (p,           VFV s vs) -> VFV s (fmap (\arg -> match' env p ps eqs arg args) vs)
+        (p,           VP _ _ _) -> v0
+        (p,           VS _ _ _) -> v0
+        (p,      VSymCat _ _ _) -> v0
         (PP q qs, VApp r    vs)
           | q == r              -> match env (qs++ps) eqs (vs++args)
         (PR pas,  VR as)        -> matchRec env (reverse pas) as ps eqs args
