@@ -241,12 +241,27 @@ choices nr path = do (args,_) <- get
                                                      values          -> let path = reversePath rpath
                                                                         in CM (\gr c s -> Case nr path [(value, updateEnv path value gr c s)
                                                                                                                     | (value,index) <- values])
+    descend (CStr _)     CNil              rpath = bug $ "descend CStr: "++ show rpath ++ matchStrErr
     descend schema       path              rpath = bug $ "descend "++show (schema,path,rpath)
 
     updateEnv path value gr c (args,seq) =
       case updateNthM (restrictProtoFCat path value) nr args of
         Just args -> c value (args,seq)
         Nothing   -> bug "conflict in updateEnv"
+
+-- | Error message for pattern matching a runtime string
+matchStrErr :: String
+matchStrErr = unlines [ "" -- add more helpful output
+            ,""
+            ,"1) Check that you are not trying to pattern match a /runtime string/."
+            ,"   These are illegal:"
+            ,"     lin Test foo = case foo.s of {"
+            ,"                       \"str\" => … } ;   <- explicit matching argument of a lin"
+            ,"     lin Test foo = opThatMatches foo   <- calling an oper that pattern matches"
+            ,""
+            ,"2) Not about pattern matching? Submit a bug report and we update the error message."
+            ,"     https://github.com/GrammaticalFramework/gf-core/issues"
+            ]
 
 -- | the argument should be a parameter type and then
 -- the function returns all possible values.
@@ -620,21 +635,6 @@ mkSetArray map = array (0,Map.size map-1) [(v,k) | (k,v) <- Map.toList map]
 bug msg = ppbug msg
 ppbug msg = error completeMsg
  where
-  originalMsg = render $ hang "Internal error in GeneratePMCFG:" 4 msg
-  completeMsg =
-    case render msg of -- the error message for pattern matching a runtime string
-      "descend (CStr 0,CNil,CProj (LIdent (Id {rawId2utf8 = \"s\"})) CNil)"
-        -> unlines [originalMsg -- add more helpful output
-            ,""
-            ,"1) Check that you are not trying to pattern match a /runtime string/."
-            ,"   These are illegal:"
-            ,"     lin Test foo = case foo.s of {"
-            ,"                       \"str\" => … } ;   <- explicit matching argument of a lin"
-            ,"     lin Test foo = opThatMatches foo   <- calling an oper that pattern matches"
-            ,""
-            ,"2) Not about pattern matching? Submit a bug report and we update the error message."
-            ,"     https://github.com/GrammaticalFramework/gf-core/issues"
-            ]
-      _ -> originalMsg -- any other message: just print it as is
+  completeMsg = render $ hang "Internal error in GeneratePMCFG:" 4 msg
 
 ppU = ppTerm Unqualified
