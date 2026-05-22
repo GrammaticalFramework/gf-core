@@ -82,7 +82,7 @@ class PGF_INTERNAL_DECL PgfLinearizer : public PgfUnmarshaller {
 
         TreeNode(PgfLinearizer *linearizer);
         virtual bool resolve(PgfLinearizer *linearizer) { return true; };
-        virtual void check_category(PgfLinearizer *linearizer, PgfText *cat)=0;
+        virtual bool check_category(PgfLinearizer *linearizer, PgfText *cat)=0;
         virtual void linearize_arg(PgfLinearizationOutputIface *out, PgfLinearizer *linearizer, size_t d, size_t r);
         virtual void linearize_var(PgfLinearizationOutputIface *out, PgfLinearizer *linearizer, size_t d, size_t r);
         virtual void linearize_item(PgfLinearizationOutputIface *out, PgfLinearizer *linearizer, Item *item, vector<PgfSymbol> syms);
@@ -98,7 +98,7 @@ class PGF_INTERNAL_DECL PgfLinearizer : public PgfUnmarshaller {
 
         TreeLinNode(PgfLinearizer *linearizer, ref<PgfConcrLin> lin);
         virtual bool resolve(PgfLinearizer *linearizer);
-        virtual void check_category(PgfLinearizer *linearizer, PgfText *cat);
+        virtual bool check_category(PgfLinearizer *linearizer, PgfText *cat);
         virtual void linearize(PgfLinearizationOutputIface *out, PgfLinearizer *linearizer, size_t lindex);
         virtual ref<PgfConcrLincat> get_lincat(PgfLinearizer *linearizer);
         virtual ~TreeLinNode();
@@ -113,8 +113,8 @@ class PGF_INTERNAL_DECL PgfLinearizer : public PgfUnmarshaller {
 
         TreeLindefNode(PgfLinearizer *linearizer, PgfText *fun, PgfText *lit);
         virtual bool resolve(PgfLinearizer *linearizer);
-        virtual void check_category(PgfLinearizer *linearizer, PgfText *cat);
-        virtual void linearize_arg(PgfLinearizationOutputIface *out, PgfLinearizer *linearizer, size_t d, PgfLParam *r);
+        virtual bool check_category(PgfLinearizer *linearizer, PgfText *cat);
+        virtual void linearize_arg(PgfLinearizationOutputIface *out, PgfLinearizer *linearizer, size_t d, size_t r);
         virtual void linearize(PgfLinearizationOutputIface *out, PgfLinearizer *linearizer, size_t lindex);
         virtual ref<PgfConcrLincat> get_lincat(PgfLinearizer *linearizer);
         ~TreeLindefNode();
@@ -126,7 +126,7 @@ class PGF_INTERNAL_DECL PgfLinearizer : public PgfUnmarshaller {
 
         TreeLinrefNode(PgfLinearizer *linearizer, TreeNode *root);
         virtual bool resolve(PgfLinearizer *linearizer);
-        virtual void check_category(PgfLinearizer *linearizer, PgfText *cat) {};
+        virtual bool check_category(PgfLinearizer *linearizer, PgfText *cat) { return true; };
         virtual void linearize(PgfLinearizationOutputIface *out, PgfLinearizer *linearizer, size_t lindex);
         virtual ref<PgfConcrLincat> get_lincat(PgfLinearizer *linearizer);
         ~TreeLinrefNode();
@@ -137,7 +137,7 @@ class PGF_INTERNAL_DECL PgfLinearizer : public PgfUnmarshaller {
         PgfText *literal;
 
         TreeLitNode(PgfLinearizer *linearizer, ref<PgfConcrLincat> lincat, PgfText *lit);
-        virtual void check_category(PgfLinearizer *linearizer, PgfText *cat);
+        virtual bool check_category(PgfLinearizer *linearizer, PgfText *cat);
         virtual void linearize(PgfLinearizationOutputIface *out, PgfLinearizer *linearizer, size_t lindex);
         virtual ref<PgfConcrLincat> get_lincat(PgfLinearizer *linearizer);
         ~TreeLitNode() { free(literal); };
@@ -146,7 +146,7 @@ class PGF_INTERNAL_DECL PgfLinearizer : public PgfUnmarshaller {
     struct TreeChunksNode : public TreeNode {
         TreeChunksNode(PgfLinearizer *linearizer);
         virtual bool resolve(PgfLinearizer *linearizer);
-        virtual void check_category(PgfLinearizer *linearizer, PgfText *cat);
+        virtual bool check_category(PgfLinearizer *linearizer, PgfText *cat);
         virtual void linearize(PgfLinearizationOutputIface *out, PgfLinearizer *linearizer, size_t lindex);
         virtual ref<PgfConcrLincat> get_lincat(PgfLinearizer *linearizer);
     };
@@ -183,6 +183,7 @@ class PGF_INTERNAL_DECL PgfLinearizer : public PgfUnmarshaller {
     PreStack *pre_stack;
     void flush_pre_stack(PgfLinearizationOutputIface *out, PgfText *token);
 
+    bool type_error;
     PgfText *wild;
 
 public:
