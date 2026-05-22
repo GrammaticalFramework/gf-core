@@ -207,7 +207,7 @@ allParamValues gr ptyp =
 countParamValues :: ErrorMonad m => Grammar -> Type -> m Int
 countParamValues gr ptyp =
   case ptyp of
-    _ | Just n <- isTypeInts ptyp -> return (fromIntegral n)
+    _ | Just n <- isTypeInts ptyp -> return (fromIntegral n+1)
     QC c -> do (_,info) <- lookupOrigInfo gr c
                case info of
                  ResParam _ (Just (_,cnt)) -> return cnt
