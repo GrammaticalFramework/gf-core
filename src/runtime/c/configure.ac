@@ -2,6 +2,7 @@ AC_INIT(Portable Grammar Format library, 3.0-pre,
 		 http://www.grammaticalframework.org/, 
 		 libpgf)
 AC_PREREQ(2.58)
+LT_INIT([])
 
 AC_CONFIG_AUX_DIR([scripts])
 AC_CONFIG_MACRO_DIR([m4])
