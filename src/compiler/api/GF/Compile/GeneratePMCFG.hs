@@ -74,14 +74,15 @@ pmcfgForm g t ctxt ty = do
   let (ms,s',t',arg_params) = apply 0 Map.empty unit ctxt t []
   let v = eval g [] s' t' []
   (ms,_,_,fn) <- breakDown g ms unit 0 [] v ty (return []) empty
-  fmap nubOrd $ runGenM g ms [] $ do
-    (r,rs,v,res_params) <- fn
-    (subst,arg_params) <- mapAccumM params2int Map.empty arg_params
-    (subst,res_params) <- params2int subst res_params
-    (subst,lin_idx)    <- params2int' subst r rs
-    (subst,seq)        <- flatten subst v
-    qs <- quantifiers (Map.toList subst)
-    return (Rule qs res_params arg_params lin_idx seq)
+  res <- fmap nubOrd $ runGenM g ms [] $ do
+            (r,rs,v,res_params) <- fn
+            (subst,arg_params) <- mapAccumM params2int Map.empty arg_params
+            (subst,res_params) <- params2int subst res_params
+            (subst,lin_idx)    <- params2int' subst r rs
+            (subst,seq)        <- flatten subst v
+            qs <- quantifiers (Map.toList subst)
+            return (Rule qs res_params arg_params lin_idx seq)
+  length res `seq` return res
   where
     Gl sgr _ _ = g
 
