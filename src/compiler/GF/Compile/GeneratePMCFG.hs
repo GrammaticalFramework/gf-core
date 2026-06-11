@@ -29,20 +29,15 @@ import GF.Compile.Compute.Concrete(normalForm,resourceValues)
 import qualified Data.Map as Map
 import qualified Data.Set as Set
 import qualified Data.List as List
---import qualified Data.IntMap as IntMap
 import qualified Data.IntSet as IntSet
 import GF.Text.Pretty
 import Data.Array.IArray
 import Data.Array.Unboxed
 import Data.Array.ST
---import Data.Maybe
---import Data.Char (isDigit)
 import Control.Applicative(Applicative(..))
 import Control.Monad
 import Control.Monad.ST (ST)
 import Control.Monad.Identity
---import Control.Exception
---import Debug.Trace(trace)
 import qualified Control.Monad.Fail as Fail
 
 ----------------------------------------------------------------------
