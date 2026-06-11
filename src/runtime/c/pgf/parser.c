@@ -904,6 +904,28 @@ pgf_symbols_cmp(PgfCohortSpot* spot,
                 PgfSymbols* syms, size_t* sym_idx,
                 bool case_sensitive);
 
+// If the sequence at index kk is equal to the current input prefix under
+// the parser's comparator, register its lexical index (if any) in the
+// state and report the equality. A sequence without a lexical index still
+// counts as equal, so the caller extends the run boundary past it.
+static bool
+pgf_parsing_register_equal_seq(PgfParsing *ps, PgfParseState* state,
+                               PgfCohortSpot start, int kk)
+{
+	PgfSequence* sq =
+		gu_seq_index(ps->concr->sequences, PgfSequence, kk);
+	size_t sym_idx = 0;
+	if (pgf_symbols_cmp(&start, sq->syms, &sym_idx, ps->case_sensitive) != 0)
+		return false;
+	if (sq->idx != NULL) {
+		PgfLexiconIdxEntry* entry = gu_buf_extend(state->lexicon_idx);
+		entry->idx     = sq->idx;
+		entry->offset  = (size_t) (start.ptr - ps->sentence);
+		entry->sym_idx = sym_idx;
+	}
+	return true;
+}
+
 static void
 pgf_parsing_lookahead(PgfParsing *ps, PgfParseState* state,
                       int i, int j, ptrdiff_t min, ptrdiff_t max)
@@ -936,8 +958,14 @@ pgf_parsing_lookahead(PgfParsing *ps, PgfParseState* state,
 		} else {
 			ptrdiff_t len = current.ptr - start.ptr;
 
-			if (min <= len-1)
-				pgf_parsing_lookahead(ps, state, i, k-1, min, len-1);
+			// All sequences equal to the input under the (possibly
+			// case-insensitive) comparator compare cmp==0 and form a
+			// contiguous run [lo,hi] around k. The length-bounded recursions
+			// below skip this run, so register every member that carries a
+			// lexical index here -- otherwise only one case variant (e.g.
+			// "schule" vs "Schule") is predicted and lexemes indexed on the
+			// other are silently lost.
+			int lo = k, hi = k;
 
 			if (seq->idx != NULL) {
 				PgfLexiconIdxEntry* entry = gu_buf_extend(state->lexicon_idx);
@@ -946,8 +974,25 @@ pgf_parsing_lookahead(PgfParsing *ps, PgfParseState* state,
 				entry->sym_idx    = sym_idx;
 			}
 
+			// scan left of the match for further comparator-equal sequences
+			for (int kk = k-1; kk >= i; kk--) {
+				if (!pgf_parsing_register_equal_seq(ps, state, start, kk))
+					break;
+				lo = kk;
+			}
+
+			// scan right of the match for further comparator-equal sequences
+			for (int kk = k+1; kk <= j; kk++) {
+				if (!pgf_parsing_register_equal_seq(ps, state, start, kk))
+					break;
+				hi = kk;
+			}
+
+			if (min <= len-1)
+				pgf_parsing_lookahead(ps, state, i, lo-1, min, len-1);
+
 			if (len+1 <= max)
-				pgf_parsing_lookahead(ps, state, k+1, j, len+1, max);
+				pgf_parsing_lookahead(ps, state, hi+1, j, len+1, max);
 
 			break;
 		}
