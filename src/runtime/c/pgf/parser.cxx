@@ -2,8 +2,8 @@
 #include "printer.h"
 #include "parser.h"
 
-#define DEBUG_PARSER
-#define DEBUG_EXPRS
+//#define DEBUG_PARSER
+//#define DEBUG_EXPRS
 
 PgfAbstractParser::PgfAbstractParser(ref<PgfConcr> concr)
 {
@@ -535,20 +535,16 @@ void PgfAbstractParser::td_epsilon(State *state, Cont *cont, ref<PgfItem> pitem,
                         arg_ccat->covered = true;
                     }
                     item->args[i] = arg_ccat;
+                }
 
-/*                    if (!item->instantiate(item->rule->args[i], pitem->args[i]->value)) {
-                        delete item;
-                        goto next;
-                    }*/
-                } else {
-                    /*if (!item->instantiate(item->rule->args[i], pitem->args[i]->value)) {
-                        delete item;
-                        continue;
-                    }*/
+                if (!item->instantiate(item->rule->args[i], pitem->rule, &pitem->vars[0], pitem->rule->args[i])) {
+                    delete item;
+                    goto next;
                 }
             }
 
             process(item, state->start, false);
+next:;
         }
     }
     default:;
@@ -652,12 +648,12 @@ void PgfAbstractParser::print_item(Item *item, const PgfTextSpot &spot)
     if (item->cont) {
         if (item->cont->ccat == NULL) {
             printer.efun(&item->cont->lincat->name);
-            printer.puts("(");
-            printer.lparam(item->rule->res);
-            printer.puts(")");
         } else {
             printer.emeta(item->cont->ccat->fid);
         }
+        printer.puts("(");
+        printer.lparam(item->rule->res);
+        printer.puts(")");
     }
     printer.puts(" -> ");
 
@@ -674,12 +670,12 @@ void PgfAbstractParser::print_item(Item *item, const PgfTextSpot &spot)
             CCat *ccat = item->args[i];
             if (ccat == NULL) {
                 printer.efun(&lin->absfun->type->hypos[i].type->name);
-                printer.puts("(");
-                printer.lparam(item->rule->args[i]);
-                printer.puts(")");
             } else {
                 printer.emeta(ccat->fid);
             }
+            printer.puts("(");
+            printer.lparam(item->rule->args[i]);
+            printer.puts(")");
         }
         printer.puts("]; ");
         break;
@@ -724,6 +720,10 @@ void PgfAbstractParser::print_prod(CCat *ccat, Production *prod)
     }
 
     printer.emeta(ccat->fid);
+    printer.puts("(");
+    printer.lparam(prod->rule->res);
+    printer.puts(")");
+
     printer.puts(" -> ");
 
     switch (ref<object>::get_tag(prod->rule->container)) {
@@ -739,12 +739,12 @@ void PgfAbstractParser::print_prod(CCat *ccat, Production *prod)
             CCat *ccat = prod->args[i];
             if (ccat == NULL) {
                 printer.efun(&lin->absfun->type->hypos[i].type->name);
-                printer.puts("(");
-                printer.lparam(prod->rule->args[i]);
-                printer.puts(")");
             } else {
                 printer.emeta(ccat->fid);
             }
+            printer.puts("(");
+            printer.lparam(prod->rule->args[i]);
+            printer.puts(")");
         }
         printer.puts("]");
         break;
@@ -1368,7 +1368,7 @@ void PgfParser::print_expr_state_left(PgfPrinter *printer, PgfMarshaller *m, Exp
         printer->puts("::");
 }
 
-void PgfParser::print_expr_state_right(PgfPrinter *printer, PgfMarshaller *m, ExprState *estate)
+void PgfParser::print_expr_state_right(PgfPrinter *printer, ExprState *estate)
 {
     for (size_t i = estate->index+1; i < estate->n_args; i++) {
         printer->puts(" ");
@@ -1381,7 +1381,7 @@ void PgfParser::print_expr_state_right(PgfPrinter *printer, PgfMarshaller *m, Ex
     if (estate->res && estate->res->pending.size() > 0) {
         printer->puts(")");
         ExprState *parent = estate->res->pending[0];
-        print_expr_state_right(printer, m, parent);
+        print_expr_state_right(printer, parent);
     }
 }
 
@@ -1391,7 +1391,7 @@ void PgfParser::print_expr_state(PgfMarshaller *m, ExprState *estate)
     printer.nprintf(64,"[%f] ",estate->prob);
     print_expr_state_left(&printer, m, estate);
     printer.puts(" .");
-    print_expr_state_right(&printer, m, estate);
+    print_expr_state_right(&printer, estate);
 
     PgfText *text = printer.get_text();
     fprintf(stderr, "%s\n", text->text);

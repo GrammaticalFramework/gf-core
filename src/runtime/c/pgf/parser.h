@@ -261,7 +261,7 @@ class PGF_INTERNAL_DECL PgfParser : private PgfAbstractParser, public PgfExprEnu
     static
     void print_expr_state_left(PgfPrinter *printer, PgfMarshaller *m, ExprState *estate);
     static
-    void print_expr_state_right(PgfPrinter *printer, PgfMarshaller *m, ExprState *estate);
+    void print_expr_state_right(PgfPrinter *printer, ExprState *estate);
     static
     void print_expr_state(PgfMarshaller *m, ExprState *estate);
 
