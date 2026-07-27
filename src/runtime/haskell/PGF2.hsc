@@ -848,20 +848,21 @@ data ParseOutput a
 parse :: Concr -> Type -> String -> ParseOutput [(Expr,Float)]
 parse c ty sent =
   unsafePerformIO $
-  withForeignPtr (c_revision c) $ \c_revision ->
+  withForeignPtr (c_revision c) $ \c_revision_ptr ->
   bracket (newStablePtr ty) freeStablePtr $ \c_ty ->
   withText sent $ \c_sent -> do
-    c_enum <- withPgfExn "parse" (pgf_parse (c_db c) c_revision c_ty marshaller unmarshaller c_sent)
-    exprs <- enumerateExprs (c_db c) c_enum
+    c_enum <- withPgfExn "parse" (pgf_parse (c_db c) c_revision_ptr c_ty marshaller unmarshaller c_sent)
+    exprs <- enumerateExprs (c_db c) (c_revision c) c_enum
     return (ParseOk exprs)
 
-enumerateExprs c_db c_enum_ptr = do
+enumerateExprs c_db c_revision c_enum_ptr = do
   c_enum <- newForeignPtr pgf_free_expr_enum c_enum_ptr
   c_fetch <- (#peek PgfExprEnumVtbl, fetch) =<< (#peek PgfExprEnum, vtbl) c_enum_ptr
   unsafeInterleaveIO (fetchLazy c_fetch c_enum)
   where
     fetchLazy c_fetch c_enum =
-      withForeignPtr c_enum $ \c_enum_ptr -> 
+      withForeignPtr c_revision $ \_ ->
+      withForeignPtr c_enum $ \c_enum_ptr ->
       alloca $ \p_prob -> do
         c_expr <- callFetch c_fetch c_enum_ptr c_db p_prob
         if c_expr == castPtrToStablePtr nullPtr
@@ -1164,11 +1165,11 @@ generateAllExt p ty dp cs
   | otherwise = 
       unsafePerformIO $
       bracket (newStablePtr ty) freeStablePtr $ \c_ty ->
-      withForeignPtr (a_revision p) $ \a_revision ->
+      withForeignPtr (a_revision p) $ \a_revision_ptr ->
       withPgfConcrs cs $ \c_db c_revisions n_revisions ->
       mask_ $ do
-        c_enum <- withPgfExn "generateAllExt" (pgf_generate_all (a_db p) a_revision c_revisions n_revisions c_ty (fromIntegral dp) marshaller unmarshaller)
-        enumerateExprs (a_db p) c_enum
+        c_enum <- withPgfExn "generateAllExt" (pgf_generate_all (a_db p) a_revision_ptr c_revisions n_revisions c_ty (fromIntegral dp) marshaller unmarshaller)
+        enumerateExprs (a_db p) (a_revision p) c_enum
 
 generateAllFrom :: PGF -> Expr -> [(Expr,Float)]
 generateAllFrom p ty = generateAllFromExt p ty maxBound []
