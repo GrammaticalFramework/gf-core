@@ -38,14 +38,7 @@ struct PGF_INTERNAL_DECL PgfItem {
     ref<PgfConcrRule> rule;
 };
 
-struct PgfPhrasetableNode;
-typedef ref<PgfPhrasetableNode> PgfPhrasetable;
-
-struct PGF_INTERNAL_DECL PgfPhrasetableNode {
-    const static size_t DELTA = 3;
-    const static size_t RATIO = 2;
-
-public:
+struct PGF_INTERNAL_DECL PgfPhrasetableValue {
     PgfSymbol sym;
 
     // Here n_items tells us how many actual items there are in
@@ -53,36 +46,9 @@ public:
     // how big buffer we have allocated.
     size_t n_items;
     vector<ref<PgfItem>> items;
-
-    txn_t txn_id;
-
-    size_t sz;
-    ref<PgfPhrasetableNode> left;
-    ref<PgfPhrasetableNode> right;
-
-    static
-    ref<PgfPhrasetableNode> new_node(PgfSymbol sym, size_t n_items);
-
-    static
-    ref<PgfPhrasetableNode> upd_node(ref<PgfPhrasetableNode> node, ref<PgfPhrasetableNode> left, ref<PgfPhrasetableNode> right);
-
-    static
-    ref<PgfPhrasetableNode> balanceL(ref<PgfPhrasetableNode> node);
-
-    static
-    ref<PgfPhrasetableNode> balanceR(ref<PgfPhrasetableNode> node);
-
-    static
-    size_t size(ref<PgfPhrasetableNode> node)
-    {
-        if (node == 0)
-            return 0;
-        return node->sz;
-    }
-
-    static
-    void release(ref<PgfPhrasetableNode> node);
 };
+
+typedef ref<Node<PgfPhrasetableValue>> PgfPhrasetable;
 
 PgfPhrasetable phrasetable_insert(PgfPhrasetable table,
                                   PgfSymbol sym,

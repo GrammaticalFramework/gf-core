@@ -394,223 +394,6 @@ int symbol_cmp(PgfSymbol sym1, PgfSymbol sym2)
     }
 }
 
-ref<PgfPhrasetableNode> PgfPhrasetableNode::new_node(PgfSymbol sym, size_t n_items)
-{
-    auto items = vector<ref<PgfItem>>::alloc(n_items);
-
-    auto node = PgfDB::malloc<PgfPhrasetableNode>();
-    node->sym     = sym;
-    node->n_items = 0;
-    node->items   = items;
-    node->txn_id  = PgfDB::get_txn_id();
-    node->sz      = 1;
-    node->left    = 0;
-    node->right   = 0;
-    
-    return node;
-}
-
-PgfPhrasetable PgfPhrasetableNode::upd_node(PgfPhrasetable node, PgfPhrasetable left, PgfPhrasetable right)
-{
-    if (node->txn_id != PgfDB::get_txn_id()) {
-        PgfPhrasetable new_node = PgfDB::malloc<PgfPhrasetableNode>();
-        new_node->sym      = node->sym;
-        new_node->n_items  = node->n_items;
-        new_node->items    = node->items;
-        new_node->txn_id   = PgfDB::get_txn_id();
-        release(node);
-        node = new_node;
-    }
-
-    node->sz        = 1+PgfPhrasetableNode::size(left)+PgfPhrasetableNode::size(right);
-    node->left      = left;
-    node->right     = right;
-
-    return node;
-}
-
-PgfPhrasetable PgfPhrasetableNode::balanceL(PgfPhrasetable node)
-{
-    if (node->right == 0) {
-        if (node->left == 0) {
-            return node;
-        } else {
-            if (node->left->left == 0) {
-                if (node->left->right == 0) {
-                    return node;
-                } else {
-                    PgfPhrasetable left_right = node->left->right;
-                    PgfPhrasetable left  = upd_node(node->left,0,0);
-                    PgfPhrasetable right = upd_node(node,0,0);
-                    return upd_node(left_right,
-                                    left,
-                                    right);
-                }
-            } else {
-                if (node->left->right == 0) {
-                    PgfPhrasetable left  = node->left;
-                    PgfPhrasetable right = upd_node(node,0,0);
-                    return upd_node(left,
-                                    left->left,
-                                    right);
-                } else {
-                    if (node->left->right->sz < RATIO * node->left->left->sz) {
-                        PgfPhrasetable left  = node->left;
-                        PgfPhrasetable right =
-                            upd_node(node,
-                                     left->right,
-                                     0);
-                        return upd_node(left,
-                                        left->left,
-                                        right);
-                    } else {
-                        PgfPhrasetable left_right = node->left->right;
-                        PgfPhrasetable left  =
-                            upd_node(node->left,
-                                     node->left->left,
-                                     left_right->left);
-                        PgfPhrasetable right =
-                            upd_node(node,
-                                     left_right->right,
-                                     0);
-                        return upd_node(left_right,
-                                        left,
-                                        right);
-                    }
-                }
-            }
-        }
-    } else {
-        if (node->left == 0) {
-            return node;
-        } else {
-            if (node->left->sz > DELTA*node->right->sz) {
-                if (node->left->right->sz < RATIO*node->left->left->sz) {
-                    PgfPhrasetable left  = node->left;
-                    PgfPhrasetable right =
-                        upd_node(node,
-                                 left->right,
-                                 node->right);
-                    return upd_node(left,
-                                    left->left,
-                                    right);
-                } else {
-                    PgfPhrasetable left_right = node->left->right;
-                    PgfPhrasetable left  =
-                        upd_node(node->left,
-                                 node->left->left,
-                                 left_right->left);
-                    PgfPhrasetable right =
-                        upd_node(node,
-                                 left_right->right,
-                                 node->right);
-                    return upd_node(left_right,
-                                    left,
-                                    right);
-                }
-            } else {
-                return node;
-            }
-        }
-    }
-}
-
-PgfPhrasetable PgfPhrasetableNode::balanceR(PgfPhrasetable node)
-{
-    if (node->left == 0) {
-        if (node->right == 0) {
-            return node;
-        } else {
-            if (node->right->left == 0) {
-                if (node->right->right == 0) {
-                    return node;
-                } else {
-                    PgfPhrasetable right = node->right;
-                    PgfPhrasetable left  =
-                        upd_node(node,
-                                 0,
-                                 0);
-                    return upd_node(right,
-                                    left,
-                                    right->right);
-                }
-            } else {
-                if (node->right->right == 0) {
-                    PgfPhrasetable right_left = node->right->left;
-                    PgfPhrasetable right =
-                        upd_node(node->right,0,0);
-                    PgfPhrasetable left =
-                        upd_node(node,0,0);
-                    return upd_node(right_left,
-                                    left,
-                                    right);
-                } else {
-                    if (node->right->left->sz < RATIO * node->right->right->sz) {
-                        PgfPhrasetable right = node->right;
-                        PgfPhrasetable left  =
-                            upd_node(node,
-                                     0,
-                                     right->left);
-                        return upd_node(right,
-                                        left,
-                                        right->right);
-                    } else {
-                        PgfPhrasetable right_left = node->right->left;
-                        PgfPhrasetable right =
-                            upd_node(node->right,
-                                     right_left->right,
-                                     node->right->right);
-                        PgfPhrasetable left =
-                            upd_node(node,
-                                     0,
-                                     right_left->left);
-                        return upd_node(right_left,
-                                        left,
-                                        right);
-                    }
-                }
-            }
-        }
-    } else {
-        if (node->right == 0) {
-            return node;
-        } else {
-            if (node->right->sz > DELTA*node->left->sz) {
-                if (node->right->left->sz < RATIO*node->right->right->sz) {
-                    PgfPhrasetable right = node->right;
-                    PgfPhrasetable left =
-                        upd_node(node,
-                                 node->left,
-                                 right->left);
-                    return upd_node(right,
-                                    left,
-                                    right->right);
-                } else {
-                    PgfPhrasetable right_left = node->right->left;
-                    PgfPhrasetable right =
-                        upd_node(node->right,
-                                 right_left->right,
-                                 node->right->right);
-                    PgfPhrasetable left =
-                        upd_node(node,
-                                 node->left,
-                                 right_left->left);
-                    return upd_node(right_left,
-                                    left,
-                                    right);
-                }
-            } else {
-                return node;
-            }
-        }
-    }
-}
-
-void PgfPhrasetableNode::release(ref<PgfPhrasetableNode> node)
-{
-    PgfDB::free(node);
-}
-
 void phrasetable_iter(PgfPhrasetable table, ref<PgfConcrLincat> lincat, std::function<void(ref<PgfSymbolCCat> arg,size_t,vector<ref<PgfItem>>)> &f)
 {
     if (table == 0)
@@ -618,11 +401,11 @@ void phrasetable_iter(PgfPhrasetable table, ref<PgfConcrLincat> lincat, std::fun
 
     int cmp = 0;
     ref<PgfSymbolCCat> symcf = 0;
-    uint8_t tag = ref<PgfSymbol>::get_tag(table->sym);
+    uint8_t tag = ref<PgfSymbol>::get_tag(table->value.sym);
     if (PgfSymbolCCat::tag != tag) {
         cmp = ((int) PgfSymbolCCat::tag) - ((int) tag);
     } else {
-        symcf = ref<PgfSymbolCCat>::untagged(table->sym);
+        symcf = ref<PgfSymbolCCat>::untagged(table->value.sym);
         cmp = textcmp(&lincat->name, &symcf->lincat->name);
     }
 
@@ -632,7 +415,7 @@ void phrasetable_iter(PgfPhrasetable table, ref<PgfConcrLincat> lincat, std::fun
         phrasetable_iter(table->right, lincat, f);
     else {
         phrasetable_iter(table->left,  lincat, f);
-        f(symcf,table->n_items,table->items);
+        f(symcf,table->value.n_items,table->value.items);
         phrasetable_iter(table->right, lincat, f);
     }
 }
@@ -640,14 +423,14 @@ void phrasetable_iter(PgfPhrasetable table, ref<PgfConcrLincat> lincat, std::fun
 vector<ref<PgfItem>> phrasetable_lookup(PgfPhrasetable table, PgfSymbol sym, size_t *n_items)
 {
     while (table != 0) {
-        int cmp = symbol_cmp(sym,table->sym);
+        int cmp = symbol_cmp(sym,table->value.sym);
         if (cmp < 0)
             table = table->left;
         else if (cmp > 0)
             table = table->right;
         else {
-            *n_items = table->n_items;
-            return table->items;
+            *n_items = table->value.n_items;
+            return table->value.items;
         }
     }
 
@@ -661,11 +444,11 @@ vector<ref<PgfItem>> phrasetable_lookup(PgfPhrasetable phrasetable,
 {
     while (phrasetable != 0) {
         int cmp;
-        uint8_t tag = ref<PgfSymbol>::get_tag(phrasetable->sym);
+        uint8_t tag = ref<PgfSymbol>::get_tag(phrasetable->value.sym);
         if (PgfSymbolACat::tag != tag) {
             cmp = ((int) PgfSymbolACat::tag) - ((int) tag);
         } else {
-            auto symcf = ref<PgfSymbolACat>::untagged(phrasetable->sym);
+            auto symcf = ref<PgfSymbolACat>::untagged(phrasetable->value.sym);
             cmp = textcmp(&lincat->name, &symcf->name);
         }
         if (cmp < 0)
@@ -673,8 +456,8 @@ vector<ref<PgfItem>> phrasetable_lookup(PgfPhrasetable phrasetable,
         else if (cmp > 0)
             phrasetable = phrasetable->right;
         else {
-            *n_items = phrasetable->n_items;
-            return phrasetable->items;
+            *n_items = phrasetable->value.n_items;
+            return phrasetable->value.items;
         }
     }
 
@@ -695,7 +478,7 @@ void phrasetable_lookup(PgfPhrasetable table,
     spot.pos = 0;
     spot.ptr = (uint8_t *) sentence->text;
     const uint8_t *end = spot.ptr+sentence->size;
-    int cmp = text_symbol_cmp(&spot,end,table->sym,case_sensitive);
+    int cmp = text_symbol_cmp(&spot,end,table->value.sym,case_sensitive);
     if (cmp < 0) {
         phrasetable_lookup(table->left,sentence,case_sensitive,scanner,err);
     } else if (cmp > 0) {
@@ -707,8 +490,8 @@ void phrasetable_lookup(PgfPhrasetable table,
                 return;
         }
 
-        for (size_t i = 0; i < table->n_items; i++) {
-            ref<PgfItem> item = table->items[i];
+        for (size_t i = 0; i < table->value.n_items; i++) {
+            ref<PgfItem> item = table->value.items[i];
             switch (ref<PgfConcrLin>::get_tag(item->rule->container)) {
             case PgfConcrLin::tag: {
                 ref<PgfConcrLin> lin = ref<PgfConcrLin>::untagged(item->rule->container);
@@ -808,7 +591,7 @@ void phrasetable_lookup_prefixes(PgfCohortsState *state,
         return;
 
     PgfTextSpot current = state->spot;
-    int cmp = text_symbol_cmp(&current,state->end,table->sym,state->case_sensitive);
+    int cmp = text_symbol_cmp(&current,state->end,table->value.sym,state->case_sensitive);
     if (cmp < 0) {
         phrasetable_lookup_prefixes(state,table->left,min,max);
     } else if (cmp > 0) {
@@ -847,8 +630,8 @@ void phrasetable_lookup_prefixes(PgfCohortsState *state,
             }
             state->queue.push(current);
 
-            for (size_t i = 0; i < table->n_items; i++) {
-                auto rule = table->items[i]->rule;
+            for (size_t i = 0; i < table->value.n_items; i++) {
+                auto rule = table->value.items[i]->rule;
                 switch (ref<PgfConcrLin>::get_tag(rule->container)) {
                 case PgfConcrLin::tag: {
                     ref<PgfConcrLin> lin = ref<PgfConcrLin>::untagged(rule->container);
@@ -962,42 +745,43 @@ void phrasetable_lookup_cohorts(PgfPhrasetable table,
     }
 }
 
+PGF_INTERNAL
 PgfPhrasetable phrasetable_insert(PgfPhrasetable table,
                                   PgfSymbol sym,
                                   ref<PgfItem> item)
 {
     if (table == 0) {
-        PgfPhrasetable new_table = PgfPhrasetableNode::new_node(sym,1);
-        new_table->n_items = 1;
-        new_table->items[0] = item;
-        return new_table;
+        auto items = vector<ref<PgfItem>>::alloc(1);
+        items[0] = item;
+        return Node<PgfPhrasetableValue>::new_node({.sym=sym,.n_items=1,.items=items});
 	}
 
-    int cmp = symbol_cmp(sym,table->sym);
+    int cmp = symbol_cmp(sym,table->value.sym);
     if (cmp < 0) {
         PgfPhrasetable left = phrasetable_insert(table->left, sym, item);
-        table = PgfPhrasetableNode::upd_node(table,left,table->right);
-        return PgfPhrasetableNode::balanceL(table);
+        table = Node<PgfPhrasetableValue>::upd_node(table,left,table->right);
+        return Node<PgfPhrasetableValue>::balanceL(table);
     } else if (cmp > 0) {
         PgfPhrasetable right = phrasetable_insert(table->right, sym, item);
-        table = PgfPhrasetableNode::upd_node(table, table->left, right);
-        return PgfPhrasetableNode::balanceR(table);
+        table = Node<PgfPhrasetableValue>::upd_node(table, table->left, right);
+        return Node<PgfPhrasetableValue>::balanceR(table);
     } else {
         PgfPhrasetable new_table =
-            PgfPhrasetableNode::upd_node(table, table->left, table->right);
+            Node<PgfPhrasetableValue>::upd_node(table, table->left, table->right);
 
-        auto items = new_table->items;
-        if (new_table->n_items >= items.size()) {
-            size_t new_len = get_next_padovan(new_table->n_items+1);
+        auto items = new_table->value.items;
+        if (new_table->value.n_items >= items.size()) {
+            size_t new_len = get_next_padovan(new_table->value.n_items+1);
             items = items.realloc(new_len, new_table->txn_id);
         }
-        items[new_table->n_items] = item;
-        new_table->n_items++;
-        new_table->items = items;
+        items[new_table->value.n_items] = item;
+        new_table->value.n_items++;
+        new_table->value.items = items;
         return new_table;
     }
 }
 
+PGF_INTERNAL
 PgfPhrasetable phrasetable_insert(PgfPhrasetable table,
                                   ref<PgfConcrLincat> lincat,
                                   interval_t value, interval_t lin_idx,
@@ -1011,35 +795,34 @@ PgfPhrasetable phrasetable_insert(PgfPhrasetable table,
         symcf->lin_idx = lin_idx;
         symcf->fid = fid;
         symcf->viterbi_prob = viterbi_prob;
-        PgfPhrasetable new_table = PgfPhrasetableNode::new_node(symcf.tagged(),1);
-        new_table->n_items = 1;
-        new_table->items[0] = item;
-        return new_table;
+        auto items = vector<ref<PgfItem>>::alloc(1);
+        items[0] = item;
+        return Node<PgfPhrasetableValue>::new_node({.sym=symcf.tagged(),.n_items=1,.items=items});
 	}
 
-    int cmp = symbol_cmp(lincat,value,lin_idx,table->sym);
+    int cmp = symbol_cmp(lincat,value,lin_idx,table->value.sym);
     if (cmp < 0) {
         PgfPhrasetable left = phrasetable_insert(table->left,
                                                 lincat, value, lin_idx, fid, viterbi_prob, item);
-        table = PgfPhrasetableNode::upd_node(table,left,table->right);
-        return PgfPhrasetableNode::balanceL(table);
+        table = Node<PgfPhrasetableValue>::upd_node(table,left,table->right);
+        return Node<PgfPhrasetableValue>::balanceL(table);
     } else if (cmp > 0) {
         PgfPhrasetable right = phrasetable_insert(table->right,
                                                   lincat, value, lin_idx, fid, viterbi_prob, item);
-        table = PgfPhrasetableNode::upd_node(table, table->left, right);
-        return PgfPhrasetableNode::balanceR(table);
+        table = Node<PgfPhrasetableValue>::upd_node(table, table->left, right);
+        return Node<PgfPhrasetableValue>::balanceR(table);
     } else {
         PgfPhrasetable new_table =
-            PgfPhrasetableNode::upd_node(table, table->left, table->right);
+            Node<PgfPhrasetableValue>::upd_node(table, table->left, table->right);
 
-        auto items = new_table->items;
-        if (new_table->n_items >= items.size()) {
-            size_t new_len = get_next_padovan(new_table->n_items+1);
+        auto items = new_table->value.items;
+        if (new_table->value.n_items >= items.size()) {
+            size_t new_len = get_next_padovan(new_table->value.n_items+1);
             items = items.realloc(new_len, new_table->txn_id);
         }
-        items[new_table->n_items] = item;
-        new_table->n_items++;
-        new_table->items = items;
+        items[new_table->value.n_items] = item;
+        new_table->value.n_items++;
+        new_table->value.items = items;
         return new_table;
     }
 }

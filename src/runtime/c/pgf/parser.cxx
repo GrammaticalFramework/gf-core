@@ -857,7 +857,7 @@ void PgfParser::bu_predict(PgfPhrasetable phrasetable,
         return;
 
     PgfTextSpot current = state->end;
-    int cmp = text_symbol_cmp(&current,end,phrasetable->sym,case_sensitive);
+    int cmp = text_symbol_cmp(&current,end,phrasetable->value.sym,case_sensitive);
     if (cmp < 0) {
         bu_predict(phrasetable->left,state,min,max);
     } else if (cmp > 0) {
@@ -876,11 +876,11 @@ void PgfParser::bu_predict(PgfPhrasetable phrasetable,
 
         if (len > 0) {
             State *next_state = new_state(current);
-            for (size_t i = 0; i < phrasetable->n_items; i++) {
+            for (size_t i = 0; i < phrasetable->value.n_items; i++) {
                 std::map<ref<PgfConcrLincat>, bool> visited;
                 //if (!td_reachable(state, phrasetable->items[i], visited))
                 //    continue;
-                Item *item = bu_item(state, phrasetable->items[i]);
+                Item *item = bu_item(state, phrasetable->value.items[i]);
                 item->dot++;
                 next_state->push_item(item);
             }
@@ -899,7 +899,7 @@ void PgfParser::bu_predict(PgfPhrasetable phrasetable,
 
     PgfTextSpot current = state->end;
     int cmp;
-    uint8_t tag = ref<PgfSymbol>::get_tag(phrasetable->sym);
+    uint8_t tag = ref<PgfSymbol>::get_tag(phrasetable->value.sym);
     cmp = ((int) PgfSymbolBIND::tag) - ((int) tag);
     if (cmp < 0) {
         bu_predict(phrasetable->left,state);
@@ -916,11 +916,11 @@ void PgfParser::bu_predict(PgfPhrasetable phrasetable,
             state->next = next_state;
         }
 
-        for (size_t i = 0; i < phrasetable->n_items; i++) {
+        for (size_t i = 0; i < phrasetable->value.n_items; i++) {
             std::map<ref<PgfConcrLincat>, bool> visited;
             //if (!td_reachable(state, phrasetable->items[i], visited))
             //    continue;
-            Item *item = bu_item(state, phrasetable->items[i]);
+            Item *item = bu_item(state, phrasetable->value.items[i]);
             item->dot++;
             next_state->push_item(item);
         }
