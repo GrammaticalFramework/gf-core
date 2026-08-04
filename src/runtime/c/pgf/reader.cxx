@@ -712,6 +712,8 @@ ref<PgfConcr> PgfReader::read_concrete()
 	auto lins = read_namespace<PgfConcrLin>(&PgfReader::read_lin);
 	concrete->lins = lins;
 
+    tm.prepare();
+
     concrete->last_fid = tm.get_last_fid();
     this->table_maker = NULL;
 

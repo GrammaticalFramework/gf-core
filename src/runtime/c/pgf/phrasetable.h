@@ -91,7 +91,7 @@ PgfPhrasetable phrasetable_insert(PgfPhrasetable table,
 PgfPhrasetable phrasetable_insert(PgfPhrasetable table,
                                   ref<PgfConcrLincat> lincat,
                                   interval_t value, interval_t lin_idx,
-                                  PgfMetaId fid,
+                                  PgfMetaId fid, prob_t viterbi_prob,
                                   ref<PgfItem> item);
 
 PGF_INTERNAL_DECL

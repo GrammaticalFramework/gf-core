@@ -262,6 +262,7 @@ struct PGF_INTERNAL_DECL PgfSymbolCCat {
     ref<PgfConcrLincat> lincat;
     interval_t value;
     interval_t lin_idx;
+    prob_t viterbi_prob;
     PgfMetaId fid;
 };
 

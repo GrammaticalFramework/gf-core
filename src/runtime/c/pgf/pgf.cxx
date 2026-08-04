@@ -1726,6 +1726,7 @@ void pgf_free_parse_table(PgfDB *db,
     ref<PgfPGF> pgf = db->revision2pgf(revision);
     ref<PgfConcr> concr = db->revision2concr(cnc_revision);
 
+    table_maker->prepare();
     concr->last_fid = table_maker->get_last_fid();
     delete table_maker;
 }

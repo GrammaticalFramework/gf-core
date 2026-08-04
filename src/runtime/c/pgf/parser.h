@@ -89,6 +89,7 @@ protected:
         State *state;
         interval_t value;
         interval_t lin_idx;
+        prob_t viterbi_prob;
         bool covered;
         std::vector<Production*> prods;
         std::vector<ExprState*> pending;
@@ -103,8 +104,25 @@ protected:
         std::map<ref<PgfConcrLincat>,Cont*> conts1;
         std::map<CCat*,Cont*> conts2;
         std::map<Cont*,interval_map<interval_map<CCat*>>> completed;
-        
+        std::vector<Item*> queue;
+
         State *next;
+
+        bool has_items() {
+            return queue.size() > 0;
+        }
+
+        void push_item(Item *item) {
+            queue.push_back(item);
+            std::push_heap(queue.begin(), queue.end(), item_comp);
+        }
+
+        Item *pop_item() {
+            Item *item = queue.front();
+            std::pop_heap(queue.begin(), queue.end(), item_comp);
+            queue.pop_back();
+            return item;
+        }
     };
 
     struct Cont {
@@ -123,6 +141,8 @@ protected:
         uint16_t dot;
         vector<PgfSymbol> syms;
         ref<PgfConcrRule> rule;
+        prob_t inside_prob;
+        prob_t outside_prob;
 
         struct {
             size_t &operator[](int i) const {
@@ -177,6 +197,12 @@ protected:
                          PgfConcrRule *rule, size_t *values, ref<PgfLParam> lparam2);
     };
 
+    static struct ItemComparator : std::less<Item*> {
+        bool operator()(Item *item1, Item *item2) {
+            return item1->inside_prob+item1->outside_prob > item2->inside_prob+item2->outside_prob;
+        }
+    } item_comp;
+
     struct ExprState {
         PgfExpr expr;
         prob_t prob;
@@ -204,29 +230,29 @@ protected:
         }
     };
 
-    State *first_state, *current_state;
+    State *current_state;
     std::map<ref<PgfConcrLincat>,interval_map<interval_map<CCat*>>> epsilons;
     PgfMetaId initial_fid, last_fid;
 
-    void process(Item *item, const PgfTextSpot &spot, bool bind);
-    void symbol(Item *item, const PgfTextSpot &spot, bool bind, PgfSymbol sym);
-    void complete(Item *item, const PgfTextSpot &spot, bool bind);
+    void process(Item *item, State *state);
+    void symbol(Item *item, State *state, PgfSymbol sym);
+    void complete(Item *item, State *state);
 
     virtual State *new_state(const PgfTextSpot &start)=0;
-    virtual void symbol_token(Item *item, const PgfTextSpot &spot, bool bind, PgfSymbol sym)=0;
-    virtual void symbol_bind(Item *item, const PgfTextSpot &spot, PgfSymbol sym)=0;
-    virtual void suspend(Cont *cont, Item *item, size_t n_suspended)=0;
+    virtual void symbol_token(Item *item, State *state, PgfSymbol sym)=0;
+    virtual void symbol_bind(Item *item, State *state, PgfSymbol sym)=0;
+    virtual void suspend(Cont *cont, Item *item, size_t n_suspended1, size_t n_suspended)=0;
     virtual void final_item(State *state,CCat *ccat,Item *item,interval_t value,interval_t lin_idx)=0;
     virtual void bu_predict(State *state, CCat *ccat)=0;
 
-    void td_epsilon(State *state, Cont *cont, ref<PgfItem> pitem, Item *xitem, ref<PgfLParam> value, ref<PgfLParam> lin_idx);
-    void td_predict(State *state, Cont *cont, Production *prod, Item *xitem, ref<PgfLParam> value, ref<PgfLParam> lin_idx);
+    void td_epsilon(State *state, Cont *cont, ref<PgfItem> pitem, Item *xitem, ref<PgfSymbolCat> symcat);
+    void td_predict(State *state, Cont *cont, Production *prod, Item *xitem, ref<PgfSymbolCat> symcat);
     void combine(State *state, Item *item, CCat *ccat);
 
     void get_info(CCat *ccat, ref<PgfConcrRule> *rule, size_t **pvalues);
 
     static
-    void print_item(Item *item, const PgfTextSpot &spot);
+    void print_item(Item *item, State *state);
 
     static
     void print_prod(CCat *ccat, Production *prod);
@@ -245,12 +271,13 @@ class PGF_INTERNAL_DECL PgfParser : private PgfAbstractParser, public PgfExprEnu
     bool case_sensitive;
 
     virtual State *new_state(const PgfTextSpot &start);
-    virtual void symbol_token(Item *item, const PgfTextSpot &spot, bool bind, PgfSymbol sym);
-    virtual void symbol_bind(Item *item, const PgfTextSpot &spot, PgfSymbol sym);
-    virtual void suspend(Cont *cont,Item *item,size_t n_suspended);
+    virtual void symbol_token(Item *item, State *state, PgfSymbol sym);
+    virtual void symbol_bind(Item *item, State *state, PgfSymbol sym);
+    virtual void suspend(Cont *cont,Item *item,size_t n_suspended1,size_t n_suspended);
     virtual void final_item(State *state,CCat *ccat,Item *item,interval_t value,interval_t lin_idx);
     virtual void bu_predict(State *state, CCat *ccat);
 
+    void bu_predict(PgfPhrasetable phrasetable, State *state);
     void bu_predict(PgfPhrasetable phrasetable, State *state, ptrdiff_t min, ptrdiff_t max);
     void make_chunks(State *state, std::vector<CCat*> &chunks, prob_t prob);
     PgfExpr process_expr(ExprState *estate, prob_t *prob);
@@ -265,7 +292,7 @@ class PGF_INTERNAL_DECL PgfParser : private PgfAbstractParser, public PgfExprEnu
     static
     void print_expr_state(PgfMarshaller *m, ExprState *estate);
 
-    struct ExprStateComparator : std::less<ExprState*> {
+    static struct ExprStateComparator : std::less<ExprState*> {
         bool operator()(ExprState *estate1, ExprState *estate2) {
             return estate1->prob > estate2->prob;
         }
@@ -286,9 +313,9 @@ class PGF_INTERNAL_DECL PgfParseTableMaker : private PgfAbstractParser
 {
 private:
     virtual State *new_state(const PgfTextSpot &start);
-    virtual void symbol_token(Item *item, const PgfTextSpot &spot, bool bind, PgfSymbol sym);
-    virtual void symbol_bind(Item *item, const PgfTextSpot &spot, PgfSymbol sym);
-    virtual void suspend(Cont *cont, Item *item, size_t n_suspended);
+    virtual void symbol_token(Item *item, State *state, PgfSymbol sym);
+    virtual void symbol_bind(Item *item, State *state, PgfSymbol sym);
+    virtual void suspend(Cont *cont, Item *item, size_t n_suspended1, size_t n_suspended);
     virtual void final_item(State *state, CCat *ccat,Item *item,interval_t value,interval_t lin_idx);
     virtual void bu_predict(State *state, CCat *ccat);
 
@@ -298,6 +325,7 @@ private:
 public:
     PgfParseTableMaker(ref<PgfConcr> concr);
     void insert_rule(ref<PgfConcrRule> rule);
+    void prepare();
     PgfMetaId get_last_fid() { return last_fid; };
 };
 

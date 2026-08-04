@@ -1,6 +1,7 @@
 #include "data.h"
 #include "printer.h"
 #include "parser.h"
+#include <math.h>
 
 //#define DEBUG_PARSER
 //#define DEBUG_EXPRS
@@ -9,7 +10,6 @@ PgfAbstractParser::PgfAbstractParser(ref<PgfConcr> concr)
 {
     this->concr = concr;
 
-    this->first_state = NULL;
     this->current_state = NULL;
     this->initial_fid = concr->last_fid;
     this->last_fid = concr->last_fid;
@@ -54,7 +54,7 @@ PgfAbstractParser::Cont::~Cont()
 
 PgfAbstractParser::~PgfAbstractParser()
 {
-    State *state = first_state;
+    State *state = current_state;
     while (state != NULL) {
         for (auto it1 : state->completed) {
      /*       for (auto it2 : it1) {
@@ -76,22 +76,22 @@ PgfAbstractParser::~PgfAbstractParser()
     }
 }
 
-void PgfAbstractParser::process(Item *item, const PgfTextSpot &spot, bool bind)
+void PgfAbstractParser::process(Item *item, State *state)
 {
 #ifdef DEBUG_PARSER
-    print_item(item,spot);
+    print_item(item,state);
 #endif
 
     if (item->dot < item->syms.size()) {
-        symbol(item,spot,bind,item->syms[item->dot]);
+        symbol(item,state,item->syms[item->dot]);
     } else if (item->pre_alt > 0) {
         item->dot     = item->pre_dot+1;
         item->pre_alt = 0;
         item->pre_dot = 0;
         item->syms    = item->rule->syms.as_vector();
-        process(item,spot,bind);
+        process(item,state);
     } else {
-        complete(item,spot,bind);
+        complete(item,state);
     }
 }
 
@@ -99,13 +99,11 @@ PGF_INTERNAL_DECL
 int text_symbol_cmp(PgfTextSpot *spot, const uint8_t *end,
                     PgfSymbol sym, bool case_sensitive);
 
-void PgfAbstractParser::symbol(Item *item, const PgfTextSpot &spot, bool bind, PgfSymbol sym)
+void PgfAbstractParser::symbol(Item *item, State *state, PgfSymbol sym)
 {
     switch (ref<PgfSymbol>::get_tag(sym)) {
     case PgfSymbolCat::tag: {
         auto symcat = ref<PgfSymbolCat>::untagged(sym);
-
-        State *state = new_state(spot);
 
         CCat *ccat = item->args[symcat->d];
         if (ccat == NULL) {
@@ -125,6 +123,7 @@ void PgfAbstractParser::symbol(Item *item, const PgfTextSpot &spot, bool bind, P
             }
 
             if (lincat != 0) {
+                size_t n_suspended1 = state->conts1.size();
                 Cont *&cont = state->conts1[lincat];
                 if (cont == NULL) {
                     cont = new Cont;
@@ -138,7 +137,7 @@ void PgfAbstractParser::symbol(Item *item, const PgfTextSpot &spot, bool bind, P
                 auto &suspended = cont->suspended[value_i][lin_idx_i];
                 suspended.push_back(item);
 
-                suspend(cont,item,suspended.size());
+                suspend(cont,item,n_suspended1,suspended.size());
             }
         } else {
             Cont *&cont = state->conts2[ccat];
@@ -154,10 +153,24 @@ void PgfAbstractParser::symbol(Item *item, const PgfTextSpot &spot, bool bind, P
 
             interval_t value_i   = item->interval(item->rule->args[symcat->d]);
             interval_t lin_idx_i = item->interval(ref<PgfLParam>::from_ptr(&symcat->r));
+
+            bool subsumed = false;
+            for (auto it1 : cont->suspended.overlaps(value_i)) {
+                if (it1.first.first <= value_i.first && it1.first.second >= value_i.second) {
+                    for (auto it2 : it1.second.overlaps(lin_idx_i)) {
+                        if (it2.first.first <= lin_idx_i.first && it2.first.second >= lin_idx_i.second) {
+                            subsumed = true;
+                            goto found;
+                        }
+                    }
+                }
+            }
+found:;
+
             auto &suspended = cont->suspended[value_i][lin_idx_i];
             suspended.push_back(item);
 
-            if (suspended.size() == 1) {
+            if (!subsumed && suspended.size() == 1) {
                 if (ccat->fid <= initial_fid) {
                     size_t n_items = 0;
                     vector<ref<PgfItem>> items =
@@ -165,11 +178,11 @@ void PgfAbstractParser::symbol(Item *item, const PgfTextSpot &spot, bool bind, P
 
                     for (size_t i = 0; i < n_items; i++) {
                         ref<PgfItem> pitem = items[i];
-                        td_epsilon(state,cont,pitem,item,item->rule->args[symcat->d],ref<PgfLParam>::from_ptr(&symcat->r));
+                        td_epsilon(state,cont,pitem,item,symcat);
                     }
                 } else {
                     for (Production *prod : ccat->prods) {
-                        td_predict(state,cont,prod,item,item->rule->args[symcat->d],ref<PgfLParam>::from_ptr(&symcat->r));
+                        td_predict(state,cont,prod,item,symcat);
                     }
                 }
             } else {
@@ -194,7 +207,7 @@ void PgfAbstractParser::symbol(Item *item, const PgfTextSpot &spot, bool bind, P
         break;
     }
     case PgfSymbolKS::tag: {
-        symbol_token(item, spot, bind, sym);
+        symbol_token(item, state, sym);
         break;
     }
     case PgfSymbolKP::tag: {
@@ -206,7 +219,9 @@ void PgfAbstractParser::symbol(Item *item, const PgfTextSpot &spot, bool bind, P
         new_item->dot     = 0;
         new_item->syms    = symkp->default_form;
         new_item->rule    = item->rule;
-        process(new_item, spot, bind);
+        new_item->inside_prob  = item->inside_prob;
+        new_item->outside_prob = item->outside_prob;
+        process(new_item, state);
 
         for (size_t i = 0; i < symkp->alts.size(); i++) {
             Item *new_item = new(item) Item;
@@ -215,22 +230,18 @@ void PgfAbstractParser::symbol(Item *item, const PgfTextSpot &spot, bool bind, P
             new_item->dot     = 0;
             new_item->syms    = symkp->alts[i].form;
             new_item->rule    = item->rule;
-            process(new_item, spot, bind);
+            new_item->inside_prob  = item->inside_prob;
+            new_item->outside_prob = item->outside_prob;
+            process(new_item, state);
         }
 
         delete item;
         break;
     }
-    case PgfSymbolBIND::tag: {
-        symbol_bind(item, spot, sym);
-        break;
-    }
+    case PgfSymbolBIND::tag:
     case PgfSymbolSOFTBIND::tag:
     case PgfSymbolSOFTSPACE::tag: {
-        item->dot++;
-        process(new (item) Item, spot, true);
-        process(new (item) Item, spot, false);
-        delete item;
+        symbol_bind(item, state, sym);
         break;
     }
     case PgfSymbolNE::tag:
@@ -239,15 +250,13 @@ void PgfAbstractParser::symbol(Item *item, const PgfTextSpot &spot, bool bind, P
     case PgfSymbolCAPIT::tag:
     case PgfSymbolALLCAPIT::tag:
         item->dot++;
-        process(item, spot, bind);
+        process(item, state);
         break;
     }
 }
 
-void PgfAbstractParser::complete(Item *item, const PgfTextSpot &spot, bool bind)
+void PgfAbstractParser::complete(Item *item, State *state)
 {
-    State *state = new_state(spot);
-
     switch (ref<object>::get_tag(item->rule->container)) {
     case PgfConcrLin::tag: {
         auto lin = ref<PgfConcrLin>::untagged(item->rule->container);
@@ -263,6 +272,7 @@ void PgfAbstractParser::complete(Item *item, const PgfTextSpot &spot, bool bind)
             ccat->lin_idx = lin_idx;
             ccat->value = res;
             ccat->covered = false;
+            ccat->viterbi_prob = item->inside_prob;
 
 #ifdef DEBUG_PARSER
             {
@@ -327,7 +337,7 @@ void PgfAbstractParser::complete(Item *item, const PgfTextSpot &spot, bool bind)
                         for (auto it2 : it1.second) {
                             Item *item = it2.second[0];
                             auto symcat = ref<PgfSymbolCat>::untagged(item->syms[item->dot]);
-                            td_predict(next,cont,prod,item,item->rule->args[symcat->d],ref<PgfLParam>::from_ptr(&symcat->r));
+                            td_predict(next,cont,prod,item,symcat);
                         }
                     }
                 }
@@ -492,11 +502,15 @@ void PgfAbstractParser::combine(State *state, Item *item, CCat *ccat)
     }
 
     item->dot++;
+    if (item->args[sym_cat->d] != NULL) {
+        item->inside_prob -= item->args[sym_cat->d]->viterbi_prob;
+    }
     item->args[sym_cat->d] = ccat;
-    process(item, state->start, false);
+    item->inside_prob += ccat->viterbi_prob;
+    state->push_item(item);
 }
 
-void PgfAbstractParser::td_epsilon(State *state, Cont *cont, ref<PgfItem> pitem, Item *xitem, ref<PgfLParam> value, ref<PgfLParam> lin_idx)
+void PgfAbstractParser::td_epsilon(State *state, Cont *cont, ref<PgfItem> pitem, Item *xitem, ref<PgfSymbolCat> symcat)
 {
     switch (ref<object>::get_tag(pitem->rule->container)) {
     case PgfConcrLin::tag: {
@@ -510,12 +524,14 @@ void PgfAbstractParser::td_epsilon(State *state, Cont *cont, ref<PgfItem> pitem,
             item->pre_dot = 0;
             item->syms    = rule->syms.as_vector();
             item->rule    = rule;
+            item->inside_prob = lin->absfun->prob;
+            item->outside_prob = xitem->outside_prob+xitem->inside_prob-xitem->args[symcat->d]->viterbi_prob;
 
-            if (!item->instantiate(item->rule->res, xitem->rule, &xitem->vars[0], value)) {
+            if (!item->instantiate(item->rule->res, xitem->rule, &xitem->vars[0], xitem->rule->args[symcat->d])) {
                 delete item;
                 continue;
             }
-            if (!item->instantiate(item->rule->lin_idx, xitem->rule, &xitem->vars[0], lin_idx)) {
+            if (!item->instantiate(item->rule->lin_idx, xitem->rule, &xitem->vars[0], ref<PgfLParam>::from_ptr(&symcat->r))) {
                 delete item;
                 continue;
             }
@@ -533,8 +549,10 @@ void PgfAbstractParser::td_epsilon(State *state, Cont *cont, ref<PgfItem> pitem,
                         arg_ccat->lin_idx = arg->lin_idx;
                         arg_ccat->value = arg->value;
                         arg_ccat->covered = true;
+                        arg_ccat->viterbi_prob = arg->viterbi_prob;
                     }
                     item->args[i] = arg_ccat;
+                    item->inside_prob += arg_ccat->viterbi_prob;
                 }
 
                 if (!item->instantiate(item->rule->args[i], pitem->rule, &pitem->vars[0], pitem->rule->args[i])) {
@@ -543,7 +561,7 @@ void PgfAbstractParser::td_epsilon(State *state, Cont *cont, ref<PgfItem> pitem,
                 }
             }
 
-            process(item, state->start, false);
+            state->push_item(item);
 next:;
         }
     }
@@ -552,7 +570,7 @@ next:;
     }
 }
 
-void PgfAbstractParser::td_predict(State *state, Cont *cont, Production *prod, Item *xitem, ref<PgfLParam> value, ref<PgfLParam> lin_idx)
+void PgfAbstractParser::td_predict(State *state, Cont *cont, Production *prod, Item *xitem, ref<PgfSymbolCat> symcat)
 {
     switch (ref<object>::get_tag(prod->rule->container)) {
     case PgfConcrLin::tag: {
@@ -566,13 +584,15 @@ void PgfAbstractParser::td_predict(State *state, Cont *cont, Production *prod, I
             item->pre_dot = 0;
             item->syms    = rule->syms.as_vector();
             item->rule    = rule;
+            item->inside_prob = lin->absfun->prob;
+            item->outside_prob = xitem->outside_prob+xitem->inside_prob-xitem->args[symcat->d]->viterbi_prob;
 
-            if (!item->instantiate(item->rule->res, xitem->rule, &xitem->vars[0], value)) {
+            if (!item->instantiate(item->rule->res, xitem->rule, &xitem->vars[0], xitem->rule->args[symcat->d])) {
                 delete item;
                 continue;
             }
 
-            if (!item->instantiate(item->rule->lin_idx, xitem->rule, &xitem->vars[0], lin_idx)) {
+            if (!item->instantiate(item->rule->lin_idx, xitem->rule, &xitem->vars[0], ref<PgfLParam>::from_ptr(&symcat->r))) {
                 delete item;
                 continue;
             }
@@ -583,9 +603,12 @@ void PgfAbstractParser::td_predict(State *state, Cont *cont, Production *prod, I
                     goto next;
                 }
                 item->args[i] = prod->args[i];
+                if (item->args[i] != NULL) {
+                    item->inside_prob += item->args[i]->viterbi_prob;
+                }
             }
 
-            process(item, state->start, false);
+            state->push_item(item);
 next:;
         }
     }
@@ -634,11 +657,11 @@ void print_symbols(PgfPrinter &printer, PgfConcrRule *rule, vector<PgfSymbol> sy
         printer.puts(" . ");
 }
 
-void PgfAbstractParser::print_item(Item *item, const PgfTextSpot &spot)
+void PgfAbstractParser::print_item(Item *item, State *state)
 {
     PgfPrinter printer(NULL,0,NULL);
 
-    printer.nprintf(32, "[%zd-%zd; ", item->cont ? item->cont->state->end.pos : 0, spot.pos);
+    printer.nprintf(32, "[%zd-%zd; ", item->cont ? item->cont->state->end.pos : 0, state->start.pos);
 
     if (item->vars.size() > 0) {
         printer.lvar_ranges(item->rule->ranges, &item->vars[0]);
@@ -703,7 +726,7 @@ void PgfAbstractParser::print_item(Item *item, const PgfTextSpot &spot)
     printer.lparam(item->rule->lin_idx);
     printer.puts(" : ");
     print_symbols(printer, item->rule, item->syms, item->pre_alt, item->pre_dot, item->dot);
-    printer.puts("]");
+    printer.nprintf(40,"; %f+%f=%f]", item->inside_prob, item->outside_prob, item->inside_prob+item->outside_prob);
 
     PgfText *text = printer.get_text();
     fprintf(stderr, "%s\n", text->text);
@@ -780,14 +803,16 @@ PgfParser::PgfParser(ref<PgfConcr> concr, PgfText *sentence, bool case_sensitive
 {
     this->m = m;
     this->u = u;
-    this->sentence = sentence;
-    this->end = (uint8_t *) (sentence->text+sentence->size);
+    this->sentence = textdup(sentence);
+    this->end = (uint8_t *) (this->sentence->text+this->sentence->size);
     this->case_sensitive = case_sensitive;
 }
 
 PgfParser::~PgfParser()
 {
-    State *state = first_state;
+    free(sentence);
+
+    State *state = current_state;
     while (state != NULL) {
         for (auto it1 : state->completed) {
             for (auto it2 : it1.second) {
@@ -832,13 +857,7 @@ void PgfParser::bu_predict(PgfPhrasetable phrasetable,
         return;
 
     PgfTextSpot current = state->end;
-    int cmp;
-    if (state->needs_bind) {
-        uint8_t tag = ref<PgfSymbol>::get_tag(phrasetable->sym);
-        cmp = ((int) PgfSymbolBIND::tag) - ((int) tag);
-    } else {
-        cmp = text_symbol_cmp(&current,end,phrasetable->sym,case_sensitive);
-    }
+    int cmp = text_symbol_cmp(&current,end,phrasetable->sym,case_sensitive);
     if (cmp < 0) {
         bu_predict(phrasetable->left,state,min,max);
     } else if (cmp > 0) {
@@ -856,22 +875,56 @@ void PgfParser::bu_predict(PgfPhrasetable phrasetable,
             bu_predict(phrasetable->left,state,min,len);
 
         if (len > 0) {
-            if (*current.ptr != ' ' && *current.ptr != 0)
-                return;
-
+            State *next_state = new_state(current);
             for (size_t i = 0; i < phrasetable->n_items; i++) {
                 std::map<ref<PgfConcrLincat>, bool> visited;
                 //if (!td_reachable(state, phrasetable->items[i], visited))
                 //    continue;
                 Item *item = bu_item(state, phrasetable->items[i]);
                 item->dot++;
-                process(item, current, false);
+                next_state->push_item(item);
             }
         }
 
         if (len <= max)
             bu_predict(phrasetable->right,state,len,max);
      }
+}
+
+void PgfParser::bu_predict(PgfPhrasetable phrasetable,
+                           State *state)
+{
+    if (phrasetable == 0)
+        return;
+
+    PgfTextSpot current = state->end;
+    int cmp;
+    uint8_t tag = ref<PgfSymbol>::get_tag(phrasetable->sym);
+    cmp = ((int) PgfSymbolBIND::tag) - ((int) tag);
+    if (cmp < 0) {
+        bu_predict(phrasetable->left,state);
+    } else if (cmp > 0) {
+        bu_predict(phrasetable->right,state);
+    } else {
+        State *next_state = state->next;
+        if (next_state == NULL || state->end.pos != next_state->start.pos) {
+            next_state = new State;
+            next_state->start = state->end;
+            next_state->end   = state->end;
+            next_state->next  = state->next;
+            next_state->needs_bind = false;
+            state->next = next_state;
+        }
+
+        for (size_t i = 0; i < phrasetable->n_items; i++) {
+            std::map<ref<PgfConcrLincat>, bool> visited;
+            //if (!td_reachable(state, phrasetable->items[i], visited))
+            //    continue;
+            Item *item = bu_item(state, phrasetable->items[i]);
+            item->dot++;
+            next_state->push_item(item);
+        }
+    }
 }
 
 void PgfParser::bu_predict(State *state, CCat *ccat)
@@ -944,6 +997,8 @@ PgfAbstractParser::Item *PgfParser::bu_item(State *state, ref<PgfItem> pitem)
         item->dot     = pitem->dot;
         item->syms    = pitem->rule->syms.as_vector();
         item->rule    = pitem->rule;
+        item->inside_prob = lin->absfun->prob;
+        item->outside_prob = 0;
         break;
     }
     case PgfConcrLincat::tag: {
@@ -964,6 +1019,8 @@ PgfAbstractParser::Item *PgfParser::bu_item(State *state, ref<PgfItem> pitem)
         item->dot     = pitem->dot;
         item->syms    = pitem->rule->syms.as_vector();
         item->rule    = pitem->rule;
+        item->inside_prob = 0;
+        item->outside_prob = 0;
         break;
     }
     }
@@ -994,8 +1051,10 @@ PgfAbstractParser::Item *PgfParser::bu_item(State *state, ref<PgfItem> pitem)
                 arg_ccat->lin_idx = arg->lin_idx;
                 arg_ccat->value = arg->value;
                 arg_ccat->covered = true;
+                arg_ccat->viterbi_prob = arg->viterbi_prob;
             }
             item->args[i] = arg_ccat;
+            item->inside_prob += arg_ccat->viterbi_prob;
         }
     }
 
@@ -1014,6 +1073,7 @@ void PgfParser::make_chunks(State *state, std::vector<CCat*> &chunks, prob_t pro
         estate->n_args = chunks.size();
         for (size_t i = 0; i < estate->n_args; i++) {
             estate->args[i] = chunks[estate->n_args-i-1];
+            estate->prob += estate->args[i]->viterbi_prob;
         }
         queue.push_back(estate);
         std::push_heap(queue.begin(), queue.end(), estate_comp);
@@ -1041,8 +1101,6 @@ void PgfParser::prepare(ref<PgfConcrLincat> start)
 
     PgfTextSpot start_spot = {0, (uint8_t *) sentence->text};
     State *state = new_state(start_spot);
-    state->needs_bind = false;
-    current_state = state;
 
     for (size_t i = start->n_lindefs; i < start->rules.size(); i++) {
         ref<PgfConcrRule> rule = start->rules[i];
@@ -1053,24 +1111,66 @@ void PgfParser::prepare(ref<PgfConcrLincat> start)
         item->pre_dot = 0;
         item->syms    = rule->syms.as_vector();
         item->rule    = rule;
-        process(item, start_spot, false);
-    }
-
-    while (current_state != NULL) {
-        bu_predict(concr->phrasetable, current_state, 1, sentence->size);
-        state = current_state;
-        current_state = current_state->next;
-    }
-
-    if (queue.size() == 0) {
-        std::vector<CCat*> chunks;
-        make_chunks(state, chunks, 0);
+        item->inside_prob  = 0;
+        item->outside_prob = 0;
+        state->push_item(item);
     }
 }
 
 PgfExpr PgfParser::fetch(PgfDB *db, prob_t *prob)
 {
     DB_scope scope(db, READER_SCOPE);
+
+    bool first_fetch = (initial_fid == last_fid);
+
+    for (;;) {
+        State *state = current_state;
+        prob_t min_prob  = INFINITY;
+        State *min_state = NULL;
+        if (queue.size() > 0) {
+            min_prob = queue.front()->prob;
+        }
+
+        while (state != NULL) {
+            if (state->queue.size() > 0) {
+                Item *item = state->queue.front();
+                prob_t prob = item->outside_prob + item->inside_prob;
+                if (min_prob > prob) {
+                    min_prob  = prob;
+                    min_state = state;
+                }
+            }
+            state = state->next;
+        }
+
+        if (min_state == NULL)
+            break;
+
+        State *prev = current_state;
+        current_state = NULL;
+        while (current_state != min_state) {
+            State *next = prev->next;
+            prev->next = current_state;
+            current_state = prev;
+            prev = next;
+        }
+
+        Item *item = current_state->pop_item();
+        process(item,current_state);
+
+        while (current_state != NULL) {
+            State *next = current_state->next;
+            current_state->next = prev;
+            prev = current_state;
+            current_state = next;
+        }
+        current_state = prev;
+    }
+
+    if (first_fetch && queue.size() == 0) {
+        std::vector<CCat*> chunks;
+        make_chunks(current_state, chunks, 0);
+    }
 
     while (queue.size() > 0) {
         ExprState *estate = queue.front();
@@ -1122,7 +1222,7 @@ PgfExpr PgfParser::process_expr(ExprState *estate, prob_t *prob)
 
                         ExprState *new_estate = new(pitem->args.size()) ExprState;
                         new_estate->expr   = u->efun(&lin->name);
-                        new_estate->prob   = estate->prob+lin->absfun->prob;
+                        new_estate->prob   = estate->prob-ccat->viterbi_prob+lin->absfun->prob;
                         new_estate->hash   = 0;
                         new_estate->res    = ccat;
                         new_estate->index  = 0;
@@ -1143,8 +1243,10 @@ PgfExpr PgfParser::process_expr(ExprState *estate, prob_t *prob)
                                     arg_ccat->lin_idx = arg->lin_idx;
                                     arg_ccat->value = arg->value;
                                     arg_ccat->covered = true;
+                                    arg_ccat->viterbi_prob = arg->viterbi_prob;
                                 }
                                 new_estate->args[i] = arg_ccat;
+                                new_estate->prob += arg_ccat->viterbi_prob;
                             }
                         }
                         queue.push_back(new_estate);
@@ -1156,7 +1258,7 @@ PgfExpr PgfParser::process_expr(ExprState *estate, prob_t *prob)
 
                         ExprState *new_estate = new(prod->args.size()) ExprState;
                         new_estate->expr   = u->efun(&lin->name);
-                        new_estate->prob   = estate->prob+lin->absfun->prob;
+                        new_estate->prob   = estate->prob-ccat->viterbi_prob+lin->absfun->prob;
                         new_estate->hash   = 0;
                         new_estate->res    = ccat;
                         new_estate->index  = 0;
@@ -1166,6 +1268,9 @@ PgfExpr PgfParser::process_expr(ExprState *estate, prob_t *prob)
                         }
                         for (size_t i = 0; i < new_estate->n_args; i++) {
                             new_estate->args[i] = prod->args[i];
+                            if (prod->args[i] != NULL) {
+                                new_estate->prob += prod->args[i]->viterbi_prob;
+                            }
                         }
                         queue.push_back(new_estate);
                         std::push_heap(queue.begin(), queue.end(), estate_comp);
@@ -1175,7 +1280,7 @@ PgfExpr PgfParser::process_expr(ExprState *estate, prob_t *prob)
                 for (ExprProb ep : ccat->exprs) {
                     ExprState *app_state = new(estate->n_args) ExprState;
                     app_state->expr  = estate->expr ? u->eapp(estate->expr, ep.expr) : ep.expr;
-                    app_state->prob  = estate->prob+ep.prob;
+                    app_state->prob  = estate->prob-ccat->viterbi_prob+ep.prob;
                     app_state->hash  = estate->hash * 31 + ep.hash;
                     app_state->res   = estate->res;
                     app_state->index = estate->index+1;
@@ -1194,7 +1299,7 @@ PgfExpr PgfParser::process_expr(ExprState *estate, prob_t *prob)
             return estate->expr;
         }
 
-        prob_t prob = estate->prob - estate->res->pending[0]->prob;
+        prob_t prob = estate->prob - (estate->res->pending[0]->prob-estate->res->viterbi_prob);
         for (size_t i = estate->res->exprs.size(); i > 0; i--) {
             ExprProb &ep = estate->res->exprs[i-1];
             if (ep.prob != prob)
@@ -1207,7 +1312,7 @@ PgfExpr PgfParser::process_expr(ExprState *estate, prob_t *prob)
         for (ExprState *parent : estate->res->pending) {
             ExprState *app_state = new(parent->n_args) ExprState;
             app_state->expr  = parent->expr ? u->eapp(parent->expr, estate->expr) : estate->expr;
-            app_state->prob  = parent->prob+prob;
+            app_state->prob  = parent->prob-estate->res->viterbi_prob+prob;
             app_state->hash  = parent->hash * 31 + estate->hash;
             app_state->res   = parent->res;
             app_state->index = parent->index+1;
@@ -1224,7 +1329,7 @@ PgfExpr PgfParser::process_expr(ExprState *estate, prob_t *prob)
 
 PgfAbstractParser::State *PgfParser::new_state(const PgfTextSpot &start)
 {
-    State **prev = &first_state;
+    State **prev = &current_state;
     State *state = current_state;
     while (state != NULL && state->start.ptr <= start.ptr) {
         if (state->start.ptr == start.ptr)
@@ -1248,42 +1353,48 @@ PgfAbstractParser::State *PgfParser::new_state(const PgfTextSpot &start)
         state->end.ptr = ptr;
     }
 
-    state->needs_bind = (state->start.pos == state->end.pos);
+    state->needs_bind = (state->start.pos > 0 && state->start.pos == state->end.pos);
 
     return state;
 }
 
-void PgfParser::symbol_token(Item *item, const PgfTextSpot &spot, bool bind, PgfSymbol sym)
+void PgfParser::symbol_token(Item *item, State *state, PgfSymbol sym)
 {
-    PgfTextSpot next = spot;
-
-    const uint8_t *start = next.ptr;
-    for (;;) {
-        const uint8_t *ptr = next.ptr;
-        uint32_t ucs = pgf_utf8_decode(&ptr);
-        if (!pgf_utf8_is_space(ucs))
-            break;
-        next.ptr = ptr;
-        next.pos++;
-    }
-
-    if (bind != (spot.ptr == next.ptr))
-        return;
-
+    PgfTextSpot next = state->end;
     if (text_symbol_cmp(&next,end,sym,case_sensitive) != 0)
         return;
 
+    State *next_state = new_state(next);
+
     item->dot++;
-    process(item, next, false);
+    process(item, next_state);
 }
 
-void PgfParser::symbol_bind(Item *item, const PgfTextSpot &spot, PgfSymbol sym)
+void PgfParser::symbol_bind(Item *item, State *state, PgfSymbol sym)
 {
-    item->dot++;
-    process(item, spot, true);
+    if (state->needs_bind) {
+        State *next_state = state->next;
+        if (next_state == NULL || state->end.pos != next_state->start.pos) {
+            next_state = new State;
+            next_state->start = state->end;
+            next_state->end   = state->end;
+            next_state->next  = state->next;
+            next_state->needs_bind = false;
+            state->next = next_state;
+        }
+        item->dot++;
+        next_state->push_item(item);
+    } else {
+        if (ref<PgfSymbol>::get_tag(sym) == PgfSymbolBIND::tag) {
+            delete item;
+        } else {
+            item->dot++;
+            process(item, state);
+        }
+    }
 }
 
-void PgfParser::suspend(Cont *cont,Item *item,size_t n_suspended)
+void PgfParser::suspend(Cont *cont,Item *item,size_t n_suspended1,size_t n_suspended)
 {
     if (n_suspended == 1) {
         std::function<void(ref<PgfSymbolCCat>,size_t,vector<ref<PgfItem>>)> f =
@@ -1312,25 +1423,39 @@ void PgfParser::suspend(Cont *cont,Item *item,size_t n_suspended)
                     arg_ccat->lin_idx = symcf->lin_idx;
                     arg_ccat->value = symcf->value;
                     arg_ccat->covered = true;
+                    arg_ccat->viterbi_prob = symcf->viterbi_prob;
                 }
 
                 cont->state->completed[cont][symcf->value][symcf->lin_idx] = arg_ccat;
 
                 new_item->dot++;
                 new_item->args[sym_cat->d] = arg_ccat;
+                new_item->inside_prob += arg_ccat->viterbi_prob;
 
-                process(new_item, cont->state->start, false);
+                cont->state->push_item(new_item);
             };
         phrasetable_iter(concr->phrasetable,cont->lincat,f);
-    } else {
-        auto it1 = cont->state->completed.find(cont);
-        if (it1 != cont->state->completed.end()) {
+    }
+
+    State *state = cont->state;
+    while (state != NULL) {
+        auto it1 = state->completed.find(cont);
+        if (it1 != state->completed.end()) {
             for (auto it2 : it1->second) {
                 for (auto it3 : it2.second) {
                     Item *new_item = new (item) Item;
-                    combine(cont->state, new_item, it3.second);
+                    combine(state, new_item, it3.second);
                 }
             }
+        }
+        state = state->next;
+    }
+
+    if (n_suspended1 == 0) {
+        if (cont->state->needs_bind) {
+            bu_predict(concr->phrasetable, cont->state);
+        } else {
+            bu_predict(concr->phrasetable, cont->state, 1, sentence->size);
         }
     }
 }
@@ -1347,6 +1472,7 @@ void PgfParser::final_item(State *state, CCat *ccat, Item *item, interval_t valu
         estate->n_args = item->args.size();
         for (size_t i = 0; i < estate->n_args; i++) {
             estate->args[i] = item->args[i];
+            estate->prob += estate->args[i]->viterbi_prob;
         }
         queue.push_back(estate);
         std::push_heap(queue.begin(), queue.end(), estate_comp);
@@ -1390,7 +1516,15 @@ void PgfParser::print_expr_state(PgfMarshaller *m, ExprState *estate)
     PgfPrinter printer(NULL,0,m);
     printer.nprintf(64,"[%f] ",estate->prob);
     print_expr_state_left(&printer, m, estate);
-    printer.puts(" .");
+    printer.puts(" . ");
+
+    if (estate->index < estate->n_args) {
+        if (estate->args[estate->index] != NULL)
+            printer.emeta(estate->args[estate->index]->fid);
+        else
+            printer.puts("?");
+    }
+
     print_expr_state_right(&printer, estate);
 
     PgfText *text = printer.get_text();
@@ -1402,12 +1536,11 @@ void PgfParser::print_expr_state(PgfMarshaller *m, ExprState *estate)
 PgfParseTableMaker::PgfParseTableMaker(ref<PgfConcr> concr)
     : PgfAbstractParser(concr)
 {
-    first_state = new State;
-    first_state->start.pos = 0;
-    first_state->start.ptr = NULL;
-    first_state->end       = first_state->start;
-    first_state->next      = NULL;
-    current_state = first_state;
+    current_state = new State;
+    current_state->start.pos = 0;
+    current_state->start.ptr = NULL;
+    current_state->end       = current_state->start;
+    current_state->next      = NULL;
 }
 
 ref<PgfItem> PgfParseTableMaker::clone_item(Item *item)
@@ -1421,7 +1554,7 @@ ref<PgfItem> PgfParseTableMaker::clone_item(Item *item)
     pitem->dot     = item->dot;
     pitem->rule    = item->rule;
     memcpy(&pitem->vars[0],&item->vars[0],sizeof(size_t) * item->vars.size());
-    
+
     for (size_t i = 0; i < item->args.size(); i++) {
         ref<PgfSymbolCCat> symcf = 0;
         if (item->args[i] != NULL) {
@@ -1430,6 +1563,7 @@ ref<PgfItem> PgfParseTableMaker::clone_item(Item *item)
             symcf->value   = item->args[i]->value;
             symcf->lin_idx = item->args[i]->lin_idx;
             symcf->fid     = item->args[i]->fid;
+            symcf->viterbi_prob = item->args[i]->viterbi_prob;
         }
         pitem->args[i] = symcf;
     }
@@ -1439,10 +1573,10 @@ ref<PgfItem> PgfParseTableMaker::clone_item(Item *item)
 
 PgfAbstractParser::State *PgfParseTableMaker::new_state(const PgfTextSpot &start)
 {
-    return this->first_state;
+    return current_state;
 }
 
-void PgfParseTableMaker::symbol_token(Item *item, const PgfTextSpot &spot, bool bind, PgfSymbol sym)
+void PgfParseTableMaker::symbol_token(Item *item, State *state, PgfSymbol sym)
 {
     auto pitem = clone_item(item);
     auto phrasetable = phrasetable_insert(concr->phrasetable,sym,pitem);
@@ -1450,15 +1584,21 @@ void PgfParseTableMaker::symbol_token(Item *item, const PgfTextSpot &spot, bool 
     delete item;
 }
 
-void PgfParseTableMaker::symbol_bind(Item *item, const PgfTextSpot &spot, PgfSymbol sym)
+void PgfParseTableMaker::symbol_bind(Item *item, State *state, PgfSymbol sym)
 {
     auto pitem = clone_item(item);
-    auto phrasetable = phrasetable_insert(concr->phrasetable,sym,pitem);
+    auto phrasetable = phrasetable_insert(concr->phrasetable,ref<PgfSymbolBIND>(0).tagged(),pitem);
     concr->phrasetable = phrasetable;
-    delete item;
+
+    if (ref<PgfSymbol>::get_tag(sym) == PgfSymbolBIND::tag) {
+        delete item;
+    } else {
+        item->dot++;
+        process(item,state);
+    }
 }
 
-void PgfParseTableMaker::suspend(Cont *cont,Item *item,size_t n_suspended)
+void PgfParseTableMaker::suspend(Cont *cont,Item *item,size_t n_suspended1,size_t n_suspended)
 {
     // collect the cats first, since calling combine in
     // the loop will change the search index
@@ -1488,7 +1628,7 @@ void PgfParseTableMaker::final_item(State *state, CCat *ccat, Item *item, interv
     
     PgfPhrasetable phrasetable = concr->phrasetable;
     phrasetable = phrasetable_insert(phrasetable,
-                                     item->cont->lincat, value, lin_idx, ccat->fid,
+                                     item->cont->lincat, value, lin_idx, ccat->fid, ccat->viterbi_prob,
                                      pitem);
     concr->phrasetable = phrasetable;
 }
@@ -1503,12 +1643,12 @@ void PgfParseTableMaker::insert_rule(ref<PgfConcrRule> rule)
     case PgfConcrLin::tag: {
         auto lin = ref<PgfConcrLin>::untagged(rule->container);
 
-        Cont *&cont = first_state->conts1[lin->lincat];
+        Cont *&cont = current_state->conts1[lin->lincat];
         if (cont == NULL) {
             cont = new Cont;
             cont->ccat = NULL;
             cont->lincat = lin->lincat;
-            cont->state = first_state;
+            cont->state = current_state;
         }
 
         Item *item = new(rule) Item;
@@ -1518,7 +1658,17 @@ void PgfParseTableMaker::insert_rule(ref<PgfConcrRule> rule)
         item->pre_dot = 0;
         item->syms    = rule->syms.as_vector();
         item->rule    = rule;
-        return process(item, first_state->end, false);
+        item->inside_prob = lin->absfun->prob;
+        item->outside_prob = 0;
+        current_state->push_item(item);
     }
+    }
+}
+
+void PgfParseTableMaker::prepare()
+{
+    while (current_state->has_items()) {
+        Item *item = current_state->pop_item();
+        process(item,current_state);
     }
 }

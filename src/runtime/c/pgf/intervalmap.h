@@ -12,10 +12,10 @@ class PGF_INTERNAL_DECL interval_map {
         size_t sz;
         size_t start, end, max;
 
-        V value;
-
         Node *left;
         Node *right;
+
+        V value;
 
         Node(size_t start, size_t end)
         {

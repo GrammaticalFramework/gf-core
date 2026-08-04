@@ -1001,7 +1001,7 @@ PgfPhrasetable phrasetable_insert(PgfPhrasetable table,
 PgfPhrasetable phrasetable_insert(PgfPhrasetable table,
                                   ref<PgfConcrLincat> lincat,
                                   interval_t value, interval_t lin_idx,
-                                  PgfMetaId fid,
+                                  PgfMetaId fid, prob_t viterbi_prob,
                                   ref<PgfItem> item)
 {
     if (table == 0) {
@@ -1010,6 +1010,7 @@ PgfPhrasetable phrasetable_insert(PgfPhrasetable table,
         symcf->value   = value;
         symcf->lin_idx = lin_idx;
         symcf->fid = fid;
+        symcf->viterbi_prob = viterbi_prob;
         PgfPhrasetable new_table = PgfPhrasetableNode::new_node(symcf.tagged(),1);
         new_table->n_items = 1;
         new_table->items[0] = item;
@@ -1019,12 +1020,12 @@ PgfPhrasetable phrasetable_insert(PgfPhrasetable table,
     int cmp = symbol_cmp(lincat,value,lin_idx,table->sym);
     if (cmp < 0) {
         PgfPhrasetable left = phrasetable_insert(table->left,
-                                                lincat, value, lin_idx, fid, item);
+                                                lincat, value, lin_idx, fid, viterbi_prob, item);
         table = PgfPhrasetableNode::upd_node(table,left,table->right);
         return PgfPhrasetableNode::balanceL(table);
     } else if (cmp > 0) {
         PgfPhrasetable right = phrasetable_insert(table->right,
-                                                  lincat, value, lin_idx, fid, item);
+                                                  lincat, value, lin_idx, fid, viterbi_prob, item);
         table = PgfPhrasetableNode::upd_node(table, table->left, right);
         return PgfPhrasetableNode::balanceR(table);
     } else {
