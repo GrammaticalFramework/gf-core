@@ -1600,20 +1600,14 @@ void PgfParseTableMaker::symbol_bind(Item *item, State *state, PgfSymbol sym)
 
 void PgfParseTableMaker::suspend(Cont *cont,Item *item,size_t n_suspended1,size_t n_suspended)
 {
-    // collect the cats first, since calling combine in
-    // the loop will change the search index
-    std::vector<CCat*> ccats;
     for (auto it1 : cont->state->completed[cont]) {
         for (auto it2 : it1.second) {
             CCat *ccat = it2.second;
             if (ccat != NULL) {
-                ccats.push_back(ccat);
+                Item *new_item = new (item) Item;
+                combine(cont->state,new_item,ccat);
             }
         }
-    }
-    for (CCat *ccat :  ccats) {
-        Item *new_item = new (item) Item;
-        combine(cont->state,new_item,ccat);
     }
 
     auto pitem = clone_item(item);
