@@ -32,6 +32,14 @@ struct PGF_INTERNAL_DECL PgfItem {
         }
     } args;
 
+    static
+    void release(ref<PgfItem> item) {
+        size_t ex_size =
+            sizeof(ref<PgfSymbolCCat>) * item->args.size() +
+            sizeof(size_t)             * item->vars.size();
+        PgfDB::free(item, ex_size);
+    }
+
     uint16_t pre_alt;
     uint16_t pre_dot;
     uint16_t dot;
@@ -90,5 +98,8 @@ void phrasetable_lookup_cohorts(PgfPhrasetable phrasetable,
                                 PgfText *sentence,
                                 bool case_sensitive,
                                 PgfPhraseScanner *scanner, PgfExn* err);
+
+PGF_INTERNAL_DECL
+void phrasetable_release(PgfPhrasetable table);
 
 #endif

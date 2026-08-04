@@ -394,6 +394,7 @@ int symbol_cmp(PgfSymbol sym1, PgfSymbol sym2)
     }
 }
 
+PGF_INTERNAL
 void phrasetable_iter(PgfPhrasetable table, ref<PgfConcrLincat> lincat, std::function<void(ref<PgfSymbolCCat> arg,size_t,vector<ref<PgfItem>>)> &f)
 {
     if (table == 0)
@@ -420,6 +421,7 @@ void phrasetable_iter(PgfPhrasetable table, ref<PgfConcrLincat> lincat, std::fun
     }
 }
 
+PGF_INTERNAL
 vector<ref<PgfItem>> phrasetable_lookup(PgfPhrasetable table, PgfSymbol sym, size_t *n_items)
 {
     while (table != 0) {
@@ -438,6 +440,7 @@ vector<ref<PgfItem>> phrasetable_lookup(PgfPhrasetable table, PgfSymbol sym, siz
     return 0;
 }
 
+PGF_INTERNAL
 vector<ref<PgfItem>> phrasetable_lookup(PgfPhrasetable phrasetable,
                                         ref<PgfConcrLincat> lincat,
                                         size_t *n_items)
@@ -825,4 +828,18 @@ PgfPhrasetable phrasetable_insert(PgfPhrasetable table,
         new_table->value.items = items;
         return new_table;
     }
+}
+
+PGF_INTERNAL
+void phrasetable_release(PgfPhrasetable table)
+{
+    if (table == 0)
+        return;
+    phrasetable_release(table->left);
+    phrasetable_release(table->right);
+    for (size_t i = 0; i < table->value.n_items; i++) {
+        PgfItem::release(table->value.items[i]);
+    }
+    vector<ref<PgfItem>>::release(table->value.items);
+    Node<PgfPhrasetableValue>::release(table);
 }
