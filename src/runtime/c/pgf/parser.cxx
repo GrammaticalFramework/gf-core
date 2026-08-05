@@ -140,6 +140,24 @@ void PgfAbstractParser::symbol(Item *item, State *state, PgfSymbol sym)
                 suspend(cont,item,n_suspended1,suspended.size());
             }
         } else {
+            interval_t value_i   = item->interval(item->rule->args[symcat->d]);
+            interval_t lin_idx_i = item->interval(ref<PgfLParam>::from_ptr(&symcat->r));
+
+            bool found = false;
+            CCat *prev_ccat = ccat;
+            while (prev_ccat != NULL && prev_ccat->fid > initial_fid && prev_ccat->cont->state == state) {
+                if (prev_ccat->value == value_i && prev_ccat->lin_idx == lin_idx_i) {
+                    found = true;
+                    break;
+                }
+                prev_ccat = prev_ccat->cont->ccat;
+            }
+            if (found) {
+                item->dot++;
+                state->push_item(item);
+                break;
+            }
+
             Cont *&cont = state->conts2[ccat];
             if (cont == NULL) {
                 cont = new Cont;
@@ -150,9 +168,6 @@ void PgfAbstractParser::symbol(Item *item, State *state, PgfSymbol sym)
                     cont->lincat = ccat->cont->lincat;
                 cont->state = state;
             }
-
-            interval_t value_i   = item->interval(item->rule->args[symcat->d]);
-            interval_t lin_idx_i = item->interval(ref<PgfLParam>::from_ptr(&symcat->r));
 
             bool subsumed = false;
             for (auto it1 : cont->suspended.overlaps(value_i)) {
