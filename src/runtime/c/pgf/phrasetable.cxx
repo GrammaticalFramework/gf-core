@@ -307,7 +307,7 @@ bool text_item_match(PgfTextSpot *spot, const uint8_t *end,
                      bool case_sensitive)
 {
     bool bind = false;
-    size_t dot = item->dot;
+    size_t dot = item->dot+1;
     vector<PgfSymbol> syms = item->rule->syms.as_vector();
     if (item->pre_alt > 0) {
         auto symkp = ref<PgfSymbolKP>::untagged(syms[item->pre_dot]);
