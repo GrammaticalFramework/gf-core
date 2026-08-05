@@ -99,7 +99,7 @@ gftranslate.get_languages=function(cont,errcont) {
     else {
 	gftranslate.waiting.push({cont:cont,errcont:errcont})
 	if(gftranslate.waiting.length<2) 
-	    gftranslate.call("?command=grammar",init2,init2error)
+	    gftranslate.call("",init2,init2error)
     }
 }
 
