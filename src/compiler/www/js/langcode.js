@@ -16,17 +16,21 @@ var languages =
 	}
 	var ls
 	//  [ISO-639-2 code "/"] language name ":" ISO 639-1 code
-	ls=["Afrikaans:af","Amharic:am","Arabic:ar","Bulgarian:bg","Catalan:ca",
-	    "Chinese:zh","Czech:cs","Danish:da","Dutch:nl","English:en",
-	    "Estonian:et","Finnish:fi","French:fr","German:de","Greek:el",
-	    "Hebrew:he","Hindi:hi","Ina/Interlingua:ia",
-	    "Icelandic:is","Gle/Irish:ga","Italian:it","Korean:ko","Jpn/Japanese:ja",
-	    "Latin:la","Lav/Latvian:lv","Mlt/Maltese:mt","Mongolian:mn",
-	    "Nepali:ne","Norwegian:nb","Pes/Persian:fa","Polish:pl",
-	    "Portuguese:pt","Pnb/Punjabi:pa",
-	    "Ron/Romanian:ro","Russian:ru","Slv/Slovenian:sl","Somali:so",
-	    "Snd/Sindhi:sd","Spanish:es","Swahili:sw",
-	    "Swedish:sv","Thai:th","Turkish:tr","Urdu:ur"]
+    ls=["Afrikaans:af","Sqi/Albanian:sq","Amharic:am","Arabic:ar",
+        "Hye/Armenian:hy","Eus/Basque/eu","Bel/Belarusian:be","Bulgarian:bg",
+        "Catalan:ca","Chinese:zh","Czech:cs","Danish:da",
+        "Dutch:nl","English:en","Estonian:et","Fao/Faroese:fo",
+        "Finnish:fi","French:fr","Gla/Gaelic:gd","German:de",
+        "Greek:el","Hebrew:he","Hindi:hi","Hungarian/hu",
+        "Icelandic:is","Ina/Interlingua:ia","Gle/Irish:ga","Italian:it",
+        "Jpn/Japanese:ja","Kazakh:kk","Korean:ko","Latin:la",
+        "Lav/Latvian:lv","Mkd/Macedonian:mk","Mlt/Maltese:mt","Mongolian:mn",
+        "Nepali:ne","Norwegian Bokmål:nb","Nno/Norwegian Nynorsk:nn","Pes/Persian:fa",
+        "Polish:pl","Portuguese:pt","Pnb/Punjabi:pa","Ron/Romanian:ro",
+        "Russian:ru","Scots:sco","Slv/Slovenian:sl","Somali:so",
+        "Snd/Sindhi:sd","Spanish:es","Swahili:sw","Swedish:sv",
+        "Thai:th","Turkish:tr","Ukrainian:uk","Urdu:ur",
+        "Zulu:zu"]
 	// GF uses nonstd 3-letter codes? Pes/Persian:fa, Pnb/Punjabi:pa
 	return map(lang1,ls)
     }()
