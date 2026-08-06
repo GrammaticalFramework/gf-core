@@ -370,8 +370,13 @@ wc.init_languages=function () {
 	function update_menu(m) {
 	    var l=m.value
 	    clear(m)
-	    for(var i=0;i<langs.length;i++)
-		m.appendChild(option(concname(langs[i]),langs[i]))
+	    for(var i=0;i<langs.length;i++) {
+            const code = langs[i]
+            const name = langname[code]
+            if (name) {
+                m.appendChild(option(concname(langs[i]),langs[i]))
+            }
+        }
 	    if(langset[l]) m.value=l
 	}
 	update_menu(wc.f.from)
