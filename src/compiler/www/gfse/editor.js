@@ -1172,12 +1172,10 @@ function add_open(g,ci) {
 	    var b=common_modules[i];
 	    add_module(b,b)
 	}
-	if (gfwordnet.languages.indexOf("Parse"+conc.langcode) >= 0) {
-		for(var i in wordnet_modules) {
-			var b=wordnet_modules[i];
-			add_module(b,b+conc.langcode)
-		}
-	}
+    for(var i in wordnet_modules) {
+        var b=wordnet_modules[i];
+        add_module(b,b+conc.langcode)
+    }
 	if(list.length>0) {
 	    var file=element("file");
 	    clear(file)
@@ -1477,9 +1475,6 @@ function wordnet_search(g,input) {
 		langs: {},
 		langs_list: []
 	};
-	if (gfwordnet.languages.indexOf(selection.current) < 0) {
-		return;
-	}
 	var start = input.selectionStart;
 	var end   = input.selectionEnd;
 	if (start == end) {
@@ -1517,11 +1512,9 @@ function wordnet_search(g,input) {
 	for (var i=0; i < g.concretes.length; i++) {
 		var code = g.concretes[i].langcode;
 		var name = "Parse"+code;
-		if (gfwordnet.languages.indexOf(name) >= 0) {
-			selection.langs[name] = {name: langname[code], index: index};
-			selection.langs_list.push(name);
-			index++;
-		}
+        selection.langs[name] = {name: langname[code], index: index};
+        selection.langs_list.push(name);
+        index++;
 	}
 	selection.isEqual = function(other) {
 		if (other.langs_list.length != this.langs_list.length)
