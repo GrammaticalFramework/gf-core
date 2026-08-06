@@ -21,7 +21,7 @@ var languages =
         "Catalan:ca","Chinese:zh","Czech:cs","Danish:da",
         "Dutch:nl","English:en","Estonian:et","Fao/Faroese:fo",
         "Finnish:fi","French:fr","Gla/Gaelic:gd","German:de",
-        "Greek:el","Hebrew:he","Hindi:hi","Hungarian/hu",
+        "Greek:el","Hebrew:he","Hindi:hi","Hungarian:hu",
         "Icelandic:is","Ina/Interlingua:ia","Gle/Irish:ga","Italian:it",
         "Jpn/Japanese:ja","Kazakh:kk","Korean:ko","Latin:la",
         "Lav/Latvian:lv","Mkd/Macedonian:mk","Mlt/Maltese:mt","Mongolian:mn",
