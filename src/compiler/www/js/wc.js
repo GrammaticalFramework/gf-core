@@ -121,13 +121,19 @@ wc.translate=function(redo) {
 		function show_inflections(lins) {
 		    if(wc.e2) wc.e2.innerHTML=lins[0].text
 		}
-		function get_inflections() {
-		    var tree="MkDocument+%22%22+(Inflection"+wcls+"+"+w+")+%22%22"
+		function get_inflections(glosses) {
+            if (glosses.length == 0) {
+                glosses = [""]
+            }
+		    var tree="MkDocument+(NoDefinition+%22"+glosses[0]+"%22)+(Inflection"+wcls+"+"+w+")+%22%22"
 		    var l=gftranslate.grammar+f.to.value
-		    gftranslate.call("?command=c-linearize&to="+l+"&tree="+tree,show_inflections)
+		    gftranslate.call("?command=linearize&to="+l+"&tree="+tree,show_inflections)
 		}
+        function get_gloss() {
+            ajax_http_post_querystring_json("https://cloud.grammaticalframework.org/wordnet/SenseService.fcgi","gloss_id="+w,get_inflections);
+        }
 		var wn=wrap_class("span","inflect",text(w))
-		if(wc.e2) wn.onclick=get_inflections
+		if(wc.e2) wn.onclick=get_gloss
 		return wn
 	    }
 	    function word(w) {
