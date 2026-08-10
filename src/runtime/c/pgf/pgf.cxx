@@ -2548,7 +2548,7 @@ PgfText **pgf_linearize_all(PgfDB *db, PgfConcrRevision revision,
         m->match_expr(&linearizer, expr);
         linearizer.reverse_and_label(true);
 
-        while (linearizer.resolve()) {
+        if (linearizer.resolve()) {
             linearizer.linearize(&out, 0);
             PgfText *text = out.get_text();
             if (text != NULL) {
