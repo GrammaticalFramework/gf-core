@@ -82,10 +82,8 @@ protected:
 
     struct CCat {
         PgfMetaId fid;
-        union {
-            object epsilons;
-            Cont *cont;
-        };
+        ref<PgfCCat> epsilon;
+        Cont *cont;
         State *state;
         interval_t value;
         interval_t lin_idx;
@@ -231,7 +229,7 @@ protected:
     };
 
     State *current_state;
-    std::map<ref<PgfConcrLincat>,interval_map<interval_map<CCat*>>> epsilons;
+    std::map<PgfMetaId,CCat*> epsilons;
     PgfMetaId initial_fid, last_fid;
 
     void process(Item *item, State *state);
@@ -239,9 +237,9 @@ protected:
     void complete(Item *item, State *state);
 
     virtual State *new_state(const PgfTextSpot &start)=0;
-    virtual void symbol_token(Item *item, State *state, PgfSymbol sym)=0;
+    virtual void symbol_token(Item *item, State *state, ref<PgfSymbolKS> symks)=0;
     virtual void symbol_bind(Item *item, State *state, PgfSymbol sym)=0;
-    virtual void suspend(Cont *cont, Item *item, size_t n_suspended1, size_t n_suspended)=0;
+    virtual void suspend(Cont *cont, Item *item, bool do_predict, size_t n_suspended,ref<PgfSymbolCat> symcat)=0;
     virtual void final_item(State *state,CCat *ccat,Item *item,interval_t value,interval_t lin_idx)=0;
     virtual void bu_predict(State *state, CCat *ccat)=0;
 
@@ -250,6 +248,7 @@ protected:
     void combine(State *state, Item *item, CCat *ccat);
 
     void get_info(CCat *ccat, ref<PgfConcrRule> *rule, size_t **pvalues);
+    CCat *get_epsilon_ccat(PgfText *name, PgfMetaId fid);
 
     static
     void print_item(Item *item, State *state);
@@ -271,14 +270,14 @@ class PGF_INTERNAL_DECL PgfParser : private PgfAbstractParser, public PgfExprEnu
     bool case_sensitive;
 
     virtual State *new_state(const PgfTextSpot &start);
-    virtual void symbol_token(Item *item, State *state, PgfSymbol sym);
+    virtual void symbol_token(Item *item, State *state, ref<PgfSymbolKS> symks);
     virtual void symbol_bind(Item *item, State *state, PgfSymbol sym);
-    virtual void suspend(Cont *cont,Item *item,size_t n_suspended1,size_t n_suspended);
+    virtual void suspend(Cont *cont,Item *item,bool do_predict,size_t n_suspended,ref<PgfSymbolCat> symcat);
     virtual void final_item(State *state,CCat *ccat,Item *item,interval_t value,interval_t lin_idx);
     virtual void bu_predict(State *state, CCat *ccat);
 
-    void bu_predict(PgfPhrasetable phrasetable, State *state);
-    void bu_predict(PgfPhrasetable phrasetable, State *state, ptrdiff_t min, ptrdiff_t max);
+    void bu_predict(PgfPhrasetable<PgfSymbolBIND> phrasetable, State *state);
+    void bu_predict(PgfPhrasetable<PgfSymbolKS> phrasetable, State *state, ptrdiff_t min, ptrdiff_t max);
     void make_chunks(State *state, std::vector<CCat*> &chunks, prob_t prob);
     PgfExpr process_expr(ExprState *estate, prob_t *prob);
 
@@ -313,9 +312,9 @@ class PGF_INTERNAL_DECL PgfParseTableMaker : private PgfAbstractParser
 {
 private:
     virtual State *new_state(const PgfTextSpot &start);
-    virtual void symbol_token(Item *item, State *state, PgfSymbol sym);
+    virtual void symbol_token(Item *item, State *state, ref<PgfSymbolKS> symks);
     virtual void symbol_bind(Item *item, State *state, PgfSymbol sym);
-    virtual void suspend(Cont *cont, Item *item, size_t n_suspended1, size_t n_suspended);
+    virtual void suspend(Cont *cont, Item *item, bool do_predict, size_t n_suspended,ref<PgfSymbolCat> symcat);
     virtual void final_item(State *state, CCat *ccat,Item *item,interval_t value,interval_t lin_idx);
     virtual void bu_predict(State *state, CCat *ccat);
 

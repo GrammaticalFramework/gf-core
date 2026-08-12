@@ -252,20 +252,6 @@ struct PGF_INTERNAL_DECL PgfConcrLin {
     static void release(ref<PgfConcrLin> lin);
 };
 
-struct PGF_INTERNAL_DECL PgfSymbolACat {
-    static const uint8_t tag = 11;
-    PgfText name;
-};
-
-struct PGF_INTERNAL_DECL PgfSymbolCCat {
-    static const uint8_t tag = 12;
-    ref<PgfConcrLincat> lincat;
-    interval_t value;
-    interval_t lin_idx;
-    prob_t viterbi_prob;
-    PgfMetaId fid;
-};
-
 struct PGF_INTERNAL_DECL PgfConcrPrintname {
     ref<PgfText> printname;
     PgfText name;
@@ -281,7 +267,11 @@ struct PGF_INTERNAL_DECL PgfConcr {
     Namespace<PgfFlag> cflags;
     Namespace<PgfConcrLin> lins;
     Namespace<PgfConcrLincat> lincats;
-    PgfPhrasetable phrasetable;
+    PgfPhrasetable<PgfSymbolKS>    phrasetable1;  // suspended on token
+    PgfPhrasetable<PgfConcrLincat> phrasetable2;  // suspended on lincat
+    PgfPhrasetable<PgfCCat>        phrasetable3;  // suspended on ccat
+    PgfPhrasetable<PgfSymbolBIND>  phrasetable4;  // suspended on bind
+    PgfEpsilontable epsilontable;
     Namespace<PgfConcrPrintname> printnames;
     PgfMetaId last_fid;
 

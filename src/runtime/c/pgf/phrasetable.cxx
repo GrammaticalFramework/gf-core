@@ -31,169 +31,12 @@ int lparam_cmp(PgfLParam *p1, PgfLParam *p2)
 	return 0;
 }
 
-static
-int sequence_cmp(vector<PgfSymbol> seq1, vector<PgfSymbol> seq2);
-
-static
-void symbol_cmp(PgfSymbol sym1, PgfSymbol sym2, int res[2])
-{
-    uint8_t t1 = ref<PgfSymbol>::get_tag(sym1);
-    uint8_t t2 = ref<PgfSymbol>::get_tag(sym2);
-
-    if (t1 != t2) {
-		res[0] = (res[1] = ((int) t1) - ((int) t2));
-		return;
-	}
-
-	switch (t1) {
-	case PgfSymbolCat::tag: {
-        auto sym_cat1 = ref<PgfSymbolCat>::untagged(sym1);
-        auto sym_cat2 = ref<PgfSymbolCat>::untagged(sym2);
-        if (sym_cat1->d < sym_cat2->d)
-			res[0] = (res[1] = -1);
-        else if (sym_cat1->d > sym_cat2->d)
-			res[0] = (res[1] = 1);
-		else
-			res[0] = (res[1] = lparam_cmp(&sym_cat1->r, &sym_cat2->r));
-		break;
-    }
-	case PgfSymbolLit::tag: {
-        auto sym_lit1 = ref<PgfSymbolLit>::untagged(sym1);
-        auto sym_lit2 = ref<PgfSymbolLit>::untagged(sym2);
-        if (sym_lit1->d < sym_lit2->d)
-			res[0] = (res[1] = -1);
-        else if (sym_lit1->d > sym_lit2->d)
-			res[0] = (res[1] = 1);
-		else
-			res[0] = (res[1] = lparam_cmp(&sym_lit1->r, &sym_lit2->r));
-		break;
-    }
-	case PgfSymbolVar::tag: {
-        auto sym_var1 = ref<PgfSymbolVar>::untagged(sym1);
-        auto sym_var2 = ref<PgfSymbolVar>::untagged(sym2);
-        if (sym_var1->d < sym_var2->d)
-			res[0] = (res[1] = -1);
-        else if (sym_var1->d > sym_var2->d)
-			res[0] = (res[1] = 1);
-		else if (sym_var1->r < sym_var2->r)
-			res[0] = (res[1] = -1);
-        else if (sym_var1->r > sym_var2->r)
-			res[0] = (res[1] = 1);
-		break;
-    }
-	case PgfSymbolKS::tag: {
-        auto sym_ks1 = ref<PgfSymbolKS>::untagged(sym1);
-        auto sym_ks2 = ref<PgfSymbolKS>::untagged(sym2);
-        texticmp(&sym_ks1->token,&sym_ks2->token,res);
-		break;
-    }
-	case PgfSymbolKP::tag: {
-        auto sym_kp1 = ref<PgfSymbolKP>::untagged(sym1);
-        auto sym_kp2 = ref<PgfSymbolKP>::untagged(sym2);
-        res[0] = (res[1] = sequence_cmp(sym_kp1->default_form, sym_kp2->default_form));
-        if (res[0] != 0)
-			return;
-
-		for (size_t i = 0; ; i++) {
-			if (i >= sym_kp1->alts.size()) {
-				res[0] = (res[1] = -(i < sym_kp2->alts.size()));
-				return;
-			}
-			if (i >= sym_kp2->alts.size()) {
-				res[0] = (res[1] = 1);
-				return;
-			}
-
-			res[0] = (res[1] = sequence_cmp(sym_kp1->alts[i].form, sym_kp2->alts[i].form));
-			if (res[0] != 0)
-				return;
-				
-			vector<ref<PgfText>> prefixes1 = sym_kp1->alts[i].prefixes;
-			vector<ref<PgfText>> prefixes2 = sym_kp2->alts[i].prefixes;
-			for (size_t j = 0; ; j++) {
-				if (j >= prefixes1.size()) {
-					res[0] = (res[1] = -(j < prefixes2.size()));
-					return;
-				}
-				if (j >= prefixes2.size()) {
-					res[0] = (res[1] = 1);
-					return;
-				}
-
-				res[0] = (res[1] = textcmp(&*prefixes1[j], &*prefixes2[j]));
-				if (res[0] != 0)
-					return;
-			}
-		}
-    }
-	case PgfSymbolBIND::tag:
-	case PgfSymbolSOFTBIND::tag:
-	case PgfSymbolNE::tag:
-	case PgfSymbolSOFTSPACE::tag:
-	case PgfSymbolCAPIT::tag:
-	case PgfSymbolALLCAPIT::tag:
-        break;
-    case PgfSymbolACat::tag: {
-        auto sym_acat1 = ref<PgfSymbolACat>::untagged(sym1);
-        auto sym_acat2 = ref<PgfSymbolACat>::untagged(sym2);
-        res[0] = (res[1] = textcmp(&sym_acat1->name,&sym_acat2->name));
-        return;
-    }
-    case PgfSymbolCCat::tag: {
-        auto sym_ccat1 = ref<PgfSymbolCCat>::untagged(sym1);
-        auto sym_ccat2 = ref<PgfSymbolCCat>::untagged(sym2);
-        res[0] = (res[1] = textcmp(&sym_ccat1->lincat->name,&sym_ccat2->lincat->name));
-        if (res[0] != 0)
-            return;
-        if (sym_ccat1->value < sym_ccat2->value)
-			res[0] = (res[1] = -1);
-        else if (sym_ccat1->value > sym_ccat2->value)
-			res[0] = (res[1] = 1);
-        if (sym_ccat1->lin_idx < sym_ccat2->lin_idx)
-			res[0] = (res[1] = -1);
-        else if (sym_ccat1->lin_idx > sym_ccat2->lin_idx)
-			res[0] = (res[1] = 1);
-        else
-            res[0] = (res[1] = 0);
-        return;
-    }
-	default:
-		throw pgf_error("Unknown symbol tag");
-    }
-}
-
-static
-int sequence_cmp(vector<PgfSymbol> seq1, vector<PgfSymbol> seq2)
-{
-	int res[2] = {0,0};
-	for (size_t i = 0; ; i++) {
-        if (i >= seq1.size()) {
-			if (i < seq2.size())
-				return -1;
-            return res[1];
-		}
-        if (i >= seq2.size())
-            return 1;
-
-		symbol_cmp(seq1[i], seq2[i], res);
-		if (res[0] != 0)
-			return res[0];
-    }
-
-	return 0;
-}
-
 PGF_INTERNAL
 int text_symbol_cmp(PgfTextSpot *spot, const uint8_t *end,
-                    PgfSymbol sym, bool case_sensitive)
+                    ref<PgfSymbolKS> sym_ks, bool case_sensitive)
 {
-    uint8_t tag = ref<PgfSymbol>::get_tag(sym);
-    if (PgfSymbolKS::tag != tag)
-        return ((int) PgfSymbolKS::tag) - ((int) tag);
-
     int res1 = 0;
 
-    auto sym_ks = ref<PgfSymbolKS>::untagged(sym);
     const uint8_t *s2 = (uint8_t *) &sym_ks->token.text;
     const uint8_t *e2 = s2+sym_ks->token.size;
 
@@ -326,134 +169,14 @@ bool text_item_match(PgfTextSpot *spot, const uint8_t *end,
 PGF_INTERNAL_DECL
 size_t get_next_padovan(size_t min);
 
-static
-int symbol_cmp(ref<PgfConcrLincat> lincat, interval_t value, interval_t lin_idx, PgfSymbol sym)
-{
-    uint8_t tag = ref<PgfSymbol>::get_tag(sym);
-    if (PgfSymbolCCat::tag != tag)
-        return ((int) PgfSymbolCCat::tag) - ((int) tag);
-
-    auto symcf = ref<PgfSymbolCCat>::untagged(sym);
-    int res = textcmp(&lincat->name, &symcf->lincat->name);
-    if (res != 0)
-        return res;
-    if (value < symcf->value)
-        return -1;
-    else if (value > symcf->value)
-        return 1;
-    else if (lin_idx < symcf->lin_idx)
-        return -1;
-    else if (lin_idx > symcf->lin_idx)
-        return 1;
-    else
-        return 0;
-}
-
-static
-int symbol_cmp(PgfSymbol sym1, PgfSymbol sym2)
-{
-    uint8_t tag1 = ref<PgfSymbol>::get_tag(sym1);
-    uint8_t tag2 = ref<PgfSymbol>::get_tag(sym2);
-    if (tag1 != tag2)
-        return ((int) tag1) - ((int) tag2);
-
-    switch (tag1) {
-    case PgfSymbolKS::tag: {
-        auto symks1 = ref<PgfSymbolKS>::untagged(sym1);
-        auto symks2 = ref<PgfSymbolKS>::untagged(sym2);
-        int res[2] = {0,0};
-        texticmp(&symks1->token, &symks2->token, res);
-        if (res[0] != 0)
-            return res[0];
-        return res[1];
-    }
-    case PgfSymbolACat::tag: {
-        auto symcf1 = ref<PgfSymbolACat>::untagged(sym1);
-        auto symcf2 = ref<PgfSymbolACat>::untagged(sym2);
-        return textcmp(&symcf1->name, &symcf2->name);
-    }
-    case PgfSymbolCCat::tag: {
-        auto symcf1 = ref<PgfSymbolCCat>::untagged(sym1);
-        auto symcf2 = ref<PgfSymbolCCat>::untagged(sym2);
-        int res = textcmp(&symcf1->lincat->name, &symcf2->lincat->name);
-        if (res != 0)
-            return res;
-        if (symcf1->value < symcf2->value)
-            return -1;
-        else if (symcf1->value > symcf2->value)
-            return 1;
-        else if (symcf1->lin_idx < symcf2->lin_idx)
-            return -1;
-        else if (symcf1->lin_idx > symcf2->lin_idx)
-            return 1;
-        else
-            return 0;
-    }
-    default:
-        return 0;
-    }
-}
-
+template<class K>
 PGF_INTERNAL
-void phrasetable_iter(PgfPhrasetable table, ref<PgfConcrLincat> lincat, std::function<void(ref<PgfSymbolCCat> arg,size_t,vector<ref<PgfItem>>)> &f)
-{
-    if (table == 0)
-        return;
-
-    int cmp = 0;
-    ref<PgfSymbolCCat> symcf = 0;
-    uint8_t tag = ref<PgfSymbol>::get_tag(table->value.sym);
-    if (PgfSymbolCCat::tag != tag) {
-        cmp = ((int) PgfSymbolCCat::tag) - ((int) tag);
-    } else {
-        symcf = ref<PgfSymbolCCat>::untagged(table->value.sym);
-        cmp = textcmp(&lincat->name, &symcf->lincat->name);
-    }
-
-    if (cmp < 0)
-        phrasetable_iter(table->left,  lincat, f);
-    else if (cmp > 0)
-        phrasetable_iter(table->right, lincat, f);
-    else {
-        phrasetable_iter(table->left,  lincat, f);
-        f(symcf,table->value.n_items,table->value.items);
-        phrasetable_iter(table->right, lincat, f);
-    }
-}
-
-PGF_INTERNAL
-vector<ref<PgfItem>> phrasetable_lookup(PgfPhrasetable table, PgfSymbol sym, size_t *n_items)
-{
-    while (table != 0) {
-        int cmp = symbol_cmp(sym,table->value.sym);
-        if (cmp < 0)
-            table = table->left;
-        else if (cmp > 0)
-            table = table->right;
-        else {
-            *n_items = table->value.n_items;
-            return table->value.items;
-        }
-    }
-
-    *n_items = 0;
-    return 0;
-}
-
-PGF_INTERNAL
-vector<ref<PgfItem>> phrasetable_lookup(PgfPhrasetable phrasetable,
-                                        ref<PgfConcrLincat> lincat,
+vector<ref<PgfItem>> phrasetable_lookup(PgfPhrasetable<K> phrasetable,
+                                        ref<K> key,
                                         size_t *n_items)
 {
     while (phrasetable != 0) {
-        int cmp;
-        uint8_t tag = ref<PgfSymbol>::get_tag(phrasetable->value.sym);
-        if (PgfSymbolACat::tag != tag) {
-            cmp = ((int) PgfSymbolACat::tag) - ((int) tag);
-        } else {
-            auto symcf = ref<PgfSymbolACat>::untagged(phrasetable->value.sym);
-            cmp = textcmp(&lincat->name, &symcf->name);
-        }
+        int cmp = compare_key(key, phrasetable->value.key);
         if (cmp < 0)
             phrasetable = phrasetable->left;
         else if (cmp > 0)
@@ -469,7 +192,7 @@ vector<ref<PgfItem>> phrasetable_lookup(PgfPhrasetable phrasetable,
 }
 
 PGF_INTERNAL
-void phrasetable_lookup(PgfPhrasetable table,
+void phrasetable_lookup(PgfPhrasetable<PgfSymbolKS> table,
                         PgfText *sentence,
                         bool case_sensitive,
                         PgfPhraseScanner *scanner, PgfExn* err)
@@ -481,7 +204,7 @@ void phrasetable_lookup(PgfPhrasetable table,
     spot.pos = 0;
     spot.ptr = (uint8_t *) sentence->text;
     const uint8_t *end = spot.ptr+sentence->size;
-    int cmp = text_symbol_cmp(&spot,end,table->value.sym,case_sensitive);
+    int cmp = text_symbol_cmp(&spot,end,table->value.key,case_sensitive);
     if (cmp < 0) {
         phrasetable_lookup(table->left,sentence,case_sensitive,scanner,err);
     } else if (cmp > 0) {
@@ -587,14 +310,14 @@ void finish_skipping(PgfCohortsState *state) {
 
 static
 void phrasetable_lookup_prefixes(PgfCohortsState *state,
-                                 PgfPhrasetable table,
+                                 PgfPhrasetable<PgfSymbolKS> table,
                                  ptrdiff_t min, ptrdiff_t max)
 {
     if (table == 0)
         return;
 
     PgfTextSpot current = state->spot;
-    int cmp = text_symbol_cmp(&current,state->end,table->value.sym,state->case_sensitive);
+    int cmp = text_symbol_cmp(&current,state->end,table->value.key,state->case_sensitive);
     if (cmp < 0) {
         phrasetable_lookup_prefixes(state,table->left,min,max);
     } else if (cmp > 0) {
@@ -661,7 +384,7 @@ void phrasetable_lookup_prefixes(PgfCohortsState *state,
 }
 
 PGF_INTERNAL
-void phrasetable_lookup_cohorts(PgfPhrasetable table,
+void phrasetable_lookup_cohorts(PgfPhrasetable<PgfSymbolKS> table,
                                 PgfText *sentence,
                                 bool case_sensitive,
                                 PgfPhraseScanner *scanner, PgfExn* err)
@@ -748,29 +471,29 @@ void phrasetable_lookup_cohorts(PgfPhrasetable table,
     }
 }
 
+template<class K>
 PGF_INTERNAL
-PgfPhrasetable phrasetable_insert(PgfPhrasetable table,
-                                  PgfSymbol sym,
-                                  ref<PgfItem> item)
+PgfPhrasetable<K> phrasetable_insert(PgfPhrasetable<K> table,
+                                     ref<K> key, ref<PgfItem> item)
 {
     if (table == 0) {
         auto items = vector<ref<PgfItem>>::alloc(1);
         items[0] = item;
-        return Node<PgfPhrasetableValue>::new_node({.sym=sym,.n_items=1,.items=items});
+        return Node<PgfPhrasetableValue<K>>::new_node({.key=key,.n_items=1,.items=items});
 	}
 
-    int cmp = symbol_cmp(sym,table->value.sym);
+    int cmp = compare_key(key, table->value.key);
     if (cmp < 0) {
-        PgfPhrasetable left = phrasetable_insert(table->left, sym, item);
-        table = Node<PgfPhrasetableValue>::upd_node(table,left,table->right);
-        return Node<PgfPhrasetableValue>::balanceL(table);
+        PgfPhrasetable<K> left = phrasetable_insert(table->left, key, item);
+        table = Node<PgfPhrasetableValue<K>>::upd_node(table,left,table->right);
+        return Node<PgfPhrasetableValue<K>>::balanceL(table);
     } else if (cmp > 0) {
-        PgfPhrasetable right = phrasetable_insert(table->right, sym, item);
-        table = Node<PgfPhrasetableValue>::upd_node(table, table->left, right);
-        return Node<PgfPhrasetableValue>::balanceR(table);
+        PgfPhrasetable<K> right = phrasetable_insert(table->right, key, item);
+        table = Node<PgfPhrasetableValue<K>>::upd_node(table, table->left, right);
+        return Node<PgfPhrasetableValue<K>>::balanceR(table);
     } else {
-        PgfPhrasetable new_table =
-            Node<PgfPhrasetableValue>::upd_node(table, table->left, table->right);
+        PgfPhrasetable<K> new_table =
+            Node<PgfPhrasetableValue<K>>::upd_node(table, table->left, table->right);
 
         auto items = new_table->value.items;
         if (new_table->value.n_items >= items.size()) {
@@ -784,62 +507,187 @@ PgfPhrasetable phrasetable_insert(PgfPhrasetable table,
     }
 }
 
+static
+int compare_key(ref<PgfSymbolKS> symks1, ref<PgfSymbolKS> symks2) {
+    int res[2] = {0,0};
+    texticmp(&symks1->token, &symks2->token, res);
+    if (res[0] != 0)
+        return res[0];
+    return res[1];
+}
+
+template
+PgfPhrasetable<PgfSymbolKS> phrasetable_insert<PgfSymbolKS>(PgfPhrasetable<PgfSymbolKS> table,
+                                                            ref<PgfSymbolKS> key,
+                                                            ref<PgfItem> item);
+
+static
+int compare_key(ref<PgfConcrLincat> lincat1, ref<PgfConcrLincat> lincat2) {
+    return textcmp(&lincat1->name, &lincat2->name);
+}
+
+template
 PGF_INTERNAL
-PgfPhrasetable phrasetable_insert(PgfPhrasetable table,
-                                  ref<PgfConcrLincat> lincat,
-                                  interval_t value, interval_t lin_idx,
-                                  PgfMetaId fid, prob_t viterbi_prob,
-                                  ref<PgfItem> item)
+PgfPhrasetable<PgfConcrLincat> phrasetable_insert<PgfConcrLincat>(PgfPhrasetable<PgfConcrLincat> table,
+                                                                  ref<PgfConcrLincat> key,
+                                                                  ref<PgfItem> item);
+
+template
+PGF_INTERNAL
+vector<ref<PgfItem>> phrasetable_lookup(PgfPhrasetable<PgfConcrLincat> phrasetable,
+                                        ref<PgfConcrLincat> key,
+                                        size_t *n_items);
+
+static
+int compare_key(ref<PgfCCat> ccat1, ref<PgfCCat> ccat2) {
+    return ((int) ccat1->fid) - ((int) ccat2->fid);
+}
+
+template
+PgfPhrasetable<PgfCCat> phrasetable_insert<PgfCCat>(PgfPhrasetable<PgfCCat> table,
+                                                    ref<PgfCCat> key,
+                                                    ref<PgfItem> item);
+
+template
+PGF_INTERNAL
+vector<ref<PgfItem>> phrasetable_lookup(PgfPhrasetable<PgfCCat> phrasetable,
+                                        ref<PgfCCat> key,
+                                        size_t *n_items);
+
+static
+int compare_key(ref<PgfSymbolBIND> symbind1, ref<PgfSymbolBIND> symbind2) {
+    return 0;
+}
+
+template
+PgfPhrasetable<PgfSymbolBIND> phrasetable_insert<PgfSymbolBIND>(PgfPhrasetable<PgfSymbolBIND> table,
+                                                                ref<PgfSymbolBIND> key,
+                                                                ref<PgfItem> item);
+
+template
+PGF_INTERNAL
+vector<ref<PgfItem>> phrasetable_lookup(PgfPhrasetable<PgfSymbolBIND> phrasetable,
+                                        ref<PgfSymbolBIND> key,
+                                        size_t *n_items);
+
+PGF_INTERNAL
+PgfEpsilontable epsilontable_insert(PgfEpsilontable table,
+                                    ref<PgfConcrLincat> lincat,
+                                    interval_t value, interval_t lin_idx,
+                                    PgfMetaId fid, prob_t viterbi_prob,
+                                    ref<PgfItem> item,
+                                    ref<PgfCCat> *pepsilon)
 {
     if (table == 0) {
-        ref<PgfSymbolCCat> symcf = PgfDB::malloc<PgfSymbolCCat>();
-        symcf->lincat = lincat;
-        symcf->value   = value;
-        symcf->lin_idx = lin_idx;
-        symcf->fid = fid;
-        symcf->viterbi_prob = viterbi_prob;
         auto items = vector<ref<PgfItem>>::alloc(1);
         items[0] = item;
-        return Node<PgfPhrasetableValue>::new_node({.sym=symcf.tagged(),.n_items=1,.items=items});
+        PgfEpsilontable new_table =
+            Node<PgfCCat>::new_node({.lincat=lincat,
+                                     .fid=fid,
+                                     .value=value,
+                                     .lin_idx=lin_idx,
+                                     .viterbi_prob=viterbi_prob,
+                                     .n_items=1,
+                                     .items=items});
+        *pepsilon = ref<PgfCCat>::from_ptr(&new_table->value);
+        return new_table;
 	}
 
-    int cmp = symbol_cmp(lincat,value,lin_idx,table->value.sym);
-    if (cmp < 0) {
-        PgfPhrasetable left = phrasetable_insert(table->left,
-                                                lincat, value, lin_idx, fid, viterbi_prob, item);
-        table = Node<PgfPhrasetableValue>::upd_node(table,left,table->right);
-        return Node<PgfPhrasetableValue>::balanceL(table);
-    } else if (cmp > 0) {
-        PgfPhrasetable right = phrasetable_insert(table->right,
-                                                  lincat, value, lin_idx, fid, viterbi_prob, item);
-        table = Node<PgfPhrasetableValue>::upd_node(table, table->left, right);
-        return Node<PgfPhrasetableValue>::balanceR(table);
-    } else {
-        PgfPhrasetable new_table =
-            Node<PgfPhrasetableValue>::upd_node(table, table->left, table->right);
+    int cmp = textcmp(&lincat->name, &table->value.lincat->name);
+    if (cmp == 0) {
+        cmp = ((int)fid) - ((int)table->value.fid);
+    }
 
-        auto items = new_table->value.items;
-        if (new_table->value.n_items >= items.size()) {
-            size_t new_len = get_next_padovan(new_table->value.n_items+1);
-            items = items.realloc(new_len, new_table->txn_id);
+    if (cmp < 0) {
+        PgfEpsilontable left = epsilontable_insert(table->left,
+                                                   lincat, value, lin_idx, fid, viterbi_prob, item, pepsilon);
+        table = Node<PgfCCat>::upd_node(table,left,table->right);
+        return Node<PgfCCat>::balanceL(table);
+    } else if (cmp > 0) {
+        PgfEpsilontable right = epsilontable_insert(table->right,
+                                                    lincat, value, lin_idx, fid, viterbi_prob, item, pepsilon);
+        table = Node<PgfCCat>::upd_node(table, table->left, right);
+        return Node<PgfCCat>::balanceR(table);
+    } else {
+        PgfEpsilontable new_table =
+            Node<PgfCCat>::upd_node(table, table->left, table->right);
+
+        auto items = table->value.items;
+        if (table->value.n_items >= items.size()) {
+            size_t new_len = get_next_padovan(table->value.n_items+1);
+            items = items.realloc(new_len, table->txn_id);
         }
-        items[new_table->value.n_items] = item;
+        items[table->value.n_items] = item;
         new_table->value.n_items++;
         new_table->value.items = items;
+        *pepsilon = ref<PgfCCat>::from_ptr(&new_table->value);
         return new_table;
     }
 }
 
 PGF_INTERNAL
-void phrasetable_release(PgfPhrasetable table)
+void epsilontable_add(ref<PgfCCat> epsilon,ref<PgfItem> item)
+{
+    auto items = epsilon->items;
+    if (epsilon->n_items >= items.size()) {
+        size_t new_len = get_next_padovan(epsilon->n_items+1);
+        items = items.realloc(new_len, PgfDB::get_txn_id());
+    }
+    items[epsilon->n_items] = item;
+    epsilon->n_items++;
+    epsilon->items = items;
+}
+
+PGF_INTERNAL
+ref<PgfCCat> epsilontable_get(PgfEpsilontable table,
+                              PgfText *name, PgfMetaId fid)
+{
+    if (table == 0) {
+        return 0;
+	}
+
+    int cmp = textcmp(name, &table->value.lincat->name);
+    if (cmp == 0) {
+        cmp = ((int)fid) - ((int)table->value.fid);
+    }
+
+    if (cmp < 0) {
+        return epsilontable_get(table->left,name,fid);
+    } else if (cmp > 0) {
+        return epsilontable_get(table->right,name,fid);
+    } else {
+        return ref<PgfCCat>::from_ptr(&table->value);
+    }
+}
+
+PGF_INTERNAL
+void epsilontable_iter(PgfEpsilontable table, ref<PgfConcrLincat> lincat, std::function<void(ref<PgfCCat> arg)> &f)
 {
     if (table == 0)
         return;
-    phrasetable_release(table->left);
-    phrasetable_release(table->right);
+
+    int cmp = textcmp(&lincat->name, &table->value.lincat->name);
+    if (cmp < 0)
+        epsilontable_iter(table->left,  lincat, f);
+    else if (cmp > 0)
+        epsilontable_iter(table->right, lincat, f);
+    else {
+        epsilontable_iter(table->left,  lincat, f);
+        f(ref<PgfCCat>::from_ptr(&table->value));
+        epsilontable_iter(table->right, lincat, f);
+    }
+}
+
+PGF_INTERNAL
+void epsilontable_release(PgfEpsilontable table)
+{
+    if (table == 0)
+        return;
+    epsilontable_release(table->left);
+    epsilontable_release(table->right);
     for (size_t i = 0; i < table->value.n_items; i++) {
         PgfItem::release(table->value.items[i]);
     }
     vector<ref<PgfItem>>::release(table->value.items);
-    Node<PgfPhrasetableValue>::release(table);
+    Node<PgfCCat>::release(table);
 }

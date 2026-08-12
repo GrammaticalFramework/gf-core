@@ -578,20 +578,6 @@ void PgfPrinter::symbol(PgfSymbol sym)
 	case PgfSymbolALLCAPIT::tag:
         puts("ALL_CAPIT");
         break;
-	case PgfSymbolACat::tag: {
-        auto symcf = ref<PgfSymbolACat>::untagged(sym);
-        efun(&symcf->name);
-        break;
-    }
-	case PgfSymbolCCat::tag: {
-        auto symcf = ref<PgfSymbolCCat>::untagged(sym);
-        efun(&symcf->lincat->name);
-        nprintf(64,"(%zu-%zu,%zu-%zu)",symcf->value.first
-                                      ,symcf->value.second
-                                      ,symcf->lin_idx.first
-                                      ,symcf->lin_idx.second);
-        break;
-    }
 	}
 }
 

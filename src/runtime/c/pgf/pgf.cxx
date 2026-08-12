@@ -1022,7 +1022,7 @@ void pgf_lookup_morpho(PgfDB *db, PgfConcrRevision cnc_revision,
         PgfMorphoScanner scanner(callback);
         size_t n_items;
 
-        phrasetable_lookup(concr->phrasetable,
+        phrasetable_lookup(concr->phrasetable1,
                            sentence, case_sensitive,
                            &scanner, err);
     } PGF_API_END
@@ -1072,7 +1072,7 @@ void pgf_lookup_cohorts(PgfDB *db, PgfConcrRevision cnc_revision,
         bool case_sensitive = pgf_is_case_sensitive(concr);
 
         PgfCohortsScanner scanner(callback);
-        phrasetable_lookup_cohorts(concr->phrasetable,
+        phrasetable_lookup_cohorts(concr->phrasetable1,
                                    sentence, case_sensitive,
                                    &scanner, err);
     } PGF_API_END
@@ -1485,7 +1485,11 @@ ref<PgfConcr> clone_concrete(ref<PgfPGF> pgf, ref<PgfConcr> concr)
         clone->cflags = concr->cflags;
         clone->lins = concr->lins;
         clone->lincats = concr->lincats;
-        clone->phrasetable = concr->phrasetable;
+        clone->phrasetable1 = concr->phrasetable1;
+        clone->phrasetable2 = concr->phrasetable2;
+        clone->phrasetable3 = concr->phrasetable3;
+        clone->phrasetable4 = concr->phrasetable4;
+        clone->epsilontable = concr->epsilontable;
         clone->printnames = concr->printnames;
         clone->last_fid = concr->last_fid;
         memcpy(&clone->name, &concr->name, sizeof(PgfText)+concr->name.size+1);
@@ -1664,7 +1668,11 @@ PgfConcrRevision pgf_create_concrete(PgfDB *db, PgfRevision revision,
         concr->cflags = 0;
         concr->lins = 0;
         concr->lincats = 0;
-        concr->phrasetable = 0;
+        concr->phrasetable1 = 0;
+        concr->phrasetable2 = 0;
+        concr->phrasetable3 = 0;
+        concr->phrasetable4 = 0;
+        concr->epsilontable = 0;
         concr->printnames = 0;
         concr->last_fid = 0;
         memcpy(&concr->name, name, sizeof(PgfText)+name->size+1);

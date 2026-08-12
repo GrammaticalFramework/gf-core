@@ -10,10 +10,12 @@ struct PGF_INTERNAL_DECL PgfTextSpot {
 };
 
 struct PGF_INTERNAL_DECL PgfItem {
+    PgfMetaId res;
+
     struct {
         size_t &operator[](int i) {
             PgfItem *item = containerof(PgfItem,vars,this);
-            return ((size_t*) (((ref<PgfSymbolCCat>*) (item+1))+item->rule->args.size()))[i];
+            return ((size_t*) (((PgfMetaId*) (item+1))+item->rule->args.size()))[i];
         }
         size_t size() {
             PgfItem *item = containerof(PgfItem,vars,this);
@@ -22,9 +24,9 @@ struct PGF_INTERNAL_DECL PgfItem {
     } vars;
 
     struct {
-        ref<PgfSymbolCCat> &operator[](int i) {
+        PgfMetaId &operator[](int i) {
             PgfItem *item = containerof(PgfItem,args,this);
-            return ((ref<PgfSymbolCCat>*) (item+1))[i];
+            return ((PgfMetaId*) (item+1))[i];
         }
         size_t size() {
             PgfItem *item = containerof(PgfItem,args,this);
@@ -35,8 +37,8 @@ struct PGF_INTERNAL_DECL PgfItem {
     static
     void release(ref<PgfItem> item) {
         size_t ex_size =
-            sizeof(ref<PgfSymbolCCat>) * item->args.size() +
-            sizeof(size_t)             * item->vars.size();
+            sizeof(PgfMetaId) * item->args.size() +
+            sizeof(size_t)    * item->vars.size();
         PgfDB::free(item, ex_size);
     }
 
@@ -46,8 +48,11 @@ struct PGF_INTERNAL_DECL PgfItem {
     ref<PgfConcrRule> rule;
 };
 
-struct PGF_INTERNAL_DECL PgfPhrasetableValue {
-    PgfSymbol sym;
+struct PGF_INTERNAL_DECL PgfCCat {
+    ref<PgfConcrLincat> lincat;
+    PgfMetaId fid;
+    interval_t value, lin_idx;
+    prob_t viterbi_prob;
 
     // Here n_items tells us how many actual items there are in
     // the vector items. On the other hand, items.size() tells us
@@ -56,27 +61,29 @@ struct PGF_INTERNAL_DECL PgfPhrasetableValue {
     vector<ref<PgfItem>> items;
 };
 
-typedef ref<Node<PgfPhrasetableValue>> PgfPhrasetable;
+template<class K>
+struct PGF_INTERNAL_DECL PgfPhrasetableValue {
+    ref<K> key;
 
-PgfPhrasetable phrasetable_insert(PgfPhrasetable table,
-                                  PgfSymbol sym,
-                                  ref<PgfItem> item);
+    // Here n_items tells us how many actual items there are in
+    // the vector items. On the other hand, items.size() tells us
+    // how big buffer we have allocated.
+    size_t n_items;
+    vector<ref<PgfItem>> items;
+};
 
-PgfPhrasetable phrasetable_insert(PgfPhrasetable table,
-                                  ref<PgfConcrLincat> lincat,
-                                  interval_t value, interval_t lin_idx,
-                                  PgfMetaId fid, prob_t viterbi_prob,
-                                  ref<PgfItem> item);
+template <class K>
+using PgfPhrasetable = ref<Node<PgfPhrasetableValue<K>>>;
 
+template<class K>
 PGF_INTERNAL_DECL
-void phrasetable_iter(PgfPhrasetable phrasetable,ref<PgfConcrLincat> lincat,std::function<void(ref<PgfSymbolCCat> symcf,size_t,vector<ref<PgfItem>>)> &f);
+PgfPhrasetable<K> phrasetable_insert(PgfPhrasetable<K> table,
+                                     ref<K> key, ref<PgfItem> item);
 
+template<class K>
 PGF_INTERNAL_DECL
-vector<ref<PgfItem>> phrasetable_lookup(PgfPhrasetable phrasetable, PgfSymbol sym, size_t *n_items);
-
-PGF_INTERNAL_DECL
-vector<ref<PgfItem>> phrasetable_lookup(PgfPhrasetable phrasetable,
-                                        ref<PgfConcrLincat> lincat,
+vector<ref<PgfItem>> phrasetable_lookup(PgfPhrasetable<K> phrasetable,
+                                        ref<K> key,
                                         size_t *n_items);
 
 class PGF_INTERNAL_DECL PgfPhraseScanner {
@@ -88,18 +95,57 @@ public:
 };
 
 PGF_INTERNAL_DECL
-void phrasetable_lookup(PgfPhrasetable phrasetable,
+void phrasetable_lookup(PgfPhrasetable<PgfSymbolKS> phrasetable,
                         PgfText *sentence,
                         bool case_sensitive,
                         PgfPhraseScanner *scanner, PgfExn* err);
 
 PGF_INTERNAL_DECL
-void phrasetable_lookup_cohorts(PgfPhrasetable phrasetable,
+void phrasetable_lookup_cohorts(PgfPhrasetable<PgfSymbolKS> phrasetable,
                                 PgfText *sentence,
                                 bool case_sensitive,
                                 PgfPhraseScanner *scanner, PgfExn* err);
 
+template <class V>
+void phrasetable_release(PgfPhrasetable<V> table)
+{
+    if (table == 0)
+        return;
+    phrasetable_release(table->left);
+    phrasetable_release(table->right);
+    for (size_t i = 0; i < table->value.n_items; i++) {
+        PgfItem::release(table->value.items[i]);
+    }
+    vector<ref<PgfItem>>::release(table->value.items);
+    Node<PgfPhrasetableValue<V>>::release(table);
+}
+
+
+typedef ref<Node<PgfCCat>> PgfEpsilontable;
+
+// Creates a new epsilon category with its first item.
+// The new category is mutable within the current transaction
 PGF_INTERNAL_DECL
-void phrasetable_release(PgfPhrasetable table);
+PgfEpsilontable epsilontable_insert(PgfEpsilontable table,
+                                    ref<PgfConcrLincat> lincat,
+                                    interval_t value, interval_t lin_idx,
+                                    PgfMetaId fid, prob_t viterbi_prob,
+                                    ref<PgfItem> item,
+                                    ref<PgfCCat> *pepsilon);
+
+// Adds a new item to an existing epsilon category. The category
+// must have been created by epsilontable_insert in the current transaction.
+PGF_INTERNAL_DECL
+void epsilontable_add(ref<PgfCCat> epsilon, ref<PgfItem> item);
+
+PGF_INTERNAL_DECL
+ref<PgfCCat> epsilontable_get(PgfEpsilontable table,
+                              PgfText *name, PgfMetaId fid);
+
+PGF_INTERNAL
+void epsilontable_iter(PgfEpsilontable table, ref<PgfConcrLincat> lincat, std::function<void(ref<PgfCCat> arg)> &f);
+
+PGF_INTERNAL_DECL
+void epsilontable_release(PgfEpsilontable table);
 
 #endif

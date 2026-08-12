@@ -41,7 +41,11 @@ void PgfConcr::release(ref<PgfConcr> concr)
     namespace_release(concr->lins);
     namespace_release(concr->lincats);
     namespace_release(concr->printnames);
-    phrasetable_release(concr->phrasetable);
+    phrasetable_release(concr->phrasetable1);
+    phrasetable_release(concr->phrasetable2);
+    phrasetable_release(concr->phrasetable3);
+    phrasetable_release(concr->phrasetable4);
+    epsilontable_release(concr->epsilontable);
     PgfDB::free(concr, concr->name.size+1);
 }
 
