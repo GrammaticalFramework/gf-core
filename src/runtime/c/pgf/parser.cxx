@@ -164,7 +164,7 @@ void PgfAbstractParser::symbol(Item *item, State *state, PgfSymbol sym)
             // the following prevents infinite loops with epsilons
             bool found = false;
             CCat *prev_ccat = ccat;
-            while (prev_ccat != NULL && prev_ccat->epsilon == 0 && prev_ccat->cont->state == state) {
+            while (prev_ccat != NULL && prev_ccat->cont != NULL && prev_ccat->cont->state == state) {
                 if (prev_ccat->value == value_i && prev_ccat->lin_idx == lin_idx_i) {
                     found = true;
                     break;
@@ -1390,6 +1390,7 @@ void PgfParser::suspend(Cont *cont,Item *item,bool do_predict,size_t n_suspended
                         arg_ccat = new CCat;
                         arg_ccat->fid = arg->fid;
                         arg_ccat->epsilon = arg;
+                        arg_ccat->cont = NULL;
                         arg_ccat->state = NULL;
                         arg_ccat->lin_idx = arg->lin_idx;
                         arg_ccat->value = arg->value;
