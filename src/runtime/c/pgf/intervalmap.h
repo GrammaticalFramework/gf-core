@@ -66,34 +66,6 @@ class PGF_INTERNAL_DECL interval_map {
         }
     }
 
-    static
-    V *lookup(Node *node, size_t start, size_t end)
-    {
-        if (node == NULL) {
-            return NULL;
-        }
-
-        int cmp;
-        if (start < node->start)
-            cmp = -1;
-        else if (start > node->start)
-            cmp = 1;
-        else if (end < node->end)
-            cmp = -1;
-        else if (end > node->end)
-            cmp = 1;
-        else
-            cmp = 0;
-
-        if (cmp < 0) {
-            return lookup(node->left, start, end);
-        } else if (cmp > 0) {
-            return lookup(node->right, start, end);
-        } else {
-            return &node->value;
-        }
-    }
-
     static size_t size(Node *node)
     {
         if (node == 0)
