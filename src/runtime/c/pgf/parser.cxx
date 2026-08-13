@@ -1471,9 +1471,27 @@ void PgfParser::final_item(State *state, CCat *ccat, Item *item, interval_t valu
         estate->expr   = 0;
         estate->prob   = 0;
         estate->hash   = 0;
-        estate->res    = NULL;
+        estate->res    = ccat;
         estate->index  = 0;
         estate->n_args = item->args.size();
+        for (size_t i = 0; i < estate->n_args; i++) {
+            estate->args[i] = item->args[i];
+            estate->prob += estate->args[i]->viterbi_prob;
+        }
+        queue.push_back(estate);
+        std::push_heap(queue.begin(), queue.end(), estate_comp);
+    } else if (ccat != NULL && ccat->pending.size() > 0) {
+        auto lin = ref<PgfConcrLin>::untagged(item->rule->container);
+        ExprState *estate = new(item->args.size()) ExprState;
+        estate->expr   = u->efun(&lin->name);
+        estate->prob   = ccat->pending[0]->prob-ccat->viterbi_prob+lin->absfun->prob;
+        estate->hash   = 0;
+        estate->res    = ccat;
+        estate->index  = 0;
+        estate->n_args = item->args.size();
+        for (size_t i = 0; i < lin->name.size; i++) {
+            estate->hash = estate->hash * 101 + lin->name.text[i];
+        }
         for (size_t i = 0; i < estate->n_args; i++) {
             estate->args[i] = item->args[i];
             estate->prob += estate->args[i]->viterbi_prob;
