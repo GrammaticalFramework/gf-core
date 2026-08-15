@@ -323,7 +323,8 @@ PgfLinearizer::TreeLinNode::~TreeLinNode()
 {
     size_t n_fields = lin->lincat->fields.size();
     for (size_t i = 0; i < n_fields; i++) {
-        delete items[i];
+        if (items[i] != NULL)
+            delete items[i];
     }
     delete[] items;
 };
@@ -393,13 +394,6 @@ bool PgfLinearizer::TreeLindefNode::resolve(PgfLinearizer *linearizer)
         delete item;
 
         rule_index++;
-    }
-
-    for (size_t i = 0; i < lincat->fields.size(); i++) {
-        if (items[i] == NULL) {
-            rule_index = 0;
-            return false;
-        }
     }
 
     return true;
@@ -475,10 +469,11 @@ ref<PgfConcrLincat> PgfLinearizer::TreeLindefNode::get_lincat(PgfLinearizer *lin
 
 PgfLinearizer::TreeLindefNode::~TreeLindefNode()
 {
-    if (lincat) {
+    if (lincat && items != NULL) {
         size_t n_fields = lincat->fields.size();
         for (size_t i = 0; i < n_fields; i++) {
-            delete items[i];
+            if (items[i] != NULL)
+                delete items[i];
         }
         delete[] items;
     }
