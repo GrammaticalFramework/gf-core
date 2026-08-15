@@ -1443,16 +1443,14 @@ void PgfParser::suspend(Cont *cont,Item *item,bool do_predict,size_t n_suspended
                 }
             }
         } else {
+            interval_t lin_idx_i = item->interval(ref<PgfLParam>::from_ptr(&symcat->r));
             State *next = cont->state;
             while (next != NULL) {
                 auto it1 = next->completed.find(cont);
                 if (it1 != next->completed.end()) {
-                    auto *it2 = it1->second.lookup(cont->ccat->value);
-                    if (it2 != NULL) {
-                        interval_t lin_idx_i = item->interval(ref<PgfLParam>::from_ptr(&symcat->r));
-                        auto *it3 = it2->lookup(lin_idx_i);
-                        if (it3 != NULL) {
-                            CCat *arg = *it3;
+                    for (auto it2 : it1->second.overlaps(cont->ccat->value)) {
+                        for (auto it3 : it2.second.overlaps(lin_idx_i)) {
+                            CCat *arg = it3.second;
                             Item *new_item = new (item) Item;
                             combine(next, new_item, arg);
                         }
@@ -1641,16 +1639,14 @@ void PgfParseTableMaker::suspend(Cont *cont,Item *item,bool do_predict,size_t n_
                 }
             }
         } else {
+            interval_t lin_idx_i = item->interval(ref<PgfLParam>::from_ptr(&symcat->r));
             State *next = cont->state;
             while (next != NULL) {
                 auto it1 = next->completed.find(cont);
                 if (it1 != next->completed.end()) {
-                    auto *it2 = it1->second.lookup(cont->ccat->value);
-                    if (it2 != NULL) {
-                        interval_t lin_idx_i = item->interval(ref<PgfLParam>::from_ptr(&symcat->r));
-                        auto *it3 = it2->lookup(lin_idx_i);
-                        if (it3 != NULL) {
-                            CCat *arg = *it3;
+                    for (auto it2 : it1->second.overlaps(cont->ccat->value)) {
+                        for (auto it3 : it2.second.overlaps(lin_idx_i)) {
+                            CCat *arg = it3.second;
                             Item *new_item = new (item) Item;
                             combine(next, new_item, arg);
                         }
