@@ -56,7 +56,7 @@ PgfLinearizer::TreeNode::TreeNode(PgfLinearizer *linearizer)
     linearizer->prev = this;
 }
 
-void PgfLinearizer::TreeNode::linearize_arg(PgfLinearizationOutputIface *out, PgfLinearizer *linearizer, size_t d, size_t r)
+bool PgfLinearizer::TreeNode::linearize_arg(PgfLinearizationOutputIface *out, PgfLinearizer *linearizer, size_t d, size_t r)
 {
     TreeNode *arg = args;
     while (d > 0) {
@@ -67,7 +67,7 @@ void PgfLinearizer::TreeNode::linearize_arg(PgfLinearizationOutputIface *out, Pg
     }
     if (arg == NULL)
         throw pgf_error("Missing argument");
-    arg->linearize(out, linearizer, r);
+    return arg->linearize(out, linearizer, r);
 }
 
 void PgfLinearizer::TreeNode::linearize_var(PgfLinearizationOutputIface *out, PgfLinearizer *linearizer, size_t d, size_t r)
@@ -87,7 +87,7 @@ void PgfLinearizer::TreeNode::linearize_var(PgfLinearizationOutputIface *out, Pg
     out->symbol_token(linearizer->printer.get_text());
 }
 
-void PgfLinearizer::TreeNode::linearize_item(PgfLinearizationOutputIface *out, PgfLinearizer *linearizer, Item *item, vector<PgfSymbol> syms)
+bool PgfLinearizer::TreeNode::linearize_item(PgfLinearizationOutputIface *out, PgfLinearizer *linearizer, Item *item, vector<PgfSymbol> syms)
 {
     for (size_t i = 0; i < syms.size(); i++) {
         PgfSymbol sym = syms[i];
@@ -96,13 +96,15 @@ void PgfLinearizer::TreeNode::linearize_item(PgfLinearizationOutputIface *out, P
         case PgfSymbolCat::tag: {
             auto sym_cat = ref<PgfSymbolCat>::untagged(sym);
             size_t r = item->eval(ref<PgfLParam>::from_ptr(&sym_cat->r));
-            linearize_arg(out, linearizer, sym_cat->d, r);
+            if (!linearize_arg(out, linearizer, sym_cat->d, r))
+                return false;
             break;
         }
         case PgfSymbolLit::tag: {
             auto sym_lit = ref<PgfSymbolLit>::untagged(sym);
             size_t r = item->eval(ref<PgfLParam>::from_ptr(&sym_lit->r));
-            linearize_arg(out, linearizer, sym_lit->d, r);
+            if (!linearize_arg(out, linearizer, sym_lit->d, r))
+                return false;
             break;
         }
         case PgfSymbolVar::tag: {
@@ -205,6 +207,8 @@ void PgfLinearizer::TreeNode::linearize_item(PgfLinearizationOutputIface *out, P
             break;
         }
     }
+
+    return true;
 }
 
 PgfLinearizer::TreeLinNode::TreeLinNode(PgfLinearizer *linearizer, ref<PgfConcrLin> lin)
@@ -261,13 +265,6 @@ bool PgfLinearizer::TreeLinNode::resolve(PgfLinearizer *linearizer)
         rule_index++;
     }
 
-    for (size_t i = 0; i < lin->lincat->fields.size(); i++) {
-        if (items[i] == NULL) {
-            rule_index = 0;
-            return false;
-        }
-    }
-
     return true;
 }
 
@@ -276,8 +273,11 @@ bool PgfLinearizer::TreeLinNode::check_category(PgfLinearizer *linearizer, PgfTe
     return (textcmp(&lin->absfun->type->name, cat) == 0);
 }
 
-void PgfLinearizer::TreeLinNode::linearize(PgfLinearizationOutputIface *out, PgfLinearizer *linearizer, size_t lindex)
+bool PgfLinearizer::TreeLinNode::linearize(PgfLinearizationOutputIface *out, PgfLinearizer *linearizer, size_t lindex)
 {
+    if (items[lindex] == NULL)
+        return false;
+
     PgfText *cat = &lin->absfun->type->name;
     PgfText *field = &*lin->lincat->fields[lindex];
 
@@ -294,8 +294,9 @@ void PgfLinearizer::TreeLinNode::linearize(PgfLinearizationOutputIface *out, Pgf
         linearizer->pre_stack->bracket_stack = bracket;
     }
 
-    linearize_item(out, linearizer,
-                   items[lindex],items[lindex]->rule->syms.as_vector());
+    if (!linearize_item(out, linearizer,
+                        items[lindex],items[lindex]->rule->syms.as_vector()))
+        return false;
 
     if (linearizer->pre_stack == NULL)
         out->end_phrase(cat, fid, field, &lin->name);
@@ -309,6 +310,8 @@ void PgfLinearizer::TreeLinNode::linearize(PgfLinearizationOutputIface *out, Pgf
         bracket->fun   = &lin->name;
         linearizer->pre_stack->bracket_stack = bracket;
     }
+
+    return true;
 }
 
 ref<PgfConcrLincat> PgfLinearizer::TreeLinNode::get_lincat(PgfLinearizer *linearizer)
@@ -410,23 +413,24 @@ bool PgfLinearizer::TreeLindefNode::check_category(PgfLinearizer *linearizer, Pg
     return true;
 }
 
-void PgfLinearizer::TreeLindefNode::linearize_arg(PgfLinearizationOutputIface *out, PgfLinearizer *linearizer, size_t d, size_t r)
+bool PgfLinearizer::TreeLindefNode::linearize_arg(PgfLinearizationOutputIface *out, PgfLinearizer *linearizer, size_t d, size_t r)
 {
     linearizer->flush_pre_stack(out, literal);
     out->symbol_token(literal);
 
     TreeNode *arg = args;
     while (arg != NULL) {
-        arg->linearize(out,linearizer,0);
+        if (!arg->linearize(out,linearizer,0))
+            return false;
         arg = arg->next_arg;
     }
+    return true;
 }
 
-void PgfLinearizer::TreeLindefNode::linearize(PgfLinearizationOutputIface *out, PgfLinearizer *linearizer, size_t lindex)
+bool PgfLinearizer::TreeLindefNode::linearize(PgfLinearizationOutputIface *out, PgfLinearizer *linearizer, size_t lindex)
 {
     if (lincat==0) {
-        linearize_arg(out, linearizer, 0, 0);
-        return;
+        return linearize_arg(out, linearizer, 0, 0);
     }
 
     PgfText *cat = &lincat->name;
@@ -445,8 +449,9 @@ void PgfLinearizer::TreeLindefNode::linearize(PgfLinearizationOutputIface *out, 
         linearizer->pre_stack->bracket_stack = bracket;
     }
 
-    linearize_item(out, linearizer,
-                   items[lindex],items[lindex]->rule->syms.as_vector());
+    if (!linearize_item(out, linearizer,
+                        items[lindex],items[lindex]->rule->syms.as_vector()))
+        return false;
 
     if (linearizer->pre_stack == NULL)
         out->end_phrase(cat, fid, field, linearizer->wild);
@@ -460,6 +465,7 @@ void PgfLinearizer::TreeLindefNode::linearize(PgfLinearizationOutputIface *out, 
         bracket->fun   = linearizer->wild;
         linearizer->pre_stack->bracket_stack = bracket;
     }
+    return true;
 }
 
 ref<PgfConcrLincat> PgfLinearizer::TreeLindefNode::get_lincat(PgfLinearizer *linearizer)
@@ -537,13 +543,13 @@ bool PgfLinearizer::TreeLinrefNode::resolve(PgfLinearizer *linearizer)
     return true;
 }
 
-void PgfLinearizer::TreeLinrefNode::linearize(PgfLinearizationOutputIface *out, PgfLinearizer *linearizer, size_t lindex)
+bool PgfLinearizer::TreeLinrefNode::linearize(PgfLinearizationOutputIface *out, PgfLinearizer *linearizer, size_t lindex)
 {
     ref<PgfConcrLincat> lincat = args->get_lincat(linearizer);
     if (lincat != 0) {
-        linearize_item(out, linearizer, item, item->rule->syms.as_vector());
+        return linearize_item(out, linearizer, item, item->rule->syms.as_vector());
     } else {
-        args->linearize(out, linearizer, lindex);
+        return args->linearize(out, linearizer, lindex);
     }
 }
 
@@ -569,7 +575,7 @@ bool PgfLinearizer::TreeLitNode::check_category(PgfLinearizer *linearizer, PgfTe
     return (textcmp(&lincat->name, cat) == 0);
 }
 
-void PgfLinearizer::TreeLitNode::linearize(PgfLinearizationOutputIface *out, PgfLinearizer *linearizer, size_t lindex)
+bool PgfLinearizer::TreeLitNode::linearize(PgfLinearizationOutputIface *out, PgfLinearizer *linearizer, size_t lindex)
 {
     PgfText *field = NULL;
     if (lincat != 0) {
@@ -583,6 +589,8 @@ void PgfLinearizer::TreeLitNode::linearize(PgfLinearizationOutputIface *out, Pgf
     out->symbol_token(literal);
     if (lincat != 0)
         out->end_phrase(&lincat->name, fid, field, linearizer->wild);
+
+    return true;
 }
 
 ref<PgfConcrLincat> PgfLinearizer::TreeLitNode::get_lincat(PgfLinearizer *linearizer)

@@ -2530,7 +2530,10 @@ PgfText *pgf_linearize(PgfDB *db, PgfConcrRevision revision,
         m->match_expr(&linearizer, expr);
         linearizer.reverse_and_label(true);
         if (linearizer.resolve()) {
-            linearizer.linearize(&out, 0);
+            if (!linearizer.linearize(&out, 0)) {
+                free(out.get_text());
+                return NULL;
+            }
             return out.get_text();
         }
     } PGF_API_END
@@ -2594,12 +2597,13 @@ PgfText **pgf_tabular_linearize(PgfDB *db, PgfConcrRevision revision,
                     throw pgf_systemerror(ENOMEM);
                 size_t pos = 0;
                 for (size_t i = 0; i < lincat->fields.size(); i++) {
-                    linearizer.linearize(&out, i);
-
+                    bool ok = linearizer.linearize(&out, i);
                     PgfText *text = out.get_text();
-                    if (text != NULL) {
+                    if (ok) {
                         res[pos++] = textdup(&*lincat->fields[i]);
                         res[pos++] = text;
+                    } else {
+                        free(text);
                     }
                 }
                 res[pos++] = NULL;

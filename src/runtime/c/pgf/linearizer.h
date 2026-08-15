@@ -83,10 +83,10 @@ class PGF_INTERNAL_DECL PgfLinearizer : public PgfUnmarshaller {
         TreeNode(PgfLinearizer *linearizer);
         virtual bool resolve(PgfLinearizer *linearizer) { return true; };
         virtual bool check_category(PgfLinearizer *linearizer, PgfText *cat)=0;
-        virtual void linearize_arg(PgfLinearizationOutputIface *out, PgfLinearizer *linearizer, size_t d, size_t r);
+        virtual bool linearize_arg(PgfLinearizationOutputIface *out, PgfLinearizer *linearizer, size_t d, size_t r);
         virtual void linearize_var(PgfLinearizationOutputIface *out, PgfLinearizer *linearizer, size_t d, size_t r);
-        virtual void linearize_item(PgfLinearizationOutputIface *out, PgfLinearizer *linearizer, Item *item, vector<PgfSymbol> syms);
-        virtual void linearize(PgfLinearizationOutputIface *out, PgfLinearizer *linearizer, size_t lindex)=0;
+        virtual bool linearize_item(PgfLinearizationOutputIface *out, PgfLinearizer *linearizer, Item *item, vector<PgfSymbol> syms);
+        virtual bool linearize(PgfLinearizationOutputIface *out, PgfLinearizer *linearizer, size_t lindex)=0;
         virtual ref<PgfConcrLincat> get_lincat(PgfLinearizer *linearizer)=0;
         virtual ~TreeNode() { free(hoas_vars); };
     };
@@ -99,7 +99,7 @@ class PGF_INTERNAL_DECL PgfLinearizer : public PgfUnmarshaller {
         TreeLinNode(PgfLinearizer *linearizer, ref<PgfConcrLin> lin);
         virtual bool resolve(PgfLinearizer *linearizer);
         virtual bool check_category(PgfLinearizer *linearizer, PgfText *cat);
-        virtual void linearize(PgfLinearizationOutputIface *out, PgfLinearizer *linearizer, size_t lindex);
+        virtual bool linearize(PgfLinearizationOutputIface *out, PgfLinearizer *linearizer, size_t lindex);
         virtual ref<PgfConcrLincat> get_lincat(PgfLinearizer *linearizer);
         virtual ~TreeLinNode();
     };
@@ -114,8 +114,8 @@ class PGF_INTERNAL_DECL PgfLinearizer : public PgfUnmarshaller {
         TreeLindefNode(PgfLinearizer *linearizer, PgfText *fun, PgfText *lit);
         virtual bool resolve(PgfLinearizer *linearizer);
         virtual bool check_category(PgfLinearizer *linearizer, PgfText *cat);
-        virtual void linearize_arg(PgfLinearizationOutputIface *out, PgfLinearizer *linearizer, size_t d, size_t r);
-        virtual void linearize(PgfLinearizationOutputIface *out, PgfLinearizer *linearizer, size_t lindex);
+        virtual bool linearize_arg(PgfLinearizationOutputIface *out, PgfLinearizer *linearizer, size_t d, size_t r);
+        virtual bool linearize(PgfLinearizationOutputIface *out, PgfLinearizer *linearizer, size_t lindex);
         virtual ref<PgfConcrLincat> get_lincat(PgfLinearizer *linearizer);
         ~TreeLindefNode();
     };
@@ -127,7 +127,7 @@ class PGF_INTERNAL_DECL PgfLinearizer : public PgfUnmarshaller {
         TreeLinrefNode(PgfLinearizer *linearizer, TreeNode *root);
         virtual bool resolve(PgfLinearizer *linearizer);
         virtual bool check_category(PgfLinearizer *linearizer, PgfText *cat) { return true; };
-        virtual void linearize(PgfLinearizationOutputIface *out, PgfLinearizer *linearizer, size_t lindex);
+        virtual bool linearize(PgfLinearizationOutputIface *out, PgfLinearizer *linearizer, size_t lindex);
         virtual ref<PgfConcrLincat> get_lincat(PgfLinearizer *linearizer);
         ~TreeLinrefNode();
     };
@@ -138,7 +138,7 @@ class PGF_INTERNAL_DECL PgfLinearizer : public PgfUnmarshaller {
 
         TreeLitNode(PgfLinearizer *linearizer, ref<PgfConcrLincat> lincat, PgfText *lit);
         virtual bool check_category(PgfLinearizer *linearizer, PgfText *cat);
-        virtual void linearize(PgfLinearizationOutputIface *out, PgfLinearizer *linearizer, size_t lindex);
+        virtual bool linearize(PgfLinearizationOutputIface *out, PgfLinearizer *linearizer, size_t lindex);
         virtual ref<PgfConcrLincat> get_lincat(PgfLinearizer *linearizer);
         ~TreeLitNode() { free(literal); };
     };
@@ -147,7 +147,7 @@ class PGF_INTERNAL_DECL PgfLinearizer : public PgfUnmarshaller {
         TreeChunksNode(PgfLinearizer *linearizer);
         virtual bool resolve(PgfLinearizer *linearizer);
         virtual bool check_category(PgfLinearizer *linearizer, PgfText *cat);
-        virtual void linearize(PgfLinearizationOutputIface *out, PgfLinearizer *linearizer, size_t lindex);
+        virtual bool linearize(PgfLinearizationOutputIface *out, PgfLinearizer *linearizer, size_t lindex);
         virtual ref<PgfConcrLincat> get_lincat(PgfLinearizer *linearizer);
     };
 
@@ -191,9 +191,11 @@ public:
 
     bool resolve();
     void reverse_and_label(bool add_linref);
-    void linearize(PgfLinearizationOutputIface *out, size_t lindex) {
-        prev->linearize(out, this, lindex);
+    bool linearize(PgfLinearizationOutputIface *out, size_t lindex) {
+        if (!prev->linearize(out, this, lindex))
+            return false;
         flush_pre_stack(out, NULL);
+        return true;
     }
     ref<PgfConcrLincat> get_lincat() {
         return prev->get_lincat(this);
