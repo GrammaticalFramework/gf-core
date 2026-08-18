@@ -112,15 +112,25 @@ protected:
 
         void push_item(Item *item) {
             queue.push_back(item);
-            std::push_heap(queue.begin(), queue.end(), item_comp);
+            std::push_heap(queue.begin(), queue.end(), item_prob_comp);
         }
 
         Item *pop_item() {
             Item *item = queue.front();
-            std::pop_heap(queue.begin(), queue.end(), item_comp);
+            std::pop_heap(queue.begin(), queue.end(), item_prob_comp);
             queue.pop_back();
             return item;
         }
+    };
+
+    static struct ItemProbComparator : std::less<Item*> {
+        bool operator()(Item *item1, Item *item2) {
+            return item1->inside_prob+item1->outside_prob > item2->inside_prob+item2->outside_prob;
+        }
+    } item_prob_comp;
+
+    struct ItemComparator : std::less<Item*> {
+        bool operator()(Item *item1, Item *item2);
     };
 
     struct Cont {
@@ -128,7 +138,7 @@ protected:
         ref<PgfConcrLincat> lincat;
         State *state;
         interval_map<interval_map<std::vector<Item*>>> suspended;
-        interval_map<interval_map<Item*>> predicted;
+        std::set<Item*,ItemComparator> predicted;
 
         ~Cont();
     };
@@ -191,12 +201,6 @@ protected:
         Item() {
         }
     };
-
-    static struct ItemComparator : std::less<Item*> {
-        bool operator()(Item *item1, Item *item2) {
-            return item1->inside_prob+item1->outside_prob > item2->inside_prob+item2->outside_prob;
-        }
-    } item_comp;
 
     struct ExprState {
         PgfExpr expr;

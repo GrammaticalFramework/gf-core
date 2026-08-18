@@ -313,6 +313,9 @@ void PgfAbstractParser::complete(Item *item, State *state)
 #endif
         final_item(state, ccat, item, res, lin_idx);
 
+        if (ccat->cont == NULL)
+            break;
+
         if (ccat->prods.size() == 1) {
             bu_predict(state, ccat);
 
@@ -516,6 +519,23 @@ void PgfAbstractParser::combine(State *state, Item *item, CCat *ccat)
     state->push_item(item);
 }
 
+bool PgfAbstractParser::ItemComparator::operator()(Item *item1, Item *item2)
+{
+    if (item1->rule.as_object() < item2->rule.as_object())
+        return true;
+    else if (item1->rule.as_object() > item2->rule.as_object())
+        return false;
+
+    for (size_t j = 0; j < item1->args.size(); j++) {
+        if (item1->args[j] < item2->args[j])
+            return true;
+        else if (item1->args[j] > item2->args[j])
+            return false;
+    }
+
+    return false;
+}
+
 void PgfAbstractParser::td_epsilon(State *state, Cont *cont, ref<PgfItem> pitem, Item *xitem, ref<PgfSymbolCat> symcat)
 {
     switch (ref<object>::get_tag(pitem->rule->container)) {
@@ -543,13 +563,6 @@ void PgfAbstractParser::td_epsilon(State *state, Cont *cont, ref<PgfItem> pitem,
             }
 
             {
-                interval_t value_i   = interval(rule, values1, rule->res);
-                interval_t lin_idx_i = interval(rule, values1, rule->lin_idx);
-                Item *&pred = cont->predicted[value_i][lin_idx_i];
-                if (pred != NULL && pred != xitem)
-                    return;
-                pred = xitem;
-
                 Item *item = new (rule) Item;
                 item->cont    = cont;
                 item->dot     = 0;
@@ -560,14 +573,26 @@ void PgfAbstractParser::td_epsilon(State *state, Cont *cont, ref<PgfItem> pitem,
                 item->inside_prob = lin->absfun->prob;
                 item->outside_prob = xitem->outside_prob+xitem->inside_prob-xitem->args[symcat->d]->viterbi_prob;
 
+                size_t *values3 = CLONE_VALUES(pitem->rule, &pitem->vars[0]);
                 for (size_t i = 0; i < pitem->args.size(); i++) {
                     if (pitem->args[i] != 0) {
+                        if (!instantiate(rule,        &item->vars[0], rule->args[i],
+                                         pitem->rule, values3,        pitem->rule->args[i])) {
+                            delete item;
+                            goto next;
+                        }
+
                         item->args[i] = get_epsilon_ccat(&lin->absfun->type->hypos[i].type->name,pitem->args[i]);
                         item->inside_prob += item->args[i]->viterbi_prob;
                     }
                 }
 
-                state->push_item(item);
+                auto res = cont->predicted.insert(item);
+                if (res.second) {
+                    state->push_item(item);
+                } else {
+                    delete item;
+                }
             }
 next:;
         }
@@ -605,13 +630,6 @@ void PgfAbstractParser::td_predict(State *state, Cont *cont, Production *prod, I
             }
 
             {
-                interval_t value_i   = interval(rule, values1, rule->res);
-                interval_t lin_idx_i = interval(rule, values1, rule->lin_idx);
-                Item *&pred = cont->predicted[value_i][lin_idx_i];
-                if (pred != NULL && pred != xitem)
-                    return;
-                pred = xitem;
-
                 Item *item = new (rule) Item;
                 item->cont    = cont;
                 item->dot     = 0;
@@ -622,14 +640,26 @@ void PgfAbstractParser::td_predict(State *state, Cont *cont, Production *prod, I
                 item->inside_prob = lin->absfun->prob;
                 item->outside_prob = xitem->outside_prob+xitem->inside_prob-xitem->args[symcat->d]->viterbi_prob;
 
+                size_t *values3 = CLONE_VALUES(prod->rule, &prod->vars[0]);
                 for (size_t i = 0; i < rule->args.size(); i++) {
+                    if (!instantiate(rule,       &item->vars[0], rule->args[i],
+                                     prod->rule, values3,        prod->rule->args[i])) {
+                        delete item;
+                        goto next;
+                    }
+
                     item->args[i] = prod->args[i];
                     if (item->args[i] != NULL) {
                         item->inside_prob += item->args[i]->viterbi_prob;
                     }
                 }
 
-                state->push_item(item);
+                auto res = cont->predicted.insert(item);
+                if (res.second) {
+                    state->push_item(item);
+                } else {
+                    delete item;
+                }
             }
 
 next:;
