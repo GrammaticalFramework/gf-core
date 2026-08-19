@@ -87,7 +87,7 @@ module PGF2 (-- * PGF
 
              -- ** Parsing
              ParseOutput(..), parse, parseWithHeuristics, complete,
-             parseChart, getParseChartText, changeParseChartText,
+             ParseChart, parseChart, getParseChartText, changeParseChartText,
 
              -- * Exceptions
              PGFError(..),
