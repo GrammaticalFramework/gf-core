@@ -317,7 +317,7 @@ void PgfAbstractParser::complete(Item *item, State *state)
             break;
 
         if (ccat->prods.size() == 1) {
-            bu_predict(state, ccat);
+            bu_predict(state, item->outside_prob, ccat);
 
             for (auto it1 : ccat->cont->suspended.overlaps(ccat->value)) {
                 for (auto it2 : it1.second.overlaps(ccat->lin_idx)) {
@@ -899,7 +899,7 @@ PgfParser::~PgfParser()
 }
 
 void PgfParser::bu_predict(PgfPhrasetable<PgfSymbolKS> phrasetable,
-                           State *state,
+                           State *state, prob_t outside_prob,
                            ptrdiff_t min, ptrdiff_t max)
 {
     if (phrasetable == 0)
@@ -908,40 +908,41 @@ void PgfParser::bu_predict(PgfPhrasetable<PgfSymbolKS> phrasetable,
     PgfTextSpot current = state->end;
     int cmp = text_symbol_cmp(&current,end,phrasetable->value.key,case_sensitive);
     if (cmp < 0) {
-        bu_predict(phrasetable->left,state,min,max);
+        bu_predict(phrasetable->left,state,outside_prob,min,max);
     } else if (cmp > 0) {
         ptrdiff_t len = current.ptr - state->end.ptr;
 
         if (min <= len-1)
-            bu_predict(phrasetable->left,state,min,len-1);
+            bu_predict(phrasetable->left,state,outside_prob,min,len-1);
 
         if (len <= max)
-            bu_predict(phrasetable->right,state,len,max);
+            bu_predict(phrasetable->right,state,outside_prob,len,max);
     } else {
         ptrdiff_t len = current.ptr - state->end.ptr;
 
         if (min <= len)
-            bu_predict(phrasetable->left,state,min,len);
+            bu_predict(phrasetable->left,state,outside_prob,min,len);
 
         if (len > 0) {
-            State *next_state = new_state(current);
             for (size_t i = 0; i < phrasetable->value.n_items; i++) {
-                std::map<ref<PgfConcrLincat>, bool> visited;
+                //std::map<ref<PgfConcrLincat>, bool> visited;
                 //if (!td_reachable(state, phrasetable->items[i], visited))
                 //    continue;
-                Item *item = bu_item(state, phrasetable->value.items[i]);
+                Item *item = bu_item(state, outside_prob, phrasetable->value.items[i]);
                 item->dot++;
+
+                State *next_state = new_state(current,item->outside_prob+item->inside_prob);
                 next_state->push_item(item);
             }
         }
 
         if (len <= max)
-            bu_predict(phrasetable->right,state,len,max);
+            bu_predict(phrasetable->right,state,outside_prob,len,max);
      }
 }
 
 void PgfParser::bu_predict(PgfPhrasetable<PgfSymbolBIND> phrasetable,
-                           State *state)
+                           State *state, prob_t outside_prob)
 {
     size_t n_items = 0;
     vector<ref<PgfItem>> items =
@@ -956,6 +957,7 @@ void PgfParser::bu_predict(PgfPhrasetable<PgfSymbolBIND> phrasetable,
         next_state->end   = state->end;
         next_state->next  = state->next;
         next_state->needs_bind = false;
+        next_state->viterbi_prob = state->viterbi_prob;
         state->next = next_state;
     }
 
@@ -963,13 +965,13 @@ void PgfParser::bu_predict(PgfPhrasetable<PgfSymbolBIND> phrasetable,
         //std::map<ref<PgfConcrLincat>, bool> visited;
         //if (!td_reachable(state, phrasetable->items[i], visited))
         //    continue;
-        Item *item = bu_item(state, items[i]);
+        Item *item = bu_item(state, outside_prob, items[i]);
         item->dot++;
         next_state->push_item(item);
     }
 }
 
-void PgfParser::bu_predict(State *state, CCat *ccat)
+void PgfParser::bu_predict(State *state, prob_t outside_prob, CCat *ccat)
 {
     size_t n_items = 0;
     vector<ref<PgfItem>> items = 0;
@@ -987,7 +989,7 @@ void PgfParser::bu_predict(State *state, CCat *ccat)
         //std::map<ref<PgfConcrLincat>, bool> visited;
         //if (!td_reachable(ccat->cont->state, items[i], visited))
         //    continue;
-        auto new_item = bu_item(ccat->cont->state, items[i]);
+        auto new_item = bu_item(ccat->cont->state, outside_prob, items[i]);
         combine(state,new_item,ccat);
     }
 }
@@ -1023,7 +1025,7 @@ bool PgfParser::td_reachable(State *state, ref<PgfItem> pitem,
     return false;
 }
 
-PgfAbstractParser::Item *PgfParser::bu_item(State *state, ref<PgfItem> pitem)
+PgfAbstractParser::Item *PgfParser::bu_item(State *state, prob_t outside_prob, ref<PgfItem> pitem)
 {
     Item *item = NULL;
 
@@ -1061,7 +1063,7 @@ PgfAbstractParser::Item *PgfParser::bu_item(State *state, ref<PgfItem> pitem)
         item->syms    = pitem->rule->syms.as_vector();
         item->rule    = pitem->rule;
         item->inside_prob = lin->absfun->prob;
-        item->outside_prob = 0;
+        item->outside_prob = outside_prob;
 
         for (size_t i = 0; i < pitem->args.size(); i++) {
             item->args[i] = 0;
@@ -1149,7 +1151,7 @@ void PgfParser::prepare(ref<PgfConcrLincat> start)
 #endif
 
     PgfTextSpot start_spot = {0, (uint8_t *) sentence->text};
-    State *state = new_state(start_spot);
+    State *state = new_state(start_spot, 0);
 
     for (size_t i = start->n_lindefs; i < start->rules.size(); i++) {
         ref<PgfConcrRule> rule = start->rules[i];
@@ -1183,7 +1185,8 @@ PgfExpr PgfParser::fetch(PgfDB *db, prob_t *prob)
         while (state != NULL) {
             if (state->queue.size() > 0) {
                 Item *item = state->queue.front();
-                prob_t prob = item->outside_prob + item->inside_prob;
+                prob_t delta = current_state->viterbi_prob - state->viterbi_prob;
+                prob_t prob = item->outside_prob + item->inside_prob + delta;
                 if (min_prob > prob) {
                     min_prob  = prob;
                     min_state = state;
@@ -1360,7 +1363,7 @@ PgfExpr PgfParser::process_expr(ExprState *estate, prob_t *prob)
     return 0;
 }
 
-PgfAbstractParser::State *PgfParser::new_state(const PgfTextSpot &start)
+PgfAbstractParser::State *PgfParser::new_state(const PgfTextSpot &start, prob_t viterbi_prob)
 {
     State **prev = &current_state;
     State *state = current_state;
@@ -1374,6 +1377,7 @@ PgfAbstractParser::State *PgfParser::new_state(const PgfTextSpot &start)
     state = new State;
     state->start = start;
     state->end   = start;
+    state->viterbi_prob = viterbi_prob;
     state->next  = *prev;
     *prev = state;
 
@@ -1397,7 +1401,7 @@ void PgfParser::symbol_token(Item *item, State *state, ref<PgfSymbolKS> symks)
     if (text_symbol_cmp(&next,end,symks,case_sensitive) != 0)
         return;
 
-    State *next_state = new_state(next);
+    State *next_state = new_state(next, item->inside_prob+item->outside_prob);
 
     item->dot++;
     process(item, next_state);
@@ -1413,6 +1417,7 @@ void PgfParser::symbol_bind(Item *item, State *state, PgfSymbol sym)
             next_state->end   = state->end;
             next_state->next  = state->next;
             next_state->needs_bind = false;
+            next_state->viterbi_prob = state->viterbi_prob;
             state->next = next_state;
         }
         item->dot++;
@@ -1472,10 +1477,11 @@ void PgfParser::suspend(Cont *cont,Item *item,bool do_predict,ref<PgfSymbolCat> 
         }
 
         if (do_predict) {
+            prob_t viterbi_prob = item->inside_prob+item->outside_prob;
             if (cont->state->needs_bind) {
-                bu_predict(concr->phrasetable4, cont->state);
+                bu_predict(concr->phrasetable4, cont->state, viterbi_prob);
             } else {
-                bu_predict(concr->phrasetable1, cont->state, 1, sentence->size);
+                bu_predict(concr->phrasetable1, cont->state, viterbi_prob, 1, sentence->size);
             }
         }
     } else {
@@ -1606,6 +1612,7 @@ PgfParseTableMaker::PgfParseTableMaker(ref<PgfConcr> concr)
     current_state->start.pos = 0;
     current_state->start.ptr = NULL;
     current_state->end       = current_state->start;
+    current_state->viterbi_prob = 0;
     current_state->next      = NULL;
 }
 
@@ -1629,7 +1636,7 @@ ref<PgfItem> PgfParseTableMaker::clone_item(Item *item)
     return pitem;
 }
 
-PgfAbstractParser::State *PgfParseTableMaker::new_state(const PgfTextSpot &start)
+PgfAbstractParser::State *PgfParseTableMaker::new_state(const PgfTextSpot &start, prob_t viterbi_prob)
 {
     return current_state;
 }
@@ -1716,7 +1723,7 @@ void PgfParseTableMaker::final_item(State *state, CCat *ccat, Item *item, interv
     }
 }
 
-void PgfParseTableMaker::bu_predict(State *state, CCat *ccat)
+void PgfParseTableMaker::bu_predict(State *state, prob_t outside_prob, CCat *ccat)
 {
 }
 

@@ -103,6 +103,7 @@ protected:
         std::map<CCat*,Cont*> conts2;
         std::map<Cont*,interval_map<interval_map<CCat*>>> completed;
         std::vector<Item*> queue;
+        prob_t viterbi_prob;
 
         State *next;
 
@@ -237,12 +238,12 @@ protected:
     void symbol(Item *item, State *state, PgfSymbol sym);
     void complete(Item *item, State *state);
 
-    virtual State *new_state(const PgfTextSpot &start)=0;
+    virtual State *new_state(const PgfTextSpot &start, prob_t viterbi_prob)=0;
     virtual void symbol_token(Item *item, State *state, ref<PgfSymbolKS> symks)=0;
     virtual void symbol_bind(Item *item, State *state, PgfSymbol sym)=0;
     virtual void suspend(Cont *cont, Item *item, bool do_predict, ref<PgfSymbolCat> symcat,interval_t value_i,interval_t lin_idx_i)=0;
     virtual void final_item(State *state,CCat *ccat,Item *item,interval_t value,interval_t lin_idx)=0;
-    virtual void bu_predict(State *state, CCat *ccat)=0;
+    virtual void bu_predict(State *state, prob_t outside_prob, CCat *ccat)=0;
 
     void td_epsilon(State *state, Cont *cont, ref<PgfItem> pitem, Item *xitem, ref<PgfSymbolCat> symcat);
     void td_predict(State *state, Cont *cont, Production *prod, Item *xitem, ref<PgfSymbolCat> symcat);
@@ -277,20 +278,20 @@ class PGF_INTERNAL_DECL PgfParser : private PgfAbstractParser, public PgfExprEnu
     uint8_t *end;
     bool case_sensitive;
 
-    virtual State *new_state(const PgfTextSpot &start);
+    virtual State *new_state(const PgfTextSpot &start, prob_t viterbi_prob);
     virtual void symbol_token(Item *item, State *state, ref<PgfSymbolKS> symks);
     virtual void symbol_bind(Item *item, State *state, PgfSymbol sym);
     virtual void suspend(Cont *cont,Item *item,bool do_predict,ref<PgfSymbolCat> symcat,interval_t value_i,interval_t lin_idx_i);
     virtual void final_item(State *state,CCat *ccat,Item *item,interval_t value,interval_t lin_idx);
-    virtual void bu_predict(State *state, CCat *ccat);
+    virtual void bu_predict(State *state, prob_t outside_prob, CCat *ccat);
 
-    void bu_predict(PgfPhrasetable<PgfSymbolBIND> phrasetable, State *state);
-    void bu_predict(PgfPhrasetable<PgfSymbolKS> phrasetable, State *state, ptrdiff_t min, ptrdiff_t max);
+    void bu_predict(PgfPhrasetable<PgfSymbolBIND> phrasetable, State *state, prob_t outside_prob);
+    void bu_predict(PgfPhrasetable<PgfSymbolKS> phrasetable, State *state, prob_t outside_prob, ptrdiff_t min, ptrdiff_t max);
     void make_chunks(State *state, std::vector<CCat*> &chunks, prob_t prob);
     PgfExpr process_expr(ExprState *estate, prob_t *prob);
 
     bool td_reachable(State *state, ref<PgfItem> pitem, std::map<ref<PgfConcrLincat>, bool> &visited);
-    Item *bu_item(State *state, ref<PgfItem> pitem);
+    Item *bu_item(State *state, prob_t outside_prob, ref<PgfItem> pitem);
 
     static
     void print_expr_state_left(PgfPrinter *printer, PgfMarshaller *m, ExprState *estate);
@@ -319,12 +320,12 @@ public:
 class PGF_INTERNAL_DECL PgfParseTableMaker : private PgfAbstractParser
 {
 private:
-    virtual State *new_state(const PgfTextSpot &start);
+    virtual State *new_state(const PgfTextSpot &start, prob_t viterbi_prob);
     virtual void symbol_token(Item *item, State *state, ref<PgfSymbolKS> symks);
     virtual void symbol_bind(Item *item, State *state, PgfSymbol sym);
     virtual void suspend(Cont *cont, Item *item, bool do_predict, ref<PgfSymbolCat> symcat,interval_t value_i,interval_t lin_idx_i);
     virtual void final_item(State *state, CCat *ccat,Item *item,interval_t value,interval_t lin_idx);
-    virtual void bu_predict(State *state, CCat *ccat);
+    virtual void bu_predict(State *state, prob_t outside_prob, CCat *ccat);
 
     static
     ref<PgfItem> clone_item(Item *item);
