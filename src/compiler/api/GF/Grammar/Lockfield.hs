@@ -14,37 +14,35 @@
 -- AR 8\/2\/2005 detached from 'compile/MkResource'
 -----------------------------------------------------------------------------
 
-module GF.Grammar.Lockfield (lockRecType, unlockRecord, lockLabel, isLockLabel) where
+module GF.Grammar.Lockfield (lock, lockLabel, isLockLabel) where
 
 import GF.Infra.Ident
+import GF.Grammar.Predef
 import GF.Grammar.Grammar
-import GF.Grammar.Macros
 
 import GF.Data.Operations(ErrorMonad,Err(..))
 
-lockRecType :: ErrorMonad m => Ident -> Type -> m Type
-lockRecType c t@(RecType rs) = 
-  let lab = lockLabel c in
-  return $ if elem lab (map fst rs) || elem (showIdent c) ["String","Int"]
-    then t --- don't add an extra copy of lock field, nor predef cats
-    else RecType (rs ++ [(lockLabel c,  RecType [])])
-lockRecType c t = plusRecType t $ RecType [(lockLabel c,  RecType [])]
-
-unlockRecord :: Monad m => Ident -> Term -> m Term
-unlockRecord c ft = do
-  let (xs,t) = termFormCnc ft
-  let lock = R [(lockLabel c,  (Just (RecType []),R []))]
-  case plusRecord t lock of
-    Ok t' -> return $ mkAbs xs t'
-    _ -> return $ mkAbs xs (ExtR t lock)
+lock :: Ident -> Term -> Term
+lock c t@(RecType rs) =
+  let lbl = lockLabel c
+  in if elem lbl [l | (l,_,_)<-rs] || elem c [cString,cInt]
+       then t --- don't add an extra copy of lock field, nor predef cats
+       else RecType (rs ++ [(lbl, [], RecType [])])
+lock c t@(R rs) =
+  let lbl = lockLabel c
+  in if elem lbl (map fst rs)
+       then t
+       else R (rs ++ [(lbl, (Just (RecType []),R []))])
+lock c (Abs b x t) = Abs b x (lock c t)
+lock c (FV ts)     = FV (map (lock c) ts)
+lock c t           = t
 
 lockLabel :: Ident -> Label
 lockLabel c = LIdent $! prefixRawIdent lockPrefix (ident2raw c)
 
-isLockLabel :: Label -> Bool
+isLockLabel :: Label -> Maybe RawIdent
 isLockLabel l = case l of
   LIdent c -> isPrefixOf lockPrefix c
-  _        -> False
-
+  _        -> Nothing
 
 lockPrefix = rawIdentS "lock_"

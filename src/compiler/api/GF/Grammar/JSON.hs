@@ -34,11 +34,11 @@ info2json (AbsCat mb_ctxt) =
   case mb_ctxt of
     Nothing         -> makeObj []
     Just (L _ ctxt) -> makeObj [("context", showJSON (map hypo2json ctxt))]
-info2json (AbsFun mb_ty mb_arity mb_eqs _) =
+info2json (AbsFun mb_ty mb_eqs) =
   (makeObj . catMaybes)
      [ fmap (\(L _ ty) -> ("abstype",term2json ty)) mb_ty
-     , fmap (\a -> ("arity",showJSON a)) mb_arity
-     , fmap (\eqs -> ("equations",showJSON (map (\(L _ eq) -> equation2json eq) eqs))) mb_eqs
+     , fmap (\(a,_)   -> ("arity",showJSON a)) mb_eqs
+     , fmap (\(_,eqs) -> ("equations",showJSON (map (\(L _ eq) -> equation2json eq) eqs))) mb_eqs
      ]
 info2json (ResParam mb_params _) =
   makeObj [("params", case mb_params of
@@ -102,7 +102,7 @@ term2json (Prod bt v t1 t2) = makeObj [("implicit", showJSON (bt==Implicit)), ("
 term2json (Typed t ty) = makeObj [("term", term2json t), ("type", term2json ty)]
 term2json (Example t s) = makeObj [("term", term2json t), ("example", showJSON s)]
 term2json (RecType lbls) = makeObj [("rectype", makeObj (map toRow lbls))]
-                              where toRow (l,t) = (showLabel l, term2json t)
+                              where toRow (l,_,t) = (showLabel l, term2json t)
 term2json (R lbls) = makeObj [("record", makeObj (map toRow lbls))]
                               where toRow (l,(_,t)) = (showLabel l, term2json t)
 term2json (P t proj) = makeObj [("project", term2json t), ("label", showJSON (showLabel proj))]
@@ -126,7 +126,7 @@ term2json (ELin id t) = makeObj [("lin",showJSON id), ("term",term2json t)]
 term2json (FV ts) = makeObj [("variants",showJSON (map term2json ts))]
 term2json (Markup tag attrs children) = makeObj [ ("tag",showJSON tag)
                                                 , ("attrs",showJSON (map (\(attr,val) -> (showJSON attr,term2json val)) attrs))
-                                                , ("children",showJSON (map term2json children))
+                                                , ("children",showJSON (map (term2json . unLoc) children))
                                                 ]
 term2json (Reset ctl ct t qid) =
   makeObj ([("ctl",showJSON ctl)]++maybe [] (\t->[("ct",term2json t)]) ct++[("term",term2json t), ("qid",showJSON qid)])
@@ -177,14 +177,14 @@ json2term o  = Vr      <$> o!:"vr"
     <|>        FV      <$> (o!:"variants" >>= mapM json2term)
     <|>        Markup  <$> (o!:"tag") <*>
                            (o!:"attrs" >>= mapM (\(attr,val) -> fmap ((,)attr) (json2term val))) <*>
-                           (o!:"children" >>= mapM json2term)
+                           (o!:"children" >>= mapM (fmap noLoc . json2term))
     <|>        Reset   <$> o!:"ctl" <*> fmap Just (o!<"ct") <*> o!<"term" <*> o!:"qid"
     <|>        Reset   <$> o!:"ctl" <*> pure Nothing <*> o!<"term" <*> o!:"qid"
     <|>        Alts    <$> (o!<"def") <*> (o!:"alts" >>= mapM (\(x,y) -> liftM2 (,) (json2term x) (json2term y)))
     <|>        Strs    <$> (o!:"strs" >>= mapM json2term)
     where
       fromRow  (lbl, jsvalue) = do value <- json2term jsvalue
-                                   return (readLabel lbl,value)
+                                   return (readLabel lbl,[],value)
 
       fromRow' (lbl, jsvalue) = do value <- json2term jsvalue
                                    return (readLabel lbl,(Nothing,value))
@@ -198,7 +198,6 @@ json2term o  = Vr      <$> o!:"vr"
 patt2json (PC id ps)     = makeObj [("pc",showJSON id),("args",showJSON (map patt2json ps))]
 patt2json (PP (mn,id) ps) = makeObj [("mod",showJSON mn),("pc",showJSON id),("args",showJSON (map patt2json ps))]
 patt2json (PV id)        = makeObj [("pv",showJSON id)]
-patt2json PW             = makeObj [("wildcard",showJSON True)]
 patt2json (PR lbls)      = makeObj (("record", showJSON True) : map toRow lbls)
                                where toRow (l,t) = (showLabel l, patt2json t)
 patt2json (PString s)    = showJSON s
@@ -231,7 +230,6 @@ json2patt :: JSValue -> Result Patt
 json2patt o = PP <$> (liftM2 (\mn id -> (mn,id)) (o!:"mod") (o!:"pc")) <*> (o!:"args" >>= mapM json2patt)
     <|>       PC <$> (o!:"pc") <*> (o!:"args" >>= mapM json2patt)
     <|>       PV <$> (o!:"pv")
-    <|>  (o!:"wildcard" >>= guard >> return PW)
     <|> (const PR) <$> (o!:"record" >>= guard) <*> mapM fromRow (assocsJSObject o)
     <|>  PString <$> readJSON o
     <|>  PInt    <$> readJSON o

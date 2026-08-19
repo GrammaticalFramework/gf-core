@@ -19,8 +19,8 @@ import GF.Grammar.Analyse
 import GF.Grammar.ShowTerm
 import GF.Grammar.Lookup (allOpers,allOpersTo)
 import GF.Compile.Rename(renameSourceTerm)
-import GF.Compile.Compute.Concrete2(normalForm,normalFlatForm,Globals(..),stdPredef)
-import GF.Compile.TypeCheck.Concrete as TC(inferLType)
+import GF.Compile.Compute(normalForm,normalFlatForm,Globals(..),stdPredef)
+import GF.Compile.TypeCheck as TC(inferLType)
 
 import GF.Command.Abstract(Option(..),isOpt,listFlags,valueString,valStrOpts)
 import GF.Command.CommandInfo
@@ -253,7 +253,7 @@ checkComputeTerm os sgr t =
     -- ** Try to compute pre{...} tokens in token sequences
     singleton x = [x]
 
-    g = Gl sgr (stdPredef g)
+    g = Gl sgr (stdPredef g) False
 
     evalStr t =
       case t of

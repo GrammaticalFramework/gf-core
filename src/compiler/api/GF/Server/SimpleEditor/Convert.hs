@@ -70,7 +70,7 @@ convAbsJment (cats,funs) (name,jment) =
                              fail "category with context"
                       let cat = convId name
                       return (cat:cats,funs)
-    AbsFun (Just lt) _ oeqns _ -> do unless (null (maybe [] id oeqns)) $
+    AbsFun (Just lt) oeqns     -> do unless (null (maybe [] snd oeqns)) $
                                             fail "function with equations"
                                      let f = convId name
                                      typ <- convType (unLoc lt)
@@ -150,7 +150,7 @@ jmentList = sortBy (compare `on` (jmentLocation.snd)) . Map.toList
 jmentLocation jment =
   case jment of
     AbsCat ctxt      -> fmap loc ctxt
-    AbsFun ty _ _ _  -> fmap loc ty
+    AbsFun ty _      -> fmap loc ty
     ResParam ops _   -> fmap loc ops
     CncCat ty _ _ _ _ ->fmap loc ty
     ResOper ty rhs   -> fmap loc rhs `mplus` fmap loc ty

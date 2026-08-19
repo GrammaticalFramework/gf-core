@@ -20,7 +20,6 @@ import GF.Grammar.CFG
 --import GF.Infra.Ident (Ident)
 
 import GF.Data.Graph
---import GF.Data.Relation
 import GF.Speech.FiniteState
 --import GF.Speech.CFG
 

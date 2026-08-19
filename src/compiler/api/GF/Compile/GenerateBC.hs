@@ -13,7 +13,7 @@ import Data.Maybe(fromMaybe)
 generateByteCode :: SourceGrammar -> Int -> [L Equation] -> [[Instr]]
 generateByteCode gr arity eqs =
   let (bs,instrs) = compileEquations gr arity (arity+1) is 
-                                     (map (\(L _ (ps,t)) -> ([],ps,t)) eqs) 
+                                     (map (\(L _ (ps,t)) -> ([],ps,t)) eqs)
                                      Nothing
                                      [b]
       b = if arity == 0 || null eqs
@@ -50,8 +50,9 @@ compileEquations gr arity st (i:is) eqs       fl bs = whilePP eqs Map.empty
                                                              in (bs3,[PUSH_FRAME, EVAL (shiftIVal (st+2) i) RecCall] ++ instrs1)
 
     whilePV []                           vrs = compileEquations gr arity st is vrs fl bs
-    whilePV ((vs, PV x     : ps, t):eqs) vrs = whilePV eqs (((x,i):vs,ps,t) : vrs)
-    whilePV ((vs, PW       : ps, t):eqs) vrs = whilePV eqs ((      vs,ps,t) : vrs)
+    whilePV ((vs, PV x     : ps, t):eqs) vrs
+      | x == identW                          = whilePV eqs ((      vs,ps,t) : vrs)
+      | otherwise                            = whilePV eqs (((x,i):vs,ps,t) : vrs)
     whilePV ((vs, PTilde _ : ps, t):eqs) vrs = whilePV eqs ((      vs,ps,t) : vrs)
     whilePV ((vs, PImplArg p:ps, t):eqs) vrs = whilePV ((vs,p:ps,t):eqs) vrs
     whilePV ((vs, PT _ p   : ps, t):eqs) vrs = whilePV ((vs,p:ps,t):eqs) vrs
@@ -101,11 +102,11 @@ compileFun gr eval st vs (App e1 e2) h0 bs args =
   let (h1,bs1,arg,is1) = compileArg gr st vs e2 h0 bs
       (h2,bs2,is2) = compileFun gr eval st vs e1 h1 bs1 (arg:args)
   in (h2,bs2,is1++is2)
-compileFun gr eval st vs (Q (m,id))  h0 bs args =
-  case lookupAbsDef gr m id of
-    Ok (_,Just _)
+compileFun gr eval st vs (Q q@(m,id))  h0 bs args =
+  case lookupAbsDef gr q of
+    Ok (Just _)
        -> (h0,bs,eval st (GLOBAL (showIdent id)) args)
-    _  -> let Ok ty = lookupFunType gr m id
+    _  -> let Ok ty = lookupFunType gr q
               (ctxt,_,_) = typeForm ty
               c_arity    = length ctxt
               n_args = length args
@@ -164,10 +165,10 @@ compileFun gr eval st vs e@(Glue e1 e2) h0 bs args =
   in (h1,bs1,[PUSH_ACCUM (LFlt 0)]++is++[POP_ACCUM]++eval (st+1) (ARG_VAR st) [])
 compileFun gr eval st vs e _ _ _ = error (show e)
 
-compileArg gr st vs (Q(m,id)) h0 bs =
-  case lookupAbsDef gr m id of
-    Ok (_,Just _) -> (h0,bs,GLOBAL (showIdent id),[])
-    _             -> let Ok ty = lookupFunType gr m id
+compileArg gr st vs (Q q@(m,id)) h0 bs =
+  case lookupAbsDef gr q of
+    Ok (Just _)   -> (h0,bs,GLOBAL (showIdent id),[])
+    _             -> let Ok ty = lookupFunType gr q
                          (ctxt,_,_) = typeForm ty
                          c_arity    = length ctxt
                      in if c_arity == 0
@@ -201,17 +202,9 @@ compileArg gr st vs (ImplArg e) h0 bs =
   compileArg gr st vs e h0 bs
 compileArg gr st vs e           h0 bs =
   let (f,es)   = appForm e
-      isConstr = case f of
-                   Q c@(m,id) -> case lookupAbsDef gr m id of
-                                   Ok (_,Just _) -> Nothing
-                                   _             -> Just c
-                   QC c@(m,id) -> case lookupAbsDef gr m id of
-                                    Ok (_,Just _) -> Nothing
-                                    _             -> Just c
-                   _        -> Nothing
-  in case isConstr of
-       Just (m,id) ->
-            let Ok ty = lookupFunType gr m id
+  in case f of
+       QC q@(m,id) ->
+            let Ok ty = lookupFunType gr q
                 (ctxt,_,_) = typeForm ty
                 c_arity    = length ctxt
                 ((h1,bs1,is1),args) = mapAccumL (\(h,bs,is) e -> let (h1,bs1,arg,is1) = compileArg gr st vs e h bs
@@ -234,7 +227,7 @@ compileArg gr st vs e           h0 bs =
                                 EVAL (HEAP h0) (TailCall diff) :
                                 []
                       in (h2,b:bs1,HEAP h1,is1 ++ (PUT_CLOSURE (length bs):is2))
-       Nothing -> compileLambda gr st vs [] e h0 bs
+       _ -> compileLambda gr st vs [] e h0 bs
 
 compileLambda gr st vs xs (Abs _ x e) h0 bs =
   compileLambda gr st vs (x:xs) e h0 bs

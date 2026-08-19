@@ -9,7 +9,7 @@ import GF.Grammar
 import GF.Grammar.Lookup(allOrigInfos,lookupOrigInfo)
 import GF.Infra.Option(Options,noOptions)
 import GF.Infra.CheckM
-import GF.Compile.Compute.Concrete2
+import GF.Compile.Compute
 import qualified Data.Map as Map
 import qualified Data.Set as Set
 import Data.Maybe(mapMaybe,fromMaybe)
@@ -36,7 +36,6 @@ abstract2canonical absname gr = do
                      mopens  = [],
                      mexdeps = [],
                      msrc    = "",
-                     mseqs   = Nothing,
                      jments  = Map.fromList infos
                    })
 
@@ -74,7 +73,6 @@ concretes2canonical opts absname gr = do
         mopens  = [],
         mexdeps = [],
         msrc    = "",
-        mseqs   = Nothing,
         jments  = Map.empty
       }
 
@@ -83,7 +81,7 @@ type QSet = Set.Set (ModuleName,Ident)
 -- | Generate Canonical GF for the given concrete module.
 concrete2canonical :: Grammar -> ModuleName -> ModuleName -> ModuleInfo -> Check (QSet,Module)
 concrete2canonical gr absname cncname modinfo = do
-  let g = Gl gr (stdPredef g)
+  let g = Gl gr (stdPredef g) False
   infos <- mapM (convInfo g) (allOrigInfos gr cncname)
   let pts = Set.unions (map fst infos)
   return (pts,
@@ -96,17 +94,16 @@ concrete2canonical gr absname cncname modinfo = do
                       mopens  = [],
                       mexdeps = [],
                       msrc    = "",
-                      mseqs   = Nothing,
                       jments  = Map.fromList (mapMaybe snd infos)
                     }))
   where
-    convInfo g ((mn,id), CncCat (Just (L loc typ)) lindef linref pprn mb_prods) = do
+    convInfo g ((mn,id), CncCat (Just (L loc typ)) lindef linref pprn mpmcfg) = do
       typ <- normalForm g typ
       let pts = paramTypes typ
-      return (pts,Just (id,CncCat (Just (L loc typ)) lindef linref pprn mb_prods))
-    convInfo g ((mn,id), CncFun mb_ty@(Just r@(_,cat,ctx,lincat)) (Just (L loc def)) pprn mb_prods) = do
+      return (pts,Just (id,CncCat (Just (L loc typ)) lindef linref pprn mpmcfg))
+    convInfo g ((mn,id), CncFun mb_ty@(Just r@(_,cat,ctx,lincat)) (Just (L loc def)) pprn mpmcfg) = do
       def <- normalForm g (eta_expand def ctx)
-      return (Set.empty,Just (id,CncFun mb_ty (Just (L loc def)) pprn mb_prods))
+      return (Set.empty,Just (id,CncFun mb_ty (Just (L loc def)) pprn mpmcfg))
     convInfo g  _ = return (Set.empty,Nothing)
 
     eta_expand t []                   = t
@@ -114,7 +111,7 @@ concrete2canonical gr absname cncname modinfo = do
     eta_expand t ((Explicit,x,_):ctx) = Abs Explicit x (eta_expand (App t (Vr x))           ctx)
 
 
-paramTypes (RecType fs) = Set.unions (map (paramTypes.snd) fs)
+paramTypes (RecType fs) = Set.unions (map (\(_,_,t)->paramTypes t) fs)
 paramTypes (Table t1 t2) = Set.union (paramTypes t1) (paramTypes t2)
 paramTypes (App tf ta) = Set.union (paramTypes tf) (paramTypes ta)
 paramTypes (Sort _) = Set.empty

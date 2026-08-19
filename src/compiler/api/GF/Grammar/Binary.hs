@@ -23,7 +23,6 @@ import GF.Infra.UseIO(MonadIO(..))
 import GF.Grammar.Grammar
 
 import PGF2(Literal(..))
-import PGF2.Transactions(Symbol(..))
 
 -- Please change this every time when the GFO format is changed
 gfoVersion = "GF05"
@@ -33,9 +32,9 @@ instance Binary Grammar where
   get = fmap mGrammar get
 
 instance Binary ModuleInfo where
-  put mi = do put (mtype mi,mstatus mi,mflags mi,mextend mi,mwith mi,mopens mi,mexdeps mi,msrc mi,mseqs mi,jments mi)
-  get    = do (mtype,mstatus,mflags,mextend,mwith,mopens,med,msrc,mseqs,jments) <- get
-              return (ModInfo mtype mstatus mflags mextend mwith mopens med msrc mseqs jments)
+  put mi = do put (mtype mi,mstatus mi,mflags mi,mextend mi,mwith mi,mopens mi,mexdeps mi,msrc mi,jments mi)
+  get    = do (mtype,mstatus,mflags,mextend,mwith,mopens,med,msrc,jments) <- get
+              return (ModInfo mtype mstatus mflags mextend mwith mopens med msrc jments)
 
 instance Binary ModuleType where
   put MTAbstract       = putWord8 0
@@ -100,13 +99,13 @@ instance Binary PArg where
   put (PArg x y) = put (x,y)
   get = get >>= \(x,y) -> return (PArg x y)
 
-instance Binary Production where
-  put (Production ps args res rules) = put (ps,args,res,rules)
-  get = get >>= \(ps,args,res,rules) -> return (Production ps args res rules)
+instance Binary Rule where
+  put (Rule v w x y z) = put (v,w,x,y,z)
+  get = get >>= \(v,w,x,y,z) -> return (Rule v w x y z)
 
 instance Binary Info where
   put (AbsCat x)       = putWord8 0 >> put x
-  put (AbsFun w x y z) = putWord8 1 >> put (w,x,y,z)
+  put (AbsFun x y)     = putWord8 1 >> put (x,y)
   put (ResParam x y)   = putWord8 2 >> put (x,y)
   put (ResValue x y)   = putWord8 3 >> put (x,y)
   put (ResOper x y)    = putWord8 4 >> put (x,y)
@@ -117,7 +116,7 @@ instance Binary Info where
   get = do tag <- getWord8
            case tag of
              0 -> get >>= \x         -> return (AbsCat x)
-             1 -> get >>= \(w,x,y,z) -> return (AbsFun w x y z)
+             1 -> get >>= \(x,y)     -> return (AbsFun x y)
              2 -> get >>= \(x,y)     -> return (ResParam x y)
              3 -> get >>= \(x,y)     -> return (ResValue x y)
              4 -> get >>= \(x,y)     -> return (ResOper x y)
@@ -225,7 +224,6 @@ instance Binary Patt where
   put (PC x y)     = putWord8  0 >> put (x,y)
   put (PP x y)     = putWord8  1 >> put (x,y)
   put (PV x)       = putWord8  2 >> put x
-  put (PW)         = putWord8  3
   put (PR x)       = putWord8  4 >> put x
   put (PString x)  = putWord8  5 >> put x
   put (PInt    x)  = putWord8  6 >> put x
@@ -247,7 +245,6 @@ instance Binary Patt where
              0  -> get >>= \(x,y)   -> return (PC x y)
              1  -> get >>= \(x,y)   -> return (PP x y)
              2  -> get >>= \x       -> return (PV x)
-             3  ->                     return (PW)
              4  -> get >>= \x       -> return (PR x)
              5  -> get >>= \x       -> return (PString x)
              6  -> get >>= \x       -> return (PInt    x)
@@ -369,7 +366,7 @@ decodeModuleHeader :: MonadIO io => FilePath -> io (VersionTagged Module)
 decodeModuleHeader = liftIO . fmap (fmap conv) . decodeFile'
   where
     conv (m,mtype,mstatus,mflags,mextend,mwith,mopens,med,msrc) =
-        (m,ModInfo mtype mstatus mflags mextend mwith mopens med msrc Nothing Map.empty)
+        (m,ModInfo mtype mstatus mflags mextend mwith mopens med msrc Map.empty)
 
 encodeModule :: MonadIO io => FilePath -> SourceModule -> io ()
 encodeModule fpath mo = liftIO $ encodeFile fpath (Tagged mo)

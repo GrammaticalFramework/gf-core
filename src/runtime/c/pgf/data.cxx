@@ -40,8 +40,12 @@ void PgfConcr::release(ref<PgfConcr> concr)
     namespace_release(concr->cflags);
     namespace_release(concr->lins);
     namespace_release(concr->lincats);
-    phrasetable_release(concr->phrasetable);
     namespace_release(concr->printnames);
+    phrasetable_release(concr->phrasetable1);
+    phrasetable_release(concr->phrasetable2);
+    phrasetable_release(concr->phrasetable3);
+    phrasetable_release(concr->phrasetable4);
+    epsilontable_release(concr->epsilontable);
     PgfDB::free(concr, concr->name.size+1);
 }
 
@@ -52,17 +56,10 @@ void PgfConcrLincat::release(ref<PgfConcrLincat> lincat)
     }
     vector<ref<PgfText>>::release(lincat->fields);
 
-	for (size_t i = 0; i < lincat->args.size(); i++) {
-        PgfLParam::release(lincat->args[i].param);
+    for (ref<PgfConcrRule> rule : lincat->rules) {
+        PgfConcrRule::release(rule);
     }
-    vector<PgfPArg>::release(lincat->args);
-
-    for (ref<PgfPResult> res : lincat->res) {
-        PgfPResult::release(res);
-    }
-    vector<ref<PgfPResult>>::release(lincat->res);
-
-    vector<ref<PgfSequence>>::release(lincat->seqs);
+    vector<ref<PgfConcrRule>>::release(lincat->rules);
 
     PgfDB::free(lincat, lincat->name.size+1);
 }
@@ -72,16 +69,9 @@ void PgfLParam::release(ref<PgfLParam> param)
     PgfDB::free(param, param->n_terms*sizeof(param->terms[0]));
 }
 
-void PgfPResult::release(ref<PgfPResult> res)
+static void symbols_release(vector<PgfSymbol> syms)
 {
-    if (res->vars != 0)
-        vector<PgfVariableRange>::release(res->vars);
-    PgfDB::free(res, res->param.n_terms*sizeof(res->param.terms[0]));
-}
-
-void PgfSequence::release(ref<PgfSequence> seq)
-{
-	for (PgfSymbol sym : seq->syms) {
+	for (PgfSymbol sym : syms) {
         switch (ref<PgfSymbol>::get_tag(sym)) {
         case PgfSymbolCat::tag: {
             auto sym_cat = ref<PgfSymbolCat>::untagged(sym);
@@ -103,9 +93,11 @@ void PgfSequence::release(ref<PgfSequence> seq)
         }
         case PgfSymbolKP::tag: {
             auto sym_kp = ref<PgfSymbolKP>::untagged(sym);
-            PgfSequence::release(sym_kp->default_form);
+            symbols_release(sym_kp->default_form);
+            vector<PgfSymbol>::release(sym_kp->default_form);
             for (size_t i = 0; i < sym_kp->alts.size(); i++) {
-                PgfSequence::release(sym_kp->alts[i].form);
+                symbols_release(sym_kp->alts[i].form);
+                vector<PgfSymbol>::release(sym_kp->alts[i].form);
                 for (size_t j = 0; j < sym_kp->alts[i].prefixes.size(); j++) {
                     text_db_release(sym_kp->alts[i].prefixes[j]);
                 }
@@ -124,22 +116,31 @@ void PgfSequence::release(ref<PgfSequence> seq)
             throw pgf_error("Unknown symbol tag");
         }
     }
-    inline_vector<PgfSymbol>::release(&PgfSequence::syms, seq);
+}
+
+void PgfConcrRule::release(ref<PgfConcrRule> rule)
+{
+    vector<size_t>::release(rule->ranges);
+
+    PgfLParam::release(rule->res);
+
+    for (ref<PgfLParam> arg : rule->args) {
+        PgfLParam::release(arg);
+    }
+    vector<ref<PgfLParam>>::release(rule->args);
+
+    PgfLParam::release(rule->lin_idx);
+
+    symbols_release(rule->syms.as_vector());
+    inline_vector<PgfSymbol>::release(&PgfConcrRule::syms, rule);
 }
 
 void PgfConcrLin::release(ref<PgfConcrLin> lin)
 {
-    for (size_t i = 0; i < lin->args.size(); i++) {
-        PgfLParam::release(lin->args[i].param);
+    for (ref<PgfConcrRule> rule : lin->rules) {
+        PgfConcrRule::release(rule);
     }
-    vector<PgfPArg>::release(lin->args);
-
-    for (ref<PgfPResult> res : lin->res) {
-        PgfPResult::release(res);
-    }
-    vector<ref<PgfPResult>>::release(lin->res);
-
-    vector<ref<PgfSequence>>::release(lin->seqs);
+    vector<ref<PgfConcrRule>>::release(lin->rules);
 
     PgfDB::free(lin, lin->name.size+1);
 }

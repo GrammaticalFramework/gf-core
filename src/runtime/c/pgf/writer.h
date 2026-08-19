@@ -24,6 +24,8 @@ public:
 
     template<class V>
     void write_vector(vector<V> vec, void (PgfWriter::*write_value)(ref<V> val));
+    template<class V>
+    void write_null_vector(vector<V> vec, void (PgfWriter::*write_value)(ref<V> val));
 
     void write_literal(PgfLiteral literal);
     void write_expr(PgfExpr expr);
@@ -40,14 +42,9 @@ public:
 
     void write_lincat(ref<PgfConcrLincat> lincat);
     void write_lincat_field(ref<ref<PgfText>> field);
-    void write_variable_range(ref<PgfVariableRange> var);
+    void write_variable_range(ref<size_t> var_range);
     void write_lparam(ref<PgfLParam> lparam);
-    void write_parg(ref<PgfPArg> linarg);
-    void write_presult(ref<PgfPResult> linres);
     void write_symbol(PgfSymbol sym);
-    void write_seq(ref<PgfSequence> seq);
-    void write_seq_id(ref<ref<PgfSequence>> r) { write_len(seq_ids.get(*r)); };
-    void write_phrasetable(PgfPhrasetable table);
     void write_lin(ref<PgfConcrLin> lin);
     void write_printname(ref<PgfConcrPrintname> printname);
 
@@ -58,18 +55,17 @@ public:
 private:
     template<class V>
     void write_namespace_helper(Namespace<V> nmsp, void (PgfWriter::*write_value)(ref<V>));
-    void write_phrasetable_helper(PgfPhrasetable table);
 
     void write_text(ref<ref<PgfText>> r) { write_text(&(**r)); };
     void write_lparam(ref<ref<PgfLParam>> r) { write_lparam(*r); };
+    void write_rule(ref<PgfConcrRule> rule);
     void write_symbol(ref<PgfSymbol> r) { write_symbol(*r); };
-    void write_presult(ref<ref<PgfPResult>> r) { write_presult(*r); };
+    void write_rule(ref<ref<PgfConcrRule>> r) { write_rule(*r); };
 
     FILE *out;
     PgfText **langs;
 
     ref<PgfAbstr> abstract;
-    PgfPhrasetableIds seq_ids;
 };
 
 #endif

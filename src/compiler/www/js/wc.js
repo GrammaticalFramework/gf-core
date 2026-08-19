@@ -2,8 +2,6 @@
 /* --- Wide Coverage Translation Demo web app ------------------------------- */
 
 var wc={}
-wc.selected_cnls=[] // list of grammar names
-wc.cnls={} // maps grammars names to {pgf_online:...,grammar_info:{...}}
 wc.f=document.forms[0]
 wc.o=element("output")
 wc.e=element("extra")
@@ -44,7 +42,6 @@ wc.save=function() {
 	wc.local.put("to",f.to.value)
 	wc.local.put("input",f.input.value)
 	wc.local.put("colors",f.colors.checked)
-	wc.local.put("cnls",wc.selected_cnls)
     }
 }
 
@@ -55,7 +52,6 @@ wc.load=function() {
 	f.from.value=wc.local.get("from",f.from.value)
 	f.to.value=wc.local.get("to",f.to.value)
 	f.colors.checked=wc.local.get("colors",f.colors.checked)
-	wc.selected_cnls=wc.local.get("cnls",wc.selected_cnls)
 	wc.colors()
 	wc.delayed_translate()
     }
@@ -125,13 +121,19 @@ wc.translate=function(redo) {
 		function show_inflections(lins) {
 		    if(wc.e2) wc.e2.innerHTML=lins[0].text
 		}
-		function get_inflections() {
-		    var tree="MkDocument+%22%22+(Inflection"+wcls+"+"+w+")+%22%22"
+		function get_inflections(glosses) {
+            if (glosses.length == 0) {
+                glosses = [""]
+            }
+		    var tree="MkDocument+(NoDefinition+%22"+glosses[0]+"%22)+(Inflection"+wcls+"+"+w+")+%22%22"
 		    var l=gftranslate.grammar+f.to.value
-		    gftranslate.call("?command=c-linearize&to="+l+"&tree="+tree,show_inflections)
+		    gftranslate.call("?command=linearize&to="+l+"&tree="+tree,show_inflections)
 		}
+        function get_gloss() {
+            ajax_http_post_querystring_json("https://cloud.grammaticalframework.org/wordnet/SenseService.fcgi","gloss_id="+w,get_inflections);
+        }
 		var wn=wrap_class("span","inflect",text(w))
-		if(wc.e2) wn.onclick=get_inflections
+		if(wc.e2) wn.onclick=get_gloss
 		return wn
 	    }
 	    function word(w) {
@@ -239,37 +241,7 @@ wc.translate=function(redo) {
 	    gftranslate.translate(text,f.from.value,wc.languages || f.to.value,i,count,step3)
 	}
 	function step2(text) { trans(text,0,10) }
-	function step2cnl(text,ix) {
-	    function step3cnl(results) {
-		var trans=results[0].translations
-		if(trans && trans.length>=1) {
-		    for(var i=0;i<trans.length;i++) {
-			var r=trans[i]
-			r.prob=0
-			showit(r,cnl)
-		    }
-		}
-		step2cnl(text,ix+1)
-	    }
-	    if(ix<wc.selected_cnls.length) {
-		var g=wc.cnls[wc.selected_cnls[ix]]
-		var gi=g.grammar_info
-		var langs=gi.languages.map(function(l) { return l.name; })
-		var cnl=gi.name
-		var from=cnl+f.from.value,to=cnl+f.to.value
-		if(elem(from,langs) && elem(to,langs))
-		    g.pgf_online.translate({from:from,
-					    //to:to,
-					    lexer:"text",unlexer:"text",
-					    jsontree:true,input:text},
-					   step3cnl,
-					   function(){step2cnl(text,ix+1)})
-		else step2cnl(text,ix+1)
-	    }
-	    else step2(text)
-	}
-	if(wc.selected_cnls) step2cnl(so.input,0)
-	else step2(so.input)
+	step2(so.input)
     }
 
     function change_segment_to(so,to) {
@@ -404,8 +376,13 @@ wc.init_languages=function () {
 	function update_menu(m) {
 	    var l=m.value
 	    clear(m)
-	    for(var i=0;i<langs.length;i++)
-		m.appendChild(option(concname(langs[i]),langs[i]))
+	    for(var i=0;i<langs.length;i++) {
+            const code = langs[i]
+            const name = langname[code]
+            if (name) {
+                m.appendChild(option(concname(langs[i]),langs[i]))
+            }
+        }
 	    if(langset[l]) m.value=l
 	}
 	update_menu(wc.f.from)
@@ -428,86 +405,6 @@ wc.init_speech=function() {
     }
 }
 
-
-wc.show_grammarbox=function() {
-    wc.grammarbox.parentNode.style.display="block";
-}
-
-wc.hide_grammarbox=function() {
-    wc.grammarbox.parentNode.style.display="";
-    clear(wc.grammarbox)
-}
-
-wc.init_cnl=function(grammar) {
-    var g
-    if(wc.cnls[grammar]) g=wc.cnls[grammar]
-    else g=wc.cnls[grammar]={}
-    g.pgf_online=pgf_online({})
-    g.pgf_online.switch_grammar(grammar)
-    g.pgf_online.grammar_info(function(info){g.grammar_info=info})
-}
-
-wc.init_cnls=function() {
-    var gs=wc.selected_cnls
-    for(var i=0;i<gs.length;i++) wc.init_cnl(gs[i])
-}
-
-wc.select_grammars=function() {
-    function done() {
-	wc.hide_grammarbox()
-	var gs=[]
-	var glist=list.children
-	for(var i=0;i<glist.length;i++)
-	    if(glist[i].cb.checked) gs.push(glist[i].grammar)
-	wc.selected_cnls=gs
-	wc.init_cnls()
-	wc.local.put("cnls",wc.selected_cnls)
-	wc.translate(true)
-    }
-    function cancel() {
-	wc.hide_grammarbox()
-    }
-    function remove(x,xs) {
-	function other(y) { return y!=x; }
-	return filter(other,xs)
-    }
-    function checkbox(grammar,checked) {
-	var vb=node("input",{type:"checkbox"})
-	vb.checked=checked
-	return vb
-    }
-    function grammar_pick(grammar,checked) {
-	var cb=checkbox(grammar,checked)
-	var p=[cb,text(" "+grammar.split(".pgf")[0])]
-	var dt=node("dt",{class:"grammar_pick"},p)
-	dt.cb=cb
-	dt.grammar=grammar
-	return dt
-    }
-    function show_list(grammars) {
-	var sg=wc.selected_cnls
-	for(var i=0;i<sg.length;i++) {
-	    if(elem(sg[i],grammars))
-		list.appendChild(grammar_pick(sg[i],true))
-	    else
-		remove(sg[i],wc.selected_cnls)
-	}
-	for(var i=0;i<grammars.length;i++)
-	    if(!elem(grammars[i],wc.selected_cnls))
-		list.appendChild(grammar_pick(grammars[i],false))
-    }
-    
-    clear(wc.grammarbox)
-    wc.grammarbox.appendChild(wrap("h2",[button("X",cancel),text("Select which domain-specific grammars to use")]))
-    wc.grammarbox.appendChild(text("These grammars are tried before the wide-coverage grammar. They can give higher quality translations within their respective domains."))
-    var list=empty("dl")
-    wc.grammarbox.appendChild(list)
-    wc.grammarbox.appendChild(button("OK",done))
-    wc.grammarbox.appendChild(button("Cancel",cancel))
-    wc.show_grammarbox()
-    wc.pgf_online.get_grammarlist(show_list)
-}
-
 wc.initialize=function(grammar_name,grammar_url) {
     if(grammar_name && grammar_url) {
 	gftranslate.grammar=grammar_name
@@ -519,7 +416,6 @@ wc.initialize=function(grammar_name,grammar_url) {
     wc.pgf_online=pgf_online({});
     wc.local=appLocalStorage("gf.wc."+gftranslate.grammar+".")
     wc.load()
-    wc.init_cnls()
     initialize_sorting(["DT"],["grammar_pick"])
     wc.f.input.focus()
 }

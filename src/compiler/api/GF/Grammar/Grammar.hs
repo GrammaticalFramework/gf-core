@@ -65,7 +65,7 @@ module GF.Grammar.Grammar (
         Location(..), L(..), unLoc, noLoc, ppLocation, ppL,
 
         -- ** PMCFG        
-        LIndex,LVar,LParam(..),PArg(..),Symbol(..),Production(..)
+        LIndex,LVar,LParam(..),PArg(..),Symbol(..),Rule(..)
         ) where
 
 import GF.Infra.Ident
@@ -75,8 +75,9 @@ import GF.Infra.Location
 import GF.Data.Operations
 
 import PGF2(BindType(..),PGF)
-import PGF2.Transactions(SeqId,LIndex,LVar,LParam(..),PArg(..),Symbol(..),Production(..))
+import PGF2.Transactions(LIndex,LVar,LParam(..),PArg(..),Symbol(..),Rule(..))
 
+import Data.Graph
 import Data.Array.IArray(Array)
 import Data.Array.Unboxed(UArray)
 import qualified Data.Map as Map
@@ -103,7 +104,6 @@ data ModuleInfo
     mopens  :: [OpenSpec],
     mexdeps :: [ModuleName],
     msrc    :: FilePath,
-    mseqs   :: Maybe (Seq.Seq [Symbol]),
     jments  :: Map.Map Ident Info
    }
  | ModPGF {
@@ -277,10 +277,11 @@ isCompleteModule m = mstatus m == MSComplete && mtype m /= MTInterface
 
 -- | all abstract modules sorted from least to most dependent
 allAbstracts :: Grammar -> [ModuleName]
-allAbstracts gr = 
- case topoTest [(i,extends m) | (i,m) <- modules gr, mtype m == MTAbstract] of
-   Left  is     -> is
-   Right cycles -> error $ render ("Cyclic abstract modules:" <+> vcat (map hsep cycles))
+allAbstracts gr =
+ let scc = stronglyConnComp [(mn,mn,extends mo) | (mn,mo) <- modules gr, mtype mo == MTAbstract]
+ in case [mns | CyclicSCC mns <- scc] of
+      []     -> [mn | AcyclicSCC mn <- scc]
+      cycles -> error $ render ("Cyclic abstract modules:" <+> vcat (map hsep cycles))
 
 -- | the last abstract in dependency order (head of list)
 greatestAbstract :: Grammar -> Maybe ModuleName
@@ -322,8 +323,8 @@ allConcreteModules gr =
 -- and indirection to module (/INDIR/)
 data Info =
 -- judgements in abstract syntax
-   AbsCat   (Maybe (L Context))                                            -- ^ (/ABS/) context of a category
- | AbsFun   (Maybe (L Type)) (Maybe Int) (Maybe [L Equation]) (Maybe Bool) -- ^ (/ABS/) type, arrity and definition of a function
+   AbsCat   (Maybe (L Context))                         -- ^ (/ABS/) context of a category
+ | AbsFun   (Maybe (L Type)) (Maybe (Int,[L Equation])) -- ^ (/ABS/) type, arrity and definition of a function
 
 -- judgements in resource
  | ResParam (Maybe (L [Param])) (Maybe ([Term],Int)) -- ^ (/RES/) The second argument is list of all possible values
@@ -336,12 +337,12 @@ data Info =
  | ResOverload [ModuleName] [(L Type,L Term)]        -- ^ (/RES/) idents: modules inherited
 
 -- judgements in concrete syntax
- | CncCat  (Maybe (L Type))                     (Maybe (L Term)) (Maybe (L Term)) (Maybe (L Term)) (Maybe ([Production],[Production])) -- ^ (/CNC/) lindef ini'zed, 
- | CncFun  (Maybe ([Ident],Ident,Context,Type)) (Maybe (L Term))                  (Maybe (L Term)) (Maybe [Production]) -- ^ (/CNC/) type info added at 'TC'
+ | CncCat  (Maybe (L Type))                     (Maybe (L Term)) (Maybe (L Term)) (Maybe (L Term)) (Maybe ([Rule],[Rule])) -- ^ (/CNC/) lindef ini'zed, 
+ | CncFun  (Maybe ([Ident],Ident,Context,Type)) (Maybe (L Term))                  (Maybe (L Term)) (Maybe [Rule]) -- ^ (/CNC/) type info added at 'TC'
 
 -- indirection to module Ident
  | AnyInd Bool ModuleName                        -- ^ (/INDIR/) the 'Bool' says if canonical
-  deriving Show
+  deriving (Eq,Show)
 
 type Type    = Term
 type Cat     = QIdent
@@ -396,7 +397,7 @@ data Term =
 
  | FV [Term]                     -- ^ alternatives in free variation: @variants { s ; ... }@
 
- | Markup Ident [(Ident,Term)] [Term]
+ | Markup Ident [(Ident,Term)] [L Term]
  | Reset Ident (Maybe Term) Term (Maybe QIdent)
 
  | Alts Term [(Term, Term)]      -- ^ alternatives by prefix: @pre {t ; s\/c ; ...}@
@@ -409,8 +410,7 @@ data Term =
 data Patt =
    PC Ident [Patt]        -- ^ constructor pattern: @C p1 ... pn@    @C@ 
  | PP QIdent [Patt]       -- ^ package constructor pattern: @P.C p1 ... pn@    @P.C@ 
- | PV Ident               -- ^ variable pattern: @x@
- | PW                     -- ^ wild card pattern: @_@
+ | PV Ident               -- ^ variable pattern: @x@ or wild card @_@
  | PR [(Label,Patt)]      -- ^ record pattern: @{r = p ; ...}@  -- only concrete
  | PString String         -- ^ string literal pattern: @\"foo\"@  -- only abstract
  | PInt    Integer        -- ^ integer literal pattern: @12@    -- only abstract
@@ -462,8 +462,8 @@ type Hypo     = (BindType,Ident,Type)   -- (x:A)  (_:A)  A  ({x}:A)
 type Context  = [Hypo]                  -- (x:A)(y:B)   (x,y:A)   (_,_:A)
 type Equation = ([Patt],Term) 
 
-type Labelling = (Label, Type) 
-type Assign = (Label, (Maybe Type, Term)) 
+type Labelling = (Label, [Ident], Type)
+type Assign = (Label, (Maybe Type, Term))
 type Option = (Maybe Term, Term)
 type Case = (Patt, Term) 
 --type Cases = ([Patt], Term) 

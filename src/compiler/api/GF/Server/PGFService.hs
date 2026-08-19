@@ -144,7 +144,7 @@ pgfCommand qsem command q (t,pgf) =
 
     -- Without caching parse results:
     parse' cat start mlimit ((from,concr),input) =
-        case PGF2.parse concr cat (init input) of
+        case PGF2.parse concr cat input of
           ParseOk ts        -> return (Right (maybe id take mlimit (drop start ts)))
           ParseFailed _ tok -> return (Left tok)
           ParseIncomplete   -> return (Left "")

@@ -1,191 +1,340 @@
 #ifndef LR_TABLE_H
 #define LR_TABLE_H
 
-#include "md5.h"
-
-class PGF_INTERNAL_DECL PgfLRTableMaker
-{
-    struct CCat;
-    struct Production;
-    struct Item;
-    struct State;
-
-    struct CompareItem;
-    static const CompareItem compare_item;
-
-    typedef std::pair<ref<PgfText>,size_t> Key0;
-
-    struct PGF_INTERNAL_DECL CompareKey0 : std::less<Key0> {
-        bool operator() (const Key0& k1, const Key0& k2) const {
-            int cmp = textcmp(k1.first,k2.first);
-            if (cmp < 0)
-                return true;
-            else if (cmp > 0)
-                return false;
-
-            return (k1.second < k2.second);
-        }
-    };
-
-    typedef std::pair<ref<PgfConcrLincat>,size_t> Key1;
-
-    struct PGF_INTERNAL_DECL CompareKey1 : std::less<Key1> {
-        bool operator() (const Key1& k1, const Key1& k2) const {
-            if (k1.first < k2.first)
-                return true;
-            else if (k1.first > k2.first)
-                return false;
-
-            return (k1.second < k2.second);
-        }
-    };
-
-    typedef std::pair<CCat*,size_t> Key2;
-
-    struct PGF_INTERNAL_DECL CompareKey2 : std::less<Key2> {
-        bool operator() (const Key2& k1, const Key2& k2) const {
-            if (k1.first < k2.first)
-                return true;
-            else if (k1.first > k2.first)
-                return false;
-
-            return (k1.second < k2.second);
-        }
-    };
-
-    typedef std::pair<ref<PgfSequence>,size_t> Key3;
-
-    struct PGF_INTERNAL_DECL CompareKey3 : std::less<Key3> {
-        bool operator() (const Key3& k1, const Key3& k2) const;
-    };
-
-    ref<PgfAbstr> abstr;
-    ref<PgfConcr> concr;
-
-    size_t ccat_id;
-    size_t state_id;
-
-    std::queue<State*> todo;
-    std::map<MD5Digest,State*> states;
-    std::map<Key0,CCat*,CompareKey0> ccats1;
-    std::map<Key2,CCat*,CompareKey2> ccats2;
-
-    // The Threefold Way of building an automaton
-    typedef enum { INIT, PROBE, REPEAT } Fold;
-
-    void process(State *state, Fold fold, Item *item);
-    void symbol(State *state, Fold fold, Item *item, PgfSymbol sym);
-
-    template<class T>
-    void predict(State *state, Fold fold, Item *item, T cat,
-                 vector<PgfVariableRange> vars, PgfLParam *r);
-    void predict(State *state, Fold fold, Item *item, ref<PgfText> cat, size_t lin_idx);
-    void predict(State *state, Fold fold, Item *item, CCat *ccat, size_t lin_idx);
-    void predict(ref<PgfAbsFun> absfun, CCat *ccat);
-    void complete(State *state, Fold fold, Item *item);
-
-    void print_production(CCat *ccat, Production *prod);
-    void print_item(Item *item);
-
-    void internalize_state(State *&state);
-
-public:
-    PgfLRTableMaker(ref<PgfAbstr> abstr, ref<PgfConcr> concr);
-    vector<PgfLRState> make();
-    ~PgfLRTableMaker();
-};
-
-class PGF_INTERNAL_DECL PgfLCTableMaker
-{
-    ref<PgfAbstr> abstr;
-    ref<PgfConcr> concr;
-
-
-    std::map<ref<PgfConcrLincat>,std::vector<ref<PgfLCEdge>>> forwards;
-    std::map<ref<PgfConcrLincat>,std::vector<ref<PgfLCEdge>>> backwards;
-
-    ref<PgfLCEdge> compute_unifier(ref<PgfLCEdge> edge1, ref<PgfLCEdge> edge2);
-    void update_closure(ref<PgfLCEdge> edge);
-    void rename(ref<PgfLCEdge> edge);
-    void add_edge(ref<PgfLCEdge> edge);
-    void print_edge(ref<PgfLCEdge> edge);
-
-public:
-    PgfLCTableMaker(ref<PgfAbstr> abstr, ref<PgfConcr> concr);
-    vector<PgfLRState> make();
-    ~PgfLCTableMaker();
-};
-
 class PgfPrinter;
 
-class PGF_INTERNAL_DECL PgfParser : public PgfPhraseScanner, public PgfExprEnum
+class PGF_INTERNAL_DECL PgfAbstractParser
 {
-    ref<PgfConcr> concr;
-    PgfText *sentence;
-    bool case_sensitive;
-    PgfMarshaller *m;
-    PgfUnmarshaller *u;
+    typedef size_t hash_t;
 
-    struct Choice;
-    struct Production;
-    struct StackNode;
-    struct Stage;
+protected:
+    ref<PgfConcr> concr;
+
+    struct CCat;
+    struct Cont;
+    struct Item;
+    struct State;
     struct ExprState;
-    struct ExprInstance;
-    struct CompareExprState : std::less<ExprState*> {
-        bool operator() (const ExprState *state1, const ExprState *state2) const;
+
+    struct Production {
+        ref<PgfConcrRule> rule;
+
+        struct {
+            size_t &operator[](int i) const {
+                Production *prod = containerof(Production,vars,this);
+                return ((size_t*) (((CCat**) (prod+1))+prod->args.size()))[i];
+            }
+            size_t size() const {
+                Production *prod = containerof(Production,vars,this);
+                return prod->rule->ranges.size();
+            }
+        } vars;
+
+        struct {
+            CCat *&operator[](int i) const {
+                Production *prod = containerof(Production,args,this);
+                return ((CCat**) (prod+1))[i];
+            }
+            size_t size() const {
+                Production *prod = containerof(Production,args,this);
+                return (prod->rule->args != 0) ? prod->rule->args.size() : 0;
+            }
+        } args;
+
+        void *operator new(size_t sz, Item *item)
+        {
+            size_t sz2 = item->args.size()*sizeof(CCat*)
+                       + item->vars.size()*sizeof(size_t);
+            Production *prod = (Production *) malloc(sz+sz2);
+            memcpy(prod+1, item+1, sz2);
+            return prod;
+        }
+
+        void *operator new(size_t sz, ref<PgfItem> pitem)
+        {
+            size_t sz2 = pitem->args.size()*sizeof(CCat*)
+                       + pitem->vars.size()*sizeof(size_t);
+            Production *prod = (Production *) malloc(sz+sz2);
+            memset(prod+1,0,sz2);
+            return prod;
+        }
+
+        void operator delete(void *p)
+        {
+            free(p);
+        }
+
+        Production() {
+        }
     };
 
-    Stage *before, *after, *ahead;
-    std::priority_queue<ExprState*, std::vector<ExprState*>, CompareExprState> queue;
-    int last_fid;
+    struct ExprProb {
+        PgfExpr expr;
+        prob_t prob;
+        hash_t hash;
+        
+        ExprProb(PgfExpr expr, prob_t prob, hash_t hash) {
+            this->expr = expr;
+            this->prob = prob;
+            this->hash = hash;
+        }
+    };
 
-    std::vector<Choice*> dynamic;
-    std::map<object,Choice*> persistant;
+    struct CCat {
+        PgfMetaId fid;
+        ref<PgfCCat> epsilon;
+        Cont *cont;
+        State *state;
+        interval_t value;
+        interval_t lin_idx;
+        prob_t viterbi_prob;
+        bool covered;
+        std::vector<Production*> prods;
+        std::vector<ExprState*> pending;
+        std::vector<ExprProb> exprs;
 
-    std::vector<PgfExpr> exprs;
+        ~CCat();
+    };
 
-    Choice *top_choice;
-    size_t top_choice_index;
+    struct State {
+        PgfTextSpot start, end;
+        bool needs_bind;
+        std::map<ref<PgfConcrLincat>,Cont*> conts1;
+        std::map<CCat*,Cont*> conts2;
+        std::map<Cont*,interval_map<interval_map<CCat*>>> completed;
+        std::vector<Item*> queue;
+        prob_t viterbi_prob;
 
-    bool shift(StackNode *parent, ref<PgfConcrLincat> lincat, size_t r, Production *prod,
-               Stage *before, Stage *after);
-    void shift(StackNode *parent, Stage *before);
-    void shift(StackNode *parent, Stage *before, Stage *after);
-    void reduce(StackNode *parent, ref<PgfConcrLin> lin, ref<PgfLRReduce> red,
-                size_t n, std::vector<Choice*> &args,
-                Stage *before, Stage *after);
-    Choice *retrieve_choice(ref<PgfLRReduceArg> arg);
-    void complete(StackNode *parent, ref<PgfConcrLincat> lincat, size_t r,
-                  size_t n, std::vector<Choice*> &args);
-    void reduce_all(StackNode *state);
-    void print_prod(Choice *choice, Production *prod);
-    void print_transition(StackNode *source, StackNode *target, Stage *stage, ref<PgfLRShiftKS> shift);
+        State *next;
 
-    typedef std::map<std::pair<Choice*,Choice*>,Choice*> intersection_map;
+        bool has_items() {
+            return queue.size() > 0;
+        }
 
-    Choice *intersect_choice(Choice *choice1, Choice *choice2, intersection_map &im);
+        void push_item(Item *item) {
+            queue.push_back(item);
+            std::push_heap(queue.begin(), queue.end(), item_prob_comp);
+        }
 
-    void print_expr_state_before(PgfPrinter *printer, ExprState *state);
-    void print_expr_state_after(PgfPrinter *printer, ExprState *state);
-    void print_expr_state(ExprState *state);
+        Item *pop_item() {
+            Item *item = queue.front();
+            std::pop_heap(queue.begin(), queue.end(), item_prob_comp);
+            queue.pop_back();
+            return item;
+        }
+    };
 
-    void predict_expr_states(Choice *choice, prob_t outside_prob);
-    bool process_expr_state(ExprState *state);
-    void complete_expr_state(ExprState *state);
-    void combine_expr_state(ExprState *state, ExprInstance &inst);
+    static struct ItemProbComparator : std::less<Item*> {
+        bool operator()(Item *item1, Item *item2) {
+            return item1->inside_prob+item1->outside_prob > item2->inside_prob+item2->outside_prob;
+        }
+    } item_prob_comp;
+
+    struct ItemComparator : std::less<Item*> {
+        bool operator()(Item *item1, Item *item2);
+    };
+
+    struct Cont {
+        CCat *ccat;
+        ref<PgfConcrLincat> lincat;
+        State *state;
+        interval_map<interval_map<std::vector<Item*>>> suspended;
+        std::set<Item*,ItemComparator> predicted;
+
+        ~Cont();
+    };
+
+    struct Item {
+        Cont *cont;
+        uint16_t pre_alt;
+        uint16_t pre_dot;
+        uint16_t dot;
+        vector<PgfSymbol> syms;
+        ref<PgfConcrRule> rule;
+        prob_t inside_prob;
+        prob_t outside_prob;
+
+        struct {
+            size_t &operator[](int i) const {
+                Item *item = containerof(Item,vars,this);
+                return ((size_t*) (((CCat**) (item+1))+item->args.size()))[i];
+            }
+            size_t size() const {
+                Item *item = containerof(Item,vars,this);
+                return item->rule->ranges.size();
+            }
+        } vars;
+
+        struct {
+            CCat *&operator[](int i) const {
+                Item *item = containerof(Item,args,this);
+                return ((CCat**) (item+1))[i];
+            }
+            size_t size() const {
+                Item *item = containerof(Item,args,this);
+                return (item->rule->args != 0) ? item->rule->args.size() : 0;
+            }
+        } args;
+
+        void *operator new(size_t sz, ref<PgfConcrRule> rule)
+        {
+            size_t sz2 = rule->args.size()*sizeof(CCat*)
+                       + rule->ranges.size()*sizeof(size_t);
+            Item *new_item = (Item *) malloc(sz+sz2);
+            memset(new_item+1, 0, sz2);
+            return new_item;
+        }
+
+        void *operator new(size_t sz, Item *item)
+        {
+            size_t sz2 = item->args.size()*sizeof(CCat*)
+                       + item->vars.size()*sizeof(size_t);
+            Item *new_item = (Item *) malloc(sz+sz2);
+            memcpy(new_item, item, sz+sz2);
+            return new_item;
+        }
+
+        void operator delete(void *p)
+        {
+            free(p);
+        }
+        
+        Item() {
+        }
+    };
+
+    struct ExprState {
+        PgfExpr expr;
+        prob_t prob;
+        hash_t hash;
+
+        CCat *res;
+
+        size_t index;
+        size_t n_args;
+        CCat *args[];
+
+        void *operator new(size_t sz, size_t n_args)
+        {
+            ExprState *estate = (ExprState *)
+                malloc(sz+n_args*sizeof(CCat*));
+            return estate;
+        }
+        
+        void operator delete(void *p)
+        {
+            free(p);
+        }
+
+        ExprState() {
+        }
+    };
+
+    State *current_state;
+    std::map<PgfMetaId,CCat*> epsilons;
+    PgfMetaId initial_fid, last_fid;
+
+    void process(Item *item, State *state);
+    void symbol(Item *item, State *state, PgfSymbol sym);
+    void complete(Item *item, State *state);
+
+    virtual State *new_state(const PgfTextSpot &start, prob_t viterbi_prob)=0;
+    virtual void symbol_token(Item *item, State *state, ref<PgfSymbolKS> symks)=0;
+    virtual void symbol_bind(Item *item, State *state, PgfSymbol sym)=0;
+    virtual void suspend(Cont *cont, Item *item, bool do_predict, ref<PgfSymbolCat> symcat,interval_t value_i,interval_t lin_idx_i)=0;
+    virtual void final_item(State *state,CCat *ccat,Item *item,interval_t value,interval_t lin_idx)=0;
+    virtual void bu_predict(State *state, prob_t outside_prob, CCat *ccat)=0;
+
+    void td_epsilon(State *state, Cont *cont, ref<PgfItem> pitem, Item *xitem, ref<PgfSymbolCat> symcat);
+    void td_predict(State *state, Cont *cont, Production *prod, Item *xitem, ref<PgfSymbolCat> symcat);
+    void combine(State *state, Item *item, CCat *ccat);
+
+    static
+    bool instantiate(ref<PgfConcrRule> rule1, size_t *values1, ref<PgfLParam> lparam1,
+                     ref<PgfConcrRule> rule2, size_t *values2, ref<PgfLParam> lparam2);
+
+    static
+    interval_t interval(ref<PgfConcrRule> rule, size_t *values, ref<PgfLParam> lparam);
+
+    void get_info(CCat *ccat, ref<PgfConcrRule> *rule, size_t **pvalues);
+    CCat *get_epsilon_ccat(PgfText *name, PgfMetaId fid);
+
+    static
+    void print_item(Item *item, State *state);
+
+    static
+    void print_prod(CCat *ccat, Production *prod);
 
 public:
-    PgfParser(ref<PgfConcr> concr, ref<PgfConcrLincat> start, PgfText *sentence, bool case_sensitive, PgfMarshaller *m, PgfUnmarshaller *u);
+    PgfAbstractParser(ref<PgfConcr> concr);
+    virtual ~PgfAbstractParser();
+};
+
+class PGF_INTERNAL_DECL PgfParser : private PgfAbstractParser, public PgfExprEnum
+{
+    PgfMarshaller *m;
+    PgfUnmarshaller *u;
+    PgfText *sentence;
+    uint8_t *end;
+    bool case_sensitive;
+
+    virtual State *new_state(const PgfTextSpot &start, prob_t viterbi_prob);
+    virtual void symbol_token(Item *item, State *state, ref<PgfSymbolKS> symks);
+    virtual void symbol_bind(Item *item, State *state, PgfSymbol sym);
+    virtual void suspend(Cont *cont,Item *item,bool do_predict,ref<PgfSymbolCat> symcat,interval_t value_i,interval_t lin_idx_i);
+    virtual void final_item(State *state,CCat *ccat,Item *item,interval_t value,interval_t lin_idx);
+    virtual void bu_predict(State *state, prob_t outside_prob, CCat *ccat);
+
+    void bu_predict(PgfPhrasetable<PgfSymbolBIND> phrasetable, State *state, prob_t outside_prob);
+    void bu_predict(PgfPhrasetable<PgfSymbolKS> phrasetable, State *state, prob_t outside_prob, ptrdiff_t min, ptrdiff_t max);
+    void make_chunks(State *state, std::vector<CCat*> &chunks, prob_t prob);
+    PgfExpr process_expr(ExprState *estate, prob_t *prob);
+
+    bool td_reachable(State *state, ref<PgfItem> pitem, std::map<ref<PgfConcrLincat>, bool> &visited);
+    Item *bu_item(State *state, prob_t outside_prob, ref<PgfItem> pitem);
+
+    static
+    void print_expr_state_left(PgfPrinter *printer, PgfMarshaller *m, ExprState *estate);
+    static
+    void print_expr_state_right(PgfPrinter *printer, ExprState *estate);
+    static
+    void print_expr_state(PgfMarshaller *m, ExprState *estate);
+
+    static struct ExprStateComparator : std::less<ExprState*> {
+        bool operator()(ExprState *estate1, ExprState *estate2) {
+            return estate1->prob > estate2->prob;
+        }
+    } estate_comp;
+
+    std::vector<ExprState*> queue;
+
+public:
+    PgfParser(ref<PgfConcr> concr, PgfText *sentence, bool case_sensitive, PgfMarshaller *m, PgfUnmarshaller *u);
     virtual ~PgfParser();
 
-	virtual void space(PgfTextSpot *start, PgfTextSpot *end, PgfExn* err);
-    virtual void start_matches(PgfTextSpot *end, PgfExn* err);
-    virtual void match(ref<PgfConcrLin> lin, size_t seq_index, PgfExn* err);
-	virtual void end_matches(PgfTextSpot *end, PgfExn* err);
-
-    void prepare();
+    void prepare(ref<PgfConcrLincat> start);
 
     PgfExpr fetch(PgfDB *db, prob_t *prob);
 };
+
+class PGF_INTERNAL_DECL PgfParseTableMaker : private PgfAbstractParser
+{
+private:
+    virtual State *new_state(const PgfTextSpot &start, prob_t viterbi_prob);
+    virtual void symbol_token(Item *item, State *state, ref<PgfSymbolKS> symks);
+    virtual void symbol_bind(Item *item, State *state, PgfSymbol sym);
+    virtual void suspend(Cont *cont, Item *item, bool do_predict, ref<PgfSymbolCat> symcat,interval_t value_i,interval_t lin_idx_i);
+    virtual void final_item(State *state, CCat *ccat,Item *item,interval_t value,interval_t lin_idx);
+    virtual void bu_predict(State *state, prob_t outside_prob, CCat *ccat);
+
+    static
+    ref<PgfItem> clone_item(Item *item);
+
+public:
+    PgfParseTableMaker(ref<PgfConcr> concr);
+    void insert_rule(ref<PgfConcrRule> rule);
+    void prepare();
+    PgfMetaId get_last_fid() { return last_fid; };
+};
+
 #endif

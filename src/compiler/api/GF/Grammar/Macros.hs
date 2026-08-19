@@ -28,10 +28,12 @@ import GF.Grammar.Printer
 import Control.Monad.Identity(Identity(..))
 import qualified Data.Traversable as T(mapM)
 import qualified Data.Map as Map
-import Control.Monad (liftM, liftM2, liftM3)
-import Data.List (sortBy,nub)
+import Control.Monad (liftM, liftM2, liftM3, forM)
+import Data.List (nub)
+import Data.Maybe (fromMaybe)
 import Data.Monoid
-import GF.Text.Pretty(render,(<+>),hsep,fsep)
+import Data.Graph
+import GF.Text.Pretty(render,(<+>),($$),hsep,fsep,vcat,nest)
 import qualified Control.Monad.Fail as Fail
 
 -- ** Functions for constructing and analysing source code terms.
@@ -179,6 +181,9 @@ mapAssignM :: Monad m => (Term -> m c) -> [Assign] -> m [(Label,(Maybe c,c))]
 mapAssignM f = mapM (\ (ls,tv) -> liftM ((,) ls) (g tv))
   where g (t,v) = liftM2 (,) (maybe (return Nothing) (liftM Just . f) t) (f v)
 
+mapLabellingM :: Monad m => (Term -> m c) -> [Labelling] -> m [(Label,[Ident],c)]
+mapLabellingM f = mapM (\(l,deps,t) -> f t >>= \t -> return (l,deps,t))
+
 mapAttrs :: Monad m => (Term -> m c) -> [(Ident,Term)] -> m [(Ident,c)]
 mapAttrs f []          = return []
 mapAttrs f ((id,t):as) = do t  <- f t
@@ -193,7 +198,7 @@ mkRecord :: (Int -> Label) -> [Term] -> Term
 mkRecord = mkRecordN 0
 
 mkRecTypeN :: Int -> (Int -> Label) -> [Type] -> Type
-mkRecTypeN int lab typs = RecType [ (lab i, t) | (i,t) <- zip [int..] typs]
+mkRecTypeN int lab typs = RecType [(lab i, [], t) | (i,t) <- zip [int..] typs]
 
 mkRecType :: (Int -> Label) -> [Type] -> Type
 mkRecType = mkRecTypeN 0
@@ -260,7 +265,7 @@ tuple2record :: [Term] -> [Assign]
 tuple2record ts = [assign (tupleLabel i) t | (i,t) <- zip [1..] ts]
 
 tuple2recordType :: [Term] -> [Labelling]
-tuple2recordType ts = [(tupleLabel i, t) | (i,t) <- zip [1..] ts]
+tuple2recordType ts = [(tupleLabel i,[],t) | (i,t) <- zip [1..] ts]
 
 tuple2recordPatt :: [Patt] -> [(Label,Patt)]
 tuple2recordPatt ts = [(tupleLabel i, t) | (i,t) <- zip [1..] ts]
@@ -277,7 +282,7 @@ mkFunType tt t = mkProd [(Explicit,identW, ty) | ty <- tt] t [] -- nondep prod
 --plusRecType :: Type -> Type -> Err Type
 plusRecType t1 t2 = case (t1, t2) of
   (RecType r1, RecType r2) -> case
-    filter (`elem` (map fst r1)) (map fst r2) of
+    filter (`elem` [l | (l,_,_) <- r1]) [l | (l,_,_) <- r2] of
       [] -> return (RecType (r1 ++ r2))
       ls -> raise $ render ("clashing labels" <+> hsep ls)
   _ -> raise $ render ("cannot add record types" <+> ppTerm Unqualified 0 t1 <+> "and" <+> ppTerm Unqualified 0 t2)
@@ -293,7 +298,7 @@ plusRecord t1 t2 =
 
 -- | default linearization type
 defLinType :: Type
-defLinType = RecType [(theLinLabel,  typeStr)]
+defLinType = RecType [(theLinLabel, [], typeStr)]
 
 -- | refreshing variables
 mkFreshVar :: [Ident] -> Ident -> Ident
@@ -307,83 +312,6 @@ mkFreshVar olds x =
 -- | trying to preserve a given symbol
 mkFreshVarX :: [Ident] -> Ident -> Ident
 mkFreshVarX olds x = if (elem x olds) then (varX (maximum ((-1) : (map varIndex olds)) + 1)) else x
-
--- *** Term and pattern conversion
-
-term2patt :: Term -> Err Patt
-term2patt trm = case termForm trm of
-  Ok ([], Vr x, []) | x == identW -> return PW
-                    | otherwise   -> return (PV x)
-  Ok ([], Con c, aa) -> do
-    aa' <- mapM term2patt aa
-    return (PC c aa')
-  Ok ([], QC  c, aa) -> do
-    aa' <- mapM term2patt aa
-    return (PP c aa')
-
-  Ok ([], Q c, []) -> do
-    return (PM c)
-
-  Ok ([], R r, []) -> do
-    let (ll,aa) = unzipR r
-    aa' <- mapM term2patt aa
-    return (PR (zip ll aa'))
-  Ok ([],EInt i,[]) -> return $ PInt i
-  Ok ([],EFloat i,[]) -> return $ PFloat i
-  Ok ([],K s,   []) -> return $ PString s
-
---- encodings due to excessive use of term-patt convs. AR 7/1/2005
-  Ok ([], Cn id, [Vr a,b]) | id == cAs -> do
-    b' <- term2patt b
-    return (PAs a b')
-  Ok ([], Cn id, [a]) | id == cNeg  -> do
-    a' <- term2patt a
-    return (PNeg a')
-  Ok ([], Cn id, [a]) | id == cRep -> do
-    a' <- term2patt a
-    return (PRep 0 Nothing a')
-  Ok ([], Cn id, []) | id == cRep -> do
-    return PChar
-  Ok ([], Cn id,[K s]) | id == cChars  -> do
-    return $ PChars s
-  Ok ([], Cn id, [a,b]) | id == cSeq -> do
-    a' <- term2patt a
-    b' <- term2patt b
-    return (PSeq 0 Nothing a' 0 Nothing b')
-  Ok ([], Cn id, [a,b]) | id == cAlt -> do
-    a' <- term2patt a
-    b' <- term2patt b
-    return (PAlt a' b')
-
-  Ok ([], Cn c, []) -> do
-    return (PMacro c)
-
-  _ -> Bad $ render ("no pattern corresponds to term" <+> ppTerm Unqualified 0 trm)
-
-patt2term :: Patt -> Term
-patt2term pt = case pt of
-  PV x      -> Vr x
-  PW        -> Vr identW             --- not parsable, should not occur
-  PMacro c  -> Cn c
-  PM c      -> Q c
-
-  PC c pp   -> mkApp (Con c) (map patt2term pp)
-  PP c pp   -> mkApp (QC  c) (map patt2term pp)
-
-  PR r      -> R [assign l (patt2term p) | (l,p) <- r]
-  PT _ p    -> patt2term p
-  PInt i    -> EInt i
-  PFloat i  -> EFloat i
-  PString s -> K s
-
-  PAs x p   -> appCons cAs    [Vr x, patt2term p]            --- an encoding
-  PChar     -> appCons cChar  []                             --- an encoding
-  PChars s  -> appCons cChars [K s]                          --- an encoding
-  PSeq _ _ a _ _ b  -> appCons cSeq   [(patt2term a), (patt2term b)] --- an encoding
-  PAlt a b  -> appCons cAlt   [(patt2term a), (patt2term b)] --- an encoding
-  PRep _ _ a-> appCons cRep   [(patt2term a)]                --- an encoding
-  PNeg a    -> appCons cNeg   [(patt2term a)]                --- an encoding
-
 
 -- *** Almost compositional
 
@@ -401,7 +329,7 @@ composOp co trm =
    S c a            -> liftM2 S (co c) (co a)
    Table a c        -> liftM2 Table (co a) (co c)
    R r              -> liftM R (mapAssignM co r)
-   RecType r        -> liftM RecType (mapPairsM co r)
+   RecType r        -> liftM RecType (mapLabellingM co r)
    P t i            -> liftM2 P (co t) (return i)
    ExtR a c         -> liftM2 ExtR (co a) (co c)
    Opts t os        -> liftM2 Opts (co t) (mapM (\(t1,t2) -> liftM2 (,) (maybe (return Nothing) (liftM Just . co) t1) (co t2)) os)
@@ -418,7 +346,7 @@ composOp co trm =
    ELincat c ty     -> liftM (ELincat c) (co ty)
    ELin c ty        -> liftM (ELin c) (co ty)
    ImplArg t        -> liftM ImplArg (co t)
-   Markup t as cs   -> liftM2 (Markup t) (mapAttrs co as) (mapM co cs)
+   Markup t as cs   -> liftM2 (Markup t) (mapAttrs co as) (mapM (mapM co) cs)
    Reset ctl ct t qid->liftM2 (\mb_ct t->Reset ctl ct t qid) (maybe (pure Nothing) (fmap Just . co) ct) (co t)
    Typed t ty       -> liftM2 Typed (co t) (co ty)
    _ -> return trm -- covers K, Vr, Cn, Sort, EPatt
@@ -452,8 +380,8 @@ collectOp co trm = case trm of
   Table a c    -> co a <> co c
   ExtR a c     -> co a <> co c
   Opts t os    -> co t <> mconcatMap (\(a,b) -> maybe mempty co a <> co b) os
-  R r          -> mconcatMap (\ (_,(mt,a)) -> maybe mempty co mt <> co a) r
-  RecType r    -> mconcatMap (co . snd) r
+  R r          -> mconcatMap (\(_,(mt,a)) -> maybe mempty co mt <> co a) r
+  RecType r    -> mconcatMap (\(_,_,t) -> co t) r
   P t i        -> co t
   T _ cc       -> mconcatMap (co . snd) cc -- not from patterns --- nor from type annot
   V _ cc       -> mconcatMap co         cc --- nor from type annot
@@ -466,7 +394,7 @@ collectOp co trm = case trm of
   Strs tt      -> mconcatMap co tt
   ELincat _ t  -> co t
   ELin _ t     -> co t
-  Markup t as cs -> mconcatMap (co.snd) as <> mconcatMap co cs
+  Markup t as cs -> mconcatMap (co.snd) as <> mconcatMap (co . unLoc) cs
   Reset _ ct t _-> maybe mempty co ct <> co t
   _            -> mempty -- covers K, Vr, Cn, Sort
 
@@ -524,58 +452,55 @@ changeTableType co i = case i of
     TWild ty  -> co ty >>= return . TWild
     _ -> return i
 
--- | normalize records and record types; put s first
-
-sortRec :: [(Label,a)] -> [(Label,a)]
-sortRec = sortBy ordLabel where
-  ordLabel (r1,_) (r2,_) =
-    case (showIdent (label2ident r1), showIdent (label2ident r2)) of
-      ("s",_) -> LT
-      (_,"s") -> GT
-      (s1,s2) -> compare s1 s2
-
 -- *** Dependencies
 
 -- | dependency check, detecting circularities and returning topo-sorted list
 
-allDependencies :: (ModuleName -> Bool) -> Map.Map Ident Info -> [(Ident,[Ident])]
+allDependencies :: (ModuleName -> Bool) -> Map.Map Ident Info -> [(Ident,Info,[Ident])]
 allDependencies ism b =
-  [(f, nub (concatMap opty (pts i))) | (f,i) <- Map.toList b]
+  [(f, i, nub (deps i)) | (f,i) <- Map.toList b]
   where
     opersIn t = case t of
       Q  (n,c) | ism n -> [c]
       QC (n,c) | ism n -> [c]
+      EPatt _ _ p -> opersInPatt p
+      T _ cs -> mconcatMap (\(p,t) -> opersInPatt p ++ opersIn t) cs
       _ -> collectOp opersIn t
+
+    constrsIn t = case t of
+      QC (n,c) | ism n -> [c]
+      _ -> collectOp constrsIn t
+
+    opersInPatt p = case p of
+      PP (n,c) ps      -> (if ism n then (:)c else id)
+                              (concatMap opersInPatt ps)
+      PTilde t         -> opersIn t
+      PM (n,c) | ism n -> [c]
+      _ -> collectPattOp opersInPatt p
+
     opty (Just (L _ ty)) = opersIn ty
     opty _ = []
-    pts i = case i of
-      ResOper pty pt -> [pty,pt]
-      ResOverload _ tyts -> concat [[Just ty, Just tr] | (ty,tr) <- tyts]
-      ResParam (Just (L loc ps)) _ -> [Just (L loc t) | (_,cont) <- ps, (_,_,t) <- cont]
-      CncCat pty _ _ _ _ -> [pty]
-      CncFun _   pt _ _ -> [pt]  ---- (Maybe (Ident,(Context,Type))
-      AbsFun pty _ ptr _ -> [pty] --- ptr is def, which can be mutual
-      AbsCat (Just (L loc co)) -> [Just (L loc ty) | (_,_,ty) <- co]
+
+    deps i = case i of
+      ResOper pty pt -> opty pty ++ opty pt
+      ResOverload _ tyts -> concat [opersIn ty ++ opersIn tr | (L _ ty,L _ tr) <- tyts]
+      ResParam (Just (L loc ps)) _ -> concat [opersIn  t | (_,cont) <- ps, (_,_,t) <- cont]
+      CncCat pty _ _ _ _ -> opty pty
+      CncFun _   pt _ _ -> opty pt
+      AbsFun pty peqs -> opty pty ++ concat [concatMap opersInPatt ps++constrsIn t | L _ (ps,t) <- maybe [] snd peqs]
+      AbsCat (Just (L loc co)) -> concat [opersIn ty | (_,_,ty) <- co]
       _              -> []
 
 topoSortJments :: ErrorMonad m => SourceModule -> m [(Ident,Info)]
 topoSortJments (m,mi) = do
-  is <- either
-          return
-          (\cyc -> raise (render ("circular definitions:" <+> fsep (head cyc))))
-          (topoTest (allDependencies (==m) (jments mi)))
-  return (reverse [(i,info) | i <- is, Just info <- [Map.lookup i (jments mi)]])
-
-topoSortJments2 :: ErrorMonad m => SourceModule -> m [[(Ident,Info)]]
-topoSortJments2 (m,mi) = do
-  iss <- either
-           return
-           (\cyc -> raise (render ("circular definitions:"
-                                   <+> fsep (head cyc))))
-           (topoTest2 (allDependencies (==m) (jments mi)))
-  return
-    [[(i,info) | i<-is,Just info<-[Map.lookup i (jments mi)]] | is<-iss]
-
+  let sccs = stronglyConnComp (map toNode (allDependencies (==m) (jments mi)))
+      cycles = [map fst jmts | CyclicSCC jmts <- sccs]
+  case cycles of
+    [] -> return [jmt | AcyclicSCC jmt <- sccs]
+    _  -> raise (render ("circular definitions:" $$
+                             nest 3 (vcat (map fsep cycles))))
+  where
+    toNode (id,info,deps) = ((id,info),id,deps)
 
 mkStrs p = case p of
  PAlt a b -> do

@@ -4,7 +4,7 @@
 --
 -- Utilities for creating XML documents.
 ----------------------------------------------------------------------
-module GF.Data.XML (XML(..), Attr, comments, showXMLDoc, showsXMLDoc, showsXML, bottomUpXML, parseXML) where
+module GF.Data.XML (XML(..), Attr, comments, showXMLDoc, showsXMLDoc, showsXML, showsNospaceXML, bottomUpXML, parseXML) where
 
 import Data.Char(isSpace)
 import Numeric (readHex)
@@ -37,6 +37,17 @@ showsXML = showsX 0 where
     (Comment c) -> showString "<!-- " . showString c . showString " -->"
     (Empty) -> id
   ind i = showString ("\n" ++ replicate (2*i) ' ')
+
+showsNospaceXML :: XML -> ShowS
+showsNospaceXML x = case x of
+    (Data s) -> showString (escape s)
+    (ETag t as) -> showChar '<' . showString t . showsAttrs as . showString "/>"
+    (Tag t as cs) ->
+      showChar '<' . showString t . showsAttrs as . showChar '>' .
+      concatS (map showsNospaceXML cs) .
+      showString "</" . showString t . showChar '>'
+    (Comment c) -> showString "<!-- " . showString c . showString " -->"
+    (Empty) -> id
 
 showsAttrs :: [Attr] -> ShowS
 showsAttrs = concatS . map (showChar ' ' .) . map showsAttr

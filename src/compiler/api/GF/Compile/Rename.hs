@@ -30,7 +30,6 @@ module GF.Compile.Rename (
 import GF.Infra.Ident
 import GF.Infra.CheckM
 import GF.Grammar.Grammar
-import GF.Grammar.Values
 import GF.Grammar.Predef
 import GF.Grammar.Lookup
 import GF.Grammar.Macros
@@ -87,7 +86,7 @@ renameIdentTerm' env@(act,imps) t0 =
 
     -- this facility is mainly for BWC with GF1: you need not import PredefAbs
     predefAbs c s
-      | isPredefCat c = return (Q (cPredefAbs,c))
+      | isPredefCat c = return (QC (cPredefAbs,c))
       | otherwise     = checkError s
 
     ident alt c =
@@ -106,7 +105,8 @@ renameIdentTerm' env@(act,imps) t0 =
 
 info2status :: Maybe ModuleName -> Ident -> Info -> Term
 info2status mq c i = case i of
-  AbsFun _ _ Nothing _ -> maybe Con (curry QC) mq c
+  AbsCat _ -> maybe Con (curry QC) mq c
+  AbsFun _ Nothing -> maybe Con (curry QC) mq c
   ResValue _ _ -> maybe Con (curry QC) mq c
   ResParam _ _ -> maybe Con (curry QC) mq c
   AnyInd True m -> maybe Con (const (curry QC m)) mq c
@@ -159,7 +159,7 @@ renameInfo :: FilePath -> Status -> Module -> Ident -> Info -> Check Info
 renameInfo cwd status (m,mi) i info =
   case info of
     AbsCat pco -> liftM AbsCat (renPerh (renameContext status) pco)
-    AbsFun  pty pa ptr poper -> liftM4 AbsFun (renTerm pty) (return pa) (renMaybe (mapM (renLoc (renEquation status))) ptr) (return poper)
+    AbsFun  pty ptr -> liftM2 AbsFun (renTerm pty) (renMaybe (\(a,eqs) -> fmap ((,) a) (mapM (renLoc (renEquation status)) eqs)) ptr)
     ResOper pty ptr -> liftM2 ResOper (renTerm pty) (renTerm ptr)
     ResOverload os tysts -> liftM (ResOverload os) (mapM (renPair (renameTerm status [])) tysts)
     ResParam (Just pp) m -> do
@@ -218,6 +218,13 @@ renameTerm env vars = ren vars where
         _ -> return i
       liftM (T i') $ mapM (renCase vs) cs
 
+    RecType rs -> do
+      rs <- forM rs $ \(l,deps,t) -> do
+              t <- renameTerm env (deps++vs) t
+              let deps' = L.intersect deps (freeVars vs t)
+              return (l,deps',t)
+      return (RecType rs)
+
     Let (x,(m,a)) b -> do
       m' <- case m of
         Just ty -> liftM Just $ ren vs ty
@@ -254,6 +261,11 @@ renameTerm env vars = ren vars where
     t' <- ren (vs' ++ vs) t
     return (p',t')
   renpatt = renamePattern env
+
+  freeVars xs (Abs _ x e) = freeVars (x:xs) e
+  freeVars xs (Vr x)
+    | not (elem x xs)     = [x]
+  freeVars xs e           = collectOp (freeVars xs) e
 
 -- | vars not needed in env, since patterns always overshadow old vars
 renamePattern :: Status -> Patt -> Check (Patt,[Ident])
@@ -293,7 +305,8 @@ renamePattern env patt =
                 _      -> checkError ("not a pattern macro" <+> ppPatt Qualified 0 patt)
         return (PM c', [])
 
-      PV x -> checks [ renid' (Vr x) >>= \t' -> case t' of
+      PV x | x /= identW
+           -> checks [ renid' (Vr x) >>= \t' -> case t' of
                                                  QC c -> return (PP c [],[])
                                                  _    -> checkError (pp "not a constructor")
                      , return (patt, [x])
@@ -326,6 +339,10 @@ renamePattern env patt =
       PAs x p -> do
         (p',vs) <- renp p
         return (PAs x p', x:vs)
+
+      PImplArg p -> do
+        (p,vs) <- renp p
+        return (PImplArg p, vs)
 
       _ -> return (patt,[])
 

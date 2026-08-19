@@ -135,14 +135,14 @@ ModDef
                                           (opens,jments,opts) = case content of { Just c -> c; Nothing -> ([],[],noOptions) }
                                       jments <- mapM (checkInfoType mtype) jments
                                       defs <- buildAnyTree id jments
-                                      return (id, ModInfo mtype mstat opts extends with opens [] "" Nothing defs)  }
+                                      return (id, ModInfo mtype mstat opts extends with opens [] "" defs)  }
 
 ModHeader :: { SourceModule }
 ModHeader
   : ComplMod ModType '=' ModHeaderBody { let { mstat = $1 ;
                                                (mtype,id) = $2 ;
                                                (extends,with,opens) = $4 }
-                                         in (id, ModInfo mtype mstat noOptions extends with opens [] "" Nothing Map.empty) }
+                                         in (id, ModInfo mtype mstat noOptions extends with opens [] "" Map.empty) }
 
 ComplMod :: { ModuleStatus }
 ComplMod 
@@ -253,19 +253,18 @@ CatDef
 
 FunDef :: { [(Ident,Info)] }
 FunDef
-  : Posn ListIdent ':' Exp Posn { [(fun, AbsFun (Just (mkL $1 $5 $4)) Nothing (Just []) (Just True)) | fun <- $2] } 
+  : Posn ListIdent ':' Exp Posn { [(fun, AbsFun (Just (mkL $1 $5 $4)) (Just (0,[]))) | fun <- $2] }
 
 DefDef :: { [(Ident,Info)] }
 DefDef
-  : Posn LhsNames '=' Exp         Posn { [(f, AbsFun Nothing (Just 0)           (Just [mkL $1 $5 ([],$4)]) Nothing) | f <- $2] }
-  | Posn LhsName ListPatt '=' Exp    Posn { [($2,AbsFun Nothing (Just (length $3)) (Just [mkL $1 $6 ($3,$5)]) Nothing)] }
+  : Posn LhsNames '=' Exp            Posn { [(f, AbsFun Nothing (Just (0,[mkL $1 $5 ([],$4)]))) | f <- $2] }
+  | Posn LhsName ListPatt '=' Exp    Posn { [($2,AbsFun Nothing (Just (0,[mkL $1 $6 ($3,$5)])))] }
 
 DataDef :: { [(Ident,Info)] }
 DataDef
   : Posn Ident '=' ListDataConstr Posn { ($2,   AbsCat Nothing) :
-                                         [(fun, AbsFun Nothing Nothing Nothing  (Just True)) | fun <- $4] }
-  | Posn ListIdent ':' Exp Posn        { -- (snd (valCat $4), AbsCat Nothing) :
-                                         [(fun, AbsFun (Just (mkL $1 $5 $4)) Nothing Nothing (Just True)) | fun <- $2] }                                         
+                                         [(fun, AbsFun Nothing Nothing) | fun <- $4] }
+  | Posn ListIdent ':' Exp Posn        { [(fun, AbsFun (Just (mkL $1 $5 $4)) Nothing) | fun <- $2] }
 
 ParamDef :: { [(Ident,Info)] }
 ParamDef
@@ -292,6 +291,9 @@ TermDef
 FlagDef :: { Options }
 FlagDef
   : Posn Ident '=' Ident Posn  {% case parseModuleOptions ["--" ++ showIdent $2 ++ "=" ++ showIdent $4] of
+                                    Ok  x   -> return x
+                                    Bad msg -> failLoc $1 msg                                           } 
+  | Posn Ident '=' String Posn {% case parseModuleOptions ["--" ++ showIdent $2 ++ "=" ++ $4] of
                                     Ok  x   -> return x
                                     Bad msg -> failLoc $1 msg                                           } 
   | Posn Ident '=' Double Posn {% case parseModuleOptions ["--" ++ showIdent $2 ++ "=" ++ show $4] of
@@ -381,18 +383,20 @@ LhsNames
   : LhsName              { [$1]    }
   | LhsName ',' LhsNames { $1 : $3 }
 
-LocDef :: { [(Ident, Maybe Type, Maybe Term)] }
+LocDef :: { [(Ident, Bool, Maybe Type, Maybe Term)] }
 LocDef
-  : ListIdent ':' Exp         { [(lab,Just $3,Nothing) | lab <- $1] } 
-  | ListIdent '=' Exp         { [(lab,Nothing,Just $3) | lab <- $1] }
-  | ListIdent ':' Exp '=' Exp { [(lab,Just $3,Just $5) | lab <- $1] }
+  : '$' Ident ':' Exp         { [($2,True,Just $4,Nothing)] }
+  | ListIdent ':' Exp         { [(lab,False,Just $3,Nothing) | lab <- $1] } 
+  | ListIdent '=' Exp         { [(lab,False,Nothing,Just $3) | lab <- $1] }
+  | ListIdent ':' Exp '=' Exp { [(lab,False,Just $3,Just $5) | lab <- $1] }
 
-LocMarkupDef :: { [(Ident, Maybe Type, Maybe Term)] }
+LocMarkupDef :: { [(Ident, Bool, Maybe Type, Maybe Term)] }
 LocMarkupDef
-  : ListIdent '=' Tag         { [(lab,Nothing,Just $3) | lab <- $1] }
-  | ListIdent ':' Exp '=' Tag { [(lab,Just $3,Just $5) | lab <- $1] }
+  : '$' Ident '=' Tag         { [($2,False,Nothing,Just $4)] }
+  | ListIdent '=' Tag         { [(lab,False,Nothing,Just $3) | lab <- $1] }
+  | ListIdent ':' Exp '=' Tag { [(lab,False,Just $3,Just $5) | lab <- $1] }
 
-ListLocDef :: { [(Ident, Maybe Type, Maybe Term)] }
+ListLocDef :: { [(Ident, Bool, Maybe Type, Maybe Term)] }
 ListLocDef
   : {- empty -}             { []       }
   | LocDef                  { $1       }
@@ -443,8 +447,8 @@ Exp3
   | 'table' Exp6 '{' ListCase '}'    { T (TTyped $2) $4 }
   | 'table' Exp6 '[' ListExp ']'     { V $2 $4       }
   | Exp3 '*'  Exp4                   { case $1 of
-                                         RecType xs -> RecType (xs ++ [(tupleLabel (length xs+1),$3)])
-                                         t          -> RecType [(tupleLabel 1,$1), (tupleLabel 2,$3)]  }
+                                         RecType xs -> RecType (xs ++ [(tupleLabel (length xs+1),[],$3)])
+                                         t          -> RecType [(tupleLabel 1,[],$1), (tupleLabel 2,[],$3)]  }
   | Exp3 '**' Exp4                   { ExtR $1 $3    }
   | Exp4                             { $1            }
 
@@ -479,9 +483,9 @@ Exp5
 
 Exp6 :: { Term }
 Exp6 
-  : Ident                 { Vr $1 } 
+  : Ident                 { Vr  $1 }
   | Sort                  { Sort $1 }
-  | String                { K $1 }
+  | String                { words2term (words $1) }
   | Integer               { EInt $1 }
   | Double                { EFloat $1 }
   | '?'                   { Meta 0 }
@@ -531,7 +535,7 @@ Patt3
   | '[' String ']'            { PChars $2 }
   | '#' Ident                 { PMacro $2 }
   | '#' ModuleName '.' Ident  { PM ($2,$4) }
-  | '_'                       { PW }
+  | '_'                       { PV identW }
   | Ident                     { PV $1 }
   | ModuleName '.' Ident      { PP ($1,$3) [] }
   | Integer                   { PInt $1 }
@@ -714,9 +718,11 @@ ERHS3 :: { ERHS }
   | '(' ERHS0 ')'         { $2         }
 
 NLG :: { Map.Map Ident Info }
-  : ListNLGDef             { Map.fromList $1 }
-  | Posn Exp         Posn  { Map.singleton (identS "main") (ResOper Nothing (Just (mkL $1 $3 $2))) }
-  | Posn ListMarkup2 Posn  { Map.singleton (identS "main") (ResOper Nothing (Just (mkL $1 $3 (mkMarkup $2)))) }
+  : ListNLGDef            { Map.fromList $1 }
+  | Posn Exp Posn         { Map.singleton (identS "main") (ResOper Nothing (Just (mkL $1 $3 $2))) }
+  | ListMarkup2           { case (head $1,last $1) of
+                              (L (Local l1 _) _, L (Local _ l2) _) -> Map.singleton (identS "main") (ResOper Nothing (Just (L (Local l1 l2) (mkMarkup $1))))
+                          }
 
 ListNLGDef :: { [(Ident,Info)] }
 ListNLGDef
@@ -730,10 +736,10 @@ NLGDef
   | Posn LhsName ListArg '=' ListMarkup2  Posn { [(i, info) | i <- [$2], info <- mkOverload Nothing   (Just (mkL $1 $6 (mkAbs $3 (mkMarkup $5))))] }
   | Posn LhsNames ':' Exp '=' ListMarkup2 Posn { [(i, info) | i <- $2,   info <- mkOverload (Just (mkL $1 $7 $4)) (Just (mkL $1 $7 (mkMarkup $6)))] }
 
-Markup :: { Term }
+Markup :: { L Term }
 Markup
-  : Tag     { $1 }
-  | Exp ';' { $1 }
+  : Posn Tag Posn     { mkL $1 $3 $2 }
+  | Posn Exp Posn ';' { mkL $1 $3 $2 }
 
 Tag :: { Term }
 Tag
@@ -742,12 +748,12 @@ Tag
                                                        else fail ("Unmatched closing tag " ++ showIdent $1) }
   | '<tag' Attributes '/' '>'                     { Markup $1 $2 [] }
 
-ListMarkup :: { [Term] }
+ListMarkup :: { [L Term] }
   :                    { []      }
-  | Exp                { [$1]    }
+  | Posn Exp Posn      { [mkL $1 $3 $2] }
   | Markup ListMarkup  { $1 : $2 }
 
-ListMarkup2 :: { [Term] }
+ListMarkup2 :: { [L Term] }
   : Markup              { [$1]    }
   | Markup ListMarkup2  { $1 : $2 }
 
@@ -790,8 +796,8 @@ listCatDef (L loc (id,cont,size)) = [catd,nilfund,consfund]
     consId = mkConsId id
 
     catd     = (listId, AbsCat (Just (L loc cont')))
-    nilfund  = (baseId, AbsFun (Just (L loc niltyp))  Nothing Nothing (Just True))
-    consfund = (consId, AbsFun (Just (L loc constyp)) Nothing Nothing (Just True))
+    nilfund  = (baseId, AbsFun (Just (L loc niltyp))  Nothing)
+    consfund = (consId, AbsFun (Just (L loc constyp)) Nothing)
 
     cont' = [(b,mkId x i,ty) | (i,(b,x,ty)) <- zip [0..] cont]
     xs = map (\(b,x,t) -> Vr x) cont'
@@ -803,20 +809,23 @@ listCatDef (L loc (id,cont,size)) = [catd,nilfund,consfund]
 
     mkId x i = if x == identW then (varX i) else x
 
-tryLoc (c,mty,Just e) = return (c,(mty,e))
-tryLoc (c,_  ,_     ) = fail ("local definition of" +++ showIdent c +++ "without value")
+tryLoc (c,False,mty,Just e) = return (c,(mty,e))
+tryLoc (c,True ,_  ,_     ) = fail ("Scoped record label " +++ showIdent c +++ "outside of a record")
+tryLoc (c,_    ,_  ,_     ) = fail ("local definition of" +++ showIdent c +++ "without value")
 
 mkR []       = return $ RecType [] --- empty record always interpreted as record type
 mkR fs@(f:_) =
   case f of
-    (lab,Just ty,Nothing) -> mapM tryRT fs >>= return . RecType
-    _                     -> mapM tryR  fs >>= return . R
+    (lab,_,Just ty,Nothing) ->   tryRT [] fs >>= return . RecType
+    _                       -> mapM tryR  fs >>= return . R
   where
-    tryRT (lab,Just ty,Nothing) = return (ident2label lab,ty)
-    tryRT (lab,_      ,_      ) = fail $ "illegal record type field" +++ showIdent lab --- manifest fields ?!
+    tryRT deps []                                = return []
+    tryRT deps ((lab,scoped,Just ty,Nothing):fs) = do fs <- tryRT (if scoped then lab:deps else deps) fs
+                                                      return ((ident2label lab,deps,ty):fs)
+    tryRT deps ((lab,_     ,_      ,_      ):fs) = fail $ "illegal record type field" +++ showIdent lab --- manifest fields ?!
 
-    tryR (lab,mty,Just t) = return (ident2label lab,(mty,t))
-    tryR (lab,_  ,_     ) = fail $ "illegal record field" +++ showIdent lab
+    tryR (lab,False,mty,Just t) = return (ident2label lab,(mty,t))
+    tryR (lab,_    ,_  ,_     ) = fail $ "illegal record field" +++ showIdent lab
 
 mkOverload pdt pdf@(Just (L loc df)) =
   case appForm df of
@@ -844,12 +853,12 @@ isOverloading t =
 checkInfoType mt jment@(id,info) =
   case info of
     AbsCat pcont         -> ifAbstract mt (locPerh pcont)
-    AbsFun pty _ pde _   -> ifAbstract mt (locPerh pty ++ maybe [] locAll pde)
+    AbsFun pty pde       -> ifAbstract mt (locPerh pty ++ maybe [] (locAll.snd) pde)
     CncCat pty pd pr ppn _->ifConcrete mt (locPerh pty ++ locPerh pd ++ locPerh pr ++ locPerh ppn)
     CncFun _   pd ppn _  -> ifConcrete mt (locPerh pd ++ locPerh ppn)
     ResParam pparam _    -> ifResource mt (locPerh pparam)
     ResValue ty _        -> ifResource mt (locL ty)
-    ResOper  pty pt      -> ifOper mt pty pt
+    ResOper  pty pt      -> ifResource mt (locPerh pty ++ locPerh pt)
     ResOverload _ xs     -> ifResource mt (concat [[loc1,loc2] | (L loc1 _,L loc2 _) <- xs])
   where
     locPerh = maybe [] locL
@@ -870,9 +879,6 @@ checkInfoType mt jment@(id,info) =
     ifResource MTInterface    locs = return jment
     ifResource MTResource     locs = return jment
     ifResource _              locs = illegal locs
-    
-    ifOper MTAbstract pty pt = return (id,AbsFun pty (fmap (const 0) pt) (Just (maybe [] (\(L l t) -> [L l ([],t)]) pt)) (Just False))
-    ifOper _          pty pt = return jment
 
 mkAlts cs = case cs of
   _:_ -> do
@@ -889,7 +895,11 @@ mkAlts cs = case cs of
 mkL :: Posn -> Posn -> x -> L x
 mkL (Pn l1 _) (Pn l2 _) x = L (Local l1 l2) x
 
-mkMarkup [t] = t
+mkMarkup [t] = unLoc t
 mkMarkup ts  = Markup identW [] ts
+
+words2term []     = Empty
+words2term [w]    = K w
+words2term (w:ws) = C (K w) (words2term ws)
 
 }

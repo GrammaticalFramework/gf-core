@@ -31,6 +31,7 @@ import qualified GF.Grammar.Macros as C
 import GF.Data.ErrM(fromErr)
 
 import Control.Monad.State.Strict(State,evalState,get,put)
+import Data.Maybe(isJust)
 import Data.Map (Map)
 import qualified Data.Map as Map
 
@@ -136,6 +137,6 @@ operIdent :: Int -> Ident
 operIdent i = identC (operPrefix `prefixRawIdent` (rawIdentS (show i))) ---
 
 isOperIdent :: Ident -> Bool
-isOperIdent id = isPrefixOf operPrefix (ident2raw id)
+isOperIdent id = isJust (isPrefixOf operPrefix (ident2raw id))
 
 operPrefix = rawIdentS ("A''")

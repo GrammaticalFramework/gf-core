@@ -35,9 +35,6 @@ module GF.Data.Operations (
      prBracket, prArgList, prSemicList, prCurlyList, restoreEscapes,
      numberedParagraphs, prConjList, prIfEmpty, wrapLines,
 
-     -- ** Topological sorting
-     topoTest, topoTest2,
-
      -- ** Misc
      readIntArg,
      iterFix,  chunks,
@@ -53,7 +50,6 @@ import Control.Monad (liftM,liftM2) --,ap
 import Control.Monad.Fix
 
 import GF.Data.ErrM
-import GF.Data.Relation
 import qualified Control.Monad.Fail as Fail
 
 infixr 5 +++
@@ -187,26 +183,6 @@ wrapLines n s@(c:cs) =
                where n' = n+l
                      l = length w
             _ -> s -- give up!!
-
--- | Topological sorting with test of cyclicity
-topoTest :: Ord a => [(a,[a])] -> Either [a] [[a]]
-topoTest = topologicalSort . mkRel'
-
--- | Topological sorting with test of cyclicity, new version /TH 2012-06-26
-topoTest2 :: Ord a => [(a,[a])] -> Either [[a]] [[a]]
-topoTest2 g0 = maybe (Right cycles) Left (tsort g)
-  where
-    g = g0++[(n,[])|n<-nub (concatMap snd g0)\\map fst g0]
-
-    cycles = findCycles (mkRel' g)
-
-    tsort nes =
-      case partition (null.snd) nes of
-        ([],[]) -> Just []
-        ([],_) -> Nothing
-        (ns,rest) -> (leaves:) `fmap` tsort [(n,es \\ leaves) | (n,es)<-rest]
-            where leaves = map fst ns
-
 
 -- | Fix point iterator (for computing e.g. transitive closures or reachability)
 iterFix :: Eq a => ([a] -> [a]) -> [a] -> [a]

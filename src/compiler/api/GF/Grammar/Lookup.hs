@@ -23,9 +23,10 @@ module GF.Grammar.Lookup (
            lookupResType,
            lookupOverload,
            lookupOverloadTypes,
-           lookupParamValues,
            allParamValues,
+           countParamValues,
            lookupAbsDef,
+           lookupAbsType,
            lookupLincat,
            lookupFunType,
            lookupCatContext,
@@ -44,10 +45,6 @@ import Data.List (sortBy)
 import GF.Text.Pretty
 import qualified Data.Map as Map
 import qualified PGF2
-
--- whether lock fields are added in reuse
-lock c = lockRecType c -- return
-unlock c = unlockRecord c -- return
 
 -- to look up a constant etc in a search tree --- why here? AR 29/5/2008
 lookupIdent :: ErrorMonad m => Ident -> Map.Map Ident b -> m b
@@ -77,7 +74,8 @@ lookupIdentInfo (m,ModPGF{mpgf=pgf})   i =
     appHypos []                  xs t es =
       foldl (appExpr xs) t es
     appHypos ((bt, v, ty):hypos) xs t es =
-      let x = identS v in Prod bt x (cnvType xs ty) (appHypos hypos (x:xs) t es)
+      let x = if v == "_" then identW else identS v
+      in Prod bt x (cnvType xs ty) (appHypos hypos (x:xs) t es)
 
     appExpr xs t e = App t (cnvExpr xs e)
 
@@ -101,7 +99,7 @@ lookupQIdentInfo gr (m,c) = do
 
 lookupResDef :: ErrorMonad m => Grammar -> QIdent -> m Term
 lookupResDef gr (m,c)
-  | isPredefCat c = lock c defLinType
+  | isPredefCat c = return (lock c defLinType)
   | otherwise     = look m c
   where
     look m c = do
@@ -109,10 +107,10 @@ lookupResDef gr (m,c)
       case info of
         ResOper _ (Just (L _ t)) -> return t
         ResOper _ Nothing  -> return (Q (m,c))
-        CncCat (Just (L _ ty)) _ _ _ _ -> lock c ty
-        CncCat _ _ _ _ _         -> lock c defLinType
+        CncCat (Just (L _ ty)) _ _ _ _ -> return (lock c ty)
+        CncCat _ _ _ _ _        -> return (lock c defLinType)
 
-        CncFun (Just (_,cat,_,_)) (Just (L _ tr)) _ _ -> unlock cat tr
+        CncFun (Just (_,cat,_,_)) (Just (L _ tr)) _ _ -> return (lock cat tr)
         CncFun _                  (Just (L _ tr)) _ _ -> return tr
 
         AnyInd _ n        -> look n c
@@ -128,9 +126,8 @@ lookupResType gr (m,c) = do
 
     -- used in reused concrete
     CncCat _ _ _ _ _ -> return typeType
-    CncFun (Just (_,cat,cont,val)) _ _ _ -> do
-          val' <- lock cat val
-          return $ mkProd cont val' []
+    CncFun (Just (args,cat,cont,val)) _ _ _ ->
+           return $ (mkFunType (zipWith (\cat (_,_,ty) -> lock cat ty) args cont) (lock cat val))
     AnyInd _ n        -> lookupResType gr (n,c)
     ResParam _ _    -> return typePType
     ResValue (L _ t) _ -> return t
@@ -145,8 +142,7 @@ lookupOverloadTypes gr id@(m,c) = do
     -- used in reused concrete
     CncCat _ _ _ _ _ -> ret typeType
     CncFun (Just (_,cat,cont,val)) _ _ _ -> do
-          val' <- lock cat val
-          ret $ mkProd cont val' []
+          ret $ mkProd cont (lock cat val) []
     ResParam _ _    -> ret typePType
     ResValue (L _ t) _ -> ret t
     ResOverload os tysts -> do
@@ -186,39 +182,57 @@ allOrigInfos gr m = fromErr [] $ do
     ModInfo{jments=jments} -> return [((m,c),i) | (c,_) <- Map.toList jments, Ok (m,i) <- [lookupOrigInfo gr (m,c)]]
     _                      -> return []
 
-lookupParamValues :: ErrorMonad m => Grammar -> QIdent -> m [Term]
-lookupParamValues gr c = do
-  (_,info) <- lookupOrigInfo gr c
-  case info of
-    ResParam _ (Just (pvs,_)) -> return pvs
-    _                         -> raise $ render (ppQIdent Qualified c <+> "has no parameter values defined")
-
 allParamValues :: ErrorMonad m => Grammar -> Type -> m [Term]
-allParamValues cnc ptyp =
+allParamValues gr ptyp =
   case ptyp of
     _ | Just n <- isTypeInts ptyp -> return [EInt i | i <- [0..n]]
-    QC c -> lookupParamValues cnc c
-    Q  c -> lookupResDef cnc c >>= allParamValues cnc
+    QC c -> do (_,info) <- lookupOrigInfo gr c
+               case info of
+                 ResParam _ (Just (pvs,_)) -> return pvs
+                 _                         -> raise $ render (ppQIdent Qualified c <+> "has no parameter values defined")
+    Q  c -> lookupResDef gr c >>= allParamValues gr
     RecType r -> do
-       let (ls,tys) = unzip $ sortByFst r
-       tss <- mapM (allParamValues cnc) tys
+       let (ls,lls,tys) = unzip3 $ sortByLbl r
+       tss <- mapM (allParamValues gr) tys
        return [R (zipAssign ls ts) | ts <- sequence tss]
     Table pt vt -> do
-       pvs <- allParamValues cnc pt
-       vvs <- allParamValues cnc vt
+       pvs <- allParamValues gr pt
+       vvs <- allParamValues gr vt
        return [V pt ts | ts <- sequence (replicate (length pvs) vvs)]
     _ -> raise (render ("cannot find parameter values for" <+> ptyp))
   where
     -- to normalize records and record types
-    sortByFst = sortBy (\ x y -> compare (fst x) (fst y))
+    sortByLbl = sortBy (\(l1,_,_) (l2,_,_) -> compare l1 l2)
 
-lookupAbsDef :: ErrorMonad m => Grammar -> ModuleName -> Ident -> m (Maybe Int,Maybe [Equation])
-lookupAbsDef gr m c = errIn (render ("looking up absdef of" <+> c)) $ do
-  info <- lookupQIdentInfo gr (m,c)
+countParamValues :: ErrorMonad m => Grammar -> Type -> m Int
+countParamValues gr ptyp =
+  case ptyp of
+    _ | Just n <- isTypeInts ptyp -> return (fromIntegral n+1)
+    QC c -> do (_,info) <- lookupOrigInfo gr c
+               case info of
+                 ResParam _ (Just (_,cnt)) -> return cnt
+                 _                         -> raise $ render (ppQIdent Qualified c <+> "has no parameter values defined")
+    Q  c -> lookupResDef gr c >>= countParamValues gr
+    RecType r -> do
+       let (ls,lls,tys) = unzip3 $ sortByLbl r
+       cs <- mapM (countParamValues gr) tys
+       return (product cs)
+    Table pt vt -> do
+       pc <- countParamValues gr pt
+       vc <- countParamValues gr vt
+       return (vc ^ pc)
+    _ -> raise (render ("cannot find parameter values for" <+> ptyp))
+  where
+    -- to normalize records and record types
+    sortByLbl = sortBy (\(l1,_,_) (l2,_,_) -> compare l1 l2)
+
+lookupAbsDef :: ErrorMonad m => Grammar -> QIdent -> m (Maybe (Int,[Equation]))
+lookupAbsDef gr q@(m,c) = errIn (render ("looking up absdef of" <+> c)) $ do
+  info <- lookupQIdentInfo gr q
   case info of
-    AbsFun _ a d _ -> return (a,fmap (map unLoc) d)
-    AnyInd _ n     -> lookupAbsDef gr n c
-    _              -> return (Nothing,Nothing)
+    AbsFun a d -> return (fmap (\(a,eqs) -> (a,map unLoc eqs)) d)
+    AnyInd _ n -> lookupAbsDef gr (n,c)
+    _          -> return Nothing
 
 lookupLincat :: ErrorMonad m => Grammar -> ModuleName -> Ident -> m Type
 lookupLincat gr m c | isPredefCat c = return defLinType --- ad hoc; not needed?
@@ -230,13 +244,31 @@ lookupLincat gr m c = do
     _                             -> raise (render (c <+> "has no linearization type in" <+> m))
 
 -- | this is needed at compile time
-lookupFunType :: ErrorMonad m => Grammar -> ModuleName -> Ident -> m Type
-lookupFunType gr m c = do
-  info <- lookupQIdentInfo gr (m,c)
+lookupAbsType :: ErrorMonad m => Grammar -> QIdent -> m (Term,Type)
+lookupAbsType gr q@(m,c)
+  | m == cPredefAbs =
+      if elem c [cInt,cFloat,cString]
+        then return (QC q,typeType)
+        else no_type
+  | otherwise = do
+      info <- lookupQIdentInfo gr q
+      case info of
+        AbsCat (Just (L _ co))         -> return (QC q,mkProd co typeType [])
+        AbsFun (Just (L _ t)) Nothing  -> return (QC q,t)
+        AbsFun (Just (L _ t)) (Just _) -> return (Q q,t)
+        AnyInd _ n                     -> lookupAbsType gr (n,c)
+        _                              -> no_type
+  where
+    no_type = raise (render ("cannot find type of" <+> c))
+
+-- | this is needed at compile time
+lookupFunType :: ErrorMonad m => Grammar -> QIdent -> m Type
+lookupFunType gr q@(m,c) = do
+  info <- lookupQIdentInfo gr q
   case info of
-    AbsFun (Just (L _ t)) _ _ _ -> return t
-    AnyInd _ n                  -> lookupFunType gr n c
-    _                           -> raise (render ("cannot find type of" <+> c))
+    AbsFun (Just (L _ t)) _ -> return t
+    AnyInd _ n              -> lookupFunType gr (n,c)
+    _                       -> raise (render ("cannot find type of" <+> c))
 
 -- | this is needed at compile time
 lookupCatContext :: ErrorMonad m => Grammar -> ModuleName -> Ident -> m Context
@@ -260,17 +292,13 @@ allOpers gr =
   ]
   where
     typesIn info = case info of
-      AbsFun  (Just ltyp) _ _ _ -> [ltyp]
+      AbsFun  (Just ltyp) _     -> [ltyp]
       ResOper (Just ltyp) _     -> [ltyp]
       ResValue ltyp _           -> [ltyp]
       ResOverload _ tytrs       -> [ltyp | (ltyp,_) <- tytrs]
       CncFun  (Just (_,i,ctx,typ)) _ _ _ ->
-                                   [L NoLoc (mkProdSimple ctx (lock' i typ))]
+                                   [L NoLoc (mkProdSimple ctx (lock i typ))]
       _                         -> []
-
-    lock' i typ = case lock i typ of
-                    Ok t -> t
-                    _ -> typ
 
 --- not for dependent types
 allOpersTo :: Grammar -> Type -> [(QIdent,Type,Location)]

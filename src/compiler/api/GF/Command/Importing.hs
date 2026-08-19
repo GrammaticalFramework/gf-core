@@ -1,7 +1,7 @@
 module GF.Command.Importing (importGrammar, importSource) where
 
 import PGF2
-import PGF2.Transactions
+import PGF2.Transactions hiding (Rule(..))
 
 import GF.Compile
 import GF.Compile.Multi (readMulti)

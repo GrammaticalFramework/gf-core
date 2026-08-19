@@ -1,7 +1,7 @@
 module GF.Compiler (mainGFC, writeGrammar, writeOutputs) where
 
 import PGF2
-import PGF2.Transactions
+import PGF2.Transactions hiding (Rule(..))
 import GF.Compile as S(batchCompile,link,srcAbsName)
 import GF.CompileInParallel as P(parallelBatchCompile)
 import GF.Compile.Export
@@ -11,11 +11,10 @@ import GF.Compile.CFGtoPGF
 import GF.Compile.GetGrammar
 import GF.Grammar.BNFC
 import GF.Grammar.CFG
-import GF.Grammar.Grammar
+import GF.Grammar.Grammar hiding (Rule(..))
 import GF.Grammar.JSON(grammar2json)
 import GF.Grammar.Printer(TermPrintQual(..),ppModule)
 
---import GF.Infra.Ident(showIdent)
 import GF.Infra.UseIO
 import GF.Infra.Option
 import GF.Infra.CheckM

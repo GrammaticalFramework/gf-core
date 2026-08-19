@@ -7,8 +7,9 @@ gftranslate.jsonurl="/robust/Parse.ngf"
 gftranslate.grammar="Parse" // the name of the grammar
 
 gftranslate.documented_classes=
-    ["N", "N2", "N3", "A", "A2", "V", "V2", "VV", "VS", "VQ", "VA", "V3", "V2V",
-     "V2S", "V2Q", "V2A", "Adv", "Prep"]
+    ["N", "N2", "N3", "PN", "LN", "GN", "SN", "A", "A2",
+     "V", "V2", "VV", "VS", "VQ", "VA", "V3", "V2V",
+     "V2S", "V2Q", "V2A", "Adv", "AdV", "AdA", "AdN", "Prep"]
 
 gftranslate.call=function(querystring,cont,errcont) {
     http_get_json(gftranslate.jsonurl+querystring,cont,errcont)
@@ -99,7 +100,7 @@ gftranslate.get_languages=function(cont,errcont) {
     else {
 	gftranslate.waiting.push({cont:cont,errcont:errcont})
 	if(gftranslate.waiting.length<2) 
-	    gftranslate.call("?command=grammar",init2,init2error)
+	    gftranslate.call("",init2,init2error)
     }
 }
 

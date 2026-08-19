@@ -2,6 +2,44 @@
 #include "printer.h"
 #include "linearizer.h"
 
+bool PgfLinearizer::Item::instantiate(ref<PgfLParam> lparam,size_t value)
+{
+    if (value < lparam->i0)
+        return false;
+    value -= lparam->i0;
+
+    for (size_t j = 0; j < lparam->n_terms; j++) {
+        term t = lparam->terms[j];
+        if (vars[t.var] > 0) {
+            if (value < vars[t.var]-1)
+                return false;
+            value -= vars[t.var]-1;
+        }
+    }
+
+    for (size_t j = 0; j < lparam->n_terms; j++) {
+        term t = lparam->terms[j];
+        if (vars[t.var] == 0) {
+            size_t v_val = value / t.factor;
+            if (v_val >= rule->ranges[t.var])
+                return false;
+            vars[t.var] = v_val + 1;
+            value %= t.factor;
+        }
+    }
+
+    return (value == 0);
+}
+
+size_t PgfLinearizer::Item::eval(ref<PgfLParam> lparam)
+{
+    size_t value = lparam->i0;
+    for (size_t i = 0; i < lparam->n_terms; i++) {
+        value += lparam->terms[i].factor * (vars[lparam->terms[i].var]-1);
+    }
+    return value;
+}
+
 PgfLinearizer::TreeNode::TreeNode(PgfLinearizer *linearizer)
 {
     this->next     = linearizer->prev;
@@ -11,8 +49,6 @@ PgfLinearizer::TreeNode::TreeNode(PgfLinearizer *linearizer)
     this->fid       = 0;
 
     this->value     = 0;
-    this->var_count = 0;
-    this->var_values= NULL;
 
     this->n_hoas_vars = 0;
     this->hoas_vars   = NULL;
@@ -20,19 +56,18 @@ PgfLinearizer::TreeNode::TreeNode(PgfLinearizer *linearizer)
     linearizer->prev = this;
 }
 
-void PgfLinearizer::TreeNode::linearize_arg(PgfLinearizationOutputIface *out, PgfLinearizer *linearizer, size_t d, PgfLParam *r)
+bool PgfLinearizer::TreeNode::linearize_arg(PgfLinearizationOutputIface *out, PgfLinearizer *linearizer, size_t d, size_t r)
 {
     TreeNode *arg = args;
     while (d > 0) {
         arg = arg->next_arg;
-        if (arg == 0)
+        if (arg == NULL)
             break;
         d--;
     }
-    if (arg == 0)
+    if (arg == NULL)
         throw pgf_error("Missing argument");
-    size_t lindex = eval_param(r);
-    arg->linearize(out, linearizer, lindex);
+    return arg->linearize(out, linearizer, r);
 }
 
 void PgfLinearizer::TreeNode::linearize_var(PgfLinearizationOutputIface *out, PgfLinearizer *linearizer, size_t d, size_t r)
@@ -52,20 +87,24 @@ void PgfLinearizer::TreeNode::linearize_var(PgfLinearizationOutputIface *out, Pg
     out->symbol_token(linearizer->printer.get_text());
 }
 
-void PgfLinearizer::TreeNode::linearize_seq(PgfLinearizationOutputIface *out, PgfLinearizer *linearizer, ref<PgfSequence> seq)
+bool PgfLinearizer::TreeNode::linearize_item(PgfLinearizationOutputIface *out, PgfLinearizer *linearizer, Item *item, vector<PgfSymbol> syms)
 {
-    for (size_t i = 0; i < seq->syms.size(); i++) {
-        PgfSymbol sym = seq->syms[i];
+    for (size_t i = 0; i < syms.size(); i++) {
+        PgfSymbol sym = syms[i];
 
         switch (ref<PgfSymbol>::get_tag(sym)) {
         case PgfSymbolCat::tag: {
             auto sym_cat = ref<PgfSymbolCat>::untagged(sym);
-            linearize_arg(out, linearizer, sym_cat->d, &sym_cat->r);
+            size_t r = item->eval(ref<PgfLParam>::from_ptr(&sym_cat->r));
+            if (!linearize_arg(out, linearizer, sym_cat->d, r))
+                return false;
             break;
         }
         case PgfSymbolLit::tag: {
             auto sym_lit = ref<PgfSymbolLit>::untagged(sym);
-            linearize_arg(out, linearizer, sym_lit->d, &sym_lit->r);
+            size_t r = item->eval(ref<PgfLParam>::from_ptr(&sym_lit->r));
+            if (!linearize_arg(out, linearizer, sym_lit->d, r))
+                return false;
             break;
         }
         case PgfSymbolVar::tag: {
@@ -133,6 +172,7 @@ void PgfLinearizer::TreeNode::linearize_seq(PgfLinearizationOutputIface *out, Pg
             PreStack *pre = new PreStack();
             pre->next   = linearizer->pre_stack;
             pre->node   = this;
+            pre->item   = item;
             pre->sym_kp = sym_kp;
             pre->bind   = false;
             pre->capit  = CAPIT_NONE;
@@ -167,125 +207,77 @@ void PgfLinearizer::TreeNode::linearize_seq(PgfLinearizationOutputIface *out, Pg
             break;
         }
     }
-}
 
-size_t PgfLinearizer::TreeNode::eval_param(PgfLParam *param)
-{
-    size_t value = param->i0;
-    for (size_t j = 0; j < param->n_terms; j++) {
-        size_t factor = param->terms[j].factor;
-        size_t var    = param->terms[j].var;
-
-        if (var < var_count && var_values[var] != (size_t) -1) {
-            value += factor * var_values[var];
-        } else {
-            throw pgf_error("Unbound variable in resolving a linearization");
-        }
-    }
-    return value;
+    return true;
 }
 
 PgfLinearizer::TreeLinNode::TreeLinNode(PgfLinearizer *linearizer, ref<PgfConcrLin> lin)
   : TreeNode(linearizer)
 {
-    this->lin       = lin;
-    this->lin_index = 0;
+    this->lin        = lin;
+    this->rule_index = 0;
+    this->items = new Item*[lin->lincat->fields.size()]();
 }
 
 bool PgfLinearizer::TreeLinNode::resolve(PgfLinearizer *linearizer)
 {
-    vector<PgfHypo> hypos = lin->absfun->type->hypos;
-    size_t n_args = lin->args.size() / lin->res.size();
-
-    while (lin_index < lin->res.size()) {
-        size_t offset = lin_index*n_args;
-
-        ref<PgfPResult> pres = lin->res[lin_index];
-
-        // Unbind all variables
-        for (size_t j = 0; j < var_count; j++) {
-            var_values[j] = (size_t) -1;
-        }
+    while (rule_index < lin->rules.size()) {
+        Item *item = new (lin->rules[rule_index]) Item();
+        item->rule = lin->rules[rule_index];
 
         int i = 0;
         TreeNode *arg = args;
         while (arg != NULL) {
-            ref<PgfPArg> parg = lin->args.elem(offset+i);
-            arg->check_category(linearizer, &hypos[i].type->name);
+            if (!item->instantiate(item->rule->args[i], arg->value))
+                goto next;
 
-            if (arg->value < parg->param->i0)
-                break;
+            arg = arg->next_arg;  i++;
+        }
 
-            size_t value = arg->value - parg->param->i0;
-            for (size_t j = 0; j < parg->param->n_terms; j++) {
-                size_t factor    = parg->param->terms[j].factor;
-                size_t var       = parg->param->terms[j].var;
-                size_t var_value;
-
-                if (var < var_count && var_values[var] != (size_t) -1) {
-                    // The variable already has a value
-                    var_value = var_values[var];
-                } else {
-                    // The variable is not assigned yet
-                    var_value = value / factor;
-
-                    // find the range for the variable
-                    size_t range = 0;
-                    for (size_t k = 0; k < pres->vars.size(); k++) {
-                        ref<PgfVariableRange> var_range = pres->vars.elem(k);
-                        if (var_range->var == var) {
-                            range = var_range->range;
-                            break;
-                        }
-                    }
-                    if (range == 0)
-                        throw pgf_error("Unknown variable in resolving a linearization");
-
-                    if (var_value >= range)
-                        break;
-
-                    // Assign the variable;
-                    if (var >= var_count) {
-                        var_values = (size_t*)
-                            realloc(var_values, (var+1)*sizeof(size_t));
-                        while (var_count < var) {
-                            var_values[var_count++] = (size_t) -1;
-                        }
-                        var_count++;
-                    }
-                    var_values[var] = var_value;
-                }
-
-                value -= var_value * factor;
+        {
+            size_t max_value = 1;
+            for (size_t i = 0; i < item->vars.size(); i++) {
+                if (item->vars[i] == 0)
+                    max_value *= item->rule->ranges[i];
             }
 
-            if (value != 0)
-                break;
+            for (size_t value = 0; value < max_value; value++) {
+                Item *new_item = new (item) Item;
 
-            arg = arg->next_arg;
-            i++;
+                size_t v = value;
+                for (size_t i = 0; i < new_item->vars.size(); i++) {
+                    if (new_item->vars[i] == 0) {
+                        size_t range = new_item->rule->ranges[i];
+                        new_item->vars[i] = (v % range)+1;
+                        v = v / range;
+                    }
+                }
+
+                size_t lin_idx = new_item->eval(new_item->rule->lin_idx);
+                items[lin_idx] = new_item;
+
+                this->value = new_item->eval(new_item->rule->res);
+            }
         }
+    next:
+        delete item;
 
-        lin_index++;
-
-        if (arg == NULL) {
-            value = eval_param(&pres->param);
-            return true;
-        }
+        rule_index++;
     }
 
-    lin_index = 0;
-    return false;
+    return true;
 }
 
-void PgfLinearizer::TreeLinNode::check_category(PgfLinearizer *linearizer, PgfText *cat)
+bool PgfLinearizer::TreeLinNode::check_category(PgfLinearizer *linearizer, PgfText *cat)
 {
-    if (textcmp(&lin->absfun->type->name, cat) != 0)
-        throw pgf_error("An attempt to linearize an expression which is not type correct");
+    return (textcmp(&lin->absfun->type->name, cat) == 0);
 }
 
-void PgfLinearizer::TreeLinNode::linearize(PgfLinearizationOutputIface *out, PgfLinearizer *linearizer, size_t lindex)
+bool PgfLinearizer::TreeLinNode::linearize(PgfLinearizationOutputIface *out, PgfLinearizer *linearizer, size_t lindex)
 {
+    if (items[lindex] == NULL)
+        return false;
+
     PgfText *cat = &lin->absfun->type->name;
     PgfText *field = &*lin->lincat->fields[lindex];
 
@@ -302,9 +294,9 @@ void PgfLinearizer::TreeLinNode::linearize(PgfLinearizationOutputIface *out, Pgf
         linearizer->pre_stack->bracket_stack = bracket;
     }
 
-    size_t n_seqs = lin->seqs.size() / lin->res.size();
-    ref<PgfSequence> seq = lin->seqs[(lin_index-1)*n_seqs + lindex];
-    linearize_seq(out, linearizer, seq);
+    if (!linearize_item(out, linearizer,
+                        items[lindex],items[lindex]->rule->syms.as_vector()))
+        return false;
 
     if (linearizer->pre_stack == NULL)
         out->end_phrase(cat, fid, field, &lin->name);
@@ -318,6 +310,8 @@ void PgfLinearizer::TreeLinNode::linearize(PgfLinearizationOutputIface *out, Pgf
         bracket->fun   = &lin->name;
         linearizer->pre_stack->bracket_stack = bracket;
     }
+
+    return true;
 }
 
 ref<PgfConcrLincat> PgfLinearizer::TreeLinNode::get_lincat(PgfLinearizer *linearizer)
@@ -325,11 +319,22 @@ ref<PgfConcrLincat> PgfLinearizer::TreeLinNode::get_lincat(PgfLinearizer *linear
     return namespace_lookup(linearizer->concr->lincats, &lin->absfun->type->name);
 }
 
+PgfLinearizer::TreeLinNode::~TreeLinNode()
+{
+    size_t n_fields = lin->lincat->fields.size();
+    for (size_t i = 0; i < n_fields; i++) {
+        if (items[i] != NULL)
+            delete items[i];
+    }
+    delete[] items;
+};
+
 PgfLinearizer::TreeLindefNode::TreeLindefNode(PgfLinearizer *linearizer, PgfText *fun, PgfText *literal)
   : TreeNode(linearizer)
 {
     this->lincat    = 0;
-    this->lin_index = 0;
+    this->rule_index= 0;
+    this->items     = NULL;
     this->fun       = fun;
     this->literal   = literal;
 
@@ -355,73 +360,106 @@ PgfLinearizer::TreeLindefNode::TreeLindefNode(PgfLinearizer *linearizer, PgfText
 
 bool PgfLinearizer::TreeLindefNode::resolve(PgfLinearizer *linearizer)
 {
-    if (lincat == 0) {
-        return (lin_index = !lin_index);
-    } else {
-        ref<PgfPResult> pres = lincat->res[lin_index];
-        value = eval_param(&pres->param);
-        lin_index++;
-        if (lin_index <= lincat->n_lindefs)
-            return true;
-        lin_index = 0;
-        return false;
+    if (lincat == 0)
+        return true;
+
+    while (rule_index < lincat->n_lindefs) {
+        ref<PgfConcrRule> rule = lincat->rules[rule_index];
+        Item *item = new (rule) Item();
+        item->rule = rule;
+
+        size_t max_value = 1;
+        for (size_t i = 0; i < item->vars.size(); i++) {
+            if (item->vars[i] == 0)
+                max_value *= item->rule->ranges[i];
+        }
+
+        for (size_t value = 0; value < max_value; value++) {
+            Item *new_item = new (item) Item;
+
+            size_t v = value;
+            for (size_t i = 0; i < new_item->vars.size(); i++) {
+                if (new_item->vars[i] == 0) {
+                    size_t range = new_item->rule->ranges[i];
+                    new_item->vars[i] = (v % range)+1;
+                    v = v / range;
+                }
+            }
+
+            size_t lin_idx = new_item->eval(new_item->rule->lin_idx);
+            items[lin_idx] = new_item;
+
+            this->value = new_item->eval(new_item->rule->res);
+        }
+        delete item;
+
+        rule_index++;
     }
+
+    return true;
 }
 
-void PgfLinearizer::TreeLindefNode::check_category(PgfLinearizer *linearizer, PgfText *cat)
+bool PgfLinearizer::TreeLindefNode::check_category(PgfLinearizer *linearizer, PgfText *cat)
 {
     lincat = namespace_lookup(linearizer->concr->lincats, cat);
-    if (lincat == 0)
-        throw pgf_error("Cannot find a lincat for a category");
+    if (lincat != 0)
+        this->items = new Item*[lincat->fields.size()]();
+    return true;
 }
 
-void PgfLinearizer::TreeLindefNode::linearize_arg(PgfLinearizationOutputIface *out, PgfLinearizer *linearizer, size_t d, PgfLParam *r)
+bool PgfLinearizer::TreeLindefNode::linearize_arg(PgfLinearizationOutputIface *out, PgfLinearizer *linearizer, size_t d, size_t r)
 {
     linearizer->flush_pre_stack(out, literal);
     out->symbol_token(literal);
 
     TreeNode *arg = args;
     while (arg != NULL) {
-        arg->linearize(out,linearizer,0);
+        if (!arg->linearize(out,linearizer,0))
+            return false;
         arg = arg->next_arg;
     }
+    return true;
 }
 
-void PgfLinearizer::TreeLindefNode::linearize(PgfLinearizationOutputIface *out, PgfLinearizer *linearizer, size_t lindex)
+bool PgfLinearizer::TreeLindefNode::linearize(PgfLinearizationOutputIface *out, PgfLinearizer *linearizer, size_t lindex)
 {
-    if (lincat != 0) {
-        PgfText *field = &*lincat->fields[lindex];
-        if (linearizer->pre_stack == NULL)
-            out->begin_phrase(&lincat->name, fid, field, fun);
-        else {
-            BracketStack *bracket = new BracketStack();
-            bracket->next  = linearizer->pre_stack->bracket_stack;
-            bracket->begin = true;
-            bracket->fid   = fid;
-            bracket->cat   = &lincat->name;
-            bracket->field = field;
-            bracket->fun   = fun;
-            linearizer->pre_stack->bracket_stack = bracket;
-        }
-
-        ref<PgfSequence> seq = lincat->seqs[(lin_index-1)*lincat->fields.size() + lindex];
-        linearize_seq(out, linearizer, seq);
-
-        if (linearizer->pre_stack == NULL)
-            out->end_phrase(&lincat->name, fid, field, fun);
-        else {
-            BracketStack *bracket = new BracketStack();
-            bracket->next  = linearizer->pre_stack->bracket_stack;
-            bracket->begin = false;
-            bracket->fid   = fid;
-            bracket->cat   = &lincat->name;
-            bracket->field = field;
-            bracket->fun   = fun;
-            linearizer->pre_stack->bracket_stack = bracket;
-        }
-    } else {
-        linearize_arg(out, linearizer, 0, NULL);
+    if (lincat==0) {
+        return linearize_arg(out, linearizer, 0, 0);
     }
+
+    PgfText *cat = &lincat->name;
+    PgfText *field = &*lincat->fields[lindex];
+
+    if (linearizer->pre_stack == NULL)
+        out->begin_phrase(cat, fid, field, linearizer->wild);
+    else {
+        BracketStack *bracket = new BracketStack();
+        bracket->next  = linearizer->pre_stack->bracket_stack;
+        bracket->begin = true;
+        bracket->fid   = fid;
+        bracket->cat   = cat;
+        bracket->field = field;
+        bracket->fun   = linearizer->wild;
+        linearizer->pre_stack->bracket_stack = bracket;
+    }
+
+    if (!linearize_item(out, linearizer,
+                        items[lindex],items[lindex]->rule->syms.as_vector()))
+        return false;
+
+    if (linearizer->pre_stack == NULL)
+        out->end_phrase(cat, fid, field, linearizer->wild);
+    else {
+        BracketStack *bracket = new BracketStack();
+        bracket->next  = linearizer->pre_stack->bracket_stack;
+        bracket->begin = false;
+        bracket->fid   = fid;
+        bracket->cat   = cat;
+        bracket->field = field;
+        bracket->fun   = linearizer->wild;
+        linearizer->pre_stack->bracket_stack = bracket;
+    }
+    return true;
 }
 
 ref<PgfConcrLincat> PgfLinearizer::TreeLindefNode::get_lincat(PgfLinearizer *linearizer)
@@ -429,11 +467,27 @@ ref<PgfConcrLincat> PgfLinearizer::TreeLindefNode::get_lincat(PgfLinearizer *lin
     return lincat;
 }
 
+PgfLinearizer::TreeLindefNode::~TreeLindefNode()
+{
+    if (lincat && items != NULL) {
+        size_t n_fields = lincat->fields.size();
+        for (size_t i = 0; i < n_fields; i++) {
+            if (items[i] != NULL)
+                delete items[i];
+        }
+        delete[] items;
+    }
+
+    free(fun);
+    free(literal);
+};
+
 PgfLinearizer::TreeLinrefNode::TreeLinrefNode(PgfLinearizer *linearizer, TreeNode *root)
   : TreeNode(linearizer)
 {
     args = root;
-    lin_index=0;
+    rule_index=0;
+    item = NULL;
 }
 
 bool PgfLinearizer::TreeLinrefNode::resolve(PgfLinearizer *linearizer)
@@ -441,89 +495,67 @@ bool PgfLinearizer::TreeLinrefNode::resolve(PgfLinearizer *linearizer)
     TreeNode *root = args;
     ref<PgfConcrLincat> lincat = root->get_lincat(linearizer);
     if (lincat == 0)
-        return (lin_index = !lin_index);
+        return (rule_index = !rule_index);
 
-    while (lincat->n_lindefs+lin_index < lincat->res.size()) {
-        // Unbind all variables
-        for (size_t j = 0; j < var_count; j++) {
-            var_values[j] = (size_t) -1;
+    while (rule_index < lincat->rules.size()) {
+        Item *item = new (lincat->rules[lincat->n_lindefs+rule_index]) Item();
+        item->rule = lincat->rules[lincat->n_lindefs+rule_index];
+
+        if (!item->instantiate(item->rule->args[0], root->value)) {
+            rule_index++;
+            continue;
         }
 
-        ref<PgfPResult> pres = lincat->res[lincat->n_lindefs+lin_index];
-        ref<PgfPArg> parg = lincat->args.elem(lincat->n_lindefs+lin_index);
+        size_t max_value = 1;
+        for (size_t i = 0; i < item->vars.size(); i++) {
+            if (item->vars[i] == 0)
+                max_value *= item->rule->ranges[i];
+        }
 
-        if (root->value < parg->param->i0)
-            break;
-
-        size_t value = root->value - parg->param->i0;
-        for (size_t j = 0; j < parg->param->n_terms; j++) {
-            size_t factor    = parg->param->terms[j].factor;
-            size_t var       = parg->param->terms[j].var;
-            size_t var_value;
-
-            if (var < var_count && var_values[var] != (size_t) -1) {
-                // The variable already has a value
-                var_value = var_values[var];
-            } else {
-                // The variable is not assigned yet
-                var_value = value / factor;
-
-                // find the range for the variable
-                size_t range = 0;
-                for (size_t k = 0; k < pres->vars.size(); k++) {
-                    ref<PgfVariableRange> var_range = pres->vars.elem(k);
-                    if (var_range->var == var) {
-                        range = var_range->range;
-                        break;
-                    }
+        for (size_t value = 0; value < max_value; value++) {
+            size_t v = value;
+            for (size_t i = 0; i < item->vars.size(); i++) {
+                if (item->vars[i] == 0) {
+                    size_t range = item->rule->ranges[i];
+                    item->vars[i] = v % range;
+                    v = v / range;
                 }
-                if (range == 0)
-                    throw pgf_error("Unknown variable in resolving a linearization");
-
-                if (var_value >= range)
-                    break;
-
-                // Assign the variable;
-                if (var >= var_count) {
-                    var_values = (size_t*)
-                        realloc(var_values, (var+1)*sizeof(size_t));
-                    while (var_count < var) {
-                        var_values[var_count++] = (size_t) -1;
-                    }
-                    var_count++;
-                }
-                var_values[var] = var_value;
             }
 
-            value -= var_value * factor;
+            this->item = new (item) Item;
+            this->value = item->eval(this->item->rule->res);
         }
+        delete item;
 
-        lin_index++;
-        if (value == 0) {
-            value = eval_param(&pres->param);
-            return true;
-        }
+        break;
     }
 
-    lin_index = 0;
-    return false;
+    if (item == NULL) {
+        rule_index = 0;
+        return false;
+    }
+
+    return true;
 }
 
-void PgfLinearizer::TreeLinrefNode::linearize(PgfLinearizationOutputIface *out, PgfLinearizer *linearizer, size_t lindex)
+bool PgfLinearizer::TreeLinrefNode::linearize(PgfLinearizationOutputIface *out, PgfLinearizer *linearizer, size_t lindex)
 {
     ref<PgfConcrLincat> lincat = args->get_lincat(linearizer);
     if (lincat != 0) {
-        size_t i = lincat->n_lindefs*lincat->fields.size() + (lin_index-1);
-        ref<PgfSequence> seq = lincat->seqs[i];
-        linearize_seq(out, linearizer, seq);
+        return linearize_item(out, linearizer, item, item->rule->syms.as_vector());
     } else {
-        args->linearize(out, linearizer, lindex);
+        return args->linearize(out, linearizer, lindex);
     }
 }
 
 ref<PgfConcrLincat> PgfLinearizer::TreeLinrefNode::get_lincat(PgfLinearizer *linearizer)
 {
     return 0;
+}
+
+PgfLinearizer::TreeLinrefNode::~TreeLinrefNode()
+{
+    delete item;
 }
 
 PgfLinearizer::TreeLitNode::TreeLitNode(PgfLinearizer *linearizer, ref<PgfConcrLincat> lincat, PgfText *lit)
@@ -533,13 +565,12 @@ PgfLinearizer::TreeLitNode::TreeLitNode(PgfLinearizer *linearizer, ref<PgfConcrL
     this->literal = lit;
 }
 
-void PgfLinearizer::TreeLitNode::check_category(PgfLinearizer *linearizer, PgfText *cat)
+bool PgfLinearizer::TreeLitNode::check_category(PgfLinearizer *linearizer, PgfText *cat)
 {
-    if (textcmp(&lincat->name, cat) != 0)
-        throw pgf_error("An attempt to linearize an expression which is not type correct");
+    return (textcmp(&lincat->name, cat) == 0);
 }
 
-void PgfLinearizer::TreeLitNode::linearize(PgfLinearizationOutputIface *out, PgfLinearizer *linearizer, size_t lindex)
+bool PgfLinearizer::TreeLitNode::linearize(PgfLinearizationOutputIface *out, PgfLinearizer *linearizer, size_t lindex)
 {
     PgfText *field = NULL;
     if (lincat != 0) {
@@ -553,6 +584,8 @@ void PgfLinearizer::TreeLitNode::linearize(PgfLinearizationOutputIface *out, Pgf
     out->symbol_token(literal);
     if (lincat != 0)
         out->end_phrase(&lincat->name, fid, field, linearizer->wild);
+
+    return true;
 }
 
 ref<PgfConcrLincat> PgfLinearizer::TreeLitNode::get_lincat(PgfLinearizer *linearizer)
@@ -570,6 +603,7 @@ PgfLinearizer::PgfLinearizer(PgfPrintContext *ctxt, ref<PgfConcr> concr, PgfMars
     this->args  = NULL;
     this->capit = CAPIT_NONE;
     this->pre_stack = NULL;
+    this->type_error = false;
     this->wild = (PgfText*) malloc(sizeof(PgfText)+2);
     this->wild->size = 1;
     this->wild->text[0] = '_';
@@ -609,6 +643,10 @@ PgfLinearizer::~PgfLinearizer()
 
 bool PgfLinearizer::resolve()
 {
+    if (type_error) {
+        throw pgf_error("An attempt to linearize an expression which is not type correct");
+    }
+
     for (;;) {
         if (!prev || prev->resolve(this)) {
             if (next == NULL)
@@ -663,14 +701,14 @@ void PgfLinearizer::flush_pre_stack(PgfLinearizationOutputIface *out, PgfText *t
                 ref<PgfAlternative> alt = pre->sym_kp->alts.elem(i);
                 for (ref<PgfText> prefix : alt->prefixes) {
                     if (cmp(token, &(*prefix))) {
-                        pre->node->linearize_seq(out, this, alt->form);
+                        pre->node->linearize_item(out, this, pre->item, alt->form);
                         goto done;
                     }
                 }
             }
         }
 
-        pre->node->linearize_seq(out, this, pre->sym_kp->default_form);
+        pre->node->linearize_item(out, this, pre->item, pre->sym_kp->default_form);
 
     done:
         if (pre->bracket_stack != NULL)
@@ -739,9 +777,19 @@ PgfExpr PgfLinearizer::emeta(PgfMetaId meta)
 PgfExpr PgfLinearizer::efun(PgfText *name)
 {
     ref<PgfConcrLin> lin = namespace_lookup(concr->lins, name);
-    if (lin != 0)
+    if (lin != 0) {
+        TreeNode *node = args;
+        size_t i = 0;
+        vector<PgfHypo> hypos = lin->absfun->type->hypos;
+        while (node != NULL) {
+            if (!node->check_category(this, &hypos[i].type->name)) {
+                type_error = true;
+            }
+            node = node->next_arg; i++;
+        }
+
         return (PgfExpr) new TreeLinNode(this, lin);
-    else {
+    } else {
         printer.puts("[");
         printer.efun(name);
         printer.puts("]");

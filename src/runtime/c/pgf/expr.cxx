@@ -111,26 +111,30 @@ PgfType PgfDBMarshaller::match_type(PgfUnmarshaller *u, PgfType ty)
 
 PgfExpr PgfDBUnmarshaller::eabs(PgfBindType bind_type, PgfText *name, PgfExpr body)
 {
+    body = m->match_expr(this, body);
     ref<PgfExprAbs> eabs =
         PgfDB::malloc<PgfExprAbs>(name->size+1);
     eabs->bind_type = bind_type;
-    eabs->body = m->match_expr(this, body);
+    eabs->body = body;
     memcpy(&eabs->name, name, sizeof(PgfText)+name->size+1);
     return eabs.tagged();
 }
 
 PgfExpr PgfDBUnmarshaller::eapp(PgfExpr fun, PgfExpr arg)
 {
+    fun = m->match_expr(this, fun);
+    arg = m->match_expr(this, arg);
     ref<PgfExprApp> eapp = PgfDB::malloc<PgfExprApp>();
-    eapp->fun = m->match_expr(this, fun);
-	eapp->arg = m->match_expr(this, arg);
+    eapp->fun = fun;
+	eapp->arg = arg;
     return eapp.tagged();
 }
 
 PgfExpr PgfDBUnmarshaller::elit(PgfLiteral lit)
 {
+    lit = m->match_lit(this, lit);
     ref<PgfExprLit> elit = PgfDB::malloc<PgfExprLit>();
-    elit->lit = m->match_lit(this, lit);
+    elit->lit = lit;
     return elit.tagged();
 }
 
@@ -158,16 +162,19 @@ PgfExpr PgfDBUnmarshaller::evar(int index)
 
 PgfExpr PgfDBUnmarshaller::etyped(PgfExpr expr, PgfType ty)
 {
+    expr = m->match_expr(this, expr);
+    ty   = m->match_type(this, ty);
     ref<PgfExprTyped> etyped = PgfDB::malloc<PgfExprTyped>();
-    etyped->expr = m->match_expr(this, expr);
-    etyped->type = m->match_type(this, ty);
+    etyped->expr = expr;
+    etyped->type = ty;
     return etyped.tagged();
 }
 
 PgfExpr PgfDBUnmarshaller::eimplarg(PgfExpr expr)
 {
+    expr = m->match_expr(this, expr);
     ref<PgfExprImplArg> eimpl = current_db->malloc<PgfExprImplArg>();
-	eimpl->expr = m->match_expr(this, expr);
+	eimpl->expr = expr;
     return eimpl.tagged();
 }
 
