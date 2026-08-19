@@ -830,6 +830,33 @@ PgfExprEnum *pgf_parse(PgfDB *db, PgfConcrRevision revision,
 PGF_API_DECL
 void pgf_free_expr_enum(PgfExprEnum *en);
 
+#ifdef __cplusplus
+struct PgfParseChart {
+    virtual PgfText *get_text()=0;
+    virtual bool change(size_t start, size_t end, PgfText *change)=0;
+    virtual ~PgfParseChart() {};
+};
+#else
+typedef struct PgfParseChart PgfParseChart;
+typedef struct PgfParseChartVtbl PgfParseChartVtbl;
+struct PgfParseChartVtbl {
+    PgfText *(*get_text)(PgfParseChart *this);
+    int (*change)(PgfParseChart *this, size_t start, size_t end, PgfText *change);
+};
+struct PgfParseChart {
+    PgfParseChartVtbl *vtbl;
+};
+#endif
+
+PGF_API_DECL
+PgfParseChart *pgf_parse_chart(PgfDB *db, PgfConcrRevision revision,
+                               PgfType ty, PgfMarshaller *m, PgfUnmarshaller *u,
+                               PgfText *sentence,
+                               PgfExn * err);
+
+PGF_API_DECL
+void pgf_free_parse_chart(PgfParseChart *chart);
+
 PGF_API_DECL
 PgfText *pgf_get_printname(PgfDB *db, PgfConcrRevision revision,
                            PgfText *fun, PgfExn* err);

@@ -1605,6 +1605,38 @@ void PgfParser::print_expr_state(PgfMarshaller *m, ExprState *estate)
 }
 #endif
 
+PgfText *PgfParser::get_text() {
+    return sentence;
+}
+
+bool PgfParser::change(size_t start, size_t end, PgfText *change)
+{
+    if (start > sentence->size || end > sentence->size || start > end)
+        return false;
+
+    size_t new_size = sentence->size + change->size - (end-start);
+
+    if (sentence->size < new_size) {
+        PgfText *new_sentence = (PgfText *) realloc(sentence, sizeof(PgfText)+new_size+1);
+        if (new_sentence == NULL)
+            return false;
+        sentence = new_sentence;
+    }
+
+    memcpy(&sentence->text[start+change->size], &sentence->text[end], sentence->size-end);
+    memcpy(&sentence->text[start], change->text, change->size);
+
+    if (sentence->size > new_size) {
+        PgfText *new_sentence = (PgfText *) realloc(sentence, sizeof(PgfText)+new_size+1);
+        if (new_sentence == NULL)
+            return false;
+        sentence = new_sentence;
+    }
+
+    sentence->size = new_size;
+    return true;
+}
+
 PgfParseTableMaker::PgfParseTableMaker(ref<PgfConcr> concr)
     : PgfAbstractParser(concr)
 {

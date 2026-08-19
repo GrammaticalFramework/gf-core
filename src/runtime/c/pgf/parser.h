@@ -270,7 +270,7 @@ public:
     virtual ~PgfAbstractParser();
 };
 
-class PGF_INTERNAL_DECL PgfParser : private PgfAbstractParser, public PgfExprEnum
+class PGF_INTERNAL_DECL PgfParser : private PgfAbstractParser, public PgfExprEnum, public PgfParseChart
 {
     PgfMarshaller *m;
     PgfUnmarshaller *u;
@@ -314,7 +314,10 @@ public:
 
     void prepare(ref<PgfConcrLincat> start);
 
-    PgfExpr fetch(PgfDB *db, prob_t *prob);
+    virtual PgfExpr fetch(PgfDB *db, prob_t *prob);
+
+    virtual PgfText *get_text();
+    virtual bool change(size_t start, size_t end, PgfText *change);
 };
 
 class PGF_INTERNAL_DECL PgfParseTableMaker : private PgfAbstractParser

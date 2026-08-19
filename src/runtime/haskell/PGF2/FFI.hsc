@@ -49,6 +49,7 @@ data PgfProbsCallback
 data PgfMorphoCallback
 data PgfCohortsCallback
 data PgfExprEnum
+data PgfParseChart
 data PgfAlignmentPhrase
 data PgfParseTableMaker
 
@@ -284,9 +285,17 @@ foreign import ccall pgf_align_words :: Ptr PgfDB -> Ptr Concr -> StablePtr Expr
 
 foreign import ccall pgf_parse :: Ptr PgfDB -> Ptr Concr -> StablePtr Type -> Ptr PgfMarshaller -> Ptr PgfUnmarshaller -> Ptr PgfText -> Ptr PgfExn -> IO (Ptr PgfExprEnum)
 
+foreign import ccall "&pgf_free_expr_enum" pgf_free_expr_enum :: FunPtr (Ptr PgfExprEnum -> IO ())
+
 foreign import ccall "dynamic" callFetch :: Dynamic (Ptr PgfExprEnum -> Ptr PgfDB -> Ptr (#type prob_t) -> IO (StablePtr Expr))
 
-foreign import ccall "&pgf_free_expr_enum" pgf_free_expr_enum :: FunPtr (Ptr PgfExprEnum -> IO ())
+foreign import ccall pgf_parse_chart :: Ptr PgfDB -> Ptr Concr -> StablePtr Type -> Ptr PgfMarshaller -> Ptr PgfUnmarshaller -> Ptr PgfText -> Ptr PgfExn -> IO (Ptr PgfParseChart)
+
+foreign import ccall "&pgf_free_parse_chart" pgf_free_parse_chart :: FunPtr (Ptr PgfParseChart -> IO ())
+
+foreign import ccall "dynamic" callGetText :: Dynamic (Ptr PgfParseChart -> IO (Ptr PgfText))
+
+foreign import ccall "dynamic" callChange :: Dynamic (Ptr PgfParseChart -> CSize -> CSize -> Ptr PgfText -> IO CInt)
 
 foreign import ccall "wrapper" wrapSymbol0 :: Wrapper (Ptr PgfLinearizationOutputIface -> IO ())
 

@@ -2758,6 +2758,38 @@ void pgf_free_expr_enum(PgfExprEnum *en)
 }
 
 PGF_API
+PgfParseChart *pgf_parse_chart(PgfDB *db, PgfConcrRevision revision,
+                               PgfType ty, PgfMarshaller *m, PgfUnmarshaller *u,
+                               PgfText *sentence,
+                               PgfExn * err)
+{
+    PGF_API_BEGIN {
+        DB_scope scope(db, READER_SCOPE);
+
+        ref<PgfConcr> concr = db->revision2concr(revision);
+
+        bool case_sensitive = pgf_is_case_sensitive(concr);
+
+        PgfLincatUnmarshaller lincat_u(concr);
+        m->match_type(&lincat_u, ty);
+        if (lincat_u.lincat == 0)
+            return 0;
+
+        PgfParser *parser = new PgfParser(concr, sentence, case_sensitive, m, u);
+        parser->prepare(lincat_u.lincat);
+        return parser;
+    } PGF_API_END
+
+    return NULL;
+}
+
+PGF_API
+void pgf_free_parse_chart(PgfParseChart *chart)
+{
+    delete chart;
+}
+
+PGF_API
 PgfText *pgf_get_printname(PgfDB *db, PgfConcrRevision revision,
                            PgfText *fun, PgfExn* err)
 {
