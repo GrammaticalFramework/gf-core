@@ -1725,12 +1725,6 @@ void PgfParser::done()
     update_old_pos = 0;
     update_new_pos = 0;
     delta_byte_pos = 0;
-
-    for (State *state = current_state; state != NULL; state=state->next) {
-        fprintf(stderr, "(%zd:%zd-%zd:%zd) ", state->start.pos, state->start.byte_pos
-                                            , state->end.pos,   state->end.byte_pos);
-    }
-    fprintf(stderr,"\n");
 }
 
 PgfParseTableMaker::PgfParseTableMaker(ref<PgfConcr> concr)
