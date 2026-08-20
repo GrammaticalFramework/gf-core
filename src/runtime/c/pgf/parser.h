@@ -275,8 +275,13 @@ class PGF_INTERNAL_DECL PgfParser : private PgfAbstractParser, public PgfExprEnu
     PgfMarshaller *m;
     PgfUnmarshaller *u;
     PgfText *sentence;
-    uint8_t *end;
     bool case_sensitive;
+
+    // The following are used only during chart updates.
+    State *prev_state;
+    size_t update_old_pos, update_new_pos;
+    ssize_t delta_byte_pos;
+    ssize_t allocated_size;
 
     virtual State *new_state(const PgfTextSpot &start, prob_t viterbi_prob);
     virtual void symbol_token(Item *item, State *state, ref<PgfSymbolKS> symks);
@@ -313,11 +318,15 @@ public:
     virtual ~PgfParser();
 
     void prepare(ref<PgfConcrLincat> start);
+    void perform_search();
 
     virtual PgfExpr fetch(PgfDB *db, prob_t *prob);
 
     virtual PgfText *get_text();
-    virtual bool change(size_t start, size_t end, PgfText *change);
+    virtual void start();
+    virtual bool skip(size_t i);
+    virtual bool change(size_t i, PgfText *change);
+    virtual void done();
 };
 
 class PGF_INTERNAL_DECL PgfParseTableMaker : private PgfAbstractParser

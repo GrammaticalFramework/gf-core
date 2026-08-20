@@ -114,7 +114,7 @@ void PgfAbstractParser::process(Item *item, State *state)
 }
 
 PGF_INTERNAL_DECL
-int text_symbol_cmp(PgfTextSpot *spot, const uint8_t *end,
+int text_symbol_cmp(PgfText *sentence, PgfTextSpot *spot,
                     ref<PgfSymbolKS> sym, bool case_sensitive);
 
 void PgfAbstractParser::symbol(Item *item, State *state, PgfSymbol sym)
@@ -857,8 +857,12 @@ PgfParser::PgfParser(ref<PgfConcr> concr, PgfText *sentence, bool case_sensitive
     this->m = m;
     this->u = u;
     this->sentence = textdup(sentence);
-    this->end = (uint8_t *) (this->sentence->text+this->sentence->size);
     this->case_sensitive = case_sensitive;
+    this->prev_state = NULL;
+    this->update_old_pos = 0;
+    this->update_new_pos = 0;
+    this->delta_byte_pos = 0;
+    this->allocated_size = sizeof(PgfText)+sentence->size+1;
 }
 
 PgfParser::~PgfParser()
@@ -906,11 +910,11 @@ void PgfParser::bu_predict(PgfPhrasetable<PgfSymbolKS> phrasetable,
         return;
 
     PgfTextSpot current = state->end;
-    int cmp = text_symbol_cmp(&current,end,phrasetable->value.key,case_sensitive);
+    int cmp = text_symbol_cmp(sentence,&current,phrasetable->value.key,case_sensitive);
     if (cmp < 0) {
         bu_predict(phrasetable->left,state,outside_prob,min,max);
     } else if (cmp > 0) {
-        ptrdiff_t len = current.ptr - state->end.ptr;
+        ptrdiff_t len = current.byte_pos - state->end.byte_pos;
 
         if (min <= len-1)
             bu_predict(phrasetable->left,state,outside_prob,min,len-1);
@@ -918,7 +922,7 @@ void PgfParser::bu_predict(PgfPhrasetable<PgfSymbolKS> phrasetable,
         if (len <= max)
             bu_predict(phrasetable->right,state,outside_prob,len,max);
     } else {
-        ptrdiff_t len = current.ptr - state->end.ptr;
+        ptrdiff_t len = current.byte_pos - state->end.byte_pos;
 
         if (min <= len)
             bu_predict(phrasetable->left,state,outside_prob,min,len);
@@ -1150,7 +1154,7 @@ void PgfParser::prepare(ref<PgfConcrLincat> start)
     fprintf(stderr, "------------------------------------------\n");
 #endif
 
-    PgfTextSpot start_spot = {0, (uint8_t *) sentence->text};
+    PgfTextSpot start_spot = {0, 0};
     State *state = new_state(start_spot, 0);
 
     for (size_t i = start->n_lindefs; i < start->rules.size(); i++) {
@@ -1168,12 +1172,8 @@ void PgfParser::prepare(ref<PgfConcrLincat> start)
     }
 }
 
-PgfExpr PgfParser::fetch(PgfDB *db, prob_t *prob)
+void PgfParser::perform_search()
 {
-    DB_scope scope(db, READER_SCOPE);
-
-    bool first_fetch = (concr->last_fid == last_fid);
-
     for (;;) {
         State *state = current_state;
         prob_t min_prob  = INFINITY;
@@ -1218,6 +1218,15 @@ PgfExpr PgfParser::fetch(PgfDB *db, prob_t *prob)
         }
         current_state = prev;
     }
+}
+
+PgfExpr PgfParser::fetch(PgfDB *db, prob_t *prob)
+{
+    DB_scope scope(db, READER_SCOPE);
+
+    bool first_fetch = (concr->last_fid == last_fid);
+
+    perform_search();
 
     if (first_fetch && queue.size() == 0) {
         std::vector<CCat*> chunks;
@@ -1367,8 +1376,8 @@ PgfAbstractParser::State *PgfParser::new_state(const PgfTextSpot &start, prob_t 
 {
     State **prev = &current_state;
     State *state = current_state;
-    while (state != NULL && state->start.ptr <= start.ptr) {
-        if (state->start.ptr == start.ptr)
+    while (state != NULL && state->start.byte_pos <= start.byte_pos) {
+        if (state->start.byte_pos == start.byte_pos)
             return state;
         prev  = &state->next;
         state = state->next;
@@ -1381,13 +1390,13 @@ PgfAbstractParser::State *PgfParser::new_state(const PgfTextSpot &start, prob_t 
     state->next  = *prev;
     *prev = state;
 
-    while (state->end.ptr < end) {
-        const uint8_t *ptr = state->end.ptr;
+    while (state->end.byte_pos < sentence->size) {
+        const uint8_t *ptr = (uint8_t *) &sentence->text[state->end.byte_pos];
         uint32_t ucs = pgf_utf8_decode(&ptr);
         if (!pgf_utf8_is_space(ucs))
             break;
         state->end.pos++;
-        state->end.ptr = ptr;
+        state->end.byte_pos = ptr-(uint8_t *) sentence->text;
     }
 
     state->needs_bind = (state->start.pos > 0 && state->start.pos == state->end.pos);
@@ -1398,7 +1407,7 @@ PgfAbstractParser::State *PgfParser::new_state(const PgfTextSpot &start, prob_t 
 void PgfParser::symbol_token(Item *item, State *state, ref<PgfSymbolKS> symks)
 {
     PgfTextSpot next = state->end;
-    if (text_symbol_cmp(&next,end,symks,case_sensitive) != 0)
+    if (text_symbol_cmp(sentence,&next,symks,case_sensitive) != 0)
         return;
 
     State *next_state = new_state(next, item->inside_prob+item->outside_prob);
@@ -1516,7 +1525,7 @@ void PgfParser::suspend(Cont *cont,Item *item,bool do_predict,ref<PgfSymbolCat> 
 
 void PgfParser::final_item(State *state, CCat *ccat, Item *item, interval_t value, interval_t lin_idx)
 {
-    if (item->cont == NULL && state->end.ptr == end) {
+    if (item->cont == NULL && state->end.byte_pos == sentence->size) {
         ExprState *estate = new(item->args.size()) ExprState;
         estate->expr   = 0;
         estate->prob   = 0;
@@ -1609,32 +1618,113 @@ PgfText *PgfParser::get_text() {
     return sentence;
 }
 
-bool PgfParser::change(size_t start, size_t end, PgfText *change)
+void PgfParser::start()
 {
-    if (start > sentence->size || end > sentence->size || start > end)
+    prev_state = current_state;
+    current_state = NULL;
+    while (prev_state != NULL) {
+        State *next = prev_state->next;
+        prev_state->next = current_state;
+        current_state = prev_state;
+        prev_state = next;
+    }
+    update_old_pos = 0;
+    update_new_pos = 0;
+    delta_byte_pos = 0;
+}
+
+bool PgfParser::skip(size_t i)
+{
+    update_old_pos += i;
+    update_new_pos += i;
+    if (update_new_pos > sentence->size)
         return false;
 
-    size_t new_size = sentence->size + change->size - (end-start);
-
-    if (sentence->size < new_size) {
-        PgfText *new_sentence = (PgfText *) realloc(sentence, sizeof(PgfText)+new_size+1);
-        if (new_sentence == NULL)
-            return false;
-        sentence = new_sentence;
+    while (current_state != NULL && current_state->start.pos < update_old_pos) {
+        State *next = current_state->next;
+        current_state->next = prev_state;
+        current_state->start.pos      += update_new_pos-update_old_pos;
+        current_state->start.byte_pos += delta_byte_pos;
+        current_state->end.pos        += update_new_pos-update_old_pos;
+        current_state->end.byte_pos   += delta_byte_pos;
+        prev_state = current_state;
+        current_state = next;
     }
 
-    memcpy(&sentence->text[start+change->size], &sentence->text[end], sentence->size-end);
-    memcpy(&sentence->text[start], change->text, change->size);
+    return true;
+}
 
-    if (sentence->size > new_size) {
-        PgfText *new_sentence = (PgfText *) realloc(sentence, sizeof(PgfText)+new_size+1);
+bool PgfParser::change(size_t i, PgfText *change)
+{
+    update_old_pos += i;
+    if (update_new_pos+i > sentence->size)
+        return false;
+
+    while (current_state != NULL && current_state->end.pos <= update_old_pos) {
+        State *next = current_state->next;
+        delete current_state;
+        current_state = next;
+    }
+
+    size_t new_size = sentence->size + change->size - i;
+    size_t new_allocated_size = sizeof(PgfText)+new_size+1;
+    if (allocated_size < new_allocated_size) {
+        PgfText *new_sentence = (PgfText *) realloc(sentence, new_allocated_size);
         if (new_sentence == NULL)
             return false;
         sentence = new_sentence;
+        allocated_size = new_allocated_size;
+    }
+
+    const uint8_t *ptr1 = (uint8_t *)
+        &sentence->text[prev_state->start.byte_pos];
+    size_t pos = prev_state->start.pos;
+    while (pos < update_new_pos) {
+        pgf_utf8_decode(&ptr1); pos++;
+    }
+
+    const uint8_t *ptr2 = ptr1;
+    while (pos < update_new_pos+i) {
+        pgf_utf8_decode(&ptr2); pos++;
+    }
+
+    memcpy((void*) (ptr1+change->size), ptr2, (uint8_t*)sentence->text+sentence->size-ptr2+1);
+    memcpy((void*) ptr1, change->text, change->size);
+
+    delta_byte_pos += (ptr1+change->size)-ptr2;
+    ptr2 = ptr1+change->size;
+    while (ptr1 < ptr2) {
+        pgf_utf8_decode(&ptr1);
+        update_new_pos++;
     }
 
     sentence->size = new_size;
     return true;
+}
+
+void PgfParser::done()
+{
+    while (current_state != NULL) {
+        State *next = current_state->next;
+        current_state->next = prev_state;
+        current_state->start.pos      += update_new_pos-update_old_pos;
+        current_state->start.byte_pos += delta_byte_pos;
+        current_state->end.pos        += update_new_pos-update_old_pos;
+        current_state->end.byte_pos   += delta_byte_pos;
+        prev_state = current_state;
+        current_state = next;
+    }
+    current_state = prev_state;
+    prev_state = NULL;
+    update_old_pos = 0;
+    update_new_pos = 0;
+    delta_byte_pos = 0;
+
+    for (State *state = current_state; state != NULL; state=state->next) {
+        fprintf(stderr, "(%zd:%zd-%zd:%zd) ", state->start.pos, state->start.byte_pos
+                                            , state->end.pos,   state->end.byte_pos);
+    }
+    fprintf(stderr,"\n");
 }
 
 PgfParseTableMaker::PgfParseTableMaker(ref<PgfConcr> concr)
@@ -1642,7 +1732,7 @@ PgfParseTableMaker::PgfParseTableMaker(ref<PgfConcr> concr)
 {
     current_state = new State;
     current_state->start.pos = 0;
-    current_state->start.ptr = NULL;
+    current_state->start.byte_pos = 0;
     current_state->end       = current_state->start;
     current_state->viterbi_prob = 0;
     current_state->next      = NULL;

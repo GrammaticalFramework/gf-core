@@ -6,7 +6,7 @@ struct PgfConcrLincat;
 
 struct PGF_INTERNAL_DECL PgfTextSpot {
 	size_t pos;          // position in Unicode characters
-	const uint8_t *ptr;  // pointer into the spot location
+	size_t byte_pos;     // position in number of bytes
 };
 
 struct PGF_INTERNAL_DECL PgfItem {

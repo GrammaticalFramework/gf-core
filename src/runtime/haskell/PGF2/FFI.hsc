@@ -295,7 +295,13 @@ foreign import ccall "&pgf_free_parse_chart" pgf_free_parse_chart :: FunPtr (Ptr
 
 foreign import ccall "dynamic" callGetText :: Dynamic (Ptr PgfParseChart -> IO (Ptr PgfText))
 
-foreign import ccall "dynamic" callChange :: Dynamic (Ptr PgfParseChart -> CSize -> CSize -> Ptr PgfText -> IO CInt)
+foreign import ccall "dynamic" callStart :: Dynamic (Ptr PgfParseChart -> IO CInt)
+
+foreign import ccall "dynamic" callSkip :: Dynamic (Ptr PgfParseChart -> CSize -> IO CInt)
+
+foreign import ccall "dynamic" callChange :: Dynamic (Ptr PgfParseChart -> CSize -> Ptr PgfText -> IO CInt)
+
+foreign import ccall "dynamic" callDone :: Dynamic (Ptr PgfParseChart -> IO CInt)
 
 foreign import ccall "wrapper" wrapSymbol0 :: Wrapper (Ptr PgfLinearizationOutputIface -> IO ())
 

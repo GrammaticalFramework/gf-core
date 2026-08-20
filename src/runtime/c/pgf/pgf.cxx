@@ -2777,6 +2777,7 @@ PgfParseChart *pgf_parse_chart(PgfDB *db, PgfConcrRevision revision,
 
         PgfParser *parser = new PgfParser(concr, sentence, case_sensitive, m, u);
         parser->prepare(lincat_u.lincat);
+        parser->perform_search();
         return parser;
     } PGF_API_END
 

@@ -833,7 +833,10 @@ void pgf_free_expr_enum(PgfExprEnum *en);
 #ifdef __cplusplus
 struct PgfParseChart {
     virtual PgfText *get_text()=0;
-    virtual bool change(size_t start, size_t end, PgfText *change)=0;
+    virtual void start()=0;
+    virtual bool skip(size_t i)=0;
+    virtual bool change(size_t i, PgfText *change)=0;
+    virtual void done()=0;
     virtual ~PgfParseChart() {};
 };
 #else
@@ -841,7 +844,10 @@ typedef struct PgfParseChart PgfParseChart;
 typedef struct PgfParseChartVtbl PgfParseChartVtbl;
 struct PgfParseChartVtbl {
     PgfText *(*get_text)(PgfParseChart *this);
-    int (*change)(PgfParseChart *this, size_t start, size_t end, PgfText *change);
+    void (*start)(PgfParseChart *this);
+    int (*skip)(PgfParseChart *this, size_t i);
+    int (*change)(PgfParseChart *this, size_t i, PgfText *change);
+    void (*done)(PgfParseChart *this);
 };
 struct PgfParseChart {
     PgfParseChartVtbl *vtbl;
