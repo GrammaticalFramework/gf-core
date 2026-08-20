@@ -366,26 +366,7 @@ bool PgfAbstractParser::instantiate(ref<PgfConcrRule> rule1, size_t *values1, re
                                     ref<PgfConcrRule> rule2, size_t *values2, ref<PgfLParam> lparam2)
 {
     size_t i01 = lparam1->i0;
-    for (size_t i = 0; i < lparam1->n_terms; i++) {
-        if (values1[lparam1->terms[i].var] > 0) {
-            i01 += lparam1->terms[i].factor * (values1[lparam1->terms[i].var]-1);
-        }
-    }
-
     size_t i02 = lparam2->i0;
-    for (size_t i = 0; i < lparam2->n_terms; i++) {
-        if (values2[lparam2->terms[i].var] > 0) {
-            i02 += lparam2->terms[i].factor * (values2[lparam2->terms[i].var]-1);
-        }
-    }
-
-    if (i01 > i02) {
-        i01 -= i02;
-        i02  = 0;
-    } else {
-        i02 -= i01;
-        i01  = 0;
-    }
 
     size_t i1 = 0, i2 = 0;
     while (i1 < lparam1->n_terms || i2 < lparam2->n_terms) {
@@ -394,6 +375,7 @@ bool PgfAbstractParser::instantiate(ref<PgfConcrRule> rule1, size_t *values1, re
         if (i1 < lparam1->n_terms) {
             t1 = lparam1->terms[i1];
             if (values1[t1.var] > 0) {
+                i01 += t1.factor * (values1[t1.var]-1);
                 i1++;
                 continue;
             }
@@ -405,6 +387,7 @@ bool PgfAbstractParser::instantiate(ref<PgfConcrRule> rule1, size_t *values1, re
         if (i2 < lparam2->n_terms) {
             t2 = lparam2->terms[i2];
             if (values2[t2.var] > 0) {
+                i02 += t2.factor * (values2[t2.var]-1);
                 i2++;
                 continue;
             }
@@ -412,8 +395,10 @@ bool PgfAbstractParser::instantiate(ref<PgfConcrRule> rule1, size_t *values1, re
         }
 
         if (scale1 > scale2) {
-            size_t min = (i02 / t1.factor);
-            size_t max = min;
+            ssize_t min = (i02 / t1.factor - i01 / t1.factor);
+            ssize_t max = min;
+            if (min < 0)
+                return false;
             while (i2 < lparam2->n_terms) {
                 t2 = lparam2->terms[i2];
                 size_t f = t2.factor / t1.factor;
@@ -422,10 +407,12 @@ bool PgfAbstractParser::instantiate(ref<PgfConcrRule> rule1, size_t *values1, re
 
                 if (values2[t2.var] == 0) {
                     max += f * (rule2->ranges[t2.var]-1);
+                } else {
+                    min += f * (values2[t2.var]-1);
+                    max += f * (values2[t2.var]-1);
                 }
                 i2++;
             }
-            i02 %= t1.factor;
 
             if (min >= rule1->ranges[t1.var])
                 return false;
@@ -437,10 +424,14 @@ bool PgfAbstractParser::instantiate(ref<PgfConcrRule> rule1, size_t *values1, re
                     return false;
             }
 
+            i01 %= t1.factor;
+            i02 %= t1.factor;
             i1++;
         } else {
-            size_t min = (i01 / t2.factor);
+            size_t min = (i01 / t2.factor - i02 / t2.factor);
             size_t max = min;
+            if (min < 0)
+                return false;
             while (i1 < lparam1->n_terms) {
                 t1 = lparam1->terms[i1];
                 size_t f = t1.factor / t2.factor;
@@ -449,10 +440,12 @@ bool PgfAbstractParser::instantiate(ref<PgfConcrRule> rule1, size_t *values1, re
 
                 if (values1[t1.var] == 0) {
                     max += f * (rule1->ranges[t1.var]-1);
+                } else {
+                    min += f * (values1[t1.var]-1);
+                    max += f * (values1[t1.var]-1);
                 }
                 i1++;
             }
-            i01 %= t2.factor;
 
             if (min >= rule2->ranges[t2.var])
                 return false;
@@ -464,6 +457,8 @@ bool PgfAbstractParser::instantiate(ref<PgfConcrRule> rule1, size_t *values1, re
                     return false;
             }
 
+            i01 %= t2.factor;
+            i02 %= t2.factor;
             i2++;
         }
     }
