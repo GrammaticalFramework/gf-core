@@ -1676,8 +1676,10 @@ bool PgfParser::change(size_t i, PgfText *change)
         allocated_size = new_allocated_size;
     }
 
-    const uint8_t *ptr1 = (uint8_t *)
-        &sentence->text[prev_state->start.byte_pos];
+    const uint8_t *ptr1 =
+        (prev_state!=NULL)
+            ? (uint8_t *) &sentence->text[prev_state->start.byte_pos]
+            : NULL;
     size_t pos = prev_state->start.pos;
     while (pos < update_new_pos) {
         pgf_utf8_decode(&ptr1); pos++;
