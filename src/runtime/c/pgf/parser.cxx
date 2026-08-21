@@ -1548,7 +1548,9 @@ void PgfParser::final_item(State *state, CCat *ccat, Item *item, interval_t valu
         }
         for (size_t i = 0; i < estate->n_args; i++) {
             estate->args[i] = item->args[i];
-            estate->prob += estate->args[i]->viterbi_prob;
+            if (estate->args[i] != NULL) {
+                estate->prob += estate->args[i]->viterbi_prob;
+            }
         }
         queue.push_back(estate);
         std::push_heap(queue.begin(), queue.end(), estate_comp);
