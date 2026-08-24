@@ -16,14 +16,14 @@ PgfAbstractParser::PgfAbstractParser(ref<PgfConcr> concr)
 
 void PgfAbstractParser::get_info(CCat *ccat, ref<PgfConcrRule> *prule, size_t **pvalues)
 {
-    if (ccat->epsilon == 0) {
-        Production *prod = ccat->prods[0];
-        *prule = prod->rule;
-        *pvalues = &prod->vars[0];
-    } else {
+    if (ccat->fid <= concr->last_fid) {
         ref<PgfItem> pitem = ccat->epsilon->items[0];
         *prule = pitem->rule;
         *pvalues = &pitem->vars[0];
+    } else {
+        Production *prod = ccat->prods[0];
+        *prule = prod->rule;
+        *pvalues = &prod->vars[0];
     }
 }
 
@@ -179,7 +179,7 @@ void PgfAbstractParser::symbol(Item *item, State *state, PgfSymbol sym)
             if (cont == NULL) {
                 cont = new Cont;
                 cont->ccat = ccat;
-                if (ccat->epsilon != 0)
+                if (ccat->fid <= concr->last_fid)
                     cont->lincat = ccat->epsilon->lincat;
                 else
                     cont->lincat = ccat->cont->lincat;
@@ -1490,7 +1490,7 @@ void PgfParser::suspend(Cont *cont,Item *item,bool do_predict,ref<PgfSymbolCat> 
         }
     } else {
         if (do_predict && n_suspended == 1) {
-            if (cont->ccat->epsilon != 0) {
+            if (cont->ccat->fid <= concr->last_fid) {
                 for (size_t i = 0; i < cont->ccat->epsilon->n_items; i++) {
                     ref<PgfItem> pitem = cont->ccat->epsilon->items[i];
                     td_epsilon(cont->state,cont,pitem,item,symcat);
@@ -1794,7 +1794,7 @@ void PgfParseTableMaker::suspend(Cont *cont,Item *item,bool do_predict,ref<PgfSy
         concr->phrasetable2 = phrasetable2;
     } else {
         if (do_predict && n_suspended == 1) {
-            if (cont->ccat->epsilon != 0) {
+            if (cont->ccat->fid <= concr->last_fid) {
                 for (size_t i = 0; i < cont->ccat->epsilon->n_items; i++) {
                     ref<PgfItem> pitem = cont->ccat->epsilon->items[i];
                     td_epsilon(cont->state,cont,pitem,item,symcat);
