@@ -99,6 +99,7 @@ protected:
     struct State {
         PgfTextSpot start, end;
         bool needs_bind;
+        bool did_bu_predict;
         std::map<ref<PgfConcrLincat>,Cont*> conts1;
         std::map<CCat*,Cont*> conts2;
         std::map<Cont*,interval_map<interval_map<CCat*>>> completed;

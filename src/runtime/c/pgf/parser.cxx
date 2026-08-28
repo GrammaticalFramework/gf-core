@@ -956,6 +956,7 @@ void PgfParser::bu_predict(PgfPhrasetable<PgfSymbolBIND> phrasetable,
         next_state->end   = state->end;
         next_state->next  = state->next;
         next_state->needs_bind = false;
+        next_state->did_bu_predict = false;
         next_state->viterbi_prob = state->viterbi_prob;
         state->next = next_state;
     }
@@ -1381,6 +1382,7 @@ PgfAbstractParser::State *PgfParser::new_state(const PgfTextSpot &start, prob_t 
     state = new State;
     state->start = start;
     state->end   = start;
+    state->did_bu_predict = false;
     state->viterbi_prob = viterbi_prob;
     state->next  = *prev;
     *prev = state;
@@ -1421,6 +1423,7 @@ void PgfParser::symbol_bind(Item *item, State *state, PgfSymbol sym)
             next_state->end   = state->end;
             next_state->next  = state->next;
             next_state->needs_bind = false;
+            next_state->did_bu_predict = false;
             next_state->viterbi_prob = state->viterbi_prob;
             state->next = next_state;
         }
@@ -1480,7 +1483,8 @@ void PgfParser::suspend(Cont *cont,Item *item,bool do_predict,ref<PgfSymbolCat> 
             epsilontable_iter(concr->epsilontable,cont->lincat,f);
         }
 
-        if (do_predict) {
+        if (!cont->state->did_bu_predict) {
+            cont->state->did_bu_predict = true;
             prob_t viterbi_prob = item->inside_prob+item->outside_prob;
             if (cont->state->needs_bind) {
                 bu_predict(concr->phrasetable4, cont->state, viterbi_prob);
@@ -1730,6 +1734,8 @@ PgfParseTableMaker::PgfParseTableMaker(ref<PgfConcr> concr)
     current_state = new State;
     current_state->start.pos = 0;
     current_state->start.byte_pos = 0;
+    current_state->needs_bind     = false;
+    current_state->did_bu_predict = false;
     current_state->end       = current_state->start;
     current_state->viterbi_prob = 0;
     current_state->next      = NULL;
