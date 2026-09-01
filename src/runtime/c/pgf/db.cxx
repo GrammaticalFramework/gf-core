@@ -1839,32 +1839,44 @@ void PgfDB::resize_map(size_t new_size, bool writeable)
 // OSX does not implement mremap or MREMAP_MAYMOVE
 #ifndef MREMAP_MAYMOVE
 	if (fd >= 0) {
-		if (munmap(base, mmap_size) == -1)
+		if (munmap(base, mmap_size) == -1) {
+            pthread_rwlock_unlock(&ms->rwlock);
 			throw pgf_systemerror(errno);
+        }
 		base = NULL;
 		if (ms->file_size != new_size) {
-			if (ftruncate(fd, page_size+new_size) < 0)
+			if (ftruncate(fd, page_size+new_size) < 0) {
+                pthread_rwlock_unlock(&ms->rwlock);
 				throw pgf_systemerror(errno, filepath);
+            }
 		}
         int prot = writeable ? PROT_READ | PROT_WRITE : PROT_READ;
         new_base =
             (unsigned char *) mmap(0, new_size, prot, MAP_SHARED, fd, page_size);
-		if (new_base == MAP_FAILED)
+		if (new_base == MAP_FAILED) {
+            pthread_rwlock_unlock(&ms->rwlock);
 			throw pgf_systemerror(errno);
+        }
 	} else {
 		new_base = (unsigned char *) ::realloc(base, new_size);
-		if (new_base == NULL)
+		if (new_base == NULL) {
+            pthread_rwlock_unlock(&ms->rwlock);
 			throw pgf_systemerror(ENOMEM);
+        }
 	}
 #else
 	if (fd >= 0 && ms->file_size != new_size) {
-		if (ftruncate(fd, page_size+new_size) < 0)
+		if (ftruncate(fd, page_size+new_size) < 0) {
+            pthread_rwlock_unlock(&ms->rwlock);
 			throw pgf_systemerror(errno, filepath);
+        }
 	}
 	new_base =
 		(unsigned char *) mremap(base, mmap_size, new_size, MREMAP_MAYMOVE);
-	if (new_base == MAP_FAILED)
+	if (new_base == MAP_FAILED) {
+        pthread_rwlock_unlock(&ms->rwlock);
 		throw pgf_systemerror(errno);
+    }
 #endif
 
     base = new_base;
