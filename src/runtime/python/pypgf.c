@@ -58,6 +58,197 @@ Concr_getLanguageCode(ConcrObject *self, void *closure)
 }
 */
 
+typedef struct IterObject {
+    PyObject_HEAD
+    PgfDB *db;
+    PyObject* source;
+    int max_count;
+    int counter;
+    PgfExprEnum* res;
+} IterObject;
+
+static IterObject*
+Iter_new(PyTypeObject *type, PyObject *args, PyObject *kwds)
+{
+    IterObject* self = (IterObject *)type->tp_alloc(type, 0);
+    if (self != NULL) {
+        self->db = NULL;
+        self->source = NULL;
+        self->max_count = -1;
+		self->counter   = 0;
+    }
+
+    return self;
+}
+
+static void
+Iter_dealloc(IterObject* self)
+{
+    Py_XDECREF(self->source);
+    pgf_free_expr_enum(self->res);
+    Py_TYPE(self)->tp_free((PyObject*)self);
+}
+
+static int
+Iter_init(IterObject *self, PyObject *args, PyObject *kwds)
+{
+    return -1;
+}
+
+static PyObject*
+Iter_iter(IterObject *self)
+{
+    Py_INCREF(self);
+    return (PyObject*) self;
+}
+
+static PyObject*
+Iter_iternext(IterObject *self)
+{
+    if (self->max_count >= 0 && self->counter >= self->max_count) {
+        return NULL;
+    }
+	self->counter++;
+
+    prob_t prob;
+    PyObject *expr =
+        (PyObject*) self->res->vtbl->fetch(self->res, self->db, &prob);
+    if (expr == NULL)
+        return NULL;
+
+    PyObject *tup = PyTuple_New(2);
+    if (tup == NULL) {
+        Py_DECREF(expr);
+        return NULL;
+    }
+    PyTuple_SetItem(tup, 0, expr);
+    PyTuple_SetItem(tup, 1, PyFloat_FromDouble(prob));
+	return tup;
+}
+
+static PyMethodDef Iter_methods[] = {
+    {NULL}  /* Sentinel */
+};
+
+static PyTypeObject pgf_IterType = {
+    PyVarObject_HEAD_INIT(NULL, 0)
+    //0,                         /*ob_size*/
+    "pgf.Iter",                /*tp_name*/
+    sizeof(IterObject),        /*tp_basicsize*/
+    0,                         /*tp_itemsize*/
+    (destructor)Iter_dealloc,  /*tp_dealloc*/
+    0,                         /*tp_print*/
+    0,                         /*tp_getattr*/
+    0,                         /*tp_setattr*/
+    0,                         /*tp_compare*/
+    0,                         /*tp_repr*/
+    0,                         /*tp_as_number*/
+    0,                         /*tp_as_sequence*/
+    0,                         /*tp_as_mapping*/
+    0,                         /*tp_hash */
+    0,                         /*tp_call*/
+    0,                         /*tp_str*/
+    0,                         /*tp_getattro*/
+    0,                         /*tp_setattro*/
+    0,                         /*tp_as_buffer*/
+    Py_TPFLAGS_DEFAULT | Py_TPFLAGS_BASETYPE, /*tp_flags*/
+    "an iterator over a sequence of expressions",/*tp_doc*/
+    0,		                   /*tp_traverse */
+    0,		                   /*tp_clear */
+    0,		                   /*tp_richcompare */
+    0,		                   /*tp_weaklistoffset */
+    (getiterfunc) Iter_iter,   /*tp_iter */
+    (iternextfunc) Iter_iternext, /*tp_iternext */
+    Iter_methods,              /*tp_methods */
+    0,                         /*tp_members */
+    0,                         /*tp_getset */
+    0,                         /*tp_base */
+    0,                         /*tp_dict */
+    0,                         /*tp_descr_get */
+    0,                         /*tp_descr_set */
+    0,                         /*tp_dictoffset */
+    (initproc)Iter_init,       /*tp_init */
+    0,                         /*tp_alloc */
+    (newfunc) Iter_new,        /*tp_new */
+};
+
+static TypeObject*
+pgf_type_from_object(PyObject* obj) {
+	if (PyUnicode_Check(obj)) {
+        PgfText *input = PyUnicode_AsPgfText(obj);
+        PgfType type = pgf_read_type(input, &unmarshaller);
+        FreePgfText(input);
+        if (type == 0) {
+            PyErr_SetString(PGFError, "type cannot be parsed");
+            return NULL;
+        }
+		return (TypeObject *)type;
+	} else if (obj->ob_type == &pgf_TypeType) {
+		return (TypeObject*) obj;
+	} else {
+		PyErr_SetString(PyExc_TypeError, "the start category should be a string or a type");
+		return NULL;
+	}
+}
+
+static IterObject*
+Concr_parse(ConcrObject* self, PyObject *args, PyObject *keywds)
+{
+	static char *kwlist[] = {"sentence", "cat", "n", NULL};
+
+	const char *sentence = NULL;
+    size_t sentence_size;
+	PyObject* start = NULL;
+	int max_count = -1;
+	if (!PyArg_ParseTupleAndKeywords(args, keywds, "s#|Oi", kwlist,
+                                     &sentence, &sentence_size,
+                                     &start, &max_count))
+        return NULL;
+
+	IterObject* pyres = (IterObject*)
+		pgf_IterType.tp_alloc(&pgf_IterType, 0);
+	if (pyres == NULL) {
+		return NULL;
+	}
+
+	pyres->db = self->grammar->db;
+	pyres->source = (PyObject*) self;
+	Py_XINCREF(pyres->source);
+
+	pyres->max_count = max_count;
+	pyres->counter   = 0;
+
+    PgfExn err;
+
+	TypeObject *type;
+	if (start == NULL) {
+		type = (TypeObject *) pgf_start_cat(self->grammar->db, self->grammar->revision, &unmarshaller, &err);
+        if (handleError(err) != PGF_EXN_NONE) {
+            Py_DECREF(pyres);
+            return NULL;
+        }
+	} else {
+		type = pgf_type_from_object(start);
+	}
+	if (type == NULL) {
+		Py_DECREF(pyres);
+		return NULL;
+	}
+
+    PgfText *text_sentence = CString_AsPgfText(sentence, sentence_size);
+	pyres->res = (PgfExprEnum*)
+		pgf_parse(self->grammar->db, self->concr, (PgfType) type,
+                  &marshaller, &unmarshaller,
+                  text_sentence, &err);
+    FreePgfText(text_sentence);
+    if (handleError(err) != PGF_EXN_NONE) {
+        Py_DECREF(pyres);
+        return NULL;
+    }
+
+	return pyres;
+}
+
 static PyObject*
 Concr_linearize(ConcrObject* self, PyObject *args)
 {
@@ -568,17 +759,15 @@ static PyGetSetDef Concr_getseters[] = {
 static PyMethodDef Concr_methods[] = {
 /*    {"printName", (PyCFunction)Concr_printName, METH_VARARGS,
      "Returns the print name of a function or category"
-    },
+    },*/
     {"parse", (PyCFunction)Concr_parse, METH_VARARGS | METH_KEYWORDS,
      "Parses a string and returns an iterator over the abstract trees for this sentence\n\n"
      "Named arguments:\n"
      "- sentence (string)\n"
      "- cat (string); OPTIONAL, default: the startcat of the grammar\n"
      "- n (int), max. trees; OPTIONAL, default: extract all trees\n"
-     "- heuristics (double >= 0.0); OPTIONAL, default: taken from the flags in the grammar\n"
-     "- callbacks (list of category and callback); OPTIONAL, default: built-in callbacks only for Int, String and Float"
     },
-    {"complete", (PyCFunction)Concr_complete, METH_VARARGS | METH_KEYWORDS,
+    /*{"complete", (PyCFunction)Concr_complete, METH_VARARGS | METH_KEYWORDS,
      "Parses a partial string and returns a list with the top n possible next tokens"
      "Named arguments:\n"
      "- sentence (string or a (string,pgf.BIND) tuple. The later indicates that the sentence ends with a BIND token)\n"
@@ -1663,7 +1852,7 @@ static PyMethodDef PGF_methods[] = {
      "Checks whether a function is a constructor"
     },
     {"generateRandom", (PyCFunction)PGF_generateRandom, METH_VARARGS | METH_KEYWORDS,
-     "Generates a random abstract syntax trees of the given type"
+     "Generates a random abstract syntax tree of the given type"
     },
     {"graphvizAbstractTree", (PyCFunction)PGF_graphvizAbstractTree, METH_VARARGS | METH_KEYWORDS,
      "Renders an abstract syntax tree in a Graphviz format"
@@ -2174,6 +2363,7 @@ MOD_INIT(pgf)
 #endif
     TYPE_READY(pgf_BracketType);
     TYPE_READY(pgf_BINDType);
+    TYPE_READY(pgf_IterType);
 
     MOD_DEF(m, "pgf", "The Runtime for the Portable Grammar Format in Python", module_methods);
     if (m == NULL)
@@ -2197,6 +2387,7 @@ MOD_INIT(pgf)
     ADD_TYPE("Type", pgf_TypeType);
     ADD_TYPE("Bracket", pgf_BracketType);
     ADD_TYPE("BIND", pgf_BINDType);
+    ADD_TYPE("Iter", pgf_IterType);
 
     Py_INCREF(Py_True);
     ADD_TYPE_DIRECT("BIND_TYPE_EXPLICIT", Py_True);
