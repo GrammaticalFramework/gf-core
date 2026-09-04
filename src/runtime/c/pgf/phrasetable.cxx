@@ -576,7 +576,7 @@ vector<ref<PgfItem>> phrasetable_lookup(PgfPhrasetable<PgfSymbolBIND> phrasetabl
 
 PGF_INTERNAL
 PgfEpsilontable epsilontable_insert(PgfEpsilontable table,
-                                    ref<PgfConcrLincat> lincat,
+                                    ref<PgfConcrLincat> lincat, PgfMetaId prev_fid,
                                     interval_t value, interval_t lin_idx,
                                     PgfMetaId fid, prob_t viterbi_prob,
                                     ref<PgfItem> item,
@@ -587,6 +587,7 @@ PgfEpsilontable epsilontable_insert(PgfEpsilontable table,
         items[0] = item;
         PgfEpsilontable new_table =
             Node<PgfCCat>::new_node({.lincat=lincat,
+                                     .prev_fid=prev_fid,
                                      .fid=fid,
                                      .value=value,
                                      .lin_idx=lin_idx,
@@ -604,12 +605,12 @@ PgfEpsilontable epsilontable_insert(PgfEpsilontable table,
 
     if (cmp < 0) {
         PgfEpsilontable left = epsilontable_insert(table->left,
-                                                   lincat, value, lin_idx, fid, viterbi_prob, item, pepsilon);
+                                                   lincat, prev_fid, value, lin_idx, fid, viterbi_prob, item, pepsilon);
         table = Node<PgfCCat>::upd_node(table,left,table->right);
         return Node<PgfCCat>::balanceL(table);
     } else if (cmp > 0) {
         PgfEpsilontable right = epsilontable_insert(table->right,
-                                                    lincat, value, lin_idx, fid, viterbi_prob, item, pepsilon);
+                                                    lincat, prev_fid, value, lin_idx, fid, viterbi_prob, item, pepsilon);
         table = Node<PgfCCat>::upd_node(table, table->left, right);
         return Node<PgfCCat>::balanceR(table);
     } else {
@@ -665,20 +666,24 @@ ref<PgfCCat> epsilontable_get(PgfEpsilontable table,
 }
 
 PGF_INTERNAL
-void epsilontable_iter(PgfEpsilontable table, ref<PgfConcrLincat> lincat, std::function<void(ref<PgfCCat> arg)> &f)
+void epsilontable_iter(PgfEpsilontable table,
+                       ref<PgfConcrLincat> lincat, PgfMetaId prev_fid,
+                       std::function<void(ref<PgfCCat> arg)> &f)
 {
     if (table == 0)
         return;
 
     int cmp = textcmp(&lincat->name, &table->value.lincat->name);
     if (cmp < 0)
-        epsilontable_iter(table->left,  lincat, f);
+        epsilontable_iter(table->left,  lincat, prev_fid, f);
     else if (cmp > 0)
-        epsilontable_iter(table->right, lincat, f);
+        epsilontable_iter(table->right, lincat, prev_fid, f);
     else {
-        epsilontable_iter(table->left,  lincat, f);
-        f(ref<PgfCCat>::from_ptr(&table->value));
-        epsilontable_iter(table->right, lincat, f);
+        epsilontable_iter(table->left,  lincat, prev_fid, f);
+        if (table->value.prev_fid == prev_fid) {
+            f(ref<PgfCCat>::from_ptr(&table->value));
+        }
+        epsilontable_iter(table->right, lincat, prev_fid, f);
     }
 }
 

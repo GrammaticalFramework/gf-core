@@ -1444,65 +1444,72 @@ void PgfParser::suspend(Cont *cont,Item *item,bool do_predict,ref<PgfSymbolCat> 
     auto &suspended = cont->suspended[value_i][lin_idx_i];
     suspended.push_back(item);
 
-    size_t n_suspended = suspended.size();
-    if (cont->ccat == NULL) {
-        if (n_suspended == 1) {
-            std::function<void(ref<PgfCCat>)> f =
-                [this,item,cont](ref<PgfCCat> arg) {
+    if (suspended.size() == 1) {
+        std::function<void(ref<PgfCCat>)> f =
+            [this,item,cont](ref<PgfCCat> arg) {
 
-                    ref<PgfItem> pitem = arg->items[0];
+                ref<PgfItem> pitem = arg->items[0];
 
-                    PgfSymbol sym = item->rule->syms[item->dot];
-                    auto sym_cat = ref<PgfSymbolCat>::untagged(sym);
-                    size_t *values1 = CLONE_VALUES(item->rule,  &item->vars[0]);
-                    size_t *values2 = CLONE_VALUES(pitem->rule, &pitem->vars[0]);
-                    if (!instantiate(item->rule,  values1, item->rule->args[sym_cat->d],
-                                     pitem->rule, values2, pitem->rule->res)) {
-                        return;
-                    }
-                    if (!instantiate(item->rule,  values1, ref<PgfLParam>::from_ptr(&sym_cat->r),
-                                     pitem->rule, values2, pitem->rule->lin_idx)) {
-                        return;
-                    }
+                PgfSymbol sym = item->rule->syms[item->dot];
+                auto sym_cat = ref<PgfSymbolCat>::untagged(sym);
+                size_t *values1 = CLONE_VALUES(item->rule,  &item->vars[0]);
+                size_t *values2 = CLONE_VALUES(pitem->rule, &pitem->vars[0]);
+                if (!instantiate(item->rule,  values1, item->rule->args[sym_cat->d],
+                                 pitem->rule, values2, pitem->rule->res)) {
+                    return;
+                }
+                if (!instantiate(item->rule,  values1, ref<PgfLParam>::from_ptr(&sym_cat->r),
+                                 pitem->rule, values2, pitem->rule->lin_idx)) {
+                    return;
+                }
 
-                    CCat *&arg_ccat = epsilons[arg->fid];
-                    if (arg_ccat == NULL) {
-                        arg_ccat = new CCat;
-                        arg_ccat->fid = arg->fid;
-                        arg_ccat->epsilon = arg;
-                        arg_ccat->cont = NULL;
-                        arg_ccat->state = NULL;
-                        arg_ccat->lin_idx = arg->lin_idx;
-                        arg_ccat->value = arg->value;
-                        arg_ccat->covered = true;
-                        arg_ccat->viterbi_prob = arg->viterbi_prob;
-                    }
+                CCat *&arg_ccat = epsilons[arg->fid];
+                if (arg_ccat == NULL) {
+                    arg_ccat = new CCat;
+                    arg_ccat->fid = arg->fid;
+                    arg_ccat->epsilon = arg;
+                    arg_ccat->cont = NULL;
+                    arg_ccat->state = NULL;
+                    arg_ccat->lin_idx = arg->lin_idx;
+                    arg_ccat->value = arg->value;
+                    arg_ccat->covered = true;
+                    arg_ccat->viterbi_prob = arg->viterbi_prob;
+                }
 
-                    cont->state->completed[cont][arg_ccat->value][arg_ccat->lin_idx] = arg_ccat;
-                };
-            epsilontable_iter(concr->epsilontable,cont->lincat,f);
-        }
+                cont->state->completed[cont][arg_ccat->value][arg_ccat->lin_idx] = arg_ccat;
+            };
 
-        if (!cont->state->did_bu_predict) {
-            cont->state->did_bu_predict = true;
-            prob_t viterbi_prob = item->inside_prob+item->outside_prob;
-            if (cont->state->needs_bind) {
-                bu_predict(concr->phrasetable4, cont->state, viterbi_prob);
-            } else {
-                bu_predict(concr->phrasetable1, cont->state, viterbi_prob, 1, sentence->size);
+        if (cont->ccat == NULL) {
+            epsilontable_iter(concr->epsilontable,cont->lincat,0,f);
+
+            if (!cont->state->did_bu_predict) {
+                cont->state->did_bu_predict = true;
+                prob_t viterbi_prob = item->inside_prob+item->outside_prob;
+                if (cont->state->needs_bind) {
+                    bu_predict(concr->phrasetable4, cont->state, viterbi_prob);
+                } else {
+                    bu_predict(concr->phrasetable1, cont->state, viterbi_prob, 1, sentence->size);
+                }
             }
-        }
-    } else {
-        if (do_predict && n_suspended == 1) {
-            if (cont->ccat->fid <= concr->last_fid) {
-                for (size_t i = 0; i < cont->ccat->epsilon->n_items; i++) {
-                    ref<PgfItem> pitem = cont->ccat->epsilon->items[i];
-                    td_epsilon(cont->state,cont,pitem,item,symcat);
+        } else if (cont->ccat->fid <= concr->last_fid) {
+            epsilontable_iter(concr->epsilontable,cont->lincat,cont->ccat->fid,f);
+
+            if (do_predict) {
+                size_t n_items;
+                phrasetable_lookup(concr->phrasetable3,
+                                   cont->ccat->epsilon,
+                                   &n_items);
+
+                if (n_items == 0) {
+                    for (size_t i = 0; i < cont->ccat->epsilon->n_items; i++) {
+                        ref<PgfItem> pitem = cont->ccat->epsilon->items[i];
+                        td_epsilon(cont->state,cont,pitem,item,symcat);
+                    }
                 }
-            } else {
-                for (Production *prod : cont->ccat->prods) {
-                    td_predict(cont->state,cont,prod,item,symcat);
-                }
+            }
+        } else {
+            for (Production *prod : cont->ccat->prods) {
+                td_predict(cont->state,cont,prod,item,symcat);
             }
         }
     }
@@ -1838,6 +1845,7 @@ void PgfParseTableMaker::final_item(State *state, CCat *ccat, Item *item, interv
         epsilontable =
             epsilontable_insert(epsilontable,
                                 ccat->cont->lincat,
+                                (ccat->cont->ccat != NULL) ? ccat->cont->ccat->fid : 0,
                                 ccat->value, ccat->lin_idx,
                                 ccat->fid, ccat->viterbi_prob,
                                 pitem,

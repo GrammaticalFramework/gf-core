@@ -50,7 +50,7 @@ struct PGF_INTERNAL_DECL PgfItem {
 
 struct PGF_INTERNAL_DECL PgfCCat {
     ref<PgfConcrLincat> lincat;
-    PgfMetaId fid;
+    PgfMetaId prev_fid, fid;
     interval_t value, lin_idx;
     prob_t viterbi_prob;
 
@@ -127,7 +127,7 @@ typedef ref<Node<PgfCCat>> PgfEpsilontable;
 // The new category is mutable within the current transaction
 PGF_INTERNAL_DECL
 PgfEpsilontable epsilontable_insert(PgfEpsilontable table,
-                                    ref<PgfConcrLincat> lincat,
+                                    ref<PgfConcrLincat> lincat, PgfMetaId prev_fid,
                                     interval_t value, interval_t lin_idx,
                                     PgfMetaId fid, prob_t viterbi_prob,
                                     ref<PgfItem> item,
@@ -143,7 +143,9 @@ ref<PgfCCat> epsilontable_get(PgfEpsilontable table,
                               PgfText *name, PgfMetaId fid);
 
 PGF_INTERNAL
-void epsilontable_iter(PgfEpsilontable table, ref<PgfConcrLincat> lincat, std::function<void(ref<PgfCCat> arg)> &f);
+void epsilontable_iter(PgfEpsilontable table,
+                       ref<PgfConcrLincat> lincat, PgfMetaId prev_fid,
+                       std::function<void(ref<PgfCCat> arg)> &f);
 
 PGF_INTERNAL_DECL
 void epsilontable_release(PgfEpsilontable table);
