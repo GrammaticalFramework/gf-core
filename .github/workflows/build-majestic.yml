@@ -179,8 +179,8 @@ jobs:
       with:
         name: libpgf-macos
     - run: |
-        sudo mv lib/* /usr/local/lib/
-        sudo mv include/* /usr/local/include/
+        sudo mv lib/* /opt/homebrew/lib/
+        sudo mv include/* /opt/homebrew/include/
 
     - name: Setup Haskell
       uses: haskell-actions/setup@v2
