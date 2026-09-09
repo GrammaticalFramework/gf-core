@@ -349,14 +349,14 @@ jobs:
         ghc-version: 8
 
     - name: Install libpgf for GHC
-        shell: pwsh
-        run: |
-          $ghcLibDir = ghc --print-libdir
-          $ghcRoot = Split-Path (Split-Path $ghcLibDir -Parent) -Parent
+      shell: pwsh
+      run: |
+        $ghcLibDir = ghc --print-libdir
+        $ghcRoot = Split-Path (Split-Path $ghcLibDir -Parent) -Parent
 
-          Copy-Item "${{ github.workspace }}\lib\*" "$ghcRoot\mingw\lib\" -Force
-          Copy-Item "${{ github.workspace }}\include\pgf" "$ghcRoot\mingw\include\" -Recurse -Force
-          Copy-Item "${{ github.workspace }}\bin\libpgf-0.dll" "$ghcRoot\bin\" -Force
+        Copy-Item "${{ github.workspace }}\lib\*" "$ghcRoot\mingw\lib\" -Force
+        Copy-Item "${{ github.workspace }}\include\pgf" "$ghcRoot\mingw\include\" -Recurse -Force
+        Copy-Item "${{ github.workspace }}\bin\libpgf-0.dll" "$ghcRoot\bin\" -Force
 
     - name: Install Haskell build tools
       run: |
