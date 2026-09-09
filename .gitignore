@@ -5,7 +5,6 @@
 *.jar
 *.gfo
 *.pgf
-*.ngf
 debian/.debhelper
 debian/debhelper-build-stamp
 debian/gf
@@ -47,20 +46,12 @@ src/runtime/c/sg/.dirstamp
 src/runtime/c/stamp-h1
 src/runtime/java/.libs/
 src/runtime/python/build/
-src/runtime/python/**/__pycache__/
-src/runtime/python/**/.pytest_cache/
 .cabal-sandbox
 cabal.sandbox.config
 .stack-work
 DATA_DIR
 
 stack*.yaml.lock
-
-# Generated source files
-src/compiler/api/GF/Grammar/Lexer.hs
-src/compiler/api/GF/Grammar/Parser.hs
-src/compiler/api/PackageInfo_gf.hs
-src/compiler/api/Paths_gf.hs
 
 # Output files for test suite
 *.out
@@ -82,3 +73,9 @@ doc/icfp-2012.html
 download/*.html
 gf-book/index.html
 src/www/gf-web-api.html
+.devenv
+.direnv
+result
+.vscode
+.envrc
+.pre-commit-config.yaml

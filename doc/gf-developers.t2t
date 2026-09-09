@@ -150,11 +150,9 @@ Open a terminal, go to the top directory (``gf-core``), and type the following c
 $ stack install
 ```
 
-It will install GF and all necessary tools and libraries to do that.
-
-
 === Alternative: use Cabal ===
-You can also install GF using Cabal, if you prefer Cabal to Stack. In that case, you may need to install some prerequisites yourself.
+
+If you prefer Cabal, then you just need to manually choose a suitable GHC to build GF. We recommend GHC 9.6.7, see other supported options in [gf.cabal https://github.com/GrammaticalFramework/gf-core/blob/master/gf.cabal#L14].
 
 The actual installation process is similar to Stack: open a terminal, go to the top directory (``gf-core``), and type the following command.
 
@@ -162,7 +160,13 @@ The actual installation process is similar to Stack: open a terminal, go to the 
 $ cabal install
 ```
 
-//The old (potentially outdated) instructions for Cabal are moved to a [separate page ../doc/gf-developers-old-cabal.html]. If you run into trouble with ``cabal install``, you may want to take a look.//
+=== Nix ===
+
+As of 3.12, GF can also be installed via Nix. You can install GF from github with the following command:
+
+```
+nix profile install github:GrammaticalFramework/gf-core#gf
+```
 
 == Compiling GF with C runtime system support ==
 
@@ -197,7 +201,7 @@ Depending on what you want to do with the C runtime, you can follow one or more 
 
 === Use the C runtime from another programming language ===[bindings]
 
-% **If you just want to use the C runtime from Python, Java, or Haskell, you don't need to change your GF installation.**
+% **If you just want to use the C runtime from Python or Haskell, you don't need to change your GF installation.**
 
 - **What —**
 This is the most common use case for the C runtime: compile
@@ -230,20 +234,13 @@ modes (use the ``help`` command in the shell for details).
 
 (Re)compiling your GF with these flags will also give you
 Haskell bindings to the C runtime, as a library called ``PGF2``,
-but if you want Python or Java bindings, you need to do [the previous step #bindings].
+but if you want Python bindings, you need to do [the previous step #bindings].
 
 % ``PGF2``: a module to import in Haskell programs, providing a binding to the C run-time system.
 
 - **How —**
-If you use cabal, run the following command:
 
-```
-cabal install -fc-runtime
-```
-
-from the top directory (``gf-core``).
-
-If you use stack, uncomment the following lines in the ``stack.yaml`` file:
+Add (or uncomment) the following lines in the ``stack.yaml`` file:
 
 ```
 flags:
@@ -254,6 +251,32 @@ extra-lib-dirs:
 ```
 and then run ``stack install`` from the top directory (``gf-core``).
 
+Run the newly built executable with the flag ``-cshell``, and you should see the following welcome message:
+
+```
+$ gf -cshell
+
+         *  *  *
+      *           *
+    *               *
+   *
+   *
+   *        * * * * * *
+   *        *         *
+    *       * * * *  *
+      *     *      *
+         *  *  *
+
+This is GF version 3.12.0.
+Built on ...
+Git info: ...
+
+Flags: interrupt server c-runtime
+License: see help -license.
+
+This shell uses the C run-time system. See help for available commands.
+>
+```
 
 //If you get an "``error while loading shared libraries``" when trying to run GF with C runtime, remember to declare your ``LD_LIBRARY_PATH``.//
 //Add ``export LD_LIBRARY_PATH="/usr/local/lib"`` to either your ``.bashrc`` or ``.profile``. You should now be able to start GF with C runtime.//
@@ -266,14 +289,8 @@ With this feature, ``gf -server`` mode is extended with new requests to call the
 system, e.g. ``c-parse``, ``c-linearize`` and ``c-translate``.
 
 - **How —**
-If you use cabal, run the following command:
 
-```
-cabal install -fc-runtime -fserver
-```
-from the top directory.
-
-If you use stack, add the following lines in the ``stack.yaml`` file:
+Add the following lines in the ``stack.yaml`` file:
 
 ```
 flags:
