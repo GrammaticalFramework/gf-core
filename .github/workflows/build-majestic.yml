@@ -336,7 +336,7 @@ jobs:
     runs-on: windows-latest
     needs: mingw64-runtime
     env:
-      PATH: %HOME%/lib;%PATH%
+      PATH: $HOME/lib:$PATH
 
     steps:
     - uses: actions/checkout@v7
