@@ -78,6 +78,7 @@ data Value
   | VMarkup Ident [(Ident,Value)] [L Value]
   | VReset Ident (Maybe Value) Value (Maybe QIdent)
   | VSymCat Int LIndex [(LIndex, (Value, Type))]
+  | VSymVar Int Int
   | VError Doc
   | VInts Integer Bool
 
@@ -311,6 +312,7 @@ eval g env c (Markup tag as ts) [] =
                               in (VMarkup tag vas vs)
 eval g env c (Reset ctl mb_ct t qid) [] = VReset ctl (fmap (\t -> eval g env c t []) mb_ct) (eval g env c t []) qid
 eval g env c (TSymCat d r rs) []= VSymCat d r [(i,(fromJust (lookup pv env),ty)) | (i,(pv,ty)) <- rs]
+eval g env c (TSymVar d j)    []= VSymVar d j
 eval g env c t@(Opts n cs)  vs  = if null cs
                                   then VError ("No options in expression:" $$ ppTerm Unqualified 0 t)
                                   else let (c1,c2,c3) = split3 c
@@ -439,6 +441,7 @@ bubble v = snd (bubble v)
     bubble (VSymCat d i0 vs) =
       let (union,vs') = mapAccumL descendC Map.empty vs
       in (union, addVariants (VSymCat d i0 vs') union)
+    bubble v@(VSymVar _ _) = lift0 v
     bubble v@(VError _) = lift0 v
     bubble v@(VInts _ _) = lift0 v
 
@@ -577,6 +580,7 @@ patternMatch g s v0 ((env0,ps,args0,t):eqs) = match env0 ps eqs args0
         (p,           VP _ _ _) -> v0
         (p,           VS _ _ _) -> v0
         (p,      VSymCat _ _ _) -> v0
+        (p,        VSymVar _ _) -> v0
         (PP q qs, VApp r    vs)
           | q == r              -> match env (qs++ps) eqs (vs++args)
         (PR pas,  VR as)        -> matchRec env (reverse pas) as ps eqs args
@@ -1158,6 +1162,7 @@ ppValue q d (VReset ctl ct t _) = pp "[" <> pp ctl <>
                                   pp "|" <> ppValue q 0 t <>
                                   pp "]"
 ppValue q d (VSymCat i r rs) = pp '<' <> pp i <> pp ',' <> pp r <> pp '>'
+ppValue q d (VSymVar i j)    = pp '<' <> pp i <> pp ',' <> pp '$' <> pp j <> pp '>'
 ppValue q d (VError msg) = prec d 4 (pp "error" <+> ppTerm q 5 (K (show msg)))
 ppValue q d (VInts n ext)
   | ext       = prec d 4 (pp "Ints" <+> brackets (pp n <> ".."))
