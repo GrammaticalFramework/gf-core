@@ -352,11 +352,10 @@ jobs:
       shell: pwsh
       run: |
         $ghcLibDir = ghc --print-libdir
-        $ghcRoot = Split-Path (Split-Path $ghcLibDir -Parent) -Parent
 
-        Copy-Item "${{ github.workspace }}\lib\*" "$ghcRoot\mingw\lib\" -Force
-        Copy-Item "${{ github.workspace }}\include\pgf" "$ghcRoot\mingw\include\" -Recurse -Force
-        Copy-Item "${{ github.workspace }}\bin\libpgf-0.dll" "$ghcRoot\bin\" -Force
+        Copy-Item "${{ github.workspace }}\lib\*" "$ghcLibDir\..\mingw\lib\" -Force
+        Copy-Item "${{ github.workspace }}\include\pgf" "$ghcLibDir\..\mingw\include\" -Recurse -Force
+        Copy-Item "${{ github.workspace }}\bin\libpgf-0.dll" "$ghcLibDir\..\bin\" -Force
 
     - name: Install Haskell build tools
       run: |
