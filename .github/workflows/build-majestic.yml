@@ -93,11 +93,14 @@ jobs:
       run: |
         python3 -m pip install git+https://github.com/joerick/cibuildwheel.git@main
 
+    - name: Setup tmate session
+      uses: mxschmitt/action-tmate@v3
+
     - name: Install and test bindings
       env:
         CIBW_BEFORE_BUILD: cp -r lib/* /usr/lib/ && cp -r include/* /usr/include/
         CIBW_TEST_REQUIRES: pytest
-        CIBW_TEST_COMMAND: "pytest -v {project}/src/runtime/python"
+        CIBW_TEST_COMMAND: "pytest {project}/src/runtime/python"
         CIBW_SKIP: "pp* *i686 *musllinux_x86_64"
       run: |
         python3 -m cibuildwheel src/runtime/python --output-dir wheelhouse
