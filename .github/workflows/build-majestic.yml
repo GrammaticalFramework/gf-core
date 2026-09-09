@@ -198,7 +198,7 @@ jobs:
     - name: build and test the runtime
       working-directory: ./src/runtime/haskell
       run: |
-        cabal v1-install
+        cabal v1-install --extra-lib-dirs=/opt/homebrew/lib --extra-include-dirs=/opt/homebrew/include
         cabal test --extra-lib-dirs=/opt/homebrew/lib
 
     - name: build the compiler
