@@ -331,6 +331,45 @@ jobs:
           ${{runner.temp}}/msys64/mingw64/lib/libpgf*
           ${{runner.temp}}/msys64/mingw64/include/pgf
 
+  windows-haskell:
+    name: Haskell (Windows)
+    runs-on: windows-latest
+    needs: mingw64-runtime
+
+    steps:
+    - uses: actions/checkout@v7
+    - name: Download artifact
+      uses: actions/download-artifact@v4
+      with:
+        name: libpgf-windows
+
+    - name: Setup Haskell
+      uses: haskell-actions/setup@v2
+      with:
+        ghc-version: 8
+
+    - name: Install Haskell build tools
+      run: |
+        cabal v1-install alex happy
+
+    - name: build and test the runtime
+      working-directory: ./src/runtime/haskell
+      run: |
+        cabal v1-install
+        cabal test
+
+    - name: build the compiler
+      working-directory: ./src/compiler
+      run: |
+        cabal v1-install
+
+    - name: Upload artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: compiler-linux
+        path: |
+          ~/.cabal/bin/gf
+
   windows-python:
     name: Python (Windows)
     runs-on: windows-latest
