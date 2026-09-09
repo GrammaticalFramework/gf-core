@@ -348,6 +348,16 @@ jobs:
       with:
         ghc-version: 8
 
+    - name: Install libpgf for GHC
+        shell: pwsh
+        run: |
+          $ghcLibDir = ghc --print-libdir
+          $ghcRoot = Split-Path (Split-Path $ghcLibDir -Parent) -Parent
+
+          Copy-Item "${{ github.workspace }}\lib\*" "$ghcRoot\mingw\lib\" -Force
+          Copy-Item "${{ github.workspace }}\include\pgf" "$ghcRoot\mingw\include\" -Recurse -Force
+          Copy-Item "${{ github.workspace }}\bin\libpgf-0.dll" "$ghcRoot\bin\" -Force
+
     - name: Install Haskell build tools
       run: |
         cabal v1-install alex happy
@@ -355,9 +365,7 @@ jobs:
     - name: build and test the runtime
       working-directory: ./src/runtime/haskell
       run: |
-        dir ${{ github.workspace }}\lib
-        dir ${{ github.workspace }}\include
-        cabal v1-install --extra-lib-dirs=${{ github.workspace }}\lib --extra-include-dirs=${{ github.workspace }}\include
+        cabal v1-install
         cabal test
 
     - name: build the compiler
