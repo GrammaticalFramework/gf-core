@@ -11,7 +11,7 @@ jobs:
     name: Runtime (Linux)
     runs-on: ubuntu-latest
     container:
-      image: quay.io/pypa/manylinux2014_x86_64:2024-01-08-eb135ed
+      image: quay.io/pypa/manylinux_2_28_x86_64
 
     steps:
     - uses: actions/checkout@v7
