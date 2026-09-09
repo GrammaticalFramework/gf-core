@@ -514,7 +514,7 @@ void PgfAbstractParser::combine(State *state, Item *item, CCat *ccat)
     state->push_item(item);
 }
 
-bool PgfAbstractParser::ItemComparator::operator()(Item *item1, Item *item2)
+bool PgfAbstractParser::ItemComparator::operator()(Item *item1, Item *item2) const
 {
     if (item1->rule.as_object() < item2->rule.as_object())
         return true;
