@@ -14,7 +14,7 @@ jobs:
       image: quay.io/pypa/manylinux2014_x86_64:2024-01-08-eb135ed
 
     steps:
-    - uses: actions/checkout@v3
+    - uses: actions/checkout@v7
 
     - name: Build runtime
       working-directory: ./src/runtime/c
@@ -38,7 +38,7 @@ jobs:
     needs: linux-runtime
 
     steps:
-    - uses: actions/checkout@v3
+    - uses: actions/checkout@v7
     - name: Download artifact
       uses: actions/download-artifact@v3
       with:
@@ -80,7 +80,7 @@ jobs:
     needs: linux-runtime
 
     steps:
-    - uses: actions/checkout@v3
+    - uses: actions/checkout@v7
     - name: Download artifact
       uses: actions/download-artifact@v3
       with:
@@ -110,7 +110,7 @@ jobs:
 #    needs: linux-runtime
 #
 #    steps:
-#    - uses: actions/checkout@v3
+#    - uses: actions/checkout@v7
 #    - name: Download artifact
 #      uses: actions/download-artifact@master
 #      with:
@@ -141,7 +141,7 @@ jobs:
     runs-on: macOS-11
 
     steps:
-    - uses: actions/checkout@v3
+    - uses: actions/checkout@v7
 
     - name: Install build tools
       run: |
@@ -173,7 +173,7 @@ jobs:
     needs: macos-runtime
 
     steps:
-    - uses: actions/checkout@v3
+    - uses: actions/checkout@v7
     - name: Download artifact
       uses: actions/download-artifact@master
       with:
@@ -202,7 +202,7 @@ jobs:
       MACOSX_DEPLOYMENT_TARGET: 11.0
   
     steps:
-    - uses: actions/checkout@v3
+    - uses: actions/checkout@v7
     - name: Download artifact
       uses: actions/download-artifact@master
       with:
@@ -234,7 +234,7 @@ jobs:
 #    needs: macos-runtime
 #
 #    steps:
-#    - uses: actions/checkout@v3
+#    - uses: actions/checkout@v7
 #    - name: Download artifact
 #      uses: actions/download-artifact@master
 #      with:
@@ -265,7 +265,7 @@ jobs:
     runs-on: windows-latest
 
     steps:
-    - uses: actions/checkout@v3
+    - uses: actions/checkout@v7
     
     - name: Setup MSYS2
       uses: msys2/setup-msys2@v2
@@ -305,7 +305,7 @@ jobs:
     runs-on: windows-latest
 
     steps:
-    - uses: actions/checkout@v3
+    - uses: actions/checkout@v7
 
     - name: Setup Python
       uses: actions/setup-python@v4
@@ -336,7 +336,7 @@ jobs:
     if: github.ref == 'refs/heads/majestic' && github.event_name == 'push'
 
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v7
 
       - name: Set up Python
         uses: actions/setup-python@v3
