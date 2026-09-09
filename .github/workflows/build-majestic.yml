@@ -2,9 +2,6 @@ name: Build majestic runtime
 
 on: push
 
-env:
-  LD_LIBRARY_PATH: /usr/local/lib
-
 jobs:
 
   linux-runtime:
@@ -12,6 +9,8 @@ jobs:
     runs-on: ubuntu-latest
     container:
       image: quay.io/pypa/manylinux_2_28_x86_64
+    env:
+      LD_LIBRARY_PATH: /usr/local/lib
 
     steps:
     - uses: actions/checkout@v7
@@ -36,6 +35,8 @@ jobs:
     name: Haskell (Linux)
     runs-on: ubuntu-latest
     needs: linux-runtime
+    env:
+      LD_LIBRARY_PATH: /usr/local/lib
 
     steps:
     - uses: actions/checkout@v7
@@ -78,6 +79,8 @@ jobs:
     name: Python (Linux)
     runs-on: ubuntu-latest
     needs: linux-runtime
+    env:
+      LD_LIBRARY_PATH: /usr/local/lib
 
     steps:
     - uses: actions/checkout@v7
@@ -139,6 +142,8 @@ jobs:
   macos-runtime:
     name: Runtime (macOS)
     runs-on: macOS-latest
+    env:
+      LD_LIBRARY_PATH: /opt/homebrew/lib
 
     steps:
     - uses: actions/checkout@v7
@@ -155,7 +160,7 @@ jobs:
       run: |
         glibtoolize
         autoreconf -i
-        ./configure
+        ./configure --prefix=/opt/homebrew
         make
         sudo make install
 
@@ -164,13 +169,15 @@ jobs:
       with:
         name: libpgf-macos
         path: |
-          /usr/local/lib/libpgf*
-          /usr/local/include/pgf
+          /opt/homebrew/lib/libpgf*
+          /opt/homebrew/include/pgf
 
   macos-haskell:
     name: Haskell (macOS)
     runs-on: macOS-latest
     needs: macos-runtime
+    env:
+      LD_LIBRARY_PATH: /opt/homebrew/lib
 
     steps:
     - uses: actions/checkout@v7
@@ -187,17 +194,30 @@ jobs:
       with:
         ghc-version: 9
 
-    - name: Build & run testsuite
+    - name: build and test the runtime
       working-directory: ./src/runtime/haskell
       run: |
         cabal v1-install --extra-lib-dirs=/opt/homebrew/lib --extra-include-dirs=/opt/homebrew/include
         cabal test --extra-lib-dirs=/opt/homebrew/lib
+
+    - name: build the compiler
+      working-directory: ./src/compiler
+      run: |
+        cabal v1-install
+
+    - name: Upload artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: compiler-macos
+        path: |
+          ~/.cabal/bin/gf
 
   macos-python:
     name: Python (macOS)
     runs-on: macOS-latest
     needs: macos-runtime
     env:
+      LD_LIBRARY_PATH: /opt/homebrew/lib
       EXTRA_INCLUDE_DIRS: /opt/homebrew/include
       EXTRA_LIB_DIRS: /opt/homebrew/lib
       MACOSX_DEPLOYMENT_TARGET: 11.0
