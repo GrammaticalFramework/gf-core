@@ -178,6 +178,7 @@ jobs:
     needs: macos-runtime
     env:
       LD_LIBRARY_PATH: /opt/homebrew/lib
+      CPATH: /opt/homebrew/include:$CPATH
 
     steps:
     - uses: actions/checkout@v7
@@ -197,7 +198,7 @@ jobs:
     - name: build and test the runtime
       working-directory: ./src/runtime/haskell
       run: |
-        cabal v1-install --extra-lib-dirs=/opt/homebrew/lib --extra-include-dirs=/opt/homebrew/include
+        cabal v1-install
         cabal test --extra-lib-dirs=/opt/homebrew/lib
 
     - name: build the compiler
