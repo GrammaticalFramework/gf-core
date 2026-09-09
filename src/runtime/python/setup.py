@@ -15,7 +15,7 @@ if on_windows:
     cpath = '../c/pgf/'
     extra_sources = [cpath+f for f in os.listdir(cpath) if f.endswith('.cxx')]
     includes+=["../c"]
-    flags = ['/DCOMPILING_STATIC_PGF=1']
+    flags = ['/DCOMPILING_STATIC_PGF=1', "/std:c++20"]
 else:
     extra_sources = []
     flags = ['-std=c99', '-Werror', '-Wno-error=unused-variable', '-Wno-comment']

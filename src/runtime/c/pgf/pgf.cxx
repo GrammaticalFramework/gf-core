@@ -1870,7 +1870,7 @@ public:
         this->sym_index = (size_t) -1;
         this->alt_index = (size_t) -1;
         this->n_lindefs = n_rules;
-        this->n_linrefs = n_linrefs;
+        this->n_linrefs = 0;
         this->n_args = 1;
         this->rule_index = 0;
         this->syms = 0;

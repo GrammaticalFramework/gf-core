@@ -24,7 +24,7 @@ main = do
       ,TestCase (assertInference "infer literal 3" gr (Right "String") "\"abc\"")
       ,TestCase (assertInference "infer meta 1" gr (Left "Cannot infer the type of a meta variable") "?")
       ,TestCase (assertInference "infer meta 2" gr (Right "N->N") "<? : N->N>")
-      ,TestCase (assertInference "infer lambda" gr (Left "Cannot infer the type of a lambda abstraction") "\\x->x")
+      ,TestCase (assertInference "infer lambda" gr (Left "Cannot infer the type of a lambda variable") "\\x->x")
       ,TestCase (assertChecking "check fun 1" gr (Right "s") "s" "N->N")
       ,TestCase (assertChecking "check fun 2" gr (Right "s z") "s z" "N")
       ,TestCase (assertChecking "check fun 3" gr (Left "Types doesn't match") "s z" "N->N")

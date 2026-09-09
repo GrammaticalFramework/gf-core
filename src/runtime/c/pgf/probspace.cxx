@@ -154,7 +154,9 @@ PgfProbspace probspace_delete_by_cat(PgfProbspace space, PgfText *cat,
 
         return Node<PgfProbspaceEntry>::link(space,space->left,right);
     } else {
-        itor->fn(itor, &space->value.fun->name, space->value.fun.as_object(), err);
+        PgfText *name = textdup(&space->value.fun->name);
+        itor->fn(itor, name, space->value.fun.as_object(), err);
+        free(name);
         if (err->type != PGF_EXN_NONE)
             return 0;
 

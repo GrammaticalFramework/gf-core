@@ -258,6 +258,7 @@ force (VSymCat d r rs) = do
     force_ (factor, (v, ty)) = do
       v <- force v
       return (factor, (v, ty))
+force (VSymVar d j) = return (VSymVar d j)
 force (VApp q vs) = do
   vs <- mapM force vs
   return (VApp q vs)
@@ -306,6 +307,8 @@ flatten subst (VStr s) = return (subst,[SymKS s])
 flatten subst (VSymCat d r rs) = do
   (subst,lin_index) <- params2int' subst r rs
   return (subst,[SymCat d lin_index])
+flatten subst (VSymVar d j) = do
+  return (subst,[SymVar d j])
 flatten subst (VApp (m,id) [])
   | m == cPredef && id == cBIND       = return (subst,[SymBIND])
   | m == cPredef && id == cSOFT_BIND  = return (subst,[SymSOFT_BIND])

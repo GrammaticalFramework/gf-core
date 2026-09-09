@@ -132,7 +132,7 @@ protected:
     } item_prob_comp;
 
     struct ItemComparator : std::less<Item*> {
-        bool operator()(Item *item1, Item *item2);
+        bool operator()(Item *item1, Item *item2) const;
     };
 
     struct Cont {

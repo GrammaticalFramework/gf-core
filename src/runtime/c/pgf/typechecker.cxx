@@ -82,7 +82,7 @@ PgfType PgfTypechecker::marshall_type(Type *ty, PgfUnmarshaller *u)
     for (;;) {
         Pi *pi = ty->is_pi();
         if (pi) {
-            hypos = (PgfTypeHypo *) realloc(hypos, n_hypos*sizeof(PgfTypeHypo));
+            hypos = (PgfTypeHypo *) realloc(hypos, (n_hypos+1)*sizeof(PgfTypeHypo));
             PgfTypeHypo *hypo = &hypos[n_hypos++];
             hypo->bind_type = pi->bind_type;
             hypo->cid = &pi->var;
