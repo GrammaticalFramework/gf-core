@@ -355,7 +355,7 @@ jobs:
     - name: build and test the runtime
       working-directory: ./src/runtime/haskell
       run: |
-        cabal v1-install --extra-lib-dirs=${{ github.workspace }}/lib --extra-include-dirs=${{ github.workspace }}/include
+        cabal v1-install --extra-lib-dirs=${{ github.workspace }}\lib --extra-include-dirs=${{ github.workspace }}\include
         cabal test
 
     - name: build the compiler
