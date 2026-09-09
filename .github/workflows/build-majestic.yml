@@ -40,7 +40,7 @@ jobs:
     steps:
     - uses: actions/checkout@v7
     - name: Download artifact
-      uses: actions/download-artifact@v3
+      uses: actions/download-artifact@v4
       with:
         name: libpgf-linux
     - run: |
@@ -82,7 +82,7 @@ jobs:
     steps:
     - uses: actions/checkout@v7
     - name: Download artifact
-      uses: actions/download-artifact@v3
+      uses: actions/download-artifact@v4
       with:
         name: libpgf-linux
 
@@ -175,7 +175,7 @@ jobs:
     steps:
     - uses: actions/checkout@v7
     - name: Download artifact
-      uses: actions/download-artifact@master
+      uses: actions/download-artifact@v4
       with:
         name: libpgf-macos
     - run: |
@@ -204,7 +204,7 @@ jobs:
     steps:
     - uses: actions/checkout@v7
     - name: Download artifact
-      uses: actions/download-artifact@master
+      uses: actions/download-artifact@v4
       with:
         name: libpgf-macos
     - run: |
@@ -346,17 +346,17 @@ jobs:
       - name: Install twine
         run: pip install twine
 
-      - uses: actions/download-artifact@master
+      - uses: actions/download-artifact@v4
         with:
           name: python-linux
           path: ./dist
 
-      - uses: actions/download-artifact@master
+      - uses: actions/download-artifact@v4
         with:
           name: python-macos
           path: ./dist
 
-      - uses: actions/download-artifact@master
+      - uses: actions/download-artifact@v4
         with:
           name: python-windows
           path: ./dist
