@@ -2195,14 +2195,20 @@ pgf_showType(PyObject *self, PyObject *args)
 {
     PyObject *pylist;
     TypeObject *type;
+printf("pgf_showType 1\n");
     if (!PyArg_ParseTuple(args, "O!O!", &PyList_Type, &pylist, &pgf_TypeType, &type))
         return NULL;
-
+printf("pgf_showType 2\n");
     PgfPrintContext *ctxt = PyList_AsPgfPrintContext(pylist);
+printf("pgf_showType 3\n");
     PgfText *s = pgf_print_type((PgfType) type, ctxt, 0, &marshaller);
+printf("pgf_showType 4\n");
     FreePgfPrintContext(ctxt);
+printf("pgf_showType 5\n");
     PyObject *str = PyUnicode_FromStringAndSize(s->text, s->size);
+printf("pgf_showType 6\n");
     FreePgfText(s);
+printf("pgf_showType 7\n");
     return str;
 }
 
