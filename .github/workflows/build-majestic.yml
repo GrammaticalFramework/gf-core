@@ -169,7 +169,7 @@ jobs:
 
   macos-haskell:
     name: Haskell (macOS)
-    runs-on: macOS-11
+    runs-on: macOS-latest
     needs: macos-runtime
 
     steps:
@@ -194,7 +194,7 @@ jobs:
 
   macos-python:
     name: Python (macOS)
-    runs-on: macOS-11
+    runs-on: macOS-latest
     needs: macos-runtime
     env:
       EXTRA_INCLUDE_DIRS: /usr/local/include
