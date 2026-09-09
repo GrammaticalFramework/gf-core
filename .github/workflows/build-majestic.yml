@@ -25,7 +25,7 @@ jobs:
         make install
 
     - name: Upload artifact
-      uses: actions/upload-artifact@v3
+      uses: actions/upload-artifact@v4
       with:
         name: libpgf-linux
         path: |
@@ -68,7 +68,7 @@ jobs:
         cabal v1-install
 
     - name: Upload artifact
-      uses: actions/upload-artifact@master
+      uses: actions/upload-artifact@v4
       with:
         name: compiler-linux
         path: |
@@ -99,7 +99,7 @@ jobs:
       run: |
         python3 -m cibuildwheel src/runtime/python --output-dir wheelhouse
 
-    - uses: actions/upload-artifact@master
+    - uses: actions/upload-artifact@v4
       with:
         name: python-linux
         path: ./wheelhouse
@@ -160,7 +160,7 @@ jobs:
         sudo make install
 
     - name: Upload artifact
-      uses: actions/upload-artifact@master
+      uses: actions/upload-artifact@v4
       with:
         name: libpgf-macos
         path: |
@@ -223,7 +223,7 @@ jobs:
       run: |
         python3 -m cibuildwheel src/runtime/python --output-dir wheelhouse
 
-    - uses: actions/upload-artifact@master
+    - uses: actions/upload-artifact@v4
       with:
         name: python-macos
         path: ./wheelhouse
@@ -289,7 +289,7 @@ jobs:
         make install
 
     - name: Upload artifact
-      uses: actions/upload-artifact@master
+      uses: actions/upload-artifact@v4
       with:
         name: libpgf-windows
         path: |
@@ -324,7 +324,7 @@ jobs:
       run: |
         python3 -m cibuildwheel src\runtime\python --output-dir wheelhouse
 
-    - uses: actions/upload-artifact@master
+    - uses: actions/upload-artifact@v4
       with:
         name: python-windows
         path: ./wheelhouse
