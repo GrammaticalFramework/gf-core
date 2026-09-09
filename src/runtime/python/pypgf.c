@@ -1614,12 +1614,13 @@ PGF_embed(PGFObject* self, PyObject *modname)
         py_embedding->dict = PyDict_New();
     } else {
         py_embedding->dict = PyModule_GetDict(module);
+        if (py_embedding->dict == NULL)
+            return NULL;
         Py_INCREF(py_embedding->dict);
     }
 
-    if (_PyImport_SetModule(modname, (PyObject*) py_embedding) < 0) {
-        return NULL;
-    }
+    PyObject *modules = PyImport_GetModuleDict();
+    PyDict_SetItem(modules, modname, (PyObject*) py_embedding);
 
     return (PyObject*) py_embedding;
 }
