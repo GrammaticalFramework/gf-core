@@ -335,6 +335,8 @@ jobs:
     name: Haskell (Windows)
     runs-on: windows-latest
     needs: mingw64-runtime
+    env:
+      PATH: %HOME%/lib;%PATH%
 
     steps:
     - uses: actions/checkout@v7
@@ -355,7 +357,7 @@ jobs:
     - name: build and test the runtime
       working-directory: ./src/runtime/haskell
       run: |
-        cabal v1-install
+        cabal v1-install --extra-lib-dirs=lib --extra-include-dirs=include
         cabal test
 
     - name: build the compiler
@@ -366,7 +368,7 @@ jobs:
     - name: Upload artifact
       uses: actions/upload-artifact@v4
       with:
-        name: compiler-linux
+        name: compiler-windows
         path: |
           ~/.cabal/bin/gf
 
