@@ -94,7 +94,7 @@ jobs:
         python3 -m pip install git+https://github.com/joerick/cibuildwheel.git@main
 
     - name: Setup tmate session
-      uses: mxschmitt/action-tmate@v3
+      uses: owenthereal/action-upterm@v1
 
     - name: Install and test bindings
       env:
