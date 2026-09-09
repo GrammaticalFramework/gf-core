@@ -14,6 +14,8 @@ PgfAbstractParser::PgfAbstractParser(ref<PgfConcr> concr)
     this->last_fid = concr->last_fid;
 }
 
+PgfAbstractParser::ItemProbComparator PgfAbstractParser::item_prob_comp;
+
 void PgfAbstractParser::get_info(CCat *ccat, ref<PgfConcrRule> *prule, size_t **pvalues)
 {
     if (ccat->fid <= concr->last_fid) {
@@ -859,6 +861,8 @@ PgfParser::PgfParser(ref<PgfConcr> concr, PgfText *sentence, bool case_sensitive
     this->delta_byte_pos = 0;
     this->allocated_size = sizeof(PgfText)+sentence->size+1;
 }
+
+PgfParser::ExprStateComparator PgfParser::estate_comp;
 
 PgfParser::~PgfParser()
 {
