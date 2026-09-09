@@ -77,8 +77,8 @@ class PGF_INTERNAL_DECL interval_map {
     Node *upd_node(Node *node, Node *left, Node *right)
     {
         node->sz        = 1+size(left)+size(right);
-        node->max       = std::max((left  == NULL) ? node->end : left->max,
-                                   (right == NULL) ? node->end : right->max);
+        node->max       = std::max<size_t>((left  == NULL) ? node->end : left->max,
+                                           (right == NULL) ? node->end : right->max);
         node->left      = left;
         node->right     = right;
         return node;
