@@ -355,7 +355,7 @@ jobs:
 
         Copy-Item "${{ github.workspace }}\lib\*" "$ghcLibDir\..\mingw\lib\" -Force
         Copy-Item "${{ github.workspace }}\include\pgf" "$ghcLibDir\..\mingw\include\" -Recurse -Force
-        Copy-Item "${{ github.workspace }}\bin\libpgf-0.dll" "$ghcLibDir\..\bin\" -Force
+        Copy-Item "${{ github.workspace }}\bin\*" "$ghcLibDir\..\bin\" -Force
 
     - name: Install Haskell build tools
       run: |
