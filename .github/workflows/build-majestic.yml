@@ -225,7 +225,7 @@ jobs:
       LD_LIBRARY_PATH: /opt/homebrew/lib
       EXTRA_INCLUDE_DIRS: /opt/homebrew/include
       EXTRA_LIB_DIRS: /opt/homebrew/lib
-      MACOSX_DEPLOYMENT_TARGET: 15.0
+      MACOSX_DEPLOYMENT_TARGET: 26.0
   
     steps:
     - uses: actions/checkout@v7
