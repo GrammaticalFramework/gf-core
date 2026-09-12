@@ -241,8 +241,13 @@ checkInfo opts cwd sgr sm (c,info) = checkInModule cwd (snd sm) NoLoc empty $ do
              checkError (pp "No definition given to the operation")
       update sm c (ResOper pty' pde')
 
-    ResOverload os tysts -> chIn NoLoc "overloading" $ do
-      tysts' <- mapM (uncurry $ flip (\(L loc1 t) (L loc2 ty) -> checkLType gc t ty >>= \(t,ty) -> return (L loc1 t, L loc2 ty))) tysts  -- return explicit ones
+    ResOverload os tysts -> do
+      tysts' <- forM tysts $ \(L locty ty, L loct t) -> do  -- return explicit ones
+                  (ty,_) <- chIn locty "overload" $
+                              checkLType gc ty typeType
+                  (t,ty) <- chIn loct  "overload" $
+                              checkLType gc t ty
+                  return (L locty ty,L loct t)
       tysts0 <- lookupOverload gr (fst sm,c)  -- check against inherited ones too
       tysts1 <- sequence
                   [checkLType gc tr (mkFunType args val) | (args,(val,tr)) <- tysts0]
@@ -250,7 +255,7 @@ checkInfo opts cwd sgr sm (c,info) = checkInModule cwd (snd sm) NoLoc empty $ do
       --- with value type is only possible if expected type is given
       --checkUniq $
       --  sort [let (xs,t) = typeFormCnc x in t : map (\(b,x,t) -> t) xs | (_,x) <- tysts1]
-      update sm c (ResOverload os [(y,x) | (x,y) <- tysts'])
+      update sm c (ResOverload os tysts')
 
     ResParam (Just (L loc pcs)) _ -> do
       (sm,cnt,ts,pcs) <- chIn loc "parameter type" $
