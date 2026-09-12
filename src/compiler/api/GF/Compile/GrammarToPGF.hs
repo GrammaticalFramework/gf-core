@@ -386,14 +386,6 @@ compareCaseInsensitive (x:xs) (y:ys) =
                       EQ -> r1 `compare` r2
                       x  -> x
                _ -> LT
-        SymLit d1 r1
-          -> case s2 of
-               SymCat {} -> GT
-               SymLit d2 r2
-                 -> case compare d1 d2 of
-                      EQ -> r1 `compare` r2
-                      x  -> x
-               _ -> LT
         SymVar d1 r1
           -> if tagToEnum# (getTag s2 ># 2#)
                then LT

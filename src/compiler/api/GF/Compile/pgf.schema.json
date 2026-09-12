@@ -203,7 +203,6 @@
           "type": "string",
           "enum": [
             "SymCat",
-            "SymLit",
             "SymVar",
             "SymKS",
             "SymKP",

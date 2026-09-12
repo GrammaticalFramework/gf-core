@@ -257,7 +257,7 @@ protected:
     static
     interval_t interval(ref<PgfConcrRule> rule, size_t *values, ref<PgfLParam> lparam);
 
-    void get_info(CCat *ccat, ref<PgfConcrRule> *rule, size_t **pvalues);
+    bool get_info(CCat *ccat, ref<PgfConcrRule> *rule, size_t **pvalues);
     CCat *get_epsilon_ccat(PgfText *name, PgfMetaId fid);
 
     static
@@ -292,6 +292,7 @@ class PGF_INTERNAL_DECL PgfParser : private PgfAbstractParser, public PgfExprEnu
     virtual void bu_predict(State *state, prob_t outside_prob, CCat *ccat);
 
     void bu_predict(PgfPhrasetable<PgfSymbolBIND> phrasetable, State *state, prob_t outside_prob);
+    void bu_literal(State *state, const char *name, PgfExprParser *eparser, prob_t viterbi_prob);
     void bu_predict(PgfPhrasetable<PgfSymbolKS> phrasetable, State *state, prob_t outside_prob, ptrdiff_t min, ptrdiff_t max);
     void make_chunks(State *state, std::vector<CCat*> &chunks, prob_t prob);
     PgfExpr process_expr(ExprState *estate, prob_t *prob);

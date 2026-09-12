@@ -95,7 +95,7 @@ cf2concr opts abstr cfg =
 
     mkSequence rule = snd $ mapAccumL convertSymbol 0 (ruleRhs rule)
       where
-        convertSymbol d (NonTerminal (c,_)) = (d+1,if c `elem` ["Int","Float","String"] then SymLit d 0 else SymCat d 0)
+        convertSymbol d (NonTerminal (c,_)) = (d+1,SymCat d 0)
         convertSymbol d (Terminal t)        = (d,  SymKS t)
 
     mkCncCat fid (cat,n)

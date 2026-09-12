@@ -774,9 +774,9 @@ PgfText *pgf_print_ident(PgfText *name)
 PGF_API
 PgfExpr pgf_read_expr(PgfText *input, PgfUnmarshaller *u)
 {
-    PgfExprParser parser(input, u);
+    PgfExprParser parser(input, 0, u);
     PgfExpr res = parser.parse_expr();
-    if (!parser.eof()) {
+    if (!parser.is_eof()) {
         if (res != 0)
             u->free_ref(res);
         return 0;
@@ -787,7 +787,7 @@ PgfExpr pgf_read_expr(PgfText *input, PgfUnmarshaller *u)
 PGF_API
 PgfExpr pgf_read_expr_ex(PgfText *input, const char **end_pos, PgfUnmarshaller *u)
 {
-    PgfExprParser parser(input, u);
+    PgfExprParser parser(input, 0, u);
     PgfExpr expr = parser.parse_expr();
     *end_pos = parser.get_token_pos();
     return expr;
@@ -838,9 +838,9 @@ PgfText *pgf_print_context(size_t n_hypos, PgfTypeHypo *hypos,
 PGF_API
 PgfType pgf_read_type(PgfText *input, PgfUnmarshaller *u)
 {
-    PgfExprParser parser(input, u);
+    PgfExprParser parser(input, 0, u);
     PgfType res = parser.parse_type();
-    if (!parser.eof()) {
+    if (!parser.is_eof()) {
         u->free_ref(res);
         return 0;
     }
@@ -850,9 +850,9 @@ PgfType pgf_read_type(PgfText *input, PgfUnmarshaller *u)
 PGF_API
 PgfTypeHypo *pgf_read_context(PgfText *input, PgfUnmarshaller *u, size_t *n_hypos)
 {
-    PgfExprParser parser(input, u);
+    PgfExprParser parser(input, 0, u);
     PgfTypeHypo *res = parser.parse_context(n_hypos);
-    if (!parser.eof()) {
+    if (!parser.is_eof()) {
         for (size_t i = 0; i < *n_hypos; i++) {
             free(res[i].cid);
             u->free_ref(res[i].type);
@@ -2046,33 +2046,6 @@ public:
             }
 
             syms[sym_index] = symcat.tagged();
-            sym_index++;
-        } PGF_API_END
-    }
-
-    void add_symlit(size_t d, size_t i0, size_t n_terms, size_t *terms, PgfExn *err)
-    {
-        if (err->type != PGF_EXN_NONE)
-            return;
-
-        PGF_API_BEGIN {
-            if (syms == 0 || sym_index == (size_t) -1 || sym_index >= syms.size())
-                throw pgf_error(builder_error_msg);
-
-            if (d > n_args)
-                throw pgf_error(builder_error_msg);
-
-            ref<PgfSymbolLit> symlit = PgfDB::malloc<PgfSymbolLit>(n_terms*2*sizeof(size_t));
-            symlit->d  = d;
-            symlit->r.i0 = i0;
-            symlit->r.n_terms = n_terms;
-
-            for (size_t i = 0; i < n_terms; i++) {
-                symlit->r.terms[i].factor = terms[2*i];
-                symlit->r.terms[i].var    = terms[2*i+1];
-            }
-
-            syms[sym_index] = symlit.tagged();
             sym_index++;
         } PGF_API_END
     }

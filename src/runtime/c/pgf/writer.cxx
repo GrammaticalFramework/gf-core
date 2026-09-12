@@ -332,12 +332,6 @@ void PgfWriter::write_symbol(PgfSymbol sym)
         write_lparam(ref<PgfLParam>::from_ptr(&sym_cat->r));
 		break;
 	}
-	case PgfSymbolLit::tag: {
-        auto sym_lit = ref<PgfSymbolLit>::untagged(sym);
-        write_int(sym_lit->d);
-        write_lparam(ref<PgfLParam>::from_ptr(&sym_lit->r));
-		break;
-	}
 	case PgfSymbolVar::tag: {
         auto sym_var = ref<PgfSymbolVar>::untagged(sym);
         write_int(sym_var->d);

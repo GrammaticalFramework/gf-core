@@ -16,17 +16,22 @@ PgfAbstractParser::PgfAbstractParser(ref<PgfConcr> concr)
 
 PgfAbstractParser::ItemProbComparator PgfAbstractParser::item_prob_comp;
 
-void PgfAbstractParser::get_info(CCat *ccat, ref<PgfConcrRule> *prule, size_t **pvalues)
+bool PgfAbstractParser::get_info(CCat *ccat, ref<PgfConcrRule> *prule, size_t **pvalues)
 {
     if (ccat->fid <= concr->last_fid) {
+        if (ccat->epsilon->items.size() == 0)
+            return false;
         ref<PgfItem> pitem = ccat->epsilon->items[0];
         *prule = pitem->rule;
         *pvalues = &pitem->vars[0];
     } else {
+        if (ccat->prods.size() == 0)
+            return false;
         Production *prod = ccat->prods[0];
         *prule = prod->rule;
         *pvalues = &prod->vars[0];
     }
+    return true;
 }
 
 PgfAbstractParser::CCat *PgfAbstractParser::get_epsilon_ccat(PgfText *name, PgfMetaId fid)
@@ -57,7 +62,8 @@ PgfAbstractParser::CCat::~CCat()
         delete prod;
     }
     for (ExprState *estate : pending) {
-        delete estate;
+        if (estate != NULL)
+            delete estate;
     }
 }
 
@@ -493,18 +499,19 @@ void PgfAbstractParser::combine(State *state, Item *item, CCat *ccat)
 
     ref<PgfConcrRule> rule;
     size_t *values;
-    get_info(ccat, &rule,&values);
-    values = CLONE_VALUES(rule, values);
+    if (get_info(ccat, &rule,&values)) {
+        values = CLONE_VALUES(rule, values);
 
-    if (!instantiate(item->rule, &item->vars[0], item->rule->args[sym_cat->d],
-                     rule,       values,         rule->res)) {
-        delete item;
-        return;
-    }
-    if (!instantiate(item->rule, &item->vars[0], ref<PgfLParam>::from_ptr(&sym_cat->r),
-                     rule,       values,         rule->lin_idx)) {
-        delete item;
-        return;
+        if (!instantiate(item->rule, &item->vars[0], item->rule->args[sym_cat->d],
+                         rule,       values,         rule->res)) {
+            delete item;
+            return;
+        }
+        if (!instantiate(item->rule, &item->vars[0], ref<PgfLParam>::from_ptr(&sym_cat->r),
+                         rule,       values,         rule->lin_idx)) {
+            delete item;
+            return;
+        }
     }
 
     item->dot++;
@@ -877,7 +884,7 @@ PgfParser::~PgfParser()
                         continue;
 
                     for (ExprState *estate : it3.second->pending) {
-                        if (estate->expr != 0)
+                        if (estate != NULL && estate->expr != 0)
                             u->free_ref(estate->expr);
                     }
                     for (ExprProb &ep : it3.second->exprs) {
@@ -942,6 +949,64 @@ void PgfParser::bu_predict(PgfPhrasetable<PgfSymbolKS> phrasetable,
         if (len <= max)
             bu_predict(phrasetable->right,state,outside_prob,len,max);
      }
+}
+
+void PgfParser::bu_literal(State *state, const char *name, PgfExprParser *eparser, prob_t viterbi_prob)
+{
+    PgfText* tname = string2text(name);
+    ref<PgfConcrLincat> lincat =
+        namespace_lookup(concr->lincats, tname);
+    free(tname);
+
+    if (lincat == 0)
+        return;
+
+    Cont *&cont = state->conts1[lincat];
+    if (cont == NULL) {
+        cont = new Cont;
+        cont->ccat = NULL;
+        cont->lincat = lincat;
+        cont->state = state;
+    }
+
+    PgfTextSpot current = cont->state->end;
+    current.byte_pos += eparser->get_token_value()->size;
+    current.pos      += eparser->get_token_value()->size;
+
+    State *next_state = new_state(current, viterbi_prob);
+
+    interval_t zero = {0,0};
+    CCat *&ccat = next_state->completed[cont][zero][zero];
+    if (ccat == NULL) {
+        ccat = new CCat;
+        ccat->fid = (++last_fid);
+        ccat->epsilon = 0;
+        ccat->cont  = cont;
+        ccat->state = next_state;
+        ccat->lin_idx = zero;
+        ccat->value = zero;
+        ccat->covered = false;
+        ccat->viterbi_prob = 0;
+
+#ifdef DEBUG_PARSER
+        {
+            PgfPrinter printer(NULL,0,NULL);
+            printer.nprintf(64,"literal [%zd-%zd; ",state->end.pos,next_state->start.pos);
+            printer.efun(&ccat->cont->lincat->name);
+            printer.puts("(0); 0; ");
+            printer.emeta(ccat->fid);
+            printer.puts("]");
+            PgfText *text = printer.get_text();
+            fprintf(stderr, "%s\n", text->text);
+            free(text);
+        }
+#endif
+
+        ccat->pending.push_back(NULL);
+        ccat->exprs.emplace_back(eparser->parse_term(), 0, 0);
+    }
+
+    bu_predict(next_state, viterbi_prob, ccat);
 }
 
 void PgfParser::bu_predict(PgfPhrasetable<PgfSymbolBIND> phrasetable,
@@ -1492,6 +1557,15 @@ void PgfParser::suspend(Cont *cont,Item *item,bool do_predict,ref<PgfSymbolCat> 
                 if (cont->state->needs_bind) {
                     bu_predict(concr->phrasetable4, cont->state, viterbi_prob);
                 } else {
+                    PgfExprParser eparser(sentence, cont->state->end.byte_pos, u);
+                    if (eparser.is_int()) {
+                        bu_literal(cont->state, "Int", &eparser, viterbi_prob);
+                    } else if (eparser.is_flt()) {
+                        bu_literal(cont->state, "Float", &eparser, viterbi_prob);
+                    } else if (eparser.is_ident()) {
+                        eparser.ident2str();
+                        bu_literal(cont->state, "String", &eparser, viterbi_prob);
+                    }
                     bu_predict(concr->phrasetable1, cont->state, viterbi_prob, 1, sentence->size);
                 }
             }

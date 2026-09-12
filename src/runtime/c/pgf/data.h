@@ -159,12 +159,6 @@ struct PGF_INTERNAL_DECL PgfSymbolCat {
     PgfLParam r;
 };
 
-struct PGF_INTERNAL_DECL PgfSymbolLit {
-    static const uint8_t tag = 1;
-    size_t d;
-    PgfLParam r;
-};
-
 struct PGF_INTERNAL_DECL PgfSymbolVar {
     static const uint8_t tag = 2;
     size_t d, r;

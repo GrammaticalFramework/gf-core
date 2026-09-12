@@ -78,11 +78,6 @@ static void symbols_release(vector<PgfSymbol> syms)
             PgfDB::free(sym_cat, sym_cat->r.n_terms*sizeof(sym_cat->r.terms[0]));
             break;
         }
-        case PgfSymbolLit::tag: {
-            auto sym_lit = ref<PgfSymbolLit>::untagged(sym);
-            PgfDB::free(sym_lit, sym_lit->r.n_terms*sizeof(sym_lit->r.terms[0]));
-            break;
-        }
         case PgfSymbolVar::tag:
             PgfDB::free(ref<PgfSymbolVar>::untagged(sym));
             break;

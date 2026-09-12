@@ -307,7 +307,6 @@ instance Binary Literal where
 
 instance Binary Symbol where
   put (SymCat d r)       = putWord8 0 >> put (d,r)
-  put (SymLit d r)       = putWord8 1 >> put (d,r)
   put (SymVar n l)       = putWord8 2 >> put (n,l)
   put (SymKS ts)         = putWord8 3 >> put ts
   put (SymKP d vs)       = putWord8 4 >> put (d,vs)
@@ -320,7 +319,6 @@ instance Binary Symbol where
   get = do tag <- getWord8
            case tag of
              0 -> liftM2 SymCat get get
-             1 -> liftM2 SymLit get get
              2 -> liftM2 SymVar get get
              3 -> liftM  SymKS  get
              4 -> liftM2 (\d vs -> SymKP d vs) get get

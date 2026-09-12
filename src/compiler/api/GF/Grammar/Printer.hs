@@ -380,7 +380,6 @@ ppLit (LInt n) = pp n
 ppLit (LFlt d) = pp d
 
 ppSymbol (SymCat d r)= pp '<' <> pp d <> pp ',' <> ppLParam r <> pp '>'
-ppSymbol (SymLit d r)= pp '{' <> pp d <> pp ',' <> ppLParam r <> pp '}'
 ppSymbol (SymVar d r)   = pp '<' <> pp d <> pp ',' <> pp '$' <> pp r <> pp '>'
 ppSymbol (SymKS t)      = doubleQuotes (pp t)
 ppSymbol SymNE          = pp "nonExist"

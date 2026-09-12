@@ -538,11 +538,6 @@ PgfSymbol PgfReader::read_symbol()
         sym = sym_cat.tagged();
 		break;
     }
-	case PgfSymbolLit::tag: {
-        ref<PgfSymbolLit> sym_lit = read_symbol_idx<PgfSymbolLit>();
-        sym = sym_lit.tagged();
-		break;
-    }
 	case PgfSymbolVar::tag: {
         ref<PgfSymbolVar> sym_var = PgfDB::malloc<PgfSymbolVar>();
         sym_var->d = read_int();

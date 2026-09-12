@@ -170,7 +170,7 @@ class PGF_INTERNAL_DECL PgfExprParser {
     void putc(uint32_t ch);
 
 public:
-    PgfExprParser(PgfText* input, PgfUnmarshaller *unmarshaller);
+    PgfExprParser(PgfText* input, size_t byte_pos, PgfUnmarshaller *unmarshaller);
     ~PgfExprParser();
 
     bool str_char();
@@ -189,8 +189,15 @@ public:
     PgfType parse_type();
     PgfTypeHypo *parse_context(size_t *p_n_hypos);
 
-    bool eof();
+    bool is_eof()   { return (token_tag == PGF_TOKEN_EOF); }
+    bool is_int()   { return (token_tag == PGF_TOKEN_INT); }
+    bool is_flt()   { return (token_tag == PGF_TOKEN_FLT); }
+    bool is_str()   { return (token_tag == PGF_TOKEN_STR); }
+    bool is_ident() { return (token_tag == PGF_TOKEN_IDENT); }
 
+    void ident2str() { token_tag = PGF_TOKEN_STR; }
+
+    const PgfText *get_token_value() { return token_value; }
     const char *get_token_pos() { return token_pos; }
 };
 

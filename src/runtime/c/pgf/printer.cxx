@@ -524,13 +524,6 @@ void PgfPrinter::symbol(PgfSymbol sym)
         puts(">");
 		break;
 	}
-	case PgfSymbolLit::tag: {
-        auto sym_lit = ref<PgfSymbolLit>::untagged(sym);
-        nprintf(32, "{%ld,",sym_lit->d);
-        lparam(ref<PgfLParam>::from_ptr(&sym_lit->r));
-        puts("}");
-		break;
-	}
 	case PgfSymbolVar::tag: {
         auto sym_var = ref<PgfSymbolVar>::untagged(sym);
         nprintf(64, "<%ld,$%ld>",sym_var->d, sym_var->r);

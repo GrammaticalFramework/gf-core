@@ -246,7 +246,6 @@ data LParam  = LParam {-# UNPACK #-} !LIndex [(LIndex,LVar)]
 
 data Symbol
   = SymCat {-# UNPACK #-} !Int {-# UNPACK #-} !LParam
-  | SymLit {-# UNPACK #-} !Int {-# UNPACK #-} !LParam
   | SymVar {-# UNPACK #-} !Int {-# UNPACK #-} !Int
   | SymKS Token
   | SymKP [Symbol] [([Symbol],[String])]
@@ -336,9 +335,6 @@ withBuildLinIface rules f = do
 
     addSymbol c_builder vtbl c_exn (SymCat d r) = do
       fun <- (#peek PgfLinBuilderIfaceVtbl, add_symcat) vtbl
-      callLParam (callLinBuilder4 fun c_builder (fromIntegral d)) r c_exn
-    addSymbol c_builder vtbl c_exn (SymLit d r) = do
-      fun <- (#peek PgfLinBuilderIfaceVtbl, add_symlit) vtbl
       callLParam (callLinBuilder4 fun c_builder (fromIntegral d)) r c_exn
     addSymbol c_builder vtbl c_exn (SymVar d r) = do
       fun <- (#peek PgfLinBuilderIfaceVtbl, add_symvar) vtbl

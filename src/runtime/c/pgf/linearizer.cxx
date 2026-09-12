@@ -100,13 +100,6 @@ bool PgfLinearizer::TreeNode::linearize_item(PgfLinearizationOutputIface *out, P
                 return false;
             break;
         }
-        case PgfSymbolLit::tag: {
-            auto sym_lit = ref<PgfSymbolLit>::untagged(sym);
-            size_t r = item->eval(ref<PgfLParam>::from_ptr(&sym_lit->r));
-            if (!linearize_arg(out, linearizer, sym_lit->d, r))
-                return false;
-            break;
-        }
         case PgfSymbolVar::tag: {
             auto sym_var = ref<PgfSymbolVar>::untagged(sym);
             linearize_var(out, linearizer, sym_var->d, sym_var->r);
