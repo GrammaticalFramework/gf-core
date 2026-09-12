@@ -235,7 +235,7 @@ lookupAbsDef gr q@(m,c) = errIn (render ("looking up absdef of" <+> c)) $ do
     _          -> return Nothing
 
 lookupLincat :: ErrorMonad m => Grammar -> ModuleName -> Ident -> m Type
-lookupLincat gr m c | isPredefCat c = return defLinType --- ad hoc; not needed?
+lookupLincat gr m c | isPredefCat c = return (lock c defLinType) --- ad hoc; not needed?
 lookupLincat gr m c = do
   info <- lookupQIdentInfo gr (m,c)
   case info of
@@ -247,7 +247,7 @@ lookupLincat gr m c = do
 lookupAbsType :: ErrorMonad m => Grammar -> QIdent -> m (Term,Type)
 lookupAbsType gr q@(m,c)
   | m == cPredefAbs =
-      if elem c [cInt,cFloat,cString]
+      if isPredefCat c
         then return (QC q,typeType)
         else no_type
   | otherwise = do
