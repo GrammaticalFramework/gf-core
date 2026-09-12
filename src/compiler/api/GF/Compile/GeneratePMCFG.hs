@@ -71,9 +71,10 @@ addPMCFG cwd g cmi id (CncFun (Just lty@(cats,cat,ctxt,ty)) mlin@(Just (L loc te
 addPMCFG cwd g cmi id info = return info
 
 pmcfgForm g t ctxt ty = do
-  let (ms,s',t',arg_params) = apply 0 Map.empty unit ctxt t []
-  let v = eval g [] s' t' []
-  (ms,_,_,fn) <- breakDown g ms unit 0 [] v ty (return []) empty
+  let (c1,c2) = split unit
+      (ms,s',t',arg_params) = apply 0 Map.empty c1 ctxt t []
+      v = eval g [] s' t' []
+  (ms,_,_,fn) <- breakDown g ms c2 0 [] v ty (return []) empty
   res <- fmap nubOrd $ runGenM g ms [] $ do
             (r,rs,v,res_params) <- fn
             (subst,arg_params) <- mapAccumM params2int Map.empty arg_params
