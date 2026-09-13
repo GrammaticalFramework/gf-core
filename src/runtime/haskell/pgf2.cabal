@@ -75,6 +75,16 @@ test-suite linearization
     containers,
     pgf2
 
+test-suite parsing
+  type: exitcode-stdio-1.0
+  main-is: tests/parsing.hs
+  default-language: Haskell2010
+  build-depends:
+    base,
+    HUnit >= 1.6.1.0,
+    containers,
+    pgf2
+
 test-suite typechecking
   type: exitcode-stdio-1.0
   main-is: tests/typechecking.hs
