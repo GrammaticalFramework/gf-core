@@ -1479,9 +1479,16 @@ PgfAbstractParser::State *PgfParser::new_state(const PgfTextSpot &start, prob_t 
 
 void PgfParser::symbol_token(Item *item, State *state, ref<PgfSymbolKS> symks)
 {
-    PgfTextSpot next = state->end;
-    if (text_symbol_cmp(sentence,&next,symks,case_sensitive) != 0)
+    if (state->needs_bind) {
+        delete item;
         return;
+    }
+
+    PgfTextSpot next = state->end;
+    if (text_symbol_cmp(sentence,&next,symks,case_sensitive) != 0) {
+        delete item;
+        return;
+    }
 
     State *next_state = new_state(next, item->inside_prob+item->outside_prob);
 
