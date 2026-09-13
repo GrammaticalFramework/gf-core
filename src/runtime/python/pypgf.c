@@ -194,29 +194,16 @@ pgf_type_from_object(PyObject* obj) {
 static IterObject*
 Concr_parse(ConcrObject* self, PyObject *args, PyObject *keywds)
 {
-	static char *kwlist[] = {"sentence", "cat", "n", NULL};
+	static char *kwlist[] = {"sentence", "cat", "n", "robust", NULL};
 
-	const char *sentence = NULL;
-    size_t sentence_size;
+	PyObject *sentence = NULL;
 	PyObject* start = NULL;
 	int max_count = -1;
-	if (!PyArg_ParseTupleAndKeywords(args, keywds, "s#|Oi", kwlist,
-                                     &sentence, &sentence_size,
-                                     &start, &max_count))
+    int robust = 0;
+	if (!PyArg_ParseTupleAndKeywords(args, keywds, "U|Oip", kwlist,
+                                     &sentence,
+                                     &start, &max_count, &robust))
         return NULL;
-
-	IterObject* pyres = (IterObject*)
-		pgf_IterType.tp_alloc(&pgf_IterType, 0);
-	if (pyres == NULL) {
-		return NULL;
-	}
-
-	pyres->db = self->grammar->db;
-	pyres->source = (PyObject*) self;
-	Py_XINCREF(pyres->source);
-
-	pyres->max_count = max_count;
-	pyres->counter   = 0;
 
     PgfExn err;
 
@@ -224,27 +211,66 @@ Concr_parse(ConcrObject* self, PyObject *args, PyObject *keywds)
 	if (start == NULL) {
 		type = (TypeObject *) pgf_start_cat(self->grammar->db, self->grammar->revision, &unmarshaller, &err);
         if (handleError(err) != PGF_EXN_NONE) {
-            Py_DECREF(pyres);
             return NULL;
         }
 	} else {
 		type = pgf_type_from_object(start);
 	}
 	if (type == NULL) {
-		Py_DECREF(pyres);
 		return NULL;
 	}
 
-    PgfText *text_sentence = CString_AsPgfText(sentence, sentence_size);
-	pyres->res = (PgfExprEnum*)
+    PgfText *text_sentence = PyUnicode_AsPgfText(sentence);
+	PgfExprEnum* res =
 		pgf_parse(self->grammar->db, self->concr, (PgfType) type,
                   &marshaller, &unmarshaller,
-                  text_sentence, &err);
+                  text_sentence, robust, &err);
     FreePgfText(text_sentence);
-    if (handleError(err) != PGF_EXN_NONE) {
-        Py_DECREF(pyres);
+    Py_DECREF(type);
+    if (err.type == PGF_EXN_PARSE_ERROR) {
+        PyObject* py_offset = PyLong_FromLong(err.code);
+
+        Py_ssize_t len = PyUnicode_GET_LENGTH(sentence);
+
+        PyObject_SetAttrString(ParseError, "offset", py_offset);
+        if (err.code == len)
+            PyObject_SetAttrString(ParseError, "incomplete",  Py_True);
+        else {
+            Py_ssize_t end = PyUnicode_FindChar(sentence, ' ', err.code, -1, 1);
+            if (end == -1)
+                end = len;
+            else if (end == -2)
+                return NULL;
+            PyObject *py_token = PyUnicode_Substring(sentence, err.code, end);
+            if (py_token == NULL)
+                return NULL;
+
+            PyObject_SetAttrString(ParseError, "incomplete",  Py_False);
+            PyObject_SetAttrString(ParseError, "token", py_token);
+
+            Py_DECREF(py_token);
+            Py_DECREF(py_offset);
+        }
+
+        PyErr_Format(ParseError, "Parse error at position %d", err.code);
+        return NULL;
+    } else if (handleError(err) != PGF_EXN_NONE) {
         return NULL;
     }
+
+	IterObject* pyres = (IterObject*)
+		pgf_IterType.tp_alloc(&pgf_IterType, 0);
+	if (pyres == NULL) {
+		return NULL;
+	}
+
+	pyres->res = res;
+    pyres->db = self->grammar->db;
+	pyres->source = (PyObject*) self;
+	Py_INCREF(pyres->source);
+
+	pyres->max_count = max_count;
+	pyres->counter   = 0;
 
 	return pyres;
 }
@@ -2195,20 +2221,14 @@ pgf_showType(PyObject *self, PyObject *args)
 {
     PyObject *pylist;
     TypeObject *type;
-printf("pgf_showType 1\n");
+
     if (!PyArg_ParseTuple(args, "O!O!", &PyList_Type, &pylist, &pgf_TypeType, &type))
         return NULL;
-printf("pgf_showType 2\n");
     PgfPrintContext *ctxt = PyList_AsPgfPrintContext(pylist);
-printf("pgf_showType 3\n");
     PgfText *s = pgf_print_type((PgfType) type, ctxt, 0, &marshaller);
-printf("pgf_showType 4\n");
     FreePgfPrintContext(ctxt);
-printf("pgf_showType 5\n");
     PyObject *str = PyUnicode_FromStringAndSize(s->text, s->size);
-printf("pgf_showType 6\n");
     FreePgfText(s);
-printf("pgf_showType 7\n");
     return str;
 }
 
@@ -2378,6 +2398,9 @@ MOD_INIT(pgf)
 
     PGFError = PyErr_NewException("pgf.PGFError", NULL, NULL);
     ADD_TYPE_DIRECT("PGFError", PGFError);
+
+    ParseError = PyErr_NewException("pgf.ParseError", NULL, NULL);
+    ADD_TYPE_DIRECT("ParseError", ParseError);
 
     ADD_TYPE("PGF", pgf_PGFType);
     ADD_TYPE("Concr", pgf_ConcrType);

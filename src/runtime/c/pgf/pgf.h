@@ -76,6 +76,7 @@ typedef enum {
     PGF_EXN_SYSTEM_ERROR,
     PGF_EXN_PGF_ERROR,
     PGF_EXN_TYPE_ERROR,
+    PGF_EXN_PARSE_ERROR,
     PGF_EXN_OTHER_ERROR
 }  PgfExnType;
 
@@ -822,7 +823,7 @@ void pgf_bracketed_linearize_all(PgfDB *db, PgfConcrRevision revision,
 PGF_API_DECL
 PgfExprEnum *pgf_parse(PgfDB *db, PgfConcrRevision revision,
                        PgfType ty, PgfMarshaller *m, PgfUnmarshaller *u,
-                       PgfText *sentence,
+                       PgfText *sentence, int robust,
                        PgfExn * err);
 
 PGF_API_DECL
@@ -855,7 +856,7 @@ struct PgfParseChart {
 PGF_API_DECL
 PgfParseChart *pgf_parse_chart(PgfDB *db, PgfConcrRevision revision,
                                PgfType ty, PgfMarshaller *m, PgfUnmarshaller *u,
-                               PgfText *sentence,
+                               PgfText *sentence, int robust,
                                PgfExn * err);
 
 PGF_API_DECL

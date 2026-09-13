@@ -358,14 +358,16 @@ pgfCommands = Map.fromList [
        "See also the ps command for lexing and character encoding."
        ],
      exec = needPGF $ \opts ts pgf ->
-              return $
-                foldr (joinPiped . fromParse1 opts) void 
-                  (concat [
-                              [(s,parse concr (optType pgf opts) s) |
-                                            concr <- optLangs pgf opts] 
-                           | s <- toStrings ts]),
+              let parseOp | isOpt "robust" opts = \concr -> ParseOk . robustParse concr (optType pgf opts)
+                          | otherwise           = \concr -> parse concr (optType pgf opts)
+              in return $
+                   foldr (joinPiped . fromParse1 opts) void
+                     (concat [[(s,parseOp concr s) |
+                                           concr <- optLangs pgf opts]
+                              | s <- toStrings ts]),
      options = [
-       ("show_probs", "show the probability of each result")
+       ("show_probs", "show the probability of each result"),
+       ("robust",     "return a partial result for ungrammatical input")
        ],
      flags = [
        ("cat","target category of parsing"),
@@ -783,7 +785,7 @@ pgfCommands = Map.fromList [
    fromParse1 opts (s,po) =
      case po of
        ParseOk ts      -> fromExprs (isOpt "show_probs" opts) (takeOptNum opts ts)
-       ParseFailed i t -> pipeMessage $ "The parser failed at token "
+       ParseFailed i t -> pipeMessage $ "The parser failed at position "
                                         ++ show i ++": "
                                         ++ show t
        ParseIncomplete -> pipeMessage "The sentence is not complete"

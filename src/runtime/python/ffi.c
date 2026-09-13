@@ -24,6 +24,8 @@ PgfExnType handleError(PgfExn err)
     return err.type;
 }
 
+PyObject *ParseError;
+
 // ----------------------------------------------------------------------------
 // conversions
 

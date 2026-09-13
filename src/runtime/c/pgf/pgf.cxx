@@ -2701,8 +2701,8 @@ struct PGF_INTERNAL_DECL PgfLincatUnmarshaller : PgfUnmarshaller {
 PGF_API
 PgfExprEnum *pgf_parse(PgfDB *db, PgfConcrRevision revision,
                        PgfType ty, PgfMarshaller *m, PgfUnmarshaller *u,
-                       PgfText *sentence,
-                       PgfExn * err)
+                       PgfText *sentence, int robust,
+                       PgfExn *err)
 {
     PGF_API_BEGIN {
         DB_scope scope(db, READER_SCOPE);
@@ -2717,7 +2717,11 @@ PgfExprEnum *pgf_parse(PgfDB *db, PgfConcrRevision revision,
             return 0;
 
         PgfParser *parser = new PgfParser(concr, sentence, case_sensitive, m, u);
-        parser->prepare(lincat_u.lincat);
+        if (!parser->prepare(lincat_u.lincat, robust)) {
+            err->type = PGF_EXN_PARSE_ERROR;
+            err->code = parser->get_end_pos();
+            return NULL;
+        }
         return parser;
     } PGF_API_END
 
@@ -2733,7 +2737,7 @@ void pgf_free_expr_enum(PgfExprEnum *en)
 PGF_API
 PgfParseChart *pgf_parse_chart(PgfDB *db, PgfConcrRevision revision,
                                PgfType ty, PgfMarshaller *m, PgfUnmarshaller *u,
-                               PgfText *sentence,
+                               PgfText *sentence, int robust,
                                PgfExn * err)
 {
     PGF_API_BEGIN {
@@ -2749,8 +2753,11 @@ PgfParseChart *pgf_parse_chart(PgfDB *db, PgfConcrRevision revision,
             return 0;
 
         PgfParser *parser = new PgfParser(concr, sentence, case_sensitive, m, u);
-        parser->prepare(lincat_u.lincat);
-        parser->perform_search();
+        if (!parser->prepare(lincat_u.lincat, robust)) {
+            err->type = PGF_EXN_PARSE_ERROR;
+            err->code = parser->get_end_pos();
+            return NULL;
+        }
         return parser;
     } PGF_API_END
 

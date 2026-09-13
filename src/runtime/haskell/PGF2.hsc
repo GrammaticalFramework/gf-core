@@ -86,7 +86,7 @@ module PGF2 (-- * PGF
              printName, alignWords, gizaAlignment,
 
              -- ** Parsing
-             ParseOutput(..), parse, parseWithHeuristics, complete,
+             ParseOutput(..), parse, robustParse, parseWithHeuristics, complete,
 
              -- * Exceptions
              PGFError(..),
@@ -849,11 +849,37 @@ parse :: Concr -> Type -> String -> ParseOutput [(Expr,Float)]
 parse c ty sent =
   unsafePerformIO $
   withForeignPtr (c_revision c) $ \c_revision_ptr ->
-  bracket (newStablePtr ty) freeStablePtr $ \c_ty ->
-  withText sent $ \c_sent -> do
-    c_enum <- withPgfExn "parse" (pgf_parse (c_db c) c_revision_ptr c_ty marshaller unmarshaller c_sent)
+  allocaBytes (#size PgfExn) $ \c_exn -> do
+    c_enum <- bracket (newStablePtr ty) freeStablePtr $ \c_ty ->
+              withText sent $ \c_sent ->
+                 pgf_parse (c_db c) c_revision_ptr c_ty marshaller unmarshaller c_sent 0 c_exn
+    ex_type <- (#peek PgfExn, type) c_exn :: IO (#type PgfExnType)
+    case ex_type of
+      (#const PGF_EXN_NONE) -> do
+         exprs <- enumerateExprs (c_db c) (c_revision c) c_enum
+         return (ParseOk exprs)
+      (#const PGF_EXN_PARSE_ERROR) -> do
+         pos <- (#peek PgfExn, code) c_exn
+         case takeWhile (not.isSpace) (drop pos sent) of
+           []  -> return (ParseIncomplete)
+           tok -> return (ParseFailed pos tok)
+      (#const PGF_EXN_PGF_ERROR) -> do
+         c_msg <- (#peek PgfExn, msg) c_exn
+         msg <- peekCString c_msg
+         free c_msg
+         throwIO (PGFError "parse" msg)
+      _ -> throwIO (PGFError "parse" "An unidentified error occurred")
+
+robustParse :: Concr -> Type -> String -> [(Expr,Float)]
+robustParse c ty sent =
+  unsafePerformIO $
+  withForeignPtr (c_revision c) $ \c_revision_ptr ->
+  allocaBytes (#size PgfExn) $ \c_exn -> do
+    c_enum <- bracket (newStablePtr ty) freeStablePtr $ \c_ty ->
+              withText sent $ \c_sent ->
+              withPgfExn "robustParse" (pgf_parse (c_db c) c_revision_ptr c_ty marshaller unmarshaller c_sent 1)
     exprs <- enumerateExprs (c_db c) (c_revision c) c_enum
-    return (ParseOk exprs)
+    return exprs
 
 enumerateExprs c_db c_revision c_enum_ptr = do
   c_enum <- newForeignPtr pgf_free_expr_enum c_enum_ptr

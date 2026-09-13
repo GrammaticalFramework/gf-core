@@ -35,7 +35,7 @@ parseChart c ty sent =
   withForeignPtr (c_revision c) $ \c_revision_ptr ->
   bracket (newStablePtr ty) freeStablePtr $ \c_ty ->
   withText sent $ \c_sent -> do
-    c_chart <- withPgfExn "parseChart" (pgf_parse_chart (c_db c) c_revision_ptr c_ty marshaller unmarshaller c_sent)
+    c_chart <- withPgfExn "parseChart" (pgf_parse_chart (c_db c) c_revision_ptr c_ty marshaller unmarshaller c_sent 1)
     fptr <- newForeignPtr pgf_free_parse_chart c_chart
     return (ParseChart (c_db c) (c_revision c) fptr)
 

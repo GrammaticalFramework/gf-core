@@ -284,6 +284,8 @@ class PGF_INTERNAL_DECL PgfParser : private PgfAbstractParser, public PgfExprEnu
     ssize_t delta_byte_pos;
     ssize_t allocated_size;
 
+    void perform_search();
+
     virtual State *new_state(const PgfTextSpot &start, prob_t viterbi_prob);
     virtual void symbol_token(Item *item, State *state, ref<PgfSymbolKS> symks);
     virtual void symbol_bind(Item *item, State *state, PgfSymbol sym);
@@ -319,8 +321,8 @@ public:
     PgfParser(ref<PgfConcr> concr, PgfText *sentence, bool case_sensitive, PgfMarshaller *m, PgfUnmarshaller *u);
     virtual ~PgfParser();
 
-    void prepare(ref<PgfConcrLincat> start);
-    void perform_search();
+    bool prepare(ref<PgfConcrLincat> start, bool robust);
+    size_t get_end_pos() { return current_state->end.pos; }
 
     virtual PgfExpr fetch(PgfDB *db, prob_t *prob);
 

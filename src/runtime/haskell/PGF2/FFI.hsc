@@ -283,13 +283,13 @@ foreign import ccall pgf_bracketed_linearize_all :: Ptr PgfDB -> Ptr Concr -> St
 
 foreign import ccall pgf_align_words :: Ptr PgfDB -> Ptr Concr -> StablePtr Expr -> Ptr PgfPrintContext -> Ptr PgfMarshaller -> Ptr CSize -> Ptr PgfExn -> IO (Ptr (Ptr PgfAlignmentPhrase))
 
-foreign import ccall pgf_parse :: Ptr PgfDB -> Ptr Concr -> StablePtr Type -> Ptr PgfMarshaller -> Ptr PgfUnmarshaller -> Ptr PgfText -> Ptr PgfExn -> IO (Ptr PgfExprEnum)
+foreign import ccall pgf_parse :: Ptr PgfDB -> Ptr Concr -> StablePtr Type -> Ptr PgfMarshaller -> Ptr PgfUnmarshaller -> Ptr PgfText -> CInt -> Ptr PgfExn -> IO (Ptr PgfExprEnum)
 
 foreign import ccall "&pgf_free_expr_enum" pgf_free_expr_enum :: FunPtr (Ptr PgfExprEnum -> IO ())
 
 foreign import ccall "dynamic" callFetch :: Dynamic (Ptr PgfExprEnum -> Ptr PgfDB -> Ptr (#type prob_t) -> IO (StablePtr Expr))
 
-foreign import ccall pgf_parse_chart :: Ptr PgfDB -> Ptr Concr -> StablePtr Type -> Ptr PgfMarshaller -> Ptr PgfUnmarshaller -> Ptr PgfText -> Ptr PgfExn -> IO (Ptr PgfParseChart)
+foreign import ccall pgf_parse_chart :: Ptr PgfDB -> Ptr Concr -> StablePtr Type -> Ptr PgfMarshaller -> Ptr PgfUnmarshaller -> Ptr PgfText -> CInt -> Ptr PgfExn -> IO (Ptr PgfParseChart)
 
 foreign import ccall "&pgf_free_parse_chart" pgf_free_parse_chart :: FunPtr (Ptr PgfParseChart -> IO ())
 

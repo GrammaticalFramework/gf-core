@@ -1213,7 +1213,7 @@ void PgfParser::make_chunks(State *state, std::vector<CCat*> &chunks, prob_t pro
     }
 }
 
-void PgfParser::prepare(ref<PgfConcrLincat> start)
+bool PgfParser::prepare(ref<PgfConcrLincat> start, bool robust)
 {
 #ifdef DEBUG_PARSER
     fprintf(stderr, "------------------------------------------\n");
@@ -1235,6 +1235,20 @@ void PgfParser::prepare(ref<PgfConcrLincat> start)
         item->outside_prob = 0;
         state->push_item(item);
     }
+
+    perform_search();
+
+    if (queue.size() == 0) {
+        if (robust) {
+            std::vector<CCat*> chunks;
+            make_chunks(current_state, chunks, 0);
+            return true;
+        } else {
+            return false;
+        }
+    }
+
+    return true;
 }
 
 void PgfParser::perform_search()
@@ -1289,14 +1303,7 @@ PgfExpr PgfParser::fetch(PgfDB *db, prob_t *prob)
 {
     DB_scope scope(db, READER_SCOPE);
 
-    bool first_fetch = (concr->last_fid == last_fid);
-
     perform_search();
-
-    if (first_fetch && queue.size() == 0) {
-        std::vector<CCat*> chunks;
-        make_chunks(current_state, chunks, 0);
-    }
 
     while (queue.size() > 0) {
         ExprState *estate = queue.front();

@@ -21,6 +21,8 @@ typedef struct {
 extern PyObject *PGFError;
 PgfExnType handleError(PgfExn err);
 
+extern PyObject *ParseError;
+
 PgfText *CString_AsPgfText(const char *s, size_t size);
 
 PgfText *PyUnicode_AsPgfText(PyObject *pystr);
