@@ -93,9 +93,6 @@ jobs:
       run: |
         python3 -m pip install git+https://github.com/joerick/cibuildwheel.git@main
 
-    - name: Setup tmate session
-      uses: owenthereal/action-upterm@v1
-
     - name: Install and test bindings
       env:
         CIBW_BEFORE_BUILD: cp -r lib/* /usr/lib/ && cp -r include/* /usr/include/
