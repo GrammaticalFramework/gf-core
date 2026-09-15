@@ -38,6 +38,7 @@ module PGF2 (-- * PGF
              mkVar,    unVar,
              mkStr,    unStr,
              mkInt,    unInt,
+             mkInteger,unInteger,
              mkDouble, unDouble,
              mkFloat,  unFloat,
              mkMeta,   unMeta,

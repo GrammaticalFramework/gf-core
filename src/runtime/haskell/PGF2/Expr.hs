@@ -9,6 +9,7 @@ module PGF2.Expr(Var, Cat, Fun,
                  mkVar,    unVar,
                  mkStr,    unStr,
                  mkInt,    unInt,
+                 mkInteger,unInteger,
                  mkDouble, unDouble,
                  mkFloat,  unFloat,
                  mkMeta,   unMeta,
@@ -133,16 +134,27 @@ unStr (ETyped e ty)   = unStr e
 unStr (EImplArg e)    = unStr e
 unStr _               = Nothing
 
--- | Constructs an expression from integer literal
-mkInt :: Integer -> Expr
-mkInt i = ELit (LInt i)
+-- | Constructs an expression from an int literal
+mkInt :: Int -> Expr
+mkInt i = ELit (LInt (fromIntegral i))
 
--- | Decomposes an expression into integer literal
-unInt :: Expr -> Maybe Integer
-unInt (ELit (LInt i)) = Just i
+-- | Decomposes an expression into an int literal
+unInt :: Expr -> Maybe Int
+unInt (ELit (LInt i)) = Just (fromIntegral i)
 unInt (ETyped e ty)   = unInt e
 unInt (EImplArg e)    = unInt e
 unInt _               = Nothing
+
+-- | Constructs an expression from integer literal
+mkInteger :: Integer -> Expr
+mkInteger i = ELit (LInt i)
+
+-- | Decomposes an expression into integer literal
+unInteger :: Expr -> Maybe Integer
+unInteger (ELit (LInt i)) = Just i
+unInteger (ETyped e ty)   = unInteger e
+unInteger (EImplArg e)    = unInteger e
+unInteger _               = Nothing
 
 -- | Constructs an expression from real number literal
 mkDouble :: Double -> Expr
