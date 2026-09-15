@@ -308,14 +308,13 @@ PgfType PgfInternalMarshaller::match_type(PgfUnmarshaller *u, PgfType ty)
 PgfExprParser::PgfExprParser(PgfText *input, size_t byte_pos, PgfUnmarshaller *unmarshaller)
 {
     inp = input;
-    pos = (const char*) &inp->text[byte_pos];
-	ch  = ' ';
     u   = unmarshaller;
     token_pos = NULL;
     token_value = NULL;
     bs = NULL;
 
-	token();
+    reset_pos(byte_pos);
+    token();
 }
 
 PgfExprParser::~PgfExprParser()
@@ -431,6 +430,30 @@ bool PgfExprParser::str_char()
         putc(ch);
     }
     return getc();
+}
+
+void PgfExprParser::raw_token()
+{
+	token_tag   = PGF_TOKEN_STR;
+    token_pos   = pos;
+	token_value = NULL;
+
+	while (pgf_utf8_is_space(ch)) {
+        token_pos   = pos;
+        if (!getc()) {
+            token_tag = PGF_TOKEN_EOF;
+            return;
+        }
+	}
+
+	while (!pgf_utf8_is_space(ch)) {
+        putc(ch);
+        if (!getc())
+            break;
+	}
+
+    if (token_value == NULL)
+        token_tag   = PGF_TOKEN_EOF;
 }
 
 void PgfExprParser::token()

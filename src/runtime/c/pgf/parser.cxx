@@ -1576,9 +1576,12 @@ void PgfParser::suspend(Cont *cont,Item *item,bool do_predict,ref<PgfSymbolCat> 
                         bu_literal(cont->state, "Int", &eparser, viterbi_prob);
                     } else if (eparser.is_flt()) {
                         bu_literal(cont->state, "Float", &eparser, viterbi_prob);
-                    } else if (eparser.is_ident()) {
-                        eparser.ident2str();
-                        bu_literal(cont->state, "String", &eparser, viterbi_prob);
+                    } else {
+                        eparser.reset_pos(cont->state->end.byte_pos);
+                        eparser.raw_token();
+                        if (eparser.is_str()) {
+                            bu_literal(cont->state, "String", &eparser, viterbi_prob);
+                        }
                     }
                     bu_predict(concr->phrasetable1, cont->state, viterbi_prob, 1, sentence->size);
                 }

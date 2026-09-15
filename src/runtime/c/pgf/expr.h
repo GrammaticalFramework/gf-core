@@ -175,6 +175,7 @@ public:
 
     bool str_char();
     void token();
+    void raw_token();
     bool lookahead(int ch);
 
     bool parse_bind();
@@ -195,7 +196,7 @@ public:
     bool is_str()   { return (token_tag == PGF_TOKEN_STR); }
     bool is_ident() { return (token_tag == PGF_TOKEN_IDENT); }
 
-    void ident2str() { token_tag = PGF_TOKEN_STR; }
+    void reset_pos(size_t pos) { this->pos = &inp->text[pos]; this->ch = ' '; }
 
     const PgfText *get_token_value() { return token_value; }
     const char *get_token_pos() { return token_pos; }
