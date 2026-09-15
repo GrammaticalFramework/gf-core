@@ -32,7 +32,7 @@ module PGF2 (-- * PGF
              functionType, functionIsConstructor, functionProbability,
 
              -- ** Expressions
-             Expr(..), Literal(..), showExpr, readExpr,
+             Expr(..), Literal(..), showExpr, showIdent, readExpr, pExpr, pIdent,
              mkAbs,    unAbs, Var,
              mkApp,    unApp, unapply,
              mkVar,    unVar,
@@ -71,8 +71,6 @@ module PGF2 (-- * PGF
              -- ** Visualizations
              GraphvizOptions(..), graphvizDefaults,
              graphvizAbstractTree, graphvizParseTree,
-             Labels, getDepLabels,
-             graphvizDependencyTree, conlls2latexDoc, getCncDepLabels,
              graphvizWordAlignment,
 
              -- * Concrete syntax
@@ -83,7 +81,7 @@ module PGF2 (-- * PGF
              FId, BracketedString(..), showBracketedString, flattenBracketedString,
              bracketedLinearize, bracketedLinearizeAll,
              hasLinearization, categoryFields,
-             printName, alignWords, gizaAlignment,
+             printName, alignWords,
 
              -- ** Parsing
              ParseOutput(..), parse, robustParse, parseWithHeuristics, complete,
@@ -102,7 +100,7 @@ import PGF2.FFI
 
 import Foreign
 import Foreign.C
-import Control.Monad(forM,forM_)
+import Control.Monad(forM,forM_,liftM2,mplus)
 import Control.Exception(bracket,mask_,throwIO)
 import System.IO.Unsafe(unsafePerformIO, unsafeInterleaveIO)
 import System.Random
@@ -112,6 +110,7 @@ import Data.List(intersperse,groupBy)
 import Data.Char(isUpper,isSpace,isPunctuation)
 import Data.Maybe(maybe)
 import Text.PrettyPrint
+import qualified Text.ParserCombinators.ReadP as RP
 
 #ifdef __linux__
 #define _GNU_SOURCE
@@ -119,7 +118,10 @@ import Text.PrettyPrint
 #endif
 #include <pgf/pgf.h>
 
--- | Reads a PGF file and keeps it in memory.
+-- | Reads a file in a Portable Grammar Format and produces
+-- a 'PGF' structure. The file is usually produced with:
+--
+-- > $ gf -make <grammar file name>
 readPGF :: FilePath -> IO PGF
 readPGF fpath = readPGFWithProbs fpath Nothing
 
@@ -660,8 +662,6 @@ alignWords c e = unsafePerformIO $
       free c_phrase
       free ptr
       return (phrase, map fromIntegral fids)
-
-gizaAlignment = error "TODO: gizaAlignment"
 
 -----------------------------------------------------------------------------
 -- Functions using Concr
@@ -1477,228 +1477,6 @@ graphvizWordAlignment cs opts e =
       then return ""
       else peekText c_text
 
-type Labels = Map.Map Fun [String]
-
-getDepLabels :: String -> Labels
-getDepLabels s = Map.fromList [(f,ls) | f:ls <- map words (lines s)]
-
--- | Visualize word dependency tree.
-graphvizDependencyTree
-  :: String -- ^ Output format: @"latex"@, @"conll"@, @"malt_tab"@, @"malt_input"@ or @"dot"@
-  -> Bool -- ^ Include extra information (debug)
-  -> Maybe Labels -- ^ abstract label information obtained with 'getDepLabels'
-  -> Maybe CncLabels -- ^ concrete label information obtained with ' ' (was: unused (was: @Maybe String@))
-  -> Concr
-  -> Expr
-  -> String -- ^ Rendered output in the specified format
-graphvizDependencyTree format debug mlab mclab concr t = error "TODO: graphvizDependencyTree"
-
----------------------- should be a separate module?
-
--- visualization with latex output. AR Nov 2015
-
-conlls2latexDoc :: [String] -> String
-conlls2latexDoc =
-  render .
-  latexDoc .
-  vcat .
-  intersperse (text "" $+$ app "vspace" (text "4mm")) .
-  map conll2latex .
-  filter (not . null)
-
-conll2latex :: String -> Doc
-conll2latex = ppLaTeX . conll2latex' . parseCoNLL
-
-conll2latex' :: CoNLL -> [LaTeX]
-conll2latex' = dep2latex . conll2dep'
-
-data Dep = Dep {
-    wordLength  :: Int -> Double        -- length of word at position int       -- was: fixed width, millimetres (>= 20.0)
-  , tokens      :: [(String,String)]    -- word, pos (0..)
-  , deps        :: [((Int,Int),String)] -- from, to, label
-  , root        :: Int                  -- root word position
-  }
-
--- some general measures
-defaultWordLength = 20.0  -- the default fixed width word length, making word 100 units
-defaultUnit       = 0.2   -- unit in latex pictures, 0.2 millimetres
-spaceLength       = 10.0
-charWidth = 1.8
-
-wsize rwld  w  = 100 * rwld w + spaceLength                   -- word length, units
-wpos rwld i    = sum [wsize rwld j | j <- [0..i-1]]           -- start position of the i'th word
-wdist rwld x y = sum [wsize rwld i | i <- [min x y .. max x y - 1]]    -- distance between words x and y
-labelheight h  = h + arcbase + 3    -- label just above arc; 25 would put it just below
-labelstart c   = c - 15.0           -- label starts 15u left of arc centre
-arcbase        = 30.0               -- arcs start and end 40u above the bottom
-arcfactor r    = r * 600            -- reduction of arc size from word distance
-xyratio        = 3                  -- width/height ratio of arcs
-
-putArc :: (Int -> Double) -> Int -> Int -> Int -> String -> [DrawingCommand]
-putArc frwld height x y label = [oval,arrowhead,labelling] where
-  oval = Put (ctr,arcbase) (OvalTop (wdth,hght))
-  arrowhead = Put (endp,arcbase + 5) (ArrowDown 5)   -- downgoing arrow 5u above the arc base
-  labelling = Put (labelstart ctr,labelheight (hght/2)) (TinyText label)
-  dxy  = wdist frwld x y             -- distance between words, >>= 20.0
-  ndxy = 100 * rwld * fromIntegral height  -- distance that is indep of word length
-  hdxy = dxy / 2                     -- half the distance
-  wdth = dxy - (arcfactor rwld)/dxy  -- longer arcs are wider in proportion
-  hght = ndxy / (xyratio * rwld)      -- arc height is independent of word length
-  begp = min x y                     -- begin position of oval
-  ctr  = wpos frwld begp + hdxy + (if x < y then 20 else  10)  -- LR arcs are farther right from center of oval
-  endp = (if x < y then (+) else (-)) ctr (wdth/2)            -- the point of the arrow
-  rwld = 0.5 ----
-
-dep2latex :: Dep -> [LaTeX]
-dep2latex d =
-  [Comment (unwords (map fst (tokens d))),
-   Picture defaultUnit (width,height) (
-     [Put (wpos rwld i,0) (Text w) | (i,w) <- zip [0..] (map fst (tokens d))]   -- words
-  ++ [Put (wpos rwld i,15) (TinyText w) | (i,w) <- zip [0..] (map snd (tokens d))]   -- pos tags 15u above bottom
-  ++ concat [putArc rwld (aheight x y) x y label | ((x,y),label) <- deps d]    -- arcs and labels
-  ++ [Put (wpos rwld (root d) + 15,height) (ArrowDown (height-arcbase))]
-  ++ [Put (wpos rwld (root d) + 20,height - 10) (TinyText "ROOT")]
-  )]
- where
-   wld i  = wordLength d i  -- >= 20.0
-   rwld i = (wld i) / defaultWordLength       -- >= 1.0
-   aheight x y = depth (min x y) (max x y) + 1    ---- abs (x-y)
-   arcs = [(min u v, max u v) | ((u,v),_) <- deps d]
-   depth x y = case [(u,v) | (u,v) <- arcs, (x < u && v <= y) || (x == u && v < y)] of ---- only projective arcs counted
-     [] -> 0
-     uvs -> 1 + maximum (0:[depth u v | (u,v) <- uvs])
-   width = {-round-} (sum [wsize rwld w | (w,_) <- zip [0..] (tokens d)]) + {-round-} spaceLength * fromIntegral ((length (tokens d)) - 1)
-   height = 50 + 20 * {-round-} (maximum (0:[aheight x y | ((x,y),_) <- deps d]))
-
-type CoNLL = [[String]]
-parseCoNLL :: String -> CoNLL
-parseCoNLL = map words . lines
-
---conll2dep :: String -> Dep
---conll2dep = conll2dep' . parseCoNLL
-
-conll2dep' :: CoNLL -> Dep
-conll2dep' ls = Dep {
-    wordLength = wld 
-  , tokens = toks
-  , deps = dps
-  , root = head $ [read x-1 | x:_:_:_:_:_:"0":_ <- ls] ++ [1]
-  }
- where
-   wld i = maximum (0:[charWidth * fromIntegral (length w) | w <- let (tok,pos) = toks !! i in [tok,pos]])
-   toks = [(w,c) | _:w:_:c:_ <- ls]
-   dps = [((read y-1, read x-1),lab) | x:_:_:_:_:_:y:lab:_ <- ls, y /="0"]
-   --maxdist = maximum [abs (x-y) | ((x,y),_) <- dps]
-
-
--- * LaTeX Pictures (see https://en.wikibooks.org/wiki/LaTeX/Picture)
-
--- We render both LaTeX and SVG from this intermediate representation of
--- LaTeX pictures.
-
-data LaTeX = Comment String | Picture UnitLengthMM Size [DrawingCommand]
-data DrawingCommand = Put Position Object
-data Object = Text String | TinyText String | OvalTop Size | ArrowDown Length
-
-type UnitLengthMM = Double
-type Size = (Double,Double)
-type Position = (Double,Double)
-type Length = Double
-
-
--- * latex formatting
-ppLaTeX = vcat . map ppLaTeX1
-  where
-    ppLaTeX1 el =
-      case el of
-        Comment s -> comment s
-        Picture unit size cmds ->
-          app "setlength{\\unitlength}" (text (show unit ++ "mm"))
-          $$ hang (app "begin" (text "picture")<>text (show size)) 2
-                  (vcat (map ppDrawingCommand cmds))
-          $$ app "end" (text "picture")
-          $$ text ""
-
-    ppDrawingCommand (Put pos obj) = put pos (ppObject obj)
-
-    ppObject obj =
-      case obj of
-        Text s -> text s
-        TinyText s -> small (text s)
-        OvalTop size -> text "\\oval" <> text (show size) <> text "[t]"
-        ArrowDown len -> app "vector(0,-1)" (text (show len))
-
-    put p@(_,_) = app ("put" ++ show p)
-    small w = text "{\\tiny" <+> w <> text "}"
-    comment s = text "%%" <+> text s -- line break show follow
-    
-app macro arg = text "\\" <> text macro <> text "{" <> arg <> text "}"
-
-
-latexDoc :: Doc -> Doc
-latexDoc body =
-  vcat [text "\\documentclass{article}",
-        text "\\usepackage[utf8]{inputenc}",
-        text "\\begin{document}",
-        body,
-        text "\\end{document}"]
-
-
-----------------------------------
--- concrete syntax annotations (local) on top of conll
--- examples of annotations:
--- UseComp {"not"} PART neg head 
--- UseComp {*} AUX cop head
-
-type CncLabels = [(String, String -> Maybe (String -> String,String,String))]
--- (fun, word -> (pos,label,target))
--- the pos can remain unchanged, as in the current notation in the article
-
-fixCoNLL :: CncLabels -> CoNLL -> CoNLL
-fixCoNLL labels conll = map fixc conll where
-  fixc row = case row of
-    (i:word:fun:pos:cat:x_:"0":"dep":xs) -> (i:word:fun:pos:cat:x_:"0":"root":xs) --- change the root label from dep to root 
-    (i:word:fun:pos:cat:x_:j:label:xs) -> case look (fun,word) of
-      Just (pos',label',"head") -> (i:word:fun:pos' pos:cat:x_:j :label':xs)
-      Just (pos',label',target) -> (i:word:fun:pos' pos:cat:x_: getDep j target:label':xs)
-      _ -> row
-    _ -> row
-    
-  look (fun,word) = case lookup fun labels of
-    Just relabel -> case relabel word of
-      Just row -> Just row
-      _ -> case lookup "*" labels of
-        Just starlabel -> starlabel word
-        _ -> Nothing
-    _ -> case lookup "*" labels of
-        Just starlabel -> starlabel word
-        _ -> Nothing
-  
-  getDep j label = maybe j id $ lookup (label,j) [((label,j),i) | i:word:fun:pos:cat:x_:j:label:xs <- conll]
-
-getCncDepLabels :: String -> CncLabels
-getCncDepLabels = map merge .  groupBy (\ (x,_) (a,_) -> x == a) . concatMap analyse . filter choose . lines where
-  --- choose is for compatibility with the general notation
-  choose line = notElem '(' line && elem '{' line --- ignoring non-local (with "(") and abstract (without "{") rules
-  
-  analyse line = case break (=='{') line of
-    (beg,_:ws) -> case break (=='}') ws of
-      (toks,_:target) -> case (words beg, words target) of
-        (fun:_,[    label,j]) -> [(fun, (tok, (id,       label,j))) | tok <- getToks toks]
-        (fun:_,[pos,label,j]) -> [(fun, (tok, (const pos,label,j))) | tok <- getToks toks]
-        _ -> []
-      _ -> []
-    _ -> []
-  merge rules@((fun,_):_) = (fun, \tok ->
-    case lookup tok (map snd rules) of
-      Just new -> return new
-      _ -> lookup "*"  (map snd rules)
-    )
-  getToks = words . map (\c -> if elem c "\"," then ' ' else c)
-
-printCoNLL :: CoNLL -> String
-printCoNLL = unlines . map (concat . intersperse "\t")
-
 -----------------------------------------------------------------------
 -- Expressions & types
 
@@ -1740,6 +1518,70 @@ readExpr str =
       else do expr <- deRefStablePtr c_expr
               freeStablePtr c_expr
               return (Just expr)
+
+pExpr :: RP.ReadP Expr
+pExpr =
+  RP.readS_to_P $ \str ->
+  unsafePerformIO $
+  withText str $ \c_str ->
+  alloca  $ \c_pos ->
+  mask_ $ do
+    c_expr <- pgf_read_expr_ex c_str c_pos unmarshaller
+    if c_expr == castPtrToStablePtr nullPtr
+      then return []
+      else do expr <- deRefStablePtr c_expr
+              freeStablePtr c_expr
+              pos <- peek c_pos
+              size <- ((#peek PgfText, size) c_str) :: IO CSize
+              let c_text = castPtr c_str `plusPtr` (#offset PgfText, text)
+              s    <- peekUtf8CString pos (c_text `plusPtr` fromIntegral size)
+              return [(expr,s)]
+
+pIdent :: RP.ReadP String
+pIdent = 
+  liftM2 (:) (RP.satisfy isIdentFirst) (RP.munch isIdentRest)
+  `mplus`
+  do RP.char '\''
+     cs <- RP.many1 insideChar
+     RP.char '\''
+     return cs
+
+insideChar = RP.readS_to_P $ \s ->
+  case s of
+    []             -> []
+    ('\\':'\\':cs) -> [('\\',cs)]
+    ('\\':'\'':cs) -> [('\'',cs)]
+    ('\\':cs)      -> []
+    ('\'':cs)      -> []
+    (c:cs)         -> [(c,cs)]
+
+-- | Takes an identifier as a string and adds quotes if necessary
+-- for escaping
+showIdent :: String -> String
+showIdent raw = 
+  if isIdent raw
+    then raw
+    else "'" ++ concatMap escape raw ++ "'"
+  where
+    isIdent []     = False
+    isIdent (c:cs) = isIdentFirst c && all isIdentRest cs
+
+    escape '\'' = "\\\'"
+    escape '\\' = "\\\\"
+    escape c    = [c]
+
+isIdentFirst c =
+  (c == '_') ||
+  (c >= 'a' && c <= 'z') ||
+  (c >= 'A' && c <= 'Z') ||
+  (c >= '\192' && c <= '\255' && c /= '\247' && c /= '\215')
+isIdentRest c = 
+  (c == '_') ||
+  (c == '\'') ||
+  (c >= '0' && c <= '9') ||
+  (c >= 'a' && c <= 'z') ||
+  (c >= 'A' && c <= 'Z') ||
+  (c >= '\192' && c <= '\255' && c /= '\247' && c /= '\215')
 
 -- | renders a type as a 'String'. The list
 -- of identifiers is the list of all free variables
