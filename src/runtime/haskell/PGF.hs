@@ -66,6 +66,7 @@ module PGF(
 
            -- ** Parsing
            parse, parseAllLang, parseAll, complete,
+           ParseOutput(..), parse_,
 
            -- ** Evaluation
            {- PGF.compute, paraphrase,-}
@@ -125,7 +126,7 @@ module PGF(
           ) where
 
 import Prelude hiding ((<>))
-import PGF2 (PGF, GraphvizOptions(..), FId, Expr(..), Type(..), Hypo, BindType(..))
+import PGF2 (PGF, GraphvizOptions(..), FId, Expr(..), Type(..), Hypo, BindType(..), ParseOutput(..))
 import qualified PGF2
 import qualified Data.Map as Map
 import Control.Monad
@@ -227,8 +228,8 @@ parse :: PGF -> Language -> Type -> String -> [Tree]
 parse gr (CId lang) cat sent = 
   case Map.lookup lang (PGF2.languages gr) of
     Just cnc -> case PGF2.parse cnc cat sent of
-                  PGF2.ParseOk ts -> map fst ts
-                  _               -> []
+                  ParseOk ts -> map fst ts
+                  _          -> []
     Nothing  -> error ("Unknown language: " ++ lang)
 
 -- | The same as 'parseAllLang' but does not return
@@ -236,7 +237,7 @@ parse gr (CId lang) cat sent =
 parseAll     :: PGF -> Type -> String -> [[Tree]]
 parseAll gr cat sent = 
   [map fst ts | (lang,cnc) <- Map.toList (PGF2.languages gr)
-              , PGF2.ParseOk ts <- [PGF2.parse cnc cat sent]]
+              , ParseOk ts <- [PGF2.parse cnc cat sent]]
 
 -- | Tries to parse the given string with all available languages.
 -- The returned list contains pairs of language
@@ -248,17 +249,26 @@ parseAllLang :: PGF -> Type -> String -> [(Language,[Tree])]
 parseAllLang gr cat sent = 
   [(CId lang,map fst ts)
               | (lang,cnc) <- Map.toList (PGF2.languages gr)
-              , PGF2.ParseOk ts <- [PGF2.parse cnc cat sent]]
+              , ParseOk ts <- [PGF2.parse cnc cat sent]]
+
+-- | The same as 'parse' but returns more detailed information
+parse_ :: PGF -> Language -> Type -> Maybe Int -> String -> (ParseOutput [Expr],BracketedString)
+parse_ gr (CId lang) cat dp sent =
+  case Map.lookup lang (PGF2.languages gr) of
+    Just cnc -> case (PGF2.parse cnc cat sent,dp) of
+                  (ParseOk ts, Just n) -> (ParseOk (map fst (take n ts)),noBS)
+                  --(res,              ) -> res
+    Nothing  -> error ("Unknown language: " ++ lang)
 
 complete :: PGF -> Language -> Type -> String -> String -> (BracketedString,String,Map.Map Token [CId])
 complete pgf (CId lang) typ input prefix =
   case Map.lookup lang (PGF2.languages pgf) of
     Just cnc -> case PGF2.complete cnc typ input prefix of
-                  PGF2.ParseOk res -> (noBS, input++" "++prefix, Map.fromListWith (++) [(w,[CId fun]) | (w,fun,cat,_) <- res])
-                  _                -> (noBS, input++" "++prefix, Map.empty)
+                  ParseOk res -> (noBS, input++" "++prefix, Map.fromListWith (++) [(w,[CId fun]) | (w,fun,cat,_) <- res])
+                  _           -> (noBS, input++" "++prefix, Map.empty)
     Nothing  -> error ("Unknown language: " ++ lang)
-  where
-    noBS = error "TODO: The bracketed string is not computed"
+
+noBS = error "TODO: The bracketed string is not computed"
 
 linearize :: PGF -> Language -> Tree -> String
 linearize pgf (CId lang) t =

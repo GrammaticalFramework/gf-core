@@ -229,28 +229,14 @@ Concr_parse(ConcrObject* self, PyObject *args, PyObject *keywds)
     Py_DECREF(type);
     if (err.type == PGF_EXN_PARSE_ERROR) {
         PyObject* py_offset = PyLong_FromLong(err.code);
+        PyObject_SetAttrString(ParseError, "offset", py_offset);
+        Py_DECREF(py_offset);
 
         Py_ssize_t len = PyUnicode_GET_LENGTH(sentence);
-
-        PyObject_SetAttrString(ParseError, "offset", py_offset);
         if (err.code == len)
             PyObject_SetAttrString(ParseError, "incomplete",  Py_True);
-        else {
-            Py_ssize_t end = PyUnicode_FindChar(sentence, ' ', err.code, -1, 1);
-            if (end == -1)
-                end = len;
-            else if (end == -2)
-                return NULL;
-            PyObject *py_token = PyUnicode_Substring(sentence, err.code, end);
-            if (py_token == NULL)
-                return NULL;
-
+        else
             PyObject_SetAttrString(ParseError, "incomplete",  Py_False);
-            PyObject_SetAttrString(ParseError, "token", py_token);
-
-            Py_DECREF(py_token);
-            Py_DECREF(py_offset);
-        }
 
         PyErr_Format(ParseError, "Parse error at position %d", err.code);
         return NULL;

@@ -27,5 +27,5 @@ assertParseOk gr cnc name expr_strs str =
 
 assertParseFail gr cnc name str =
   case parse cnc (startCat gr) str of
-    ParseOk es      -> assertFailure (name++": the string should not have been parsable")
-    ParseFailed _ _ -> return ()
+    ParseOk es    -> assertFailure (name++": the string should not have been parsable")
+    ParseFailed _ -> return ()

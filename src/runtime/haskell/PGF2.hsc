@@ -840,7 +840,7 @@ fullFormLexicon c = unsafePerformIO $ do
 
 -- | This data type encodes the different outcomes which you could get from the parser.
 data ParseOutput a
-  = ParseFailed Int String         -- ^ The integer is the position in number of unicode characters where the parser failed.
+  = ParseFailed Int                -- ^ The integer is the position in number of unicode characters where the parser failed.
                                    -- The string is the token where the parser have failed.
   | ParseOk a                      -- ^ If the parsing and the type checking are successful
                                    -- we get the abstract syntax trees as either a list or a chart.
@@ -861,9 +861,9 @@ parse c ty sent =
          return (ParseOk exprs)
       (#const PGF_EXN_PARSE_ERROR) -> do
          pos <- (#peek PgfExn, code) c_exn
-         case takeWhile (not.isSpace) (drop pos sent) of
-           []  -> return (ParseIncomplete)
-           tok -> return (ParseFailed pos tok)
+         if pos == length sent
+           then return (ParseIncomplete)
+           else return (ParseFailed pos)
       (#const PGF_EXN_PGF_ERROR) -> do
          c_msg <- (#peek PgfExn, msg) c_exn
          msg <- peekCString c_msg
