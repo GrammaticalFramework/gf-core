@@ -107,7 +107,8 @@ module PGF(
 
            -- ** Morphological Analysis
            Lemma, Analysis, Morpho,
-           lookupMorpho, buildMorpho, fullFormLexicon,
+           lookupMorpho, buildMorpho, morphoMissing, morphoKnown,
+           fullFormLexicon,
 
            -- ** Visualizations
            graphvizAbstractTree,
@@ -659,6 +660,16 @@ buildMorpho pgf (CId lang) = Morpho $
 lookupMorpho :: Morpho -> String -> [(Lemma,Analysis)]
 lookupMorpho (Morpho cnc) s =
   [(CId fun,an) | (fun,an,_) <- PGF2.lookupMorpho cnc s]
+
+morphoMissing  :: Morpho -> [String] -> [String]
+morphoMissing = morphoClassify False
+
+morphoKnown    :: Morpho -> [String] -> [String]
+morphoKnown = morphoClassify True
+
+morphoClassify :: Bool -> Morpho -> [String] -> [String]
+morphoClassify k mo ws = [w | w <- ws, k /= null (lookupMorpho mo w), notLiteral w] where
+  notLiteral w = not (all isDigit w) ---- should be defined somewhere
 
 fullFormLexicon :: Morpho -> [(String,[(Lemma,Analysis)])]
 fullFormLexicon (Morpho cnc) =
