@@ -257,8 +257,10 @@ parse_ :: PGF -> Language -> Type -> Maybe Int -> String -> (ParseOutput [Expr],
 parse_ gr (CId lang) cat dp sent =
   case Map.lookup lang (PGF2.languages gr) of
     Just cnc -> case (PGF2.parse cnc cat sent,dp) of
-                  (ParseOk ts, Just n) -> (ParseOk (map fst (take n ts)),noBS)
-                  --(res,              ) -> res
+                  (ParseOk ts,     Just n) -> (ParseOk (map fst (take n ts)),noBS)
+                  (ParseOk ts,    Nothing) -> (ParseOk (map fst ts),noBS)
+                  (ParseFailed pos,_     ) -> (ParseFailed pos,noBS)
+                  (ParseIncomplete,_     ) -> (ParseIncomplete,noBS)
     Nothing  -> error ("Unknown language: " ++ lang)
 
 complete :: PGF -> Language -> Type -> String -> String -> (BracketedString,String,Map.Map Token [CId])
