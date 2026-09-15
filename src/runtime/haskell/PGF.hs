@@ -37,7 +37,7 @@ module PGF(
            categories, categoryContext, PGF2.startCat,
 
            -- * Functions
-           PGF2.functions, PGF2.functionsByCat, PGF2.functionType,
+           functions, functionsByCat, functionType,
 
            -- * Expressions & Trees
            -- ** Tree
