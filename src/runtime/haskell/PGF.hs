@@ -173,7 +173,7 @@ ppCId = text . showCId
 
 type Language = CId
 
-readLanguage lang = CId lang
+readLanguage = readCId
 showLanguage (CId lang) = lang
 
 -- | creates a type from list of hypothesises, category and
