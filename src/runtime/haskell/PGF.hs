@@ -37,7 +37,7 @@ module PGF(
            categories, categoryContext, PGF2.startCat,
 
            -- * Functions
-           functions, functionsByCat, functionType,
+           functions, functionsByCat, functionType, missingLins,
 
            -- * Expressions & Trees
            -- ** Tree
@@ -348,6 +348,14 @@ functionsByCat gr (CId fun) = map CId (PGF2.functionsByCat gr fun)
 -- | The type of a given function
 functionType :: PGF -> CId -> Maybe Type
 functionType gr (CId fun) = PGF2.functionType gr fun
+
+-- | List of functions that lack linearizations in the given language.
+missingLins :: PGF -> Language -> [CId]
+missingLins gr (CId lang) =
+  case Map.lookup lang (PGF2.languages gr) of
+    Just cnc -> [CId c | c <- PGF2.functions gr, PGF2.hasLinearization cnc c]
+    Nothing  -> error ("Unknown language: " ++ lang)
+
 
 type LIndex= String
 type Token = String
