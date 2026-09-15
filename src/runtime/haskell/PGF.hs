@@ -32,8 +32,8 @@ module PGF(
            -- * Types
            Type, Hypo, BindType(..),
            PGF2.showType, PGF2.readType,
-           PGF2.mkType, PGF2.mkHypo, PGF2.mkDepHypo, PGF2.mkImplHypo,
-           PGF2.unType,
+           mkType, PGF2.mkHypo, mkDepHypo, mkImplHypo,
+           unType,
            categories, categoryContext, PGF2.startCat,
 
            -- * Functions
@@ -175,6 +175,24 @@ type Language = CId
 
 readLanguage lang = CId lang
 showLanguage (CId lang) = lang
+
+-- | creates a type from list of hypothesises, category and
+-- list of arguments for the category. The operation
+-- @mkType [h_1,...,h_n] C [e_1,...,e_m]@ will create
+-- @h_1 -> ... -> h_n -> C e_1 ... e_m@
+mkType :: [Hypo] -> CId -> [Expr] -> Type
+mkType hyps (CId cat) args = PGF2.mkType hyps cat args
+
+-- | creates hypothesis for dependent type i.e. (x : A)
+mkDepHypo :: CId -> Type -> Hypo
+mkDepHypo (CId x) ty = PGF2.mkDepHypo x ty
+
+-- | creates hypothesis for dependent type with implicit argument i.e. ({x} : A)
+mkImplHypo :: CId -> Type -> Hypo
+mkImplHypo (CId x) ty = PGF2.mkImplHypo x ty
+
+unType :: Type -> ([Hypo], CId, [Expr])
+unType (DTyp hyps cat es) = (hyps, CId cat, es)
 
 type Tree = Expr
 
