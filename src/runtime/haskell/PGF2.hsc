@@ -845,6 +845,7 @@ data ParseOutput a
   | ParseOk a                      -- ^ If the parsing and the type checking are successful
                                    -- we get the abstract syntax trees as either a list or a chart.
   | ParseIncomplete                -- ^ The sentence is not complete.
+  deriving Show
 
 parse :: Concr -> Type -> String -> ParseOutput [(Expr,Float)]
 parse c ty sent =
