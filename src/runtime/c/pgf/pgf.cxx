@@ -2304,7 +2304,14 @@ void pgf_create_lincat(PgfDB *db,
         ref<PgfAbsCat> abscat =
             namespace_lookup(pgf->abstract.cats, name);
         if (abscat == 0) {
-            throw pgf_error("There is no corresponding category in the abstract syntax");
+            PgfPrinter printer(NULL, 0, NULL);
+            printer.puts("Category ");
+            printer.efun(name);
+            printer.puts(" is not defined in the abstract syntax");
+            PgfText *msg = printer.get_text();
+            pgf_error err = pgf_error(msg->text);
+            free(msg);
+            throw err;
         }
 
         ref<PgfConcrLincat> lincat =
@@ -2373,7 +2380,14 @@ void pgf_create_lin(PgfDB *db,
         ref<PgfAbsFun> absfun =
             namespace_lookup(pgf->abstract.funs, name);
         if (absfun == 0) {
-            throw pgf_error("There is no corresponding function in the abstract syntax");
+            PgfPrinter printer(NULL, 0, NULL);
+            printer.puts("Function ");
+            printer.efun(name);
+            printer.puts(" is not defined in the abstract syntax");
+            PgfText *msg = printer.get_text();
+            pgf_error err = pgf_error(msg->text);
+            free(msg);
+            throw err;
         }
 
         ref<PgfConcrLin> lin =
@@ -2406,7 +2420,14 @@ void pgf_alter_lin(PgfDB *db,
         ref<PgfAbsFun> absfun =
             namespace_lookup(pgf->abstract.funs, name);
         if (absfun == 0) {
-            throw pgf_error("There is no corresponding function in the abstract syntax");
+            PgfPrinter printer(NULL, 0, NULL);
+            printer.puts("Function ");
+            printer.efun(name);
+            printer.puts(" is not defined in the abstract syntax");
+            PgfText *msg = printer.get_text();
+            pgf_error err = pgf_error(msg->text);
+            free(msg);
+            throw err;
         }
 
         ref<PgfConcrLin> lin =

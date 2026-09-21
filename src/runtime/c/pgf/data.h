@@ -38,16 +38,7 @@ class PGF_INTERNAL_DECL pgf_error : public std::runtime_error {
 public:
     pgf_error(const char *msg) : std::runtime_error(msg)
     {
-        this->msg = msg;
     }
-
-    virtual const char *what() const throw ()
-    {
-    	return msg;
-    }
-
-private:
-    const char *msg;
 };
 
 class PGF_INTERNAL_DECL pgf_systemerror : public std::runtime_error {
