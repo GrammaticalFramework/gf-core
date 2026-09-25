@@ -29,18 +29,15 @@ import GF.Compile.Compute.Concrete(normalForm,resourceValues)
 import qualified Data.Map as Map
 import qualified Data.Set as Set
 import qualified Data.List as List
---import qualified Data.IntMap as IntMap
 import qualified Data.IntSet as IntSet
 import GF.Text.Pretty
 import Data.Array.IArray
 import Data.Array.Unboxed
---import Data.Maybe
---import Data.Char (isDigit)
+import Data.Array.ST
 import Control.Applicative(Applicative(..))
 import Control.Monad
+import Control.Monad.ST (ST)
 import Control.Monad.Identity
---import Control.Exception
---import Debug.Trace(trace)
 import qualified Control.Monad.Fail as Fail
 
 ----------------------------------------------------------------------
@@ -97,11 +94,11 @@ addPMCFG opts gr cenv opath am cm seqs id (GF.Grammar.CncFun mty@(Just (cat,cont
   where
     (ctxt,res,_) = err bug typeForm (lookupFunType gr am id)
 
-    addRule lins (newCat', newArgs') env0 =
-      let [newCat] = getFIds newCat'
-          !fun     = mkArray lins
-          newArgs  = map getFIds newArgs'
-      in addFunction env0 newCat fun newArgs
+    addRule lins (newCat', newArgs') env =
+      let !newCat     = getSingleFId newCat'
+          !fun        = mkArray lins
+          !argProduct = getArgFIdProduct newArgs'
+      in addFunction env newCat fun argProduct
 
 addPMCFG opts gr cenv opath am cm seqs id (GF.Grammar.CncCat mty@(Just (L _ lincat))
                                                              mdef@(Just (L loc1 def))
@@ -134,15 +131,17 @@ addPMCFG opts gr cenv opath am cm seqs id (GF.Grammar.CncCat mty@(Just (L _ linc
   when (verbAtLeast opts Verbose) $ ePutStr ("\n+ "++showIdent id++" "++show (catFactor pcat))
   seqs2 `seq` pmcfg `seq` return (seqs2,GF.Grammar.CncCat mty mdef mref mprn (Just pmcfg))
   where
-    addLindef lins (newCat', newArgs') env0 =
-      let [newCat] = getFIds newCat'
-          !fun     = mkArray lins
-      in addFunction env0 newCat fun [[fidVar]]
+    addLindef lins (newCat', _) env =
+      let !newCat     = getSingleFId newCat'
+          !fun        = mkArray lins
+          !argProduct = ArgFIdProduct [singletonFId fidVar]
+      in addFunction env newCat fun argProduct
 
-    addLinref lins (newCat', [newArg']) env0 =
-      let newArg   = getFIds newArg'
-          !fun     = mkArray lins
-      in addFunction env0 fidVar fun [newArg]
+    addLinref lins (_, [newArg']) env =
+      let !newArg     = getFIdAlts newArg'
+          !fun        = mkArray lins
+          !argProduct = ArgFIdProduct [newArg]
+      in addFunction env fidVar fun argProduct
 
 addPMCFG opts gr cenv opath am cm seqs id info = return (seqs, info)
 
@@ -301,15 +300,27 @@ protoFCat gr cat lincat =
   case computeCatRange gr lincat of
     ((_,f),schema) -> PFCat (snd cat) f schema
 
-getFIds :: ProtoFCat -> [FId]
-getFIds (PFCat _ _ schema) =
-  reverse (solutions (variants schema) ())
+getFIdAlts :: ProtoFCat -> FIdAlts
+getFIdAlts = fIdAltsFromFactors . fIdFactors
+
+getSingleFId :: ProtoFCat -> FId
+getSingleFId pcat =
+  let !factors = fIdFactors pcat
+  in case fIdFactorsResultSize factors of
+       1 -> fIdFactorsSingleton factors
+       _ -> bug "getSingleFId: expected singleton category"
+
+fIdFactors :: ProtoFCat -> FIdFactors
+fIdFactors (PFCat _ _ schema) =
+  FIdFactors (collect schema)
   where
-    variants (CRec rs)         = fmap sum $ mapM (\(lbl,Identity t) -> variants t) rs
-    variants (CTbl _ cs)       = fmap sum $ mapM (\(trm,Identity t) -> variants t) cs
-    variants (CStr _)          = return 0
-    variants (CPar (m,values)) = do (value,index) <- member values
-                                    return (m*index)
+    collect (CRec rs)         = concatMap (\(_,Identity t) -> collect t) rs
+    collect (CTbl _ cs)       = concatMap (\(_,Identity t) -> collect t) cs
+    collect (CStr _)          = []
+    collect (CPar (m,values)) = [weightedChoices m values]
+
+    weightedChoices m values =
+      listArray (0,length values-1) [m*index | (_,index) <- values]
 
 catFactor :: ProtoFCat -> Int
 catFactor (PFCat _ f _) = f
@@ -549,36 +560,157 @@ getVarIndex x = maybe err id $ getArgIndex x
 ----------------------------------------------------------------------
 -- GrammarEnv
 
-data PMCFGEnv = PMCFGEnv !ProdSet !FunSet
-type ProdSet  = Set.Set Production
-type FunSet   = Map.Map (UArray LIndex SeqId) FunId
+data PMCFGEnv = PMCFGEnv !ProdGroups !FunSet
+type ProdGroups = Map.Map (FId,FunId) ProdGroup
+type FunSet     = Map.Map (UArray LIndex SeqId) FunId
+
+
+-- FIdAlts use dense 0-based bounds, so their derived Ord matches the previous list ordering of alternatives.
+newtype FIdAlts = FIdAlts (UArray Int FId)
+  deriving (Eq, Ord)
+
+-- Factors are weighted parameter-choice arrays, in schema traversal order,
+-- preserving duplicates.
+newtype FIdFactors = FIdFactors [UArray Int FId]
+
+-- Store the exact argument FId alternatives for one Production compactly.
+newtype ArgFIdProduct = ArgFIdProduct [FIdAlts]
+  deriving (Eq, Ord)
+
+-- Accumulator type for Productions with the same result FId and function.
+-- The Set matches the old ProdSet deduplication for argument products.  The
+-- IntSets cache the per-argument union of FIds.  The final Int stores areaSum,
+-- the sum of product sizes for distinct products.  A group can be emitted as
+-- one compressed Production exactly when the union area equals areaSum.  All
+-- products in a group must have the same argument arity.
+data ProdGroup = ProdGroup
+  { pgProducts :: !(Set.Set ArgFIdProduct)
+  , pgArgSets :: ![IntSet.IntSet]
+  , pgAreaSum :: {-# UNPACK #-} !Int
+  }
 
 emptyPMCFGEnv =
-  PMCFGEnv Set.empty Map.empty
+  PMCFGEnv Map.empty Map.empty
 
-addFunction :: PMCFGEnv -> FId -> UArray LIndex SeqId -> [[FId]] -> PMCFGEnv
-addFunction (PMCFGEnv prodSet funSet) !fid fun args =
-  case Map.lookup fun funSet of
-    Just !funid -> PMCFGEnv (Set.insert (Production fid funid args) prodSet)
-                            funSet
-    Nothing     -> let !funid = Map.size funSet
-                   in PMCFGEnv (Set.insert (Production fid funid args) prodSet)
-                               (Map.insert fun funid funSet)
+addFunction :: PMCFGEnv -> FId -> UArray LIndex SeqId -> ArgFIdProduct -> PMCFGEnv
+addFunction (PMCFGEnv prodGroups funSet) !fid fun argProduct =
+  let (!funid,!funSet') =
+        case Map.lookup fun funSet of
+          Just !funid -> (funid, funSet)
+          Nothing     -> let !funid = Map.size funSet
+                          in (funid, Map.insert fun funid funSet)
+      update Nothing      = Just $! singletonProdGroup argProduct
+      update (Just group) = Just $! insertArgFIdProduct argProduct group
+      !prodGroups' = Map.alter update (fid,funid) prodGroups
+  in PMCFGEnv prodGroups' funSet'
 
 getPMCFG :: PMCFGEnv -> PMCFG
-getPMCFG (PMCFGEnv prodSet funSet) =
-  PMCFG (optimize prodSet) (mkSetArray funSet)
+getPMCFG (PMCFGEnv prodGroups funSet) =
+  PMCFG (Map.foldrWithKey addGroup [] prodGroups) (mkSetArray funSet)
   where
-    optimize ps = Map.foldrWithKey ff [] (Map.fromListWith (++) [((fid,funid),[args]) | (Production fid funid args) <- Set.toList ps])
+    addGroup :: (FId,FunId) -> ProdGroup -> [Production] -> [Production]
+    addGroup (fid,funid) (ProdGroup products argSets areaSum) prods
+      | product (map IntSet.size argSets) == areaSum
+                  = Production fid funid (map IntSet.toList argSets) : prods
+      -- The old implementation enumerated the global Production Set in ascending
+      -- order, then grouped with Map.fromListWith (++), reversing each group's
+      -- uncompressed products.  Keep that order for stable serialized output.
+      | otherwise = map (Production fid funid . unpackArgFIdProduct) (reverse (Set.toList products)) ++ prods
       where
-        ff :: (FId,FunId) -> [[[FId]]] -> [Production] -> [Production]
-        ff (fid,funid) xs prods
-          | product (map IntSet.size ys) == count
-                      = (Production fid funid (map IntSet.toList ys)) : prods
-          | otherwise = map (Production fid funid) xs ++ prods
-          where
-            count = sum (map (product . map length) xs)
-            ys    = foldl (zipWith (foldr IntSet.insert)) (repeat IntSet.empty) xs
+        unpackArgFIdProduct :: ArgFIdProduct -> [[FId]]
+        unpackArgFIdProduct (ArgFIdProduct args) = map fidAltsToList args
+
+singletonProdGroup :: ArgFIdProduct -> ProdGroup
+singletonProdGroup argProduct@(ArgFIdProduct args) =
+  let !products = Set.singleton argProduct
+      !argSets  = fmap (insertFIdAlts IntSet.empty) args
+      !areaSum  = argFIdProductSize argProduct
+  in ProdGroup products argSets areaSum
+
+insertArgFIdProduct :: ArgFIdProduct -> ProdGroup -> ProdGroup
+insertArgFIdProduct argProduct group@(ProdGroup products argSets areaSum)
+  | Set.member argProduct products
+      = group
+  | otherwise
+      = let !products' = Set.insert argProduct products
+            !argSets'  = updateArgSets argSets argProduct
+            !areaSum'  = areaSum + argFIdProductSize argProduct
+        in ProdGroup products' argSets' areaSum'
+  where
+    updateArgSets argSets (ArgFIdProduct argFIds) = go argSets argFIds
+      where
+        go [] [] = []
+        go (argSet:argSets) (argFIds:argFIds') =
+          insertFIdAlts argSet argFIds : go argSets argFIds'
+        go _ _ = bug "insertArgFIdProduct: arity mismatch"
+
+insertFIdAlts :: IntSet.IntSet -> FIdAlts -> IntSet.IntSet
+insertFIdAlts = foldFIdAlts IntSet.insert
+
+argFIdProductSize :: ArgFIdProduct -> Int
+argFIdProductSize (ArgFIdProduct args) = product (map fidAltsSize args)
+
+getArgFIdProduct :: [ProtoFCat] -> ArgFIdProduct
+getArgFIdProduct = ArgFIdProduct . map getFIdAlts
+
+fIdAltsFromFactors :: FIdFactors -> FIdAlts
+fIdAltsFromFactors factors@(FIdFactors comps)
+  | resultSize == 0 = FIdAlts (listArray (0,-1) [])
+  | resultSize == 1 = singletonFId (fIdFactorsSingleton factors)
+  | otherwise       = FIdAlts $ runSTUArray $ do
+                        arr <- newArray_ (0,resultSize-1)
+                        _   <- fillFIds arr 0 0 comps
+                        return arr
+  where
+    !resultSize = fIdFactorsResultSize factors
+
+-- Components are ordered outer-to-inner. This must match the old
+-- reverse (solutions (variants schema) ()) ordering, where the last component
+-- varies fastest.
+fillFIds :: STUArray s Int FId -> Int -> FId -> [UArray Int FId] -> ST s Int
+fillFIds arr !offset !fidAcc [] = do
+  writeArray arr offset fidAcc
+  return (offset + 1)
+fillFIds arr !offset !fidAcc (factor : factors) =
+  foldUArrayM (\offset' fidDelta -> fillFIds arr offset' (fidAcc + fidDelta) factors) offset factor
+
+foldUArrayM :: Monad m => (a -> FId -> m a) -> a -> UArray Int FId -> m a
+foldUArrayM f z arr = go (fst bnds) z
+  where
+    !bnds@(_,hi) = bounds arr
+    go !i !acc
+      | i > hi    = return acc
+      | otherwise = do acc' <- f acc (arr ! i)
+                       go (i+1) acc'
+
+fIdFactorsResultSize :: FIdFactors -> Int
+fIdFactorsResultSize (FIdFactors comps) = product (map (rangeSize . bounds) comps)
+
+fIdFactorsSingleton :: FIdFactors -> FId
+fIdFactorsSingleton (FIdFactors comps) = List.foldl' addChoice 0 comps
+  where
+    addChoice :: FId -> UArray Int FId -> FId
+    addChoice acc choices
+      | rangeSize (bounds choices) == 1 = acc + choices ! fst (bounds choices)
+      | otherwise                       = bug "fIdFactorsSingleton: non-singleton factors"
+
+singletonFId :: FId -> FIdAlts
+singletonFId fid = FIdAlts (listArray (0,0) [fid])
+
+fidAltsSize :: FIdAlts -> Int
+fidAltsSize (FIdAlts arr) = rangeSize (bounds arr)
+
+fidAltsToList :: FIdAlts -> [FId]
+fidAltsToList (FIdAlts arr) = elems arr
+
+foldFIdAlts :: (FId -> a -> a) -> a -> FIdAlts -> a
+foldFIdAlts f z (FIdAlts arr) = go (fst bnds) z
+  where
+    !bnds@(_,hi) = bounds arr
+    go !i !acc
+      | i > hi    = acc
+      | otherwise = let !acc' = f (arr ! i) acc
+                    in go (i+1) acc'
 
 ------------------------------------------------------------
 -- updating the MCF rule
