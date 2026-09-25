@@ -22,13 +22,13 @@ allTreeOps pgf = [
       Right $ \f -> map (transfer pgf f))), -- HL 12/24, modified from gf-3.3
    ("largest",("sort trees from largest to smallest, in number of nodes",
       Left  $ largest)),
-   ("nub\t",("remove duplicate trees",
+   ("nub",("remove duplicate trees",
       Left  $ nub)),
    ("smallest",("sort trees from smallest to largest, in number of nodes",
       Left  $ smallest)),
    ("subtrees",("return all fully applied subtrees (stopping at abstractions), by default sorted from the largest",
       Left  $ concatMap subtrees)),
-   ("funs\t",("return all fun functions appearing in the tree, with duplications",
+   ("funs",("return all fun functions appearing in the tree, with duplications",
       Left  $ \es -> [mkApp f [] | e <- es, f <- exprFunctions e]))
   ]
 
