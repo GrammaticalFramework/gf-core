@@ -24,6 +24,7 @@ import Data.List (findIndex,intersect,nub,elemIndex,(\\)) --,isInfixOf
 import GF.Text.Pretty
 import qualified Data.Map as Map
 import Debug.Trace(trace)
+import GHC.Stack (HasCallStack)
 
 -- * Main entry points
 
@@ -497,10 +498,10 @@ vtrace loc arg res = trace (render (hang (pv arg) 4 ("->"<+>pv res))) res
               -- Left i  -> "variable #" <> pp i <+> "is out of scope"
 
 -- | Convert a value back to a term
-value2term :: GLocation -> [Ident] -> Value -> Term
+value2term :: HasCallStack => GLocation -> [Ident] -> Value -> Term
 value2term = value2term' False
 
-value2term' :: Bool -> p -> [Ident] -> Value -> Term
+value2term' :: HasCallStack => Bool -> GLocation -> [Ident] -> Value -> Term
 value2term' stop loc xs v0 =
   case v0 of
     VApp pre vs    -> applyMany (Q (cPredef,predefName pre)) vs
@@ -536,9 +537,10 @@ value2term' stop loc xs v0 =
     v2txs = value2term' stop loc
     v2t' x f = v2txs (x:xs) (bind f (gen xs))
 
+    var :: HasCallStack => Int -> Term
     var j
       | j<length xs = Vr (reverse xs !! j)
-      | otherwise   = error ("variable #"++show j++" is out of scope")
+      | otherwise   = Error ("variable #"++show j++" is out of scope in expression " ++ show v0 ++ " with context " ++show (reverse xs))
 
 
     pushs xs e = foldr push e xs
@@ -584,7 +586,11 @@ mf <# mx  = ap mf mx
 
 both f (x,y) = (,) # f x <# f y
 
+bugloc :: (HasCallStack, Pretty a, Pretty b) => L a -> b -> c
 bugloc loc s = ppbug $ ppL loc s
 
+bug :: (HasCallStack, Pretty a) => a -> b
 bug msg = ppbug msg
+
+ppbug :: (HasCallStack, Pretty a) => a -> b
 ppbug doc = error $ render $ hang "Internal error in Compute.Concrete:" 4 doc
