@@ -123,6 +123,7 @@ data ConstValue a
   = Const a
   | CSusp MetaId (Value -> ConstValue a)
   | CFV Choice (Variants (ConstValue a))
+  | CError Doc
   | RunTime
   | NonExist
 
@@ -130,6 +131,7 @@ instance Functor ConstValue where
   fmap f (Const c) = Const (f c)
   fmap f (CFV i vs) = CFV i (fmap (fmap f) vs)
   fmap f (CSusp i k) = CSusp i (fmap f . k)
+  fmap f (CError e) = CError e
   fmap f RunTime   = RunTime
   fmap f NonExist  = NonExist
 
@@ -141,6 +143,8 @@ instance Applicative ConstValue where
   v1            <*> (CFV s vs)    = CFV s (fmap (v1 <*>) vs)
   (CSusp i k)   <*> v2            = CSusp i (\v -> k v <*> v2)
   v1            <*> (CSusp i k)   = CSusp i (\v -> v1 <*> k v)
+  (CError e)    <*> _             = CError e
+  _             <*> (CError e)    = CError e
   NonExist      <*> _             = NonExist
   _             <*> NonExist      = NonExist
   RunTime       <*>  _            = RunTime
@@ -335,6 +339,7 @@ evalPredef g@(Gl gr pds _) c n args =
     valueOf (Const res) = res
     valueOf (CFV i vs)  = VFV i (fmap valueOf vs)
     valueOf (CSusp i k) = VSusp i (valueOf . k) []
+    valueOf (CError e)  = VError e
     valueOf RunTime     = VConst (cPredef,n) args
     valueOf NonExist    = VApp (cPredef,cNonExist) []
 
@@ -598,6 +603,7 @@ patternMatch g s v0 ((env0,ps,args0,t):eqs) = match env0 ps eqs args0
                                                    in patternMatch g s v0 eqs'
                            match_seq (CSusp i k) = VSusp i (match_seq . k) []
                            match_seq (CFV c vs)  = VFV c (fmap match_seq vs)
+                           match_seq (CError e)  = VError e
                            match_seq RunTime     = v0
                            match_seq NonExist    = patternMatch g s v0 eqs
                        in match_seq (value2string g v)
@@ -607,6 +613,7 @@ patternMatch g s v0 ((env0,ps,args0,t):eqs) = match env0 ps eqs args0
                                                    in patternMatch g s v0 eqs'
                            match_rep (CSusp i k) = VSusp i (match_rep . k) []
                            match_rep (CFV c vs)  = VFV c (fmap match_rep vs)
+                           match_rep (CError e)  = VError e
                            match_rep RunTime     = v0
                            match_rep NonExist    = patternMatch g s v0 eqs
                        in match_rep (value2string g v)
@@ -643,6 +650,7 @@ vtableSelect g v0 ty cs v2 vs =
     select (Const (i,_)) = cs !! i
     select (CSusp i k)   = VSusp i (\v -> select (k v)) []
     select (CFV c vs)    = VFV c (fmap select vs)
+    select (CError e)    = VError e
     select _             = v0
 
     value2index (VMeta i vs)      vty = CSusp i (\v -> value2index (apply g v vs) vty)
@@ -683,6 +691,7 @@ vtableSelect g v0 ty cs v2 vs =
     value2index (VInt n) (VApp c [VInt max])
       | Q c == cnPredef cInts         = Const (fromIntegral n,fromIntegral max+1)
     value2index (VFV c vs)        vty = CFV c (fmap (\v -> value2index v vty) vs)
+    value2index (VError e)        _   = CError e
     value2index v vty = RunTime
 
 
@@ -1178,6 +1187,7 @@ value2string g v = fmap (\(_,ws,_) -> unwords ws) (value2string' g v False [] []
 
 value2string' g (VMeta i vs)   b ws        qs = CSusp i (\v -> value2string' g (apply g v vs) b ws qs)
 value2string' g (VSusp i k vs) b ws        qs = CSusp i (\v -> value2string' g (apply g (k v) vs) b ws qs)
+value2string' g (VError e)     b ws        qs = CError e
 value2string' g (VStr w1)     True (w2:ws) qs = Const (False,(w1++w2):ws,qs)
 value2string' g (VStr w)         _ ws      qs = Const (False,w       :ws,qs)
 value2string' g VEmpty           b ws      qs = Const (b,ws,qs)
@@ -1236,12 +1246,14 @@ value2int g (VMeta i vs)     = CSusp i (\v -> value2int g (apply g v vs))
 value2int g (VSusp i k vs)   = CSusp i (\v -> value2int g (apply g (k v) vs))
 value2int g (VInt n)         = Const n
 value2int g (VFV s vs)       = CFV s (fmap (value2int g) vs)
+value2int g (VError e)       = CError e
 value2int g _                = RunTime
 
 value2float g (VMeta i vs)     = CSusp i (\v -> value2float g (apply g v vs))
 value2float g (VSusp i k vs)   = CSusp i (\v -> value2float g (apply g (k v) vs))
 value2float g (VFlt f)         = Const f
 value2float g (VFV s vs)       = CFV s (fmap (value2float g) vs)
+value2float g (VError e)       = CError e
 value2float g _                = RunTime
 
 value2expr g xs (VApp (m,f) vs)
@@ -1256,6 +1268,7 @@ value2expr g xs (VClosure env s (Abs b x t)) =
 value2expr g xs (VInt n)       = pure (ELit (LInt n))
 value2expr g xs (VFlt f)       = pure (ELit (LFlt f))
 value2expr g xs (VFV s vs)     = CFV s (fmap (value2expr g xs) vs)
+value2expr g xs (VError e)     = CError e
 value2expr g xs v              = fmap (ELit . LStr) (value2string g v)
 
 newtype Choice = Choice { unchoice :: Integer }
