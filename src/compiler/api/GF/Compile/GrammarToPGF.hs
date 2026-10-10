@@ -5,7 +5,7 @@ import GF.Compile.GeneratePMCFG
 import GF.Compile.GenerateBC
 import GF.Compile.OptimizePGF
 
-import PGF2 hiding (mkType)
+import PGF2 hiding (mkType,showIdent)
 import PGF2.Transactions
 import GF.Grammar.Predef
 import GF.Grammar.Grammar hiding (Production)

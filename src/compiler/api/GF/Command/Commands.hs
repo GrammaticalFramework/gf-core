@@ -59,6 +59,7 @@ pgfCommands = Map.fromList [
      exec = needPGF $ \ opts arg pgf -> do
          let es = toExprs arg
          let langs = optLangs pgf opts
+         let gizaAlignment = error "TODO: gizaAlignment"
          if isOpt "giza" opts
            then do
              let giz = map (gizaAlignment pgf (head $ langs, head $ tail $ langs)) es
@@ -524,6 +525,10 @@ pgfCommands = Map.fromList [
          let abslabels = valStrOpts "abslabels" (valStrOpts "file" "" opts) opts
          let cnclabels = valStrOpts "cnclabels" "" opts
          let outp = valStrOpts "output" "dot" opts
+         let graphvizDependencyTree = error "TODO: graphvizDependencyTree"
+         let getDepLabels = error "TODO: getDepLabels"
+         let getCncDepLabels = error "TODO: getCncDepLabels"
+         let conlls2latexDoc = error "TODO: conlls2latexDoc"
          mlab <- case abslabels of
            "" -> return Nothing
            _  -> (Just . getDepLabels) `fmap` restricted (readFile abslabels)
@@ -785,9 +790,9 @@ pgfCommands = Map.fromList [
    fromParse1 opts (s,po) =
      case po of
        ParseOk ts      -> fromExprs (isOpt "show_probs" opts) (takeOptNum opts ts)
-       ParseFailed i t -> pipeMessage $ "The parser failed at position "
+       ParseFailed i   -> pipeMessage $ "The parser failed at position "
                                         ++ show i ++": "
-                                        ++ show t
+                                        ++ show (takeWhile (not.isSpace) (drop i s))
        ParseIncomplete -> pipeMessage "The sentence is not complete"
 
    optLins pgf opts ts = concatMap (optLin pgf opts) ts

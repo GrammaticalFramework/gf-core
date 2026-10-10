@@ -38,7 +38,7 @@ convertFile conf src file = do
     appn "("
     let typ = maybe (error "no valid cat") id $ readType cat
     ws <- case parse lang typ ex of
-      ParseFailed _ _ -> do
+      ParseFailed _ -> do
         appv ("WARNING: cannot parse example " ++ ex) 
         return []
       ParseIncomplete ->
