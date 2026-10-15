@@ -526,19 +526,22 @@ tcRho scope c (Reset ctl mb_ct t qid) mb_ty
                  Nothing -> evalError (pp "[select: .. | ..] requires an integer argument")
       (t,_) <- tcRho scope c1 t (Just rec_ty)
       return (Reset ctl mb_ct t qid,ty)
-  | ctl == cFilter = concreteOnly "Control operators" $ do
-      ty <- case mb_ty of
-              Just ty -> return ty
-              Nothing -> do i <- newResiduation scope
-                            return (VMeta i [])
-      let rec_ty = VRecType [ (ident2label cp1, True, ty)
-                            , (ident2label cp2, True, VApp (cPredef,cBool) [])
-                            ] False
+  | ctl == cFilter = concreteOnly "Control operators" $
       case mb_ct of
-        Just ct -> evalError (pp "[filter | ..] cannot take an argument")
-        Nothing -> return ()
-      (t,_) <- tcRho scope c t (Just rec_ty)
-      return (Reset ctl mb_ct t qid,ty)
+        Just ct -> do
+           (ct,ty) <- tcRho scope c ct mb_ty
+           (t, ty) <- tcRho scope c t  (Just ty)
+           return (Reset ctl (Just ct) t qid,ty)
+        Nothing -> do
+           ty <- case mb_ty of
+                   Just ty -> return ty
+                   Nothing -> do i <- newResiduation scope
+                                 return (VMeta i [])
+           let rec_ty = VRecType [ (ident2label cp1, True, ty)
+                                 , (ident2label cp2, True, VApp (cPredef,cBool) [])
+                                 ] False
+           (t,_) <- tcRho scope c t (Just rec_ty)
+           return (Reset ctl mb_ct t qid,ty)
   | ctl == cDefault = concreteOnly "Control operators" $ do
       let (c1,c2) = split c
       (t,ty)     <- tcRho scope c1 t mb_ty

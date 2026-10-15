@@ -1037,15 +1037,21 @@ value2termM flat xs (VReset ctl mb_cv v mb_qid) = do
                            select n (t:ts) = select (n-1) ts
            _             -> evalError (pp "[select: .. | ..] requires an integer constant")
       | ctl == cFilter =
-          let filter []     = mzero
-              filter (t:ts) =
-                case t of
-                  R rs -> case (lookup (ident2label cp1) rs, lookup (ident2label cp2) rs) of
-                            (Just (_,t), Just (_,Q q))
-                                | q == (cPredef,cTrue) -> pure t `mplus` filter ts
-                            _                          ->                filter ts
-                  _    -> evalError (pp "The term must be a record")
-          in filter ts
+          case mb_cv of
+            Nothing -> let filter []     = mzero
+                           filter (t:ts) =
+                             case t of
+                               R rs -> case (lookup (ident2label cp1) rs, lookup (ident2label cp2) rs) of
+                                         (Just (_,t), Just (_,Q q))
+                                             | q == (cPredef,cTrue) -> pure t `mplus` filter ts
+                                         _                          ->                filter ts
+                               _    -> evalError (pp "The term must be a record")
+                       in filter ts
+            Just cv -> do cts <- reset (value2termM True xs cv)
+                          case ts \\ cts of
+                            []  -> mzero
+                            [t] -> return t
+                            ts  -> return (FV ts)
       | ctl == cDefault =
          case (ts,mb_cv) of
            ([]  ,Nothing) -> mzero
@@ -1054,6 +1060,12 @@ value2termM flat xs (VReset ctl mb_cv v mb_qid) = do
       | ctl == cList =
          case (ts,mb_cv) of
            ([],       _) -> mzero
+           ([FV ts],Just cv)  ->
+             do let Just (mn,id) = mb_qid
+                    cat = showIdent id
+                ct <- value2termM flat xs cv
+                t <- listify mn cat ts
+                return (App (App (QC (mn,identS ("Conj"++cat))) ct) t)
            ([t],      _) -> return t
            (ts,Just cv)  ->
              do let Just (mn,id) = mb_qid
