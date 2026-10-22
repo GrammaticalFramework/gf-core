@@ -366,9 +366,9 @@ void PgfAbstractParser::complete(Item *item, State *state)
 }
 
 #define ZERO_VALUES(rule) \
-    ((size_t*) memset(alloca(rule->ranges.size()*sizeof(size_t)), 0, rule->ranges.size()*sizeof(size_t)))
+    ((size_t*) memset(malloc(rule->ranges.size()*sizeof(size_t)), 0, rule->ranges.size()*sizeof(size_t)))
 #define CLONE_VALUES(rule,values) \
-    ((size_t*) memcpy(alloca(rule->ranges.size()*sizeof(size_t)), values, rule->ranges.size()*sizeof(size_t)))
+    ((size_t*) memcpy(malloc(rule->ranges.size()*sizeof(size_t)), values, rule->ranges.size()*sizeof(size_t)))
 
 bool PgfAbstractParser::instantiate(ref<PgfConcrRule> rule1, size_t *values1, ref<PgfLParam> lparam1,
                                     ref<PgfConcrRule> rule2, size_t *values2, ref<PgfLParam> lparam2)
@@ -549,16 +549,16 @@ void PgfAbstractParser::td_epsilon(State *state, Cont *cont, ref<PgfItem> pitem,
         for (ref<PgfConcrRule> rule : lin->rules) {
             size_t *values1 = ZERO_VALUES(rule);
             size_t *values2 = CLONE_VALUES(xitem->rule, &xitem->vars[0]);
+            size_t *values3 = CLONE_VALUES(pitem->rule, &pitem->vars[0]);
             if (!instantiate(rule,        values1, rule->res,
                              xitem->rule, values2, xitem->rule->args[symcat->d])) {
-                continue;
+                goto next;
             }
             if (!instantiate(rule,        values1, rule->lin_idx,
                              xitem->rule, values2, ref<PgfLParam>::from_ptr(&symcat->r))) {
-                continue;
+                goto next;
             }
 
-            size_t *values3 = CLONE_VALUES(pitem->rule, &pitem->vars[0]);
             for (size_t i = 0; i < pitem->args.size(); i++) {
                 if (!instantiate(rule,        values1, rule->args[i],
                                  pitem->rule, values3, pitem->rule->args[i])) {
@@ -599,6 +599,9 @@ void PgfAbstractParser::td_epsilon(State *state, Cont *cont, ref<PgfItem> pitem,
                 }
             }
 next:;
+            free(values3);
+            free(values2);
+            free(values1);
         }
     }
     default:;
@@ -615,17 +618,16 @@ void PgfAbstractParser::td_predict(State *state, Cont *cont, Production *prod, I
         for (ref<PgfConcrRule> rule : lin->rules) {
             size_t *values1 = ZERO_VALUES(rule);
             size_t *values2 = CLONE_VALUES(xitem->rule, &xitem->vars[0]);
+            size_t *values3 = CLONE_VALUES(prod->rule, &prod->vars[0]);
             if (!instantiate(rule,        values1, rule->res,
                              xitem->rule, values2, xitem->rule->args[symcat->d])) {
-                continue;
+                goto next;
             }
-
             if (!instantiate(rule,        values1, rule->lin_idx,
                              xitem->rule, values2, ref<PgfLParam>::from_ptr(&symcat->r))) {
-                continue;
+                goto next;
             }
 
-            size_t *values3 = CLONE_VALUES(prod->rule, &prod->vars[0]);
             for (size_t i = 0; i < rule->args.size(); i++) {
                 if (!instantiate(rule,       values1, rule->args[i],
                                  prod->rule, values3, prod->rule->args[i])) {
@@ -667,6 +669,9 @@ void PgfAbstractParser::td_predict(State *state, Cont *cont, Production *prod, I
             }
 
 next:;
+            free(values3);
+            free(values2);
+            free(values1);
         }
     }
     default:;
