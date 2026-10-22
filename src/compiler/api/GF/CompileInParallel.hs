@@ -236,11 +236,10 @@ instance Functor m => Functor (CollectOutput m) where
    fmap f (CO m) = CO (fmap (fmap f) m)
 
 instance (Functor m,Monad m) => Applicative (CollectOutput m) where 
-  pure = return
+  pure x = CO (return (return (),x))
   (<*>) = ap
 
 instance Monad m => Monad (CollectOutput m) where
-  return x = CO (return (return (),x))
   CO m >>= f = CO $ do (o1,x) <- m
                        let CO m2 = f x
                        (o2,y) <- m2
