@@ -501,76 +501,6 @@ pgfCommands = Map.fromList [
        ]
      }),
 
-  ("vd", emptyCommandInfo {
-     longname = "visualize_dependency",
-     synopsis = "show word dependency tree graphically",
-     explanation = unlines [
-       "Prints a dependency tree in the .dot format (the graphviz format, default)",
-       "or LaTeX (flag -output=latex)",
-       "or the CoNLL/MaltParser format (flag -output=conll for training, malt_input",
-       "for unanalysed input).",
-       "By default, the last argument is the head of every abstract syntax",
-       "function; moreover, the head depends on the head of the function above.",
-       "The graph can be saved in a file by the wf command as usual.",
-       "If the -view flag is defined, the graph is saved in a temporary file",
-       "which is processed by dot (graphviz) and displayed by the program indicated",
-       "by the view flag. The target format is png, unless overridden by the",
-       "flag -format. Results from multiple trees are combined to pdf with convert (ImageMagick).",
-       "See also 'vp -showdep' for another visualization of dependencies." 
-       ],
-     exec = needPGF $ \ opts arg pgf -> do
-         let absname = abstractName pgf
-         let es = toExprs arg
-         let debug = isOpt "v" opts
-         let abslabels = valStrOpts "abslabels" (valStrOpts "file" "" opts) opts
-         let cnclabels = valStrOpts "cnclabels" "" opts
-         let outp = valStrOpts "output" "dot" opts
-         let graphvizDependencyTree = error "TODO: graphvizDependencyTree"
-         let getDepLabels = error "TODO: getDepLabels"
-         let getCncDepLabels = error "TODO: getCncDepLabels"
-         let conlls2latexDoc = error "TODO: conlls2latexDoc"
-         mlab <- case abslabels of
-           "" -> return Nothing
-           _  -> (Just . getDepLabels) `fmap` restricted (readFile abslabels)
-         mclab <- case cnclabels of
-           "" -> return Nothing
-           _  -> (Just . getCncDepLabels) `fmap` restricted (readFile cnclabels)
-         concr <- optLang pgf opts
-         let grphs = map (graphvizDependencyTree outp debug mlab mclab concr) es
-         if isOpt "conll2latex" opts
-           then return $ fromString $ conlls2latexDoc $ stanzas $ unlines $ toStrings arg
-           else if isFlag "view" opts && valStrOpts "output" "" opts == "latex"
-             then do
-               let view = optViewGraph opts
-               viewLatex view "_grphd_" grphs
-             else if isFlag "view" opts || isFlag "format" opts
-               then do
-                 let view = optViewGraph opts
-                 let format = optViewFormat opts
-                 viewGraphviz view format "_grphd_" grphs
-               else return $ fromString $ unlines $ intersperse "" grphs,
-     examples = [
-       mkEx "gr | vd              -- generate a tree and show dependency tree in .dot",
-       mkEx "gr | vd -view=open   -- generate a tree and display dependency tree on with Mac's 'open'",
-       mkEx "gr | vd -view=open -output=latex   -- generate a tree and display latex dependency tree with Mac's 'open'",
-       mkEx "gr -number=1000 | vd -abslabels=Lang.labels -cnclabels=LangSwe.labels -output=conll  -- generate a random treebank",
-       mkEx "rf -file=ex.conll | vd -conll2latex | wf -file=ex.tex   -- convert conll file to latex"
-       ],
-     options = [
-       ("v","show extra information"),
-       ("conll2latex", "convert conll to latex")
-       ],
-     flags = [
-       ("abslabels","abstract configuration file for labels, format per line 'fun label*'"),
-       ("cnclabels","concrete configuration file for labels, format per line 'fun {words|*} pos label head'"),
-       ("file",     "same as abslabels (abstract configuration file)"),
-       ("format",   "format of the visualization file using dot (default \"png\")"),
-       ("output",   "output format of graph source (latex, conll, dot (default but deprecated))"),
-       ("view",     "program to open the resulting graph file (default \"open\")"),
-       ("lang",     "the language of analysis")
-       ]
-    }),
-
   ("vp", emptyCommandInfo {
      longname = "visualize_parse",
      synopsis = "show parse tree graphically",
@@ -587,7 +517,7 @@ pgfCommands = Map.fromList [
          let gvOptions = GraphvizOptions {noLeaves = isOpt "noleaves" opts && not (isOpt "showleaves" opts),
                                           noFun = isOpt "nofun" opts || not (isOpt "showfun" opts),
                                           noCat = isOpt "nocat" opts && not (isOpt "showcat" opts),
-                                          noDep = not (isOpt "showdep" opts),
+                                          noDep = True,
                                           nodeFont = valStrOpts "nodefont" "" opts,
                                           leafFont = valStrOpts "leaffont" "" opts,
                                           nodeColor = valStrOpts "nodecolor" "" opts,
@@ -605,8 +535,7 @@ pgfCommands = Map.fromList [
            else return $ fromString $ unlines grphs,
      examples = [
        mkEx "p \"John walks\" | vp  -- generate a tree and show parse tree as .dot script",
-       mkEx "gr | vp -view=open -- generate a tree and display parse tree on a Mac",
-       mkEx "p \"she loves us\" | vp -view=open -showdep -file=uddeps.labels -nocat  -- show a visual variant of a dependency tree"
+       mkEx "gr | vp -view=open -- generate a tree and display parse tree on a Mac"
        ],
      options = [
        ("showcat","show categories in the tree nodes (default)"),

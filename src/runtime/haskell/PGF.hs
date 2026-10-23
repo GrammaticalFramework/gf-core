@@ -114,7 +114,6 @@ module PGF(
            graphvizAbstractTree,
            graphvizParseTree,
            graphvizParseTreeDep,
-           graphvizDependencyTree,
            graphvizBracketedString,
            graphvizAlignment,
            gizaAlignment,
@@ -122,7 +121,6 @@ module PGF(
            PGF2.graphvizDefaults,
            -- extra:
            Labels, getDepLabels,
-           CncLabels, getCncDepLabels,
 
           ) where
 
@@ -410,72 +408,12 @@ graphvizParseTree gr (CId lang) opts t =
     Nothing  -> error ("Unknown language: " ++ lang)
 
 type Labels = Map.Map CId [String]
-type CncLabels = [CncLabel]
-
-data CncLabel =
-    CncSyncat (String, String -> Maybe (String -> String,String,String))
-    -- (fun, word/lemma -> (pos,label,target))
-    -- the pos can remain unchanged, as in the current notation in the article
-  | CncMorpho (String,[String])
-    -- (category, features in ascending order)
-  | CncForm (String,(String,String))
-    -- (wordform, (lemma,features))
 
 -- | Prepare lines obtained from a configuration file for labels for
--- use with 'graphvizDependencyTree'. Format per line /fun/ /label/@*@.
+-- use with 'graphvizParseTreeDep'. Format per line /fun/ /label/@*@.
 --- ignore other gf-ud annotatations than #fun and #cat at this point 
 getDepLabels :: String -> Labels
-getDepLabels s = Map.fromList [(mkCId f,ls) | f:ls <- map (words . rmcomments) (lines s), not (head f == '#')]
-
-getCncDepLabels :: String -> CncLabels
-getCncDepLabels s = wlabels ws ++ flabels fs
- where
-  wlabels =
-    map CncSyncat .
-    map merge .
-    groupBy (\ (x,_) (a,_) -> x == a) .
-    sortBy (comparing fst) .
-    concatMap analyse .
-    filter chooseW
-    
-  flabels =
-    map CncMorpho .
-    map collectTags .
-    map words
-
-  (fs,ws) = partition chooseF $ map uncomment $ lines s
-
-  --- choose is for compatibility with the general notation
-  chooseW line = notElem '(' line &&
-                 elem '{' line
-                   --- ignoring non-local (with "(") and abstract (without "{") rules
-                   ---- TODO: this means that "(" cannot be a token
-
-  chooseF line = take 1 line == "@"  --- feature assignments have the form e.g. @N SgNom SgGen ; no spaces inside tags
-
-  uncomment line = case line of
-    '-':'-':_ -> ""
-    c:cs -> c : uncomment cs
-    _ -> line
-
-  analyse line = case break (=='{') line of
-    (beg,_:ws) -> case break (=='}') ws of
-      (toks,_:target) -> case (getToks beg, words target) of
-        (funs,[    label,j]) -> [(fun, (tok, (id,       label,j))) | fun <- funs, tok <- getToks toks]
-        (funs,[pos,label,j]) -> [(fun, (tok, (const pos,label,j))) | fun <- funs, tok <- getToks toks]
-        _ -> []
-      _ -> []
-    _ -> []
-  merge rules@((fun,_):_) = (fun, \tok ->
-    case lookup tok (map snd rules) of
-      Just new -> return new
-      _ -> lookup "*"  (map snd rules)
-    )
-  getToks = map unquote . filter (/=",") . toks
-  toks s = case lex s of [(t,"")] -> [t] ; [(t,cc)] -> t:toks cc ; _ -> []
-  unquote s = case s of '"':cc@(_:_) | last cc == '"' -> init cc ; _ -> s
-
-  collectTags (w:ws) = (tail w,ws)
+getDepLabels s = Map.fromList [(mkCId f,ls) | f:ls <- map (words . rmcomments) (lines s), not (take 1 f == "#")]
 
 -- auxiliaries for UD conversion  PK 15/12/2018 
 rmcomments :: String -> String
@@ -485,19 +423,6 @@ rmcomments s = case s of
   '#':'c':'a':'t':rest -> rmcomments rest
   x:xs -> x : rmcomments xs
   _ -> []
-
--- | Visualize word dependency tree.
-graphvizDependencyTree
-  :: String -- ^ Output format: @"latex"@, @"conll"@, @"malt_tab"@, @"malt_input"@ or @"dot"@
-  -> Bool -- ^ Include extra information (debug)
-  -> Maybe Labels -- ^ abstract label information obtained with 'getDepLabels'
-  -> Maybe CncLabels -- ^ concrete label information obtained with ' ' (was: unused (was: @Maybe String@))
-  -> PGF
-  -> CId -- ^ The language of analysis
-  -> Tree
-  -> String -- ^ Rendered output in the specified format
-graphvizDependencyTree format debug mb_labels mb_cnclabels gr (CId lang) t =
-  error "TODO: graphvizDependencyTree"
 
 graphvizParseTreeDep :: Maybe Labels -> PGF -> Language -> GraphvizOptions -> Tree -> String
 graphvizParseTreeDep mbl pgf lang opts tree = graphvizBracketedString opts mbl tree $ bracketedLinearize pgf lang tree
