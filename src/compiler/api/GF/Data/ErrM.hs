@@ -34,7 +34,6 @@ fromErr :: a -> Err a -> a
 fromErr a = err (const a) id
 
 instance Monad Err where
-  return      = Ok
   Ok a  >>= f = f a
   Bad s >>= f = Bad s
 
@@ -54,7 +53,7 @@ instance Functor Err where
   fmap f (Bad s) = Bad s
 
 instance Applicative Err where
-  pure = return
+  pure = Ok
   (<*>) = ap
 
 -- | added by KJ

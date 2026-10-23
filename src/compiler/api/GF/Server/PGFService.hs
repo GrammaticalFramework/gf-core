@@ -5,6 +5,7 @@ module GF.Server.PGFService(pgfMain,
 
 import PGF2
 import PGF2.Transactions
+import PGF (Labels, getDepLabels)
 import GF.Server.Cache
 
 import Data.Time.Format(formatTime)
@@ -146,7 +147,7 @@ pgfCommand qsem command q (t,pgf) =
     parse' cat start mlimit ((from,concr),input) =
         case PGF2.parse concr cat input of
           ParseOk ts        -> return (Right (maybe id take mlimit (drop start ts)))
-          ParseFailed _ tok -> return (Left tok)
+          ParseFailed i     -> return (Left (takeWhile (not.isSpace) (drop i input)))
           ParseIncomplete   -> return (Left "")
 
     parseToChart ((from,concr),input) cat mlimit = undefined {-
