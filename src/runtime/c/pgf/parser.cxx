@@ -1401,7 +1401,7 @@ PgfExpr PgfParser::process_expr(ExprState *estate, prob_t *prob)
             } else {
                 for (ExprProb ep : ccat->exprs) {
                     ExprState *app_state = new(estate->n_args) ExprState;
-                    app_state->expr  = estate->expr ? u->eapp(estate->expr, ep.expr) : ep.expr;
+                    app_state->expr  = u->eapp(estate->expr, ep.expr);
                     app_state->prob  = estate->prob-ccat->viterbi_prob+ep.prob;
                     app_state->hash  = estate->hash * 31 + ep.hash;
                     app_state->res   = estate->res;
@@ -1433,7 +1433,7 @@ PgfExpr PgfParser::process_expr(ExprState *estate, prob_t *prob)
         estate->res->exprs.emplace_back(estate->expr, prob, estate->hash);
         for (ExprState *parent : estate->res->pending) {
             ExprState *app_state = new(parent->n_args) ExprState;
-            app_state->expr  = parent->expr ? u->eapp(parent->expr, estate->expr) : estate->expr;
+            app_state->expr  = u->eapp(parent->expr, estate->expr);
             app_state->prob  = parent->prob-estate->res->viterbi_prob+prob;
             app_state->hash  = parent->hash * 31 + estate->hash;
             app_state->res   = parent->res;
@@ -1633,7 +1633,7 @@ void PgfParser::final_item(State *state, CCat *ccat, Item *item, interval_t valu
 {
     if (item->cont == NULL && state->end.byte_pos == sentence->size) {
         ExprState *estate = new(item->args.size()) ExprState;
-        estate->expr   = 0;
+        estate->expr   = u->emeta(0);
         estate->prob   = 0;
         estate->hash   = 0;
         estate->res    = ccat;

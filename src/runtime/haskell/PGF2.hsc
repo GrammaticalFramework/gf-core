@@ -859,7 +859,7 @@ parse c ty sent =
     case ex_type of
       (#const PGF_EXN_NONE) -> do
          exprs <- enumerateExprs (c_db c) (c_revision c) c_enum
-         return (ParseOk exprs)
+         return (ParseOk (map unwrap exprs))
       (#const PGF_EXN_PARSE_ERROR) -> do
          pos <- (#peek PgfExn, code) c_exn
          if pos == length sent
@@ -871,6 +871,9 @@ parse c ty sent =
          free c_msg
          throwIO (PGFError "parse" msg)
       _ -> throwIO (PGFError "parse" "An unidentified error occurred")
+  where
+    unwrap (EApp (EMeta 0) e,p) = (e,p)
+    unwrap ep                   = ep
 
 robustParse :: Concr -> Type -> String -> [(Expr,Float)]
 robustParse c ty sent =
