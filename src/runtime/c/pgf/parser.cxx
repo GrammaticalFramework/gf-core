@@ -1341,8 +1341,10 @@ PgfExpr PgfParser::process_expr(ExprState *estate, prob_t *prob)
         CCat *ccat = estate->args[estate->index];
 
         if (ccat == NULL) {
+            PgfExpr meta = u->emeta(0);
             ExprState *app_state = new(estate->n_args) ExprState;
-            app_state->expr   = u->eapp(estate->expr, u->emeta(0));
+            app_state->expr   = u->eapp(estate->expr, meta);
+            u->free_ref(meta);
             app_state->prob   = estate->prob;
             app_state->hash   = estate->hash * 101 + '?';
             app_state->res    = estate->res;
@@ -1353,6 +1355,7 @@ PgfExpr PgfParser::process_expr(ExprState *estate, prob_t *prob)
             }
             queue.push_back(app_state);
             std::push_heap(queue.begin(), queue.end(), estate_comp);
+            u->free_ref(estate->expr);
             delete estate;
         } else {
             ccat->pending.push_back(estate);
@@ -1439,6 +1442,7 @@ PgfExpr PgfParser::process_expr(ExprState *estate, prob_t *prob)
             if (ep.prob != prob)
                 break;
             if (ep.hash == estate->hash) {
+                u->free_ref(estate->expr);
                 delete estate;
                 return 0;
             }

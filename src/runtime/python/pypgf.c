@@ -118,7 +118,10 @@ Iter_iternext(IterObject *self)
 
     if (expr->ob_type == &pgf_ExprAppType &&
         ((PyObject*) ((ExprAppObject*) expr)->fun)->ob_type == &pgf_ExprMetaType) {
-        expr = (PyObject*) ((ExprAppObject*) expr)->arg;
+        PyObject *arg = (PyObject*) ((ExprAppObject*) expr)->arg;
+        Py_INCREF(arg);
+        Py_DECREF(expr);
+        expr = arg;
     }
 
     PyObject *tup = PyTuple_New(2);
