@@ -247,6 +247,7 @@ bool PgfLinearizer::TreeLinNode::resolve(PgfLinearizer *linearizer)
                 }
 
                 size_t lin_idx = new_item->eval(new_item->rule->lin_idx);
+                delete items[lin_idx];
                 items[lin_idx] = new_item;
 
                 this->value = new_item->eval(new_item->rule->res);
@@ -380,6 +381,7 @@ bool PgfLinearizer::TreeLindefNode::resolve(PgfLinearizer *linearizer)
             }
 
             size_t lin_idx = new_item->eval(new_item->rule->lin_idx);
+            delete items[lin_idx];
             items[lin_idx] = new_item;
 
             this->value = new_item->eval(new_item->rule->res);
@@ -495,6 +497,7 @@ bool PgfLinearizer::TreeLinrefNode::resolve(PgfLinearizer *linearizer)
         item->rule = lincat->rules[lincat->n_lindefs+rule_index];
 
         if (!item->instantiate(item->rule->args[0], root->value)) {
+            delete item;
             rule_index++;
             continue;
         }
@@ -515,6 +518,7 @@ bool PgfLinearizer::TreeLinrefNode::resolve(PgfLinearizer *linearizer)
                 }
             }
 
+            delete this->item;
             this->item = new (item) Item;
             this->value = item->eval(this->item->rule->res);
         }

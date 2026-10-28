@@ -2778,6 +2778,7 @@ PgfParseChart *pgf_parse_chart(PgfDB *db, PgfConcrRevision revision,
         if (!parser->prepare(lincat_u.lincat, robust)) {
             err->type = PGF_EXN_PARSE_ERROR;
             err->code = parser->get_end_pos();
+            delete parser;
             return NULL;
         }
         return parser;
