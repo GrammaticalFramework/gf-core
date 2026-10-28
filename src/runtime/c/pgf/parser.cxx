@@ -563,11 +563,12 @@ void PgfAbstractParser::td_epsilon(State *state, Cont *cont, ref<PgfItem> pitem,
                 item->inside_prob = lin->absfun->prob;
                 item->outside_prob = xitem->outside_prob+xitem->inside_prob-xitem->args[symcat->d]->viterbi_prob;
 
-                size_t *values3 = CLONE_VALUES(pitem->rule, &pitem->vars[0]);
+                size_t *values4 = CLONE_VALUES(pitem->rule, &pitem->vars[0]);
                 for (size_t i = 0; i < pitem->args.size(); i++) {
                     if (pitem->args[i] != 0) {
                         if (!instantiate(rule,        &item->vars[0], rule->args[i],
-                                         pitem->rule, values3,        pitem->rule->args[i])) {
+                                         pitem->rule, values4,        pitem->rule->args[i])) {
+                            free(values4);
                             delete item;
                             goto next;
                         }
@@ -576,6 +577,7 @@ void PgfAbstractParser::td_epsilon(State *state, Cont *cont, ref<PgfItem> pitem,
                         item->inside_prob += item->args[i]->viterbi_prob;
                     }
                 }
+                free(values4);
 
                 auto res = cont->predicted.insert(item);
                 if (res.second) {
