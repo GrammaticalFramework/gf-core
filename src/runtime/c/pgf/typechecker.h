@@ -14,6 +14,10 @@ class PGF_INTERNAL_DECL PgfTypechecker {
     struct Cat;
 
     struct Type {
+        void operator delete(void* p) {
+            free(p);
+        }
+
         virtual Pi  *is_pi()  { return NULL; }
         virtual Cat *is_cat() { return NULL; }
     };

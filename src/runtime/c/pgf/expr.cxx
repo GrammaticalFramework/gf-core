@@ -434,6 +434,9 @@ bool PgfExprParser::str_char()
 
 void PgfExprParser::raw_token()
 {
+    if (token_value != NULL)
+        free(token_value);
+
 	token_tag   = PGF_TOKEN_STR;
     token_pos   = pos;
 	token_value = NULL;

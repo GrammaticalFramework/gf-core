@@ -348,6 +348,7 @@ private:
 
 public:
     PgfParseTableMaker(ref<PgfConcr> concr);
+    virtual ~PgfParseTableMaker();
     void insert_rule(ref<PgfConcrRule> rule);
     void prepare();
     PgfMetaId get_last_fid() { return last_fid; };

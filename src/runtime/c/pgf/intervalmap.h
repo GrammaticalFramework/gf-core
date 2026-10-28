@@ -27,6 +27,11 @@ class PGF_INTERNAL_DECL interval_map {
             this->right = NULL;
             memset(&value, 0, sizeof(value));
         }
+
+        ~Node() {
+            delete left;
+            delete right;
+        }
     };
 
     Node *root;
@@ -266,6 +271,10 @@ class PGF_INTERNAL_DECL interval_map {
 public:
     interval_map() {
         root = NULL;
+    }
+
+    ~interval_map() {
+        delete root;
     }
 
     V &operator[](interval_t interval)

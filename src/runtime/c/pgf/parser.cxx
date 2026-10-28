@@ -69,8 +69,8 @@ PgfAbstractParser::CCat::~CCat()
 
 PgfAbstractParser::Cont::~Cont()
 {
-    for (auto it1 : suspended) {
-        for (auto it2 : it1.second) {
+    for (const auto &it1 : suspended) {
+        for (const auto &it2 : it1.second) {
             for (Item *item : it2.second) {
                 delete item;
             }
@@ -80,26 +80,8 @@ PgfAbstractParser::Cont::~Cont()
 
 PgfAbstractParser::~PgfAbstractParser()
 {
-    State *state = current_state;
-    while (state != NULL) {
-        for (auto it1 : state->completed) {
-     /*       for (auto it2 : it1) {
-                for (auto it3 : it2) {
-                    delete it3;
-                }
-            }*/
-        }
-        for (auto it : state->conts1) {
-            delete it.second;
-        }
-        for (auto it : state->conts2) {
-            delete it.second;
-        }
-
-        State *next = state->next;
-        delete state;
-        state = next;
-    }
+    // Data structures are used a bit differently in the two subclasses,
+    // so the cleanup is in the subclasses.
 }
 
 void PgfAbstractParser::process(Item *item, State *state)
@@ -504,14 +486,18 @@ void PgfAbstractParser::combine(State *state, Item *item, CCat *ccat)
 
         if (!instantiate(item->rule, &item->vars[0], item->rule->args[sym_cat->d],
                          rule,       values,         rule->res)) {
+            free(values);
             delete item;
             return;
         }
         if (!instantiate(item->rule, &item->vars[0], ref<PgfLParam>::from_ptr(&sym_cat->r),
                          rule,       values,         rule->lin_idx)) {
+            free(values);
             delete item;
             return;
         }
+
+        free(values);
     }
 
     item->dot++;
@@ -646,10 +632,11 @@ void PgfAbstractParser::td_predict(State *state, Cont *cont, Production *prod, I
                 item->inside_prob = lin->absfun->prob;
                 item->outside_prob = xitem->outside_prob+xitem->inside_prob-xitem->args[symcat->d]->viterbi_prob;
 
-                size_t *values3 = CLONE_VALUES(prod->rule, &prod->vars[0]);
+                size_t *values4 = CLONE_VALUES(prod->rule, &prod->vars[0]);
                 for (size_t i = 0; i < rule->args.size(); i++) {
                     if (!instantiate(rule,       &item->vars[0], rule->args[i],
-                                     prod->rule, values3,        prod->rule->args[i])) {
+                                     prod->rule, values4,        prod->rule->args[i])) {
+                        free(values4);
                         delete item;
                         goto next;
                     }
@@ -659,6 +646,7 @@ void PgfAbstractParser::td_predict(State *state, Cont *cont, Production *prod, I
                         item->inside_prob += item->args[i]->viterbi_prob;
                     }
                 }
+                free(values4);
 
                 auto res = cont->predicted.insert(item);
                 if (res.second) {
@@ -882,8 +870,15 @@ PgfParser::~PgfParser()
 
     State *state = current_state;
     while (state != NULL) {
-        for (auto it1 : state->completed) {
-            for (auto it2 : it1.second) {
+        for (auto it1 : state->conts1) {
+            delete it1.second;
+        }
+        for (auto it2 : state->conts2) {
+            delete it2.second;
+        }
+
+        for (const auto &it1 : state->completed) {
+            for (const auto &it2 : it1.second) {
                 for (auto it3 : it2.second) {
                     if (it3.second->epsilon != 0)
                         continue;
@@ -895,21 +890,35 @@ PgfParser::~PgfParser()
                     for (ExprProb &ep : it3.second->exprs) {
                         u->free_ref(ep.expr);
                     }
+
+                    delete it3.second;
                 }
             }
         }
 
-        state = state->next;
+        for (Item *item : state->queue) {
+            delete item;
+        }
+
+        State *next = state->next;
+        delete state;
+        state = next;
     }
 
     for (auto it1 : epsilons) {
         for (ExprState *estate : it1.second->pending) {
-            if (estate->expr != 0)
+            if (estate != NULL && estate->expr != 0)
                 u->free_ref(estate->expr);
         }
         for (ExprProb &ep : it1.second->exprs) {
             u->free_ref(ep.expr);
         }
+        delete it1.second;
+    }
+
+    for (ExprState *estate : queue) {
+        u->free_ref(estate->expr);
+        delete estate;
     }
 }
 
@@ -1204,8 +1213,8 @@ void PgfParser::make_chunks(State *state, std::vector<CCat*> &chunks, prob_t pro
         std::push_heap(queue.begin(), queue.end(), estate_comp);
     }
 
-    for (auto it1 : state->completed) {
-        for (auto it2 : it1.second) {
+    for (const auto &it1 : state->completed) {
+        for (const auto &it2 : it1.second) {
             for (auto it3 : it2.second) {
                 CCat *ccat = it3.second;
                 if (!ccat->covered && ccat->cont->state != state) {
@@ -1333,7 +1342,7 @@ PgfExpr PgfParser::process_expr(ExprState *estate, prob_t *prob)
 
         if (ccat == NULL) {
             ExprState *app_state = new(estate->n_args) ExprState;
-            app_state->expr   = estate->expr ? u->eapp(estate->expr, u->emeta(0)) : u->emeta(0);
+            app_state->expr   = u->eapp(estate->expr, u->emeta(0));
             app_state->prob   = estate->prob;
             app_state->hash   = estate->hash * 101 + '?';
             app_state->res    = estate->res;
@@ -1344,6 +1353,7 @@ PgfExpr PgfParser::process_expr(ExprState *estate, prob_t *prob)
             }
             queue.push_back(app_state);
             std::push_heap(queue.begin(), queue.end(), estate_comp);
+            delete estate;
         } else {
             ccat->pending.push_back(estate);
 
@@ -1418,7 +1428,9 @@ PgfExpr PgfParser::process_expr(ExprState *estate, prob_t *prob)
     } else {
         if (estate->res == NULL) {
             *prob = estate->prob;
-            return estate->expr;
+            PgfExpr expr = estate->expr;
+            delete estate;
+            return expr;
         }
 
         prob_t prob = estate->prob - (estate->res->pending[0]->prob-estate->res->viterbi_prob);
@@ -1426,8 +1438,10 @@ PgfExpr PgfParser::process_expr(ExprState *estate, prob_t *prob)
             ExprProb &ep = estate->res->exprs[i-1];
             if (ep.prob != prob)
                 break;
-            if (ep.hash == estate->hash)
+            if (ep.hash == estate->hash) {
+                delete estate;
                 return 0;
+            }
         }
 
         estate->res->exprs.emplace_back(estate->expr, prob, estate->hash);
@@ -1445,6 +1459,7 @@ PgfExpr PgfParser::process_expr(ExprState *estate, prob_t *prob)
             queue.push_back(app_state);
             std::push_heap(queue.begin(), queue.end(), estate_comp);
         }
+        delete estate;
     }
     return 0;
 }
@@ -1544,27 +1559,33 @@ void PgfParser::suspend(Cont *cont,Item *item,bool do_predict,ref<PgfSymbolCat> 
                 size_t *values2 = CLONE_VALUES(pitem->rule, &pitem->vars[0]);
                 if (!instantiate(item->rule,  values1, item->rule->args[sym_cat->d],
                                  pitem->rule, values2, pitem->rule->res)) {
-                    return;
+                    goto next;
                 }
                 if (!instantiate(item->rule,  values1, ref<PgfLParam>::from_ptr(&sym_cat->r),
                                  pitem->rule, values2, pitem->rule->lin_idx)) {
-                    return;
+                    goto next;
                 }
 
-                CCat *&arg_ccat = epsilons[arg->fid];
-                if (arg_ccat == NULL) {
-                    arg_ccat = new CCat;
-                    arg_ccat->fid = arg->fid;
-                    arg_ccat->epsilon = arg;
-                    arg_ccat->cont = NULL;
-                    arg_ccat->state = NULL;
-                    arg_ccat->lin_idx = arg->lin_idx;
-                    arg_ccat->value = arg->value;
-                    arg_ccat->covered = true;
-                    arg_ccat->viterbi_prob = arg->viterbi_prob;
+                {
+                    CCat *&arg_ccat = epsilons[arg->fid];
+                    if (arg_ccat == NULL) {
+                        arg_ccat = new CCat;
+                        arg_ccat->fid = arg->fid;
+                        arg_ccat->epsilon = arg;
+                        arg_ccat->cont = NULL;
+                        arg_ccat->state = NULL;
+                        arg_ccat->lin_idx = arg->lin_idx;
+                        arg_ccat->value = arg->value;
+                        arg_ccat->covered = true;
+                        arg_ccat->viterbi_prob = arg->viterbi_prob;
+                    }
+
+                    cont->state->completed[cont][arg_ccat->value][arg_ccat->lin_idx] = arg_ccat;
                 }
 
-                cont->state->completed[cont][arg_ccat->value][arg_ccat->lin_idx] = arg_ccat;
+            next:
+                free(values2);
+                free(values1);
             };
 
         if (cont->ccat == NULL) {
@@ -1846,6 +1867,33 @@ PgfParseTableMaker::PgfParseTableMaker(ref<PgfConcr> concr)
     current_state->end       = current_state->start;
     current_state->viterbi_prob = 0;
     current_state->next      = NULL;
+}
+
+PgfParseTableMaker::~PgfParseTableMaker()
+{
+    State *state = current_state;
+    while (state != NULL) {
+        for (auto it1 : state->conts1) {
+            delete it1.second;
+        }
+        for (auto it2 : state->conts2) {
+            delete it2.second;
+        }
+        for (const auto &it1 : state->completed) {
+            for (const auto &it2 : it1.second) {
+                for (auto it3 : it2.second) {
+                    delete it3.second;
+                }
+            }
+        }
+        for (Item *item : state->queue) {
+            delete item;
+        }
+
+        State *next = state->next;
+        delete state;
+        state = next;
+    }
 }
 
 ref<PgfItem> PgfParseTableMaker::clone_item(Item *item)
