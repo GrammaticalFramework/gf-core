@@ -403,6 +403,17 @@ def test_ExprApp_sort_by_function_then_argument():
         ExprApp(ExprFun("b"), ExprFun("a")),
     ]
 
+def test_ExprFun_and_ExprApp_compare_by_head_function_name():
+    app = ExprApp(ExprFun("b"), ExprFun("x"))
+    nested_app = ExprApp(app, ExprFun("y"))
+
+    assert ExprFun("a") < app
+    assert app > ExprFun("a")
+    assert ExprFun("c") > nested_app
+    assert nested_app < ExprFun("c")
+    assert ExprFun("b") <= nested_app
+    assert nested_app >= ExprFun("b")
+
 def test_ExprFun_getters():
     expr = ExprFun("f")
     assert expr.name == "f"

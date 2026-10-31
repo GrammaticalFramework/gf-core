@@ -1168,12 +1168,58 @@ ExprApp_hash(ExprAppObject *eapp)
            PyObject_Hash((PyObject*) eapp->arg);
 }
 
+static bool
+Expr_is_ordering_op(int op)
+{
+    return op == Py_LT || op == Py_LE || op == Py_GT || op == Py_GE;
+}
+
+static PyObject *
+Expr_head_fun_name(PyObject *expr)
+{
+    while (PyObject_TypeCheck(expr, &pgf_ExprAppType)) {
+        expr = (PyObject*)((ExprAppObject *)expr)->fun;
+    }
+
+    if (PyObject_TypeCheck(expr, &pgf_ExprFunType)) {
+        return ((ExprFunObject *)expr)->name;
+    }
+
+    return NULL;
+}
+
+static PyObject *
+Expr_compare_fun_names(PyObject *name1, PyObject *name2, int op)
+{
+    int cmp = PyUnicode_Compare(name1, name2);
+    if (cmp == -1 && PyErr_Occurred()) return NULL;
+
+    switch (op) {
+    case Py_LT: return PyBool_FromLong(cmp < 0);
+    case Py_LE: return PyBool_FromLong(cmp <= 0);
+    case Py_GT: return PyBool_FromLong(cmp > 0);
+    case Py_GE: return PyBool_FromLong(cmp >= 0);
+    default:    Py_RETURN_NOTIMPLEMENTED;
+    }
+}
+
 static PyObject *
 ExprApp_richcompare(ExprAppObject *e1, PyObject *p2, int op)
 {
     if (!PyObject_TypeCheck(p2, &pgf_ExprAppType)) {
         if (op == Py_EQ) Py_RETURN_FALSE;
         if (op == Py_NE) Py_RETURN_TRUE;
+
+        if (PyObject_TypeCheck(p2, &pgf_ExprFunType) &&
+            Expr_is_ordering_op(op)) {
+            PyObject *name1 = Expr_head_fun_name((PyObject *)e1);
+            if (name1 != NULL) {
+                return Expr_compare_fun_names(name1,
+                                              ((ExprFunObject *)p2)->name,
+                                              op);
+            }
+        }
+
         Py_RETURN_NOTIMPLEMENTED;
     }
 
@@ -1479,6 +1525,15 @@ ExprFun_richcompare(ExprFunObject *e1, PyObject *p2, int op)
     if (!PyObject_TypeCheck(p2, &pgf_ExprFunType)) {
         if (op == Py_EQ) Py_RETURN_FALSE;
         if (op == Py_NE) Py_RETURN_TRUE;
+
+        if (PyObject_TypeCheck(p2, &pgf_ExprAppType) &&
+            Expr_is_ordering_op(op)) {
+            PyObject *name2 = Expr_head_fun_name(p2);
+            if (name2 != NULL) {
+                return Expr_compare_fun_names(e1->name, name2, op);
+            }
+        }
+
         Py_RETURN_NOTIMPLEMENTED;
     }
 
