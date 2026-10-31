@@ -319,6 +319,15 @@ def test_ExprLit_getters():
     with pytest.raises(AttributeError):
         ExprLit(1.23).fake
 
+@pytest.mark.parametrize("values", [
+    [3, 1, 2],
+    [3.5, 1.5, 2.5],
+    ["c", "a", "b"],
+])
+def test_ExprLit_sort_by_value(values):
+    exprs = [ExprLit(value) for value in values]
+    assert [expr.val for expr in sorted(exprs)] == sorted(values)
+
 # expressions: functions
 
 def test_readExpr_efun_equality_1():
@@ -382,11 +391,27 @@ def test_ExprApp_getters():
     with pytest.raises(AttributeError):
         expr.fake
 
+def test_ExprApp_sort_by_function_then_argument():
+    exprs = [
+        ExprApp(ExprFun("b"), ExprFun("a")),
+        ExprApp(ExprFun("a"), ExprFun("z")),
+        ExprApp(ExprFun("a"), ExprFun("b")),
+    ]
+    assert sorted(exprs) == [
+        ExprApp(ExprFun("a"), ExprFun("b")),
+        ExprApp(ExprFun("a"), ExprFun("z")),
+        ExprApp(ExprFun("b"), ExprFun("a")),
+    ]
+
 def test_ExprFun_getters():
     expr = ExprFun("f")
     assert expr.name == "f"
     with pytest.raises(AttributeError):
         expr.fake
+
+def test_ExprFun_sort_by_name():
+    exprs = [ExprFun("z"), ExprFun("a"), ExprFun("m")]
+    assert sorted(exprs) == [ExprFun("a"), ExprFun("m"), ExprFun("z")]
 
 # expressions: variables
 
@@ -496,6 +521,10 @@ def test_ExprMeta_getters():
     assert expr.id == 123
     with pytest.raises(AttributeError):
         expr.fake
+
+def test_ExprMeta_sort_by_id():
+    exprs = [ExprMeta(3), ExprMeta(1), ExprMeta(2)]
+    assert sorted(exprs) == [ExprMeta(1), ExprMeta(2), ExprMeta(3)]
 
 # expressions: typed expressions
 

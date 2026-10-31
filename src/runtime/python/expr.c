@@ -1171,23 +1171,29 @@ ExprApp_hash(ExprAppObject *eapp)
 static PyObject *
 ExprApp_richcompare(ExprAppObject *e1, PyObject *p2, int op)
 {
-    bool same = false;
-    if (!PyObject_TypeCheck(p2, &pgf_ExprAppType)) goto done;
-    ExprAppObject *e2 = (ExprAppObject *)p2;
-    if (!PyObject_RichCompareBool((PyObject*)e1->fun, (PyObject*)e2->fun, Py_EQ)) goto done;
-    if (!PyObject_RichCompareBool((PyObject*)e1->arg, (PyObject*)e2->arg, Py_EQ)) goto done;
-
-    same = true;
-done:
-
-    if (op == Py_EQ) {
-        if (same) Py_RETURN_TRUE;  else Py_RETURN_FALSE;
-    } else if (op == Py_NE) {
-        if (same) Py_RETURN_FALSE; else Py_RETURN_TRUE;
-    } else {
-        PyErr_SetString(PyExc_TypeError, "comparison operation not supported");
+    if (!PyObject_TypeCheck(p2, &pgf_ExprAppType)) {
+        if (op == Py_EQ) Py_RETURN_FALSE;
+        if (op == Py_NE) Py_RETURN_TRUE;
         Py_RETURN_NOTIMPLEMENTED;
     }
+
+    ExprAppObject *e2 = (ExprAppObject *)p2;
+    int same_fun = PyObject_RichCompareBool((PyObject*)e1->fun,
+                                            (PyObject*)e2->fun,
+                                            Py_EQ);
+    if (same_fun < 0) return NULL;
+
+    if (same_fun) {
+        return PyObject_RichCompare((PyObject*)e1->arg,
+                                    (PyObject*)e2->arg,
+                                    op);
+    }
+
+    if (op == Py_EQ) Py_RETURN_FALSE;
+    if (op == Py_NE) Py_RETURN_TRUE;
+    return PyObject_RichCompare((PyObject*)e1->fun,
+                                (PyObject*)e2->fun,
+                                op);
 }
 
 static PyMemberDef ExprApp_members[] = {
@@ -1273,38 +1279,24 @@ ExprLit_hash(ExprLitObject *elit)
 static PyObject *
 ExprLit_richcompare(ExprLitObject *e1, PyObject *p2, int op)
 {
-    bool same = false;
-    if (!PyObject_TypeCheck(p2, &pgf_ExprLitType)) goto done;
-    ExprLitObject *e2 = (ExprLitObject *)p2;
-
-    if (PyLong_Check(e1->lit)) {
-        if (!PyLong_Check(e2->lit)) goto done;
-        int o1, o2;
-        int l1 = PyLong_AsLongAndOverflow(e1->lit, &o1);
-        int l2 = PyLong_AsLongAndOverflow(e2->lit, &o2);
-        if (!(l1 == l2 && o1 == o2)) goto done;
-    } else if (PyFloat_Check(e1->lit)) {
-        if (!PyFloat_Check(e2->lit)) goto done;
-        if (PyFloat_AsDouble(e1->lit) != PyFloat_AsDouble(e2->lit)) goto done;
-    } else if (PyUnicode_Check(e1->lit)) {
-        if (!PyUnicode_Check(e2->lit)) goto done;
-        if (PyUnicode_Compare(e1->lit, e2->lit) != 0) goto done;
-    } else {
-        PyErr_SetString(PyExc_TypeError, "unknown literal type");
-        return NULL;
-    }
-
-    same = true;
-done:
-
-    if (op == Py_EQ) {
-        if (same) Py_RETURN_TRUE;  else Py_RETURN_FALSE;
-    } else if (op == Py_NE) {
-        if (same) Py_RETURN_FALSE; else Py_RETURN_TRUE;
-    } else {
-        PyErr_SetString(PyExc_TypeError, "comparison operation not supported");
+    if (!PyObject_TypeCheck(p2, &pgf_ExprLitType)) {
+        if (op == Py_EQ) Py_RETURN_FALSE;
+        if (op == Py_NE) Py_RETURN_TRUE;
         Py_RETURN_NOTIMPLEMENTED;
     }
+
+    ExprLitObject *e2 = (ExprLitObject *)p2;
+    bool same_type = (PyLong_Check(e1->lit) && PyLong_Check(e2->lit)) ||
+                     (PyFloat_Check(e1->lit) && PyFloat_Check(e2->lit)) ||
+                     (PyUnicode_Check(e1->lit) && PyUnicode_Check(e2->lit));
+
+    if (!same_type) {
+        if (op == Py_EQ) Py_RETURN_FALSE;
+        if (op == Py_NE) Py_RETURN_TRUE;
+        Py_RETURN_NOTIMPLEMENTED;
+    }
+
+    return PyObject_RichCompare(e1->lit, e2->lit, op);
 }
 
 static PyMemberDef ExprLit_members[] = {
@@ -1394,22 +1386,14 @@ ExprMeta_hash(ExprMetaObject *emeta)
 static PyObject *
 ExprMeta_richcompare(ExprMetaObject *e1, PyObject *p2, int op)
 {
-    bool same = false;
-    if (!PyObject_TypeCheck(p2, &pgf_ExprMetaType)) goto done;
-    ExprMetaObject *e2 = (ExprMetaObject *)p2;
-    if (!PyObject_RichCompareBool(e1->id, e2->id, Py_EQ)) goto done;
-
-    same = true;
-done:
-
-    if (op == Py_EQ) {
-        if (same) Py_RETURN_TRUE;  else Py_RETURN_FALSE;
-    } else if (op == Py_NE) {
-        if (same) Py_RETURN_FALSE; else Py_RETURN_TRUE;
-    } else {
-        PyErr_SetString(PyExc_TypeError, "comparison operation not supported");
+    if (!PyObject_TypeCheck(p2, &pgf_ExprMetaType)) {
+        if (op == Py_EQ) Py_RETURN_FALSE;
+        if (op == Py_NE) Py_RETURN_TRUE;
         Py_RETURN_NOTIMPLEMENTED;
     }
+
+    ExprMetaObject *e2 = (ExprMetaObject *)p2;
+    return PyObject_RichCompare(e1->id, e2->id, op);
 }
 
 static PyMemberDef ExprMeta_members[] = {
@@ -1492,21 +1476,24 @@ ExprFun_hash(ExprFunObject *efun)
 static PyObject *
 ExprFun_richcompare(ExprFunObject *e1, PyObject *p2, int op)
 {
-    bool same = false;
-    if (!PyObject_TypeCheck(p2, &pgf_ExprFunType)) goto done;
-    ExprFunObject *e2 = (ExprFunObject *)p2;
-    if (PyUnicode_Compare(e1->name, e2->name) != 0) goto done;
-
-    same = true;
-done:
-
-    if (op == Py_EQ) {
-        if (same) Py_RETURN_TRUE;  else Py_RETURN_FALSE;
-    } else if (op == Py_NE) {
-        if (same) Py_RETURN_FALSE; else Py_RETURN_TRUE;
-    } else {
-        PyErr_SetString(PyExc_TypeError, "comparison operation not supported");
+    if (!PyObject_TypeCheck(p2, &pgf_ExprFunType)) {
+        if (op == Py_EQ) Py_RETURN_FALSE;
+        if (op == Py_NE) Py_RETURN_TRUE;
         Py_RETURN_NOTIMPLEMENTED;
+    }
+
+    ExprFunObject *e2 = (ExprFunObject *)p2;
+    int cmp = PyUnicode_Compare(e1->name, e2->name);
+    if (cmp == -1 && PyErr_Occurred()) return NULL;
+
+    switch (op) {
+    case Py_LT: return PyBool_FromLong(cmp < 0);
+    case Py_LE: return PyBool_FromLong(cmp <= 0);
+    case Py_EQ: return PyBool_FromLong(cmp == 0);
+    case Py_NE: return PyBool_FromLong(cmp != 0);
+    case Py_GT: return PyBool_FromLong(cmp > 0);
+    case Py_GE: return PyBool_FromLong(cmp >= 0);
+    default:    Py_RETURN_NOTIMPLEMENTED;
     }
 }
 
