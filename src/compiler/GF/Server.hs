@@ -1,7 +1,7 @@
 -- | GF server mode
 {-# LANGUAGE CPP #-}
 module GF.Server(server) where
-import Data.List(partition,stripPrefix,isInfixOf)
+import Data.List(partition,stripPrefix)
 import qualified Data.Map as M
 import Control.Applicative -- for GHC<7.10
 import Control.Monad(when)
@@ -23,7 +23,7 @@ import Data.Time.Format(defaultTimeLocale,rfc822DateFormat)
 import System.Locale(defaultTimeLocale,rfc822DateFormat)
 #endif
 import System.FilePath(dropExtension,takeExtension,takeFileName,takeDirectory,
-                       (</>),makeRelative)
+                       (</>),makeRelative,hasDrive,splitDirectories)
 #ifndef mingw32_HOST_OS
 import System.Posix.Files(getSymbolicLinkStatus,isSymbolicLink,removeLink,
                           createSymbolicLink)
@@ -164,7 +164,7 @@ handle logLn documentroot state0 cache execute1 stateVar
            "/parse"   -> parse (decoded qs)
            "/version" -> versionInfo `fmap` PS.listPGFCache cache
            "/flush"   -> do PS.flushPGFCache cache; return (ok200 "flushed")
-           '/':rpath ->
+           '/':rpath | ok_access rpath ->
              -- This code runs without mutual exclusion, so it must *not*
              -- use/change the cwd. Access files by absolute paths only.
              case (takeDirectory path,takeFileName path,takeExtension path) of
@@ -178,7 +178,7 @@ handle logLn documentroot state0 cache execute1 stateVar
 
     root = documentroot
 
-    translatePath rpath = root</>rpath -- hmm, check for ".."
+    translatePath rpath = root</>rpath -- rpath has passed ok_access
 
     versionInfo (c1,c2) =
         html200 . unlines $
@@ -212,7 +212,7 @@ handle logLn documentroot state0 cache execute1 stateVar
     
     inDir ok = cd =<< look "dir"
       where
-        cd ('/':dir@('t':'m':'p':_)) =
+        cd ('/':dir@('t':'m':'p':_)) | ok_access dir =
           do cwd <- getCurrentDirectory
              b <- doesDirectoryExist dir
              case b of
@@ -446,11 +446,7 @@ updateFile path new =
                                     writeBinaryFile path new
 
 -- | Check that a path is not outside the current directory
-ok_access path =
-    case path of
-      '/':_ -> False
-      '.':'.':'/':_ -> False
-      _ -> not ("/../" `isInfixOf` path)
+ok_access path = not (hasDrive path) && ".." `notElem` splitDirectories path
 
 -- | Only delete files with these extensions
 ok_to_delete = [".json",".gfstdoc",".gfo",".gf",".pgf"]
