@@ -750,8 +750,8 @@ void PgfReader::merge_pgf(ref<PgfPGF> pgf)
     uint16_t major_version = read_u16be();
     uint16_t minor_version = read_u16be();
 
-    if (pgf->major_version != PGF_MAJOR_VERSION ||
-        pgf->minor_version != PGF_MINOR_VERSION) {
+    if (major_version != PGF_MAJOR_VERSION ||
+        minor_version != PGF_MINOR_VERSION) {
         throw pgf_error("Unsupported format version");
     }
 
@@ -762,10 +762,11 @@ void PgfReader::merge_pgf(ref<PgfPGF> pgf)
     size_t len = read_len();
     for (size_t i = 0; i < len; i++) {
         ref<PgfConcr> concr = PgfReader::read_concrete();
+        ref<PgfConcr> old_concr;
         Namespace<PgfConcr> concretes =
-            namespace_insert(pgf->concretes, concr);
-        if (concretes == 0)
-            throw pgf_error("One and the same concrete syntax is included in several PGF files");
+            namespace_replace(pgf->concretes, concr, &old_concr);
         pgf->concretes = concretes;
+        if (old_concr != 0)
+            PgfConcr::release(old_concr);
     }
 }

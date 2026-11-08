@@ -28,7 +28,7 @@ import Prelude hiding ((<>))
 
 generatePMCFG :: Options -> FilePath -> SourceGrammar -> SourceModule -> Check SourceModule
 generatePMCFG opts cwd gr cmo@(cm,cmi)
-  | mstatus cmi == MSComplete && isModCnc cmi =
+  | isModCnc cmi && mstatus cmi == MSComplete =
                 do let gr' = prependModule gr cmo
                        g   = Gl gr' (stdPredef g) False
                    js <- Map.traverseWithKey (addPMCFG cwd g cmi) (jments cmi)

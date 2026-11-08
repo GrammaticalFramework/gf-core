@@ -18,7 +18,7 @@ import GF.Infra.Option
 import GF.Infra.UseIO (IOE)
 import GF.Data.Operations
 
-import Control.Monad(forM_,foldM)
+import Control.Monad(forM_,foldM,unless)
 import Data.List
 import Data.Char
 import qualified Data.Set as Set
@@ -33,9 +33,11 @@ import System.Directory
 grammar2PGF :: Options -> Maybe PGF -> SourceGrammar -> ModuleName -> Map.Map PGF2.Fun Double -> IO PGF
 grammar2PGF opts mb_pgf gr am probs = do
   let abs_name = mi2i am
+      extending = case mb_pgf of
+                    Just pgf -> abstractName pgf == abs_name
+                    Nothing  -> False
   pgf <- case mb_pgf of
-           Just pgf | abstractName pgf == abs_name   ->
-                         do return pgf
+           Just pgf | extending -> return pgf
            _        | snd (flag optLinkTargets opts) ->
                          do let fname = maybe id (</>)
                                               (flag optOutputDir opts)
@@ -50,11 +52,14 @@ grammar2PGF opts mb_pgf gr am probs = do
                          do newNGF abs_name Nothing 0
 
   pgf <- modifyPGF pgf $ do
-    sequence_ [setAbstractFlag name value | (name,value) <- optionsPGF aflags]
-    sequence_ [createCategory c ctxt p | (c,ctxt,p) <- cats]
-    sequence_ [createFunction f ty arity bcode p | (f,ty,arity,bcode,p) <- funs]
-    forM_ (allConcretes gr am) $ \cm ->
-      createConcrete (mi2i cm) $ do
+    unless extending $ do
+      sequence_ [setAbstractFlag name value | (name,value) <- optionsPGF aflags]
+      sequence_ [createCategory c ctxt p | (c,ctxt,p) <- cats]
+      sequence_ [createFunction f ty arity bcode p | (f,ty,arity,bcode,p) <- funs]
+    forM_ (allConcretes gr am) $ \cm -> do
+      let cnc = mi2i cm
+      dropConcrete cnc
+      createConcrete cnc $ do
         let cflags = err (const noOptions) mflags (lookupModule gr cm)
         sequence_ [setConcreteFlag name value | (name,value) <- optionsPGF cflags]
         let infos = ( let z       = LParam 0 []

@@ -202,7 +202,8 @@ allExtendsPlus gr i =
 -- searchPathModule m = [i | OSimple i <- depPathModule m]
 
 prependModule :: Grammar -> Module -> Grammar
-prependModule (MGrammar mm ms) im@(i,m) = MGrammar (Map.insert i m mm) (im:ms)
+prependModule (MGrammar mm ms) im@(i,m) =
+  MGrammar (Map.insert i m mm) (im : filter ((/= i) . fst) ms)
 
 emptyGrammar = mGrammar []
 
@@ -225,24 +226,27 @@ lookupModule gr m = case Map.lookup m (moduleMap gr) of
   Nothing -> raise $ render ("unknown module" <+> m <+> "among" <+> hsep (map fst (modules gr)))
 
 isModAbs :: ModuleInfo -> Bool
-isModAbs m =
-  case mtype m of
+isModAbs (ModInfo{mtype=mt}) =
+  case mt of
     MTAbstract -> True
     _          -> False
+isModAbs _ = False
 
 isModRes :: ModuleInfo -> Bool
-isModRes m =
-  case mtype m of
+isModRes (ModInfo{mtype=mt}) =
+  case mt of
     MTResource   -> True
     MTInterface  -> True ---
     MTInstance _ -> True
     _            -> False
+isModRes _ = False
 
 isModCnc :: ModuleInfo -> Bool
-isModCnc m =
-  case mtype m of
+isModCnc (ModInfo{mtype=mt}) =
+  case mt of
     MTConcrete _ -> True
     _            -> False
+isModCnc _ = False
 
 sameMType :: ModuleType -> ModuleType -> Bool
 sameMType m n =
@@ -304,7 +308,8 @@ greatestResource gr =
 -- | all concretes for a given abstract
 allConcretes :: Grammar -> ModuleName -> [ModuleName]
 allConcretes gr a =
-  [i | (i, m) <- modules gr, mtype m == MTConcrete a, isCompleteModule m]
+  [i | (i, ModInfo {mtype = MTConcrete a', mstatus = MSComplete}) <- modules gr,
+       a' == a]
 
 -- | all concrete modules for any abstract
 allConcreteModules :: Grammar -> [ModuleName]
