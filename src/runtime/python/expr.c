@@ -530,7 +530,7 @@ Expr_visit(ExprObject* self, PyObject *args)
     if (!PyArg_ParseTuple(args, "O", &py_visitor))
         return NULL;
 
-    if (PyObject_TypeCheck(self, &pgf_ExprTypedType)) {
+    while (PyObject_TypeCheck(self, &pgf_ExprTypedType)) {
         self = ((ExprTypedObject *) self)->expr;
     }
 
@@ -539,7 +539,7 @@ Expr_visit(ExprObject* self, PyObject *args)
     while (PyObject_TypeCheck(o, &pgf_ExprAppType)) {
         arity++;
         o = ((ExprAppObject *) o)->fun;
-        if (PyObject_TypeCheck(o, &pgf_ExprTypedType)) {
+        while (PyObject_TypeCheck(o, &pgf_ExprTypedType)) {
             o = ((ExprTypedObject *) o)->expr;
         }
     }
@@ -561,21 +561,24 @@ Expr_visit(ExprObject* self, PyObject *args)
             o = (ExprObject *) self;
             for (size_t i = 0; i < arity; i++) {
                 ExprObject *arg = ((ExprAppObject *) o)->arg;
-                if (PyObject_TypeCheck(arg, &pgf_ExprImplArgType)) {
-                    arg = ((ExprImplArgObject *) arg)->expr;
-                }
-                if (PyObject_TypeCheck(arg, &pgf_ExprTypedType)) {
-                    arg = ((ExprTypedObject *) arg)->expr;
+                for (;;) {
+                    if (PyObject_TypeCheck(arg, &pgf_ExprImplArgType)) {
+                        arg = ((ExprImplArgObject *) arg)->expr;
+                    } else if (PyObject_TypeCheck(arg, &pgf_ExprTypedType)) {
+                        arg = ((ExprTypedObject *) arg)->expr;
+                    } else {
+                        break;
+                    }
                 }
 
                 Py_INCREF(arg);
-                if (PyTuple_SetItem(method_args, i, (PyObject *) arg) == -1) {
+                if (PyTuple_SetItem(method_args, arity-i-1, (PyObject *) arg) == -1) {
                     Py_DECREF(method_args);
                     return NULL;
                 }
 
                 o = ((ExprAppObject *) o)->fun;
-                if (PyObject_TypeCheck(o, &pgf_ExprTypedType)) {
+                while (PyObject_TypeCheck(o, &pgf_ExprTypedType)) {
                     o = ((ExprTypedObject *) o)->expr;
                 }
             }
